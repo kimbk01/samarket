@@ -2,7 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
-import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { AppCloseIcon } from "@/components/navigation/AppBackButton";
 import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
 import { useStoreDetailAnimatedBack } from "@/lib/dibay/store-detail-animated-back-context";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
@@ -13,9 +13,19 @@ import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 
 type Variant = "back" | "close";
 
+/** Same SVG icon-slot contract as StoreOrderStickyHeader SEARCH/SHARE/CART — no app-back-glyph translate nudge. */
+function StoreHeaderActionBackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 6 9 12l6 6" />
+    </svg>
+  );
+}
+
 /**
  * 매장 상단 Back — destination policy = resolveDibayBackTarget only (CUT 2).
  * DO NOT invent browse URLs from DB category here.
+ * Icon geometry for sticky header actions is SVG-centered (not FAB, not glyph nudge).
  */
 export function StoreDetailBackLink({
   storeSlug,
@@ -80,7 +90,7 @@ export function StoreDetailBackLink({
       {variant === "close" ? (
         <AppCloseIcon className="h-6 w-6" />
       ) : (
-        <AppBackIcon />
+        <StoreHeaderActionBackIcon />
       )}
     </button>
   );

@@ -28,13 +28,33 @@ export const STORE_COMMERCE_ACTION_BTN_H_CLASS = "h-[3.25rem] min-h-[3.25rem]";
 export const STORE_COMMERCE_ACTION_SHELL_CLASS =
   "store-commerce-action-shell delivery-ui fixed inset-x-0 bottom-0 z-[50] flex w-full flex-col items-stretch pointer-events-none";
 
-export const STORE_COMMERCE_ACTION_PLANE_CLASS =
-  "store-commerce-action-plane pointer-events-auto w-full min-w-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-[0_-4px_16px_rgba(17,24,39,0.10)]";
+/**
+ * Plane width = Delivery content column (`APP_MAIN_COLUMN_MAX_WIDTH_CLASS`).
+ * Do NOT use a second max-width (32rem/42rem) — phone/tablet/desktop must match content.
+ * Surface: opaque card + top hairline + restrained upward shadow (not floating FAB).
+ */
+export const STORE_COMMERCE_ACTION_PLANE_CLASS = [
+  "store-commerce-action-plane pointer-events-auto w-full min-w-0 mx-auto",
+  APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
+  "border-t border-[color:var(--delivery-border)]",
+  "bg-[color:var(--delivery-bg-card)]",
+  "shadow-[0_-6px_20px_rgba(17,24,39,0.12)]",
+].join(" ");
 
 export const STORE_COMMERCE_ACTION_INLINE_PLANE_CLASS =
   `store-commerce-action-plane shrink-0 w-full min-w-0 ${STORE_COMMERCE_ACTION_PLANE_CLASS}`;
 
 export const STORE_COMMERCE_ACTION_COLUMN_CLASS = APP_MAIN_COLUMN_MAX_WIDTH_CLASS;
+
+/** Single height authority — product-add content clearance uses the same token as plane min-height. */
+export const STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT: Record<StoreCommerceActionVariant, string> = {
+  "menu-cart-active": "5.75rem",
+  "menu-cart-idle": "4.75rem",
+  "product-add": "6.5rem",
+  "sheet-add": "4.75rem",
+  "cart-checkout": "6.25rem",
+  "review-submit": "4.75rem",
+};
 
 /** 고정 높이 없음 — variant CSS `min-height` + `py` 로 다줄 좌측 허용 */
 export function storeCommerceActionRowClass(variant: StoreCommerceActionVariant): string {
@@ -148,20 +168,9 @@ export function storeCommerceActionShellStyle(): Record<string, never> {
   return {};
 }
 
-/** variant 별 본문 하단 여백(plane min-height + plane pb + safe-area) */
+/** variant 별 본문 하단 여백 = plane min-height authority + plane pb + safe-area */
 export function storeCommerceActionContentPadClass(variant: StoreCommerceActionVariant): string {
-  const core =
-    variant === "menu-cart-active"
-      ? "5.75rem"
-      : variant === "menu-cart-idle"
-        ? "4.75rem"
-        : variant === "product-add"
-          ? "6.5rem"
-          : variant === "sheet-add"
-            ? "4.75rem"
-            : variant === "cart-checkout"
-              ? "6.25rem"
-              : "5.75rem";
+  const core = STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT[variant];
   return `pb-[calc(${core}+var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]`;
 }
 

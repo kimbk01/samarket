@@ -7,6 +7,11 @@
   --store-commerce-action-btn-h: 3.25rem;
   --store-commerce-action-plane-pt: 0.625rem;
   --store-commerce-action-plane-pb: 0.75rem;
+  /* Height SSOT — keep in sync with STORE_COMMERCE_ACTION_VARIANT_MIN_HEIGHT */
+  --store-commerce-action-min-h-menu-cart-active: 5.75rem;
+  --store-commerce-action-min-h-menu-cart-idle: 4.75rem;
+  --store-commerce-action-min-h-product-add: 6.5rem;
+  --store-commerce-action-min-h-sheet-add: 4.75rem;
 }
 
 .store-commerce-action-shell {
@@ -20,7 +25,7 @@
 
 .store-commerce-action-plane {
   width: 100%;
-  max-width: 100%;
+  /* Width SSOT: Tailwind APP_MAIN_COLUMN_MAX_WIDTH_CLASS on the plane element — do not override here. */
   border-radius: var(--delivery-radius) var(--delivery-radius) 0 0;
   border-bottom: 0;
   padding-top: var(--store-commerce-action-plane-pt);
@@ -30,31 +35,20 @@
   box-sizing: border-box;
 }
 
-.store-commerce-action-shell .store-commerce-action-plane {
-  max-width: min(100%, var(--sam-content-max, 32rem));
-  margin-inline: auto;
-}
-
-@media (min-width: 768px) {
-  .store-commerce-action-shell .store-commerce-action-plane {
-    max-width: min(100%, 42rem);
-  }
-}
-
 .store-commerce-action-shell[data-store-action-variant="menu-cart-active"] .store-commerce-action-plane {
-  min-height: 5.75rem;
+  min-height: var(--store-commerce-action-min-h-menu-cart-active);
 }
 
 .store-commerce-action-shell[data-store-action-variant="menu-cart-idle"] .store-commerce-action-plane {
-  min-height: 4.75rem;
+  min-height: var(--store-commerce-action-min-h-menu-cart-idle);
 }
 
 .store-commerce-action-shell[data-store-action-variant="product-add"] .store-commerce-action-plane {
-  min-height: 6.5rem;
+  min-height: var(--store-commerce-action-min-h-product-add);
 }
 
 .store-commerce-action-shell[data-store-action-variant="sheet-add"] .store-commerce-action-plane {
-  min-height: 4.75rem;
+  min-height: var(--store-commerce-action-min-h-sheet-add);
 }
 
 .store-commerce-action-shell[data-store-action-variant="cart-checkout"] .store-commerce-action-plane,
