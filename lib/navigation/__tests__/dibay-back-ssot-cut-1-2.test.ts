@@ -79,7 +79,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
     expectHistoryOrigin(r, "/stores");
   });
 
-  it("T2 HOME PRODUCT → back #1 store, #2 HOME", () => {
+  it("T2 HOME PRODUCT → BACK = HOME (single-action, no synthetic STORE)", () => {
     const ctx = commitDeliveryStoreNavigationEntry({
       storeSlug: "store-a",
       pathname: "/stores",
@@ -90,21 +90,23 @@ describe("dibay-back-ssot-cut-1-2", () => {
     expect(ctx.entryKind).toBe("product_from_list");
     expect(ctx.semanticParentHref).toBe("/stores/store-a");
 
-    const back1 = resolveDibayBackTarget({
-      currentPathname: "/stores/store-a",
-      currentSearch: "?focusProduct=prod-1",
-      storeSlug: "store-a",
-      entryContext: ctx,
-    });
-    expectReplaceStore(back1, "store-a");
-
-    const back2 = resolveDibayBackTarget({
-      currentPathname: "/stores/store-a",
-      currentSearch: "",
-      storeSlug: "store-a",
-      entryContext: ctx,
-    });
-    expectHistoryOrigin(back2, "/stores");
+    expectHistoryOrigin(
+      resolveDibayBackTarget({
+        currentPathname: "/stores/store-a/p/prod-1",
+        storeSlug: "store-a",
+        entryContext: ctx,
+      }),
+      "/stores"
+    );
+    expectHistoryOrigin(
+      resolveDibayBackTarget({
+        currentPathname: "/stores/store-a",
+        currentSearch: "?focusProduct=prod-1",
+        storeSlug: "store-a",
+        entryContext: ctx,
+      }),
+      "/stores"
+    );
   });
 
   it("T3 BROWSE STORE → exact browse href incl sort", () => {
@@ -124,7 +126,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
     expectHistoryOrigin(r, browse);
   });
 
-  it("T4 BROWSE PRODUCT → store then browse", () => {
+  it("T4 BROWSE PRODUCT → BACK = BROWSE", () => {
     const browse = "/stores/browse/restaurant?sub=korean&sort=rating";
     const ctx = commitDeliveryStoreNavigationEntry({
       storeSlug: "store-a",
@@ -133,18 +135,10 @@ describe("dibay-back-ssot-cut-1-2", () => {
       productId: "prod-9",
     });
     expect(ctx.originHref).toBe(browse);
-    expectReplaceStore(
-      resolveDibayBackTarget({
-        currentPathname: "/stores/store-a",
-        currentSearch: "?focusProduct=prod-9",
-        storeSlug: "store-a",
-        entryContext: ctx,
-      }),
-      "store-a"
-    );
     expectHistoryOrigin(
       resolveDibayBackTarget({
         currentPathname: "/stores/store-a",
+        currentSearch: "?focusProduct=prod-9",
         storeSlug: "store-a",
         entryContext: ctx,
       }),
@@ -171,7 +165,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
     );
   });
 
-  it("T6 SEARCH PRODUCT", () => {
+  it("T6 SEARCH PRODUCT → BACK = SEARCH", () => {
     const searchHref = "/stores/search?q=chicken";
     const ctx = commitDeliveryStoreNavigationEntry({
       storeSlug: "store-a",
@@ -179,17 +173,9 @@ describe("dibay-back-ssot-cut-1-2", () => {
       search: "?q=chicken",
       productId: "prod-1",
     });
-    expectReplaceStore(
-      resolveDibayBackTarget({
-        currentPathname: `/stores/store-a/p/prod-1`,
-        storeSlug: "store-a",
-        entryContext: ctx,
-      }),
-      "store-a"
-    );
     expectHistoryOrigin(
       resolveDibayBackTarget({
-        currentPathname: "/stores/store-a",
+        currentPathname: `/stores/store-a/p/prod-1`,
         storeSlug: "store-a",
         entryContext: ctx,
       }),
@@ -291,7 +277,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
     );
   });
 
-  it("T11 PRODUCT PATH PARITY focusProduct vs /p/", () => {
+  it("T11 PRODUCT PATH PARITY focusProduct vs /p/ → HOME origin", () => {
     const ctx = commitDeliveryStoreNavigationEntry({
       storeSlug: "store-a",
       pathname: "/stores",
@@ -311,7 +297,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
       productId: "prod-1",
     });
     expect(a).toEqual(b);
-    expectReplaceStore(a, "store-a");
+    expectHistoryOrigin(a, "/stores");
   });
 
   it("T12 SORT PRESERVE in originHref", () => {

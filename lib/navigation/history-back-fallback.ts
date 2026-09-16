@@ -4,6 +4,9 @@
  * 2) 외부 사이트에서 들어온 경우(document.referrer가 다른 오리진)에는 back으로 이탈하지 않고 폴백
  * 3) 리퍼러가 비어 있는 순수 클라이언트 전환 등은 history.length로 보조 판단 후 back 시도
  * 4) 내부 히스토리가 없거나 경로가 그대로면 fallbackHref로 이동
+ *
+ * SINGLE-ACTION: fallback push is cancelled as soon as the URL leaves `before`.
+ * Do not fire a second navigation after a successful soft/history back.
  */
 export function runHistoryBackWithFallback(
   router: { back: () => void; push: (href: string) => void },
@@ -20,9 +23,38 @@ export function runHistoryBackWithFallback(
 
   const pushFallbackIfStale = () => {
     if (!fallbackHref) return;
-    window.setTimeout(() => {
-      const after = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      if (after === before) router.push(fallbackHref);
+    let cancelled = false;
+    let timer: number | null = null;
+    let poll: number | null = null;
+
+    const cleanup = () => {
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      if (poll != null) {
+        window.clearInterval(poll);
+        poll = null;
+      }
+      window.removeEventListener("popstate", onMaybeMoved);
+    };
+
+    const currentHref = () =>
+      `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+    const onMaybeMoved = () => {
+      if (currentHref() !== before) {
+        cancelled = true;
+        cleanup();
+      }
+    };
+
+    window.addEventListener("popstate", onMaybeMoved);
+    poll = window.setInterval(onMaybeMoved, 32);
+    timer = window.setTimeout(() => {
+      const stuck = !cancelled && currentHref() === before;
+      cleanup();
+      if (stuck) router.push(fallbackHref);
     }, delayMs);
   };
 

@@ -1,13 +1,15 @@
 /**
- * CUT 2B — canonical Delivery store/product navigation owner.
+ * CUT 2B / SINGLE-ACTION — canonical Delivery store/product navigation owner.
  *
- * OPTION A: two-stage Router navigation with route-commit stage-2.
- * 1) write NavigationEntryContext (historyIncludesStoreParent=true for product)
- * 2) arm pending product child
- * 3) router.push(STORE)
- * 4) StoreConsumerShell commits pending → router.push(PRODUCT) after store route committed
+ * Contract:
+ * - ONE user product intent → ONE history semantic mutation → ONE route push.
+ * - HOME/browse/search → PRODUCT: direct product push; historyIncludesStoreParent=false
+ *   so BACK returns to the actual origin (HOME/browse), not a synthetic STORE.
+ * - Already on STORE → PRODUCT: single product push; historyIncludesStoreParent=true
+ *   so BACK returns to STORE.
  *
- * Cards MUST NOT call router.push(store)+router.push(product) themselves.
+ * Cards MUST NOT call router.push themselves for product entry.
+ * In-store menu MUST use navigateToDeliveryStoreProduct (not raw /p/ push).
  */
 
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
@@ -16,13 +18,14 @@ import { storeDetailHrefFromSlug } from "@/lib/dibay/store-detail-href";
 import {
   commitDeliveryStoreNavigationEntry,
   type CommitDeliveryStoreEntryInput,
+  writeNavigationEntryContext,
 } from "@/lib/navigation/dibay-navigation-context-store";
 import {
-  armDeliveryStoreProductPending,
+  buildDeliveryStoreProductChildHref,
   clearDeliveryStoreProductPending,
   type DeliveryStoreProductChildMode,
 } from "@/lib/navigation/delivery-store-product-pending";
-import { writeNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
+import { sanitizeDibayInternalHref } from "@/lib/navigation/dibay-entry-context";
 import type { DibayOriginSurface } from "@/lib/navigation/dibay-entry-context";
 
 type NavRouter = {
@@ -71,8 +74,21 @@ function resolveLocation(pathname?: string, search?: string): { pathname: string
   return { pathname: "/stores", search: "" };
 }
 
+/** True when pathname is already this store's menu or a child under it. */
+export function isDeliveryAlreadyOnStoreSurface(pathname: string, storeSlug: string): boolean {
+  const path = (pathname.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
+  const slug = storeSlug.trim();
+  if (!slug) return false;
+  const candidates = [`/stores/${encodeURIComponent(slug)}`, `/stores/${slug}`];
+  for (const root of candidates) {
+    if (path === root || path.startsWith(`${root}/`)) return true;
+  }
+  return false;
+}
+
 /**
- * PRODUCT FROM list/shelf/search — history becomes ORIGIN → STORE → PRODUCT.
+ * PRODUCT intent — single history push to product (or focus) href.
+ * No synthetic STORE layer when opening from HOME/browse/search.
  */
 export function navigateToDeliveryStoreProduct(
   router: NavRouter,
@@ -83,12 +99,16 @@ export function navigateToDeliveryStoreProduct(
   if (!storeSlug || !productId) return;
 
   const loc = resolveLocation(input.pathname, input.search);
-  const childMode: DeliveryStoreProductChildMode = input.childMode ?? "focusProduct";
+  const childMode: DeliveryStoreProductChildMode = input.childMode ?? "productPage";
   const transactionId = newTransactionId();
+  const alreadyOnStore = isDeliveryAlreadyOnStoreSurface(loc.pathname, storeSlug);
 
   if (input.saveScroll !== false) {
     saveDeliveryListScrollBeforeStoreNavigation();
   }
+
+  // Drop any legacy two-stage pending — single-action contract forbids stage-2 push.
+  clearDeliveryStoreProductPending(storeSlug);
 
   const ctx = commitDeliveryStoreNavigationEntry({
     storeSlug,
@@ -102,7 +122,7 @@ export function navigateToDeliveryStoreProduct(
 
   writeNavigationEntryContext({
     ...ctx,
-    historyIncludesStoreParent: true,
+    historyIncludesStoreParent: alreadyOnStore,
     transactionId,
   });
 
@@ -110,14 +130,9 @@ export function navigateToDeliveryStoreProduct(
     armStoreMenuFocusEntryIntent(productId);
   }
 
-  armDeliveryStoreProductPending({
-    storeSlug,
-    productId,
-    childMode,
-    transactionId,
-  });
-
-  router.push(storeDetailHrefFromSlug(storeSlug), { scroll: false });
+  const rawHref = buildDeliveryStoreProductChildHref(storeSlug, productId, childMode);
+  const productHref = sanitizeDibayInternalHref(rawHref) || rawHref;
+  router.push(productHref, { scroll: false });
 }
 
 /**

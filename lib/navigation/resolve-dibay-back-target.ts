@@ -204,21 +204,25 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
 
   // Product depth: /p/{id} OR still-focused ?focusProduct=
   if (onProductPage || (onMenuRoot && focusId)) {
-    const parent =
+    const storeParent =
       (ctx?.semanticParentHref && sanitizeDibayInternalHref(ctx.semanticParentHref)) ||
       storeRoot;
-    // CUT 2B — in-app product entry built ORIGIN→STORE→PRODUCT history
+    // STORE → PRODUCT: history has store parent — one BACK → STORE
     if (ctx?.historyIncludesStoreParent === true) {
       return {
         action: "HISTORY",
         reason: "history_semantic_parent_store",
-        fallbackHref: parent,
+        fallbackHref: storeParent || DIBAY_DELIVERY_ROOT_FALLBACK,
       };
+    }
+    // HOME/browse/search → PRODUCT direct: one BACK → actual origin (not synthetic STORE)
+    if (ctx?.entryKind === "product_from_list" && ctx.originHref) {
+      return originResolution(ctx);
     }
     // Deep link / missing aligned history — semantic parent without inventing origin
     return {
       action: "REPLACE",
-      targetHref: parent || DIBAY_DELIVERY_ROOT_FALLBACK,
+      targetHref: storeParent || DIBAY_DELIVERY_ROOT_FALLBACK,
       restoreKey: null,
       reason: "semantic_parent_store_menu_deeplink",
     };

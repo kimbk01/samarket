@@ -18,22 +18,19 @@ export type NavigateToBuyerStoreOrderDetailOptions = {
 export type NavigateToBuyerStoreOrderChatOptions = NavigateToBuyerStoreOrderDetailOptions;
 
 /**
- * 주문 완료 직후 카트 → 구매자 주문 상세.
- * App Router soft 이동 후에도 `/cart` 에 남아 있으면 hard replace 로 한 번 더 보냄.
+ * 주문 완료 직후 카트 → 구매자 주문 상세 / 채팅.
+ * Soft replace is the sole primary owner. Hard location.replace runs only if
+ * soft navigation never leaves cart/checkout (cancelled when soft succeeds).
  * CUT 3: stamps ORDER_COMMITTED navigation context (Back never → cart).
  */
-export function navigateToBuyerStoreOrderDetail(
+function commitBuyerOrderNavContext(
   orderId: string,
-  router: AppRouterInstance,
   opts?: NavigateToBuyerStoreOrderDetailOptions
 ): void {
-  const id = orderId.trim();
-  if (!id || typeof window === "undefined") return;
-  const path = buyerStoreOrderDetailPath(id);
-
   const storeSlug =
     opts?.storeSlug?.trim() ||
     (() => {
+      if (typeof window === "undefined") return "";
       const parts = window.location.pathname.split("/").filter(Boolean);
       if (parts[0] === "stores" && parts[1]) {
         try {
@@ -45,20 +42,18 @@ export function navigateToBuyerStoreOrderDetail(
       return "";
     })();
 
-  if (storeSlug) {
-    commitOrderCommittedNavigationEntry({
-      orderId: id,
-      storeSlug,
-      storeId: opts?.storeId ?? null,
-    });
-  } else {
-    commitOrderCommittedNavigationEntry({
-      orderId: id,
-      storeSlug: "unknown",
-      storeId: opts?.storeId ?? null,
-    });
-  }
+  commitOrderCommittedNavigationEntry({
+    orderId,
+    storeSlug: storeSlug || "unknown",
+    storeId: opts?.storeId ?? null,
+  });
+}
 
+function replaceLeavingCartCheckout(
+  path: string,
+  router: AppRouterInstance,
+  stuckMs = 400
+): void {
   try {
     router.replace(path);
   } catch {
@@ -66,11 +61,34 @@ export function navigateToBuyerStoreOrderDetail(
     return;
   }
 
-  queueMicrotask(() => {
-    if (window.location.pathname.includes("/cart")) {
+  let settled = false;
+  const stillOnCartOrCheckout = () => {
+    const p = window.location.pathname;
+    return p.includes("/cart") || p.includes("/checkout");
+  };
+  const iv = window.setInterval(() => {
+    if (!stillOnCartOrCheckout()) {
+      settled = true;
+      window.clearInterval(iv);
+    }
+  }, 32);
+  window.setTimeout(() => {
+    window.clearInterval(iv);
+    if (!settled && stillOnCartOrCheckout()) {
       window.location.replace(path);
     }
-  });
+  }, stuckMs);
+}
+
+export function navigateToBuyerStoreOrderDetail(
+  orderId: string,
+  router: AppRouterInstance,
+  opts?: NavigateToBuyerStoreOrderDetailOptions
+): void {
+  const id = orderId.trim();
+  if (!id || typeof window === "undefined") return;
+  commitBuyerOrderNavContext(id, opts);
+  replaceLeavingCartCheckout(buyerStoreOrderDetailPath(id), router);
 }
 
 /**
@@ -85,37 +103,7 @@ export function navigateToBuyerStoreOrderChat(
   const id = orderId.trim();
   if (!id || typeof window === "undefined") return;
   const path = opts?.chatHref?.trim() || buyerStoreOrderChatPath(id);
-
-  const storeSlug =
-    opts?.storeSlug?.trim() ||
-    (() => {
-      const parts = window.location.pathname.split("/").filter(Boolean);
-      if (parts[0] === "stores" && parts[1]) {
-        try {
-          return decodeURIComponent(parts[1]);
-        } catch {
-          return parts[1];
-        }
-      }
-      return "";
-    })();
-
-  commitOrderCommittedNavigationEntry({
-    orderId: id,
-    storeSlug: storeSlug || "unknown",
-    storeId: opts?.storeId ?? null,
-  });
-
-  try {
-    router.replace(path);
-  } catch {
-    window.location.replace(path);
-    return;
-  }
-
-  queueMicrotask(() => {
-    if (window.location.pathname.includes("/cart") || window.location.pathname.includes("/checkout")) {
-      window.location.replace(path);
-    }
-  });
+  commitBuyerOrderNavContext(id, opts);
+  replaceLeavingCartCheckout(path, router);
 }
+

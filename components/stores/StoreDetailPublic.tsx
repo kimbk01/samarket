@@ -7,6 +7,7 @@ import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCa
 import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
 import {
   useCallback,
   useEffect,
@@ -1653,10 +1654,13 @@ export function StoreDetailPublic({
         list_row_seed: productRowsByIdRef.current[productId] != null,
         ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
       });
-      router.push(
-        `/stores/${encodeURIComponent(st.slug)}/p/${encodeURIComponent(productId)}`,
-        { scroll: false }
-      );
+      navigateToDeliveryStoreProduct(router, {
+        storeSlug: st.slug,
+        productId,
+        storeId: st.id ?? null,
+        childMode: "productPage",
+        saveScroll: false,
+      });
     },
     [router]
   );

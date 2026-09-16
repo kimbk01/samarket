@@ -82,13 +82,15 @@ describe("dibay-back-ssot-cut-3", () => {
     }
   });
 
-  it("C3 CART 더 담기 remains FLOW (source contract)", () => {
+  it("C3 CART 더 담기 uses cart SSOT (same owner as header back)", () => {
     const client = readFileSync(
       join(ROOT, "components/stores/StoreCommerceCartPageClient.tsx"),
       "utf8"
     );
     expect(client).toMatch(/navigateToStoreMenu/);
-    expect(client).toMatch(/router\.push\(`\/stores\/\$\{encodeURIComponent\(slug\)\}`/);
+    expect(client).toMatch(/goCartBack\(\)/);
+    // SINGLE-ACTION — no raw store push parallel to Dibay cart back
+    expect(client).not.toMatch(/router\.push\(`\/stores\/\$\{encodeURIComponent\(slug\)\}`/);
     expect(client).not.toMatch(/더 담기[\s\S]{0,80}runStoreCartBackNavigation/);
   });
 

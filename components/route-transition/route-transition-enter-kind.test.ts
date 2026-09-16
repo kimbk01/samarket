@@ -80,6 +80,22 @@ describe("computeRouteTransitionEnterKind", () => {
     ).toBe("subtle");
   });
 
+  it("SINGLE-ACTION: hub ↔ store detail uses subtle (StoreDetailSlideShell owns slide)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/stores", "/stores/aa11", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("subtle");
+    expect(
+      computeRouteTransitionEnterKind("/stores/aa11", "/stores", {
+        popstateBack: true,
+        lastForwardAxisRef,
+      })
+    ).toBe("subtle");
+  });
+
   it("market list to trade post detail uses rtl-forward without card origin", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {

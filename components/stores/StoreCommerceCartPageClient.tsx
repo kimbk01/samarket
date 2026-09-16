@@ -5,7 +5,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
@@ -1371,32 +1370,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     distanceOrderBlocked ||
     (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
-  const navigateToStoreMenu = useCallback(async () => {
-    const slugFromStore = store?.slug?.trim();
-    const slugFromCart = cartBucket?.storeSlug?.trim();
-    const slug = slugFromStore || slugFromCart || storeSlug.trim();
-    if (slug) {
-      markStoreDetailMenuTabsLanding();
-      router.push(`/stores/${encodeURIComponent(slug)}`, { scroll: false });
-      return;
-    }
-    const sid = store?.id?.trim() || cartBucket?.storeId?.trim();
-    if (sid) {
-      try {
-        const { json } = await fetchStoreSummaryDeduped(storeSlug);
-        const j = json as { ok?: boolean; store?: { slug?: string } };
-        const resolved = j?.ok && j.store?.slug?.trim() ? j.store.slug.trim() : "";
-        if (resolved) {
-          markStoreDetailMenuTabsLanding();
-          router.push(`/stores/${encodeURIComponent(resolved)}`, { scroll: false });
-          return;
-        }
-      } catch {
-        /* fallback */
-      }
-    }
-    router.push("/stores");
-  }, [store, cartBucket, storeSlug, router]);
+  const navigateToStoreMenu = useCallback(() => {
+    // Same semantic return as cart header/hardware back — Dibay cart SSOT only.
+    goCartBack();
+  }, [goCartBack]);
 
   /** Hooks must run before any `return` below — Rules of Hooks */
   const deliveryFeeSummaryLabel = useMemo(() => {

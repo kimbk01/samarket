@@ -258,9 +258,16 @@ export function computeRouteTransitionEnterKind(
      */
     const dPrev = deliveryConsumerStackDepth(prevPath);
     const dNext = deliveryConsumerStackDepth(nextPath);
+    /**
+     * ARCH B2 — browse (1) ↔ store (2): DeliveryPresentationShell owns transform.
+     * SINGLE-ACTION CLOSE — hub (0) ↔ store (2): StoreDetailSlideShell owns transform.
+     * AppRouteTransition must not also rtl/ltr (dual slide = confirmed divergence).
+     */
     const browseStorePair =
       (dPrev === 1 && dNext === 2) || (dPrev === 2 && dNext === 1);
-    if (browseStorePair) {
+    const hubStorePair =
+      (dPrev === 0 && dNext === 2) || (dPrev === 2 && dNext === 0);
+    if (browseStorePair || hubStorePair) {
       kind = "subtle";
     } else if (opts.popstateBack) {
       kind = dNext < dPrev ? "ltr-back" : "rtl-back";
