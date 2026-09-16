@@ -31,7 +31,7 @@ import {
   type StoreOrderStatusActor,
   type StoreOrderSystemPurpose,
 } from "@/lib/stores/order-status-transitions";
-import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
+import { restoreStockForOrder } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
 import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
 import { reverseSaleFeeForOrder } from "@/lib/currency/sale-fee-writer";
@@ -295,36 +295,16 @@ export async function applyStoreOrderStatusTransition(
 
   /** Side-effects only after successful CAS — avoid duplicate stock/settlement on conflict */
   if (nextStatus === "cancelled" && shouldRestoreStockOnCancel(current)) {
-    const { data: lines, error: iErr } = await sb
-      .from("store_order_items")
-      .select("product_id, qty")
-      .eq("order_id", oid);
-    if (iErr) {
-      console.error("[applyStoreOrderStatusTransition] items", iErr);
-    } else {
-      await restoreStockForOrderLines(
-        sb,
-        (lines ?? []).map((r) => ({
-          product_id: r.product_id as string,
-          qty: r.qty as number,
-        }))
-      );
+    const stock = await restoreStockForOrder(sb, oid);
+    if (!stock.ok && stock.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] stock_restore", stock.error);
     }
   }
 
   if (nextStatus === "refunded") {
-    const { data: lines, error: iErr } = await sb
-      .from("store_order_items")
-      .select("product_id, qty")
-      .eq("order_id", oid);
-    if (!iErr) {
-      await restoreStockForOrderLines(
-        sb,
-        (lines ?? []).map((r) => ({
-          product_id: r.product_id as string,
-          qty: r.qty as number,
-        }))
-      );
+    const stock = await restoreStockForOrder(sb, oid);
+    if (!stock.ok && stock.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] stock_restore_refund", stock.error);
     }
     const { error: payErr } = await sb
       .from("store_payments")

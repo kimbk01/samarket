@@ -1,53 +1,43 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** 주문 취소·환불 등 시 라인 수량만큼 상품 재고 복구 (품절이었다면 active로 복귀). 재고 미관리 상품은 건너뜀. */
+/**
+ * Restore inventory for a terminal cancel/refund order.
+ * CUT 3: DB atomic increment + one claim per order (idempotent).
+ */
+export async function restoreStockForOrder(
+  sb: SupabaseClient,
+  orderId: string
+): Promise<{ ok: boolean; idempotent?: boolean; error?: string }> {
+  const oid = String(orderId ?? "").trim();
+  if (!oid) return { ok: false, error: "missing_order_id" };
+
+  const { data, error } = await sb.rpc("restore_store_order_stock_atomic", {
+    p_order_id: oid,
+  });
+  if (error) {
+    if (/restore_store_order_stock_atomic|schema cache|does not exist/i.test(error.message)) {
+      console.error("[restoreStockForOrder] rpc_missing", error.message);
+      return { ok: false, error: "rpc_missing" };
+    }
+    console.error("[restoreStockForOrder]", error);
+    return { ok: false, error: error.message };
+  }
+  const row = (data ?? {}) as Record<string, unknown>;
+  if (row.ok === false) {
+    return { ok: false, error: String(row.error ?? "stock_restore_failed") };
+  }
+  return { ok: true, idempotent: row.idempotent === true };
+}
+
+/** @deprecated Prefer restoreStockForOrder(orderId) — RMW path removed for CUT 3. */
 export async function restoreStockForOrderLines(
   sb: SupabaseClient,
-  lines: { product_id: string; qty: number }[]
+  _lines: { product_id: string; qty: number }[],
+  orderId?: string
 ): Promise<void> {
-  if (!lines.length) return;
-
-  const qtyByProduct = new Map<string, number>();
-  for (const line of lines) {
-    const pid = String(line.product_id ?? "").trim();
-    if (!pid) continue;
-    const qty = Math.max(0, Math.floor(Number(line.qty) || 0));
-    if (qty < 1) continue;
-    qtyByProduct.set(pid, (qtyByProduct.get(pid) ?? 0) + qty);
-  }
-  if (!qtyByProduct.size) return;
-
-  const ids = [...qtyByProduct.keys()];
-  const { data: products, error } = await sb
-    .from("store_products")
-    .select("id, stock_qty, product_status, track_inventory")
-    .in("id", ids);
-  if (error) {
-    console.error("[restoreStockForOrderLines] select", error);
+  if (!orderId) {
+    console.error("[restoreStockForOrderLines] orderId required after CUT 3");
     return;
   }
-
-  const updates: PromiseLike<unknown>[] = [];
-  for (const cur of products ?? []) {
-    const pid = String((cur as { id?: string }).id ?? "").trim();
-    if (!pid) continue;
-    if ((cur as { track_inventory?: boolean }).track_inventory !== true) continue;
-    const add = qtyByProduct.get(pid) ?? 0;
-    if (add < 1) continue;
-    const stock = Number((cur as { stock_qty?: number }).stock_qty) || 0;
-    const n = stock + add;
-    const status = String((cur as { product_status?: string }).product_status ?? "");
-    updates.push(
-      sb
-        .from("store_products")
-        .update({
-          stock_qty: n,
-          product_status: n > 0 && status === "sold_out" ? "active" : status,
-        })
-        .eq("id", pid)
-    );
-  }
-  if (updates.length) {
-    await Promise.all(updates);
-  }
+  await restoreStockForOrder(sb, orderId);
 }
