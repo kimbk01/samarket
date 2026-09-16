@@ -81,6 +81,19 @@ describe("trade-market-card-origin-expand", () => {
     expect(peekTradeMarketCardOriginExpand()?.listingId).toBe("b");
   });
 
+  it("dedupes rapid re-capture of the same listing within 500ms", () => {
+    const el = {
+      getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 100, right: 110, bottom: 120 }),
+      querySelector: () => null,
+    } as unknown as HTMLElement;
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("innerHeight", 844);
+    const first = captureTradeMarketCardOriginExpand({ listingId: "same", cardEl: el });
+    const second = captureTradeMarketCardOriginExpand({ listingId: "same", cardEl: el });
+    expect(second?.generation).toBe(first?.generation);
+    expect(second).toBe(first);
+  });
+
   it("hero target is full-bleed top square for image FLIP", () => {
     const hero = tradeMarketCardOriginHeroTarget({
       listingId: "x",

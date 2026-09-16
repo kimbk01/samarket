@@ -212,6 +212,16 @@ export function captureTradeMarketCardOriginExpand(input: {
     typeof el.querySelector === "function"
       ? el.querySelector<HTMLElement>("[data-market-card-meta='1']")
       : null;
+  // Deduplicate rapid double-capture (same listing within 500ms) so the overlay
+  // does not remount mid-flight and register as a second handoff.
+  const existing = peekTradeMarketCardOriginExpand();
+  if (
+    existing &&
+    existing.listingId === listingId &&
+    Date.now() - existing.capturedAt < 500
+  ) {
+    return existing;
+  }
   generationSeq += 1;
   const imageUrl =
     typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
