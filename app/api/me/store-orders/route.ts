@@ -316,9 +316,6 @@ export async function POST(req: NextRequest) {
   let platformFundedAmount = 0;
   const commissionBaseAmount = Math.round(paymentGrandTotal);
   if (couponCampaignId) {
-    if (buyerId === String(store.owner_user_id ?? "")) {
-      return NextResponse.json({ ok: false, error: "owner_self_order_denied" }, { status: 403 });
-    }
     // Canonical: Coupon Instance required — campaign-only checkout DELETED
     if (!userCouponId) {
       return NextResponse.json({ ok: false, error: "coupon_entitlement_required" }, { status: 400 });

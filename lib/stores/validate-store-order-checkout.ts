@@ -13,6 +13,7 @@ import {
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { isStorePointCommerceBlocked } from "@/lib/stores/store-point-commerce-block";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
+import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 
 export type StoreOrderLineInput = {
   product_id: string;
@@ -146,6 +147,16 @@ export async function validateStoreOrderCheckout(params: {
 
   if (storeRow.approval_status !== "approved" || !storeRow.is_visible) {
     return { ok: false, error: "store_unavailable", status: 400 };
+  }
+
+  // Same SSOT as UI `can_order_store` — enforce for all creates (coupon and no-coupon).
+  const orderability = await resolveStoreOrderability(
+    sb,
+    params.buyerId,
+    storeRow.owner_user_id
+  );
+  if (!orderability.can_order_store) {
+    return { ok: false, error: "owner_self_order_denied", status: 403 };
   }
 
   if (!(await canOwnerSellProducts(sb, storeId))) {
