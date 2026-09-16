@@ -9,6 +9,7 @@ import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph
 import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
 import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import { classifyStoresInsertUniqueViolation } from "@/lib/stores/classify-stores-insert-unique-violation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -354,6 +355,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const uniqueBiz = classifyStoresInsertUniqueViolation(insErr);
+    if (uniqueBiz) {
+      return NextResponse.json({ ok: false, error: uniqueBiz }, { status: 409 });
+    }
     if (insErr.code !== "23505") {
       console.error("[POST /api/me/stores]", insErr);
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
@@ -363,7 +368,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (insErr || !inserted) {
-    return NextResponse.json({ ok: false, error: "slug_collision" }, { status: 409 });
+    const uniqueBiz = classifyStoresInsertUniqueViolation(insErr ?? {});
+    return NextResponse.json(
+      { ok: false, error: uniqueBiz ?? "slug_collision" },
+      { status: 409 }
+    );
   }
 
   invalidateMeStoresListServerCache(userId);
