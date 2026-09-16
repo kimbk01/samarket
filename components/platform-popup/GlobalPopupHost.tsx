@@ -37,6 +37,7 @@ import { canAcceptPlatformPopupWinner } from "@/lib/platform-popup/popup-stale-g
 import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
+import { fetchPlatformPopupResolveDeduped } from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -249,7 +250,7 @@ export function GlobalPopupHost() {
     });
   }, [eligible]);
 
-  // Clear dismiss chain lock only after leaving the surface where exposure ended
+  // Clear dismiss chain lock / empty settle only after leaving the surface where exposure ended
   useEffect(() => {
     if (
       chainLockSurfaceRef.current != null &&
@@ -263,6 +264,13 @@ export function GlobalPopupHost() {
       );
     }
   }, [runtimeCtx.surface]);
+
+  // EMPTY is settled for this pathname/surface/user — reopen only when identity changes
+  useEffect(() => {
+    setHostState((s) =>
+      s === "EMPTY" ? reducePlatformPopupHostState(s, { type: "RESET" }) : s
+    );
+  }, [runtimeCtx.pathname, runtimeCtx.surface, userId]);
 
   const acceptWinner = useCallback(
     (candidate: ResolveWinner, generation: number, surfaceAtStart: string) => {
@@ -290,7 +298,7 @@ export function GlobalPopupHost() {
   useEffect(() => {
     if (!eligible) return;
     if (hostState === "VISIBLE" || hostState === "READY" || hostState === "RESOLVING") return;
-    if (hostState === "DISMISSED" || hostState === "SUPPRESSED") return;
+    if (hostState === "DISMISSED" || hostState === "SUPPRESSED" || hostState === "EMPTY") return;
     if (chainLockSurfaceRef.current === runtimeCtx.surface) return;
 
     const generation = ++generationRef.current;
@@ -301,26 +309,14 @@ export function GlobalPopupHost() {
     abortRef.current = controller;
     setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_START" }));
 
-    const q = new URLSearchParams({
+    void fetchPlatformPopupResolveDeduped({
       pathname: pathnameAtStart,
       sessionKey: appSessionId,
       deviceKey,
       generation: String(generation),
-    });
-
-    void fetch(`/api/platform-popup/resolve?${q.toString()}`, {
-      method: "GET",
-      credentials: "same-origin",
       signal: controller.signal,
     })
-      .then(async (res) => {
-        const json = (await res.json()) as {
-          ok?: boolean;
-          winner?: ResolveWinner | null;
-          surface?: string;
-          generation?: string;
-          impression?: boolean;
-        };
+      .then(({ json }) => {
         // Hard contract: API must never claim impression
         if (json.impression) return;
         if (generation !== generationRef.current) return;
@@ -331,7 +327,7 @@ export function GlobalPopupHost() {
           setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
           return;
         }
-        acceptWinner(json.winner, generation, surfaceAtStart);
+        acceptWinner(json.winner as ResolveWinner, generation, surfaceAtStart);
       })
       .catch((err: unknown) => {
         if ((err as { name?: string })?.name === "AbortError") return;

@@ -108,10 +108,22 @@ describe("CUT2 host state machine", () => {
       "DISMISSED",
       "SUPPRESSED",
       "INVALIDATED",
+      "EMPTY",
     ] as const) {
       expect(mayMountPlatformPopupPresentation(s)).toBe(false);
     }
     expect(mayMountPlatformPopupPresentation("VISIBLE")).toBe(true);
+  });
+
+  it("RESOLVE_EMPTY settles to EMPTY (not IDLE) to stop hostState cascade", () => {
+    const resolving = reducePlatformPopupHostState("IDLE", { type: "RESOLVE_START" });
+    expect(resolving).toBe("RESOLVING");
+    const empty = reducePlatformPopupHostState(resolving, { type: "RESOLVE_EMPTY" });
+    expect(empty).toBe("EMPTY");
+    expect(empty).not.toBe("IDLE");
+    // identity reopen
+    expect(reducePlatformPopupHostState(empty, { type: "RESET" })).toBe("IDLE");
+    expect(reducePlatformPopupHostState(empty, { type: "ELIGIBLE" })).toBe("IDLE");
   });
 
   it("dismiss keeps host out of presentation until RESET", () => {

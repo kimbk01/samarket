@@ -13,7 +13,6 @@ import {
   clearTradeMarketCardOriginExpandIfGeneration,
   peekTradeMarketCardOriginExpand,
   subscribeTradeMarketCardOriginExpand,
-  tradeMarketCardOriginExpandTransform,
   tradePostIdFromPath,
   type TradeMarketCardOriginExpand,
 } from "@/lib/trade/marketplace/trade-market-card-origin-expand";
@@ -89,9 +88,8 @@ function MarketCardOriginExpandSurface({ origin }: { origin: TradeMarketCardOrig
     const el = surfaceRef.current;
     if (!el) return;
     finishedRef.current = false;
-    const t = tradeMarketCardOriginExpandTransform(origin);
     el.style.transition = "none";
-    el.style.transform = `translate3d(${t.translateX}px, ${t.translateY}px, 0) scale(${t.scaleX}, ${t.scaleY})`;
+    el.style.transform = `translate3d(${origin.rect.x}px, ${origin.rect.y}px, 0) scale(1, 1)`;
     el.style.opacity = "1";
     el.style.borderRadius = "8px";
     // Double rAF: paint source transform, then expand.
@@ -110,7 +108,9 @@ function MarketCardOriginExpandSurface({ origin }: { origin: TradeMarketCardOrig
     const el = surfaceRef.current;
     if (!el) return;
     el.style.transition = `transform ${CARD_ORIGIN_EXPAND_DURATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease-out, border-radius ${CARD_ORIGIN_EXPAND_DURATION_MS}ms ease-out`;
-    el.style.transform = "translate3d(0,0,0) scale(1, 1)";
+    const targetScaleX = Math.max(1, origin.viewport.width / Math.max(1, origin.rect.width));
+    const targetScaleY = Math.max(1, origin.viewport.height / Math.max(1, origin.rect.height));
+    el.style.transform = `translate3d(0,0,0) scale(${targetScaleX}, ${targetScaleY})`;
     el.style.borderRadius = "0px";
 
     const onEnd = (ev: TransitionEvent) => {
@@ -126,11 +126,11 @@ function MarketCardOriginExpandSurface({ origin }: { origin: TradeMarketCardOrig
     };
   }, [expanded, origin.listingId, origin.generation]);
 
-  const img = origin.imageUrl;
+  const snapshotHtml = origin.snapshotHtml;
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[60] bg-sam-app/40"
+      className="pointer-events-none fixed inset-0 z-[60] bg-sam-app"
       data-market-card-origin-loading="1"
       data-market-card-origin-overlay="1"
       data-market-card-origin-listing={origin.listingId}
@@ -140,16 +140,25 @@ function MarketCardOriginExpandSurface({ origin }: { origin: TradeMarketCardOrig
     >
       <div
         ref={surfaceRef}
-        className="absolute inset-0 overflow-hidden bg-sam-surface will-change-transform"
+        className="absolute left-0 top-0 overflow-hidden bg-sam-surface shadow-[0_10px_30px_rgba(15,23,42,0.18)] will-change-transform"
         data-market-card-origin-surface="1"
+        data-market-card-origin-source="whole-card"
         style={{
-          transformOrigin: "center center",
+          width: origin.rect.width,
+          height: origin.rect.height,
+          transformOrigin: "top left",
         }}
       >
-        {img ? (
-          // Continuity bitmap — already shown on the card; not a detail data owner.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" className="h-full w-full object-cover" draggable={false} />
+        {snapshotHtml ? (
+          <div
+            className="market-card-origin-snapshot pointer-events-none h-full w-full overflow-hidden bg-sam-surface"
+            data-market-card-origin-snapshot="1"
+            style={{
+              opacity: expanded ? 0 : 1,
+              transition: `opacity 120ms ease-out ${Math.max(0, CARD_ORIGIN_EXPAND_DURATION_MS - 140)}ms`,
+            }}
+            dangerouslySetInnerHTML={{ __html: snapshotHtml }}
+          />
         ) : (
           <div className="h-full w-full bg-sam-surface" data-market-card-origin-no-image="1" />
         )}

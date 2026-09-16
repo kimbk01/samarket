@@ -11,6 +11,8 @@ export const PLATFORM_POPUP_HOST_STATES = [
   "DISMISSED",
   "SUPPRESSED",
   "INVALIDATED",
+  /** Settled empty resolve — must not re-enter resolve until identity/surface resets. */
+  "EMPTY",
 ] as const;
 export type PlatformPopupHostState = (typeof PLATFORM_POPUP_HOST_STATES)[number];
 
@@ -40,12 +42,14 @@ export function reducePlatformPopupHostState(
       return "INVALIDATED";
     case "ELIGIBLE":
       if (state === "VISIBLE" || state === "RESOLVING" || state === "READY") return state;
+      if (state === "EMPTY") return "IDLE";
       return "IDLE";
     case "RESOLVE_START":
       if (state === "VISIBLE") return state;
       return "RESOLVING";
     case "RESOLVE_EMPTY":
-      return "IDLE";
+      // FIRST DIVERGENCE close: do not return IDLE (hostState dep would re-fetch same input).
+      return "EMPTY";
     case "RESOLVE_WINNER":
       if (state === "DISMISSED" || state === "SUPPRESSED" || state === "VISIBLE") return state;
       return "READY";

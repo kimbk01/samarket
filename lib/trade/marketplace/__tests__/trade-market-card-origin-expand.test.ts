@@ -32,6 +32,19 @@ describe("trade-market-card-origin-expand", () => {
   it("captures geometry from getBoundingClientRect and matches listing id", () => {
     const el = {
       getBoundingClientRect: () => ({ left: 100, top: 200, width: 80, height: 120, right: 180, bottom: 320 }),
+      querySelector: () => null,
+      cloneNode: () => {
+        const nodes: Array<{ removeAttribute?: (name: string) => void; remove?: () => void }> = [];
+        return {
+          querySelectorAll: (selector: string) => {
+            if (selector.includes("button")) return [{ remove: vi.fn() }];
+            return nodes;
+          },
+          setAttribute: vi.fn(),
+          classList: { add: vi.fn() },
+          outerHTML: `<a href="/post/listing-a"><img src="https://example.com/a.jpg"><p>Toyota Wigo</p></a>`,
+        };
+      },
     } as unknown as HTMLElement;
     vi.stubGlobal("innerWidth", 390);
     vi.stubGlobal("innerHeight", 844);
@@ -47,6 +60,8 @@ describe("trade-market-card-origin-expand", () => {
     expect(hasActiveTradeMarketCardOriginForPostId("listing-a")).toBe(true);
     expect(hasActiveTradeMarketCardOriginForPostId("other")).toBe(false);
     expect(peekTradeMarketCardOriginExpand()?.imageUrl).toContain("a.jpg");
+    expect(peekTradeMarketCardOriginExpand()?.snapshotHtml).toContain("Toyota Wigo");
+    expect(peekTradeMarketCardOriginExpand()?.snapshotHtml).not.toContain("<button");
   });
 
   it("exposes 360ms duration SSOT", () => {
@@ -73,6 +88,7 @@ describe("trade-market-card-origin-expand", () => {
       rect: { x: 0, y: 0, width: 100, height: 200 },
       viewport: { width: 400, height: 800 },
       imageUrl: null,
+      snapshotHtml: null,
       capturedAt: Date.now(),
     });
     expect(t.scaleX).toBeCloseTo(0.25);
@@ -88,6 +104,7 @@ describe("trade-market-card-origin-expand", () => {
       rect: { x: 20, y: 40, width: 160, height: 200 },
       viewport: { width: 390, height: 844 },
       imageUrl: null,
+      snapshotHtml: null,
       capturedAt: Date.now(),
     });
     const lower = tradeMarketCardOriginExpandTransform({
@@ -96,6 +113,7 @@ describe("trade-market-card-origin-expand", () => {
       rect: { x: 200, y: 520, width: 160, height: 200 },
       viewport: { width: 390, height: 844 },
       imageUrl: null,
+      snapshotHtml: null,
       capturedAt: Date.now(),
     });
     expect(upper.translateY).not.toEqual(lower.translateY);

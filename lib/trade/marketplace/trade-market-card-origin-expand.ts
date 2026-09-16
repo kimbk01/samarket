@@ -21,6 +21,8 @@ export type TradeMarketCardOriginExpand = {
   rect: TradeMarketCardOriginRect;
   viewport: { width: number; height: number };
   imageUrl: string | null;
+  /** Inert visual snapshot of the card's navigable content (no functional actions). */
+  snapshotHtml: string | null;
   capturedAt: number;
 };
 
@@ -194,12 +196,52 @@ export function captureTradeMarketCardOriginExpand(input: {
       height: Math.max(1, Math.round(win.innerHeight || 1)),
     },
     imageUrl: typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null,
+    snapshotHtml: buildCardVisualSnapshotHtml(el),
     capturedAt: Date.now(),
   };
   memory = origin;
   writeStorage(origin);
   notifyOriginListeners();
   return origin;
+}
+
+function buildCardVisualSnapshotHtml(cardEl: HTMLElement): string | null {
+  const source =
+    typeof cardEl.querySelector === "function"
+      ? cardEl.querySelector<HTMLElement>('a[href^="/post/"]') ?? cardEl
+      : cardEl;
+  if (typeof source.cloneNode !== "function") return null;
+  const clone = source.cloneNode(true) as HTMLElement;
+  if (typeof clone.querySelectorAll !== "function") return null;
+  clone.querySelectorAll("button,input,select,textarea,script,style,[data-market-card-action]").forEach((n) => {
+    n.remove?.();
+  });
+  clone.querySelectorAll<HTMLElement>("[role='button'],[tabindex]").forEach((n) => {
+    n.removeAttribute?.("role");
+    n.removeAttribute?.("tabindex");
+  });
+  clone.querySelectorAll<HTMLAnchorElement>("a").forEach((a) => {
+    a.removeAttribute?.("href");
+    a.removeAttribute?.("target");
+    a.removeAttribute?.("rel");
+  });
+  if (clone.tagName?.toLowerCase() === "a") {
+    clone.removeAttribute?.("href");
+    clone.removeAttribute?.("target");
+    clone.removeAttribute?.("rel");
+  }
+  clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+    const src = img.currentSrc || img.src;
+    if (src) img.setAttribute("src", src);
+    img.removeAttribute("srcset");
+    img.removeAttribute("sizes");
+    img.removeAttribute("loading");
+  });
+  clone.setAttribute("aria-hidden", "true");
+  clone.setAttribute("data-market-card-origin-snapshot-card", "1");
+  clone.classList.add("pointer-events-none");
+  const html = clone.outerHTML.trim();
+  return html || null;
 }
 
 /** Map card rect → full-viewport transform (compositor-friendly). */
