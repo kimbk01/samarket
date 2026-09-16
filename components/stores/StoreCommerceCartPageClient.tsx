@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
+import { navigateToDeliveryStoreCard } from "@/lib/navigation/navigate-to-delivery-store-product";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
@@ -1371,9 +1373,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
   const navigateToStoreMenu = useCallback(() => {
-    // Same semantic return as cart header/hardware back — Dibay cart SSOT only.
-    goCartBack();
-  }, [goCartBack]);
+    // FLOW: explicit store menu (메뉴 추가) — not HISTORY back.
+    // HISTORY would return PRODUCT when stack is STORE→PRODUCT→CART (device-confirmed).
+    const slug = store?.slug?.trim() || cartBucket?.storeSlug?.trim() || storeSlug.trim();
+    if (!slug) {
+      router.push("/stores");
+      return;
+    }
+    markStoreDetailMenuTabsLanding();
+    navigateToDeliveryStoreCard(router, {
+      storeSlug: slug,
+      storeId: store?.id?.trim() || cartBucket?.storeId?.trim() || null,
+      saveScroll: false,
+    });
+  }, [store, cartBucket, storeSlug, router]);
 
   /** Hooks must run before any `return` below — Rules of Hooks */
   const deliveryFeeSummaryLabel = useMemo(() => {

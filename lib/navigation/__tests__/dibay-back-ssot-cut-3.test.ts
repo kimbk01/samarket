@@ -82,16 +82,18 @@ describe("dibay-back-ssot-cut-3", () => {
     }
   });
 
-  it("C3 CART 더 담기 uses cart SSOT (same owner as header back)", () => {
+  it("C3 CART 메뉴 추가 uses canonical store-card FLOW (not HISTORY back)", () => {
     const client = readFileSync(
       join(ROOT, "components/stores/StoreCommerceCartPageClient.tsx"),
       "utf8"
     );
     expect(client).toMatch(/navigateToStoreMenu/);
-    expect(client).toMatch(/goCartBack\(\)/);
-    // SINGLE-ACTION — no raw store push parallel to Dibay cart back
+    expect(client).toMatch(/navigateToDeliveryStoreCard/);
+    // Must not bind 메뉴 추가 to goCartBack (HISTORY can land on PRODUCT)
+    expect(client).toMatch(
+      /navigateToStoreMenu[\s\S]{0,400}navigateToDeliveryStoreCard/
+    );
     expect(client).not.toMatch(/router\.push\(`\/stores\/\$\{encodeURIComponent\(slug\)\}`/);
-    expect(client).not.toMatch(/더 담기[\s\S]{0,80}runStoreCartBackNavigation/);
   });
 
   it("C4 confirm open → CLOSE not leave cart", () => {
