@@ -46,11 +46,18 @@ export type TradeMarketProductCompositionSession = {
   listRouteKey: string | null;
   viewport: { width: number; height: number };
   capturedAt: number;
+  /**
+   * Flight may start only when true.
+   * forward ⇒ real detail photos/text measured (publishTradeMarketProductCompositionTargets).
+   * back ⇒ live list photos/text bound once (bindTradeMarketReverseLiveDestinationTargets).
+   * Forbidden: viewport estimate or detail-sized reverse fallback as committed destination.
+   */
+  destinationCommitted: boolean;
 };
 
 export const TRADE_MARKET_COMPOSITION_DURATION_MS = 360;
 
-const STORAGE_KEY = "samarket:trade-market-product-composition:v1";
+const STORAGE_KEY = "samarket:trade-market-product-composition:v2";
 const TTL_MS = 8_000;
 
 let memory: TradeMarketProductCompositionSession | null = null;
@@ -121,37 +128,6 @@ function viewportSize(): { width: number; height: number } {
   };
 }
 
-function estimateDetailMedia(
-  viewport: { width: number; height: number },
-  source: TradeMarketCompositionRect | null
-): TradeMarketCompositionRect | null {
-  if (!source) return null;
-  const w = Math.max(1, viewport.width);
-  const aspect = source.width > 0 ? source.height / source.width : 1;
-  const h = Math.max(48, Math.round(Math.min(w * aspect, viewport.height * 0.55)));
-  return { x: 0, y: 0, width: w, height: h };
-}
-
-function estimateDetailTextStack(
-  viewport: { width: number; height: number },
-  media: TradeMarketCompositionRect | null,
-  has: { price: boolean; title: boolean; meta: boolean }
-): {
-  price: TradeMarketCompositionRect | null;
-  title: TradeMarketCompositionRect | null;
-  meta: TradeMarketCompositionRect | null;
-} {
-  const inset = Math.min(20, Math.max(12, Math.round(viewport.width * 0.04)));
-  let y = media ? media.y + media.height + 12 : 56;
-  const width = Math.max(1, viewport.width - inset * 2);
-  const price = has.price ? { x: inset, y, width, height: 28 } : null;
-  if (price) y += 32;
-  const title = has.title ? { x: inset, y, width, height: 24 } : null;
-  if (title) y += 28;
-  const meta = has.meta ? { x: inset, y, width, height: 18 } : null;
-  return { price, title, meta };
-}
-
 /** Reject text targets that sit inside media — prevents image/text split & text-on-image. */
 function belowMedia(
   field: TradeMarketCompositionRect | null,
@@ -161,6 +137,12 @@ function belowMedia(
   if (!media) return field;
   if (field.y + 2 < media.y + media.height) return null;
   return field;
+}
+
+export function isTradeMarketCompositionDestinationCommitted(
+  session: TradeMarketProductCompositionSession | null
+): boolean {
+  return Boolean(session?.destinationCommitted);
 }
 
 function isFresh(session: TradeMarketProductCompositionSession | null): session is TradeMarketProductCompositionSession {
@@ -222,7 +204,11 @@ function normalizeSession(raw: TradeMarketProductCompositionSession): TradeMarke
       : raw.media
         ? "present"
         : "absent_by_product";
-  const session: TradeMarketProductCompositionSession = { ...raw, mediaContract };
+  const session: TradeMarketProductCompositionSession = {
+    ...raw,
+    mediaContract,
+    destinationCommitted: Boolean(raw.destinationCommitted),
+  };
   if (!isTradeMarketCompositionMediaOwnershipValid(session)) return null;
   return session;
 }
@@ -437,9 +423,12 @@ export function bindTradeMarketReverseLiveDestinationTargets(input: {
       session.meta && input.metaRect
         ? { ...session.meta, target: input.metaRect }
         : session.meta,
+    destinationCommitted: true,
   };
   reverseLiveBindGeneration = session.generation;
   reverseLiveBindCount += 1;
+  writeStorage(memory);
+  queueMicrotask(notify);
   return true;
 }
 
@@ -481,28 +470,32 @@ export function publishTradeMarketProductCompositionTargets(input: {
   if (!session || session.listingId !== input.listingId.trim()) return;
   if (session.direction !== "forward") return;
 
-  let mediaTarget = session.media ? input.mediaRect ?? session.media.target : null;
-  if (session.media && mediaTarget && mediaTarget.height < session.media.target.height * 0.55) {
-    mediaTarget = session.media.target;
+  // IMAGE: detail photos GBR is the only forward end authority (no viewport estimate).
+  if (session.mediaContract === "present") {
+    if (!input.mediaRect || !(input.mediaRect.width > 8 && input.mediaRect.height > 8)) return;
+  } else if (!input.priceRect && !input.titleRect && !input.metaRect) {
+    return;
   }
-  const mediaForText = session.media ? mediaTarget ?? session.media.target : null;
-  const fallback = estimateDetailTextStack(session.viewport, mediaForText, {
-    price: Boolean(session.price),
-    title: Boolean(session.title),
-    meta: Boolean(session.meta),
-  });
+
+  const mediaTarget = session.media ? input.mediaRect : null;
+  if (session.media && !mediaTarget) return;
 
   memory = {
     ...session,
-    media: session.media
-      ? { ...session.media, target: mediaTarget ?? session.media.target }
-      : null,
+    media: session.media && mediaTarget ? { ...session.media, target: mediaTarget } : session.media,
     price: session.price
       ? {
           ...session.price,
           target:
-            belowMedia(input.priceRect, mediaForText) ??
-            belowMedia(fallback.price, mediaForText) ??
+            belowMedia(input.priceRect, mediaTarget) ??
+            (mediaTarget
+              ? {
+                  x: mediaTarget.x,
+                  y: mediaTarget.y + mediaTarget.height + 12,
+                  width: mediaTarget.width,
+                  height: session.price.source.height || 28,
+                }
+              : input.priceRect) ??
             session.price.target,
         }
       : null,
@@ -510,8 +503,15 @@ export function publishTradeMarketProductCompositionTargets(input: {
       ? {
           ...session.title,
           target:
-            belowMedia(input.titleRect, mediaForText) ??
-            belowMedia(fallback.title, mediaForText) ??
+            belowMedia(input.titleRect, mediaTarget) ??
+            (mediaTarget
+              ? {
+                  x: mediaTarget.x,
+                  y: mediaTarget.y + mediaTarget.height + 44,
+                  width: mediaTarget.width,
+                  height: session.title.source.height || 24,
+                }
+              : input.titleRect) ??
             session.title.target,
         }
       : null,
@@ -519,13 +519,22 @@ export function publishTradeMarketProductCompositionTargets(input: {
       ? {
           ...session.meta,
           target:
-            belowMedia(input.metaRect, mediaForText) ??
-            belowMedia(fallback.meta, mediaForText) ??
+            belowMedia(input.metaRect, mediaTarget) ??
+            (mediaTarget
+              ? {
+                  x: mediaTarget.x,
+                  y: mediaTarget.y + mediaTarget.height + 72,
+                  width: mediaTarget.width,
+                  height: session.meta.source.height || 18,
+                }
+              : input.metaRect) ??
             session.meta.target,
         }
       : null,
+    destinationCommitted: true,
   };
   writeStorage(memory);
+  queueMicrotask(notify);
 }
 
 export function publishTradeMarketProductCompositionStanding(input: {
@@ -582,6 +591,7 @@ export function publishTradeMarketProductCompositionStanding(input: {
     listRouteKey: input.listRouteKey?.trim() || null,
     viewport: viewportSize(),
     capturedAt: Date.now(),
+    destinationCommitted: false,
   };
 }
 
@@ -633,12 +643,6 @@ export function armTradeMarketProductCompositionForward(input: {
   }
   const mediaContract: TradeMarketMediaContract = hasMedia ? "present" : "absent_by_product";
   const vp = viewportSize();
-  const mediaTarget = hasMedia ? estimateDetailMedia(vp, measured.mediaRect) : null;
-  const textTargets = estimateDetailTextStack(vp, mediaTarget, {
-    price: Boolean((input.priceText ?? "").trim()),
-    title: Boolean((input.titleText ?? "").trim()),
-    meta: Boolean((input.locationText ?? "").trim()),
-  });
 
   const priceText = (input.priceText ?? "").trim();
   const titleText = (input.titleText ?? "").trim();
@@ -662,30 +666,24 @@ export function armTradeMarketProductCompositionForward(input: {
     (titleSrc ? { ...titleSrc, y: titleSrc.y + 20, height: 16 } : null);
 
   generationSeq += 1;
+  // Forward: source = list photos. target stays list until detail publish commits real photos GBR.
+  // Forbidden legacy: estimateDetailMedia / viewport-sized fake end.
   const session: TradeMarketProductCompositionSession = {
     listingId,
     generation: generationSeq,
     direction: "forward",
     mediaContract,
     media:
-      hasMedia && measured.mediaRect && mediaTarget
-        ? { url: imageUrl!, source: measured.mediaRect, target: mediaTarget }
+      hasMedia && measured.mediaRect
+        ? { url: imageUrl!, source: measured.mediaRect, target: measured.mediaRect }
         : null,
-    price:
-      priceText && priceSrc && textTargets.price
-        ? { text: priceText, source: priceSrc, target: textTargets.price }
-        : null,
-    title:
-      titleText && titleSrc && textTargets.title
-        ? { text: titleText, source: titleSrc, target: textTargets.title }
-        : null,
-    meta:
-      metaText && metaSrc && textTargets.meta
-        ? { text: metaText, source: metaSrc, target: textTargets.meta }
-        : null,
+    price: priceText && priceSrc ? { text: priceText, source: priceSrc, target: priceSrc } : null,
+    title: titleText && titleSrc ? { text: titleText, source: titleSrc, target: titleSrc } : null,
+    meta: metaText && metaSrc ? { text: metaText, source: metaSrc, target: metaSrc } : null,
     listRouteKey: input.listRouteKey?.trim() || null,
     viewport: vp,
     capturedAt: Date.now(),
+    destinationCommitted: false,
   };
 
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
@@ -742,6 +740,12 @@ export function armTradeMarketProductCompositionBack(input: {
   const titleText = (input.titleText ?? "").trim();
   const metaText = (input.locationText ?? "").trim();
 
+  // IMAGE reverse: refuse detail-sized target fallback. End target comes only from live list bind.
+  // Provisional target = remembered list rect if known; else source (Host must not fly until bind).
+  if (hasMedia && !listMedia) {
+    // Still arm with provisional source-only; Host waits for live bind before any visible flight.
+  }
+
   generationSeq += 1;
   const session: TradeMarketProductCompositionSession = {
     listingId,
@@ -753,6 +757,7 @@ export function armTradeMarketProductCompositionBack(input: {
         ? {
             url: imageUrl!,
             source: measured.mediaRect,
+            // Never commit detail rect as reverse end. Use remembered list or provisional source.
             target: listMedia ?? measured.mediaRect,
           }
         : null,
@@ -783,6 +788,7 @@ export function armTradeMarketProductCompositionBack(input: {
     listRouteKey: input.listRouteKey?.trim() || remembered?.listRouteKey || null,
     viewport: vp,
     capturedAt: Date.now(),
+    destinationCommitted: false,
   };
 
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
@@ -826,6 +832,8 @@ export function armTradeMarketProductCompositionBackFromStanding(input: {
       ? {
           ...standing.media,
           source: standing.media.source,
+          // Forbidden: detail standing.source as reverse end when list unknown.
+          // Provisional only; Host requires live list bind (destinationCommitted).
           target: remembered?.media?.source ?? standing.media.source,
         }
       : null,
@@ -852,6 +860,7 @@ export function armTradeMarketProductCompositionBackFromStanding(input: {
       : null,
     listRouteKey: input.listRouteKey || standing.listRouteKey,
     capturedAt: Date.now(),
+    destinationCommitted: false,
   };
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
