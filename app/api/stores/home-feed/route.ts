@@ -196,7 +196,8 @@ export async function GET(req: Request) {
     popularityWindowDaysKey: popularityWindows.join(","),
   });
 
-  const cached = getStoreHomeFeedCache(cacheKey);
+  const distanceAxisEnabled = serviceabilityCtx.policy.enabled && userLat != null && userLng != null;
+  const cached = distanceAxisEnabled ? null : getStoreHomeFeedCache(cacheKey);
   if (cached) {
     const campaignRefresh = await attachDiscoveryCampaignsToHomeFeedStores(supabase, cached.stores);
     const refreshedPayload = {
@@ -522,7 +523,6 @@ export async function GET(req: Request) {
 
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
-      const rowOutOfRange = outOfRangeById.get(r.id) === true;
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
       const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
       const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
@@ -544,34 +544,28 @@ export async function GET(req: Request) {
       let distanceKm: number | null = distById.get(r.id) ?? null;
       let distancePolicyApplied = false;
       let maxDeliveryDistanceKm: number | null = null;
-      if (rankingAuthority === "new") {
-        distancePolicyApplied = distanceAxisEnabled;
-        if (distanceAxisEnabled) {
-          const effective = effectiveById.get(r.id) ?? r;
-          const svc = evaluateStoreDeliveryServiceability({
-            ctx: serviceabilityCtx,
-            storeId: r.id,
-            storeDeliveryRadiusKm: (r as { delivery_radius_km?: unknown }).delivery_radius_km,
-            customerLat: userLat!,
-            customerLng: userLng!,
-            storeLat: effective.lat,
-            storeLng: effective.lng,
-          });
-          maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
-          // Ranking/display OOR + distanceKm already from NEW wave projection maps.
-        }
-      } else if (userLat != null && userLng != null) {
+      /**
+       * Customer OOR flag MUST follow live `stores.delivery_radius_km` evaluator
+       * (same SSOT as delivery-serviceability). Coverage/shadow maps remain ranking-only.
+       */
+      let rowOutOfRange = false;
+      if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
         const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
           storeId: r.id,
           storeDeliveryRadiusKm: (r as { delivery_radius_km?: unknown }).delivery_radius_km,
-            customerLat: userLat,
+          customerLat: userLat,
           customerLng: userLng,
           storeLat: effective.lat,
           storeLng: effective.lng,
         });
-        distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
+        rowOutOfRange = resolveListDistanceOutOfRange({
+          originSource: origin.source,
+          serviceabilityApplies: svc.applies,
+          reason: svc.reason,
+        });
+        distanceKm = svc.distanceKm ?? distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
         distancePolicyApplied = svc.applies;
         maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
       }
@@ -662,7 +656,9 @@ export async function GET(req: Request) {
         },
       },
     };
-    setStoreHomeFeedCache(cacheKey, payload);
+    if (!distanceAxisEnabled) {
+      setStoreHomeFeedCache(cacheKey, payload);
+    }
     const finalized = await finalizeHomeFeedJsonPayload(supabase, payload);
     return NextResponse.json(finalized, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
