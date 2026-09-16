@@ -110,7 +110,6 @@ import {
   TRADE_FB_DETAIL_META_HELP,
   TRADE_FB_DETAIL_IMAGE_SECTION,
   TRADE_FB_DETAIL_SELLER_NAME,
-  TRADE_FB_DETAIL_PLACEHOLDER_TEXT,
   TRADE_FB_DETAIL_CHIP,
 } from "@/lib/ui/trade-write-fb-ui";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
@@ -1173,9 +1172,6 @@ export function PostDetailView({
   const isUsedCarDetailUi = detailSpecProfileId === "used-car";
   const isRealEstateSpec = detailSpecProfileId === "real-estate";
   const isJobsSpec = detailSpecProfileId === "jobs";
-  const isExchangeSpec = detailSpecProfileId === "exchange";
-  const usedCarBuyNoImages =
-    isUsedCarDetailUi && (reMeta.car_trade as string | undefined) === "buy" && detailImageUrls.length === 0;
   const reHeroBuilding = String(reMeta.building_name ?? "").trim();
   const reHeroTitle = reHeroBuilding || post.title || "";
   const detailHeroTitle = isUsedCarDetailUi
@@ -1183,8 +1179,6 @@ export function PostDetailView({
     : isRealEstateSpec
       ? reHeroTitle
       : post.title ?? "";
-
-  const jobsSkipImagePlaceholder = isJobsSpec && detailImageUrls.length === 0;
 
   const specTitle =
     isJobsSpec
@@ -1212,26 +1206,9 @@ export function PostDetailView({
   return (
     <div ref={rootRef} className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]">
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
-        {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
+        {detailImageUrls.length > 0 ? (
           <section data-ui5-slot="photos" className={TRADE_FB_DETAIL_IMAGE_SECTION}>
-            {detailImageUrls.length === 0 ? (
-              <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
-                {isExchangeSpec ? (
-                  <div
-                    className="flex w-full flex-col items-center justify-center gap-2 py-12 text-sam-muted"
-                    aria-hidden
-                  >
-                    <span className="text-5xl font-semibold leading-none">₱</span>
-                    <span className="text-xl font-normal leading-none text-sam-meta">↔</span>
-                    <span className="text-5xl font-semibold leading-none">₩</span>
-                  </div>
-                ) : (
-                  <span className={`py-16 ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}>{t("ui_product_gallery_fallback")}</span>
-                )}
-              </div>
-            ) : (
-              <ProductImageGallery images={detailImageUrls} title={detailHeroTitle || post.title || ""} />
-            )}
+            <ProductImageGallery images={detailImageUrls} title={detailHeroTitle || post.title || ""} />
           </section>
         ) : null}
 

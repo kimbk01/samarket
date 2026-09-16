@@ -119,14 +119,9 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
     });
   }, [id]);
 
-  useEffect(() => {
-    const productId = id?.trim();
-    if (!productId) return;
-    // Detail ready — drop card-origin continuity (overlay + storage).
-    void import("@/lib/trade/marketplace/trade-market-card-origin-expand").then((m) => {
-      m.consumeTradeMarketCardOriginExpandForPostId(productId);
-    });
-  }, [id]);
+  // Card-origin expand cleanup is owned by MarketCardOriginExpandOverlayHost
+  // (CARD_ORIGIN_EXPAND_DURATION_MS). Do not clear here — early consume tore down
+  // warm-nav overlays mid-animation and made subsequent entries non-repeatable.
 
   useEffect(() => {
     setPost(initialBundle.item);

@@ -252,8 +252,8 @@ export const PostCard = memo(function PostCard({
         }}
         className="flex min-w-0 flex-col"
       >
-        <div data-ui4-slot="photos" className={TRADE_FEED_THUMB_BOX_CLASS}>
-          {hasUsableThumbnail ? (
+        {hasUsableThumbnail ? (
+          <div data-ui4-slot="photos" className={TRADE_FEED_THUMB_BOX_CLASS}>
             <SamarketThumbnail
               src={thumbnailFetchUrl}
               fill
@@ -271,10 +271,8 @@ export const PostCard = memo(function PostCard({
               }}
               onImageError={() => setThumbnailFailed(true)}
             />
-          ) : (
-            <span className="block h-full min-h-0 w-full bg-sam-surface-muted" aria-hidden />
-          )}
-        </div>
+          </div>
+        ) : null}
         <div className={TRADE_FEED_META_COLUMN_CLASS}>
           <div className={TRADE_FEED_META_ROW_CLASS}>
             {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (

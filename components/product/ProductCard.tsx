@@ -51,23 +51,25 @@ export function ProductCard({ product }: ProductCardProps) {
       >
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
-      <div
-        data-ui4-slot="photos"
-        className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
-      >
-        <SamarketThumbnail
-          src={thumbnailFetchUrl}
-          fill
-          roundedClassName="rounded-ui-rect"
-          className="bg-sam-surface-muted"
-        />
-        {product.isBoosted && (
-          <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
-            {t("mypage_comp_product_bump")}
-          </span>
-        )}
-      </div>
-      <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
+      {thumbnailFetchUrl ? (
+        <div
+          data-ui4-slot="photos"
+          className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+        >
+          <SamarketThumbnail
+            src={thumbnailFetchUrl}
+            fill
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-surface-muted"
+          />
+          {product.isBoosted && (
+            <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
+              {t("mypage_comp_product_bump")}
+            </span>
+          )}
+        </div>
+      ) : null}
+      <div className={`flex min-w-0 flex-1 flex-col ${thumbnailFetchUrl ? "min-h-[100px]" : ""}`}>
         <div className="flex min-h-0 flex-1 flex-col justify-between">
           <p data-ui4-slot="price" className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
             {formatPrice(product.price)}

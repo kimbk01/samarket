@@ -3,6 +3,9 @@
  *
  * HARD LOCK: does not own navigation. Capture runs on intentional Link click;
  * `<Link>` + App Router remain the sole navigation owner.
+ *
+ * Visual owner: MarketCardOriginExpandOverlayHost (ONE). Never depend on
+ * `loading.tsx` mounting for animation correctness.
  */
 export type TradeMarketCardOriginRect = {
   x: number;
@@ -13,16 +16,22 @@ export type TradeMarketCardOriginRect = {
 
 export type TradeMarketCardOriginExpand = {
   listingId: string;
+  /** Monotonic generation so each tap remounts a fresh visual session. */
+  generation: number;
   rect: TradeMarketCardOriginRect;
   viewport: { width: number; height: number };
   imageUrl: string | null;
   capturedAt: number;
 };
 
+/** Canonical expand duration — CSS + lifecycle cleanup must derive from this. */
+export const CARD_ORIGIN_EXPAND_DURATION_MS = 360;
+
 const STORAGE_KEY = "samarket:trade-market-card-origin-expand:v1";
 const TTL_MS = 8_000;
 
 let memory: TradeMarketCardOriginExpand | null = null;
+let generationSeq = 0;
 const listeners = new Set<() => void>();
 
 function notifyOriginListeners(): void {
@@ -104,6 +113,24 @@ export function hasActiveTradeMarketCardOriginForPostId(postId: string): boolean
   return Boolean(origin && origin.listingId === id);
 }
 
+/**
+ * Clear only when the active session matches listing + generation.
+ * Prevents a late timeout from wiping a newer tap's snapshot.
+ */
+export function clearTradeMarketCardOriginExpandIfGeneration(
+  listingId: string,
+  generation: number
+): void {
+  const origin = peekTradeMarketCardOriginExpand();
+  if (!origin) return;
+  if (origin.listingId !== listingId.trim() || origin.generation !== generation) return;
+  clearTradeMarketCardOriginExpand();
+}
+
+/**
+ * @deprecated Prefer overlay-owned clear after CARD_ORIGIN_EXPAND_DURATION_MS.
+ * Kept for tests / emergency cleanup — does not own animation timing.
+ */
 export function consumeTradeMarketCardOriginExpandForPostId(
   postId: string
 ): TradeMarketCardOriginExpand | null {
@@ -152,8 +179,10 @@ export function captureTradeMarketCardOriginExpand(input: {
     clearTradeMarketCardOriginExpand();
     return null;
   }
+  generationSeq += 1;
   const origin: TradeMarketCardOriginExpand = {
     listingId,
+    generation: generationSeq,
     rect: {
       x: Math.round(r.left),
       y: Math.round(r.top),
