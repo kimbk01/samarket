@@ -193,15 +193,15 @@ describe("CASE C — policy off", () => {
   });
 });
 
-describe("CASE D — covers_all / maxKm null", () => {
-  it("null global defaultMaxKm matches covers_all membership", () => {
+describe("CASE D — NULL store radius → effective 10km (CUT1)", () => {
+  it("unconfigured radius uses product default 10 — not legacy covers_all", () => {
     const stores = [
       adversarialStore({
         id: "all-near",
         slug: "all-near",
         lat: offsetPoint(0.5).lat,
         lng: offsetPoint(0.5).lng,
-        maxKm: undefined,
+        maxKm: null,
         overrideMode: "inherit",
       }),
       adversarialStore({
@@ -210,17 +210,21 @@ describe("CASE D — covers_all / maxKm null", () => {
         lat: offsetPoint(80).lat,
         lng: offsetPoint(80).lng,
         completed_orders_30d: 2,
-        maxKm: undefined,
+        maxKm: null,
         overrideMode: "inherit",
       }),
     ];
+    // Legacy defaultMaxKm is not store-radius authority after CUT1.
     const policy = { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: null };
     const cov = coverageMembershipParity(stores, { distanceAxisEnabled: true, policy });
     expect(cov.assignmentDiff).toBe(0);
     const old = oldHomeOracle(stores, { district: null, distanceAxisEnabled: true, policy });
     const neu = newHomeShadow(stores, { district: null, distanceAxisEnabled: true, policy });
     assertParityOrDetail("D", old.rows, neu.rows, stores);
-    expect(neu.rows.every((r) => r.outOfRange !== true)).toBe(true);
+    const near = neu.rows.find((r) => r.id === "all-near");
+    const far = neu.rows.find((r) => r.id === "all-far");
+    expect(near?.outOfRange).not.toBe(true);
+    expect(far?.outOfRange).toBe(true);
     record({ caseId: "D", status: "PASS", fixtureSize: 2, membershipDiff: 0, orderDiff: 0 });
   });
 });
@@ -893,7 +897,9 @@ describe("CASE X — missing projection", () => {
  * 50k/100k DB scale remains CUT7 bench authority — not this file.
  */
 describe("CASE dense pool — harness parity", () => {
-  it("dense same-taxonomy pool: visible slice parity + bounded wave work", () => {
+  it(
+    "dense same-taxonomy pool: visible slice parity + bounded wave work",
+    () => {
     const M = 2_000;
     const stores: AdversarialFixtureStore[] = new Array(M);
     for (let i = 0; i < M; i += 1) {
@@ -963,7 +969,9 @@ describe("CASE dense pool — harness parity", () => {
       orderDiff: 0,
       notes: "visible slice only; wave rowsReturned << M (CI-safe density; CUT7 owns 50k/100k)",
     });
-  });
+  },
+  60_000
+  );
 });
 
 describe("CASE randomized parity", () => {

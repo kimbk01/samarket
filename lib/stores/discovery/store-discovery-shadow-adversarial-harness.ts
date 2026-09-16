@@ -56,7 +56,7 @@ export type AdversarialFixtureStore = {
   completed_orders_30d: number;
   lat: number | null;
   lng: number | null;
-  /** undefined = inherit global; null = covers_all when enabled */
+  /** undefined = harness default (5); null = unconfigured column → effective 10 (CUT1). */
   maxKm?: number | null;
   overrideMode?: "inherit" | "enabled" | "disabled";
   /** When true, omit coverage projection on NEW (CASE X) */
@@ -223,6 +223,8 @@ function toShadowCandidate(
       storeId: s.id,
       lat: s.lat,
       lng: s.lng,
+      /** CUT1 — same SSOT as evaluateDeliveryServiceability in old oracle */
+      deliveryRadiusKm: s.maxKm ?? null,
       policy: opts.policy,
       overrides: opts.overrides,
       policyVersion: 1,

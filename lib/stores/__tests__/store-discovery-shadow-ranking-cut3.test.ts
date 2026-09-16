@@ -489,7 +489,8 @@ describe("coverage eligibility parity G0/G2", () => {
         policy,
         overrides: DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
         storeId: "s1",
-        storeDeliveryRadiusKm: null,
+        /** CUT1: boundary is stores.delivery_radius_km (5), not legacy defaultMaxKm */
+        storeDeliveryRadiusKm: 5,
       customerLat: storeLat,
         customerLng,
         storeLat,
