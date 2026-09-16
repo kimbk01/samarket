@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   resolveCanonicalNavIndex,
   routeTransitionClassForKind,
@@ -80,7 +80,7 @@ describe("computeRouteTransitionEnterKind", () => {
     ).toBe("subtle");
   });
 
-  it("market list to trade post detail uses rtl-forward", () => {
+  it("market list to trade post detail uses rtl-forward without card origin", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
       popstateBack: false,
@@ -90,6 +90,33 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(lastForwardAxisRef.current).toBe("rtl");
     expect(routeTransitionClassForKind(k)).toBe("main-shell-route-enter-rtl-forward");
     expect(routeTransitionPushAxisForKind(k)).toBe("rtl");
+  });
+
+  it("market list to trade post detail uses none when card-origin geometry is active", async () => {
+    const { captureTradeMarketCardOriginExpand, clearTradeMarketCardOriginExpand } = await import(
+      "@/lib/trade/marketplace/trade-market-card-origin-expand"
+    );
+    clearTradeMarketCardOriginExpand();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    );
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("innerHeight", 844);
+    const el = {
+      getBoundingClientRect: () => ({ left: 40, top: 300, width: 150, height: 180, right: 190, bottom: 480 }),
+    } as unknown as HTMLElement;
+    captureTradeMarketCardOriginExpand({ listingId: "abc-1", cardEl: el });
+
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("none");
+    expect(routeTransitionClassForKind(k)).toBeNull();
+    expect(routeTransitionPushAxisForKind(k)).toBeNull();
+    clearTradeMarketCardOriginExpand();
   });
 
   it("trade post detail back to market list uses ltr-back", () => {

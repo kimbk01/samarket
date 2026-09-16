@@ -2,14 +2,14 @@
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { prepareTradeMarketListToDetailNavigation } from "@/lib/trade/location/trade-market-list-scroll-restore";
+import { captureTradeMarketCardOriginExpand } from "@/lib/trade/marketplace/trade-market-card-origin-expand";
 
 /**
- * List→detail click prep only.
+ * List→detail click prep only (scroll restore + card-origin geometry).
  *
- * Navigation owner: native `<Link href=/post/:id>` + canonical `AppRouteTransition`
- * (marketplaceDetailStackDepth → rtl-forward). Card-level document View Transitions API
- * plus preventDefault plus manual router push is forbidden — it aborted the detail RSC and
- * left the URL on `/market` (Production Android CDP diagnostic CURRENT_VT FAIL / VT_BYPASS PASS).
+ * Navigation owner: native `<Link href=/post/:id>` + App Router.
+ * Visual owner: card-origin expand continuity (separate from navigation).
+ * FORBIDDEN: preventDefault, document View Transitions as nav owner, manual router.push.
  */
 export function clearTradeMarketCardDetailNavigationMarkers(): void {
   if (typeof document === "undefined") return;
@@ -20,7 +20,7 @@ export function clearTradeMarketCardDetailNavigationMarkers(): void {
 }
 
 /**
- * Save scroll + selected listing for back-restore.
+ * Save scroll + selected listing + optional card geometry for expand continuity.
  * Always returns false — caller must NOT preventDefault; `<Link>` owns navigation.
  */
 export function handleTradeMarketCardDetailClick(input: {
@@ -30,9 +30,15 @@ export function handleTradeMarketCardDetailClick(input: {
   routeKey: string;
   cardEl: HTMLElement | null;
   router: AppRouterInstance;
+  imageUrl?: string | null;
 }): boolean {
-  const { postId, routeKey } = input;
+  const { postId, routeKey, cardEl, imageUrl } = input;
   prepareTradeMarketListToDetailNavigation({ routeKey, postId });
+  captureTradeMarketCardOriginExpand({
+    listingId: postId,
+    cardEl,
+    imageUrl: imageUrl ?? null,
+  });
   clearTradeMarketCardDetailNavigationMarkers();
   return false;
 }

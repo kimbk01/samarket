@@ -33,10 +33,11 @@ describe("trade-market-card-detail-nav", () => {
     expect(push).not.toHaveBeenCalled();
 
     const src = fs.readFileSync("lib/trade/location/trade-market-card-detail-nav.ts", "utf8");
-    // Executable body must not reintroduce card VT ownership.
+    // Executable body must not reintroduce card VT / nav ownership.
     expect(src).not.toMatch(/document\.startViewTransition/);
     expect(src).not.toMatch(/router\.push\s*\(/);
     expect(src).not.toMatch(/event\.preventDefault\s*\(/);
+    expect(src).toContain("captureTradeMarketCardOriginExpand");
   });
 
   it("PostCard still wires the helper without owning a second navigator", () => {

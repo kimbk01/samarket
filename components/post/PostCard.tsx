@@ -247,6 +247,7 @@ export const PostCard = memo(function PostCard({
             routeKey,
             cardEl: cardRootRef.current,
             router,
+            imageUrl: hasUsableThumbnail ? thumbnailFetchUrl || thumbnailUrl || null : null,
           });
         }}
         className="flex min-w-0 flex-col"

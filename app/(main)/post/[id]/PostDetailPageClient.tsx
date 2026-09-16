@@ -120,6 +120,15 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
   }, [id]);
 
   useEffect(() => {
+    const productId = id?.trim();
+    if (!productId) return;
+    // Detail ready — drop card-origin continuity state (loading shell already unmounted).
+    void import("@/lib/trade/marketplace/trade-market-card-origin-expand").then((m) => {
+      m.consumeTradeMarketCardOriginExpandForPostId(productId);
+    });
+  }, [id]);
+
+  useEffect(() => {
     setPost(initialBundle.item);
     // RSC가 매번 새 객체 참조를 넘겨도 본문 동기화는 id·상태 필드가 바뀔 때만
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBundle.item 참조만 바뀌는 경우 setState 생략

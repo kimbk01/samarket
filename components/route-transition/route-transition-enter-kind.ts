@@ -27,6 +27,10 @@ import {
   marketplaceDetailStackDepth,
 } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
 import {
+  hasActiveTradeMarketCardOriginForPostId,
+  tradePostIdFromPath,
+} from "@/lib/trade/marketplace/trade-market-card-origin-expand";
+import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
@@ -208,8 +212,16 @@ export function computeRouteTransitionEnterKind(
     } else if (opts.popstateBack) {
       kind = dNext < dPrev ? "ltr-back" : "rtl-back";
     } else if (dNext > dPrev) {
-      kind = "rtl-forward";
-      opts.lastForwardAxisRef.current = "rtl";
+      // Marketplace card-origin expand owns the visual when geometry was captured on tap.
+      // Navigation remains <Link>; suppress generic rtl-forward so it cannot fight expand.
+      const postId = tradePostIdFromPath(nextPath);
+      const cardOriginExpand = Boolean(postId && hasActiveTradeMarketCardOriginForPostId(postId));
+      if (cardOriginExpand) {
+        kind = "none";
+      } else {
+        kind = "rtl-forward";
+        opts.lastForwardAxisRef.current = "rtl";
+      }
     } else {
       kind = "ltr-back";
     }
