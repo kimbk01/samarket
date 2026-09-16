@@ -112,35 +112,7 @@ describe("computeRouteTransitionEnterKind", () => {
     ).toBe("ltr-back");
   });
 
-  it("market list to trade post detail uses rtl-forward without card origin", () => {
-    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
-      popstateBack: false,
-      lastForwardAxisRef,
-    });
-    expect(k).toBe("rtl-forward");
-    expect(lastForwardAxisRef.current).toBe("rtl");
-    expect(routeTransitionClassForKind(k)).toBe("main-shell-route-enter-rtl-forward");
-    expect(routeTransitionPushAxisForKind(k)).toBe("rtl");
-  });
-
-  it("market list to trade post detail uses none when card morph is active", async () => {
-    const { armTradeMarketCardMorphForward, clearTradeMarketCardMorph } = await import(
-      "@/lib/trade/marketplace/trade-market-card-morph"
-    );
-    clearTradeMarketCardMorph();
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
-    );
-    vi.stubGlobal("innerWidth", 390);
-    vi.stubGlobal("innerHeight", 844);
-    const el = {
-      getBoundingClientRect: () => ({ left: 40, top: 300, width: 150, height: 180, right: 190, bottom: 480 }),
-      querySelector: () => null,
-    } as unknown as HTMLElement;
-    armTradeMarketCardMorphForward({ listingId: "abc-1", cardEl: el });
-
+  it("market list to trade post detail uses none (no shell slide; morph engine removed)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
       popstateBack: false,
@@ -149,25 +121,24 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("none");
     expect(routeTransitionClassForKind(k)).toBeNull();
     expect(routeTransitionPushAxisForKind(k)).toBeNull();
-    clearTradeMarketCardMorph();
   });
 
-  it("trade post detail back to market list uses ltr-back", () => {
+  it("trade post detail back to market list uses none (no shell slide)", () => {
     const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/post/abc-1", "/market", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("ltr-back");
+    expect(k).toBe("none");
   });
 
-  it("mypage products list to trade post detail uses rtl-forward not seller-hub ltr-back", () => {
+  it("mypage products list to trade post detail uses none not seller-hub ltr-back", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/mypage/products", "/post/abc-1", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("rtl-forward");
+    expect(k).toBe("none");
   });
 
   it("popstate after rtl-forward uses ltr-back", () => {

@@ -2,13 +2,13 @@
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { prepareTradeMarketListToDetailNavigation } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { armTradeMarketCardMorphForward } from "@/lib/trade/marketplace/trade-market-card-morph";
+import { armTradeMarketProductCompositionForward } from "@/lib/trade/marketplace/trade-market-product-composition";
 
 /**
- * List→detail click prep only (scroll DATA + morph arm).
+ * List→detail click prep (scroll DATA + product-composition arm).
  *
  * Navigation owner: native `<Link href=/post/:id>` + App Router.
- * Visual owner: MarketCardMorphHost (single coordinator).
+ * Presentation owner: TradeMarketProductCompositionHost.
  * FORBIDDEN: preventDefault, View Transitions as nav owner, manual router.push.
  */
 export function clearTradeMarketCardDetailNavigationMarkers(): void {
@@ -20,7 +20,7 @@ export function clearTradeMarketCardDetailNavigationMarkers(): void {
 }
 
 /**
- * Save scroll + selected listing + arm morph coordinator.
+ * Save scroll + selected listing + arm product composition.
  * Always returns false — caller must NOT preventDefault; `<Link>` owns navigation.
  */
 export function handleTradeMarketCardDetailClick(input: {
@@ -37,7 +37,7 @@ export function handleTradeMarketCardDetailClick(input: {
 }): boolean {
   const { postId, routeKey, cardEl, imageUrl, priceText, titleText, locationText } = input;
   prepareTradeMarketListToDetailNavigation({ routeKey, postId });
-  armTradeMarketCardMorphForward({
+  armTradeMarketProductCompositionForward({
     listingId: postId,
     cardEl,
     imageUrl: imageUrl ?? null,

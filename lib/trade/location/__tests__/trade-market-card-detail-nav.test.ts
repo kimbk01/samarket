@@ -37,7 +37,9 @@ describe("trade-market-card-detail-nav", () => {
     expect(src).not.toMatch(/document\.startViewTransition/);
     expect(src).not.toMatch(/router\.push\s*\(/);
     expect(src).not.toMatch(/event\.preventDefault\s*\(/);
-    expect(src).toContain("armTradeMarketCardMorphForward");
+    expect(src).toContain("armTradeMarketProductCompositionForward");
+    expect(src).not.toMatch(/trade-market-card-morph/);
+    expect(src).not.toContain("armTradeMarketCardMorphForward");
   });
 
   it("PostCard still wires the helper without owning a second navigator", () => {

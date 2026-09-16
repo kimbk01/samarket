@@ -1,6 +1,6 @@
 /**
  * Marketplace list↔detail visual hooks.
- * Card→detail morph is owned by `MarketCardMorphHost` (single coordinator).
+ * Product composition cover + selected-return outline.
  */
 
 .market-listing-card[data-market-selected-return="1"] {
@@ -9,15 +9,14 @@
   border-radius: var(--sam-radius-sm, 8px);
 }
 
-/* Real detail stays invisible while morph cover owns perception. */
-[data-market-morph-detail-cover="1"] {
+/* Real detail stays invisible while composition cover owns perception. */
+[data-trade-product-composition-detail-cover="1"] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-market-card-morph-image="1"],
-  [data-market-card-morph-semantic] {
+  [data-trade-product-composition-slot] {
     transition: none !important;
   }
 }

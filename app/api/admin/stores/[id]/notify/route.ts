@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/stores/[storeId]/notify
+ * POST /api/admin/stores/[id]/notify
  * Store-scoped Admin → Owner operational notice.
  * Recipient derived from stores.owner_user_id only (no client owner id).
  */
@@ -22,13 +22,13 @@ type Body = {
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ storeId: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
-  const { storeId } = await context.params;
-  const sid = typeof storeId === "string" ? storeId.trim() : "";
+  const { id } = await context.params;
+  const sid = typeof id === "string" ? id.trim() : "";
   if (!sid) {
     return NextResponse.json({ ok: false, error: "missing_store_id" }, { status: 400 });
   }

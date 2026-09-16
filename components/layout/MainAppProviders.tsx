@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
 import { StoresCategoryLifecycleBridge } from "@/components/stores/StoresCategoryLifecycleBridge";
-import { MarketCardMorphHost } from "@/components/trade/MarketCardMorphHost";
+import { TradeMarketProductCompositionHost } from "@/components/trade/TradeMarketProductCompositionHost";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -37,7 +37,7 @@ export function MainAppProviders({
       initialTradeTabCategories={initialTradeTabCategories}
     >
       <StoresCategoryLifecycleBridge />
-      <MarketCardMorphHost />
+      <TradeMarketProductCompositionHost />
       {children}
     </MainAppProviderTree>
   );

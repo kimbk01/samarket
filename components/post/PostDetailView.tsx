@@ -10,13 +10,13 @@ import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import {
-  armTradeMarketCardMorphBack,
-  isTradeMarketCardMorphCoveringDetail,
-  measureTradeMarketDetailMorphTargets,
-  publishTradeMarketDetailStandingSnapshot,
-  publishTradeMarketMorphTargetGeometry,
-  subscribeTradeMarketCardMorph,
-} from "@/lib/trade/marketplace/trade-market-card-morph";
+  armTradeMarketProductCompositionBack,
+  isTradeMarketProductCompositionCoveringDetail,
+  measureDetailComposition,
+  publishTradeMarketProductCompositionStanding,
+  publishTradeMarketProductCompositionTargets,
+  subscribeTradeMarketProductComposition,
+} from "@/lib/trade/marketplace/trade-market-product-composition";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getUserProfile } from "@/lib/users/getUserProfile";
@@ -469,13 +469,15 @@ export function PostDetailView({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const tradeDetailHeaderTitle = category?.name?.trim() || t("trade_detail_header_fallback");
-  const [morphCover, setMorphCover] = useState(() => isTradeMarketCardMorphCoveringDetail(post.id));
-  const armMorphBackRef = useRef<() => boolean>(() => false);
+  const [compositionCover, setCompositionCover] = useState(() =>
+    isTradeMarketProductCompositionCoveringDetail(post.id)
+  );
+  const armCompositionBackRef = useRef<() => boolean>(() => false);
 
   useEffect(() => {
-    setMorphCover(isTradeMarketCardMorphCoveringDetail(post.id));
-    return subscribeTradeMarketCardMorph(() => {
-      setMorphCover(isTradeMarketCardMorphCoveringDetail(post.id));
+    setCompositionCover(isTradeMarketProductCompositionCoveringDetail(post.id));
+    return subscribeTradeMarketProductComposition(() => {
+      setCompositionCover(isTradeMarketProductCompositionCoveringDetail(post.id));
     });
   }, [post.id]);
 
@@ -491,7 +493,7 @@ export function PostDetailView({
           leftSlot: (
             <AppBackButton
               onBack={() => {
-                armMorphBackRef.current();
+                armCompositionBackRef.current();
                 tradePostDetailSlideHost.closeSlide();
               }}
               ariaLabelKey="tier1_back"
@@ -515,7 +517,7 @@ export function PostDetailView({
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
-            interceptBack={() => armMorphBackRef.current()}
+            interceptBack={() => armCompositionBackRef.current()}
             ariaLabel={t("trade_detail_back_to_list")}
             className="text-[#111]"
           />
@@ -1201,12 +1203,12 @@ export function PostDetailView({
       ? reHeroTitle
       : post.title ?? "";
 
-  const morphPriceText = post.is_free_share
+  const compositionPriceText = post.is_free_share
     ? t("trade_detail_free_share")
     : post.price != null
       ? formatPrice(post.price, defaultCurrency)
       : "";
-  const morphLocationText =
+  const compositionLocationText =
     resolveTradePostListingLocationLine(
       (post.meta as Record<string, unknown>) ?? null,
       post.region,
@@ -1215,14 +1217,15 @@ export function PostDetailView({
     ) || "";
 
   useLayoutEffect(() => {
-    if (!morphCover) return;
+    if (!compositionCover) return;
     const publish = () => {
-      const measured = measureTradeMarketDetailMorphTargets(rootRef.current);
-      publishTradeMarketMorphTargetGeometry({
+      const measured = measureDetailComposition(rootRef.current);
+      publishTradeMarketProductCompositionTargets({
         listingId: post.id,
-        heroRect: measured.heroRect,
-        contentRect: measured.contentRect,
-        fields: measured.fields,
+        mediaRect: measured.mediaRect,
+        priceRect: measured.priceRect,
+        titleRect: measured.titleRect,
+        metaRect: measured.metaRect,
       });
     };
     publish();
@@ -1234,17 +1237,17 @@ export function PostDetailView({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [morphCover, post.id, detailImageUrls.length]);
+  }, [compositionCover, post.id, detailImageUrls.length]);
 
   useEffect(() => {
-    armMorphBackRef.current = () => {
-      armTradeMarketCardMorphBack({
+    armCompositionBackRef.current = () => {
+      armTradeMarketProductCompositionBack({
         listingId: post.id,
         rootEl: rootRef.current,
         imageUrl: detailImageUrls[0] ?? null,
-        priceText: morphPriceText,
+        priceText: compositionPriceText,
         titleText: detailHeroTitle || post.title || "",
-        locationText: morphLocationText,
+        locationText: compositionLocationText,
         listRouteKey: backHref || "/market",
       });
       return false;
@@ -1253,22 +1256,22 @@ export function PostDetailView({
     post.id,
     post.title,
     detailImageUrls,
-    morphPriceText,
-    morphLocationText,
+    compositionPriceText,
+    compositionLocationText,
     detailHeroTitle,
     backHref,
   ]);
 
   useEffect(() => {
-    if (morphCover) return;
+    if (compositionCover) return;
     const publish = () => {
-      publishTradeMarketDetailStandingSnapshot({
+      publishTradeMarketProductCompositionStanding({
         listingId: post.id,
         rootEl: rootRef.current,
         imageUrl: detailImageUrls[0] ?? null,
-        priceText: morphPriceText,
+        priceText: compositionPriceText,
         titleText: detailHeroTitle || post.title || "",
-        locationText: morphLocationText,
+        locationText: compositionLocationText,
         listRouteKey: backHref || "/market",
       });
     };
@@ -1281,12 +1284,12 @@ export function PostDetailView({
       window.clearInterval(iv);
     };
   }, [
-    morphCover,
+    compositionCover,
     post.id,
     post.title,
     detailImageUrls,
-    morphPriceText,
-    morphLocationText,
+    compositionPriceText,
+    compositionLocationText,
     detailHeroTitle,
     backHref,
   ]);
@@ -1317,8 +1320,8 @@ export function PostDetailView({
   return (
     <div
       ref={rootRef}
-      data-market-morph-detail-root="1"
-      data-market-morph-detail-cover={morphCover ? "1" : undefined}
+      data-trade-product-composition-detail-root="1"
+      data-trade-product-composition-detail-cover={compositionCover ? "1" : undefined}
       className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]"
     >
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>

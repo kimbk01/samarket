@@ -24,11 +24,7 @@ import {
 import {
   isMarketplaceListSurfacePath,
   isTradePostDetailPath,
-  marketplaceDetailStackDepth,
 } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
-import {
-  isTradeMarketCardMorphSuppressingRouteEnter,
-} from "@/lib/trade/marketplace/trade-market-card-morph";
 import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
@@ -204,21 +200,13 @@ export function computeRouteTransitionEnterKind(
     (isTradePostDetailPath(prevPath) && isMarketplaceListSurfacePath(nextPath)) ||
     (isTradePostDetailPath(prevPath) && isTradePostDetailPath(nextPath))
   ) {
-    const dPrev = marketplaceDetailStackDepth(prevPath);
-    const dNext = marketplaceDetailStackDepth(nextPath);
     if (isTradePostDetailPath(prevPath) && isTradePostDetailPath(nextPath) && prevPath !== nextPath) {
       kind = opts.popstateBack ? "ltr-back" : "rtl-forward";
       if (!opts.popstateBack) opts.lastForwardAxisRef.current = "rtl";
-    } else if (isTradeMarketCardMorphSuppressingRouteEnter()) {
-      // Single morph coordinator owns list↔detail presentation (forward + back).
-      kind = "none";
-    } else if (opts.popstateBack) {
-      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
-    } else if (dNext > dPrev) {
-      kind = "rtl-forward";
-      opts.lastForwardAxisRef.current = "rtl";
     } else {
-      kind = "ltr-back";
+      // Marketplace list↔detail: no shell route-slide (failed morph engine removed;
+      // neutral baseline / future composition engine owns presentation, not AppRouteTransition).
+      kind = "none";
     }
   } else if (isMarketplaceSellerHubPath(prevPath) || isMarketplaceSellerHubPath(nextPath)) {
     const dPrev = marketplaceSellerHubDepth(prevPath);

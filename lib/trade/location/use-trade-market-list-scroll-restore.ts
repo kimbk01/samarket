@@ -9,7 +9,8 @@ import {
   peekTradeMarketSelectedListing,
   tryRestoreTradeMarketListScroll,
 } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { shouldDeferTradeMarketListScrollRestore } from "@/lib/trade/marketplace/trade-market-card-morph";
+
+import { shouldDeferTradeMarketListScrollRestore } from "@/lib/trade/marketplace/trade-market-product-composition";
 
 let popstateListenerInstalled = false;
 
@@ -29,7 +30,7 @@ function ensureTradeMarketListScrollPopstateListener(): void {
 
 /**
  * Restore /market list scroll after detail back.
- * When morph coordinator owns reverse presentation, defer restore until morph completes.
+ * When product composition owns reverse presentation, defer restore until completion.
  */
 export function useTradeMarketListScrollRestore(routeKey: string, ready: boolean): void {
   useEffect(() => {
@@ -41,10 +42,8 @@ export function useTradeMarketListScrollRestore(routeKey: string, ready: boolean
     if (!ready || typeof window === "undefined") return;
     if (!isTradeMarketListScrollRoute(routeKey)) return;
     if (shouldDeferTradeMarketListScrollRestore(routeKey)) {
-      // Morph host calls tryRestoreTradeMarketListScroll on completion.
       const selectedId = peekTradeMarketSelectedListing(routeKey);
       if (selectedId) {
-        // Outline after morph — schedule lightly after duration.
         window.setTimeout(() => {
           const el = document.querySelector(
             `[data-market-listing-id="${CSS.escape(selectedId)}"]`
