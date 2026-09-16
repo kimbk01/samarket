@@ -44,9 +44,9 @@ import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-botto
 import { prefetchOwnerNavigationSummaryQuiet } from "@/lib/delivery/owner/projections/prefetch-owner-navigation-summary";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import {
-  useOwnerFabOrderChatBadgeCount,
-  useOwnerFabOrdersBadgeCount,
-  useOwnerFabStoreBadgeCount,
+  useOwnerFabOrderChatBadgeCountWhenEnabled,
+  useOwnerFabOrdersBadgeCountWhenEnabled,
+  useOwnerFabStoreBadgeCountWhenEnabled,
 } from "@/lib/chats/use-owner-hub-badge-total";
 
 /**
@@ -103,9 +103,10 @@ export function MainBottomNavFabSector() {
     [pathname, tabs]
   );
   const approvedOwnerStore = useApprovedOwnerStoreForFab();
-  const fabOrdersRaw = useOwnerFabOrdersBadgeCount();
-  const fabStoreRaw = useOwnerFabStoreBadgeCount();
-  const fabOrderChatRaw = useOwnerFabOrderChatBadgeCount();
+  const ownerFabEnabled = Boolean(approvedOwnerStore);
+  const fabOrdersRaw = useOwnerFabOrdersBadgeCountWhenEnabled(ownerFabEnabled);
+  const fabStoreRaw = useOwnerFabStoreBadgeCountWhenEnabled(ownerFabEnabled);
+  const fabOrderChatRaw = useOwnerFabOrderChatBadgeCountWhenEnabled(ownerFabEnabled);
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
   const fabConfig = useMemo(() => {
     if (!fabConfigResolved) return null;

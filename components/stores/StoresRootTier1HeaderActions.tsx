@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
-import { useOwnerHeaderOpsAttentionCount } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerHeaderOpsAttentionCountWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
 import {
@@ -35,7 +35,7 @@ function OrderHistoryIcon({ className }: { className?: string }) {
 export function StoresRootTier1HeaderActions() {
   const { t } = useI18n();
   const ownerNav = useOwnerNavigationSummary();
-  const ownerOpsAttentionRaw = useOwnerHeaderOpsAttentionCount();
+  const ownerOpsAttentionRaw = useOwnerHeaderOpsAttentionCountWhenEnabled(ownerNav.hasPreferredStore);
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
 
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(

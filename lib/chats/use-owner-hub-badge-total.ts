@@ -115,6 +115,40 @@ export function useOwnerHeaderOpsAttentionCount(): number {
   );
 }
 
+/** Customer Delivery HOME must not subscribe — Owner UI only. */
+export function useOwnerHeaderOpsAttentionCountWhenEnabled(enabled: boolean): number {
+  return useSyncExternalStore(
+    enabled ? subscribeOwnerHubBadge : () => () => {},
+    enabled ? getOwnerHeaderOpsAttentionSnapshot : () => 0,
+    () => 0
+  );
+}
+
+/** FAB Owner axes — subscribe only when an approved owner store is mounted/needed. */
+export function useOwnerFabOrdersBadgeCountWhenEnabled(enabled: boolean): number {
+  return useSyncExternalStore(
+    enabled ? subscribeOwnerHubBadge : () => () => {},
+    enabled ? getOwnerFabOrdersBadgeSnapshot : () => 0,
+    () => 0
+  );
+}
+
+export function useOwnerFabStoreBadgeCountWhenEnabled(enabled: boolean): number {
+  return useSyncExternalStore(
+    enabled ? subscribeOwnerHubBadge : () => () => {},
+    enabled ? getOwnerFabStoreBadgeSnapshot : () => 0,
+    () => 0
+  );
+}
+
+export function useOwnerFabOrderChatBadgeCountWhenEnabled(enabled: boolean): number {
+  return useSyncExternalStore(
+    enabled ? subscribeOwnerHubBadge : () => () => {},
+    enabled ? getOwnerFabOrderChatBadgeSnapshot : () => 0,
+    () => 0
+  );
+}
+
 function tabUnreadFromBreakdown(
   icon: BottomNavIconKey,
   s: OwnerHubBadgeBreakdown,
