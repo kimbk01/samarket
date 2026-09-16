@@ -13,12 +13,17 @@ import { usePathname } from "next/navigation";
 import {
   TRADE_MARKET_COMPOSITION_DURATION_MS,
   armTradeMarketProductCompositionBackFromStandingIfNeeded,
+  bindTradeMarketReverseLiveDestinationTargets,
   canAcquireTradeMarketCompositionPerceptualOwnership,
   clearTradeMarketProductCompositionIfGeneration,
   clearTradeMarketProductCompositionStanding,
+  findTradeMarketListDestinationCard,
   isTradeMarketCompositionMediaOwnershipValid,
+  isTradeMarketReverseDestinationDocked,
+  measureListComposition,
   peekTradeMarketProductComposition,
   peekTradeMarketProductCompositionStanding,
+  readTradeMarketCompositionRect,
   subscribeTradeMarketProductComposition,
   takeDeferredTradeMarketListScrollRouteKey,
   tradePostIdFromPath,
@@ -144,6 +149,11 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
   const priceRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLDivElement | null>(null);
   const metaRef = useRef<HTMLDivElement | null>(null);
+  const portalRootRef = useRef<HTMLDivElement | null>(null);
+  const coverRef = useRef<HTMLDivElement | null>(null);
+  const hiddenDestinationRef = useRef<HTMLElement | null>(null);
+  const reverseDockReadyRef = useRef(false);
+  const reverseHandoffFrameRef = useRef(false);
 
   // Freeze source identity for this generation; targets may silent-patch.
   const frozen = useRef({
@@ -160,6 +170,25 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
   // IMAGE product: HOLD perceptual ownership until media decode/paint-ready.
   // During HOLD the portal is not mounted → real detail remains the sole owner (closes rev-t000 gap).
   const [mediaPaintReady, setMediaPaintReady] = useState(mediaContract !== "present");
+  // Reverse: once live list destination card exists, drop full-screen cover (D4).
+  const [reverseListDockReady, setReverseListDockReady] = useState(false);
+
+  const restoreDestinationCard = () => {
+    const card = hiddenDestinationRef.current;
+    if (!card) return;
+    card.style.visibility = "";
+    card.removeAttribute("data-trade-product-composition-destination-hidden");
+    hiddenDestinationRef.current = null;
+  };
+
+  const hideDestinationCard = (card: HTMLElement) => {
+    if (hiddenDestinationRef.current === card) return;
+    restoreDestinationCard();
+    hiddenDestinationRef.current = card;
+    card.setAttribute("data-trade-product-composition-destination-hidden", "1");
+    // Hide only the destination card so the grid can own the screen without duplicate product.
+    card.style.visibility = "hidden";
+  };
 
   useLayoutEffect(() => {
     if (mediaContract !== "present" || !frozen.media?.url) {
@@ -225,6 +254,10 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       if (ended) return;
       ended = true;
       if (raf) cancelAnimationFrame(raf);
+      // Atomic handoff: hide transition portal in this frame, reveal destination card, then clear session.
+      const portal = portalRootRef.current;
+      if (portal) portal.style.display = "none";
+      restoreDestinationCard();
       if (direction === "back") {
         const routeKey = takeDeferredTradeMarketListScrollRouteKey() || session.listRouteKey;
         if (routeKey) tryRestoreTradeMarketListScroll(routeKey);
@@ -241,6 +274,37 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     const readLive = () => {
       const live = peekTradeMarketProductComposition();
       return live && live.generation === generation ? live : session;
+    };
+
+    const syncReverseDestination = () => {
+      if (direction !== "back") return null;
+      if (!isMarketplaceListSurfacePath(typeof window !== "undefined" ? window.location.pathname : "")) {
+        return null;
+      }
+      const card = findTradeMarketListDestinationCard(listingId);
+      if (!card) return null;
+      const measured = measureListComposition(card);
+      const hasLiveGeometry = Boolean(
+        (measured.mediaRect && measured.mediaRect.width > 8 && measured.mediaRect.height > 8) ||
+          (measured.priceRect && measured.priceRect.width > 8) ||
+          (measured.titleRect && measured.titleRect.width > 8)
+      );
+      // Live list card is authority when measurable; otherwise keep remembered targets.
+      if (hasLiveGeometry) {
+        bindTradeMarketReverseLiveDestinationTargets({
+          listingId,
+          mediaRect: measured.mediaRect,
+          priceRect: measured.priceRect,
+          titleRect: measured.titleRect,
+          metaRect: measured.metaRect,
+        });
+      }
+      hideDestinationCard(card);
+      // Imperative cover drop — setState alone can land after finish() (D4/D5).
+      reverseDockReadyRef.current = true;
+      if (coverRef.current) coverRef.current.style.display = "none";
+      setReverseListDockReady(true);
+      return card;
     };
 
     const paint = (pRaw: number) => {
@@ -302,23 +366,75 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       }
     };
 
+    const destinationHandoffReady = () => {
+      if (direction !== "back") return routeReady();
+      if (!routeReady()) return false;
+      const card = syncReverseDestination();
+      if (!card) return false;
+      const measured = measureListComposition(card);
+      const liveMedia = measured.mediaRect;
+      const livePrice = measured.priceRect;
+      const liveTitle = measured.titleRect;
+      const compositionMedia = readTradeMarketCompositionRect(mediaRef.current);
+      const compositionPrice = readTradeMarketCompositionRect(priceRef.current);
+      const compositionTitle = readTradeMarketCompositionRect(titleRef.current);
+      return isTradeMarketReverseDestinationDocked({
+        compositionMedia,
+        compositionPrice,
+        compositionTitle,
+        liveMedia,
+        livePrice,
+        liveTitle,
+      });
+    };
+
     paint(0);
+    if (direction === "back") {
+      reverseDockReadyRef.current = false;
+      reverseHandoffFrameRef.current = false;
+      syncReverseDestination();
+      paint(0);
+    }
+
+    const canFinish = () => {
+      if (direction !== "back") return destinationHandoffReady();
+      if (!reverseDockReadyRef.current || !reverseHandoffFrameRef.current) return false;
+      return destinationHandoffReady();
+    };
 
     const tick = (now: number) => {
       if (ended) return;
       const p = Math.min(1, (now - start) / TRADE_MARKET_COMPOSITION_DURATION_MS);
-      paint(p);
+      if (direction === "back") {
+        const wasDocked = reverseDockReadyRef.current;
+        syncReverseDestination();
+        paint(p);
+        // After cover drops, keep ≥1 additional painted handoff frame before finish (D5).
+        if (reverseDockReadyRef.current) {
+          if (wasDocked) reverseHandoffFrameRef.current = true;
+        }
+      } else {
+        paint(p);
+      }
       if (p < 1) {
         raf = requestAnimationFrame(tick);
         return;
       }
-      if (routeReady()) {
+      if (canFinish()) {
         finish();
         return;
       }
+      // Hold at p=1 until reverse destination ownership is ready (or force-end).
       poll = window.setInterval(() => {
-        paint(1);
-        if (routeReady()) {
+        if (direction === "back") {
+          const wasDocked = reverseDockReadyRef.current;
+          syncReverseDestination();
+          paint(1);
+          if (reverseDockReadyRef.current && wasDocked) reverseHandoffFrameRef.current = true;
+        } else {
+          paint(1);
+        }
+        if (canFinish()) {
           if (poll != null) window.clearInterval(poll);
           poll = null;
           finish();
@@ -328,7 +444,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         if (poll != null) window.clearInterval(poll);
         poll = null;
         finish();
-      }, 2_000);
+      }, direction === "back" ? 4_000 : 2_000);
     };
 
     raf = requestAnimationFrame(tick);
@@ -337,6 +453,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       if (raf) cancelAnimationFrame(raf);
       if (poll != null) window.clearInterval(poll);
       if (forceEnd != null) window.clearTimeout(forceEnd);
+      restoreDestinationCard();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped single clock after paint-ready
   }, [session.generation, mediaPaintReady]);
@@ -352,8 +469,12 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     return null;
   }
 
+  const showCover =
+    session.direction === "forward" || (session.direction === "back" && !reverseListDockReady);
+
   return (
     <div
+      ref={portalRootRef}
       className="pointer-events-none fixed inset-0 z-[60]"
       data-trade-product-composition="1"
       data-trade-product-composition-direction={session.direction}
@@ -363,9 +484,16 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       data-trade-product-composition-mode={mediaContract === "present" ? "with-media" : "content-only"}
       data-trade-product-composition-media-contract={mediaContract}
       data-trade-product-composition-media-paint-ready="1"
+      data-trade-product-composition-destination-dock={reverseListDockReady ? "1" : "0"}
       aria-hidden
     >
-      <div className="absolute inset-0 bg-sam-app" data-trade-product-composition-cover="1" />
+      {showCover ? (
+        <div
+          ref={coverRef}
+          className="absolute inset-0 bg-sam-app"
+          data-trade-product-composition-cover="1"
+        />
+      ) : null}
 
       {frozen.media ? (
         <div

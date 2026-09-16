@@ -324,6 +324,53 @@ export function measureListComposition(cardEl: HTMLElement | null): {
   };
 }
 
+/** Live list card for reverse destination docking (same listing). */
+export function findTradeMarketListDestinationCard(listingId: string): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  const id = listingId.trim();
+  if (!id) return null;
+  const href = `/post/${id}`;
+  const exact = document.querySelectorAll(`a[href="${href}"]`);
+  const loose =
+    exact.length > 0 ? exact : document.querySelectorAll(`a[href^="${href}"]`);
+  for (const a of loose) {
+    const card =
+      (a.closest("[data-market-listing-card='1']") as HTMLElement | null) || null;
+    if (card) return card;
+  }
+  return null;
+}
+
+/**
+ * Reverse destination is docked when composition rect ≈ live list media/text geometry.
+ * Used to gate cover release + sole-owner handoff (D4).
+ */
+export function isTradeMarketReverseDestinationDocked(input: {
+  compositionMedia: TradeMarketCompositionRect | null;
+  compositionPrice: TradeMarketCompositionRect | null;
+  compositionTitle: TradeMarketCompositionRect | null;
+  liveMedia: TradeMarketCompositionRect | null;
+  livePrice: TradeMarketCompositionRect | null;
+  liveTitle: TradeMarketCompositionRect | null;
+}): boolean {
+  const near = (a: TradeMarketCompositionRect | null, b: TradeMarketCompositionRect | null) => {
+    if (!a || !b) return !a && !b;
+    return (
+      Math.abs(a.x - b.x) <= 3 &&
+      Math.abs(a.y - b.y) <= 3 &&
+      Math.abs(a.width - b.width) <= 4 &&
+      Math.abs(a.height - b.height) <= 4
+    );
+  };
+  // Prefer media when present; otherwise text slots.
+  if (input.liveMedia || input.compositionMedia) {
+    return near(input.compositionMedia, input.liveMedia);
+  }
+  return (
+    near(input.compositionPrice, input.livePrice) && near(input.compositionTitle, input.liveTitle)
+  );
+}
+
 export function measureDetailComposition(root: HTMLElement | null): {
   mediaRect: TradeMarketCompositionRect | null;
   priceRect: TradeMarketCompositionRect | null;
@@ -345,6 +392,42 @@ export function measureDetailComposition(root: HTMLElement | null): {
  * Live target patch while covered. Silent (no notify) — clock must not restart.
  * Rejects text targets inside media. Never invents media when session.media is null.
  */
+/**
+ * Reverse-only: refresh destination targets from the actual mounted list card.
+ * Does not restart the clock, change generation, or notify remount — paint() peeks each frame.
+ */
+export function bindTradeMarketReverseLiveDestinationTargets(input: {
+  listingId: string;
+  mediaRect: TradeMarketCompositionRect | null;
+  priceRect: TradeMarketCompositionRect | null;
+  titleRect: TradeMarketCompositionRect | null;
+  metaRect: TradeMarketCompositionRect | null;
+}): void {
+  const session = peekTradeMarketProductComposition();
+  if (!session || session.listingId !== input.listingId.trim()) return;
+  if (session.direction !== "back") return;
+
+  memory = {
+    ...session,
+    media:
+      session.media && input.mediaRect
+        ? { ...session.media, target: input.mediaRect }
+        : session.media,
+    price:
+      session.price && input.priceRect
+        ? { ...session.price, target: input.priceRect }
+        : session.price,
+    title:
+      session.title && input.titleRect
+        ? { ...session.title, target: input.titleRect }
+        : session.title,
+    meta:
+      session.meta && input.metaRect
+        ? { ...session.meta, target: input.metaRect }
+        : session.meta,
+  };
+}
+
 export function publishTradeMarketProductCompositionTargets(input: {
   listingId: string;
   mediaRect: TradeMarketCompositionRect | null;

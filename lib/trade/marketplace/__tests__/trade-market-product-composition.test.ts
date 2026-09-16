@@ -212,4 +212,86 @@ describe("trade-market-product-composition", () => {
       })
     ).toBe(true);
   });
+
+  it("reverse destination dock: composition ≈ live list geometry", async () => {
+    const { isTradeMarketReverseDestinationDocked } = await import(
+      "@/lib/trade/marketplace/trade-market-product-composition"
+    );
+    expect(
+      isTradeMarketReverseDestinationDocked({
+        compositionMedia: { x: 10, y: 100, width: 180, height: 180 },
+        compositionPrice: null,
+        compositionTitle: null,
+        liveMedia: { x: 10, y: 100, width: 180, height: 180 },
+        livePrice: null,
+        liveTitle: null,
+      })
+    ).toBe(true);
+    expect(
+      isTradeMarketReverseDestinationDocked({
+        compositionMedia: { x: 10, y: 100, width: 180, height: 180 },
+        compositionPrice: null,
+        compositionTitle: null,
+        liveMedia: { x: 40, y: 200, width: 180, height: 180 },
+        livePrice: null,
+        liveTitle: null,
+      })
+    ).toBe(false);
+  });
+
+  it("reverse live bind updates targets without requiring forward publish", async () => {
+    const {
+      armTradeMarketProductCompositionBack,
+      bindTradeMarketReverseLiveDestinationTargets,
+      peekTradeMarketProductComposition,
+    } = await import("@/lib/trade/marketplace/trade-market-product-composition");
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel.includes("photos") || sel.includes("media")) {
+          return {
+            getBoundingClientRect: () => ({
+              left: 0,
+              top: 0,
+              width: 360,
+              height: 360,
+              right: 360,
+              bottom: 360,
+            }),
+          };
+        }
+        if (sel.includes("price")) {
+          return {
+            getBoundingClientRect: () => ({
+              left: 16,
+              top: 370,
+              width: 100,
+              height: 20,
+              right: 116,
+              bottom: 390,
+            }),
+          };
+        }
+        return null;
+      },
+    } as unknown as HTMLElement;
+    const session = armTradeMarketProductCompositionBack({
+      listingId: "dock-bind-1",
+      rootEl: root,
+      imageUrl: "https://example.com/a.jpg",
+      priceText: "₱1",
+      listRouteKey: "/market",
+    });
+    expect(session?.direction).toBe("back");
+    const live = { x: 12, y: 120, width: 181, height: 181 };
+    bindTradeMarketReverseLiveDestinationTargets({
+      listingId: "dock-bind-1",
+      mediaRect: live,
+      priceRect: { x: 12, y: 310, width: 100, height: 18 },
+      titleRect: null,
+      metaRect: null,
+    });
+    const s = peekTradeMarketProductComposition();
+    expect(s?.media?.target).toEqual(live);
+    expect(s?.price?.target).toEqual({ x: 12, y: 310, width: 100, height: 18 });
+  });
 });
