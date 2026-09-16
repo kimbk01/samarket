@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
 import { StoresCategoryLifecycleBridge } from "@/components/stores/StoresCategoryLifecycleBridge";
+import { MarketCardOriginExpandOverlayHost } from "@/components/trade/MarketCardOriginExpandOverlayHost";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -36,6 +37,7 @@ export function MainAppProviders({
       initialTradeTabCategories={initialTradeTabCategories}
     >
       <StoresCategoryLifecycleBridge />
+      <MarketCardOriginExpandOverlayHost />
       {children}
     </MainAppProviderTree>
   );

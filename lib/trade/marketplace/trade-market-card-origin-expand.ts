@@ -23,6 +23,24 @@ const STORAGE_KEY = "samarket:trade-market-card-origin-expand:v1";
 const TTL_MS = 8_000;
 
 let memory: TradeMarketCardOriginExpand | null = null;
+const listeners = new Set<() => void>();
+
+function notifyOriginListeners(): void {
+  for (const fn of listeners) {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function subscribeTradeMarketCardOriginExpand(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 function prefersReducedMotion(): boolean {
   if (typeof globalThis === "undefined") return true;
@@ -68,6 +86,7 @@ function writeStorage(origin: TradeMarketCardOriginExpand | null): void {
 export function clearTradeMarketCardOriginExpand(): void {
   memory = null;
   writeStorage(null);
+  notifyOriginListeners();
 }
 
 export function peekTradeMarketCardOriginExpand(): TradeMarketCardOriginExpand | null {
@@ -150,6 +169,7 @@ export function captureTradeMarketCardOriginExpand(input: {
   };
   memory = origin;
   writeStorage(origin);
+  notifyOriginListeners();
   return origin;
 }
 

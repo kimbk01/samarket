@@ -122,7 +122,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
   useEffect(() => {
     const productId = id?.trim();
     if (!productId) return;
-    // Detail ready — drop card-origin continuity state (loading shell already unmounted).
+    // Detail ready — drop card-origin continuity (overlay + storage).
     void import("@/lib/trade/marketplace/trade-market-card-origin-expand").then((m) => {
       m.consumeTradeMarketCardOriginExpandForPostId(productId);
     });
