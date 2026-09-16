@@ -226,7 +226,7 @@ describe("dibay-back-ssot-cut-1-2", () => {
     expect(ctx.originHref).toBe("/stores");
   });
 
-  it("T9 STALE CONTEXT must not hijack", () => {
+  it("T9 STALE CONTEXT must not hijack — HISTORY unwind to root fallback", () => {
     const ctx = commitDeliveryStoreNavigationEntry({
       storeSlug: "store-a",
       pathname: "/stores",
@@ -245,10 +245,10 @@ describe("dibay-back-ssot-cut-1-2", () => {
       entryContext: stale,
       now: Date.now(),
     });
-    expect(r.action).toBe("PUSH");
-    if (r.action === "PUSH") {
-      expect(r.targetHref).toBe(DIBAY_DELIVERY_ROOT_FALLBACK);
-      expect(r.reason).toContain("stale");
+    expect(r.action).toBe("HISTORY");
+    if (r.action === "HISTORY") {
+      expect(r.fallbackHref).toBe(DIBAY_DELIVERY_ROOT_FALLBACK);
+      expect(r.reason).toBe("history_without_entry_context");
     }
   });
 

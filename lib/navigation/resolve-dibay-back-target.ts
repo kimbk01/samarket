@@ -236,12 +236,13 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
     if (ctx?.entryKind === "store_card") {
       return originResolution(ctx);
     }
-    // Stale / missing context — root fallback (never invent browse from DB category)
+    // Missing/stale context: still prefer one HISTORY return when the browser stack
+    // can unwind (avoids PUSH /stores on top of STORE → duplicate semantic HOME).
+    // Fallback href is Delivery root only — never invent browse from DB category.
     return {
-      action: "PUSH",
-      targetHref: DIBAY_DELIVERY_ROOT_FALLBACK,
-      restoreKey: null,
-      reason: "root_fallback_stale_or_missing_context",
+      action: "HISTORY",
+      reason: "history_without_entry_context",
+      fallbackHref: DIBAY_DELIVERY_ROOT_FALLBACK,
     };
   }
 

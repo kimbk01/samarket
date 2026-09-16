@@ -244,6 +244,7 @@ describe("dibay-back-ssot-cut-2b", () => {
       storeSlug: "store-a",
       entryContext: ctx,
     });
+    // product_from_list without originHref → originResolution PUSH root
     expect(back2.action).toBe("PUSH");
     if (back2.action === "PUSH") {
       expect(back2.targetHref).toBe(DIBAY_DELIVERY_ROOT_FALLBACK);
