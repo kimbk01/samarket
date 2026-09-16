@@ -319,12 +319,20 @@ export function AdminBusinessCcDeliveryCard({
           <dd>{yn(t, delivery.applies)}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{t("admin_biz_label_max_km")}</dt>
-          <dd>{delivery.maxKm == null ? "—" : delivery.maxKm}</dd>
+          <dt className="text-sam-muted">{t("business_store_delivery_radius_label")}</dt>
+          <dd>{delivery.maxKm == null ? "—" : `${delivery.maxKm} km`}</dd>
         </div>
         <div>
           <dt className="text-sam-muted">{t("admin_biz_label_policy_source")}</dt>
           <dd>{delivery.policySource}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_delivery_distance_th_updated")}</dt>
+          <dd className="sam-text-helper">
+            {delivery.updatedAt
+              ? new Date(delivery.updatedAt).toLocaleString()
+              : "—"}
+          </dd>
         </div>
         <div className="sm:col-span-2">
           <dt className="text-sam-muted">{t("admin_biz_label_store_override")}</dt>

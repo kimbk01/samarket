@@ -86,6 +86,10 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.delivery_available", "stores.pickup_available", "stores.is_open"],
     table: "stores",
   },
+  set_delivery_radius: {
+    writes: ["stores.delivery_radius_km"],
+    table: "stores",
+  },
   approve_sales: {
     writes: ["store_sales_permissions.*"],
     table: "store_sales_permissions",
@@ -109,14 +113,14 @@ export function isAdminStorePatchAction(action: string): action is AdminStorePat
 /**
  * Out of this PATCH — use existing SSOT APIs / shared domain commands instead:
  * - store fee override: POST|PATCH /api/admin/store-fee-policies
- * - delivery distance store override: PUT /api/admin/delivery/settings
+ * - delivery radius SSOT: action `set_delivery_radius` on this endpoint (stores.delivery_radius_km)
  * - address/coords: action `set_store_location` on this endpoint AND Owner
  *   PATCH /api/me/stores/[storeId] — both call `buildStoreLocationPatchFields`
  *   (+ checkout geo refresh when lat/lng change). Do not free-form update coords.
  */
 export const ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS = {
   fee_store_override: "POST|PATCH /api/admin/store-fee-policies",
-  delivery_distance_store_override: "PUT /api/admin/delivery/settings",
+  delivery_radius_ssot: "set_delivery_radius (admin) | PATCH /api/me/stores/[storeId] (owner)",
   address_coords:
     "set_store_location (admin) | PATCH /api/me/stores/[storeId] (owner) via buildStoreLocationPatchFields",
 } as const;

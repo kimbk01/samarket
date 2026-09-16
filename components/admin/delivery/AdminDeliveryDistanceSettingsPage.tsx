@@ -9,6 +9,11 @@ import type {
   DeliveryStoreDistanceMode,
   DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
+import {
+  formatStoreDeliveryRadiusKmForInput,
+  parseStoreDeliveryRadiusKmForWrite,
+  resolveEffectiveStoreDeliveryRadiusKm,
+} from "@/lib/delivery/store-delivery-radius";
 
 type StoreRow = {
   id: string;
@@ -19,8 +24,13 @@ type StoreRow = {
   region?: string | null;
   city?: string | null;
   district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  formatted_address?: string | null;
   lat?: number | null;
   lng?: number | null;
+  delivery_radius_km?: number | null;
+  updated_at?: string | null;
 };
 
 const DEFAULT_POLICY: DeliveryDistancePolicy = {
@@ -92,6 +102,8 @@ export function AdminDeliveryDistanceSettingsPage() {
   const [overridesSaved, setOverridesSaved] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
   const [overridesDraft, setOverridesDraft] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
   const [stores, setStores] = useState<StoreRow[]>([]);
+  const [radiusDrafts, setRadiusDrafts] = useState<Record<string, string>>({});
+  const [radiusSavingId, setRadiusSavingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,7 +154,13 @@ export function AdminDeliveryDistanceSettingsPage() {
       setDefaultMaxKmDraft(kmInputValue(nextPolicy.defaultMaxKm));
       setOverridesSaved(nextOverrides);
       setOverridesDraft(nextOverrides);
-      setStores(storesJson.stores as StoreRow[]);
+      const nextStores = storesJson.stores as StoreRow[];
+      setStores(nextStores);
+      const drafts: Record<string, string> = {};
+      for (const s of nextStores) {
+        drafts[s.id] = formatStoreDeliveryRadiusKmForInput(s.delivery_radius_km);
+      }
+      setRadiusDrafts(drafts);
     } catch {
       setError(t("admin_delivery_distance_error_network"));
     } finally {
@@ -182,12 +200,12 @@ export function AdminDeliveryDistanceSettingsPage() {
   );
 
   const updateStoreOverride = useCallback(
-    (storeId: string, patch: Partial<{ mode: DeliveryStoreDistanceMode; maxKm: number | null }>) => {
+    (storeId: string, patch: Partial<{ mode: DeliveryStoreDistanceMode }>) => {
       setOverridesDraft((prev) => {
         const current = prev.stores[storeId] ?? { mode: "inherit" as const, maxKm: null };
-        const next = { ...current, ...patch };
+        const next = { ...current, ...patch, maxKm: null };
         const storesNext = { ...prev.stores };
-        if (next.mode === "inherit" && next.maxKm == null) {
+        if (next.mode === "inherit") {
           delete storesNext[storeId];
         } else {
           storesNext[storeId] = next;
@@ -196,6 +214,52 @@ export function AdminDeliveryDistanceSettingsPage() {
       });
     },
     []
+  );
+
+  const saveStoreRadius = useCallback(
+    async (storeId: string) => {
+      const parsed = parseStoreDeliveryRadiusKmForWrite(radiusDrafts[storeId]);
+      if (!parsed.ok) {
+        setError(t("admin_biz_delivery_km_invalid"));
+        return;
+      }
+      setRadiusSavingId(storeId);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "set_delivery_radius",
+            delivery_radius_km: parsed.value,
+          }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) {
+          setError(j.error ?? `HTTP ${res.status}`);
+          return;
+        }
+        setStores((prev) =>
+          prev.map((s) =>
+            s.id === storeId
+              ? {
+                  ...s,
+                  delivery_radius_km: parsed.value,
+                  updated_at: new Date().toISOString(),
+                }
+              : s
+          )
+        );
+        setRadiusDrafts((prev) => ({ ...prev, [storeId]: String(parsed.value) }));
+        showMessage(t("admin_delivery_distance_radius_saved"));
+      } catch {
+        setError(t("admin_delivery_distance_error_network"));
+      } finally {
+        setRadiusSavingId(null);
+      }
+    },
+    [radiusDrafts, showMessage, t]
   );
 
   const save = useCallback(async () => {
@@ -344,86 +408,82 @@ export function AdminDeliveryDistanceSettingsPage() {
             <thead>
               <tr className="border-b border-sam-border text-left text-sam-muted">
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_store")}</th>
-                <th className="px-2 py-2">{t("admin_delivery_distance_th_location")}</th>
-                <th className="px-2 py-2">{t("admin_delivery_distance_th_coords")}</th>
-                <th className="px-2 py-2">{t("admin_delivery_distance_th_effective")}</th>
+                <th className="px-2 py-2">{t("admin_delivery_distance_address")}</th>
+                <th className="px-2 py-2">{t("admin_delivery_distance_th_radius")}</th>
+                <th className="px-2 py-2">{t("admin_delivery_distance_th_updated")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_mode")}</th>
-                <th className="px-2 py-2">{t("admin_delivery_distance_th_max")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
                     {t("common_loading")}
                   </td>
                 </tr>
               ) : filteredStores.length === 0 ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
                     {t("admin_delivery_distance_store_empty")}
                   </td>
                 </tr>
               ) : (
                 filteredStores.map((store) => {
-                  const override = overridesDraft.stores[store.id] ?? { mode: "inherit" as const, maxKm: null };
-                  const loc = [store.region, store.city, store.district].filter(Boolean).join(" · ");
-                  const hasCoords = store.lat != null && store.lng != null;
-                  const globalOn = policyDraft.enabled;
-                  const effectiveSource =
-                    !globalOn || override.mode === "disabled"
-                      ? "off"
-                      : override.mode === "enabled"
-                        ? "store"
-                        : "global";
-                  const effectiveMax =
-                    override.mode === "disabled"
-                      ? null
-                      : override.maxKm ?? policyDraft.defaultMaxKm;
+                  const override = overridesDraft.stores[store.id] ?? {
+                    mode: "inherit" as const,
+                    maxKm: null,
+                  };
+                  const address =
+                    [
+                      store.formatted_address,
+                      store.address_line1,
+                      store.address_line2,
+                      [store.region, store.city, store.district].filter(Boolean).join(" "),
+                    ]
+                      .map((x) => (typeof x === "string" ? x.trim() : ""))
+                      .find((x) => x.length > 0) || t("admin_delivery_distance_unknown");
+                  const effectiveKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
+                  const draft = radiusDrafts[store.id] ?? String(effectiveKm);
+                  const radiusDirty = draft !== String(effectiveKm);
                   return (
                     <tr key={store.id} className="border-b border-sam-border-soft align-top">
                       <td className="px-2 py-2">
-                        <div className="font-semibold text-sam-fg">{store.store_name || store.slug || store.id}</div>
+                        <div className="font-semibold text-sam-fg">
+                          {store.store_name || store.slug || store.id}
+                        </div>
                         <div className="sam-text-helper text-sam-muted">{store.slug}</div>
                       </td>
-                      <td className="px-2 py-2 text-sam-muted">{loc || t("admin_delivery_distance_unknown")}</td>
+                      <td className="px-2 py-2 text-sam-muted">{address}</td>
                       <td className="px-2 py-2">
-                        {hasCoords ? (
-                          <div>
-                            <span className="text-sam-muted">
-                              {Number(store.lat).toFixed(4)}, {Number(store.lng).toFixed(4)}
-                            </span>
-                            <div className="mt-1 sam-text-helper text-green-700">
-                              {t("admin_delivery_distance_ready")}
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="text-red-700">{t("admin_delivery_distance_coords_missing")}</span>
-                            <p className="mt-1 max-w-xs sam-text-helper text-sam-muted">
-                              {t("admin_delivery_distance_coords_missing_hint")}
-                            </p>
-                            {globalOn ? (
-                              <div className="mt-1 sam-text-helper text-red-700">
-                                {t("admin_delivery_distance_not_ready")}
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            inputMode="decimal"
+                            value={draft}
+                            onChange={(e) =>
+                              setRadiusDrafts((prev) => ({
+                                ...prev,
+                                [store.id]: e.target.value,
+                              }))
+                            }
+                            className="w-24 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
+                          />
+                          <span className="sam-text-helper text-sam-muted">km</span>
+                          <button
+                            type="button"
+                            disabled={radiusSavingId === store.id || !radiusDirty}
+                            onClick={() => void saveStoreRadius(store.id)}
+                            className="rounded-ui-rect border border-sam-primary bg-sam-primary px-2 py-1 sam-text-helper font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {radiusSavingId === store.id
+                              ? t("admin_stores_saving")
+                              : t("admin_delivery_distance_radius_save")}
+                          </button>
+                        </div>
                       </td>
-                      <td className="px-2 py-2 text-sam-muted">
-                        {effectiveSource === "off"
-                          ? t("admin_delivery_distance_policy_source_off")
-                          : effectiveSource === "store"
-                            ? t("admin_delivery_distance_policy_source_store")
-                            : t("admin_delivery_distance_policy_source_global")}
-                        {effectiveSource !== "off" ? (
-                          <div className="sam-text-helper">
-                            {effectiveMax == null
-                              ? t("admin_delivery_distance_no_limit")
-                              : `${effectiveMax} km`}
-                          </div>
-                        ) : null}
+                      <td className="px-2 py-2 sam-text-helper text-sam-muted">
+                        {store.updated_at
+                          ? new Date(store.updated_at).toLocaleString()
+                          : "—"}
                       </td>
                       <td className="px-2 py-2">
                         <select
@@ -436,23 +496,16 @@ export function AdminDeliveryDistanceSettingsPage() {
                           className="min-w-32 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
                           aria-label={distanceModeLabel(t, override.mode)}
                         >
-                          <option value="inherit">{t("admin_delivery_distance_store_mode_inherit")}</option>
-                          <option value="enabled">{t("admin_delivery_distance_store_mode_enabled")}</option>
-                          <option value="disabled">{t("admin_delivery_distance_store_mode_disabled")}</option>
+                          <option value="inherit">
+                            {t("admin_delivery_distance_store_mode_inherit")}
+                          </option>
+                          <option value="enabled">
+                            {t("admin_delivery_distance_store_mode_enabled")}
+                          </option>
+                          <option value="disabled">
+                            {t("admin_delivery_distance_store_mode_disabled")}
+                          </option>
                         </select>
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          inputMode="decimal"
-                          value={kmInputValue(override.maxKm)}
-                          onChange={(e) =>
-                            updateStoreOverride(store.id, {
-                              maxKm: parseKmInput(e.target.value),
-                            })
-                          }
-                          placeholder={t("admin_delivery_distance_inherit_max")}
-                          className="w-32 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-                        />
                       </td>
                     </tr>
                   );

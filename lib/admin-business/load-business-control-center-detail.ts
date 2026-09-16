@@ -83,9 +83,15 @@ export type BusinessCcDeliverySnapshot = {
   lng: number | null;
   distancePolicyEnabled: boolean;
   applies: boolean;
+  /** Effective radius km (NULL column → 10). */
   maxKm: number | null;
+  /** Configured `stores.delivery_radius_km` (NULL when unconfigured). */
+  deliveryRadiusKm: number | null;
+  /** stores.updated_at for Admin operational visibility */
+  updatedAt: string | null;
   policySource: string;
   storeOverrideMode: string | null;
+  /** Legacy JSON override maxKm — not radius SSOT after CUT1. */
   storeOverrideMaxKm: number | null;
 };
 
@@ -361,7 +367,8 @@ export async function loadBusinessControlCenterDetail(
   const distanceEffective = resolveEffectiveStoreDistancePolicy(
     svcCtx.policy,
     svcCtx.overrides,
-    id
+    id,
+    row.delivery_radius_km
   );
 
   const dbIsOpen = typeof row.is_open === "boolean" ? row.is_open : null;
@@ -427,6 +434,11 @@ export async function loadBusinessControlCenterDetail(
     distancePolicyEnabled: Boolean(svcCtx.policy.enabled),
     applies: distanceEffective.applies,
     maxKm: distanceEffective.maxKm,
+    deliveryRadiusKm:
+      row.delivery_radius_km != null && Number.isFinite(Number(row.delivery_radius_km))
+        ? Math.round(Number(row.delivery_radius_km) * 10) / 10
+        : null,
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
     policySource: distanceEffective.policySource,
     storeOverrideMode: override?.mode ?? null,
     storeOverrideMaxKm: override?.maxKm ?? null,

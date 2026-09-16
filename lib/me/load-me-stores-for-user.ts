@@ -12,7 +12,7 @@ const ME_STORE_SELECT =
     "region, city, district, address_line1, address_line2, lat, lng",
     "place_id, formatted_address, detail_address",
     "profile_image_url, business_hours_json, gallery_images_json, is_open",
-    "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
+    "delivery_available, delivery_radius_km, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
     "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
     "approval_status, is_visible, rejected_reason, revision_note",
     "created_at, updated_at, approved_at",

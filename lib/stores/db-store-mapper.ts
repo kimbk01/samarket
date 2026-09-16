@@ -34,6 +34,8 @@ export type StoreRow = {
   website_url?: string | null;
   is_open?: boolean | null;
   delivery_available?: boolean | null;
+  /** CUT1 — store delivery radius SSOT (km). NULL → effective 10. */
+  delivery_radius_km?: number | null;
   /** 품절 메뉴를 카테고리 하단으로 모을지 — `stores.menu_sold_out_bottom` */
   menu_sold_out_bottom?: boolean | null;
   /** 주문 메신저 방 음성 메시지 허용 — `stores.messenger_voice_messages_enabled` */

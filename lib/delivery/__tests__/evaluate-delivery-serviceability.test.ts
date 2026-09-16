@@ -7,6 +7,7 @@ import type {
   DeliveryDistancePolicy,
   DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
+import { DEFAULT_STORE_DELIVERY_RADIUS_KM } from "@/lib/delivery/store-delivery-radius";
 
 const offPolicy: DeliveryDistancePolicy = {
   enabled: false,
@@ -33,6 +34,7 @@ describe("evaluateDeliveryServiceability", () => {
       policy: offPolicy,
       overrides: emptyOverrides,
       storeId: "s1",
+      storeDeliveryRadiusKm: null,
       customerLat: null,
       customerLng: null,
       storeLat: null,
@@ -48,6 +50,7 @@ describe("evaluateDeliveryServiceability", () => {
       policy: onPolicy,
       overrides: { stores: { s1: { mode: "disabled", maxKm: null } } },
       storeId: "s1",
+      storeDeliveryRadiusKm: 10,
       customerLat: far.lat,
       customerLng: far.lng,
       storeLat: near.lat,
@@ -62,6 +65,7 @@ describe("evaluateDeliveryServiceability", () => {
       policy: onPolicy,
       overrides: emptyOverrides,
       storeId: "s1",
+      storeDeliveryRadiusKm: null,
       customerLat: near.lat,
       customerLng: near.lng,
       storeLat: null,
@@ -76,6 +80,7 @@ describe("evaluateDeliveryServiceability", () => {
       policy: onPolicy,
       overrides: emptyOverrides,
       storeId: "s1",
+      storeDeliveryRadiusKm: null,
       customerLat: null,
       customerLng: null,
       storeLat: near.lat,
@@ -85,11 +90,12 @@ describe("evaluateDeliveryServiceability", () => {
     expect(r.reason).toBe("missing_customer_coords");
   });
 
-  it("within global max → eligible", () => {
+  it("NULL store radius → effective default 10km; near store eligible", () => {
     const r = evaluateDeliveryServiceability({
       policy: onPolicy,
       overrides: emptyOverrides,
       storeId: "s1",
+      storeDeliveryRadiusKm: null,
       customerLat: near.lat,
       customerLng: near.lng,
       storeLat: near.lat,
@@ -97,14 +103,17 @@ describe("evaluateDeliveryServiceability", () => {
     });
     expect(r.eligible).toBe(true);
     expect(r.distanceKm).toBe(0);
+    expect(r.maxKm).toBe(DEFAULT_STORE_DELIVERY_RADIUS_KM);
+    expect(r.policySource).toBe("store");
     expect(r.reason).toBe("eligible");
   });
 
-  it("store override 10km allows ~8km when global is 5km", () => {
+  it("configured store radius 10km allows ~8km (legacy override maxKm ignored)", () => {
     const r = evaluateDeliveryServiceability({
       policy: onPolicy,
-      overrides: { stores: { s1: { mode: "enabled", maxKm: 10 } } },
+      overrides: { stores: { s1: { mode: "enabled", maxKm: 3 } } },
       storeId: "s1",
+      storeDeliveryRadiusKm: 10,
       customerLat: far.lat,
       customerLng: far.lng,
       storeLat: near.lat,
@@ -114,25 +123,31 @@ describe("evaluateDeliveryServiceability", () => {
     expect(r.distanceKm!).toBeGreaterThan(5);
     expect(r.distanceKm!).toBeLessThan(10);
     expect(r.eligible).toBe(true);
+    expect(r.maxKm).toBe(10);
     expect(r.policySource).toBe("store");
   });
 
-  it("global 5km rejects ~8km without store override", () => {
+  it("NULL store radius (effective 10) rejects ~20km; legacy global defaultMaxKm unused", () => {
+    const beyond10 = { lat: 14.7, lng: 121.1 };
     const r = evaluateDeliveryServiceability({
-      policy: onPolicy,
+      policy: { ...onPolicy, defaultMaxKm: 60 },
       overrides: emptyOverrides,
       storeId: "s1",
-      customerLat: far.lat,
-      customerLng: far.lng,
+      storeDeliveryRadiusKm: null,
+      customerLat: beyond10.lat,
+      customerLng: beyond10.lng,
       storeLat: near.lat,
       storeLng: near.lng,
     });
     expect(r.eligible).toBe(false);
     expect(r.reason).toBe("out_of_range");
+    expect(r.maxKm).toBe(DEFAULT_STORE_DELIVERY_RADIUS_KM);
   });
 
-  it("resolveEffectiveStoreDistancePolicy inherits global max", () => {
-    const e = resolveEffectiveStoreDistancePolicy(onPolicy, emptyOverrides, "s1");
-    expect(e).toEqual({ applies: true, maxKm: 5, policySource: "global" });
+  it("resolveEffectiveStoreDistancePolicy uses store column / default 10", () => {
+    const e = resolveEffectiveStoreDistancePolicy(onPolicy, emptyOverrides, "s1", null);
+    expect(e).toEqual({ applies: true, maxKm: DEFAULT_STORE_DELIVERY_RADIUS_KM, policySource: "store" });
+    const e2 = resolveEffectiveStoreDistancePolicy(onPolicy, emptyOverrides, "s1", 15);
+    expect(e2).toEqual({ applies: true, maxKm: 15, policySource: "store" });
   });
 });

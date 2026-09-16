@@ -7,7 +7,9 @@ export type DiscoveryStoreProjectionInvalidationReason =
   | "store_geo"
   | "store_delivery_flags"
   | "store_schedule"
-  | "store_distance_override";
+  | "store_distance_override"
+  /** CUT1 — `stores.delivery_radius_km` changed */
+  | "store_delivery_radius";
 
 export type InvalidateDiscoveryStoreProjectionsOpts = {
   reasons: readonly DiscoveryStoreProjectionInvalidationReason[];
@@ -41,7 +43,8 @@ export async function invalidateDiscoveryStoreProjections(
     opts.bumpStorePolicyVersion !== false &&
     (reasons.has("store_geo") ||
       reasons.has("store_delivery_flags") ||
-      reasons.has("store_distance_override"))
+      reasons.has("store_distance_override") ||
+      reasons.has("store_delivery_radius"))
   ) {
     storePolicyVersion = await bumpStoreDeliveryPolicyVersion(sb, sid);
   }
@@ -49,7 +52,8 @@ export async function invalidateDiscoveryStoreProjections(
   if (
     reasons.has("store_geo") ||
     reasons.has("store_delivery_flags") ||
-    reasons.has("store_distance_override")
+    reasons.has("store_distance_override") ||
+    reasons.has("store_delivery_radius")
   ) {
     const coverage = await rebuildStoreDeliveryCoverageForStore(sb, sid, {
       storePolicyVersion,

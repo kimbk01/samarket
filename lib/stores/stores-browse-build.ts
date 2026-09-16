@@ -76,6 +76,8 @@ export type StoreBrowseRow = {
   is_featured: boolean | null;
   lat: number | null;
   lng: number | null;
+  /** CUT1 store delivery radius SSOT (NULL → effective 10km). */
+  delivery_radius_km?: number | null;
   business_hours_json: unknown;
   /** taxonomy 미연결 시 `/api/me/stores` 가 `${primary} · ${sub}` 형태로 채움 */
   business_type: string | null;
@@ -338,12 +340,13 @@ export const STORE_ROW_BROWSE_FIELDS = `
         is_featured,
         lat,
         lng,
+        delivery_radius_km,
         business_hours_json,
         business_type,
         first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type,first_listed_at";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,delivery_radius_km,business_hours_json,business_type,first_listed_at";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -471,12 +474,14 @@ export type StoresBrowseAssembleResult = {
 
 function resolveStoreDistancePolicy(
   ctx: Pick<StoresBrowseRequestContext, "deliveryDistancePolicy" | "storeDistanceOverrides">,
-  storeId: string
+  storeId: string,
+  storeDeliveryRadiusKm?: unknown
 ): { applies: boolean; maxKm: number | null } {
   const e = resolveEffectiveStoreDistancePolicy(
     ctx.deliveryDistancePolicy,
     ctx.storeDistanceOverrides,
-    storeId
+    storeId,
+    storeDeliveryRadiusKm
   );
   return { applies: e.applies, maxKm: e.maxKm };
 }
@@ -490,6 +495,7 @@ function resolveDistanceForSort(
     policy: ctx.deliveryDistancePolicy,
     overrides: ctx.storeDistanceOverrides,
     storeId: row.id,
+    storeDeliveryRadiusKm: row.delivery_radius_km,
     customerLat: ctx.origin.lat,
     customerLng: ctx.origin.lng,
     storeLat: row.lat,
@@ -953,7 +959,7 @@ export function assembleStoresBrowseResponse(
       : null;
     /** 실제 매장 topic 우선 — 선택 칩 stamp 로 누수 소속을 위장하지 않음 */
     const top = wantsAllSubs ? r.store_topics : (r.store_topics ?? selectedTopicMeta);
-    const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
+    const rowPolicy = resolveStoreDistancePolicy(ctx, r.id, r.delivery_radius_km);
     const rowDistance = resolveDistanceForSort(ctx, r);
     const distanceOutOfRange =
       prefetchedFilter?.outOfRangeById?.has(r.id) === true

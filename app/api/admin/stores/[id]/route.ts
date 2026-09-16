@@ -19,6 +19,7 @@ import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/st
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
+import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ type PatchBody = {
   delivery_available?: boolean;
   pickup_available?: boolean;
   is_open?: boolean;
+  delivery_radius_km?: number | null;
 };
 
 export async function GET(
@@ -139,7 +141,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
+      "id, owner_user_id, approval_status, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, delivery_radius_km, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -510,6 +512,32 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH delivery flags]", upErr);
+      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    }
+    invalidateDiscoveryAfterStoreWrite(sb, id, patch);
+    return auditOk(before, patch);
+  }
+
+  if (action === "set_delivery_radius") {
+    const before: Record<string, unknown> = {
+      delivery_radius_km: (store as { delivery_radius_km?: unknown }).delivery_radius_km ?? null,
+    };
+    let nextRadius: number | null;
+    if (body.delivery_radius_km === null) {
+      nextRadius = null;
+    } else if (body.delivery_radius_km === undefined) {
+      return NextResponse.json({ ok: false, error: "delivery_radius_km_required" }, { status: 400 });
+    } else {
+      const parsed = parseStoreDeliveryRadiusKmForWrite(body.delivery_radius_km);
+      if (!parsed.ok) {
+        return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+      }
+      nextRadius = parsed.value;
+    }
+    const patch = { delivery_radius_km: nextRadius };
+    const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
+    if (upErr) {
+      console.error("[admin/stores PATCH delivery radius]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
     invalidateDiscoveryAfterStoreWrite(sb, id, patch);

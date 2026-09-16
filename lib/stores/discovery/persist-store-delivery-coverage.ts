@@ -57,7 +57,7 @@ export async function rebuildStoreDeliveryCoverageForStore(
   const [{ data: store, error: storeErr }, distanceSettings, policyVersion] = await Promise.all([
     sb
       .from("stores")
-      .select("id, lat, lng, delivery_policy_version")
+      .select("id, lat, lng, delivery_radius_km, delivery_policy_version")
       .eq("id", sid)
       .maybeSingle(),
     loadDeliveryDistanceSettings(sb),
@@ -76,6 +76,7 @@ export async function rebuildStoreDeliveryCoverageForStore(
     storeId: sid,
     lat: store.lat,
     lng: store.lng,
+    deliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
     policy: distanceSettings.policy,
     overrides: distanceSettings.overrides,
     policyVersion,

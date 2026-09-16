@@ -24,13 +24,16 @@ describe("admin-store-patch-commands", () => {
     expect(ADMIN_STORE_PATCH_COMMANDS.set_store_location.writes).toContain("stores.lat");
   });
 
-  it("keeps fee/distance on external SSOT writers", () => {
+  it("keeps fee on external writers; delivery radius on set_delivery_radius SSOT", () => {
     expect(ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.fee_store_override).toContain(
       "store-fee-policies"
     );
-    expect(
-      ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.delivery_distance_store_override
-    ).toContain("delivery/settings");
+    expect(ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.delivery_radius_ssot).toContain(
+      "set_delivery_radius"
+    );
+    expect(ADMIN_STORE_PATCH_COMMANDS.set_delivery_radius.writes).toContain(
+      "stores.delivery_radius_km"
+    );
     expect(ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.address_coords).toContain(
       "buildStoreLocationPatchFields"
     );

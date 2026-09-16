@@ -125,6 +125,7 @@ type FeedRow = {
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
+  delivery_radius_km?: number | null;
   pickup_available: boolean | null;
   visit_available: boolean | null;
   is_featured: boolean | null;
@@ -334,6 +335,7 @@ export async function GET(req: Request) {
           const svc = evaluateStoreDeliveryServiceability({
             ctx: serviceabilityCtx,
             storeId: r.id,
+            storeDeliveryRadiusKm: (r as { delivery_radius_km?: unknown }).delivery_radius_km,
             customerLat: userLat,
             customerLng: userLng,
             storeLat: effective.lat,
@@ -544,6 +546,7 @@ export async function GET(req: Request) {
           const svc = evaluateStoreDeliveryServiceability({
             ctx: serviceabilityCtx,
             storeId: r.id,
+            storeDeliveryRadiusKm: (r as { delivery_radius_km?: unknown }).delivery_radius_km,
             customerLat: userLat!,
             customerLng: userLng!,
             storeLat: effective.lat,
@@ -557,7 +560,8 @@ export async function GET(req: Request) {
         const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
           storeId: r.id,
-          customerLat: userLat,
+          storeDeliveryRadiusKm: (r as { delivery_radius_km?: unknown }).delivery_radius_km,
+            customerLat: userLat,
           customerLng: userLng,
           storeLat: effective.lat,
           storeLng: effective.lng,

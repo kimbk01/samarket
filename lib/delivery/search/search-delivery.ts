@@ -40,6 +40,7 @@ export type DeliverySearchStoreResult = {
   region: string | null;
   lat?: number | null;
   lng?: number | null;
+  delivery_radius_km?: number | null;
   distanceKm?: number | null;
   distanceOutOfRange?: boolean;
   maxDeliveryDistanceKm?: number | null;
@@ -180,6 +181,7 @@ export async function searchDeliveryDomain(input: {
         "region",
         "lat",
         "lng",
+        "delivery_radius_km",
       ].join(", ")
     )
     .eq("approval_status", "approved")
@@ -244,6 +246,7 @@ export async function searchDeliveryDomain(input: {
           "region",
           "lat",
           "lng",
+          "delivery_radius_km",
         ].join(", ")
       )
       .in("id", storeIdsFromProducts)
@@ -269,6 +272,10 @@ export async function searchDeliveryDomain(input: {
         region: (row as any).region != null ? String((row as any).region) : null,
         lat: (row as any).lat != null ? Number((row as any).lat) : null,
         lng: (row as any).lng != null ? Number((row as any).lng) : null,
+        delivery_radius_km:
+          (row as any).delivery_radius_km != null && Number.isFinite(Number((row as any).delivery_radius_km))
+            ? Number((row as any).delivery_radius_km)
+            : null,
       });
     }
   }
@@ -316,6 +323,7 @@ export async function searchDeliveryDomain(input: {
     const svc = evaluateStoreDeliveryServiceability({
       ctx: svcCtx,
       storeId: s.id,
+      storeDeliveryRadiusKm: s.delivery_radius_km,
       customerLat,
       customerLng,
       storeLat: s.lat,

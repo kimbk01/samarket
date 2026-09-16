@@ -2,10 +2,11 @@
  * DELIVERY SERVICEABILITY SSOT — straight-line (haversine) only.
  * Google Routes / Matrix MUST NOT be used for order eligibility.
  *
- * Effective policy:
+ * Effective policy (CUT 1 radius SSOT):
  * - global.enabled === false → distance axis always eligible (other gates elsewhere)
  * - store override.mode === "disabled" → distance axis skipped for that store
- * - else maxKm = override.maxKm ?? global.defaultMaxKm (null = no max)
+ * - else maxKm = resolveEffectiveStoreDeliveryRadiusKm(stores.delivery_radius_km)
+ *   (NULL → 10 km; NEVER admin defaultMaxKm / override.maxKm)
  * - missing customer/store coords when distance applies → ineligible
  * - distanceKm > maxKm → ineligible
  */
@@ -15,6 +16,7 @@ import type {
   DeliveryDistancePolicy,
   DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
+import { resolveEffectiveStoreDeliveryRadiusKm } from "@/lib/delivery/store-delivery-radius";
 
 export type DeliveryServiceabilityReason =
   | "policy_off"
@@ -38,6 +40,8 @@ export type DeliveryServiceabilityInput = {
   policy: DeliveryDistancePolicy;
   overrides: DeliveryStoreDistanceOverrides;
   storeId: string;
+  /** Canonical `stores.delivery_radius_km` (NULL → effective 10). */
+  storeDeliveryRadiusKm: unknown;
   customerLat: unknown;
   customerLng: unknown;
   storeLat: unknown;
@@ -47,26 +51,25 @@ export type DeliveryServiceabilityInput = {
 export function resolveEffectiveStoreDistancePolicy(
   policy: DeliveryDistancePolicy,
   overrides: DeliveryStoreDistanceOverrides,
-  storeId: string
+  storeId: string,
+  storeDeliveryRadiusKm?: unknown
 ): { applies: boolean; maxKm: number | null; policySource: DeliveryServiceabilityResult["policySource"] } {
   if (!policy.enabled) {
     return { applies: false, maxKm: null, policySource: "off" };
   }
   const override = overrides.stores[storeId.trim()];
   if (override?.mode === "disabled") {
-    return { applies: false, maxKm: override.maxKm ?? policy.defaultMaxKm, policySource: "store_disabled" };
-  }
-  if (override?.mode === "enabled") {
     return {
-      applies: true,
-      maxKm: override.maxKm ?? policy.defaultMaxKm,
-      policySource: "store",
+      applies: false,
+      maxKm: resolveEffectiveStoreDeliveryRadiusKm(storeDeliveryRadiusKm),
+      policySource: "store_disabled",
     };
   }
+  // CUT 1: store column is the only radius authority when distance applies.
   return {
     applies: true,
-    maxKm: override?.maxKm ?? policy.defaultMaxKm,
-    policySource: "global",
+    maxKm: resolveEffectiveStoreDeliveryRadiusKm(storeDeliveryRadiusKm),
+    policySource: "store",
   };
 }
 
@@ -74,7 +77,12 @@ export function resolveEffectiveStoreDistancePolicy(
 export function evaluateDeliveryServiceability(
   input: DeliveryServiceabilityInput
 ): DeliveryServiceabilityResult {
-  const effective = resolveEffectiveStoreDistancePolicy(input.policy, input.overrides, input.storeId);
+  const effective = resolveEffectiveStoreDistancePolicy(
+    input.policy,
+    input.overrides,
+    input.storeId,
+    input.storeDeliveryRadiusKm
+  );
   if (!effective.applies) {
     return {
       eligible: true,

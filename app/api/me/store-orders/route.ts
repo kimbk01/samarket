@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, lat, lng"
+      "id, owner_user_id, approval_status, is_visible, store_name, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, lat, lng, delivery_radius_km"
     )
     .eq("id", storeId)
     .maybeSingle();
@@ -574,6 +574,7 @@ export async function POST(req: NextRequest) {
       policy,
       overrides: distanceSettings.overrides,
       storeId,
+      storeDeliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
       customerLat: deliveryAddressSnapshot?.latitude,
       customerLng: deliveryAddressSnapshot?.longitude,
       storeLat,

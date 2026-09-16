@@ -23,6 +23,10 @@ import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-descript
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import {
+  formatStoreDeliveryRadiusKmForInput,
+  resolveStoreDeliveryRadiusKmPatch,
+} from "@/lib/delivery/store-delivery-radius";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
   clampStorePrepMinutes,
@@ -163,6 +167,8 @@ export type OwnerStoreProfileFormValues = {
   isOpen: boolean;
   profileImageUrl: string;
   deliveryAvailable: boolean;
+  /** Effective display string for delivery radius (NULL → "10"). */
+  deliveryRadiusKm: string;
   /** ?? ????? ??? ?? ???? ?? */
   menuSoldOutBottom: boolean;
   pickupAvailable: boolean;
@@ -256,6 +262,7 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     isOpen: row.is_open !== false,
     profileImageUrl: row.profile_image_url ?? "",
     deliveryAvailable: row.delivery_available === true,
+    deliveryRadiusKm: formatStoreDeliveryRadiusKmForInput(row.delivery_radius_km),
     menuSoldOutBottom: row.menu_sold_out_bottom === true,
     pickupAvailable: row.pickup_available !== false,
     ...readAutoHoursFormFields(row.business_hours_json),
@@ -614,14 +621,23 @@ export function OwnerStoreProfileForm({
       }
       setSubmitting(true);
       try {
+        const radiusPatch = resolveStoreDeliveryRadiusKmPatch(
+          row.delivery_radius_km,
+          values.deliveryRadiusKm
+        );
+        if ("ok" in radiusPatch && radiusPatch.ok === false) {
+          setError(t("business_store_delivery_radius_invalid"));
+          return false;
+        }
         const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            /** ??????? ?? ? ??. ???????????? ?? ?? ?? ????? PATCH */
+            /** Owner shell SAVE — same CTA as other profile fields. */
             is_open: values.isOpen,
             delivery_available: values.deliveryAvailable,
+            ...(!("omit" in radiusPatch) ? { delivery_radius_km: radiusPatch.value } : {}),
             menu_sold_out_bottom: values.menuSoldOutBottom,
             pickup_available: values.pickupAvailable,
             business_hours_json,
@@ -761,6 +777,27 @@ export function OwnerStoreProfileForm({
             />
             <span>{t("business_phase7_315")}</span>
           </label>
+        </div>
+        <div className={`${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} mt-4`}>
+          <label htmlFor="svc-delivery-radius" className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
+            {t("business_store_delivery_radius_label")}
+          </label>
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              id="svc-delivery-radius"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0.1"
+              value={values.deliveryRadiusKm}
+              onChange={(e) => setValues((v) => ({ ...v, deliveryRadiusKm: e.target.value }))}
+              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} max-w-[8rem]`}
+            />
+            <span className="sam-text-body text-[var(--biz-text-muted)]">km</span>
+          </div>
+          <p className="sam-text-helper mt-2 text-[var(--biz-text-muted)]">
+            {t("business_store_delivery_radius_help")}
+          </p>
         </div>
       </OwnerStoreAdminDashSection>
 

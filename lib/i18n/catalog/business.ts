@@ -110,6 +110,10 @@ export const businessMessages = {
     business_phase7_104: "배너 삭제",
     business_phase7_105: "배너를 눌렀을 때",
     business_phase7_106: "배달 가능",
+    business_store_delivery_radius_label: "매장 배달 가능 거리",
+    business_store_delivery_radius_help:
+      "현재 매장 위치를 기준으로 설정한 거리 내의 회원 주소에 배달할 수 있습니다.",
+    business_store_delivery_radius_invalid: "배달 가능 거리를 올바르게 입력해 주세요.",
     business_phase7_107: "배달 거리·시간(참고)",
     business_phase7_108: "배달 매장 시작",
     business_phase7_109: "배달 방식",
@@ -847,6 +851,10 @@ export const businessMessages = {
     business_phase7_104: "Delete banner",
     business_phase7_105: "When tapping the banner",
     business_phase7_106: "Delivery available",
+    business_store_delivery_radius_label: "Store delivery distance",
+    business_store_delivery_radius_help:
+      "You can deliver to member addresses within this distance from the store location.",
+    business_store_delivery_radius_invalid: "Enter a valid delivery distance.",
     business_phase7_107: "Delivery distance/time (reference)",
     business_phase7_108: "Start delivery store",
     business_phase7_109: "Delivery method",

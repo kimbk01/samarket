@@ -14,6 +14,8 @@ export type StoreDeliveryCoverageBuildInput = {
   storeId: string;
   lat: unknown;
   lng: unknown;
+  /** Canonical `stores.delivery_radius_km` (NULL → effective 10). */
+  deliveryRadiusKm?: unknown;
   policy: DeliveryDistancePolicy;
   overrides: DeliveryStoreDistanceOverrides;
   policyVersion: number;
@@ -52,7 +54,12 @@ export function buildStoreDeliveryCoverageProjection(
   const lng = parseFiniteLongitude(input.lng);
   const hasCoords = lat != null && lng != null;
 
-  const effective = resolveEffectiveStoreDistancePolicy(input.policy, input.overrides, storeId);
+  const effective = resolveEffectiveStoreDistancePolicy(
+    input.policy,
+    input.overrides,
+    storeId,
+    input.deliveryRadiusKm
+  );
   const deliveryModeEffective = resolveDeliveryModeEffective(input.policy, input.overrides, storeId);
 
   if (!effective.applies) {
@@ -101,7 +108,14 @@ export function buildStoreDeliveryCoverageProjection(
 
 export type CoverageServiceabilityProbe = Pick<
   DeliveryServiceabilityInput,
-  "policy" | "overrides" | "storeId" | "customerLat" | "customerLng" | "storeLat" | "storeLng"
+  | "policy"
+  | "overrides"
+  | "storeId"
+  | "storeDeliveryRadiusKm"
+  | "customerLat"
+  | "customerLng"
+  | "storeLat"
+  | "storeLng"
 >;
 
 /** Parity helper — TS haversine evaluator vs coverage radius semantics. */

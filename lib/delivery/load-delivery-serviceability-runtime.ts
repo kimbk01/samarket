@@ -35,6 +35,8 @@ export async function loadDeliveryServiceabilityRuntimeContext(
 export function evaluateStoreDeliveryServiceability(args: {
   ctx: DeliveryServiceabilityRuntimeContext;
   storeId: string;
+  /** Canonical `stores.delivery_radius_km` (NULL → effective 10). */
+  storeDeliveryRadiusKm: unknown;
   customerLat: unknown;
   customerLng: unknown;
   storeLat: unknown;
@@ -44,6 +46,7 @@ export function evaluateStoreDeliveryServiceability(args: {
     policy: args.ctx.policy,
     overrides: args.ctx.overrides,
     storeId: args.storeId,
+    storeDeliveryRadiusKm: args.storeDeliveryRadiusKm,
     customerLat: args.customerLat,
     customerLng: args.customerLng,
     storeLat: args.storeLat,

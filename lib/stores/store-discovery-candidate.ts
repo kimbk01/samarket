@@ -150,6 +150,7 @@ const HOME_DISCOVERY_SELECT = `
   address_line2,
   lat,
   lng,
+  delivery_radius_km,
   profile_image_url,
   description,
   is_open,

@@ -342,6 +342,8 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               distancePolicyEnabled: false,
               applies: false,
               maxKm: null,
+              deliveryRadiusKm: null,
+              updatedAt: null,
               policySource: "off",
               storeOverrideMode: null,
               storeOverrideMaxKm: null,
@@ -616,7 +618,8 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           <AdminBusinessCcDeliveryOverrideEditor
             storeId={store.id}
             currentMode={delivery.storeOverrideMode}
-            currentMaxKm={delivery.storeOverrideMaxKm}
+            currentDeliveryRadiusKm={delivery.deliveryRadiusKm}
+            currentEffectiveMaxKm={delivery.maxKm}
             onSaved={refreshDetail}
           />
         </AdminCard>

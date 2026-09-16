@@ -23,6 +23,8 @@ const emptyDelivery = (over: Partial<BusinessCcDeliverySnapshot> = {}): Business
   distancePolicyEnabled: true,
   applies: true,
   maxKm: 5,
+  deliveryRadiusKm: 5,
+  updatedAt: null,
   policySource: "global",
   storeOverrideMode: null,
   storeOverrideMaxKm: null,

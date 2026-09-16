@@ -22,6 +22,7 @@ function buildInput(
     storeOverrides: DeliveryStoreDistanceOverrides;
     lat: number | null;
     lng: number | null;
+    deliveryRadiusKm: number | null;
     policyVersion: number;
     storePolicyVersion: number;
   }> = {}
@@ -30,6 +31,7 @@ function buildInput(
     storeId: STORE_ID,
     lat: overrides.lat ?? STORE_LAT,
     lng: overrides.lng ?? STORE_LNG,
+    deliveryRadiusKm: overrides.deliveryRadiusKm,
     policy: overrides.policy ?? DEFAULT_DELIVERY_DISTANCE_POLICY,
     overrides: overrides.storeOverrides ?? DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
     policyVersion: overrides.policyVersion ?? 1,
@@ -46,21 +48,23 @@ describe("buildStoreDeliveryCoverageProjection", () => {
     expect(built.coversAll).toBe(true);
   });
 
-  it("inherit global maxKm → finite radius when enabled", () => {
+  it("NULL deliveryRadiusKm → effective default 10 when enabled", () => {
     const built = buildStoreDeliveryCoverageProjection(
       buildInput({
-        policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: 5 },
+        policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: 60 },
+        deliveryRadiusKm: null,
       })
     );
     expect(built.distanceApplies).toBe(true);
     expect(built.coversAll).toBe(false);
-    expect(built.effectiveMaxKm).toBe(5);
+    expect(built.effectiveMaxKm).toBe(10);
   });
 
   it("store override disabled → distance axis skipped", () => {
     const built = buildStoreDeliveryCoverageProjection(
       buildInput({
         policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: 5 },
+        deliveryRadiusKm: 5,
         storeOverrides: {
           stores: { [STORE_ID]: { mode: "disabled", maxKm: 2 } },
         },
@@ -71,12 +75,13 @@ describe("buildStoreDeliveryCoverageProjection", () => {
     expect(built.deliveryModeEffective).toBe("disabled");
   });
 
-  it("store override maxKm wins over global default", () => {
+  it("configured deliveryRadiusKm is radius SSOT (override maxKm ignored)", () => {
     const built = buildStoreDeliveryCoverageProjection(
       buildInput({
         policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: 5 },
+        deliveryRadiusKm: 2.5,
         storeOverrides: {
-          stores: { [STORE_ID]: { mode: "enabled", maxKm: 2.5 } },
+          stores: { [STORE_ID]: { mode: "enabled", maxKm: 99 } },
         },
       })
     );
@@ -84,14 +89,15 @@ describe("buildStoreDeliveryCoverageProjection", () => {
     expect(built.coversAll).toBe(false);
   });
 
-  it("null maxKm → covers_all", () => {
+  it("legacy null global defaultMaxKm does not make covers_all when store radius NULL", () => {
     const built = buildStoreDeliveryCoverageProjection(
       buildInput({
         policy: { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: null },
+        deliveryRadiusKm: null,
       })
     );
-    expect(built.coversAll).toBe(true);
-    expect(built.effectiveMaxKm).toBe(null);
+    expect(built.coversAll).toBe(false);
+    expect(built.effectiveMaxKm).toBe(10);
   });
 
   it("missing coords keeps distance_applies but no finite circle requirement in builder", () => {
@@ -130,6 +136,7 @@ describe("coverage radius parity with haversine evaluator rounding", () => {
       policy,
       overrides: DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
       storeId: STORE_ID,
+      storeDeliveryRadiusKm: 5,
       storeLat: STORE_LAT,
       storeLng: STORE_LNG,
       customerLat,

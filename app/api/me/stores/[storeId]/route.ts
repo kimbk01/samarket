@@ -15,6 +15,7 @@ import {
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
+import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ type PatchBody = {
   is_visible?: boolean;
   is_open?: boolean;
   delivery_available?: boolean;
+  /** CUT1 store delivery radius SSOT (km). Omit to leave unchanged. */
+  delivery_radius_km?: number | null;
   /** 공개 메뉴판에서 품절을 섹션 하단으로 정렬 */
   menu_sold_out_bottom?: boolean;
   /** 주문 메신저 방 음성 메시지 허용 */
@@ -202,6 +205,17 @@ export async function PATCH(
   if (body.delivery_available !== undefined) {
     patch.delivery_available = Boolean(body.delivery_available);
   }
+  if (body.delivery_radius_km !== undefined) {
+    if (body.delivery_radius_km === null) {
+      patch.delivery_radius_km = null;
+    } else {
+      const parsed = parseStoreDeliveryRadiusKmForWrite(body.delivery_radius_km);
+      if (!parsed.ok) {
+        return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+      }
+      patch.delivery_radius_km = parsed.value;
+    }
+  }
   if (body.menu_sold_out_bottom !== undefined) {
     patch.menu_sold_out_bottom = Boolean(body.menu_sold_out_bottom);
   }
@@ -307,7 +321,7 @@ export async function PATCH(
         "description, kakao_id, phone, email, website_url",
         "region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng",
         "profile_image_url, business_hours_json, gallery_images_json, is_open",
-        "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
+        "delivery_available, delivery_radius_km, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
         "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
         "approval_status, is_visible, first_listed_at, rejected_reason, revision_note",
         "created_at, updated_at, approved_at",

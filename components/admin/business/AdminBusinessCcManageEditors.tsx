@@ -531,25 +531,30 @@ export function AdminBusinessCcFeeOverrideEditor({
 export function AdminBusinessCcDeliveryOverrideEditor({
   storeId,
   currentMode,
-  currentMaxKm,
+  currentDeliveryRadiusKm,
+  currentEffectiveMaxKm,
   onSaved,
 }: {
   storeId: string;
   currentMode: string | null;
-  currentMaxKm: number | null;
+  /** Configured stores.delivery_radius_km (null = unconfigured → effective 10). */
+  currentDeliveryRadiusKm: number | null;
+  currentEffectiveMaxKm: number | null;
   onSaved: () => void;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<DeliveryStoreDistanceMode>(
     (currentMode as DeliveryStoreDistanceMode) || "inherit"
   );
-  const [maxKm, setMaxKm] = useState(currentMaxKm != null ? String(currentMaxKm) : "");
+  const [maxKm, setMaxKm] = useState(
+    currentEffectiveMaxKm != null ? String(currentEffectiveMaxKm) : "10"
+  );
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setMode((currentMode as DeliveryStoreDistanceMode) || "inherit");
-    setMaxKm(currentMaxKm != null ? String(currentMaxKm) : "");
-  }, [storeId, currentMode, currentMaxKm]);
+    setMaxKm(currentEffectiveMaxKm != null ? String(currentEffectiveMaxKm) : "10");
+  }, [storeId, currentMode, currentDeliveryRadiusKm, currentEffectiveMaxKm]);
 
   const save = async () => {
     const ok = await dibayConfirm({
@@ -560,6 +565,28 @@ export function AdminBusinessCcDeliveryOverrideEditor({
     if (!ok) return;
     setBusy(true);
     try {
+      const parsedKm = Number(maxKm);
+      if (!Number.isFinite(parsedKm) || parsedKm <= 0) {
+        await dibayAlert({ title: t("admin_biz_delivery_km_invalid") });
+        return;
+      }
+
+      const radiusRes = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_delivery_radius",
+          delivery_radius_km: Math.round(parsedKm * 10) / 10,
+        }),
+      });
+      const radiusJson = (await radiusRes.json()) as { ok?: boolean; error?: string };
+      if (!radiusRes.ok || radiusJson.ok === false) {
+        await dibayAlert({ title: radiusJson.error ?? t("common_content_unavailable") });
+        return;
+      }
+
+      // Platform mode (enabled/disabled/inherit) only — maxKm no longer lives in override JSON.
       const getRes = await fetch("/api/admin/delivery/settings", {
         credentials: "include",
         cache: "no-store",
@@ -574,15 +601,10 @@ export function AdminBusinessCcDeliveryOverrideEditor({
         return;
       }
       const stores = { ...(getJson.store_distance_overrides?.stores ?? {}) };
-      const parsedKm = maxKm.trim() === "" ? null : Number(maxKm);
-      if (parsedKm != null && (!Number.isFinite(parsedKm) || parsedKm <= 0)) {
-        await dibayAlert({ title: t("admin_biz_delivery_km_invalid") });
-        return;
-      }
-      if (mode === "inherit" && parsedKm == null) {
+      if (mode === "inherit") {
         delete stores[storeId];
       } else {
-        stores[storeId] = { mode, maxKm: parsedKm };
+        stores[storeId] = { mode, maxKm: null };
       }
       const putRes = await fetch("/api/admin/delivery/settings", {
         method: "PUT",
@@ -603,7 +625,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
 
   return (
     <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
-      <p className="sam-text-helper font-medium text-sam-fg">{t("admin_biz_manage_delivery_override")}</p>
+      <p className="sam-text-helper font-medium text-sam-fg">{t("business_store_delivery_radius_label")}</p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block space-y-1">
           <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_store_override")}</span>
@@ -619,19 +641,20 @@ export function AdminBusinessCcDeliveryOverrideEditor({
           </select>
         </label>
         <label className="block space-y-1">
-          <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_max_km")}</span>
+          <span className="sam-text-helper text-sam-muted">{t("business_store_delivery_radius_label")}</span>
           <input
             className={`${inputClass} w-28`}
             value={maxKm}
             disabled={busy}
             onChange={(e) => setMaxKm(e.target.value)}
-            placeholder="e.g. 5"
+            inputMode="decimal"
           />
         </label>
         <button type="button" className={btnPrimaryClass} disabled={busy} onClick={() => void save()}>
           {t("admin_biz_save_delivery_override")}
         </button>
       </div>
+      <p className="sam-text-helper text-sam-muted">{t("business_store_delivery_radius_help")}</p>
     </div>
   );
 }

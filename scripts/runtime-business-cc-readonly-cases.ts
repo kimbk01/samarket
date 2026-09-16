@@ -21,13 +21,18 @@ async function main() {
   const overrideIds = Object.keys(ctx.overrides.stores);
   const { data: stores } = await sb
     .from("stores")
-    .select("id, store_name, lat, lng, delivery_available, store_category_id, store_topic_id")
+    .select("id, store_name, lat, lng, delivery_available, delivery_radius_km, store_category_id, store_topic_id")
     .limit(50);
 
   const rows = [];
   for (const s of stores ?? []) {
     const id = String(s.id);
-    const eff = resolveEffectiveStoreDistancePolicy(ctx.policy, ctx.overrides, id);
+    const eff = resolveEffectiveStoreDistancePolicy(
+      ctx.policy,
+      ctx.overrides,
+      id,
+      (s as { delivery_radius_km?: unknown }).delivery_radius_km
+    );
     const fee = await resolveEffectiveStoreFeePolicy(sb, {
       storeId: id,
       storeCategoryId: s.store_category_id,

@@ -32,7 +32,7 @@ export async function GET(
 
   const { data: store, error } = await sb
     .from("stores")
-    .select("id, slug, lat, lng, delivery_available, approval_status, is_visible")
+    .select("id, slug, lat, lng, delivery_radius_km, delivery_available, approval_status, is_visible")
     .eq("slug", decoded)
     .maybeSingle();
 
@@ -70,6 +70,7 @@ export async function GET(
   const svc = evaluateStoreDeliveryServiceability({
     ctx,
     storeId: String(store.id),
+    storeDeliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
     customerLat,
     customerLng,
     storeLat: store.lat,
