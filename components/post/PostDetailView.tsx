@@ -1216,12 +1216,24 @@ export function PostDetailView({
 
   useLayoutEffect(() => {
     if (!morphCover) return;
-    const measured = measureTradeMarketDetailMorphTargets(rootRef.current);
-    publishTradeMarketMorphTargetGeometry({
-      listingId: post.id,
-      heroRect: measured.heroRect,
-      contentRect: measured.contentRect,
-    });
+    const publish = () => {
+      const measured = measureTradeMarketDetailMorphTargets(rootRef.current);
+      publishTradeMarketMorphTargetGeometry({
+        listingId: post.id,
+        heroRect: measured.heroRect,
+        contentRect: measured.contentRect,
+        fields: measured.fields,
+      });
+    };
+    publish();
+    const raf = requestAnimationFrame(publish);
+    const t1 = window.setTimeout(publish, 48);
+    const t2 = window.setTimeout(publish, 120);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [morphCover, post.id, detailImageUrls.length]);
 
   useEffect(() => {

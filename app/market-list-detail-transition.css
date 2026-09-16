@@ -17,8 +17,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-market-card-morph-image="1"],
-  [data-market-card-morph-source-text="1"],
-  [data-market-card-morph-target-text="1"] {
+  [data-market-card-morph-semantic] {
     transition: none !important;
   }
 }

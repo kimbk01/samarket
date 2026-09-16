@@ -3,9 +3,11 @@
 /**
  * Sole Marketplace list↔detail presentation coordinator.
  *
- * - ONE 360ms timeline (forward + back).
- * - Opaque cover prevents real detail from reading as a second screen.
- * - Image uses transform interpolation; text uses opacity + position only (no stretch).
+ * PERCEPTUAL CONTRACT:
+ * - ONE composition owner · ONE 360ms progress p · ONE semantic instance per field.
+ * - Image + price + title + meta participate from p=0 under the same clock.
+ * - NO source/target text crossfade · NO independent image-first presentation.
+ * - Text stays normally rendered (layout geometry interpolates; no glyph transform scale).
  * - Navigation remains <Link> / App Router.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -27,8 +29,11 @@ import {
 import { tryRestoreTradeMarketListScroll } from "@/lib/trade/location/trade-market-list-scroll-restore";
 import { isMarketplaceListSurfacePath } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
 
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const MAX_MORPH_MS = MARKET_CARD_MORPH_DURATION_MS + 2_000;
+const EASE = (t: number) => {
+  // cubic-bezier(0.22, 1, 0.36, 1) approx via easeOutExpo-ish
+  return 1 - Math.pow(1 - t, 3.2);
+};
 
 export function MarketCardMorphHost() {
   const pathname = usePathname();
@@ -42,7 +47,6 @@ export function MarketCardMorphHost() {
     const unsub = subscribeTradeMarketCardMorph(() => {
       setSession(peekTradeMarketCardMorph());
     });
-    // Arm reverse BEFORE React route-enter computes ltr-back (system/gesture back).
     const onPop = () => {
       const standing = peekTradeMarketDetailStandingSnapshot();
       if (!standing) return;
@@ -61,7 +65,6 @@ export function MarketCardMorphHost() {
     };
   }, []);
 
-  // System/gesture back: arm reverse from standing detail snapshot when leaving /post → list.
   useEffect(() => {
     const prev = prevPathRef.current;
     prevPathRef.current = pathname;
@@ -97,135 +100,210 @@ export function MarketCardMorphHost() {
   );
 }
 
-function applyRect(el: HTMLElement, rect: TradeMarketMorphRect): void {
+function lerp(a: number, b: number, p: number): number {
+  return a + (b - a) * p;
+}
+
+function lerpRect(
+  source: TradeMarketMorphRect | null,
+  target: TradeMarketMorphRect | null,
+  p: number
+): TradeMarketMorphRect | null {
+  if (!source && !target) return null;
+  if (!source) return target;
+  if (!target) return source;
+  return {
+    x: lerp(source.x, target.x, p),
+    y: lerp(source.y, target.y, p),
+    width: Math.max(1, lerp(source.width, target.width, p)),
+    height: Math.max(1, lerp(source.height, target.height, p)),
+  };
+}
+
+function applyBox(el: HTMLElement, rect: TradeMarketMorphRect): void {
+  el.style.left = "0px";
+  el.style.top = "0px";
   el.style.width = `${rect.width}px`;
   el.style.height = `${rect.height}px`;
   el.style.transform = `translate3d(${rect.x}px, ${rect.y}px, 0)`;
 }
 
 function MarketCardMorphSurface({ session }: { session: TradeMarketCardMorphSession }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLDivElement | null>(null);
-  const sourceTextRef = useRef<HTMLDivElement | null>(null);
-  const targetTextRef = useRef<HTMLDivElement | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const frozen = useRef({
-    sourceHero: session.thumbRect,
-    destHero: session.targetHeroRect,
-    sourceContent: session.contentRect,
-    destContent: session.targetContentRect,
-    hasImage: Boolean(session.imageUrl && (session.thumbRect || session.targetHeroRect)),
+  const priceRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLDivElement | null>(null);
+  const locationRef = useRef<HTMLDivElement | null>(null);
+  const progressRef = useRef(0);
+
+  // Freeze SOURCE geometry for this generation. End targets may be patched silently by publish.
+  const source = useRef({
+    generation: session.generation,
+    direction: session.direction,
+    imageUrl: session.imageUrl,
+    priceText: session.priceText,
+    titleText: session.titleText,
+    locationText: session.locationText,
+    thumb: session.thumbRect,
+    price: session.priceRect ?? null,
+    title: session.titleRect ?? null,
+    location: session.locationRect ?? null,
+    // fallbacks when field rect missing
+    content: session.contentRect,
+    heroFallback: session.targetHeroRect,
+    contentFallback: session.targetContentRect,
   }).current;
-  const hasImage = frozen.hasImage;
-  const sourceHero = frozen.sourceHero;
-  const destHero = frozen.destHero;
-  const sourceContent = frozen.sourceContent;
-  const destContent = frozen.destContent;
+
+  const hasImage = Boolean(source.imageUrl && (source.thumb || source.heroFallback));
 
   useLayoutEffect(() => {
-    // Start pose = source
-    if (hasImage && imageRef.current && sourceHero) {
-      const el = imageRef.current;
-      el.style.transition = "none";
-      applyRect(el, sourceHero);
-      el.style.borderRadius = session.direction === "forward" ? "8px" : "0px";
-      el.style.opacity = "1";
-    }
-    if (sourceTextRef.current && sourceContent) {
-      const el = sourceTextRef.current;
-      el.style.transition = "none";
-      applyRect(el, sourceContent);
-      el.style.opacity = "1";
-    }
-    if (targetTextRef.current && destContent) {
-      const el = targetTextRef.current;
-      el.style.transition = "none";
-      applyRect(el, destContent);
-      el.style.opacity = "0";
-    }
-
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setExpanded(true));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-    // Freeze geometry for this generation — do not restart when target measure publishes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped
-  }, [session.generation]);
-
-  useEffect(() => {
-    if (!expanded) return;
     const listingId = session.listingId;
     const generation = session.generation;
     const direction = session.direction;
+    let raf = 0;
     let ended = false;
+    let poll: number | null = null;
+    let forceEnd: number | null = null;
+    const start = performance.now();
+
     const finish = () => {
       if (ended) return;
       ended = true;
+      if (raf) cancelAnimationFrame(raf);
       if (direction === "back") {
         const routeKey = takeDeferredTradeMarketListScrollRouteKey() || session.listRouteKey;
-        if (routeKey) {
-          tryRestoreTradeMarketListScroll(routeKey);
-        }
+        if (routeKey) tryRestoreTradeMarketListScroll(routeKey);
       }
       clearTradeMarketCardMorphIfGeneration(listingId, generation);
     };
 
-    const releaseWhenRouteReady = () => {
+    const routeReady = () => {
       const path = typeof window !== "undefined" ? window.location.pathname : "";
-      if (direction === "forward") {
-        if (tradePostIdFromPath(path) === listingId) {
-          finish();
-          return true;
-        }
-        return false;
-      }
-      // back — release once we are on a list surface (or timeout)
-      if (isMarketplaceListSurfacePath(path) || !tradePostIdFromPath(path)) {
-        finish();
-        return true;
-      }
-      return false;
+      if (direction === "forward") return tradePostIdFromPath(path) === listingId;
+      return isMarketplaceListSurfacePath(path) || !tradePostIdFromPath(path);
     };
 
-    const ms = MARKET_CARD_MORPH_DURATION_MS;
-    const imageEl = imageRef.current;
-    const sourceTextEl = sourceTextRef.current;
-    const targetTextEl = targetTextRef.current;
+    const readEnds = () => {
+      const live = peekTradeMarketCardMorph();
+      const same = live && live.generation === generation ? live : session;
+      const hero = same.targetHeroRect;
+      // Defense: never drive text into the hero even if a bad live measure slipped through.
+      const price =
+        same.targetPriceRect && hero && same.targetPriceRect.y + 2 < hero.y + hero.height
+          ? null
+          : same.targetPriceRect;
+      const title =
+        same.targetTitleRect && hero && same.targetTitleRect.y + 2 < hero.y + hero.height
+          ? null
+          : same.targetTitleRect;
+      const location =
+        same.targetLocationRect && hero && same.targetLocationRect.y + 2 < hero.y + hero.height
+          ? null
+          : same.targetLocationRect;
+      return {
+        hero,
+        price,
+        title,
+        location,
+        content:
+          same.targetContentRect && hero && same.targetContentRect.y + 2 < hero.y + hero.height
+            ? null
+            : same.targetContentRect,
+      };
+    };
 
-    if (hasImage && imageEl && destHero) {
-      imageEl.style.transition = `transform ${ms}ms ${EASE}, width ${ms}ms ${EASE}, height ${ms}ms ${EASE}, border-radius ${ms}ms ease-out, opacity ${ms}ms ease-out`;
-      applyRect(imageEl, destHero);
-      imageEl.style.borderRadius = direction === "forward" ? "0px" : "8px";
-      imageEl.style.opacity = "1";
-    } else if (hasImage && imageEl && !destHero) {
-      imageEl.style.transition = `opacity ${ms}ms ease-out, transform ${ms}ms ${EASE}`;
-      imageEl.style.opacity = "0";
-    }
+    const paint = (pRaw: number) => {
+      const p = EASE(Math.min(1, Math.max(0, pRaw)));
+      progressRef.current = p;
+      const ends = readEnds();
 
-    if (sourceTextEl && sourceContent) {
-      sourceTextEl.style.transition = `opacity ${ms}ms ease-out, transform ${ms}ms ${EASE}`;
-      if (destContent) {
-        sourceTextEl.style.transform = `translate3d(${destContent.x}px, ${destContent.y}px, 0)`;
+      if (hasImage && imageRef.current && source.thumb) {
+        const endHero = ends.hero ?? source.heroFallback;
+        const rect = lerpRect(source.thumb, endHero, p);
+        if (rect) {
+          applyBox(imageRef.current, rect);
+          const startR = direction === "forward" ? 8 : 0;
+          const endR = direction === "forward" ? 0 : 8;
+          imageRef.current.style.borderRadius = `${lerp(startR, endR, p)}px`;
+          imageRef.current.style.opacity = "1";
+        }
       }
-      sourceTextEl.style.opacity = "0";
-    }
-    if (targetTextEl && destContent) {
-      targetTextEl.style.transition = `opacity ${ms}ms ease-out`;
-      targetTextEl.style.opacity = "1";
-    }
 
-    // ONE clock: animate 360ms, then hold cover until route owns the destination.
-    let poll: number | null = null;
-    let forceEnd: number | null = null;
-    const afterAnim = window.setTimeout(() => {
-      if (releaseWhenRouteReady()) return;
+      // ONE instance per semantic field — layout geometry only (no transform:scale on glyphs).
+      const priceSrc = source.price ?? (source.content ? { ...source.content, height: 22 } : null);
+      const titleSrc =
+        source.title ??
+        (source.content
+          ? { x: source.content.x, y: source.content.y + 24, width: source.content.width, height: 20 }
+          : null);
+      const locSrc =
+        source.location ??
+        (source.content
+          ? { x: source.content.x, y: source.content.y + 46, width: source.content.width, height: 16 }
+          : null);
+
+      const priceEnd = ends.price ?? (ends.content ? { ...ends.content, height: 28 } : null);
+      const titleEnd =
+        ends.title ??
+        (ends.content
+          ? { x: ends.content.x, y: ends.content.y + 32, width: ends.content.width, height: 24 }
+          : null);
+      const locEnd =
+        ends.location ??
+        (ends.content
+          ? { x: ends.content.x, y: ends.content.y + 60, width: ends.content.width, height: 18 }
+          : null);
+
+      if (priceRef.current && source.priceText && priceSrc) {
+        const rect = lerpRect(priceSrc, priceEnd, p);
+        if (rect) {
+          applyBox(priceRef.current, rect);
+          const fs = direction === "forward" ? lerp(15, 22, p) : lerp(22, 15, p);
+          priceRef.current.style.fontSize = `${fs}px`;
+          priceRef.current.style.opacity = "1";
+        }
+      }
+      if (titleRef.current && source.titleText && titleSrc) {
+        const rect = lerpRect(titleSrc, titleEnd, p);
+        if (rect) {
+          applyBox(titleRef.current, rect);
+          const fs = direction === "forward" ? lerp(13, 17, p) : lerp(17, 13, p);
+          titleRef.current.style.fontSize = `${fs}px`;
+          titleRef.current.style.opacity = "1";
+        }
+      }
+      if (locationRef.current && source.locationText && locSrc) {
+        const rect = lerpRect(locSrc, locEnd, p);
+        if (rect) {
+          applyBox(locationRef.current, rect);
+          locationRef.current.style.fontSize = "12px";
+          locationRef.current.style.opacity = "1";
+        }
+      }
+    };
+
+    // Start pose immediately (p=0) — all fields visible together.
+    paint(0);
+
+    const tick = (now: number) => {
+      if (ended) return;
+      const p = Math.min(1, (now - start) / MARKET_CARD_MORPH_DURATION_MS);
+      paint(p);
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      // Hold cover at p=1 until route owns destination, then hand off once.
+      if (routeReady()) {
+        finish();
+        return;
+      }
       poll = window.setInterval(() => {
-        if (releaseWhenRouteReady() && poll != null) {
-          window.clearInterval(poll);
+        paint(1);
+        if (routeReady()) {
+          if (poll != null) window.clearInterval(poll);
           poll = null;
+          finish();
         }
       }, 32);
       forceEnd = window.setTimeout(() => {
@@ -233,21 +311,21 @@ function MarketCardMorphSurface({ session }: { session: TradeMarketCardMorphSess
         poll = null;
         finish();
       }, 2_000);
-    }, ms + 16);
+    };
 
+    raf = requestAnimationFrame(tick);
     return () => {
-      window.clearTimeout(afterAnim);
+      ended = true;
+      if (raf) cancelAnimationFrame(raf);
       if (poll != null) window.clearInterval(poll);
       if (forceEnd != null) window.clearTimeout(forceEnd);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped
-  }, [expanded, session.generation]);
-
-  const showSourceText = Boolean(sourceContent && (session.priceText || session.titleText || session.locationText));
-  const showTargetText = Boolean(destContent && (session.priceText || session.titleText || session.locationText));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped single clock
+  }, [session.generation]);
 
   return (
     <div
+      ref={rootRef}
       className="pointer-events-none fixed inset-0 z-[60]"
       data-market-card-morph="1"
       data-market-card-morph-direction={session.direction}
@@ -255,86 +333,60 @@ function MarketCardMorphSurface({ session }: { session: TradeMarketCardMorphSess
       data-market-card-morph-generation={String(session.generation)}
       data-market-card-morph-duration-ms={String(MARKET_CARD_MORPH_DURATION_MS)}
       data-market-card-morph-mode={hasImage ? "image-content" : "content-only"}
+      data-market-card-morph-model="semantic-single-p"
       aria-hidden
     >
-      {/* Opaque cover — sole perceptual surface until release */}
       <div
         className="absolute inset-0 bg-sam-app"
         data-market-card-morph-cover="1"
         style={{ opacity: 1 }}
       />
 
-      {hasImage && session.imageUrl && sourceHero ? (
+      {hasImage && source.imageUrl && source.thumb ? (
         <div
           ref={imageRef}
           data-market-card-morph-image="1"
+          data-market-card-morph-semantic="image"
           className="absolute left-0 top-0 overflow-hidden bg-cover bg-center will-change-transform"
           style={{
             transformOrigin: "top left",
-            backgroundImage: `url(${JSON.stringify(session.imageUrl)})`,
+            backgroundImage: `url(${JSON.stringify(source.imageUrl)})`,
           }}
         />
       ) : null}
 
-      {showSourceText && sourceContent ? (
+      {source.priceText ? (
         <div
-          ref={sourceTextRef}
-          data-market-card-morph-source-text="1"
-          className="absolute left-0 top-0 overflow-hidden will-change-transform"
+          ref={priceRef}
+          data-market-card-morph-semantic="price"
+          className="absolute left-0 top-0 overflow-hidden font-semibold leading-tight text-sam-fg will-change-transform"
           style={{ transformOrigin: "top left" }}
         >
-          <MorphTextBlock
-            price={session.priceText}
-            title={session.titleText}
-            location={session.locationText}
-            compact
-          />
+          {source.priceText}
         </div>
       ) : null}
 
-      {showTargetText && destContent ? (
+      {source.titleText ? (
         <div
-          ref={targetTextRef}
-          data-market-card-morph-target-text="1"
-          className="absolute left-0 top-0 overflow-hidden"
+          ref={titleRef}
+          data-market-card-morph-semantic="title"
+          className="absolute left-0 top-0 overflow-hidden leading-tight text-sam-fg will-change-transform"
           style={{ transformOrigin: "top left" }}
         >
-          <MorphTextBlock
-            price={session.priceText}
-            title={session.titleText}
-            location={session.locationText}
-            compact={session.direction === "back"}
-          />
+          {source.titleText}
         </div>
       ) : null}
-    </div>
-  );
-}
 
-function MorphTextBlock({
-  price,
-  title,
-  location,
-  compact,
-}: {
-  price: string;
-  title: string;
-  location: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"} px-0`}>
-      {price ? (
-        <p className={`truncate font-semibold text-sam-fg ${compact ? "text-[15px]" : "text-[22px]"}`}>
-          {price}
-        </p>
+      {source.locationText ? (
+        <div
+          ref={locationRef}
+          data-market-card-morph-semantic="meta"
+          className="absolute left-0 top-0 overflow-hidden leading-tight text-sam-muted will-change-transform"
+          style={{ transformOrigin: "top left" }}
+        >
+          {source.locationText}
+        </div>
       ) : null}
-      {title ? (
-        <p className={`truncate text-sam-fg ${compact ? "text-[13px]" : "text-[17px] font-medium"}`}>
-          {title}
-        </p>
-      ) : null}
-      {location ? <p className="truncate text-[12px] text-sam-muted">{location}</p> : null}
     </div>
   );
 }

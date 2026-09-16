@@ -17,6 +17,12 @@ export type TradeMarketMorphRect = {
 
 export type TradeMarketMorphDirection = "forward" | "back";
 
+export type TradeMarketMorphFieldRects = {
+  priceRect: TradeMarketMorphRect | null;
+  titleRect: TradeMarketMorphRect | null;
+  locationRect: TradeMarketMorphRect | null;
+};
+
 export type TradeMarketCardMorphSession = {
   listingId: string;
   generation: number;
@@ -25,12 +31,19 @@ export type TradeMarketCardMorphSession = {
   cardRect: TradeMarketMorphRect;
   /** LIST thumb slot or DETAIL photos section (null when no media). */
   thumbRect: TradeMarketMorphRect | null;
-  /** Price/title/location block. */
+  /** Price/title/location block (union — legacy + layout fallback). */
   contentRect: TradeMarketMorphRect | null;
+  /** Per-field source geometry — ONE transitional instance each. */
+  priceRect: TradeMarketMorphRect | null;
+  titleRect: TradeMarketMorphRect | null;
+  locationRect: TradeMarketMorphRect | null;
   /** Measured or estimated destination hero (null = no media at target). */
   targetHeroRect: TradeMarketMorphRect | null;
-  /** Measured or estimated destination content block. */
+  /** Measured or estimated destination content block (union). */
   targetContentRect: TradeMarketMorphRect | null;
+  targetPriceRect: TradeMarketMorphRect | null;
+  targetTitleRect: TradeMarketMorphRect | null;
+  targetLocationRect: TradeMarketMorphRect | null;
   viewport: { width: number; height: number };
   imageUrl: string | null;
   priceText: string;
@@ -62,6 +75,9 @@ const lastListGeometryById = new Map<
     cardRect: TradeMarketMorphRect;
     thumbRect: TradeMarketMorphRect | null;
     contentRect: TradeMarketMorphRect | null;
+    priceRect: TradeMarketMorphRect | null;
+    titleRect: TradeMarketMorphRect | null;
+    locationRect: TradeMarketMorphRect | null;
     listRouteKey: string | null;
   }
 >();
@@ -289,38 +305,145 @@ export function estimateTradeMarketDetailContentRect(
   };
 }
 
+/** Stack estimated detail field rects under hero — used until live measure publishes. */
+export function estimateTradeMarketDetailFieldRects(
+  viewport: { width: number; height: number },
+  heroRect: TradeMarketMorphRect | null,
+  fields: { hasPrice: boolean; hasTitle: boolean; hasLocation: boolean }
+): TradeMarketMorphFieldRects {
+  const block = estimateTradeMarketDetailContentRect(viewport, heroRect);
+  let y = block.y;
+  const priceRect = fields.hasPrice
+    ? { x: block.x, y, width: block.width, height: 28 }
+    : null;
+  if (priceRect) y += 32;
+  const titleRect = fields.hasTitle
+    ? { x: block.x, y, width: block.width, height: 24 }
+    : null;
+  if (titleRect) y += 28;
+  const locationRect = fields.hasLocation
+    ? { x: block.x, y, width: block.width, height: 18 }
+    : null;
+  return { priceRect, titleRect, locationRect };
+}
+
+export function measureTradeMarketListMorphFields(cardEl: HTMLElement | null): TradeMarketMorphFieldRects {
+  if (!cardEl || typeof cardEl.querySelector !== "function") {
+    return { priceRect: null, titleRect: null, locationRect: null };
+  }
+  return {
+    priceRect: readTradeMarketMorphRect(cardEl.querySelector('[data-ui4-slot="price"]')),
+    titleRect: readTradeMarketMorphRect(cardEl.querySelector('[data-ui4-slot="title"]')),
+    locationRect: readTradeMarketMorphRect(cardEl.querySelector('[data-ui4-slot="location"]')),
+  };
+}
+
 export function measureTradeMarketDetailMorphTargets(root: HTMLElement | null): {
   heroRect: TradeMarketMorphRect | null;
   contentRect: TradeMarketMorphRect | null;
+  fields: TradeMarketMorphFieldRects;
 } {
-  if (!root) return { heroRect: null, contentRect: null };
+  if (!root) {
+    return {
+      heroRect: null,
+      contentRect: null,
+      fields: { priceRect: null, titleRect: null, locationRect: null },
+    };
+  }
   const photos = root.querySelector<HTMLElement>('[data-ui5-slot="photos"]');
   const price = root.querySelector<HTMLElement>('[data-ui5-slot="price"]');
   const title = root.querySelector<HTMLElement>('[data-ui5-slot="title"]');
   const location = root.querySelector<HTMLElement>('[data-ui5-slot="location"]');
+  const fields: TradeMarketMorphFieldRects = {
+    priceRect: readTradeMarketMorphRect(price),
+    titleRect: readTradeMarketMorphRect(title),
+    locationRect: readTradeMarketMorphRect(location),
+  };
   const heroRect = readTradeMarketMorphRect(photos);
   const contentRect = unionRects(
-    unionRects(readTradeMarketMorphRect(price), readTradeMarketMorphRect(title)),
-    readTradeMarketMorphRect(location)
+    unionRects(fields.priceRect, fields.titleRect),
+    fields.locationRect
   );
-  return { heroRect, contentRect };
+  return { heroRect, contentRect, fields };
 }
 
-/** Detail publishes live target geometry while covered (opacity 0 still measurable). */
+/** Reject field geometry that sits inside/over the hero — that creates text-on-image mid-morph. */
+export function fieldRectBelowHero(
+  field: TradeMarketMorphRect | null,
+  hero: TradeMarketMorphRect | null
+): TradeMarketMorphRect | null {
+  if (!field) return null;
+  if (!hero) return field;
+  if (field.y + 2 < hero.y + hero.height) return null;
+  return field;
+}
+
+export function sanitizeTradeMarketDetailFieldRects(
+  hero: TradeMarketMorphRect | null,
+  fields: TradeMarketMorphFieldRects | null | undefined,
+  viewport: { width: number; height: number },
+  has: { hasPrice: boolean; hasTitle: boolean; hasLocation: boolean }
+): TradeMarketMorphFieldRects {
+  const priceRect = fieldRectBelowHero(fields?.priceRect ?? null, hero);
+  const titleRect = fieldRectBelowHero(fields?.titleRect ?? null, hero);
+  const locationRect = fieldRectBelowHero(fields?.locationRect ?? null, hero);
+  if (priceRect && titleRect && (!has.hasLocation || locationRect)) {
+    return { priceRect, titleRect, locationRect };
+  }
+  const estimated = estimateTradeMarketDetailFieldRects(viewport, hero, has);
+  return {
+    priceRect: priceRect ?? estimated.priceRect,
+    titleRect: titleRect ?? estimated.titleRect,
+    locationRect: locationRect ?? estimated.locationRect,
+  };
+}
+
+/**
+ * Live target geometry while covered.
+ * Silent patch (no notify) so the running single-p composition can adopt end rects
+ * without remounting / restarting the clock.
+ */
 export function publishTradeMarketMorphTargetGeometry(input: {
   listingId: string;
   heroRect: TradeMarketMorphRect | null;
   contentRect: TradeMarketMorphRect | null;
+  fields?: TradeMarketMorphFieldRects | null;
 }): void {
   const session = peekTradeMarketCardMorph();
   if (!session || session.listingId !== input.listingId.trim()) return;
   if (session.direction !== "forward") return;
-  const next: TradeMarketCardMorphSession = {
+
+  // Prefer estimated hero until live photos have a plausible size (gallery may still be empty).
+  let hero = input.heroRect ?? session.targetHeroRect;
+  const estimatedHero = session.targetHeroRect;
+  if (
+    hero &&
+    estimatedHero &&
+    estimatedHero.height > 48 &&
+    hero.height < estimatedHero.height * 0.55
+  ) {
+    hero = estimatedHero;
+  }
+
+  const sanitized = sanitizeTradeMarketDetailFieldRects(hero, input.fields, session.viewport, {
+    hasPrice: Boolean(session.priceText),
+    hasTitle: Boolean(session.titleText),
+    hasLocation: Boolean(session.locationText),
+  });
+  const content =
+    input.contentRect && hero && input.contentRect.y + 2 >= hero.y + hero.height
+      ? input.contentRect
+      : estimateTradeMarketDetailContentRect(session.viewport, hero);
+
+  memory = {
     ...session,
-    targetHeroRect: input.heroRect ?? session.targetHeroRect,
-    targetContentRect: input.contentRect ?? session.targetContentRect,
+    targetHeroRect: hero ?? session.targetHeroRect,
+    targetContentRect: content ?? session.targetContentRect,
+    targetPriceRect: sanitized.priceRect,
+    targetTitleRect: sanitized.titleRect,
+    targetLocationRect: sanitized.locationRect,
   };
-  setSession(next);
+  writeStorage(memory);
 }
 
 /** Keep a reverse-ready snapshot while detail is visible (system back). */
@@ -350,8 +473,14 @@ export function publishTradeMarketDetailStandingSnapshot(input: {
     cardRect,
     thumbRect: measured.heroRect,
     contentRect: measured.contentRect,
+    priceRect: measured.fields.priceRect,
+    titleRect: measured.fields.titleRect,
+    locationRect: measured.fields.locationRect,
     targetHeroRect: null,
     targetContentRect: null,
+    targetPriceRect: null,
+    targetTitleRect: null,
+    targetLocationRect: null,
     viewport: vp,
     imageUrl: typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null,
     priceText: (input.priceText ?? "").trim(),
@@ -420,9 +549,18 @@ export function armTradeMarketCardMorphForward(input: {
     typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
   const thumbRect = readTradeMarketMorphRect(thumbEl);
   const contentRect = readTradeMarketMorphRect(metaEl);
+  const listFields = measureTradeMarketListMorphFields(el);
+  const priceText = (input.priceText ?? "").trim();
+  const titleText = (input.titleText ?? "").trim();
+  const locationText = (input.locationText ?? "").trim();
   const vp = viewportSize();
   const targetHeroRect = estimateTradeMarketDetailHeroRect(vp, thumbRect, Boolean(imageUrl));
   const targetContentRect = estimateTradeMarketDetailContentRect(vp, targetHeroRect);
+  const targetFields = estimateTradeMarketDetailFieldRects(vp, targetHeroRect, {
+    hasPrice: Boolean(priceText),
+    hasTitle: Boolean(titleText),
+    hasLocation: Boolean(locationText),
+  });
   const session: TradeMarketCardMorphSession = {
     listingId,
     generation: generationSeq,
@@ -430,13 +568,19 @@ export function armTradeMarketCardMorphForward(input: {
     cardRect,
     thumbRect,
     contentRect,
+    priceRect: listFields.priceRect,
+    titleRect: listFields.titleRect,
+    locationRect: listFields.locationRect,
     targetHeroRect,
     targetContentRect,
+    targetPriceRect: targetFields.priceRect,
+    targetTitleRect: targetFields.titleRect,
+    targetLocationRect: targetFields.locationRect,
     viewport: vp,
     imageUrl,
-    priceText: (input.priceText ?? "").trim(),
-    titleText: (input.titleText ?? "").trim(),
-    locationText: (input.locationText ?? "").trim(),
+    priceText,
+    titleText,
+    locationText,
     listRouteKey: input.listRouteKey?.trim() || null,
     capturedAt: Date.now(),
   };
@@ -444,6 +588,9 @@ export function armTradeMarketCardMorphForward(input: {
     cardRect,
     thumbRect,
     contentRect,
+    priceRect: listFields.priceRect,
+    titleRect: listFields.titleRect,
+    locationRect: listFields.locationRect,
     listRouteKey: session.listRouteKey,
   });
   scrollRestoreDeferred = false;
@@ -484,6 +631,9 @@ export function armTradeMarketCardMorphBack(input: {
           cardRect,
           thumbRect: measured.heroRect,
           contentRect: measured.contentRect,
+          priceRect: measured.fields.priceRect,
+          titleRect: measured.fields.titleRect,
+          locationRect: measured.fields.locationRect,
         };
       })()
     : null;
@@ -493,6 +643,9 @@ export function armTradeMarketCardMorphBack(input: {
       cardRect: detailStandingSnapshot.cardRect,
       thumbRect: detailStandingSnapshot.thumbRect,
       contentRect: detailStandingSnapshot.contentRect,
+      priceRect: detailStandingSnapshot.priceRect,
+      titleRect: detailStandingSnapshot.titleRect,
+      locationRect: detailStandingSnapshot.locationRect,
     };
   }
   if (!source) return null;
@@ -533,6 +686,19 @@ export function armTradeMarketCardMorphBack(input: {
       height: 64,
     } satisfies TradeMarketMorphRect);
 
+  const priceText = (input.priceText ?? detailStandingSnapshot?.priceText ?? "").trim();
+  const titleText = (input.titleText ?? detailStandingSnapshot?.titleText ?? "").trim();
+  const locationText = (input.locationText ?? detailStandingSnapshot?.locationText ?? "").trim();
+  const listFieldsEstimated = estimateTradeMarketDetailFieldRects(vp, listThumb, {
+    hasPrice: Boolean(priceText),
+    hasTitle: Boolean(titleText),
+    hasLocation: Boolean(locationText),
+  });
+  // For back: target = list. Prefer saved list field rects over stack estimate.
+  const targetPriceRect = saved?.priceRect ?? listFieldsEstimated.priceRect;
+  const targetTitleRect = saved?.titleRect ?? listFieldsEstimated.titleRect;
+  const targetLocationRect = saved?.locationRect ?? listFieldsEstimated.locationRect;
+
   generationSeq += 1;
   const session: TradeMarketCardMorphSession = {
     listingId,
@@ -541,8 +707,14 @@ export function armTradeMarketCardMorphBack(input: {
     cardRect: source.cardRect,
     thumbRect: source.thumbRect,
     contentRect: source.contentRect,
+    priceRect: source.priceRect,
+    titleRect: source.titleRect,
+    locationRect: source.locationRect,
     targetHeroRect: listThumb,
     targetContentRect: listContent,
+    targetPriceRect,
+    targetTitleRect,
+    targetLocationRect,
     viewport: vp,
     imageUrl:
       (typeof input.imageUrl === "string" && input.imageUrl.trim()
@@ -550,9 +722,9 @@ export function armTradeMarketCardMorphBack(input: {
         : null) ||
       detailStandingSnapshot?.imageUrl ||
       null,
-    priceText: (input.priceText ?? detailStandingSnapshot?.priceText ?? "").trim(),
-    titleText: (input.titleText ?? detailStandingSnapshot?.titleText ?? "").trim(),
-    locationText: (input.locationText ?? detailStandingSnapshot?.locationText ?? "").trim(),
+    priceText,
+    titleText,
+    locationText,
     listRouteKey:
       input.listRouteKey?.trim() ||
       detailStandingSnapshot?.listRouteKey ||

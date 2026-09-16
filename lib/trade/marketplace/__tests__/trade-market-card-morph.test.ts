@@ -130,18 +130,30 @@ describe("trade-market-card-morph", () => {
     expect(tradePostIdFromPath("/market")).toBeNull();
   });
 
-  it("arms forward morph with image+content geometry and no snapshotHtml", () => {
+  it("arms forward morph with per-field geometry and no snapshotHtml / dual-text model", () => {
     const thumb = {
       getBoundingClientRect: () => ({ left: 100, top: 200, width: 80, height: 80, right: 180, bottom: 280 }),
     };
     const meta = {
       getBoundingClientRect: () => ({ left: 100, top: 290, width: 80, height: 40, right: 180, bottom: 330 }),
     };
+    const price = {
+      getBoundingClientRect: () => ({ left: 100, top: 290, width: 80, height: 18, right: 180, bottom: 308 }),
+    };
+    const title = {
+      getBoundingClientRect: () => ({ left: 100, top: 308, width: 80, height: 16, right: 180, bottom: 324 }),
+    };
+    const location = {
+      getBoundingClientRect: () => ({ left: 100, top: 324, width: 80, height: 14, right: 180, bottom: 338 }),
+    };
     const el = {
       getBoundingClientRect: () => ({ left: 100, top: 200, width: 80, height: 140, right: 180, bottom: 340 }),
       querySelector: (sel: string) => {
-        if (sel.includes("photos")) return thumb;
+        if (sel.includes('data-ui4-slot="photos"') || sel.includes("photos")) return thumb;
         if (sel.includes("market-card-meta")) return meta;
+        if (sel.includes('data-ui4-slot="price"') || sel.includes('="price"')) return price;
+        if (sel.includes('data-ui4-slot="title"') || sel.includes('="title"')) return title;
+        if (sel.includes('data-ui4-slot="location"') || sel.includes('="location"')) return location;
         return null;
       },
     } as unknown as HTMLElement;
@@ -163,8 +175,15 @@ describe("trade-market-card-morph", () => {
     expect(session?.cardRect).toEqual({ x: 100, y: 200, width: 80, height: 140 });
     expect(session?.thumbRect).toEqual({ x: 100, y: 200, width: 80, height: 80 });
     expect(session?.contentRect).toEqual({ x: 100, y: 290, width: 80, height: 40 });
+    expect(session?.priceRect).toEqual({ x: 100, y: 290, width: 80, height: 18 });
+    expect(session?.titleRect).toEqual({ x: 100, y: 308, width: 80, height: 16 });
+    expect(session?.locationRect).toEqual({ x: 100, y: 324, width: 80, height: 14 });
+    expect(session?.targetPriceRect).toBeTruthy();
+    expect(session?.targetTitleRect).toBeTruthy();
     expect(session?.priceText).toBe("₱150");
     expect(session).not.toHaveProperty("snapshotHtml");
+    expect(session).not.toHaveProperty("sourceTextOpacity");
+    expect(session).not.toHaveProperty("targetTextOpacity");
     expect(isTradeMarketCardMorphActiveForPostId("listing-a")).toBe(true);
     expect(isTradeMarketCardMorphSuppressingRouteEnter()).toBe(true);
     expect(peekTradeMarketCardMorph()?.imageUrl).toContain("a.jpg");
@@ -172,6 +191,32 @@ describe("trade-market-card-morph", () => {
 
   it("exposes 360ms duration SSOT", () => {
     expect(MARKET_CARD_MORPH_DURATION_MS).toBe(360);
+  });
+
+  it("rejects field rects that overlap the hero (text-on-image guard)", async () => {
+    const { sanitizeTradeMarketDetailFieldRects, fieldRectBelowHero } = await import(
+      "@/lib/trade/marketplace/trade-market-card-morph"
+    );
+    const hero = { x: 0, y: 0, width: 390, height: 390 };
+    expect(fieldRectBelowHero({ x: 16, y: 68, width: 200, height: 28 }, hero)).toBeNull();
+    expect(fieldRectBelowHero({ x: 16, y: 402, width: 200, height: 28 }, hero)).toEqual({
+      x: 16,
+      y: 402,
+      width: 200,
+      height: 28,
+    });
+    const sanitized = sanitizeTradeMarketDetailFieldRects(
+      hero,
+      {
+        priceRect: { x: 16, y: 68, width: 200, height: 28 },
+        titleRect: { x: 16, y: 100, width: 200, height: 24 },
+        locationRect: { x: 16, y: 130, width: 200, height: 18 },
+      },
+      { width: 390, height: 844 },
+      { hasPrice: true, hasTitle: true, hasLocation: true }
+    );
+    expect(sanitized.priceRect?.y).toBeGreaterThanOrEqual(hero.y + hero.height);
+    expect(sanitized.titleRect?.y).toBeGreaterThanOrEqual(hero.y + hero.height);
   });
 
   it("hero estimate uses thumb aspect not forced square-only", () => {
