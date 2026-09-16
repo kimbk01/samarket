@@ -8,7 +8,8 @@ import {
   peekDeliveryRideTimeSource,
   type DeliveryRideTimeSource,
 } from "@/lib/delivery/delivery-ops-settings";
-import { resolveBrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
+import { browseRouteOriginFromDeliveryOrigin } from "@/lib/stores/browse-route-origin";
+import { resolveStoreListDeliveryOrigin } from "@/lib/stores/store-list-delivery-origin";
 import {
   resolveRouteMemoryCacheBypass,
   type RouteCacheBypassReason,
@@ -151,7 +152,8 @@ function browseJsonHeaders(opts: {
 /**
  * 업종(primary slug) + 세부 주제(sub slug)별 실매장 목록 (서비스 롤, RLS 우회)
  * ?district= — 같은 구/동 우선 정렬(districtRank)
- * ?user_lat= & ?user_lng= — 거리 보조 정렬
+ * Logged-in: master delivery address (same SSOT as home-feed)
+ * Guest: optional ?user_lat=&user_lng= for distance sort only (not OOR eligibility)
  */
 export async function GET(req: Request) {
   const tRoute0 = devPerfNow();
@@ -175,7 +177,6 @@ export async function GET(req: Request) {
   const explicitSort = parseExplicitStoreBrowseServerSortParam(searchParams.get("sort"));
   const page = Math.max(1, Math.floor(Number(pageQ)) || 1);
   const limit = Math.max(1, Math.min(120, Math.floor(Number(limitQ)) || BROWSE_STORE_LIMIT));
-  const origin = resolveBrowseRouteOrigin(searchParams);
 
   if (!primary) {
     return NextResponse.json(
@@ -195,6 +196,9 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
     );
   }
+
+  const deliveryOrigin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
 
   try {
     const scopeMeta = await resolveStoresBrowseScopeCustomerMeta(

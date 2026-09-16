@@ -79,16 +79,19 @@ export function resolveStoreListCardBadges(
   return out;
 }
 
-/** Shared OOR badge copy from discovery DTO fields (no client distance math). */
+/**
+ * Shared OOR badge copy from discovery DTO fields (no client distance math).
+ * Primary customer state is always the generic area copy — not "{km}km 초과".
+ * `labelWithMax` / maxKm retained for call-site compat; unused for primary label.
+ */
 export function formatStoreCardOutOfRangeLabel(args: {
   distanceOutOfRange: boolean;
-  maxDeliveryDistanceKm: number | null | undefined;
-  labelWithMax: (km: number) => string;
+  maxDeliveryDistanceKm?: number | null | undefined;
+  labelWithMax?: (km: number) => string;
   labelGeneric: string;
 }): string | null {
   if (!args.distanceOutOfRange) return null;
-  if (args.maxDeliveryDistanceKm != null && Number.isFinite(args.maxDeliveryDistanceKm)) {
-    return args.labelWithMax(args.maxDeliveryDistanceKm);
-  }
+  void args.maxDeliveryDistanceKm;
+  void args.labelWithMax;
   return args.labelGeneric;
 }

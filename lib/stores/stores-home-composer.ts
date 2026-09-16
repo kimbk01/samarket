@@ -113,6 +113,11 @@ function isOpenDeliverable(store: StoreHomeFeedItem): boolean {
   return store.status === "open" && store.deliveryAvailable;
 }
 
+/** Normal orderable HOME shelves — member OOR excluded. */
+function isNormalListEligible(store: StoreHomeFeedItem): boolean {
+  return store.distanceOutOfRange !== true;
+}
+
 function hasDeliveryFeeStrikeEvidence(store: StoreHomeFeedItem): boolean {
   /** CUT 7 — DELIVERY_FEE_BENEFIT: fee evidence only (not editorial/coupon/paid). */
   const strike = store.deliveryFeeStrikePhp;
@@ -499,7 +504,12 @@ function allocatePurposeByDataSource(
   const adjacent = buildAdjacentAvoidIds(registry);
   switch (source) {
     case "order_now":
-      return allocateSlot0Food(registry, pool.filter(isOpenDeliverable), max, gate);
+      return allocateSlot0Food(
+        registry,
+        pool.filter((s) => isOpenDeliverable(s) && isNormalListEligible(s)),
+        max,
+        gate
+      );
     case "popular_menu": {
       const counted = overlayCounts
         ? pool.map((s) => ({
@@ -508,18 +518,25 @@ function allocatePurposeByDataSource(
           }))
         : pool;
       const popularOrdered = orderStoresByPopularMetric(
-        counted.filter((s) => (s.completedOrderCount30d ?? 0) > 0)
+        counted.filter((s) => (s.completedOrderCount30d ?? 0) > 0 && isNormalListEligible(s))
       );
       return allocateSlot2PopularFoodShelf(registry, popularOrdered, max, adjacent, gate);
     }
     case "new_store":
-      return allocateNewStoreFoodShelf(registry, pool, max, nowMs, gate);
+      return allocateNewStoreFoodShelf(
+        registry,
+        pool.filter(isNormalListEligible),
+        max,
+        nowMs,
+        gate
+      );
     case "editorial_promo":
+      /** Discovery shelf — OOR allowed with primary OOR copy. */
       return allocateCampaignFoodShelf(registry, pool, max, gate);
     case "delivery_fee_benefit":
       return allocateHorizontalFoodShelf(
         registry,
-        pool.filter((s) => hasDeliveryFeeStrikeEvidence(s)),
+        pool.filter((s) => hasDeliveryFeeStrikeEvidence(s) && isNormalListEligible(s)),
         max,
         adjacent,
         gate
@@ -527,12 +544,13 @@ function allocatePurposeByDataSource(
     case "high_rating":
       return allocateHorizontalFoodShelf(
         registry,
-        pool.filter((s) => isTopRatedCandidate(s)),
+        pool.filter((s) => isTopRatedCandidate(s) && isNormalListEligible(s)),
         max,
         adjacent,
         gate
       );
     case "recommended":
+      /** Featured discovery — OOR allowed with primary OOR copy. */
       return allocateHorizontalFoodShelf(
         registry,
         pool.filter((s) => s.isFeatured),
@@ -634,6 +652,7 @@ function composeStoresHomeFeedBySectionOrder(
   ];
   const restMax = opts.slotMax?.slot6RestStores;
   for (const store of pool) {
+    if (!isNormalListEligible(store)) continue;
     if (registry.wasExposedInRoles(store.id, finalRowExcludeRoles)) continue;
     if (restSource !== "rest_stores") {
       if (!storeMatchesHomeDataSource(store, restSource, nowMs)) continue;
@@ -654,7 +673,7 @@ function composeStoresHomeFeedLegacy(
   const pool = [...stores];
   const nowMs = nowMsInput ?? Date.now();
 
-  const slot0Candidates = pool.filter(isOpenDeliverable);
+  const slot0Candidates = pool.filter((s) => isOpenDeliverable(s) && isNormalListEligible(s));
   const slot0Food = allocateSlot0Food(registry, slot0Candidates, STORES_HOME_SLOT0_FOOD_MAX);
 
   /** CUT 2 — main_stores / slot1Stores removed; do not register slot1_primary. */
@@ -662,7 +681,9 @@ function composeStoresHomeFeedLegacy(
 
   const adjacentAvoid = buildAdjacentAvoidIds(registry);
 
-  const popularCandidates = pool.filter((s) => (s.completedOrderCount30d ?? 0) > 0);
+  const popularCandidates = pool.filter(
+    (s) => (s.completedOrderCount30d ?? 0) > 0 && isNormalListEligible(s)
+  );
   const popularOrdered = orderStoresByPopularMetric(popularCandidates);
   const slot2Food = allocateSlot2PopularFoodShelf(
     registry,
@@ -673,13 +694,15 @@ function composeStoresHomeFeedLegacy(
 
   const newStoreFood = allocateNewStoreFoodShelf(
     registry,
-    pool,
+    pool.filter(isNormalListEligible),
     STORES_HOME_NEW_STORE_SHELF_MAX,
     nowMs
   );
 
 
-  const discountCandidates = pool.filter((s) => hasDeliveryFeeStrikeEvidence(s));
+  const discountCandidates = pool.filter(
+    (s) => hasDeliveryFeeStrikeEvidence(s) && isNormalListEligible(s)
+  );
   const slot3Food = allocateHorizontalFoodShelf(
     registry,
     discountCandidates,
@@ -687,7 +710,7 @@ function composeStoresHomeFeedLegacy(
     buildAdjacentAvoidIds(registry)
   );
 
-  const ratingCandidates = pool.filter((s) => isTopRatedCandidate(s));
+  const ratingCandidates = pool.filter((s) => isTopRatedCandidate(s) && isNormalListEligible(s));
   const slot4Food = allocateHorizontalFoodShelf(
     registry,
     ratingCandidates,
@@ -695,6 +718,7 @@ function composeStoresHomeFeedLegacy(
     buildAdjacentAvoidIds(registry)
   );
 
+  /** Featured — intentional discovery; OOR may remain with primary OOR copy. */
   const featuredCandidates = pool.filter((s) => s.isFeatured);
   const slot5Food = allocateHorizontalFoodShelf(
     registry,
@@ -720,11 +744,13 @@ function composeStoresHomeFeedLegacy(
 
   const slot6RestStores: StoreHomeFeedItem[] = [];
   for (const store of pool) {
+    if (!isNormalListEligible(store)) continue;
     if (registry.wasExposedInRoles(store.id, finalRowExcludeRoles)) continue;
     registry.registerStore(store.id, "final_row");
     slot6RestStores.push(store);
   }
 
+  /** Campaign — intentional discovery; OOR may remain with primary OOR copy. */
   const campaignFood = allocateCampaignFoodShelf(
     registry,
     pool,

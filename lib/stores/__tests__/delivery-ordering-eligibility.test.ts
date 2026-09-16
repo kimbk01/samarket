@@ -33,6 +33,7 @@ describe("CUT 8 store detail / add-to-cart eligibility", () => {
         ok: true,
         applies: true,
         eligible: false,
+        reason: "out_of_range",
       }),
     ).toBe(true);
     expect(
@@ -42,6 +43,29 @@ describe("CUT 8 store detail / add-to-cart eligibility", () => {
         eligible: true,
       }),
     ).toBe(false);
+    expect(
+      isDeliveryDistanceOrderBlocked({
+        ok: true,
+        applies: true,
+        eligible: false,
+        reason: "missing_customer_coords",
+      }),
+    ).toBe(false);
+  });
+
+  it("guest product add does not require auth before local cart insert", () => {
+    const product = readFileSync(
+      join(process.cwd(), "components/stores/StoreProductPublic.tsx"),
+      "utf8",
+    );
+    const sheet = readFileSync(
+      join(process.cwd(), "components/stores/StoreProductAddSheet.tsx"),
+      "utf8",
+    );
+    expect(product).not.toContain('requireAuthAction');
+    expect(product).not.toContain("delivery_cart_add");
+    expect(sheet).not.toContain('requireAuthAction');
+    expect(sheet).not.toContain("delivery_cart_add");
   });
 
   it("StoreDetailPublic wires canonical serviceability + add block", () => {

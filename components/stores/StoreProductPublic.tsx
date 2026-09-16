@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -468,15 +467,8 @@ export function StoreProductPublic({
       return;
     }
 
-    const cartNext =
-      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
-    void requireAuthAction(
-      "delivery_cart_add",
-      () => {
-        addToCartAfterProfileGate();
-      },
-      { next: cartNext }
-    );
+    /** Guest may add to local cart; checkout/order requires login. */
+    addToCartAfterProfileGate();
   }
 
   function addToCartAfterProfileGate() {

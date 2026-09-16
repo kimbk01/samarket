@@ -40,6 +40,7 @@ import {
   evaluateDeliveryServiceability,
   resolveEffectiveStoreDistancePolicy,
 } from "@/lib/delivery/evaluate-delivery-serviceability";
+import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import { BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX } from "@/lib/stores/browse-organic-contract";
@@ -513,7 +514,11 @@ function resolveDistanceForSort(
       ? routeMeters / 1000
       : null;
   const distanceKm = routeKm ?? svc.distanceKm;
-  const outOfRange = svc.reason === "out_of_range" || svc.reason === "missing_store_coords";
+  const outOfRange = resolveListDistanceOutOfRange({
+    originSource: ctx.origin.source,
+    serviceabilityApplies: svc.applies,
+    reason: svc.reason,
+  });
   return { distanceKm, outOfRange, applies: true };
 }
 
@@ -855,6 +860,17 @@ export function resolveBrowseFilteredSortedStoreRows(
         geoPart: ctx.origin.cacheGeoPart,
       }),
     });
+  }
+
+  /** Authenticated master address: EXCLUDE OOR from normal browse (not deprioritize). */
+  if (ctx.origin.source === "saved_address") {
+    rows = rows.filter(
+      (r) =>
+        !shouldExcludeOutOfRangeFromNormalList({
+          originSource: ctx.origin.source,
+          distanceOutOfRange: outOfRangeById.get(r.id) === true,
+        })
+    );
   }
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);

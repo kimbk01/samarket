@@ -18,13 +18,17 @@ import {
 import type { BrowseFilteredStoreRowsResult, StoreBrowseRow } from "@/lib/stores/stores-browse-build";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreDiscoveryBrowseDisplayStatus } from "@/lib/stores/store-discovery-eligibility";
+import {
+  resolveListDistanceOutOfRange,
+  shouldExcludeOutOfRangeFromNormalList,
+  type DeliveryListOriginSource,
+} from "@/lib/delivery/delivery-list-oor-policy";
 import { logStoreDiscoveryAuthorityRuntime } from "@/lib/stores/discovery/store-discovery-ranking-authority";
 
 function buildBrowseStatusMapFromShadow(
   rows: StoreBrowseRow[],
-  ranked: StoreDiscoveryShadowRankedRow[]
+  outOfRangeById: Map<string, boolean>
 ): Map<string, BrowseStoreListItem["status"]> {
-  const oor = new Map(ranked.map((r) => [r.id, r.outOfRange === true]));
   const statusById = new Map<string, BrowseStoreListItem["status"]>();
   for (const row of rows) {
     statusById.set(
@@ -34,7 +38,7 @@ function buildBrowseStatusMapFromShadow(
         is_open: row.is_open,
         point_commerce_blocked: row.point_commerce_blocked,
         delivery_available: row.delivery_available,
-        distanceOutOfRange: oor.get(row.id) === true,
+        distanceOutOfRange: outOfRangeById.get(row.id) === true,
       })
     );
   }
@@ -46,6 +50,8 @@ export async function loadHomeDiscoveryRankedForLive(
   input: {
     originLat: number | null;
     originLng: number | null;
+    /** Guest GPS must not mark OOR. */
+    originSource?: DeliveryListOriginSource;
     district: string | null;
     searchQ: string | null;
     distanceAxisEnabled: boolean;
@@ -98,9 +104,17 @@ export async function loadHomeDiscoveryRankedForLive(
   const outOfRangeById = new Map<string, boolean>();
   const distById = new Map<string, number | null>();
   const completedOrders30dById = new Map<string, number>();
+  const originSource = input.originSource ?? "none";
   for (const r of rankedLoad.rows) {
     eligibilityRankById.set(r.id, r.eligibilityRank);
-    outOfRangeById.set(r.id, r.outOfRange === true);
+    outOfRangeById.set(
+      r.id,
+      resolveListDistanceOutOfRange({
+        originSource,
+        serviceabilityApplies: input.distanceAxisEnabled,
+        reason: r.outOfRange ? "out_of_range" : "eligible",
+      })
+    );
     distById.set(r.id, r.distanceKm);
     completedOrders30dById.set(r.id, r.completedOrders30d);
   }
@@ -130,6 +144,7 @@ export async function loadBrowseDiscoveryRankedForLive(
     sort: StoreBrowseServerSortId;
     originLat: number | null;
     originLng: number | null;
+    originSource?: DeliveryListOriginSource;
     district: string | null;
     distanceAxisEnabled: boolean;
     storeCategoryId: string | null;
@@ -170,26 +185,51 @@ export async function loadBrowseDiscoveryRankedForLive(
     return { ok: false, status: "error", error: "hydrate_failed" };
   }
 
+  const originSource = input.originSource ?? "none";
   const distanceEnabled = input.distanceAxisEnabled;
   const distById = distanceEnabled
     ? new Map(rankedLoad.rows.map((r) => [r.id, r.distanceKm] as const))
     : null;
-  const outOfRangeById = new Map(rankedLoad.rows.map((r) => [r.id, r.outOfRange === true] as const));
-  const statusById = buildBrowseStatusMapFromShadow(hydrate.rows, rankedLoad.rows);
+  const outOfRangeById = new Map(
+    rankedLoad.rows.map(
+      (r) =>
+        [
+          r.id,
+          resolveListDistanceOutOfRange({
+            originSource,
+            serviceabilityApplies: distanceEnabled,
+            reason: r.outOfRange ? "out_of_range" : "eligible",
+          }),
+        ] as const
+    )
+  );
+
+  let rows = hydrate.rows;
+  if (originSource === "saved_address") {
+    rows = rows.filter(
+      (row) =>
+        !shouldExcludeOutOfRangeFromNormalList({
+          originSource,
+          distanceOutOfRange: outOfRangeById.get(row.id) === true,
+        })
+    );
+  }
+
+  const statusById = buildBrowseStatusMapFromShadow(rows, outOfRangeById);
 
   logStoreDiscoveryAuthorityRuntime({
     surface: "browse",
     authority: "new",
     status: "ok",
     wavesExecuted: rankedLoad.telemetry?.wavesExecuted,
-    rowsReturned: rankedLoad.rows.length,
+    rowsReturned: rows.length,
   });
 
   return {
     ok: true,
     ranked: rankedLoad.rows,
     filter: {
-      rows: hydrate.rows,
+      rows,
       distById,
       statusById,
       distanceSortMs: 0,

@@ -46,10 +46,12 @@ describe("resolveStoreListCardBadges", () => {
       pickupLabel: "Pickup",
       freeDeliveryProven: true,
       freeDeliveryLabel: "Free delivery",
-      outOfRangeLabel: "거리 초과",
+      outOfRangeLabel: "배달 가능 지역 아님",
     });
     expect(badges.some((b) => b.kind === "free_delivery")).toBe(false);
-    expect(badges.some((b) => b.kind === "out_of_range" && b.label === "거리 초과")).toBe(true);
+    expect(badges.some((b) => b.kind === "out_of_range" && b.label === "배달 가능 지역 아님")).toBe(
+      true
+    );
     expect(badges.some((b) => b.kind === "pickup")).toBe(true);
   });
 
@@ -77,19 +79,19 @@ describe("formatStoreCardOutOfRangeLabel", () => {
         distanceOutOfRange: false,
         maxDeliveryDistanceKm: 5,
         labelWithMax: (km) => `${km}km 초과`,
-        labelGeneric: "거리 초과",
+        labelGeneric: "배달 가능 지역 아님",
       })
     ).toBeNull();
   });
 
-  it("uses max km label when OOR and max present", () => {
+  it("uses primary area copy when OOR — not numeric max km", () => {
     expect(
       formatStoreCardOutOfRangeLabel({
         distanceOutOfRange: true,
-        maxDeliveryDistanceKm: 3,
+        maxDeliveryDistanceKm: 60,
         labelWithMax: (km) => `${km}km 초과`,
-        labelGeneric: "거리 초과",
+        labelGeneric: "배달 가능 지역 아님",
       })
-    ).toBe("3km 초과");
+    ).toBe("배달 가능 지역 아님");
   });
 });

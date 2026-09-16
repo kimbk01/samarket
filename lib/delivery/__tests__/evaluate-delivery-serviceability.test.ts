@@ -13,14 +13,14 @@ const offPolicy: DeliveryDistancePolicy = {
   enabled: false,
   source: "straight",
   defaultMaxKm: 5,
-  overDistanceBehavior: "deprioritize",
+  overDistanceBehavior: "exclude",
 };
 
 const onPolicy: DeliveryDistancePolicy = {
   enabled: true,
   source: "straight",
   defaultMaxKm: 5,
-  overDistanceBehavior: "deprioritize",
+  overDistanceBehavior: "exclude",
 };
 
 const emptyOverrides: DeliveryStoreDistanceOverrides = { stores: {} };

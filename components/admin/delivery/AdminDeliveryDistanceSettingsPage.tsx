@@ -37,24 +37,12 @@ const DEFAULT_POLICY: DeliveryDistancePolicy = {
   enabled: false,
   source: "straight",
   defaultMaxKm: null,
-  overDistanceBehavior: "deprioritize",
+  overDistanceBehavior: "exclude",
 };
 
 const DEFAULT_OVERRIDES: DeliveryStoreDistanceOverrides = {
   stores: {},
 };
-
-function parseKmInput(value: string): number | null {
-  const s = value.trim();
-  if (!s) return null;
-  const n = Number(s);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 10) / 10;
-}
-
-function kmInputValue(value: number | null): string {
-  return value == null ? "" : String(value);
-}
 
 function normalizePolicy(raw: unknown): DeliveryDistancePolicy {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -62,10 +50,12 @@ function normalizePolicy(raw: unknown): DeliveryDistancePolicy {
   return {
     enabled: o.enabled === true,
     source,
-    defaultMaxKm: typeof o.defaultMaxKm === "number" && Number.isFinite(o.defaultMaxKm) && o.defaultMaxKm > 0
-      ? Math.round(o.defaultMaxKm * 10) / 10
-      : null,
-    overDistanceBehavior: "deprioritize",
+    /** Preserved in JSON for compatibility — not edited as store radius. */
+    defaultMaxKm:
+      typeof o.defaultMaxKm === "number" && Number.isFinite(o.defaultMaxKm) && o.defaultMaxKm > 0
+        ? Math.round(o.defaultMaxKm * 10) / 10
+        : null,
+    overDistanceBehavior: "exclude",
   };
 }
 
@@ -78,12 +68,9 @@ function normalizeOverrides(raw: unknown): DeliveryStoreDistanceOverrides {
     const v = value as Record<string, unknown>;
     const mode: DeliveryStoreDistanceMode =
       v.mode === "enabled" || v.mode === "disabled" ? v.mode : "inherit";
-    const maxKm =
-      typeof v.maxKm === "number" && Number.isFinite(v.maxKm) && v.maxKm > 0
-        ? Math.round(v.maxKm * 10) / 10
-        : null;
-    if (mode === "inherit" && maxKm == null) continue;
-    stores[storeId] = { mode, maxKm };
+    /** Legacy maxKm ignored for radius — mode-only override remains. */
+    if (mode === "inherit") continue;
+    stores[storeId] = { mode, maxKm: null };
   }
   return { stores };
 }
@@ -98,7 +85,6 @@ export function AdminDeliveryDistanceSettingsPage() {
   const { t } = useI18n();
   const [policySaved, setPolicySaved] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
   const [policyDraft, setPolicyDraft] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
-  const [defaultMaxKmDraft, setDefaultMaxKmDraft] = useState("");
   const [overridesSaved, setOverridesSaved] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
   const [overridesDraft, setOverridesDraft] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
   const [stores, setStores] = useState<StoreRow[]>([]);
@@ -151,7 +137,6 @@ export function AdminDeliveryDistanceSettingsPage() {
       const nextOverrides = normalizeOverrides(settingsJson.store_distance_overrides);
       setPolicySaved(nextPolicy);
       setPolicyDraft(nextPolicy);
-      setDefaultMaxKmDraft(kmInputValue(nextPolicy.defaultMaxKm));
       setOverridesSaved(nextOverrides);
       setOverridesDraft(nextOverrides);
       const nextStores = storesJson.stores as StoreRow[];
@@ -189,14 +174,14 @@ export function AdminDeliveryDistanceSettingsPage() {
   const dirty = useMemo(
     () =>
       JSON.stringify({
-        policy: { ...policyDraft, defaultMaxKm: parseKmInput(defaultMaxKmDraft) },
+        policy: policyDraft,
         overrides: overridesDraft,
       }) !==
       JSON.stringify({
         policy: policySaved,
         overrides: overridesSaved,
       }),
-    [policyDraft, defaultMaxKmDraft, overridesDraft, policySaved, overridesSaved]
+    [policyDraft, overridesDraft, policySaved, overridesSaved]
   );
 
   const updateStoreOverride = useCallback(
@@ -265,8 +250,9 @@ export function AdminDeliveryDistanceSettingsPage() {
   const save = useCallback(async () => {
     const nextPolicy: DeliveryDistancePolicy = {
       ...policyDraft,
-      defaultMaxKm: parseKmInput(defaultMaxKmDraft),
-      overDistanceBehavior: "deprioritize",
+      /** Do not rewrite legacy defaultMaxKm from this UI — not store-radius authority. */
+      defaultMaxKm: policySaved.defaultMaxKm,
+      overDistanceBehavior: "exclude",
     };
     setSaving(true);
     setError(null);
@@ -294,7 +280,6 @@ export function AdminDeliveryDistanceSettingsPage() {
       const savedOverrides = normalizeOverrides(j.store_distance_overrides);
       setPolicySaved(savedPolicy);
       setPolicyDraft(savedPolicy);
-      setDefaultMaxKmDraft(kmInputValue(savedPolicy.defaultMaxKm));
       setOverridesSaved(savedOverrides);
       setOverridesDraft(savedOverrides);
       showMessage(t("admin_delivery_distance_saved"));
@@ -303,7 +288,7 @@ export function AdminDeliveryDistanceSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [policyDraft, defaultMaxKmDraft, overridesDraft, showMessage, t]);
+  }, [policyDraft, policySaved.defaultMaxKm, overridesDraft, showMessage, t]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -339,7 +324,7 @@ export function AdminDeliveryDistanceSettingsPage() {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <span className="block sam-text-helper font-semibold text-sam-muted">
               {t("admin_delivery_distance_enabled")}
@@ -369,23 +354,13 @@ export function AdminDeliveryDistanceSettingsPage() {
               <option value="google">{t("admin_delivery_distance_source_google")}</option>
             </select>
           </label>
-
-          <label className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
-            <span className="block sam-text-helper font-semibold text-sam-muted">
-              {t("admin_delivery_distance_default_max")}
-            </span>
-            <input
-              inputMode="decimal"
-              value={defaultMaxKmDraft}
-              onChange={(e) => setDefaultMaxKmDraft(e.target.value)}
-              placeholder={t("admin_delivery_distance_no_limit")}
-              className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg"
-            />
-          </label>
         </div>
 
         <p className="mt-3 sam-text-helper text-sam-muted">
           {t("admin_delivery_distance_over_policy")}
+        </p>
+        <p className="mt-1 sam-text-helper text-sam-muted">
+          {t("admin_delivery_distance_legacy_radius_note")}
         </p>
       </section>
 

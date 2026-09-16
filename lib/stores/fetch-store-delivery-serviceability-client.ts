@@ -119,12 +119,18 @@ export async function fetchStoreDeliveryServiceabilityClient(
   return payload;
 }
 
-/** True when distance policy applies and this store is not deliverable to current address. */
+/** True when distance policy applies and this store is outside the member delivery area. */
 export function isDeliveryDistanceOrderBlocked(
   svc: StoreDeliveryServiceabilityClientPayload | null
 ): boolean {
   if (!svc || svc.ok !== true) return false;
-  return svc.applies === true && svc.eligible !== true;
+  if (svc.applies !== true || svc.eligible === true) return false;
+  /**
+   * Guest / no master coords: not 「배달 가능 지역 아님」.
+   * Ordering still requires login + address at checkout.
+   */
+  if (svc.reason === "missing_customer_coords") return false;
+  return true;
 }
 
 function onAddressesUpdated(): void {

@@ -29,9 +29,9 @@ describe("CUT11 home search result OOR parity", () => {
         distanceOutOfRange: sample.distanceOutOfRange === true,
         maxDeliveryDistanceKm: sample.maxDeliveryDistanceKm,
         labelWithMax: (km) => `${km}km 초과`,
-        labelGeneric: "거리 초과",
+        labelGeneric: "배달 가능 지역 아님",
       })
-    ).toBe("5km 초과");
+    ).toBe("배달 가능 지역 아님");
   });
 
   it("DeliverySearchResults renders OOR via CUT9 format helper (no client haversine)", () => {
@@ -58,9 +58,10 @@ describe("CUT11 home search result OOR parity", () => {
     expect(src).toMatch(/SAMARKET_ADDRESSES_UPDATED_EVENT/);
   });
 
-  it("search-delivery keeps OOR stores but suppresses OOR menus (existing contract)", () => {
+  it("search-delivery excludes member OOR stores from normal results", () => {
     const src = readFileSync(join(root, "lib/delivery/search/search-delivery.ts"), "utf8");
-    expect(src).toMatch(/distanceOutOfRange: outOfRange/);
+    expect(src).toMatch(/shouldExcludeOutOfRangeFromNormalList/);
+    expect(src).toMatch(/resolveListDistanceOutOfRange/);
     expect(src).toMatch(/if \(meta\.out\) continue/);
   });
 });

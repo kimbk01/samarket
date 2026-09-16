@@ -187,4 +187,22 @@ describe("CUT 4 delivery browse origin authority", () => {
     );
     expect(city).toContain("formatPublicAddress");
   });
+
+  it("server browse origin: logged-in path never falls through to query GPS", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/stores/store-list-delivery-origin.ts"),
+      "utf8",
+    );
+    expect(src).toContain("CUT 5 — logged-in member: master routable coords only");
+    expect(src).toContain("Do not fall through to query GPS/explicit coords");
+    const loggedInBranch = src.slice(src.indexOf("if (userId)"), src.indexOf("const explicit"));
+    expect(loggedInBranch).toContain("saved_address");
+    expect(loggedInBranch).not.toContain("explicitCoordsFromSearchParams");
+    const browseRoute = readFileSync(
+      join(process.cwd(), "app/api/stores/browse/route.ts"),
+      "utf8",
+    );
+    expect(browseRoute).toContain("resolveStoreListDeliveryOrigin");
+    expect(browseRoute).toContain("browseRouteOriginFromDeliveryOrigin");
+  });
 });

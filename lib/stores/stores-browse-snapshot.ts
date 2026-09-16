@@ -326,6 +326,7 @@ async function finishFromPayload(
       sort: ctx.sort,
       originLat: ctx.origin.lat,
       originLng: ctx.origin.lng,
+      originSource: ctx.origin.source,
       district: ctx.district,
       distanceAxisEnabled,
       storeCategoryId: bundle.taxonomySlice.categoryId

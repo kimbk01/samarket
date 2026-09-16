@@ -2,8 +2,8 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
-  serviceabilityDeprioritizeRank,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -319,6 +319,7 @@ export async function searchDeliveryDomain(input: {
   }
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
+  const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
   const annotated = mergedStoresRaw.map((s) => {
     const svc = evaluateStoreDeliveryServiceability({
       ctx: svcCtx,
@@ -329,19 +330,30 @@ export async function searchDeliveryDomain(input: {
       storeLat: s.lat,
       storeLng: s.lng,
     });
-    const outOfRange =
-      svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+    const outOfRange = resolveListDistanceOutOfRange({
+      originSource,
+      serviceabilityApplies: svc.applies,
+      reason: svc.reason,
+    });
     return {
       ...s,
       distanceKm: svc.distanceKm,
       distanceOutOfRange: outOfRange,
       maxDeliveryDistanceKm: svc.applies ? svc.maxKm : null,
       distancePolicyApplied: svc.applies,
-      _svcRank: serviceabilityDeprioritizeRank(svc),
     };
   });
-  annotated.sort((a, b) => a._svcRank - b._svcRank);
-  const mergedStores: DeliverySearchStoreResult[] = annotated.map(({ _svcRank: _, ...rest }) => rest);
+  const filtered =
+    originSource === "saved_address"
+      ? annotated.filter(
+          (s) =>
+            !shouldExcludeOutOfRangeFromNormalList({
+              originSource,
+              distanceOutOfRange: s.distanceOutOfRange === true,
+            })
+        )
+      : annotated;
+  const mergedStores: DeliverySearchStoreResult[] = filtered;
 
   const menus: DeliverySearchMenuResult[] = [];
   const storeMetaById = new Map<string, { slug: string; store_name: string; out?: boolean }>();

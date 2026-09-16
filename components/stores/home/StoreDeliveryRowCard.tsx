@@ -7,7 +7,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { browseCommerceSnapshotEqual } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
-import { resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
+import { formatStoreCardOutOfRangeLabel, resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
@@ -379,12 +379,11 @@ function StoreDeliveryRowCardInner({
   const d = distLabel(data.distanceKm);
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
-  const distanceOutOfRangeLabel =
-    data.distanceOutOfRange && data.maxDeliveryDistanceKm != null
-      ? t("store_delivery_distance_out_of_range_with_max", { km: data.maxDeliveryDistanceKm })
-      : data.distanceOutOfRange
-        ? t("store_delivery_distance_out_of_range")
-        : null;
+  const distanceOutOfRangeLabel = formatStoreCardOutOfRangeLabel({
+    distanceOutOfRange: data.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: data.maxDeliveryDistanceKm,
+    labelGeneric: t("store_delivery_distance_out_of_range"),
+  });
 
   const rowLabels = useMemo(() => {
     if (!data.commerce) return null;

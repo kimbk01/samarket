@@ -100,7 +100,7 @@ function browseCtx(sort: StoresBrowseRequestContext["sort"]): Pick<
     enabled: false,
     source: "straight",
     defaultMaxKm: null,
-    overDistanceBehavior: "deprioritize",
+    overDistanceBehavior: "exclude",
   };
   return {
     district: null,

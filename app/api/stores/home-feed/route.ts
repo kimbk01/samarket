@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveListDistanceOutOfRange } from "@/lib/delivery/delivery-list-oor-policy";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -240,6 +241,7 @@ export async function GET(req: Request) {
       const live = await loadHomeDiscoveryRankedForLive(supabase, {
         originLat: userLat,
         originLng: userLng,
+        originSource: origin.source,
         district,
         searchQ,
         distanceAxisEnabled,
@@ -341,8 +343,11 @@ export async function GET(req: Request) {
             storeLat: effective.lat,
             storeLng: effective.lng,
           });
-          outOfRange =
-            svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+          outOfRange = resolveListDistanceOutOfRange({
+            originSource: origin.source,
+            serviceabilityApplies: svc.applies,
+            reason: svc.reason,
+          });
           distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
         }
         outOfRangeById.set(r.id, outOfRange);

@@ -93,13 +93,13 @@ describe("CUT10 home rail OOR data parity", () => {
     expect(model.maxDeliveryDistanceKm).toBe(3);
   });
 
-  it("CUT9 format helper yields OOR meta for rails", () => {
+  it("CUT9 format helper yields primary OOR area copy for rails", () => {
     const label = formatStoreCardOutOfRangeLabel({
       distanceOutOfRange: true,
       maxDeliveryDistanceKm: 5,
       labelWithMax: (km) => `${km}km 초과`,
-      labelGeneric: "거리 초과",
+      labelGeneric: "배달 가능 지역 아님",
     });
-    expect(label).toBe("5km 초과");
+    expect(label).toBe("배달 가능 지역 아님");
   });
 });

@@ -3,7 +3,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -495,15 +494,8 @@ export function StoreProductAddSheet({
       return;
     }
 
-    const cartNext =
-      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
-    void requireAuthAction(
-      "delivery_cart_add",
-      () => {
-        addToCartAfterProfileGate(submitStart);
-      },
-      { next: cartNext }
-    );
+    /** Guest may add to local cart; checkout/order requires login. */
+    addToCartAfterProfileGate(submitStart);
   }
 
   function addToCartAfterProfileGate(submitStart: number) {

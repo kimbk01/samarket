@@ -10,7 +10,7 @@ import { Fragment, memo, useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
-import { resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
+import { formatStoreCardOutOfRangeLabel, resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import { storeBrowseDeliveryFeeShowsFreeBadge } from "@/lib/stores/store-commerce-extras";
 import { commerceExtrasFromBrowseSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
@@ -93,12 +93,11 @@ function StoresHomeTimesaleRowCardInner({
 
   const deliveryFeeUi = rowLabels?.deliveryFeeLabel ?? store.deliveryFeeLabel;
   const deliveryFeeStrikePhp = rowLabels?.deliveryFeeStrikePhp ?? store.deliveryFeeStrikePhp;
-  const outOfRangeLabel =
-    store.distanceOutOfRange && store.maxDeliveryDistanceKm != null
-      ? t("store_delivery_distance_out_of_range_with_max", { km: store.maxDeliveryDistanceKm })
-      : store.distanceOutOfRange
-        ? t("store_delivery_distance_out_of_range")
-        : null;
+  const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm,
+    labelGeneric: t("store_delivery_distance_out_of_range"),
+  });
   const timeLabel = outOfRangeLabel
     ? null
     : rowLabels?.etaLabel?.trim() || store.etaLabel?.trim() || null;

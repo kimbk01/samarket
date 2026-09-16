@@ -19,14 +19,13 @@ export type DeliveryDistancePolicy = {
   source: DeliveryDistanceSource;
   defaultMaxKm: number | null;
   /**
-   * OUT-OF-RANGE PRODUCT POLICY LOCK (DIBAY — not legacy):
-   * POLICY B = DEPRIORITIZE
-   * - Discovery (home/browse/search/category): eligible first; OOR sinks to bottom + badge
-   * - Detail / cart / checkout / order: same evaluateDeliveryServiceability → block if ineligible
-   * POLICY A (hide from list) is NOT the locked product contract.
-   * Admin copy: admin_delivery_distance_over_policy
+   * OUT-OF-RANGE PRODUCT POLICY (authenticated member + master address):
+   * POLICY = EXCLUDE from normal orderable lists (browse/category/search/order-now/popular/rest).
+   * Intentional discovery shelves may still surface OOR with primary copy
+   * 「배달 가능 지역 아님」 — never as orderable.
+   * Detail / cart / checkout / order: evaluateDeliveryServiceability → block if ineligible.
    */
-  overDistanceBehavior: "deprioritize";
+  overDistanceBehavior: "exclude";
 };
 
 export type DeliveryStoreDistanceOverride = {
@@ -42,7 +41,7 @@ export const DEFAULT_DELIVERY_DISTANCE_POLICY: DeliveryDistancePolicy = {
   enabled: false,
   source: "straight",
   defaultMaxKm: null,
-  overDistanceBehavior: "deprioritize",
+  overDistanceBehavior: "exclude",
 };
 
 export const DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES: DeliveryStoreDistanceOverrides = {
@@ -85,8 +84,9 @@ export function normalizeDeliveryDistancePolicy(raw: unknown): DeliveryDistanceP
   return {
     enabled: o.enabled === true,
     source: normalizeDeliveryDistanceSource(o.source),
+    /** Legacy JSON may still store a number — not store-radius authority after CUT1. */
     defaultMaxKm: parseMaxKm(o.defaultMaxKm),
-    overDistanceBehavior: "deprioritize",
+    overDistanceBehavior: "exclude",
   };
 }
 
