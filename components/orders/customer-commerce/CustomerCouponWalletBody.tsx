@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCouponCustomerCard } from "@/components/stores/coupon/StoreCouponCustomerCard";
@@ -12,7 +11,6 @@ import {
 } from "./useCommerceHubTabFetch";
 import {
   canonicalHubHref,
-  deliveryDiscoveryHref,
   type CouponSubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
 import {
@@ -113,13 +111,12 @@ export function CustomerCouponWalletBody({
         <CommerceEmptyState
           icon="🎟️"
           title={safeT("commerce_hub_coupons_empty_title", {
-            fallbackKo: "사용 가능한 쿠폰이 없습니다.",
+            fallbackKo: "보유한 쿠폰이 없습니다.",
             fallbackEn: "You have no coupons.",
           })}
-          ctaHref={deliveryDiscoveryHref()}
-          ctaLabel={safeT("commerce_hub_coupons_empty_cta", {
-            fallbackKo: "배달 매장 둘러보기",
-            fallbackEn: "Browse delivery stores",
+          description={safeT("commerce_hub_coupons_empty_wallet_only", {
+            fallbackKo: "보유·사용 내역은 이 화면에서 확인할 수 있습니다.",
+            fallbackEn: "View held and used coupons here.",
           })}
         />
       ) : (

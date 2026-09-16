@@ -21,9 +21,10 @@ export function CommerceHubLegacyUrlSync({ alias }: { alias: LegacyAliasKind }) 
     const current = new URLSearchParams(searchParams.toString());
     if (alias === "activity") {
       const tabRaw = current.get("tab")?.trim() ?? "";
-      if (tabRaw && !isCommerceHubTab(tabRaw)) {
-        current.delete("tab");
-        router.replace(`${pathname}?${current.toString()}`, { scroll: false });
+      if (!tabRaw || !isCommerceHubTab(tabRaw)) {
+        current.set("tab", "orders");
+        const qs = current.toString();
+        router.replace(qs ? `${pathname}?${qs}` : `${pathname}?tab=orders`, { scroll: false });
       }
       return;
     }

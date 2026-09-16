@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { parseCommerceHubState } from "@/lib/delivery/customer/commerce-hub-nav";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { BuyerDeliveryOrdersBody } from "./BuyerDeliveryOrdersBody";
-import { CustomerCommerceHubOverview } from "./CustomerCommerceHubOverview";
+import { CommerceHubSellerTransitionSection } from "./CommerceHubSellerTransitionSection";
 import { CustomerCouponWalletBody } from "./CustomerCouponWalletBody";
 import { CustomerGiftWalletBody } from "./CustomerGiftWalletBody";
 
@@ -15,7 +15,7 @@ function HubPanelFallback() {
   );
 }
 
-/** Hub body — no header render; active tab only (G2 single scroll root). */
+/** Hub body — single tab IA (no overview duplicate cards) + seller transition. */
 export function CustomerCommerceHubBody() {
   const searchParams = useSearchParams();
   const state = parseCommerceHubState(searchParams);
@@ -25,12 +25,9 @@ export function CustomerCommerceHubBody() {
     <div
       className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
       data-customer-commerce-hub-body="1"
-      data-commerce-hub-tab={state.tab ?? "overview"}
-      data-commerce-hub-overview={state.isOverview ? "1" : "0"}
+      data-commerce-hub-tab={state.tab}
+      data-commerce-hub-overview="0"
     >
-      {state.isOverview ? (
-        <CustomerCommerceHubOverview from={state.from} />
-      ) : null}
       {state.tab === "orders" ? (
         <Suspense fallback={<HubPanelFallback />}>
           <BuyerDeliveryOrdersBody />
@@ -46,6 +43,7 @@ export function CustomerCommerceHubBody() {
           <CustomerGiftWalletBody giftTab={state.giftTab} from={state.from} refresh={refresh} />
         </Suspense>
       ) : null}
+      <CommerceHubSellerTransitionSection />
     </div>
   );
 }

@@ -16,11 +16,11 @@ describe("commerce-hub-nav", () => {
     expect(normalizeCommerceHubTab("invalid")).toBe("orders");
   });
 
-  it("bare activity URL is overview (no tab param)", () => {
+  it("bare activity URL defaults to orders (no overview)", () => {
     expect(parseCommerceHubTabParam(new URLSearchParams(""))).toBeNull();
     const state = parseCommerceHubState(new URLSearchParams(""));
-    expect(state.isOverview).toBe(true);
-    expect(state.tab).toBeNull();
+    expect(state.isOverview).toBe(false);
+    expect(state.tab).toBe("orders");
   });
 
   it("explicit tab param selects domain body", () => {
@@ -55,10 +55,10 @@ describe("commerce-hub-nav", () => {
     );
   });
 
-  it("builds bare overview href", () => {
-    expect(hubOverviewHref()).toBe("/orders/activity");
+  it("hubOverviewHref canonicalizes to orders tab", () => {
+    expect(hubOverviewHref()).toBe("/orders/activity?tab=orders");
     expect(hubOverviewHref({ from: "delivery-activity" })).toBe(
-      "/orders/activity?from=delivery-activity"
+      "/orders/activity?tab=orders&from=delivery-activity"
     );
   });
 });

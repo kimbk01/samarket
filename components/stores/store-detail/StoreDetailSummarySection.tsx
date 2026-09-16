@@ -16,8 +16,6 @@ import { fetchMeCheckoutContactDeduped } from "@/lib/me/fetch-me-checkout-contac
 import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 import { StoreHeader } from "@/components/stores/detail/StoreHeader";
 import { StoreNoticeBar } from "@/components/stores/detail/StoreNoticeBar";
-import { StoreDetailCouponClaimStrip } from "@/components/stores/store-detail/StoreDetailCouponClaimStrip";
-import { StoreDetailGiftStrip } from "@/components/stores/store-detail/StoreDetailGiftStrip";
 import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 
 type CommerceSnap = {
@@ -260,8 +258,6 @@ export function StoreDetailSummarySection({
         }
         managedSlot={storeManagedNoticesSlot}
       />
-      <StoreDetailCouponClaimStrip storeId={store.id} />
-      <StoreDetailGiftStrip storeId={store.id} />
     </>
   );
 }

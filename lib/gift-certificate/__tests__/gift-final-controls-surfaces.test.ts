@@ -19,13 +19,12 @@ describe("gift final buyer/admin control surfaces", () => {
     expect(catalog).toContain("다시 시도");
   });
 
-  it("keeps wallet empty browse CTA and hides store detail strip when no active products exist", () => {
+  it("keeps wallet buy CTA and does not remount store-detail gift strip", () => {
     const wallet = source("components/orders/customer-commerce/CustomerGiftWalletBody.tsx");
-    const strip = source("components/stores/store-detail/StoreDetailGiftStrip.tsx");
+    const summary = source("components/stores/store-detail/StoreDetailSummarySection.tsx");
 
     expect(wallet).toContain("data-gift-wallet-buy-cta");
-    expect(wallet).toContain("gift_certificate_wallet_empty");
-    expect(strip).toContain("if (!ready || products.length === 0) return null");
+    expect(summary).not.toContain("StoreDetailGiftStrip");
   });
 
   it("keeps other-store checkout exclusion on server and shows public number in selector", () => {

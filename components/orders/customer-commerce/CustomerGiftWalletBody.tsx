@@ -21,7 +21,6 @@ import {
   CommerceHubSegmentTabs,
   CommercePrimaryCtaButton,
   CommercePrimaryCtaLink,
-  CommerceSecondaryCtaLink,
 } from "./CommerceHubSegmentTabs";
 import { GIFT_CARD_RESPONSIVE_GRID_CLASS } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -277,8 +276,6 @@ export function CustomerGiftWalletBody({
     [wallet, ownedRows.length]
   );
 
-  const ownedHref = canonicalHubHref("gifts", { giftTab: "owned", from });
-
   return (
     <div data-customer-gift-wallet="1" data-wallet-ready={ready ? "1" : "0"}>
       <CommerceHubSegmentTabs
@@ -310,12 +307,6 @@ export function CustomerGiftWalletBody({
             fallbackEn: "Buy gift certificates",
           })}
         </CommercePrimaryCtaLink>
-        <CommerceSecondaryCtaLink href={ownedHref} data-gift-wallet-owned-cta="1">
-          {safeT("commerce_hub_gift_my_wallet_cta", {
-            fallbackKo: "내 상품권",
-            fallbackEn: "My gifts",
-          })}
-        </CommerceSecondaryCtaLink>
       </div>
       {!ready ? (
         <div className="flex min-h-[24vh] items-center justify-center text-sm text-sam-muted">…</div>

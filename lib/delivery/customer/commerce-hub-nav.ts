@@ -53,10 +53,8 @@ export type CommerceHubSearchParams = {
 };
 
 export function hubOverviewHref(opts?: { from?: string | null }): string {
-  const p = new URLSearchParams();
-  if (opts?.from?.trim()) p.set("from", opts.from.trim());
-  const qs = p.toString();
-  return qs ? `/orders/activity?${qs}` : "/orders/activity";
+  /** Legacy name — bare activity now resolves to orders (no overview landing). */
+  return canonicalHubHref("orders", { from: opts?.from ?? null });
 }
 
 export function canonicalHubHref(
@@ -154,17 +152,18 @@ export function parseCommerceHubTabParam(
 }
 
 export function parseCommerceHubState(sp: URLSearchParams | null | undefined): {
-  /** null = bare `/orders/activity` overview landing */
-  tab: CommerceHubTab | null;
+  /** Bare `/orders/activity` defaults to orders — no overview landing. */
+  tab: CommerceHubTab;
   giftTab: GiftSubTab;
   couponTab: CouponSubTab;
   expand: string | null;
   orderFilter: string | null;
   from: string | null;
+  /** @deprecated Overview removed — always false. */
   isOverview: boolean;
 } {
   const params = sp ?? new URLSearchParams();
-  const tab = parseCommerceHubTabParam(params);
+  const tab = parseCommerceHubTabParam(params) ?? "orders";
   return {
     tab,
     giftTab: normalizeGiftSubTab(params.get("giftTab")),
@@ -172,7 +171,7 @@ export function parseCommerceHubState(sp: URLSearchParams | null | undefined): {
     expand: params.get("expand")?.trim() || null,
     orderFilter: params.get("orderFilter")?.trim() || null,
     from: params.get("from")?.trim() || null,
-    isOverview: tab == null,
+    isOverview: false,
   };
 }
 
