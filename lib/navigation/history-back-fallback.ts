@@ -5,8 +5,12 @@
  * 3) 리퍼러가 비어 있는 순수 클라이언트 전환 등은 history.length로 보조 판단 후 back 시도
  * 4) 내부 히스토리가 없거나 경로가 그대로면 fallbackHref로 이동
  *
- * SINGLE-ACTION: fallback push is cancelled as soon as the URL leaves `before`.
- * Do not fire a second navigation after a successful soft/history back.
+ * SINGLE-ACTION:
+ * - When in-app history is proven (history.state.idx > 0 or same-origin referrer),
+ *   call router.back() ONLY — never arm a delayed fallback push.
+ *   The previous "back + 280ms observe + push" race created a second navigation
+ *   whenever soft/animated back settled after the timer (confirmed device divergence).
+ * - Fallback push is reserved for uncertain history (no idx, external/empty referrer).
  */
 export function runHistoryBackWithFallback(
   router: { back: () => void; push: (href: string) => void },
@@ -14,6 +18,18 @@ export function runHistoryBackWithFallback(
   delayMs = 280
 ): void {
   if (typeof window === "undefined") {
+    if (fallbackHref) router.push(fallbackHref);
+    else router.back();
+    return;
+  }
+
+  // Proven in-app stack → one back, zero fallback navigation.
+  if (canUseSafeInAppHistoryBack()) {
+    router.back();
+    return;
+  }
+
+  if (isReferrerExternalOrigin()) {
     if (fallbackHref) router.push(fallbackHref);
     else router.back();
     return;
@@ -58,24 +74,9 @@ export function runHistoryBackWithFallback(
     }, delayMs);
   };
 
-  const tryHistoryBack = () => {
+  if (fallbackHref && window.history.length > 1) {
     router.back();
     pushFallbackIfStale();
-  };
-
-  if (canUseSafeInAppHistoryBack()) {
-    tryHistoryBack();
-    return;
-  }
-
-  if (isReferrerExternalOrigin()) {
-    if (fallbackHref) router.push(fallbackHref);
-    else router.back();
-    return;
-  }
-
-  if (fallbackHref && window.history.length > 1) {
-    tryHistoryBack();
     return;
   }
 
