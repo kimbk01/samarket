@@ -26,7 +26,12 @@ function isDeliveryPickedUpOrLater(deliveryStatus: string | null | undefined): b
 
 /**
  * Store order cancel policy — role/order status/delivery status single source.
- * Direct owner cancel is limited to before cooking starts. After that, store owners create a request.
+ *
+ * CUSTOMER (buyer) PRODUCT CONTRACT (LOCKED):
+ *   pending → direct_cancel
+ *   accepted or later → DIRECT CANCEL FORBIDDEN (hidden)
+ *
+ * Owner/Admin retain operational cancel/request graphs independently.
  */
 export function resolveStoreOrderCancelPolicy(input: {
   role: StoreOrderCancelActorRole;
@@ -47,8 +52,16 @@ export function resolveStoreOrderCancelPolicy(input: {
     return { kind: "direct_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_direct" };
   }
 
+  /** Buyer: pending-only. Do not widen to accepted. */
+  if (input.role === "buyer") {
+    if (status === "pending") {
+      return { kind: "direct_cancel", reasonRequired: false, messageKey: "store_owner_cancel_policy_direct" };
+    }
+    return { kind: "hidden", reasonRequired: false, messageKey: "store_owner_cancel_policy_admin_review" };
+  }
+
   if (status === "pending") {
-    return { kind: "direct_cancel", reasonRequired: input.role === "owner", messageKey: "store_owner_cancel_policy_direct" };
+    return { kind: "direct_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_direct" };
   }
 
   if (status === "accepted") {

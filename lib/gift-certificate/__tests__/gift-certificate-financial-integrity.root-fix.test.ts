@@ -71,6 +71,7 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
     expect(reverseCall).toBeGreaterThan(0);
     expect(statusRefunded).toBeGreaterThan(reverseCall);
     expect(transition).toMatch(/gift_certificate_refund_order_atomic/);
+    expect(transition).toMatch(/gift_certificate_cancel_order_restore/);
     expect(transition).not.toMatch(/gift_certificate_redemption_reverse/);
   });
 
@@ -98,12 +99,16 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
     expect(g2).toMatch(/CONSTRAINT store_cash_accounts_balance_nonneg_chk CHECK \(balance >= 0\)/);
   });
 
-  it("RPC names resolve in G2 or checkout migration", () => {
+  it("RPC names resolve in G2, checkout, or cancel-restore migration", () => {
     const orderCompletion = readMig(GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID);
     const recognitionCorrection = readMig(GIFT_RECOGNITION_CORRECTION_MIGRATION_ID);
     const cashOut = readMig(GIFT_CASH_OUT_MIGRATION_ID);
     const promoEconomics = readMig(GIFT_PROMO_ECONOMICS_MIGRATION_ID);
     const corrective = readMig(GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID);
+    const cancelRestore = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/20270101130000_gift_certificate_cancel_order_restore.sql"),
+      "utf8"
+    );
     for (const fn of Object.values(GIFT_RPCS)) {
       const found =
         g2.includes(`FUNCTION public.${fn}(`) ||
@@ -112,7 +117,8 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
         recognitionCorrection.includes(`FUNCTION public.${fn}(`) ||
         cashOut.includes(`FUNCTION public.${fn}(`) ||
         promoEconomics.includes(`FUNCTION public.${fn}(`) ||
-        corrective.includes(`FUNCTION public.${fn}(`);
+        corrective.includes(`FUNCTION public.${fn}(`) ||
+        cancelRestore.includes(`FUNCTION public.${fn}(`);
       expect(found, fn).toBe(true);
     }
   });

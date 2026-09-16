@@ -364,6 +364,31 @@ export async function applyStoreOrderStatusTransition(
       p_order_id: oid,
       p_allow_after_completed: false,
     });
+    /** CUT 2: gift restore via cancel-safe RPC (idempotent; not refund atomic). */
+    const { data: giftCancelRaw, error: giftCancelErr } = await sb.rpc(
+      "gift_certificate_cancel_order_restore",
+      { p_order_id: oid }
+    );
+    if (giftCancelErr) {
+      if (
+        !/gift_certificate_cancel_order_restore|schema cache|does not exist/i.test(
+          giftCancelErr.message
+        )
+      ) {
+        console.error(
+          "[applyStoreOrderStatusTransition] gift_certificate_cancel_order_restore",
+          giftCancelErr
+        );
+      }
+    } else {
+      const giftCancelRow = (giftCancelRaw ?? {}) as Record<string, unknown>;
+      if (giftCancelRow.ok === false && giftCancelRow.error !== "order_not_cancelled") {
+        console.error(
+          "[applyStoreOrderStatusTransition] gift_certificate_cancel_order_restore",
+          giftCancelRow.error
+        );
+      }
+    }
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);

@@ -119,6 +119,9 @@ if (/best-effort[\s\S]{0,40}gift_certificate_redemption_reverse|gift_certificate
 if (transition.includes("gift_certificate_redemption_reverse")) {
   fail("apply-store-order-status-transition must not call gift_certificate_redemption_reverse directly");
 }
+if (!transition.includes("gift_certificate_cancel_order_restore")) {
+  fail("cancel transition must use gift_certificate_cancel_order_restore for gift restore");
+}
 
 const hardLock = read("lib/gift-certificate/gift-certificate-hard-lock.ts");
 if (!hardLock.includes("GIFT_IS_NOT_COUPON")) {

@@ -23,4 +23,11 @@ describe("resolveStoreOrderCancelPolicy", () => {
     expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "completed" }).kind).toBe("hidden");
     expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "cancel_requested" }).kind).toBe("hidden");
   });
+
+  it("buyer may direct-cancel only while pending", () => {
+    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "pending" }).kind).toBe("direct_cancel");
+    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "accepted" }).kind).toBe("hidden");
+    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "preparing" }).kind).toBe("hidden");
+    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "completed" }).kind).toBe("hidden");
+  });
 });

@@ -31,6 +31,7 @@ export const GIFT_RPCS = {
   redeem: "gift_certificate_redeem",
   redemptionReverse: "gift_certificate_redemption_reverse",
   refundOrderAtomic: "gift_certificate_refund_order_atomic",
+  cancelOrderRestore: "gift_certificate_cancel_order_restore",
   recognizeRevenueForCompletedOrder: "gift_certificate_recognize_revenue_for_completed_order",
   redemptionIsRecognized: "gift_certificate_redemption_is_recognized",
   redemptionRecognizedNet: "gift_certificate_redemption_recognized_net",
