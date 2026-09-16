@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useCheckoutConfirmHistoryClose } from "@/components/stores/cart/use-checkout-confirm-history-close";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
 
@@ -27,6 +28,8 @@ export function StoreCheckoutSubmitConfirmDialog({
   onConfirm: () => void;
 }) {
   const { t } = useI18n();
+  // Hardware back must CLOSE overlay on cart (parity with header goCartBack CLOSE).
+  useCheckoutConfirmHistoryClose(open, onCancel, busy);
 
   const actions: DibayOverlayAction[] = [
     {
