@@ -18,8 +18,27 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
 }
 
+function stubSessionStorage(): Map<string, string> {
+  const store = new Map<string, string>();
+  const session = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      store.set(k, v);
+    },
+    removeItem: (k: string) => {
+      store.delete(k);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+  vi.stubGlobal("sessionStorage", session);
+  return store;
+}
+
 describe("trade-market-card-morph", () => {
   beforeEach(() => {
+    stubSessionStorage();
     clearTradeMarketCardMorph();
     vi.stubGlobal(
       "matchMedia",
