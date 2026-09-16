@@ -1130,9 +1130,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [bootstrapCheckoutIdentity, lines.length]);
 
+  /**
+   * API identity is store slug (+ server master address). Local cart selection ids are not
+   * request params — address changes invalidate via SAMARKET_ADDRESSES_UPDATED_EVENT.
+   */
+  const serviceabilitySlug = store?.slug?.trim() || storeSlug.trim();
+  const cartNeedsServiceability = fulfillment === "local_delivery" && lines.length > 0;
+
   useEffect(() => {
-    const slug = store?.slug?.trim() || storeSlug.trim();
-    if (!slug || fulfillment !== "local_delivery" || lines.length === 0) {
+    const slug = serviceabilitySlug;
+    if (!slug || !cartNeedsServiceability) {
       setDistanceOutOfRange(false);
       return;
     }
@@ -1154,7 +1161,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [store?.slug, storeSlug, fulfillment, lines.length, selectedAddressId, deliveryUserAddressIdForSubmit]);
+  }, [serviceabilitySlug, cartNeedsServiceability]);
 
   useEffect(() => {
     if (!addressBookHydrated) return;

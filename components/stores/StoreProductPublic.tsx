@@ -270,8 +270,11 @@ export function StoreProductPublic({
 
   useRefetchOnPageShowRestore(() => void loadProductPage({ silent: true }));
 
+  /** Resolved slug identity — do not depend on `store?.slug` separately (hydrate undefined→slug re-fires same key). */
+  const serviceabilitySlug = store?.slug?.trim() || storeSlug.trim();
+
   useEffect(() => {
-    const slugKey = store?.slug?.trim() || storeSlug.trim();
+    const slugKey = serviceabilitySlug;
     if (!slugKey) {
       setDistanceOutOfRange(false);
       return;
@@ -294,7 +297,7 @@ export function StoreProductPublic({
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [store?.slug, storeSlug]);
+  }, [serviceabilitySlug]);
 
   const onShare = useCallback(() => {
     if (typeof window === "undefined" || !product) return;
