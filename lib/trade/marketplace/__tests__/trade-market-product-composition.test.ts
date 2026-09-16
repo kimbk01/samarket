@@ -239,11 +239,13 @@ describe("trade-market-product-composition", () => {
     ).toBe(false);
   });
 
-  it("reverse live bind updates targets without requiring forward publish", async () => {
+  it("reverse live bind is forbidden while scroll restore deferred", async () => {
     const {
       armTradeMarketProductCompositionBack,
       bindTradeMarketReverseLiveDestinationTargets,
+      isTradeMarketReverseScrollRestorePending,
       peekTradeMarketProductComposition,
+      peekTradeMarketReverseLiveBindCount,
     } = await import("@/lib/trade/marketplace/trade-market-product-composition");
     const root = {
       querySelector: (sel: string) => {
@@ -275,23 +277,104 @@ describe("trade-market-product-composition", () => {
       },
     } as unknown as HTMLElement;
     const session = armTradeMarketProductCompositionBack({
-      listingId: "dock-bind-1",
+      listingId: "dock-bind-deferred",
       rootEl: root,
       imageUrl: "https://example.com/a.jpg",
       priceText: "₱1",
       listRouteKey: "/market",
     });
     expect(session?.direction).toBe("back");
+    expect(isTradeMarketReverseScrollRestorePending()).toBe(true);
+    const before = peekTradeMarketProductComposition()?.media?.target;
     const live = { x: 12, y: 120, width: 181, height: 181 };
-    bindTradeMarketReverseLiveDestinationTargets({
-      listingId: "dock-bind-1",
-      mediaRect: live,
-      priceRect: { x: 12, y: 310, width: 100, height: 18 },
-      titleRect: null,
-      metaRect: null,
+    expect(
+      bindTradeMarketReverseLiveDestinationTargets({
+        listingId: "dock-bind-deferred",
+        mediaRect: live,
+        priceRect: { x: 12, y: 310, width: 100, height: 18 },
+        titleRect: null,
+        metaRect: null,
+      })
+    ).toBe(false);
+    expect(peekTradeMarketProductComposition()?.media?.target).toEqual(before);
+    expect(peekTradeMarketReverseLiveBindCount()).toBe(0);
+  });
+
+  it("reverse live bind once after restore: updates targets and rejects second bind", async () => {
+    const {
+      armTradeMarketProductCompositionBack,
+      bindTradeMarketReverseLiveDestinationTargets,
+      clearTradeMarketReverseScrollRestoreDeferred,
+      isTradeMarketReverseLiveDestinationBound,
+      peekTradeMarketProductComposition,
+      peekTradeMarketReverseLiveBindCount,
+    } = await import("@/lib/trade/marketplace/trade-market-product-composition");
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel.includes("photos") || sel.includes("media")) {
+          return {
+            getBoundingClientRect: () => ({
+              left: 0,
+              top: 0,
+              width: 360,
+              height: 360,
+              right: 360,
+              bottom: 360,
+            }),
+          };
+        }
+        if (sel.includes("price")) {
+          return {
+            getBoundingClientRect: () => ({
+              left: 16,
+              top: 370,
+              width: 100,
+              height: 20,
+              right: 116,
+              bottom: 390,
+            }),
+          };
+        }
+        return null;
+      },
+    } as unknown as HTMLElement;
+    const session = armTradeMarketProductCompositionBack({
+      listingId: "dock-bind-once",
+      rootEl: root,
+      imageUrl: "https://example.com/a.jpg",
+      priceText: "₱1",
+      listRouteKey: "/market",
     });
+    expect(session?.direction).toBe("back");
+    // RULE 1 companion: restore complete ⇒ clear deferred before live bind.
+    clearTradeMarketReverseScrollRestoreDeferred();
+    const live = { x: 12, y: 120, width: 181, height: 181 };
+    const price = { x: 12, y: 310, width: 100, height: 18 };
+    expect(
+      bindTradeMarketReverseLiveDestinationTargets({
+        listingId: "dock-bind-once",
+        mediaRect: live,
+        priceRect: price,
+        titleRect: null,
+        metaRect: null,
+      })
+    ).toBe(true);
     const s = peekTradeMarketProductComposition();
     expect(s?.media?.target).toEqual(live);
-    expect(s?.price?.target).toEqual({ x: 12, y: 310, width: 100, height: 18 });
+    expect(s?.price?.target).toEqual(price);
+    expect(peekTradeMarketReverseLiveBindCount()).toBe(1);
+    expect(isTradeMarketReverseLiveDestinationBound("dock-bind-once", session!.generation)).toBe(true);
+    // RULE 3: second bind must not overwrite.
+    expect(
+      bindTradeMarketReverseLiveDestinationTargets({
+        listingId: "dock-bind-once",
+        mediaRect: { x: 99, y: 99, width: 50, height: 50 },
+        priceRect: { x: 1, y: 1, width: 10, height: 10 },
+        titleRect: null,
+        metaRect: null,
+      })
+    ).toBe(false);
+    expect(peekTradeMarketProductComposition()?.media?.target).toEqual(live);
+    expect(peekTradeMarketReverseLiveBindCount()).toBe(1);
   });
 });

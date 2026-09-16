@@ -69,6 +69,9 @@ const lastListById = new Map<
 let detailStanding: TradeMarketProductCompositionSession | null = null;
 let scrollRestoreDeferred = false;
 let deferredScrollRouteKey: string | null = null;
+/** Reverse V2: live destination bind is allowed once per generation, only after scroll restore. */
+let reverseLiveBindGeneration: number | null = null;
+let reverseLiveBindCount = 0;
 
 function notify(): void {
   for (const fn of listeners) {
@@ -261,6 +264,10 @@ function setSession(session: TradeMarketProductCompositionSession | null): void 
 }
 
 export function clearTradeMarketProductComposition(): void {
+  reverseLiveBindGeneration = null;
+  reverseLiveBindCount = 0;
+  scrollRestoreDeferred = false;
+  deferredScrollRouteKey = null;
   setSession(null);
 }
 
@@ -389,12 +396,10 @@ export function measureDetailComposition(root: HTMLElement | null): {
 }
 
 /**
- * Live target patch while covered. Silent (no notify) — clock must not restart.
- * Rejects text targets inside media. Never invents media when session.media is null.
- */
-/**
- * Reverse-only: refresh destination targets from the actual mounted list card.
- * Does not restart the clock, change generation, or notify remount — paint() peeks each frame.
+ * Reverse-only: bind destination targets from the live list card ONCE.
+ * Forbidden while scroll restore is still deferred (un-restored GBR must not be authority).
+ * Does not restart the clock / generation / notify remount.
+ * Returns true when this call performed the bind; false if skipped (pending restore, already bound, or invalid).
  */
 export function bindTradeMarketReverseLiveDestinationTargets(input: {
   listingId: string;
@@ -402,10 +407,17 @@ export function bindTradeMarketReverseLiveDestinationTargets(input: {
   priceRect: TradeMarketCompositionRect | null;
   titleRect: TradeMarketCompositionRect | null;
   metaRect: TradeMarketCompositionRect | null;
-}): void {
+}): boolean {
   const session = peekTradeMarketProductComposition();
-  if (!session || session.listingId !== input.listingId.trim()) return;
-  if (session.direction !== "back") return;
+  if (!session || session.listingId !== input.listingId.trim()) return false;
+  if (session.direction !== "back") return false;
+  // RULE 2: no live bind while scroll restore pending.
+  if (scrollRestoreDeferred) return false;
+  // RULE 3: bind once per generation.
+  if (reverseLiveBindGeneration === session.generation) return false;
+
+  const hasAny = Boolean(input.mediaRect || input.priceRect || input.titleRect || input.metaRect);
+  if (!hasAny) return false;
 
   memory = {
     ...session,
@@ -426,6 +438,36 @@ export function bindTradeMarketReverseLiveDestinationTargets(input: {
         ? { ...session.meta, target: input.metaRect }
         : session.meta,
   };
+  reverseLiveBindGeneration = session.generation;
+  reverseLiveBindCount += 1;
+  return true;
+}
+
+export function peekTradeMarketReverseLiveBindCount(): number {
+  return reverseLiveBindCount;
+}
+
+export function isTradeMarketReverseLiveDestinationBound(listingId: string, generation: number): boolean {
+  const session = peekTradeMarketProductComposition();
+  if (!session || session.listingId !== listingId || session.generation !== generation) return false;
+  return reverseLiveBindGeneration === generation;
+}
+
+export function isTradeMarketReverseScrollRestorePending(): boolean {
+  return scrollRestoreDeferred;
+}
+
+export function peekTradeMarketReverseDeferredScrollRouteKey(): string | null {
+  return deferredScrollRouteKey;
+}
+
+/**
+ * Reverse V2 RULE 1 companion: after Host restores saved list scroll, clear deferred so
+ * live GBR may become destination authority. finish() must not restore scroll again.
+ */
+export function clearTradeMarketReverseScrollRestoreDeferred(): void {
+  scrollRestoreDeferred = false;
+  deferredScrollRouteKey = null;
 }
 
 export function publishTradeMarketProductCompositionTargets(input: {
@@ -745,6 +787,8 @@ export function armTradeMarketProductCompositionBack(input: {
 
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
+  reverseLiveBindGeneration = null;
+  reverseLiveBindCount = 0;
   scrollRestoreDeferred = true;
   deferredScrollRouteKey = session.listRouteKey;
   setSession(session);
@@ -811,6 +855,8 @@ export function armTradeMarketProductCompositionBackFromStanding(input: {
   };
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
+  reverseLiveBindGeneration = null;
+  reverseLiveBindCount = 0;
   scrollRestoreDeferred = true;
   deferredScrollRouteKey = session.listRouteKey;
   setSession(session);
@@ -822,6 +868,10 @@ export function shouldDeferTradeMarketListScrollRestore(_routeKey: string): bool
   return isTradeMarketProductCompositionActive();
 }
 
+/**
+ * Clears deferred scroll flag only. Reverse V2 restores scroll before bind;
+ * finish must not apply a second visible scroll jump.
+ */
 export function takeDeferredTradeMarketListScrollRouteKey(): string | null {
   if (!scrollRestoreDeferred) return null;
   const key = deferredScrollRouteKey;
