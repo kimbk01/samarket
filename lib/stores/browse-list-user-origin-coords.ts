@@ -67,6 +67,18 @@ export function browseListUserOriginCoordsEqual(
   );
 }
 
+/**
+ * CONTRACT — one category intent → one list discovery request.
+ * When distance coords are enabled, defer the first list fetch until origin
+ * resolve settles (master/GPS/null). Prevents no-geo then with-geo dual fetch.
+ */
+export function shouldDeferBrowseListUntilOriginReady(opts: {
+  distanceCoordsEnabled: boolean;
+  originResolveCompleted: boolean;
+}): boolean {
+  return opts.distanceCoordsEnabled === true && opts.originResolveCompleted !== true;
+}
+
 function browserAllowsGeolocationProbe(): boolean {
   if (typeof window === "undefined") return false;
   return window.isSecureContext === true && !!navigator.geolocation;

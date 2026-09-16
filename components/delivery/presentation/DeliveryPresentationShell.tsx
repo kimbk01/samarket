@@ -43,7 +43,6 @@ import {
   readDeliveryOccupancyAuditMode,
 } from "@/lib/dibay/delivery-occupancy-audit-mode";
 import {
-  applyStoresCategorySurfaceTransition,
   isStoresBrowseSurfacePath,
   parseBrowsePathnamePrimary,
 } from "@/lib/stores/stores-category-surface-lifecycle";
@@ -114,7 +113,7 @@ type SlidePhase = "idle" | "hold_browse" | "sliding_forward" | "idle_store" | "s
 /**
  * ARCH B2 — Delivery owns browse↔store surface lifetime + local slide.
  * ONE browse instance + ONE store instance (soft). Hard store = Next children only.
- * Category surface transitions: `applyStoresCategorySurfaceTransition` (also app-wide via StoresCategoryLifecycleBridge).
+ * Category surface transitions: `StoresCategoryLifecycleBridge` → `applyStoresCategorySurfaceTransition` (single app-wide owner).
  */
 export function DeliveryPresentationShell({ children }: { children: ReactNode }) {
   const nested = useContext(DeliveryPresentationNestContext);
@@ -211,7 +210,6 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const prev = prevPathRef.current;
     if (prev === pathKey) return;
-    applyStoresCategorySurfaceTransition(prev, pathKey);
     const dPrev = deliveryConsumerStackDepth(prev);
     const dNext = deliveryConsumerStackDepth(pathKey);
     prevPathRef.current = pathKey;

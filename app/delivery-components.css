@@ -1552,10 +1552,10 @@ button.delivery-category-search.delivery-category-tab,
   animation: stores-home-sub-slide-out 360ms ease-out both;
 }
 
-/** browse 4단 2차 — 1차 업종 전환 좌→우 진입 360ms */
+/** browse 4단 2차 — 1차 업종 전환 우→좌 진입 360ms (HOME sub-slide 동일 계약) */
 @keyframes stores-browse-sub-slide-in {
   from {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(100%, 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -1567,7 +1567,7 @@ button.delivery-category-search.delivery-category-tab,
     transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(-100%, 0, 0);
   }
 }
 

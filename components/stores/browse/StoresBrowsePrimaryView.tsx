@@ -84,6 +84,7 @@ import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snap
 import {
   browseListUserOriginCoordsEqual,
   resolveBrowseListUserOriginCoords,
+  shouldDeferBrowseListUntilOriginReady,
 } from "@/lib/stores/browse-list-user-origin-coords";
 import { APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
@@ -200,6 +201,13 @@ export function StoresBrowsePrimaryView({
     addressId: string | null;
     source: "master" | "gps" | "none";
   } | null>(null);
+  /**
+   * First origin resolve settled (coords or fail-closed null).
+   * When distance coords enabled, list fetch waits — avoids no-geo then with-geo dual request.
+   */
+  const [browseOriginResolveCompleted, setBrowseOriginResolveCompleted] = useState(
+    () => !browseDistanceCoordsEnabled
+  );
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
 
   const browseUserGeoRef = useRef(browseUserGeo);
@@ -209,7 +217,10 @@ export function StoresBrowsePrimaryView({
 
   useEffect(() => {
     if (!browseActive) return;
-    if (!browseDistanceCoordsEnabled) return;
+    if (!browseDistanceCoordsEnabled) {
+      setBrowseOriginResolveCompleted(true);
+      return;
+    }
     if (typeof window === "undefined") return;
     let cancelled = false;
     let seq = 0;
@@ -230,6 +241,7 @@ export function StoresBrowsePrimaryView({
         const c = await resolveBrowseListUserOriginCoords();
         if (cancelled || my !== seq) return;
         commitGeo(c);
+        setBrowseOriginResolveCompleted(true);
       })();
     };
     run();
@@ -616,6 +628,14 @@ export function StoresBrowsePrimaryView({
       loadRemoteRequestIdRef.current += 1;
       return;
     }
+    if (
+      shouldDeferBrowseListUntilOriginReady({
+        distanceCoordsEnabled: browseDistanceCoordsEnabled,
+        originResolveCompleted: browseOriginResolveCompleted,
+      })
+    ) {
+      return;
+    }
     const prevKey = prevBrowseListContextKeyRef.current;
     const ctxChanged = prevKey !== browseListContextKey;
     const geoOnlyChange =
@@ -669,6 +689,8 @@ export function StoresBrowsePrimaryView({
     void loadRemoteRef.current({ silent });
   }, [
     browseActive,
+    browseOriginResolveCompleted,
+    browseDistanceCoordsEnabled,
     browseListContextKey,
     browseQuerySuffix,
     browseQuerySuffixWithoutGeo,

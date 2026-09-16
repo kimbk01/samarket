@@ -3,7 +3,6 @@ import { cookies, headers } from "next/headers";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { DeliveryBrowseRouteBridge } from "@/components/delivery/presentation/DeliveryBrowseRouteBridge";
 
 interface PageProps {
@@ -88,7 +87,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
 export default function StoresBrowsePrimaryPage({ params, searchParams }: PageProps) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+    <Suspense fallback={null}>
       <StoresBrowsePrimaryPageBody params={params} searchParams={searchParams} />
     </Suspense>
   );

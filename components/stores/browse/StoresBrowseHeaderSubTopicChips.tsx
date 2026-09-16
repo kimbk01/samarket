@@ -38,7 +38,6 @@ import {
   resolveBrowseMatchedSubSlug,
   resolveBrowseSubChipActiveSlug,
 } from "@/lib/stores/browse-header-sub-selection";
-import { useBrowseSubAllCanonicalUrl } from "@/lib/stores/use-browse-sub-all-canonical-url";
 import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
 import {
@@ -161,7 +160,7 @@ function BrowseSubCategoryRail({
 }
 
 /**
- * browse 헤더 4단 — `/stores` 홈과 동일 2차 크기·1차 전환 360ms 좌→우 슬라이드
+ * browse 헤더 4단 — `/stores` 홈과 동일 2차 크기·1차 전환 360ms 우→좌 슬라이드
  */
 export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: string }) {
   const { t, language } = useI18n();
@@ -171,8 +170,6 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();
   const subs = useBrowseSubIndustries(primarySlug);
-
-  useBrowseSubAllCanonicalUrl(primarySlug, subs);
 
   const prevSlugRef = useRef(primarySlug);
   const prevSubsRef = useRef(subs);
