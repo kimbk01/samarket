@@ -48,6 +48,9 @@ export const GIFT_RPCS = {
 export const GIFT_MIGRATION_ID = "20261127120000_gift_certificate_domain_g2" as const;
 export const GIFT_CHECKOUT_REFUND_MIGRATION_ID =
   "20261127140000_gift_certificate_checkout_refund_atomic" as const;
+/** CUT 2 — cancel-path gift restore (idempotent; separate from refund atomic). */
+export const GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID =
+  "20270101130000_gift_certificate_cancel_order_restore" as const;
 export const GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID =
   "20261128140000_gift_certificate_order_completion_revenue" as const;
 export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =

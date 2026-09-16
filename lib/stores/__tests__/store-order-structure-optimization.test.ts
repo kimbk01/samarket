@@ -14,7 +14,9 @@ describe("store order structure optimization contract", () => {
     expect(orders).toContain("statusCounts.pending_accept_count");
     expect(orders).not.toContain("countPromise");
     expect(counts).toContain("produced.via");
-    expect(restore).toContain('.in("id", ids)');
+    // CUT 3: absolute RMW batch (.in("id", ids)) replaced by atomic RPC + claim.
+    expect(restore).toContain("restore_store_order_stock_atomic");
+    expect(restore).not.toContain('.in("id", ids)');
     expect(hub).toContain("sumBuyerStoreOrderMessengerUnreadFromRoomIds");
   });
 });

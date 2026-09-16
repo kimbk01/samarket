@@ -7,6 +7,7 @@ import {
 import {
   notifyBuyerStoreOrderOwnerStatus,
   notifyBuyerStoreRefundApproved,
+  notifyBuyerStoreRefundRejected,
   notifyStoreOwnerBuyerCancelled,
   notifyStoreOwnerRefundRequested,
 } from "@/lib/notifications/notify-store-commerce";
@@ -24,6 +25,7 @@ import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
 import {
   ADMIN_CANCEL_REQUEST_RESTORE_STATUSES,
+  ADMIN_REFUND_REQUEST_RESTORE_STATUSES,
   allowedOrderTransitionsForActor,
   isDeliveryFulfillment,
   isValidOrderStatus,
@@ -535,6 +537,36 @@ export async function applyStoreOrderStatusTransition(
           storeId: sid,
         });
       }
+    }
+  } else if (
+    buyerId &&
+    current === "refund_requested" &&
+    ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(nextStatus) &&
+    String((opts.eventMetadata as { source?: string } | undefined)?.source ?? "") ===
+      "admin_refund_reject"
+  ) {
+    const rejectReason = String(
+      (opts.eventMetadata as { rejected_reason?: string } | undefined)?.rejected_reason ??
+        opts.eventMessage ??
+        ""
+    );
+    if (statusEv.ok && statusEv.inserted) {
+      void notifyBuyerStoreRefundRejected(sb, {
+        buyerUserId: buyerId,
+        orderId: oid,
+        orderNo,
+        storeId: sid,
+        reason: rejectReason,
+        storeOrderEventId: statusEv.row.id,
+      });
+    } else if (!statusEv.ok) {
+      void notifyBuyerStoreRefundRejected(sb, {
+        buyerUserId: buyerId,
+        orderId: oid,
+        orderNo,
+        storeId: sid,
+        reason: rejectReason,
+      });
     }
   } else if (buyerId) {
     if (statusEv.ok) {

@@ -39,6 +39,16 @@ export const ADMIN_CANCEL_REQUEST_RESTORE_STATUSES = new Set([
   "arrived",
 ]);
 
+/** Admin reject refund_requested — restore without money/gift/stock reverse */
+export const ADMIN_REFUND_REQUEST_RESTORE_STATUSES = new Set([
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "delivering",
+  "arrived",
+  "completed",
+]);
+
 /** 동네배달·택배 — 픽업과 다른 전이(배송중 이후) */
 export function isDeliveryFulfillment(fulfillment: string): boolean {
   return fulfillment === "local_delivery" || fulfillment === "shipping";
@@ -111,7 +121,14 @@ export function allowedOrderTransitionsForActor(
       return [];
     }
     case "ADMIN": {
-      if (current === "refund_requested") return ["refunded"];
+      if (current === "refund_requested") {
+        const out = ["refunded"];
+        const restore = String(opts?.restoreToStatus ?? "").trim();
+        if (restore && ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(restore)) {
+          out.push(restore);
+        }
+        return out;
+      }
       /** Gift checkout orders may need admin refund while still pending (pre-completion). */
       if (current === "pending") return ["cancelled", "refund_requested"];
       if (current === "cancel_requested") {

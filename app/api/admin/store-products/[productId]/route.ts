@@ -14,12 +14,14 @@ export const dynamic = "force-dynamic";
 type PatchBody = {
   action?: string;
   memo?: string;
+  name?: string;
+  price?: number;
 };
 
 /**
- * Limited Admin product ops on store_products SSOT.
- * block / hide / activate / sold_out / approve_review / reject_review
- * — not Owner menu CRUD.
+ * Admin product ops on store_products SSOT.
+ * block / hide / activate / sold_out / approve_review / reject_review /
+ * correct_name / correct_price / archive(=hidden)
  */
 export async function PATCH(
   req: NextRequest,
@@ -55,7 +57,7 @@ export async function PATCH(
 
   const { data: row, error: findErr } = await sb
     .from("store_products")
-    .select("id, product_status, admin_review_status")
+    .select("id, store_id, product_status, admin_review_status, title, price")
     .eq("id", id)
     .maybeSingle();
 
@@ -63,10 +65,21 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const patch = buildAdminStoreProductPatch(actionRaw, memo);
+  const built = buildAdminStoreProductPatch({
+    action: actionRaw,
+    memo,
+    name: body.name,
+    price: body.price,
+  });
+  if (!built.ok) {
+    return NextResponse.json({ ok: false, error: built.error }, { status: 400 });
+  }
+  const patch = built.patch;
   const before = {
     product_status: row.product_status,
     admin_review_status: (row as { admin_review_status?: string }).admin_review_status,
+    title: (row as { title?: string }).title,
+    price: (row as { price?: number }).price,
   };
 
   const { error: upErr } = await sb.from("store_products").update(patch).eq("id", id);
@@ -83,7 +96,7 @@ export async function PATCH(
     target_id: id,
     action: `store_product.${actionRaw}`,
     before_json: before,
-    after_json: { ...patch, memo },
+    after_json: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
   });
 
   return NextResponse.json({ ok: true });

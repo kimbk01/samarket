@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import {
@@ -67,6 +68,8 @@ export function AdminStoreReviewPanel({
   const [adminStoreName, setAdminStoreName] = useState(store?.store_name ?? "");
   const [actionNote, setActionNote] = useState("");
   const [visibleBusy, setVisibleBusy] = useState(false);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setAdminStoreName(store?.store_name ?? "");
@@ -94,8 +97,41 @@ export function AdminStoreReviewPanel({
     : embedRelationName(store.store_topics);
 
   const profileUrl = store.profile_image_url?.trim();
-  const busy = Boolean(actionBusy || identityActionBusy || visibleBusy);
+  const busy = Boolean(actionBusy || identityActionBusy || visibleBusy || notifyBusy);
   const reason = actionNote.trim();
+
+  const sendOwnerNotice = async () => {
+    const title =
+      (await dibayPrompt({ title: t("admin_stores_notify_title_prompt"), defaultValue: "" }))?.trim() ||
+      "";
+    if (!title) return;
+    const body =
+      (await dibayPrompt({
+        title: t("admin_stores_notify_body_prompt"),
+        defaultValue: reason,
+      }))?.trim() || "";
+    if (!body) return;
+    setNotifyBusy(true);
+    setNotifyMessage(null);
+    try {
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(store.id)}/notify`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body }),
+      });
+      const json = await res.json();
+      if (!json?.ok) {
+        setNotifyMessage(json?.error ?? "notify_failed");
+        return;
+      }
+      setNotifyMessage(t("admin_stores_notify_sent"));
+    } catch {
+      setNotifyMessage("network_error");
+    } finally {
+      setNotifyBusy(false);
+    }
+  };
 
   const runActionWithOptionalNote = (action: string) => {
     void onRunAction?.(action, reason ? { reason } : undefined);
@@ -240,7 +276,13 @@ export function AdminStoreReviewPanel({
                   </button>
                 </>
               )}
+              <button type="button" disabled={busy} className={sbBtnSecondary} onClick={() => void sendOwnerNotice()}>
+                {t("admin_stores_notify_owner")}
+              </button>
             </div>
+            {notifyMessage ? (
+              <p className="mt-2 text-[12px] text-[#6B6B6B]">{notifyMessage}</p>
+            ) : null}
           </div>
         </ReviewBlock>
       ) : null}

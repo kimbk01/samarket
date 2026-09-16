@@ -8,6 +8,7 @@ import {
   adminCompleteRefundStoreOrder,
   adminForceCancelStoreOrder,
   adminPatchStoreOrderMeta,
+  adminRejectRefundStoreOrder,
   adminSetRefundRequestedStoreOrder,
   type AdminStoreOrderMetaPatch,
 } from "@/lib/stores/apply-admin-store-order-operations";
@@ -21,6 +22,10 @@ type PatchBody = {
   /** 현재는 refund_requested 만 허용 */
   set_order_status?: string;
   complete_refund?: boolean;
+  /** Reject refund_requested → restore prior status (no money reverse) */
+  reject_refund?: boolean;
+  restore_to_status?: string;
+  reject_reason?: string;
   admin_locked?: boolean;
   admin_flagged?: boolean;
   admin_note?: string | null;
@@ -56,6 +61,7 @@ export async function PATCH(
   let prim = 0;
   if (body.force_cancel === true) prim++;
   if (body.complete_refund === true) prim++;
+  if (body.reject_refund === true) prim++;
   if (body.set_order_status != null && String(body.set_order_status).trim() !== "") prim++;
   if (prim > 1) {
     return NextResponse.json({ ok: false, error: "conflicting_actions" }, { status: 400 });
@@ -77,6 +83,17 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
     }
     refundAlready = r.already;
+  } else if (body.reject_refund === true) {
+    const r = await adminRejectRefundStoreOrder(
+      sb,
+      oid,
+      String(body.restore_to_status ?? "completed"),
+      String(body.reject_reason ?? ""),
+      audit
+    );
+    if (!r.ok) {
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
+    }
   } else if (body.set_order_status != null && String(body.set_order_status).trim() !== "") {
     const st = String(body.set_order_status).trim();
     if (st !== "refund_requested") {

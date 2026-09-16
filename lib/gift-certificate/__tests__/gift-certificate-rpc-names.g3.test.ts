@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GIFT_CASH_OUT_MIGRATION_ID,
+  GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID,
   GIFT_CHECKOUT_REFUND_MIGRATION_ID,
   GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID,
   GIFT_MIGRATION_ID,
@@ -47,6 +48,10 @@ describe("G3 gift certificate RPC names", () => {
       resolve(process.cwd(), `supabase/migrations/${GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID}.sql`),
       "utf8"
     );
+    const cancelRestore = readFileSync(
+      resolve(process.cwd(), `supabase/migrations/${GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID}.sql`),
+      "utf8"
+    );
     for (const fn of Object.values(GIFT_RPCS)) {
       expect(
         g2.includes(`FUNCTION public.${fn}(`) ||
@@ -56,7 +61,8 @@ describe("G3 gift certificate RPC names", () => {
           cashOut.includes(`FUNCTION public.${fn}(`) ||
           scopePlatform.includes(`FUNCTION public.${fn}(`) ||
           promoEconomics.includes(`FUNCTION public.${fn}(`) ||
-          corrective.includes(`FUNCTION public.${fn}(`)
+          corrective.includes(`FUNCTION public.${fn}(`) ||
+          cancelRestore.includes(`FUNCTION public.${fn}(`)
       ).toBe(true);
     }
   });

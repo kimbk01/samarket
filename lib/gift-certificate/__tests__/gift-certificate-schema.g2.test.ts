@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 import {
   GIFT_ADMIN_EVENTS_MIGRATION_ID,
+  GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID,
   GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID,
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
@@ -44,6 +45,10 @@ const MIG_ADMIN_EVENTS = readFileSync(
 );
 const MIG_CORRECTIVE = readFileSync(
   resolve(process.cwd(), `supabase/migrations/${GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID}.sql`),
+  "utf8"
+);
+const MIG_CANCEL_RESTORE = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID}.sql`),
   "utf8"
 );
 
@@ -98,6 +103,7 @@ describe("G2 gift certificate schema migration", () => {
     const g2Rpcs = Object.values(GIFT_RPCS).filter(
       (fn) =>
         fn !== "gift_certificate_refund_order_atomic" &&
+        fn !== "gift_certificate_cancel_order_restore" &&
         !orderCompletionRpcs.has(fn) &&
         !recognitionCorrectionRpcs.has(fn) &&
         !cashOutRpcs.has(fn) &&
@@ -124,6 +130,12 @@ describe("G2 gift certificate schema migration", () => {
       expect(MIG_CORRECTIVE).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
       expect(MIG_CORRECTIVE).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
     }
+    expect(MIG_CANCEL_RESTORE).toContain(
+      `CREATE OR REPLACE FUNCTION public.${GIFT_RPCS.cancelOrderRestore}`
+    );
+    expect(MIG_CANCEL_RESTORE).toContain(
+      `GRANT EXECUTE ON FUNCTION public.${GIFT_RPCS.cancelOrderRestore}`
+    );
     expect(MIG).toMatch(/service_role/);
     expect(MIG).not.toMatch(/store_coupon_campaigns/);
     expect(GIFT_IS_NOT_COUPON).toBe(true);

@@ -84,9 +84,13 @@ export function AdminStoreProductsPage() {
     void load();
   }, [load]);
 
-  const run = async (id: string, action: string) => {
+  const run = async (
+    id: string,
+    action: string,
+    extra?: { name?: string; price?: number }
+  ) => {
     const memo =
-      action === "block" || action === "hide"
+      action === "block" || action === "hide" || action === "archive" || action === "correct_name" || action === "correct_price"
         ? (await dibayPrompt({ title: t("admin_stores_prompt_memo_optional"), defaultValue: "" }))?.trim() ||
           null
         : null;
@@ -97,7 +101,7 @@ export function AdminStoreProductsPage() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, memo }),
+        body: JSON.stringify({ action, memo, ...extra }),
       });
       const json = await res.json();
       if (!json?.ok) {
@@ -110,6 +114,28 @@ export function AdminStoreProductsPage() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const runCorrectName = async (id: string, currentTitle: string) => {
+    const name = (await dibayPrompt({ title: t("admin_stores_product_correct_name_prompt"), defaultValue: currentTitle }))?.trim();
+    if (!name) return;
+    await run(id, "correct_name", { name });
+  };
+
+  const runCorrectPrice = async (id: string, currentPrice: number) => {
+    const raw = (
+      await dibayPrompt({
+        title: t("admin_stores_product_correct_price_prompt"),
+        defaultValue: String(Math.round(currentPrice)),
+      })
+    )?.trim();
+    if (raw == null || raw === "") return;
+    const price = Number(raw);
+    if (!Number.isFinite(price) || price < 0) {
+      setError("invalid_price");
+      return;
+    }
+    await run(id, "correct_price", { price });
   };
 
   return (
@@ -252,6 +278,32 @@ export function AdminStoreProductsPage() {
                             onClick={() => void run(r.id, "reject_review")}
                           >
                             {t("admin_stores_product_reject_review")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={dis}
+                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
+                          onClick={() => void runCorrectName(r.id, r.title)}
+                        >
+                          {t("admin_stores_product_correct_name")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={dis}
+                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
+                          onClick={() => void runCorrectPrice(r.id, r.price)}
+                        >
+                          {t("admin_stores_product_correct_price")}
+                        </button>
+                        {r.product_status !== "hidden" && r.product_status !== "deleted" && (
+                          <button
+                            type="button"
+                            disabled={dis}
+                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
+                            onClick={() => void run(r.id, "archive")}
+                          >
+                            {t("admin_stores_product_archive")}
                           </button>
                         )}
                       </div>

@@ -324,6 +324,38 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     [revalidateOrders, t]
   );
 
+  const rejectRefund = useCallback(
+    async (id: string) => {
+      if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_reject_refund") }))) return;
+      setBusyId(id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reject_refund: true,
+            restore_to_status: "completed",
+            reject_reason: t("admin_stores_orders_reject_refund_default_reason"),
+          }),
+        });
+        const json = await res.json();
+        if (!json?.ok) {
+          setError(json?.error ?? "reject_refund_failed");
+          return;
+        }
+        invalidateAdminFetchCache("admin:store-orders:");
+        await revalidateOrders({ force: true });
+      } catch {
+        setError("network_error");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [revalidateOrders, t]
+  );
+
   const allRowsSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
   const someRowsSelected = rows.some((r) => selectedIds.has(r.id));
   useEffect(() => {
@@ -583,14 +615,24 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                       </Link>
                     </div>
                     {r.order_status === "refund_requested" ? (
-                      <button
-                        type="button"
-                        disabled={busyId !== null}
-                        onClick={() => void approveRefund(r.id)}
-                        className="mt-2 block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
-                      >
-                        {busyId === r.id ? "…" : t("admin_stores_orders_approve_refund")}
-                      </button>
+                      <div className="mt-2 flex flex-col gap-1">
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={() => void approveRefund(r.id)}
+                          className="block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
+                        >
+                          {busyId === r.id ? "…" : t("admin_stores_orders_approve_refund")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={() => void rejectRefund(r.id)}
+                          className="block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
+                        >
+                          {busyId === r.id ? "…" : t("admin_stores_orders_reject_refund")}
+                        </button>
+                      </div>
                     ) : null}
                   </td>
                 </tr>

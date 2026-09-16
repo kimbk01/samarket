@@ -37,6 +37,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     ".next-*/**",
     ".tmp-*/**",
+    ".tmp/**",
     "tmp/**",
     ".tsbuild/**",
     "Users/**",

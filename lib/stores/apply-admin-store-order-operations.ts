@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
-import { ADMIN_CANCEL_REQUEST_RESTORE_STATUSES } from "@/lib/stores/order-status-transitions";
+import {
+  ADMIN_CANCEL_REQUEST_RESTORE_STATUSES,
+  ADMIN_REFUND_REQUEST_RESTORE_STATUSES,
+} from "@/lib/stores/order-status-transitions";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -356,4 +359,63 @@ export async function adminCompleteRefundStoreOrder(
   }
 
   return { ok: true, already: applied.idempotent };
+}
+
+/**
+ * Admin rejects buyer/admin refund request — restore prior business status.
+ * No refund money/gift/stock side effects (not cancelled / not refunded).
+ */
+export async function adminRejectRefundStoreOrder(
+  sb: SupabaseClient,
+  orderId: string,
+  restoreToStatus: string,
+  reason: string,
+  audit: AdminOrderOpsAudit
+): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
+  const oid = orderId.trim();
+  if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
+
+  const restore = restoreToStatus.trim();
+  if (!ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(restore)) {
+    return { ok: false, error: "invalid_restore_status", httpStatus: 400 };
+  }
+
+  const rejectedReason = reason.trim().slice(0, 500) || "Refund request rejected by admin";
+
+  const { data: order, error: oErr } = await sb
+    .from("store_orders")
+    .select("id, store_id, order_status")
+    .eq("id", oid)
+    .maybeSingle();
+  if (oErr || !order) return { ok: false, error: "order_not_found", httpStatus: 404 };
+
+  if (order.order_status !== "refund_requested") {
+    return { ok: false, error: "refund_not_requested", httpStatus: 409 };
+  }
+
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: restore,
+    actor: "ADMIN",
+    restoreToStatus: restore,
+    eventMessage: rejectedReason,
+    eventMetadata: { source: "admin_refund_reject", rejected_reason: rejectedReason },
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_reject_refund",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
+  });
+  if (!applied.ok) {
+    return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
+  }
+
+  const sid = String(order.store_id ?? "").trim();
+  if (sid) {
+    const ownerId = await loadOwnerUserId(sb, sid);
+    invalidateCaches(sb, sid, ownerId);
+  }
+  return { ok: true };
 }

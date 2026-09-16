@@ -174,6 +174,11 @@ export const notificationMessages = {
     notify_commerce_refund_processed_title: "환불이 처리되었어요",
     notify_commerce_refund_processed_body:
       "「{store}」 {orderNo} 주문이 환불 처리되었습니다. 실제 금액 반환은 매장과 직접 확인해 주세요.",
+    notify_commerce_refund_rejected_title: "환불 요청이 거절됐어요",
+    notify_commerce_refund_rejected_body:
+      "「{store}」 {orderNo} 주문 환불 요청이 거절되었습니다. 주문 상태를 확인해 주세요.",
+    notify_commerce_refund_rejected_body_reason:
+      "「{store}」 {orderNo} 주문 환불 요청이 거절되었습니다. 사유: {reason}",
     notify_commerce_auto_completed_title: "주문이 자동 완료됐어요",
     notify_commerce_auto_completed_body:
       "「{store}」 {orderNo} 주문이 기한에 따라 자동으로 완료 처리되었습니다.",
@@ -412,6 +417,11 @@ export const notificationMessages = {
     notify_commerce_refund_processed_title: "Refund processed",
     notify_commerce_refund_processed_body:
       "\"{store}\" order {orderNo} was refunded. Please confirm the actual return of funds with the store.",
+    notify_commerce_refund_rejected_title: "Refund request declined",
+    notify_commerce_refund_rejected_body:
+      "\"{store}\" order {orderNo} refund request was declined. Please check the order status.",
+    notify_commerce_refund_rejected_body_reason:
+      "\"{store}\" order {orderNo} refund request was declined. Reason: {reason}",
     notify_commerce_auto_completed_title: "Order auto-completed",
     notify_commerce_auto_completed_body:
       "\"{store}\" order {orderNo} was automatically marked as completed when the time limit expired.",

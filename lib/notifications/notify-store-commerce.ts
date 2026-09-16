@@ -726,6 +726,59 @@ export async function notifyBuyerStoreRefundApproved(
   });
 }
 
+/** 관리자 환불 요청 거절 후 구매자 — 금액/재고/상품권 복구 없음 */
+export async function notifyBuyerStoreRefundRejected(
+  sb: SupabaseClient,
+  opts: {
+    buyerUserId: string;
+    orderId: string;
+    orderNo: string;
+    storeId: string;
+    reason?: string | null;
+    storeOrderEventId?: string | null;
+  }
+): Promise<void> {
+  const bid = opts.buyerUserId.trim();
+  const oid = opts.orderId.trim();
+  if (!bid || !oid) return;
+
+  const language = await loadUserLanguage(sb, bid);
+  const storeName = await loadStoreName(sb, opts.storeId);
+  const label = storeName || nt(language, "notify_commerce_store_fallback");
+  const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
+  const reason = truncateNote(opts.reason, 120);
+
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:refund_rejected:${oid}`;
+
+  await appendUserNotification(sb, {
+    user_id: bid,
+    notification_type: "commerce",
+    domain: "order",
+    ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
+    title: nt(language, "notify_commerce_refund_rejected_title"),
+    body: reason
+      ? nt(language, "notify_commerce_refund_rejected_body_reason", {
+          store: label,
+          orderNo,
+          reason,
+        })
+      : nt(language, "notify_commerce_refund_rejected_body", { store: label, orderNo }),
+    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    meta: {
+      kind: "store_order_refund_rejected",
+      order_id: oid,
+      order_no: orderNo,
+      store_id: opts.storeId,
+      ...(reason ? { rejected_reason: reason } : {}),
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
+  });
+}
+
 /** 크론 자동 구매확정 시 구매자 */
 export async function notifyBuyerStoreOrderAutoCompleted(
   sb: SupabaseClient,
