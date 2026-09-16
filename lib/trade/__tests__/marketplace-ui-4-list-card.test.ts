@@ -34,6 +34,20 @@ describe("marketplace UI-4 LIST card information contract", () => {
     expect(card).toContain('data-ui4-slot="promo"');
   });
 
+  it("keeps thumbnail SLOT for no-image listings without ivory placeholder fill", () => {
+    const card = src("components/post/PostCard.tsx");
+    const layout = src("lib/posts/trade-feed-layout-classes.ts");
+    expect(card).toContain("TRADE_FEED_THUMB_SLOT_EMPTY_CLASS");
+    expect(card).toContain('data-market-thumb-empty');
+    expect(card).not.toMatch(/hasUsableThumbnail \? \(\s*<div data-ui4-slot="photos"/);
+    expect(layout).toContain("TRADE_FEED_THUMB_SLOT_EMPTY_CLASS");
+    expect(layout).toContain("TRADE_FEED_THUMB_GEOMETRY_CLASS");
+    // empty slot must not bake ivory muted fill into the geometry constant alone
+    expect(layout).toMatch(
+      /TRADE_FEED_THUMB_SLOT_EMPTY_CLASS\s*=\s*TRADE_FEED_THUMB_GEOMETRY_CLASS/
+    );
+  });
+
   it("SEARCH ProductCard keeps horizontal geometry and the same information order", () => {
     const card = src("components/product/ProductCard.tsx");
     assertInfoOrder(card);

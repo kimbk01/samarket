@@ -6,6 +6,13 @@
  *
  * Visual owner: MarketCardOriginExpandOverlayHost (ONE). Never depend on
  * `loading.tsx` mounting for animation correctness.
+ *
+ * Architecture (post V2 snapshot-scale DELETE):
+ * - NEVER clone+scale whole card HTML (that stretches typography).
+ * - WITH image: FLIP only the thumbnail image layer → detail hero rect.
+ * - WITHOUT image: card-surface veil expands (no text inside); empty list
+ *   thumbnail slot is NOT animated into a fake detail media region.
+ * - Real detail owns the screen after a single 360ms handoff.
  */
 export type TradeMarketCardOriginRect = {
   x: number;
@@ -18,11 +25,14 @@ export type TradeMarketCardOriginExpand = {
   listingId: string;
   /** Monotonic generation so each tap remounts a fresh visual session. */
   generation: number;
+  /** Full card geometry (veil / no-image expand source). */
   rect: TradeMarketCardOriginRect;
+  /** LIST thumbnail slot geometry (always present on Marketplace cards). */
+  thumbRect: TradeMarketCardOriginRect | null;
+  /** Meta/content column geometry (price/title/location). */
+  contentRect: TradeMarketCardOriginRect | null;
   viewport: { width: number; height: number };
   imageUrl: string | null;
-  /** Inert visual snapshot of the card's navigable content (no functional actions). */
-  snapshotHtml: string | null;
   capturedAt: number;
 };
 
@@ -62,6 +72,18 @@ function prefersReducedMotion(): boolean {
   } catch {
     return false;
   }
+}
+
+function readRect(el: Element | null | undefined): TradeMarketCardOriginRect | null {
+  if (!el || typeof (el as HTMLElement).getBoundingClientRect !== "function") return null;
+  const r = (el as HTMLElement).getBoundingClientRect();
+  if (!(r.width > 4 && r.height > 4)) return null;
+  return {
+    x: Math.round(r.left),
+    y: Math.round(r.top),
+    width: Math.round(r.width),
+    height: Math.round(r.height),
+  };
 }
 
 function isFresh(origin: TradeMarketCardOriginExpand | null): origin is TradeMarketCardOriginExpand {
@@ -153,6 +175,7 @@ export function tradePostIdFromPath(path: string | null | undefined): string | n
 /**
  * Capture selected card geometry. Safe no-op when reduced-motion or invalid rect.
  * Never calls preventDefault / router.push.
+ * Does NOT clone card HTML (no stretched-text snapshot).
  */
 export function captureTradeMarketCardOriginExpand(input: {
   listingId: string;
@@ -176,27 +199,33 @@ export function captureTradeMarketCardOriginExpand(input: {
     clearTradeMarketCardOriginExpand();
     return null;
   }
-  const r = el.getBoundingClientRect();
-  if (!(r.width > 8 && r.height > 8)) {
+  const rect = readRect(el);
+  if (!rect) {
     clearTradeMarketCardOriginExpand();
     return null;
   }
+  const thumbEl =
+    typeof el.querySelector === "function"
+      ? el.querySelector<HTMLElement>('[data-ui4-slot="photos"]')
+      : null;
+  const metaEl =
+    typeof el.querySelector === "function"
+      ? el.querySelector<HTMLElement>("[data-market-card-meta='1']")
+      : null;
   generationSeq += 1;
+  const imageUrl =
+    typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
   const origin: TradeMarketCardOriginExpand = {
     listingId,
     generation: generationSeq,
-    rect: {
-      x: Math.round(r.left),
-      y: Math.round(r.top),
-      width: Math.round(r.width),
-      height: Math.round(r.height),
-    },
+    rect,
+    thumbRect: readRect(thumbEl),
+    contentRect: readRect(metaEl),
     viewport: {
       width: Math.max(1, Math.round(win.innerWidth || 1)),
       height: Math.max(1, Math.round(win.innerHeight || 1)),
     },
-    imageUrl: typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null,
-    snapshotHtml: buildCardVisualSnapshotHtml(el),
+    imageUrl,
     capturedAt: Date.now(),
   };
   memory = origin;
@@ -205,59 +234,11 @@ export function captureTradeMarketCardOriginExpand(input: {
   return origin;
 }
 
-function buildCardVisualSnapshotHtml(cardEl: HTMLElement): string | null {
-  const source =
-    typeof cardEl.querySelector === "function"
-      ? cardEl.querySelector<HTMLElement>('a[href^="/post/"]') ?? cardEl
-      : cardEl;
-  if (typeof source.cloneNode !== "function") return null;
-  const clone = source.cloneNode(true) as HTMLElement;
-  if (typeof clone.querySelectorAll !== "function") return null;
-  clone.querySelectorAll("button,input,select,textarea,script,style,[data-market-card-action]").forEach((n) => {
-    n.remove?.();
-  });
-  clone.querySelectorAll<HTMLElement>("[role='button'],[tabindex]").forEach((n) => {
-    n.removeAttribute?.("role");
-    n.removeAttribute?.("tabindex");
-  });
-  clone.querySelectorAll<HTMLAnchorElement>("a").forEach((a) => {
-    a.removeAttribute?.("href");
-    a.removeAttribute?.("target");
-    a.removeAttribute?.("rel");
-  });
-  if (clone.tagName?.toLowerCase() === "a") {
-    clone.removeAttribute?.("href");
-    clone.removeAttribute?.("target");
-    clone.removeAttribute?.("rel");
-  }
-  clone.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-    const src = img.currentSrc || img.src;
-    if (src) img.setAttribute("src", src);
-    img.removeAttribute("srcset");
-    img.removeAttribute("sizes");
-    img.removeAttribute("loading");
-  });
-  clone.setAttribute("aria-hidden", "true");
-  clone.setAttribute("data-market-card-origin-snapshot-card", "1");
-  clone.classList.add("pointer-events-none");
-  const html = clone.outerHTML.trim();
-  return html || null;
-}
-
-/** Map card rect → full-viewport transform (compositor-friendly). */
-export function tradeMarketCardOriginExpandTransform(origin: TradeMarketCardOriginExpand): {
-  translateX: number;
-  translateY: number;
-  scaleX: number;
-  scaleY: number;
-} {
-  const vw = Math.max(1, origin.viewport.width);
-  const vh = Math.max(1, origin.viewport.height);
-  const { x, y, width, height } = origin.rect;
-  return {
-    translateX: x + width / 2 - vw / 2,
-    translateY: y + height / 2 - vh / 2,
-    scaleX: width / vw,
-    scaleY: height / vh,
-  };
+/**
+ * Detail hero target for image FLIP — full-bleed top square matching list aspect.
+ * Not used for no-image (empty list slot must not become a fake detail media region).
+ */
+export function tradeMarketCardOriginHeroTarget(origin: TradeMarketCardOriginExpand): TradeMarketCardOriginRect {
+  const w = Math.max(1, origin.viewport.width);
+  return { x: 0, y: 0, width: w, height: w };
 }

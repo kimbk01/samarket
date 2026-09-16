@@ -34,6 +34,7 @@ import {
   TRADE_FEED_META_COLUMN_CLASS,
   TRADE_FEED_META_ROW_CLASS,
   TRADE_FEED_THUMB_BOX_CLASS,
+  TRADE_FEED_THUMB_SLOT_EMPTY_CLASS,
 } from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { handleTradeMarketCardDetailClick } from "@/lib/trade/location/trade-market-card-detail-nav";
@@ -252,8 +253,13 @@ export const PostCard = memo(function PostCard({
         }}
         className="flex min-w-0 flex-col"
       >
-        {hasUsableThumbnail ? (
-          <div data-ui4-slot="photos" className={TRADE_FEED_THUMB_BOX_CLASS}>
+        {/* LIST: thumbnail SLOT always present. Empty = geometry only (no ivory / placeholder). */}
+        <div
+          data-ui4-slot="photos"
+          data-market-thumb-empty={hasUsableThumbnail ? undefined : "1"}
+          className={hasUsableThumbnail ? TRADE_FEED_THUMB_BOX_CLASS : TRADE_FEED_THUMB_SLOT_EMPTY_CLASS}
+        >
+          {hasUsableThumbnail ? (
             <SamarketThumbnail
               src={thumbnailFetchUrl}
               fill
@@ -271,9 +277,9 @@ export const PostCard = memo(function PostCard({
               }}
               onImageError={() => setThumbnailFailed(true)}
             />
-          </div>
-        ) : null}
-        <div className={TRADE_FEED_META_COLUMN_CLASS}>
+          ) : null}
+        </div>
+        <div className={TRADE_FEED_META_COLUMN_CLASS} data-market-card-meta="1">
           <div className={TRADE_FEED_META_ROW_CLASS}>
             {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
               <p

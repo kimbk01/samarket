@@ -1,7 +1,7 @@
 /**
  * Marketplace list↔detail visual hooks.
- * Card-origin expand continuity is driven by `MarketCardOriginExpandLoading`
- * (transform from captured card rect). Keep markers clear for legacy attrs.
+ * Card→detail morph is owned by `MarketCardOriginExpandOverlayHost`
+ * (image FLIP + plain surface veil — never whole-card text scale).
  */
 
 .market-listing-card[data-market-selected-return="1"] {
@@ -11,7 +11,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-market-card-origin-surface="1"] {
+  [data-market-card-origin-surface="1"],
+  [data-market-card-origin-image="1"],
+  [data-market-card-origin-scrim="1"] {
     transition: none !important;
   }
 }
