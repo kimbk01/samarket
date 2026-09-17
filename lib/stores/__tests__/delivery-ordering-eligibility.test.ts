@@ -109,6 +109,7 @@ describe("CUT 8 store detail / add-to-cart eligibility", () => {
   it("order create master hard block preserved", () => {
     const orders = readFileSync(join(process.cwd(), "app/api/me/store-orders/route.ts"), "utf8");
     expect(orders).toContain("delivery_user_address_not_master");
-    expect(orders).toContain("evaluateDeliveryServiceability");
+    // V2 dual-mode SSOT (legacy radius + regional LGU) — not the legacy-only helper.
+    expect(orders).toContain("evaluateDeliveryServiceArea");
   });
 });

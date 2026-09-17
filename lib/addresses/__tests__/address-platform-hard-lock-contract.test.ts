@@ -462,12 +462,15 @@ describe("master ≠ delivery contract", () => {
   });
 
   it("pickAddressRowForDeliveryRouting is master only", () => {
-    const src = read("lib/addresses/user-address-service.ts");
-    const fn = src.slice(src.indexOf("export function pickAddressRowForDeliveryRouting"));
-    const body = fn.slice(0, fn.indexOf("export type BulkRegionPatchResolvedLocation"));
-    expect(body).toContain("defs.master");
-    expect(body).not.toContain("defs.delivery?.id");
-    expect(body).not.toContain("defs.trade");
-    expect(body).not.toContain("defs.life");
+    // Client-safe extract — re-exported from user-address-service.
+    const src = read("lib/addresses/pick-address-row-for-delivery-routing.ts");
+    const svc = read("lib/addresses/user-address-service.ts");
+    expect(svc).toContain(
+      'export { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing"'
+    );
+    expect(src).toContain("defs.master");
+    expect(src).not.toContain("defs.delivery?.id");
+    expect(src).not.toContain("defs.trade");
+    expect(src).not.toContain("defs.life");
   });
 });

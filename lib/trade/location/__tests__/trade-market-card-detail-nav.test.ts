@@ -7,6 +7,10 @@ vi.mock("@/lib/trade/location/trade-market-list-scroll-restore", () => ({
   prepareTradeMarketListToDetailNavigation: (...args: unknown[]) => prepare(...args),
 }));
 
+vi.mock("@/lib/layout/main-app-scroll-root", () => ({
+  getMainAppScrollTop: () => 0,
+}));
+
 import { handleTradeMarketCardDetailClick } from "@/lib/trade/location/trade-market-card-detail-nav";
 
 describe("trade-market-card-detail-nav", () => {
