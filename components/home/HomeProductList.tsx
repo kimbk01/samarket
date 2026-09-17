@@ -57,7 +57,6 @@ import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-m
 import { useTradeMarketListScrollRestore } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { MARKETPLACE_LIST_CLIENT_PAGE_SIZE } from "@/lib/trade/marketplace/marketplace-list-pagination";
-import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 import { MARKETPLACE_BROWSE_RESET_EVENT } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
@@ -75,6 +74,11 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
+import {
+  clearTradeListPresentationSession,
+  commitTradeListPresentationSession,
+  peekTradeListPresentationSessionForIdentity,
+} from "@/lib/trade/marketplace/trade-list-presentation-session";
 import {
   marketplaceBrowseStateIdentityKey,
   marketplaceBrowseStateToGetPostsForHomeOptions,
@@ -229,12 +233,38 @@ export function HomeProductList({
       ? readClientHomeListBoot(homePostListOptions)
       : null;
   const initialBoot = clientBoot ?? hydrationSeed;
+  const retainedPresentation = (() => {
+    const fromHook = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    if (fromHook && fromHook.posts.length > 0) return fromHook;
+    if (typeof window === "undefined") return null;
+    try {
+      const locKey = marketplaceBrowseStateIdentityKey(
+        parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(window.location.search))
+      );
+      if (locKey === browseIdentityKey) return null;
+      return peekTradeListPresentationSessionForIdentity(locKey);
+    } catch {
+      return null;
+    }
+  })();
+  const retainedBoot =
+    retainedPresentation && retainedPresentation.posts.length > 0 ? retainedPresentation : null;
   const [listState, setListState] = useState<ListState>(() =>
-    initialBoot ? (initialBoot.posts.length === 0 ? "empty" : "idle") : "loading"
+    retainedBoot
+      ? retainedBoot.posts.length === 0
+        ? "empty"
+        : "idle"
+      : initialBoot
+        ? initialBoot.posts.length === 0
+          ? "empty"
+          : "idle"
+        : "loading"
   );
-  const [posts, setPosts] = useState<PostWithMeta[]>(() => initialBoot?.posts ?? []);
+  const [posts, setPosts] = useState<PostWithMeta[]>(
+    () => retainedBoot?.posts ?? initialBoot?.posts ?? []
+  );
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
-    () => initialBoot?.favoriteMap ?? {}
+    () => retainedBoot?.favoriteMap ?? initialBoot?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
@@ -254,9 +284,20 @@ export function HomeProductList({
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   const listFeedEpochRef = useRef(0);
   const [listPaginationEpoch, setListPaginationEpoch] = useState(0);
-  const serverPageRef = useRef(1);
-  const [serverHasMore, setServerHasMore] = useState(false);
+  const serverPageRef = useRef(retainedBoot?.serverPage ?? 1);
+  const [serverHasMore, setServerHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
   const [loadingMoreServer, setLoadingMoreServer] = useState(false);
+  const retainedVisibleCountRef = useRef<number | null>(
+    retainedBoot && retainedBoot.visibleCount > 0
+      ? Math.max(
+          retainedBoot.visibleCount,
+          retainedBoot.selectedProductId
+            ? Math.max(0, retainedBoot.productIds.indexOf(retainedBoot.selectedProductId)) + 1
+            : 0,
+          MARKETPLACE_LIST_CLIENT_PAGE_SIZE
+        )
+      : null
+  );
   const browseIdentityPrevRef = useRef<string | null>(null);
   const browseIdentityInitializedRef = useRef(false);
   const silentRefreshIdentityRef = useRef(browseIdentityKey);
@@ -369,11 +410,12 @@ export function HomeProductList({
     setServerHasMore(false);
     setListPaginationEpoch((n) => n + 1);
     setPendingNewCount(0);
+    clearTradeListPresentationSession(browseIdentityKey);
     await load({
       forceFreshRankedWindow: true,
       replaceList: true,
     });
-  }, [load]);
+  }, [load, browseIdentityKey]);
 
   const tradePullRefreshRegister =
     pullRefreshRouteKey != null ? (
@@ -381,9 +423,16 @@ export function HomeProductList({
     ) : null;
 
   useEffect(() => {
+    // Do not clobber retained server page on remount — only reset when browse options change.
+    const retained = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    if (retained && retained.posts.length > 0 && retained.serverPage > 1) {
+      serverPageRef.current = retained.serverPage;
+      setServerHasMore(retained.serverHasMore);
+      return;
+    }
     serverPageRef.current = 1;
     setServerHasMore(false);
-  }, [homePostListOptions]);
+  }, [homePostListOptions, browseIdentityKey]);
 
   /**
    * 클라이언트에서만 메모리·sessionStorage 캐시를 병합한다.
@@ -418,6 +467,31 @@ export function HomeProductList({
         : peekCachedPostsForHome(homePostListOptions);
 
     const identityTransition = detectBrowseIdentityTransition(browseIdentityKey);
+
+    // Retained list presentation session (load-more + deep product continuity across detail).
+    // Prefer retained for THIS identity even if searchParams flickered (false transition).
+    const retained = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    if (retained && retained.posts.length > 0) {
+      silentRequestIdRef.current += 1;
+      serverPageRef.current = retained.serverPage;
+      setServerHasMore(retained.serverHasMore);
+      setPosts(retained.posts);
+      setFavoriteMap(retained.favoriteMap ?? {});
+      setPendingNewCount(0);
+      setListState(retained.posts.length === 0 ? "empty" : "idle");
+      lastLoadedAtRef.current = Date.now();
+      const selectedIdx =
+        retained.selectedProductId != null
+          ? retained.productIds.indexOf(retained.selectedProductId)
+          : -1;
+      const need = Math.max(
+        retained.visibleCount,
+        selectedIdx >= 0 ? selectedIdx + 1 : 0,
+        MARKETPLACE_LIST_CLIENT_PAGE_SIZE
+      );
+      retainedVisibleCountRef.current = need;
+      return;
+    }
 
     if (identityTransition) {
       silentRequestIdRef.current += 1;
@@ -521,9 +595,83 @@ export function HomeProductList({
   const listPagination = useTradeChatListClientPagination({
     items: posts,
     pageSize: MARKETPLACE_LIST_CLIENT_PAGE_SIZE,
-    resetKey: `${tradeListPaginationResetKey(tradeState, posts)}:${listPaginationEpoch}`,
+    // Identity/epoch only — post fingerprint resetKey wiped load-more on append/restore.
+    resetKey: `${browseIdentityKey}:${listPaginationEpoch}`,
+    restoredVisibleCount: retainedVisibleCountRef.current,
   });
-  const visiblePosts = listPagination.visibleItems;
+  /**
+   * Presentation floor from retained session — pagination hook state can briefly collapse
+   * on remount/resetKey flicker; never paint below the retained window while session lives.
+   */
+  const retainedVisibleFloor = (() => {
+    const s = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    if (!s || s.posts.length === 0) return 0;
+    const selectedIdx =
+      s.selectedProductId != null ? s.productIds.indexOf(s.selectedProductId) : -1;
+    return Math.max(
+      s.visibleCount,
+      selectedIdx >= 0 ? selectedIdx + 1 : 0,
+      MARKETPLACE_LIST_CLIENT_PAGE_SIZE
+    );
+  })();
+  const presentationVisibleCount = Math.max(listPagination.visibleCount, retainedVisibleFloor);
+  const visiblePosts =
+    presentationVisibleCount >= posts.length
+      ? posts
+      : posts.slice(0, presentationVisibleCount);
+
+  useLayoutEffect(() => {
+    const seedVisible = retainedVisibleCountRef.current;
+    if (seedVisible == null || seedVisible <= 0) return;
+    const retained = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    const selectedIdx =
+      retained?.selectedProductId != null
+        ? retained.productIds.indexOf(retained.selectedProductId)
+        : -1;
+    const need = Math.max(
+      seedVisible,
+      selectedIdx >= 0 ? selectedIdx + 1 : 0,
+      MARKETPLACE_LIST_CLIENT_PAGE_SIZE
+    );
+    if (listPagination.visibleCount >= need && posts.length >= Math.min(need, posts.length || need)) {
+      if (listPagination.visibleCount >= need) {
+        retainedVisibleCountRef.current = null;
+      }
+      return;
+    }
+    listPagination.restoreVisibleCount(need);
+    // Keep seed until visibleCount actually matches — resetKey flicker may collapse once.
+  }, [listPagination, posts.length, browseIdentityKey]);
+
+  useLayoutEffect(() => {
+    if (posts.length === 0) return;
+    if (listState === "loading" || listState === "error") return;
+    if (retainedVisibleCountRef.current != null) return;
+    const selected = peekTradeListPresentationSessionForIdentity(browseIdentityKey);
+    const selectedIdx =
+      selected?.selectedProductId != null ? posts.findIndex((p) => p.id === selected.selectedProductId) : -1;
+    const visibleCount = Math.max(
+      presentationVisibleCount,
+      selected?.visibleCount ?? 0,
+      selectedIdx >= 0 ? selectedIdx + 1 : 0,
+      posts.length > 0 ? MARKETPLACE_LIST_CLIENT_PAGE_SIZE : 0
+    );
+    commitTradeListPresentationSession({
+      identity: browseIdentityKey,
+      posts,
+      favoriteMap,
+      visibleCount,
+      serverPage: serverPageRef.current,
+      serverHasMore,
+    });
+  }, [
+    browseIdentityKey,
+    posts,
+    favoriteMap,
+    presentationVisibleCount,
+    serverHasMore,
+    listState,
+  ]);
 
   const loadMoreFeed = useCallback(async () => {
     if (listPagination.hasMore) {
@@ -548,7 +696,14 @@ export function HomeProductList({
           const id = p.id?.trim();
           return id && !seen.has(id);
         });
-        return appended.length > 0 ? [...prev, ...appended] : prev;
+        if (appended.length === 0) return prev;
+        const next = [...prev, ...appended];
+        // Reveal newly fetched rows — pagination no longer resets on length growth,
+        // but visible window must advance past the prior fully-shown end.
+        queueMicrotask(() => {
+          listPagination.restoreVisibleCount(next.length);
+        });
+        return next;
       });
       setFavoriteMap((prev) => ({ ...prev, ...res.favoriteMap }));
     } finally {
@@ -560,6 +715,7 @@ export function HomeProductList({
     homePostListOptions,
     listPagination.hasMore,
     listPagination.loadMore,
+    listPagination.restoreVisibleCount,
     loadingMoreServer,
     locationInvalid,
     locationUnset,
@@ -894,7 +1050,15 @@ export function HomeProductList({
           </button>
         </div>
       ) : null}
-      <ul ref={listMeasureRef} className={`${rootClass} ${listClass}`}>
+      <ul
+        ref={listMeasureRef}
+        className={`${rootClass} ${listClass}`}
+        data-trade-list-presentation-identity={browseIdentityKey}
+        data-trade-list-presentation-posts={String(posts.length)}
+        data-trade-list-presentation-visible={String(presentationVisibleCount)}
+        data-trade-list-presentation-hook-visible={String(listPagination.visibleCount)}
+        data-trade-list-presentation-floor={String(retainedVisibleFloor)}
+      >
         {visiblePosts.map((post, index) =>
           notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
@@ -942,8 +1106,8 @@ export function HomeProductList({
         hasMore={listPagination.hasMore || serverHasMore}
         loadingMore={listPagination.loadingMore || loadingMoreServer}
         onLoadMore={() => void loadMoreFeed()}
-        visibleCount={listPagination.visibleCount}
-        totalCount={listPagination.totalCount}
+        visibleCount={presentationVisibleCount}
+        totalCount={Math.max(listPagination.totalCount, posts.length)}
       />
 
       {toast && (

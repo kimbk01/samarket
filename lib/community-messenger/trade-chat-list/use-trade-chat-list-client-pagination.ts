@@ -12,27 +12,49 @@ import {
 type Args<T> = {
   items: readonly T[];
   pageSize?: number;
-  /** 필터 등 목록 기준 변경 시 visibleCount 리셋 */
+  /** Identity / epoch only — must NOT fingerprint item ids (append would reset). */
   resetKey?: string;
+  /**
+   * Trade list presentation restore: seed once, then skip the next auto-reset
+   * caused by restored `items` commit (load-more continuity across detail remount).
+   */
+  restoredVisibleCount?: number | null;
 };
 
 export function useTradeChatListClientPagination<T>({
   items,
   pageSize = TRADE_CHAT_LIST_PAGE_SIZE,
   resetKey = "",
+  restoredVisibleCount = null,
 }: Args<T>) {
-  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [visibleCount, setVisibleCount] = useState(() =>
+    typeof restoredVisibleCount === "number" && restoredVisibleCount > 0
+      ? restoredVisibleCount
+      : pageSize
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const loadMoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutoResetRef = useRef(
+    typeof restoredVisibleCount === "number" && restoredVisibleCount > 0
+  );
 
+  // Reset only when list identity/epoch changes — never on append length growth.
+  // While a restore seed is active (skipNext), ignore resetKey churn from remount flicker.
   useEffect(() => {
+    if (skipNextAutoResetRef.current) {
+      skipNextAutoResetRef.current = false;
+      return;
+    }
     setVisibleCount(pageSize);
     setLoadingMore(false);
     if (loadMoreTimerRef.current != null) {
       clearTimeout(loadMoreTimerRef.current);
       loadMoreTimerRef.current = null;
     }
-  }, [items.length, pageSize, resetKey]);
+  }, [pageSize, resetKey]);
+
+  // Re-arm skip when restoreVisibleCount is called so a subsequent resetKey
+  // paint in the same remount cannot collapse the restored window.
 
   useEffect(() => {
     return () => {
@@ -56,6 +78,16 @@ export function useTradeChatListClientPagination<T>({
     }, TRADE_CHAT_LIST_LOAD_MORE_MIN_MS);
   }, [items.length, loadingMore, pageSize, visibleCount]);
 
+  const restoreVisibleCount = useCallback(
+    (count: number) => {
+      const next = Math.max(pageSize, Math.floor(count));
+      skipNextAutoResetRef.current = true;
+      setVisibleCount(next);
+      setLoadingMore(false);
+    },
+    [pageSize]
+  );
+
   return {
     visibleItems,
     hasMore,
@@ -63,5 +95,6 @@ export function useTradeChatListClientPagination<T>({
     loadMore,
     visibleCount,
     totalCount: items.length,
+    restoreVisibleCount,
   };
 }

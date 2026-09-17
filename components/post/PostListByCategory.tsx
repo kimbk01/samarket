@@ -44,6 +44,14 @@ import {
   withSellIntentListDefaults,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
+import {
+  marketplaceBrowseStateIdentityKey,
+  parseMarketplaceBrowseStateFromSearchParams,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
+import {
+  commitTradeListPresentationSession,
+  peekTradeListPresentationSessionForIdentity,
+} from "@/lib/trade/marketplace/trade-list-presentation-session";
 
 const ReportReasonModal = dynamic(
   () => import("./ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -327,6 +335,19 @@ export function PostListByCategory({
     ]
   );
 
+  /** Same canonical identity as HomeProductList + detail click selection capture. */
+  const listPresentationIdentity = useMemo(
+    () =>
+      marketplaceBrowseStateIdentityKey(
+        parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(searchParams.toString()))
+      ),
+    [searchParams]
+  );
+
+  const retainedPresentation = peekTradeListPresentationSessionForIdentity(listPresentationIdentity);
+  const retainedBoot =
+    retainedPresentation && retainedPresentation.posts.length > 0 ? retainedPresentation : null;
+
   const initialCachedFeed = useMemo(() => {
     if (!categoryId) return null;
     const ids = tradeFeedServerResolution ? [] : effectiveIds;
@@ -342,16 +363,19 @@ export function PostListByCategory({
   const mountSeedFeed = null;
 
   // `mountSeedFeed` is always null: optional chaining would confuse TS into `never`.
-  const [posts, setPosts] = useState<PostWithMeta[]>([]);
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => retainedBoot?.posts ?? []);
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
+    () => retainedBoot?.favoriteMap ?? {}
+  );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(retainedBoot && retainedBoot.posts.length > 0));
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
+  const [page, setPage] = useState(() => retainedBoot?.serverPage ?? 1);
+  const retainedRestoredRef = useRef(Boolean(retainedBoot && retainedBoot.posts.length > 0));
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
   /** 글 등록 직후 RSC bootstrap 이 클라 fetch 보다 느리면 stale 로 덮는 것 방지 */
@@ -509,7 +533,26 @@ export function PostListByCategory({
     let cancelled = false;
     listFeedEpochRef.current += 1;
     const epoch = listFeedEpochRef.current;
+
+    const retained = peekTradeListPresentationSessionForIdentity(listPresentationIdentity);
+    if (retained && retained.posts.length > 0) {
+      // Retained presentation first — no page1 flash / missing deep product.
+      setPage(retained.serverPage);
+      setHasMore(retained.serverHasMore);
+      setPosts(retained.posts);
+      setFavoriteMap(retained.favoriteMap ?? {});
+      setHiddenPostIds(new Set());
+      setNotInterestedPostIds(new Set());
+      setLoading(false);
+      appliedListFeedKeyRef.current = feedKey;
+      retainedRestoredRef.current = true;
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setPage(1);
+    retainedRestoredRef.current = false;
 
     const applyBootstrapOrCacheSync = (): boolean => {
       if (cancelled || epoch !== listFeedEpochRef.current) return true;
@@ -591,6 +634,7 @@ export function PostListByCategory({
     };
   }, [
     feedKey,
+    listPresentationIdentity,
     initialTradeFeed?.feedKey,
     load,
     resolveFavoriteMapAsync,
@@ -600,6 +644,19 @@ export function PostListByCategory({
     categoryId,
     locationUnset,
   ]);
+
+  useLayoutEffect(() => {
+    if (posts.length === 0) return;
+    if (loading) return;
+    commitTradeListPresentationSession({
+      identity: listPresentationIdentity,
+      posts,
+      favoriteMap,
+      visibleCount: posts.length,
+      serverPage: page,
+      serverHasMore: hasMore,
+    });
+  }, [listPresentationIdentity, posts, favoriteMap, page, hasMore, loading]);
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
   useEffect(() => {

@@ -1,8 +1,17 @@
 "use client";
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import { prepareTradeMarketListToDetailNavigation } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { armTradeMarketProductCompositionForward } from "@/lib/trade/marketplace/trade-market-product-composition";
+import {
+  marketplaceBrowseStateIdentityKey,
+  parseMarketplaceBrowseStateFromSearchParams,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
+import {
+  armTradeMarketProductCompositionForward,
+  measureListComposition,
+} from "@/lib/trade/marketplace/trade-market-product-composition";
+import { rememberTradeListPresentationSelection } from "@/lib/trade/marketplace/trade-list-presentation-session";
 
 /**
  * List→detail click prep (scroll DATA + product-composition arm).
@@ -37,6 +46,33 @@ export function handleTradeMarketCardDetailClick(input: {
 }): boolean {
   const { postId, routeKey, cardEl, imageUrl, priceText, titleText, locationText } = input;
   prepareTradeMarketListToDetailNavigation({ routeKey, postId });
+
+  const measured = measureListComposition(cardEl);
+  const browseIdentity = (() => {
+    if (typeof window === "undefined") return routeKey;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      return marketplaceBrowseStateIdentityKey(parseMarketplaceBrowseStateFromSearchParams(sp));
+    } catch {
+      return routeKey;
+    }
+  })();
+  rememberTradeListPresentationSelection({
+    identity: browseIdentity,
+    productId: postId,
+    scrollY: getMainAppScrollTop(),
+    geometry: {
+      mediaRect: measured.mediaRect,
+      priceRect: measured.priceRect,
+      titleRect: measured.titleRect,
+      metaRect: measured.metaRect,
+      imageUrl: imageUrl ?? null,
+      priceText: priceText ?? null,
+      titleText: titleText ?? null,
+      locationText: locationText ?? null,
+    },
+  });
+
   armTradeMarketProductCompositionForward({
     listingId: postId,
     cardEl,

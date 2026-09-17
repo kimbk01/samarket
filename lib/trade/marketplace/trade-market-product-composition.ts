@@ -6,7 +6,12 @@
  * ONE coordinator · ONE progress p · 360ms · ≤1 instance per semantic field.
  * No media ⇒ media node is NOT created (not hidden/placeholder/skeleton).
  * Navigation remains `<Link>` + App Router.
+ *
+ * Reverse destination authority: retained TradeListPresentationSession selected geometry
+ * (captured at select). Live list bind is optional revalidation — never a cover-only wait.
  */
+
+import { peekTradeListPresentationSession } from "@/lib/trade/marketplace/trade-list-presentation-session";
 
 export type TradeMarketCompositionRect = {
   x: number;
@@ -74,9 +79,7 @@ const lastListById = new Map<
   }
 >();
 let detailStanding: TradeMarketProductCompositionSession | null = null;
-let scrollRestoreDeferred = false;
-let deferredScrollRouteKey: string | null = null;
-/** Reverse V2: live destination bind is allowed once per generation, only after scroll restore. */
+/** Reverse: live destination bind is allowed once per generation (optional refine). */
 let reverseLiveBindGeneration: number | null = null;
 let reverseLiveBindCount = 0;
 
@@ -252,8 +255,6 @@ function setSession(session: TradeMarketProductCompositionSession | null): void 
 export function clearTradeMarketProductComposition(): void {
   reverseLiveBindGeneration = null;
   reverseLiveBindCount = 0;
-  scrollRestoreDeferred = false;
-  deferredScrollRouteKey = null;
   setSession(null);
 }
 
@@ -397,9 +398,7 @@ export function bindTradeMarketReverseLiveDestinationTargets(input: {
   const session = peekTradeMarketProductComposition();
   if (!session || session.listingId !== input.listingId.trim()) return false;
   if (session.direction !== "back") return false;
-  // RULE 2: no live bind while scroll restore pending.
-  if (scrollRestoreDeferred) return false;
-  // RULE 3: bind once per generation.
+  // Bind once per generation (optional live refine after retained destination).
   if (reverseLiveBindGeneration === session.generation) return false;
 
   const hasAny = Boolean(input.mediaRect || input.priceRect || input.titleRect || input.metaRect);
@@ -440,23 +439,6 @@ export function isTradeMarketReverseLiveDestinationBound(listingId: string, gene
   const session = peekTradeMarketProductComposition();
   if (!session || session.listingId !== listingId || session.generation !== generation) return false;
   return reverseLiveBindGeneration === generation;
-}
-
-export function isTradeMarketReverseScrollRestorePending(): boolean {
-  return scrollRestoreDeferred;
-}
-
-export function peekTradeMarketReverseDeferredScrollRouteKey(): string | null {
-  return deferredScrollRouteKey;
-}
-
-/**
- * Reverse V2 RULE 1 companion: after Host restores saved list scroll, clear deferred so
- * live GBR may become destination authority. finish() must not restore scroll again.
- */
-export function clearTradeMarketReverseScrollRestoreDeferred(): void {
-  scrollRestoreDeferred = false;
-  deferredScrollRouteKey = null;
 }
 
 export function publishTradeMarketProductCompositionTargets(input: {
@@ -695,8 +677,6 @@ export function armTradeMarketProductCompositionForward(input: {
     meta: session.meta,
     listRouteKey: session.listRouteKey,
   });
-  scrollRestoreDeferred = false;
-  deferredScrollRouteKey = null;
   setSession(session);
   return session;
 }
@@ -721,6 +701,9 @@ export function armTradeMarketProductCompositionBack(input: {
   }
   const measured = measureDetailComposition(input.rootEl);
   const remembered = lastListById.get(listingId);
+  const retained = peekTradeListPresentationSession();
+  const retainedGeom =
+    retained && retained.selectedProductId === listingId ? retained.selectedGeometry : null;
   const imageUrl = typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
   const hasMedia = Boolean(imageUrl && measured.mediaRect);
   // Image product missing reverse media capture ⇒ fail closed (forbidden LOST_DURING_TRANSITION).
@@ -731,20 +714,18 @@ export function armTradeMarketProductCompositionBack(input: {
   const mediaContract: TradeMarketMediaContract = hasMedia ? "present" : "absent_by_product";
   const vp = viewportSize();
 
-  const listMedia = remembered?.media?.source ?? null;
-  const listPrice = remembered?.price?.source ?? null;
-  const listTitle = remembered?.title?.source ?? null;
-  const listMeta = remembered?.meta?.source ?? null;
+  const listMedia = retainedGeom?.mediaRect ?? remembered?.media?.source ?? null;
+  const listPrice = retainedGeom?.priceRect ?? remembered?.price?.source ?? null;
+  const listTitle = retainedGeom?.titleRect ?? remembered?.title?.source ?? null;
+  const listMeta = retainedGeom?.metaRect ?? remembered?.meta?.source ?? null;
+  const hasRetainedDestination = Boolean(
+    (hasMedia && listMedia && listMedia.width > 8 && listMedia.height > 8) ||
+      (!hasMedia && (listPrice || listTitle || listMeta))
+  );
 
   const priceText = (input.priceText ?? "").trim();
   const titleText = (input.titleText ?? "").trim();
   const metaText = (input.locationText ?? "").trim();
-
-  // IMAGE reverse: refuse detail-sized target fallback. End target comes only from live list bind.
-  // Provisional target = remembered list rect if known; else source (Host must not fly until bind).
-  if (hasMedia && !listMedia) {
-    // Still arm with provisional source-only; Host waits for live bind before any visible flight.
-  }
 
   generationSeq += 1;
   const session: TradeMarketProductCompositionSession = {
@@ -757,7 +738,7 @@ export function armTradeMarketProductCompositionBack(input: {
         ? {
             url: imageUrl!,
             source: measured.mediaRect,
-            // Never commit detail rect as reverse end. Use remembered list or provisional source.
+            // Retained list geometry is reverse end. Never detail-sized provisional as sole owner.
             target: listMedia ?? measured.mediaRect,
           }
         : null,
@@ -788,15 +769,14 @@ export function armTradeMarketProductCompositionBack(input: {
     listRouteKey: input.listRouteKey?.trim() || remembered?.listRouteKey || null,
     viewport: vp,
     capturedAt: Date.now(),
-    destinationCommitted: false,
+    // Retained list session already owns destination — no reconstruction wait.
+    destinationCommitted: hasRetainedDestination,
   };
 
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
-  reverseLiveBindGeneration = null;
-  reverseLiveBindCount = 0;
-  scrollRestoreDeferred = true;
-  deferredScrollRouteKey = session.listRouteKey;
+  reverseLiveBindGeneration = hasRetainedDestination ? session.generation : null;
+  reverseLiveBindCount = hasRetainedDestination ? 1 : 0;
   setSession(session);
   return session;
 }
@@ -818,10 +798,21 @@ export function armTradeMarketProductCompositionBackFromStanding(input: {
   if (!standing || standing.listingId !== input.fromPostId.trim()) return null;
   if (peekTradeMarketProductComposition()?.direction === "back") return peekTradeMarketProductComposition();
   const remembered = lastListById.get(standing.listingId);
+  const retained = peekTradeListPresentationSession();
+  const retainedGeom =
+    retained && retained.selectedProductId === standing.listingId ? retained.selectedGeometry : null;
   if (!isTradeMarketCompositionMediaOwnershipValid(standing)) {
     clearTradeMarketProductComposition();
     return null;
   }
+  const listMedia = retainedGeom?.mediaRect ?? remembered?.media?.source ?? null;
+  const listPrice = retainedGeom?.priceRect ?? remembered?.price?.source ?? null;
+  const listTitle = retainedGeom?.titleRect ?? remembered?.title?.source ?? null;
+  const listMeta = retainedGeom?.metaRect ?? remembered?.meta?.source ?? null;
+  const hasRetainedDestination = Boolean(
+    (standing.media && listMedia && listMedia.width > 8 && listMedia.height > 8) ||
+      (!standing.media && (listPrice || listTitle || listMeta))
+  );
   generationSeq += 1;
   const session: TradeMarketProductCompositionSession = {
     ...standing,
@@ -832,59 +823,38 @@ export function armTradeMarketProductCompositionBackFromStanding(input: {
       ? {
           ...standing.media,
           source: standing.media.source,
-          // Forbidden: detail standing.source as reverse end when list unknown.
-          // Provisional only; Host requires live list bind (destinationCommitted).
-          target: remembered?.media?.source ?? standing.media.source,
+          target: listMedia ?? standing.media.source,
         }
       : null,
     price: standing.price
       ? {
           ...standing.price,
           source: standing.price.source,
-          target: remembered?.price?.source ?? standing.price.source,
+          target: listPrice ?? standing.price.source,
         }
       : null,
     title: standing.title
       ? {
           ...standing.title,
           source: standing.title.source,
-          target: remembered?.title?.source ?? standing.title.source,
+          target: listTitle ?? standing.title.source,
         }
       : null,
     meta: standing.meta
       ? {
           ...standing.meta,
           source: standing.meta.source,
-          target: remembered?.meta?.source ?? standing.meta.source,
+          target: listMeta ?? standing.meta.source,
         }
       : null,
     listRouteKey: input.listRouteKey || standing.listRouteKey,
     capturedAt: Date.now(),
-    destinationCommitted: false,
+    destinationCommitted: hasRetainedDestination,
   };
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
-  reverseLiveBindGeneration = null;
-  reverseLiveBindCount = 0;
-  scrollRestoreDeferred = true;
-  deferredScrollRouteKey = session.listRouteKey;
+  reverseLiveBindGeneration = hasRetainedDestination ? session.generation : null;
+  reverseLiveBindCount = hasRetainedDestination ? 1 : 0;
   setSession(session);
   return session;
-}
-
-export function shouldDeferTradeMarketListScrollRestore(_routeKey: string): boolean {
-  if (!scrollRestoreDeferred) return false;
-  return isTradeMarketProductCompositionActive();
-}
-
-/**
- * Clears deferred scroll flag only. Reverse V2 restores scroll before bind;
- * finish must not apply a second visible scroll jump.
- */
-export function takeDeferredTradeMarketListScrollRouteKey(): string | null {
-  if (!scrollRestoreDeferred) return null;
-  const key = deferredScrollRouteKey;
-  scrollRestoreDeferred = false;
-  deferredScrollRouteKey = null;
-  return key;
 }

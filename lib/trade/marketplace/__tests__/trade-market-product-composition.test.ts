@@ -155,7 +155,7 @@ describe("trade-market-product-composition", () => {
     expect(peekTradeMarketProductComposition()).toBeNull();
   });
 
-  it("arms back composition with destinationCommitted false until live bind", () => {
+  it("arms back composition with retained list destination already committed", () => {
     armTradeMarketProductCompositionForward({
       listingId: "b1",
       cardEl: listCardEl(),
@@ -194,8 +194,8 @@ describe("trade-market-product-composition", () => {
       listRouteKey: "/market",
     });
     expect(session?.direction).toBe("back");
-    expect(session?.destinationCommitted).toBe(false);
-    // Remembered list source is provisional reverse end — not detail 390×390.
+    // Remembered list geometry at arm time commits reverse destination — no cover wait.
+    expect(session?.destinationCommitted).toBe(true);
     expect(session?.media?.target).toEqual({ x: 10, y: 100, width: 180, height: 180 });
     expect(session?.media?.source).toEqual({ x: 0, y: 0, width: 390, height: 390 });
   });
@@ -241,12 +241,11 @@ describe("trade-market-product-composition", () => {
     ).toBe(true);
   });
 
-  it("reverse live bind is forbidden while scroll restore deferred", async () => {
+  it("reverse does not defer scroll restore as a cover-wait gate", async () => {
     const {
       armTradeMarketProductCompositionBack,
-      bindTradeMarketReverseLiveDestinationTargets,
-      isTradeMarketReverseScrollRestorePending,
-      peekTradeMarketReverseLiveBindCount,
+      armTradeMarketProductCompositionForward,
+      peekTradeMarketProductComposition,
     } = await import("@/lib/trade/marketplace/trade-market-product-composition");
     const root = {
       querySelector: (sel: string) => {
@@ -265,6 +264,13 @@ describe("trade-market-product-composition", () => {
         return null;
       },
     } as unknown as HTMLElement;
+    armTradeMarketProductCompositionForward({
+      listingId: "dock-bind-deferred",
+      cardEl: listCardEl(),
+      imageUrl: "https://example.com/a.jpg",
+      priceText: "₱1",
+      listRouteKey: "/market",
+    });
     armTradeMarketProductCompositionBack({
       listingId: "dock-bind-deferred",
       rootEl: root,
@@ -272,24 +278,13 @@ describe("trade-market-product-composition", () => {
       priceText: "₱1",
       listRouteKey: "/market",
     });
-    expect(isTradeMarketReverseScrollRestorePending()).toBe(true);
-    expect(
-      bindTradeMarketReverseLiveDestinationTargets({
-        listingId: "dock-bind-deferred",
-        mediaRect: { x: 12, y: 120, width: 181, height: 181 },
-        priceRect: null,
-        titleRect: null,
-        metaRect: null,
-      })
-    ).toBe(false);
-    expect(peekTradeMarketReverseLiveBindCount()).toBe(0);
+    expect(peekTradeMarketProductComposition()?.destinationCommitted).toBe(true);
   });
 
   it("reverse live bind once after restore commits list target", async () => {
     const {
       armTradeMarketProductCompositionBack,
       bindTradeMarketReverseLiveDestinationTargets,
-      clearTradeMarketReverseScrollRestoreDeferred,
       peekTradeMarketProductComposition,
       peekTradeMarketReverseLiveBindCount,
     } = await import("@/lib/trade/marketplace/trade-market-product-composition");
@@ -317,7 +312,6 @@ describe("trade-market-product-composition", () => {
       priceText: "₱1",
       listRouteKey: "/market",
     });
-    clearTradeMarketReverseScrollRestoreDeferred();
     const live = { x: 12, y: 120, width: 181, height: 181 };
     expect(
       bindTradeMarketReverseLiveDestinationTargets({
