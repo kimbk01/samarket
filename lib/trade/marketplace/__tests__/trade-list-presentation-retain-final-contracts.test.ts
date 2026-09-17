@@ -487,6 +487,18 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     expect(host).toContain('session.direction === "forward" && showSlots');
     expect(host).toContain("Missing retained destination is architecture failure");
     expect(host).toContain("never cover-only wait");
+
+    // F7 closed: forward is product-handoff; independent media lerp is reverse-only.
+    expect(host).toContain('data-trade-product-composition-forward-model={isForward ? "product-handoff"');
+    expect(host).toContain("data-trade-product-composition-product");
+    expect(host).toContain("paintForward");
+    expect(host).toContain("paintReverse");
+    expect(host).toMatch(/const paint = \(pRaw: number\) => \{\s*if \(direction === "forward"\) paintForward/);
+    // Forward must not call lerpRect / applyBox (media hero flight).
+    const paintForwardBlock = host.slice(host.indexOf("const paintForward"), host.indexOf("const paintReverse"));
+    expect(paintForwardBlock).not.toContain("lerpRect");
+    expect(paintForwardBlock).not.toContain("applyBox");
+    expect(paintForwardBlock).toContain("opacity");
   });
 
   it("scrollRestoreDeferred machinery removed (proven dead under new architecture)", () => {

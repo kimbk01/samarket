@@ -3,9 +3,12 @@
 /**
  * Sole Marketplace list↔detail PRODUCT COMPOSITION presentation coordinator.
  *
- * NEW SSOT — not MarketCardMorphHost.
- * ONE active composition · ONE 360ms progress p · ≤1 instance per semantic field.
- * media? optional: if null, media DOM node is not created.
+ * FORWARD (F7 closed): ONE selected PRODUCT composition → coherent opacity handoff → detail.
+ * Forbidden: independent media/price/title/meta source→target geometric flight (thumbnail→hero).
+ *
+ * REVERSE: retained-list destination architecture LOCKED (per-slot dock morph preserved).
+ *
+ * Navigation remains `<Link>` + App Router.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -92,10 +95,8 @@ export function TradeMarketProductCompositionHost() {
       clearTradeMarketProductCompositionIfGeneration(listingId, generation);
       return;
     }
-    // Fail-closed watchdog starts only after ownership may begin; HOLD decode must not be cut short.
     const mediaContract = session.mediaContract;
     if (mediaContract === "present" && session.media?.url) {
-      // CompositionSurface owns the paint-ready gate + clock; keep a longer outer bound only.
       const t = window.setTimeout(() => {
         clearTradeMarketProductCompositionIfGeneration(listingId, generation);
       }, MAX_MS + 4_000);
@@ -108,7 +109,6 @@ export function TradeMarketProductCompositionHost() {
   }, [session]);
 
   if (!mounted || !session) return null;
-  // Forbidden: image product with LOST media must not render text-only composition.
   if (!isTradeMarketCompositionMediaOwnershipValid(session)) return null;
   return createPortal(
     <CompositionSurface
@@ -123,6 +123,7 @@ function lerp(a: number, b: number, p: number): number {
   return a + (b - a) * p;
 }
 
+/** REVERSE ONLY — forward must never call this for media/price/title/meta flight. */
 function lerpRect(
   source: TradeMarketCompositionRect,
   target: TradeMarketCompositionRect,
@@ -136,6 +137,7 @@ function lerpRect(
   };
 }
 
+/** REVERSE ONLY — forward product children stay in flow; no independent applyBox flight. */
 function applyBox(el: HTMLElement, rect: TradeMarketCompositionRect): void {
   el.style.left = "0px";
   el.style.top = "0px";
@@ -149,13 +151,14 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
   const priceRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLDivElement | null>(null);
   const metaRef = useRef<HTMLDivElement | null>(null);
+  const productRef = useRef<HTMLDivElement | null>(null);
   const portalRootRef = useRef<HTMLDivElement | null>(null);
   const coverRef = useRef<HTMLDivElement | null>(null);
   const hiddenDestinationRef = useRef<HTMLElement | null>(null);
   const reverseDockReadyRef = useRef(false);
   const reverseHandoffFrameRef = useRef(false);
+  const forwardLaidOutRef = useRef(false);
 
-  // Freeze source identity for this generation; targets may silent-patch.
   const frozen = useRef({
     generation: session.generation,
     direction: session.direction,
@@ -167,12 +170,9 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
 
   const hasMedia = Boolean(frozen.media);
   const mediaContract = session.mediaContract ?? (hasMedia ? "present" : "absent_by_product");
-  // IMAGE product: HOLD perceptual ownership until media decode/paint-ready.
-  // During HOLD the portal is not mounted → real detail remains the sole owner (closes rev-t000 gap).
+  const isForward = session.direction === "forward";
   const [mediaPaintReady, setMediaPaintReady] = useState(mediaContract !== "present");
-  // Reverse: once live list destination card exists, drop full-screen cover (D4).
   const [reverseListDockReady, setReverseListDockReady] = useState(false);
-  /** Slots mount only when a real destination is committed and flight is about to paint. */
   const [slotsArmed, setSlotsArmed] = useState(false);
 
   const restoreDestinationCard = () => {
@@ -188,7 +188,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     restoreDestinationCard();
     hiddenDestinationRef.current = card;
     card.setAttribute("data-trade-product-composition-destination-hidden", "1");
-    // Hide only the destination card so the grid can own the screen without duplicate product.
     card.style.visibility = "hidden";
   };
 
@@ -211,7 +210,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
     const failClosed = () => {
       if (cancelled) return;
-      // Never hand off to text-only for an image product.
       clearTradeMarketProductCompositionIfGeneration(listingId, generation);
     };
 
@@ -221,7 +219,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     if (img.complete && img.naturalWidth > 0) {
       succeed();
     } else if (typeof img.decode === "function") {
-      // decode reject ≠ load failure — keep waiting for onload/onerror
       img.decode().then(succeed, () => {});
     }
 
@@ -230,6 +227,36 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped media gate
   }, [session.generation]);
+
+  /**
+   * FORWARD: pin ONE product composition at list source size. Never grow media to hero.
+   */
+  const layoutForwardProductOnce = () => {
+    if (forwardLaidOutRef.current) return;
+    const root = productRef.current;
+    if (!root) return;
+    const media = frozen.media?.source ?? null;
+    const price = frozen.price?.source ?? null;
+    const title = frozen.title?.source ?? null;
+    const meta = frozen.meta?.source ?? null;
+    const left = media?.x ?? price?.x ?? title?.x ?? meta?.x ?? 0;
+    const top = media?.y ?? price?.y ?? title?.y ?? meta?.y ?? 0;
+    const width = Math.max(
+      1,
+      media?.width ?? price?.width ?? title?.width ?? meta?.width ?? 180
+    );
+    root.style.left = `${left}px`;
+    root.style.top = `${top}px`;
+    root.style.width = `${width}px`;
+    root.style.transform = "none";
+    if (mediaRef.current && media) {
+      mediaRef.current.style.width = `${media.width}px`;
+      mediaRef.current.style.height = `${media.height}px`;
+      mediaRef.current.style.transform = "none";
+      mediaRef.current.style.borderRadius = "8px";
+    }
+    forwardLaidOutRef.current = true;
+  };
 
   useLayoutEffect(() => {
     if (
@@ -278,7 +305,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     const prepareReverseDestinationOnce = (): boolean => {
       if (direction !== "back") return true;
       if (!isMarketplaceListSurfacePath(typeof window !== "undefined" ? window.location.pathname : "")) {
-        // Retained destination: fly while route settles — do not require list path first.
         return readLive().destinationCommitted;
       }
 
@@ -291,7 +317,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         return true;
       }
 
-      // Retained list session already committed destination at arm time.
       if (readLive().destinationCommitted) {
         const card = findTradeMarketListDestinationCard(listingId);
         if (card) {
@@ -328,7 +353,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
             );
       if (!hasLiveGeometry) return false;
 
-      // IMAGE: refuse binding a detail-sized "list" rect (would keep unnecessary enlarge).
       if (
         live.mediaContract === "present" &&
         measured.mediaRect &&
@@ -357,7 +381,19 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       return true;
     };
 
-    const paint = (pRaw: number) => {
+    /** FORWARD: opacity handoff only — product stays one unit at list size. */
+    const paintForward = (pRaw: number) => {
+      const p = EASE(Math.min(1, Math.max(0, pRaw)));
+      layoutForwardProductOnce();
+      // Brief hold of coherent product, then fade product+cover to reveal real detail.
+      const fade = Math.max(0, Math.min(1, (p - 0.12) / 0.88));
+      const opacity = String(1 - fade);
+      if (productRef.current) productRef.current.style.opacity = opacity;
+      if (coverRef.current) coverRef.current.style.opacity = opacity;
+    };
+
+    /** REVERSE LOCKED: per-slot source→target dock morph. */
+    const paintReverse = (pRaw: number) => {
       const p = EASE(Math.min(1, Math.max(0, pRaw)));
       const live = readLive();
 
@@ -365,25 +401,21 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         const end = live.media?.target ?? frozen.media.target;
         const rect = lerpRect(frozen.media.source, end, p);
         applyBox(mediaRef.current, rect);
-        const startR = direction === "forward" ? 8 : 0;
-        const endR = direction === "forward" ? 0 : 8;
-        mediaRef.current.style.borderRadius = `${lerp(startR, endR, p)}px`;
+        mediaRef.current.style.borderRadius = `${lerp(0, 8, p)}px`;
         mediaRef.current.style.opacity = "1";
       }
 
       if (frozen.price && priceRef.current) {
         const target = live.price?.target ?? frozen.price.target;
         applyBox(priceRef.current, lerpRect(frozen.price.source, target, p));
-        const fs = direction === "forward" ? lerp(15, 22, p) : lerp(22, 15, p);
-        priceRef.current.style.fontSize = `${fs}px`;
+        priceRef.current.style.fontSize = `${lerp(22, 15, p)}px`;
         priceRef.current.style.opacity = "1";
       }
 
       if (frozen.title && titleRef.current) {
         const target = live.title?.target ?? frozen.title.target;
         applyBox(titleRef.current, lerpRect(frozen.title.source, target, p));
-        const fs = direction === "forward" ? lerp(13, 17, p) : lerp(17, 13, p);
-        titleRef.current.style.fontSize = `${fs}px`;
+        titleRef.current.style.fontSize = `${lerp(17, 13, p)}px`;
         titleRef.current.style.opacity = "1";
       }
 
@@ -393,6 +425,11 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         metaRef.current.style.fontSize = "12px";
         metaRef.current.style.opacity = "1";
       }
+    };
+
+    const paint = (pRaw: number) => {
+      if (direction === "forward") paintForward(pRaw);
+      else paintReverse(pRaw);
     };
 
     const destinationHandoffReady = () => {
@@ -407,7 +444,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       }
       const card = findTradeMarketListDestinationCard(listingId);
       if (!card) {
-        // Retained destination: list surface ready is enough for handoff (card may paint next frame).
         return (
           readLive().destinationCommitted &&
           isMarketplaceListSurfacePath(typeof window !== "undefined" ? window.location.pathname : "")
@@ -425,7 +461,9 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
 
     const canFinish = () => {
-      if (direction !== "back") return destinationHandoffReady();
+      if (direction === "forward") {
+        return routeReady() && readLive().destinationCommitted;
+      }
       if (!reverseDockReadyRef.current || !reverseHandoffFrameRef.current) return false;
       return destinationHandoffReady();
     };
@@ -459,7 +497,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       forceEnd = window.setTimeout(() => {
         if (poll != null) window.clearInterval(poll);
         poll = null;
-        // Never leave an oversized undocked composition on screen.
         finish();
       }, direction === "back" ? 2_000 : 1_500);
     };
@@ -476,6 +513,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       setSlotsArmed(true);
       requestAnimationFrame(() => {
         if (ended) return;
+        layoutForwardProductOnce();
         start = performance.now();
         paint(0);
         raf = requestAnimationFrame(tick);
@@ -501,7 +539,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
 
     if (direction === "back") {
-      // Retained destination: arm slots immediately — never cover-only wait.
       reverseDockReadyRef.current = Boolean(readLive().destinationCommitted);
       reverseHandoffFrameRef.current = false;
       if (!readLive().destinationCommitted) {
@@ -514,11 +551,12 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       const waitPrepare = () => {
         if (ended) return;
         prepareReverseDestinationOnce();
+        // never cover-only wait
         startReverseFlight();
       };
       raf = requestAnimationFrame(waitPrepare);
     } else {
-      // Forward: wait until detail photos (or text) publish commits real end rect.
+      // Forward: detail ready (destinationCommitted) gates handoff — not a media hero dock target.
       const waitCommit = () => {
         if (ended) return;
         if (readLive().destinationCommitted && routeReady()) {
@@ -527,7 +565,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         }
         raf = requestAnimationFrame(waitCommit);
       };
-      // Forward paint-ready bound only — not missing-destination escape.
       forceEnd = window.setTimeout(() => {
         if (ended || forwardFlightStarted) return;
         finish();
@@ -552,13 +589,11 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       mediaPaintReady,
     })
   ) {
-    // HOLD: session armed but composition does not own the screen yet.
     return null;
   }
 
   const showSlots = slotsArmed;
-  // Reverse: never mount a full-screen cover as sole owner (white-screen root).
-  // Forward: cover only while composition slots are already painting.
+  // Forward: cover fades with product handoff (not a mask over media morph).
   const showCover = session.direction === "forward" && showSlots;
 
   return (
@@ -575,6 +610,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       data-trade-product-composition-media-paint-ready="1"
       data-trade-product-composition-destination-committed={session.destinationCommitted ? "1" : "0"}
       data-trade-product-composition-destination-dock={reverseListDockReady ? "1" : "0"}
+      data-trade-product-composition-forward-model={isForward ? "product-handoff" : "reverse-dock"}
       data-trade-product-composition-reverse-bind-count={
         session.direction === "back" ? String(peekTradeMarketReverseLiveBindCount()) : "0"
       }
@@ -588,7 +624,70 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         />
       ) : null}
 
-      {showSlots && frozen.media ? (
+      {/* FORWARD: ONE product composition — children in flow, fixed list size, opacity handoff only */}
+      {showSlots && isForward ? (
+        <div
+          ref={productRef}
+          data-trade-product-composition-product="1"
+          className="absolute left-0 top-0 flex flex-col gap-1 will-change-opacity"
+          style={{ opacity: 1 }}
+        >
+          {frozen.media ? (
+            <div
+              ref={mediaRef}
+              data-trade-product-composition-slot="media"
+              data-trade-product-composition-media-contract="present"
+              className="overflow-hidden"
+              style={{
+                width: frozen.media.source.width,
+                height: frozen.media.source.height,
+                borderRadius: 8,
+              }}
+            >
+              <img
+                src={frozen.media.url}
+                alt=""
+                draggable={false}
+                className="pointer-events-none h-full w-full object-cover"
+                decoding="sync"
+              />
+            </div>
+          ) : null}
+          {frozen.price ? (
+            <div
+              ref={priceRef}
+              data-trade-product-composition-slot="price"
+              className="overflow-hidden font-semibold leading-tight text-sam-fg"
+              style={{ fontSize: 15 }}
+            >
+              {frozen.price.text}
+            </div>
+          ) : null}
+          {frozen.title ? (
+            <div
+              ref={titleRef}
+              data-trade-product-composition-slot="title"
+              className="overflow-hidden leading-tight text-sam-fg"
+              style={{ fontSize: 13 }}
+            >
+              {frozen.title.text}
+            </div>
+          ) : null}
+          {frozen.meta ? (
+            <div
+              ref={metaRef}
+              data-trade-product-composition-slot="meta"
+              className="overflow-hidden leading-tight text-sam-muted"
+              style={{ fontSize: 12 }}
+            >
+              {frozen.meta.text}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* REVERSE: LOCKED independent slot morph (not used for forward) */}
+      {showSlots && !isForward && frozen.media ? (
         <div
           ref={mediaRef}
           data-trade-product-composition-slot="media"
@@ -606,7 +705,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         </div>
       ) : null}
 
-      {showSlots && frozen.price ? (
+      {showSlots && !isForward && frozen.price ? (
         <div
           ref={priceRef}
           data-trade-product-composition-slot="price"
@@ -617,7 +716,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         </div>
       ) : null}
 
-      {showSlots && frozen.title ? (
+      {showSlots && !isForward && frozen.title ? (
         <div
           ref={titleRef}
           data-trade-product-composition-slot="title"
@@ -628,7 +727,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
         </div>
       ) : null}
 
-      {showSlots && frozen.meta ? (
+      {showSlots && !isForward && frozen.meta ? (
         <div
           ref={metaRef}
           data-trade-product-composition-slot="meta"

@@ -441,6 +441,12 @@ export function isTradeMarketReverseLiveDestinationBound(listingId: string, gene
   return reverseLiveBindGeneration === generation;
 }
 
+/**
+ * Forward readiness: commit that real detail composition is measured.
+ * Host forward path uses destinationCommitted as handoff gate only —
+ * it must NOT drive independent thumbnail→hero media geometric flight (F7 closed).
+ * Target rects remain stored for session continuity; reverse dock uses live bind / retained geom.
+ */
 export function publishTradeMarketProductCompositionTargets(input: {
   listingId: string;
   mediaRect: TradeMarketCompositionRect | null;
@@ -452,7 +458,7 @@ export function publishTradeMarketProductCompositionTargets(input: {
   if (!session || session.listingId !== input.listingId.trim()) return;
   if (session.direction !== "forward") return;
 
-  // IMAGE: detail photos GBR is the only forward end authority (no viewport estimate).
+  // IMAGE: detail photos measured ⇒ forward handoff may begin (not a morph endpoint).
   if (session.mediaContract === "present") {
     if (!input.mediaRect || !(input.mediaRect.width > 8 && input.mediaRect.height > 8)) return;
   } else if (!input.priceRect && !input.titleRect && !input.metaRect) {
