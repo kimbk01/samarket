@@ -17,12 +17,15 @@ describe("GiftVisualCard wallet detail navigation contract", () => {
     );
   });
 
-  it("wallet owned rows pass detailHref alongside purchase footer", () => {
+  it("wallet owned rows pass detailHref; money lives on face (no purchase secondary footer)", () => {
     const wallet = readFileSync(
       join(process.cwd(), "components/orders/customer-commerce/CustomerGiftWalletBody.tsx"),
       "utf8",
     );
     expect(wallet).toContain("detailHref={ownedGiftInstanceHref(row.id");
-    expect(wallet).toContain("WalletPurchaseSecondary");
+    expect(wallet).not.toContain("WalletPurchaseSecondary");
+    expect(wallet).not.toContain("구매 당시");
+    expect(wallet).not.toContain("원래 금액");
+    expect(wallet).not.toContain("판매 금액");
   });
 });

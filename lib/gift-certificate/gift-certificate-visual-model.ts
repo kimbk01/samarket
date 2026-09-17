@@ -116,11 +116,35 @@ export function buildGiftCertificateVisualModel(
   };
 }
 
-/** Mall discount row: show strike+arrow only when purchase < face. */
-export function giftMallShowsDiscountArrow(
+/**
+ * Owner money SSOT (CUT B):
+ * - 금액 = face_value (always hero when present)
+ * - 구매 금액 = purchase_price
+ * - 잔액 = remaining_balance only when remaining < face
+ * - Discount strike only when purchase < face (normal sellable policy).
+ * - purchase === face is legacy compatibility only — no strike, not promoted as normal policy.
+ */
+export function giftShowsDiscountStrike(
   faceValue: number | null,
   purchasePrice: number | null
 ): boolean {
   if (faceValue == null || purchasePrice == null) return false;
   return purchasePrice < faceValue;
+}
+
+/** @deprecated Prefer giftShowsDiscountStrike — same predicate. */
+export function giftMallShowsDiscountArrow(
+  faceValue: number | null,
+  purchasePrice: number | null
+): boolean {
+  return giftShowsDiscountStrike(faceValue, purchasePrice);
+}
+
+/** Show 「잔액」 only when remaining is strictly below face (partial use). */
+export function giftShowsRemainingBalance(
+  faceValue: number | null,
+  remainingBalance: number | null
+): boolean {
+  if (faceValue == null || remainingBalance == null) return false;
+  return remainingBalance < faceValue;
 }

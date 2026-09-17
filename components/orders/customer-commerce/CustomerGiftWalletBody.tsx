@@ -24,8 +24,6 @@ import {
 } from "./CommerceHubSegmentTabs";
 import { GIFT_CARD_RESPONSIVE_GRID_CLASS } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
 function useGiftExpiryLabel() {
   const { safeT } = useI18n();
   return (validUntil: string | null | undefined) =>
@@ -38,38 +36,6 @@ function useGiftExpiryLabel() {
     });
 }
 
-function WalletPurchaseSecondary({
-  faceValue,
-  purchasePrice,
-}: {
-  faceValue: number;
-  purchasePrice: number;
-}) {
-  const { safeT } = useI18n();
-  if (!giftMallShowsDiscountArrow(faceValue, purchasePrice) && faceValue === purchasePrice) {
-    return (
-      <p className="text-xs text-sam-muted tabular-nums">
-        {safeT("commerce_hub_gift_purchase_label", {
-          fallbackKo: "구매가",
-          fallbackEn: "Purchase price",
-        })}{" "}
-        {formatMoneyPhp(purchasePrice)}
-      </p>
-    );
-  }
-  if (!giftMallShowsDiscountArrow(faceValue, purchasePrice)) return null;
-  return (
-    <p className="text-xs text-sam-muted tabular-nums" data-gift-wallet-purchase-secondary="1">
-      {safeT("gift_portrait_purchase_at_buy", {
-        fallbackKo: "구매 당시",
-        fallbackEn: "Purchased at",
-      })}{" "}
-      <span className="line-through">{formatMoneyPhp(faceValue)}</span>
-      {" → "}
-      <span className="font-medium text-sam-fg">{formatMoneyPhp(purchasePrice)}</span>
-    </p>
-  );
-}
 const GIFT_TABS: GiftSubTab[] = ["owned", "received", "sent", "used"];
 
 const TAB_KEY: Record<
@@ -368,7 +334,6 @@ export function CustomerGiftWalletBody({
                     showSend={canSend}
                     onSend={() => setSendInstanceId(row.id)}
                     sendDisabled={!canSend}
-                    footer={<WalletPurchaseSecondary faceValue={row.faceValue} purchasePrice={row.purchasePrice} />}
                   />
                 </li>
               );

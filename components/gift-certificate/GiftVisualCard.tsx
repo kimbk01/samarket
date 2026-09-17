@@ -149,20 +149,16 @@ export function GiftVisualCard({
 
   const labels = {
     faceAmountLabel: safeT("commerce_hub_gift_face_label", {
-      fallbackKo: "상품권 금액",
-      fallbackEn: "Gift certificate amount",
+      fallbackKo: "금액",
+      fallbackEn: "Amount",
     }),
     purchaseLabel: safeT("commerce_hub_gift_purchase_label", {
-      fallbackKo: "구매가",
-      fallbackEn: "Purchase price",
+      fallbackKo: "구매 금액",
+      fallbackEn: "Purchase amount",
     }),
     balanceLabel: safeT("gift_u2_wallet_remaining", {
       fallbackKo: "잔액",
       fallbackEn: "Balance",
-    }),
-    originalFaceLabel: safeT("gift_portrait_original_face", {
-      fallbackKo: "원래 금액",
-      fallbackEn: "Original amount",
     }),
     usedLabel: safeT("commerce_hub_used_completed", {
       fallbackKo: "사용 완료",

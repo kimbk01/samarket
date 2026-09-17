@@ -8,7 +8,10 @@
 import { useId } from "react";
 import { DIBAY_LOGO_MARK_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import type { GiftCertificateVisualModel } from "@/lib/gift-certificate/gift-certificate-visual-model";
-import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
+import {
+  giftShowsDiscountStrike,
+  giftShowsRemainingBalance,
+} from "@/lib/gift-certificate/gift-certificate-visual-model";
 import {
   GIFT_CERT_ASPECT_RATIO,
   GIFT_CERT_COORD_HEIGHT,
@@ -40,10 +43,12 @@ export const GIFT_PORTRAIT_LANDMARKS = {
   heroBottomY: 300,
   badgeY: 326,
   titleY: 430,
-  amountLabelY: 535,
-  amountY: 642,
-  priceDividerY: 666,
-  priceY: 730,
+  amountLabelY: 528,
+  amountY: 618,
+  priceDividerY: 644,
+  /** Partial-use remaining line (hidden when remaining === face). */
+  remainingY: 692,
+  priceY: 738,
   perforationY: 770,
   issuerY: 840,
   expiryY: 914,
@@ -56,7 +61,7 @@ export const GIFT_PORTRAIT_LANDMARKS = {
 
 /**
  * Units are reverse-calculated from the sm=220 gate (scale 0.275).
- * title 59→16.23px, amount 111→30.53px, purchase 59→16.23px,
+ * title 59→16.23px, amount 87→23.93px (CUT B density), purchase 59→16.23px,
  * meta 45→12.38px, badge 41→11.28px.
  */
 export const GIFT_PORTRAIT_TYPE = {
@@ -64,10 +69,11 @@ export const GIFT_PORTRAIT_TYPE = {
   title: 59,
   titleLine: 62,
   amountLabel: 34,
-  amountValue: 111,
-  originalPrice: 59,
-  arrow: 50,
-  purchasePrice: 59,
+  amountValue: 87,
+  originalPrice: 52,
+  arrow: 46,
+  purchasePrice: 52,
+  purchaseLabel: 34,
   metaLabel: 45,
   metaValue: 45,
   footBrand: 25,
@@ -83,7 +89,6 @@ export type GiftCertificateFaceLabels = {
   faceAmountLabel: string;
   purchaseLabel: string;
   balanceLabel: string;
-  originalFaceLabel: string;
   usedLabel: string;
   issuerLabel: string;
   expiryLabel: string;
@@ -248,179 +253,170 @@ function AmountBlock({
   model: GiftCertificateVisualModel;
   labels: GiftCertificateFaceLabels;
 }) {
-  if (model.valueMode === "mall" && model.faceValue != null) {
-    const faceValue = formatMoneyPhp(model.faceValue);
-    const purchasePrice =
-      model.purchasePrice == null ? null : formatMoneyPhp(model.purchasePrice);
-    const discounted = giftMallShowsDiscountArrow(model.faceValue, model.purchasePrice);
-    const strikeWidth = estimateGiftMoneySvgWidth(
-      faceValue,
-      GIFT_PORTRAIT_TYPE.originalPrice
-    );
-    const strikeY =
-      GIFT_PORTRAIT_LANDMARKS.priceY -
-      GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
-
+  if (model.valueMode === "used") {
     return (
-      <g data-gift-landmark="amount" data-gift-value-block="mall">
+      <g data-gift-landmark="amount" data-gift-value-block="used">
         <text
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
-          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
-          fill={MUTED}
-          fontFamily="system-ui,sans-serif"
-          fontWeight={600}
-        >
-          {labels.faceAmountLabel}
-        </text>
-        <text
-          data-gift-face-amount="1"
           x={PAD_L}
           y={GIFT_PORTRAIT_LANDMARKS.amountY}
-          fontSize={GIFT_PORTRAIT_TYPE.amountValue}
-          fill={BRAND}
-          fontFamily="system-ui,sans-serif"
-          fontWeight={800}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {faceValue}
-        </text>
-        <line
-          x1={PAD_L}
-          x2={PAD_R}
-          y1={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
-          y2={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
-          stroke={LINE}
-          strokeWidth={1.5}
-        />
-
-        {discounted && purchasePrice ? (
-          <g data-gift-landmark="price">
-            <text
-              data-gift-face-strike="1"
-              x={ORIGINAL_PRICE_SLOT.x}
-              y={GIFT_PORTRAIT_LANDMARKS.priceY}
-              fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
-              fill={MUTED_PRICE}
-              fontFamily="system-ui,sans-serif"
-              fontWeight={500}
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {faceValue}
-            </text>
-            <line
-              data-gift-face-strike-line="1"
-              x1={ORIGINAL_PRICE_SLOT.x}
-              x2={ORIGINAL_PRICE_SLOT.x + strikeWidth}
-              y1={strikeY}
-              y2={strikeY}
-              stroke={MUTED_PRICE}
-              strokeWidth={STRIKE_STROKE}
-              strokeLinecap="round"
-            />
-            <text
-              x={306}
-              y={GIFT_PORTRAIT_LANDMARKS.priceY}
-              fontSize={GIFT_PORTRAIT_TYPE.arrow}
-              fill={MUTED}
-              fontFamily="system-ui,sans-serif"
-            >
-              →
-            </text>
-            <text
-              data-gift-purchase-amount="1"
-              x={390}
-              y={GIFT_PORTRAIT_LANDMARKS.priceY}
-              fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-              fill={BRAND}
-              fontFamily="system-ui,sans-serif"
-              fontWeight={800}
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {purchasePrice}
-            </text>
-          </g>
-        ) : purchasePrice ? (
-          <text
-            data-gift-purchase-amount="1"
-            x={PAD_L}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-            fill={INK}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={700}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {labels.purchaseLabel} {purchasePrice}
-          </text>
-        ) : null}
-      </g>
-    );
-  }
-
-  if (model.valueMode === "wallet" && model.remainingBalance != null) {
-    return (
-      <g data-gift-landmark="amount" data-gift-value-block="wallet">
-        <text
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
-          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
+          fontSize={GIFT_PORTRAIT_TYPE.title}
           fill={MUTED}
           fontFamily="system-ui,sans-serif"
-          fontWeight={600}
-        >
-          {labels.balanceLabel}
-        </text>
-        <text
-          data-gift-remaining-amount="1"
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.amountY}
-          fontSize={GIFT_PORTRAIT_TYPE.amountValue}
-          fill={BRAND}
-          fontFamily="system-ui,sans-serif"
           fontWeight={800}
-          style={{ fontVariantNumeric: "tabular-nums" }}
         >
-          {formatMoneyPhp(model.remainingBalance)}
+          {labels.usedLabel}
         </text>
         {model.faceValue != null ? (
           <text
             x={PAD_L}
             y={GIFT_PORTRAIT_LANDMARKS.priceY}
             fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-            fill={MUTED}
+            fill={MUTED_PRICE}
             fontFamily="system-ui,sans-serif"
-            fontWeight={600}
-            style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {labels.originalFaceLabel} {formatMoneyPhp(model.faceValue)}
+            {formatMoneyPhp(model.faceValue)}
           </text>
         ) : null}
       </g>
     );
   }
 
+  if (model.faceValue == null) return null;
+
+  const faceValue = formatMoneyPhp(model.faceValue);
+  const purchasePrice =
+    model.purchasePrice == null ? null : formatMoneyPhp(model.purchasePrice);
+  const discounted = giftShowsDiscountStrike(model.faceValue, model.purchasePrice);
+  const showRemaining = giftShowsRemainingBalance(model.faceValue, model.remainingBalance);
+  const strikeWidth = estimateGiftMoneySvgWidth(faceValue, GIFT_PORTRAIT_TYPE.originalPrice);
+  const strikeY =
+    GIFT_PORTRAIT_LANDMARKS.priceY - GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
+  const purchaseLabelX = ORIGINAL_PRICE_SLOT.x + strikeWidth + 52;
+  const purchaseValueX =
+    purchaseLabelX +
+    estimateGiftMoneySvgWidth(`${labels.purchaseLabel} `, GIFT_PORTRAIT_TYPE.purchaseLabel);
+
   return (
-    <g data-gift-landmark="amount" data-gift-value-block="used">
+    <g
+      data-gift-landmark="amount"
+      data-gift-value-block={model.valueMode === "mall" ? "mall" : "wallet"}
+      data-gift-money-ssot="cut-b"
+    >
       <text
         x={PAD_L}
-        y={GIFT_PORTRAIT_LANDMARKS.amountY}
-        fontSize={GIFT_PORTRAIT_TYPE.title}
+        y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
+        fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
         fill={MUTED}
         fontFamily="system-ui,sans-serif"
-        fontWeight={800}
+        fontWeight={600}
       >
-        {labels.usedLabel}
+        {labels.faceAmountLabel}
       </text>
-      {model.faceValue != null ? (
+      <text
+        data-gift-face-amount="1"
+        x={PAD_L}
+        y={GIFT_PORTRAIT_LANDMARKS.amountY}
+        fontSize={GIFT_PORTRAIT_TYPE.amountValue}
+        fill={BRAND}
+        fontFamily="system-ui,sans-serif"
+        fontWeight={800}
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {faceValue}
+      </text>
+      <line
+        x1={PAD_L}
+        x2={PAD_R}
+        y1={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
+        y2={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
+        stroke={LINE}
+        strokeWidth={1.5}
+      />
+
+      {showRemaining && model.remainingBalance != null ? (
         <text
+          data-gift-remaining-amount="1"
+          x={PAD_L}
+          y={GIFT_PORTRAIT_LANDMARKS.remainingY}
+          fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
+          fill={INK}
+          fontFamily="system-ui,sans-serif"
+          fontWeight={700}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {labels.balanceLabel} {formatMoneyPhp(model.remainingBalance)}
+        </text>
+      ) : null}
+
+      {discounted && purchasePrice ? (
+        <g data-gift-landmark="price" data-gift-discount-strike="1">
+          <text
+            data-gift-face-strike="1"
+            x={ORIGINAL_PRICE_SLOT.x}
+            y={GIFT_PORTRAIT_LANDMARKS.priceY}
+            fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
+            fill={MUTED_PRICE}
+            fontFamily="system-ui,sans-serif"
+            fontWeight={500}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {faceValue}
+          </text>
+          <line
+            data-gift-face-strike-line="1"
+            x1={ORIGINAL_PRICE_SLOT.x}
+            x2={ORIGINAL_PRICE_SLOT.x + strikeWidth}
+            y1={strikeY}
+            y2={strikeY}
+            stroke={MUTED_PRICE}
+            strokeWidth={STRIKE_STROKE}
+            strokeLinecap="round"
+          />
+          <text
+            x={ORIGINAL_PRICE_SLOT.x + strikeWidth + 20}
+            y={GIFT_PORTRAIT_LANDMARKS.priceY}
+            fontSize={GIFT_PORTRAIT_TYPE.arrow}
+            fill={MUTED}
+            fontFamily="system-ui,sans-serif"
+          >
+            →
+          </text>
+          <text
+            x={purchaseLabelX}
+            y={GIFT_PORTRAIT_LANDMARKS.priceY}
+            fontSize={GIFT_PORTRAIT_TYPE.purchaseLabel}
+            fill={MUTED}
+            fontFamily="system-ui,sans-serif"
+            fontWeight={600}
+          >
+            {labels.purchaseLabel}
+          </text>
+          <text
+            data-gift-purchase-amount="1"
+            x={purchaseValueX}
+            y={GIFT_PORTRAIT_LANDMARKS.priceY}
+            fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
+            fill={BRAND}
+            fontFamily="system-ui,sans-serif"
+            fontWeight={800}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {purchasePrice}
+          </text>
+        </g>
+      ) : purchasePrice ? (
+        <text
+          data-gift-purchase-amount="1"
+          data-gift-discount-strike="0"
           x={PAD_L}
           y={GIFT_PORTRAIT_LANDMARKS.priceY}
           fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-          fill={MUTED_PRICE}
+          fill={INK}
           fontFamily="system-ui,sans-serif"
+          fontWeight={700}
+          style={{ fontVariantNumeric: "tabular-nums" }}
         >
-          {formatMoneyPhp(model.faceValue)}
+          {labels.purchaseLabel} {purchasePrice}
         </text>
       ) : null}
     </g>

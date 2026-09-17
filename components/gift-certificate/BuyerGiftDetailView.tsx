@@ -15,7 +15,6 @@ import {
   giftPurchaseErrorFallbacks,
   mapGiftPurchaseErrorKey,
 } from "@/lib/gift-certificate/map-gift-purchase-error";
-import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
@@ -405,13 +404,6 @@ export function BuyerGiftDetailView({
             })}
             {": "}
             {expirationDisplay}
-          </p>
-        ) : null}
-        {giftMallShowsDiscountArrow(product.faceValue, product.purchasePrice) ? (
-          <p className="text-sm text-sam-muted tabular-nums" data-gift-detail-price-compare="1">
-            <span className="line-through">{formatMoneyPhp(product.faceValue)}</span>
-            {" → "}
-            <span className="font-semibold text-sam-fg">{formatMoneyPhp(product.purchasePrice)}</span>
           </p>
         ) : null}
         <p className="text-xs text-sam-muted">

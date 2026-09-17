@@ -9,7 +9,7 @@ import {
 } from "@/lib/gift-certificate/gift-visual-layout";
 import { GIFT_PORTRAIT_LANDMARKS, GIFT_PORTRAIT_TYPE } from "@/components/gift-certificate/DibayGiftCertificateFace";
 import { wrapGiftCertificateTitle } from "@/lib/gift-certificate/wrap-gift-certificate-title";
-import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
+import { giftMallShowsDiscountArrow, giftShowsRemainingBalance } from "@/lib/gift-certificate/gift-certificate-visual-model";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -64,17 +64,23 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(a.length).toBeLessThanOrEqual(2);
   });
 
-  it("mall discount arrow only when purchase < face", () => {
+  it("discount strike only when purchase < face; remaining only when partial", () => {
     expect(giftMallShowsDiscountArrow(1000, 900)).toBe(true);
     expect(giftMallShowsDiscountArrow(1000, 1000)).toBe(false);
     expect(giftMallShowsDiscountArrow(1000, null)).toBe(false);
+    expect(giftShowsRemainingBalance(1000, 1000)).toBe(false);
+    expect(giftShowsRemainingBalance(1000, 880)).toBe(true);
+    expect(giftShowsRemainingBalance(1000, null)).toBe(false);
   });
 
-  it("meets rendered typography floors at sm=220", () => {
+  it("meets rendered typography floors at sm=220 without amount dominance", () => {
     const scale = 220 / 800;
     expect(GIFT_PORTRAIT_TYPE.title * scale).toBeGreaterThanOrEqual(16);
-    expect(GIFT_PORTRAIT_TYPE.amountValue * scale).toBeGreaterThanOrEqual(30);
-    expect(GIFT_PORTRAIT_TYPE.purchasePrice * scale).toBeGreaterThanOrEqual(16);
+    // CUT B: amount was ~30.5px; keep readable but not overpowering (~24px).
+    expect(GIFT_PORTRAIT_TYPE.amountValue * scale).toBeGreaterThanOrEqual(22);
+    expect(GIFT_PORTRAIT_TYPE.amountValue * scale).toBeLessThan(28);
+    expect(GIFT_PORTRAIT_TYPE.amountValue).toBeLessThan(GIFT_PORTRAIT_TYPE.title * 2);
+    expect(GIFT_PORTRAIT_TYPE.purchasePrice * scale).toBeGreaterThanOrEqual(14);
     expect(GIFT_PORTRAIT_TYPE.metaLabel * scale).toBeGreaterThanOrEqual(12);
     expect(GIFT_PORTRAIT_TYPE.metaValue * scale).toBeGreaterThanOrEqual(12);
     expect(GIFT_PORTRAIT_TYPE.badge * scale).toBeGreaterThanOrEqual(11);
@@ -84,8 +90,9 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     const h = GIFT_CERT_COORD_HEIGHT;
     expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY).toBe(300);
     expect(GIFT_PORTRAIT_LANDMARKS.titleY).toBe(430);
-    expect(GIFT_PORTRAIT_LANDMARKS.amountY).toBe(642);
-    expect(GIFT_PORTRAIT_LANDMARKS.priceY).toBe(730);
+    expect(GIFT_PORTRAIT_LANDMARKS.amountY).toBe(618);
+    expect(GIFT_PORTRAIT_LANDMARKS.remainingY).toBe(692);
+    expect(GIFT_PORTRAIT_LANDMARKS.priceY).toBe(738);
     expect(GIFT_PORTRAIT_LANDMARKS.perforationY).toBe(770);
     expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(840);
     expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(914);
