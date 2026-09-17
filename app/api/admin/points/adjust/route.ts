@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   adjustUserPoints,
-  readUserPointBalance,
+  sumUserPointLedger,
 } from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Resolve Admin Point money authority from ledger SUM only.
+ * profiles.points is projection/cache — never used as adjust gate/preview.
+ */
+async function readCanonicalAdminPointBalance(
+  sb: Parameters<typeof sumUserPointLedger>[0],
+  userId: string
+): Promise<{ ok: true; balance: number } | { ok: false; error: string }> {
+  const summed = await sumUserPointLedger(sb, userId);
+  if (!summed.ok) return { ok: false, error: summed.error };
+  return { ok: true, balance: summed.sum };
+}
 
 /**
  * POST /api/admin/points/adjust
@@ -40,7 +53,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
   }
 
-  const balanceBefore = await readUserPointBalance(gate.sb, userId);
+  const before = await readCanonicalAdminPointBalance(gate.sb, userId);
+  if (!before.ok) {
+    return NextResponse.json({ ok: false, error: before.error }, { status: 500 });
+  }
+  const balanceBefore = before.balance;
   if (op === "debit" && balanceBefore < amount) {
     return NextResponse.json(
       {
@@ -89,12 +106,15 @@ export async function POST(req: NextRequest) {
   });
 }
 
-/** GET balance preview for confirm UI */
+/** GET balance preview for confirm UI — ledger SUM authority only. */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("point");
   if (!gate.ok) return gate.response;
   const userId = new URL(req.url).searchParams.get("userId")?.trim() ?? "";
   if (!userId) return NextResponse.json({ ok: false, error: "userId_required" }, { status: 400 });
-  const balance = await readUserPointBalance(gate.sb, userId);
-  return NextResponse.json({ ok: true, userId, balance });
+  const balance = await readCanonicalAdminPointBalance(gate.sb, userId);
+  if (!balance.ok) {
+    return NextResponse.json({ ok: false, error: balance.error }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, userId, balance: balance.balance });
 }
