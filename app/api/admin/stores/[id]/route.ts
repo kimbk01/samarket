@@ -9,15 +9,16 @@ import { loadBusinessControlCenterDetail } from "@/lib/admin-business/load-busin
 import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { normalizePhMobileDb } from "@/lib/utils/ph-mobile";
-import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
-import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
+import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import {
   buildStoreLocationPatchFields,
   storeLocationPatchTouchesCoords,
 } from "@/lib/stores/build-store-location-patch";
-import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
-import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
+import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 
@@ -429,7 +430,6 @@ export async function PATCH(
       console.error("[admin/stores PATCH location]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
-    invalidateDiscoveryAfterStoreWrite(sb, id, built.patch);
     let store_orders_checkout_geo_sync: unknown;
     if (storeLocationPatchTouchesCoords(built.patch)) {
       store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
@@ -449,14 +449,13 @@ export async function PATCH(
       user_agent: rm.userAgent,
     });
     const slug = typeof store.slug === "string" ? store.slug.trim() : "";
-    if (slug) {
-      try {
-        clearStoreHomeFeedServerCache();
-        invalidateStorePublicCachesForSlugOnServer(slug);
-      } catch {
-        /* best-effort */
-      }
-    }
+    afterCanonicalStoreLocationWrite({
+      sb,
+      storeId: id,
+      patch: built.patch,
+      slug,
+      ownerUserId: typeof store.owner_user_id === "string" ? store.owner_user_id : null,
+    });
     return NextResponse.json({
       ok: true,
       ...(store_orders_checkout_geo_sync !== undefined

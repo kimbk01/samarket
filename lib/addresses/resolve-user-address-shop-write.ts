@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
-import { invalidateDiscoveryStoreProjections } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
+import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 
 type StoreRow = Record<string, unknown>;
 
@@ -163,9 +163,17 @@ async function syncApprovedStoreAddressFromAddressPayload(
   const lngChanged = num(storeRow.lng) !== lng;
   const { error } = await sb.from("stores").update(patch).eq("id", sid);
   if (error) throw new Error("address_update_failed");
+
+  afterCanonicalStoreLocationWrite({
+    sb,
+    storeId: sid,
+    patch,
+    slug: str(storeRow.slug),
+    ownerUserId: str(storeRow.owner_user_id) ?? str(storeRow.ownerUserId),
+  });
+
   if (latChanged || lngChanged) {
     await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(sb, sid);
-    void invalidateDiscoveryStoreProjections(sb, sid, { reasons: ["store_geo"] });
   }
 }
 

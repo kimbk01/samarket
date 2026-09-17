@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
-import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
-import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
 import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
@@ -12,8 +10,7 @@ import {
   buildStoreLocationPatchFields,
   storeLocationPatchTouchesCoords,
 } from "@/lib/stores/build-store-location-patch";
-import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
-import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
+import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
 
@@ -340,14 +337,14 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "update_no_row" }, { status: 500 });
   }
 
-  invalidateDiscoveryAfterStoreWrite(sb, sid, patch);
-
-  clearStoreHomeFeedServerCache();
-  invalidateMeStoresListServerCache(userId);
-
   const slugRaw = (updated as unknown as { slug?: string }).slug;
-  const publicSlug = typeof slugRaw === "string" ? slugRaw.trim() : "";
-  if (publicSlug) invalidateStorePublicCachesForSlugOnServer(publicSlug);
+  afterCanonicalStoreLocationWrite({
+    sb,
+    storeId: sid,
+    patch,
+    slug: slugRaw,
+    ownerUserId: userId,
+  });
 
   if (storeLocationPatchTouchesCoords(locationBuilt.patch)) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
