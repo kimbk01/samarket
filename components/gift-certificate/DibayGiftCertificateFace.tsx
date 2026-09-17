@@ -38,6 +38,7 @@ export const GIFT_MODERN_GEOMETRY = {
 /** Landmarks (y) inside body — Owner reference composition. */
 export const GIFT_PORTRAIT_LANDMARKS = {
   badgeY: 36,
+  storeScopeY: 58,
   titleY: 78,
   titleLine: 24,
   descY: 108,
@@ -48,7 +49,10 @@ export const GIFT_PORTRAIT_LANDMARKS = {
   dividerY: 262,
   metaLabelY: 288,
   metaValueY: 312,
-  storeLogoSize: 36,
+  /** Rail brand / store mark — larger translucent modern plate. */
+  storeLogoSize: 72,
+  platformMarkSize: 96,
+  railMarkY: 118,
   /** @deprecated compat aliases */
   brandY: 52,
   issuerY: 312,
@@ -62,11 +66,13 @@ export const GIFT_PORTRAIT_LANDMARKS = {
  * Amount ≈ 2.0× title (Owner: must stay ≤ 2.2×).
  */
 export const GIFT_PORTRAIT_TYPE = {
-  railBrand: 30,
+  railBrand: 32,
   railSubtitle: 10,
   railOneTime: 11,
   railFoot: 9,
+  railStoreInitial: 28,
   badge: 11,
+  storeScope: 11,
   title: 22,
   desc: 12,
   amountLabel: 12,
@@ -102,6 +108,8 @@ export type GiftCertificateFaceLabels = {
   expiryLabel: string;
   numberLabel: string;
   numberUnavailable: string;
+  /** STORE only — omitted for PLATFORM. */
+  storeScopeNotice?: string;
 };
 
 function discountOffPercent(face: number, purchase: number): number {
@@ -138,6 +146,11 @@ export function DibayGiftCertificateFace({
   const isPlatform = model.kind === "PLATFORM";
   const statusText = used ? "USED" : "AVAILABLE";
 
+  const storeScopeNotice =
+    !isPlatform && labels.storeScopeNotice?.trim()
+      ? labels.storeScopeNotice.trim()
+      : "";
+
   const titleLines = wrapGiftCertificateTitle(model.title, {
     maxCharsPerLine: 20,
     maxLines: 2,
@@ -173,11 +186,17 @@ export function DibayGiftCertificateFace({
   const showStoreLogo =
     !isPlatform &&
     Boolean(model.heroImageSrc) &&
-    !model.useStoreInitialFallback &&
-    Boolean(model.heroImageSrc);
+    !model.useStoreInitialFallback;
+  const showPlatformMark = isPlatform && Boolean(model.heroImageSrc);
+  const showStoreInitial = !isPlatform && model.useStoreInitialFallback;
 
   const g = GIFT_MODERN_GEOMETRY;
   const bodyX = g.bodyPadL;
+  const railMarkSize = isPlatform
+    ? GIFT_PORTRAIT_LANDMARKS.platformMarkSize
+    : GIFT_PORTRAIT_LANDMARKS.storeLogoSize;
+  const railMarkX = Math.round((g.railW - railMarkSize) / 2);
+  const railMarkY = GIFT_PORTRAIT_LANDMARKS.railMarkY;
   const metaCols = [
     { label: labels.issuerLabel, value: model.issuerName || (isPlatform ? "DIBAY" : ""), x: bodyX },
     { label: labels.expiryLabel, value: expiryValue, x: 340 },
@@ -225,9 +244,15 @@ export function DibayGiftCertificateFace({
             <circle cx={0} cy={g.notchY} r={g.notchR} fill="#000" />
             <circle cx={VB_W} cy={g.notchY} r={g.notchR} fill="#000" />
           </mask>
-          {showStoreLogo ? (
+          {showStoreLogo || showPlatformMark ? (
             <clipPath id={logoClipId}>
-              <rect x={66} y={118} width={36} height={36} rx={8} />
+              <rect
+                x={railMarkX}
+                y={railMarkY}
+                width={railMarkSize}
+                height={railMarkSize}
+                rx={showPlatformMark ? railMarkSize / 2 : 16}
+              />
             </clipPath>
           ) : null}
         </defs>
@@ -254,6 +279,7 @@ export function DibayGiftCertificateFace({
               x={28}
               y={52}
               fill="#FFFFFF"
+              opacity={0.92}
               fontSize={GIFT_PORTRAIT_TYPE.railBrand}
               fontWeight={800}
               fontFamily={FONT}
@@ -262,11 +288,12 @@ export function DibayGiftCertificateFace({
             >
               DIBAY
             </text>
-            <rect x={28} y={60} width={36} height={3} rx={1.5} fill={YELLOW} />
+            <rect x={28} y={60} width={40} height={3} rx={1.5} fill={YELLOW} opacity={0.9} />
             <text
               x={28}
               y={88}
               fill="#FFFFFF"
+              opacity={0.72}
               fontSize={GIFT_PORTRAIT_TYPE.railSubtitle}
               fontWeight={700}
               fontFamily={FONT}
@@ -275,17 +302,74 @@ export function DibayGiftCertificateFace({
               GIFT CERTIFICATE
             </text>
 
-            {showStoreLogo && model.heroImageSrc ? (
-              <g data-gift-store-logo="1" clipPath={`url(#${logoClipId})`}>
-                <rect x={66} y={118} width={36} height={36} rx={8} fill="#FFFFFF" opacity={0.16} />
+            {showPlatformMark && model.heroImageSrc ? (
+              <g data-gift-platform-mark="1" opacity={0.42} clipPath={`url(#${logoClipId})`}>
+                <rect
+                  x={railMarkX}
+                  y={railMarkY}
+                  width={railMarkSize}
+                  height={railMarkSize}
+                  rx={railMarkSize / 2}
+                  fill="#FFFFFF"
+                  opacity={0.12}
+                />
                 <image
                   href={model.heroImageSrc}
-                  x={66}
-                  y={118}
-                  width={36}
-                  height={36}
+                  x={railMarkX}
+                  y={railMarkY}
+                  width={railMarkSize}
+                  height={railMarkSize}
                   preserveAspectRatio="xMidYMid meet"
+                  opacity={0.95}
                 />
+              </g>
+            ) : null}
+
+            {showStoreLogo && model.heroImageSrc ? (
+              <g data-gift-store-logo="1" opacity={0.88} clipPath={`url(#${logoClipId})`}>
+                <rect
+                  x={railMarkX}
+                  y={railMarkY}
+                  width={railMarkSize}
+                  height={railMarkSize}
+                  rx={16}
+                  fill="#FFFFFF"
+                  opacity={0.22}
+                />
+                <image
+                  href={model.heroImageSrc}
+                  x={railMarkX}
+                  y={railMarkY}
+                  width={railMarkSize}
+                  height={railMarkSize}
+                  preserveAspectRatio="xMidYMid slice"
+                  opacity={0.9}
+                />
+              </g>
+            ) : null}
+
+            {showStoreInitial ? (
+              <g data-gift-store-initial="1" opacity={0.78}>
+                <rect
+                  x={railMarkX}
+                  y={railMarkY}
+                  width={railMarkSize}
+                  height={railMarkSize}
+                  rx={16}
+                  fill="#FFFFFF"
+                  opacity={0.18}
+                />
+                <text
+                  x={railMarkX + railMarkSize / 2}
+                  y={railMarkY + railMarkSize / 2 + 10}
+                  textAnchor="middle"
+                  fill="#FFFFFF"
+                  fontSize={GIFT_PORTRAIT_TYPE.railStoreInitial}
+                  fontWeight={800}
+                  fontFamily={FONT}
+                >
+                  {model.storeInitial}
+                </text>
               </g>
             ) : null}
 
@@ -397,6 +481,22 @@ export function DibayGiftCertificateFace({
                 {statusText}
               </text>
             </g>
+
+            {storeScopeNotice ? (
+              <text
+                data-gift-store-scope-notice="1"
+                x={bodyX}
+                y={GIFT_PORTRAIT_LANDMARKS.storeScopeY}
+                fill={MUTED}
+                fontSize={GIFT_PORTRAIT_TYPE.storeScope}
+                fontWeight={600}
+                fontFamily={FONT}
+              >
+                {storeScopeNotice.length > 32
+                  ? `${storeScopeNotice.slice(0, 31)}…`
+                  : storeScopeNotice}
+              </text>
+            ) : null}
 
             {/* title */}
             <g data-gift-landmark="title" data-gift-cert-title="1">

@@ -42,6 +42,9 @@ describe("DIBAY gift certificate modern ticket visual SSOT", () => {
     expect(face).toContain('data-gift-brand-rail="1"');
     expect(face).toContain("data-gift-cert-perforation");
     expect(face).toContain("data-gift-meta-grid");
+    expect(face).toContain("data-gift-platform-mark");
+    expect(face).toContain("data-gift-store-logo");
+    expect(face).toContain("data-gift-store-scope-notice");
     expect(face).toContain("ONE-TIME USE");
     expect(face).toContain("GIFT CERTIFICATE");
     expect(face).toContain("DIBAY BENEFIT");
@@ -51,6 +54,8 @@ describe("DIBAY gift certificate modern ticket visual SSOT", () => {
     expect(face).not.toContain("Powered by DIBAY");
     expect(face).not.toContain("cqw");
     expect(face).not.toContain('preserveAspectRatio="none"');
+    expect(GIFT_PORTRAIT_LANDMARKS.storeLogoSize).toBeGreaterThanOrEqual(64);
+    expect(GIFT_PORTRAIT_LANDMARKS.platformMarkSize).toBeGreaterThanOrEqual(80);
     expect(existsSync(resolve(process.cwd(), "public/images/brand/dibay-logo-mark.png"))).toBe(
       true
     );

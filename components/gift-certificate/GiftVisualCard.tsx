@@ -186,6 +186,10 @@ export function GiftVisualCard({
             fallbackKo: "수령 후 표시",
             fallbackEn: "Shown after acceptance",
           }),
+    storeScopeNotice: safeT("gift_portrait_store_scope_notice", {
+      fallbackKo: "매장 상품권은 해당 매장에서만 사용 가능합니다",
+      fallbackEn: "Store gift certificates are usable only at that store",
+    }),
   };
 
   const detailBtn = detailHref ? (

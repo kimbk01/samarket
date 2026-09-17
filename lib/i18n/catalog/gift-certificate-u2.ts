@@ -79,6 +79,7 @@ export const giftCertificateU2Messages = {
 
     gift_portrait_badge_platform: "DIBAY 상품권",
     gift_portrait_badge_store: "매장 상품권",
+    gift_portrait_store_scope_notice: "매장 상품권은 해당 매장에서만 사용 가능합니다",
     gift_portrait_expiry_none: "만료 없음",
     gift_portrait_expiry_days_after_issue: "발급 후 {days}일",
     gift_portrait_expiry_label: "유효기간",
@@ -171,6 +172,7 @@ export const giftCertificateU2Messages = {
 
     gift_portrait_badge_platform: "DIBAY gift",
     gift_portrait_badge_store: "Store gift",
+    gift_portrait_store_scope_notice: "Store gift certificates are usable only at that store",
     gift_portrait_expiry_none: "No expiry",
     gift_portrait_expiry_days_after_issue: "{days} days after issue",
     gift_portrait_expiry_label: "Valid until",

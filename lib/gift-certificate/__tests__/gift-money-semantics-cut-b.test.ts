@@ -24,6 +24,7 @@ const LABELS: GiftCertificateFaceLabels = {
   expiryLabel: "유효기간",
   numberLabel: "상품권 번호",
   numberUnavailable: "구매 후 발급",
+  storeScopeNotice: "매장 상품권은 해당 매장에서만 사용 가능합니다",
 };
 
 const OUT = resolve(process.cwd(), ".tmp/gift-modern-ticket-proof");
@@ -124,6 +125,30 @@ describe("modern ticket money semantics + fixtures", () => {
     expect(html).toContain('data-gift-availability="USED"');
     expect(html).toContain('data-gift-brand-rail="1"');
     expect(html).toContain("data-gift-used-stamp");
+  });
+
+  it("PLATFORM rail shows translucent DIBAY mark; STORE shows store-only notice", () => {
+    const platform = renderFace({
+      context: "mall",
+      faceValue: 1000,
+      purchasePrice: 1000,
+      remainingBalance: null,
+    });
+    expect(platform).toContain('data-gift-platform-mark="1"');
+    expect(platform).not.toContain("data-gift-store-scope-notice");
+
+    const store = renderFace({
+      context: "wallet",
+      giftScope: "STORE",
+      faceValue: 1000,
+      purchasePrice: 1000,
+      remainingBalance: 1000,
+      title: "U7 Positive Fee QA",
+      issuerName: "나의 오른손딸방",
+    });
+    expect(store).toContain('data-gift-store-scope-notice="1"');
+    expect(store).toContain("해당 매장에서만 사용 가능");
+    expect(store).toContain('data-gift-store-initial="1"');
   });
 
   it("writes 390 / 768 / wide HTML fixtures", () => {
