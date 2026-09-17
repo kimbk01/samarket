@@ -37,6 +37,13 @@ describe("Admin same-SSOT UI first divergence close", () => {
     expect(core).toContain("sm:grid-cols-2");
     expect(core).toContain("selectedRowClass");
     expect(core).toContain("selectedChips");
+    // Selected visual must use real dibaY green token (not undefined --biz-brand) on the circle
+    expect(core).toMatch(/data-round-multi-select[\s\S]*?--biz-primary|#0B421A/);
+    expect(core).toContain('stroke="#ffffff"');
+    expect(core).toContain('data-round-multi-select={checked ? "selected" : "unselected"}');
+    const roundFn = core.slice(core.indexOf("function RoundMultiSelect"), core.indexOf("export function DeliveryServiceAreaEditorCore"));
+    expect(roundFn).toContain("--biz-primary");
+    expect(roundFn).not.toContain("--biz-brand");
   });
 
   it("Owner and Admin APIs write the same SSOT helpers", () => {

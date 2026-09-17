@@ -73,7 +73,11 @@ function applyPayloadToSelection(json: DeliveryServiceAreaEditorPayload): {
   return { selected, extraLabels };
 }
 
-/** Round multi-select control — solid brand circle + white check when selected (not native radio). */
+/**
+ * Round multi-select — primary selected-state indicator (not native radio).
+ * SELECTED: dibaY green fill + white check. UNSELECTED: white center + gray border.
+ * Uses --biz-primary / signature (real tokens). Do not use undefined --biz-brand.
+ */
 function RoundMultiSelect({
   checked,
   surface,
@@ -85,20 +89,20 @@ function RoundMultiSelect({
   onToggle: () => void;
   label: string;
 }) {
-  const ring =
-    surface === "admin"
-      ? checked
-        ? "border-signature bg-signature"
-        : "border-sam-border bg-white"
-      : checked
-        ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
-        : "border-[#c5cdd6] bg-white";
+  const ring = checked
+    ? surface === "admin"
+      ? "border-[var(--signature,#0B421A)] bg-[var(--signature,#0B421A)]"
+      : "border-[var(--biz-primary,#0B421A)] bg-[var(--biz-primary,#0B421A)]"
+    : surface === "admin"
+      ? "border-[#b8c0c8] bg-white"
+      : "border-[#b8c0c8] bg-white";
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={checked}
       aria-label={label}
+      data-round-multi-select={checked ? "selected" : "unselected"}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
@@ -106,12 +110,12 @@ function RoundMultiSelect({
       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${ring}`}
     >
       {checked ? (
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden className="text-white">
+        <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden>
           <path
-            d="M1.5 5.2 3.8 7.5 8.5 2.5"
+            d="M2 5.6 4.4 8 9 2.8"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
+            stroke="#ffffff"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
