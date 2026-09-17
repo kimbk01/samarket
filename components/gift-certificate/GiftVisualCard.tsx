@@ -227,12 +227,15 @@ export function GiftVisualCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm ${
-        isUsed ? "opacity-75 saturate-[0.7]" : ""
+      className={`overflow-hidden rounded-ui-rect border bg-sam-surface shadow-sm ${
+        isUsed
+          ? "border-sam-border/80 opacity-80 saturate-[0.55]"
+          : "border-sam-border"
       } ${shellClass} ${className}`}
       data-gift-visual-card="1"
       data-gift-scope={model.kind}
       data-gift-visual-surface={surface}
+      data-gift-availability={isUsed ? "USED" : "AVAILABLE"}
       data-gift-face-size={faceSize}
       {...(showGiftNumber && publicGiftNumber?.trim()
         ? { "data-gift-public-number": publicGiftNumber.trim() }

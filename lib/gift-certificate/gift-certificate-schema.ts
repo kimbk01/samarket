@@ -51,6 +51,9 @@ export const GIFT_CHECKOUT_REFUND_MIGRATION_ID =
 /** CUT 2 — cancel-path gift restore (idempotent; separate from refund atomic). */
 export const GIFT_CANCEL_ORDER_RESTORE_MIGRATION_ID =
   "20270101130000_gift_certificate_cancel_order_restore" as const;
+/** Owner one-time full consumption + forfeited_amount + ACTIVE-only redeem. */
+export const GIFT_ONE_TIME_FULL_CONSUMPTION_MIGRATION_ID =
+  "20270117140000_gift_one_time_full_consumption" as const;
 export const GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID =
   "20261128140000_gift_certificate_order_completion_revenue" as const;
 export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =

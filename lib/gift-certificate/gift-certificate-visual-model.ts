@@ -117,10 +117,10 @@ export function buildGiftCertificateVisualModel(
 }
 
 /**
- * Owner money SSOT (CUT B):
+ * Owner money SSOT (one-time full consumption):
  * - 금액 = face_value (always hero when present)
  * - 구매 금액 = purchase_price
- * - 잔액 = remaining_balance only when remaining < face
+ * - Customer 「잔액」 / PARTIALLY_REDEEMED presentation = NEVER
  * - Discount strike only when purchase < face (normal sellable policy).
  * - purchase === face is legacy compatibility only — no strike, not promoted as normal policy.
  */
@@ -140,11 +140,13 @@ export function giftMallShowsDiscountArrow(
   return giftShowsDiscountStrike(faceValue, purchasePrice);
 }
 
-/** Show 「잔액」 only when remaining is strictly below face (partial use). */
+/**
+ * Customer UI must never show reusable remaining balance.
+ * Historical PARTIAL rows are census/compat only — not customer presentation.
+ */
 export function giftShowsRemainingBalance(
-  faceValue: number | null,
-  remainingBalance: number | null
+  _faceValue: number | null,
+  _remainingBalance: number | null
 ): boolean {
-  if (faceValue == null || remainingBalance == null) return false;
-  return remainingBalance < faceValue;
+  return false;
 }

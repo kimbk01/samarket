@@ -300,7 +300,7 @@ export function CustomerGiftWalletBody({
           <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
             {ownedRows.map((row) => {
               const locked = row.status === "GIFT_LOCKED";
-              const canSend = row.transferable && !locked && row.remainingBalance > 0;
+              const canSend = row.transferable && !locked && row.status === "ACTIVE";
               return (
                 <li key={row.id}>
                   <GiftVisualCard
@@ -316,7 +316,6 @@ export function CustomerGiftWalletBody({
                     title={row.title}
                     issuerName={row.storeName}
                     faceValue={row.faceValue}
-                    remainingBalance={row.remainingBalance}
                     purchasePrice={row.purchasePrice}
                     publicGiftNumber={row.publicGiftNumber}
                     showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
@@ -405,40 +404,90 @@ export function CustomerGiftWalletBody({
         />
       ) : (
         <ul className="min-w-0 space-y-3 pb-8">
-          {wallet.fullyRedeemed.map((row) => (
-            <li key={row.id}>
-              <GiftVisualCard
-                visual={{
-                  giftScope: row.giftScope,
-                  imageUrl: row.imageUrl,
-                  storeLogoUrl: row.storeLogoUrl,
-                  storeName: row.storeName,
-                  title: row.title,
-                }}
-                surface="used"
-                size="md"
-                faded
-                title={row.title}
-                issuerName={row.storeName}
-                faceValue={row.faceValue}
-                remainingBalance={0}
-                expirationDisplay={formatExpiry(row.validUntil)}
-                showValidity
-                detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "used" })}
-                footer={
-                  row.latestRedemptionStoreName ? (
-                    <p className="text-xs text-sam-muted">
-                      {safeT("commerce_hub_used_latest_store", {
-                        fallbackKo: "최근 사용 매장",
-                        fallbackEn: "Last used at",
-                      })}
-                      : {row.latestRedemptionStoreName}
-                    </p>
-                  ) : undefined
-                }
-              />
-            </li>
-          ))}
+          {wallet.fullyRedeemed.map((row) => {
+            const latest = row.redemptionHistory?.[0];
+            return (
+              <li key={row.id}>
+                <GiftVisualCard
+                  visual={{
+                    giftScope: row.giftScope,
+                    imageUrl: row.imageUrl,
+                    storeLogoUrl: row.storeLogoUrl,
+                    storeName: row.storeName,
+                    title: row.title,
+                  }}
+                  surface="used"
+                  size="md"
+                  faded
+                  title={row.title}
+                  issuerName={row.storeName}
+                  faceValue={row.faceValue}
+                  purchasePrice={row.purchasePrice}
+                  publicGiftNumber={row.publicGiftNumber}
+                  showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
+                  expirationDisplay={formatExpiry(row.validUntil)}
+                  showValidity
+                  detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "used" })}
+                  footer={
+                    latest ? (
+                      <dl className="space-y-1 text-xs text-sam-muted" data-gift-used-summary="1">
+                        <div className="flex justify-between gap-2">
+                          <dt>
+                            {safeT("commerce_hub_gift_applied_label", {
+                              fallbackKo: "실제 적용 금액",
+                              fallbackEn: "Applied amount",
+                            })}
+                          </dt>
+                          <dd className="tabular-nums text-sam-fg">{latest.redeemedAmount.toLocaleString()}</dd>
+                        </div>
+                        {latest.forfeitedAmount > 0 ? (
+                          <div className="flex justify-between gap-2">
+                            <dt>
+                              {safeT("commerce_hub_gift_forfeited_label", {
+                                fallbackKo: "소멸 금액",
+                                fallbackEn: "Forfeited amount",
+                              })}
+                            </dt>
+                            <dd className="tabular-nums text-sam-fg">{latest.forfeitedAmount.toLocaleString()}</dd>
+                          </div>
+                        ) : null}
+                        {latest.storeName ? (
+                          <div className="flex justify-between gap-2">
+                            <dt>
+                              {safeT("commerce_hub_used_latest_store", {
+                                fallbackKo: "사용 매장",
+                                fallbackEn: "Used at",
+                              })}
+                            </dt>
+                            <dd className="truncate text-sam-fg">{latest.storeName}</dd>
+                          </div>
+                        ) : null}
+                        {latest.redeemedAt ? (
+                          <div className="flex justify-between gap-2">
+                            <dt>
+                              {safeT("commerce_hub_gift_used_at_label", {
+                                fallbackKo: "사용 일시",
+                                fallbackEn: "Used at",
+                              })}
+                            </dt>
+                            <dd className="tabular-nums text-sam-fg">{latest.redeemedAt}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    ) : row.latestRedemptionStoreName ? (
+                      <p className="text-xs text-sam-muted">
+                        {safeT("commerce_hub_used_latest_store", {
+                          fallbackKo: "최근 사용 매장",
+                          fallbackEn: "Last used at",
+                        })}
+                        : {row.latestRedemptionStoreName}
+                      </p>
+                    ) : undefined
+                  }
+                />
+              </li>
+            );
+          })}
         </ul>
       )}
       {sendInstanceId ? (

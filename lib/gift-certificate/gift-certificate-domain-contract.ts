@@ -152,7 +152,17 @@ export function resolveGiftCreationSource(args: {
   return "ADMIN_DIRECT_STORE";
 }
 
-export const GIFT_PARTIAL_REDEMPTION_SUPPORTED = true as const;
+export const GIFT_PARTIAL_REDEMPTION_SUPPORTED = false as const;
+
+/**
+ * Owner FINAL: one redemption consumes the whole certificate.
+ * Under-face unused face is forfeited (extinguish + trace), not reusable balance.
+ * Historical PARTIALLY_REDEEMED rows may still exist — never create new ones.
+ */
+export const GIFT_ONE_TIME_FULL_CONSUMPTION = true as const;
+export const GIFT_REUSABLE_REMAINING_BALANCE_FORBIDDEN = true as const;
+export const GIFT_MERCHANT_REVENUE_APPLIED_ONLY = true as const;
+export const GIFT_FORFEITED_EXTINGUISH_AND_TRACE = true as const;
 
 /** History retained after FULLY_REDEEMED — never delete instance rows (G2+). */
 export const GIFT_FULLY_REDEEMED_HISTORY_RETAINED = true as const;
@@ -380,17 +390,19 @@ export function isGiftInstanceStatus(v: unknown): v is GiftInstanceStatus {
 }
 
 export function giftInstanceAllowsRedeem(status: GiftInstanceStatus): boolean {
-  return status === "ACTIVE" || status === "PARTIALLY_REDEEMED";
+  // New one-time contract: only pristine ACTIVE may redeem.
+  // Historical PARTIALLY_REDEEMED must not second-redeem (census / compat separate).
+  return status === "ACTIVE";
 }
 
 export function giftInstanceAllowsRegift(status: GiftInstanceStatus, transferable: boolean): boolean {
   if (!transferable) return false;
-  return status === "ACTIVE" || status === "PARTIALLY_REDEEMED";
+  return status === "ACTIVE";
 }
 
-export function resolveGiftInstanceStatusAfterRedeem(remainingAfter: GiftMoneyInt): GiftInstanceStatus {
-  if (remainingAfter === 0) return "FULLY_REDEEMED";
-  return "PARTIALLY_REDEEMED";
+/** After any successful redemption, certificate is always terminal USED. */
+export function resolveGiftInstanceStatusAfterRedeem(_remainingAfter?: GiftMoneyInt): GiftInstanceStatus {
+  return "FULLY_REDEEMED";
 }
 
 // ─── Transfer status ────────────────────────────────────────────────────────
@@ -528,19 +540,24 @@ export function evaluateGiftFriendEligibility(
 
 export function computeGiftRedemptionSplit(args: {
   amountDueBeforeGift: GiftMoneyInt;
+  /** Instance remaining before redeem; for ACTIVE one-time certs equals face_value. */
   giftRemaining: GiftMoneyInt;
 }): {
   redeemAmount: GiftMoneyInt;
   remainingPayment: GiftMoneyInt;
+  /** Always 0 under one-time full consumption (unused face is forfeited). */
   giftRemainingAfter: GiftMoneyInt;
+  forfeitedAmount: GiftMoneyInt;
 } {
   const due = Math.max(0, Math.trunc(Number(args.amountDueBeforeGift) || 0));
   const rem = Math.max(0, Math.trunc(Number(args.giftRemaining) || 0));
   const redeemAmount = Math.min(due, rem);
+  const forfeitedAmount = Math.max(0, rem - redeemAmount);
   return {
     redeemAmount,
     remainingPayment: due - redeemAmount,
-    giftRemainingAfter: rem - redeemAmount,
+    giftRemainingAfter: 0,
+    forfeitedAmount,
   };
 }
 

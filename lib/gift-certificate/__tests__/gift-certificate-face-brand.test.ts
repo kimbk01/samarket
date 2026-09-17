@@ -51,6 +51,9 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(face).toContain("data-gift-cert-perforation");
     expect(face).toContain('data-gift-face-strike-line="1"');
     expect(face).toContain("GIFT_PORTRAIT_TYPE");
+    expect(face).not.toContain("data-gift-remaining-amount");
+    expect(face).toContain("data-gift-status-chip");
+    expect(face).toContain("data-gift-cert-identity");
 
     expect(paths).toContain('DIBAY_LOGO_MARK_PATH = "/images/brand/dibay-logo-mark.png"');
     expect(existsSync(resolve(process.cwd(), "public/images/brand/dibay-logo-mark.png"))).toBe(true);
@@ -64,19 +67,18 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(a.length).toBeLessThanOrEqual(2);
   });
 
-  it("discount strike only when purchase < face; remaining only when partial", () => {
+  it("discount strike only when purchase < face; remaining never on customer face", () => {
     expect(giftMallShowsDiscountArrow(1000, 900)).toBe(true);
     expect(giftMallShowsDiscountArrow(1000, 1000)).toBe(false);
     expect(giftMallShowsDiscountArrow(1000, null)).toBe(false);
     expect(giftShowsRemainingBalance(1000, 1000)).toBe(false);
-    expect(giftShowsRemainingBalance(1000, 880)).toBe(true);
+    expect(giftShowsRemainingBalance(1000, 880)).toBe(false);
     expect(giftShowsRemainingBalance(1000, null)).toBe(false);
   });
 
   it("meets rendered typography floors at sm=220 without amount dominance", () => {
     const scale = 220 / 800;
     expect(GIFT_PORTRAIT_TYPE.title * scale).toBeGreaterThanOrEqual(16);
-    // CUT B: amount was ~30.5px; keep readable but not overpowering (~24px).
     expect(GIFT_PORTRAIT_TYPE.amountValue * scale).toBeGreaterThanOrEqual(22);
     expect(GIFT_PORTRAIT_TYPE.amountValue * scale).toBeLessThan(28);
     expect(GIFT_PORTRAIT_TYPE.amountValue).toBeLessThan(GIFT_PORTRAIT_TYPE.title * 2);
@@ -86,23 +88,23 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(GIFT_PORTRAIT_TYPE.badge * scale).toBeGreaterThanOrEqual(11);
   });
 
-  it("landmark zoning matches master geometry", () => {
+  it("landmark zoning matches one-time certificate composition", () => {
     const h = GIFT_CERT_COORD_HEIGHT;
-    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY).toBe(300);
-    expect(GIFT_PORTRAIT_LANDMARKS.titleY).toBe(430);
-    expect(GIFT_PORTRAIT_LANDMARKS.amountY).toBe(618);
-    expect(GIFT_PORTRAIT_LANDMARKS.remainingY).toBe(692);
-    expect(GIFT_PORTRAIT_LANDMARKS.priceY).toBe(738);
-    expect(GIFT_PORTRAIT_LANDMARKS.perforationY).toBe(770);
-    expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(840);
-    expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(914);
-    expect(GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(960);
-    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY).toBe(1018);
+    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY).toBe(292);
+    expect(GIFT_PORTRAIT_LANDMARKS.titleY).toBe(412);
+    expect(GIFT_PORTRAIT_LANDMARKS.amountY).toBe(598);
+    expect("remainingY" in GIFT_PORTRAIT_LANDMARKS).toBe(false);
+    expect(GIFT_PORTRAIT_LANDMARKS.priceY).toBe(708);
+    expect(GIFT_PORTRAIT_LANDMARKS.perforationY).toBe(768);
+    expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(836);
+    expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(904);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(952);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY).toBe(1008);
     expect(GIFT_PORTRAIT_LANDMARKS.numberY).toBe(GIFT_PORTRAIT_LANDMARKS.numberLabelY);
-    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY - GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(58);
-    expect(GIFT_PORTRAIT_LANDMARKS.footerY).toBe(1072);
-    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(300 / 1120, 5);
-    expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(770 / 1120, 5);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY - GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(56);
+    expect(GIFT_PORTRAIT_LANDMARKS.footerY).toBe(1070);
+    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(292 / 1120, 5);
+    expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(768 / 1120, 5);
   });
 
   it("outer scale sizes preserve identical aspect constant", () => {

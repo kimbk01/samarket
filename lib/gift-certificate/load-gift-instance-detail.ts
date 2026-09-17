@@ -82,7 +82,7 @@ export async function loadGiftInstanceDetail(
 
   const { data: redRows } = await sb
     .from(GIFT_TABLES.redemptions)
-    .select("store_id, redeemed_amount, created_at, reversed")
+    .select("store_id, order_id, redeemed_amount, forfeited_amount, created_at, reversed")
     .eq("instance_id", iid)
     .eq("reversed", false)
     .order("created_at", { ascending: false })
@@ -95,13 +95,31 @@ export async function loadGiftInstanceDetail(
         .filter(Boolean)
     ),
   ];
-  const { data: storeRows } = storeIds.length
-    ? await sb.from("stores").select("id, store_name").in("id", storeIds)
-    : { data: [] as Record<string, unknown>[] };
+  const orderIds = [
+    ...new Set(
+      ((redRows ?? []) as Record<string, unknown>[])
+        .map((r) => (r.order_id == null ? "" : String(r.order_id).trim()))
+        .filter(Boolean)
+    ),
+  ];
+  const [{ data: storeRows }, { data: orderRows }] = await Promise.all([
+    storeIds.length
+      ? sb.from("stores").select("id, store_name").in("id", storeIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    orderIds.length
+      ? sb.from("store_orders").select("id, payment_amount").in("id", orderIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
   const storeNameById = new Map(
     ((storeRows ?? []) as Record<string, unknown>[]).map((r) => [
       String(r.id),
       String(r.store_name ?? ""),
+    ])
+  );
+  const paymentByOrderId = new Map(
+    ((orderRows ?? []) as Record<string, unknown>[]).map((r) => [
+      String(r.id),
+      Math.max(0, Math.trunc(Number(r.payment_amount) || 0)),
     ])
   );
 
@@ -109,11 +127,16 @@ export async function loadGiftInstanceDetail(
   for (const r of (redRows ?? []) as Record<string, unknown>[]) {
     const storeId = String(r.store_id ?? "").trim();
     if (!storeId) continue;
+    const orderId = r.order_id == null ? null : String(r.order_id);
     redemptionHistory.push({
       storeId,
       storeName: storeNameById.get(storeId) ?? storeId,
       redeemedAmount: Math.trunc(Number(r.redeemed_amount) || 0),
+      forfeitedAmount: Math.max(0, Math.trunc(Number(r.forfeited_amount) || 0)),
       redeemedAt: String(r.created_at ?? ""),
+      orderId,
+      additionalPaymentAmount:
+        orderId && paymentByOrderId.has(orderId) ? (paymentByOrderId.get(orderId) ?? 0) : null,
     });
   }
 

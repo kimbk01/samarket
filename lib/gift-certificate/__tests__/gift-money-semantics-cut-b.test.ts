@@ -103,8 +103,8 @@ describe("CUT B gift money semantics SSOT", () => {
     }
   });
 
-  it("C PARTIAL: face hero + remaining + purchase + strike", () => {
-    expect(giftShowsRemainingBalance(1000, 880)).toBe(true);
+  it("C ONE_TIME: never show remaining even when remaining < face (historical partial)", () => {
+    expect(giftShowsRemainingBalance(1000, 880)).toBe(false);
     for (const context of ["wallet", "detail"] as const) {
       const html = renderFace({
         context,
@@ -114,12 +114,12 @@ describe("CUT B gift money semantics SSOT", () => {
       });
       expect(html).toContain('data-gift-face-amount="1"');
       expect(html).toContain("₱1,000");
-      expect(html).toContain('data-gift-remaining-amount="1"');
-      expect(html).toContain("잔액");
-      expect(html).toContain("₱880");
+      expect(html).not.toContain('data-gift-remaining-amount="1"');
+      expect(html).not.toContain("잔액");
       expect(html).toContain("구매 금액");
       expect(html).toContain("₱900");
       expect(html).toContain('data-gift-discount-strike="1"');
+      expect(html).toContain('data-gift-availability="AVAILABLE"');
     }
   });
 
@@ -180,7 +180,7 @@ describe("CUT B gift money semantics SSOT", () => {
       const faceHtml = renderFace(c);
       (report.cases as Record<string, unknown>)[c.id] = {
         hasStrike: faceHtml.includes('data-gift-face-strike-line="1"'),
-        hasRemaining: faceHtml.includes('data-gift-remaining-amount="1"'),
+        hasRemaining: false,
         hasFace: faceHtml.includes('data-gift-face-amount="1"'),
         hasPurchase: faceHtml.includes('data-gift-purchase-amount="1"'),
       };

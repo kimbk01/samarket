@@ -9,7 +9,15 @@ export type GiftWalletRedemptionSummary = {
   storeId: string;
   storeName: string;
   redeemedAmount: number;
+  /** Under-face extinguished face; 0 when exact/over-face. */
+  forfeitedAmount: number;
   redeemedAt: string;
+  orderId?: string | null;
+  /**
+   * Order payment remaining after gift apply (additional cash/point due).
+   * Null when order row unavailable — never invent.
+   */
+  additionalPaymentAmount?: number | null;
 };
 
 export type GiftWalletInstance = {
@@ -216,7 +224,7 @@ async function attachRedemptionSummaries(
 
   const { data: redRows } = await sb
     .from(GIFT_TABLES.redemptions)
-    .select("instance_id, store_id, redeemed_amount, created_at, reversed")
+    .select("instance_id, store_id, order_id, redeemed_amount, forfeited_amount, created_at, reversed")
     .in("instance_id", redeemedIds)
     .eq("reversed", false)
     .order("created_at", { ascending: false })
@@ -229,13 +237,31 @@ async function attachRedemptionSummaries(
         .filter(Boolean)
     ),
   ];
-  const { data: storeRows } = storeIds.length
-    ? await sb.from("stores").select("id, store_name").in("id", storeIds)
-    : { data: [] as Record<string, unknown>[] };
+  const orderIds = [
+    ...new Set(
+      ((redRows ?? []) as Record<string, unknown>[])
+        .map((r) => (r.order_id == null ? "" : String(r.order_id).trim()))
+        .filter(Boolean)
+    ),
+  ];
+  const [{ data: storeRows }, { data: orderRows }] = await Promise.all([
+    storeIds.length
+      ? sb.from("stores").select("id, store_name").in("id", storeIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    orderIds.length
+      ? sb.from("store_orders").select("id, payment_amount").in("id", orderIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
   const storeNameById = new Map(
     ((storeRows ?? []) as Record<string, unknown>[]).map((r) => [
       String(r.id),
       String(r.store_name ?? ""),
+    ])
+  );
+  const paymentByOrderId = new Map(
+    ((orderRows ?? []) as Record<string, unknown>[]).map((r) => [
+      String(r.id),
+      Math.max(0, Math.trunc(Number(r.payment_amount) || 0)),
     ])
   );
 
@@ -244,12 +270,17 @@ async function attachRedemptionSummaries(
     const instanceId = String(raw.instance_id ?? "");
     const storeId = String(raw.store_id ?? "").trim();
     if (!instanceId || !storeId) continue;
+    const orderId = raw.order_id != null ? String(raw.order_id) : null;
     const list = byInstance.get(instanceId) ?? [];
     list.push({
       storeId,
       storeName: storeNameById.get(storeId) ?? storeId,
       redeemedAmount: Math.trunc(Number(raw.redeemed_amount) || 0),
+      forfeitedAmount: Math.max(0, Math.trunc(Number(raw.forfeited_amount) || 0)),
       redeemedAt: String(raw.created_at ?? ""),
+      orderId,
+      additionalPaymentAmount:
+        orderId && paymentByOrderId.has(orderId) ? (paymentByOrderId.get(orderId) ?? 0) : null,
     });
     byInstance.set(instanceId, list);
   }
@@ -316,7 +347,8 @@ export async function loadGiftWallet(
     const mapped = mapInstance(row);
     if (mapped.status === "GIFT_LOCKED") locked.push(mapped);
     else if (mapped.status === "FULLY_REDEEMED") fullyRedeemed.push(mapped);
-    else if (mapped.status === "ACTIVE" || mapped.status === "PARTIALLY_REDEEMED") {
+    else if (mapped.status === "ACTIVE") {
+      // One-time contract: PARTIALLY_REDEEMED is historical-only — never wallet-available.
       available.push(mapped);
     }
   }
@@ -376,7 +408,7 @@ export async function loadGiftWalletOverviewSummary(
   let owned = 0;
   for (const raw of instRes.data ?? []) {
     const status = String((raw as { status?: string }).status ?? "");
-    if (status === "ACTIVE" || status === "PARTIALLY_REDEEMED" || status === "GIFT_LOCKED") {
+    if (status === "ACTIVE" || status === "GIFT_LOCKED") {
       owned += 1;
     }
   }

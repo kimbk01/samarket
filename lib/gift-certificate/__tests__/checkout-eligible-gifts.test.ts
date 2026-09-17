@@ -59,11 +59,11 @@ describe("checkout-eligible-gifts (U4)", () => {
     expect(isCheckoutEligibleGiftInstance(inst({ id: "g2", storeId: storeB }), storeA)).toBe(false);
   });
 
-  it("T3: Gift > due → partial apply (use due only)", () => {
+  it("T3: Gift > due → apply due only; remaining after redeem is 0 (forfeit unused)", () => {
     const preview = computeCheckoutGiftApplyPreview({ amountBeforeGift: 300, giftRemaining: 1000 });
     expect(preview.giftUsed).toBe(300);
     expect(preview.paymentAfterGift).toBe(0);
-    expect(preview.giftRemainingAfter).toBe(700);
+    expect(preview.giftRemainingAfter).toBe(0);
   });
 
   it("T4: Gift < due → full balance apply", () => {
@@ -105,13 +105,12 @@ describe("checkout-eligible-gifts (U4)", () => {
     expect(order.payment_amount).toBe(order.amount_before_gift - order.gift_redemption_amount);
   });
 
-  it("T9: Wallet partial remaining stays available", () => {
+  it("T9: Historical PARTIALLY_REDEEMED excluded from checkout (no second redeem)", () => {
     const gifts = filterCheckoutEligibleGifts(
       [inst({ id: "g9", storeId: storeA, remainingBalance: 700, status: "PARTIALLY_REDEEMED" })],
       storeA
     );
-    expect(gifts).toHaveLength(1);
-    expect(gifts[0]?.remainingBalance).toBe(700);
+    expect(gifts).toHaveLength(0);
   });
 
   it("T10: fully redeemed excluded from checkout eligible", () => {

@@ -20,7 +20,8 @@ function isOfferable(row: GiftWalletInstance, pendingInstanceIds: Set<string>): 
   if (row.remainingBalance <= 0) return false;
   if (row.status === "GIFT_LOCKED") return false;
   if (pendingInstanceIds.has(row.id)) return false;
-  if (row.status !== "ACTIVE" && row.status !== "PARTIALLY_REDEEMED") return false;
+  // One-time: only unused ACTIVE certificates may be gifted.
+  if (row.status !== "ACTIVE") return false;
   return true;
 }
 
@@ -243,7 +244,7 @@ export function MessengerGiftOfferFlow({
                       </p>
                       <p className="truncate text-xs text-sam-muted">{row.storeName}</p>
                       <p className="text-sm tabular-nums text-sam-fg">
-                        {row.remainingBalance.toLocaleString()}
+                        {row.faceValue.toLocaleString()}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-medium text-signature">
@@ -270,7 +271,7 @@ export function MessengerGiftOfferFlow({
                 </p>
                 <p className="text-xs text-sam-muted">{selected.storeName}</p>
                 <p className="text-sm tabular-nums text-sam-fg">
-                  {selected.remainingBalance.toLocaleString()}
+                  {selected.faceValue.toLocaleString()}
                 </p>
               </div>
             </div>

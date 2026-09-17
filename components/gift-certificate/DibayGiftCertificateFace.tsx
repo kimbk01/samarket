@@ -8,10 +8,7 @@
 import { useId } from "react";
 import { DIBAY_LOGO_MARK_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import type { GiftCertificateVisualModel } from "@/lib/gift-certificate/gift-certificate-visual-model";
-import {
-  giftShowsDiscountStrike,
-  giftShowsRemainingBalance,
-} from "@/lib/gift-certificate/gift-certificate-visual-model";
+import { giftShowsDiscountStrike } from "@/lib/gift-certificate/gift-certificate-visual-model";
 import {
   GIFT_CERT_ASPECT_RATIO,
   GIFT_CERT_COORD_HEIGHT,
@@ -38,48 +35,49 @@ const PAD_L = 64;
 const PAD_R = 736;
 const PLATFORM_LOGO_SRC = dibayBrandAssetUrl(DIBAY_LOGO_MARK_PATH);
 
-/** Fixed landmarks for the 800×1120 canonical face. */
+/**
+ * Certificate composition landmarks (800×1120) — one physical gift-certificate sheet.
+ * Redesign (one-time contract): no customer remaining-balance row.
+ */
 export const GIFT_PORTRAIT_LANDMARKS = {
-  heroBottomY: 300,
-  badgeY: 326,
-  titleY: 430,
-  amountLabelY: 528,
-  amountY: 618,
-  priceDividerY: 644,
-  /** Partial-use remaining line (hidden when remaining === face). */
-  remainingY: 692,
-  priceY: 738,
-  perforationY: 770,
-  issuerY: 840,
-  expiryY: 914,
+  heroBottomY: 292,
+  badgeY: 322,
+  titleY: 412,
+  amountLabelY: 512,
+  amountY: 598,
+  priceDividerY: 628,
+  priceY: 708,
+  perforationY: 768,
+  issuerY: 836,
+  expiryY: 904,
   /** @deprecated use numberLabelY */
-  numberY: 960,
-  numberLabelY: 960,
-  numberValueY: 1018,
-  footerY: 1072,
+  numberY: 952,
+  numberLabelY: 952,
+  numberValueY: 1008,
+  footerY: 1070,
 } as const;
 
 /**
- * Units are reverse-calculated from the sm=220 gate (scale 0.275).
- * title 59→16.23px, amount 87→23.93px (CUT B density), purchase 59→16.23px,
- * meta 45→12.38px, badge 41→11.28px.
+ * Typography scale @ sm=220 (scale 0.275):
+ * title ≥16px, amount ~22.5px (readable, not dominant), purchase ≥14px, meta ≥12px.
  */
 export const GIFT_PORTRAIT_TYPE = {
   badge: 41,
   title: 59,
   titleLine: 62,
   amountLabel: 34,
-  amountValue: 87,
-  originalPrice: 52,
-  arrow: 46,
+  amountValue: 82,
+  originalPrice: 48,
+  arrow: 44,
   purchasePrice: 52,
   purchaseLabel: 34,
-  metaLabel: 45,
-  metaValue: 45,
-  footBrand: 25,
+  metaLabel: 44,
+  metaValue: 44,
+  footBrand: 24,
   heroWordmark: 46,
   heroSubtitle: 24,
-  heroBadge: 41,
+  heroBadge: 40,
+  statusChip: 34,
 } as const;
 
 const ORIGINAL_PRICE_SLOT = { x: PAD_L, width: 218 } as const;
@@ -119,15 +117,23 @@ function TicketHero({
 }) {
   const isPlatform = model.kind === "PLATFORM";
   const heroGradientId = `${uid}-hero-gradient`;
+  const foilId = `${uid}-foil`;
   const identityClipId = `${uid}-identity-clip`;
-  const identity = { x: 300, y: 62, w: 200, h: 132 } as const;
+  const identity = { x: 286, y: 48, w: 228, h: 148 } as const;
+  const used = model.valueMode === "used";
 
   return (
-    <g data-gift-landmark="hero" data-gift-cert-hero="1">
+    <g data-gift-landmark="hero" data-gift-cert-hero="1" data-gift-cert-identity="ticket">
       <defs>
-        <linearGradient id={heroGradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={BRAND_MID} />
-          <stop offset="100%" stopColor={BRAND} />
+        <linearGradient id={heroGradientId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={used ? "#3A4A3E" : BRAND_MID} />
+          <stop offset="55%" stopColor={used ? "#2C3830" : BRAND} />
+          <stop offset="100%" stopColor={used ? "#24302A" : "#083618"} />
+        </linearGradient>
+        <linearGradient id={foilId} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#C9A227" stopOpacity={0.35} />
+          <stop offset="50%" stopColor="#F0D78C" stopOpacity={0.95} />
+          <stop offset="100%" stopColor="#C9A227" stopOpacity={0.35} />
         </linearGradient>
         <clipPath id={identityClipId}>
           <rect
@@ -135,23 +141,26 @@ function TicketHero({
             y={identity.y}
             width={identity.w}
             height={identity.h}
-            rx={22}
+            rx={18}
           />
         </clipPath>
       </defs>
 
-      <path
+      <rect
+        x={TICKET.x}
+        y={TICKET.y}
+        width={TICKET.w}
+        height={GIFT_PORTRAIT_LANDMARKS.heroBottomY - TICKET.y}
         fill={`url(#${heroGradientId})`}
-        d={`
-          M ${TICKET.x} ${TICKET.y + TICKET.rx}
-          Q ${TICKET.x} ${TICKET.y} ${TICKET.x + TICKET.rx} ${TICKET.y}
-          H ${TICKET.x + TICKET.w - TICKET.rx}
-          Q ${TICKET.x + TICKET.w} ${TICKET.y} ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.rx}
-          V 270
-          C 620 310, 490 314, 392 286
-          C 244 246, 132 256, ${TICKET.x} 306
-          Z
-        `}
+      />
+      <rect
+        x={TICKET.x + 28}
+        y={GIFT_PORTRAIT_LANDMARKS.heroBottomY - 10}
+        width={TICKET.w - 56}
+        height={4}
+        rx={2}
+        fill={`url(#${foilId})`}
+        data-gift-cert-foil="1"
       />
 
       <g data-gift-hero-identity-slot="1">
@@ -172,7 +181,7 @@ function TicketHero({
               y={identity.y}
               width={identity.w}
               height={identity.h}
-              rx={22}
+              rx={18}
               fill="#FFFFFF"
               opacity={0.14}
             />
@@ -189,9 +198,9 @@ function TicketHero({
         ) : (
           <text
             x={400}
-            y={154}
+            y={148}
             textAnchor="middle"
-            fontSize={104}
+            fontSize={96}
             fontWeight={800}
             fill="#FFFFFF"
             fontFamily="system-ui,sans-serif"
@@ -203,45 +212,28 @@ function TicketHero({
 
       <text
         x={400}
-        y={230}
+        y={228}
         textAnchor="middle"
         fontSize={GIFT_PORTRAIT_TYPE.heroWordmark}
         fontWeight={800}
         fill="#FFFFFF"
         fontFamily="system-ui,sans-serif"
-        letterSpacing="1.5"
+        letterSpacing="2"
       >
         {isPlatform ? "DIBAY" : model.issuerName}
       </text>
       <text
         x={400}
-        y={266}
+        y={262}
         textAnchor="middle"
         fontSize={GIFT_PORTRAIT_TYPE.heroSubtitle}
         fontWeight={700}
         fill={GOLD}
         fontFamily="system-ui,sans-serif"
-        letterSpacing="2.5"
+        letterSpacing="3"
       >
         GIFT CERTIFICATE
       </text>
-
-      <g data-gift-hero-badge="1">
-        <rect x={548} y={38} width={202} height={54} rx={27} fill="#FFFFFF" opacity={0.18} />
-        <text
-          x={649}
-          y={77}
-          textAnchor="middle"
-          fontSize={GIFT_PORTRAIT_TYPE.heroBadge}
-          fontWeight={700}
-          fill="#FFFFFF"
-          fontFamily="system-ui,sans-serif"
-        >
-          {model.issuerBadge.length > 12
-            ? `${model.issuerBadge.slice(0, 11)}…`
-            : model.issuerBadge}
-        </text>
-      </g>
     </g>
   );
 }
@@ -258,23 +250,40 @@ function AmountBlock({
       <g data-gift-landmark="amount" data-gift-value-block="used">
         <text
           x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.amountY}
-          fontSize={GIFT_PORTRAIT_TYPE.title}
+          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
+          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
           fill={MUTED}
           fontFamily="system-ui,sans-serif"
-          fontWeight={800}
+          fontWeight={700}
         >
           {labels.usedLabel}
         </text>
         {model.faceValue != null ? (
           <text
+            data-gift-face-amount="1"
+            x={PAD_L}
+            y={GIFT_PORTRAIT_LANDMARKS.amountY}
+            fontSize={GIFT_PORTRAIT_TYPE.amountValue}
+            fill={MUTED_PRICE}
+            fontFamily="system-ui,sans-serif"
+            fontWeight={800}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {formatMoneyPhp(model.faceValue)}
+          </text>
+        ) : null}
+        {model.purchasePrice != null ? (
+          <text
+            data-gift-purchase-amount="1"
             x={PAD_L}
             y={GIFT_PORTRAIT_LANDMARKS.priceY}
             fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-            fill={MUTED_PRICE}
+            fill={MUTED}
             fontFamily="system-ui,sans-serif"
+            fontWeight={600}
+            style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {formatMoneyPhp(model.faceValue)}
+            {labels.purchaseLabel} {formatMoneyPhp(model.purchasePrice)}
           </text>
         ) : null}
       </g>
@@ -287,11 +296,10 @@ function AmountBlock({
   const purchasePrice =
     model.purchasePrice == null ? null : formatMoneyPhp(model.purchasePrice);
   const discounted = giftShowsDiscountStrike(model.faceValue, model.purchasePrice);
-  const showRemaining = giftShowsRemainingBalance(model.faceValue, model.remainingBalance);
   const strikeWidth = estimateGiftMoneySvgWidth(faceValue, GIFT_PORTRAIT_TYPE.originalPrice);
   const strikeY =
     GIFT_PORTRAIT_LANDMARKS.priceY - GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
-  const purchaseLabelX = ORIGINAL_PRICE_SLOT.x + strikeWidth + 52;
+  const purchaseLabelX = ORIGINAL_PRICE_SLOT.x + strikeWidth + 48;
   const purchaseValueX =
     purchaseLabelX +
     estimateGiftMoneySvgWidth(`${labels.purchaseLabel} `, GIFT_PORTRAIT_TYPE.purchaseLabel);
@@ -300,7 +308,7 @@ function AmountBlock({
     <g
       data-gift-landmark="amount"
       data-gift-value-block={model.valueMode === "mall" ? "mall" : "wallet"}
-      data-gift-money-ssot="cut-b"
+      data-gift-money-ssot="one-time"
     >
       <text
         x={PAD_L}
@@ -333,21 +341,6 @@ function AmountBlock({
         strokeWidth={1.5}
       />
 
-      {showRemaining && model.remainingBalance != null ? (
-        <text
-          data-gift-remaining-amount="1"
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.remainingY}
-          fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-          fill={INK}
-          fontFamily="system-ui,sans-serif"
-          fontWeight={700}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {labels.balanceLabel} {formatMoneyPhp(model.remainingBalance)}
-        </text>
-      ) : null}
-
       {discounted && purchasePrice ? (
         <g data-gift-landmark="price" data-gift-discount-strike="1">
           <text
@@ -373,7 +366,7 @@ function AmountBlock({
             strokeLinecap="round"
           />
           <text
-            x={ORIGINAL_PRICE_SLOT.x + strikeWidth + 20}
+            x={ORIGINAL_PRICE_SLOT.x + strikeWidth + 18}
             y={GIFT_PORTRAIT_LANDMARKS.priceY}
             fontSize={GIFT_PORTRAIT_TYPE.arrow}
             fill={MUTED}
@@ -600,7 +593,7 @@ export function DibayGiftCertificateFace({
             width={TICKET.w}
             height={TICKET.h}
             rx={TICKET.rx}
-            fill="#FFFFFF"
+            fill="#FAFCFB"
           />
           <TicketHero model={model} uid={uid} />
 
@@ -626,6 +619,33 @@ export function DibayGiftCertificateFace({
               {model.issuerBadge.length > 14
                 ? `${model.issuerBadge.slice(0, 13)}…`
                 : model.issuerBadge}
+            </text>
+          </g>
+
+          <g
+            data-gift-status-chip="1"
+            data-gift-availability={model.valueMode === "used" ? "USED" : "AVAILABLE"}
+          >
+            <rect
+              x={PAD_R - 196}
+              y={GIFT_PORTRAIT_LANDMARKS.badgeY}
+              width={196}
+              height={52}
+              rx={26}
+              fill={model.valueMode === "used" ? "#F1F3F2" : BRAND_SOFT}
+              stroke={model.valueMode === "used" ? LINE : BRAND_SOFT_STROKE}
+              strokeWidth={1.5}
+            />
+            <text
+              x={PAD_R - 98}
+              y={GIFT_PORTRAIT_LANDMARKS.badgeY + 39}
+              textAnchor="middle"
+              fontSize={GIFT_PORTRAIT_TYPE.statusChip}
+              fontWeight={750}
+              fill={model.valueMode === "used" ? MUTED : BRAND}
+              fontFamily="system-ui,sans-serif"
+            >
+              {model.valueMode === "used" ? "USED" : "AVAILABLE"}
             </text>
           </g>
 
@@ -676,6 +696,24 @@ export function DibayGiftCertificateFace({
           />
           <NumberMetaRow label={labels.numberLabel} value={numberValue} />
 
+
+          {model.valueMode === "used" ? (
+            <g data-gift-used-stamp="1" pointerEvents="none" opacity={0.18}>
+              <text
+                x={400}
+                y={620}
+                textAnchor="middle"
+                fontSize={120}
+                fontWeight={900}
+                fill={MUTED}
+                fontFamily="system-ui,sans-serif"
+                transform="rotate(-18 400 620)"
+                letterSpacing="8"
+              >
+                USED
+              </text>
+            </g>
+          ) : null}
           <text
             x={400}
             y={GIFT_PORTRAIT_LANDMARKS.footerY}

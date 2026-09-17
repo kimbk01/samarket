@@ -111,7 +111,7 @@ describe("gift scope STORE vs PLATFORM checkout (B4 T1–T8)", () => {
     ).toBe(false);
   });
 
-  it("T8 remaining balance preserved in projection", () => {
+  it("T8 historical PARTIALLY_REDEEMED is not checkout-eligible", () => {
     const gifts = filterCheckoutEligibleGifts(
       [
         inst({
@@ -125,7 +125,7 @@ describe("gift scope STORE vs PLATFORM checkout (B4 T1–T8)", () => {
       storeA,
       { checkoutStoreEligible: true }
     );
-    expect(gifts[0]?.remainingBalance).toBe(350);
+    expect(gifts).toHaveLength(0);
   });
 
   it("scope store_id contract", () => {

@@ -439,7 +439,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "gift_store_mismatch" }, { status: 400 });
     }
     const status = String(row.status ?? "");
-    if (status !== "ACTIVE" && status !== "PARTIALLY_REDEEMED") {
+    // One-time contract: only pristine ACTIVE may redeem (historical PARTIAL never second-redeems).
+    if (status !== "ACTIVE") {
       return NextResponse.json({ ok: false, error: "gift_invalid_status" }, { status: 400 });
     }
     const giftRemaining = Math.trunc(Number(row.remaining_balance) || 0);

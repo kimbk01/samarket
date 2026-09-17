@@ -151,16 +151,31 @@ describe("G1 Paid Gift domain contract", () => {
   });
 
   // T4
-  it("T4 Redemption calculation", () => {
+  it("T4 Redemption calculation — one-time: unused face is forfeited", () => {
     expect(
       computeGiftRedemptionSplit({ amountDueBeforeGift: 900, giftRemaining: 300 })
-    ).toEqual({ redeemAmount: 300, remainingPayment: 600, giftRemainingAfter: 0 });
+    ).toEqual({
+      redeemAmount: 300,
+      remainingPayment: 600,
+      giftRemainingAfter: 0,
+      forfeitedAmount: 0,
+    });
     expect(
       computeGiftRedemptionSplit({ amountDueBeforeGift: 300, giftRemaining: 1000 })
-    ).toEqual({ redeemAmount: 300, remainingPayment: 0, giftRemainingAfter: 700 });
+    ).toEqual({
+      redeemAmount: 300,
+      remainingPayment: 0,
+      giftRemainingAfter: 0,
+      forfeitedAmount: 700,
+    });
     expect(
       computeGiftRedemptionSplit({ amountDueBeforeGift: -1, giftRemaining: 100 })
-    ).toEqual({ redeemAmount: 0, remainingPayment: 0, giftRemainingAfter: 100 });
+    ).toEqual({
+      redeemAmount: 0,
+      remainingPayment: 0,
+      giftRemainingAfter: 0,
+      forfeitedAmount: 100,
+    });
   });
 
   // T5
@@ -198,6 +213,8 @@ describe("G1 Paid Gift domain contract", () => {
     expect(giftPendingBlocksRedeem("GIFT_LOCKED")).toBe(true);
     expect(giftInstanceAllowsRedeem("GIFT_LOCKED")).toBe(false);
     expect(giftInstanceAllowsRedeem("ACTIVE")).toBe(true);
+    expect(giftInstanceAllowsRedeem("PARTIALLY_REDEEMED")).toBe(false);
+    expect(giftInstanceAllowsRedeem("FULLY_REDEEMED")).toBe(false);
   });
 
   // T9
@@ -301,7 +318,7 @@ describe("G1 Paid Gift domain contract", () => {
   // T16
   it("T16 Fully redeemed history retained", () => {
     expect(resolveGiftInstanceStatusAfterRedeem(0)).toBe("FULLY_REDEEMED");
-    expect(resolveGiftInstanceStatusAfterRedeem(1)).toBe("PARTIALLY_REDEEMED");
+    expect(resolveGiftInstanceStatusAfterRedeem(1)).toBe("FULLY_REDEEMED");
     expect(GIFT_FULLY_REDEEMED_HISTORY_RETAINED).toBe(true);
     expect(GIFT_FULLY_REDEEMED_DELETE_FORBIDDEN).toBe(true);
   });
