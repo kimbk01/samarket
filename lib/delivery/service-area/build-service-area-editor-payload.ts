@@ -15,6 +15,10 @@ import {
   formatApproxDeliveryDistanceKm,
   resolveDeliveryRegionalListSelectedIds,
 } from "@/lib/delivery/service-area/regional-list-presentation";
+import {
+  getPlatformPhLguCentroid,
+  getPlatformPhLguDisplayNameById,
+} from "@/lib/geo/ph-lgu/platform-ph-lgu";
 
 export type ServiceAreaEditorStoreGeo = {
   city?: string | null;
@@ -30,8 +34,8 @@ export function buildDeliveryServiceAreaEditorPayload(
   store: ServiceAreaEditorStoreGeo,
   selected: StoreDeliveryServiceAreaRow[]
 ) {
-  const lat = store.lat != null && Number.isFinite(Number(store.lat)) ? Number(store.lat) : null;
-  const lng = store.lng != null && Number.isFinite(Number(store.lng)) ? Number(store.lng) : null;
+  let lat = store.lat != null && Number.isFinite(Number(store.lat)) ? Number(store.lat) : null;
+  let lng = store.lng != null && Number.isFinite(Number(store.lng)) ? Number(store.lng) : null;
   const referenceKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
   const searchKm = resolveRegionalCandidateSearchKm(store.delivery_radius_km);
   const authorityMode = parseDeliveryServiceAreaAuthority(store.delivery_service_area_authority);
@@ -41,6 +45,20 @@ export function buildDeliveryServiceAreaEditorPayload(
     storeLat: lat,
     storeLng: lng,
   });
+
+  /**
+   * When store lat/lng are missing but canonical home LGU resolved,
+   * use that LGU centroid as discovery center so Owner still sees
+   * primary/extended regional rows (presentation only — not eligibility).
+   */
+  if ((lat == null || lng == null) && storeHomeLguId) {
+    const centroid = getPlatformPhLguCentroid(storeHomeLguId);
+    if (centroid) {
+      lat = centroid.lat;
+      lng = centroid.lng;
+    }
+  }
+
   const discovered =
     lat != null && lng != null
       ? discoverDeliveryServiceAreaCandidates({
@@ -80,12 +98,17 @@ export function buildDeliveryServiceAreaEditorPayload(
       ? [...new Set(savedSelectedIds.map((id) => String(id).trim()).filter(Boolean))].sort()
       : [...proposedSelected].sort();
 
+  const canonicalHomeName = storeHomeLguId
+    ? getPlatformPhLguDisplayNameById(storeHomeLguId) || null
+    : null;
+
   return {
     storeName: store.store_name ?? null,
     authorityMode,
     storeHomeLguId,
     storeHomeDisplayName:
       candidatesWithBands.find((c) => c.isStoreHome)?.displayName ??
+      canonicalHomeName ??
       ((store.city ?? "").trim() || null),
     referenceDistanceKm: referenceKm,
     candidateSearchKm: searchKm,

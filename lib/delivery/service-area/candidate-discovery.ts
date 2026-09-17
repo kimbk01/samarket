@@ -51,12 +51,33 @@ export function resolveStoreHomeLguId(input: {
   storeLng?: number | null;
 }): string | null {
   const city = (input.cityMunicipality ?? "").trim();
+  const province = (input.province ?? "").trim();
+
   if (city) {
     const res = resolvePlatformPhLguFromAddressFields({
       cityMunicipality: city,
-      province: input.province ?? null,
+      province: province || null,
     });
     if (res.status === "resolved" && res.canonicalId) return res.canonicalId;
+  }
+
+  /**
+   * Owner store rows often store barangay/neighborhood in `city`
+   * (e.g. "Commonwealth") and the real City/Municipality in `region`
+   * (e.g. "Quezon City"). When city is unresolved, try region as city.
+   */
+  if (province) {
+    const asCity = resolvePlatformPhLguFromAddressFields({
+      cityMunicipality: province,
+      province: null,
+    });
+    if (asCity.status === "resolved" && asCity.canonicalId) return asCity.canonicalId;
+
+    const asNcrCity = resolvePlatformPhLguFromAddressFields({
+      cityMunicipality: province,
+      province: "Metro Manila",
+    });
+    if (asNcrCity.status === "resolved" && asNcrCity.canonicalId) return asNcrCity.canonicalId;
   }
 
   const lat = input.storeLat;
