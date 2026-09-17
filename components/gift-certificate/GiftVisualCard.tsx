@@ -227,10 +227,8 @@ export function GiftVisualCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-ui-rect border bg-sam-surface shadow-sm ${
-        isUsed
-          ? "border-sam-border/80 opacity-80 saturate-[0.55]"
-          : "border-sam-border"
+      className={`min-w-0 overflow-visible bg-transparent ${
+        isUsed ? "opacity-90 saturate-[0.7]" : ""
       } ${shellClass} ${className}`}
       data-gift-visual-card="1"
       data-gift-scope={model.kind}
@@ -244,7 +242,7 @@ export function GiftVisualCard({
       <DibayGiftCertificateFace model={model} labels={labels} />
 
       {statusLabel ? (
-        <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
+        <div className="space-y-1 px-1 pt-2">
           <p className="text-xs font-semibold text-sam-fg" data-gift-status-label="1">
             {statusLabel}
           </p>
@@ -252,15 +250,12 @@ export function GiftVisualCard({
       ) : null}
 
       {footer ? (
-        <div className="border-t border-sam-border/60 px-3 py-2.5" data-gift-card-footer="1">
+        <div className="px-1 pt-2" data-gift-card-footer="1">
           {footer}
         </div>
       ) : null}
       {detailBtn || sendBtn ? (
-        <div
-          className="flex gap-2 border-t border-sam-border/60 px-3 py-2.5"
-          data-gift-card-actions="1"
-        >
+        <div className="flex gap-2 px-1 pt-2" data-gift-card-actions="1">
           {detailBtn}
           {sendBtn}
         </div>

@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * Canonical DIBAY gift-certificate face.
- * RESET geometry: one 800×1120 SVG, scaled without surface-specific layout branches.
+ * DIBAY gift-certificate face — Owner modern ticket VISUAL SSOT.
+ * Geometry mirrors dibay-gift-certificate-modern reference (640×360):
+ * left brand rail · vertical perforation · side notches · body hierarchy.
+ * Dynamic text only from GiftCertificateVisualModel. Finance/domain untouched.
  */
 
 import { useId } from "react";
-import { DIBAY_LOGO_MARK_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import type { GiftCertificateVisualModel } from "@/lib/gift-certificate/gift-certificate-visual-model";
 import { giftShowsDiscountStrike } from "@/lib/gift-certificate/gift-certificate-visual-model";
 import {
@@ -17,71 +18,80 @@ import {
 import { wrapGiftCertificateTitle } from "@/lib/gift-certificate/wrap-gift-certificate-title";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
-const BRAND = "#0B421A";
-const BRAND_MID = "#0F5A24";
-const BRAND_SOFT = "#E8F2EB";
-const BRAND_SOFT_STROKE = "#B7D0C0";
-const GOLD = "#D4AF37";
-const INK = "#202622";
-const MUTED = "#6F7773";
-const MUTED_PRICE = "#8B9490";
-const LINE = "#D8DEDA";
-const BORDER = "#D9E2DC";
-
 const VB_W = GIFT_CERT_COORD_WIDTH;
 const VB_H = GIFT_CERT_COORD_HEIGHT;
-const TICKET = { x: 10, y: 10, w: 780, h: 1100, rx: 30 } as const;
-const PAD_L = 64;
-const PAD_R = 736;
-const PLATFORM_LOGO_SRC = dibayBrandAssetUrl(DIBAY_LOGO_MARK_PATH);
 
-/**
- * Certificate composition landmarks (800×1120) — one physical gift-certificate sheet.
- * Redesign (one-time contract): no customer remaining-balance row.
- */
+const FONT =
+  '"Pretendard Variable", Pretendard, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+
+/** Measured from Owner reference 640×360 — DO NOT redesign. */
+export const GIFT_MODERN_GEOMETRY = {
+  rx: 28,
+  railW: 168,
+  notchR: 24,
+  notchY: 166,
+  perforationX: 168,
+  bodyPadL: 188,
+  bodyPadR: 612,
+} as const;
+
+/** Landmarks (y) inside body — Owner reference composition. */
 export const GIFT_PORTRAIT_LANDMARKS = {
-  heroBottomY: 292,
-  badgeY: 322,
-  titleY: 412,
-  amountLabelY: 512,
-  amountY: 598,
-  priceDividerY: 628,
-  priceY: 708,
-  perforationY: 768,
-  issuerY: 836,
-  expiryY: 904,
-  /** @deprecated use numberLabelY */
-  numberY: 952,
-  numberLabelY: 952,
-  numberValueY: 1008,
-  footerY: 1070,
+  badgeY: 36,
+  titleY: 78,
+  titleLine: 24,
+  descY: 108,
+  amountLabelY: 142,
+  amountY: 188,
+  purchaseLabelY: 214,
+  purchaseY: 236,
+  dividerY: 262,
+  metaLabelY: 288,
+  metaValueY: 312,
+  storeLogoSize: 36,
+  /** @deprecated compat aliases */
+  brandY: 52,
+  issuerY: 312,
+  purchaseYLegacy: 236,
+  perforationY: 166,
+  numberY: 312,
 } as const;
 
 /**
- * Typography scale @ sm=220 (scale 0.275):
- * title ≥16px, amount ~22.5px (readable, not dominant), purchase ≥14px, meta ≥12px.
+ * Type scale @ 640 viewBox.
+ * Amount ≈ 2.0× title (Owner: must stay ≤ 2.2×).
  */
 export const GIFT_PORTRAIT_TYPE = {
-  badge: 41,
-  title: 59,
-  titleLine: 62,
-  amountLabel: 34,
-  amountValue: 82,
-  originalPrice: 48,
-  arrow: 44,
-  purchasePrice: 52,
-  purchaseLabel: 34,
-  metaLabel: 44,
-  metaValue: 44,
-  footBrand: 24,
-  heroWordmark: 46,
-  heroSubtitle: 24,
-  heroBadge: 40,
-  statusChip: 34,
+  railBrand: 30,
+  railSubtitle: 10,
+  railOneTime: 11,
+  railFoot: 9,
+  badge: 11,
+  title: 22,
+  desc: 12,
+  amountLabel: 12,
+  amountValue: 44,
+  purchaseLabel: 12,
+  purchaseStrike: 14,
+  purchaseValue: 16,
+  offBadge: 10,
+  metaLabel: 11,
+  metaValue: 13,
+  status: 11,
 } as const;
 
-const ORIGINAL_PRICE_SLOT = { x: PAD_L, width: 218 } as const;
-const STRIKE_STROKE = 5;
+const RAIL = "#0D4F26";
+const RAIL_SOFT = "#176338";
+const YELLOW = "#F3D44D";
+const AMOUNT = "#0D4F26";
+const INK = "#171A18";
+const MUTED = "#7A847C";
+const LINE = "#E3E8E4";
+const BADGE_BG = "#E7F4EC";
+const BADGE_FG = "#0D4F26";
+const OFF_BG = "#F6E7A8";
+const OFF_FG = "#6B5A14";
+const BODY = "#FCFDFB";
 
 export type GiftCertificateFaceLabels = {
   faceAmountLabel: string;
@@ -94,432 +104,21 @@ export type GiftCertificateFaceLabels = {
   numberUnavailable: string;
 };
 
-/** Deterministic rendered width estimate for the explicit original-price strike. */
-export function estimateGiftMoneySvgWidth(text: string, fontSize: number): number {
+function discountOffPercent(face: number, purchase: number): number {
+  if (!(face > 0) || !(purchase < face)) return 0;
+  return Math.max(1, Math.round(((face - purchase) / face) * 100));
+}
+
+function estimateSvgTextWidth(text: string, fontSize: number): number {
   let width = 0;
   for (const char of text) {
-    if (char === "," || char === "." || char === " ") width += fontSize * 0.32;
-    else if (char === "₱" || char === "$" || char === "€") width += fontSize * 0.72;
-    else width += fontSize * 0.6;
+    if (char === "," || char === "." || char === " ") width += fontSize * 0.3;
+    else if (char === "₱" || char === "$") width += fontSize * 0.7;
+    else if (/[0-9]/.test(char)) width += fontSize * 0.58;
+    else if (/[A-Za-z]/.test(char)) width += fontSize * 0.55;
+    else width += fontSize * 0.9;
   }
-  return Math.min(
-    ORIGINAL_PRICE_SLOT.width,
-    Math.max(fontSize * 1.2, Math.round(width))
-  );
-}
-
-function TicketHero({
-  model,
-  uid,
-}: {
-  model: GiftCertificateVisualModel;
-  uid: string;
-}) {
-  const isPlatform = model.kind === "PLATFORM";
-  const heroGradientId = `${uid}-hero-gradient`;
-  const foilId = `${uid}-foil`;
-  const identityClipId = `${uid}-identity-clip`;
-  const identity = { x: 286, y: 48, w: 228, h: 148 } as const;
-  const used = model.valueMode === "used";
-
-  return (
-    <g data-gift-landmark="hero" data-gift-cert-hero="1" data-gift-cert-identity="ticket">
-      <defs>
-        <linearGradient id={heroGradientId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={used ? "#3A4A3E" : BRAND_MID} />
-          <stop offset="55%" stopColor={used ? "#2C3830" : BRAND} />
-          <stop offset="100%" stopColor={used ? "#24302A" : "#083618"} />
-        </linearGradient>
-        <linearGradient id={foilId} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#C9A227" stopOpacity={0.35} />
-          <stop offset="50%" stopColor="#F0D78C" stopOpacity={0.95} />
-          <stop offset="100%" stopColor="#C9A227" stopOpacity={0.35} />
-        </linearGradient>
-        <clipPath id={identityClipId}>
-          <rect
-            x={identity.x}
-            y={identity.y}
-            width={identity.w}
-            height={identity.h}
-            rx={18}
-          />
-        </clipPath>
-      </defs>
-
-      <rect
-        x={TICKET.x}
-        y={TICKET.y}
-        width={TICKET.w}
-        height={GIFT_PORTRAIT_LANDMARKS.heroBottomY - TICKET.y}
-        fill={`url(#${heroGradientId})`}
-      />
-      <rect
-        x={TICKET.x + 28}
-        y={GIFT_PORTRAIT_LANDMARKS.heroBottomY - 10}
-        width={TICKET.w - 56}
-        height={4}
-        rx={2}
-        fill={`url(#${foilId})`}
-        data-gift-cert-foil="1"
-      />
-
-      <g data-gift-hero-identity-slot="1">
-        {isPlatform ? (
-          <image
-            data-gift-dibay-logo="1"
-            href={PLATFORM_LOGO_SRC}
-            x={identity.x}
-            y={identity.y}
-            width={identity.w}
-            height={identity.h}
-            preserveAspectRatio="xMidYMid meet"
-          />
-        ) : model.heroImageSrc && !model.useStoreInitialFallback ? (
-          <g clipPath={`url(#${identityClipId})`}>
-            <rect
-              x={identity.x}
-              y={identity.y}
-              width={identity.w}
-              height={identity.h}
-              rx={18}
-              fill="#FFFFFF"
-              opacity={0.14}
-            />
-            <image
-              data-gift-store-hero="1"
-              href={model.heroImageSrc}
-              x={identity.x}
-              y={identity.y}
-              width={identity.w}
-              height={identity.h}
-              preserveAspectRatio="xMidYMid meet"
-            />
-          </g>
-        ) : (
-          <text
-            x={400}
-            y={148}
-            textAnchor="middle"
-            fontSize={96}
-            fontWeight={800}
-            fill="#FFFFFF"
-            fontFamily="system-ui,sans-serif"
-          >
-            {model.storeInitial}
-          </text>
-        )}
-      </g>
-
-      <text
-        x={400}
-        y={228}
-        textAnchor="middle"
-        fontSize={GIFT_PORTRAIT_TYPE.heroWordmark}
-        fontWeight={800}
-        fill="#FFFFFF"
-        fontFamily="system-ui,sans-serif"
-        letterSpacing="2"
-      >
-        {isPlatform ? "DIBAY" : model.issuerName}
-      </text>
-      <text
-        x={400}
-        y={262}
-        textAnchor="middle"
-        fontSize={GIFT_PORTRAIT_TYPE.heroSubtitle}
-        fontWeight={700}
-        fill={GOLD}
-        fontFamily="system-ui,sans-serif"
-        letterSpacing="3"
-      >
-        GIFT CERTIFICATE
-      </text>
-    </g>
-  );
-}
-
-function AmountBlock({
-  model,
-  labels,
-}: {
-  model: GiftCertificateVisualModel;
-  labels: GiftCertificateFaceLabels;
-}) {
-  if (model.valueMode === "used") {
-    return (
-      <g data-gift-landmark="amount" data-gift-value-block="used">
-        <text
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
-          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
-          fill={MUTED}
-          fontFamily="system-ui,sans-serif"
-          fontWeight={700}
-        >
-          {labels.usedLabel}
-        </text>
-        {model.faceValue != null ? (
-          <text
-            data-gift-face-amount="1"
-            x={PAD_L}
-            y={GIFT_PORTRAIT_LANDMARKS.amountY}
-            fontSize={GIFT_PORTRAIT_TYPE.amountValue}
-            fill={MUTED_PRICE}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={800}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {formatMoneyPhp(model.faceValue)}
-          </text>
-        ) : null}
-        {model.purchasePrice != null ? (
-          <text
-            data-gift-purchase-amount="1"
-            x={PAD_L}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-            fill={MUTED}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={600}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {labels.purchaseLabel} {formatMoneyPhp(model.purchasePrice)}
-          </text>
-        ) : null}
-      </g>
-    );
-  }
-
-  if (model.faceValue == null) return null;
-
-  const faceValue = formatMoneyPhp(model.faceValue);
-  const purchasePrice =
-    model.purchasePrice == null ? null : formatMoneyPhp(model.purchasePrice);
-  const discounted = giftShowsDiscountStrike(model.faceValue, model.purchasePrice);
-  const strikeWidth = estimateGiftMoneySvgWidth(faceValue, GIFT_PORTRAIT_TYPE.originalPrice);
-  const strikeY =
-    GIFT_PORTRAIT_LANDMARKS.priceY - GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
-  const purchaseLabelX = ORIGINAL_PRICE_SLOT.x + strikeWidth + 48;
-  const purchaseValueX =
-    purchaseLabelX +
-    estimateGiftMoneySvgWidth(`${labels.purchaseLabel} `, GIFT_PORTRAIT_TYPE.purchaseLabel);
-
-  return (
-    <g
-      data-gift-landmark="amount"
-      data-gift-value-block={model.valueMode === "mall" ? "mall" : "wallet"}
-      data-gift-money-ssot="one-time"
-    >
-      <text
-        x={PAD_L}
-        y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
-        fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
-        fill={MUTED}
-        fontFamily="system-ui,sans-serif"
-        fontWeight={600}
-      >
-        {labels.faceAmountLabel}
-      </text>
-      <text
-        data-gift-face-amount="1"
-        x={PAD_L}
-        y={GIFT_PORTRAIT_LANDMARKS.amountY}
-        fontSize={GIFT_PORTRAIT_TYPE.amountValue}
-        fill={BRAND}
-        fontFamily="system-ui,sans-serif"
-        fontWeight={800}
-        style={{ fontVariantNumeric: "tabular-nums" }}
-      >
-        {faceValue}
-      </text>
-      <line
-        x1={PAD_L}
-        x2={PAD_R}
-        y1={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
-        y2={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
-        stroke={LINE}
-        strokeWidth={1.5}
-      />
-
-      {discounted && purchasePrice ? (
-        <g data-gift-landmark="price" data-gift-discount-strike="1">
-          <text
-            data-gift-face-strike="1"
-            x={ORIGINAL_PRICE_SLOT.x}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
-            fill={MUTED_PRICE}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={500}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {faceValue}
-          </text>
-          <line
-            data-gift-face-strike-line="1"
-            x1={ORIGINAL_PRICE_SLOT.x}
-            x2={ORIGINAL_PRICE_SLOT.x + strikeWidth}
-            y1={strikeY}
-            y2={strikeY}
-            stroke={MUTED_PRICE}
-            strokeWidth={STRIKE_STROKE}
-            strokeLinecap="round"
-          />
-          <text
-            x={ORIGINAL_PRICE_SLOT.x + strikeWidth + 18}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.arrow}
-            fill={MUTED}
-            fontFamily="system-ui,sans-serif"
-          >
-            →
-          </text>
-          <text
-            x={purchaseLabelX}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.purchaseLabel}
-            fill={MUTED}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={600}
-          >
-            {labels.purchaseLabel}
-          </text>
-          <text
-            data-gift-purchase-amount="1"
-            x={purchaseValueX}
-            y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-            fill={BRAND}
-            fontFamily="system-ui,sans-serif"
-            fontWeight={800}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {purchasePrice}
-          </text>
-        </g>
-      ) : purchasePrice ? (
-        <text
-          data-gift-purchase-amount="1"
-          data-gift-discount-strike="0"
-          x={PAD_L}
-          y={GIFT_PORTRAIT_LANDMARKS.priceY}
-          fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
-          fill={INK}
-          fontFamily="system-ui,sans-serif"
-          fontWeight={700}
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {labels.purchaseLabel} {purchasePrice}
-        </text>
-      ) : null}
-    </g>
-  );
-}
-
-function MetaIcon({
-  kind,
-  y,
-}: {
-  kind: "issuer" | "expiry" | "number";
-  y: number;
-}) {
-  const x = 70;
-  const cy = y - 14;
-  if (kind === "issuer") {
-    return (
-      <g fill="none" stroke={MUTED} strokeWidth={3} aria-hidden>
-        <path d={`M ${x} ${cy - 10} L ${x + 14} ${cy - 20} L ${x + 28} ${cy - 10}`} />
-        <rect x={x + 2} y={cy - 10} width={24} height={25} rx={2} />
-      </g>
-    );
-  }
-  if (kind === "expiry") {
-    return (
-      <g fill="none" stroke={MUTED} strokeWidth={3} aria-hidden>
-        <rect x={x + 1} y={cy - 16} width={27} height={27} rx={4} />
-        <path d={`M ${x + 1} ${cy - 7} H ${x + 28}`} />
-        <path d={`M ${x + 8} ${cy - 21} V ${cy - 12} M ${x + 21} ${cy - 21} V ${cy - 12}`} />
-      </g>
-    );
-  }
-  return (
-    <g fill="none" stroke={MUTED} strokeWidth={3} aria-hidden>
-      <path d={`M ${x + 2} ${cy - 17} H ${x + 26} L ${x + 23} ${cy + 13} H ${x + 5} Z`} />
-      <circle cx={x + 14} cy={cy - 5} r={3} fill={MUTED} stroke="none" />
-    </g>
-  );
-}
-
-function NumberMetaRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <g data-gift-landmark="number" data-gift-cert-number-row="stacked">
-      <MetaIcon kind="number" y={GIFT_PORTRAIT_LANDMARKS.numberLabelY} />
-      <text
-        x={112}
-        y={GIFT_PORTRAIT_LANDMARKS.numberLabelY}
-        fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
-        fill={MUTED}
-        fontFamily="system-ui,sans-serif"
-      >
-        {label}
-      </text>
-      <text
-        data-gift-public-number="1"
-        x={112}
-        y={GIFT_PORTRAIT_LANDMARKS.numberValueY}
-        fontSize={GIFT_PORTRAIT_TYPE.metaValue}
-        fill={INK}
-        fontFamily="system-ui,sans-serif"
-        fontWeight={650}
-      >
-        {value}
-      </text>
-    </g>
-  );
-}
-
-function MetaRow({
-  kind,
-  label,
-  value,
-  y,
-}: {
-  kind: "issuer" | "expiry" | "number";
-  label: string;
-  value: string;
-  y: number;
-}) {
-  return (
-    <g data-gift-landmark={kind}>
-      <MetaIcon kind={kind} y={y} />
-      <text
-        x={112}
-        y={y}
-        fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
-        fill={MUTED}
-        fontFamily="system-ui,sans-serif"
-      >
-        {label}
-      </text>
-      <text
-        x={PAD_R}
-        y={y}
-        fontSize={GIFT_PORTRAIT_TYPE.metaValue}
-        fill={INK}
-        fontFamily="system-ui,sans-serif"
-        fontWeight={650}
-        textAnchor="end"
-      >
-        {value}
-      </text>
-    </g>
-  );
+  return Math.round(width);
 }
 
 export function DibayGiftCertificateFace({
@@ -531,234 +130,515 @@ export function DibayGiftCertificateFace({
 }) {
   const reactId = useId().replace(/:/g, "");
   const uid = `gcf-${reactId}`;
-  const maskId = `${uid}-ticket-mask`;
+  const maskId = `${uid}-ticket`;
+  const railGradId = `${uid}-rail`;
+  const logoClipId = `${uid}-logo`;
+
+  const used = model.valueMode === "used";
   const isPlatform = model.kind === "PLATFORM";
+  const statusText = used ? "USED" : "AVAILABLE";
+
   const titleLines = wrapGiftCertificateTitle(model.title, {
-    maxCharsPerLine: 18,
+    maxCharsPerLine: 20,
     maxLines: 2,
   });
+  const multiTitle = titleLines.length > 1;
+  const amountLabelY = multiTitle
+    ? GIFT_PORTRAIT_LANDMARKS.amountLabelY + 10
+    : GIFT_PORTRAIT_LANDMARKS.amountLabelY;
+  const amountY = multiTitle
+    ? GIFT_PORTRAIT_LANDMARKS.amountY + 10
+    : GIFT_PORTRAIT_LANDMARKS.amountY;
+  const purchaseY = multiTitle
+    ? GIFT_PORTRAIT_LANDMARKS.purchaseY + 10
+    : GIFT_PORTRAIT_LANDMARKS.purchaseY;
+
   const numberValue =
     model.certificateDisplayNumber?.trim() || labels.numberUnavailable;
   const expiryValue = model.expirationDisplay?.trim() || "";
+
+  const faceValue =
+    model.faceValue == null ? null : formatMoneyPhp(model.faceValue);
+  const purchasePrice =
+    model.purchasePrice == null ? null : formatMoneyPhp(model.purchasePrice);
+  const discounted =
+    model.faceValue != null &&
+    model.purchasePrice != null &&
+    giftShowsDiscountStrike(model.faceValue, model.purchasePrice);
+  const offPct =
+    discounted && model.faceValue != null && model.purchasePrice != null
+      ? discountOffPercent(model.faceValue, model.purchasePrice)
+      : 0;
+
+  const showStoreLogo =
+    !isPlatform &&
+    Boolean(model.heroImageSrc) &&
+    !model.useStoreInitialFallback &&
+    Boolean(model.heroImageSrc);
+
+  const g = GIFT_MODERN_GEOMETRY;
+  const bodyX = g.bodyPadL;
+  const metaCols = [
+    { label: labels.issuerLabel, value: model.issuerName || (isPlatform ? "DIBAY" : ""), x: bodyX },
+    { label: labels.expiryLabel, value: expiryValue, x: 340 },
+    { label: labels.numberLabel, value: numberValue, x: 470 },
+  ] as const;
+
+  const strikeW = faceValue
+    ? estimateSvgTextWidth(faceValue, GIFT_PORTRAIT_TYPE.purchaseStrike)
+    : 0;
 
   return (
     <div
       data-gift-cert-face="1"
       data-gift-certificate-face="1"
-      data-gift-brand-logo={isPlatform ? "dibay-logo-mark" : "store"}
+      data-gift-brand-logo={isPlatform ? "dibay-rail" : "store-rail"}
       data-gift-scope={model.kind}
       data-gift-value-mode={model.valueMode}
-      className="relative w-full min-w-0 overflow-hidden"
+      data-gift-cert-identity="modern-ticket"
+      className="relative w-full min-w-0 overflow-visible"
       style={{ aspectRatio: GIFT_CERT_ASPECT_RATIO, maxWidth: "100%" }}
     >
       <svg
         data-gift-cert-artwork="1"
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         width="100%"
-        height="100%"
+        height="auto"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label={model.title || "Gift certificate"}
-        style={{ display: "block", width: "100%", height: "100%" }}
+        aria-label={model.title || "DIBAY Gift Certificate"}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "auto",
+          aspectRatio: GIFT_CERT_ASPECT_RATIO,
+        }}
       >
         <defs>
+          <linearGradient id={railGradId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={RAIL_SOFT} />
+            <stop offset="55%" stopColor={RAIL} />
+            <stop offset="100%" stopColor="#08361A" />
+          </linearGradient>
           <mask id={maskId}>
-            <rect
-              x={TICKET.x}
-              y={TICKET.y}
-              width={TICKET.w}
-              height={TICKET.h}
-              rx={TICKET.rx}
-              fill="#FFFFFF"
-            />
-            <circle
-              cx={TICKET.x}
-              cy={GIFT_PORTRAIT_LANDMARKS.perforationY}
-              r={18}
-              fill="#000000"
-            />
-            <circle
-              cx={TICKET.x + TICKET.w}
-              cy={GIFT_PORTRAIT_LANDMARKS.perforationY}
-              r={18}
-              fill="#000000"
-            />
+            <rect x={0} y={0} width={VB_W} height={VB_H} rx={g.rx} fill="#fff" />
+            <circle cx={0} cy={g.notchY} r={g.notchR} fill="#000" />
+            <circle cx={VB_W} cy={g.notchY} r={g.notchR} fill="#000" />
           </mask>
+          {showStoreLogo ? (
+            <clipPath id={logoClipId}>
+              <rect x={66} y={118} width={36} height={36} rx={8} />
+            </clipPath>
+          ) : null}
         </defs>
 
-        <g mask={`url(#${maskId})`}>
+        <g mask={`url(#${maskId})`} opacity={used ? 0.82 : 1}>
+          {/* body */}
           <rect
-            x={TICKET.x}
-            y={TICKET.y}
-            width={TICKET.w}
-            height={TICKET.h}
-            rx={TICKET.rx}
-            fill="#FAFCFB"
+            x={0}
+            y={0}
+            width={VB_W}
+            height={VB_H}
+            rx={g.rx}
+            fill={used ? "#F4F6F4" : BODY}
           />
-          <TicketHero model={model} uid={uid} />
 
-          <g data-gift-issuer-badge="1">
-            <rect
-              x={PAD_L}
-              y={GIFT_PORTRAIT_LANDMARKS.badgeY}
-              width={Math.min(64 + model.issuerBadge.length * 20, 290)}
-              height={52}
-              rx={26}
-              fill={BRAND_SOFT}
-              stroke={BRAND_SOFT_STROKE}
-              strokeWidth={1.5}
-            />
+          {/* left brand rail */}
+          <g data-gift-brand-rail="1">
+            <rect x={0} y={0} width={g.railW} height={VB_H} fill={`url(#${railGradId})`} />
+            {/* subtle watermark rings */}
+            <circle cx={40} cy={200} r={110} fill={RAIL_SOFT} opacity={0.22} />
+            <circle cx={140} cy={40} r={90} fill="#08361A" opacity={0.25} />
+
             <text
-              x={PAD_L + 20}
-              y={GIFT_PORTRAIT_LANDMARKS.badgeY + 39}
-              fontSize={GIFT_PORTRAIT_TYPE.badge}
+              x={28}
+              y={52}
+              fill="#FFFFFF"
+              fontSize={GIFT_PORTRAIT_TYPE.railBrand}
+              fontWeight={800}
+              fontFamily={FONT}
+              letterSpacing={-0.6}
+              data-gift-brand-wordmark="1"
+            >
+              DIBAY
+            </text>
+            <rect x={28} y={60} width={36} height={3} rx={1.5} fill={YELLOW} />
+            <text
+              x={28}
+              y={88}
+              fill="#FFFFFF"
+              fontSize={GIFT_PORTRAIT_TYPE.railSubtitle}
               fontWeight={700}
-              fill={BRAND}
-              fontFamily="system-ui,sans-serif"
+              fontFamily={FONT}
+              letterSpacing={2.4}
             >
-              {model.issuerBadge.length > 14
-                ? `${model.issuerBadge.slice(0, 13)}…`
-                : model.issuerBadge}
+              GIFT CERTIFICATE
+            </text>
+
+            {showStoreLogo && model.heroImageSrc ? (
+              <g data-gift-store-logo="1" clipPath={`url(#${logoClipId})`}>
+                <rect x={66} y={118} width={36} height={36} rx={8} fill="#FFFFFF" opacity={0.16} />
+                <image
+                  href={model.heroImageSrc}
+                  x={66}
+                  y={118}
+                  width={36}
+                  height={36}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </g>
+            ) : null}
+
+            <g data-gift-one-time="1">
+              <circle cx={38} cy={286} r={8} fill={YELLOW} />
+              <path
+                d="M34.2 286.1 L36.6 288.5 L42.2 283.2"
+                fill="none"
+                stroke="#0D4F26"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <text
+                x={52}
+                y={290}
+                fill="#FFFFFF"
+                fontSize={GIFT_PORTRAIT_TYPE.railOneTime}
+                fontWeight={800}
+                fontFamily={FONT}
+                letterSpacing={0.8}
+              >
+                ONE-TIME USE
+              </text>
+            </g>
+            <text
+              x={28}
+              y={328}
+              fill="#8BB89A"
+              fontSize={GIFT_PORTRAIT_TYPE.railFoot}
+              fontWeight={700}
+              fontFamily={FONT}
+              letterSpacing={1.6}
+            >
+              DIBAY BENEFIT
             </text>
           </g>
 
-          <g
-            data-gift-status-chip="1"
-            data-gift-availability={model.valueMode === "used" ? "USED" : "AVAILABLE"}
-          >
-            <rect
-              x={PAD_R - 196}
-              y={GIFT_PORTRAIT_LANDMARKS.badgeY}
-              width={196}
-              height={52}
-              rx={26}
-              fill={model.valueMode === "used" ? "#F1F3F2" : BRAND_SOFT}
-              stroke={model.valueMode === "used" ? LINE : BRAND_SOFT_STROKE}
+          {/* vertical perforation */}
+          <g data-gift-cert-perforation="1" data-gift-landmark="perforation">
+            <line
+              x1={g.perforationX}
+              y1={18}
+              x2={g.perforationX}
+              y2={VB_H - 18}
+              stroke="#FFFFFF"
+              strokeWidth={2}
+              strokeDasharray="3 7"
+              opacity={0.95}
+            />
+          </g>
+
+          {/* body content */}
+          <g data-gift-cert-body="1">
+            {/* type badge */}
+            <g data-gift-issuer-badge="1">
+              <rect
+                x={bodyX}
+                y={GIFT_PORTRAIT_LANDMARKS.badgeY - 16}
+                width={Math.min(118, 28 + model.issuerBadge.length * 9)}
+                height={24}
+                rx={12}
+                fill={BADGE_BG}
+              />
+              <text
+                x={bodyX + 12}
+                y={GIFT_PORTRAIT_LANDMARKS.badgeY}
+                fill={BADGE_FG}
+                fontSize={GIFT_PORTRAIT_TYPE.badge}
+                fontWeight={750}
+                fontFamily={FONT}
+              >
+                {model.issuerBadge.length > 12
+                  ? `${model.issuerBadge.slice(0, 11)}…`
+                  : model.issuerBadge}
+              </text>
+            </g>
+
+            {/* status */}
+            <g
+              data-gift-status-chip="1"
+              data-gift-availability={statusText}
+            >
+              <rect
+                x={508}
+                y={GIFT_PORTRAIT_LANDMARKS.badgeY - 16}
+                width={104}
+                height={24}
+                rx={12}
+                fill={used ? "#EEF0EE" : "#FFFFFF"}
+                stroke={used ? "#C9D0CB" : "#C7DED0"}
+                strokeWidth={1.5}
+              />
+              <circle
+                cx={522}
+                cy={GIFT_PORTRAIT_LANDMARKS.badgeY - 4}
+                r={3.5}
+                fill={used ? "#6B746E" : "#1F8A4C"}
+              />
+              <text
+                x={532}
+                y={GIFT_PORTRAIT_LANDMARKS.badgeY}
+                fill={used ? "#5A635C" : BADGE_FG}
+                fontSize={GIFT_PORTRAIT_TYPE.status}
+                fontWeight={800}
+                fontFamily={FONT}
+                letterSpacing={0.4}
+              >
+                {statusText}
+              </text>
+            </g>
+
+            {/* title */}
+            <g data-gift-landmark="title" data-gift-cert-title="1">
+              {titleLines.map((line, index) => (
+                <text
+                  key={`${line}-${index}`}
+                  x={bodyX}
+                  y={
+                    GIFT_PORTRAIT_LANDMARKS.titleY +
+                    index * GIFT_PORTRAIT_LANDMARKS.titleLine
+                  }
+                  fill={INK}
+                  fontSize={GIFT_PORTRAIT_TYPE.title}
+                  fontWeight={750}
+                  fontFamily={FONT}
+                  letterSpacing={-0.4}
+                >
+                  {line}
+                </text>
+              ))}
+            </g>
+
+            {/* amount */}
+            {faceValue ? (
+              <g
+                data-gift-landmark="amount"
+                data-gift-value-block={used ? "used" : model.valueMode === "mall" ? "mall" : "wallet"}
+                data-gift-money-ssot="one-time"
+                data-gift-discount-hierarchy={discounted ? "1" : "0"}
+              >
+                <text
+                  x={bodyX}
+                  y={amountLabelY}
+                  fill={MUTED}
+                  fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
+                  fontWeight={600}
+                  fontFamily={FONT}
+                >
+                  {labels.faceAmountLabel}
+                </text>
+                <text
+                  data-gift-face-amount="1"
+                  x={bodyX}
+                  y={amountY}
+                  fill={used ? "#5A635C" : AMOUNT}
+                  fontSize={GIFT_PORTRAIT_TYPE.amountValue}
+                  fontWeight={850}
+                  fontFamily={FONT}
+                  letterSpacing={-1.4}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {faceValue}
+                </text>
+
+                {purchasePrice ? (
+                  <g data-gift-purchase-row="1">
+                    <text
+                      x={bodyX}
+                      y={
+                        multiTitle
+                          ? GIFT_PORTRAIT_LANDMARKS.purchaseLabelY + 10
+                          : GIFT_PORTRAIT_LANDMARKS.purchaseLabelY
+                      }
+                      fill={MUTED}
+                      fontSize={GIFT_PORTRAIT_TYPE.purchaseLabel}
+                      fontWeight={600}
+                      fontFamily={FONT}
+                    >
+                      {labels.purchaseLabel}
+                    </text>
+
+                    {discounted ? (
+                      <g data-gift-discount-strike="1">
+                        <text
+                          data-gift-face-strike="1"
+                          x={bodyX}
+                          y={purchaseY}
+                          fill={MUTED}
+                          fontSize={GIFT_PORTRAIT_TYPE.purchaseStrike}
+                          fontWeight={500}
+                          fontFamily={FONT}
+                          style={{ fontVariantNumeric: "tabular-nums" }}
+                        >
+                          {faceValue}
+                        </text>
+                        <line
+                          data-gift-face-strike-line="1"
+                          x1={bodyX}
+                          x2={bodyX + strikeW}
+                          y1={purchaseY - GIFT_PORTRAIT_TYPE.purchaseStrike * 0.32}
+                          y2={purchaseY - GIFT_PORTRAIT_TYPE.purchaseStrike * 0.32}
+                          stroke={MUTED}
+                          strokeWidth={1.8}
+                          strokeLinecap="round"
+                        />
+                        <text
+                          data-gift-purchase-amount="1"
+                          x={bodyX + strikeW + 12}
+                          y={purchaseY}
+                          fill={INK}
+                          fontSize={GIFT_PORTRAIT_TYPE.purchaseValue}
+                          fontWeight={800}
+                          fontFamily={FONT}
+                          style={{ fontVariantNumeric: "tabular-nums" }}
+                        >
+                          {purchasePrice}
+                        </text>
+                        {offPct > 0 ? (
+                          <g data-gift-off-badge="1">
+                            <rect
+                              x={
+                                bodyX +
+                                strikeW +
+                                12 +
+                                estimateSvgTextWidth(
+                                  purchasePrice,
+                                  GIFT_PORTRAIT_TYPE.purchaseValue
+                                ) +
+                                10
+                              }
+                              y={purchaseY - 14}
+                              width={52}
+                              height={18}
+                              rx={9}
+                              fill={OFF_BG}
+                            />
+                            <text
+                              x={
+                                bodyX +
+                                strikeW +
+                                12 +
+                                estimateSvgTextWidth(
+                                  purchasePrice,
+                                  GIFT_PORTRAIT_TYPE.purchaseValue
+                                ) +
+                                36
+                              }
+                              y={purchaseY - 1}
+                              textAnchor="middle"
+                              fill={OFF_FG}
+                              fontSize={GIFT_PORTRAIT_TYPE.offBadge}
+                              fontWeight={800}
+                              fontFamily={FONT}
+                            >
+                              {offPct}% OFF
+                            </text>
+                          </g>
+                        ) : null}
+                      </g>
+                    ) : (
+                      <text
+                        data-gift-purchase-amount="1"
+                        data-gift-discount-strike="0"
+                        x={bodyX}
+                        y={purchaseY}
+                        fill={INK}
+                        fontSize={GIFT_PORTRAIT_TYPE.purchaseValue}
+                        fontWeight={750}
+                        fontFamily={FONT}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {purchasePrice}
+                      </text>
+                    )}
+                  </g>
+                ) : null}
+              </g>
+            ) : null}
+
+            {/* divider */}
+            <line
+              x1={bodyX}
+              y1={GIFT_PORTRAIT_LANDMARKS.dividerY}
+              x2={g.bodyPadR}
+              y2={GIFT_PORTRAIT_LANDMARKS.dividerY}
+              stroke={LINE}
               strokeWidth={1.5}
             />
-            <text
-              x={PAD_R - 98}
-              y={GIFT_PORTRAIT_LANDMARKS.badgeY + 39}
-              textAnchor="middle"
-              fontSize={GIFT_PORTRAIT_TYPE.statusChip}
-              fontWeight={750}
-              fill={model.valueMode === "used" ? MUTED : BRAND}
-              fontFamily="system-ui,sans-serif"
-            >
-              {model.valueMode === "used" ? "USED" : "AVAILABLE"}
-            </text>
+
+            {/* metadata grid */}
+            <g data-gift-meta-grid="1">
+              {metaCols.map((col) => (
+                <g key={col.label} data-gift-meta-col={col.label}>
+                  <text
+                    x={col.x}
+                    y={GIFT_PORTRAIT_LANDMARKS.metaLabelY}
+                    fill={MUTED}
+                    fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
+                    fontWeight={500}
+                    fontFamily={FONT}
+                  >
+                    {col.label}
+                  </text>
+                  <text
+                    {...(col.label === labels.numberLabel
+                      ? { "data-gift-public-number": "1" }
+                      : col.label === labels.issuerLabel
+                        ? { "data-gift-landmark": "issuer" }
+                        : {})}
+                    x={col.x}
+                    y={GIFT_PORTRAIT_LANDMARKS.metaValueY}
+                    fill={INK}
+                    fontSize={GIFT_PORTRAIT_TYPE.metaValue}
+                    fontWeight={750}
+                    fontFamily={FONT}
+                  >
+                    {col.value.length > 16 ? `${col.value.slice(0, 15)}…` : col.value}
+                  </text>
+                </g>
+              ))}
+            </g>
           </g>
 
-          <g data-gift-landmark="title" data-gift-cert-title="1">
-            {titleLines.map((line, index) => (
-              <text
-                key={`${line}-${index}`}
-                x={PAD_L}
-                y={
-                  GIFT_PORTRAIT_LANDMARKS.titleY +
-                  index * GIFT_PORTRAIT_TYPE.titleLine
-                }
-                fontSize={GIFT_PORTRAIT_TYPE.title}
-                fontWeight={750}
-                fill={INK}
-                fontFamily="system-ui,sans-serif"
-              >
-                {line}
-              </text>
-            ))}
-          </g>
-
-          <AmountBlock model={model} labels={labels} />
-
-          <g data-gift-landmark="perforation" data-gift-cert-perforation="1">
-            <line
-              x1={48}
-              x2={752}
-              y1={GIFT_PORTRAIT_LANDMARKS.perforationY}
-              y2={GIFT_PORTRAIT_LANDMARKS.perforationY}
-              stroke={LINE}
-              strokeWidth={2}
-              strokeDasharray="10 10"
-            />
-          </g>
-
-          <MetaRow
-            kind="issuer"
-            label={labels.issuerLabel}
-            value={model.issuerName}
-            y={GIFT_PORTRAIT_LANDMARKS.issuerY}
-          />
-          <MetaRow
-            kind="expiry"
-            label={labels.expiryLabel}
-            value={expiryValue}
-            y={GIFT_PORTRAIT_LANDMARKS.expiryY}
-          />
-          <NumberMetaRow label={labels.numberLabel} value={numberValue} />
-
-
-          {model.valueMode === "used" ? (
-            <g data-gift-used-stamp="1" pointerEvents="none" opacity={0.18}>
+          {used ? (
+            <g data-gift-used-stamp="1" pointerEvents="none" opacity={0.14}>
               <text
                 x={400}
-                y={620}
+                y={190}
                 textAnchor="middle"
-                fontSize={120}
+                fontSize={52}
                 fontWeight={900}
-                fill={MUTED}
-                fontFamily="system-ui,sans-serif"
-                transform="rotate(-18 400 620)"
-                letterSpacing="8"
+                fill="#4A524C"
+                fontFamily={FONT}
+                transform="rotate(-18 400 190)"
+                letterSpacing={4}
               >
                 USED
               </text>
             </g>
           ) : null}
-          <text
-            x={400}
-            y={GIFT_PORTRAIT_LANDMARKS.footerY}
-            textAnchor="middle"
-            fontSize={GIFT_PORTRAIT_TYPE.footBrand}
-            fontWeight={650}
-            fill={MUTED}
-            fontFamily="system-ui,sans-serif"
-            letterSpacing="2"
-            data-gift-foot-brand="1"
-          >
-            {isPlatform ? "DIBAY GIFT CERTIFICATE" : "Powered by DIBAY"}
-          </text>
         </g>
 
-        <path
-          d={`
-            M ${TICKET.x + TICKET.rx} ${TICKET.y}
-            H ${TICKET.x + TICKET.w - TICKET.rx}
-            Q ${TICKET.x + TICKET.w} ${TICKET.y} ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.rx}
-            V ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18}
-            C ${TICKET.x + TICKET.w - 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18},
-              ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 10},
-              ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY}
-            C ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 10},
-              ${TICKET.x + TICKET.w - 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18},
-              ${TICKET.x + TICKET.w} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18}
-            V ${TICKET.y + TICKET.h - TICKET.rx}
-            Q ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.h} ${TICKET.x + TICKET.w - TICKET.rx} ${TICKET.y + TICKET.h}
-            H ${TICKET.x + TICKET.rx}
-            Q ${TICKET.x} ${TICKET.y + TICKET.h} ${TICKET.x} ${TICKET.y + TICKET.h - TICKET.rx}
-            V ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18}
-            C ${TICKET.x + 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18},
-              ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 10},
-              ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY}
-            C ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 10},
-              ${TICKET.x + 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18},
-              ${TICKET.x} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18}
-            V ${TICKET.y + TICKET.rx}
-            Q ${TICKET.x} ${TICKET.y} ${TICKET.x + TICKET.rx} ${TICKET.y}
-            Z
-          `}
+        {/* outer stroke after mask so notches read cleanly */}
+        <rect
+          x={0.75}
+          y={0.75}
+          width={VB_W - 1.5}
+          height={VB_H - 1.5}
+          rx={g.rx}
           fill="none"
-          stroke={BORDER}
-          strokeWidth={2}
+          stroke="#D5DDD7"
+          strokeWidth={1.5}
           pointerEvents="none"
         />
       </svg>

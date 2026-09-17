@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { GiftArtwork } from "@/components/gift-certificate/GiftArtwork";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import type { GiftWalletInstance, GiftWalletPayload } from "@/lib/gift-certificate/load-gift-wallet";
 import {
   giftTransferErrorFallbacks,
@@ -224,12 +225,12 @@ export function MessengerGiftOfferFlow({
               </Link>
             </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3" data-gift-offer-select-list="1">
               {offerable.map((row) => (
                 <li key={row.id}>
                   <button
                     type="button"
-                    className="flex w-full min-w-0 items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left"
+                    className="w-full min-w-0 rounded-ui-rect border-2 border-transparent p-1 text-left transition-colors hover:border-signature/40 focus-visible:border-signature"
                     data-gift-offer-pick={row.id}
                     onClick={() => {
                       setSelected(row);
@@ -237,17 +238,33 @@ export function MessengerGiftOfferFlow({
                       setErrorMsg(null);
                     }}
                   >
-                    <GiftArtwork src={row.imageUrl} alt={row.title} size={56} className="shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-sam-fg">
-                        {row.title || "Gift"}
-                      </p>
-                      <p className="truncate text-xs text-sam-muted">{row.storeName}</p>
-                      <p className="text-sm tabular-nums text-sam-fg">
-                        {row.faceValue.toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-medium text-signature">
+                    <GiftVisualCard
+                      visual={{
+                        giftScope: row.giftScope,
+                        imageUrl: row.imageUrl,
+                        storeLogoUrl: row.storeLogoUrl,
+                        storeName: row.storeName,
+                        title: row.title,
+                      }}
+                      surface="wallet"
+                      size="sm"
+                      title={row.title}
+                      issuerName={row.storeName}
+                      faceValue={row.faceValue}
+                      purchasePrice={row.purchasePrice}
+                      publicGiftNumber={row.publicGiftNumber}
+                      showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
+                      expirationDisplay={formatGiftInstanceExpirationDisplay({
+                        validUntil: row.validUntil,
+                        noExpiryLabel: safeT("gift_portrait_expiry_none", {
+                          fallbackKo: "만료 없음",
+                          fallbackEn: "No expiry",
+                        }),
+                      })}
+                      showValidity
+                      className="pointer-events-none"
+                    />
+                    <span className="mt-2 block text-center text-sm font-semibold text-signature">
                       {safeT("gift_u3_selector_pick", {
                         fallbackKo: "선택",
                         fallbackEn: "Select",
@@ -263,18 +280,31 @@ export function MessengerGiftOfferFlow({
             {recipientLabel ? (
               <p className="text-sm text-sam-muted">{recipientLabel}</p>
             ) : null}
-            <div className="flex gap-3">
-              <GiftArtwork src={selected.imageUrl} alt={selected.title} size={72} />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-sam-fg">
-                  {selected.title || "Gift"}
-                </p>
-                <p className="text-xs text-sam-muted">{selected.storeName}</p>
-                <p className="text-sm tabular-nums text-sam-fg">
-                  {selected.faceValue.toLocaleString()}
-                </p>
-              </div>
-            </div>
+            <GiftVisualCard
+              visual={{
+                giftScope: selected.giftScope,
+                imageUrl: selected.imageUrl,
+                storeLogoUrl: selected.storeLogoUrl,
+                storeName: selected.storeName,
+                title: selected.title,
+              }}
+              surface="transfer"
+              size="sm"
+              title={selected.title}
+              issuerName={selected.storeName}
+              faceValue={selected.faceValue}
+              purchasePrice={selected.purchasePrice}
+              publicGiftNumber={selected.publicGiftNumber}
+              showGiftNumber={Boolean(selected.publicGiftNumber?.trim())}
+              expirationDisplay={formatGiftInstanceExpirationDisplay({
+                validUntil: selected.validUntil,
+                noExpiryLabel: safeT("gift_portrait_expiry_none", {
+                  fallbackKo: "만료 없음",
+                  fallbackEn: "No expiry",
+                }),
+              })}
+              showValidity
+            />
             <p className="text-sm text-sam-fg">
               {safeT("gift_u3_confirm_lock_hint", {
                 fallbackKo:
