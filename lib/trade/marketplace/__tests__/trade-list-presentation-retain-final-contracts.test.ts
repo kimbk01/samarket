@@ -486,20 +486,22 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     // Continuity handoff: one product root; no per-slot flight either direction.
     expect(host).toContain('data-trade-product-composition-forward-model="product-continuity-handoff"');
     expect(host).toContain("data-trade-product-composition-product");
-    expect(host).toContain("data-trade-product-composition-underlayer");
     expect(host).toContain("setTradeMarketContinuityHandoffActive");
     expect(host).toContain("isDetailProductPaintReady");
     expect(host).toContain("isListProductPaintReady");
-    expect(host).toContain("hideDetail");
-    // Per-slot geometric flight unreachable (forward and reverse).
-    expect(host).not.toContain("lerpRect");
-    expect(host).not.toContain("applyBox");
+    expect(host).toContain("enterForwardTransition");
+    expect(host).toContain('data-trade-product-composition-prepare={isForward ? "full-surface"');
+    expect(host).toContain('data-trade-product-composition-surface={isForward ? "full"');
+    // Forward must not pin list-sized hold on white underlayer while waiting.
+    expect(host).toContain("Forward: underlayer never used as waiting owner");
+    expect(host).toContain("paintHandoff");
+    expect(host).toContain("isDetailProductPaintReady");
+    // Runtime geometric flight helpers must be absent (comments mentioning the words OK if functions gone).
+    expect(host).not.toMatch(/\bfunction lerpRect\b|\blerpRect\s*\(/);
+    expect(host).not.toMatch(/\bfunction applyBox\b|\bapplyBox\s*\(/);
     expect(host).not.toContain("paintReverse");
     expect(host).not.toContain("reverse-dock");
-    // Cover must not fade with product (old WHITE GAP path).
     expect(host).not.toContain("coverRef.current.style.opacity");
-    expect(host).toContain("showUnderlayer(false)");
-    expect(host).toContain("paintHandoff");
   });
 
   it("scrollRestoreDeferred machinery removed (proven dead under new architecture)", () => {
