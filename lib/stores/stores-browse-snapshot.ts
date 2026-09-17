@@ -52,6 +52,7 @@ import { buildStoreDiscoveryBrowseExposureScope } from "@/lib/stores/store-disco
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
 import { loadStoreRatingConfidencePolicy } from "@/lib/stores/store-rating-confidence-policy";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const SNAPSHOT_SINGLE_FLIGHT_PREFIX = "sb1-stores-browse-snapshot:";
@@ -423,8 +424,12 @@ async function finishFromPayload(
       ratingConfidenceStatus = conf.status;
     }
     const ctxOld = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
+    const serviceAreaByStoreId = await loadStoreServiceAreaRuntimeMap(
+      sb,
+      prefilteredRows.map((r) => r.id)
+    );
     prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
-      ctxOld,
+      { ...ctxOld, serviceAreaByStoreId },
       bundleForRank.taxonomySlice,
       storeRowsForRank,
       prefilteredRows,
@@ -453,8 +458,16 @@ async function finishFromPayload(
   }
 
   const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefetchedFilter.rows);
+  const serviceAreaByStoreId = await loadStoreServiceAreaRuntimeMap(
+    sb,
+    prefetchedFilter.rows.map((r) => r.id)
+  );
   const assemble0 = devPerfNow();
-  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundle, prefetchedFilter);
+  const assembled = assembleStoresBrowseResponse(
+    { ...ctxWithDistance, serviceAreaByStoreId },
+    bundle,
+    prefetchedFilter
+  );
   const enrich = await enrichBrowseStoresWithPlatformPopular(sb, assembled.body.stores);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({

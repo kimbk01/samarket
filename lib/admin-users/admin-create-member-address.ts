@@ -77,6 +77,7 @@ function asInferDto(a: AdminCreateMemberAddressInput): UserAddressDTO {
     neighborhoodName: a.neighborhoodName.trim() || null,
     appRegionId: null,
     appCityId: null,
+    canonicalLguId: null,
     useForLife: true,
     useForTrade: true,
     useForDelivery: true,

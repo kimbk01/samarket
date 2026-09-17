@@ -3,6 +3,9 @@ import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -320,7 +323,25 @@ export async function searchDeliveryDomain(input: {
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
   const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
+  const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
+    sb as SupabaseClient,
+    mergedStoresRaw.map((s) => s.id)
+  );
+  let memberLguId: string | null = null;
+  if (input.userId) {
+    try {
+      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
+      memberLguId = resolveMemberCanonicalLguId({
+        canonicalLguId: defaults.master?.canonicalLguId,
+        cityMunicipality: defaults.master?.cityMunicipality,
+        province: defaults.master?.province,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
   const annotated = mergedStoresRaw.map((s) => {
+    const area = serviceAreaById.get(s.id);
     const svc = evaluateStoreDeliveryServiceability({
       ctx: svcCtx,
       storeId: s.id,
@@ -329,6 +350,9 @@ export async function searchDeliveryDomain(input: {
       customerLng,
       storeLat: s.lat,
       storeLng: s.lng,
+      authorityMode: area?.authorityMode ?? DELIVERY_SERVICE_AREA_AUTHORITY.LEGACY_RADIUS,
+      selectedLguIds: area?.selectedLguIds ?? [],
+      memberLguId,
     });
     const outOfRange = resolveListDistanceOutOfRange({
       originSource,

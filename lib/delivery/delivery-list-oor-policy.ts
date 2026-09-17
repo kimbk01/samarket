@@ -31,7 +31,11 @@ export function resolveListDistanceOutOfRange(args: {
 }): boolean {
   if (!memberDeliveryServiceabilityActive(args.originSource)) return false;
   if (!args.serviceabilityApplies) return false;
-  return args.reason === "out_of_range" || args.reason === "missing_store_coords";
+  return args.reason === "out_of_range" ||
+    args.reason === "missing_store_coords" ||
+    args.reason === "unselected_lgu" ||
+    args.reason === "missing_lgu_identity" ||
+    args.reason === "empty_selected_areas";
 }
 
 /** Normal orderable lists: EXCLUDE member OOR stores (not deprioritize). */

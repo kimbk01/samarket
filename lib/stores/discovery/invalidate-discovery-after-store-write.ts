@@ -17,6 +17,7 @@ export function resolveDiscoveryInvalidationReasonsFromStorePatch(
   }
   if ("delivery_available" in patch) reasons.add("store_delivery_flags");
   if ("delivery_radius_km" in patch) reasons.add("store_delivery_radius");
+  if ("delivery_service_area_authority" in patch) reasons.add("store_delivery_radius");
   if ("point_commerce_blocked" in patch) reasons.add("store_schedule");
   return [...reasons];
 }

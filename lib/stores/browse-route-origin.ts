@@ -21,6 +21,8 @@ export type BrowseRouteOrigin = {
   /** Member master address id when provided — `addr:{uuid}` | `addr:none` */
   addressId: string | null;
   cacheAddressPart: string;
+  /** Platform LGU for V2 service-area eligibility (member master only). */
+  canonicalLguId?: string | null;
 };
 
 function roundCoordForCache(n: number): string {
@@ -60,6 +62,7 @@ export function browseRouteOriginFromDeliveryOrigin(
       cacheGeoPart: `g:${roundCoordForCache(origin.lat)},${roundCoordForCache(origin.lng)}`,
       addressId,
       cacheAddressPart,
+      canonicalLguId: origin.canonicalLguId ?? null,
     };
   }
   return {
@@ -69,6 +72,7 @@ export function browseRouteOriginFromDeliveryOrigin(
     cacheGeoPart: "g:none",
     addressId,
     cacheAddressPart,
+    canonicalLguId: origin.canonicalLguId ?? null,
   };
 }
 
@@ -89,6 +93,7 @@ export function resolveBrowseRouteOrigin(searchParams: URLSearchParams): BrowseR
       cacheGeoPart: `g:${roundCoordForCache(lat)},${roundCoordForCache(lng)}`,
       addressId,
       cacheAddressPart,
+      canonicalLguId: null,
     };
   }
   return {
@@ -98,5 +103,6 @@ export function resolveBrowseRouteOrigin(searchParams: URLSearchParams): BrowseR
     cacheGeoPart: "g:none",
     addressId,
     cacheAddressPart,
+    canonicalLguId: null,
   };
 }

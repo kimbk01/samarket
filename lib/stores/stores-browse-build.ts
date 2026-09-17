@@ -37,9 +37,11 @@ import type {
   DeliveryRideTimeSource,
 } from "@/lib/delivery/delivery-ops-settings";
 import {
-  evaluateDeliveryServiceability,
   resolveEffectiveStoreDistancePolicy,
 } from "@/lib/delivery/evaluate-delivery-serviceability";
+import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
+import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
+import type { StoreServiceAreaRuntimeSlice } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
@@ -377,6 +379,8 @@ export type StoresBrowseRequestContext = {
   deliveryRideTimeSource: DeliveryRideTimeSource;
   deliveryDistancePolicy: DeliveryDistancePolicy;
   storeDistanceOverrides: DeliveryStoreDistanceOverrides;
+  /** V2 dual-mode slices — missing entry ⇒ legacy_radius (safe default). */
+  serviceAreaByStoreId?: Map<string, StoreServiceAreaRuntimeSlice>;
   routeMetricsByStoreId?: Map<string, { rideMinutes: number | null; routeDistanceMeters: number | null }> | null;
   sort: StoreBrowseServerSortId;
   page: number;
@@ -491,8 +495,9 @@ function resolveDistanceForSort(
   ctx: StoresBrowseRequestContext,
   row: StoreBrowseRow
 ): { distanceKm: number | null; outOfRange: boolean; applies: boolean } {
-  /** SERVICEABILITY display uses haversine only. Google route km is ETA/display enrichment, not eligibility. */
-  const svc = evaluateDeliveryServiceability({
+  /** SERVICEABILITY display uses haversine distance for UX; eligibility is dual-mode. */
+  const area = ctx.serviceAreaByStoreId?.get(row.id);
+  const svc = evaluateDeliveryServiceArea({
     policy: ctx.deliveryDistancePolicy,
     overrides: ctx.storeDistanceOverrides,
     storeId: row.id,
@@ -501,6 +506,9 @@ function resolveDistanceForSort(
     customerLng: ctx.origin.lng,
     storeLat: row.lat,
     storeLng: row.lng,
+    authorityMode: area?.authorityMode ?? DELIVERY_SERVICE_AREA_AUTHORITY.LEGACY_RADIUS,
+    selectedLguIds: area?.selectedLguIds ?? [],
+    memberLguId: ctx.origin.canonicalLguId,
   });
   if (!svc.applies) {
     return { distanceKm: null, outOfRange: false, applies: false };
@@ -1000,6 +1008,7 @@ export function assembleStoresBrowseResponse(
         lat: origin.lat,
         lng: origin.lng,
         addressIdentity: null,
+        canonicalLguId: origin.canonicalLguId ?? null,
         cacheKeyPart: origin.cacheGeoPart,
       },
       r,

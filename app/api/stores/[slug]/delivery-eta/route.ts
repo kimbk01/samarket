@@ -211,6 +211,7 @@ export async function GET(
         addrRow.unit_floor_room,
       ),
       cacheKeyPart: "",
+      canonicalLguId: null,
     };
     if (isSameDeliveryAddressForList(sameOrigin, effectiveStore)) {
       const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);

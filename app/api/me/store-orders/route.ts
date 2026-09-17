@@ -50,8 +50,11 @@ import {
 } from "@/lib/stores/resolve-store-coupon-checkout-discount";
 import { splitCouponFunding } from "@/lib/stores/store-coupon-funding-math";
 import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
-import { evaluateDeliveryServiceability } from "@/lib/delivery/evaluate-delivery-serviceability";
+import { evaluateDeliveryServiceArea } from "@/lib/delivery/service-area/evaluate-delivery-service-area";
+import { loadStoreSelectedDeliveryLguIds } from "@/lib/delivery/service-area/store-delivery-service-areas";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
+
 import {
   getUserAddressDefaults,
   markUserAddressUsed,
@@ -205,6 +208,9 @@ type DeliveryAddressOrderSnapshot = {
   delivery_note?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  city_municipality?: string | null;
+  province?: string | null;
+  canonical_lgu_id?: string | null;
 };
 
 /**
@@ -268,7 +274,7 @@ export async function POST(req: NextRequest) {
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, lat, lng, delivery_radius_km"
+      "id, owner_user_id, approval_status, is_visible, store_name, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, lat, lng, delivery_radius_km, delivery_service_area_authority"
     )
     .eq("id", storeId)
     .maybeSingle();
@@ -537,7 +543,9 @@ export async function POST(req: NextRequest) {
   if (fulfillment === "local_delivery" && deliveryUserAddressId) {
     const { data: ownAddr, error: ownAddrErr } = await sb
       .from("user_addresses")
-      .select("id, place_id, formatted_address, detail_address, delivery_note, latitude, longitude")
+      .select(
+        "id, place_id, formatted_address, detail_address, delivery_note, latitude, longitude, city_municipality, province, canonical_lgu_id"
+      )
       .eq("id", deliveryUserAddressId)
       .eq("user_id", buyerId)
       .maybeSingle();
@@ -570,7 +578,18 @@ export async function POST(req: NextRequest) {
       ...distanceSettings.policy,
       enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
     };
-    const svc = evaluateDeliveryServiceability({
+    const authorityMode = (store as { delivery_service_area_authority?: unknown })
+      .delivery_service_area_authority;
+    const selectedLguIds =
+      String(authorityMode ?? "").toLowerCase() === "v2_lgu"
+        ? await loadStoreSelectedDeliveryLguIds(sb, storeId)
+        : [];
+    const memberLguId = resolveMemberCanonicalLguId({
+      canonicalLguId: deliveryAddressSnapshot?.canonical_lgu_id,
+      cityMunicipality: deliveryAddressSnapshot?.city_municipality,
+      province: deliveryAddressSnapshot?.province,
+    });
+    const svc = evaluateDeliveryServiceArea({
       policy,
       overrides: distanceSettings.overrides,
       storeId,
@@ -579,6 +598,9 @@ export async function POST(req: NextRequest) {
       customerLng: deliveryAddressSnapshot?.longitude,
       storeLat,
       storeLng,
+      authorityMode,
+      selectedLguIds,
+      memberLguId,
     });
     serviceabilitySnapshot = {
       checkout_store_latitude: storeLat,
@@ -593,7 +615,9 @@ export async function POST(req: NextRequest) {
           ? "delivery_customer_coords_required"
           : svc.reason === "missing_store_coords"
             ? "delivery_store_coords_required"
-            : "delivery_out_of_range";
+            : svc.reason === "missing_lgu_identity"
+              ? "delivery_customer_coords_required"
+              : "delivery_out_of_range";
       return NextResponse.json(
         {
           ok: false,
@@ -601,6 +625,8 @@ export async function POST(req: NextRequest) {
           distance_km: svc.distanceKm,
           max_km: svc.maxKm,
           reason: svc.reason,
+          authority_mode: svc.authorityMode,
+          member_lgu_id: svc.memberLguId,
         },
         { status: 400 }
       );

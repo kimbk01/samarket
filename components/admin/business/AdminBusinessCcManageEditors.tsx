@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
 import type { BusinessCcFeeSnapshot } from "@/lib/admin-business/load-business-control-center-detail";
 import type { DeliveryStoreDistanceMode } from "@/lib/delivery/delivery-ops-settings";
+import { AdminDeliveryServiceAreaEditor } from "@/components/admin/business/AdminDeliveryServiceAreaEditor";
+import { resolveEffectiveStoreDeliveryRadiusKm } from "@/lib/delivery/store-delivery-radius";
 
 type TaxonomyCat = { id: string; name: string; is_active?: boolean | null };
 type TaxonomyTopic = {
@@ -655,6 +657,15 @@ export function AdminBusinessCcDeliveryOverrideEditor({
         </button>
       </div>
       <p className="sam-text-helper text-sam-muted">{t("business_store_delivery_radius_help")}</p>
+      <AdminDeliveryServiceAreaEditor
+        storeId={storeId}
+        referenceRadiusKmDisplay={String(
+          resolveEffectiveStoreDeliveryRadiusKm(
+            currentDeliveryRadiusKm != null ? currentDeliveryRadiusKm : currentEffectiveMaxKm
+          )
+        )}
+        onSaved={onSaved}
+      />
     </div>
   );
 }

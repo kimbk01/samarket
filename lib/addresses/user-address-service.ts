@@ -20,9 +20,10 @@ import {
   shopResolvedToAddressPatch,
 } from "@/lib/addresses/resolve-user-address-shop-write";
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
+import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 
 const SEL =
-  "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
+  "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,canonical_lgu_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
 
 function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   return [...rows].sort((a, b) => {
@@ -469,6 +470,19 @@ export async function updateUserAddress(
   delete patch.is_default_life;
   delete patch.is_default_trade;
   delete patch.is_default_delivery;
+
+  const touchesCityIdentity =
+    "city_municipality" in patch ||
+    "province" in patch ||
+    "place_id" in patch ||
+    "latitude" in patch ||
+    "longitude" in patch;
+  if (touchesCityIdentity) {
+    patch.canonical_lgu_id = resolveCanonicalLguIdForAddressWrite({
+      cityMunicipality: resolved.cityMunicipality,
+      province: resolved.province,
+    });
+  }
 
   const touchesGeo =
     "place_id" in patch ||

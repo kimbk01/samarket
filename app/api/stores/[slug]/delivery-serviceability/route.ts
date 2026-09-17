@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
-  evaluateStoreDeliveryServiceability,
+  evaluateStoreDeliveryServiceArea,
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { loadStoreSelectedDeliveryLguIds } from "@/lib/delivery/service-area/store-delivery-service-areas";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -32,7 +34,9 @@ export async function GET(
 
   const { data: store, error } = await sb
     .from("stores")
-    .select("id, slug, lat, lng, delivery_radius_km, delivery_available, approval_status, is_visible")
+    .select(
+      "id, slug, lat, lng, delivery_radius_km, delivery_available, approval_status, is_visible, delivery_service_area_authority"
+    )
     .eq("slug", decoded)
     .maybeSingle();
 
@@ -47,6 +51,7 @@ export async function GET(
   let customerLat: number | null = null;
   let customerLng: number | null = null;
   let addressId: string | null = null;
+  let memberLguId: string | null = null;
   if (userId) {
     try {
       const defaults = await getUserAddressDefaults(sb, userId);
@@ -57,17 +62,33 @@ export async function GET(
         const ln = master.longitude;
         if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
         if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
+        memberLguId = resolveMemberCanonicalLguId({
+          canonicalLguId: (master as { canonicalLguId?: string | null }).canonicalLguId,
+          cityMunicipality: master.cityMunicipality,
+          province: master.province,
+        });
       } else if (master?.id) {
         addressId = master.id;
-        /** Present but not routable — leave coords null (serviceability missing_customer_coords). */
+        memberLguId = resolveMemberCanonicalLguId({
+          canonicalLguId: (master as { canonicalLguId?: string | null }).canonicalLguId,
+          cityMunicipality: master.cityMunicipality,
+          province: master.province,
+        });
       }
     } catch {
       /* ignore — treat as missing customer coords */
     }
   }
 
+  const authorityMode = (store as { delivery_service_area_authority?: unknown })
+    .delivery_service_area_authority;
+  const selectedLguIds =
+    String(authorityMode ?? "").toLowerCase() === "v2_lgu"
+      ? await loadStoreSelectedDeliveryLguIds(sb, String(store.id))
+      : [];
+
   const ctx = await loadDeliveryServiceabilityRuntimeContext(sb);
-  const svc = evaluateStoreDeliveryServiceability({
+  const svc = evaluateStoreDeliveryServiceArea({
     ctx,
     storeId: String(store.id),
     storeDeliveryRadiusKm: (store as { delivery_radius_km?: unknown }).delivery_radius_km,
@@ -75,6 +96,9 @@ export async function GET(
     customerLng,
     storeLat: store.lat,
     storeLng: store.lng,
+    authorityMode,
+    selectedLguIds,
+    memberLguId,
   });
 
   return NextResponse.json({
@@ -92,7 +116,11 @@ export async function GET(
     applies: svc.applies,
     distanceKm: svc.distanceKm,
     maxKm: svc.maxKm,
+    referenceDistanceKm: svc.referenceDistanceKm,
     reason: svc.reason,
     policySource: svc.policySource,
+    authorityMode: svc.authorityMode,
+    memberLguId: svc.memberLguId,
+    matchedLguId: svc.matchedLguId,
   });
 }

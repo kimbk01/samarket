@@ -27,6 +27,7 @@ import {
   formatStoreDeliveryRadiusKmForInput,
   resolveStoreDeliveryRadiusKmPatch,
 } from "@/lib/delivery/store-delivery-radius";
+import { OwnerDeliveryServiceAreaEditor } from "@/components/business/OwnerDeliveryServiceAreaEditor";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
   clampStorePrepMinutes,
@@ -799,6 +800,10 @@ export function OwnerStoreProfileForm({
             {t("business_store_delivery_radius_help")}
           </p>
         </div>
+        <OwnerDeliveryServiceAreaEditor
+          storeId={storeId}
+          referenceRadiusKmDisplay={values.deliveryRadiusKm}
+        />
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_176")}>

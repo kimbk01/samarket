@@ -34,6 +34,11 @@ export type UserAddressDTO = {
   neighborhoodName: string | null;
   appRegionId: string | null;
   appCityId: string | null;
+  /**
+   * Platform national LGU (PSGC) when safely resolved.
+   * Optional on DTO for test fixtures / partial clients; null/absent = unresolved.
+   */
+  canonicalLguId?: string | null;
   useForLife: boolean;
   useForTrade: boolean;
   useForDelivery: boolean;

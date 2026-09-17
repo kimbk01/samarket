@@ -12,6 +12,7 @@ describe("isSameDeliveryAddressForList place_id contract", () => {
         lat: 14.586,
         lng: 121.061,
         addressIdentity: null,
+        canonicalLguId: null,
         cacheKeyPart: "x",
       },
       {
@@ -34,6 +35,7 @@ describe("isSameDeliveryAddressForList place_id contract", () => {
         lat: 14.586,
         lng: 121.061,
         addressIdentity: null,
+        canonicalLguId: null,
         cacheKeyPart: "x",
       },
       {

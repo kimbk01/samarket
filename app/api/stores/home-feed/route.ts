@@ -36,6 +36,8 @@ import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
+import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -330,11 +332,17 @@ export async function GET(req: Request) {
         ])
       );
 
+      const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
+        supabase,
+        rows.map((r) => r.id)
+      );
+
       for (const r of rows) {
         const effective = effectiveById.get(r.id) ?? r;
         let outOfRange = false;
         let distanceKm: number | null = null;
         if (userLat != null && userLng != null) {
+          const areaSlice = serviceAreaById.get(r.id);
           const svc = evaluateStoreDeliveryServiceability({
             ctx: serviceabilityCtx,
             storeId: r.id,
@@ -343,6 +351,9 @@ export async function GET(req: Request) {
             customerLng: userLng,
             storeLat: effective.lat,
             storeLng: effective.lng,
+            authorityMode: areaSlice?.authorityMode ?? DELIVERY_SERVICE_AREA_AUTHORITY.LEGACY_RADIUS,
+            selectedLguIds: areaSlice?.selectedLguIds ?? [],
+            memberLguId: origin.canonicalLguId,
           });
           outOfRange = resolveListDistanceOutOfRange({
             originSource: origin.source,
@@ -521,6 +532,11 @@ export async function GET(req: Request) {
       }
     }
 
+    const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
+      supabase,
+      rows.map((r) => r.id)
+    );
+
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
@@ -545,12 +561,13 @@ export async function GET(req: Request) {
       let distancePolicyApplied = false;
       let maxDeliveryDistanceKm: number | null = null;
       /**
-       * Customer OOR flag MUST follow live `stores.delivery_radius_km` evaluator
-       * (same SSOT as delivery-serviceability). Coverage/shadow maps remain ranking-only.
+       * Customer OOR flag MUST follow canonical dual-mode service-area evaluator
+       * (legacy radius | V2 selected LGU). Coverage/shadow maps remain ranking-only.
        */
       let rowOutOfRange = false;
       if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
+        const areaSlice = serviceAreaById.get(r.id);
         const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
           storeId: r.id,
@@ -559,6 +576,9 @@ export async function GET(req: Request) {
           customerLng: userLng,
           storeLat: effective.lat,
           storeLng: effective.lng,
+          authorityMode: areaSlice?.authorityMode ?? DELIVERY_SERVICE_AREA_AUTHORITY.LEGACY_RADIUS,
+          selectedLguIds: areaSlice?.selectedLguIds ?? [],
+          memberLguId: origin.canonicalLguId,
         });
         rowOutOfRange = resolveListDistanceOutOfRange({
           originSource: origin.source,

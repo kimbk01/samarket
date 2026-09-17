@@ -4,6 +4,7 @@ import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routab
 import { pickAddressRowForDeliveryRouting, getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { haversineKm } from "@/lib/geo/haversine-km";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 
 export type StoreListDeliveryOrigin = {
   source: "saved_address" | "explicit_coords" | "none";
@@ -13,6 +14,8 @@ export type StoreListDeliveryOrigin = {
   lat: number | null;
   lng: number | null;
   addressIdentity: string | null;
+  /** Platform LGU id when resolvable from master address — eligibility for V2 stores. */
+  canonicalLguId: string | null;
   cacheKeyPart: string;
 };
 
@@ -132,6 +135,7 @@ function noneOrigin(userId: string | null): StoreListDeliveryOrigin {
     lat: null,
     lng: null,
     addressIdentity: null,
+    canonicalLguId: null,
     cacheKeyPart: "none",
   };
 }
@@ -165,6 +169,11 @@ export async function resolveStoreListDeliveryOrigin(
         addr.detailAddress,
         addr.unitFloorRoom,
       );
+      const canonicalLguId = resolveMemberCanonicalLguId({
+        canonicalLguId: addr.canonicalLguId,
+        cityMunicipality: addr.cityMunicipality,
+        province: addr.province,
+      });
       return {
         source: "saved_address",
         userId,
@@ -173,7 +182,17 @@ export async function resolveStoreListDeliveryOrigin(
         lat,
         lng,
         addressIdentity,
-        cacheKeyPart: ["addr", userId, addr.id, placeId ?? "", lat.toFixed(6), lng.toFixed(6), addressIdentity ?? ""].join(":"),
+        canonicalLguId,
+        cacheKeyPart: [
+          "addr",
+          userId,
+          addr.id,
+          placeId ?? "",
+          lat.toFixed(6),
+          lng.toFixed(6),
+          addressIdentity ?? "",
+          canonicalLguId ?? "",
+        ].join(":"),
       };
     } catch {
       return noneOrigin(userId);
@@ -190,6 +209,7 @@ export async function resolveStoreListDeliveryOrigin(
       lat: explicit.lat,
       lng: explicit.lng,
       addressIdentity: null,
+      canonicalLguId: null,
       cacheKeyPart: ["coords", explicit.lat.toFixed(6), explicit.lng.toFixed(6)].join(":"),
     };
   }
