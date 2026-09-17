@@ -28,6 +28,10 @@ import {
   confirmedSaleRevenuePhp,
   type ConfirmedSaleRevenueOrderSnapshot,
 } from "@/lib/stores/confirmed-sale-revenue";
+import {
+  STORE_ECONOMIC_POINT_ACCOUNTS_TABLE,
+  STORE_ECONOMIC_POINT_LEDGER_TABLE,
+} from "@/lib/stores/advertising/canonical-business-cash-contract";
 
 export type { BusinessCcKpiSummary };
 
@@ -216,6 +220,7 @@ export async function loadBusinessControlCenterDetail(
     productInactiveRes,
     reportTotalRes,
     ledgerRes,
+    coinBalRes,
     settleStatusRes,
     trendOrdersRes,
   ] = await Promise.all([
@@ -282,11 +287,16 @@ export async function loadBusinessControlCenterDetail(
         .in("product_status", ["hidden", "blocked"]),
       countRows(sb, "store_reports", id),
       sb
-        .from("store_point_ledger")
-        .select("amount, entry_type, created_at")
+        .from(STORE_ECONOMIC_POINT_LEDGER_TABLE)
+        .select("amount, entry_kind, created_at")
         .eq("store_id", id)
         .order("created_at", { ascending: false })
         .limit(20),
+      sb
+        .from(STORE_ECONOMIC_POINT_ACCOUNTS_TABLE)
+        .select("balance")
+        .eq("store_id", id)
+        .maybeSingle(),
       sb
         .from("store_settlements")
         .select("settlement_status")
@@ -521,7 +531,9 @@ export async function loadBusinessControlCenterDetail(
     }),
     ratingAvg: asFiniteNumber(row.rating_avg),
     reviewCountFromStore: Math.max(0, Math.floor(Number(row.review_count) || reviewCount)),
-    pointBalance: 0,
+    pointBalance: coinBalRes.error
+      ? null
+      : Math.trunc(Number((coinBalRes.data as { balance?: number } | null)?.balance) || 0),
     pointCommerceBlocked: false,
     recentPointCredit,
     recentPointDebit,

@@ -39,9 +39,9 @@ export async function GET(
 
   const storeId = String(raw.store_id);
   const ownerUserId = String(raw.owner_user_id);
-  const [{ data: store }, { data: cash }, availRes, { data: recoveryRows }, { data: ledger }, profiles] =
+  const [{ data: store }, { data: cash }, availRes, { data: recoveryRows }, { data: ledger }, profiles, { data: coinAcct }] =
     await Promise.all([
-      sb.from("stores").select("id, store_name, point_balance, owner_user_id").eq("id", storeId).maybeSingle(),
+      sb.from("stores").select("id, store_name, owner_user_id").eq("id", storeId).maybeSingle(),
       sb.from(GIFT_TABLES.storeCashAccounts).select("store_id, balance").eq("store_id", storeId).maybeSingle(),
       sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId }),
       sb
@@ -57,6 +57,11 @@ export async function GET(
         .order("created_at", { ascending: false })
         .limit(20),
       loadAdminGiftProfileMap(sb, [ownerUserId]),
+      sb
+        .from("store_economic_point_accounts")
+        .select("balance")
+        .eq("store_id", storeId)
+        .maybeSingle(),
     ]);
 
   const available =
@@ -83,7 +88,8 @@ export async function GET(
       availableRevenue: available,
       storeCashBalance: cash ? Math.trunc(Number(cash.balance) || 0) : 0,
       openRecoveryAmount,
-      businessCredit: store ? Math.trunc(Number((store as { point_balance?: number }).point_balance) || 0) : 0,
+      // Canonical merchant Coin — not stores.point_balance (SCHEMA_LEGACY).
+      businessCredit: Math.trunc(Number((coinAcct as { balance?: number } | null)?.balance) || 0),
       recoveries: recoveryRows ?? [],
       recentLedger: ledger ?? [],
     },

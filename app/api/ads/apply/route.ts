@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AdApplyResponse } from "@/lib/ads/types";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { creditUserPoints, readUserPointBalance, spendUserPoints } from "@/lib/points/user-point-ledger";
+import { creditUserPoints, spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import { applyPostAdInDb } from "@/lib/ads/post-ads-supabase";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
 import { isPostAdsAdTypeOpenForNewApply } from "@/lib/ads/post-ads-authority";
@@ -67,7 +67,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
   let pointsPreDeducted = false;
 
   if (paymentMethod === "points") {
-    const balance = await readUserPointBalance(sb, auth.userId);
+    // Eligibility uses ledger SUM — profiles.points is projection only (not money authority).
+    const summed = await sumUserPointLedger(sb, auth.userId);
+    if (!summed.ok) {
+      return NextResponse.json({ ok: false, error: summed.error }, { status: 500 });
+    }
+    const balance = summed.sum;
     if (balance < product.pointCost) {
       return NextResponse.json(
         { ok: false, error: "insufficient_points", pointShortfall: product.pointCost - balance },

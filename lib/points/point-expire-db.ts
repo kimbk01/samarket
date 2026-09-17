@@ -8,7 +8,7 @@ import type { PointLedgerEntry } from "@/lib/types/point";
 import { POINT_LEDGER_ROW_SELECT } from "@/lib/points/point-query-select";
 import { isEntryExpirable } from "@/lib/points/point-expire-utils";
 import { isMissingPointsTable, normalizeLedgerRow } from "@/lib/points/admin-user-points-shared";
-import { expireUserPointEntries, readUserPointBalance } from "@/lib/points/user-point-ledger";
+import { expireUserPointEntries, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 
 function rowToExpirePolicy(row: Record<string, unknown>): PointExpirePolicy {
   const exclude = row.exclude_entry_types;
@@ -256,7 +256,9 @@ export async function runPointExpireDb(
   for (const [userId, items] of userGroups) {
     const nickname = items[0]?.userNickname ?? userId;
     const userTotal = items.reduce((s, i) => s + i.amount, 0);
-    const balanceBefore = await readUserPointBalance(sb, userId);
+    const summed = await sumUserPointLedger(sb, userId);
+    if (!summed.ok) throw new Error(summed.error);
+    const balanceBefore = summed.sum;
     const deduct = Math.min(userTotal, balanceBefore);
     if (deduct < 1) continue;
 

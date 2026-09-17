@@ -24,6 +24,7 @@ import {
   listBoardPointPolicies,
 } from "@/lib/points/point-policy-db";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
+import { sumUserPointLedger } from "@/lib/points/user-point-ledger";
 
 export type CommunityPointApplyResult = {
   ok: boolean;
@@ -290,12 +291,8 @@ async function applyCommunityRewardDecision(input: {
   });
   let finalPoint = applyEventMultiplier(basePoint, multiplier);
   if (input.userType === "free" && policy.maxFreeUserPointCap > 0) {
-    const { data: balRow } = await input.sb
-      .from("profiles")
-      .select("points")
-      .eq("id", input.userId)
-      .maybeSingle();
-    const current = Number((balRow as { points?: number } | null)?.points ?? 0);
+    const summed = await sumUserPointLedger(input.sb, input.userId);
+    const current = summed.ok ? summed.sum : 0;
     if (current + finalPoint > policy.maxFreeUserPointCap) {
       finalPoint = Math.max(0, policy.maxFreeUserPointCap - current);
     }

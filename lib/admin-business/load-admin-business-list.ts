@@ -21,6 +21,7 @@ import {
   confirmedSaleRevenuePhp,
   type ConfirmedSaleRevenueOrderSnapshot,
 } from "@/lib/stores/confirmed-sale-revenue";
+import { STORE_ECONOMIC_POINT_ACCOUNTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 
 export type AdminBusinessListOpsFilters = {
   q?: string;
@@ -481,6 +482,7 @@ export async function loadAdminBusinessListOps(
     todayRes,
     lastOrderRes,
     reportCountRes,
+    coinBalRes,
   ] = await Promise.all([
     ownerIds.length
       ? sb
@@ -514,11 +516,24 @@ export async function loadAdminBusinessListOps(
       .select("store_id")
       .in("store_id", pageIds)
       .eq("status", "open"),
+    // Canonical Coin balance — never stores.point_balance (SCHEMA_LEGACY).
+    sb
+      .from(STORE_ECONOMIC_POINT_ACCOUNTS_TABLE)
+      .select("store_id, balance")
+      .in("store_id", pageIds),
   ]);
 
   const profById = new Map<string, Record<string, unknown>>();
   for (const p of profRes.data ?? []) {
     profById.set(String((p as { id?: unknown }).id ?? ""), p as Record<string, unknown>);
+  }
+
+  const coinBalanceByStore = new Map<string, number>();
+  for (const row of coinBalRes.data ?? []) {
+    const sid = String((row as { store_id?: unknown }).store_id ?? "").trim();
+    if (!sid) continue;
+    // Preserve signed Coin (F-05 merchant debt may be negative).
+    coinBalanceByStore.set(sid, Math.trunc(Number((row as { balance?: unknown }).balance) || 0));
   }
 
   const countBy = (rows: unknown[] | null | undefined) => {
@@ -567,11 +582,9 @@ export async function loadAdminBusinessListOps(
       openKindById.get(lightRow.id) ??
       presentStoreOpenKind(hoursJson, full.is_open as boolean | null, now).kind;
     const sales = salesByStore.get(lightRow.id);
-    const pointRaw = full.point_balance;
-    const pointBalance =
-      pointRaw == null || pointRaw === ""
-        ? null
-        : Math.max(0, Math.floor(Number(pointRaw) || 0));
+    const pointBalance = coinBalanceByStore.has(lightRow.id)
+      ? (coinBalanceByStore.get(lightRow.id) as number)
+      : null;
     const ratingRaw = full.rating_avg;
     const ratingAvg =
       ratingRaw == null || ratingRaw === ""

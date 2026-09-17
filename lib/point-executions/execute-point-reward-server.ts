@@ -16,7 +16,7 @@ import {
 } from "@/lib/points/point-execution-db";
 import { getActivePointExpirePolicyDb } from "@/lib/points/point-expire-db";
 import { computeExpiresAt, isEntryTypeExcluded } from "@/lib/points/point-expire-utils";
-import { creditUserPoints, readUserPointBalance } from "@/lib/points/user-point-ledger";
+import { creditUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 
 export interface ExecutePointRewardInput {
   boardKey: string;
@@ -103,7 +103,13 @@ export async function executePointRewardServer(
 
   const event = await getActiveEventPolicyForBoardDb(sb, input.boardKey);
   const probabilityRules = await listProbabilityRulesByPolicyId(sb, policy.id);
-  const currentBalance = await readUserPointBalance(sb, input.userId);
+  const summed = await sumUserPointLedger(sb, input.userId);
+  if (!summed.ok) {
+    return recordBlocked(sb, input, executionKey, {
+      reason: summed.error,
+    });
+  }
+  const currentBalance = summed.sum;
   const sim = computePointRewardSimulation({
     boardKey: input.boardKey,
     actionType: input.actionType,
