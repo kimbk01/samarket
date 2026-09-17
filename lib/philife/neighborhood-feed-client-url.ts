@@ -43,6 +43,8 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   sort?: "latest" | "popular" | "recommended";
   /** Exact hashtag discovery — maps to `?tag=` */
   tag?: string | null;
+  /** Free-text keyword — maps to `?q=` (Global Search). */
+  q?: string | null;
 }): string {
   const p = new URLSearchParams();
   if (input.globalFeed) {
@@ -69,5 +71,7 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   if (aid) p.set("authorId", aid);
   const tag = (input.tag ?? "").trim().replace(/^#+/, "");
   if (tag) p.set("tag", tag);
+  const q = (input.q ?? "").trim();
+  if (q) p.set("q", q);
   return philifeNeighborhoodFeedUrl(p.toString());
 }

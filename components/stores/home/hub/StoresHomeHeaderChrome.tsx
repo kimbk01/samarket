@@ -1,7 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
@@ -20,10 +19,6 @@ import {
   STORES_HOME_HEADER_INNER_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
-const StoresHomeSearchModal = dynamic(
-  () => import("@/components/stores/home/hub/StoresHomeSearchModal").then((m) => m.StoresHomeSearchModal),
-  { ssr: false }
-);
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   getStoresHomePullRefreshServerSnapshot,
@@ -62,8 +57,6 @@ export function StoresHomeHeaderChrome() {
   const router = useRouter();
   const pathname = usePathname() ?? "/stores";
   const searchParams = useSearchParams();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const headerLine = useMemo(
     () => resolveDeliveryHomeHeaderButtonLabel(address, language),
     [address, language],
@@ -111,11 +104,7 @@ export function StoresHomeHeaderChrome() {
               <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
             </button>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-              <StoresConsumerHeaderActions
-                searchOpen={searchOpen}
-                onOpenSearch={() => setSearchOpen(true)}
-                searchTriggerRef={searchTriggerRef}
-              />
+              <StoresConsumerHeaderActions />
             </div>
           </div>
           <div
@@ -145,13 +134,6 @@ export function StoresHomeHeaderChrome() {
           </div>
         </div>
       </header>
-      {searchOpen ?
-        <StoresHomeSearchModal
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          anchorRef={searchTriggerRef}
-        />
-      : null}
     </>
   );
 }

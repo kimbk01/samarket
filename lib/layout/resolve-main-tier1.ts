@@ -243,7 +243,7 @@ export function resolveMainTier1Subpage(
       ...DEFAULT,
       backHref: "/market",
       preferHistoryBack: true,
-      titleText: "tier1_search",
+      titleText: "global_search_title",
       showHubQuickActions: true,
     };
   }

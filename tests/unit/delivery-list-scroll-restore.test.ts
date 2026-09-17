@@ -41,6 +41,7 @@ describe("delivery-list-scroll-restore", () => {
   it("recognizes delivery list routes", () => {
     expect(isDeliveryListScrollRoute("/stores")).toBe(true);
     expect(isDeliveryListScrollRoute("/stores/search?q=치킨")).toBe(true);
+    expect(isDeliveryListScrollRoute("/search?q=치킨")).toBe(true);
     expect(isDeliveryListScrollRoute("/stores/browse/restaurant?sub=all")).toBe(true);
     expect(isDeliveryListScrollRoute("/stores/my-slug")).toBe(false);
   });

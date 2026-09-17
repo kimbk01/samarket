@@ -39,3 +39,31 @@ export function communityHashtagIlikeOrFilter(tagNormalized: string): string {
   const needle = `%#${esc}%`;
   return `title.ilike.${needle},content.ilike.${needle},summary.ilike.${needle}`;
 }
+
+/** Global Search community keyword — not hashtag tokenization. */
+export function sanitizeCommunityKeywordQuery(raw: string | null | undefined): string {
+  const t = (raw ?? "")
+    .trim()
+    .replace(/[%_,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!t) return "";
+  return t.slice(0, 60);
+}
+
+export function communityKeywordIlikeOrFilter(raw: string): string {
+  const keyword = sanitizeCommunityKeywordQuery(raw);
+  if (!keyword) return "";
+  const needle = `%${escapeIlikePattern(keyword)}%`;
+  return `title.ilike.${needle},content.ilike.${needle},summary.ilike.${needle}`;
+}
+
+export function communityPostTextMatchesKeyword(
+  parts: { title?: string | null; content?: string | null; summary?: string | null },
+  raw: string
+): boolean {
+  const keyword = sanitizeCommunityKeywordQuery(raw).toLowerCase();
+  if (!keyword) return false;
+  const hay = `${parts.title ?? ""}\n${parts.content ?? ""}\n${parts.summary ?? ""}`.toLowerCase();
+  return hay.includes(keyword);
+}

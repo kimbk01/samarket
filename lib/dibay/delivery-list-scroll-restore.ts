@@ -38,7 +38,7 @@ export function getCurrentDeliveryListScrollRouteKey(): string {
 
 export function isDeliveryListScrollRoute(routeKey: string): boolean {
   const path = (routeKey || "").split("?")[0] ?? "";
-  if (path === "/stores" || path === "/stores/search") return true;
+  if (path === "/stores" || path === "/stores/search" || path === "/search") return true;
   return /^\/stores\/browse\/[^/]+$/.test(path);
 }
 

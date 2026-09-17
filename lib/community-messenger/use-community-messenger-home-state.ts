@@ -616,6 +616,7 @@ export function useCommunityMessengerHomeState({
     const keyword = roomSearchKeyword.trim().toLowerCase();
     if (!keyword) return [];
     return unifiedRooms
+      .filter((item) => communityMessengerRoomIsVisibleInMainChatInbox(item.room))
       .filter((item) => {
         const room = item.room;
         const meetingRoleHaystack = room.philifeMeetingMemberLabel

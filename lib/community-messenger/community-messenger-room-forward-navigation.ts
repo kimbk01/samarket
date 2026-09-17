@@ -55,6 +55,8 @@ export type CommunityMessengerRoomForwardNavArgs = {
   viewerUserId?: string | null;
   /** 목록 행 등 요약이 있으면 Realtime 시드에 반영 */
   roomForPrime?: CommunityMessengerRoomSummary | null;
+  /** Global Search `/search?q=` restore. Existing `cm_return` sanitizer only. */
+  returnHrefOverride?: string | null;
 };
 
 /**
@@ -68,14 +70,16 @@ export async function runCommunityMessengerRoomForwardNavigation(
   const id = String(args.roomId ?? "").trim();
   if (!id) return;
 
+  const overrideReturn = args.returnHrefOverride?.trim() || null;
   const returnHref =
-    args.listSource === "delivery" && typeof window !== "undefined"
+    overrideReturn ??
+    (args.listSource === "delivery" && typeof window !== "undefined"
       ? resolveDeliveryMessengerRoomReturnHref({
           pathname: window.location.pathname,
           search: window.location.search,
           fromEntryOrigin: args.fromEntryOrigin,
         })
-      : null;
+      : null);
   const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref);
   const vu = args.viewerUserId?.trim() || null;
   const room = args.roomForPrime ?? null;

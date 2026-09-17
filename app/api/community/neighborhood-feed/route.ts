@@ -25,7 +25,7 @@ import {
   decodeCommunityFeedCursor,
   encodeCommunityFeedCursor,
 } from "@/lib/community/community-publication-time";
-import { normalizeCommunityHashtagQuery } from "@/lib/community-feed/hashtag-discovery";
+import { normalizeCommunityHashtagQuery, sanitizeCommunityKeywordQuery } from "@/lib/community-feed/hashtag-discovery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
   const limitRaw = req.nextUrl.searchParams.get("limit")?.trim() ?? "";
   const neighborOnly = req.nextUrl.searchParams.get("neighborOnly") === "1";
   const hashtag = normalizeCommunityHashtagQuery(req.nextUrl.searchParams.get("tag"));
+  const keywordQ = sanitizeCommunityKeywordQuery(req.nextUrl.searchParams.get("q"));
 
   if (!globalFeed && !locationKey) {
     return NextResponse.json({ ok: false, error: "locationKey_required" }, { status: 400 });
@@ -145,6 +146,7 @@ export async function GET(req: NextRequest) {
         authorId ?? "all",
         neighborOnly ? "neighbor-only" : "all-users",
         hashtag ? `tag:${hashtag}` : "tag:none",
+        keywordQ ? `q:${keywordQ}` : "q:none",
         feedCursor ? `c:${encodeCommunityFeedCursor(feedCursor)}` : String(offset),
         String(limit),
         feedSort,
@@ -162,6 +164,7 @@ export async function GET(req: NextRequest) {
           feedSort,
           topics,
           hashtag: hashtag || undefined,
+          q: keywordQ || undefined,
         })
       );
       const { posts, hasMore, pagingOffsetAdvance, nextCursor, serverCommunityPerf } = listResult;

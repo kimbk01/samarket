@@ -2322,12 +2322,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => (
       <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
-          onOpenSearch={() => openHomeOverlay("search")}
+          onOpenSearch={() => router.push("/search")}
           onOpenSettings={() => openHomeOverlay("settings")}
         />
       </div>
     ),
-    [openHomeOverlay]
+    [openHomeOverlay, router]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {

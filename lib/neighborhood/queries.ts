@@ -52,8 +52,11 @@ import { resolvePopularPagingOffsetAdvance } from "@/lib/neighborhood/popular-pa
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
 import {
   communityHashtagIlikeOrFilter,
+  communityKeywordIlikeOrFilter,
   communityPostTextMatchesHashtag,
+  communityPostTextMatchesKeyword,
   normalizeCommunityHashtagQuery,
+  sanitizeCommunityKeywordQuery,
 } from "@/lib/community-feed/hashtag-discovery";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
@@ -172,6 +175,8 @@ export async function listNeighborhoodFeed(options: {
    * Coarse ilike prefilter + exact tokenizer match (no structured tag table).
    */
   hashtag?: string | null;
+  /** Free-text keyword (Global Search). Title/content/summary ILIKE — not author search. */
+  q?: string | null;
 }): Promise<NeighborhoodFeedPageResult> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -183,6 +188,7 @@ export async function listNeighborhoodFeed(options: {
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
   const hashtag = normalizeCommunityHashtagQuery(options.hashtag);
+  const keywordQ = sanitizeCommunityKeywordQuery(options.q);
   const allLocations = options.allLocations === true;
   const lid = options.locationId?.trim() ?? "";
   if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
@@ -263,9 +269,10 @@ export async function listNeighborhoodFeed(options: {
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
 
-  const fetchCount = hashtag
-    ? Math.min(Math.max(pageSize * 5 + 1, pageSize + 1), 101)
-    : pageSize + 1;
+  const fetchCount =
+    hashtag || keywordQ
+      ? Math.min(Math.max(pageSize * 5 + 1, pageSize + 1), 101)
+      : pageSize + 1;
   const authorUserId = options.authorUserId?.trim();
   const sortIn: CommunityFeedSortMode = options.feedSort ?? "latest";
   const { filterCategory: filterCat, feedSort: effSort } = resolveNeighborhoodListSort(
@@ -308,6 +315,7 @@ export async function listNeighborhoodFeed(options: {
 
   const keysetCursor =
     !hashtag &&
+    !keywordQ &&
     effSort === "latest" &&
     options.cursor?.publishedAt?.trim() &&
     options.cursor?.id?.trim()
@@ -323,7 +331,7 @@ export async function listNeighborhoodFeed(options: {
     chronologyCol: "published_at" | "created_at" = "published_at"
   ) => {
     const cols =
-      hashtag && !selectCols.includes("content")
+      (hashtag || keywordQ) && !selectCols.includes("content")
         ? selectCols.replace(/\btitle\b/, "title, content")
         : selectCols;
     let qq = sb.from("community_posts").select(cols).eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
@@ -353,6 +361,10 @@ export async function listNeighborhoodFeed(options: {
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
     if (hashtag) {
       qq = qq.or(communityHashtagIlikeOrFilter(hashtag));
+    }
+    if (keywordQ) {
+      const keywordOr = communityKeywordIlikeOrFilter(keywordQ);
+      if (keywordOr) qq = qq.or(keywordOr);
     }
     if (useKeyset && keysetCursor && chronologyCol === "published_at") {
       qq = qq.or(communityFeedKeysetOrFilter(keysetCursor)).limit(fetchCount);
@@ -499,6 +511,19 @@ export async function listNeighborhoodFeed(options: {
           summary: typeof r.summary === "string" ? r.summary : "",
         },
         hashtag
+      )
+    ) {
+      return false;
+    }
+    if (
+      keywordQ &&
+      !communityPostTextMatchesKeyword(
+        {
+          title: typeof r.title === "string" ? r.title : "",
+          content: typeof r.content === "string" ? r.content : "",
+          summary: typeof r.summary === "string" ? r.summary : "",
+        },
+        keywordQ
       )
     ) {
       return false;

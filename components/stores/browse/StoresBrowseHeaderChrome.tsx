@@ -1,7 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { StoresBrowseHeaderScrollCollapse } from "@/components/stores/browse/StoresBrowseHeaderScrollCollapse";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -45,11 +44,6 @@ import {
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
 
-const StoresHomeSearchModal = dynamic(
-  () => import("@/components/stores/home/hub/StoresHomeSearchModal").then((m) => m.StoresHomeSearchModal),
-  { ssr: false }
-);
-
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -91,10 +85,8 @@ export function StoresBrowseHeaderChrome() {
     resolveBrowsePrimaryTabActiveSlug(browsePrimarySlug || null, pendingPrimaryNav) ?? browsePrimarySlug;
   const extras = useMainTier1ExtrasOptional()?.extras;
   const address = useDeliveryHomeHeaderAddress();
-  const [searchOpen, setSearchOpen] = useState(false);
   const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
   const primaryCollapsed = useBrowseSubtopicCollapsed();
-  const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const primaries = useBrowsePrimaryIndustries();
 
   const addressLine = useMemo(
@@ -141,11 +133,7 @@ export function StoresBrowseHeaderChrome() {
             />
             <h1 className={STORES_HOME_HEADER_BROWSE_TITLE_CLASS}>{title}</h1>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-              <StoresConsumerHeaderActions
-                searchOpen={searchOpen}
-                onOpenSearch={() => setSearchOpen(true)}
-                searchTriggerRef={searchTriggerRef}
-              />
+              <StoresConsumerHeaderActions />
             </div>
           </div>
           <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS}>
@@ -208,13 +196,6 @@ export function StoresBrowseHeaderChrome() {
             </Suspense>
           </div>
         </div>
-      : null}
-      {searchOpen ?
-        <StoresHomeSearchModal
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          anchorRef={searchTriggerRef}
-        />
       : null}
     </>
   );

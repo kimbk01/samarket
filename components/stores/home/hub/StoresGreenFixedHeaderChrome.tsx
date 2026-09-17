@@ -1,12 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-import { StoresHomeSearchModal } from "@/components/stores/home/hub/StoresHomeSearchModal";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
@@ -53,24 +52,19 @@ export function StoresGreenFixedHeaderChrome({
   trailing,
 }: StoresGreenFixedHeaderChromeProps) {
   const { t } = useI18n();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchTriggerRef = useRef<HTMLButtonElement>(null);
 
   const right =
     trailing ??
     (showSearchAndNotifications ? (
       <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-        <button
-          ref={searchTriggerRef}
-          type="button"
+        <Link
+          href="/search"
+          prefetch={false}
           className={STORES_HOME_HEADER_ICON_BTN_CLASS}
           aria-label={t("store_search_placeholder")}
-          aria-haspopup="dialog"
-          aria-expanded={searchOpen}
-          onClick={() => setSearchOpen(true)}
         >
           <SearchIcon />
-        </button>
+        </Link>
         <Tier1NotificationAnchor surface="bottom_nav_delivery" tone="onPrimary" />
       </div>
     ) : (
@@ -102,13 +96,6 @@ export function StoresGreenFixedHeaderChrome({
           </header>
         </div>
       </BodyPortal>
-      {showSearchAndNotifications ? (
-        <StoresHomeSearchModal
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          anchorRef={searchTriggerRef}
-        />
-      ) : null}
     </>
   );
 }

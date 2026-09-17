@@ -25,14 +25,14 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 
-  it("HOME search stays on /market and sell CTA moved to header", () => {
+  it("HOME magnifier opens Global Search; in-page /market?q= loader remains", () => {
     const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
-    expect(chrome).not.toContain('href="/search"');
     expect(chrome).not.toContain("TradeHeaderLocationPinButton");
-    const tabs = read("components/trade/TradePrimaryTabs.tsx");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
-    expect(header).toContain("marketplace_search_placeholder");
-    expect(header).toContain("sanitizeMarketplaceQueryText");
+    expect(header).toContain('href="/search"');
+    expect(header).toContain("marketplace_search_entry_aria");
+    expect(header).not.toContain("sanitizeMarketplaceQueryText");
+    const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("data-marketplace-sell-cta");
     expect(header).toContain('"/market/sell"');
     expect(header).toContain("data-marketplace-sell-cta");

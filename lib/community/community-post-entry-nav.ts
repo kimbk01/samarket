@@ -109,6 +109,7 @@ export function isSafeCommunityReturnHref(href: string): boolean {
     const path = (u.pathname || "").replace(/\/+$/, "") || "/";
     if (isCommunityHubRootPath(path)) return true;
     if (path === "/mypage/community-posts") return true;
+    if (path === "/search") return true;
     return false;
   } catch {
     return false;

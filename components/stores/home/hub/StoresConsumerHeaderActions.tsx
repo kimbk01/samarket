@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { Ref } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import {
@@ -45,15 +44,7 @@ function OrderHistoryIcon() {
  * CUT-D — consumer delivery header actions (hub + browse).
  * Order: search · orders · cart · bell. No owner ops. No floating FAB substitute beyond these.
  */
-export function StoresConsumerHeaderActions({
-  searchOpen,
-  onOpenSearch,
-  searchTriggerRef,
-}: {
-  searchOpen: boolean;
-  onOpenSearch: () => void;
-  searchTriggerRef?: Ref<HTMLButtonElement>;
-}) {
+export function StoresConsumerHeaderActions() {
   const { t } = useI18n();
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
     COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART
@@ -63,18 +54,15 @@ export function StoresConsumerHeaderActions({
 
   return (
     <>
-      <button
-        ref={searchTriggerRef}
-        type="button"
+      <Link
+        href="/search"
+        prefetch={false}
         className={STORES_HOME_HEADER_ICON_BTN_CLASS}
         aria-label={t("store_search_placeholder")}
-        aria-haspopup="dialog"
-        aria-expanded={searchOpen}
         data-stores-consumer-header-action="search"
-        onClick={onOpenSearch}
       >
         <SearchIcon />
-      </button>
+      </Link>
       <Link
         href={orderHistoryHref}
         prefetch={false}

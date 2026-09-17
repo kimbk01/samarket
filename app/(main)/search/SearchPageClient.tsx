@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SearchView } from "@/components/search/SearchView";
+import { GlobalSearchView } from "@/components/search/global/GlobalSearchView";
 
 function SearchFallback() {
   const { t } = useI18n();
@@ -17,7 +17,7 @@ export default function SearchPageClient() {
   return (
     <div className="min-h-screen bg-sam-app">
       <Suspense fallback={<SearchFallback />}>
-        <SearchView />
+        <GlobalSearchView />
       </Suspense>
     </div>
   );

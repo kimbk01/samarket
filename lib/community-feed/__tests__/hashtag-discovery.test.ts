@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   communityHashtagIlikeOrFilter,
+  communityKeywordIlikeOrFilter,
   communityPostTextMatchesHashtag,
+  communityPostTextMatchesKeyword,
   escapeIlikePattern,
   normalizeCommunityHashtagQuery,
+  sanitizeCommunityKeywordQuery,
 } from "@/lib/community-feed/hashtag-discovery";
 
 describe("community hashtag discovery", () => {
@@ -33,5 +36,13 @@ describe("community hashtag discovery", () => {
     expect(escapeIlikePattern("a%b_c")).toBe("a\\%b\\_c");
     expect(communityHashtagIlikeOrFilter("food")).toContain("title.ilike.%#food%");
     expect(communityHashtagIlikeOrFilter("food")).toContain("content.ilike.%#food%");
+  });
+
+  it("keyword query matches title/content/summary without hashtag tokenization", () => {
+    expect(sanitizeCommunityKeywordQuery("  치킨,분식  ")).toBe("치킨 분식");
+    expect(communityPostTextMatchesKeyword({ title: "오늘 치킨", content: "", summary: "" }, "치킨")).toBe(true);
+    expect(communityPostTextMatchesKeyword({ title: "", content: "후라이드", summary: "" }, "후라이드")).toBe(true);
+    expect(communityPostTextMatchesKeyword({ title: "분식", content: "", summary: "" }, "치킨")).toBe(false);
+    expect(communityKeywordIlikeOrFilter("치킨")).toContain("title.ilike.%치킨%");
   });
 });
