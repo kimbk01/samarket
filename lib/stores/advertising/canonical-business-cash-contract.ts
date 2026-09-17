@@ -92,6 +92,10 @@ export type BusinessCashConversionQuote = {
   requestedPoints: number;
   expectedBusinessCashMinor: number;
   rateChangedNoticeRequired: boolean;
+  /** F-03 policy SSOT — same DB row as rate. */
+  minimumCoin: number;
+  conversionUnit: number;
+  conversionEnabled: boolean;
 };
 
 /** Quote math from current policy — snapshot at confirm uses same version. */

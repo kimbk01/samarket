@@ -61,6 +61,26 @@ export const LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT = true as const;
 /** Gift cash-out merges into canonical Coin withdrawal rail (owner decision). */
 export const GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL = true as const;
 
+/**
+ * Owner-locked Point fungibility (Finance CLOSE).
+ * One wallet; source/destination must remain ledger-traceable.
+ * Gift purchase may spend any Point — no purchased/reward wallet split.
+ */
+export const POINT_FUNGIBILITY_CONTRACT = {
+  singleWallet: true as const,
+  separatePurchasedRewardWallets: false as const,
+  giftSpendSourceGate: "NONE" as const,
+  rewardToGiftToMerchantCoinToPayout: "ALLOWED_FUNGIBLE" as const,
+  sourceTraceRequired: true as const,
+  sourceFields: ["entry_type", "related_type", "related_id"] as const,
+} as const;
+
+/** Cash ledger amount_minor = cash moved; fee due is obligations-only. */
+export const CASH_LEDGER_AMOUNT_IS_CASH_MOVED = true as const;
+
+/** Direct account balance writes without ledgered RPC are forbidden. */
+export const CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN = true as const;
+
 export const CURRENCY_VISUAL_VARIANTS = ["point", "coin", "cash"] as const;
 export type CurrencyVisualVariant = (typeof CURRENCY_VISUAL_VARIANTS)[number];
 
@@ -73,6 +93,11 @@ export function assertCurrencySsotHardLockAnchors(): boolean {
     CURRENCY_AUTHORITY.COIN.recharge === false &&
     CURRENCY_AUTHORITY.CASH.withdraw === false &&
     LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT === true &&
-    GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL === true
+    GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL === true &&
+    POINT_FUNGIBILITY_CONTRACT.singleWallet === true &&
+    POINT_FUNGIBILITY_CONTRACT.separatePurchasedRewardWallets === false &&
+    POINT_FUNGIBILITY_CONTRACT.giftSpendSourceGate === "NONE" &&
+    CASH_LEDGER_AMOUNT_IS_CASH_MOVED === true &&
+    CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN === true
   );
 }

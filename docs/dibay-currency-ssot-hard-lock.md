@@ -39,6 +39,34 @@ It does **not** authorize unbounded financial data migration without bounded CUT
 | Withdraw | NO |
 | Module | `lib/points/user-point-ledger.ts` |
 
+#### POINT fungibility contract (Owner-locked)
+
+Point is **one fungible member asset**. Do **not** split into purchased/reward wallets.
+
+| Concern | Contract |
+|---|---|
+| Source trace | Required on every credit via `point_ledger.entry_type` + `related_type` (+ related_id) |
+| Source examples | `charge` · `reward`/`community_reward` · `admin_credit` · `refund` · promo/ad holds · etc. |
+| Gift spend | **ALLOWED** from the full fungible balance (no source gate) — existing product path |
+| Reward → Gift → Merchant Coin → Coin withdrawal | **OPEN** economic path; Admin must be able to trace source → spend → gift → order → Coin |
+| Forbidden | New PURCHASED_POINT / REWARD_POINT parallel balances |
+
+Code anchors: `lib/currency/currency-ssot-hard-lock.ts` (`POINT_FUNGIBILITY_CONTRACT`).
+
+### CASH ledger row integrity
+
+Every `business_cash_ledger` row:
+
+| Field | Meaning |
+|---|---|
+| `amount_minor` | Cash **actually moved** (always > 0) |
+| `direction` | `credit` \| `debit` |
+| `balance_after_minor` | Account balance **after** that mutation |
+
+Invariant: `after = before ± amount_minor` relative to the prior ledger-authorized balance.  
+Fee **due** lives on `store_sale_fee_obligations`, never as a second meaning of ledger `amount_minor`.  
+**Forbidden:** direct `business_cash_accounts.balance_minor` mutation without a ledgered RPC (QA upserts included).
+
 ### COIN
 
 | Concern | Authority |
@@ -49,6 +77,7 @@ It does **not** authorize unbounded financial data migration without bounded CUT
 | Recharge | **NO** |
 | Withdraw | YES — `coin_withdrawal_requests` (+ merged gift cash-out rail) |
 | Cash conversion | YES — `convert_store_economic_points_to_business_cash` |
+| Conversion policy SSOT | `business_cash_conversion_rate_policies` — **rate + minimum + unit + period limits** (F-03) |
 | Sale fee | **NO** — fees on Cash ledger only (CUT D) |
 | Module | `lib/stores/confirmed-sale-revenue.ts`, `lib/currency/confirmed-sale-coin-writer.ts` |
 

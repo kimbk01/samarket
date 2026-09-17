@@ -21,6 +21,15 @@ const anchor = read("lib/currency/currency-ssot-hard-lock.ts");
 if (!anchor.includes('GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL = true')) {
   fail("Gift cash-out must merge into Coin withdrawal rail");
 }
+if (!anchor.includes("POINT_FUNGIBILITY_CONTRACT")) {
+  fail("Point fungibility contract must be anchored");
+}
+if (!anchor.includes('giftSpendSourceGate: "NONE"')) {
+  fail("Point gift spend must remain fungible (no source gate)");
+}
+if (!anchor.includes("CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN = true")) {
+  fail("Cash direct balance mutation must be forbidden (F-02)");
+}
 if (!anchor.includes("store_economic_point_accounts")) {
   fail("COIN authority must reference store_economic_point_accounts");
 }
@@ -57,6 +66,38 @@ if (!doc.includes("components/currency")) {
 }
 if (!doc.includes("Historical data may remain for accounting evidence")) {
   fail("hard-lock must forbid historical data from preserving a product");
+}
+if (!doc.includes("POINT fungibility contract")) {
+  fail("hard-lock doc must include POINT fungibility contract");
+}
+if (!doc.includes("CASH ledger row integrity")) {
+  fail("hard-lock doc must include CASH ledger row integrity");
+}
+
+const f02Mig = "supabase/migrations/20270118120000_finance_f02_cash_balance_writer_lock.sql";
+try {
+  const f02 = read(f02Mig);
+  if (!f02.includes("REVOKE INSERT, UPDATE, DELETE ON public.business_cash_accounts FROM service_role")) {
+    fail("F-02 migration must revoke service_role direct Cash account writes");
+  }
+  if (!f02.includes("bc_balance_after_minor")) {
+    fail("F-02 migration must refresh convert post-settle balance");
+  }
+} catch {
+  fail(`migration missing: ${f02Mig}`);
+}
+
+const f03Mig = "supabase/migrations/20270118130000_finance_f03_conversion_policy_limits_apply.sql";
+try {
+  const f03 = read(f03Mig);
+  if (!f03.includes("minimum_coin_per_conversion")) {
+    fail("F-03 migration must apply minimum_coin_per_conversion");
+  }
+  if (!f03.includes("MIGRATION_NOT_APPLIED") && !f03.includes("F-03")) {
+    fail("F-03 migration must document apply purpose");
+  }
+} catch {
+  fail(`migration missing: ${f03Mig}`);
 }
 
 const matrix = read("docs/dibay-currency-visual-surface-matrix.md");
@@ -117,13 +158,33 @@ if (
 const forbiddenPatterns = [
   /\.from\(["']delivery_ad_accounts["']\)[\s\S]{0,240}\.(insert|update|upsert)\(/,
   /\.from\(["']store_cash_accounts["']\)[\s\S]{0,240}\.(insert|update|upsert)\(/,
+  /\.from\(["']business_cash_accounts["']\)[\s\S]{0,240}\.(insert|update|upsert)\(/,
 ];
 
 function walkTs(dir, out = []) {
   for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === ".next") continue;
+    if (
+      name === "node_modules" ||
+      name === ".next" ||
+      name === ".qa-logs" ||
+      name === ".tmp" ||
+      name === ".git" ||
+      name === ".worktrees" ||
+      name === ".recovery" ||
+      name === ".capacitor" ||
+      name === "android" ||
+      name === "ios" ||
+      name === "coverage"
+    ) {
+      continue;
+    }
     const p = join(dir, name);
-    const st = statSync(p);
+    let st;
+    try {
+      st = statSync(p);
+    } catch {
+      continue;
+    }
     if (st.isDirectory()) {
       if (name === "__tests__") continue;
       walkTs(p, out);
@@ -134,7 +195,17 @@ function walkTs(dir, out = []) {
   return out;
 }
 
-for (const abs of walkTs(root)) {
+const scanRoots = ["app", "components", "lib", "scripts"].map((d) => join(root, d));
+const tsFiles = [];
+for (const dir of scanRoots) {
+  try {
+    walkTs(dir, tsFiles);
+  } catch {
+    /* skip missing roots */
+  }
+}
+
+for (const abs of tsFiles) {
   const rel = abs.slice(root.length + 1);
   if (rel.startsWith("supabase/")) continue;
   const src = readFileSync(abs, "utf8");

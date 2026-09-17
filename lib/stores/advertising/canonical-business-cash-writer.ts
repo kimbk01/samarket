@@ -25,6 +25,7 @@ import {
   type InsufficientBusinessCashPayload,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { loadCoinCashConversionPolicy } from "@/lib/finance/conversion-policy";
 
 export async function loadStoreBusinessCashBalance(
   sb: SupabaseClient,
@@ -78,6 +79,9 @@ export async function loadBusinessCashConversionRate(
   version: number;
   isDefaultRate: boolean;
   effectiveFrom: string | null;
+  conversionEnabled: boolean;
+  minimumCoin: number;
+  conversionUnit: number;
 } | null> {
   const { data, error } = await sb.rpc(GET_BC_CONVERSION_RATE_RPC);
   if (!error && data && typeof data === "object") {
@@ -90,24 +94,32 @@ export async function loadBusinessCashConversionRate(
         isDefaultRate: payload.is_default_rate === true || isDefaultConversionRate(rate),
         effectiveFrom:
           payload.effective_from == null ? null : String(payload.effective_from),
+        conversionEnabled: payload.conversion_enabled !== false,
+        minimumCoin: Math.max(1, Math.trunc(Number(payload.minimum_coin_per_conversion) || 1)),
+        conversionUnit: Math.max(1, Math.trunc(Number(payload.conversion_unit) || 1)),
       };
     }
   }
-  const { data: row } = await sb
-    .from(BUSINESS_CASH_CONVERSION_RATE_POLICIES_TABLE)
-    .select("rate_pesos_per_point, version, effective_from")
-    .eq("id", "default")
-    .maybeSingle();
-  if (!row) return { ratePesosPerPoint: 1, version: 1, isDefaultRate: true, effectiveFrom: null };
-  const rate = Number((row as { rate_pesos_per_point?: number }).rate_pesos_per_point);
+  const policy = await loadCoinCashConversionPolicy(sb);
+  if (policy) {
+    return {
+      ratePesosPerPoint: policy.ratePesosPerPoint,
+      version: policy.version,
+      isDefaultRate: isDefaultConversionRate(policy.ratePesosPerPoint),
+      effectiveFrom: policy.effectiveFrom,
+      conversionEnabled: policy.enabled,
+      minimumCoin: policy.minimumCoin,
+      conversionUnit: policy.conversionUnit,
+    };
+  }
   return {
-    ratePesosPerPoint: Number.isFinite(rate) && rate > 0 ? rate : 1,
-    version: Math.trunc(Number((row as { version?: number }).version) || 1),
-    isDefaultRate: isDefaultConversionRate(rate),
-    effectiveFrom:
-      (row as { effective_from?: string | null }).effective_from == null
-        ? null
-        : String((row as { effective_from: string }).effective_from),
+    ratePesosPerPoint: 1,
+    version: 1,
+    isDefaultRate: true,
+    effectiveFrom: null,
+    conversionEnabled: true,
+    minimumCoin: 1,
+    conversionUnit: 1,
   };
 }
 
@@ -141,6 +153,9 @@ export async function buildOwnerConversionDisclosure(
     requestedPoints: requested,
     expectedBusinessCashMinor: expected,
     rateChangedNoticeRequired,
+    minimumCoin: rate.minimumCoin,
+    conversionUnit: rate.conversionUnit,
+    conversionEnabled: rate.conversionEnabled,
   };
 }
 

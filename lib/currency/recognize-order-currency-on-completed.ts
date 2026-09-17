@@ -1,19 +1,33 @@
 /**
- * CUT D — order completed currency recognition (Coin gross + Cash sale fee).
+ * CUT D / F-04 — order completed currency recognition (Coin gross + Cash sale fee).
+ * Atomic boundary: recognize_order_currency_on_completed (single DB TX).
  * Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { creditConfirmedSaleCoin } from "@/lib/currency/confirmed-sale-coin-writer";
 import { isCurrencySaleRecognitionLive } from "@/lib/currency/currency-cutover-flags";
-import { chargeSaleFeeForOrder } from "@/lib/currency/sale-fee-writer";
-import { confirmedSaleRevenuePhp } from "@/lib/stores/confirmed-sale-revenue";
+import {
+  saleCoinIdempotencyKeyForOrder,
+  saleFeeIdempotencyKeyForOrder,
+  confirmedSaleRevenuePhp,
+} from "@/lib/stores/confirmed-sale-revenue";
 import {
   calculateOrderCommission,
   resolveEffectiveStoreFeePolicy,
 } from "@/lib/stores/store-fee-policy-resolve";
 
+export const RECOGNIZE_ORDER_CURRENCY_ON_COMPLETED_RPC =
+  "recognize_order_currency_on_completed" as const;
+
 export type RecognizeOrderCurrencyResult =
-  | { ok: true; skipped?: boolean; confirmedRevenuePhp?: number; coinCredited?: boolean; feeCharged?: boolean }
+  | {
+      ok: true;
+      skipped?: boolean;
+      confirmedRevenuePhp?: number;
+      coinCredited?: boolean;
+      feeCharged?: boolean;
+      coinIdempotent?: boolean;
+      feeIdempotent?: boolean;
+    }
   | { ok: false; error: string };
 
 export async function recognizeOrderCurrencyOnCompleted(
@@ -52,17 +66,6 @@ export async function recognizeOrderCurrencyOnCompleted(
 
   const settlementId = settlement?.id ? String(settlement.id) : null;
 
-  const coin = await creditConfirmedSaleCoin(sb, {
-    storeId: sid,
-    orderId: oid,
-    settlementId,
-    amountPhp: confirmed,
-  });
-  if (!coin.ok && coin.error !== "rpc_missing") {
-    console.error("[recognizeOrderCurrencyOnCompleted] coin", coin.error);
-    return { ok: false, error: coin.error };
-  }
-
   let feePercent = 0;
   let fixedFee = 0;
   let deliveryFeeMode: string | null = "none";
@@ -92,27 +95,44 @@ export async function recognizeOrderCurrencyOnCompleted(
     deliveryFeeMode,
     deliveryFeePercent,
   });
+  const feeDuePhp = feeCalc.totalPlatformFeeAmount + feeCalc.deliveryIncomeAmount;
 
-  const fee = await chargeSaleFeeForOrder(sb, {
-    storeId: sid,
-    orderId: oid,
-    settlementId,
-    confirmedRevenuePhp: confirmed,
-    feePercent: feeCalc.platformFeePercent,
-    fixedFeePhp: feeCalc.fixedFeeAmount,
-    deliveryFeeAmount,
-    deliveryFeeMode,
-    deliveryFeePercent,
+  const { data, error } = await sb.rpc(RECOGNIZE_ORDER_CURRENCY_ON_COMPLETED_RPC, {
+    p_store_id: sid,
+    p_order_id: oid,
+    p_settlement_id: settlementId,
+    p_confirmed_revenue_php: confirmed,
+    p_fee_due_php: feeDuePhp,
+    p_coin_idempotency_key: saleCoinIdempotencyKeyForOrder(oid),
+    p_fee_idempotency_key: saleFeeIdempotencyKeyForOrder(oid),
   });
-  if (!fee.ok && fee.error !== "rpc_missing") {
-    console.error("[recognizeOrderCurrencyOnCompleted] sale_fee", fee.error);
-    return { ok: false, error: fee.error };
+
+  if (error) {
+    if (/does not exist|Could not find the function/i.test(error.message)) {
+      return { ok: false, error: "rpc_missing" };
+    }
+    // Fee RAISE maps to PostgREST error — treat as failed atomic recognition (no half-commit).
+    console.error("[recognizeOrderCurrencyOnCompleted] atomic", error.message);
+    return { ok: false, error: error.message };
   }
+
+  const row = (data ?? {}) as Record<string, unknown>;
+  if (row.ok === false) {
+    return { ok: false, error: String(row.error ?? "recognize_failed") };
+  }
+  if (row.skipped === true) {
+    return { ok: true, skipped: true, confirmedRevenuePhp: confirmed };
+  }
+
+  const coin = (row.coin ?? {}) as Record<string, unknown>;
+  const fee = (row.fee ?? {}) as Record<string, unknown>;
 
   return {
     ok: true,
     confirmedRevenuePhp: confirmed,
-    coinCredited: coin.ok,
-    feeCharged: fee.ok,
+    coinCredited: coin.ok === true || row.ok === true,
+    feeCharged: fee.ok === true || fee.skipped === true,
+    coinIdempotent: row.coin_idempotent === true || coin.idempotent === true,
+    feeIdempotent: row.fee_idempotent === true || fee.idempotent === true,
   };
 }

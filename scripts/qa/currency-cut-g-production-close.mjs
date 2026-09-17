@@ -64,11 +64,65 @@ async function pickOrderWithoutObligation(sb, storeId) {
   return null;
 }
 
-async function setCashBalanceMinor(sb, storeId, balanceMinor) {
-  await sb.from("business_cash_accounts").upsert(
-    { store_id: storeId, balance_minor: balanceMinor, updated_at: new Date().toISOString() },
-    { onConflict: "store_id" }
-  );
+/**
+ * F-02: direct business_cash_accounts upsert is FORBIDDEN.
+ * Fixture cash only via ledgered TOP_UP approve RPC.
+ */
+async function creditCashTopUpLedgered(sb, storeId, amountMinor) {
+  const amt = Math.trunc(Number(amountMinor) || 0);
+  if (amt < 1) throw new Error("invalid_topup_amount");
+  const { data: store, error: sErr } = await sb
+    .from("stores")
+    .select("owner_user_id")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (sErr || !store?.owner_user_id) throw new Error(sErr?.message || "store_not_found");
+  const ownerId = String(store.owner_user_id);
+  const key = `qa_f02_topup:${storeId}:${Date.now()}:${amt}`;
+  const { data: req, error: iErr } = await sb
+    .from("business_cash_charge_requests")
+    .insert({
+      store_id: storeId,
+      owner_user_id: ownerId,
+      amount_minor: amt,
+      status: "PENDING",
+      idempotency_key: key,
+    })
+    .select("id")
+    .single();
+  if (iErr || !req?.id) throw new Error(iErr?.message || "charge_request_insert_failed");
+  const { data: appr, error: aErr } = await sb.rpc("approve_business_cash_charge_request", {
+    p_admin_user_id: ownerId,
+    p_request_id: req.id,
+  });
+  if (aErr || appr?.ok !== true) {
+    throw new Error(aErr?.message || String(appr?.error || "approve_failed"));
+  }
+  return appr;
+}
+
+/** Reach exact Cash balance only by ledgered credit when current ≤ target. */
+async function ensureCashBalanceMinorLedgered(sb, storeId, targetMinor) {
+  const target = Math.trunc(Number(targetMinor) || 0);
+  await sb.rpc("ensure_business_cash_account", { p_store_id: storeId });
+  const { data: acc, error } = await sb
+    .from("business_cash_accounts")
+    .select("balance_minor")
+    .eq("store_id", storeId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const bal = Math.trunc(Number(acc?.balance_minor) || 0);
+  if (bal === target) return { ok: true, balance_minor: bal };
+  if (bal < target) {
+    await creditCashTopUpLedgered(sb, storeId, target - bal);
+    return { ok: true, balance_minor: target, topped_up: target - bal };
+  }
+  return {
+    ok: false,
+    reason: "cash_above_target_no_ledgered_drain",
+    balance_minor: bal,
+    target_minor: target,
+  };
 }
 
 async function main() {
@@ -150,7 +204,11 @@ async function main() {
   const feeKey = `sale_fee:order:${testOrderId}`;
   const revKey = `sale_fee_reversal:order:${testOrderId}`;
 
-  await setCashBalanceMinor(sb, STORE_ID, 2000);
+  const feeFixture = await ensureCashBalanceMinorLedgered(sb, STORE_ID, 2000);
+  if (!feeFixture.ok) {
+    report.sale_fee_refund = { status: "NOT_PROVEN", reason: feeFixture.reason, fixture: feeFixture };
+    report.first_divergence = report.first_divergence || feeFixture.reason;
+  } else {
 
   const { data: charge1, error: chargeErr } = await sb.rpc("charge_sale_fee_for_order", {
     p_store_id: STORE_ID,
@@ -215,6 +273,7 @@ async function main() {
   if (!feeRefundOk) {
     report.first_divergence = report.first_divergence || "sale_fee_refund_contract";
   }
+  } // feeFixture.ok
   }
 
   // ── Coin reversal idempotent replay (CUT B regression) ──
@@ -254,7 +313,11 @@ async function main() {
     report.obligation_settle = { status: "NOT_PROVEN", reason: "no_order_fixture" };
     report.first_divergence = report.first_divergence || "no_order_fixture_settle";
   } else {
-  await setCashBalanceMinor(sb, STORE_ID, 2000);
+  const settleFx1 = await ensureCashBalanceMinorLedgered(sb, STORE_ID, 2000);
+  if (!settleFx1.ok) {
+    report.obligation_settle = { status: "NOT_PROVEN", reason: settleFx1.reason, fixture: settleFx1 };
+    report.first_divergence = report.first_divergence || settleFx1.reason;
+  } else {
   await sb.rpc("charge_sale_fee_for_order", {
     p_store_id: STORE_ID,
     p_order_id: settleOrderId,
@@ -264,7 +327,12 @@ async function main() {
     p_idempotency_key: `sale_fee:order:${settleOrderId}`,
   });
 
-  await setCashBalanceMinor(sb, STORE_ID, 10000);
+  // After partial fee pay, balance is 0; credit 10000 via ledgered TOP_UP then settle.
+  const settleFx2 = await ensureCashBalanceMinorLedgered(sb, STORE_ID, 10000);
+  if (!settleFx2.ok) {
+    report.obligation_settle = { status: "NOT_PROVEN", reason: settleFx2.reason, fixture: settleFx2 };
+    report.first_divergence = report.first_divergence || settleFx2.reason;
+  } else {
 
   const { data: settle } = await sb.rpc("settle_store_sale_fee_obligations", {
     p_store_id: STORE_ID,
@@ -292,6 +360,8 @@ async function main() {
   if (!settleOk) {
     report.first_divergence = report.first_divergence || "obligation_settle_on_inflow";
   }
+  } // settleFx2
+  } // settleFx1
   }
 
   const feeOk = report.sale_fee_refund.pass === true;
