@@ -128,8 +128,16 @@ describe("me-stores client network authority (source)", () => {
       path.join(process.cwd(), "lib/me/load-me-stores-for-user.ts"),
       "utf8"
     );
+    const afterLocationSrc = fs.readFileSync(
+      path.join(process.cwd(), "lib/stores/after-canonical-store-location-write.ts"),
+      "utf8"
+    );
     expect(loadSrc).toContain("export function invalidateMeStoresListServerCache");
-    expect(patchSrc).toContain("invalidateMeStoresListServerCache");
+    // Owner PATCH: me-stores list clear is owned by canonical location post-write hook.
+    expect(patchSrc).toContain("afterCanonicalStoreLocationWrite");
+    expect(patchSrc).toContain("ownerUserId: userId");
+    expect(afterLocationSrc).toContain("invalidateMeStoresListServerCache");
+    // Owner POST create still clears directly (not a location-write path).
     expect(postSrc).toContain("invalidateMeStoresListServerCache");
   });
 
