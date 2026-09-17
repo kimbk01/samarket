@@ -101,15 +101,28 @@ export function buildDeliveryServiceAreaEditorPayload(
   const canonicalHomeName = storeHomeLguId
     ? getPlatformPhLguDisplayNameById(storeHomeLguId) || null
     : null;
+  const storeHomeDisplayName =
+    candidatesWithBands.find((c) => c.isStoreHome)?.displayName ??
+    canonicalHomeName ??
+    ((store.city ?? "").trim() || null);
+  const neighborhoodRaw = (store.city ?? "").trim();
+  const neighborhoodLabel =
+    neighborhoodRaw &&
+    storeHomeDisplayName &&
+    neighborhoodRaw.toLowerCase() !== storeHomeDisplayName.toLowerCase() &&
+    !storeHomeDisplayName.toLowerCase().includes(neighborhoodRaw.toLowerCase())
+      ? neighborhoodRaw
+      : null;
 
   return {
     storeName: store.store_name ?? null,
     authorityMode,
     storeHomeLguId,
-    storeHomeDisplayName:
-      candidatesWithBands.find((c) => c.isStoreHome)?.displayName ??
-      canonicalHomeName ??
-      ((store.city ?? "").trim() || null),
+    storeHomeDisplayName,
+    /** Barangay/neighborhood free-text when distinct from canonical City (e.g. Commonwealth). */
+    storeNeighborhoodLabel: neighborhoodLabel,
+    storeLat: lat,
+    storeLng: lng,
     referenceDistanceKm: referenceKm,
     candidateSearchKm: searchKm,
     selectionSource,

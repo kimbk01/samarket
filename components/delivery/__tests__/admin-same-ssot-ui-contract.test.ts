@@ -34,6 +34,9 @@ describe("Admin same-SSOT UI first divergence close", () => {
     expect(core).toContain("function toggleId");
     expect(core).toContain("data-delivery-service-area-band=\"base\"");
     expect(core).toContain("data-delivery-service-area-band=\"extended\"");
+    expect(core).toContain("sm:grid-cols-2");
+    expect(core).toContain("selectedRowClass");
+    expect(core).toContain("selectedChips");
   });
 
   it("Owner and Admin APIs write the same SSOT helpers", () => {

@@ -758,26 +758,70 @@ export function OwnerStoreProfileForm({
       >
       <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_159")}>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-[var(--biz-text)]">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              id="svc-delivery"
-              type="checkbox"
-              checked={values.deliveryAvailable}
-              onChange={(e) => setValues((v) => ({ ...v, deliveryAvailable: e.target.checked }))}
-              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
-            />
+          <button
+            type="button"
+            id="svc-delivery"
+            role="checkbox"
+            aria-checked={values.deliveryAvailable}
+            onClick={() =>
+              setValues((v) => ({ ...v, deliveryAvailable: !v.deliveryAvailable }))
+            }
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                values.deliveryAvailable
+                  ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
+                  : "border-[#c5cdd6] bg-white"
+              }`}
+              aria-hidden
+            >
+              {values.deliveryAvailable ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" className="text-white">
+                  <path
+                    d="M1.5 5.2 3.8 7.5 8.5 2.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : null}
+            </span>
             <span>{t("business_phase7_106")}</span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              id="svc-pickup"
-              type="checkbox"
-              checked={values.pickupAvailable}
-              onChange={(e) => setValues((v) => ({ ...v, pickupAvailable: e.target.checked }))}
-              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
-            />
+          </button>
+          <button
+            type="button"
+            id="svc-pickup"
+            role="checkbox"
+            aria-checked={values.pickupAvailable}
+            onClick={() => setValues((v) => ({ ...v, pickupAvailable: !v.pickupAvailable }))}
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                values.pickupAvailable
+                  ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
+                  : "border-[#c5cdd6] bg-white"
+              }`}
+              aria-hidden
+            >
+              {values.pickupAvailable ? (
+                <svg width="10" height="10" viewBox="0 0 10 10" className="text-white">
+                  <path
+                    d="M1.5 5.2 3.8 7.5 8.5 2.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : null}
+            </span>
             <span>{t("business_phase7_315")}</span>
-          </label>
+          </button>
         </div>
         <div className={`${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} mt-4`}>
           <label htmlFor="svc-delivery-radius" className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>

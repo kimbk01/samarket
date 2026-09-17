@@ -29,6 +29,7 @@ describe("Commonwealth / barangay-in-city store regional rows", () => {
 
     expect(payload.storeHomeLguId).toBe("1381300000");
     expect(payload.storeHomeDisplayName).toMatch(/Quezon City/i);
+    expect(payload.storeNeighborhoodLabel).toBe("Commonwealth");
     expect(payload.referenceDistanceKm).toBe(10);
     expect(payload.candidateSearchKm).toBe(20);
     expect(payload.candidates.length).toBeGreaterThan(0);
