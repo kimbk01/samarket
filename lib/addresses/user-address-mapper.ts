@@ -1,5 +1,4 @@
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
-import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 
 type Row = Record<string, unknown>;
 
@@ -21,15 +20,6 @@ function num(v: unknown): number | null {
 function bool(v: unknown, d: boolean): boolean {
   if (typeof v === "boolean") return v;
   return d;
-}
-
-function resolveCanonicalLguIdForInsert(
-  p: import("@/lib/addresses/user-address-types").UserAddressWritePayload
-): string | null {
-  return resolveCanonicalLguIdForAddressWrite({
-    cityMunicipality: p.cityMunicipality,
-    province: p.province,
-  });
 }
 
 const LABELS: UserAddressLabelType[] = ["home", "office", "shop", "other"];
@@ -117,7 +107,7 @@ export function payloadToInsertRow(
     neighborhood_name: p.neighborhoodName ?? null,
     app_region_id: p.appRegionId ?? null,
     app_city_id: p.appCityId ?? null,
-    canonical_lgu_id: resolveCanonicalLguIdForInsert(p),
+    // canonical_lgu_id is attached on the server write path (LGU dataset is server-only).
     use_for_life: p.useForLife ?? true,
     use_for_trade: p.useForTrade ?? true,
     use_for_delivery: p.useForDelivery ?? true,

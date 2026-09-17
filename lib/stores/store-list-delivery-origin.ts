@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
-import { pickAddressRowForDeliveryRouting, getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";

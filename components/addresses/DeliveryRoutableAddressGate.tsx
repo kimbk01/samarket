@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/user-address-service";
+import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { STORES_DELIVERY_CONTENT_INNER_CLASS } from "@/lib/stores/stores-home-ui";

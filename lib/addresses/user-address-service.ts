@@ -200,13 +200,7 @@ export async function getUserAddressDefaults(
   };
 }
 
-/**
- * 배달 ETA·checkout 자동 채움에 쓸 주소 한 건.
- * Current USER delivery address authority is the master row.
- */
-export function pickAddressRowForDeliveryRouting(defs: UserAddressDefaultsDTO): UserAddressDTO | null {
-  return defs.master?.id ? defs.master : null;
-}
+export { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
 
 /** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
 export type BulkRegionPatchResolvedLocation = {
@@ -422,6 +416,10 @@ export async function createUserAddress(
   const displayNick = await assertAddressNicknameUnique(sb, userId, resolved.nickname ?? "");
   const pWithNick: UserAddressWritePayload = { ...resolved, nickname: displayNick };
   const row = payloadToInsertRow(userId, userAddressInsertPayloadWithoutDefaultFlags(pWithNick));
+  row.canonical_lgu_id = resolveCanonicalLguIdForAddressWrite({
+    cityMunicipality: pWithNick.cityMunicipality,
+    province: pWithNick.province,
+  });
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
   if (error) throwUserAddressWriteError(error, "address_create_failed");
   const dto = rowToUserAddressDTO(data as Record<string, unknown>);

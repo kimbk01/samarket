@@ -11,7 +11,7 @@
  */
 
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
-import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/user-address-service";
+import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
