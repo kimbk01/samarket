@@ -81,6 +81,22 @@ export const CASH_LEDGER_AMOUNT_IS_CASH_MOVED = true as const;
 /** Direct account balance writes without ledgered RPC are forbidden. */
 export const CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN = true as const;
 
+/**
+ * F-05 — Coin refund economic unwind (existing CUT B implementation).
+ * Refund always reverses order SALE_EARN on Coin; never claws Cash by location.
+ * Negative Coin after convert/withdraw = merchant debt.
+ */
+export const COIN_REFUND_ECONOMIC_UNWIND_CONTRACT = {
+  postConversionRefund: "COIN_REVERSAL" as const,
+  postWithdrawalRefund: "COIN_REVERSAL" as const,
+  insufficientCoinOnRefund: "NEGATIVE_COIN_DEBT_ALLOWED" as const,
+  cashClawback: false as const,
+  orderToConversionProvenance: "NOT_REQUIRED_FUNGIBLE_COIN_POOL" as const,
+  refundIdempotencyKeyPrefix: "coin_reversal:order:" as const,
+  /** Balance need not return to zero; negative = liability. */
+  coinBalanceMustReturnToZero: false as const,
+} as const;
+
 export const CURRENCY_VISUAL_VARIANTS = ["point", "coin", "cash"] as const;
 export type CurrencyVisualVariant = (typeof CURRENCY_VISUAL_VARIANTS)[number];
 
@@ -98,6 +114,14 @@ export function assertCurrencySsotHardLockAnchors(): boolean {
     POINT_FUNGIBILITY_CONTRACT.separatePurchasedRewardWallets === false &&
     POINT_FUNGIBILITY_CONTRACT.giftSpendSourceGate === "NONE" &&
     CASH_LEDGER_AMOUNT_IS_CASH_MOVED === true &&
-    CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN === true
+    CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN === true &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.postConversionRefund === "COIN_REVERSAL" &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.postWithdrawalRefund === "COIN_REVERSAL" &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.insufficientCoinOnRefund ===
+      "NEGATIVE_COIN_DEBT_ALLOWED" &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.cashClawback === false &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.orderToConversionProvenance ===
+      "NOT_REQUIRED_FUNGIBLE_COIN_POOL" &&
+    COIN_REFUND_ECONOMIC_UNWIND_CONTRACT.coinBalanceMustReturnToZero === false
   );
 }

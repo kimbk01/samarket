@@ -30,6 +30,15 @@ if (!anchor.includes('giftSpendSourceGate: "NONE"')) {
 if (!anchor.includes("CASH_DIRECT_BALANCE_MUTATION_FORBIDDEN = true")) {
   fail("Cash direct balance mutation must be forbidden (F-02)");
 }
+if (!anchor.includes("COIN_REFUND_ECONOMIC_UNWIND_CONTRACT")) {
+  fail("Coin refund economic unwind contract must be anchored (F-05)");
+}
+if (!anchor.includes('insufficientCoinOnRefund: "NEGATIVE_COIN_DEBT_ALLOWED"')) {
+  fail("F-05 must allow negative Coin debt on refund");
+}
+if (!anchor.includes("cashClawback: false")) {
+  fail("F-05 must forbid Cash clawback on refund");
+}
 if (!anchor.includes("store_economic_point_accounts")) {
   fail("COIN authority must reference store_economic_point_accounts");
 }

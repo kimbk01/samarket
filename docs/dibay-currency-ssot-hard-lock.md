@@ -35,6 +35,7 @@ It does **not** authorize unbounded financial data migration without bounded CUT
 |---|---|
 | Balance SSOT | `point_ledger` SUM via `sum_user_point_ledger` |
 | Cache | `profiles.points` (project only) |
+| Cache write | **ONLY** `project_user_point_balance_from_ledger` (SECURITY DEFINER) / service_role projection path — member/client **MUST NOT** `UPDATE profiles.points` (F-07) |
 | Recharge | YES — member charge requests |
 | Withdraw | NO |
 | Module | `lib/points/user-point-ledger.ts` |
@@ -80,6 +81,26 @@ Fee **due** lives on `store_sale_fee_obligations`, never as a second meaning of 
 | Conversion policy SSOT | `business_cash_conversion_rate_policies` — **rate + minimum + unit + period limits** (F-03) |
 | Sale fee | **NO** — fees on Cash ledger only (CUT D) |
 | Module | `lib/stores/confirmed-sale-revenue.ts`, `lib/currency/confirmed-sale-coin-writer.ts` |
+
+#### Coin refund / economic unwind (F-05 — implemented contract)
+
+Merchant sale earning is fungible Coin (`SALE_EARN` via `sale_coin:{orderId}`).
+
+| Concern | Contract |
+|---|---|
+| Refund authority | `reverse_coin_credits_for_order` → order-level Coin `REVERSAL` |
+| Idempotency | `coin_reversal:order:{orderId}` — one reversal liability for E(O) |
+| Post-conversion refund | **COIN_REVERSAL** (Cash wallet **not** clawed) |
+| Post-withdrawal hold/paid refund | **COIN_REVERSAL** (same) |
+| Insufficient Coin on refund | **NEGATIVE_COIN_DEBT_ALLOWED** — negative balance = merchant debt / future Coin liability |
+| Cash clawback | **NO** |
+| Order→conversion provenance | **NOT_REQUIRED** — fungible Coin pool (`ORDER_TO_CONVERSION_PROVENANCE = NONE` by design) |
+
+**Economic invariant:** Refund creates exactly one reversal liability for refundable earning E(O). Asset location (Coin / Cash / withdrawal) does **not** alter the reversal amount. Coin balance need **not** return to zero — it may become negative. Negative Coin must not be UI-clamped to zero as an “error”; it is accounting debt (Admin trace follow-up).
+
+This is **not** a missing Cash-recovery implementation. Do not add Cash clawback, order→conversion provenance, or receivable tables without Owner product re-lock.
+
+Code anchors: `COIN_REFUND_ECONOMIC_UNWIND_CONTRACT` in `lib/currency/currency-ssot-hard-lock.ts`.
 
 ### CASH
 
