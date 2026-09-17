@@ -21,6 +21,10 @@ import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-p
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
+import {
+  STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
+  storeHasCanonicalDeliveryOrigin,
+} from "@/lib/stores/store-canonical-delivery-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -494,6 +498,15 @@ export async function PATCH(
     const patch: Record<string, unknown> = {};
     const before: Record<string, unknown> = {};
     if (typeof body.delivery_available === "boolean") {
+      if (
+        body.delivery_available === true &&
+        !storeHasCanonicalDeliveryOrigin(store.lat, store.lng)
+      ) {
+        return NextResponse.json(
+          { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
+          { status: 400 }
+        );
+      }
       before.delivery_available = store.delivery_available;
       patch.delivery_available = body.delivery_available;
     }

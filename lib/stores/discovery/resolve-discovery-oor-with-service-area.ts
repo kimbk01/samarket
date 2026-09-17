@@ -1,11 +1,15 @@
 /**
- * CUT 2 — Align NEW discovery ranking OOR with evaluateDeliveryServiceArea.
- * Shadow/coverage radius remains for legacy_radius only; v2_lgu uses selected LGU.
+ * CUT 2 + ACTIVE STORE GEO — Align NEW discovery ranking OOR with
+ * evaluateDeliveryServiceArea for BOTH legacy_radius and v2_lgu.
+ *
+ * Shadow/coverage seed alone is insufficient: missing coverage rows for
+ * null-geo stores can be treated as policy_off and remain orderable.
+ * Live dual-mode evaluation fail-closes missing_store_coords.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   loadDeliveryServiceabilityRuntimeContext,
-  evaluateStoreDeliveryServiceability,
+  evaluateStoreDeliveryServiceArea,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { resolveListDistanceOutOfRange } from "@/lib/delivery/delivery-list-oor-policy";
 import type { DeliveryListOriginSource } from "@/lib/delivery/delivery-list-oor-policy";
@@ -37,7 +41,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
     originSource: DeliveryListOriginSource;
     memberLguId: string | null;
     distanceAxisEnabled: boolean;
-    /** Shadow OOR seed (legacy path default). */
+    /** Shadow OOR seed (may be incomplete for null-geo stores). */
     shadowOutOfRangeById: Map<string, boolean>;
   }
 ): Promise<{
@@ -76,28 +80,24 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
   for (const row of input.rows) {
     const area = areaMap.get(row.id);
     const authorityMode = area?.authorityMode ?? DELIVERY_SERVICE_AREA_AUTHORITY.LEGACY_RADIUS;
-    let oor = outOfRangeById.get(row.id) === true;
-
-    if (authorityMode === DELIVERY_SERVICE_AREA_AUTHORITY.V2_LGU) {
-      const svc = evaluateStoreDeliveryServiceability({
-        ctx,
-        storeId: row.id,
-        storeDeliveryRadiusKm: row.delivery_radius_km,
-        customerLat: input.originLat,
-        customerLng: input.originLng,
-        storeLat: row.lat,
-        storeLng: row.lng,
-        authorityMode,
-        selectedLguIds: area?.selectedLguIds ?? [],
-        memberLguId: input.memberLguId,
-      });
-      oor = resolveListDistanceOutOfRange({
-        originSource: input.originSource,
-        serviceabilityApplies: svc.applies,
-        reason: svc.reason,
-      });
-      outOfRangeById.set(row.id, oor);
-    }
+    const svc = evaluateStoreDeliveryServiceArea({
+      ctx,
+      storeId: row.id,
+      storeDeliveryRadiusKm: row.delivery_radius_km,
+      customerLat: input.originLat,
+      customerLng: input.originLng,
+      storeLat: row.lat,
+      storeLng: row.lng,
+      authorityMode,
+      selectedLguIds: area?.selectedLguIds ?? [],
+      memberLguId: input.memberLguId,
+    });
+    const oor = resolveListDistanceOutOfRange({
+      originSource: input.originSource,
+      serviceabilityApplies: svc.applies,
+      reason: svc.reason,
+    });
+    outOfRangeById.set(row.id, oor);
 
     eligibilityRankById.set(
       row.id,

@@ -13,6 +13,10 @@ import {
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
+import {
+  STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
+  storeHasCanonicalDeliveryOrigin,
+} from "@/lib/stores/store-canonical-delivery-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -290,6 +294,20 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: locationBuilt.error }, { status: 400 });
   }
   Object.assign(patch, locationBuilt.patch);
+
+  // ACTIVE STORE GEO SSOT — cannot enable Delivery without canonical stores.lat/lng.
+  if (patch.delivery_available === true) {
+    const effectiveLat =
+      patch.lat !== undefined ? patch.lat : (currentRow as { lat?: unknown }).lat;
+    const effectiveLng =
+      patch.lng !== undefined ? patch.lng : (currentRow as { lng?: unknown }).lng;
+    if (!storeHasCanonicalDeliveryOrigin(effectiveLat, effectiveLng)) {
+      return NextResponse.json(
+        { ok: false, error: STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR },
+        { status: 400 }
+      );
+    }
+  }
 
   const resolvedCategoryId =
     patch.store_category_id !== undefined
