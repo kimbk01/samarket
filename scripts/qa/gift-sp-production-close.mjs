@@ -353,12 +353,9 @@ async function ensureBuyerPoints(page, userId, needed, sb) {
     actor_type: "admin",
   });
   if (error) fail("POINT_CREDIT", error.message);
-  await sb.from("profiles").update({ points: newBal }).eq("id", userId);
-  try {
-    await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: userId });
-  } catch {
-    /* optional projection */
-  }
+  // Projection only — never treat profiles.points UPDATE as money authority.
+  const proj = await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: userId });
+  if (proj.error) fail("POINT_PROJECT", proj.error.message);
   return newBal;
 }
 

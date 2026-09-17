@@ -49,8 +49,11 @@ function serviceSb() {
 
 async function creditMemberIfNeeded(userId: string, minBalance: number): Promise<void> {
   const sb = serviceSb();
-  const { data: p } = await sb.from("profiles").select("points").eq("id", userId).maybeSingle();
-  const bal = Number(p?.points ?? 0);
+  const { data: rows } = await sb.from("point_ledger").select("amount").eq("user_id", userId);
+  const bal = (rows ?? []).reduce(
+    (s, r) => s + Math.trunc(Number((r as { amount?: number }).amount) || 0),
+    0
+  );
   if (bal >= minBalance) return;
   const need = minBalance - bal + 500;
   const relatedId = `qa-banner-e2e-credit:${Date.now()}`;
@@ -65,7 +68,8 @@ async function creditMemberIfNeeded(userId: string, minBalance: number): Promise
     actor_type: "admin",
   });
   if (error) throw new Error(`credit_failed:${error.message}`);
-  await sb.from("profiles").update({ points: bal + need }).eq("id", userId);
+  const proj = await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: userId });
+  if (proj.error) throw new Error(`project_failed:${proj.error.message}`);
 }
 
 function ensureFixturePng(): void {

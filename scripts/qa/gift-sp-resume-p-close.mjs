@@ -238,7 +238,8 @@ async function ensurePoints(page, userId, sb, needed) {
     description: `SP resume ${STAMP}`,
     actor_type: "admin",
   });
-  await sb.from("profiles").update({ points: newBal }).eq("id", userId);
+  // Projection only — never direct-write profiles.points as money authority.
+  await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: userId });
 }
 
 async function purchaseGift(page, productId, buyerUserId, sb) {
