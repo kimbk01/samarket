@@ -1,6 +1,9 @@
 /**
  * CUT 8 — Live HOME/BROWSE ranking via NEW bounded wave authority.
  * Fail-closed: callers must not fall back to OLD full-candidate ranking on error.
+ *
+ * CUT 2 — After shadow wave load, v2_lgu OOR is remapped via evaluateDeliveryServiceArea
+ * so ranking / exclude match card+order selected-LGU authority.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -24,6 +27,10 @@ import {
   type DeliveryListOriginSource,
 } from "@/lib/delivery/delivery-list-oor-policy";
 import { logStoreDiscoveryAuthorityRuntime } from "@/lib/stores/discovery/store-discovery-ranking-authority";
+import {
+  resolveDiscoveryOorWithServiceAreaAuthority,
+  sortDiscoveryRowsByEligibilityThenDistance,
+} from "@/lib/stores/discovery/resolve-discovery-oor-with-service-area";
 
 function buildBrowseStatusMapFromShadow(
   rows: StoreBrowseRow[],
@@ -52,6 +59,8 @@ export async function loadHomeDiscoveryRankedForLive(
     originLng: number | null;
     /** Guest GPS must not mark OOR. */
     originSource?: DeliveryListOriginSource;
+    /** Authenticated master address canonical LGU — required for V2 ranking OOR. */
+    memberLguId?: string | null;
     district: string | null;
     searchQ: string | null;
     distanceAxisEnabled: boolean;
@@ -100,14 +109,12 @@ export async function loadHomeDiscoveryRankedForLive(
     return { ok: false, status: "error", error: "hydrate_failed" };
   }
 
-  const eligibilityRankById = new Map<string, number>();
-  const outOfRangeById = new Map<string, boolean>();
+  const originSource = input.originSource ?? "none";
+  const shadowOutOfRangeById = new Map<string, boolean>();
   const distById = new Map<string, number | null>();
   const completedOrders30dById = new Map<string, number>();
-  const originSource = input.originSource ?? "none";
   for (const r of rankedLoad.rows) {
-    eligibilityRankById.set(r.id, r.eligibilityRank);
-    outOfRangeById.set(
+    shadowOutOfRangeById.set(
       r.id,
       resolveListDistanceOutOfRange({
         originSource,
@@ -119,6 +126,31 @@ export async function loadHomeDiscoveryRankedForLive(
     completedOrders30dById.set(r.id, r.completedOrders30d);
   }
 
+  const corrected = await resolveDiscoveryOorWithServiceAreaAuthority(sb, {
+    rows: hydrate.rows as Array<{
+      id: string;
+      lat?: unknown;
+      lng?: unknown;
+      delivery_radius_km?: unknown;
+      delivery_available?: unknown;
+      business_hours_json?: unknown;
+      is_open?: unknown;
+      point_commerce_blocked?: unknown;
+    }>,
+    originLat: input.originLat,
+    originLng: input.originLng,
+    originSource,
+    memberLguId: input.memberLguId ?? null,
+    distanceAxisEnabled: input.distanceAxisEnabled,
+    shadowOutOfRangeById,
+  });
+
+  const rows = sortDiscoveryRowsByEligibilityThenDistance(
+    hydrate.rows as Array<{ id: string } & Record<string, unknown>>,
+    corrected.eligibilityRankById,
+    distById
+  );
+
   logStoreDiscoveryAuthorityRuntime({
     surface: "home",
     authority: "new",
@@ -129,10 +161,10 @@ export async function loadHomeDiscoveryRankedForLive(
 
   return {
     ok: true,
-    rows: hydrate.rows,
+    rows,
     ranked: rankedLoad.rows,
-    eligibilityRankById,
-    outOfRangeById,
+    eligibilityRankById: corrected.eligibilityRankById,
+    outOfRangeById: corrected.outOfRangeById,
     distById,
     completedOrders30dById,
   };
@@ -145,6 +177,7 @@ export async function loadBrowseDiscoveryRankedForLive(
     originLat: number | null;
     originLng: number | null;
     originSource?: DeliveryListOriginSource;
+    memberLguId?: string | null;
     district: string | null;
     distanceAxisEnabled: boolean;
     storeCategoryId: string | null;
@@ -189,8 +222,8 @@ export async function loadBrowseDiscoveryRankedForLive(
   const distanceEnabled = input.distanceAxisEnabled;
   const distById = distanceEnabled
     ? new Map(rankedLoad.rows.map((r) => [r.id, r.distanceKm] as const))
-    : null;
-  const outOfRangeById = new Map(
+    : new Map<string, number | null>();
+  const shadowOutOfRangeById = new Map(
     rankedLoad.rows.map(
       (r) =>
         [
@@ -204,18 +237,32 @@ export async function loadBrowseDiscoveryRankedForLive(
     )
   );
 
-  let rows = hydrate.rows;
+  const corrected = await resolveDiscoveryOorWithServiceAreaAuthority(sb, {
+    rows: hydrate.rows,
+    originLat: input.originLat,
+    originLng: input.originLng,
+    originSource,
+    memberLguId: input.memberLguId ?? null,
+    distanceAxisEnabled: distanceEnabled,
+    shadowOutOfRangeById,
+  });
+
+  let rows = sortDiscoveryRowsByEligibilityThenDistance(
+    hydrate.rows,
+    corrected.eligibilityRankById,
+    distById
+  );
   if (originSource === "saved_address") {
     rows = rows.filter(
       (row) =>
         !shouldExcludeOutOfRangeFromNormalList({
           originSource,
-          distanceOutOfRange: outOfRangeById.get(row.id) === true,
+          distanceOutOfRange: corrected.outOfRangeById.get(row.id) === true,
         })
     );
   }
 
-  const statusById = buildBrowseStatusMapFromShadow(rows, outOfRangeById);
+  const statusById = buildBrowseStatusMapFromShadow(rows, corrected.outOfRangeById);
 
   logStoreDiscoveryAuthorityRuntime({
     surface: "browse",
@@ -230,10 +277,10 @@ export async function loadBrowseDiscoveryRankedForLive(
     ranked: rankedLoad.rows,
     filter: {
       rows,
-      distById,
+      distById: distanceEnabled ? distById : null,
       statusById,
       distanceSortMs: 0,
-      outOfRangeById,
+      outOfRangeById: corrected.outOfRangeById,
     },
   };
 }

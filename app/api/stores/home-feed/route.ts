@@ -245,6 +245,7 @@ export async function GET(req: Request) {
         originLat: userLat,
         originLng: userLng,
         originSource: origin.source,
+        memberLguId: origin.canonicalLguId,
         district,
         searchQ,
         distanceAxisEnabled,
@@ -650,7 +651,13 @@ export async function GET(req: Request) {
         isFeatured: !!r.is_featured,
         completedOrderCount30d:
           orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,
-        discoveryEligibilityRank: eligibilityRankById.get(r.id) ?? 99,
+        discoveryEligibilityRank: resolveStoreDiscoveryEligibility({
+          business_hours_json: r.business_hours_json,
+          is_open: r.is_open,
+          point_commerce_blocked: r.point_commerce_blocked,
+          delivery_available: !!r.delivery_available,
+          distanceOutOfRange: rowOutOfRange,
+        }).rank,
         firstListedAt:
           typeof r.first_listed_at === "string" && r.first_listed_at.trim() ?
             r.first_listed_at

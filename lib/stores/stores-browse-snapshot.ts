@@ -328,6 +328,7 @@ async function finishFromPayload(
       originLat: ctx.origin.lat,
       originLng: ctx.origin.lng,
       originSource: ctx.origin.source,
+      memberLguId: ctx.origin.canonicalLguId,
       district: ctx.district,
       distanceAxisEnabled,
       storeCategoryId: bundle.taxonomySlice.categoryId

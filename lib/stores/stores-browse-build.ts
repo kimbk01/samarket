@@ -985,10 +985,8 @@ export function assembleStoresBrowseResponse(
     const top = wantsAllSubs ? r.store_topics : (r.store_topics ?? selectedTopicMeta);
     const rowPolicy = resolveStoreDistancePolicy(ctx, r.id, r.delivery_radius_km);
     const rowDistance = resolveDistanceForSort(ctx, r);
-    const distanceOutOfRange =
-      prefetchedFilter?.outOfRangeById?.has(r.id) === true
-        ? prefetchedFilter.outOfRangeById.get(r.id) === true
-        : rowDistance.outOfRange;
+    /** CUT 2 — display/status OOR always from dual-mode evaluator (not shadow prefer). */
+    const distanceOutOfRange = rowDistance.outOfRange;
     const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, distanceOutOfRange);
     const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
