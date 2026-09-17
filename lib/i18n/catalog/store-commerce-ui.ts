@@ -1118,10 +1118,13 @@ export const storeCommerceUiMessages = {
     store_err_delivery_address_required: "배달·배송 주소를 입력해 주세요.",
     store_err_pickup_disabled: "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요.",
     store_err_delivery_disabled: "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요.",
-    store_err_delivery_out_of_range: "선택하신 주소는 이 매장의 배달 가능 거리를 벗어났습니다.",
+    store_err_delivery_out_of_range: "배달 가능 지역이 아닙니다.",
     store_detail_delivery_unavailable: "현재 배송지에는 배달할 수 없는 매장입니다",
     store_cart_delivery_address_revalidated:
       "배송지가 변경되어 배달 가능 여부를 다시 확인했습니다.",
+    store_cart_delivery_unavailable_title: "배달 불가 지역",
+    store_cart_delivery_unavailable_body:
+      "선택한 배송지는 해당 매장의 배달 가능 지역이 아닙니다. 다른 배송지를 선택해 주세요.",
     store_cart_out_of_range_change_address: "배송지 변경",
     store_cart_out_of_range_clear_cart: "장바구니 비우기",
     store_cart_out_of_range_back_store: "매장으로 돌아가기",
@@ -2881,10 +2884,13 @@ export const storeCommerceUiMessages = {
     store_err_delivery_address_required: "Enter a delivery or shipping address.",
     store_err_pickup_disabled: "This store does not accept pickup orders. Change fulfillment.",
     store_err_delivery_disabled: "This store does not offer delivery. Change fulfillment.",
-    store_err_delivery_out_of_range: "Your selected address is outside this store's delivery range.",
+    store_err_delivery_out_of_range: "Not in the delivery area.",
     store_detail_delivery_unavailable: "This store cannot deliver to your current address",
     store_cart_delivery_address_revalidated:
       "Your delivery address changed. We rechecked delivery availability.",
+    store_cart_delivery_unavailable_title: "Outside delivery area",
+    store_cart_delivery_unavailable_body:
+      "The selected address is not in this store's delivery area. Please choose another address.",
     store_cart_out_of_range_change_address: "Change delivery address",
     store_cart_out_of_range_clear_cart: "Clear cart",
     store_cart_out_of_range_back_store: "Back to store",

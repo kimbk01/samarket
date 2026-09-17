@@ -2,7 +2,7 @@
  * Regional LGU candidate discovery for Owner/Admin UI.
  *
  * R = Owner approximate regional reference (stores.delivery_radius_km effective)
- * S ≈ 2 × R = candidate envelope only — NOT customer eligibility.
+ * S = R + 10km = candidate display envelope only — NOT customer eligibility.
  *
  * Data: platform PH LGU centroids (no polygons in repo).
  * Boundary: inclusive 0.1km discovery rounding toward inclusion (not eligibility).
@@ -18,8 +18,8 @@ import {
 } from "@/lib/geo/ph-lgu/platform-ph-lgu";
 import { resolveEffectiveStoreDeliveryRadiusKm } from "@/lib/delivery/store-delivery-radius";
 
-/** Candidate search multiplier — product contract. */
-export const DELIVERY_REGIONAL_CANDIDATE_RANGE_FACTOR = 2 as const;
+/** Candidate display envelope above R (km). Presentation only — not eligibility. */
+export const DELIVERY_REGIONAL_CANDIDATE_SEARCH_ADDEND_KM = 10 as const;
 
 /**
  * Discovery-only inclusive rounding (0.1 km).
@@ -30,9 +30,10 @@ export function roundDiscoveryKmInclusive(km: number): number {
   return Math.floor(km * 10 + 1e-9) / 10;
 }
 
+/** Canonical candidate search km: R + 10. */
 export function resolveRegionalCandidateSearchKm(referenceRadiusKm: unknown): number {
   const r = resolveEffectiveStoreDeliveryRadiusKm(referenceRadiusKm);
-  return roundDiscoveryKmInclusive(r * DELIVERY_REGIONAL_CANDIDATE_RANGE_FACTOR);
+  return roundDiscoveryKmInclusive(r + DELIVERY_REGIONAL_CANDIDATE_SEARCH_ADDEND_KM);
 }
 
 export type DeliveryServiceAreaCandidate = {

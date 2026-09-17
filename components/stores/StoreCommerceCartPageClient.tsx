@@ -238,6 +238,14 @@ const StoreCartClearConfirmDialog = dynamic(
   { ssr: false }
 );
 
+const StoreCartDeliveryUnavailableDialog = dynamic(
+  () =>
+    import("@/components/stores/cart/StoreCartDeliveryUnavailableDialog").then((m) => ({
+      default: m.StoreCartDeliveryUnavailableDialog,
+    })),
+  { ssr: false }
+);
+
 const StoreCheckoutSubmitConfirmDialog = dynamic(
   () =>
     import("@/components/stores/cart/StoreCheckoutSubmitConfirmDialog").then((m) => ({
@@ -279,6 +287,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
   /** CUT 7 — soft notice after addresses-updated revalidation (retain cart). */
   const [deliveryAddressRevalidatedNotice, setDeliveryAddressRevalidatedNotice] = useState(false);
+  const [deliveryUnavailableDialogOpen, setDeliveryUnavailableDialogOpen] = useState(false);
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const profilePhoneDigitsRef = useRef("");
@@ -1372,6 +1381,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     distanceOrderBlocked ||
     (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
+  useEffect(() => {
+    if (deliveryAddressRevalidatedNotice && distanceOrderBlocked) {
+      setDeliveryUnavailableDialogOpen(true);
+    }
+  }, [deliveryAddressRevalidatedNotice, distanceOrderBlocked]);
+
   const navigateToStoreMenu = useCallback(() => {
     // FLOW: explicit store menu (메뉴 추가) — not HISTORY back.
     // HISTORY would return PRODUCT when stack is STORE→PRODUCT→CART (device-confirmed).
@@ -2030,6 +2045,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         }}
       />
 
+      <StoreCartDeliveryUnavailableDialog
+        open={deliveryUnavailableDialogOpen}
+        onDismiss={() => setDeliveryUnavailableDialogOpen(false)}
+        onChangeAddress={() => {
+          setDeliveryUnavailableDialogOpen(false);
+          router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""));
+        }}
+      />
+
       {checkoutConfirmPayload ? (
         <StoreCheckoutSubmitConfirmDialog
           open={checkoutConfirmOpen}
@@ -2424,8 +2448,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ) : null}
         {distanceOrderBlocked ? (
           <div className="space-y-2 rounded border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="sam-text-helper font-bold leading-snug text-amber-950">
+              {t("store_cart_delivery_unavailable_title")}
+            </p>
             <p className="sam-text-helper font-medium leading-snug text-amber-950">
-              {t("store_err_delivery_out_of_range")}
+              {t("store_cart_delivery_unavailable_body")}
             </p>
             <div className="flex flex-wrap gap-2">
               <button

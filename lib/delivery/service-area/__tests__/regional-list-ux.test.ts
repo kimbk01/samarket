@@ -27,7 +27,7 @@ describe("regional list presentation bands (T1–T5)", () => {
     expect(classifyDeliveryRegionalListBand(19.4, R, S)).toBe("extended");
   });
 
-  it("T5: outside ≈2R → outside", () => {
+  it("T5: outside ≈R+10 → outside", () => {
     expect(classifyDeliveryRegionalListBand(21, R, S)).toBe("outside");
   });
 

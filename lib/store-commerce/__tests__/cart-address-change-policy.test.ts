@@ -32,6 +32,9 @@ describe("CUT 7 cart address-change policy", () => {
     expect(cartPage).toContain("setDeliveryAddressRevalidatedNotice(true)");
     expect(cartPage).toContain("userPickedDeliveryAddressRef.current = false");
     expect(cartPage).toContain("store_err_delivery_out_of_range");
+    expect(cartPage).toContain("store_cart_delivery_unavailable_title");
+    expect(cartPage).toContain("store_cart_delivery_unavailable_body");
+    expect(cartPage).toContain("StoreCartDeliveryUnavailableDialog");
     expect(cartPage).toContain("store_cart_out_of_range_change_address");
     expect(cartPage).toContain("store_cart_out_of_range_clear_cart");
     expect(cartPage).toContain("store_cart_out_of_range_back_store");
@@ -44,14 +47,28 @@ describe("CUT 7 cart address-change policy", () => {
     expect(onAddr).not.toContain("clearAllCarts");
   });
 
-  it("checkout blocked when out of range; clear is confirm-only", () => {
+  it("CUT 7 checkout blocked when out of range; clear is confirm-only; unavailable dialog present", () => {
     const cartPage = readFileSync(
       join(process.cwd(), "components/stores/StoreCommerceCartPageClient.tsx"),
       "utf8",
     );
     expect(cartPage).toMatch(/distanceOrderBlocked[\s\S]*checkoutBlocked/);
     expect(cartPage).toContain("StoreCartClearConfirmDialog");
+    expect(cartPage).toContain("StoreCartDeliveryUnavailableDialog");
     expect(cartPage).toContain("submitDisabled={!meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}");
+  });
+
+  it("V2 unavailable copy uses regional semantics (not distance-authority)", () => {
+    const catalog = readFileSync(
+      join(process.cwd(), "lib/i18n/catalog/store-commerce-ui.ts"),
+      "utf8",
+    );
+    expect(catalog).toContain('store_err_delivery_out_of_range: "배달 가능 지역이 아닙니다."');
+    expect(catalog).toContain("store_cart_delivery_unavailable_title");
+    expect(catalog).toContain("선택한 배송지는 해당 매장의 배달 가능 지역이 아닙니다");
+    expect(catalog).not.toMatch(
+      /store_err_delivery_out_of_range:\s*"선택하신 주소는 이 매장의 배달 가능 거리를 벗어났습니다\."/
+    );
   });
 
   it("CUT 6 order master-only still present", () => {

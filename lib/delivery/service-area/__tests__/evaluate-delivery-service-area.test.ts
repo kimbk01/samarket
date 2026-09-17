@@ -9,6 +9,7 @@ import {
   resolveRegionalCandidateSearchKm,
   roundDiscoveryKmInclusive,
 } from "@/lib/delivery/service-area/candidate-discovery";
+import { classifyDeliveryRegionalListBand } from "@/lib/delivery/service-area/regional-list-presentation";
 import type { DeliveryDistancePolicy } from "@/lib/delivery/delivery-ops-settings";
 
 const policyOn: DeliveryDistancePolicy = {
@@ -135,11 +136,22 @@ describe("delivery service area V2 evaluator", () => {
   });
 });
 
-describe("candidate discovery ≈2R", () => {
-  it("R=10 → search ≈20 with inclusive rounding", () => {
+describe("candidate discovery R+10", () => {
+  it("R → search = R+10 with inclusive rounding", () => {
     expect(resolveRegionalCandidateSearchKm(10)).toBe(20);
-    expect(resolveRegionalCandidateSearchKm(15)).toBe(30);
+    expect(resolveRegionalCandidateSearchKm(20)).toBe(30);
+    expect(resolveRegionalCandidateSearchKm(30)).toBe(40);
+    expect(resolveRegionalCandidateSearchKm(15)).toBe(25);
     expect(roundDiscoveryKmInclusive(20.04)).toBe(20);
+  });
+
+  it("R=20 bands: 15 primary, 25 extended, >30 outside", () => {
+    const R = 20;
+    const S = resolveRegionalCandidateSearchKm(R);
+    expect(S).toBe(30);
+    expect(classifyDeliveryRegionalListBand(15, R, S)).toBe("base");
+    expect(classifyDeliveryRegionalListBand(25, R, S)).toBe("extended");
+    expect(classifyDeliveryRegionalListBand(31, R, S)).toBe("outside");
   });
 
   it("always includes store-home LGU in candidates", () => {

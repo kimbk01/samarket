@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS,
   ADMIN_STORE_PATCH_COMMANDS,
@@ -37,5 +39,19 @@ describe("admin-store-patch-commands", () => {
     expect(ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.address_coords).toContain(
       "buildStoreLocationPatchFields"
     );
+  });
+});
+
+describe("Admin R invalidation Owner parity", () => {
+  it("set_delivery_radius clears HOME feed cache after discovery invalidate", () => {
+    const adminRoute = readFileSync(
+      join(process.cwd(), "app/api/admin/stores/[id]/route.ts"),
+      "utf8"
+    );
+    const idx = adminRoute.indexOf('action === "set_delivery_radius"');
+    expect(idx).toBeGreaterThan(0);
+    const branch = adminRoute.slice(idx, adminRoute.indexOf("approve_sales", idx));
+    expect(branch).toContain("invalidateDiscoveryAfterStoreWrite");
+    expect(branch).toContain("clearStoreHomeFeedServerCache");
   });
 });

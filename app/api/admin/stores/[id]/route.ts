@@ -540,7 +540,17 @@ export async function PATCH(
       console.error("[admin/stores PATCH delivery radius]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
+    // Owner R PATCH parity: discovery invalidation + HOME feed clear.
     invalidateDiscoveryAfterStoreWrite(sb, id, patch);
+    clearStoreHomeFeedServerCache();
+    const slug = typeof store.slug === "string" ? store.slug.trim() : "";
+    if (slug) {
+      try {
+        invalidateStorePublicCachesForSlugOnServer(slug);
+      } catch {
+        /* best-effort */
+      }
+    }
     return auditOk(before, patch);
   }
 

@@ -4,7 +4,7 @@
  * Shared Owner/Admin regional delivery service-area editor.
  * Same selection semantics · same API payload shape · different permission routes only.
  *
- * Presentation: base (≈≤R) + extended (≈R–2R) lists with round multi-select controls.
+ * Presentation: base (≈≤R) + extended (≈R..R+10) lists with round multi-select controls.
  * Customer eligibility remains Owner-selected LGU set (backend V2 LOCKED).
  */
 
