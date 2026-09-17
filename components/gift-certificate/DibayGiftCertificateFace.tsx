@@ -49,6 +49,9 @@ export const GIFT_PORTRAIT_LANDMARKS = {
   dividerY: 262,
   metaLabelY: 288,
   metaValueY: 312,
+  /** Stacked gift-number row (label above value — no ellipsis). */
+  numberLabelY: 288,
+  numberValueY: 312,
   /** Rail brand / store mark — larger translucent modern plate. */
   storeLogoSize: 72,
   platformMarkSize: 96,
@@ -129,6 +132,43 @@ function estimateSvgTextWidth(text: string, fontSize: number): number {
   return Math.round(width);
 }
 
+/** Full public-number display — stacked label/value, never ellipsized. */
+function NumberMetaRow({
+  label,
+  value,
+  x,
+}: {
+  label: string;
+  value: string;
+  x: number;
+}) {
+  return (
+    <g data-gift-landmark="number" data-gift-cert-number-row="stacked">
+      <text
+        x={x}
+        y={GIFT_PORTRAIT_LANDMARKS.numberLabelY}
+        fill={MUTED}
+        fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
+        fontWeight={500}
+        fontFamily={FONT}
+      >
+        {label}
+      </text>
+      <text
+        data-gift-public-number="1"
+        x={x}
+        y={GIFT_PORTRAIT_LANDMARKS.numberValueY}
+        fill={INK}
+        fontSize={GIFT_PORTRAIT_TYPE.metaValue}
+        fontWeight={750}
+        fontFamily={FONT}
+      >
+        {value}
+      </text>
+    </g>
+  );
+}
+
 export function DibayGiftCertificateFace({
   model,
   labels,
@@ -200,7 +240,6 @@ export function DibayGiftCertificateFace({
   const metaCols = [
     { label: labels.issuerLabel, value: model.issuerName || (isPlatform ? "DIBAY" : ""), x: bodyX },
     { label: labels.expiryLabel, value: expiryValue, x: 340 },
-    { label: labels.numberLabel, value: numberValue, x: 470 },
   ] as const;
 
   const strikeW = faceValue
@@ -676,7 +715,7 @@ export function DibayGiftCertificateFace({
               strokeWidth={1.5}
             />
 
-            {/* metadata grid */}
+            {/* metadata grid — issuer / expiry; number uses stacked NumberMetaRow */}
             <g data-gift-meta-grid="1">
               {metaCols.map((col) => (
                 <g key={col.label} data-gift-meta-col={col.label}>
@@ -691,11 +730,9 @@ export function DibayGiftCertificateFace({
                     {col.label}
                   </text>
                   <text
-                    {...(col.label === labels.numberLabel
-                      ? { "data-gift-public-number": "1" }
-                      : col.label === labels.issuerLabel
-                        ? { "data-gift-landmark": "issuer" }
-                        : {})}
+                    {...(col.label === labels.issuerLabel
+                      ? { "data-gift-landmark": "issuer" }
+                      : {})}
                     x={col.x}
                     y={GIFT_PORTRAIT_LANDMARKS.metaValueY}
                     fill={INK}
@@ -707,6 +744,7 @@ export function DibayGiftCertificateFace({
                   </text>
                 </g>
               ))}
+              <NumberMetaRow label={labels.numberLabel} value={numberValue} x={470} />
             </g>
           </g>
 
