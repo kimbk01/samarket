@@ -25,6 +25,43 @@ import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-are
 const SEL =
   "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,canonical_lgu_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
 
+/**
+ * MASTER LGU SSOT — when a row becomes (or remains) active routing master,
+ * persist canonical_lgu_id if structured city/province resolve uniquely.
+ * Never invent LGU; never clear an existing id on failed resolve.
+ */
+async function touchPersistCanonicalLguIfResolvable(
+  sb: SupabaseClient<any>,
+  userId: string,
+  addressId: string
+): Promise<void> {
+  const id = String(addressId ?? "").trim();
+  if (!id) return;
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select("id,canonical_lgu_id,city_municipality,province")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error || !data) return;
+  const row = data as Record<string, unknown>;
+  if (String(row.canonical_lgu_id ?? "").trim()) return;
+  const resolved = resolveCanonicalLguIdForAddressWrite({
+    cityMunicipality: row.city_municipality as string | null,
+    province: row.province as string | null,
+  });
+  if (!resolved) return;
+  const { error: upErr } = await sb
+    .from("user_addresses")
+    .update({ canonical_lgu_id: resolved })
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (upErr) {
+    console.error("[touchPersistCanonicalLguIfResolvable]", upErr.message);
+  }
+}
+
 function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   return [...rows].sort((a, b) => {
     const score = (x: UserAddressDTO) => (x.isDefaultMaster ? 0 : 4);
@@ -124,6 +161,7 @@ async function repairStoreLinkedMasterWhenGeneralAddressExists(
     .eq("id", pick.id)
     .eq("user_id", userId);
   if (error) throwUserAddressWriteError(error, "address_set_master_failed");
+  await touchPersistCanonicalLguIfResolvable(sb, userId, pick.id);
   return true;
 }
 
@@ -305,6 +343,7 @@ async function applyDefaultFlagsOnCreate(
       .eq("id", addressId)
       .eq("user_id", userId);
     if (error) throwUserAddressWriteError(error, "address_set_master_failed");
+    await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
   }
 }
 
@@ -331,6 +370,7 @@ async function ensureSomeoneDefaultIfFirst(
     })
     .eq("id", addressId)
     .eq("user_id", userId);
+  await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
 }
 
 export async function markUserAddressUsed(
@@ -392,6 +432,9 @@ export async function setUserAddressAsDefault(
     .select(SEL)
     .single();
   if (error || !data) throwUserAddressWriteError(error, "address_set_master_failed");
+  if (next.master) {
+    await touchPersistCanonicalLguIfResolvable(sb, userId, id);
+  }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).maybeSingle();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
@@ -509,6 +552,7 @@ export async function updateUserAddress(
       .eq("id", id)
       .eq("user_id", userId);
     if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
+    await touchPersistCanonicalLguIfResolvable(sb, userId, id);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
   const { data, error: e2 } = await sb.from("user_addresses").select(SEL).eq("id", id).single();
@@ -553,6 +597,7 @@ export async function deleteUserAddress(
   if (wasMaster) {
     await clearDefaultColumn(sb, userId, "is_default_master");
     await sb.from("user_addresses").update({ is_default_master: true }).eq("id", nid).eq("user_id", userId);
+    await touchPersistCanonicalLguIfResolvable(sb, userId, nid);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
 }

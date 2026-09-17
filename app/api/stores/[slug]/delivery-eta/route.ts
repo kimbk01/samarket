@@ -30,6 +30,7 @@ import {
   resolveEffectiveStoreRouteAddress,
   type StoreListDeliveryOrigin,
 } from "@/lib/stores/store-list-delivery-origin";
+import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -167,7 +168,7 @@ export async function GET(
     const { data: row, error } = await sb
       .from("user_addresses")
       .select(
-        "id, user_id, is_active, is_default_master, place_id, formatted_address, road_address, full_address, detail_address, unit_floor_room, latitude, longitude"
+        "id, user_id, is_active, is_default_master, place_id, formatted_address, road_address, full_address, detail_address, unit_floor_room, latitude, longitude, city_municipality, province, canonical_lgu_id"
       )
       .eq("id", deliveryUserAddressId)
       .maybeSingle();
@@ -193,6 +194,9 @@ export async function GET(
       unit_floor_room?: unknown;
       latitude?: unknown;
       longitude?: unknown;
+      city_municipality?: unknown;
+      province?: unknown;
+      canonical_lgu_id?: unknown;
     };
     rawUlat = addrRow.latitude;
     rawUlng = addrRow.longitude;
@@ -211,7 +215,11 @@ export async function GET(
         addrRow.unit_floor_room,
       ),
       cacheKeyPart: "",
-      canonicalLguId: null,
+      canonicalLguId: resolveMemberCanonicalLguId({
+        canonicalLguId: (addrRow.canonical_lgu_id as string | null) ?? null,
+        cityMunicipality: (addrRow.city_municipality as string | null) ?? null,
+        province: (addrRow.province as string | null) ?? null,
+      }),
     };
     if (isSameDeliveryAddressForList(sameOrigin, effectiveStore)) {
       const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
