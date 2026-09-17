@@ -10,7 +10,8 @@
  * Forbidden: list-sized static hold on white; white-only hold; media lerp/hero flight.
  *
  * REVERSE (R-B):
- *   Detail remains authoritative while list target prepares.
+ *   Source (detail) composition remains authoritative while list target prepares
+ *   (covers App Router detail unmount — not white underlayer).
  *   hideDetail only at handoff after isListProductPaintReady.
  *   Underlayer must never be sole reverse owner on the ready path.
  *
@@ -277,15 +278,16 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
 
   /**
    * FORWARD: immediate full-viewport PRODUCT SURFACE (covers list — not list-sized hold, not blank white).
-   * REVERSE: list-geometry product (unchanged for this CUT).
+   * REVERSE prepare: SOURCE (detail) geometry product owns continuity while list target prepares.
+   * REVERSE handoff: list-geometry product, then fade to real list.
    * Never grows via list→hero geometric flight.
    */
-  const layoutProductOnce = () => {
-    if (laidOutRef.current) return;
+  const layoutProductOnce = (mode: "forward" | "reverse-source" | "reverse-target" = isForward ? "forward" : "reverse-target") => {
     const root = productRef.current;
     if (!root) return;
 
-    if (isForward) {
+    if (mode === "forward") {
+      if (laidOutRef.current) return;
       const vw = typeof window !== "undefined" ? window.innerWidth : 390;
       const mediaH = Math.min(vw, Math.round(vw * 0.92));
       root.style.left = "0px";
@@ -307,10 +309,19 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       return;
     }
 
-    const mediaGeom = frozen.media?.target ?? frozen.media?.source;
-    const priceGeom = frozen.price?.target ?? frozen.price?.source;
-    const titleGeom = frozen.title?.target ?? frozen.title?.source;
-    const metaGeom = frozen.meta?.target ?? frozen.meta?.source;
+    const useSource = mode === "reverse-source";
+    const mediaGeom = useSource
+      ? (frozen.media?.source ?? frozen.media?.target)
+      : (frozen.media?.target ?? frozen.media?.source);
+    const priceGeom = useSource
+      ? (frozen.price?.source ?? frozen.price?.target)
+      : (frozen.price?.target ?? frozen.price?.source);
+    const titleGeom = useSource
+      ? (frozen.title?.source ?? frozen.title?.target)
+      : (frozen.title?.target ?? frozen.title?.source);
+    const metaGeom = useSource
+      ? (frozen.meta?.source ?? frozen.meta?.target)
+      : (frozen.meta?.target ?? frozen.meta?.source);
     const left = mediaGeom?.x ?? priceGeom?.x ?? titleGeom?.x ?? metaGeom?.x ?? 0;
     const top = mediaGeom?.y ?? priceGeom?.y ?? titleGeom?.y ?? metaGeom?.y ?? 0;
     const width = Math.max(
@@ -323,13 +334,13 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     root.style.height = "";
     root.style.transform = "none";
     root.style.opacity = "1";
-    root.style.background = "";
+    root.style.background = useSource ? "var(--sam-app, #fff)" : "";
     root.style.padding = "";
     if (mediaRef.current && mediaGeom) {
       mediaRef.current.style.width = `${mediaGeom.width}px`;
       mediaRef.current.style.height = `${mediaGeom.height}px`;
       mediaRef.current.style.transform = "none";
-      mediaRef.current.style.borderRadius = "8px";
+      mediaRef.current.style.borderRadius = useSource ? "0px" : "8px";
     }
     laidOutRef.current = true;
   };
@@ -413,10 +424,10 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       if (direction === "forward") {
         setTradeMarketContinuityHandoffActive(true);
       } else {
-        // R-B: detail stays authoritative until THIS boundary — list target is paint-ready.
-        // Reveal list under transition product; do not blank the destination card.
+        // R-B: detail/source authority held through prepare; release only here at target-ready.
         hideDetail();
-        layoutProductOnce();
+        laidOutRef.current = false;
+        layoutProductOnce("reverse-target");
         if (productRef.current) productRef.current.style.opacity = "1";
       }
 
@@ -469,25 +480,26 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
 
     /**
-     * REVERSE (R-B): DETAIL remains authoritative while list target prepares.
-     * Underlayer must NOT become sole owner. hideDetail only at handoff after target-ready.
+     * REVERSE (R-B): SOURCE (detail) composition remains authoritative while list target prepares.
+     * App Router may unmount detail on back — source-geometry product covers ownership (not white underlayer).
+     * hideDetail only at handoff after isListProductPaintReady.
      */
     const enterReversePrepare = () => {
       setPhaseSafe("target_preparing");
-      layoutProductOnce();
-      // Non-authoritative prep surface — detail owns viewport until target-ready handoff.
+      laidOutRef.current = false;
+      layoutProductOnce("reverse-source");
       showUnderlayer(false);
-      if (productRef.current) productRef.current.style.opacity = "0";
+      if (productRef.current) productRef.current.style.opacity = "1";
       if (!readLive().destinationCommitted) {
         finish();
         return;
       }
       const waitReady = () => {
         if (ended || handoffStarted) return;
-        layoutProductOnce();
-        // Keep detail visible; composition stays opacity 0; underlayer never sole owner.
+        // Keep source product authoritative; never underlayer-sole; never hideDetail here.
+        if (!laidOutRef.current) layoutProductOnce("reverse-source");
         showUnderlayer(false);
-        if (productRef.current) productRef.current.style.opacity = "0";
+        if (productRef.current) productRef.current.style.opacity = "1";
         if (targetPaintReady()) {
           setPhaseSafe("target_ready");
           beginHandoff();

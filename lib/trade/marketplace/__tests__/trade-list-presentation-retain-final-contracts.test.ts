@@ -496,9 +496,10 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     // Forward must not pin list-sized hold on white underlayer while waiting.
     expect(host).toContain("Forward: underlayer never used as waiting owner");
     expect(host).toContain("paintHandoff");
-    // R-B: reverse must keep detail authoritative until handoff (not hideDetail in prepare loop).
-    expect(host).toContain("DETAIL remains authoritative while list target prepares");
+    // R-B: reverse must keep detail/source authoritative until handoff (not hideDetail in prepare loop).
+    expect(host).toContain("SOURCE (detail) composition remains authoritative while list target prepares");
     expect(host).toContain("hideDetail only at handoff after isListProductPaintReady");
+    expect(host).toContain('layoutProductOnce("reverse-source")');
     const reversePrepare = host.slice(host.indexOf("const enterReversePrepare"));
     const reversePrepareBody = reversePrepare.slice(0, reversePrepare.indexOf("forceEnd = window.setTimeout"));
     expect(reversePrepareBody).not.toContain("hideDetail()");
