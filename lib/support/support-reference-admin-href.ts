@@ -89,6 +89,13 @@ export function resolveSupportReferenceAdminHref(
         labelEn: "Open Cash charge queue",
         mutationOwner: "FINANCE",
       };
+    case "COIN_WITHDRAWAL_REQUEST":
+      return {
+        href: `/admin/finance?coinWithdrawalRequestId=${encodeURIComponent(id)}#coin-withdrawals`,
+        labelKo: "Coin 환전 요청 보기",
+        labelEn: "Open Coin withdrawal request",
+        mutationOwner: "FINANCE",
+      };
     case "PARTNER_MEMBERSHIP":
       return {
         href: `${DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}?membershipId=${encodeURIComponent(id)}&status=PENDING_REVIEW`,

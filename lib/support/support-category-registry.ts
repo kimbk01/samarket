@@ -272,7 +272,11 @@ export const SUPPORT_CATEGORY_REGISTRY: readonly SupportCategoryDefinition[] = [
       ["BANK_ACCOUNT", "support_issue_bank_account", "partial"],
       ["OTHER", "support_issue_other", "none"],
     ]),
-    allowedReferenceTypes: ["BUSINESS_CASH_CHARGE_REQUEST", "PARTNER_MEMBERSHIP"],
+    allowedReferenceTypes: [
+      "BUSINESS_CASH_CHARGE_REQUEST",
+      "PARTNER_MEMBERSHIP",
+      "COIN_WITHDRAWAL_REQUEST",
+    ],
     allowedSourceSurfaces: "*",
     guidanceEligible: "yes",
   },

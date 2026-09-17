@@ -57,6 +57,7 @@ for (const t of [
   "POINT_CHARGE_REQUEST",
   "BUSINESS_CASH_CHARGE_REQUEST",
   "PARTNER_MEMBERSHIP",
+  "COIN_WITHDRAWAL_REQUEST",
 ]) {
   if (!refAuth.includes(`"${t}"`)) fail(`reference authority missing ${t}`);
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
@@ -35,6 +36,8 @@ type PendingAct = { requestId: string; action: "reject" | "mark_paid"; amount: n
 export function AdminCoinWithdrawalsPanel() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
+  const searchParams = useSearchParams();
+  const focusRequestId = (searchParams.get("coinWithdrawalRequestId") ?? "").trim();
   const [rows, setRows] = useState<WithdrawalRow[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -46,11 +49,19 @@ export function AdminCoinWithdrawalsPanel() {
     setLoading(true);
     setError("");
     try {
-      const qs = new URLSearchParams({ status: statusFilter });
+      // Support deep-link may target a decided row — load all when focusing.
+      const statusQ = focusRequestId ? "all" : statusFilter;
+      const qs = new URLSearchParams({ status: statusQ });
       const res = await fetch(`/api/admin/coin-withdrawals?${qs}`, { cache: "no-store" });
       const json = (await res.json()) as { ok?: boolean; requests?: WithdrawalRow[] };
-      if (res.ok && json.ok) setRows(json.requests ?? []);
-      else
+      if (res.ok && json.ok) {
+        let next = json.requests ?? [];
+        if (focusRequestId) {
+          const hit = next.find((r) => r.id === focusRequestId);
+          next = hit ? [hit, ...next.filter((r) => r.id !== hit.id)] : next;
+        }
+        setRows(next);
+      } else
         setError(
           safeT("admin_store_finance_withdrawals_load_failed", {
             fallbackKo: "Coin 출금 요청을 불러오지 못했습니다.",
@@ -67,11 +78,21 @@ export function AdminCoinWithdrawalsPanel() {
     } finally {
       setLoading(false);
     }
-  }, [safeT, statusFilter]);
+  }, [safeT, statusFilter, focusRequestId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!focusRequestId || loading) return;
+    const el = document.querySelector(
+      `[data-finance-withdrawal-row="${CSS.escape(focusRequestId)}"]`
+    );
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [focusRequestId, loading, rows]);
 
   const act = async (requestId: string, action: "reject" | "mark_paid") => {
     setBusyId(requestId);
@@ -173,7 +194,18 @@ export function AdminCoinWithdrawalsPanel() {
                     : `${r.bank_name || "Bank"} · ${r.account_name}`;
                 const adminActor = r.paid_by || r.rejected_by || r.approved_by || null;
                 return (
-                  <tr key={r.id} data-finance-withdrawal-row={r.id}>
+                  <tr
+                    key={r.id}
+                    data-finance-withdrawal-row={r.id}
+                    data-finance-withdrawal-focus={
+                      focusRequestId && r.id === focusRequestId ? "1" : undefined
+                    }
+                    className={
+                      focusRequestId && r.id === focusRequestId
+                        ? "bg-[var(--currency-coin-bg)]"
+                        : undefined
+                    }
+                  >
                     <td className="px-3 py-2 sam-text-xxs whitespace-nowrap">
                       {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
                     </td>

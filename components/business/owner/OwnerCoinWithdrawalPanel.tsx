@@ -8,6 +8,8 @@ import { Sam } from "@/lib/ui/css-vars";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { COIN_WITHDRAWAL_LABEL_KO } from "@/lib/finance/product-decision-lock";
+import { buildOwnerSupportContext } from "@/lib/support/support-context";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 
 type WithdrawalRow = {
   id: string;
@@ -54,6 +56,19 @@ export function OwnerCoinWithdrawalPanel({
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+
+  const openWithdrawalSupport = (withdrawalRequestId: string) => {
+    navigateToSupportCenter(
+      buildOwnerSupportContext({
+        enabled: true,
+        category: "CASH_COIN",
+        sourceSurface: "owner_coin_withdrawal",
+        storeId,
+        referenceType: "COIN_WITHDRAWAL_REQUEST",
+        referenceId: withdrawalRequestId,
+      })
+    );
+  };
 
   const submit = async () => {
     const requestedAmount = Math.trunc(Number(amount) || 0);
@@ -217,7 +232,7 @@ export function OwnerCoinWithdrawalPanel({
             {rows.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               >
                 <span className="font-medium text-sam-fg">
                   {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
@@ -238,6 +253,18 @@ export function OwnerCoinWithdrawalPanel({
                         : { fallbackKo: "처리 중", fallbackEn: "Processing" }
                   )}
                 </span>
+                <button
+                  type="button"
+                  className={`${OwnerCta.formSecondary} text-xs`}
+                  data-owner-coin-withdrawal-support="1"
+                  data-coin-withdrawal-request-id={row.id}
+                  onClick={() => openWithdrawalSupport(row.id)}
+                >
+                  {safeT("owner_finance_withdraw_support", {
+                    fallbackKo: "문의하기",
+                    fallbackEn: "Contact support",
+                  })}
+                </button>
               </li>
             ))}
           </ul>

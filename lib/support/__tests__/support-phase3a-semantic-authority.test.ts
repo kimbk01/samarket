@@ -257,7 +257,7 @@ describe("PHASE 3-A support semantic authority", () => {
     expect(validateSupportGuidanceCta("ARBITRARY", "/x").ok).toBe(false);
   });
 
-  it("T12 existing reference authority preserved + CUT D extensions", () => {
+  it("T12 existing reference authority preserved + CUT D / F-06 extensions", () => {
     expect([...SUPPORT_REFERENCE_TYPES]).toEqual([
       "GIFT_INSTANCE",
       "STORE_ORDER",
@@ -270,12 +270,17 @@ describe("PHASE 3-A support semantic authority", () => {
       "POINT_CHARGE_REQUEST",
       "BUSINESS_CASH_CHARGE_REQUEST",
       "PARTNER_MEMBERSHIP",
+      "COIN_WITHDRAWAL_REQUEST",
     ]);
     const src = readSrc("lib/support/support-reference-authority.ts");
     expect(src).toContain("POINT_CHARGE_REQUEST");
     expect(src).toContain("FEED_AD_REQUEST");
     expect(src).toContain("BUSINESS_CASH_CHARGE_REQUEST");
-    expect(src).not.toContain("COIN_WITHDRAWAL");
+    expect(src).toContain("COIN_WITHDRAWAL_REQUEST");
+    // Aliases remain forbidden as Support reference types.
+    expect(src).not.toMatch(/"COIN_WITHDRAW"/);
+    expect(src).not.toMatch(/"COIN_WITHDRAWAL"/);
+    expect(src).not.toMatch(/"COIN_PAYOUT"/);
     const allowed = new Set(SUPPORT_REFERENCE_TYPES);
     for (const cat of SUPPORT_CATEGORY_REGISTRY) {
       for (const ref of cat.allowedReferenceTypes) {
@@ -284,6 +289,9 @@ describe("PHASE 3-A support semantic authority", () => {
         );
       }
     }
+    const cashCoin = SUPPORT_CATEGORY_REGISTRY.find((c) => c.id === "CASH_COIN");
+    expect(cashCoin?.allowedReferenceTypes).toContain("COIN_WITHDRAWAL_REQUEST");
+    expect(cashCoin?.issueTypes.some((i) => i.id === "COIN_WITHDRAW")).toBe(true);
   });
 
   it("T13 first_admin_response_at first public reply only", () => {

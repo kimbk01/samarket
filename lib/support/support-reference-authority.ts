@@ -6,6 +6,7 @@ import {
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { PLATFORM_POPUP_OWNER_REQUEST_TABLE } from "@/lib/platform-popup/owner-request-loader";
+import { COIN_WITHDRAWAL_REQUESTS_TABLE } from "@/lib/currency/coin-withdrawal-writer";
 
 export type ReferenceAuthorityResult =
   | { ok: true }
@@ -27,6 +28,7 @@ export type ReferenceAuthorityResult =
  * POINT_CHARGE_REQUEST         | point_charge_requests.user_id (MEMBER)        | ACTIVE (CUT D)
  * BUSINESS_CASH_CHARGE_REQUEST | business_cash_charge_requests + store gate    | ACTIVE (CUT D)
  * PARTNER_MEMBERSHIP           | delivery_ad_partner_memberships + store gate  | ACTIVE (CUT D)
+ * COIN_WITHDRAWAL_REQUEST      | coin_withdrawal_requests + store gate         | ACTIVE (F-06)
  *
  * Any other / unknown type → DENY (fail-closed). No default pass-through.
  * Support does NOT mutate Ads / Finance / Partner — references are read pointers only.
@@ -43,6 +45,7 @@ export const SUPPORT_REFERENCE_TYPES = [
   "POINT_CHARGE_REQUEST",
   "BUSINESS_CASH_CHARGE_REQUEST",
   "PARTNER_MEMBERSHIP",
+  "COIN_WITHDRAWAL_REQUEST",
 ] as const;
 
 export type SupportReferenceType = (typeof SUPPORT_REFERENCE_TYPES)[number];
@@ -248,6 +251,18 @@ export async function assertSupportReferenceAuthority(
         userId: input.userId,
         storeId: input.storeId ?? "",
         table: DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE,
+        referenceId,
+      });
+    }
+    case "COIN_WITHDRAWAL_REQUEST": {
+      if (input.audience !== "OWNER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      // Pointer only — resolve owning store from row; never trust client finance fields.
+      return assertOwnerStoreScopedRow(sb, {
+        userId: input.userId,
+        storeId: input.storeId ?? "",
+        table: COIN_WITHDRAWAL_REQUESTS_TABLE,
         referenceId,
       });
     }

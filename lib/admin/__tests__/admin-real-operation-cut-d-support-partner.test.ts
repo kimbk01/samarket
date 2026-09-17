@@ -43,10 +43,12 @@ describe("CUT D Support + Partner context linkage", () => {
         "POINT_CHARGE_REQUEST",
         "BUSINESS_CASH_CHARGE_REQUEST",
         "PARTNER_MEMBERSHIP",
+        "COIN_WITHDRAWAL_REQUEST",
       ])
     );
     expect(CUT_D_SUPPORT_REFERENCE_CAPABILITY.FEED_AD).toBe(true);
     expect(CUT_D_SUPPORT_REFERENCE_CAPABILITY.POPUP).toBe(true);
+    expect(CUT_D_SUPPORT_REFERENCE_CAPABILITY.COIN_WITHDRAWAL).toBe(true);
     expect(CUT_D_SUPPORT_REFERENCE_CAPABILITY.domainSnapshotDuplication).toBe(false);
     expect(OPS_THREAD_STATE.mergeIntoSupportCases).toBe(false);
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
@@ -66,6 +68,12 @@ describe("CUT D Support + Partner context linkage", () => {
     expect(resolveSupportReferenceAdminHref("POINT_CHARGE_REQUEST", adId)?.href).toContain(
       "/admin/point-charges/"
     );
+    expect(
+      resolveSupportReferenceAdminHref("COIN_WITHDRAWAL_REQUEST", adId)?.href
+    ).toContain(`coinWithdrawalRequestId=${adId}`);
+    expect(
+      resolveSupportReferenceAdminHref("COIN_WITHDRAWAL_REQUEST", adId)?.href
+    ).toContain("#coin-withdrawals");
     expect(supportInboxHrefForReference(adId)).toContain(`search=${adId}`);
     expect(supportInboxHrefForStore(adId)).toContain("filter=OWNER");
   });
