@@ -483,22 +483,23 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     expect(home).toContain("even if searchParams flickered");
     expect(home).toMatch(/if \(retained && retained\.posts\.length > 0\) \{/);
 
-    // Reverse cover-only impossible at host render.
-    expect(host).toContain('session.direction === "forward" && showSlots');
-    expect(host).toContain("Missing retained destination is architecture failure");
-    expect(host).toContain("never cover-only wait");
-
-    // F7 closed: forward is product-handoff; independent media lerp is reverse-only.
-    expect(host).toContain('data-trade-product-composition-forward-model={isForward ? "product-handoff"');
+    // Continuity handoff: one product root; no per-slot flight either direction.
+    expect(host).toContain('data-trade-product-composition-forward-model="product-continuity-handoff"');
     expect(host).toContain("data-trade-product-composition-product");
-    expect(host).toContain("paintForward");
-    expect(host).toContain("paintReverse");
-    expect(host).toMatch(/const paint = \(pRaw: number\) => \{\s*if \(direction === "forward"\) paintForward/);
-    // Forward must not call lerpRect / applyBox (media hero flight).
-    const paintForwardBlock = host.slice(host.indexOf("const paintForward"), host.indexOf("const paintReverse"));
-    expect(paintForwardBlock).not.toContain("lerpRect");
-    expect(paintForwardBlock).not.toContain("applyBox");
-    expect(paintForwardBlock).toContain("opacity");
+    expect(host).toContain("data-trade-product-composition-underlayer");
+    expect(host).toContain("setTradeMarketContinuityHandoffActive");
+    expect(host).toContain("isDetailProductPaintReady");
+    expect(host).toContain("isListProductPaintReady");
+    expect(host).toContain("hideDetail");
+    // Per-slot geometric flight unreachable (forward and reverse).
+    expect(host).not.toContain("lerpRect");
+    expect(host).not.toContain("applyBox");
+    expect(host).not.toContain("paintReverse");
+    expect(host).not.toContain("reverse-dock");
+    // Cover must not fade with product (old WHITE GAP path).
+    expect(host).not.toContain("coverRef.current.style.opacity");
+    expect(host).toContain("showUnderlayer(false)");
+    expect(host).toContain("paintHandoff");
   });
 
   it("scrollRestoreDeferred machinery removed (proven dead under new architecture)", () => {

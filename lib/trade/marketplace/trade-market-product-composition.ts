@@ -82,6 +82,8 @@ let detailStanding: TradeMarketProductCompositionSession | null = null;
 /** Reverse: live destination bind is allowed once per generation (optional refine). */
 let reverseLiveBindGeneration: number | null = null;
 let reverseLiveBindCount = 0;
+/** Forward continuity handoff: detail must show under transition product. */
+let continuityHandoffActive = false;
 
 function notify(): void {
   for (const fn of listeners) {
@@ -253,6 +255,7 @@ function setSession(session: TradeMarketProductCompositionSession | null): void 
 }
 
 export function clearTradeMarketProductComposition(): void {
+  continuityHandoffActive = false;
   reverseLiveBindGeneration = null;
   reverseLiveBindCount = 0;
   setSession(null);
@@ -289,9 +292,28 @@ export function isTradeMarketProductCompositionActive(): boolean {
   return Boolean(peekTradeMarketProductComposition());
 }
 
+/**
+ * When true, forward handoff has begun: real detail must be visible under the
+ * fading transition product (crossfade). Covering must release without clearing session.
+ */
+export function setTradeMarketContinuityHandoffActive(active: boolean): void {
+  if (continuityHandoffActive === active) return;
+  continuityHandoffActive = active;
+  queueMicrotask(notify);
+}
+
+export function isTradeMarketContinuityHandoffActive(): boolean {
+  return continuityHandoffActive;
+}
+
 export function isTradeMarketProductCompositionCoveringDetail(postId: string): boolean {
   const session = peekTradeMarketProductComposition();
-  return Boolean(session && session.listingId === postId.trim() && session.direction === "forward");
+  if (!session || session.listingId !== postId.trim() || session.direction !== "forward") {
+    return false;
+  }
+  // During continuity handoff, detail must paint under the transition product.
+  if (continuityHandoffActive) return false;
+  return true;
 }
 
 export function tradePostIdFromPath(path: string | null | undefined): string | null {
