@@ -3,6 +3,9 @@
 /**
  * Shared Owner/Admin regional delivery service-area editor.
  * Same selection semantics · same API payload shape · different permission routes only.
+ *
+ * Presentation: base (≈≤R) + extended (≈R–2R) lists with round multi-select controls.
+ * Customer eligibility remains Owner-selected LGU set (backend V2 LOCKED).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,6 +17,10 @@ export type DeliveryServiceAreaCandidateRow = {
   isStoreHome: boolean;
   selected: boolean;
   centroidDistanceKm: number | null;
+  approxDistanceKm?: number | null;
+  isWithinBaseRange?: boolean;
+  isWithinExtendedRange?: boolean;
+  listBand?: "base" | "extended" | "outside";
 };
 
 export type DeliveryServiceAreaEditorPayload = {
@@ -23,6 +30,7 @@ export type DeliveryServiceAreaEditorPayload = {
   storeHomeDisplayName?: string | null;
   referenceDistanceKm?: number;
   candidateSearchKm?: number;
+  selectionSource?: "saved" | "initial_base_default";
   candidates?: DeliveryServiceAreaCandidateRow[];
   selectedAreas?: Array<{
     geoIdentity: string;
@@ -61,6 +69,40 @@ function applyPayloadToSelection(json: DeliveryServiceAreaEditorPayload): {
   return { selected, extraLabels };
 }
 
+function RoundMultiSelect({
+  checked,
+  surface,
+  onToggle,
+  label,
+}: {
+  checked: boolean;
+  surface: DeliveryServiceAreaEditorSurface;
+  onToggle: () => void;
+  label: string;
+}) {
+  const ring =
+    surface === "admin"
+      ? checked
+        ? "border-signature bg-signature"
+        : "border-sam-border bg-sam-app"
+      : checked
+        ? "border-[var(--biz-brand)] bg-[var(--biz-brand)]"
+        : "border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]";
+  const dot = checked ? "bg-white" : "bg-transparent";
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onToggle}
+      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${ring}`}
+    >
+      <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
+    </button>
+  );
+}
+
 /**
  * ONE presentation + selection model for Owner and Admin.
  * Permissions differ only via `apiPath`.
@@ -88,6 +130,7 @@ export function DeliveryServiceAreaEditorCore({
     Array<{ geoIdentity: string; displayName: string; provinceName: string | null }>
   >([]);
   const [extraLabels, setExtraLabels] = useState<Record<string, string>>({});
+  const [showFarSearch, setShowFarSearch] = useState(false);
 
   const shellClass =
     surface === "admin"
@@ -103,14 +146,14 @@ export function DeliveryServiceAreaEditorCore({
     surface === "admin"
       ? "sam-text-helper font-medium text-sam-fg"
       : "mb-1.5 block text-[12px] font-semibold text-[var(--biz-text)]";
+  const sectionTitleClass =
+    surface === "admin"
+      ? "sam-text-helper font-semibold text-sam-fg"
+      : "text-[13px] font-semibold text-[var(--biz-text)]";
   const controlClass =
     surface === "admin"
       ? "w-full max-w-xs rounded border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-body text-sam-fg"
       : "w-full rounded-xl border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 text-[14px] text-[var(--biz-text)] max-w-xs";
-  const checkboxClass =
-    surface === "admin"
-      ? "mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature accent-signature"
-      : "mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-brand)]";
   const bodyTextClass =
     surface === "admin" ? "min-w-0 sam-text-body text-sam-fg" : "min-w-0 text-[13px] text-[var(--biz-text)]";
   const linkClass =
@@ -165,7 +208,7 @@ export function DeliveryServiceAreaEditorCore({
 
   const selectedCount = selected.size;
 
-  const rows = useMemo(() => {
+  const { baseRows, extendedRows, farRows } = useMemo(() => {
     const byId = new Map<string, DeliveryServiceAreaCandidateRow>();
     for (const c of candidates) byId.set(c.geoIdentity, c);
     for (const id of selected) {
@@ -176,14 +219,52 @@ export function DeliveryServiceAreaEditorCore({
           isStoreHome: false,
           selected: true,
           centroidDistanceKm: null,
+          approxDistanceKm: null,
+          isWithinBaseRange: false,
+          isWithinExtendedRange: false,
+          listBand: "outside",
         });
       }
     }
-    return [...byId.values()].sort((a, b) => {
+    const all = [...byId.values()];
+    const sortRows = (a: DeliveryServiceAreaCandidateRow, b: DeliveryServiceAreaCandidateRow) => {
       if (a.isStoreHome !== b.isStoreHome) return a.isStoreHome ? -1 : 1;
+      const da = a.centroidDistanceKm ?? Number.POSITIVE_INFINITY;
+      const db = b.centroidDistanceKm ?? Number.POSITIVE_INFINITY;
+      if (da !== db) return da - db;
       return a.displayName.localeCompare(b.displayName);
-    });
+    };
+    const base = all
+      .filter((r) => r.isStoreHome || r.isWithinBaseRange || r.listBand === "base")
+      .sort(sortRows);
+    const baseIds = new Set(base.map((r) => r.geoIdentity));
+    const extended = all
+      .filter(
+        (r) =>
+          !baseIds.has(r.geoIdentity) &&
+          (r.isWithinExtendedRange || r.listBand === "extended")
+      )
+      .sort(sortRows);
+    const listed = new Set([...baseIds, ...extended.map((r) => r.geoIdentity)]);
+    const far = all.filter((r) => selected.has(r.geoIdentity) && !listed.has(r.geoIdentity)).sort(sortRows);
+    return { baseRows: base, extendedRows: extended, farRows: far };
   }, [candidates, selected, extraLabels]);
+
+  function toggleId(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function rowSubtitle(row: DeliveryServiceAreaCandidateRow): string {
+    if (row.isStoreHome) return t("business_delivery_service_area_store_home_badge");
+    const approx = row.approxDistanceKm;
+    if (approx != null) return t("business_delivery_service_area_approx_km", { v1: String(approx) });
+    return "";
+  }
 
   async function onSearch() {
     const q = searchQ.trim();
@@ -241,11 +322,35 @@ export function DeliveryServiceAreaEditorCore({
     }
   }
 
+  function renderRow(row: DeliveryServiceAreaCandidateRow) {
+    const checked = selected.has(row.geoIdentity);
+    const sub = rowSubtitle(row);
+    return (
+      <li key={row.geoIdentity}>
+        <div className="flex items-start gap-2.5">
+          <RoundMultiSelect
+            checked={checked}
+            surface={surface}
+            label={row.displayName}
+            onToggle={() => toggleId(row.geoIdentity)}
+          />
+          <button
+            type="button"
+            className={`${bodyTextClass} flex-1 text-left`}
+            onClick={() => toggleId(row.geoIdentity)}
+          >
+            <span className="font-medium">{row.displayName}</span>
+            {sub ? <span className={`ml-2 text-[12px] ${mutedClass}`}>{sub}</span> : null}
+          </button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <div className={shellClass} data-delivery-service-area-editor={surface} data-store-id={storeId}>
       <div>
         <h3 className={titleClass}>{t("business_delivery_service_area_section")}</h3>
-        <p className={`${mutedClass} mt-1`}>{t("business_delivery_service_area_help")}</p>
         <p className={`${mutedClass} mt-1`}>
           {t("business_delivery_service_area_store_location")}:{" "}
           <span className="font-medium text-sam-fg">
@@ -258,13 +363,16 @@ export function DeliveryServiceAreaEditorCore({
             <span className="font-medium text-sam-fg">{referenceDistanceKm} km</span>
           </p>
         ) : null}
-        {candidateSearchKm != null ? (
+        {referenceDistanceKm != null && candidateSearchKm != null ? (
           <p className={`${mutedClass} mt-1`}>
-            {t("business_delivery_service_area_search_range", {
+            {t("business_delivery_service_area_list_help", {
               v1: String(candidateSearchKm),
+              v2: String(referenceDistanceKm),
             })}
           </p>
-        ) : null}
+        ) : (
+          <p className={`${mutedClass} mt-1`}>{t("business_delivery_service_area_help")}</p>
+        )}
         <p className={`${mutedClass} mt-1`}>
           {t("business_delivery_service_area_authority_label")}:{" "}
           <span className="font-medium text-sam-fg">
@@ -279,75 +387,84 @@ export function DeliveryServiceAreaEditorCore({
         <p className={mutedClass}>{t("business_delivery_service_area_loading")}</p>
       ) : (
         <>
-          <div>
-            <p className={labelClass}>{t("business_delivery_service_area_nearby")}</p>
-            <ul className="mt-2 space-y-2">
-              {rows.map((row) => (
-                <li key={row.geoIdentity}>
-                  <label className="flex cursor-pointer items-start gap-2">
-                    <input
-                      type="checkbox"
-                      className={checkboxClass}
-                      checked={selected.has(row.geoIdentity)}
-                      onChange={(e) => {
-                        setSelected((prev) => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(row.geoIdentity);
-                          else next.delete(row.geoIdentity);
-                          return next;
-                        });
-                      }}
-                    />
-                    <span className={bodyTextClass}>
-                      {row.displayName}
-                      {row.isStoreHome ? (
-                        <span className={`ml-2 text-[11px] font-semibold ${mutedClass}`}>
-                          {t("business_delivery_service_area_store_home_badge")}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
+          <div data-delivery-service-area-band="base">
+            <p className={sectionTitleClass}>{t("business_delivery_service_area_base_section")}</p>
+            <p className={`${mutedClass} mt-0.5`}>
+              {t("business_delivery_service_area_base_hint", {
+                v1: String(referenceDistanceKm ?? ""),
+              })}
+            </p>
+            <ul className="mt-2 space-y-2.5">{baseRows.map(renderRow)}</ul>
           </div>
 
-          <div>
-            <p className={labelClass}>{t("business_delivery_service_area_add_other")}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <input
-                type="search"
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                className={controlClass}
-                placeholder={t("business_delivery_service_area_search_placeholder")}
-              />
-              <button type="button" className={secondaryBtnClass} onClick={() => void onSearch()}>
-                {t("business_delivery_service_area_search")}
-              </button>
+          {extendedRows.length > 0 ? (
+            <div data-delivery-service-area-band="extended">
+              <p className={sectionTitleClass}>{t("business_delivery_service_area_extended_section")}</p>
+              <p className={`${mutedClass} mt-0.5`}>
+                {t("business_delivery_service_area_extended_hint", {
+                  v1: String(referenceDistanceKm ?? ""),
+                  v2: String(candidateSearchKm ?? ""),
+                })}
+              </p>
+              <ul className="mt-2 space-y-2.5">{extendedRows.map(renderRow)}</ul>
             </div>
-            {searchHits.length > 0 ? (
-              <ul className="mt-2 space-y-1">
-                {searchHits.map((hit) => (
-                  <li key={hit.geoIdentity}>
-                    <button
-                      type="button"
-                      className={linkClass}
-                      onClick={() => {
-                        setSelected((prev) => new Set(prev).add(hit.geoIdentity));
-                        setExtraLabels((prev) => ({
-                          ...prev,
-                          [hit.geoIdentity]: hit.displayName,
-                        }));
-                      }}
-                    >
-                      + {hit.displayName}
-                      {hit.provinceName ? ` (${hit.provinceName})` : ""}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+          ) : null}
+
+          {farRows.length > 0 ? (
+            <div data-delivery-service-area-band="manual-far">
+              <p className={sectionTitleClass}>{t("business_delivery_service_area_manual_far_section")}</p>
+              <ul className="mt-2 space-y-2.5">{farRows.map(renderRow)}</ul>
+            </div>
+          ) : null}
+
+          <div>
+            {!showFarSearch ? (
+              <button
+                type="button"
+                className={linkClass}
+                onClick={() => setShowFarSearch(true)}
+              >
+                + {t("business_delivery_service_area_add_other")}
+              </button>
+            ) : (
+              <>
+                <p className={labelClass}>{t("business_delivery_service_area_add_other")}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <input
+                    type="search"
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    className={controlClass}
+                    placeholder={t("business_delivery_service_area_search_placeholder")}
+                  />
+                  <button type="button" className={secondaryBtnClass} onClick={() => void onSearch()}>
+                    {t("business_delivery_service_area_search")}
+                  </button>
+                </div>
+                {searchHits.length > 0 ? (
+                  <ul className="mt-2 space-y-1">
+                    {searchHits.map((hit) => (
+                      <li key={hit.geoIdentity}>
+                        <button
+                          type="button"
+                          className={linkClass}
+                          onClick={() => {
+                            setSelected((prev) => new Set(prev).add(hit.geoIdentity));
+                            setExtraLabels((prev) => ({
+                              ...prev,
+                              [hit.geoIdentity]: hit.displayName,
+                            }));
+                          }}
+                        >
+                          + {hit.displayName}
+                          {hit.provinceName ? ` (${hit.provinceName})` : ""}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            )}
           </div>
 
           <p className={mutedClass}>
@@ -358,7 +475,11 @@ export function DeliveryServiceAreaEditorCore({
             <label className="flex cursor-pointer items-start gap-2">
               <input
                 type="checkbox"
-                className={checkboxClass}
+                className={
+                  surface === "admin"
+                    ? "mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature accent-signature"
+                    : "mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-brand)]"
+                }
                 checked={activateV2}
                 onChange={(e) => setActivateV2(e.target.checked)}
               />

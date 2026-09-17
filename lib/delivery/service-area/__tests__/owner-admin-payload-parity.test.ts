@@ -49,6 +49,11 @@ describe("Owner/Admin editor payload parity", () => {
     const home = empty.candidates.find((c) => c.isStoreHome);
     expect(home).toBeTruthy();
     expect(home?.selected).toBe(true);
+    expect(empty.selectionSource).toBe("initial_base_default");
+    // Initial setup: all base-range candidates proposed selected
+    for (const c of empty.candidates) {
+      if (c.isWithinBaseRange || c.isStoreHome) expect(c.selected).toBe(true);
+    }
     // Removable: no forced lock field — selection is a plain boolean Owner/Admin may flip.
     expect(home && "locked" in home).toBe(false);
   });

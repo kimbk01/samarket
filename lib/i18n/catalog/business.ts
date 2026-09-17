@@ -116,7 +116,9 @@ export const businessMessages = {
     business_store_delivery_radius_invalid: "배달 지역 탐색 거리를 올바르게 입력해 주세요.",
     business_delivery_service_area_section: "배달 가능 지역",
     business_delivery_service_area_help:
-      "설정한 거리를 기준으로 주변 지역을 넓게 찾아 표시합니다. 실제 배달 지역은 아래에서 직접 선택합니다.",
+      "설정한 거리를 기준으로 주변 지역을 표시합니다. 실제 배달 지역은 아래에서 직접 선택합니다.",
+    business_delivery_service_area_list_help:
+      "매장 주변 약 {v1}km까지 지역을 표시합니다. {v2}km 안팎의 주변 지역은 기본 선택되며, 그 밖의 지역은 직접 추가할 수 있습니다.",
     business_delivery_service_area_store_location: "매장 위치",
     business_delivery_service_area_store_location_unknown: "확인 중",
     business_delivery_service_area_search_range: "약 {v1}km 범위의 주변 City/Municipality를 찾아 표시합니다.",
@@ -125,6 +127,12 @@ export const businessMessages = {
     business_delivery_service_area_authority_v2: "선택 지역 기준 (V2)",
     business_delivery_service_area_loading: "배달 지역을 불러오는 중…",
     business_delivery_service_area_nearby: "주변 배달 지역",
+    business_delivery_service_area_base_section: "기본 주변 지역",
+    business_delivery_service_area_base_hint: "매장 기준 약 {v1}km",
+    business_delivery_service_area_extended_section: "추가 가능한 주변 지역",
+    business_delivery_service_area_extended_hint: "매장 기준 약 {v1}~{v2}km",
+    business_delivery_service_area_manual_far_section: "추가 지정 지역",
+    business_delivery_service_area_approx_km: "약 {v1}km",
     business_delivery_service_area_store_home_badge: "매장 지역",
     business_delivery_service_area_add_other: "다른 지역 추가",
     business_delivery_service_area_search_placeholder: "City / Municipality 검색",
@@ -877,7 +885,9 @@ export const businessMessages = {
     business_store_delivery_radius_invalid: "Enter a valid regional discovery distance.",
     business_delivery_service_area_section: "Delivery service area",
     business_delivery_service_area_help:
-      "We show nearby cities based on your distance setting. You choose which areas are deliverable.",
+      "Nearby regions are listed from your store. Actual delivery coverage is whatever you select below.",
+    business_delivery_service_area_list_help:
+      "Regions within about {v1}km of the store are listed. Areas within about {v2}km are selected by default; others can be added manually.",
     business_delivery_service_area_store_location: "Store location",
     business_delivery_service_area_store_location_unknown: "Resolving",
     business_delivery_service_area_search_range:
@@ -887,6 +897,12 @@ export const businessMessages = {
     business_delivery_service_area_authority_v2: "Selected regions (V2)",
     business_delivery_service_area_loading: "Loading delivery areas…",
     business_delivery_service_area_nearby: "Nearby delivery areas",
+    business_delivery_service_area_base_section: "Base nearby areas",
+    business_delivery_service_area_base_hint: "About {v1}km from the store",
+    business_delivery_service_area_extended_section: "Additional nearby areas",
+    business_delivery_service_area_extended_hint: "About {v1}–{v2}km from the store",
+    business_delivery_service_area_manual_far_section: "Manually added areas",
+    business_delivery_service_area_approx_km: "about {v1}km",
     business_delivery_service_area_store_home_badge: "Store area",
     business_delivery_service_area_add_other: "Add another area",
     business_delivery_service_area_search_placeholder: "Search City / Municipality",

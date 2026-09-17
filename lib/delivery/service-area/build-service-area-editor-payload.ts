@@ -10,6 +10,11 @@ import {
 import type { StoreDeliveryServiceAreaRow } from "@/lib/delivery/service-area/store-delivery-service-areas";
 import { parseDeliveryServiceAreaAuthority } from "@/lib/delivery/service-area/authority";
 import { resolveEffectiveStoreDeliveryRadiusKm } from "@/lib/delivery/store-delivery-radius";
+import {
+  classifyDeliveryRegionalListBand,
+  formatApproxDeliveryDistanceKm,
+  resolveDeliveryRegionalListSelectedIds,
+} from "@/lib/delivery/service-area/regional-list-presentation";
 
 export type ServiceAreaEditorStoreGeo = {
   city?: string | null;
@@ -29,13 +34,14 @@ export function buildDeliveryServiceAreaEditorPayload(
   const lng = store.lng != null && Number.isFinite(Number(store.lng)) ? Number(store.lng) : null;
   const referenceKm = resolveEffectiveStoreDeliveryRadiusKm(store.delivery_radius_km);
   const searchKm = resolveRegionalCandidateSearchKm(store.delivery_radius_km);
+  const authorityMode = parseDeliveryServiceAreaAuthority(store.delivery_service_area_authority);
   const storeHomeLguId = resolveStoreHomeLguId({
     cityMunicipality: store.city,
     province: store.region,
     storeLat: lat,
     storeLng: lng,
   });
-  const candidates =
+  const discovered =
     lat != null && lng != null
       ? discoverDeliveryServiceAreaCandidates({
           storeLat: lat,
@@ -44,25 +50,52 @@ export function buildDeliveryServiceAreaEditorPayload(
           storeHomeLguId,
         })
       : [];
-  const selectedIds = new Set(selected.map((s) => s.geoIdentity));
-  const proposedSelected =
-    selectedIds.size > 0 ? selectedIds : new Set(storeHomeLguId ? [storeHomeLguId] : []);
+
+  const candidatesWithBands = discovered.map((c) => {
+    const band = c.isStoreHome
+      ? ("base" as const)
+      : classifyDeliveryRegionalListBand(c.centroidDistanceKm, referenceKm, searchKm);
+    return {
+      geoIdentity: c.geoIdentity,
+      displayName: c.displayName,
+      isStoreHome: c.isStoreHome,
+      centroidDistanceKm: c.centroidDistanceKm,
+      approxDistanceKm: formatApproxDeliveryDistanceKm(c.centroidDistanceKm),
+      inDiscoveryEnvelope: c.inDiscoveryEnvelope,
+      isWithinBaseRange: band === "base",
+      isWithinExtendedRange: band === "extended",
+      listBand: band,
+    };
+  });
+
+  const savedSelectedIds = selected.map((s) => s.geoIdentity);
+  const { selectedIds: proposedSelected, selectionSource } = resolveDeliveryRegionalListSelectedIds({
+    authorityMode,
+    savedSelectedIds,
+    candidateRows: candidatesWithBands,
+  });
+
+  const selectedGeoIdentities =
+    selectionSource === "saved"
+      ? [...new Set(savedSelectedIds.map((id) => String(id).trim()).filter(Boolean))].sort()
+      : [...proposedSelected].sort();
 
   return {
     storeName: store.store_name ?? null,
-    authorityMode: parseDeliveryServiceAreaAuthority(store.delivery_service_area_authority),
+    authorityMode,
     storeHomeLguId,
     storeHomeDisplayName:
-      candidates.find((c) => c.isStoreHome)?.displayName ??
+      candidatesWithBands.find((c) => c.isStoreHome)?.displayName ??
       ((store.city ?? "").trim() || null),
     referenceDistanceKm: referenceKm,
     candidateSearchKm: searchKm,
-    candidates: candidates.map((c) => ({
+    selectionSource,
+    candidates: candidatesWithBands.map((c) => ({
       ...c,
       selected: proposedSelected.has(c.geoIdentity),
     })),
     selectedAreas: selected,
-    selectedCount: selectedIds.size,
-    selectedGeoIdentities: [...selectedIds].sort(),
+    selectedCount: selectedGeoIdentities.length,
+    selectedGeoIdentities,
   };
 }

@@ -26,11 +26,14 @@ describe("Admin same-SSOT UI first divergence close", () => {
     expect(editors).toContain("AdminBusinessCcDeliveryOverrideEditor");
   });
 
-  it("store-own LGU checkbox is not locked (removable)", () => {
+  it("store-own LGU round multi-select is not locked (removable)", () => {
     const core = read("components/delivery/DeliveryServiceAreaEditorCore.tsx");
     expect(core).toContain("business_delivery_service_area_store_home_badge");
     expect(core).not.toMatch(/disabled=\{[^}]*isStoreHome/);
-    expect(core).toContain("else next.delete(row.geoIdentity)");
+    expect(core).toContain('role="checkbox"');
+    expect(core).toContain("function toggleId");
+    expect(core).toContain("data-delivery-service-area-band=\"base\"");
+    expect(core).toContain("data-delivery-service-area-band=\"extended\"");
   });
 
   it("Owner and Admin APIs write the same SSOT helpers", () => {
