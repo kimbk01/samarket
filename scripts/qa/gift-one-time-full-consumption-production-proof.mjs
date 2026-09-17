@@ -55,14 +55,22 @@ async function loginBuyer(email = process.env.GIFT_QA_BUYER_EMAIL || "wwww@manua
 
 async function findStoreProduct(client) {
   const storeId = process.env.GIFT_QA_STORE_ID || "19085860-52d2-4183-b033-e71fcb58bcec";
-  const productId = process.env.GIFT_QA_CART_PRODUCT_ID || "7929c806-4f49-4e91-98d8-43304e026134";
+  // ₱200 list / ₱180 after discount → UNDER qty=4 (720), OVER qty=7 (1260).
+  const productId = process.env.GIFT_QA_CART_PRODUCT_ID || "8eb53d15-dc29-4b76-8c6b-43264c5674dd";
   const { data: product, error } = await client
     .from("store_products")
-    .select("id, store_id, price, title, stock")
+    .select("id, store_id, price, discount_price, title, track_inventory, options_json, product_status")
     .eq("id", productId)
     .maybeSingle();
   if (error || !product) throw new Error(`cart_product_missing:${error?.message || productId}`);
-  return { storeId: product.store_id || storeId, product };
+  const list = Math.trunc(Number(product.price) || 0);
+  const disc = product.discount_price == null ? null : Math.trunc(Number(product.discount_price));
+  const unit =
+    disc != null && Number.isFinite(disc) && disc >= 0 && disc < list ? disc : list;
+  return {
+    storeId: product.store_id || storeId,
+    product: { ...product, unit },
+  };
 }
 
 async function mintActiveGift(client, args) {
@@ -71,23 +79,18 @@ async function mintActiveGift(client, args) {
     storeId,
     faceValue,
     purchasePrice,
-    productId = process.env.GIFT_QA_GIFT_PRODUCT_ID || null,
+    productId = process.env.GIFT_QA_GIFT_PRODUCT_ID || "2901c35b-6a56-4fb1-a9dd-029263780364",
   } = args;
-  let giftProductId = productId;
-  if (!giftProductId) {
-    const { data: gp } = await client
-      .from("gift_certificate_products")
-      .select("id")
-      .eq("store_id", storeId)
-      .eq("status", "ACTIVE")
-      .limit(1)
-      .maybeSingle();
-    giftProductId = gp?.id;
-  }
+  const giftProductId = productId;
   if (!giftProductId) throw new Error("gift_product_missing");
 
   const id = randomUUID();
-  const publicGiftNumber = `GFT-OT${String(Date.now()).slice(-6)}-${id.slice(0, 5).toUpperCase()}`;
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const seg = (n) =>
+    Array.from({ length: n }, (_, i) => alphabet[(id.charCodeAt(i % id.length) + i * 7) % alphabet.length]).join(
+      ""
+    );
+  const publicGiftNumber = `GFT-${seg(5)}-${seg(5)}`;
   const { error } = await client.from("gift_certificate_instances").insert({
     id,
     product_id: giftProductId,
@@ -99,8 +102,11 @@ async function mintActiveGift(client, args) {
     purchase_price: purchasePrice,
     remaining_balance: faceValue,
     status: "ACTIVE",
+    version: 1,
     public_gift_number: publicGiftNumber,
     purchased_at: new Date().toISOString(),
+    valid_from: new Date().toISOString().slice(0, 10),
+    valid_until: null,
   });
   if (error) throw new Error(`mint_gift_failed:${error.message}`);
   return { id, publicGiftNumber, faceValue, purchasePrice };
@@ -108,21 +114,24 @@ async function mintActiveGift(client, args) {
 
 async function placeOrderWithGift(client, args) {
   const { buyerId, storeId, product, qty, giftInstanceId, idempotencyKey, faceValue } = args;
-  const unit = Math.trunc(Number(product.price) || 0);
+  const unit = Math.trunc(Number(product.unit ?? product.price) || 0);
   const itemsSubtotal = unit * qty;
-  const amountBeforeGift = itemsSubtotal;
+  const deliveryFee = 0; // pickup
+  const amountBeforeGift = itemsSubtotal + deliveryFee;
   const giftUsed = Math.min(faceValue ?? 1000, amountBeforeGift);
   const paymentAfterGift = Math.max(0, amountBeforeGift - giftUsed);
   const orderNo = `OT-${Date.now().toString(36).toUpperCase()}`;
   const lines = [
     {
       product_id: product.id,
-      quantity: qty,
-      unit_price: unit,
+      qty,
       title: product.title || "QA item",
-      line_total: itemsSubtotal,
-      options_json: [],
-      expected_options_json: null,
+      unit,
+      subtotal: itemsSubtotal,
+      options_snapshot: [],
+      base_unit_after_discount: unit,
+      unit_options_delta: 0,
+      // omit expected_options_json — JSON null is NOT SQL NULL and trips price_changed
     },
   ];
   const { data, error } = await client.rpc("create_store_order_atomic", {
@@ -131,10 +140,11 @@ async function placeOrderWithGift(client, args) {
     p_client_order_key: idempotencyKey,
     p_order: {
       order_no: orderNo,
-      total_amount: paymentAfterGift,
+      // Authority: total_amount = items+delivery BEFORE gift; payment_amount AFTER gift.
+      total_amount: amountBeforeGift,
       discount_amount: 0,
       payment_amount: paymentAfterGift,
-      delivery_fee_amount: 0,
+      delivery_fee_amount: deliveryFee,
       payment_status: "paid",
       fulfillment_type: "pickup",
       buyer_payment_method: "cash",
@@ -191,10 +201,10 @@ async function reverseOrder(client, orderId) {
 }
 
 function pass(report, key, detail) {
-  report.results[key] = { status: "PASS", ...detail };
+  report.results[key] = { ...detail, status: "PASS" };
 }
 function fail(report, key, detail) {
-  report.results[key] = { status: "FAIL", ...detail };
+  report.results[key] = { ...detail, status: "FAIL" };
   if (!report.firstFail) report.firstFail = key;
 }
 
@@ -204,7 +214,7 @@ async function main() {
   const client = sb();
   const buyer = await loginBuyer();
   const { storeId, product } = await findStoreProduct(client);
-  const unit = Math.trunc(Number(product.price) || 0);
+  const unit = Math.trunc(Number(product.unit ?? product.price) || 0);
   if (unit <= 0) throw new Error("product_price_invalid");
 
   const report = {
@@ -227,27 +237,41 @@ async function main() {
     .eq("status", "PARTIALLY_REDEEMED");
   report.historicalPartialCensus = { liveRowCount: partialCount ?? 0 };
 
-  // --- UNDER FACE: face=1000, order ≈ 800 ---
+  // --- UNDER FACE: face > order. Store min_order_php=1000 blocks literal ₱800.
+  // Prove economics with face=2000 / order=1000 → applied=1000, forfeited=1000, USED.
   {
-    const qty = Math.max(1, Math.floor(800 / unit));
-    const orderAmountApprox = qty * unit;
+    const underFace = 2000;
+    let underProduct = null;
+    const { data: p1000 } = await client
+      .from("store_products")
+      .select("id, store_id, price, discount_price, title, track_inventory, options_json, product_status")
+      .eq("id", "466dfbed-677f-4168-9d84-199878cde623")
+      .maybeSingle();
+    if (p1000) {
+      underProduct = { ...p1000, unit: Math.trunc(Number(p1000.price) || 0) };
+    }
+    if (!underProduct || underProduct.unit <= 0) {
+      fail(report, "UNDER_FACE", { error: "under_product_missing", storeMinOrderPhp: 1000 });
+    } else {
+    const qty = 1;
+    const orderAmountApprox = qty * underProduct.unit;
     const gift = await mintActiveGift(client, {
       buyerId: buyer.id,
       storeId,
-      faceValue: 1000,
-      purchasePrice: 1000,
+      faceValue: underFace,
+      purchasePrice: underFace,
     });
     const placed = await placeOrderWithGift(client, {
       buyerId: buyer.id,
       storeId,
-      product,
+      product: underProduct,
       qty,
       giftInstanceId: gift.id,
       idempotencyKey: `ot-under-${gift.id}`,
-      faceValue: 1000,
+      faceValue: underFace,
     });
     if (!placed.ok) {
-      fail(report, "UNDER_FACE", { error: placed.error });
+      fail(report, "UNDER_FACE", { error: placed.error, storeMinOrderPhp: 1000 });
     } else {
       const orderId = placed.data?.order?.id || placed.data?.id;
       const payment = Math.trunc(Number(placed.data?.order?.payment_amount ?? placed.data?.payment_amount) || 0);
@@ -260,20 +284,23 @@ async function main() {
       const ok =
         inst?.status === "FULLY_REDEEMED" &&
         Math.trunc(Number(inst?.remaining_balance) || 0) === 0 &&
-        applied === Math.min(1000, orderAmountApprox) &&
-        forfeited === Math.max(0, 1000 - applied) &&
+        applied === Math.min(underFace, orderAmountApprox) &&
+        forfeited === Math.max(0, underFace - applied) &&
         merchant === applied - Math.trunc(Number(red?.platform_fee_amount) || 0) &&
         ledger.some((e) => e.entry_type === "FORFEIT" || forfeited === 0) &&
         payment === 0;
       (ok ? pass : fail)(report, "UNDER_FACE", {
+        note: "store min_order_php=1000; literal face=1000/order=800 impossible — used face=2000/order=1000",
         giftId: gift.id,
         orderId,
+        faceValue: underFace,
         orderAmountApprox,
         payment,
         applied,
         forfeited,
         merchant,
         instanceStatus: inst?.status,
+        // 
         remaining: inst?.remaining_balance,
         ledgerTypes: ledger.map((e) => e.entry_type),
       });
@@ -283,11 +310,11 @@ async function main() {
       const second = await placeOrderWithGift(client, {
         buyerId: buyer.id,
         storeId,
-        product,
+        product: underProduct,
         qty: 1,
         giftInstanceId: gift2.id,
         idempotencyKey: `ot-second-${gift2.id}`,
-        faceValue: 1000,
+        faceValue: underFace,
       });
       const secondBlocked =
         !second.ok ||
@@ -312,7 +339,6 @@ async function main() {
         ["invalid_status", "not_owner", "room_not_found", "not_friend"].includes(
           String(offerData?.error || "")
         );
-      // invalid_status is the strongest signal; room errors also mean we didn't lock a used gift.
       const instAfter = await loadInstance(client, gift.id);
       const stillUsed = instAfter?.status === "FULLY_REDEEMED";
       (regiftBlocked && stillUsed ? pass : fail)(report, "REGIFT_AFTER_USE", {
@@ -328,12 +354,12 @@ async function main() {
         const cancelOk =
           rev.ok &&
           after?.status === "ACTIVE" &&
-          Math.trunc(Number(after?.remaining_balance) || 0) === 1000 &&
+          Math.trunc(Number(after?.remaining_balance) || 0) === underFace &&
           (forfeited === 0 || led.some((e) => e.entry_type === "FORFEIT_REVERSE"));
         (cancelOk ? pass : fail)(report, "CANCEL_UNDER", {
           reverseOk: rev.ok,
           reverseError: rev.error,
-          status: after?.status,
+          instanceStatus: after?.status,
           remaining: after?.remaining_balance,
           ledgerTypes: led.map((e) => e.entry_type),
         });
@@ -351,20 +377,38 @@ async function main() {
         "MERCHANT_REVENUE",
         { merchant, applied, fee: red?.platform_fee_amount }
       );
-      // Coin applied-only is preserved by existing currency writers — assert merchant_net == applied basis.
       pass(report, "COIN", {
         note: "applied-only invariant preserved; coin writer not rewritten",
         appliedBasis: applied,
       });
     }
+    }
   }
 
   // --- EXACT ---
   {
-    const qty = Math.max(1, Math.ceil(1000 / unit));
-    // Prefer qty such that qty*unit == 1000 when possible
-    let exactQty = qty;
-    if (unit > 0 && 1000 % unit === 0) exactQty = 1000 / unit;
+    let exactProduct = product;
+    let exactQty = unit > 0 && 1000 % unit === 0 ? 1000 / unit : 0;
+    if (exactQty <= 0) {
+      const { data: p1000 } = await client
+        .from("store_products")
+        .select("id, store_id, price, discount_price, title, track_inventory, options_json, product_status")
+        .eq("store_id", storeId)
+        .eq("price", 1000)
+        .limit(1)
+        .maybeSingle();
+      if (!p1000) {
+        fail(report, "EXACT_FACE", { error: "no_exact_1000_product" });
+      } else {
+        const list = Math.trunc(Number(p1000.price) || 0);
+        const disc = p1000.discount_price == null ? null : Math.trunc(Number(p1000.discount_price));
+        const u =
+          disc != null && Number.isFinite(disc) && disc >= 0 && disc < list ? disc : list;
+        exactProduct = { ...p1000, unit: u };
+        exactQty = 1;
+      }
+    }
+    if (exactQty > 0) {
     const gift = await mintActiveGift(client, {
       buyerId: buyer.id,
       storeId,
@@ -374,7 +418,7 @@ async function main() {
     const placed = await placeOrderWithGift(client, {
       buyerId: buyer.id,
       storeId,
-      product,
+      product: exactProduct,
       qty: exactQty,
       giftInstanceId: gift.id,
       idempotencyKey: `ot-exact-${gift.id}`,
@@ -397,15 +441,16 @@ async function main() {
         orderId,
         applied,
         forfeited,
-        status: inst?.status,
+        instanceStatus: inst?.status,
       });
       if (orderId) await reverseOrder(client, orderId);
     }
+    }
   }
 
-  // --- OVER FACE: face=1000, order > 1000 ---
+  // --- OVER FACE: face=1000, order=unit×7 (> face) ---
   {
-    const qty = Math.max(1, Math.ceil(1100 / unit));
+    const qty = 7;
     const gift = await mintActiveGift(client, {
       buyerId: buyer.id,
       storeId,
@@ -441,7 +486,7 @@ async function main() {
         payment,
         applied,
         forfeited,
-        status: inst?.status,
+        instanceStatus: inst?.status,
       });
 
       if (orderId) {
@@ -454,7 +499,7 @@ async function main() {
         (cancelOk ? pass : fail)(report, "CANCEL_OVER", {
           reverseOk: rev.ok,
           reverseError: rev.error,
-          status: after?.status,
+          instanceStatus: after?.status,
           remaining: after?.remaining_balance,
           additionalRefundAuthority: "existing payment/refund path (not reinvented)",
           paymentAtRedeem: payment,

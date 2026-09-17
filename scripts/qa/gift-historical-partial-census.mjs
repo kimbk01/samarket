@@ -30,13 +30,13 @@ if (countErr) {
   process.exit(1);
 }
 
-const { data: sample, error: sampleErr } = await sb
+  const { data: sample, error: sampleErr } = await sb
   .from("gift_certificate_instances")
   .select(
-    "id, public_gift_number, face_value, remaining_balance, purchase_price, status, updated_at, current_owner_user_id"
+    "id, public_gift_number, face_value, remaining_balance, purchase_price, status, created_at, current_owner_user_id"
   )
   .eq("status", "PARTIALLY_REDEEMED")
-  .order("updated_at", { ascending: false })
+  .order("created_at", { ascending: false })
   .limit(20);
 
 if (sampleErr) {
@@ -56,7 +56,7 @@ const report = {
     faceValue: r.face_value,
     remainingBalance: r.remaining_balance,
     purchasePrice: r.purchase_price,
-    updatedAt: r.updated_at,
+    updatedAt: r.created_at,
     // owner id redacted length only
     ownerIdLen: String(r.current_owner_user_id ?? "").length,
   })),
