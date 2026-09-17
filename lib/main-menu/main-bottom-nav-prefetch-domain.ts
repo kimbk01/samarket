@@ -24,6 +24,15 @@ export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBo
   /** `/` Cold Boot = Community shell (not a separate "root" prefetch domain) */
   if (p === "/" || !p) return "philife";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
+  /**
+   * Trade product detail `/post/[id]` — same shell domain as `/market`.
+   * Peer invariant: `/stores`↔`/stores/[slug]`, `/philife`↔`/philife/[id]`.
+   * Entry points may include notifications/messenger/deep-link, but the route is
+   * Trade product detail (Community uses `/philife/*`, not `/post/*`).
+   * Classifying as `other` made ConditionalAppShell treat list↔detail as a
+   * bottom-nav domain exit and overwrite Trade list scroll restore (S5).
+   */
+  if (p === "/post" || p.startsWith("/post/")) return "trade";
   if (p === "/philife" || p.startsWith("/philife/")) return "philife";
   /** 레거시 커뮤니티 경로 — 필라이프와 동일 셸(스크롤·idle 프리페치 도메인 일치) */
   if (p === "/community" || p.startsWith("/community/")) return "philife";
