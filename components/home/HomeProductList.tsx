@@ -780,7 +780,17 @@ export function HomeProductList({
   }, [load]);
 
   useEffect(() => {
-    const onReset = () => {
+    const onReset = (ev: Event) => {
+      // R-A: matching-identity invalidation — prefer event detail, fall back to live browse key.
+      const fromEvent =
+        typeof (ev as CustomEvent<{ identity?: string }>).detail?.identity === "string"
+          ? (ev as CustomEvent<{ identity?: string }>).detail!.identity!.trim()
+          : "";
+      const identityToClear = fromEvent || browseIdentityKey;
+      if (identityToClear) {
+        clearTradeListPresentationSession(identityToClear);
+      }
+      retainedVisibleCountRef.current = null;
       serverPageRef.current = 1;
       setServerHasMore(false);
       setListPaginationEpoch((n) => n + 1);
@@ -797,7 +807,7 @@ export function HomeProductList({
     };
     window.addEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
     return () => window.removeEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
-  }, []);
+  }, [browseIdentityKey]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {

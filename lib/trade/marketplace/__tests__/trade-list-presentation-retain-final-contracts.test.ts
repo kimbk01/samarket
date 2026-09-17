@@ -490,18 +490,36 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     expect(host).toContain("isDetailProductPaintReady");
     expect(host).toContain("isListProductPaintReady");
     expect(host).toContain("enterForwardTransition");
+    expect(host).toContain("enterReversePrepare");
     expect(host).toContain('data-trade-product-composition-prepare={isForward ? "full-surface"');
     expect(host).toContain('data-trade-product-composition-surface={isForward ? "full"');
     // Forward must not pin list-sized hold on white underlayer while waiting.
     expect(host).toContain("Forward: underlayer never used as waiting owner");
     expect(host).toContain("paintHandoff");
-    expect(host).toContain("isDetailProductPaintReady");
+    // R-B: reverse must keep detail authoritative until handoff (not hideDetail in prepare loop).
+    expect(host).toContain("DETAIL remains authoritative while list target prepares");
+    expect(host).toContain("hideDetail only at handoff after isListProductPaintReady");
+    const reversePrepare = host.slice(host.indexOf("const enterReversePrepare"));
+    const reversePrepareBody = reversePrepare.slice(0, reversePrepare.indexOf("forceEnd = window.setTimeout"));
+    expect(reversePrepareBody).not.toContain("hideDetail()");
+    expect(reversePrepareBody).toContain("showUnderlayer(false)");
+    expect(host).toMatch(/beginHandoff[\s\S]*?hideDetail\(\)/);
     // Runtime geometric flight helpers must be absent (comments mentioning the words OK if functions gone).
     expect(host).not.toMatch(/\bfunction lerpRect\b|\blerpRect\s*\(/);
     expect(host).not.toMatch(/\bfunction applyBox\b|\bapplyBox\s*\(/);
     expect(host).not.toContain("paintReverse");
     expect(host).not.toContain("reverse-dock");
     expect(host).not.toContain("coverRef.current.style.opacity");
+  });
+
+  it("R-A — CLASS A reset invalidates matching presentation session only", () => {
+    const effects = read("lib/trade/marketplace/marketplace-browse-reset-client-effects.ts");
+    const home = read("components/home/HomeProductList.tsx");
+    expect(effects).toContain("clearTradeListPresentationSession(identity)");
+    expect(effects).toContain("marketplaceBrowseStateIdentityKey");
+    expect(effects).not.toMatch(/clearTradeListPresentationSession\(\s*\)/);
+    expect(home).toContain("clearTradeListPresentationSession(identityToClear)");
+    expect(home).toContain("retainedVisibleCountRef.current = null");
   });
 
   it("scrollRestoreDeferred machinery removed (proven dead under new architecture)", () => {

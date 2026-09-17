@@ -9,8 +9,10 @@
  *   isDetailProductPaintReady → F_HANDOFF → real detail owns
  * Forbidden: list-sized static hold on white; white-only hold; media lerp/hero flight.
  *
- * REVERSE (out of this CUT's change intent; keep continuity handoff, no per-slot dock):
- *   Hide detail → list-sized product → list ready → handoff.
+ * REVERSE (R-B):
+ *   Detail remains authoritative while list target prepares.
+ *   hideDetail only at handoff after isListProductPaintReady.
+ *   Underlayer must never be sole reverse owner on the ready path.
  *
  * Navigation remains `<Link>` + App Router.
  */
@@ -216,14 +218,6 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     hiddenDestinationRef.current = null;
   };
 
-  const hideDestinationCard = (card: HTMLElement) => {
-    if (hiddenDestinationRef.current === card) return;
-    restoreDestinationCard();
-    hiddenDestinationRef.current = card;
-    card.setAttribute("data-trade-product-composition-destination-hidden", "1");
-    card.style.visibility = "hidden";
-  };
-
   const restoreDetail = () => {
     const detail = hiddenDetailRef.current;
     if (!detail) return;
@@ -419,7 +413,11 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       if (direction === "forward") {
         setTradeMarketContinuityHandoffActive(true);
       } else {
-        restoreDestinationCard();
+        // R-B: detail stays authoritative until THIS boundary — list target is paint-ready.
+        // Reveal list under transition product; do not blank the destination card.
+        hideDetail();
+        layoutProductOnce();
+        if (productRef.current) productRef.current.style.opacity = "1";
       }
 
       if (forceEnd != null) {
@@ -470,12 +468,16 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       raf = requestAnimationFrame(pollReady);
     };
 
+    /**
+     * REVERSE (R-B): DETAIL remains authoritative while list target prepares.
+     * Underlayer must NOT become sole owner. hideDetail only at handoff after target-ready.
+     */
     const enterReversePrepare = () => {
       setPhaseSafe("target_preparing");
       layoutProductOnce();
-      showUnderlayer(true);
-      if (productRef.current) productRef.current.style.opacity = "1";
-      hideDetail();
+      // Non-authoritative prep surface — detail owns viewport until target-ready handoff.
+      showUnderlayer(false);
+      if (productRef.current) productRef.current.style.opacity = "0";
       if (!readLive().destinationCommitted) {
         finish();
         return;
@@ -483,11 +485,9 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       const waitReady = () => {
         if (ended || handoffStarted) return;
         layoutProductOnce();
-        if (productRef.current) productRef.current.style.opacity = "1";
-        showUnderlayer(true);
-        hideDetail();
-        const card = findTradeMarketListDestinationCard(listingId);
-        if (card) hideDestinationCard(card);
+        // Keep detail visible; composition stays opacity 0; underlayer never sole owner.
+        showUnderlayer(false);
+        if (productRef.current) productRef.current.style.opacity = "0";
         if (targetPaintReady()) {
           setPhaseSafe("target_ready");
           beginHandoff();
@@ -551,12 +551,12 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       data-trade-product-composition-prepare={isForward ? "full-surface" : "list-pin"}
       aria-hidden
     >
-      {/* Reverse-only underlayer. Forward: always hidden — product surface owns. */}
+      {/* Reverse underlayer: infrastructure only — never sole owner on R-B prepare path. */}
       <div
         ref={underlayerRef}
         className="absolute inset-0 bg-sam-app"
         data-trade-product-composition-underlayer="1"
-        style={{ display: isForward ? "none" : "block", opacity: isForward ? 0 : 1 }}
+        style={{ display: "none", opacity: 0 }}
       />
 
       <div
