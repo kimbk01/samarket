@@ -47,10 +47,39 @@ export function findBoostActionItemByOrderId(
 export function resolveAdsBoostOrderFocusState(input: {
   orderIdRaw: string | null | undefined;
   matched: AdsActionItem | null;
+  /** When false, valid ids must not fail-closed as not_found (model still loading). */
+  poolReady?: boolean;
 }): AdsBoostOrderFocusState {
   const raw = String(input.orderIdRaw ?? "").trim();
   if (!raw) return "none";
   if (!isAdsBoostOrderIdParam(raw)) return "invalid";
+  if (input.poolReady === false) return "none";
   if (!input.matched) return "not_found";
   return "matched";
+}
+
+/**
+ * Control-plane `applications` is capped after multi-family merge.
+ * Deep-linked Boost rows (often older) must survive the cap.
+ */
+export function pinEnsuredBoostOrderInApplications(
+  sliced: readonly AdsActionItem[],
+  full: readonly AdsActionItem[],
+  ensureOrderId: string | null | undefined
+): AdsActionItem[] {
+  const id = String(ensureOrderId ?? "").trim();
+  if (!isAdsBoostOrderIdParam(id)) return [...sliced];
+  const already = sliced.some(
+    (a) =>
+      (a.domain === "community_promote" || a.domain === "trade_promote") &&
+      parseWorkspaceEntityId(a.id) === id
+  );
+  if (already) return [...sliced];
+  const hit = full.find(
+    (a) =>
+      (a.domain === "community_promote" || a.domain === "trade_promote") &&
+      parseWorkspaceEntityId(a.id) === id
+  );
+  if (!hit) return [...sliced];
+  return [hit, ...sliced.filter((a) => a.id !== hit.id)];
 }

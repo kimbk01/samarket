@@ -8,6 +8,7 @@ import {
   adsBoostOrderDeepLinkHref,
   findBoostActionItemByOrderId,
   isAdsBoostOrderIdParam,
+  pinEnsuredBoostOrderInApplications,
   resolveAdsBoostOrderFocusState,
 } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import { readFileSync } from "node:fs";
@@ -125,6 +126,33 @@ describe("ads boost order deep-link", () => {
     );
     expect(route).toContain("ensureBoostOrderId");
     expect(loader).toContain("ensureBoostOrderId");
+    expect(loader).toContain("pinEnsuredBoostOrderInApplications");
     expect(loader).toContain("point_promotion_orders");
+  });
+
+  it("applications cap does not drop deep-linked Trade Boost", () => {
+    const trade = boostItem("trade_promote", TRADE_ID);
+    const filler: AdsActionItem[] = Array.from({ length: 150 }, (_, i) => ({
+      ...boostItem("community_promote", COMMUNITY_ID),
+      id: `feed:filler-${i}`,
+      domain: "feed" as const,
+      at: new Date(Date.now() - i * 1000).toISOString(),
+    }));
+    const full = [...filler, trade];
+    const sliced = full.slice(0, 150);
+    expect(sliced.some((a) => a.id === trade.id)).toBe(false);
+    const pinned = pinEnsuredBoostOrderInApplications(sliced, full, TRADE_ID);
+    expect(pinned[0]?.id).toBe(trade.id);
+    expect(findBoostActionItemByOrderId(pinned, TRADE_ID)?.id).toBe(trade.id);
+  });
+
+  it("poolReady=false does not fail-closed as not_found", () => {
+    expect(
+      resolveAdsBoostOrderFocusState({
+        orderIdRaw: TRADE_ID,
+        matched: null,
+        poolReady: false,
+      })
+    ).toBe("none");
   });
 });

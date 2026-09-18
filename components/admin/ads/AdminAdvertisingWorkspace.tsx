@@ -372,8 +372,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       resolveAdsBoostOrderFocusState({
         orderIdRaw: mode === "boosts" ? boostOrderIdRaw : "",
         matched: boostFocusMatch,
+        poolReady: mode === "boosts" ? model != null : true,
       }),
-    [mode, boostOrderIdRaw, boostFocusMatch]
+    [mode, boostOrderIdRaw, boostFocusMatch, model]
   );
 
   useEffect(() => {

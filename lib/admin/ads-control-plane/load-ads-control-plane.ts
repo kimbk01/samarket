@@ -40,6 +40,7 @@ import {
   type PopupRequestRow,
   type PromoteOrderRow,
 } from "@/lib/admin/ads-control-plane/project-family-rows";
+import { pinEnsuredBoostOrderInApplications } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 
 function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
   return !!err && re.test(String(err.message ?? ""));
@@ -514,7 +515,11 @@ export async function loadAdsControlPlane(
     currentExecution: currentExecution.slice(0, 80),
     collisions,
     occupancy,
-    applications: applications.slice(0, 150),
+    applications: pinEnsuredBoostOrderInApplications(
+      applications.slice(0, 150),
+      applications,
+      ensureBoostOrderId
+    ),
     creatives: creatives.slice(0, 20),
     placements,
     billingNotes: [
