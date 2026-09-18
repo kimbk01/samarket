@@ -44,12 +44,20 @@ export function parseAdsControlPlaneResponse(
   return { ok: true, plane };
 }
 
-export async function fetchAdsControlPlane(init?: RequestInit): Promise<AdsControlPlaneFetchResult> {
+export async function fetchAdsControlPlane(
+  init?: RequestInit & { orderId?: string | null }
+): Promise<AdsControlPlaneFetchResult> {
   try {
-    const res = await fetch("/api/admin/ads-control-plane", {
+    const orderId = String(init?.orderId ?? "").trim();
+    const qs = orderId ? `?orderId=${encodeURIComponent(orderId)}` : "";
+    const headers = init?.headers;
+    const signal = init?.signal;
+    const res = await fetch(`/api/admin/ads-control-plane${qs}`, {
       cache: "no-store",
       credentials: "include",
-      ...init,
+      method: init?.method,
+      headers,
+      signal,
     });
     const json: unknown = await res.json().catch(() => null);
     return parseAdsControlPlaneResponse(json, res.ok, res.status);

@@ -6,8 +6,9 @@
  * Menu leaf reduction is NOT in scope.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
@@ -40,6 +41,11 @@ import {
 } from "@/lib/admin/ads-exposure/operations-primary-cta";
 import { adsLiveLinkLabel } from "@/lib/admin/ads-exposure/live-route";
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
+import {
+  ADS_BOOST_ORDER_URL_PARAM,
+  findBoostActionItemByOrderId,
+  resolveAdsBoostOrderFocusState,
+} from "@/lib/admin/ads-exposure/boost-order-deep-link";
 
 type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history" | "boosts";
 
@@ -285,8 +291,25 @@ function filterRowsByMode(rows: AdsShellListRow[], mode: AdvertisingWorkspaceMod
 }
 
 export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-4 text-sm text-sam-muted" data-admin-advertising-workspace-pending="1">
+          …
+        </div>
+      }
+    >
+      <AdminAdvertisingWorkspaceInner mode={mode} />
+    </Suspense>
+  );
+}
+
+function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
   const { language } = useI18n();
   const ko = language !== "en";
+  const searchParams = useSearchParams();
+  const boostOrderIdRaw =
+    mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
   const [err, setErr] = useState("");
   const [statusTab, setStatusTab] = useState<AdsShellStatusTab>(() => defaultStatusTabForMode(mode));
@@ -308,13 +331,15 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
 
   const load = useCallback(async () => {
     setErr("");
-    const result = await fetchAdsControlPlane();
+    const result = await fetchAdsControlPlane({
+      orderId: boostOrderIdRaw || undefined,
+    });
     if (!result.ok) {
       setErr(result.error);
       return;
     }
     setModel(result.plane);
-  }, []);
+  }, [boostOrderIdRaw]);
 
   useEffect(() => {
     void load();
@@ -336,6 +361,45 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
     for (const i of collectPool(model)) map.set(i.id, i);
     return map;
   }, [model]);
+
+  const boostFocusMatch = useMemo(() => {
+    if (mode !== "boosts" || !model || !boostOrderIdRaw) return null;
+    return findBoostActionItemByOrderId(collectPool(model), boostOrderIdRaw);
+  }, [mode, model, boostOrderIdRaw]);
+
+  const boostFocusState = useMemo(
+    () =>
+      resolveAdsBoostOrderFocusState({
+        orderIdRaw: mode === "boosts" ? boostOrderIdRaw : "",
+        matched: boostFocusMatch,
+      }),
+    [mode, boostOrderIdRaw, boostFocusMatch]
+  );
+
+  useEffect(() => {
+    if (mode !== "boosts") return;
+    if (boostFocusState === "none") return;
+    if (boostFocusState === "invalid" || boostFocusState === "not_found") {
+      setSelected(null);
+      return;
+    }
+    if (boostFocusState === "matched" && boostFocusMatch) {
+      setStatusTab("all");
+      setFamily("all");
+      setSelected(boostFocusMatch);
+    }
+  }, [mode, boostFocusState, boostFocusMatch]);
+
+  useEffect(() => {
+    if (mode !== "boosts" || boostFocusState !== "matched" || !boostFocusMatch) return;
+    const rowId = boostFocusMatch.id;
+    const el = document.querySelector(
+      `[data-admin-boost-order-row="${CSS.escape(rowId)}"]`
+    );
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [mode, boostFocusState, boostFocusMatch, shellRows]);
 
   const summary = useMemo(() => {
     if (!model) {
@@ -506,7 +570,44 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       data-admin-advertising-shell="1"
       data-admin-advertising-workspace="1"
       data-admin-advertising-mode={mode}
+      data-admin-boost-order-focus={boostFocusState}
+      data-admin-boost-order-id={boostFocusState === "matched" ? boostOrderIdRaw : undefined}
     >
+      {mode === "boosts" && boostFocusState !== "none" ? (
+        <div
+          className={
+            boostFocusState === "matched"
+              ? "rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-fg"
+              : "rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800"
+          }
+          role={boostFocusState === "matched" ? "status" : "alert"}
+          data-admin-boost-order-focus-banner={boostFocusState}
+        >
+          {boostFocusState === "matched" && boostFocusMatch ? (
+            <>
+              {ko ? "Boost 주문 포커스" : "Boost order focus"}
+              {": "}
+              <span className="font-mono text-[12px]" data-admin-boost-order-focus-id>
+                {parseWorkspaceEntityId(boostFocusMatch.id)}
+              </span>
+              {" · "}
+              <span data-admin-boost-order-focus-title>{boostFocusMatch.applicantLabel}</span>
+              {" · "}
+              <span data-admin-boost-order-focus-domain>
+                {boostFocusMatch.domain === "community_promote" ? "community" : "trade"}
+              </span>
+            </>
+          ) : boostFocusState === "invalid" ? (
+            ko
+              ? "잘못된 Boost 주문 ID입니다. 주문을 선택하지 않았습니다."
+              : "Invalid Boost order id. No order selected."
+          ) : (
+            ko
+              ? "해당 Boost 주문을 찾을 수 없습니다. 주문을 선택하지 않았습니다."
+              : "Boost order not found. No order selected."
+          )}
+        </div>
+      ) : null}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-sam-fg">
@@ -800,7 +901,18 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                       r.domain === "popup" ||
                       /banner|popup/i.test(r.product));
                   return (
-                    <tr key={r.id} className="border-t border-sam-border align-top">
+                    <tr
+                      key={r.id}
+                      className={
+                        boostFocusMatch && r.id === boostFocusMatch.id
+                          ? "border-t border-sam-border align-top bg-sam-app/80 ring-1 ring-inset ring-sam-primary/30"
+                          : "border-t border-sam-border align-top"
+                      }
+                      data-admin-boost-order-row={r.id}
+                      data-admin-boost-order-focused={
+                        boostFocusMatch && r.id === boostFocusMatch.id ? "1" : undefined
+                      }
+                    >
                       <td className="px-2 py-2">
                         <div className="flex min-w-[140px] items-center gap-2">
                           {r.creativeImageUrl ? (
@@ -1115,6 +1227,11 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
         <aside
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
           data-shell-detail-panel="1"
+          data-admin-boost-order-detail={
+            selected.domain === "community_promote" || selected.domain === "trade_promote"
+              ? parseWorkspaceEntityId(selected.id)
+              : undefined
+          }
         >
           {(
             <div className="space-y-3">

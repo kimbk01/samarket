@@ -54,8 +54,26 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
 
 const FAMILY_LIMIT = 120;
 
-export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
+const BOOST_ORDER_SELECT =
+  "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at, duration_days";
+
+const BOOST_ORDER_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type LoadAdsControlPlaneOptions = {
+  /**
+   * When set (valid uuid), ensure that `point_promotion_orders` row is in the
+   * boost pool even if outside FAMILY_LIMIT — for Admin Boost deep-link.
+   */
+  ensureBoostOrderId?: string;
+};
+
+export async function loadAdsControlPlane(
+  sb: SupabaseClient,
+  options?: LoadAdsControlPlaneOptions
+): Promise<AdsControlPlaneModel> {
   const sectionErrors: string[] = [];
+  const ensureBoostOrderId = String(options?.ensureBoostOrderId ?? "").trim();
 
   const [
     deliveryQueue,
@@ -81,9 +99,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       .limit(FAMILY_LIMIT),
     sb
       .from("point_promotion_orders")
-      .select(
-        "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at, duration_days"
-      )
+      .select(BOOST_ORDER_SELECT)
       .in("domain", ["trade", "community"])
       .order("created_at", { ascending: false })
       .limit(FAMILY_LIMIT),
@@ -173,9 +189,30 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     };
   });
   const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as PopupRequestRow[]);
-  const boostRows = boostUnavailable
+  let boostRows = boostUnavailable
     ? []
     : ((boostPromoRes.data ?? []) as PromoteOrderRow[]);
+  if (
+    !boostUnavailable &&
+    ensureBoostOrderId &&
+    BOOST_ORDER_UUID_RE.test(ensureBoostOrderId) &&
+    !boostRows.some((r) => String(r.id ?? "") === ensureBoostOrderId)
+  ) {
+    const ensureRes = await sb
+      .from("point_promotion_orders")
+      .select(BOOST_ORDER_SELECT)
+      .eq("id", ensureBoostOrderId)
+      .in("domain", ["trade", "community"])
+      .maybeSingle();
+    if (
+      ensureRes.error &&
+      !isMissing(ensureRes.error, /point_promotion_orders|schema cache|does not exist/i)
+    ) {
+      sectionErrors.push(`boost_promo_ensure:${ensureRes.error.message}`);
+    } else if (ensureRes.data) {
+      boostRows = [ensureRes.data as PromoteOrderRow, ...boostRows];
+    }
+  }
   const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
   const popupCampaignItems = popupCampaignsUnavailable ? [] : popupCampaignsRes.items;
   const feedCampaigns = feedCampaignsSettled.ok ? feedCampaignsSettled.items : [];
