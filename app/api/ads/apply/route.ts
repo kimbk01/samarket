@@ -6,7 +6,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { creditUserPoints, spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import { applyPostAdInDb } from "@/lib/ads/post-ads-supabase";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
-import { isPostAdsAdTypeOpenForNewApply } from "@/lib/ads/post-ads-authority";
+import { isPostAdsAdTypeOpenForNewApply, postAdsClosedApplyHint } from "@/lib/ads/post-ads-authority";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,14 +50,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
   }
   const product = productRes.product;
   if (!isPostAdsAdTypeOpenForNewApply(product.adType)) {
-    const isTopFixed = String(product.adType) === "top_fixed";
     return NextResponse.json(
       {
         ok: false,
         error: "ad_type_quarantined",
-        hint: isTopFixed
-          ? "community_paid_exposure_via_promotion_orders"
-          : "mid_insert_replaced_by_admin_feed_ads",
+        hint: postAdsClosedApplyHint(product.adType),
       },
       { status: 410 }
     );

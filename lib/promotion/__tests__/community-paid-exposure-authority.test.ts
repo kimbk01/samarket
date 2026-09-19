@@ -9,10 +9,13 @@ import {
 } from "@/lib/points/promotion-products";
 
 describe("community paid exposure authority", () => {
-  it("quarantines post_ads top_fixed new writes", () => {
+  it("quarantines post_ads top_fixed / mid_insert / highlight new writes", () => {
     expect(resolvePostAdsAdTypeRole("top_fixed")).toBe("LEGACY_READ_ONLY_COMMUNITY_PIN");
+    expect(resolvePostAdsAdTypeRole("mid_insert")).toBe("QUARANTINE_DUPLICATE_MID_SLOT");
+    expect(resolvePostAdsAdTypeRole("highlight")).toBe("LEGACY_CLOSED_NO_CUSTOMER_CONSUMER");
     expect(isPostAdsAdTypeOpenForNewApply("top_fixed")).toBe(false);
     expect(isPostAdsAdTypeOpenForNewApply("mid_insert")).toBe(false);
+    expect(isPostAdsAdTypeOpenForNewApply("highlight")).toBe(false);
   });
 
   it("keeps community catalog prices from live seed (10000/20000) and auto-live (no approval)", () => {
