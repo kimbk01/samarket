@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayPrompt } from "@/components/ui/dibay-overlay";
+import {
+  adsOpsStatusLabel,
+  projectAdsEffectiveLifecycle,
+} from "@/lib/admin/ads-exposure/ops-status";
 
 type OrderRow = {
   id: string;
@@ -15,6 +19,7 @@ type OrderRow = {
   durationDays: number;
   orderStatus: string;
   productId?: string;
+  startAt?: string;
   endAt: string;
   createdAt: string;
   reviewReason?: string | null;
@@ -28,6 +33,8 @@ type Domain = "community" | "trade";
  * Member paid-exposure application queue (point_promotion_orders).
  * Community + Trade「더 알리기」 share HOLD capture / release.
  * Campaign operations are handled by Ads / Exposure operations.
+ *
+ * CUT B: display uses effective lifecycle (STORED ≠ EFFECTIVE). Actions unchanged.
  */
 export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?: Domain }) {
   const { safeT, language } = useI18n();
@@ -111,7 +118,8 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           <p className="sam-text-helper text-sam-muted">
             {isTrade
               ? safeT("admin_trade_promo_hint", {
-                  fallbackKo: "거래 매물 더 알리기 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
+                  fallbackKo:
+                    "거래 매물 더 알리기 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
                   fallbackEn:
                     "Trade listing boost application — approve or reject after review. Approved operations are managed in Ads operations.",
                 })
@@ -147,23 +155,43 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           {rows.map((row) => {
             const busy = busyId === row.id;
             const canAct = row.orderStatus === "pending_review";
+            // Boost end boundary = inclusive (matches isLiveTradePromotionEntitlement).
+            const effective = projectAdsEffectiveLifecycle({
+              rawStatus: row.orderStatus,
+              startAt: row.startAt ?? null,
+              endAt: row.endAt,
+              endBoundary: "inclusive",
+            });
+            const effectiveLabel = adsOpsStatusLabel(effective.effectiveStatus, !en);
             const adminTargetHref = isTrade
               ? `/admin/products/${encodeURIComponent(row.targetId)}`
               : `/admin/community/posts/${encodeURIComponent(row.targetId)}`;
             const publicHref = isTrade
               ? `/post/${encodeURIComponent(row.targetId)}`
               : `/philife/${encodeURIComponent(row.targetId)}`;
-            const showPublic =
-              isTrade ? row.listingEligible !== false : Boolean(row.targetId);
+            const showPublic = isTrade ? row.listingEligible !== false : Boolean(row.targetId);
             return (
-              <li key={row.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+              <li
+                key={row.id}
+                className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+                data-boost-order-id={row.id}
+                data-stored-status={effective.storedStatus}
+                data-effective-status={effective.effectiveStatus}
+                data-eligible-now={effective.customerEligibleNow ? "1" : "0"}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="sam-text-body font-medium text-sam-fg truncate">
                     {row.targetTitle || row.targetId}
                   </p>
                   <p className="sam-text-helper text-sam-muted">
                     {row.userNickname || row.userId.slice(0, 8)} · {row.pointCost.toLocaleString()}P ·{" "}
-                    {row.durationDays}d · {row.productId ?? "—"} · {row.orderStatus}
+                    {row.durationDays}d · {row.productId ?? "—"} · {effectiveLabel}
+                    {effective.storedStatus.toLowerCase() !== effective.effectiveStatus ? (
+                      <>
+                        {" "}
+                        ({en ? "stored" : "저장"}: {effective.storedStatus})
+                      </>
+                    ) : null}
                     {isTrade && row.listingStatus
                       ? ` · ${row.listingStatus}${row.listingEligible === false ? " (비공개)" : ""}`
                       : ""}
@@ -203,7 +231,8 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     ) : isTrade ? (
                       <p className="sam-text-helper text-sam-muted">
                         {safeT("admin_trade_promo_review_snapshot", {
-                          fallbackKo: "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
+                          fallbackKo:
+                            "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
                           fallbackEn:
                             "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
                         })}
@@ -219,16 +248,16 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     <button
                       type="button"
                       disabled={busy}
+                      className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-50"
                       onClick={() => void act(row.id, "approve")}
-                      className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
                     >
                       {en ? "Approve" : "승인"}
                     </button>
                     <button
                       type="button"
                       disabled={busy}
+                      className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-semibold text-sam-fg disabled:opacity-50"
                       onClick={() => void act(row.id, "reject")}
-                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
                     >
                       {en ? "Reject" : "반려"}
                     </button>

@@ -252,10 +252,12 @@ export function promoteOrderOpsStatus(r: PromoteOrderRow): AdsOpsStatus {
     durationDays: r.duration_days != null ? Number(r.duration_days) : null,
   });
   const raw = String(r.order_status ?? "");
+  // CUT B: Boost end boundary inclusive — matches isLiveTradePromotionEntitlement / community feed window.
   return projectAdsOpsStatus({
     rawStatus: raw,
     startAt: bounds.startAt,
     endAt: bounds.endAt,
+    endBoundary: "inclusive",
   });
 }
 

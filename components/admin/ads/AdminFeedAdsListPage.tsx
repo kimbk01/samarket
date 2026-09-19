@@ -9,11 +9,12 @@ import { feedAdPlacementHumanLabel } from "@/lib/ads/feed-ad-placement";
 import {
   adsDisplayTitle,
   adsRemainingPeriodLabel,
-  deriveAdsOperatorExposure,
   adsOperatorExposureLabel,
   formatAdsPeriod,
   isAdsTestFixtureLabel,
+  type AdsOperatorExposureState,
 } from "@/lib/admin/ads-operator/ads-operator-presentation";
+import { projectAdsEffectiveLifecycle } from "@/lib/admin/ads-exposure/ops-status";
 
 type OpsFilter = "actionable" | "live" | "scheduled" | "ended" | "all" | "test";
 
@@ -57,15 +58,29 @@ export function AdminFeedAdsListPage() {
   const rows = useMemo(() => {
     const now = Date.now();
     return campaigns.map((c) => {
-      const exposure = deriveAdsOperatorExposure({
-        lifecycle: c.status,
+      // CUT B: STORED status ≠ EFFECTIVE — never eligibleNow from raw active alone.
+      // Feed Banner end boundary = exclusive (matches isFeedAdCampaignEligibleNow).
+      const effective = projectAdsEffectiveLifecycle({
+        rawStatus: c.status,
         startAt: c.startAt,
         endAt: c.endAt,
-        eligibleNow: c.status === "active",
         nowMs: now,
+        endBoundary: "exclusive",
       });
+      const exposure: AdsOperatorExposureState =
+        effective.effectiveStatus === "live"
+          ? "exposing"
+          : effective.effectiveStatus === "scheduled"
+            ? "scheduled"
+            : effective.effectiveStatus === "paused"
+              ? "paused"
+              : effective.effectiveStatus === "ended" ||
+                  effective.effectiveStatus === "rejected" ||
+                  effective.effectiveStatus === "archived"
+                ? "ended"
+                : "not_yet";
       const test = isAdsTestFixtureLabel(c.name);
-      return { c, exposure, test };
+      return { c, exposure, effective, test };
     });
   }, [campaigns]);
 
@@ -170,16 +185,29 @@ export function AdminFeedAdsListPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(({ c, exposure, test }) => {
+              {filtered.map(({ c, exposure, effective, test }) => {
                 const domain =
                   c.placement.startsWith("COMMUNITY") ? (ko ? "커뮤니티" : "Community") : ko ? "거래" : "Trade";
                 const placement = feedAdPlacementHumanLabel(c.placement as FeedAdPlacement, lang);
                 return (
-                  <tr key={c.id} className="border-b border-sam-border-soft" data-feed-ad-id={c.id}>
+                  <tr
+                    key={c.id}
+                    className="border-b border-sam-border-soft"
+                    data-feed-ad-id={c.id}
+                    data-stored-status={effective.storedStatus}
+                    data-effective-status={effective.effectiveStatus}
+                    data-eligible-now={effective.customerEligibleNow ? "1" : "0"}
+                  >
                     <td className="px-3 py-2">
                       <span className="rounded-full bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold">
                         {adsOperatorExposureLabel(exposure, ko)}
                       </span>
+                      {effective.storedStatus &&
+                      effective.storedStatus.toLowerCase() !== effective.effectiveStatus ? (
+                        <div className="mt-0.5 sam-text-xxs text-sam-muted">
+                          {ko ? "저장" : "Stored"}: {effective.storedStatus}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 font-medium">
                       {adsDisplayTitle(c.name, ko)}
