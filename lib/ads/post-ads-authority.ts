@@ -13,6 +13,12 @@
  *   via Admin/Member post_ads lists only.
  * - Admin Feed Advertisement → `feed_ad_campaigns`
  * - Member Trade Promotion → `point_promotion_orders` (domain=trade)
+ *
+ * CUT D — catalog hygiene:
+ * `ad_products.is_active` means currently offered / sellable in active catalogs.
+ * Legacy ad_types above must be is_active=false (migration
+ * `20270119120000_ads_legacy_ad_products_catalog_deactivate.sql`).
+ * Historical by-id name/price/duration resolution does NOT require is_active=true.
  */
 
 import type { AdType } from "@/lib/ads/types";
@@ -49,3 +55,6 @@ export function postAdsClosedApplyHint(adType: AdType | string): string {
   if (t === "highlight") return "highlight_no_customer_consumer_use_canonical_boost_or_feed_banner";
   return "ad_type_closed";
 }
+
+/** Legacy catalog ad_types that must not remain operationally offered. */
+export const POST_ADS_LEGACY_CATALOG_AD_TYPES = ["highlight", "top_fixed", "mid_insert"] as const;

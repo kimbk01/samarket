@@ -18,6 +18,16 @@ describe("community paid exposure authority", () => {
     expect(isPostAdsAdTypeOpenForNewApply("highlight")).toBe(false);
   });
 
+  it("lists legacy catalog ad_types that must not remain offered", async () => {
+    const { POST_ADS_LEGACY_CATALOG_AD_TYPES } = await import("@/lib/ads/post-ads-authority");
+    expect([...POST_ADS_LEGACY_CATALOG_AD_TYPES].sort()).toEqual(
+      ["highlight", "mid_insert", "top_fixed"].sort()
+    );
+    for (const t of POST_ADS_LEGACY_CATALOG_AD_TYPES) {
+      expect(isPostAdsAdTypeOpenForNewApply(t)).toBe(false);
+    }
+  });
+
   it("keeps community catalog prices from live seed (10000/20000) and auto-live (no approval)", () => {
     const items = listActiveMemberPromotionProducts("community");
     expect(items.map((p) => p.id)).toEqual(["community_promote_3", "community_promote_7"]);
