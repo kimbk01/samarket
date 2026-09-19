@@ -4,6 +4,7 @@
  */
 
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import type { SupportReferenceType } from "@/lib/support/support-reference-authority";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 
@@ -38,6 +39,13 @@ export function resolveSupportReferenceAdminHref(
         href: `/admin/feed-ad-requests/${encodeURIComponent(id)}`,
         labelKo: "피드 광고 신청 보기",
         labelEn: "Open feed ad request",
+        mutationOwner: "ADS",
+      };
+    case "POINT_PROMOTION_ORDER":
+      return {
+        href: adsBoostOrderDeepLinkHref(id),
+        labelKo: "Boost 주문 보기",
+        labelEn: "Open Boost order",
         mutationOwner: "ADS",
       };
     case "PLATFORM_POPUP_OWNER_REQUEST":

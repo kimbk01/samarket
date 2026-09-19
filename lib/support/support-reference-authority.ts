@@ -29,6 +29,7 @@ export type ReferenceAuthorityResult =
  * BUSINESS_CASH_CHARGE_REQUEST | business_cash_charge_requests + store gate    | ACTIVE (CUT D)
  * PARTNER_MEMBERSHIP           | delivery_ad_partner_memberships + store gate  | ACTIVE (CUT D)
  * COIN_WITHDRAWAL_REQUEST      | coin_withdrawal_requests + store gate         | ACTIVE (F-06)
+ * POINT_PROMOTION_ORDER        | point_promotion_orders.user_id (MEMBER)       | ACTIVE (Boost)
  *
  * Any other / unknown type → DENY (fail-closed). No default pass-through.
  * Support does NOT mutate Ads / Finance / Partner — references are read pointers only.
@@ -46,6 +47,7 @@ export const SUPPORT_REFERENCE_TYPES = [
   "BUSINESS_CASH_CHARGE_REQUEST",
   "PARTNER_MEMBERSHIP",
   "COIN_WITHDRAWAL_REQUEST",
+  "POINT_PROMOTION_ORDER",
 ] as const;
 
 export type SupportReferenceType = (typeof SUPPORT_REFERENCE_TYPES)[number];
@@ -265,6 +267,22 @@ export async function assertSupportReferenceAuthority(
         table: COIN_WITHDRAWAL_REQUESTS_TABLE,
         referenceId,
       });
+    }
+    case "POINT_PROMOTION_ORDER": {
+      // Community/Trade Boost order — Member Point purchase. Pointer only.
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("point_promotion_orders")
+        .select("id, user_id, domain")
+        .eq("id", referenceId)
+        .in("domain", ["trade", "community"])
+        .maybeSingle();
+      if (!data || String(data.user_id) !== input.userId) {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      return { ok: true };
     }
     default:
       // Exhaustiveness fail-closed — never pass through.

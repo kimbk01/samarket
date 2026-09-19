@@ -194,7 +194,7 @@ export const SUPPORT_CATEGORY_REGISTRY: readonly SupportCategoryDefinition[] = [
       ["EXPOSURE", "support_issue_ad_exposure"],
       ["OTHER", "support_issue_other", "none"],
     ]),
-    allowedReferenceTypes: ["FEED_AD_REQUEST"],
+    allowedReferenceTypes: ["FEED_AD_REQUEST", "POINT_PROMOTION_ORDER"],
     allowedSourceSurfaces: "*",
     guidanceEligible: "yes",
   },

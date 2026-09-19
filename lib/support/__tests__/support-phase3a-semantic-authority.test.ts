@@ -271,16 +271,21 @@ describe("PHASE 3-A support semantic authority", () => {
       "BUSINESS_CASH_CHARGE_REQUEST",
       "PARTNER_MEMBERSHIP",
       "COIN_WITHDRAWAL_REQUEST",
+      "POINT_PROMOTION_ORDER",
     ]);
     const src = readSrc("lib/support/support-reference-authority.ts");
     expect(src).toContain("POINT_CHARGE_REQUEST");
     expect(src).toContain("FEED_AD_REQUEST");
     expect(src).toContain("BUSINESS_CASH_CHARGE_REQUEST");
     expect(src).toContain("COIN_WITHDRAWAL_REQUEST");
+    expect(src).toContain("POINT_PROMOTION_ORDER");
+    expect(src).toContain("point_promotion_orders");
     // Aliases remain forbidden as Support reference types.
     expect(src).not.toMatch(/"COIN_WITHDRAW"/);
     expect(src).not.toMatch(/"COIN_WITHDRAWAL"/);
     expect(src).not.toMatch(/"COIN_PAYOUT"/);
+    expect(src).not.toMatch(/"BOOST"/);
+    expect(src).not.toMatch(/"ADS_BOOST"/);
     const allowed = new Set(SUPPORT_REFERENCE_TYPES);
     for (const cat of SUPPORT_CATEGORY_REGISTRY) {
       for (const ref of cat.allowedReferenceTypes) {
