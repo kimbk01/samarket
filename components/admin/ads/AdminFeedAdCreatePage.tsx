@@ -522,13 +522,9 @@ export function AdminFeedAdCreatePage({
           <dd className="font-semibold text-sam-fg">2MB</dd>
           <dt className="text-sam-muted">{ko ? "노출 형태" : "Runtime"}</dt>
           <dd className="text-sam-fg">
-            {domain === "community"
-              ? ko
-                ? "Community 피드 고정 높이 72–88px · object-cover"
-                : "Community feed fixed height 72–88px · object-cover"
-              : ko
-                ? "거래 피드 고정 높이 100px · object-cover"
-                : "Trade feed fixed height 100px · object-cover"}
+            {ko
+              ? "피드 배너 배치 3:1 (가로÷3 높이) · object-cover"
+              : "Feed banner placement 3:1 (height = width÷3) · object-cover"}
           </dd>
         </dl>
         <div className="grid gap-3 md:grid-cols-3">

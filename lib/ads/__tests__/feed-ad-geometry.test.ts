@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  FEED_AD_MEDIA_ASPECT_CLASS,
   FEED_AD_MEDIA_ASPECT_H,
   FEED_AD_MEDIA_ASPECT_W,
   FEED_AD_RECOMMENDED_UPLOAD,
-  FEED_AD_RUNTIME_MEDIA_HEIGHT_PX,
   FEED_AD_SLIDE_INTERVAL_MS,
   FEED_AD_STANDARD_UPLOAD_HEIGHT_PX,
   FEED_AD_STANDARD_UPLOAD_WIDTH_PX,
@@ -14,9 +14,12 @@ import {
   feedAdMediaClass,
   feedAdMediaHeightClass,
   feedAdMediaViewportClass,
+  feedAdPlacementAspectClass,
+  feedAdPlacementRatioMatches,
   feedAdStandardPixelLabel,
   getFeedAdCreativeSpec,
 } from "@/lib/ads/feed-ad-geometry";
+import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 import {
   feedAdPlacementHumanLabel,
   isFeedAdCommunityTopicTargetAllowed,
@@ -30,30 +33,41 @@ import {
 } from "@/lib/ads/feed-ad-member-limit";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 
-describe("feed ad geometry SSOT — card-rhythm fixed height + cover", () => {
-  it("locks source 1200×400 and runtime list-thumb heights (not hero 3:1)", () => {
+describe("feed ad geometry SSOT — placement 3:1 + cover", () => {
+  it("locks placement + upload 1200×400 as 3:1 (no CARD-RHYTHM fixed heights)", () => {
     expect(FEED_AD_MEDIA_ASPECT_W / FEED_AD_MEDIA_ASPECT_H).toBe(3);
     expect(FEED_AD_STANDARD_UPLOAD_WIDTH_PX).toBe(1200);
     expect(FEED_AD_STANDARD_UPLOAD_HEIGHT_PX).toBe(400);
     expect(feedAdStandardPixelLabel()).toBe("1200 × 400 px");
     expect(FEED_AD_RECOMMENDED_UPLOAD.objectFit).toBe("cover");
     expect(FEED_AD_RECOMMENDED_UPLOAD.safeCrop).toBe("edges");
+    expect(FEED_AD_MEDIA_ASPECT_CLASS).toBe("aspect-[3/1]");
+    expect(feedAdPlacementAspectClass()).toBe("aspect-[3/1]");
 
-    expect(FEED_AD_RUNTIME_MEDIA_HEIGHT_PX.community.phone).toBe(72);
-    expect(FEED_AD_RUNTIME_MEDIA_HEIGHT_PX.community.md).toBe(88);
-    expect(FEED_AD_RUNTIME_MEDIA_HEIGHT_PX.trade.phone).toBe(100);
-
-    expect(feedAdMediaHeightClass("community")).toContain("h-[72px]");
-    expect(feedAdMediaHeightClass("trade")).toContain("h-[100px]");
+    expect(feedAdMediaHeightClass("community")).toBe("aspect-[3/1]");
+    expect(feedAdMediaHeightClass("trade")).toBe("aspect-[3/1]");
+    expect(feedAdMediaClass("trade")).toContain("aspect-[3/1]");
+    expect(feedAdMediaClass("community")).toContain("aspect-[3/1]");
     expect(feedAdMediaClass("trade")).toContain("object-cover");
     expect(feedAdMediaClass("trade")).not.toContain("object-contain");
-    expect(feedAdMediaClass("trade")).not.toContain("aspect-[3/1]");
-    expect(feedAdMediaViewportClass("community")).toContain("h-[72px]");
+    expect(feedAdMediaClass("trade")).not.toMatch(/h-\[\d+px\]/);
+    expect(feedAdMediaViewportClass("community")).toContain("aspect-[3/1]");
+    expect(feedAdMediaViewportClass("community")).not.toMatch(/h-\[\d+px\]/);
     expect(getFeedAdCreativeSpec("trade").pixelLabel).toBe("1200 × 400 px");
-    expect(FEED_AD_SLIDE_INTERVAL_MS).toBeGreaterThanOrEqual(3000);
+    expect(FEED_AD_SLIDE_INTERVAL_MS).toBe(4000);
+    expect(BANNER_PLACEMENT_CAPACITY_SSOT.COMMUNITY_HOME.defaultCapacity).toBe(3);
+    expect(BANNER_PLACEMENT_CAPACITY_SSOT.TRADE_HOME.defaultCapacity).toBe(3);
+    expect(BANNER_PLACEMENT_CAPACITY_SSOT.COMMUNITY_HOME.rotationIntervalMs).toBe(4000);
+    expect(BANNER_PLACEMENT_CAPACITY_SSOT.TRADE_HOME.rotationIntervalMs).toBe(4000);
   });
 
-  it("FeedAdBannerCarousel runtime uses cover inside fixed-height viewport", () => {
+  it("Community and Trade share identical placement geometry classes", () => {
+    expect(feedAdMediaClass("community")).toBe(feedAdMediaClass("trade"));
+    expect(feedAdMediaViewportClass("community")).toBe(feedAdMediaViewportClass("trade"));
+    expect(feedAdMediaHeightClass("community")).toBe(feedAdMediaHeightClass("trade"));
+  });
+
+  it("FeedAdBannerCarousel consumes shared viewport/media geometry; cover only", () => {
     const carousel = fs.readFileSync(
       path.join(process.cwd(), "components/ads/FeedAdBannerCarousel.tsx"),
       "utf8"
@@ -62,18 +76,28 @@ describe("feed ad geometry SSOT — card-rhythm fixed height + cover", () => {
       path.join(process.cwd(), "components/common/SamarketThumbnail.tsx"),
       "utf8"
     );
-    // Cover is forced inside SamarketThumbnail (thumbnail-contract); do not reopen contain prop.
+    const geometry = fs.readFileSync(
+      path.join(process.cwd(), "lib/ads/feed-ad-geometry.ts"),
+      "utf8"
+    );
+    expect(carousel).toContain("feedAdMediaViewportClass");
     expect(carousel).toContain("SamarketThumbnail");
     expect(carousel).not.toMatch(/object-contain/);
+    expect(carousel).not.toMatch(/h-\[72px\]|h-\[100px\]|CARD-RHYTHM/);
+    expect(geometry).not.toMatch(/CARD-RHYTHM|h-\[72px\]|h-\[100px\]/);
+    expect(geometry).not.toMatch(/androidRatio|iosRatio|tabletRatio|desktopRatio|windowsRatio/);
     expect(thumb).toContain('objectFit: "cover"');
     expect(thumb).not.toMatch(/object-contain/);
   });
 
-  it("media height stays list-card sized across widths (no width÷3 hero)", () => {
-    expect(estimateFeedAdMediaHeightPx(390, "community", "phone")).toBe(72);
-    expect(estimateFeedAdMediaHeightPx(768, "community", "md")).toBe(88);
-    expect(estimateFeedAdMediaHeightPx(1024, "trade", "md")).toBe(100);
-    expect(estimateFeedAdMediaHeightPx(1200, "trade")).toBeLessThan(150);
+  it("responsive widths preserve 3:1 (height = width / 3)", () => {
+    const widths = [360, 390, 768, 1024, 1440] as const;
+    for (const w of widths) {
+      const h = estimateFeedAdMediaHeightPx(w, "community");
+      expect(h).toBe(w / 3);
+      expect(feedAdPlacementRatioMatches(w, h)).toBe(true);
+      expect(estimateFeedAdMediaHeightPx(w, "trade")).toBe(h);
+    }
   });
 
   it("trade frame avoids boxed border; community keeps card border", () => {

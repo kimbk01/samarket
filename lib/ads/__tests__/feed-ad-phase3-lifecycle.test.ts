@@ -287,16 +287,17 @@ describe("PHASE 3 slot + delivery (D5-D8)", () => {
     expect(picked?.id).toBeTruthy();
   });
 
-  it("D7 preview geometry tokens match runtime media class (card-rhythm)", () => {
+  it("D7 preview geometry tokens match runtime media class (placement 3:1)", () => {
     const trade = getFeedAdCreativeSpec("trade");
     const community = getFeedAdCreativeSpec("community");
     expect(trade.mediaClass).toBe(feedAdMediaClass("trade"));
     expect(community.mediaClass).toBe(feedAdMediaClass("community"));
+    expect(trade.mediaClass).toBe(community.mediaClass);
     expect(trade.objectFit).toBe("cover");
     expect(trade.mediaClass).toContain("object-cover");
-    expect(trade.mediaClass).toContain("h-[100px]");
-    expect(trade.mediaClass).not.toContain("aspect-[3/1]");
-    expect(community.mediaClass).toContain("h-[72px]");
+    expect(trade.mediaClass).toContain("aspect-[3/1]");
+    expect(trade.mediaClass).not.toMatch(/h-\[\d+px\]/);
+    expect(community.mediaClass).toContain("aspect-[3/1]");
   });
 
   it("D8 pagination: deterministic multi-slot plan; gaps 4-6; stable on grow", () => {
