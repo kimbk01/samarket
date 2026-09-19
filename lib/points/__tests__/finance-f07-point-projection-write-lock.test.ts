@@ -39,6 +39,14 @@ describe("F-05 Coin refund economic unwind contract (doc lock)", () => {
   });
 });
 
+const F07_E1 = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20270119130000_finance_f07_guard_auth_role_service_detection.sql"
+  ),
+  "utf8"
+);
+
 describe("F-07 point projection write lock", () => {
   it("forbids non-service_role points mutation in guard trigger", () => {
     expect(F07_MIG).toContain("profiles_points_direct_update_forbidden");
@@ -46,6 +54,16 @@ describe("F-07 point projection write lock", () => {
     expect(F07_MIG).toContain("jwt_role = 'service_role'");
     expect(F07_MIG).toContain("REVOKE UPDATE (points) ON TABLE public.profiles FROM authenticated");
     expect(F07_MIG).toContain("GRANT UPDATE (points) ON TABLE public.profiles TO service_role");
+  });
+
+  it("CUT E1: detects service_role via auth.role() (PostgREST), not only jwt claim setting", () => {
+    expect(F07_E1).toContain("auth.role()");
+    expect(F07_E1).toContain("request_role = 'service_role'");
+    expect(F07_E1).toContain("profiles_points_direct_update_forbidden");
+    expect(F07_E1).not.toMatch(/DROP FUNCTION\s+public\.guard_profiles_self_update/i);
+    // Must not grant authenticated a points-write path in this migration body.
+    expect(F07_E1).not.toMatch(/GRANT\s+UPDATE\s*\(\s*points\s*\)[\s\S]*authenticated/i);
+    expect(F07_E1).not.toMatch(/request_role\s*=\s*'authenticated'/i);
   });
 
   it("hardens authenticated UPDATE to column grants excluding points", () => {
