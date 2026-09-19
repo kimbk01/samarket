@@ -68,6 +68,8 @@ export async function POST(
 
   const applyCrop = String(form.get("applyCrop") ?? "").trim().toLowerCase() === "center";
   const altText = String(form.get("altText") ?? "").trim() || null;
+  const creativeModeRaw = String(form.get("creativeMode") ?? "card").trim().toLowerCase();
+  const creativeMode = creativeModeRaw === "artwork" ? "artwork" : "card";
   const buf = Buffer.from(await file.arrayBuffer());
 
   let width = 0;
@@ -94,6 +96,7 @@ export async function POST(
     width,
     height,
     applyCenterCrop: applyCrop,
+    creativeMode,
   });
 
   if (!processed.ok) {
@@ -143,6 +146,9 @@ export async function POST(
     assetPath: path,
     assetUrl: publicUrl,
     altText,
+    aspectW: processed.width,
+    aspectH: processed.height,
+    creativeMode: processed.creativeMode,
   });
   if (!replaced.ok) {
     return NextResponse.json(
@@ -158,8 +164,13 @@ export async function POST(
     url: publicUrl,
     width: processed.width,
     height: processed.height,
-    aspect: "36:25",
-    canonical: true,
+    aspect:
+      processed.creativeMode === "card"
+        ? "36:25"
+        : `${processed.width}:${processed.height}`,
+    creativeMode: processed.creativeMode,
+    hasAlpha: processed.hasAlpha,
+    canonical: processed.creativeMode === "card",
     cropped: processed.cropped,
     revertedToReview: replaced.revertedToReview,
   });

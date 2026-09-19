@@ -1,6 +1,7 @@
 /**
- * Platform Popup CUT 1 — shared types / constants.
- * Geometry / product locks: docs/dibay-global-popup-ad-*-lock.md (CLOSED; do not reopen).
+ * Platform Popup — shared types / constants.
+ * Presentation LOCK reopened Owner 2026-09-20 (CUT 1) — see presentation-contract.ts.
+ * Product/geometry docs remain historical evidence until CUT 1 lock rewrite.
  */
 
 export const PLATFORM_POPUP_DEFAULT_TIMEZONE = "Asia/Manila" as const;
@@ -8,7 +9,19 @@ export const PLATFORM_POPUP_DEFAULT_TIMEZONE = "Asia/Manila" as const;
 /** First-party Admin create default landing (internal_page). */
 export const PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH = "/market" as const;
 
+/** CARD creative default aspect (ARTWORK uses intrinsic). */
 export const PLATFORM_POPUP_CREATIVE_ASPECT = { w: 36, h: 25 } as const;
+
+export {
+  PLATFORM_POPUP_PRESENTATION_TYPES,
+  PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS,
+  PLATFORM_POPUP_CREATIVE_MODES,
+  PLATFORM_POPUP_FREQUENCY_MODES,
+  type PlatformPopupPresentationType,
+  type PlatformPopupInterruptivePresentation,
+  type PlatformPopupCreativeMode,
+  type PlatformPopupFrequencyMode,
+} from "@/lib/platform-popup/presentation-contract";
 
 export const PLATFORM_POPUP_CAMPAIGN_STATUSES = [
   "draft",

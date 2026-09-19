@@ -1,6 +1,6 @@
 /**
- * CUT 3 — DIBAY Platform Popup geometry (bottom-anchored promotional interstitial).
- * Classification: DIBAY_IMPLEMENTATION_CALIBRATION where numeric.
+ * CUT 1 — DIBAY Platform Popup presentation (Owner reopen 2026-09-20).
+ * CENTER_MODAL | BOTTOM_SHEET · ARTWORK | CARD · dim-only backdrop · floating X.
  */
 
 .dibay-platform-popup-root.dibay-overlay-root--sheet {
@@ -11,56 +11,139 @@
   overflow-x: hidden;
 }
 
+.dibay-platform-popup-root.dibay-platform-popup-root--center {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  padding-top: max(16px, var(--safe-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
 .dibay-platform-popup-root .dibay-overlay-backdrop {
-  background: var(--platform-popup-backdrop, rgba(0, 0, 0, 0.45));
+  background: var(--platform-popup-backdrop, rgba(0, 0, 0, 0.42));
 }
 
 .dibay-platform-popup-card {
   container-type: inline-size;
-  display: grid;
-  grid-template-rows: auto auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
   height: auto;
   max-width: var(--platform-popup-tablet-max-width, 480px);
+  margin-inline: auto;
+  background: transparent;
+  overflow: visible;
+}
+
+.dibay-platform-popup-card--sheet {
   max-height: min(
-    45vh,
+    52vh,
     calc(100dvh - var(--safe-top, 0px) - env(safe-area-inset-bottom, 0px) - 8px)
   );
-  margin-inline: auto;
   border-radius: var(--platform-popup-radius, clamp(8px, 3cqi, 16px))
     var(--platform-popup-radius, clamp(8px, 3cqi, 16px)) 0 0;
-  overflow: hidden;
-  background: var(--overlay-surface, #fff);
-  box-shadow: var(--overlay-elevation-3, 0 16px 40px rgba(0, 0, 0, 0.12));
   transform: translateY(100%);
   transition:
     transform var(--overlay-motion-enter, 200ms) ease-out,
     opacity var(--overlay-motion-enter, 200ms) ease-out;
 }
 
-.dibay-platform-popup-root[data-entered="true"] .dibay-platform-popup-card {
+.dibay-platform-popup-card--center {
+  max-width: min(92vw, var(--platform-popup-tablet-max-width, 480px));
+  max-height: min(72dvh, 640px);
+  border-radius: var(--platform-popup-radius, clamp(12px, 3cqi, 20px));
+  transform: scale(0.96);
+  opacity: 0;
+  transition:
+    transform var(--overlay-motion-enter, 200ms) ease-out,
+    opacity var(--overlay-motion-enter, 200ms) ease-out;
+}
+
+.dibay-platform-popup-root[data-entered="true"] .dibay-platform-popup-card--sheet {
   transform: translateY(0);
 }
 
+.dibay-platform-popup-root[data-entered="true"] .dibay-platform-popup-card--center {
+  transform: scale(1);
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dibay-platform-popup-card {
+  .dibay-platform-popup-card--sheet,
+  .dibay-platform-popup-card--center {
     transition: none;
-    transform: translateY(0);
+    transform: none;
+    opacity: 1;
   }
+}
+
+.dibay-platform-popup-card--card {
+  background: var(--overlay-surface, #fff);
+  box-shadow: var(--overlay-elevation-3, 0 16px 40px rgba(0, 0, 0, 0.12));
+  overflow: hidden;
+}
+
+.dibay-platform-popup-card--artwork {
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.dibay-platform-popup-close-x {
+  position: absolute;
+  top: -12px;
+  right: -4px;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #f8fafc;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dibay-platform-popup-card--center .dibay-platform-popup-close-x {
+  top: -14px;
+  right: -10px;
+}
+
+.dibay-platform-popup-close-x:focus-visible {
+  outline: 2px solid var(--overlay-primary, #085c3f);
+  outline-offset: 2px;
 }
 
 .dibay-platform-popup-creative {
   position: relative;
   width: 100%;
   min-height: 0;
-  aspect-ratio: 36 / 25;
   border: 0;
   padding: 0;
   margin: 0;
   background: transparent;
   cursor: pointer;
   display: block;
+  overflow: visible;
+}
+
+.dibay-platform-popup-card--card .dibay-platform-popup-creative {
+  aspect-ratio: 36 / 25;
   overflow: hidden;
+}
+
+.dibay-platform-popup-card--artwork .dibay-platform-popup-creative {
+  aspect-ratio: var(--platform-popup-artwork-aspect, auto);
+  max-height: min(56vh, 520px);
 }
 
 .dibay-platform-popup-creative:focus-visible {
@@ -71,49 +154,39 @@
 .dibay-platform-popup-creative__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
   display: block;
   pointer-events: none;
   user-select: none;
 }
 
-.dibay-platform-popup-dismiss {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  padding: 0.25rem 0.75rem calc(0.25rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
-  /* creative-first: dismiss is secondary chrome, not a white form footer */
-  background: rgba(15, 23, 42, 0.92);
-  border-top: 0;
-  min-height: 0;
+.dibay-platform-popup-card--card .dibay-platform-popup-creative__img {
+  object-fit: cover;
+  object-position: center;
 }
 
-.dibay-platform-popup-dismiss__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem 0.75rem;
-}
-
-.dibay-platform-popup-dismiss__close {
-  min-height: 40px;
-  border: 0;
+.dibay-platform-popup-card--artwork .dibay-platform-popup-creative__img {
+  object-fit: contain;
+  object-position: center bottom;
+  height: auto;
+  max-height: min(56vh, 520px);
   background: transparent;
-  color: #f8fafc;
+}
+
+.dibay-platform-popup-cta {
+  margin: 10px 12px 0;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--overlay-radius-md, 12px);
+  background: var(--overlay-primary, #085c3f);
+  color: #fff;
   font-size: var(--overlay-body-1-size, 16px);
   font-weight: 600;
-  line-height: 1.25;
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
 }
 
-.dibay-platform-popup-dismiss__close:focus-visible {
-  outline: 2px solid var(--overlay-primary, #085c3f);
+.dibay-platform-popup-cta:focus-visible {
+  outline: 2px solid var(--overlay-primary-dark, #084732);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 .dibay-platform-popup-suppress-row {
@@ -121,20 +194,28 @@
   flex-wrap: wrap;
   gap: 0.25rem 0.75rem;
   justify-content: center;
-  min-height: 0;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.dibay-platform-popup-card--center .dibay-platform-popup-suppress-row {
+  padding-bottom: 10px;
 }
 
 .dibay-platform-popup-suppress-btn {
   border: 0;
   background: transparent;
-  color: rgba(248, 250, 252, 0.72);
+  color: rgba(248, 250, 252, 0.88);
   font-size: var(--overlay-caption-size, 12px);
   line-height: 1.2;
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
-  padding: 0.125rem 0.125rem;
-  min-height: 28px;
+  padding: 0.375rem 0.5rem;
+  min-height: 44px;
+}
+
+.dibay-platform-popup-card--card .dibay-platform-popup-suppress-btn {
+  color: rgba(15, 23, 42, 0.62);
 }
 
 .dibay-platform-popup-suppress-btn:focus-visible {
@@ -145,10 +226,15 @@
 
 .dibay-platform-popup-embedded .dibay-platform-popup-card {
   transform: none;
+  opacity: 1;
   max-height: none;
+}
+
+.dibay-platform-popup-embedded .dibay-platform-popup-card--card {
   box-shadow: var(--overlay-elevation-2, 0 8px 24px rgba(0, 0, 0, 0.08));
 }
 
-.dibay-platform-popup-embedded .dibay-platform-popup-dismiss {
-  padding-bottom: 0.625rem;
+.dibay-platform-popup-embedded .dibay-platform-popup-close-x {
+  top: 8px;
+  right: 8px;
 }

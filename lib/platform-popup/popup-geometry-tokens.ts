@@ -3,8 +3,8 @@
  * Classification: DIBAY_IMPLEMENTATION_CALIBRATION (not Baemin runtime measured).
  */
 
-/** Dim backdrop — required by CUT 0-D; numeric not locked in geometry CUT. */
-export const PLATFORM_POPUP_BACKDROP_RGBA = "rgba(0, 0, 0, 0.45)" as const;
+/** Dim backdrop — Platform Popup dim-only (Owner reopen). */
+export const PLATFORM_POPUP_BACKDROP_RGBA = "rgba(0, 0, 0, 0.42)" as const;
 
 /** Tablet T1 max-width — bounded centered card. */
 export const PLATFORM_POPUP_TABLET_MAX_WIDTH_PX = 480 as const;

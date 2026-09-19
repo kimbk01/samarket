@@ -1,5 +1,5 @@
 /**
- * CUT 3 — normalized presentation payload for DibayPopupAd (not raw DB rows).
+ * CUT 3 / CUT 1 reopen — normalized presentation payload for DibayPopupAd.
  */
 
 import type {
@@ -7,6 +7,11 @@ import type {
   PlatformPopupCtaType,
   PlatformPopupSuppressionMode,
 } from "@/lib/platform-popup/types";
+import type {
+  PlatformPopupCreativeMode,
+  PlatformPopupFrequencyMode,
+  PlatformPopupInterruptivePresentation,
+} from "@/lib/platform-popup/presentation-contract";
 
 export type PlatformPopupPresentationCreative = {
   id: string;
@@ -14,6 +19,7 @@ export type PlatformPopupPresentationCreative = {
   altText: string;
   aspectW: number;
   aspectH: number;
+  creativeMode: PlatformPopupCreativeMode;
 };
 
 export type PlatformPopupPresentationCta = {
@@ -32,6 +38,8 @@ export type PlatformPopupPresentationWinner = {
   campaignId: string;
   creativeId: string;
   surface: PlatformPopupConsumerSurface | string;
+  presentationType: PlatformPopupInterruptivePresentation;
+  frequencyMode: PlatformPopupFrequencyMode;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];

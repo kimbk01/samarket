@@ -1,5 +1,5 @@
 /**
- * CUT 3 — map resolver winner + candidate row → presentation payload.
+ * CUT 3 / CUT 1 reopen — map resolver winner + candidate → presentation payload.
  */
 
 import { resolvePlatformPopupCreativePublicUrl } from "@/lib/platform-popup/resolve-popup-creative-url";
@@ -11,6 +11,10 @@ import type {
 } from "@/lib/platform-popup/resolve-popup-ad";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
+import {
+  normalizePlatformPopupCreativeMode,
+  normalizePlatformPopupFrequencyMode,
+} from "@/lib/platform-popup/presentation-contract";
 
 export function buildPlatformPopupPresentationWinner(
   winner: ResolvePopupAdWinner,
@@ -25,6 +29,7 @@ export function buildPlatformPopupPresentationWinner(
     suppressionDurationSeconds?: number | null;
     timezone?: string | null;
     ctaLabel?: string | null;
+    frequencyMode?: string | null;
   }
 ): PlatformPopupPresentationWinner | null {
   const imageUrl = resolvePlatformPopupCreativePublicUrl({
@@ -43,16 +48,26 @@ export function buildPlatformPopupPresentationWinner(
   );
   if (!cta.ok) return null;
 
+  const frequencyMode = normalizePlatformPopupFrequencyMode(
+    campaignRow.frequencyMode ?? winner.frequencyMode
+  );
+  const creativeMode = normalizePlatformPopupCreativeMode(
+    candidate.creative?.creativeMode ?? winner.creativeMode
+  );
+
   return {
     campaignId: winner.campaignId,
     creativeId: winner.creativeId,
     surface: winner.surface,
+    presentationType: winner.presentationType,
+    frequencyMode,
     creative: {
       id: winner.creativeId,
       imageUrl,
       altText: String(creativeRow.altText ?? "").trim() || "Advertisement",
       aspectW: candidate.creative?.aspectW ?? 36,
       aspectH: candidate.creative?.aspectH ?? 25,
+      creativeMode,
     },
     cta: {
       type: cta.value.ctaType,
@@ -62,6 +77,7 @@ export function buildPlatformPopupPresentationWinner(
     suppressionOptions: resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: campaignRow.suppressionMode ?? "TODAY",
       suppressionDurationSeconds: campaignRow.suppressionDurationSeconds,
+      frequencyMode,
     }),
     timezone: campaignRow.timezone?.trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
     suppressionDurationSeconds:

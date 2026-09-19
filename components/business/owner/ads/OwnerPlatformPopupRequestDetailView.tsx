@@ -204,6 +204,7 @@ export function OwnerPlatformPopupRequestDetailView() {
                 altText: item.creativeAltText || "Advertisement",
                 aspectW: 36,
                 aspectH: 25,
+                creativeMode: "card",
               }}
               cta={{
                 type: item.ctaType,

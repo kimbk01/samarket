@@ -58,6 +58,8 @@ export async function PATCH(
     ctaTarget?: string;
     externalUrl?: string | null;
     surfaces?: string[];
+    presentationType?: string;
+    frequencyMode?: string;
     materialTouched?: PlatformPopupMaterialField[];
   };
 

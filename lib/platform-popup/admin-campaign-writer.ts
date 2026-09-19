@@ -23,6 +23,11 @@ import type {
   PlatformPopupSuppressionMode,
   PlatformPopupTargetSurface,
 } from "@/lib/platform-popup/types";
+import {
+  isPlatformPopupFrequencyMode,
+  isPlatformPopupInterruptivePresentation,
+  isPlatformPopupPresentationType,
+} from "@/lib/platform-popup/presentation-contract";
 
 export type PlatformPopupAdminUpsertInput = {
   name?: string;
@@ -36,6 +41,8 @@ export type PlatformPopupAdminUpsertInput = {
   ctaTarget?: string;
   externalUrl?: string | null;
   surfaces?: string[];
+  presentationType?: string;
+  frequencyMode?: string;
 };
 
 function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurface[] | { error: string } {
@@ -79,6 +86,9 @@ export async function createPlatformPopupAdminCampaign(
       cta_type: "internal_page",
       cta_target: PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
       external_url: null,
+      presentation_type: "center_modal",
+      frequency_mode: "once_per_session",
+      suppression_mode: "SESSION",
       created_by: input.adminUserId,
     })
     .select("id")
@@ -173,6 +183,21 @@ export async function updatePlatformPopupAdminCampaign(
       return { ok: false, error: "suppression_duration_invalid", httpStatus: 400 };
     }
     patch.suppression_duration_seconds = d ?? null;
+  }
+
+  if (input.patch.presentationType != null) {
+    const p = String(input.patch.presentationType).trim().toLowerCase();
+    if (!isPlatformPopupPresentationType(p) || !isPlatformPopupInterruptivePresentation(p)) {
+      return { ok: false, error: "presentation_invalid", httpStatus: 400 };
+    }
+    patch.presentation_type = p;
+  }
+  if (input.patch.frequencyMode != null) {
+    const f = String(input.patch.frequencyMode).trim().toLowerCase();
+    if (!isPlatformPopupFrequencyMode(f)) {
+      return { ok: false, error: "frequency_invalid", httpStatus: 400 };
+    }
+    patch.frequency_mode = f;
   }
 
   if (input.patch.ctaType != null || input.patch.ctaTarget != null || "externalUrl" in input.patch) {
@@ -286,6 +311,9 @@ export async function replacePlatformPopupReadyCreative(
     assetPath: string;
     assetUrl: string;
     altText?: string | null;
+    aspectW?: number;
+    aspectH?: number;
+    creativeMode?: "card" | "artwork";
   }
 ): Promise<{ ok: true; creativeId: string; revertedToReview: boolean } | { ok: false; error: string; httpStatus?: number }> {
   const campaignId = input.campaignId.trim();
@@ -300,6 +328,12 @@ export async function replacePlatformPopupReadyCreative(
   if (!campaign) return { ok: false, error: "not_found", httpStatus: 404 };
   if (campaign.status === "ended") return { ok: false, error: "ended_immutable", httpStatus: 409 };
 
+  const creativeMode = input.creativeMode === "artwork" ? "artwork" : "card";
+  const aspectW =
+    creativeMode === "artwork" && input.aspectW && input.aspectW > 0 ? Math.trunc(input.aspectW) : 36;
+  const aspectH =
+    creativeMode === "artwork" && input.aspectH && input.aspectH > 0 ? Math.trunc(input.aspectH) : 25;
+
   await sb
     .from("platform_popup_creatives")
     .update({ status: "rejected", updated_at: new Date().toISOString() })
@@ -312,8 +346,9 @@ export async function replacePlatformPopupReadyCreative(
       campaign_id: campaignId,
       asset_path: input.assetPath,
       asset_url: input.assetUrl,
-      aspect_w: 36,
-      aspect_h: 25,
+      aspect_w: aspectW,
+      aspect_h: aspectH,
+      creative_mode: creativeMode,
       alt_text: input.altText?.trim() || null,
       status: "ready",
     })

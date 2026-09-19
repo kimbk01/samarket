@@ -1,6 +1,6 @@
 /**
  * Platform Popup CUT 1 — canonical eligibility resolver boundary.
- * Returns exactly 0 or 1 deterministic winner. No UI.
+ * Returns exactly 0 or 1 deterministic winner. Rotation via lastImpressionAt.
  */
 
 import {
@@ -24,7 +24,17 @@ import {
   isPlatformPopupSuppressionActive,
   type PlatformPopupSuppressionRecord,
 } from "@/lib/platform-popup/suppression";
-import { platformPopupIsDomainTargeted, platformPopupSurfaceMatches } from "@/lib/platform-popup/surfaces";
+import { platformPopupSurfaceMatches } from "@/lib/platform-popup/surfaces";
+import { comparePopupCandidatesForRotation } from "@/lib/platform-popup/popup-rotation";
+import {
+  isPlatformPopupInterruptivePresentation,
+  normalizePlatformPopupCreativeMode,
+  normalizePlatformPopupFrequencyMode,
+  normalizePlatformPopupPresentationType,
+  type PlatformPopupCreativeMode,
+  type PlatformPopupFrequencyMode,
+  type PlatformPopupInterruptivePresentation,
+} from "@/lib/platform-popup/presentation-contract";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -43,11 +53,14 @@ export type PlatformPopupCandidate = {
   endAt?: string | Date | null;
   timezone?: string | null;
   surfaces: readonly PlatformPopupTargetSurface[];
+  presentationType?: string | null;
+  frequencyMode?: string | null;
   creative: {
     id: string;
     status: "draft" | "ready" | "rejected";
     aspectW: number;
     aspectH: number;
+    creativeMode?: PlatformPopupCreativeMode | string | null;
     assetPath?: string | null;
     assetUrl?: string | null;
     altText?: string | null;
@@ -60,6 +73,8 @@ export type PlatformPopupCandidate = {
   ctaLookup?: PlatformPopupCtaTargetLookup | null;
   suppressions?: readonly PlatformPopupSuppressionRecord[];
   campaignRevision?: string | null;
+  /** Actor last impression — drives rotation (null = never shown). */
+  lastImpressionAt?: string | Date | null;
 };
 
 export type ResolvePopupAdInput = {
@@ -77,24 +92,14 @@ export type ResolvePopupAdWinner = {
   creativeId: string;
   surface: PlatformPopupConsumerSurface;
   href: string;
+  presentationType: PlatformPopupInterruptivePresentation;
+  frequencyMode: PlatformPopupFrequencyMode;
+  creativeMode: PlatformPopupCreativeMode;
 };
 
 export type ResolvePopupAdResult =
   | { ok: true; winner: ResolvePopupAdWinner | null; reason?: string }
   | { ok: false; error: string };
-
-function compareWinners(a: PlatformPopupCandidate, b: PlatformPopupCandidate): number {
-  const aDomain = platformPopupIsDomainTargeted(a.surfaces) ? 1 : 0;
-  const bDomain = platformPopupIsDomainTargeted(b.surfaces) ? 1 : 0;
-  if (aDomain !== bDomain) return bDomain - aDomain; // domain > GLOBAL
-  if (a.priority !== b.priority) return b.priority - a.priority; // DESC
-  const aStart = a.startAt ? new Date(a.startAt).getTime() : Number.POSITIVE_INFINITY;
-  const bStart = b.startAt ? new Date(b.startAt).getTime() : Number.POSITIVE_INFINITY;
-  const aStartSafe = Number.isNaN(aStart) ? Number.POSITIVE_INFINITY : aStart;
-  const bStartSafe = Number.isNaN(bStart) ? Number.POSITIVE_INFINITY : bStart;
-  if (aStartSafe !== bStartSafe) return aStartSafe - bStartSafe; // ASC
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; // stable id
-}
 
 export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult {
   if (isPlatformPopupDeferredByCriticalUi(input.criticalUi)) {
@@ -128,9 +133,19 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
     }
     if (!platformPopupSurfaceMatches(c.surfaces, resolved)) continue;
 
+    const presentationType = normalizePlatformPopupPresentationType(c.presentationType);
+    if (!isPlatformPopupInterruptivePresentation(presentationType)) {
+      continue; // banner presentations: non-interruptive host (later CUT)
+    }
+
     const creative = c.creative;
     if (!creative || creative.status !== "ready") continue;
-    if (creative.aspectW !== 36 || creative.aspectH !== 25) continue;
+    const creativeMode = normalizePlatformPopupCreativeMode(creative.creativeMode);
+    if (creativeMode === "card") {
+      if (creative.aspectW !== 36 || creative.aspectH !== 25) continue;
+    } else if (!(creative.aspectW > 0 && creative.aspectH > 0)) {
+      continue;
+    }
 
     const cta = validatePlatformPopupCta(
       {
@@ -159,7 +174,7 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
     return { ok: true, winner: null, reason: "no_eligible_campaign" };
   }
 
-  const sorted = [...eligible].sort(compareWinners);
+  const sorted = [...eligible].sort(comparePopupCandidatesForRotation);
   const winner = sorted[0]!;
   const cta = validatePlatformPopupCta(
     {
@@ -173,6 +188,12 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
     return { ok: true, winner: null, reason: "winner_cta_invalid" };
   }
 
+  const presentationType = normalizePlatformPopupPresentationType(
+    winner.presentationType
+  ) as PlatformPopupInterruptivePresentation;
+  const frequencyMode = normalizePlatformPopupFrequencyMode(winner.frequencyMode);
+  const creativeMode = normalizePlatformPopupCreativeMode(winner.creative.creativeMode);
+
   return {
     ok: true,
     winner: {
@@ -180,6 +201,9 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
       creativeId: winner.creative.id,
       surface: resolved,
       href: cta.value.href,
+      presentationType,
+      frequencyMode,
+      creativeMode,
     },
   };
 }

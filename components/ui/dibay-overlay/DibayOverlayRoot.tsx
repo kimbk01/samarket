@@ -34,6 +34,12 @@ export type DibayOverlayRootProps = {
   lockScroll?: boolean;
   /** Sheet only — lifts root above main bottom nav (CSS SSOT). */
   sheetAnchor?: "above-bottom-nav" | "device-bottom";
+  /**
+   * Backdrop variant — default keeps Overlay SSOT blur.
+   * `dim-only` is the Platform Popup presentation contract (Owner 2026-09-20).
+   * Do NOT change global dialog/call/payment overlays to dim-only.
+   */
+  backdropVariant?: "default" | "dim-only";
 };
 
 /**
@@ -58,6 +64,7 @@ export function DibayOverlayRoot({
   stageStyle,
   lockScroll = true,
   sheetAnchor,
+  backdropVariant = "default",
 }: DibayOverlayRootProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -141,12 +148,15 @@ export function DibayOverlayRoot({
       {dismissible && onClose ? (
         <button
           type="button"
-          className={OverlayUi.backdrop}
+          className={`${OverlayUi.backdrop}${backdropVariant === "dim-only" ? " dibay-overlay-backdrop--dim-only" : ""}`}
           aria-label="Close"
           onClick={onClose}
         />
       ) : (
-        <div className={OverlayUi.backdrop} aria-hidden />
+        <div
+          className={`${OverlayUi.backdrop}${backdropVariant === "dim-only" ? " dibay-overlay-backdrop--dim-only" : ""}`}
+          aria-hidden
+        />
       )}
       <div
         role="dialog"

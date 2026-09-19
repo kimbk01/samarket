@@ -97,22 +97,23 @@ describe("CUT3 geometry contract", () => {
     expect(platformPopupCreativeAspectRatio()).toBeCloseTo(36 / 25, 5);
   });
 
-  it("CSS uses 36/25 creative aspect and dismiss row grid", () => {
+  it("CSS supports CARD 36/25 and floating close X (presentation reopen)", () => {
     const css = readRepo("app/platform-popup.css");
     expect(css).toContain("aspect-ratio: 36 / 25");
-    expect(css).toContain("grid-template-rows: auto auto");
-    expect(css).toContain(".dibay-platform-popup-dismiss");
-    expect(css).not.toContain("position: fixed"); // card not floating X
+    expect(css).toContain(".dibay-platform-popup-close-x");
+    expect(css).toContain("object-fit: contain");
+    expect(css).not.toContain(".dibay-platform-popup-dismiss");
   });
 
-  it("no X-only close on creative", () => {
+  it("floating X close control present", () => {
     const renderer = readRepo("components/platform-popup/DibayPopupAd.tsx");
     expect(renderer).toContain('data-platform-popup-dismiss="close"');
-    expect(renderer).not.toMatch(/×|&times;|aria-label="Close"[^>]*className="[^"]*absolute/);
+    expect(renderer).toContain("dibay-platform-popup-close-x");
+    expect(renderer).toContain('backdropVariant="dim-only"');
   });
 
   it("calibration tokens are declared", () => {
-    expect(PLATFORM_POPUP_BACKDROP_RGBA).toBe("rgba(0, 0, 0, 0.45)");
+    expect(PLATFORM_POPUP_BACKDROP_RGBA).toBe("rgba(0, 0, 0, 0.42)");
     expect(PLATFORM_POPUP_TABLET_MAX_WIDTH_PX).toBe(480);
     expect(PLATFORM_POPUP_RADIUS_CLAMP).toContain("clamp");
   });
@@ -132,6 +133,9 @@ describe("CUT3 presentation payload", () => {
         creativeId: "cr-1",
         surface: "TRADE",
         href: "/market",
+        presentationType: "center_modal",
+        frequencyMode: "once_per_session",
+        creativeMode: "card",
       },
       baseCandidate,
       {
@@ -139,10 +143,16 @@ describe("CUT3 presentation payload", () => {
         assetPath: baseCandidate.creative!.assetPath,
         altText: "QA",
       },
-      { suppressionMode: "TODAY", suppressionDurationSeconds: null, timezone: "Asia/Manila" }
+      {
+        suppressionMode: "TODAY",
+        suppressionDurationSeconds: null,
+        timezone: "Asia/Manila",
+        frequencyMode: "close_only",
+      }
     );
     expect(presentation?.creative.imageUrl).toContain("platform-popup-creatives");
     expect(presentation?.creative.aspectW).toBe(36);
+    expect(presentation?.creative.creativeMode).toBe("card");
     expect(presentation?.suppressionOptions).toContain("TODAY");
   });
 
@@ -153,6 +163,9 @@ describe("CUT3 presentation payload", () => {
         creativeId: "cr-1",
         surface: "TRADE",
         href: "/market",
+        presentationType: "bottom_sheet",
+        frequencyMode: "close_only",
+        creativeMode: "card",
       },
       baseCandidate,
       { assetUrl: "", assetPath: "" },
@@ -161,13 +174,14 @@ describe("CUT3 presentation payload", () => {
     expect(presentation).toBeNull();
   });
 
-  it("TODAY offered; CAMPAIGN when policy CAMPAIGN", () => {
+  it("TODAY offered when policy TODAY; CAMPAIGN when policy CAMPAIGN", () => {
     const opts = resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: "CAMPAIGN",
       suppressionDurationSeconds: null,
+      frequencyMode: "once_campaign",
     });
-    expect(opts).toContain("TODAY");
     expect(opts).toContain("CAMPAIGN");
+    expect(opts).not.toContain("TODAY");
   });
 });
 

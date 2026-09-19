@@ -494,7 +494,33 @@ export function GlobalPopupHost() {
       exposureId,
       deviceKey,
     });
-  }, [winner, exposureId, deviceKey]);
+
+    // Frequency cap: auto-suppress after impression (not CLOSE-only legacy).
+    const autoMode =
+      winner.frequencyMode === "once_per_session"
+        ? "SESSION"
+        : winner.frequencyMode === "once_per_day"
+          ? "TODAY"
+          : winner.frequencyMode === "once_campaign"
+            ? "CAMPAIGN"
+            : null;
+    if (!autoMode) return;
+    void fetch("/api/platform-popup/suppress", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        campaignId: winner.campaignId,
+        mode: autoMode,
+        sessionKey: appSessionId,
+        deviceKey,
+      }),
+    }).then(async (res) => {
+      if (!res.ok) {
+        console.error("[GlobalPopupHost] frequency_suppress_failed", await res.text());
+      }
+    });
+  }, [winner, exposureId, deviceKey, appSessionId]);
 
   const handleImageError = useCallback(() => {
     invalidateVisible();
@@ -519,6 +545,7 @@ export function GlobalPopupHost() {
           cta={winner.cta}
           suppressionOptions={winner.suppressionOptions}
           exposureId={exposureId}
+          presentationType={winner.presentationType}
           onClose={handleClose}
           onSuppress={handleSuppress}
           onCta={handleCta}

@@ -68,6 +68,9 @@ export function resolveDibaySurface(
 
   const p = normalizePath(pathname);
 
+  // App home `/` renders CommunityHomeSurface — same authority as `/philife`.
+  if (p === "/") return "COMMUNITY";
+
   if (p === "/admin" || p.startsWith("/admin/")) return "ADMIN";
 
   if (

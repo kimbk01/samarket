@@ -26,6 +26,8 @@ type CampaignRow = {
   external_url: string | null;
   suppression_mode: string | null;
   suppression_duration_seconds: number | null;
+  presentation_type: string | null;
+  frequency_mode: string | null;
 };
 
 type CreativeRow = {
@@ -37,6 +39,7 @@ type CreativeRow = {
   asset_path: string;
   asset_url: string | null;
   alt_text: string | null;
+  creative_mode: string | null;
 };
 
 type SurfaceRow = {
@@ -54,6 +57,11 @@ type SuppressionRow = {
   created_at: string;
 };
 
+type ImpressionRow = {
+  campaign_id: string;
+  created_at: string;
+};
+
 export async function loadPlatformPopupCandidates(
   sb: SupabaseClient,
   input: {
@@ -64,7 +72,7 @@ export async function loadPlatformPopupCandidates(
   const { data: campaigns, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, suppression_mode, suppression_duration_seconds"
+      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
     )
     .in("status", ["scheduled", "active"])
     .eq("approval_status", "approved")
@@ -74,18 +82,22 @@ export async function loadPlatformPopupCandidates(
 
   const ids = (campaigns as CampaignRow[]).map((c) => c.id);
 
-  const [{ data: creatives }, { data: surfaces }, suppressions] = await Promise.all([
-    sb
-      .from("platform_popup_creatives")
-      .select("id, campaign_id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text")
-      .in("campaign_id", ids)
-      .eq("status", "ready"),
-    sb
-      .from("platform_popup_campaign_surfaces")
-      .select("campaign_id, surface")
-      .in("campaign_id", ids),
-    loadSuppressions(sb, ids, input),
-  ]);
+  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions] =
+    await Promise.all([
+      sb
+        .from("platform_popup_creatives")
+        .select(
+          "id, campaign_id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text, creative_mode"
+        )
+        .in("campaign_id", ids)
+        .eq("status", "ready"),
+      sb
+        .from("platform_popup_campaign_surfaces")
+        .select("campaign_id, surface")
+        .in("campaign_id", ids),
+      loadSuppressions(sb, ids, input),
+      loadLastImpressions(sb, ids, input),
+    ]);
 
   const creativeByCampaign = new Map<string, CreativeRow>();
   for (const row of (creatives ?? []) as CreativeRow[]) {
@@ -124,12 +136,15 @@ export async function loadPlatformPopupCandidates(
       endAt: c.end_at,
       timezone: c.timezone,
       surfaces: surfacesByCampaign.get(c.id) ?? [],
+      presentationType: c.presentation_type,
+      frequencyMode: c.frequency_mode,
       creative: cr
         ? {
             id: cr.id,
             status: cr.status as "draft" | "ready" | "rejected",
             aspectW: cr.aspect_w,
             aspectH: cr.aspect_h,
+            creativeMode: cr.creative_mode,
             assetPath: cr.asset_path,
             assetUrl: cr.asset_url,
             altText: cr.alt_text,
@@ -142,6 +157,7 @@ export async function loadPlatformPopupCandidates(
       suppressionDurationSeconds: c.suppression_duration_seconds,
       ctaLookup: { exists: true, visible: true, authorized: true },
       suppressions: suppressByCampaign.get(c.id) ?? [],
+      lastImpressionAt: lastImpressions.get(c.id) ?? null,
     };
   });
 }
@@ -169,4 +185,35 @@ async function loadSuppressions(
 
   const { data } = await q;
   return (data ?? []) as SuppressionRow[];
+}
+
+/** Latest impression per campaign for this actor — rotation authority. */
+async function loadLastImpressions(
+  sb: SupabaseClient,
+  campaignIds: string[],
+  input: { userId?: string | null; anonymousDeviceKey?: string | null }
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!campaignIds.length) return out;
+  if (!input.userId && !input.anonymousDeviceKey) return out;
+
+  let q = sb
+    .from("platform_popup_campaign_events")
+    .select("campaign_id, created_at")
+    .in("campaign_id", campaignIds)
+    .eq("event_type", "impression")
+    .order("created_at", { ascending: false })
+    .limit(Math.min(campaignIds.length * 3, 200));
+
+  if (input.userId) {
+    q = q.eq("user_id", input.userId);
+  } else if (input.anonymousDeviceKey) {
+    q = q.eq("anonymous_device_key", input.anonymousDeviceKey);
+  }
+
+  const { data } = await q;
+  for (const row of (data ?? []) as ImpressionRow[]) {
+    if (!out.has(row.campaign_id)) out.set(row.campaign_id, row.created_at);
+  }
+  return out;
 }

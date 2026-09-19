@@ -24,6 +24,8 @@ export type PlatformPopupAdminListItem = {
   timezone: string;
   suppressionMode: PlatformPopupSuppressionMode;
   suppressionDurationSeconds: number | null;
+  presentationType: string;
+  frequencyMode: string;
   ctaType: PlatformPopupCtaType;
   ctaTarget: string;
   externalUrl: string | null;
@@ -44,6 +46,7 @@ export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
     status: string;
     aspectW: number;
     aspectH: number;
+    creativeMode: string;
     assetPath: string;
     assetUrl: string | null;
     imageUrl: string;
@@ -72,6 +75,8 @@ type CampaignRow = {
   timezone: string;
   suppression_mode: string;
   suppression_duration_seconds: number | null;
+  presentation_type?: string | null;
+  frequency_mode?: string | null;
   cta_type: string;
   cta_target: string;
   external_url: string | null;
@@ -117,6 +122,8 @@ function mapListItem(
     timezone: row.timezone,
     suppressionMode: row.suppression_mode as PlatformPopupSuppressionMode,
     suppressionDurationSeconds: row.suppression_duration_seconds,
+    presentationType: row.presentation_type ?? "bottom_sheet",
+    frequencyMode: row.frequency_mode ?? "close_only",
     ctaType: row.cta_type as PlatformPopupCtaType,
     ctaTarget: row.cta_target ?? "",
     externalUrl: row.external_url,
@@ -136,7 +143,7 @@ export async function listPlatformPopupAdminCampaigns(
   let q = sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
     )
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -194,7 +201,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
   const { data, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -207,7 +214,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
     sb.from("platform_popup_campaign_surfaces").select("surface").eq("campaign_id", id),
     sb
       .from("platform_popup_creatives")
-      .select("id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text")
+      .select("id, status, aspect_w, aspect_h, creative_mode, asset_path, asset_url, alt_text")
       .eq("campaign_id", id)
       .eq("status", "ready")
       .maybeSingle(),
@@ -237,6 +244,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
       status: string;
       aspect_w: number;
       aspect_h: number;
+      creative_mode?: string | null;
       asset_path: string;
       asset_url: string | null;
       alt_text: string | null;
@@ -251,6 +259,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
       status: c.status,
       aspectW: c.aspect_w,
       aspectH: c.aspect_h,
+      creativeMode: c.creative_mode ?? "card",
       assetPath: c.asset_path,
       assetUrl: c.asset_url,
       imageUrl,

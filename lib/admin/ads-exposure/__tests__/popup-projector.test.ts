@@ -14,6 +14,8 @@ const campaign: PlatformPopupAdminListItem = {
   timezone: "Asia/Manila",
   suppressionMode: "CLOSE",
   suppressionDurationSeconds: null,
+  presentationType: "bottom_sheet",
+  frequencyMode: "close_only",
   ctaType: "internal_page",
   ctaTarget: "/stores",
   externalUrl: null,

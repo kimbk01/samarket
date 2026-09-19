@@ -88,8 +88,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [startLocal, setStartLocal] = useState("");
   const [endLocal, setEndLocal] = useState("");
   const [selectedSurfaces, setSelectedSurfaces] = useState<PlatformPopupTargetSurface[]>(["GLOBAL"]);
-  const [suppressionMode, setSuppressionMode] = useState("TODAY");
+  const [suppressionMode, setSuppressionMode] = useState("SESSION");
   const [durationSec, setDurationSec] = useState<number | "">("");
+  const [presentationType, setPresentationType] = useState<"center_modal" | "bottom_sheet">(
+    "center_modal"
+  );
+  const [frequencyMode, setFrequencyMode] = useState("once_per_session");
+  const [creativeMode, setCreativeMode] = useState<"card" | "artwork">("card");
   const [ctaType, setCtaType] = useState("internal_page");
   const [ctaTarget, setCtaTarget] = useState<string>(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
   const [externalUrl, setExternalUrl] = useState("");
@@ -114,6 +119,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSelectedSurfaces(adminSurfacesFromDb(c.surfaces));
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
+    setPresentationType(
+      c.presentationType === "bottom_sheet" ? "bottom_sheet" : "center_modal"
+    );
+    setFrequencyMode(c.frequencyMode || "once_per_session");
+    setCreativeMode(c.creative?.creativeMode === "artwork" ? "artwork" : "card");
     setCtaType(c.ctaType);
     // Legacy drafts may have internal_page + empty target (DB default ''). Heal for edit UX.
     const loadedTarget = String(c.ctaTarget ?? "").trim();
@@ -187,6 +197,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       suppressionDurationSeconds:
         durationSec === "" ? null : Number(durationSec) > 0 ? Number(durationSec) : null,
       timezone,
+      presentationType,
+      frequencyMode,
+      creativeMode,
+      aspectW: campaign.creative?.aspectW ?? 36,
+      aspectH: campaign.creative?.aspectH ?? 25,
       unsaved: dirty || Boolean(previewOverrideUrl),
     };
   }, [
@@ -199,6 +214,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     suppressionMode,
     durationSec,
     timezone,
+    presentationType,
+    frequencyMode,
+    creativeMode,
     dirty,
   ]);
 
@@ -242,6 +260,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         surfaces: surfacesFromAdminSelection(selectedSurfaces),
         suppressionMode,
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
+        presentationType,
+        frequencyMode,
         ctaType,
         ctaTarget: nextTarget,
         externalUrl: externalUrl || null,
@@ -316,6 +336,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     fd.set("file", file);
     if (applyCrop) fd.set("applyCrop", "center");
     if (altText) fd.set("altText", altText);
+    fd.set("creativeMode", creativeMode);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/creative`, {
       method: "POST",
       credentials: "same-origin",
@@ -478,9 +499,101 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_presentation", {
+                fallbackKo: "노출 방식",
+                fallbackEn: "Presentation",
+              })}
+            </h2>
+            <label className="block text-sm">
+              {safeT("admin_platform_popup_presentation_type", {
+                fallbackKo: "팝업 형태",
+                fallbackEn: "Popup style",
+              })}
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                value={presentationType}
+                onChange={(e) => {
+                  markDirty();
+                  setPresentationType(e.target.value as "center_modal" | "bottom_sheet");
+                }}
+              >
+                <option value="center_modal">
+                  {language === "en" ? "Center modal" : "중앙 모달"}
+                </option>
+                <option value="bottom_sheet">
+                  {language === "en" ? "Bottom sheet" : "하단 시트"}
+                </option>
+              </select>
+            </label>
+            <label className="mt-3 block text-sm">
+              {safeT("admin_platform_popup_creative_mode", {
+                fallbackKo: "소재 모드",
+                fallbackEn: "Creative mode",
+              })}
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                value={creativeMode}
+                onChange={(e) => {
+                  markDirty();
+                  setCreativeMode(e.target.value as "card" | "artwork");
+                }}
+              >
+                <option value="card">
+                  {language === "en" ? "CARD (36:25 crop)" : "CARD (36:25 크롭)"}
+                </option>
+                <option value="artwork">
+                  {language === "en" ? "ARTWORK (transparent PNG/WebP)" : "ARTWORK (투명 PNG/WebP)"}
+                </option>
+              </select>
+            </label>
+            <label className="mt-3 block text-sm">
+              {safeT("admin_platform_popup_frequency_mode", {
+                fallbackKo: "노출 빈도",
+                fallbackEn: "Frequency",
+              })}
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                value={frequencyMode}
+                onChange={(e) => {
+                  markDirty();
+                  setFrequencyMode(e.target.value);
+                }}
+              >
+                <option value="once_per_session">
+                  {language === "en" ? "Once per session" : "세션당 1회"}
+                </option>
+                <option value="once_per_day">
+                  {language === "en" ? "Once per day" : "하루 1회"}
+                </option>
+                <option value="once_campaign">
+                  {language === "en" ? "Once (campaign)" : "캠페인당 1회"}
+                </option>
+                <option value="close_only">
+                  {language === "en" ? "Close only (legacy)" : "닫기만 (레거시)"}
+                </option>
+              </select>
+            </label>
+            <p className="mt-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_presentation_help", {
+                fallbackKo:
+                  "배너(인라인/히어로)는 다음 CUT. Push는 이 화면에서 자동 발송되지 않습니다.",
+                fallbackEn:
+                  "Banner (inline/hero) is next CUT. Push is never auto-sent from this screen.",
+              })}
+            </p>
+          </AdminCard>
+
+          <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_creative", {
-                fallbackKo: "소재 (1440×1000 · 36:25)",
-                fallbackEn: "Creative (1440×1000 · 36:25)",
+                fallbackKo:
+                  creativeMode === "artwork"
+                    ? "소재 (ARTWORK · 투명 PNG/WebP)"
+                    : "소재 (CARD · 1440×1000 · 36:25)",
+                fallbackEn:
+                  creativeMode === "artwork"
+                    ? "Creative (ARTWORK · transparent PNG/WebP)"
+                    : "Creative (CARD · 1440×1000 · 36:25)",
               })}
             </h2>
             <div

@@ -19,6 +19,7 @@ export type PlatformPopupSuppressionUxMapping = {
 export function resolvePlatformPopupSuppressionUxMapping(input: {
   suppressionMode: PlatformPopupSuppressionMode | string;
   suppressionDurationSeconds?: number | null;
+  frequencyMode?: string | null;
 }): PlatformPopupSuppressionUxMapping {
   return {
     closePersists: false,

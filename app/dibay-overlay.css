@@ -123,6 +123,16 @@ html:has(.app-bottom-nav-shell--delivery)
   transition: opacity var(--overlay-motion-enter) ease-out;
 }
 
+/**
+ * Platform Popup presentation variant — dim only, no blur.
+ * Scoped class; does not change default dialog/call/payment overlays.
+ */
+.dibay-overlay-backdrop.dibay-overlay-backdrop--dim-only {
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 .dibay-overlay-root[data-entered="true"] .dibay-overlay-backdrop {
   opacity: 1;
 }

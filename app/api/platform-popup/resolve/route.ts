@@ -102,6 +102,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       suppressionDurationSeconds: candidate.suppressionDurationSeconds,
       timezone: candidate.timezone,
       ctaLabel: null,
+      frequencyMode: candidate.frequencyMode,
     }
   );
 
