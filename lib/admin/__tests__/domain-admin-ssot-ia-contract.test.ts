@@ -16,6 +16,7 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
       "messenger",
       "finance",
       "ads",
+      "promotion",
       "support",
       "notifications",
       "system",

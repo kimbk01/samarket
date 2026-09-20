@@ -4,7 +4,7 @@
  *
  * Workspaces:
  * dashboard · delivery · trade · community · messenger ·
- * finance · ads · support · notifications · system
+ * finance · ads · promotion · support · notifications · system
  *
  * Invariants:
  * - path(쿼리·hash 포함) 하나당 visible leaf 하나
@@ -65,6 +65,13 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   messenger: "admin_menu_messenger",
   finance: "admin_menu_finance",
   ads: "admin_menu_ads",
+  promotion: "admin_menu_promotion",
+  "promotion-home": "admin_menu_promotion_home",
+  "promotion-events": "admin_menu_promotion_events",
+  "promotion-popup": "admin_menu_promotion_popup",
+  "promotion-banners": "admin_menu_promotion_banners",
+  "promotion-notifications": "admin_menu_promotion_notifications",
+  "promotion-owner-requests": "admin_menu_promotion_owner_requests",
   support: "admin_menu_support",
   notifications: "admin_menu_notifications",
   system: "admin_menu_system",
@@ -79,7 +86,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-authority-boosts": "admin_menu_ads_authority_boosts",
   "ads-authority-applications": "admin_menu_ads_authority_applications",
   "ads-authority-operations": "admin_menu_ads_authority_operations",
-  "ads-authority-placements": "admin_menu_ads_authority_placements",
+  "ads-authority-placements": "admin_menu_ads_authority_placements_inventory",
   "ads-authority-products": "admin_menu_ads_authority_products",
   "ads-authority-history": "admin_menu_ads_authority_history",
   "ads-placement-map": "admin_menu_placement_map",
@@ -980,31 +987,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "partial",
           },
           { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "partial" },
-          {
-            key: "ads-platform-popup",
-            title: "",
-            path: "/admin/platform-popup",
-            status: "partial",
-            matchPaths: [
-              "/admin/platform-popup/",
-              "/admin/platform-popup/requests",
-              "/admin/platform-popup/requests/",
-            ],
-          },
-          {
-            key: "ads-platform-events",
-            title: "",
-            path: "/admin/platform-events",
-            status: "partial",
-            matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
-          },
-          {
-            key: "ads-event-owner-requests",
-            title: "",
-            path: "/admin/platform-event-owner-requests",
-            status: "partial",
-            matchPaths: ["/admin/platform-event-owner-requests/"],
-          },
+          // Platform Promotion leaves moved to `promotion` workspace (CUT 3).
+          // Keys KEEP for findAdminMenuByKey / redirects; paths removed so Ads does not steal IA.
+          { key: "ads-platform-popup", title: "", status: "partial", sidebarPublic: false },
+          { key: "ads-platform-events", title: "", status: "partial", sidebarPublic: false },
+          { key: "ads-event-owner-requests", title: "", status: "partial", sidebarPublic: false },
           {
             key: "ads-placement-map",
             title: "",
@@ -1031,6 +1018,58 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "partial",
           },
         ],
+      },
+    ],
+  },
+
+  // ── PROMOTION / EVENT — Platform Promotion (NOT paid Ads) ──
+  {
+    key: "promotion",
+    title: "",
+    children: [
+      {
+        key: "promotion-home",
+        title: "",
+        path: "/admin/platform-promotion",
+        exactPath: true,
+        status: "done",
+      },
+      {
+        key: "promotion-events",
+        title: "",
+        path: "/admin/platform-events",
+        matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
+        status: "done",
+      },
+      {
+        key: "promotion-popup",
+        title: "",
+        path: "/admin/platform-popup",
+        matchPaths: [
+          "/admin/platform-popup/",
+          "/admin/platform-popup/requests",
+          "/admin/platform-popup/requests/",
+        ],
+        status: "done",
+      },
+      {
+        key: "promotion-banners",
+        title: "",
+        path: "/admin/platform-promotion/banners",
+        status: "done",
+      },
+      {
+        key: "promotion-notifications",
+        title: "",
+        path: "/admin/platform-promotion/notifications",
+        status: "done",
+      },
+      {
+        key: "promotion-owner-requests",
+        title: "",
+        path: "/admin/platform-event-owner-requests",
+        matchPaths: ["/admin/platform-event-owner-requests/"],
+        status: "done",
       },
     ],
   },

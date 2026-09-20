@@ -81,8 +81,8 @@ describe("CUT J IA separation hard lock", () => {
     expect(workspaceOf("/admin/feed-ads")).toBe("ads");
   });
 
-  it("J12 /admin/platform-popup → ads", () => {
-    expect(workspaceOf("/admin/platform-popup")).toBe("ads");
+  it("J12 /admin/platform-popup → promotion (Platform Promotion IA)", () => {
+    expect(workspaceOf("/admin/platform-popup")).toBe("promotion");
   });
 
   it("J13 Placement Map → ads", () => {
@@ -148,7 +148,8 @@ describe("CUT J IA separation hard lock", () => {
       J22_coin: { workspace: "finance", route: "/admin/finance" },
       J23_delivery_ad: { workspace: "ads", route: "/admin/delivery-ads/manage" },
       J24_banner: { workspace: "ads", route: "/admin/delivery-ads/manage" },
-      J25_popup: { workspace: "ads", route: "/admin/platform-popup" },
+      J25_popup: { workspace: "promotion", route: "/admin/platform-popup" },
+      J25b_events: { workspace: "promotion", route: "/admin/platform-events" },
       J26_feed: { workspace: "ads", route: "/admin/feed-ads" },
       J27_member_support: { workspace: "support", route: "/admin/support" },
       J28_store_support: { workspace: "support", route: "/admin/support" },

@@ -18,6 +18,7 @@ const WORKSPACE_KEYS = [
   "messenger",
   "finance",
   "ads",
+  "promotion",
   "support",
   "notifications",
   "system",
@@ -75,12 +76,11 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  it("ads workspace owns promoted-items / feed / popup / delivery-ads primary", () => {
+  it("ads workspace owns promoted-items / feed / delivery-ads; popup moved to promotion", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
     expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe(
-      "/admin/platform-popup"
-    );
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "promotion-popup")?.path).toBe("/admin/platform-popup");
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
       "/admin/delivery-ads"
     );
@@ -88,6 +88,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
       "/admin/delivery-ads/inventory#placement-map"
     );
     expect(adminMenu.some((w) => w.key === "ads")).toBe(true);
+    expect(adminMenu.some((w) => w.key === "promotion")).toBe(true);
     expect(findAdminMenuByKey(adminMenu, "growth")).toBeUndefined();
   });
 

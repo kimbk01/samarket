@@ -20,6 +20,7 @@ export const CUT_J_WORKSPACE_ORDER = [
   "messenger",
   "finance",
   "ads",
+  "promotion",
   "support",
   "notifications",
   "system",

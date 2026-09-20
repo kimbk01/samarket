@@ -25,6 +25,7 @@ describe("admin-workspace-routing (CUT J)", () => {
       "messenger",
       "finance",
       "ads",
+      "promotion",
       "support",
       "notifications",
       "system",
@@ -50,7 +51,11 @@ describe("admin-workspace-routing (CUT J)", () => {
     expect(resolveActiveWorkspace("/admin/point-charges", "master").id).toBe("finance");
     expect(resolveActiveWorkspace("/admin/delivery-ads", "master").id).toBe("ads");
     expect(resolveActiveWorkspace("/admin/feed-ads", "master").id).toBe("ads");
-    expect(resolveActiveWorkspace("/admin/platform-popup", "master").id).toBe("ads");
+    expect(resolveActiveWorkspace("/admin/platform-popup", "master").id).toBe("promotion");
+    expect(resolveActiveWorkspace("/admin/platform-events", "master").id).toBe("promotion");
+    expect(resolveActiveWorkspace("/admin/platform-promotion/banners", "master").id).toBe(
+      "promotion"
+    );
     expect(resolveActiveWorkspace("/admin/support", "master").id).toBe("support");
     expect(resolveActiveWorkspace("/admin/notifications", "master").id).toBe("notifications");
     expect(resolveActiveWorkspace("/admin/reports?domain=trade", "master").id).toBe("trade");

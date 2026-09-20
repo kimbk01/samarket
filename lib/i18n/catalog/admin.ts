@@ -609,6 +609,42 @@ export const adminMessages = {
     admin_menu_reports_users: "사용자제재",
     admin_menu_reports_logs: "처리로그",
     admin_menu_ads: "광고 / 노출",
+    admin_menu_promotion: "프로모션 / 이벤트",
+    admin_menu_promotion_home: "운영 홈",
+    admin_menu_promotion_events: "이벤트",
+    admin_menu_promotion_popup: "팝업",
+    admin_menu_promotion_banners: "배너",
+    admin_menu_promotion_notifications: "알림",
+    admin_menu_promotion_owner_requests: "오너 요청",
+    admin_menu_ads_authority_placements_inventory: "광고 노출 위치 현황",
+    admin_promotion_landing_desc:
+      "플랫폼 프로모션 운영. 유료 광고(광고 / 노출)와 분리된 Admin 권한입니다.",
+    admin_promotion_paid_ads_note:
+      "유료 광고·슬롯 현황은 「광고 / 노출」 워크스페이스에서 관리합니다.",
+    admin_promotion_banner_list_desc:
+      "이벤트 Distribution 배너. 인라인(3:1) / 히어로(39:16) · 커뮤니티 홈 / 거래 홈.",
+    admin_promotion_banner_goto_events: "이벤트에서 노출 설정",
+    admin_promotion_banner_empty:
+      "설정된 배너 Distribution이 없습니다. 이벤트 노출 설정에서 추가하세요.",
+    admin_promotion_notifications_desc:
+      "Push 발송과 앱 알림(Bell)을 구분합니다. 저장·게시는 발송이 아닙니다.",
+    admin_promotion_channel_push: "Push",
+    admin_promotion_channel_push_desc:
+      "초안 저장 ≠ Push 보내기. 기존 알림 캠페인 엔진을 사용합니다.",
+    admin_promotion_open_push_campaigns: "Push 캠페인 열기",
+    admin_promotion_create_push_draft: "Push 초안 만들기",
+    admin_promotion_channel_bell: "앱 알림 (Bell)",
+    admin_promotion_channel_bell_desc:
+      "Event 노출 설정(Distribution)에서 구성합니다. 별도 발송 버튼이 아닙니다.",
+    admin_promotion_schedule_start: "노출 시작",
+    admin_promotion_schedule_end: "노출 종료",
+    admin_promotion_action_edit: "수정",
+    admin_promotion_action_preview: "미리보기",
+    admin_promotion_action_configure_exposure: "노출 설정",
+    admin_promotion_action_review: "검토",
+    admin_promotion_owner_request_boundary:
+      "요청 채널 ≠ 최종 채널. 승인 = Event 초안 생성 (게시·배너 활성화·Push 발송 아님).",
+    admin_promotion_owner_request_empty: "대기 중인 오너 요청이 없습니다.",
     admin_menu_ads_applications: "거래 더 알리기 신청",
     admin_menu_ads_applications_group: "광고 신청",
     admin_menu_ads_execution_group: "노출 관리",
@@ -3543,6 +3579,42 @@ export const adminMessages = {
     admin_menu_reports_users: "User sanctions",
     admin_menu_reports_logs: "Processing logs",
     admin_menu_ads: "Ads / Exposure",
+    admin_menu_promotion: "Promotion / Events",
+    admin_menu_promotion_home: "Operation home",
+    admin_menu_promotion_events: "Events",
+    admin_menu_promotion_popup: "Popups",
+    admin_menu_promotion_banners: "Banners",
+    admin_menu_promotion_notifications: "Notifications",
+    admin_menu_promotion_owner_requests: "Owner requests",
+    admin_menu_ads_authority_placements_inventory: "Ad placement inventory",
+    admin_promotion_landing_desc:
+      "Platform promotion operations. Separate from Paid Ads (Ads / Exposure).",
+    admin_promotion_paid_ads_note:
+      "Paid ads and slot inventory live under the Ads / Exposure workspace.",
+    admin_promotion_banner_list_desc:
+      "Event Distribution banners. Inline (3:1) / Hero (39:16) · Community / Trade home.",
+    admin_promotion_banner_goto_events: "Configure via Events",
+    admin_promotion_banner_empty:
+      "No banner distributions yet. Add them in Event exposure settings.",
+    admin_promotion_notifications_desc:
+      "Separate Push send from in-app Bell. Save/Publish is not Send.",
+    admin_promotion_channel_push: "Push",
+    admin_promotion_channel_push_desc:
+      "Saving a draft ≠ Send push. Uses the existing notification campaign engine.",
+    admin_promotion_open_push_campaigns: "Open push campaigns",
+    admin_promotion_create_push_draft: "Create push draft",
+    admin_promotion_channel_bell: "In-app Bell",
+    admin_promotion_channel_bell_desc:
+      "Configured on Event exposure (Distribution). Not a separate send button.",
+    admin_promotion_schedule_start: "Starts",
+    admin_promotion_schedule_end: "Ends",
+    admin_promotion_action_edit: "Edit",
+    admin_promotion_action_preview: "Preview",
+    admin_promotion_action_configure_exposure: "Configure exposure",
+    admin_promotion_action_review: "Review",
+    admin_promotion_owner_request_boundary:
+      "Requested channels ≠ final channels. Approve = Event draft only (not publish/activate/send).",
+    admin_promotion_owner_request_empty: "No owner requests.",
     admin_menu_ads_applications: "Trade promote requests",
     admin_menu_ads_applications_group: "Ad applications",
     admin_menu_ads_execution_group: "Live ops",

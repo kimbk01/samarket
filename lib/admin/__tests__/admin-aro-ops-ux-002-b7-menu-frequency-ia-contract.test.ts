@@ -14,8 +14,9 @@ import {
 import { CUT_J_WORKSPACE_ORDER } from "@/lib/admin/admin-real-operation-cut-j-ia-separation-hard-lock";
 
 describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
-  it("B7-01/02 keeps exactly 10 top-level workspaces in operational order", () => {
+  it("B7-01/02 keeps CUT J (+ promotion) top-level workspaces in operational order", () => {
     expect(adminMenu.map((w) => w.key)).toEqual([...CUT_J_WORKSPACE_ORDER]);
+    expect(CUT_J_WORKSPACE_ORDER).toContain("promotion");
     expect(findAdminMenuByKey(adminMenu, "growth")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "common")).toBeUndefined();
   });
@@ -104,14 +105,16 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     );
   });
 
-  it("B7-17/20 ads + notifications semantics", () => {
+  it("B7-17/20 ads + notifications semantics; popup under promotion", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
       "/admin/ad-applications?domain=feed"
     );
     expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toBe(
       "/admin/delivery-ads/inventory#placement-map"
     );
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe("/admin/platform-popup");
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "promotion-popup")?.path).toBe("/admin/platform-popup");
+    expect(resolveActiveWorkspace("/admin/platform-popup", "master").id).toBe("promotion");
     expect(resolveActiveWorkspace("/admin/settings/notifications", "master").id).toBe(
       "notifications"
     );

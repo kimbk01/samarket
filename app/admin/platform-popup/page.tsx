@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { AdminPlatformPopupListPage } from "@/components/admin/platform-popup/AdminPlatformPopupListPage";
 
-/** Popup hub → 노출 관리 (detail routes under /admin/platform-popup/* stay) */
-export default function AdminPlatformPopupRedirectPage() {
-  redirect("/admin/advertising/operations");
+/** Platform Promotion — Popup hub (canonical campaign list; not Paid Ads ops). */
+export default function AdminPlatformPopupPage() {
+  return <AdminPlatformPopupListPage />;
 }

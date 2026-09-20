@@ -19,6 +19,7 @@ export type AdminWorkspaceId =
   | "messenger"
   | "finance"
   | "ads"
+  | "promotion"
   | "support"
   | "notifications"
   | "system";

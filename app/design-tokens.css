@@ -388,6 +388,12 @@
   --admin-console-accent: #1d4ed8;
   --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
   --admin-console-hover: #eef1f6;
+  /* CUT 3 — AdminActionButton PRIMARY locked contrast (not sam-primary washout) */
+  --admin-action-primary-bg: #111827;
+  --admin-action-primary-fg: #ffffff;
+  --admin-action-primary-hover: #0b1220;
+  --admin-action-primary-disabled-bg: #9ca3af;
+  --admin-action-primary-disabled-fg: #f9fafb;
   --admin-sidebar-width: 16rem;
 
   --sam-text-primary: var(--app-text);
