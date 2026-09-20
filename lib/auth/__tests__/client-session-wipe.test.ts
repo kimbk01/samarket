@@ -185,6 +185,10 @@ describe("wipeClientSessionState storage allowlist", () => {
     expect(local.getItem(APP_LANGUAGE_STORAGE_KEY)).toBe("ko");
     expect(clearBrowserCacheStorageBestEffort).toHaveBeenCalledTimes(1);
     expect(isTradeMarketplaceGuestAllAfterAuthExitPending()).toBe(true);
+    const { TRADE_MARKETPLACE_GUEST_ALL_AFTER_AUTH_EXIT_KEY } = await import(
+      "@/lib/trade/location/trade-marketplace-auth-transition-browse"
+    );
+    expect(session.getItem(TRADE_MARKETPLACE_GUEST_ALL_AFTER_AUTH_EXIT_KEY)).toBe("1");
   });
 
   it("shouldSkipSignedOutEventWipe after markExplicitLogoutWipeDone", async () => {

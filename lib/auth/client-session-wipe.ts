@@ -267,6 +267,11 @@ async function runWipeClientSessionState(
   resetSignupGateSessionFlags();
   clearEphemeralLocalStorage();
   clearBoundAuthUserId();
+  /**
+   * sessionStorage.clear() runs above. Durable marketplace guest-all marker MUST be written
+   * after that clear and before hard navigateAfterAuthExit — otherwise history Back to
+   * /market?location=city… loses logout reseed intent (ISSUE #1).
+   */
   clearEphemeralSessionStorage({ setPostLogoutGuard });
   if (reason === "user_logout" || reason === "account_switched") {
     markTradeMarketplaceGuestAllAfterAuthExit();

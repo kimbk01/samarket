@@ -20,6 +20,7 @@ import {
   consumeTradeMarketplaceMemberBrowseReseed,
   isTradeMarketplaceGuestAllAfterAuthExitPending,
   isTradeMarketplaceMemberBrowseReseedPending,
+  shouldConsumeTradeMarketplaceGuestAllAfterAuthExit,
 } from "@/lib/trade/location/trade-marketplace-auth-transition-browse";
 import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
@@ -94,8 +95,10 @@ export function useTradeMarketplaceLocationHydrate(): {
   const runHydrate = useCallback(async () => {
     if (onLocationStack) return;
 
-    const authExitGuestAll = isTradeMarketplaceGuestAllAfterAuthExitPending();
+    /** Member login wins: markMember clears durable guest-exit; never apply A logout over B master. */
     const memberReseed = isTradeMarketplaceMemberBrowseReseedPending();
+    const authExitGuestAll =
+      !memberReseed && isTradeMarketplaceGuestAllAfterAuthExitPending();
 
     if (authExitGuestAll || memberReseed || scopeNeedsMarketplaceLocationHydrate(scope)) {
       const runId = ++runIdRef.current;
@@ -112,10 +115,16 @@ export function useTradeMarketplaceLocationHydrate(): {
         if (runId !== runIdRef.current) return;
         if (next.mode === "unset") return;
 
-        if (authExitGuestAll) consumeTradeMarketplaceGuestAllAfterAuthExit();
-        if (memberReseed) consumeTradeMarketplaceMemberBrowseReseed();
+        if (authExitGuestAll) {
+          /** One-shot invalidation of leaked member CITY — target is ALL only. */
+          if (!shouldConsumeTradeMarketplaceGuestAllAfterAuthExit(next)) return;
+          commitScopeToUrl(next, scope);
+          consumeTradeMarketplaceGuestAllAfterAuthExit();
+          return;
+        }
 
         commitScopeToUrl(next, scope);
+        if (memberReseed) consumeTradeMarketplaceMemberBrowseReseed();
       } finally {
         if (runId === runIdRef.current) setHydrating(false);
       }
