@@ -107,14 +107,20 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           className={`rounded px-2 py-1 text-xs font-medium ${device === "phone" ? "bg-sam-fg text-white" : "border border-sam-border"}`}
           onClick={() => setDevice("phone")}
         >
-          iPhone
+          {safeT("admin_platform_popup_preview_phone", {
+            fallbackKo: "휴대폰",
+            fallbackEn: "Phone",
+          })}
         </button>
         <button
           type="button"
           className={`rounded px-2 py-1 text-xs font-medium ${device === "tablet" ? "bg-sam-fg text-white" : "border border-sam-border"}`}
           onClick={() => setDevice("tablet")}
         >
-          Android / Tablet
+          {safeT("admin_platform_popup_preview_tablet", {
+            fallbackKo: "태블릿",
+            fallbackEn: "Tablet",
+          })}
         </button>
         {surfaceLabel ? <span className="text-xs text-sam-muted">{surfaceLabel}</span> : null}
         {source?.unsaved ? (
