@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform-events/AdminPlatformEventDistributionPanel";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
@@ -12,6 +13,30 @@ import type {
 } from "@/lib/platform-events/types";
 
 type Props = { eventId: string | null };
+
+async function uploadEventImage(
+  kind: "hero" | "section",
+  file: File
+): Promise<{ url: string; path: string } | { error: string }> {
+  const fd = new FormData();
+  fd.set("kind", kind);
+  fd.set("file", file);
+  const res = await fetch("/api/admin/platform-events/upload-image", {
+    method: "POST",
+    credentials: "same-origin",
+    body: fd,
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    url?: string;
+    path?: string;
+    error?: string;
+  };
+  if (!res.ok || !json.ok || !json.url) {
+    return { error: json.error || "upload_failed" };
+  }
+  return { url: json.url, path: json.path || "" };
+}
 
 function emptyDraft(): PlatformEventRow {
   const now = new Date().toISOString();
@@ -53,6 +78,9 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const [benefitTitle, setBenefitTitle] = useState("");
   const [benefitBody, setBenefitBody] = useState("");
   const [extraImageUrl, setExtraImageUrl] = useState("");
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const heroFileRef = useRef<HTMLInputElement>(null);
+  const sectionFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isNew) return;
@@ -174,6 +202,55 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
     [draft, buildSections, isNew, eventId, router]
   );
 
+  const onHeroUpload = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      const previousUrl = draft.heroImageUrl;
+      const previousPath = draft.heroImagePath;
+      setMediaBusy(true);
+      setError(null);
+      try {
+        const out = await uploadEventImage("hero", file);
+        if ("error" in out) {
+          setDraft((d) => ({ ...d, heroImageUrl: previousUrl, heroImagePath: previousPath }));
+          setError(out.error);
+          return;
+        }
+        setDraft((d) => ({
+          ...d,
+          heroImageUrl: out.url,
+          heroImagePath: out.path || null,
+        }));
+      } finally {
+        setMediaBusy(false);
+        if (heroFileRef.current) heroFileRef.current.value = "";
+      }
+    },
+    [draft.heroImageUrl, draft.heroImagePath]
+  );
+
+  const onSectionUpload = useCallback(
+    async (file: File | null) => {
+      if (!file) return;
+      const previous = extraImageUrl;
+      setMediaBusy(true);
+      setError(null);
+      try {
+        const out = await uploadEventImage("section", file);
+        if ("error" in out) {
+          setExtraImageUrl(previous);
+          setError(out.error);
+          return;
+        }
+        setExtraImageUrl(out.url);
+      } finally {
+        setMediaBusy(false);
+        if (sectionFileRef.current) sectionFileRef.current.value = "";
+      }
+    },
+    [extraImageUrl]
+  );
+
   if (loading) {
     return <p className="p-4 text-sm text-sam-muted">…</p>;
   }
@@ -215,19 +292,49 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             }
           />
         </label>
-        <label className="block text-sm">
-          {safeT("admin_platform_events_field_hero", {
-            fallbackKo: "히어로 이미지 URL",
-            fallbackEn: "Hero image URL",
-          })}
+        <div className="space-y-2">
+          <span className="block text-sm">
+            {safeT("admin_platform_events_field_hero", {
+              fallbackKo: "히어로 이미지",
+              fallbackEn: "Hero image",
+            })}
+          </span>
           <input
-            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-            value={draft.heroImageUrl ?? ""}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, heroImageUrl: e.target.value.trim() || null }))
-            }
+            ref={heroFileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full text-xs"
+            disabled={mediaBusy || saving}
+            onChange={(e) => void onHeroUpload(e.target.files?.[0] ?? null)}
           />
-        </label>
+          {draft.heroImageUrl ? (
+            <div className="space-y-2">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
+                <SamarketThumbnail
+                  src={draft.heroImageUrl}
+                  alt=""
+                  fill
+                  fetchDisplayPx={640}
+                  className="h-full w-full"
+                  imageClassName="object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs text-sam-muted underline"
+                disabled={mediaBusy || saving}
+                onClick={() =>
+                  setDraft((d) => ({ ...d, heroImageUrl: null, heroImagePath: null }))
+                }
+              >
+                {safeT("admin_platform_events_hero_remove", {
+                  fallbackKo: "히어로 이미지 제거",
+                  fallbackEn: "Remove hero image",
+                })}
+              </button>
+            </div>
+          ) : null}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="block text-sm">
             starts_at
@@ -286,17 +393,47 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             onChange={(e) => setBenefitBody(e.target.value)}
           />
         </label>
-        <label className="block text-sm">
-          {safeT("admin_platform_events_field_section_image", {
-            fallbackKo: "추가 이미지 URL",
-            fallbackEn: "Extra image URL",
-          })}
+        <div className="space-y-2">
+          <span className="block text-sm">
+            {safeT("admin_platform_events_field_section_image", {
+              fallbackKo: "추가 이미지",
+              fallbackEn: "Section image",
+            })}
+          </span>
           <input
-            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-            value={extraImageUrl}
-            onChange={(e) => setExtraImageUrl(e.target.value)}
+            ref={sectionFileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full text-xs"
+            disabled={mediaBusy || saving}
+            onChange={(e) => void onSectionUpload(e.target.files?.[0] ?? null)}
           />
-        </label>
+          {extraImageUrl ? (
+            <div className="space-y-2">
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
+                <SamarketThumbnail
+                  src={extraImageUrl}
+                  alt=""
+                  fill
+                  fetchDisplayPx={640}
+                  className="h-full w-full"
+                  imageClassName="object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs text-sam-muted underline"
+                disabled={mediaBusy || saving}
+                onClick={() => setExtraImageUrl("")}
+              >
+                {safeT("admin_platform_events_section_image_remove", {
+                  fallbackKo: "추가 이미지 제거",
+                  fallbackEn: "Remove section image",
+                })}
+              </button>
+            </div>
+          ) : null}
+        </div>
 
         <label className="block text-sm">
           CTA label

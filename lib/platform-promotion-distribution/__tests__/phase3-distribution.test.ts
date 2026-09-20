@@ -106,11 +106,11 @@ describe("Phase 3 Distribution SSOT", () => {
       eventTitle: "Sale",
       enabled: true,
     });
-    expect("ok" in popup).toBe(false);
-    if (!("ok" in popup)) {
-      expect(popup.ctaType).toBe("event_detail");
-      expect(popup.ctaTarget).toBe(eventId);
-      expect(popup.href).toBe(buildPlatformEventDetailPath(eventId));
+    expect(popup.ok).toBe(true);
+    if (popup.ok) {
+      expect(popup.value.ctaType).toBe("event_detail");
+      expect(popup.value.ctaTarget).toBe(eventId);
+      expect(popup.value.href).toBe(buildPlatformEventDetailPath(eventId));
     }
 
     const banner = planBannerDistributionAdapter({
@@ -119,12 +119,12 @@ describe("Phase 3 Distribution SSOT", () => {
       enabled: true,
       config: { placement: "TRADE_HOME", imageUrl: "https://cdn.example/b.png" },
     });
-    expect("ok" in banner).toBe(false);
-    if (!("ok" in banner)) {
-      expect(banner.source).toBe("ADMIN_DIRECT");
-      expect(banner.placement).toBe("TRADE_HOME");
-      expect(banner.destinationType).toBe("internal_page");
-      expect(banner.destinationUrl).toBe(`/events/${eventId}`);
+    expect(banner.ok).toBe(true);
+    if (banner.ok) {
+      expect(banner.value.source).toBe("ADMIN_DIRECT");
+      expect(banner.value.placement).toBe("TRADE_HOME");
+      expect(banner.value.destinationType).toBe("internal_page");
+      expect(banner.value.destinationUrl).toBe(`/events/${eventId}`);
     }
 
     const push = planPushDistributionAdapter({
@@ -133,12 +133,12 @@ describe("Phase 3 Distribution SSOT", () => {
       enabled: true,
       config: { title: "Hi", body: "Body" },
     });
-    expect("ok" in push).toBe(false);
-    if (!("ok" in push)) {
-      expect(push.campaignChannel).toBe("push_only");
-      expect(push.dispatchOnSave).toBe(false);
-      expect(push.saveAsDraft).toBe(true);
-      expect(push.deeplinkUrl).toBe(`/events/${eventId}`);
+    expect(push.ok).toBe(true);
+    if (push.ok) {
+      expect(push.value.campaignChannel).toBe("push_only");
+      expect(push.value.dispatchOnSave).toBe(false);
+      expect(push.value.saveAsDraft).toBe(true);
+      expect(push.value.deeplinkUrl).toBe(`/events/${eventId}`);
     }
 
     const bell = planBellDistributionAdapter({
@@ -147,10 +147,10 @@ describe("Phase 3 Distribution SSOT", () => {
       enabled: true,
       config: { title: "Bell", body: "In app" },
     });
-    expect("ok" in bell).toBe(false);
-    if (!("ok" in bell)) {
-      expect(bell.campaignChannel).toBe("in_app_only");
-      expect(bell.dispatchOnSave).toBe(false);
+    expect(bell.ok).toBe(true);
+    if (bell.ok) {
+      expect(bell.value.campaignChannel).toBe("in_app_only");
+      expect(bell.value.dispatchOnSave).toBe(false);
     }
   });
 

@@ -73,7 +73,7 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
 
   const { data: eventRow, error: eventErr } = await sb
     .from("platform_events")
-    .select("id, title")
+    .select("id, title, status, starts_at, ends_at")
     .eq("id", id)
     .maybeSingle();
   if (eventErr) {
@@ -97,16 +97,32 @@ export async function PUT(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
     banner: body.banner as never,
     push: body.push as never,
     bell: body.bell as never,
+    eventPublication: {
+      status: String((eventRow as { status?: string }).status ?? ""),
+      startsAt: (eventRow as { starts_at?: string | null }).starts_at ?? null,
+      endsAt: (eventRow as { ends_at?: string | null }).ends_at ?? null,
+    },
   });
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error ?? "partial_channel_failure",
+        channels: result.channels,
+        rows: result.rows,
+        pushDispatchCount: result.pushDispatchCount,
+        bellRecordCount: result.bellRecordCount,
+      },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({
     ok: true,
     toggles: distributionsToToggles(result.rows),
     rows: result.rows,
+    channels: result.channels,
     pushDispatchCount: result.pushDispatchCount,
     bellRecordCount: result.bellRecordCount,
   });

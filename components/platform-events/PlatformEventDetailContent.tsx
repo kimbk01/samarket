@@ -42,11 +42,13 @@ function SectionBlock({ section }: { section: PlatformEventSection }) {
     );
   }
   if (section.type === "image") {
+    const src = String(section.imageUrl ?? "").trim();
+    if (!/^https?:\/\//i.test(src)) return null;
     return (
       <figure className="overflow-hidden rounded-ui-rect">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={section.imageUrl}
+          src={src}
           alt={section.alt || ""}
           className="h-auto w-full object-cover"
         />
@@ -116,7 +118,7 @@ export function PlatformEventDetailContent({
       data-platform-event-detail="1"
       data-event-id={event.id}
     >
-      {event.heroImageUrl ? (
+      {event.heroImageUrl && /^https?:\/\//i.test(event.heroImageUrl) ? (
         <div className="overflow-hidden rounded-ui-rect bg-sam-surface">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
