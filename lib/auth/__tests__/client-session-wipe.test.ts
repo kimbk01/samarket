@@ -152,16 +152,27 @@ describe("wipeClientSessionState storage allowlist", () => {
     const { invalidateMeStoreOrdersHubSummaryCache } = await import(
       "@/lib/stores/store-delivery-api-client"
     );
+    const {
+      isTradeMarketplaceMemberBrowseReseedPending,
+      resetTradeMarketplaceAuthTransitionBrowseForTests,
+    } = await import("@/lib/trade/location/trade-marketplace-auth-transition-browse");
+    resetTradeMarketplaceAuthTransitionBrowseForTests();
 
     invalidateGuestCachesForFreshLogin();
 
     expect(vi.mocked(invalidateAppBootForAuthUpgrade)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(invalidateAppBootAll)).not.toHaveBeenCalled();
     expect(vi.mocked(invalidateMeStoreOrdersHubSummaryCache)).toHaveBeenCalledTimes(1);
+    expect(isTradeMarketplaceMemberBrowseReseedPending()).toBe(true);
   });
 
   it("clears ephemeral keys on account_switched same as user_logout", async () => {
     const { wipeClientSessionState } = await import("@/lib/auth/client-session-wipe");
+    const {
+      isTradeMarketplaceGuestAllAfterAuthExitPending,
+      resetTradeMarketplaceAuthTransitionBrowseForTests,
+    } = await import("@/lib/trade/location/trade-marketplace-auth-transition-browse");
+    resetTradeMarketplaceAuthTransitionBrowseForTests();
     local.setItem("dibay:user-a:scroll", "1");
     local.setItem("samarket:trade-write-form-local:cat1", "{}");
     local.setItem("kasama_store_commerce_cart_v1", "{}");
@@ -173,6 +184,7 @@ describe("wipeClientSessionState storage allowlist", () => {
     expect(local.getItem("kasama_store_commerce_cart_v1")).toBeNull();
     expect(local.getItem(APP_LANGUAGE_STORAGE_KEY)).toBe("ko");
     expect(clearBrowserCacheStorageBestEffort).toHaveBeenCalledTimes(1);
+    expect(isTradeMarketplaceGuestAllAfterAuthExitPending()).toBe(true);
   });
 
   it("shouldSkipSignedOutEventWipe after markExplicitLogoutWipeDone", async () => {

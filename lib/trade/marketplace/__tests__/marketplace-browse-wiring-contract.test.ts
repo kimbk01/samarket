@@ -174,6 +174,14 @@ describe("marketplace browse SSOT wiring contract", () => {
     expect(ssot).toContain("dibay-marketplace-trade-guest-location-hard-lock");
     const resolver = read("lib/trade/location/resolve-trade-marketplace-default-city.ts");
     expect(resolver).toContain("tradeMarketplaceHydrateScopeBeforeMasterResolution");
+    const bootRetry = read("lib/addresses/use-address-defaults-boot-retry.ts");
+    expect(bootRetry).toContain('boot.status === "anonymous"');
+    const hydrate = read("lib/trade/location/use-trade-marketplace-location-hydrate.ts");
+    expect(hydrate).toContain("isTradeMarketplaceGuestAllAfterAuthExitPending");
+    expect(hydrate).toContain("isTradeMarketplaceMemberBrowseReseedPending");
+    const wipe = read("lib/auth/client-session-wipe.ts");
+    expect(wipe).toContain("markTradeMarketplaceMemberBrowseReseed");
+    expect(wipe).toContain("markTradeMarketplaceGuestAllAfterAuthExit");
   });
 
   it("R1 — filter-only reset keeps q, location, category", () => {

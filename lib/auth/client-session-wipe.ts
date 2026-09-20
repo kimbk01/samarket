@@ -53,6 +53,10 @@ import {
   clearBrowserCacheStorageBestEffort,
   invalidateAuthExitClientCaches,
 } from "@/lib/auth/invalidate-auth-exit-client-caches";
+import {
+  markTradeMarketplaceGuestAllAfterAuthExit,
+  markTradeMarketplaceMemberBrowseReseed,
+} from "@/lib/trade/location/trade-marketplace-auth-transition-browse";
 import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-kakao-auth-plugin";
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
@@ -224,6 +228,7 @@ export function invalidateGuestCachesForFreshLogin(): void {
   /** CUT-B1 — drop guest hub_summary 401 negative cache so login can refetch. */
   invalidateMeStoreOrdersHubSummaryCache();
   resetSignupGateSessionFlags();
+  markTradeMarketplaceMemberBrowseReseed();
   dispatchTestAuthChanged();
 }
 
@@ -264,6 +269,7 @@ async function runWipeClientSessionState(
   clearBoundAuthUserId();
   clearEphemeralSessionStorage({ setPostLogoutGuard });
   if (reason === "user_logout" || reason === "account_switched") {
+    markTradeMarketplaceGuestAllAfterAuthExit();
     void import("@/lib/push/native/push-route-native-bridge").then(({ clearNativePersistedPendingPushRoute }) => {
       void clearNativePersistedPendingPushRoute({ force: true });
     });
