@@ -128,13 +128,24 @@ describe("CUT4 validation before approval", () => {
     if (!r.ok) expect(r.errors).toContain("suppression_duration_required");
   });
 
-  it("wrong aspect blocked", () => {
-    const r = validatePlatformPopupCampaignForApproval({
+  it("wrong Card aspect blocked; Artwork intrinsic aspect allowed", () => {
+    const cardBad = validatePlatformPopupCampaignForApproval({
       ...validSnap,
-      creative: { ...validSnap.creative!, aspectW: 16, aspectH: 9 },
+      creative: { ...validSnap.creative!, aspectW: 16, aspectH: 9, creativeMode: "card" },
     });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors).toContain("creative_aspect_invalid");
+    expect(cardBad.ok).toBe(false);
+    if (!cardBad.ok) expect(cardBad.errors).toContain("creative_aspect_invalid");
+
+    const artworkOk = validatePlatformPopupCampaignForApproval({
+      ...validSnap,
+      creative: {
+        ...validSnap.creative!,
+        aspectW: 716,
+        aspectH: 681,
+        creativeMode: "artwork",
+      },
+    });
+    expect(artworkOk.ok).toBe(true);
   });
 });
 

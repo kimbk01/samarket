@@ -35,6 +35,7 @@ import {
   type PlatformPopupFrequencyMode,
   type PlatformPopupInterruptivePresentation,
 } from "@/lib/platform-popup/presentation-contract";
+import { isPlatformPopupCreativeAspectValid } from "@/lib/platform-popup/creative-contract";
 import { isPopupCandidateCoordinatedAway } from "@/lib/platform-promotion-lifecycle/content-visit-eligibility";
 import type {
   PlatformPopupApprovalStatus,
@@ -150,9 +151,10 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
     const creative = c.creative;
     if (!creative || creative.status !== "ready") continue;
     const creativeMode = normalizePlatformPopupCreativeMode(creative.creativeMode);
-    if (creativeMode === "card") {
-      if (creative.aspectW !== 36 || creative.aspectH !== 25) continue;
-    } else if (!(creative.aspectW > 0 && creative.aspectH > 0)) {
+    // Same aspect authority as Admin approval (Artwork intrinsic / Card 36:25).
+    if (
+      !isPlatformPopupCreativeAspectValid(creative.aspectW, creative.aspectH, creativeMode)
+    ) {
       continue;
     }
 

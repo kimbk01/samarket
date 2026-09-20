@@ -450,7 +450,7 @@ export async function loadSnapshotForApproval(
     sb.from("platform_popup_campaign_surfaces").select("surface").eq("campaign_id", campaignId),
     sb
       .from("platform_popup_creatives")
-      .select("id, status, aspect_w, aspect_h, asset_path, asset_url")
+      .select("id, status, aspect_w, aspect_h, creative_mode, asset_path, asset_url")
       .eq("campaign_id", campaignId)
       .eq("status", "ready")
       .maybeSingle(),
@@ -476,6 +476,7 @@ export async function loadSnapshotForApproval(
           status: String((creative as { status: string }).status),
           aspectW: Number((creative as { aspect_w: number }).aspect_w),
           aspectH: Number((creative as { aspect_h: number }).aspect_h),
+          creativeMode: (creative as { creative_mode?: string | null }).creative_mode ?? null,
           assetPath: String((creative as { asset_path: string }).asset_path),
           assetUrl: (creative as { asset_url: string | null }).asset_url,
         }

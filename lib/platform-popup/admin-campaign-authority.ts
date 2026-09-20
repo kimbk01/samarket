@@ -37,6 +37,8 @@ export type PlatformPopupAdminCampaignSnapshot = {
     status: string;
     aspectW: number;
     aspectH: number;
+    /** Persisted creative_mode — Artwork vs Card aspect authority. */
+    creativeMode?: string | null;
     assetPath: string;
     assetUrl: string | null;
   } | null;
@@ -89,7 +91,13 @@ export function validatePlatformPopupCampaignForApproval(
     if (!snap.creative.assetPath.trim() && !String(snap.creative.assetUrl ?? "").trim()) {
       errors.push("creative_asset_missing");
     }
-    if (!isPlatformPopupCreativeAspectValid(snap.creative.aspectW, snap.creative.aspectH)) {
+    if (
+      !isPlatformPopupCreativeAspectValid(
+        snap.creative.aspectW,
+        snap.creative.aspectH,
+        snap.creative.creativeMode
+      )
+    ) {
       errors.push("creative_aspect_invalid");
     }
   }
