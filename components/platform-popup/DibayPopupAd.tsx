@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
+import { ArtworkModalPresentation } from "@/components/platform-popup/presentations/ArtworkModalPresentation";
+import { BottomPromotionSheetPresentation } from "@/components/platform-popup/presentations/BottomPromotionSheetPresentation";
+import { PromotionCardModalPresentation } from "@/components/platform-popup/presentations/PromotionCardModalPresentation";
 import type {
   PlatformPopupPresentationCreative,
   PlatformPopupPresentationCta,
@@ -10,11 +13,14 @@ import type {
 } from "@/lib/platform-popup/popup-presentation-types";
 import {
   PLATFORM_POPUP_BACKDROP_RGBA,
-  PLATFORM_POPUP_RADIUS_CLAMP,
   PLATFORM_POPUP_TABLET_MAX_WIDTH_PX,
   PLATFORM_POPUP_Z_CLASS,
 } from "@/lib/platform-popup/popup-geometry-tokens";
 import type { PlatformPopupInterruptivePresentation } from "@/lib/platform-popup/presentation-contract";
+import {
+  compositionIsSheet,
+  resolvePlatformPopupComposition,
+} from "@/lib/platform-popup/resolve-presentation-composition";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 
 export type DibayPopupAdProps = {
@@ -35,8 +41,9 @@ export type DibayPopupAdProps = {
 };
 
 /**
- * Canonical interruptive popup renderer (CENTER_MODAL | BOTTOM_SHEET).
- * Admin Preview and App Runtime MUST use this component.
+ * Interruptive promotion dispatcher.
+ * Shared: campaign/creative/CTA/frequency/suppression/analytics hooks via props.
+ * Geometry: Type A ArtworkModal | Type B PromotionCard | Type C BottomSheet.
  */
 export function DibayPopupAd({
   campaignId,
@@ -103,131 +110,53 @@ export function DibayPopupAd({
 
   if (imageFailed) return null;
 
-  const isCenter = presentationType === "center_modal";
-  const isArtwork = creative.creativeMode === "artwork";
-  const ctaLabel = cta.label?.trim() || null;
+  const composition = resolvePlatformPopupComposition({
+    presentationType,
+    creativeMode: creative.creativeMode,
+  });
+  const isSheet = compositionIsSheet(composition);
 
-  const cardStyle = {
+  const shared = {
+    campaignId,
+    surface,
+    creative,
+    cta,
+    suppressionOptions,
+    exposureId,
+    closeLabel,
+    todayLabel,
+    durationLabel,
+    campaignLabel,
+    creativeAria,
+    ctaAria,
+    titleId,
+    onClose,
+    onSuppress,
+    onCta,
+    onRenderComplete: markRenderComplete,
+    onImageError: () => setImageFailed(true),
+  };
+
+  const body =
+    composition === "artwork_modal" ? (
+      <ArtworkModalPresentation {...shared} />
+    ) : composition === "promotion_card_modal" ? (
+      <PromotionCardModalPresentation {...shared} />
+    ) : (
+      <BottomPromotionSheetPresentation {...shared} />
+    );
+
+  const shellStyle = {
     ["--platform-popup-backdrop" as string]: PLATFORM_POPUP_BACKDROP_RGBA,
     ["--platform-popup-tablet-max-width" as string]: `${PLATFORM_POPUP_TABLET_MAX_WIDTH_PX}px`,
-    ["--platform-popup-radius" as string]: PLATFORM_POPUP_RADIUS_CLAMP,
-    ...(isArtwork
-      ? {
-          ["--platform-popup-artwork-aspect" as string]: `${creative.aspectW} / ${creative.aspectH}`,
-        }
-      : {}),
-  } as CSSProperties;
-
-  const card = (
-    <div
-      className={[
-        "dibay-platform-popup-card",
-        isCenter ? "dibay-platform-popup-card--center" : "dibay-platform-popup-card--sheet",
-        isArtwork ? "dibay-platform-popup-card--artwork" : "dibay-platform-popup-card--card",
-      ].join(" ")}
-      style={cardStyle}
-      data-platform-popup-card="1"
-      data-presentation={presentationType}
-      data-creative-mode={creative.creativeMode}
-      data-campaign-id={campaignId}
-      data-creative-id={creative.id}
-      data-surface={surface}
-      data-exposure-id={exposureId}
-      aria-labelledby={titleId}
-    >
-      <button
-        type="button"
-        className="dibay-platform-popup-close-x"
-        data-platform-popup-dismiss="close"
-        aria-label={closeLabel}
-        id={titleId}
-        onClick={onClose}
-      >
-        <span aria-hidden="true">×</span>
-      </button>
-
-      <button
-        type="button"
-        className="dibay-platform-popup-creative"
-        data-platform-popup-creative="1"
-        aria-label={`${creativeAria}${creative.altText ? `: ${creative.altText}` : ""}`}
-        onClick={onCta}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- popup creative; no transform CDN */}
-        <img
-          src={creative.imageUrl}
-          alt={creative.altText || creativeAria}
-          className="dibay-platform-popup-creative__img"
-          draggable={false}
-          decoding="async"
-          onLoad={() => {
-            requestAnimationFrame(() => {
-              requestAnimationFrame(markRenderComplete);
-            });
-          }}
-          onError={() => setImageFailed(true)}
-        />
-      </button>
-
-      {ctaLabel ? (
-        <button
-          type="button"
-          className="dibay-platform-popup-cta"
-          data-platform-popup-cta="1"
-          onClick={onCta}
-        >
-          {ctaLabel}
-        </button>
-      ) : null}
-
-      {suppressionOptions.length > 0 ? (
-        <div
-          className="dibay-platform-popup-suppress-row"
-          role="group"
-          aria-label={closeLabel}
-          data-platform-popup-suppress-row="1"
-        >
-          {suppressionOptions.includes("TODAY") ? (
-            <button
-              type="button"
-              className="dibay-platform-popup-suppress-btn"
-              data-platform-popup-suppress="today"
-              onClick={() => onSuppress("TODAY")}
-            >
-              {todayLabel}
-            </button>
-          ) : null}
-          {suppressionOptions.includes("DURATION") ? (
-            <button
-              type="button"
-              className="dibay-platform-popup-suppress-btn"
-              data-platform-popup-suppress="duration"
-              onClick={() => onSuppress("DURATION")}
-            >
-              {durationLabel}
-            </button>
-          ) : null}
-          {suppressionOptions.includes("CAMPAIGN") ? (
-            <button
-              type="button"
-              className="dibay-platform-popup-suppress-btn"
-              data-platform-popup-suppress="campaign"
-              onClick={() => onSuppress("CAMPAIGN")}
-            >
-              {campaignLabel}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <span className="sr-only" aria-hidden={false}>
-        {ctaAria}: {cta.href}
-      </span>
-    </div>
-  );
+  };
 
   if (embedded) {
-    return <div className="dibay-platform-popup-embedded w-full">{card}</div>;
+    return (
+      <div className="dibay-promo-embedded w-full" style={shellStyle} data-composition={composition}>
+        {body}
+      </div>
+    );
   }
 
   return (
@@ -235,15 +164,16 @@ export function DibayPopupAd({
       open
       onClose={onClose}
       dismissible
-      placement={isCenter ? "center" : "sheet"}
-      sheetAnchor={isCenter ? undefined : "device-bottom"}
+      placement={isSheet ? "sheet" : "center"}
+      sheetAnchor={isSheet ? "device-bottom" : undefined}
       zIndexClass={PLATFORM_POPUP_Z_CLASS}
-      stageClassName={`dibay-platform-popup-root${isCenter ? " dibay-platform-popup-root--center" : ""}`}
+      stageClassName={`dibay-promo-root${isSheet ? "" : " dibay-promo-root--center"}`}
+      stageStyle={shellStyle}
       lockScroll
       ariaLabel={backdropAria}
       backdropVariant="dim-only"
     >
-      {card}
+      {body}
     </DibayOverlayRoot>
   );
 }

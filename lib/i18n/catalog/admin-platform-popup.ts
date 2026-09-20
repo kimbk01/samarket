@@ -25,10 +25,12 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_section_basic: "기본 정보",
     admin_platform_popup_section_presentation: "노출 방식",
     admin_platform_popup_presentation_type: "팝업 형태",
+    admin_platform_popup_presentation_pick_help:
+      "형태를 고르면 미리보기가 같은 렌더러로 바뀝니다.",
     admin_platform_popup_creative_mode: "소재 모드",
     admin_platform_popup_frequency_mode: "노출 빈도",
     admin_platform_popup_presentation_help:
-      "배너(인라인/히어로)는 다음 CUT. Push는 이 화면에서 자동 발송되지 않습니다.",
+      "배너(인라인/히어로)는 다음 CUT. Event Detail destination은 이후 Event CMS에서 연결합니다. Push는 자동 발송되지 않습니다.",
     admin_platform_popup_section_creative: "소재 (1440×1000 · 36:25)",
     admin_platform_popup_section_preview: "프로덕션 미리보기",
     admin_platform_popup_creative_ratio_help:
@@ -103,10 +105,12 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_section_basic: "Basic info",
     admin_platform_popup_section_presentation: "Presentation",
     admin_platform_popup_presentation_type: "Popup style",
+    admin_platform_popup_presentation_pick_help:
+      "Preview uses the same production renderer for the selected form.",
     admin_platform_popup_creative_mode: "Creative mode",
     admin_platform_popup_frequency_mode: "Frequency",
     admin_platform_popup_presentation_help:
-      "Banner (inline/hero) is next CUT. Push is never auto-sent from this screen.",
+      "Banner (inline/hero) is next CUT. Event Detail destination wires in a later Event CMS. Push is never auto-sent.",
     admin_platform_popup_section_creative: "Creative (1440×1000 · 36:25)",
     admin_platform_popup_section_preview: "Production preview",
     admin_platform_popup_creative_ratio_help:

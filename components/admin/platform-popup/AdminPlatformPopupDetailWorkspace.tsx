@@ -504,27 +504,67 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 fallbackEn: "Presentation",
               })}
             </h2>
-            <label className="block text-sm">
-              {safeT("admin_platform_popup_presentation_type", {
-                fallbackKo: "팝업 형태",
-                fallbackEn: "Popup style",
+            <p className="mb-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_presentation_pick_help", {
+                fallbackKo: "형태를 고르면 미리보기가 같은 렌더러로 바뀝니다.",
+                fallbackEn: "Preview uses the same production renderer for the selected form.",
               })}
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={presentationType}
-                onChange={(e) => {
-                  markDirty();
-                  setPresentationType(e.target.value as "center_modal" | "bottom_sheet");
-                }}
-              >
-                <option value="center_modal">
-                  {language === "en" ? "Center modal" : "중앙 모달"}
-                </option>
-                <option value="bottom_sheet">
-                  {language === "en" ? "Bottom sheet" : "하단 시트"}
-                </option>
-              </select>
-            </label>
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2" data-admin-popup-presentation-picker="1">
+              {(
+                [
+                  {
+                    value: "center_modal" as const,
+                    creativeHint: "artwork" as const,
+                    titleKo: "Artwork",
+                    titleEn: "Artwork",
+                    bodyKo: "투명 PNG · 캐릭터/상품 강조",
+                    bodyEn: "Transparent PNG · character/product emphasis",
+                  },
+                  {
+                    value: "center_modal" as const,
+                    creativeHint: "card" as const,
+                    titleKo: "Promotion Card",
+                    titleEn: "Promotion Card",
+                    bodyKo: "이미지 + 설명 + CTA 한 카드",
+                    bodyEn: "Image + copy + CTA as one card",
+                  },
+                  {
+                    value: "bottom_sheet" as const,
+                    creativeHint: "card" as const,
+                    titleKo: "Bottom Sheet",
+                    titleEn: "Bottom Sheet",
+                    bodyKo: "하단 프로모션 · compact 액션",
+                    bodyEn: "Bottom promotion · compact actions",
+                  },
+                ] as const
+              ).map((opt) => {
+                const selected =
+                  presentationType === opt.value &&
+                  (opt.value === "bottom_sheet" || creativeMode === opt.creativeHint);
+                return (
+                  <button
+                    key={`${opt.value}-${opt.creativeHint}`}
+                    type="button"
+                    className={`rounded border px-3 py-2 text-left text-sm ${
+                      selected ? "border-sam-fg bg-sam-fg/5" : "border-sam-border"
+                    }`}
+                    onClick={() => {
+                      markDirty();
+                      setPresentationType(opt.value);
+                      if (opt.value !== "bottom_sheet") setCreativeMode(opt.creativeHint);
+                    }}
+                  >
+                    <div className="font-semibold">
+                      {language === "en" ? opt.titleEn : opt.titleKo}
+                    </div>
+                    <div className="mt-0.5 text-xs text-sam-muted">
+                      {language === "en" ? opt.bodyEn : opt.bodyKo}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
             <label className="mt-3 block text-sm">
               {safeT("admin_platform_popup_creative_mode", {
                 fallbackKo: "소재 모드",
@@ -533,6 +573,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={creativeMode}
+                disabled={presentationType === "center_modal"}
                 onChange={(e) => {
                   markDirty();
                   setCreativeMode(e.target.value as "card" | "artwork");
@@ -576,9 +617,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <p className="mt-2 text-xs text-sam-muted">
               {safeT("admin_platform_popup_presentation_help", {
                 fallbackKo:
-                  "배너(인라인/히어로)는 다음 CUT. Push는 이 화면에서 자동 발송되지 않습니다.",
+                  "배너(인라인/히어로)는 다음 CUT. Event Detail destination은 이후 Event CMS에서 연결합니다. Push는 자동 발송되지 않습니다.",
                 fallbackEn:
-                  "Banner (inline/hero) is next CUT. Push is never auto-sent from this screen.",
+                  "Banner (inline/hero) is next CUT. Event Detail destination wires in a later Event CMS. Push is never auto-sent.",
               })}
             </p>
           </AdminCard>

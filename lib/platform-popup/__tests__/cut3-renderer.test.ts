@@ -100,16 +100,26 @@ describe("CUT3 geometry contract", () => {
   it("CSS supports CARD 36/25 and floating close X (presentation reopen)", () => {
     const css = readRepo("app/platform-popup.css");
     expect(css).toContain("aspect-ratio: 36 / 25");
-    expect(css).toContain(".dibay-platform-popup-close-x");
+    expect(css).toContain(".dibay-promo-close-x");
     expect(css).toContain("object-fit: contain");
     expect(css).not.toContain(".dibay-platform-popup-dismiss");
+    // Close gutter reserved inside frame — no negative right protrusion.
+    expect(css).toContain("padding-top: 52px");
+    expect(css).not.toMatch(/right:\s*-\d+px/);
+    // Sheet actions must not flex-grow into dead panel.
+    expect(css).toContain("dibay-promo-sheet__actions");
+    expect(css).toContain("flex: 0 0 auto; /* CRITICAL — no flex-grow dead panel */");
   });
 
   it("floating X close control present", () => {
-    const renderer = readRepo("components/platform-popup/DibayPopupAd.tsx");
-    expect(renderer).toContain('data-platform-popup-dismiss="close"');
-    expect(renderer).toContain("dibay-platform-popup-close-x");
-    expect(renderer).toContain('backdropVariant="dim-only"');
+    const chrome = readRepo("components/platform-popup/primitives/PopupChrome.tsx");
+    const dispatcher = readRepo("components/platform-popup/DibayPopupAd.tsx");
+    expect(chrome).toContain('data-platform-popup-dismiss="close"');
+    expect(chrome).toContain("dibay-promo-close-x");
+    expect(dispatcher).toContain('backdropVariant="dim-only"');
+    expect(dispatcher).toContain("ArtworkModalPresentation");
+    expect(dispatcher).toContain("PromotionCardModalPresentation");
+    expect(dispatcher).toContain("BottomPromotionSheetPresentation");
   });
 
   it("calibration tokens are declared", () => {
