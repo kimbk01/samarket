@@ -102,17 +102,17 @@ describe("CUT1 presentation reopen — rotation + home surface", () => {
     if (r.ok && r.winner) expect(r.winner.creativeMode).toBe("artwork");
   });
 
-  it("suppression UI does not always force TODAY", () => {
+  it("suppression UI default empty; frequency owns dismiss", () => {
     const sessionOpts = resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: "SESSION",
       frequencyMode: "once_per_session",
     });
-    expect(sessionOpts).not.toContain("TODAY");
+    expect(sessionOpts).toEqual([]);
 
     const legacyOpts = resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: "TODAY",
       frequencyMode: "close_only",
     });
-    expect(legacyOpts).toContain("TODAY");
+    expect(legacyOpts).toEqual([]);
   });
 });

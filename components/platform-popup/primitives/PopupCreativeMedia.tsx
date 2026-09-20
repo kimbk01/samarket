@@ -22,6 +22,7 @@ export function PopupCreativeMedia({
   onError,
 }: PopupCreativeMediaProps) {
   const isArtwork = composition === "artwork_modal";
+  const isBenefit = composition === "benefit_dialog";
   const style = (
     isArtwork
       ? {
@@ -35,7 +36,11 @@ export function PopupCreativeMedia({
       type="button"
       className={[
         "dibay-promo-creative",
-        isArtwork ? "dibay-promo-creative--artwork" : "dibay-promo-creative--card",
+        isArtwork
+          ? "dibay-promo-creative--artwork"
+          : isBenefit
+            ? "dibay-promo-creative--benefit"
+            : "dibay-promo-creative--card",
       ].join(" ")}
       style={style}
       data-platform-popup-creative="1"
@@ -49,11 +54,7 @@ export function PopupCreativeMedia({
         className="dibay-promo-creative__img"
         draggable={false}
         decoding="async"
-        onLoad={() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(onLoad);
-          });
-        }}
+        onLoad={onLoad}
         onError={onError}
       />
     </button>

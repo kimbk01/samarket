@@ -38,6 +38,8 @@ import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import { fetchPlatformPopupResolveDeduped } from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
+import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
+import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -415,8 +417,13 @@ export function GlobalPopupHost() {
   );
 
   const handleClose = useCallback(() => {
-    void suppress("CLOSE");
-  }, [suppress]);
+    if (!winner) {
+      void suppress("CLOSE");
+      return;
+    }
+    // X / ESC / backdrop → frequency policy suppress (Owner FINAL).
+    void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
+  }, [suppress, winner]);
 
   const handleSuppress = useCallback(
     (mode: PlatformPopupSuppressionMode) => {
@@ -440,6 +447,12 @@ export function GlobalPopupHost() {
       deviceKey,
     });
 
+    // CTA lifecycle: navigate then frequency-dismiss (re-entry prevention).
+    // Analytics: click ≠ dismiss; suppress write still follows frequency SSOT.
+    const dismissAfterCta = () => {
+      void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
+    };
+
     if (href.startsWith("/")) {
       router.push(href);
       void recordPlatformPopupEvent({
@@ -452,7 +465,7 @@ export function GlobalPopupHost() {
         deviceKey,
         meta: { href },
       });
-      handleClose();
+      dismissAfterCta();
       return;
     }
 
@@ -468,7 +481,7 @@ export function GlobalPopupHost() {
         deviceKey,
         meta: { href },
       });
-      handleClose();
+      dismissAfterCta();
     } catch {
       void recordPlatformPopupEvent({
         campaignId: winner.campaignId,
@@ -481,9 +494,10 @@ export function GlobalPopupHost() {
         meta: { href },
       });
     }
-  }, [winner, exposureId, router, handleClose, deviceKey]);
+  }, [winner, exposureId, router, suppress, deviceKey]);
 
-  const handleRenderComplete = useCallback(() => {
+  /** IMPRESSION only — never frequency suppress. */
+  const handleImpression = useCallback(() => {
     if (!winner || !exposureId) return;
     void recordPlatformPopupEvent({
       campaignId: winner.campaignId,
@@ -494,39 +508,47 @@ export function GlobalPopupHost() {
       exposureId,
       deviceKey,
     });
-
-    // Frequency cap: auto-suppress after impression (not CLOSE-only legacy).
-    const autoMode =
-      winner.frequencyMode === "once_per_session"
-        ? "SESSION"
-        : winner.frequencyMode === "once_per_day"
-          ? "TODAY"
-          : winner.frequencyMode === "once_campaign"
-            ? "CAMPAIGN"
-            : null;
-    if (!autoMode) return;
-    void fetch("/api/platform-popup/suppress", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        campaignId: winner.campaignId,
-        mode: autoMode,
-        sessionKey: appSessionId,
-        deviceKey,
-      }),
-    }).then(async (res) => {
-      if (!res.ok) {
-        console.error("[GlobalPopupHost] frequency_suppress_failed", await res.text());
-      }
-    });
-  }, [winner, exposureId, deviceKey, appSessionId]);
+  }, [winner, exposureId, deviceKey]);
 
   const handleImageError = useCallback(() => {
     invalidateVisible();
   }, [invalidateVisible]);
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
+
+  /**
+   * Android Back → same dismiss SSOT as X (scoped while VISIBLE).
+   * Do NOT register on DibayOverlayRoot — host owns lifecycle + cleanup.
+   */
+  useEffect(() => {
+    if (!showPresentation || !winner) return;
+    if (resolveCapacitorShellPlatform() !== "android") return;
+
+    let removed = false;
+    let handle: { remove: () => void | Promise<void> } | null = null;
+
+    void import("@capacitor/app")
+      .then(({ App }) =>
+        App.addListener("backButton", () => {
+          void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
+        })
+      )
+      .then((h) => {
+        if (removed) {
+          void h.remove();
+          return;
+        }
+        handle = h;
+      })
+      .catch(() => {
+        /* web / missing plugin — ESC/X still work */
+      });
+
+    return () => {
+      removed = true;
+      void handle?.remove();
+    };
+  }, [showPresentation, winner, suppress]);
 
   return (
     <div
@@ -549,7 +571,7 @@ export function GlobalPopupHost() {
           onClose={handleClose}
           onSuppress={handleSuppress}
           onCta={handleCta}
-          onRenderComplete={handleRenderComplete}
+          onImpression={handleImpression}
           onImageError={handleImageError}
         />
       ) : null}

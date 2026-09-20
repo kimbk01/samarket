@@ -1,14 +1,8 @@
 /**
- * DIBAY Promotion Presentation — Type A / B / C geometry (Owner reopen).
+ * DIBAY Promotion Presentation — Type A / B / C / D geometry.
  *
- * FIRST DIVERGENCE (68baceeb Owner screenshot):
- * 1) Close X used negative `right` on full-bleed card + root overflow-x:hidden → circle clipped.
- * 2) Single white card wrapped image + suppress → giant footer panel (not content-driven).
- *
- * Fix ownership:
- * - Floating X lives in FRAME gutter (padding reserved), never outside clip container.
- * - Bottom sheet uses compact action row (no flex-grow, no min giant panel).
- * - Modal cards are content-height; sheet height follows content.
+ * Chrome budget (Owner FINAL): floating X primary; suppress footer DEFAULT none.
+ * Impression ≠ suppress (host dismiss SSOT).
  */
 
 /* ── Overlay stage ─────────────────────────────────────────── */
@@ -207,6 +201,7 @@
 /* ── TYPE C — Bottom promotion sheet ───────────────────────── */
 
 .dibay-promo-sheet {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto; /* never grow into empty viewport space */
@@ -217,6 +212,56 @@
   background: #fff;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.14);
   overflow: hidden;
+}
+
+.dibay-promo-close-x--sheet {
+  top: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+/* ── TYPE D — Benefit dialog ───────────────────────────────── */
+
+.dibay-promo-frame--benefit-dialog {
+  max-width: min(92vw, 360px);
+}
+
+.dibay-promo-benefit {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.dibay-promo-creative--benefit {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dibay-promo-creative--benefit .dibay-promo-creative__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+  background: #f8fafc;
+}
+
+.dibay-promo-benefit__copy {
+  margin: 12px 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0f172a;
+  text-align: center;
+}
   transform: translateY(100%);
   transition: transform var(--overlay-motion-enter, 200ms) ease-out;
 }
@@ -306,7 +351,8 @@
 /* ── Motion / reduced ──────────────────────────────────────── */
 
 .dibay-promo-frame--artwork-modal,
-.dibay-promo-frame--promotion-card {
+.dibay-promo-frame--promotion-card,
+.dibay-promo-frame--benefit-dialog {
   transform: scale(0.96);
   opacity: 0;
   transition:
@@ -315,13 +361,15 @@
 }
 
 .dibay-promo-root[data-entered="true"] .dibay-promo-frame--artwork-modal,
-.dibay-promo-root[data-entered="true"] .dibay-promo-frame--promotion-card {
+.dibay-promo-root[data-entered="true"] .dibay-promo-frame--promotion-card,
+.dibay-promo-root[data-entered="true"] .dibay-promo-frame--benefit-dialog {
   transform: scale(1);
   opacity: 1;
 }
 
 .dibay-promo-embedded .dibay-promo-frame--artwork-modal,
 .dibay-promo-embedded .dibay-promo-frame--promotion-card,
+.dibay-promo-embedded .dibay-promo-frame--benefit-dialog,
 .dibay-promo-embedded .dibay-promo-sheet {
   transform: none;
   opacity: 1;
@@ -330,7 +378,8 @@
 @media (prefers-reduced-motion: reduce) {
   .dibay-promo-sheet,
   .dibay-promo-frame--artwork-modal,
-  .dibay-promo-frame--promotion-card {
+  .dibay-promo-frame--promotion-card,
+  .dibay-promo-frame--benefit-dialog {
     transition: none;
     transform: none;
     opacity: 1;

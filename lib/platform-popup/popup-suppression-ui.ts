@@ -1,6 +1,11 @@
 /**
  * Derive renderer suppression UI options from campaign policy.
- * Do NOT always offer TODAY — frequency/suppression policy decides.
+ *
+ * OWNER FINAL (2026-09-20): DEFAULT chrome = floating X only.
+ * Frequency policy executes on dismiss — no "don't show today" footer by default.
+ *
+ * Explicit suppress chrome is opt-in only (DURATION legacy / future Admin flag).
+ * Do NOT surface TODAY/CAMPAIGN buttons when frequency_mode already owns suppress.
  */
 
 import type { PlatformPopupPresentationSuppressionOption } from "@/lib/platform-popup/popup-presentation-types";
@@ -14,20 +19,25 @@ export function resolvePlatformPopupPresentationSuppressionOptions(input: {
   suppressionMode: PlatformPopupSuppressionMode | string;
   suppressionDurationSeconds?: number | null;
   frequencyMode?: PlatformPopupFrequencyMode | string | null;
+  /** Opt-in only — default interruptive presentations must leave this false/undefined. */
+  allowExplicitSuppressChrome?: boolean;
 }): PlatformPopupPresentationSuppressionOption[] {
+  if (!input.allowExplicitSuppressChrome) {
+    return [];
+  }
+
   const modes = new Set<PlatformPopupPresentationSuppressionOption>();
   const frequency = normalizePlatformPopupFrequencyMode(input.frequencyMode);
   const policy = String(input.suppressionMode ?? "").trim().toUpperCase();
   const duration = input.suppressionDurationSeconds;
 
-  if (policy === "TODAY") modes.add("TODAY");
-  if (policy === "CAMPAIGN") modes.add("CAMPAIGN");
+  // Explicit chrome only for DURATION snooze when Admin opted in.
   if (policy === "DURATION" && duration != null && duration > 0) {
     modes.add("DURATION");
   }
 
-  // Legacy close_only: keep optional "don't show today" when Admin left TODAY policy.
-  if (frequency === "close_only" && policy !== "CAMPAIGN" && policy !== "DURATION") {
+  // close_only + opt-in may still offer TODAY as a secondary control.
+  if (frequency === "close_only" && policy === "TODAY") {
     modes.add("TODAY");
   }
 

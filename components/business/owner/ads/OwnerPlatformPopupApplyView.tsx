@@ -492,7 +492,7 @@ export function OwnerPlatformPopupApplyView() {
               onClose={() => {}}
               onSuppress={() => {}}
               onCta={() => {}}
-              onRenderComplete={() => {}}
+              onImpression={() => {}}
               onImageError={() => {}}
             />
           ) : (

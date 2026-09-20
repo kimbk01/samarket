@@ -163,7 +163,8 @@ describe("CUT3 presentation payload", () => {
     expect(presentation?.creative.imageUrl).toContain("platform-popup-creatives");
     expect(presentation?.creative.aspectW).toBe(36);
     expect(presentation?.creative.creativeMode).toBe("card");
-    expect(presentation?.suppressionOptions).toContain("TODAY");
+    // Owner FINAL: default chrome = X only (frequency owns suppress on dismiss).
+    expect(presentation?.suppressionOptions).toEqual([]);
   });
 
   it("fail closed when creative URL missing", () => {
@@ -184,14 +185,13 @@ describe("CUT3 presentation payload", () => {
     expect(presentation).toBeNull();
   });
 
-  it("TODAY offered when policy TODAY; CAMPAIGN when policy CAMPAIGN", () => {
+  it("default suppression options empty even when legacy TODAY policy set", () => {
     const opts = resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: "CAMPAIGN",
       suppressionDurationSeconds: null,
       frequencyMode: "once_campaign",
     });
-    expect(opts).toContain("CAMPAIGN");
-    expect(opts).not.toContain("TODAY");
+    expect(opts).toEqual([]);
   });
 });
 

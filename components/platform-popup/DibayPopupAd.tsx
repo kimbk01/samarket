@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 import { ArtworkModalPresentation } from "@/components/platform-popup/presentations/ArtworkModalPresentation";
+import { BenefitDialogPresentation } from "@/components/platform-popup/presentations/BenefitDialogPresentation";
 import { BottomPromotionSheetPresentation } from "@/components/platform-popup/presentations/BottomPromotionSheetPresentation";
 import { PromotionCardModalPresentation } from "@/components/platform-popup/presentations/PromotionCardModalPresentation";
 import type {
@@ -36,14 +37,15 @@ export type DibayPopupAdProps = {
   onClose: () => void;
   onSuppress: (mode: PlatformPopupSuppressionMode) => void;
   onCta: () => void;
-  onRenderComplete: () => void;
+  /** Stable visible presentation — IMPRESSION only (never suppress). */
+  onImpression: () => void;
   onImageError: () => void;
 };
 
 /**
  * Interruptive promotion dispatcher.
  * Shared: campaign/creative/CTA/frequency/suppression/analytics hooks via props.
- * Geometry: Type A ArtworkModal | Type B PromotionCard | Type C BottomSheet.
+ * Geometry: A Artwork | B Card | C Sheet | D Benefit Dialog.
  */
 export function DibayPopupAd({
   campaignId,
@@ -57,12 +59,14 @@ export function DibayPopupAd({
   onClose,
   onSuppress,
   onCta,
-  onRenderComplete,
+  onImpression,
   onImageError,
 }: DibayPopupAdProps) {
   const { safeT } = useI18n();
   const titleId = useId();
-  const renderCompleteRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const impressionSentRef = useRef(false);
+  const [mediaReady, setMediaReady] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
   const closeLabel = safeT("platform_popup_dismiss_close", {
@@ -94,19 +98,66 @@ export function DibayPopupAd({
     fallbackEn: "Close",
   });
 
-  const markRenderComplete = useCallback(() => {
-    if (renderCompleteRef.current) return;
-    renderCompleteRef.current = true;
-    onRenderComplete();
-  }, [onRenderComplete]);
+  const markMediaReady = useCallback(() => {
+    setMediaReady(true);
+  }, []);
 
   useEffect(() => {
     if (imageFailed) onImageError();
   }, [imageFailed, onImageError]);
 
   useEffect(() => {
-    renderCompleteRef.current = false;
+    impressionSentRef.current = false;
+    setMediaReady(false);
+    setImageFailed(false);
   }, [exposureId, campaignId, creative.id]);
+
+  /**
+   * IMPRESSION authority:
+   * Host mounts only in VISIBLE. Media-ready is a gate (not suppress trigger).
+   * Two paint frames after media (+ document visible) → IMPRESSION only.
+   */
+  useEffect(() => {
+    if (!mediaReady || imageFailed || impressionSentRef.current) return;
+
+    let raf1 = 0;
+    let raf2 = 0;
+    let cancelled = false;
+
+    const fire = () => {
+      if (cancelled || impressionSentRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      impressionSentRef.current = true;
+      onImpression();
+    };
+
+    const schedulePaint = () => {
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(fire);
+      });
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") schedulePaint();
+    };
+
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      document.addEventListener("visibilitychange", onVis);
+      return () => {
+        cancelled = true;
+        document.removeEventListener("visibilitychange", onVis);
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
+    }
+
+    schedulePaint();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [mediaReady, imageFailed, onImpression, exposureId]);
 
   if (imageFailed) return null;
 
@@ -133,7 +184,7 @@ export function DibayPopupAd({
     onClose,
     onSuppress,
     onCta,
-    onRenderComplete: markRenderComplete,
+    onMediaReady: markMediaReady,
     onImageError: () => setImageFailed(true),
   };
 
@@ -142,6 +193,8 @@ export function DibayPopupAd({
       <ArtworkModalPresentation {...shared} />
     ) : composition === "promotion_card_modal" ? (
       <PromotionCardModalPresentation {...shared} />
+    ) : composition === "benefit_dialog" ? (
+      <BenefitDialogPresentation {...shared} />
     ) : (
       <BottomPromotionSheetPresentation {...shared} />
     );
@@ -153,27 +206,34 @@ export function DibayPopupAd({
 
   if (embedded) {
     return (
-      <div className="dibay-promo-embedded w-full" style={shellStyle} data-composition={composition}>
+      <div
+        ref={rootRef}
+        className="dibay-promo-embedded w-full"
+        style={shellStyle}
+        data-composition={composition}
+      >
         {body}
       </div>
     );
   }
 
   return (
-    <DibayOverlayRoot
-      open
-      onClose={onClose}
-      dismissible
-      placement={isSheet ? "sheet" : "center"}
-      sheetAnchor={isSheet ? "device-bottom" : undefined}
-      zIndexClass={PLATFORM_POPUP_Z_CLASS}
-      stageClassName={`dibay-promo-root${isSheet ? "" : " dibay-promo-root--center"}`}
-      stageStyle={shellStyle}
-      lockScroll
-      ariaLabel={backdropAria}
-      backdropVariant="dim-only"
-    >
-      {body}
-    </DibayOverlayRoot>
+    <div ref={rootRef} data-composition={composition} data-platform-popup-impression-root="1">
+      <DibayOverlayRoot
+        open
+        onClose={onClose}
+        dismissible
+        placement={isSheet ? "sheet" : "center"}
+        sheetAnchor={isSheet ? "device-bottom" : undefined}
+        zIndexClass={PLATFORM_POPUP_Z_CLASS}
+        stageClassName={`dibay-promo-root${isSheet ? "" : " dibay-promo-root--center"}`}
+        stageStyle={shellStyle}
+        lockScroll
+        ariaLabel={backdropAria}
+        backdropVariant="dim-only"
+      >
+        {body}
+      </DibayOverlayRoot>
+    </div>
   );
 }

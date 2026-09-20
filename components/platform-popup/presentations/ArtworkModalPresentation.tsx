@@ -26,7 +26,7 @@ export type ArtworkModalProps = {
   onClose: () => void;
   onSuppress: (mode: PlatformPopupSuppressionMode) => void;
   onCta: () => void;
-  onRenderComplete: () => void;
+  onMediaReady: () => void;
   onImageError: () => void;
 };
 
@@ -34,6 +34,7 @@ export type ArtworkModalProps = {
  * TYPE A — Artwork modal (Baemin reference #1).
  * Floating X in reserved frame gutter (never clipped).
  * Transparent artwork may visually sit above a compact content card.
+ * Default chrome: X only (no suppress footer).
  */
 export function ArtworkModalPresentation({
   campaignId,
@@ -52,7 +53,7 @@ export function ArtworkModalPresentation({
   onClose,
   onSuppress,
   onCta,
-  onRenderComplete,
+  onMediaReady,
   onImageError,
 }: ArtworkModalProps) {
   const ctaLabel = cta.label?.trim() || null;
@@ -82,7 +83,7 @@ export function ArtworkModalPresentation({
           creative={creative}
           ariaLabel={creativeAria}
           onCta={onCta}
-          onLoad={onRenderComplete}
+          onLoad={onMediaReady}
           onError={onImageError}
         />
         {(ctaLabel || suppressionOptions.length > 0) && (

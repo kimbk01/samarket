@@ -26,15 +26,14 @@ export type PromotionCardModalProps = {
   onClose: () => void;
   onSuppress: (mode: PlatformPopupSuppressionMode) => void;
   onCta: () => void;
-  onRenderComplete: () => void;
+  onMediaReady: () => void;
   onImageError: () => void;
 };
 
 /**
  * TYPE B — Promotion card modal (Baemin reference #2).
  * Image + optional body slot + CTA = one visual card.
- * Floating X lives in frame gutter outside the card (never clipped by card overflow).
- * Body slot reserved for future EVENT_DETAIL / coupon blocks (no CMS yet).
+ * Floating X in frame gutter. Default chrome: X only.
  */
 export function PromotionCardModalPresentation({
   campaignId,
@@ -53,7 +52,7 @@ export function PromotionCardModalPresentation({
   onClose,
   onSuppress,
   onCta,
-  onRenderComplete,
+  onMediaReady,
   onImageError,
 }: PromotionCardModalProps) {
   const ctaLabel = cta.label?.trim() || null;
@@ -83,10 +82,9 @@ export function PromotionCardModalPresentation({
           creative={creative}
           ariaLabel={creativeAria}
           onCta={onCta}
-          onLoad={onRenderComplete}
+          onLoad={onMediaReady}
           onError={onImageError}
         />
-        {/* Body slot: EVENT_DETAIL / coupon / copy blocks mount here when content exists. */}
         {ctaLabel ? (
           <button
             type="button"

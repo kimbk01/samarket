@@ -90,9 +90,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [selectedSurfaces, setSelectedSurfaces] = useState<PlatformPopupTargetSurface[]>(["GLOBAL"]);
   const [suppressionMode, setSuppressionMode] = useState("SESSION");
   const [durationSec, setDurationSec] = useState<number | "">("");
-  const [presentationType, setPresentationType] = useState<"center_modal" | "bottom_sheet">(
-    "center_modal"
-  );
+  const [presentationType, setPresentationType] = useState<
+    "center_modal" | "bottom_sheet" | "benefit_dialog"
+  >("center_modal");
   const [frequencyMode, setFrequencyMode] = useState("once_per_session");
   const [creativeMode, setCreativeMode] = useState<"card" | "artwork">("card");
   const [ctaType, setCtaType] = useState("internal_page");
@@ -120,7 +120,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
     setPresentationType(
-      c.presentationType === "bottom_sheet" ? "bottom_sheet" : "center_modal"
+      c.presentationType === "bottom_sheet"
+        ? "bottom_sheet"
+        : c.presentationType === "benefit_dialog"
+          ? "benefit_dialog"
+          : "center_modal"
     );
     setFrequencyMode(c.frequencyMode || "once_per_session");
     setCreativeMode(c.creative?.creativeMode === "artwork" ? "artwork" : "card");
@@ -534,14 +538,24 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     creativeHint: "card" as const,
                     titleKo: "Bottom Sheet",
                     titleEn: "Bottom Sheet",
-                    bodyKo: "하단 프로모션 · compact 액션",
-                    bodyEn: "Bottom promotion · compact actions",
+                    bodyKo: "하단 프로모션 · floating X",
+                    bodyEn: "Bottom promotion · floating X",
+                  },
+                  {
+                    value: "benefit_dialog" as const,
+                    creativeHint: "card" as const,
+                    titleKo: "Benefit Dialog",
+                    titleEn: "Benefit Dialog",
+                    bodyKo: "혜택 설명 · compact dialog",
+                    bodyEn: "Benefit explanation · compact dialog",
                   },
                 ] as const
               ).map((opt) => {
                 const selected =
                   presentationType === opt.value &&
-                  (opt.value === "bottom_sheet" || creativeMode === opt.creativeHint);
+                  (opt.value === "bottom_sheet" ||
+                    opt.value === "benefit_dialog" ||
+                    creativeMode === opt.creativeHint);
                 return (
                   <button
                     key={`${opt.value}-${opt.creativeHint}`}
@@ -552,7 +566,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     onClick={() => {
                       markDirty();
                       setPresentationType(opt.value);
-                      if (opt.value !== "bottom_sheet") setCreativeMode(opt.creativeHint);
+                      setCreativeMode(opt.creativeHint);
                     }}
                   >
                     <div className="font-semibold">
@@ -573,7 +587,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={creativeMode}
-                disabled={presentationType === "center_modal"}
+                disabled={
+                  presentationType === "center_modal" || presentationType === "benefit_dialog"
+                }
                 onChange={(e) => {
                   markDirty();
                   setCreativeMode(e.target.value as "card" | "artwork");

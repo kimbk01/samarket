@@ -220,7 +220,7 @@ export function OwnerPlatformPopupRequestDetailView() {
               onClose={() => {}}
               onSuppress={() => {}}
               onCta={() => {}}
-              onRenderComplete={() => {}}
+              onImpression={() => {}}
               onImageError={() => {}}
             />
           </div>

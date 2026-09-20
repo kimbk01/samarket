@@ -38,9 +38,10 @@ describe("presentation composition resolution", () => {
     ).toBe("bottom_promotion_sheet");
   });
 
-  it("floating close only on modal compositions", () => {
+  it("floating close on all interruptive compositions (X-only chrome)", () => {
     expect(compositionUsesFloatingClose("artwork_modal")).toBe(true);
     expect(compositionUsesFloatingClose("promotion_card_modal")).toBe(true);
-    expect(compositionUsesFloatingClose("bottom_promotion_sheet")).toBe(false);
+    expect(compositionUsesFloatingClose("bottom_promotion_sheet")).toBe(true);
+    expect(compositionUsesFloatingClose("benefit_dialog")).toBe(true);
   });
 });

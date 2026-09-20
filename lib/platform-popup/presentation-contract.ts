@@ -7,6 +7,7 @@
 export const PLATFORM_POPUP_PRESENTATION_TYPES = [
   "center_modal",
   "bottom_sheet",
+  "benefit_dialog",
   "inline_banner",
   "hero_banner",
 ] as const;
@@ -16,6 +17,7 @@ export type PlatformPopupPresentationType = (typeof PLATFORM_POPUP_PRESENTATION_
 export const PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS = [
   "center_modal",
   "bottom_sheet",
+  "benefit_dialog",
 ] as const;
 export type PlatformPopupInterruptivePresentation =
   (typeof PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS)[number];
@@ -82,8 +84,9 @@ export function normalizePlatformPopupFrequencyMode(
 }
 
 /**
- * After a successful impression, which suppression mode (if any) is written automatically.
- * close_only = legacy; user must pick TODAY/CAMPAIGN themselves.
+ * @deprecated Owner FINAL — suppress on DISMISS, not impression.
+ * Use `frequencyModeToDismissSuppressMode` from `dismiss-ssot.ts`.
+ * Kept as thin alias for call-site migration; returns null for close_only.
  */
 export function frequencyModeToAutoSuppressMode(
   frequency: PlatformPopupFrequencyMode

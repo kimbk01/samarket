@@ -68,7 +68,7 @@ describe("CUT4 Admin routes + preview authority", () => {
     const preview = readRepo("components/admin/platform-popup/AdminPlatformPopupPreview.tsx");
     expect(preview).toContain('from "@/components/platform-popup/DibayPopupAd"');
     expect(preview).toContain("embedded");
-    expect(preview).toContain("onRenderComplete={() => {");
+    expect(preview).toContain("onImpression={() => {");
     expect(preview).not.toContain("recordPlatformPopupEvent");
     expect(preview).not.toContain("AdminBannerPreview");
   });

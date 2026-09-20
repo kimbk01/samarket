@@ -9,7 +9,7 @@ import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import { PopupCloseControl, PopupSuppressActions } from "@/components/platform-popup/primitives/PopupChrome";
 import { PopupCreativeMedia } from "@/components/platform-popup/primitives/PopupCreativeMedia";
 
-export type BottomPromotionSheetProps = {
+export type BenefitDialogProps = {
   campaignId: string;
   surface: string;
   creative: PlatformPopupPresentationCreative;
@@ -31,11 +31,10 @@ export type BottomPromotionSheetProps = {
 };
 
 /**
- * TYPE C — Bottom promotion sheet.
- * Content-driven height. Floating X (no giant suppress footer).
- * Optional suppress actions only when Admin opted into explicit chrome.
+ * TYPE D — Benefit / coupon dialog (Coupang-style compact dialog).
+ * Centered card · optional creative · primary CTA · floating X · no suppress footer by default.
  */
-export function BottomPromotionSheetPresentation({
+export function BenefitDialogPresentation({
   campaignId,
   surface,
   creative,
@@ -54,16 +53,16 @@ export function BottomPromotionSheetPresentation({
   onCta,
   onMediaReady,
   onImageError,
-}: BottomPromotionSheetProps) {
+}: BenefitDialogProps) {
   const ctaLabel = cta.label?.trim() || null;
-  const hasSuppress = suppressionOptions.length > 0;
+  const alt = creative.altText?.trim() || null;
 
   return (
     <div
-      className="dibay-promo-sheet"
+      className="dibay-promo-frame dibay-promo-frame--benefit-dialog"
       data-platform-popup-card="1"
-      data-composition="bottom_promotion_sheet"
-      data-presentation="bottom_sheet"
+      data-composition="benefit_dialog"
+      data-presentation="benefit_dialog"
       data-creative-mode={creative.creativeMode}
       data-campaign-id={campaignId}
       data-creative-id={creative.id}
@@ -75,31 +74,29 @@ export function BottomPromotionSheetPresentation({
         variant="floating"
         label={closeLabel}
         onClose={onClose}
-        className="dibay-promo-close-x--sheet"
+        className="dibay-promo-close-x--frame"
       />
-      <div className="dibay-promo-sheet__content" id={titleId}>
+      <div className="dibay-promo-benefit" id={titleId}>
         <PopupCreativeMedia
-          composition="bottom_promotion_sheet"
+          composition="benefit_dialog"
           creative={creative}
           ariaLabel={creativeAria}
           onCta={onCta}
           onLoad={onMediaReady}
           onError={onImageError}
         />
+        {alt ? <p className="dibay-promo-benefit__copy">{alt}</p> : null}
         {ctaLabel ? (
           <button
             type="button"
-            className="dibay-promo-cta dibay-promo-cta--in-sheet"
+            className="dibay-promo-cta dibay-promo-cta--in-card"
             data-platform-popup-cta="1"
             onClick={onCta}
           >
             {ctaLabel}
           </button>
         ) : null}
-      </div>
-
-      {hasSuppress ? (
-        <div className="dibay-promo-sheet__actions" data-promo-sheet-actions="1">
+        {suppressionOptions.length > 0 ? (
           <PopupSuppressActions
             options={suppressionOptions}
             todayLabel={todayLabel}
@@ -109,9 +106,8 @@ export function BottomPromotionSheetPresentation({
             onSuppress={onSuppress}
             tone="on-light"
           />
-        </div>
-      ) : null}
-
+        ) : null}
+      </div>
       <span className="sr-only">
         {ctaAria}: {cta.href}
       </span>

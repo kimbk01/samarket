@@ -98,15 +98,16 @@ describe("platform popup product completion — surface + suppression", () => {
     expect(surfacesFromAdminTargetMode("TRADE")).toEqual(["TRADE"]);
   });
 
-  it("CLOSE != SESSION in UX mapping", () => {
+  it("CLOSE control primary; frequency owns dismiss; default no footer buttons", () => {
     const m = resolvePlatformPopupSuppressionUxMapping({
       suppressionMode: "TODAY",
       suppressionDurationSeconds: null,
+      frequencyMode: "once_per_day",
     });
-    expect(m.closeEqualsSession).toBe(false);
-    expect(m.closePersists).toBe(false);
+    expect(m.closeControlPrimary).toBe(true);
+    expect(m.dismissWrites).toBe("TODAY");
+    expect(m.userFacingButtons).toEqual([]);
     expect(m.todayCalendar).toBe("Asia/Manila_local_day_end");
-    expect(m.userFacingButtons).toContain("TODAY");
   });
 });
 

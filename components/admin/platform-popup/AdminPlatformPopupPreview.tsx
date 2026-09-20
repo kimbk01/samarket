@@ -49,7 +49,11 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
   const winner: PlatformPopupPresentationWinner | null = useMemo(() => {
     if (!source?.imageUrl) return null;
     const presentationType = (
-      source.presentationType === "bottom_sheet" ? "bottom_sheet" : "center_modal"
+      source.presentationType === "bottom_sheet"
+        ? "bottom_sheet"
+        : source.presentationType === "benefit_dialog"
+          ? "benefit_dialog"
+          : "center_modal"
     ) as PlatformPopupInterruptivePresentation;
     const frequencyMode = normalizePlatformPopupFrequencyMode(source.frequencyMode);
     const creativeMode = normalizePlatformPopupCreativeMode(source.creativeMode);
@@ -158,7 +162,7 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
                 onClose={() => undefined}
                 onSuppress={(_mode: PlatformPopupSuppressionMode) => undefined}
                 onCta={() => undefined}
-                onRenderComplete={() => {
+                onImpression={() => {
                   /* preview must NOT emit production impression */
                 }}
                 onImageError={() => undefined}
