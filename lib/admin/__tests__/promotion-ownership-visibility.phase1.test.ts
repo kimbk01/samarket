@@ -81,7 +81,7 @@ describe("Phase 1 promotion ownership visibility", () => {
         creativeMode: "artwork",
         lang: "ko",
       })
-    ).toBe("아트워크");
+    ).toBe("아트워크 팝업");
     expect(
       resolvePopupListCompositionLabel({
         presentationType: "center_modal",
@@ -95,14 +95,14 @@ describe("Phase 1 promotion ownership visibility", () => {
         creativeMode: "card",
         lang: "ko",
       })
-    ).toBe("하단 시트");
+    ).toBe("하단 프로모션 시트");
     expect(
       resolvePopupListCompositionLabel({
         presentationType: "benefit_dialog",
         creativeMode: "card",
         lang: "ko",
       })
-    ).toBe("혜택 다이얼로그");
+    ).toBe("혜택/쿠폰 다이얼로그");
   });
 
   it("Benefit dependency hints without collapsing to Card", () => {
@@ -211,7 +211,7 @@ describe("Phase 1 promotion ownership visibility", () => {
     expect(promotionAdminActionLabel("PAUSE_STOP", "ko")).toBe("노출 중지");
     expect(promotionAdminActionLabel("SEND_PUSH", "ko")).toBe("Push 보내기");
     expect(PROMOTION_ADMIN_ACTION_META.ACTIVATE.customerVisible).toBe(true);
-    expect(popupApprovalStatusLabel("not_submitted", "ko")).toBe("미제출");
+    expect(popupApprovalStatusLabel("not_submitted", "ko")).toBe("작성 중");
   });
 
   it("UI surfaces keep single canonical editors (no new writers)", () => {

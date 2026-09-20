@@ -78,13 +78,13 @@ export function popupCompositionOperatorLabel(
 ): string {
   switch (composition) {
     case "artwork_modal":
-      return lang === "en" ? "Artwork" : "아트워크";
+      return lang === "en" ? "Artwork popup" : "아트워크 팝업";
     case "promotion_card_modal":
       return lang === "en" ? "Promotion card" : "프로모션 카드";
     case "bottom_promotion_sheet":
-      return lang === "en" ? "Bottom sheet" : "하단 시트";
+      return lang === "en" ? "Bottom promotion sheet" : "하단 프로모션 시트";
     case "benefit_dialog":
-      return lang === "en" ? "Benefit dialog" : "혜택 다이얼로그";
+      return lang === "en" ? "Benefit / coupon dialog" : "혜택/쿠폰 다이얼로그";
   }
 }
 
@@ -142,14 +142,14 @@ export function popupApprovalStatusLabel(
 ): string {
   const s = String(approvalStatus ?? "").trim().toLowerCase();
   const ko: Record<string, string> = {
-    not_submitted: "미제출",
+    not_submitted: "작성 중",
     pending_review: "승인 대기",
-    approved: "승인됨",
+    approved: "승인 완료",
     rejected: "반려",
   };
   const en: Record<string, string> = {
-    not_submitted: "Not submitted",
-    pending_review: "Pending review",
+    not_submitted: "In progress",
+    pending_review: "Pending approval",
     approved: "Approved",
     rejected: "Rejected",
   };
@@ -162,18 +162,68 @@ export function popupFrequencyOperatorLabel(
 ): string {
   const s = String(frequencyMode ?? "").trim().toLowerCase();
   const ko: Record<string, string> = {
-    close_only: "닫기 후 재노출",
+    close_only: "닫기만 (레거시)",
     once_per_session: "세션당 1회",
     once_per_day: "하루 1회",
-    always: "매번",
+    once_campaign: "캠페인당 1회",
+    always: "방문마다",
   };
   const en: Record<string, string> = {
-    close_only: "After close",
+    close_only: "Close only (legacy)",
     once_per_session: "Once per session",
     once_per_day: "Once per day",
+    once_campaign: "Once per campaign",
     always: "Every visit",
   };
   return (lang === "en" ? en[s] : ko[s]) ?? (frequencyMode || "—");
+}
+
+/**
+ * Event Distribution materialize ≠ live Popup.
+ * Dist ON + channel ref still needs Popup approval/exposure management.
+ */
+export function distributionPopupLifecycleNotice(input: {
+  enabled: boolean;
+  channelRefId?: string | null;
+  distributionStatus?: string | null;
+  lang: OwnershipLabelLang;
+}): { kind: "off" | "draft_needs_ops" | "linked"; message: string; manageHref: string | null } {
+  if (!input.enabled) {
+    return {
+      kind: "off",
+      message:
+        input.lang === "en"
+          ? "Popup OFF — save will not activate the popup engine."
+          : "팝업 꺼짐 — 저장해도 팝업 엔진이 활성화되지 않습니다.",
+      manageHref: null,
+    };
+  }
+  const ref = String(input.channelRefId ?? "").trim();
+  if (!ref) {
+    return {
+      kind: "draft_needs_ops",
+      message:
+        input.lang === "en"
+          ? "Popup draft will be created on save — approval and exposure still required."
+          : "저장 시 팝업 초안이 생성됩니다 — 승인/노출 설정이 별도로 필요합니다.",
+      manageHref: null,
+    };
+  }
+  return {
+    kind: "linked",
+    message:
+      input.lang === "en"
+        ? "Popup draft linked — approval/exposure still managed in Popup editor (Distribution does not auto-activate)."
+        : "팝업 초안 연결됨 — 승인/노출은 팝업 편집에서 설정합니다 (배포 저장만으로 노출되지 않음).",
+    manageHref: popupEditHref(ref),
+  };
+}
+
+/** Event linkage contract per operator composition (code evidence helper). */
+export function popupCompositionEventRequirement(
+  composition: PlatformPopupComposition
+): "optional" | "required" {
+  return composition === "benefit_dialog" ? "required" : "optional";
 }
 
 export function popupSurfaceOperatorLabel(

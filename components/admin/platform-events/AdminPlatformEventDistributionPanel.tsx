@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import {
   AdminPlatformPopupPreview,
@@ -29,6 +30,11 @@ import {
   adminBannerPreviewDeviceOuterWidthPx,
   adminTradeInlinePreviewCellWidthPx,
 } from "@/lib/admin/admin-banner-preview-geometry";
+import {
+  distributionPopupLifecycleNotice,
+  popupCompositionOperatorLabel,
+} from "@/lib/admin/promotion-ownership-visibility";
+import { resolvePlatformPopupComposition } from "@/lib/platform-popup/resolve-presentation-composition";
 
 type Props = {
   eventId: string;
@@ -59,37 +65,37 @@ const POPUP_CHOICES: Array<{
 }> = [
   {
     id: "artwork",
-    ko: "아트워크",
-    en: "Artwork",
-    hintKo: "투명 배경 가능 · contain · 강제 크롭 없음",
-    hintEn: "Transparent OK · contain · no forced crop",
+    ko: "아트워크 팝업",
+    en: "Artwork popup",
+    hintKo: "투명 PNG 등 비주얼 중심 소재를 강조합니다.",
+    hintEn: "Highlights visual-first creatives such as transparent PNGs.",
     presentationType: "center_modal",
     creativeMode: "artwork",
   },
   {
     id: "card",
-    ko: "카드",
-    en: "Card",
-    hintKo: "36:25 · cover · 크롭 가능",
-    hintEn: "36:25 · cover · crop possible",
+    ko: "프로모션 카드",
+    en: "Promotion card",
+    hintKo: "이미지·내용·CTA를 하나의 카드로 보여줍니다.",
+    hintEn: "Shows image, copy, and CTA as one card.",
     presentationType: "center_modal",
     creativeMode: "card",
   },
   {
     id: "sheet",
-    ko: "하단 시트",
-    en: "Bottom sheet",
-    hintKo: "하단에서 올라오는 시트 미디어 계약",
-    hintEn: "Canonical bottom-sheet media contract",
+    ko: "하단 프로모션 시트",
+    en: "Bottom promotion sheet",
+    hintKo: "화면 하단에서 자연스럽게 올라오는 프로모션입니다.",
+    hintEn: "A promotion that rises naturally from the bottom of the screen.",
     presentationType: "bottom_sheet",
     creativeMode: "card",
   },
   {
     id: "benefit",
-    ko: "혜택",
-    en: "Benefit",
-    hintKo: "이벤트 혜택 정보 필요",
-    hintEn: "Requires Event Benefit content",
+    ko: "혜택/쿠폰 다이얼로그",
+    en: "Benefit / coupon dialog",
+    hintKo: "연결된 이벤트의 쿠폰·혜택 정보를 중심으로 보여줍니다.",
+    hintEn: "Focuses on coupon and benefit info from the linked Event.",
     presentationType: "benefit_dialog",
     creativeMode: "card",
   },
@@ -151,6 +157,8 @@ export function AdminPlatformEventDistributionPanel({
   const [popupImageUrl, setPopupImageUrl] = useState("");
   const [popupImagePath, setPopupImagePath] = useState("");
   const [popupFrequency, setPopupFrequency] = useState("once_per_session");
+  const [popupChannelRefId, setPopupChannelRefId] = useState<string | null>(null);
+  const [popupDistStatus, setPopupDistStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,6 +179,19 @@ export function AdminPlatformEventDistributionPanel({
   const inlineDensity = bannerPlacement.startsWith("COMMUNITY") ? "community" : "trade";
 
   const activePopupChoice = POPUP_CHOICES.find((c) => c.id === popupChoice) ?? POPUP_CHOICES[1]!;
+  const popupLifecycle = distributionPopupLifecycleNotice({
+    enabled: toggles.popup,
+    channelRefId: popupChannelRefId,
+    distributionStatus: popupDistStatus,
+    lang,
+  });
+  const popupCompositionLabel = popupCompositionOperatorLabel(
+    resolvePlatformPopupComposition({
+      presentationType: activePopupChoice.presentationType,
+      creativeMode: activePopupChoice.creativeMode,
+    }),
+    lang
+  );
 
   const popupPreviewSource: AdminPlatformPopupPreviewSource | null = useMemo(() => {
     if (!toggles.popup) return null;
@@ -231,6 +252,7 @@ export function AdminPlatformEventDistributionPanel({
           status?: string;
           enabled?: boolean;
           config?: Record<string, unknown>;
+          channelRefId?: string | null;
         }>;
         error?: string;
       };
@@ -240,6 +262,8 @@ export function AdminPlatformEventDistributionPanel({
       }
       if (json.toggles) setToggles(json.toggles);
       const nextStatuses: Partial<Record<"popup" | "banner" | "push" | "bell", string>> = {};
+      let nextPopupRef: string | null = null;
+      let nextPopupStatus: string | null = null;
       for (const row of json.rows ?? []) {
         const cfg = row.config ?? {};
         const ch = row.channel as "popup" | "banner" | "push" | "bell";
@@ -268,8 +292,12 @@ export function AdminPlatformEventDistributionPanel({
           setPopupImageUrl(String(cfg.imageUrl ?? ""));
           setPopupImagePath(String(cfg.imagePath ?? ""));
           setPopupFrequency(String(cfg.frequencyMode ?? "once_per_session"));
+          nextPopupRef = row.channelRefId ? String(row.channelRefId) : null;
+          nextPopupStatus = row.status ?? null;
         }
       }
+      setPopupChannelRefId(nextPopupRef);
+      setPopupDistStatus(nextPopupStatus);
       setChannelStatuses(nextStatuses);
     } catch {
       setError("load_failed");
@@ -357,6 +385,10 @@ export function AdminPlatformEventDistributionPanel({
         channels?: Record<string, ChannelSaveResult>;
       };
       if (json.channels) setChannelResults(json.channels);
+      const popupResult = json.channels?.popup;
+      if (popupResult?.ok && popupResult.channelRefId) {
+        setPopupChannelRefId(String(popupResult.channelRefId));
+      }
       if (json.pushDispatchCount !== 0 && json.pushDispatchCount != null) {
         setError("push_dispatch_on_save_forbidden");
         return;
@@ -521,6 +553,32 @@ export function AdminPlatformEventDistributionPanel({
         </label>
         {toggles.popup ? (
           <div className="ml-6 space-y-3" data-admin-popup-config="1">
+            <div
+              className="rounded border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm"
+              data-admin-popup-dist-lifecycle="1"
+              data-admin-popup-dist-lifecycle-kind={popupLifecycle.kind}
+            >
+              <p className="text-xs text-sam-muted">
+                {lang === "en" ? "Configured form" : "설정 형태"}: {popupCompositionLabel}
+              </p>
+              <p className="mt-1" data-admin-popup-dist-draft-notice="1">
+                {popupLifecycle.message}
+              </p>
+              {popupLifecycle.manageHref ? (
+                <p className="mt-1">
+                  <Link
+                    href={popupLifecycle.manageHref}
+                    className="font-medium underline"
+                    data-admin-popup-dist-manage-link="1"
+                  >
+                    {safeT("admin_platform_events_popup_manage", {
+                      fallbackKo: "팝업 승인·노출 관리로 이동",
+                      fallbackEn: "Open Popup approval / exposure",
+                    })}
+                  </Link>
+                </p>
+              ) : null}
+            </div>
             <div className="grid gap-2 sm:grid-cols-2" data-admin-popup-presentation-selector="1">
               {POPUP_CHOICES.map((choice) => {
                 const disabled = choice.id === "benefit" && !benefitEligible;
@@ -606,10 +664,7 @@ export function AdminPlatformEventDistributionPanel({
           </div>
         ) : (
           <p className="ml-6 text-xs text-sam-muted" data-admin-popup-off="1">
-            {safeT("admin_platform_events_popup_off", {
-              fallbackKo: "팝업 꺼짐 — 저장해도 팝업 엔진이 활성화되지 않습니다.",
-              fallbackEn: "Popup OFF — save will not activate the popup engine.",
-            })}
+            {popupLifecycle.message}
           </p>
         )}
       </div>

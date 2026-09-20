@@ -42,6 +42,28 @@ import {
   readPlatformPopupImageMeta,
   type PlatformPopupClientImageMeta,
 } from "@/lib/platform-popup/client-creative-crop-preview";
+import {
+  PLATFORM_POPUP_COMPOSITIONS,
+  compositionContractNote,
+  creativeModeForComposition,
+  interruptivePresentationForComposition,
+  resolvePlatformPopupComposition,
+  type PlatformPopupComposition,
+} from "@/lib/platform-popup/resolve-presentation-composition";
+import {
+  resolvePopupOperatorStatus,
+  promotionOperatorStatusLabel,
+  formatPromotionAdminSchedule,
+} from "@/lib/admin/promotion-operation-status";
+import {
+  eventEditHref,
+  popupApprovalStatusLabel,
+  popupCompositionOperatorLabel,
+  popupDestinationSummary,
+  popupFrequencyOperatorLabel,
+  resolvePopupBenefitOperationalHint,
+  popupBenefitHintLabel,
+} from "@/lib/admin/promotion-ownership-visibility";
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -464,7 +486,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     try {
       const meta = await readPlatformPopupImageMeta(file);
       setFileMeta(meta);
-      if (!meta.ratioOk) {
+      const forceCardAspect =
+        creativeMode !== "artwork" &&
+        (presentationType === "center_modal" || presentationType === "bottom_sheet");
+      if (forceCardAspect && !meta.ratioOk) {
         const preview = await buildPlatformPopupCenterCropPreviewUrl(file);
         setCropPreviewUrl(preview.objectUrl);
         setPreviewOverrideUrl(preview.objectUrl);
@@ -485,6 +510,29 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const canDeleteDraft =
     isAdminDirect &&
     (status === "draft" || status === "pending_review");
+  const lang = language === "en" ? "en" : "ko";
+  const operatorComposition: PlatformPopupComposition = resolvePlatformPopupComposition({
+    presentationType,
+    creativeMode,
+  });
+  const compositionNote = compositionContractNote(operatorComposition);
+  const exposureOp = resolvePopupOperatorStatus({
+    status: campaign?.status ?? "draft",
+    startsAt: campaign?.startAt ?? null,
+    endsAt: campaign?.endAt ?? null,
+  });
+  const linkedEventId =
+    ctaType === "event_detail" ? String(ctaTarget ?? "").trim() : "";
+  const benefitHint = resolvePopupBenefitOperationalHint({
+    presentationType,
+    creativeMode,
+    linkedEventId: linkedEventId || null,
+    linkedEventHasBenefit: linkedEventId ? benefitEligible : null,
+  });
+  const benefitHintLabel = popupBenefitHintLabel(benefitHint, lang);
+  const requiresCardAspect =
+    operatorComposition === "promotion_card_modal" ||
+    operatorComposition === "bottom_promotion_sheet";
 
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">
@@ -519,13 +567,51 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         </p>
       ) : null}
 
+      <div
+        className="sticky top-0 z-10 rounded border border-sam-border bg-sam-surface/95 px-3 py-2 text-xs shadow-sm backdrop-blur"
+        data-admin-popup-ops-summary="1"
+      >
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <span data-admin-popup-summary-composition="1">
+            {lang === "en" ? "Form" : "형태"}:{" "}
+            {popupCompositionOperatorLabel(operatorComposition, lang)}
+          </span>
+          <span data-admin-popup-summary-approval="1">
+            {lang === "en" ? "Approval" : "승인"}:{" "}
+            {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
+          </span>
+          <span data-admin-popup-summary-exposure="1">
+            {lang === "en" ? "Exposure" : "노출"}:{" "}
+            {promotionOperatorStatusLabel(exposureOp, lang)}
+          </span>
+          <span data-admin-popup-summary-period="1">
+            {lang === "en" ? "Period" : "기간"}:{" "}
+            {formatPromotionAdminSchedule(campaign?.startAt ?? null, lang)} –{" "}
+            {formatPromotionAdminSchedule(campaign?.endAt ?? null, lang)}
+          </span>
+          <span data-admin-popup-summary-event="1">
+            {lang === "en" ? "Event" : "이벤트"}:{" "}
+            {linkedEventId ? linkedEventId.slice(0, 8) : lang === "en" ? "—" : "없음"}
+          </span>
+          <span data-admin-popup-summary-destination="1">
+            {lang === "en" ? "Destination" : "목적지"}:{" "}
+            {popupDestinationSummary({
+              ctaType,
+              ctaTarget,
+              externalUrl,
+              lang,
+            })}
+          </span>
+        </div>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div className="space-y-4">
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_basic", {
-                fallbackKo: "기본 정보",
-                fallbackEn: "Basic info",
+                fallbackKo: "1. 기본 정보",
+                fallbackEn: "1. Basic info",
               })}
             </h2>
             <label className="block text-sm">
@@ -542,91 +628,72 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 }}
               />
             </label>
-            <div className="mt-2 flex flex-wrap gap-3 text-xs text-sam-muted">
-              <span>
-                {safeT("admin_platform_popup_status_line", {
-                  fallbackKo: "상태",
-                  fallbackEn: "Status",
-                })}
-                : {campaign?.status}
-              </span>
-              <span>
-                {safeT("admin_platform_popup_approval_line", {
-                  fallbackKo: "승인",
-                  fallbackEn: "Approval",
-                })}
-                : {campaign?.approvalStatus}
-              </span>
-              {campaign?.ownerStoreId ? <span>store: {campaign.ownerStoreId}</span> : null}
-              {campaign?.ownerRequestId ? <span>request: {campaign.ownerRequestId}</span> : null}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2" data-admin-popup-status-split="1">
+              <div
+                className="rounded border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
+                data-admin-popup-approval-status="1"
+              >
+                <div className="text-xs text-sam-muted">
+                  {safeT("admin_platform_popup_approval_line", {
+                    fallbackKo: "승인 상태",
+                    fallbackEn: "Approval status",
+                  })}
+                </div>
+                <div className="font-medium">
+                  {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
+                </div>
+              </div>
+              <div
+                className="rounded border border-sam-border bg-sam-app/40 px-3 py-2 text-sm"
+                data-admin-popup-exposure-status="1"
+              >
+                <div className="text-xs text-sam-muted">
+                  {safeT("admin_platform_popup_exposure_line", {
+                    fallbackKo: "노출 상태",
+                    fallbackEn: "Exposure status",
+                  })}
+                </div>
+                <div className="font-medium">{promotionOperatorStatusLabel(exposureOp, lang)}</div>
+              </div>
             </div>
+            {campaign?.ownerStoreId || campaign?.ownerRequestId ? (
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-sam-muted">
+                {campaign?.ownerStoreId ? <span>store: {campaign.ownerStoreId}</span> : null}
+                {campaign?.ownerRequestId ? <span>request: {campaign.ownerRequestId}</span> : null}
+              </div>
+            ) : null}
           </AdminCard>
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_presentation", {
-                fallbackKo: "노출 방식",
-                fallbackEn: "Presentation",
+                fallbackKo: "2. 팝업 형태",
+                fallbackEn: "2. Popup form",
               })}
             </h2>
             <p className="mb-2 text-xs text-sam-muted">
               {safeT("admin_platform_popup_presentation_pick_help", {
-                fallbackKo: "형태를 고르면 미리보기가 같은 렌더러로 바뀝니다.",
-                fallbackEn: "Preview uses the same production renderer for the selected form.",
+                fallbackKo:
+                  "운영자가 고르는 4가지 형태입니다. 미리보기는 프로덕션과 같은 렌더러를 사용합니다.",
+                fallbackEn:
+                  "Four operator-facing forms. Preview uses the same production renderer.",
               })}
             </p>
             <div className="grid gap-2 sm:grid-cols-2" data-admin-popup-presentation-picker="1">
-              {(
-                [
-                  {
-                    value: "center_modal" as const,
-                    creativeHint: "artwork" as const,
-                    titleKo: "Artwork",
-                    titleEn: "Artwork",
-                    bodyKo: "투명 PNG · 캐릭터/상품 강조",
-                    bodyEn: "Transparent PNG · character/product emphasis",
-                  },
-                  {
-                    value: "center_modal" as const,
-                    creativeHint: "card" as const,
-                    titleKo: "Promotion Card",
-                    titleEn: "Promotion Card",
-                    bodyKo: "이미지 + 설명 + CTA 한 카드",
-                    bodyEn: "Image + copy + CTA as one card",
-                  },
-                  {
-                    value: "bottom_sheet" as const,
-                    creativeHint: "card" as const,
-                    titleKo: "Bottom Sheet",
-                    titleEn: "Bottom Sheet",
-                    bodyKo: "하단 프로모션 · floating X",
-                    bodyEn: "Bottom promotion · floating X",
-                  },
-                  {
-                    value: "benefit_dialog" as const,
-                    creativeHint: "card" as const,
-                    titleKo: "Benefit Dialog",
-                    titleEn: "Benefit Dialog",
-                    bodyKo: "연결된 이벤트 혜택 · 혜택 중심",
-                    bodyEn: "Linked Event benefit · benefit-first",
-                  },
-                ] as const
-              ).map((opt) => {
-                const selected =
-                  presentationType === opt.value &&
-                  (opt.value === "bottom_sheet" ||
-                    opt.value === "benefit_dialog" ||
-                    creativeMode === opt.creativeHint);
+              {PLATFORM_POPUP_COMPOSITIONS.map((kind) => {
+                const note = compositionContractNote(kind);
+                const selected = operatorComposition === kind;
                 const benefitDisabled =
-                  opt.value === "benefit_dialog" && !benefitEligible && !eventBenefitLoading;
+                  kind === "benefit_dialog" && !benefitEligible && !eventBenefitLoading;
                 return (
                   <button
-                    key={`${opt.value}-${opt.creativeHint}`}
+                    key={kind}
                     type="button"
                     disabled={benefitDisabled}
                     aria-disabled={benefitDisabled}
+                    data-admin-popup-composition={kind}
                     data-benefit-dialog-eligible={
-                      opt.value === "benefit_dialog" ? (benefitEligible ? "1" : "0") : undefined
+                      kind === "benefit_dialog" ? (benefitEligible ? "1" : "0") : undefined
                     }
                     className={`rounded border px-3 py-2 text-left text-sm ${
                       benefitDisabled
@@ -638,25 +705,28 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     onClick={() => {
                       if (benefitDisabled) return;
                       markDirty();
-                      setPresentationType(opt.value);
-                      setCreativeMode(opt.creativeHint);
+                      setPresentationType(interruptivePresentationForComposition(kind));
+                      setCreativeMode(creativeModeForComposition(kind));
                     }}
                   >
                     <div className="font-semibold">
-                      {language === "en" ? opt.titleEn : opt.titleKo}
+                      {language === "en" ? note.titleEn : note.titleKo}
                     </div>
                     <div className="mt-0.5 text-xs text-sam-muted">
-                      {language === "en" ? opt.bodyEn : opt.bodyKo}
+                      {language === "en" ? note.bodyEn : note.bodyKo}
                     </div>
-                    {opt.value === "benefit_dialog" && benefitDisabled ? (
+                    {kind === "benefit_dialog" && benefitDisabled ? (
                       <div className="mt-1 text-xs text-sam-danger" data-benefit-dialog-reason="1">
-                        {safeT("admin_platform_popup_benefit_requires_event_benefit", {
-                          fallbackKo: "연결된 이벤트에 혜택 정보가 필요합니다.",
-                          fallbackEn: "Linked Event needs Benefit content.",
-                        })}
+                        {benefitHintLabel ||
+                          safeT("admin_platform_popup_benefit_requires_event_benefit", {
+                            fallbackKo:
+                              "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
+                            fallbackEn:
+                              "Benefit dialog requires linked Event Benefit content.",
+                          })}
                       </div>
                     ) : null}
-                    {opt.value === "benefit_dialog" && eventBenefitLoading ? (
+                    {kind === "benefit_dialog" && eventBenefitLoading ? (
                       <div className="mt-1 text-xs text-sam-muted">
                         {safeT("admin_platform_popup_benefit_checking", {
                           fallbackKo: "이벤트 혜택 확인 중…",
@@ -668,30 +738,42 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 );
               })}
             </div>
-            <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_creative_mode", {
-                fallbackKo: "소재 모드",
-                fallbackEn: "Creative mode",
-              })}
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                value={creativeMode}
-                disabled={
-                  presentationType === "center_modal" || presentationType === "benefit_dialog"
-                }
-                onChange={(e) => {
-                  markDirty();
-                  setCreativeMode(e.target.value as "card" | "artwork");
-                }}
+            {operatorComposition === "benefit_dialog" || benefitHint !== "none" ? (
+              <div
+                className="mt-3 rounded border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm"
+                data-admin-popup-benefit-gate="1"
               >
-                <option value="card">
-                  {language === "en" ? "CARD (36:25 crop)" : "CARD (36:25 크롭)"}
-                </option>
-                <option value="artwork">
-                  {language === "en" ? "ARTWORK (transparent PNG/WebP)" : "ARTWORK (투명 PNG/WebP)"}
-                </option>
-              </select>
-            </label>
+                <p className="text-xs text-sam-muted">
+                  {safeT("admin_platform_popup_benefit_contract", {
+                    fallbackKo:
+                      "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
+                    fallbackEn:
+                      "Benefit dialog is available when the linked Event has Benefit content.",
+                  })}
+                </p>
+                {benefitHint === "event_link_needed" ? (
+                  <p className="mt-1 text-sm text-sam-danger" data-admin-popup-benefit-next="event">
+                    {safeT("admin_platform_popup_benefit_need_event", {
+                      fallbackKo: "이벤트 연결 필요 — 아래에서 목적지를 이벤트로 선택하세요.",
+                      fallbackEn: "Event link required — set destination to an Event below.",
+                    })}
+                  </p>
+                ) : null}
+                {benefitHint === "benefit_info_needed" && linkedEventId ? (
+                  <p className="mt-1 text-sm" data-admin-popup-benefit-next="benefit">
+                    <a
+                      href={eventEditHref(linkedEventId)}
+                      className="font-medium text-sam-fg underline"
+                    >
+                      {safeT("admin_platform_popup_benefit_edit_event", {
+                        fallbackKo: "이벤트 혜택 수정",
+                        fallbackEn: "Edit Event Benefit",
+                      })}
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <label className="mt-3 block text-sm">
               {safeT("admin_platform_popup_frequency_mode", {
                 fallbackKo: "노출 빈도",
@@ -704,28 +786,24 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   markDirty();
                   setFrequencyMode(e.target.value);
                 }}
+                data-admin-popup-frequency="1"
               >
                 <option value="once_per_session">
-                  {language === "en" ? "Once per session" : "세션당 1회"}
+                  {popupFrequencyOperatorLabel("once_per_session", lang)}
                 </option>
                 <option value="once_per_day">
-                  {language === "en" ? "Once per day" : "하루 1회"}
+                  {popupFrequencyOperatorLabel("once_per_day", lang)}
                 </option>
                 <option value="once_campaign">
-                  {language === "en" ? "Once (campaign)" : "캠페인당 1회"}
+                  {popupFrequencyOperatorLabel("once_campaign", lang)}
                 </option>
                 <option value="close_only">
-                  {language === "en" ? "Close only (legacy)" : "닫기만 (레거시)"}
+                  {popupFrequencyOperatorLabel("close_only", lang)}
                 </option>
               </select>
             </label>
-            <p className="mt-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_presentation_help", {
-                fallbackKo:
-                  "배너(인라인/히어로)는 다음 CUT. Event Detail destination은 이후 Event CMS에서 연결합니다. Push는 자동 발송되지 않습니다.",
-                fallbackEn:
-                  "Banner (inline/hero) is next CUT. Event Detail destination wires in a later Event CMS. Push is never auto-sent.",
-              })}
+            <p className="mt-2 text-xs text-sam-muted" data-admin-popup-composition-note="1">
+              {language === "en" ? compositionNote.bodyEn : compositionNote.bodyKo}
             </p>
           </AdminCard>
 
@@ -733,35 +811,95 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_creative", {
                 fallbackKo:
-                  creativeMode === "artwork"
-                    ? "소재 (ARTWORK · 투명 PNG/WebP)"
-                    : "소재 (CARD · 1440×1000 · 36:25)",
+                  operatorComposition === "artwork_modal"
+                    ? "4. 소재 (아트워크 · 고유 비율 · contain)"
+                    : operatorComposition === "benefit_dialog"
+                      ? "4. 소재 (혜택 · 이벤트 혜택 우선)"
+                      : operatorComposition === "bottom_promotion_sheet"
+                        ? "4. 소재 (하단 시트)"
+                        : "4. 소재 (카드 · 1440×1000 · 36:25)",
                 fallbackEn:
-                  creativeMode === "artwork"
-                    ? "Creative (ARTWORK · transparent PNG/WebP)"
-                    : "Creative (CARD · 1440×1000 · 36:25)",
+                  operatorComposition === "artwork_modal"
+                    ? "4. Creative (Artwork · intrinsic · contain)"
+                    : operatorComposition === "benefit_dialog"
+                      ? "4. Creative (Benefit · Event benefit first)"
+                      : operatorComposition === "bottom_promotion_sheet"
+                        ? "4. Creative (Bottom sheet)"
+                        : "4. Creative (Card · 1440×1000 · 36:25)",
               })}
             </h2>
             <div
               className="mb-3 rounded border border-sam-border bg-sam-app/60 px-3 py-2 text-sm"
               data-admin-popup-creative-spec="1"
+              data-admin-popup-creative-mode={
+                operatorComposition === "artwork_modal" ? "artwork" : "card"
+              }
             >
-              <p>
-                {safeT("admin_platform_popup_creative_spec_size", {
-                  fallbackKo: `필수 이미지 규격  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
-                  fallbackEn: `Required size  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
-                })}
-              </p>
-              <p>
-                {safeT("admin_platform_popup_creative_spec_ratio", {
-                  fallbackKo: "비율  36 : 25",
-                  fallbackEn: "Aspect  36 : 25",
-                })}
-              </p>
+              {operatorComposition === "artwork_modal" ? (
+                <>
+                  <p>
+                    {safeT("admin_platform_popup_artwork_spec_geometry", {
+                      fallbackKo: "비율  고유(intrinsic) · 표시  contain · 투명 PNG 권장",
+                      fallbackEn: "Geometry  intrinsic · display  contain · transparent PNG recommended",
+                    })}
+                  </p>
+                  <p className="text-xs text-sam-muted">
+                    {safeT("admin_platform_popup_artwork_spec_note", {
+                      fallbackKo: "36:25 강제 크롭이 없습니다. 고해상도 원본을 권장합니다.",
+                      fallbackEn: "No forced 36:25 crop. High-resolution source recommended.",
+                    })}
+                  </p>
+                </>
+              ) : operatorComposition === "benefit_dialog" ? (
+                <>
+                  <p>
+                    {safeT("admin_platform_popup_benefit_spec", {
+                      fallbackKo: "혜택 내용은 연결된 이벤트 혜택 섹션이 권위입니다.",
+                      fallbackEn: "Benefit copy is owned by the linked Event Benefit section.",
+                    })}
+                  </p>
+                  <p className="text-xs text-sam-muted">
+                    {safeT("admin_platform_popup_benefit_spec_image", {
+                      fallbackKo: "이미지는 보조 소재입니다. 이벤트 혜택을 복제하지 않습니다.",
+                      fallbackEn: "Image is supporting creative. Do not clone Event Benefit fields here.",
+                    })}
+                  </p>
+                </>
+              ) : operatorComposition === "bottom_promotion_sheet" ? (
+                <>
+                  <p>
+                    {safeT("admin_platform_popup_sheet_spec", {
+                      fallbackKo: "하단 노출 · 내용 높이에 맞춤 · 이미지·내용·CTA 구성",
+                      fallbackEn: "Bottom anchored · content-driven height · image + copy + CTA",
+                    })}
+                  </p>
+                  <p className="text-xs text-sam-muted">
+                    {safeT("admin_platform_popup_sheet_spec_safe", {
+                      fallbackKo: "하단 여백은 앱이 자동으로 처리합니다.",
+                      fallbackEn: "Bottom inset is handled automatically by the app.",
+                    })}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    {safeT("admin_platform_popup_creative_spec_size", {
+                      fallbackKo: `권장 원본  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
+                      fallbackEn: `Recommended source  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
+                    })}
+                  </p>
+                  <p>
+                    {safeT("admin_platform_popup_creative_spec_ratio", {
+                      fallbackKo: "비율  36 : 25 · 표시  cover",
+                      fallbackEn: "Aspect  36 : 25 · display  cover",
+                    })}
+                  </p>
+                </>
+              )}
               <p className="text-xs text-sam-muted">
                 {safeT("admin_platform_popup_creative_spec_formats", {
-                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 원본 최대 ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB (최적화 후 저장)`,
-                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · source max ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB (optimized on upload)`,
+                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 원본 최대 ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB`,
+                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · source max ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB`,
                 })}
               </p>
             </div>
@@ -796,12 +934,18 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 </li>
                 <li>
                   {fileMeta.width} × {fileMeta.height} px · ratio {fileMeta.ratio.toFixed(3)}
-                  {fileMeta.ratioOk ? " · 36:25 OK" : " · needs crop"}
+                  {requiresCardAspect
+                    ? fileMeta.ratioOk
+                      ? " · 36:25 OK"
+                      : " · needs crop"
+                    : lang === "en"
+                      ? " · intrinsic OK"
+                      : " · 고유 비율"}
                 </li>
               </ul>
             ) : null}
 
-            {needsCrop && pendingCropFile && cropPreviewUrl ? (
+            {requiresCardAspect && needsCrop && pendingCropFile && cropPreviewUrl ? (
               <div className="mt-3 space-y-2 rounded border border-amber-300 bg-amber-50/80 p-3">
                 <p className="text-xs font-medium text-amber-900">
                   {safeT("admin_platform_popup_crop_confirm", {
@@ -849,8 +993,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_content", {
-                fallbackKo: "콘텐츠",
-                fallbackEn: "Content",
+                fallbackKo: "5. 내용 / CTA",
+                fallbackEn: "5. Copy / CTA",
               })}
             </h2>
             <label className="block text-sm">
@@ -907,8 +1051,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_placement", {
-                fallbackKo: "이 팝업을 어디에 노출할까요?",
-                fallbackEn: "Where should this popup appear?",
+                fallbackKo: "6. 노출 위치 / 대상",
+                fallbackEn: "6. Surfaces / audience",
               })}
             </h2>
             <p className="mb-3 text-xs text-sam-muted">
@@ -978,8 +1122,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_cta", {
-                fallbackKo: "클릭 후 이동",
-                fallbackEn: "After click",
+                fallbackKo: "3. 연결 콘텐츠 / 목적지",
+                fallbackEn: "3. Linked content / destination",
               })}
             </h2>
             {campaign?.ownerStoreId ? (
@@ -1099,8 +1243,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_schedule", {
-                fallbackKo: "기간",
-                fallbackEn: "Schedule",
+                fallbackKo: "7. 빈도 / 기간",
+                fallbackEn: "7. Frequency / period",
               })}
             </h2>
             <p className="mb-2 text-xs text-sam-muted">
@@ -1222,12 +1366,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <h2 className="mb-2 text-sm font-semibold">
               {isAdminDirect
                 ? safeT("admin_platform_popup_section_actions_ops", {
-                    fallbackKo: "저장 · 노출 운영",
-                    fallbackEn: "Save · exposure ops",
+                    fallbackKo: "8. 승인 / 노출 관리",
+                    fallbackEn: "8. Approval / exposure",
                   })
                 : safeT("admin_platform_popup_section_actions", {
-                    fallbackKo: "저장 · 승인 · 노출",
-                    fallbackEn: "Save · approve · go live",
+                    fallbackKo: "8. 승인 / 노출 관리",
+                    fallbackEn: "8. Approval / exposure",
                   })}
             </h2>
             <div className="flex flex-wrap gap-2">
@@ -1292,12 +1436,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               >
                 {isAdminDirect
                   ? safeT("admin_platform_popup_action_go_live", {
-                      fallbackKo: "바로 노출",
-                      fallbackEn: "Go live now",
+                      fallbackKo: "노출 시작",
+                      fallbackEn: "Start exposure",
                     })
                   : safeT("admin_platform_popup_action_approve_active", {
-                      fallbackKo: "승인 후 바로 노출",
-                      fallbackEn: "Approve → live now",
+                      fallbackKo: "승인 후 노출 시작",
+                      fallbackEn: "Approve → start exposure",
                     })}
               </button>
               <button
@@ -1308,8 +1452,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-pause="1"
               >
                 {safeT("admin_platform_popup_action_pause", {
-                  fallbackKo: "일시 중지",
-                  fallbackEn: "Pause",
+                  fallbackKo: "노출 중지",
+                  fallbackEn: "Stop exposure",
                 })}
               </button>
               <button
@@ -1436,8 +1580,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_preview", {
-                fallbackKo: "프로덕션 미리보기",
-                fallbackEn: "Production preview",
+                fallbackKo: "9. 미리보기",
+                fallbackEn: "9. Preview",
               })}
             </h2>
             <AdminPlatformPopupPreview source={previewSource} />

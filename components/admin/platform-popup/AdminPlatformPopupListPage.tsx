@@ -26,6 +26,11 @@ import {
   resolvePopupBenefitOperationalHint,
   resolvePopupListCompositionLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
+import {
+  PLATFORM_POPUP_COMPOSITIONS,
+  resolvePlatformPopupComposition,
+} from "@/lib/platform-popup/resolve-presentation-composition";
+import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 
 export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
@@ -33,6 +38,7 @@ export function AdminPlatformPopupListPage() {
   const router = useRouter();
   const [items, setItems] = useState<PlatformPopupAdminListItem[]>([]);
   const [status, setStatus] = useState<string>("");
+  const [compositionFilter, setCompositionFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -101,6 +107,20 @@ export function AdminPlatformPopupListPage() {
   };
 
   const empty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
+  const visibleItems = useMemo(() => {
+    if (!compositionFilter) return items;
+    return items.filter((item) => {
+      const composition = resolvePlatformPopupComposition({
+        presentationType: item.presentationType,
+        creativeMode: item.creativeMode,
+      });
+      return composition === compositionFilter;
+    });
+  }, [items, compositionFilter]);
+  const emptyFiltered = useMemo(
+    () => !loading && items.length > 0 && visibleItems.length === 0,
+    [loading, items.length, visibleItems.length]
+  );
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-popup-list="1">
@@ -125,6 +145,7 @@ export function AdminPlatformPopupListPage() {
               className="ml-2 rounded border border-sam-border bg-sam-surface px-2 py-1"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
+              data-admin-popup-filter-status="1"
             >
               <option value="">
                 {safeT("admin_platform_popup_filter_all", {
@@ -134,7 +155,40 @@ export function AdminPlatformPopupListPage() {
               </option>
               {PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {platformPopupCampaignStatusLabel(s, lang)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-sam-muted">
+            {safeT("admin_platform_popup_filter_composition", {
+              fallbackKo: "팝업 형태",
+              fallbackEn: "Form",
+            })}
+            <select
+              className="ml-2 rounded border border-sam-border bg-sam-surface px-2 py-1"
+              value={compositionFilter}
+              onChange={(e) => setCompositionFilter(e.target.value)}
+              data-admin-popup-filter-composition="1"
+            >
+              <option value="">
+                {safeT("admin_platform_popup_filter_all", {
+                  fallbackKo: "전체",
+                  fallbackEn: "All",
+                })}
+              </option>
+              {PLATFORM_POPUP_COMPOSITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {resolvePopupListCompositionLabel({
+                    presentationType:
+                      c === "bottom_promotion_sheet"
+                        ? "bottom_sheet"
+                        : c === "benefit_dialog"
+                          ? "benefit_dialog"
+                          : "center_modal",
+                    creativeMode: c === "artwork_modal" ? "artwork" : "card",
+                    lang,
+                  })}
                 </option>
               ))}
             </select>
@@ -187,9 +241,16 @@ export function AdminPlatformPopupListPage() {
               })}
             </AdminActionButton>
           </div>
+        ) : emptyFiltered ? (
+          <p className="text-sm text-sam-muted">
+            {safeT("admin_platform_popup_filter_empty", {
+              fallbackKo: "선택한 형태에 해당하는 팝업이 없습니다.",
+              fallbackEn: "No popups match this form filter.",
+            })}
+          </p>
         ) : (
           <ul className="divide-y divide-sam-border" data-admin-popup-operational-list="1">
-            {items.map((item) => {
+            {visibleItems.map((item) => {
               const op = resolvePopupOperatorStatus({
                 status: item.status,
                 startsAt: item.startAt,

@@ -62,7 +62,7 @@ export function creativeModeForComposition(kind: PlatformPopupComposition): Plat
   return kind === "artwork_modal" ? "artwork" : "card";
 }
 
-/** Admin / docs — human labels (not UI output; UI uses i18n). */
+/** Admin / docs — operator-facing composition labels (UI also uses i18n fallbacks). */
 export function compositionContractNote(kind: PlatformPopupComposition): {
   titleKo: string;
   titleEn: string;
@@ -72,31 +72,31 @@ export function compositionContractNote(kind: PlatformPopupComposition): {
   switch (kind) {
     case "artwork_modal":
       return {
-        titleKo: "Artwork",
-        titleEn: "Artwork",
-        bodyKo: "투명 PNG · 캐릭터/상품 강조 · 카드 위로 overflow",
-        bodyEn: "Transparent PNG · character/product emphasis · overflow above card",
+        titleKo: "아트워크 팝업",
+        titleEn: "Artwork popup",
+        bodyKo: "투명 PNG 등 비주얼 중심 소재를 강조합니다.",
+        bodyEn: "Highlights visual-first creatives such as transparent PNGs.",
       };
     case "promotion_card_modal":
       return {
-        titleKo: "Promotion Card",
-        titleEn: "Promotion Card",
-        bodyKo: "이미지 + 설명 + CTA가 하나의 카드",
-        bodyEn: "Image + copy + CTA as one card",
+        titleKo: "프로모션 카드",
+        titleEn: "Promotion card",
+        bodyKo: "이미지·내용·CTA를 하나의 카드로 보여줍니다.",
+        bodyEn: "Shows image, copy, and CTA as one card.",
       };
     case "bottom_promotion_sheet":
       return {
-        titleKo: "Bottom Sheet",
-        titleEn: "Bottom Sheet",
-        bodyKo: "하단 프로모션 · floating X · footer 없음",
-        bodyEn: "Bottom promotion · floating X · no footer",
+        titleKo: "하단 프로모션 시트",
+        titleEn: "Bottom promotion sheet",
+        bodyKo: "화면 하단에서 자연스럽게 올라오는 프로모션입니다.",
+        bodyEn: "A promotion that rises naturally from the bottom of the screen.",
       };
     case "benefit_dialog":
       return {
-        titleKo: "Benefit Dialog",
-        titleEn: "Benefit Dialog",
-        bodyKo: "혜택 설명 · compact dialog · floating X",
-        bodyEn: "Benefit explanation · compact dialog · floating X",
+        titleKo: "혜택/쿠폰 다이얼로그",
+        titleEn: "Benefit / coupon dialog",
+        bodyKo: "연결된 이벤트의 쿠폰·혜택 정보를 중심으로 보여줍니다.",
+        bodyEn: "Focuses on coupon and benefit info from the linked Event.",
       };
   }
 }

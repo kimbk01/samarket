@@ -734,6 +734,7 @@ export const adminMessages = {
     admin_platform_events_popup_frequency: "노출 빈도",
     admin_platform_events_popup_image: "팝업 이미지 URL (없으면 이벤트 히어로 사용)",
     admin_platform_events_popup_off: "팝업 꺼짐 — 저장해도 팝업 엔진이 활성화되지 않습니다.",
+    admin_platform_events_popup_manage: "팝업 승인·노출 관리로 이동",
     admin_platform_events_preview_dist_after_save:
       "초안 저장 후 노출 설정에서 팝업·배너 미리보기를 확인하세요.",
     admin_platform_events_preview_use_dist_panel:
@@ -3751,6 +3752,7 @@ export const adminMessages = {
     admin_platform_events_popup_frequency: "Frequency",
     admin_platform_events_popup_image: "Popup image URL (falls back to Event hero)",
     admin_platform_events_popup_off: "Popup OFF — save will not activate the popup engine.",
+    admin_platform_events_popup_manage: "Open Popup approval / exposure",
     admin_platform_events_preview_dist_after_save:
       "After saving the draft, use Exposure settings for popup/banner preview.",
     admin_platform_events_preview_use_dist_panel:

@@ -181,9 +181,9 @@ describe("CUT1 geometry structural contracts", () => {
     );
     expect(preview).toContain('from "@/components/platform-popup/DibayPopupAd"');
     expect(preview).toContain("benefit={winner.benefit}");
-    expect(preview).toContain("가로 화면에서는 팝업이 노출되지 않음");
+    expect(preview).toContain("가로 화면에서는 팝업을 노출하지 않습니다.");
     expect(detail).toContain("admin_platform_popup_benefit_requires_event_benefit");
-    expect(detail).toContain("연결된 이벤트에 혜택 정보가 필요합니다.");
+    expect(detail).toContain("연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.");
     expect(detail).toContain("extractPlatformEventBenefitContent");
   });
 

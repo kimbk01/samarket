@@ -181,8 +181,8 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
               data-admin-popup-preview-landscape-deny="1"
             >
               {safeT("admin_platform_popup_preview_landscape_deny", {
-                fallbackKo: "가로 화면에서는 팝업이 노출되지 않음",
-                fallbackEn: "Popup is not shown in landscape",
+                fallbackKo: "가로 화면에서는 팝업을 노출하지 않습니다.",
+                fallbackEn: "Popups are not shown in landscape.",
               })}
             </p>
           ) : winner ? (
