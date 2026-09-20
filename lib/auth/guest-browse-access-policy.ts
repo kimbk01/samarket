@@ -33,7 +33,9 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
       pathname === "/dev/promotion-banner-capability" ||
       pathname.startsWith("/dev/promotion-banner-capability/") ||
       pathname === "/dev/admin-promotion-ia" ||
-      pathname.startsWith("/dev/admin-promotion-ia/"))
+      pathname.startsWith("/dev/admin-promotion-ia/") ||
+      pathname === "/dev/promotion-event-operation" ||
+      pathname.startsWith("/dev/promotion-event-operation/"))
   ) {
     return true;
   }

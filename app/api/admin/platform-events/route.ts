@@ -9,6 +9,11 @@ import {
   PLATFORM_EVENTS_SELECT,
 } from "@/lib/platform-events/types";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
+import {
+  channelSummaryFromToggles,
+  distributionsToToggles,
+  listDistributionsForEvents,
+} from "@/lib/platform-promotion-distribution/repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +35,34 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   const events = ((data ?? []) as PlatformEventDbRow[]).map(mapPlatformEventDbRow);
-  return NextResponse.json({ ok: true, events });
+  let channelByEventId: Record<string, string> = {};
+  try {
+    const distRows = await listDistributionsForEvents(
+      sb,
+      events.map((e) => e.id)
+    );
+    const byId = new Map<string, typeof distRows>();
+    for (const row of distRows) {
+      const list = byId.get(row.contentId) ?? [];
+      list.push(row);
+      byId.set(row.contentId, list);
+    }
+    channelByEventId = Object.fromEntries(
+      [...byId.entries()].map(([id, rows]) => [
+        id,
+        channelSummaryFromToggles(distributionsToToggles(rows), "ko"),
+      ])
+    );
+  } catch {
+    channelByEventId = {};
+  }
+  return NextResponse.json({
+    ok: true,
+    events: events.map((e) => ({
+      ...e,
+      channelSummary: channelByEventId[e.id] ?? "채널 없음",
+    })),
+  });
 }
 
 /** POST /api/admin/platform-events — create */

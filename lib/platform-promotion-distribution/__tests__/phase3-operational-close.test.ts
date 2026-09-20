@@ -10,6 +10,11 @@ const createNotify = vi.fn();
 vi.mock("@/lib/platform-popup/admin-campaign-writer", () => ({
   createPlatformPopupAdminCampaign: (...args: unknown[]) => createPopup(...args),
   updatePlatformPopupAdminCampaign: (...args: unknown[]) => updatePopup(...args),
+  replacePlatformPopupReadyCreative: async () => ({
+    ok: true as const,
+    creativeId: "creative-mock",
+    revertedToReview: false,
+  }),
 }));
 
 vi.mock("@/lib/admin/notification-campaigns/campaign-create-service", () => ({

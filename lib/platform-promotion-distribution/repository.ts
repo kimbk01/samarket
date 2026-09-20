@@ -24,6 +24,23 @@ export async function listDistributionsForEvent(
   return ((data ?? []) as PromotionDistributionDbRow[]).map(mapPromotionDistributionDbRow);
 }
 
+/** Batch Dist rows for Admin Event list channel summaries. */
+export async function listDistributionsForEvents(
+  sb: SupabaseClient,
+  eventIds: string[]
+): Promise<PromotionDistributionRow[]> {
+  const ids = [...new Set(eventIds.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (ids.length === 0) return [];
+  const { data, error } = await sb
+    .from("platform_promotion_distributions")
+    .select("*")
+    .eq("content_type", "platform_event")
+    .in("content_id", ids)
+    .order("channel", { ascending: true });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as PromotionDistributionDbRow[]).map(mapPromotionDistributionDbRow);
+}
+
 export function distributionsToToggles(
   rows: PromotionDistributionRow[]
 ): PromotionDistributionToggleDraft {
@@ -32,6 +49,21 @@ export function distributionsToToggles(
     if (row.enabled) t[row.channel] = true;
   }
   return t;
+}
+
+export function channelSummaryFromToggles(
+  toggles: PromotionDistributionToggleDraft,
+  lang: "ko" | "en" = "ko"
+): string {
+  const labels =
+    lang === "en"
+      ? ({ popup: "Popup", banner: "Banner", push: "Push", bell: "Bell" } as const)
+      : ({ popup: "팝업", banner: "배너", push: "Push", bell: "앱알림" } as const);
+  const on = (["popup", "banner", "push", "bell"] as const)
+    .filter((k) => toggles[k])
+    .map((k) => labels[k]);
+  if (on.length === 0) return lang === "en" ? "No channels" : "채널 없음";
+  return on.join(" · ");
 }
 
 export type UpsertDistributionInput = {

@@ -19,6 +19,9 @@ export type PopupAdapterPlan = {
   surfaces: string[];
   presentationType: string;
   frequencyMode: string;
+  creativeMode: "card" | "artwork";
+  imageUrl: string | null;
+  imagePath: string | null;
   startAt: string | null;
   endAt: string | null;
   name: string;
@@ -77,6 +80,13 @@ export function planPopupDistributionAdapter(input: {
     Array.isArray(cfg.surfaces) && cfg.surfaces.length > 0
       ? cfg.surfaces.map((s) => String(s).trim().toUpperCase())
       : ["GLOBAL"];
+  const presentationType = cfg.presentationType?.trim() || "center_modal";
+  const creativeMode =
+    cfg.creativeMode === "artwork" || presentationType === "center_modal"
+      ? cfg.creativeMode === "artwork"
+        ? "artwork"
+        : "card"
+      : "card";
   return {
     ok: true,
     value: {
@@ -85,8 +95,11 @@ export function planPopupDistributionAdapter(input: {
       ctaTarget: eventId,
       href,
       surfaces,
-      presentationType: cfg.presentationType?.trim() || "center_modal",
+      presentationType,
       frequencyMode: cfg.frequencyMode?.trim() || "once_per_session",
+      creativeMode,
+      imageUrl: String(cfg.imageUrl ?? "").trim() || null,
+      imagePath: String(cfg.imagePath ?? "").trim() || null,
       startAt: cfg.startAt ?? null,
       endAt: cfg.endAt ?? null,
       name: cfg.name?.trim() || `Event · ${input.eventTitle}`.slice(0, 120),

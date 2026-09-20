@@ -13,10 +13,12 @@ import {
 } from "@/lib/admin/promotion-operation-status";
 import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
 
+type ListEventRow = PlatformEventRow & { channelSummary?: string };
+
 export function AdminPlatformEventsListClient() {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
-  const [events, setEvents] = useState<PlatformEventRow[]>([]);
+  const [events, setEvents] = useState<ListEventRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +29,7 @@ export function AdminPlatformEventsListClient() {
       const res = await fetch("/api/admin/platform-events", { credentials: "same-origin" });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        events?: PlatformEventRow[];
+        events?: ListEventRow[];
         error?: string;
       };
       if (!res.ok || !json.ok) {
@@ -113,11 +115,14 @@ export function AdminPlatformEventsListClient() {
                           {formatPromotionAdminSchedule(ev.updatedAt, lang)}
                         </span>
                       ) : null}
+                      <span data-admin-event-channel-summary="1">
+                        · {ev.channelSummary ?? (lang === "en" ? "No channels" : "채널 없음")}
+                      </span>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <AdminActionLink
-                      href={`/admin/platform-events/${encodeURIComponent(ev.id)}`}
+                      href={`/admin/platform-events/${encodeURIComponent(ev.id)}#preview`}
                       variant="secondary"
                     >
                       {promotionAdminActionLabel("PREVIEW", lang)}
@@ -132,7 +137,7 @@ export function AdminPlatformEventsListClient() {
                       })}
                     </AdminActionLink>
                     <AdminActionLink
-                      href={`/admin/platform-events/${encodeURIComponent(ev.id)}`}
+                      href={`/admin/platform-events/${encodeURIComponent(ev.id)}#distribution`}
                       variant="secondary"
                     >
                       {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}

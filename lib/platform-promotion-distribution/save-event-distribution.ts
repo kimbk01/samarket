@@ -33,6 +33,7 @@ import type {
 } from "@/lib/platform-promotion-distribution/types";
 import {
   createPlatformPopupAdminCampaign,
+  replacePlatformPopupReadyCreative,
   updatePlatformPopupAdminCampaign,
 } from "@/lib/platform-popup/admin-campaign-writer";
 
@@ -133,9 +134,24 @@ async function materializePopup(
       surfaces: plan.surfaces,
       presentationType: plan.presentationType,
       frequencyMode: plan.frequencyMode,
+      creativeMode: plan.creativeMode,
     },
   });
   if (!updated.ok) return { ok: false, error: updated.error, channelRefId: ref };
+
+  if (plan.imageUrl && plan.imagePath) {
+    const creative = await replacePlatformPopupReadyCreative(sb, {
+      campaignId: ref,
+      adminUserId: input.adminUserId,
+      assetPath: plan.imagePath,
+      assetUrl: plan.imageUrl,
+      altText: plan.name,
+      creativeMode: plan.creativeMode,
+      aspectW: plan.creativeMode === "artwork" ? 1 : 36,
+      aspectH: plan.creativeMode === "artwork" ? 1 : 25,
+    });
+    if (!creative.ok) return { ok: false, error: creative.error, channelRefId: ref };
+  }
 
   // Publication guard: never leave interruptive popup active for non-public Events.
   if (!eventPubliclyActive) {

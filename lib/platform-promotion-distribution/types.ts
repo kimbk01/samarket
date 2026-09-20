@@ -67,6 +67,11 @@ export type PopupDistributionConfig = {
   surfaces?: string[];
   presentationType?: string;
   frequencyMode?: string;
+  /** Artwork vs Card when presentation is center_modal. */
+  creativeMode?: "card" | "artwork";
+  /** Optional creative asset — materialize via existing popup creative writer. */
+  imageUrl?: string;
+  imagePath?: string;
   startAt?: string | null;
   endAt?: string | null;
   name?: string;

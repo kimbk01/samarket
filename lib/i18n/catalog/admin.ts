@@ -700,6 +700,46 @@ export const adminMessages = {
     admin_platform_events_bell_title: "알림함 제목",
     admin_platform_events_bell_body: "알림함 본문",
     admin_platform_events_bell_preview_note: "알림함 행 미리보기 · Push와 독립.",
+    admin_platform_events_banner_off: "배너 꺼짐",
+    admin_platform_events_benefit_group: "혜택 정보",
+    admin_platform_events_distribution_partial_fail:
+      "일부 채널 저장에 실패했습니다. 채널별 결과를 확인하세요.",
+    admin_platform_events_distribution_save_first:
+      "초안을 먼저 저장하면 노출 설정(팝업·배너·푸시·알림함)을 구성할 수 있습니다.",
+    admin_platform_events_distribution_saving: "저장 중…",
+    admin_platform_events_error_destination: "이동 설정을 확인해 주세요.",
+    admin_platform_events_error_title_required: "이벤트 제목을 입력해 주세요.",
+    admin_platform_events_field_cta_external_url: "외부 URL",
+    admin_platform_events_field_cta_label: "버튼 문구",
+    admin_platform_events_field_cta_target: "이동 대상",
+    admin_platform_events_field_cta_type: "이동 위치",
+    admin_platform_events_field_terms: "이용 조건",
+    admin_platform_events_hero_guidance:
+      "권장 비율 16:9 · 권장 1200×675 · jpeg/png/webp · 최대 5MB · cover crop",
+    admin_platform_events_hero_replace: "이미지 교체",
+    admin_platform_events_owner_handoff_banner:
+      "오너 요청에서 승인된 Event 초안입니다. 요청 채널은 참고용이며 최종 노출은 Admin이 설정합니다.",
+    admin_platform_events_popup_benefit_disabled:
+      "혜택 정보가 없어 선택할 수 없습니다.",
+    admin_platform_events_popup_benefit_required:
+      "혜택 팝업을 쓰려면 이벤트에 혜택 정보를 먼저 입력해 주세요.",
+    admin_platform_events_popup_frequency: "노출 빈도",
+    admin_platform_events_popup_image: "팝업 이미지 URL (없으면 이벤트 히어로 사용)",
+    admin_platform_events_popup_off: "팝업 꺼짐 — 저장해도 팝업 엔진이 활성화되지 않습니다.",
+    admin_platform_events_preview_dist_after_save:
+      "초안 저장 후 노출 설정에서 팝업·배너 미리보기를 확인하세요.",
+    admin_platform_events_preview_use_dist_panel:
+      "팝업·배너 미리보기는 아래 노출 설정 패널의 실제 렌더러를 사용합니다.",
+    admin_platform_events_push_copy_required: "푸시 제목 또는 본문을 입력해 주세요.",
+    admin_platform_events_saving: "저장 중…",
+    admin_platform_events_schedule_tz_note: "시간대: Asia/Manila",
+    admin_platform_events_section_basic: "기본 정보",
+    admin_platform_events_section_content: "이벤트 내용",
+    admin_platform_events_section_destination: "이동 설정",
+    admin_platform_events_section_distribution: "노출 설정",
+    admin_platform_events_section_preview: "미리보기",
+    admin_platform_events_section_schedule: "노출 기간",
+    admin_platform_events_uploading: "업로드 중…",
     admin_event_owner_requests_title: "오너 프로모션 신청",
     admin_event_owner_approve: "승인",
     admin_event_owner_reject: "반려",
@@ -3669,6 +3709,46 @@ export const adminMessages = {
     admin_platform_events_bell_title: "Inbox title",
     admin_platform_events_bell_body: "Inbox body",
     admin_platform_events_bell_preview_note: "Inbox row preview · independent of Push.",
+    admin_platform_events_banner_off: "Banner OFF",
+    admin_platform_events_benefit_group: "Benefit info",
+    admin_platform_events_distribution_partial_fail:
+      "Some channels failed. Check per-channel results.",
+    admin_platform_events_distribution_save_first:
+      "Save the draft first to configure exposure (popup, banner, push, bell).",
+    admin_platform_events_distribution_saving: "Saving…",
+    admin_platform_events_error_destination: "Check destination settings.",
+    admin_platform_events_error_title_required: "Event title is required.",
+    admin_platform_events_field_cta_external_url: "External URL",
+    admin_platform_events_field_cta_label: "Button label",
+    admin_platform_events_field_cta_target: "Destination target",
+    admin_platform_events_field_cta_type: "Destination",
+    admin_platform_events_field_terms: "Terms",
+    admin_platform_events_hero_guidance:
+      "Recommended 16:9 · 1200×675 · jpeg/png/webp · max 5MB · cover crop",
+    admin_platform_events_hero_replace: "Replace image",
+    admin_platform_events_owner_handoff_banner:
+      "Event draft from an approved Owner request. Requested channels are suggestions — Admin sets final exposure.",
+    admin_platform_events_popup_benefit_disabled:
+      "Unavailable — Event has no Benefit content.",
+    admin_platform_events_popup_benefit_required:
+      "Add Event Benefit content before selecting Benefit popup.",
+    admin_platform_events_popup_frequency: "Frequency",
+    admin_platform_events_popup_image: "Popup image URL (falls back to Event hero)",
+    admin_platform_events_popup_off: "Popup OFF — save will not activate the popup engine.",
+    admin_platform_events_preview_dist_after_save:
+      "After saving the draft, use Exposure settings for popup/banner preview.",
+    admin_platform_events_preview_use_dist_panel:
+      "Popup/banner previews use the real renderers in the Exposure settings panel.",
+    admin_platform_events_push_copy_required: "Push title or body is required.",
+    admin_platform_events_saving: "Saving…",
+    admin_platform_events_schedule_tz_note: "Timezone: Asia/Manila",
+    admin_platform_events_section_basic: "Basic info",
+    admin_platform_events_section_content: "Event content",
+    admin_platform_events_section_destination: "Destination",
+    admin_platform_events_section_distribution: "Exposure settings",
+    admin_platform_events_section_preview: "Preview",
+    admin_platform_events_section_schedule: "Exposure period",
+    admin_platform_events_uploading: "Uploading…",
     admin_event_owner_requests_title: "Owner promotion requests",
     admin_event_owner_approve: "Approve",
     admin_event_owner_reject: "Reject",
