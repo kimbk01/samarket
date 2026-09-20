@@ -23,6 +23,7 @@ export function PopupCreativeMedia({
 }: PopupCreativeMediaProps) {
   const isArtwork = composition === "artwork_modal";
   const isBenefit = composition === "benefit_dialog";
+  const isSheet = composition === "bottom_promotion_sheet";
   const style = (
     isArtwork
       ? {
@@ -40,10 +41,13 @@ export function PopupCreativeMedia({
           ? "dibay-promo-creative--artwork"
           : isBenefit
             ? "dibay-promo-creative--benefit"
-            : "dibay-promo-creative--card",
+            : isSheet
+              ? "dibay-promo-creative--sheet"
+              : "dibay-promo-creative--card",
       ].join(" ")}
       style={style}
       data-platform-popup-creative="1"
+      data-media-policy={isArtwork ? "contain-alpha" : isBenefit ? "contain" : "cover-36-25"}
       aria-label={`${ariaLabel}${creative.altText ? `: ${creative.altText}` : ""}`}
       onClick={onCta}
     >

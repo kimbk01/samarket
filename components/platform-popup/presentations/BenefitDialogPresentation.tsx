@@ -14,8 +14,10 @@ export type BenefitDialogProps = {
   surface: string;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
-  title: string | null;
-  body: string | null;
+  /** Event benefit title — canonical hierarchy (required). */
+  benefitTitle: string;
+  /** Event benefit supporting body. */
+  benefitBody: string | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   closeLabel: string;
@@ -33,16 +35,16 @@ export type BenefitDialogProps = {
 };
 
 /**
- * TYPE D — Benefit / coupon dialog.
- * Centered card · optional creative · title/body · primary CTA · floating X.
+ * TYPE D — Benefit dialog.
+ * Hierarchy from linked Event Benefit section only — not campaign title/body parse.
  */
 export function BenefitDialogPresentation({
   campaignId,
   surface,
   creative,
   cta,
-  title,
-  body,
+  benefitTitle,
+  benefitBody,
   suppressionOptions,
   exposureId,
   closeLabel,
@@ -59,8 +61,8 @@ export function BenefitDialogPresentation({
   onImageError,
 }: BenefitDialogProps) {
   const ctaLabel = cta.label?.trim() || null;
-  const alt = creative.altText?.trim() || null;
-  const copy = body || (alt && alt !== "Advertisement" ? alt : null);
+  const primary = benefitTitle.trim();
+  if (!primary) return null;
 
   return (
     <div
@@ -68,6 +70,7 @@ export function BenefitDialogPresentation({
       data-platform-popup-card="1"
       data-composition="benefit_dialog"
       data-presentation="benefit_dialog"
+      data-benefit-authority="event_section"
       data-creative-mode={creative.creativeMode}
       data-campaign-id={campaignId}
       data-creative-id={creative.id}
@@ -82,16 +85,24 @@ export function BenefitDialogPresentation({
         className="dibay-promo-close-x--frame"
       />
       <div className="dibay-promo-benefit" id={titleId}>
-        <PopupCreativeMedia
-          composition="benefit_dialog"
-          creative={creative}
-          ariaLabel={creativeAria}
-          onCta={onCta}
-          onLoad={onMediaReady}
-          onError={onImageError}
-        />
-        {title ? <h2 className="dibay-promo-title">{title}</h2> : null}
-        {copy ? <p className="dibay-promo-benefit__copy">{copy}</p> : null}
+        <div className="dibay-promo-benefit__visual" data-benefit-visual="1">
+          <PopupCreativeMedia
+            composition="benefit_dialog"
+            creative={creative}
+            ariaLabel={creativeAria}
+            onCta={onCta}
+            onLoad={onMediaReady}
+            onError={onImageError}
+          />
+        </div>
+        <p className="dibay-promo-benefit__value" data-benefit-value="1">
+          {primary}
+        </p>
+        {benefitBody ? (
+          <p className="dibay-promo-benefit__support" data-benefit-support="1">
+            {benefitBody}
+          </p>
+        ) : null}
         {ctaLabel ? (
           <button
             type="button"

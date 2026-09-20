@@ -108,6 +108,9 @@ export function BottomPromotionSheetPresentation({
         ) : null}
       </div>
 
+      {/* CUT 1 — canonical safe-bottom always present (not only suppress row). */}
+      <div className="dibay-promo-sheet__safe-bottom" data-promo-safe-bottom="1" aria-hidden="true" />
+
       {hasSuppress ? (
         <div className="dibay-promo-sheet__actions" data-promo-sheet-actions="1">
           <PopupSuppressActions

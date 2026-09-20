@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Admin preview: phone / tablet. Exact DibayPopupAd — no preview-only CSS.
+ * Admin preview: phone / tablet P / tablet L (deny) / desktop.
+ * Exact DibayPopupAd — no preview-only presentation CSS.
  */
 
 import { useMemo, useState } from "react";
@@ -28,6 +29,8 @@ export type AdminPlatformPopupPreviewSource = {
   ctaLabel?: string | null;
   title?: string | null;
   body?: string | null;
+  /** Event benefit — required for benefit_dialog preview. */
+  benefit?: { title: string; body: string | null } | null;
   surface: string;
   suppressionMode: string;
   suppressionDurationSeconds: number | null;
@@ -38,12 +41,18 @@ export type AdminPlatformPopupPreviewSource = {
   aspectW?: number;
   aspectH?: number;
   unsaved?: boolean;
+  /** When false, benefit_dialog must not pretend to render. */
+  benefitEligible?: boolean;
 };
 
-type DeviceMode = "phone" | "tablet";
+type DeviceMode = "phone" | "tablet_portrait" | "tablet_landscape" | "desktop";
 
-const PHONE = { w: 390, h: 844 };
-const TABLET = { w: 768, h: 1024 };
+const FRAMES: Record<DeviceMode, { w: number; h: number; safeBottom: number }> = {
+  phone: { w: 390, h: 844, safeBottom: 34 },
+  tablet_portrait: { w: 768, h: 1024, safeBottom: 20 },
+  tablet_landscape: { w: 1024, h: 768, safeBottom: 20 },
+  desktop: { w: 1280, h: 800, safeBottom: 0 },
+};
 
 export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPopupPreviewSource | null }) {
   const { safeT, language } = useI18n();
@@ -58,6 +67,9 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           ? "benefit_dialog"
           : "center_modal"
     ) as PlatformPopupInterruptivePresentation;
+    if (presentationType === "benefit_dialog") {
+      if (source.benefitEligible === false || !source.benefit?.title?.trim()) return null;
+    }
     const frequencyMode = normalizePlatformPopupFrequencyMode(source.frequencyMode);
     const creativeMode = normalizePlatformPopupCreativeMode(source.creativeMode);
     return {
@@ -76,6 +88,10 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
       },
       title: source.title?.trim() || null,
       body: source.body?.trim() || null,
+      benefit:
+        presentationType === "benefit_dialog" && source.benefit?.title?.trim()
+          ? { title: source.benefit.title.trim(), body: source.benefit.body?.trim() || null }
+          : null,
       cta: {
         type: source.ctaType || "internal_page",
         href: source.ctaHref || "/market",
@@ -91,7 +107,8 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
     };
   }, [source]);
 
-  const frame = device === "phone" ? PHONE : TABLET;
+  const frame = FRAMES[device];
+  const landscapeDenied = device === "tablet_landscape";
   const surfaceLabel = source?.surface
     ? adminSurfaceModeLabel(
         source.surface as PlatformPopupAdminSurfaceMode,
@@ -108,29 +125,27 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           ? "linear-gradient(180deg,#fff7ed 0%,#ffedd5 40%,#f8fafc 100%)"
           : "linear-gradient(180deg,#f8fafc 0%,#e2e8f0 100%)";
 
+  const modeBtn = (mode: DeviceMode, labelKo: string, labelEn: string) => (
+    <button
+      key={mode}
+      type="button"
+      className={`rounded px-2 py-1 text-xs font-medium ${device === mode ? "bg-sam-fg text-white" : "border border-sam-border"}`}
+      onClick={() => setDevice(mode)}
+    >
+      {safeT(`admin_platform_popup_preview_${mode}`, {
+        fallbackKo: labelKo,
+        fallbackEn: labelEn,
+      })}
+    </button>
+  );
+
   return (
     <div data-admin-popup-preview="1" className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className={`rounded px-2 py-1 text-xs font-medium ${device === "phone" ? "bg-sam-fg text-white" : "border border-sam-border"}`}
-          onClick={() => setDevice("phone")}
-        >
-          {safeT("admin_platform_popup_preview_phone", {
-            fallbackKo: "휴대폰",
-            fallbackEn: "Phone",
-          })}
-        </button>
-        <button
-          type="button"
-          className={`rounded px-2 py-1 text-xs font-medium ${device === "tablet" ? "bg-sam-fg text-white" : "border border-sam-border"}`}
-          onClick={() => setDevice("tablet")}
-        >
-          {safeT("admin_platform_popup_preview_tablet", {
-            fallbackKo: "태블릿",
-            fallbackEn: "Tablet",
-          })}
-        </button>
+        {modeBtn("phone", "휴대폰", "Phone")}
+        {modeBtn("tablet_portrait", "태블릿 세로", "Tablet portrait")}
+        {modeBtn("tablet_landscape", "태블릿 가로", "Tablet landscape")}
+        {modeBtn("desktop", "데스크톱", "Desktop")}
         {surfaceLabel ? <span className="text-xs text-sam-muted">{surfaceLabel}</span> : null}
         {source?.unsaved ? (
           <span className="text-xs text-amber-700">
@@ -144,25 +159,43 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
 
       <div
         className="mx-auto overflow-hidden rounded-2xl border border-sam-border shadow-sm"
-        style={{ width: Math.min(frame.w, PLATFORM_POPUP_TABLET_MAX_WIDTH_PX + 40), maxWidth: "100%" }}
+        style={{
+          width: Math.min(frame.w, device === "desktop" ? 720 : PLATFORM_POPUP_TABLET_MAX_WIDTH_PX + 80),
+          maxWidth: "100%",
+        }}
       >
         <div
           className="relative flex items-center justify-center"
           style={{
-            height: Math.min(frame.h * 0.72, 560),
+            height: Math.min(frame.h * 0.72, device === "desktop" ? 520 : 560),
             background: contextTone,
+            /* Labeled simulated inset for sheet proof — not production token mutation. */
+            ["--safe-bottom" as string]: `${frame.safeBottom}px`,
+            ["--safe-top" as string]: device === "phone" ? "47px" : "24px",
           }}
+          data-preview-simulated-safe-bottom={frame.safeBottom}
         >
-          {winner ? (
+          {landscapeDenied ? (
+            <p
+              className="px-4 text-center text-sm font-medium text-sam-fg"
+              data-admin-popup-preview-landscape-deny="1"
+            >
+              {safeT("admin_platform_popup_preview_landscape_deny", {
+                fallbackKo: "가로 화면에서는 팝업이 노출되지 않음",
+                fallbackEn: "Popup is not shown in landscape",
+              })}
+            </p>
+          ) : winner ? (
             <div className="w-full max-w-full px-3">
               <DibayPopupAd
-                key={`${winner.presentationType}-${winner.creative.creativeMode}-${winner.cta.label ?? ""}-${winner.title ?? ""}`}
+                key={`${winner.presentationType}-${winner.creative.creativeMode}-${winner.benefit?.title ?? ""}-${winner.title ?? ""}`}
                 campaignId={winner.campaignId}
                 surface={winner.surface}
                 creative={winner.creative}
                 cta={winner.cta}
                 title={winner.title}
                 body={winner.body}
+                benefit={winner.benefit}
                 suppressionOptions={winner.suppressionOptions}
                 exposureId="admin-preview"
                 presentationType={winner.presentationType}
@@ -178,10 +211,15 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
             </div>
           ) : (
             <p className="px-4 text-center text-sm text-sam-muted">
-              {safeT("admin_platform_popup_preview_empty", {
-                fallbackKo: "미리볼 크리에이티브가 없습니다.",
-                fallbackEn: "No creative to preview.",
-              })}
+              {source?.presentationType === "benefit_dialog" && source.benefitEligible === false
+                ? safeT("admin_platform_popup_benefit_requires_event", {
+                    fallbackKo: "연결된 이벤트에 혜택 정보가 필요합니다.",
+                    fallbackEn: "Linked event benefit content is required.",
+                  })
+                : safeT("admin_platform_popup_preview_empty", {
+                    fallbackKo: "미리볼 크리에이티브가 없습니다.",
+                    fallbackEn: "No creative to preview.",
+                  })}
             </p>
           )}
         </div>
@@ -192,10 +230,11 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           fallbackEn: "Preview uses the production DibayPopupAd renderer.",
         })}
       </p>
-      <p className="text-xs text-sam-muted" data-admin-popup-preview-landscape-note="1">
-        {safeT("admin_platform_popup_preview_landscape", {
-          fallbackKo: "가로 모드에서는 팝업이 표시되지 않습니다.",
-          fallbackEn: "Popup is not shown in landscape.",
+      <p className="text-xs text-sam-muted" data-admin-popup-preview-safe-note="1">
+        {safeT("admin_platform_popup_preview_safe_simulated", {
+          fallbackKo: `시뮬레이션 safe-bottom: ${frame.safeBottom}px (미리보기 셸)`,
+          fallbackEn: `Simulated safe-bottom: ${frame.safeBottom}px (preview shell)`,
+          vars: { px: frame.safeBottom },
         })}
       </p>
     </div>

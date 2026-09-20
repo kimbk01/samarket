@@ -45,6 +45,11 @@ export type PlatformPopupPresentationWinner = {
   title: string | null;
   /** Optional body/subcopy — omit empty containers when null. */
   body: string | null;
+  /**
+   * CUT 1 — Benefit Dialog hierarchy from linked Event benefit section only.
+   * Required when presentationType === benefit_dialog. Never parsed from title/body.
+   */
+  benefit: { title: string; body: string | null } | null;
   cta: PlatformPopupPresentationCta;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   timezone: string;

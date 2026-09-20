@@ -103,6 +103,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [promoBody, setPromoBody] = useState("");
   const [altText, setAltText] = useState("");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
+  /** Linked Event benefit section — Benefit Dialog eligibility (CUT 1). */
+  const [eventBenefit, setEventBenefit] = useState<{ title: string; body: string | null } | null>(null);
+  const [eventBenefitLoading, setEventBenefitLoading] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("focus") !== "preview") return;
@@ -192,6 +195,44 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     return r.ok ? r.value.href : "";
   }, [ctaType, ctaTarget, externalUrl]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const eventId = ctaType === "event_detail" ? String(ctaTarget ?? "").trim() : "";
+    if (!eventId) {
+      setEventBenefit(null);
+      setEventBenefitLoading(false);
+      return;
+    }
+    setEventBenefitLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/platform-events/${eventId}`, { credentials: "same-origin" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          event?: { sections?: unknown };
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok || !json.event) {
+          setEventBenefit(null);
+          return;
+        }
+        const { extractPlatformEventBenefitContent } = await import(
+          "@/lib/platform-popup/event-benefit-authority"
+        );
+        setEventBenefit(extractPlatformEventBenefitContent(json.event.sections ?? null));
+      } catch {
+        if (!cancelled) setEventBenefit(null);
+      } finally {
+        if (!cancelled) setEventBenefitLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ctaType, ctaTarget]);
+
+  const benefitEligible = Boolean(eventBenefit?.title?.trim());
+
   const previewSource = useMemo(() => {
     const imageUrl = previewOverrideUrl || campaign?.creative?.imageUrl || "";
     if (!imageUrl || !campaign) return null;
@@ -205,6 +246,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       ctaLabel: ctaLabel || null,
       title: promoTitle || null,
       body: promoBody || null,
+      benefit: eventBenefit,
+      benefitEligible,
       surface: previewSurfaceFromAdminSelection(selectedSurfaces),
       suppressionMode,
       suppressionDurationSeconds:
@@ -226,6 +269,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     ctaLabel,
     promoTitle,
     promoBody,
+    eventBenefit,
+    benefitEligible,
     selectedSurfaces,
     suppressionMode,
     durationSec,
@@ -562,8 +607,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     creativeHint: "card" as const,
                     titleKo: "Benefit Dialog",
                     titleEn: "Benefit Dialog",
-                    bodyKo: "혜택 설명 · compact dialog",
-                    bodyEn: "Benefit explanation · compact dialog",
+                    bodyKo: "연결된 이벤트 혜택 · 혜택 중심",
+                    bodyEn: "Linked Event benefit · benefit-first",
                   },
                 ] as const
               ).map((opt) => {
@@ -572,14 +617,26 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   (opt.value === "bottom_sheet" ||
                     opt.value === "benefit_dialog" ||
                     creativeMode === opt.creativeHint);
+                const benefitDisabled =
+                  opt.value === "benefit_dialog" && !benefitEligible && !eventBenefitLoading;
                 return (
                   <button
                     key={`${opt.value}-${opt.creativeHint}`}
                     type="button"
+                    disabled={benefitDisabled}
+                    aria-disabled={benefitDisabled}
+                    data-benefit-dialog-eligible={
+                      opt.value === "benefit_dialog" ? (benefitEligible ? "1" : "0") : undefined
+                    }
                     className={`rounded border px-3 py-2 text-left text-sm ${
-                      selected ? "border-sam-fg bg-sam-fg/5" : "border-sam-border"
+                      benefitDisabled
+                        ? "cursor-not-allowed border-sam-border/60 opacity-50"
+                        : selected
+                          ? "border-sam-fg bg-sam-fg/5"
+                          : "border-sam-border"
                     }`}
                     onClick={() => {
+                      if (benefitDisabled) return;
                       markDirty();
                       setPresentationType(opt.value);
                       setCreativeMode(opt.creativeHint);
@@ -591,6 +648,22 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     <div className="mt-0.5 text-xs text-sam-muted">
                       {language === "en" ? opt.bodyEn : opt.bodyKo}
                     </div>
+                    {opt.value === "benefit_dialog" && benefitDisabled ? (
+                      <div className="mt-1 text-xs text-sam-danger" data-benefit-dialog-reason="1">
+                        {safeT("admin_platform_popup_benefit_requires_event_benefit", {
+                          fallbackKo: "연결된 이벤트에 혜택 정보가 필요합니다.",
+                          fallbackEn: "Linked Event needs Benefit content.",
+                        })}
+                      </div>
+                    ) : null}
+                    {opt.value === "benefit_dialog" && eventBenefitLoading ? (
+                      <div className="mt-1 text-xs text-sam-muted">
+                        {safeT("admin_platform_popup_benefit_checking", {
+                          fallbackKo: "이벤트 혜택 확인 중…",
+                          fallbackEn: "Checking Event benefit…",
+                        })}
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}

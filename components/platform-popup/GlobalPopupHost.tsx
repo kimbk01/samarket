@@ -570,6 +570,7 @@ export function GlobalPopupHost() {
           cta={winner.cta}
           title={winner.title}
           body={winner.body}
+          benefit={winner.benefit}
           suppressionOptions={winner.suppressionOptions}
           exposureId={exposureId}
           presentationType={winner.presentationType}

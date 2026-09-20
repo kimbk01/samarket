@@ -250,6 +250,7 @@ describe("Presentation A–D roundtrip + rotation", () => {
     );
     expect(preview).toContain('from "@/components/platform-popup/DibayPopupAd"');
     expect(preview).toContain("title={winner.title}");
+    expect(preview).toContain("benefit={winner.benefit}");
     expect(preview).toContain("label: source.ctaLabel");
   });
 });

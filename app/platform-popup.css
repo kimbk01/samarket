@@ -11,7 +11,7 @@
   align-items: flex-end;
   justify-content: center;
   padding: 0;
-  /* Safe-area only on sheet chrome — not doubled into a white panel. */
+  /* CUT 1: no double-pad on stage — safe-bottom lives on sheet chrome. */
   padding-bottom: 0;
   overflow-x: clip;
 }
@@ -20,8 +20,9 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+  /* Canonical --safe-* (max env + native bridge). Do not scatter raw env(). */
   padding-top: max(20px, var(--safe-top, 0px));
-  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(20px, var(--safe-bottom, 0px));
   overflow: visible;
 }
 
@@ -76,6 +77,7 @@
 }
 
 /* ── TYPE A — Artwork modal ────────────────────────────────── */
+/* Artwork layer MUST NOT inherit Card media (no 36:25, no cover, no opaque cage). */
 
 .dibay-promo-frame--artwork-modal {
   max-width: min(88vw, 340px);
@@ -86,6 +88,8 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
+  /* Stack itself has no opaque fill — only the compact info card does. */
+  background: transparent;
 }
 
 .dibay-promo-creative--artwork {
@@ -95,11 +99,14 @@
   border: 0;
   padding: 0;
   margin: 0;
-  background: transparent;
+  background: transparent !important;
   cursor: pointer;
   display: block;
-  /* Pull artwork down so it visually overflows onto the compact card (Baemin Type A). */
+  /* Pull artwork onto compact card without wrapping art in white. */
   margin-bottom: -72px;
+  /* Never apply Card aspect/overflow to Artwork. */
+  aspect-ratio: auto;
+  overflow: visible;
 }
 
 .dibay-promo-creative--artwork .dibay-promo-creative__img {
@@ -109,7 +116,9 @@
   max-height: min(42vh, 360px);
   object-fit: contain;
   object-position: center bottom;
-  background: transparent;
+  background: transparent !important;
+  /* Soft silhouette lift — not a rectangular cage. */
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
   pointer-events: none;
   user-select: none;
 }
@@ -120,6 +129,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Top padding reserves overlap with artwork; card is independent of art size. */
   padding: 80px 14px 10px;
   border-radius: 16px;
   background: #fff;
@@ -239,6 +249,17 @@
   overflow: hidden;
   transform: translateY(100%);
   transition: transform var(--overlay-motion-enter, 200ms) ease-out;
+  /* CUT 1: terminate above native unsafe area via canonical --safe-bottom. */
+  padding-bottom: 0;
+}
+
+.dibay-promo-sheet__safe-bottom {
+  flex: 0 0 auto;
+  width: 100%;
+  height: var(--safe-bottom, 0px);
+  min-height: var(--safe-bottom, 0px);
+  background: #fff;
+  pointer-events: none;
 }
 
 .dibay-promo-close-x--sheet {
@@ -246,6 +267,30 @@
   right: 8px;
   background: rgba(15, 23, 42, 0.55);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+/* Sheet media — cover band (not Artwork contain-alpha). */
+.dibay-promo-creative--sheet {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 36 / 25;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.dibay-promo-creative--sheet .dibay-promo-creative__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ── TYPE D — Benefit dialog ───────────────────────────────── */
@@ -263,6 +308,10 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
 }
 
+.dibay-promo-benefit__visual {
+  background: transparent;
+}
+
 .dibay-promo-creative--benefit {
   display: block;
   width: 100%;
@@ -276,28 +325,30 @@
   display: block;
   width: 100%;
   height: auto;
-  max-height: 200px;
+  max-height: 160px;
   object-fit: contain;
-  background: #f8fafc;
+  /* Soft stage — not Card gray cage filling the dialog. */
+  background: transparent;
+  padding: 12px 16px 0;
 }
 
-.dibay-promo-benefit .dibay-promo-title {
-  margin: 14px 16px 0;
-  text-align: center;
-  font-size: 17px;
-}
-
-.dibay-promo-benefit__copy {
-  margin: 8px 16px 0;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.35;
+.dibay-promo-benefit__value {
+  margin: 12px 16px 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   color: #0f172a;
   text-align: center;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f0fdf4;
-  border: 1px dashed rgba(8, 92, 63, 0.35);
+}
+
+.dibay-promo-benefit__support {
+  margin: 8px 16px 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #334155;
+  text-align: center;
 }
 
 .dibay-promo-root[data-entered="true"] .dibay-promo-sheet {
@@ -323,7 +374,8 @@
   align-items: center;
   justify-content: center;
   gap: 2px 12px;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  /* Suppress row sits above safe-bottom spacer; do not re-add env(). */
+  padding: 8px 12px;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
   background: #fff;
 }

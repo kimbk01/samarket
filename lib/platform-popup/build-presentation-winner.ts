@@ -15,6 +15,10 @@ import {
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupFrequencyMode,
 } from "@/lib/platform-popup/presentation-contract";
+import {
+  assertBenefitDialogContent,
+  type PlatformPopupEventBenefitContent,
+} from "@/lib/platform-popup/event-benefit-authority";
 
 export function buildPlatformPopupPresentationWinner(
   winner: ResolvePopupAdWinner,
@@ -32,7 +36,9 @@ export function buildPlatformPopupPresentationWinner(
     title?: string | null;
     body?: string | null;
     frequencyMode?: string | null;
-  }
+  },
+  /** Event benefit section when presentation is benefit_dialog. */
+  eventBenefit: PlatformPopupEventBenefitContent | null = null
 ): PlatformPopupPresentationWinner | null {
   const imageUrl = resolvePlatformPopupCreativePublicUrl({
     assetUrl: creativeRow.assetUrl,
@@ -57,6 +63,9 @@ export function buildPlatformPopupPresentationWinner(
     candidate.creative?.creativeMode ?? winner.creativeMode
   );
 
+  const benefitGate = assertBenefitDialogContent(winner.presentationType, eventBenefit);
+  if (!benefitGate.ok) return null;
+
   return {
     campaignId: winner.campaignId,
     creativeId: winner.creativeId,
@@ -73,6 +82,9 @@ export function buildPlatformPopupPresentationWinner(
     },
     title: campaignRow.title?.trim() || candidate.title?.trim() || null,
     body: campaignRow.body?.trim() || candidate.body?.trim() || null,
+    benefit: benefitGate.required
+      ? { title: benefitGate.benefit.title, body: benefitGate.benefit.body }
+      : null,
     cta: {
       type: cta.value.ctaType,
       href: cta.value.href,

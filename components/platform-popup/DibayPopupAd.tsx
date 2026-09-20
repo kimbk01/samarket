@@ -31,6 +31,8 @@ export type DibayPopupAdProps = {
   cta: PlatformPopupPresentationCta;
   title?: string | null;
   body?: string | null;
+  /** Event benefit section — required for benefit_dialog. */
+  benefit?: { title: string; body: string | null } | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   presentationType?: PlatformPopupInterruptivePresentation;
@@ -56,6 +58,7 @@ export function DibayPopupAd({
   cta,
   title = null,
   body: copyBody = null,
+  benefit = null,
   suppressionOptions,
   exposureId,
   presentationType = "bottom_sheet",
@@ -171,6 +174,10 @@ export function DibayPopupAd({
   });
   const isSheet = compositionIsSheet(composition);
 
+  if (composition === "benefit_dialog" && !benefit?.title?.trim()) {
+    return null;
+  }
+
   const shared = {
     campaignId,
     surface,
@@ -200,7 +207,11 @@ export function DibayPopupAd({
     ) : composition === "promotion_card_modal" ? (
       <PromotionCardModalPresentation {...shared} />
     ) : composition === "benefit_dialog" ? (
-      <BenefitDialogPresentation {...shared} />
+      <BenefitDialogPresentation
+        {...shared}
+        benefitTitle={benefit!.title}
+        benefitBody={benefit?.body ?? null}
+      />
     ) : (
       <BottomPromotionSheetPresentation {...shared} />
     );

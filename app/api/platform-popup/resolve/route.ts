@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { buildPlatformPopupPresentationWinner } from "@/lib/platform-popup/build-presentation-winner";
+import { extractPlatformEventBenefitContent } from "@/lib/platform-popup/event-benefit-authority";
 import { assertNotImpressionFromResolver } from "@/lib/platform-popup/events";
 import { loadPlatformPopupCandidates } from "@/lib/platform-popup/load-popup-candidates";
 import {
@@ -97,6 +98,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const creative = candidate.creative;
+
+  let eventBenefit = null;
+  if (result.winner.presentationType === "benefit_dialog") {
+    const eventId =
+      candidate.ctaType === "event_detail" ? String(candidate.ctaTarget ?? "").trim() : "";
+    if (!eventId) {
+      return NextResponse.json({
+        ok: true,
+        winner: null,
+        reason: "benefit_content_required",
+        surface,
+        generation,
+        impression: false,
+      });
+    }
+    const { data: eventRow } = await sb
+      .from("platform_events")
+      .select("sections")
+      .eq("id", eventId)
+      .maybeSingle();
+    eventBenefit = extractPlatformEventBenefitContent(eventRow?.sections ?? null);
+    if (!eventBenefit) {
+      return NextResponse.json({
+        ok: true,
+        winner: null,
+        reason: "benefit_content_required",
+        surface,
+        generation,
+        impression: false,
+      });
+    }
+  }
+
   const presentation = buildPlatformPopupPresentationWinner(
     result.winner,
     candidate,
@@ -113,7 +147,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       title: candidate.title ?? null,
       body: candidate.body ?? null,
       frequencyMode: candidate.frequencyMode,
-    }
+    },
+    eventBenefit
   );
 
   if (!presentation) {
