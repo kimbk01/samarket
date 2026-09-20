@@ -637,6 +637,25 @@ export const adminMessages = {
     admin_platform_events_publish: "게시",
     admin_platform_events_unpublish: "게시 중지",
     admin_platform_events_preview: "미리보기 (런타임 동일 렌더러)",
+    admin_platform_events_distribution_title: "이 이벤트를 어디에 알릴까요?",
+    admin_platform_events_distribution_hint:
+      "각 채널은 독립입니다. 이벤트 게시만으로 푸시가 나가지 않습니다.",
+    admin_platform_events_distribution_save: "배포 설정 저장",
+    admin_platform_events_distribution_saved:
+      "배포 설정이 저장되었습니다. 푸시는 별도 발송이 필요합니다.",
+    admin_platform_events_distribution_push_handoff:
+      "기존 알림 캠페인 발송으로 연결됩니다.",
+    admin_platform_events_channel_popup: "팝업",
+    admin_platform_events_channel_banner: "배너",
+    admin_platform_events_channel_push: "푸시 알림",
+    admin_platform_events_channel_bell: "알림함",
+    admin_platform_events_banner_placement: "배치",
+    admin_platform_events_banner_image: "배너 이미지 URL",
+    admin_platform_events_push_title: "푸시 제목",
+    admin_platform_events_push_body: "푸시 본문",
+    admin_platform_events_push_send_now: "지금 발송 (기존 엔진)",
+    admin_platform_events_bell_title: "알림함 제목",
+    admin_platform_events_bell_body: "알림함 본문",
     admin_menu_trade_audit: "거래 게시물 감사 로그",
     admin_users_staff_page_title: "스태프 (SYSTEM)",
     admin_users_staff_privilege_banner:
@@ -3506,6 +3525,25 @@ export const adminMessages = {
     admin_platform_events_publish: "Publish",
     admin_platform_events_unpublish: "Unpublish",
     admin_platform_events_preview: "Preview (same runtime renderer)",
+    admin_platform_events_distribution_title: "Where should we announce this event?",
+    admin_platform_events_distribution_hint:
+      "Channels are independent. Publishing the event never sends push.",
+    admin_platform_events_distribution_save: "Save distribution",
+    admin_platform_events_distribution_saved:
+      "Distribution saved. Push still requires an explicit send.",
+    admin_platform_events_distribution_push_handoff:
+      "Hand off to existing notification campaign send.",
+    admin_platform_events_channel_popup: "Popup",
+    admin_platform_events_channel_banner: "Banner",
+    admin_platform_events_channel_push: "Push notification",
+    admin_platform_events_channel_bell: "Notification inbox",
+    admin_platform_events_banner_placement: "Placement",
+    admin_platform_events_banner_image: "Banner image URL",
+    admin_platform_events_push_title: "Push title",
+    admin_platform_events_push_body: "Push body",
+    admin_platform_events_push_send_now: "Send now (existing engine)",
+    admin_platform_events_bell_title: "Inbox title",
+    admin_platform_events_bell_body: "Inbox body",
     admin_menu_trade_audit: "Trade post audit log",
     admin_users_staff_page_title: "Staff (SYSTEM)",
     admin_users_staff_privilege_banner:

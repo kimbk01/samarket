@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPlatformEventDistributionPanel } from "@/components/admin/platform-events/AdminPlatformEventDistributionPanel";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type {
   PlatformEventRow,
@@ -339,6 +340,13 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             }
           />
         </label>
+
+        {!isNew ? (
+          <AdminPlatformEventDistributionPanel
+            eventId={draft.id}
+            eventTitle={draft.title || "Event"}
+          />
+        ) : null}
 
         <div className="flex flex-wrap gap-2 pt-2">
           <button
