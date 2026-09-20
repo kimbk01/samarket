@@ -6,9 +6,15 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import {
+  eventBannerImageGuidance,
+  eventBannerPlacementLabel,
   eventBannerPresentationLabel,
+  isEventBannerPlacement,
   isEventBannerPlacementPresentationCompatible,
+  listEventBannerPlacementsForPresentation,
+  listEventBannerPresentations,
   normalizeEventBannerPresentation,
+  type EventBannerPlacement,
   type EventBannerPresentation,
 } from "@/lib/platform-promotion-distribution/banner-presentation";
 import type { PromotionDistributionToggleDraft } from "@/lib/platform-promotion-distribution/types";
@@ -34,9 +40,12 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
   const [bellBody, setBellBody] = useState("");
   const [bannerPresentation, setBannerPresentation] =
     useState<EventBannerPresentation>("INLINE_BANNER");
-  const [bannerPlacement, setBannerPlacement] = useState("TRADE_HOME");
+  const [bannerPlacement, setBannerPlacement] = useState<EventBannerPlacement>("TRADE_HOME");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerHeadline, setBannerHeadline] = useState("");
+  const [bannerPreviewDevice, setBannerPreviewDevice] = useState<
+    "phone" | "tablet_portrait" | "tablet_landscape" | "desktop"
+  >("phone");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +91,10 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
         }
         if (row.channel === "banner") {
           setBannerPresentation(normalizeEventBannerPresentation(String(cfg.presentation ?? "")));
-          setBannerPlacement(String(cfg.placement ?? "TRADE_HOME"));
+          const nextPlacement = String(cfg.placement ?? "TRADE_HOME");
+          setBannerPlacement(
+            isEventBannerPlacement(nextPlacement) ? nextPlacement : "TRADE_HOME"
+          );
           setBannerImageUrl(String(cfg.imageUrl ?? ""));
           setBannerHeadline(String(cfg.headline ?? ""));
         }
@@ -251,13 +263,8 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
       </label>
       {toggles.banner ? (
         <div className="ml-6 space-y-3" data-admin-event-banner-editor="1">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["INLINE_BANNER", "인라인 배너", "Inline banner"],
-                ["HERO_BANNER", "히어로 배너", "Hero banner"],
-              ] as const
-            ).map(([value, ko, en]) => (
+          <div className="grid gap-2 sm:grid-cols-2" data-admin-banner-presentation-from-registry="1">
+            {listEventBannerPresentations().map((value) => (
               <button
                 key={value}
                 type="button"
@@ -267,17 +274,17 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
                     : "border-sam-border"
                 }`}
                 data-admin-banner-presentation={value}
-                onClick={() => setBannerPresentation(value)}
+                onClick={() => {
+                  setBannerPresentation(value);
+                  const legal = listEventBannerPlacementsForPresentation(value);
+                  if (!legal.includes(bannerPlacement) && legal[0]) {
+                    setBannerPlacement(legal[0]);
+                  }
+                }}
               >
-                <div className="font-semibold">{lang === "en" ? en : ko}</div>
+                <div className="font-semibold">{eventBannerPresentationLabel(value, lang)}</div>
                 <div className="mt-0.5 text-xs text-sam-muted">
-                  {value === "INLINE_BANNER"
-                    ? lang === "en"
-                      ? "Feed flow · 3:1"
-                      : "피드 흐름 · 3:1"
-                    : lang === "en"
-                      ? "Prominent · 39:16 geometry"
-                      : "강조 배너 · 39:16 지오메트리"}
+                  {eventBannerImageGuidance(value, lang)}
                 </div>
               </button>
             ))}
@@ -292,14 +299,17 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={bannerPlacement}
-                onChange={(e) => setBannerPlacement(e.target.value)}
+                data-admin-banner-placement-from-registry="1"
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (isEventBannerPlacement(next)) setBannerPlacement(next);
+                }}
               >
-                <option value="TRADE_HOME">
-                  {lang === "en" ? "Trade home" : "거래 홈"}
-                </option>
-                <option value="COMMUNITY_HOME">
-                  {lang === "en" ? "Community home" : "커뮤니티 홈"}
-                </option>
+                {listEventBannerPlacementsForPresentation(bannerPresentation).map((p) => (
+                  <option key={p} value={p}>
+                    {eventBannerPlacementLabel(p, lang)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="block text-sm">
@@ -314,6 +324,9 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
               />
             </label>
           </div>
+          <p className="text-xs text-sam-muted" data-admin-banner-image-guidance="1">
+            {eventBannerImageGuidance(bannerPresentation, lang)}
+          </p>
           <label className="block text-sm">
             {safeT("admin_platform_events_banner_headline", {
               fallbackKo: "배너 문구 (선택)",
@@ -338,37 +351,85 @@ export function AdminPlatformEventDistributionPanel({ eventId, eventTitle }: Pro
             className="rounded-ui-rect border border-sam-border bg-sam-app/40 p-3"
             data-admin-banner-preview={bannerPresentation}
           >
+            <div className="mb-2 flex flex-wrap gap-2">
+              {(
+                [
+                  ["phone", "휴대폰", "Phone"],
+                  ["tablet_portrait", "태블릿 세로", "Tablet portrait"],
+                  ["tablet_landscape", "태블릿 가로", "Tablet landscape"],
+                  ["desktop", "데스크톱", "Desktop"],
+                ] as const
+              ).map(([mode, ko, en]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`rounded px-2 py-1 text-xs ${
+                    bannerPreviewDevice === mode
+                      ? "bg-sam-fg text-white"
+                      : "border border-sam-border"
+                  }`}
+                  data-admin-banner-preview-device={mode}
+                  onClick={() => setBannerPreviewDevice(mode)}
+                >
+                  {lang === "en" ? en : ko}
+                </button>
+              ))}
+            </div>
             <p className="mb-2 text-xs font-medium text-sam-muted">
-              {eventBannerPresentationLabel(bannerPresentation, lang)} · preview
+              {eventBannerPresentationLabel(bannerPresentation, lang)} ·{" "}
+              {eventBannerPlacementLabel(bannerPlacement, lang)} · preview
+              {bannerPreviewDevice === "tablet_landscape"
+                ? lang === "en"
+                  ? " · landscape allowed"
+                  : " · 가로에서도 노출"
+                : ""}
             </p>
-            {bannerPresentation === "INLINE_BANNER" ? (
-              bannerImageUrl ? (
-                <FeedAdFramePreview
-                  density={inlineDensity}
-                  imageUrl={bannerImageUrl}
-                  headline={bannerHeadline || eventTitle}
-                  alt={bannerHeadline || eventTitle}
+            <div
+              className="mx-auto overflow-hidden rounded-ui-rect border border-sam-border bg-slate-200/50 p-2"
+              style={{
+                width: Math.min(
+                  bannerPreviewDevice === "phone"
+                    ? 390
+                    : bannerPreviewDevice === "tablet_portrait"
+                      ? 768
+                      : bannerPreviewDevice === "tablet_landscape"
+                        ? 1024
+                        : 960,
+                  720
+                ),
+                maxWidth: "100%",
+              }}
+              data-admin-banner-preview-frame={bannerPreviewDevice}
+            >
+              {bannerPresentation === "INLINE_BANNER" ? (
+                bannerImageUrl ? (
+                  <FeedAdFramePreview
+                    density={inlineDensity}
+                    imageUrl={bannerImageUrl}
+                    headline={bannerHeadline || eventTitle}
+                    alt={bannerHeadline || eventTitle}
+                  />
+                ) : (
+                  <p className="text-xs text-sam-muted">—</p>
+                )
+              ) : bannerImageUrl ? (
+                <DeliveryAdBanner
+                  inventory={heroInventory}
+                  creative={{
+                    assetUrl: bannerImageUrl,
+                    headline: bannerHeadline || eventTitle,
+                    alt: bannerHeadline || eventTitle,
+                  }}
+                  destination={{ href: bannerHref, ctaLabel: null }}
+                  adLabel="dibaY"
+                  renderContext="admin_preview"
+                  campaignId={`event-dist-preview-${eventId}`}
+                  exposureToken={null}
                 />
               ) : (
                 <p className="text-xs text-sam-muted">—</p>
-              )
-            ) : bannerImageUrl ? (
-              <DeliveryAdBanner
-                inventory={heroInventory}
-                creative={{
-                  assetUrl: bannerImageUrl,
-                  headline: bannerHeadline || eventTitle,
-                  alt: bannerHeadline || eventTitle,
-                }}
-                destination={{ href: bannerHref, ctaLabel: null }}
-                adLabel="dibaY"
-                renderContext="admin_preview"
-                campaignId={`event-dist-preview-${eventId}`}
-                exposureToken={null}
-              />
-            ) : (
-              <p className="text-xs text-sam-muted">—</p>
-            )}
+              )}
+            </div>
           </div>
         </div>
       ) : null}

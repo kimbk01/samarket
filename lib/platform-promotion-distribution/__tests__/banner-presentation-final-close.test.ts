@@ -84,8 +84,8 @@ describe("Event Banner presentation SSOT", () => {
     );
     expect(src).toContain("FeedAdFramePreview");
     expect(src).toContain("DeliveryAdBanner");
-    expect(src).toContain("INLINE_BANNER");
-    expect(src).toContain("HERO_BANNER");
+    expect(src).toContain("listEventBannerPresentations");
+    expect(src).toContain("listEventBannerPlacementsForPresentation");
     expect(src).toContain("presentation: bannerPresentation");
   });
 });

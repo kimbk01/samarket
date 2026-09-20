@@ -49,6 +49,7 @@ import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
 import {
   feedAdSlotSeed,
   planFeedAdSlots,
@@ -1956,6 +1957,13 @@ export function CommunityFeed({
             {topAds.map((ad) => (
               <AdPostCard key={ad.adId} ad={ad} />
             ))}
+          </div>
+        ) : null}
+
+        {/* CUT 2 — COMMUNITY_HOME × HERO host (capability registry). Collapses when empty. */}
+        {feedAdSurface.placement === "COMMUNITY_HOME" ? (
+          <div className="px-3 pb-2" data-community-event-hero-host="1">
+            <EventPromotionHeroBanner placement="COMMUNITY_HOME" />
           </div>
         ) : null}
 

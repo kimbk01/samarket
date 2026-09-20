@@ -25,11 +25,13 @@ export function isAuthFlowPublicPath(pathname: string): boolean {
 
 /** 비회원이 볼 수 있는 공개 브라우징 경로 */
 export function isGuestPublicBrowsePath(pathname: string): boolean {
-  // Local Presentation Final Close harness only (NODE_ENV≠production page also gates).
+  // Local Presentation / Banner capability proof harness (NODE_ENV≠production page also gates).
   if (
     process.env.NODE_ENV !== "production" &&
     (pathname === "/dev/promotion-presentation-close" ||
-      pathname.startsWith("/dev/promotion-presentation-close/"))
+      pathname.startsWith("/dev/promotion-presentation-close/") ||
+      pathname === "/dev/promotion-banner-capability" ||
+      pathname.startsWith("/dev/promotion-banner-capability/"))
   ) {
     return true;
   }

@@ -1061,7 +1061,7 @@ export function HomeProductList({
           </button>
         </div>
       ) : null}
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2" data-trade-event-hero-host="1">
         <EventPromotionHeroBanner placement="TRADE_HOME" />
       </div>
       <ul
