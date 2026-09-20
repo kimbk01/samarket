@@ -161,6 +161,17 @@ async function materializeBanner(
   if (!planned.ok) return { ok: false, error: planned.error };
   const plan = planned.value;
 
+  // HERO: owned promo uses Distribution config + DeliveryAdBanner geometry.
+  // Never write Delivery paid campaigns; pause any prior INLINE feed_ad ref.
+  if (!plan.materializeFeedAd) {
+    if (existingRef) {
+      const paused = await pauseFeedAdCampaign(sb, existingRef);
+      if (paused.error) return { ok: false, error: paused.error, channelRefId: existingRef };
+      return { ok: true, channelRefId: null, action: "paused" };
+    }
+    return { ok: true, channelRefId: null, action: "noop" };
+  }
+
   if (!input.toggles.banner) {
     if (!existingRef) return { ok: true, channelRefId: null, action: "noop" };
     const paused = await pauseFeedAdCampaign(sb, existingRef);

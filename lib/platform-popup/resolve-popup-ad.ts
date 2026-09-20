@@ -68,6 +68,9 @@ export type PlatformPopupCandidate = {
   ctaType: PlatformPopupCtaType | string;
   ctaTarget?: string | null;
   externalUrl?: string | null;
+  ctaLabel?: string | null;
+  title?: string | null;
+  body?: string | null;
   suppressionMode?: PlatformPopupSuppressionMode | string | null;
   suppressionDurationSeconds?: number | null;
   ctaLookup?: PlatformPopupCtaTargetLookup | null;

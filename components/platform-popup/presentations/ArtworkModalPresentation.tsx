@@ -14,6 +14,8 @@ export type ArtworkModalProps = {
   surface: string;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
+  title: string | null;
+  body: string | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   closeLabel: string;
@@ -41,6 +43,8 @@ export function ArtworkModalPresentation({
   surface,
   creative,
   cta,
+  title,
+  body,
   suppressionOptions,
   exposureId,
   closeLabel,
@@ -57,6 +61,7 @@ export function ArtworkModalPresentation({
   onImageError,
 }: ArtworkModalProps) {
   const ctaLabel = cta.label?.trim() || null;
+  const hasCopy = Boolean(title || body || ctaLabel || suppressionOptions.length > 0);
 
   return (
     <div
@@ -86,8 +91,10 @@ export function ArtworkModalPresentation({
           onLoad={onMediaReady}
           onError={onImageError}
         />
-        {(ctaLabel || suppressionOptions.length > 0) && (
+        {hasCopy ? (
           <div className="dibay-promo-artwork-card">
+            {title ? <h2 className="dibay-promo-title">{title}</h2> : null}
+            {body ? <p className="dibay-promo-body">{body}</p> : null}
             {ctaLabel ? (
               <button
                 type="button"
@@ -108,7 +115,7 @@ export function ArtworkModalPresentation({
               tone="on-light"
             />
           </div>
-        )}
+        ) : null}
       </div>
       <span className="sr-only">
         {ctaAria}: {cta.href}

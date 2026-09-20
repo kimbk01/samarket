@@ -565,6 +565,8 @@ export function GlobalPopupHost() {
           surface={winner.surface}
           creative={winner.creative}
           cta={winner.cta}
+          title={winner.title}
+          body={winner.body}
           suppressionOptions={winner.suppressionOptions}
           exposureId={exposureId}
           presentationType={winner.presentationType}

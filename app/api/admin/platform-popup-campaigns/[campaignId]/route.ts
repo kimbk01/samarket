@@ -60,6 +60,10 @@ export async function PATCH(
     surfaces?: string[];
     presentationType?: string;
     frequencyMode?: string;
+    creativeMode?: "card" | "artwork";
+    ctaLabel?: string | null;
+    title?: string | null;
+    body?: string | null;
     materialTouched?: PlatformPopupMaterialField[];
   };
 

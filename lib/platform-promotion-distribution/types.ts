@@ -73,6 +73,8 @@ export type PopupDistributionConfig = {
 };
 
 export type BannerDistributionConfig = {
+  /** Explicit presentation — never inferred from image size or placement alone. */
+  presentation?: "INLINE_BANNER" | "HERO_BANNER";
   placement?: string;
   domain?: "trade" | "community";
   imageUrl?: string;

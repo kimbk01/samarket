@@ -28,6 +28,9 @@ type CampaignRow = {
   suppression_duration_seconds: number | null;
   presentation_type: string | null;
   frequency_mode: string | null;
+  cta_label: string | null;
+  title: string | null;
+  body: string | null;
 };
 
 type CreativeRow = {
@@ -72,7 +75,7 @@ export async function loadPlatformPopupCandidates(
   const { data: campaigns, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
+      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
     )
     .in("status", ["scheduled", "active"])
     .eq("approval_status", "approved")
@@ -153,6 +156,9 @@ export async function loadPlatformPopupCandidates(
       ctaType: c.cta_type as PlatformPopupCtaType,
       ctaTarget: c.cta_target,
       externalUrl: c.external_url,
+      ctaLabel: c.cta_label,
+      title: c.title,
+      body: c.body,
       suppressionMode: c.suppression_mode,
       suppressionDurationSeconds: c.suppression_duration_seconds,
       ctaLookup: { exists: true, visible: true, authorized: true },

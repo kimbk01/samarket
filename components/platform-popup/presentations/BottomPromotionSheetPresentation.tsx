@@ -14,6 +14,8 @@ export type BottomPromotionSheetProps = {
   surface: string;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
+  title: string | null;
+  body: string | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   closeLabel: string;
@@ -40,6 +42,8 @@ export function BottomPromotionSheetPresentation({
   surface,
   creative,
   cta,
+  title,
+  body,
   suppressionOptions,
   exposureId,
   closeLabel,
@@ -86,6 +90,12 @@ export function BottomPromotionSheetPresentation({
           onLoad={onMediaReady}
           onError={onImageError}
         />
+        {title || body ? (
+          <div className="dibay-promo-sheet__copy">
+            {title ? <h2 className="dibay-promo-title">{title}</h2> : null}
+            {body ? <p className="dibay-promo-body">{body}</p> : null}
+          </div>
+        ) : null}
         {ctaLabel ? (
           <button
             type="button"

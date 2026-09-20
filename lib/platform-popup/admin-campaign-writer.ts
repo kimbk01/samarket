@@ -43,6 +43,11 @@ export type PlatformPopupAdminUpsertInput = {
   surfaces?: string[];
   presentationType?: string;
   frequencyMode?: string;
+  /** Persist A/B creative mode without requiring re-upload. */
+  creativeMode?: "card" | "artwork";
+  ctaLabel?: string | null;
+  title?: string | null;
+  body?: string | null;
 };
 
 function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurface[] | { error: string } {
@@ -200,6 +205,17 @@ export async function updatePlatformPopupAdminCampaign(
     patch.frequency_mode = f;
   }
 
+  if ("ctaLabel" in input.patch) {
+    const label = input.patch.ctaLabel?.trim() || null;
+    patch.cta_label = label;
+  }
+  if ("title" in input.patch) {
+    patch.title = input.patch.title?.trim() || null;
+  }
+  if ("body" in input.patch) {
+    patch.body = input.patch.body?.trim() || null;
+  }
+
   if (input.patch.ctaType != null || input.patch.ctaTarget != null || "externalUrl" in input.patch) {
     const ctaType = String(input.patch.ctaType ?? current.cta_type).trim().toLowerCase();
     if (!isPlatformPopupCtaType(ctaType)) {
@@ -264,7 +280,15 @@ export async function updatePlatformPopupAdminCampaign(
   if ("suppression_mode" in patch || "suppression_duration_seconds" in patch) {
     material.add("suppression");
   }
-  if ("cta_type" in patch || "cta_target" in patch || "external_url" in patch) material.add("cta");
+  if ("cta_type" in patch || "cta_target" in patch || "external_url" in patch || "cta_label" in patch) {
+    material.add("cta");
+  }
+  if ("presentation_type" in patch || "title" in patch || "body" in patch) {
+    material.add("creative");
+  }
+  if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
+    material.add("creative");
+  }
 
   let revertedToReview = false;
   if (
@@ -282,6 +306,16 @@ export async function updatePlatformPopupAdminCampaign(
 
   const { error: updErr } = await sb.from("platform_popup_campaigns").update(patch).eq("id", campaignId);
   if (updErr) return { ok: false, error: updErr.message, httpStatus: 500 };
+
+  if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
+    const mode = input.patch.creativeMode;
+    const { error: modeErr } = await sb
+      .from("platform_popup_creatives")
+      .update({ creative_mode: mode, updated_at: new Date().toISOString() })
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready");
+    if (modeErr) return { ok: false, error: modeErr.message, httpStatus: 500 };
+  }
 
   await appendAuditLog(sb, {
     actor_type: "admin",

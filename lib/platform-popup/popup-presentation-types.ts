@@ -41,6 +41,10 @@ export type PlatformPopupPresentationWinner = {
   presentationType: PlatformPopupInterruptivePresentation;
   frequencyMode: PlatformPopupFrequencyMode;
   creative: PlatformPopupPresentationCreative;
+  /** Optional title — omit empty containers when null. */
+  title: string | null;
+  /** Optional body/subcopy — omit empty containers when null. */
+  body: string | null;
   cta: PlatformPopupPresentationCta;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   timezone: string;

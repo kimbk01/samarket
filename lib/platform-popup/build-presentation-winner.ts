@@ -29,6 +29,8 @@ export function buildPlatformPopupPresentationWinner(
     suppressionDurationSeconds?: number | null;
     timezone?: string | null;
     ctaLabel?: string | null;
+    title?: string | null;
+    body?: string | null;
     frequencyMode?: string | null;
   }
 ): PlatformPopupPresentationWinner | null {
@@ -69,10 +71,12 @@ export function buildPlatformPopupPresentationWinner(
       aspectH: candidate.creative?.aspectH ?? 25,
       creativeMode,
     },
+    title: campaignRow.title?.trim() || candidate.title?.trim() || null,
+    body: campaignRow.body?.trim() || candidate.body?.trim() || null,
     cta: {
       type: cta.value.ctaType,
       href: cta.value.href,
-      label: campaignRow.ctaLabel?.trim() || null,
+      label: campaignRow.ctaLabel?.trim() || candidate.ctaLabel?.trim() || null,
     },
     suppressionOptions: resolvePlatformPopupPresentationSuppressionOptions({
       suppressionMode: campaignRow.suppressionMode ?? "TODAY",

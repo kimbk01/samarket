@@ -67,6 +67,7 @@ import {
 } from "@/lib/ui/network-policy";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
 import {
   feedAdSlotSeed,
   planFeedAdSlots,
@@ -1060,6 +1061,9 @@ export function HomeProductList({
           </button>
         </div>
       ) : null}
+      <div className="px-3 pb-2">
+        <EventPromotionHeroBanner placement="TRADE_HOME" />
+      </div>
       <ul
         ref={listMeasureRef}
         className={`${rootClass} ${listClass}`}

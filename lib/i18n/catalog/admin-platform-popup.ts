@@ -32,6 +32,12 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_presentation_help:
       "배너(인라인/히어로)는 다음 CUT. Event Detail destination은 이후 Event CMS에서 연결합니다. Push는 자동 발송되지 않습니다.",
     admin_platform_popup_section_creative: "소재 (1440×1000 · 36:25)",
+    admin_platform_popup_section_content: "콘텐츠",
+    admin_platform_popup_field_title: "제목",
+    admin_platform_popup_field_body: "본문 (선택)",
+    admin_platform_popup_field_cta_label: "CTA 버튼 문구",
+    admin_platform_popup_content_live_preview_hint:
+      "변경은 저장 전에도 오른쪽 미리보기에 즉시 반영됩니다.",
     admin_platform_popup_section_preview: "프로덕션 미리보기",
     admin_platform_popup_creative_ratio_help:
       "최종 제작물은 반드시 36:25 입니다. 비율이 다르면 중앙 크롭을 명시적으로 적용해야 합니다.",
@@ -112,6 +118,12 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_presentation_help:
       "Banner (inline/hero) is next CUT. Event Detail destination wires in a later Event CMS. Push is never auto-sent.",
     admin_platform_popup_section_creative: "Creative (1440×1000 · 36:25)",
+    admin_platform_popup_section_content: "Content",
+    admin_platform_popup_field_title: "Title",
+    admin_platform_popup_field_body: "Body (optional)",
+    admin_platform_popup_field_cta_label: "CTA button label",
+    admin_platform_popup_content_live_preview_hint:
+      "Changes update the preview immediately, before Save.",
     admin_platform_popup_section_preview: "Production preview",
     admin_platform_popup_creative_ratio_help:
       "Final creative must be 36:25. Non-matching images require explicit center crop.",

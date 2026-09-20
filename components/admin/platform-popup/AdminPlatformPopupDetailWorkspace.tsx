@@ -98,6 +98,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [ctaType, setCtaType] = useState("internal_page");
   const [ctaTarget, setCtaTarget] = useState<string>(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
   const [externalUrl, setExternalUrl] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [promoTitle, setPromoTitle] = useState("");
+  const [promoBody, setPromoBody] = useState("");
   const [altText, setAltText] = useState("");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
 
@@ -136,6 +139,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         (c.ctaType === "internal_page" ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH : "")
     );
     setExternalUrl(c.externalUrl || "");
+    setCtaLabel(c.ctaLabel || "");
+    setPromoTitle(c.title || "");
+    setPromoBody(c.body || "");
     setAltText(c.creative?.altText || "");
     setPreviewOverrideUrl(null);
     setDirty(false);
@@ -196,6 +202,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       altText: altText || campaign.creative?.altText || "Advertisement",
       ctaHref: ctaHrefPreview || "/market",
       ctaType,
+      ctaLabel: ctaLabel || null,
+      title: promoTitle || null,
+      body: promoBody || null,
       surface: previewSurfaceFromAdminSelection(selectedSurfaces),
       suppressionMode,
       suppressionDurationSeconds:
@@ -214,6 +223,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     altText,
     ctaHrefPreview,
     ctaType,
+    ctaLabel,
+    promoTitle,
+    promoBody,
     selectedSurfaces,
     suppressionMode,
     durationSec,
@@ -266,9 +278,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
         presentationType,
         frequencyMode,
+        creativeMode,
         ctaType,
         ctaTarget: nextTarget,
         externalUrl: externalUrl || null,
+        ctaLabel: ctaLabel.trim() || null,
+        title: promoTitle.trim() || null,
+        body: promoBody.trim() || null,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -755,6 +771,64 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 }}
               />
             </label>
+          </AdminCard>
+
+          <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_content", {
+                fallbackKo: "콘텐츠",
+                fallbackEn: "Content",
+              })}
+            </h2>
+            <label className="block text-sm">
+              {safeT("admin_platform_popup_field_title", {
+                fallbackKo: "제목",
+                fallbackEn: "Title",
+              })}
+              <input
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                value={promoTitle}
+                onChange={(e) => {
+                  markDirty();
+                  setPromoTitle(e.target.value);
+                }}
+              />
+            </label>
+            <label className="mt-3 block text-sm">
+              {safeT("admin_platform_popup_field_body", {
+                fallbackKo: "본문 (선택)",
+                fallbackEn: "Body (optional)",
+              })}
+              <textarea
+                className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
+                value={promoBody}
+                onChange={(e) => {
+                  markDirty();
+                  setPromoBody(e.target.value);
+                }}
+              />
+            </label>
+            <label className="mt-3 block text-sm">
+              {safeT("admin_platform_popup_field_cta_label", {
+                fallbackKo: "CTA 버튼 문구",
+                fallbackEn: "CTA button label",
+              })}
+              <input
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                value={ctaLabel}
+                placeholder={language === "en" ? "e.g. Get benefit" : "예: 혜택 받기"}
+                onChange={(e) => {
+                  markDirty();
+                  setCtaLabel(e.target.value);
+                }}
+              />
+            </label>
+            <p className="mt-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_content_live_preview_hint", {
+                fallbackKo: "변경은 저장 전에도 오른쪽 미리보기에 즉시 반영됩니다.",
+                fallbackEn: "Changes update the preview immediately, before Save.",
+              })}
+            </p>
           </AdminCard>
 
           <AdminCard>

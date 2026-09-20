@@ -14,6 +14,8 @@ export type BenefitDialogProps = {
   surface: string;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
+  title: string | null;
+  body: string | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   closeLabel: string;
@@ -31,14 +33,16 @@ export type BenefitDialogProps = {
 };
 
 /**
- * TYPE D — Benefit / coupon dialog (Coupang-style compact dialog).
- * Centered card · optional creative · primary CTA · floating X · no suppress footer by default.
+ * TYPE D — Benefit / coupon dialog.
+ * Centered card · optional creative · title/body · primary CTA · floating X.
  */
 export function BenefitDialogPresentation({
   campaignId,
   surface,
   creative,
   cta,
+  title,
+  body,
   suppressionOptions,
   exposureId,
   closeLabel,
@@ -56,6 +60,7 @@ export function BenefitDialogPresentation({
 }: BenefitDialogProps) {
   const ctaLabel = cta.label?.trim() || null;
   const alt = creative.altText?.trim() || null;
+  const copy = body || (alt && alt !== "Advertisement" ? alt : null);
 
   return (
     <div
@@ -85,7 +90,8 @@ export function BenefitDialogPresentation({
           onLoad={onMediaReady}
           onError={onImageError}
         />
-        {alt ? <p className="dibay-promo-benefit__copy">{alt}</p> : null}
+        {title ? <h2 className="dibay-promo-title">{title}</h2> : null}
+        {copy ? <p className="dibay-promo-benefit__copy">{copy}</p> : null}
         {ctaLabel ? (
           <button
             type="button"

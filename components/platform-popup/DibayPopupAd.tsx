@@ -29,6 +29,8 @@ export type DibayPopupAdProps = {
   surface: string;
   creative: PlatformPopupPresentationCreative;
   cta: PlatformPopupPresentationCta;
+  title?: string | null;
+  body?: string | null;
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   exposureId: string;
   presentationType?: PlatformPopupInterruptivePresentation;
@@ -52,6 +54,8 @@ export function DibayPopupAd({
   surface,
   creative,
   cta,
+  title = null,
+  body: copyBody = null,
   suppressionOptions,
   exposureId,
   presentationType = "bottom_sheet",
@@ -172,6 +176,8 @@ export function DibayPopupAd({
     surface,
     creative,
     cta,
+    title: title?.trim() || null,
+    body: copyBody?.trim() || null,
     suppressionOptions,
     exposureId,
     closeLabel,

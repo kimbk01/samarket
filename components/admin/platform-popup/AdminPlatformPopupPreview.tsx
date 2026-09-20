@@ -25,6 +25,9 @@ export type AdminPlatformPopupPreviewSource = {
   altText: string;
   ctaHref: string;
   ctaType: string;
+  ctaLabel?: string | null;
+  title?: string | null;
+  body?: string | null;
   surface: string;
   suppressionMode: string;
   suppressionDurationSeconds: number | null;
@@ -71,10 +74,12 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
         aspectH: source.aspectH ?? 25,
         creativeMode,
       },
+      title: source.title?.trim() || null,
+      body: source.body?.trim() || null,
       cta: {
         type: source.ctaType || "internal_page",
         href: source.ctaHref || "/market",
-        label: null,
+        label: source.ctaLabel?.trim() || null,
       },
       suppressionOptions: resolvePlatformPopupPresentationSuppressionOptions({
         suppressionMode: source.suppressionMode,
@@ -151,10 +156,13 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           {winner ? (
             <div className="w-full max-w-full px-3">
               <DibayPopupAd
+                key={`${winner.presentationType}-${winner.creative.creativeMode}-${winner.cta.label ?? ""}-${winner.title ?? ""}`}
                 campaignId={winner.campaignId}
                 surface={winner.surface}
                 creative={winner.creative}
                 cta={winner.cta}
+                title={winner.title}
+                body={winner.body}
                 suppressionOptions={winner.suppressionOptions}
                 exposureId="admin-preview"
                 presentationType={winner.presentationType}

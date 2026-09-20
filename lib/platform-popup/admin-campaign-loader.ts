@@ -29,6 +29,9 @@ export type PlatformPopupAdminListItem = {
   ctaType: PlatformPopupCtaType;
   ctaTarget: string;
   externalUrl: string | null;
+  ctaLabel: string | null;
+  title: string | null;
+  body: string | null;
   surfaces: PlatformPopupTargetSurface[];
   ownerStoreId: string | null;
   ownerRequestId: string | null;
@@ -80,6 +83,9 @@ type CampaignRow = {
   cta_type: string;
   cta_target: string;
   external_url: string | null;
+  cta_label?: string | null;
+  title?: string | null;
+  body?: string | null;
   owner_store_id: string | null;
   owner_request_id: string | null;
   created_by: string | null;
@@ -127,6 +133,9 @@ function mapListItem(
     ctaType: row.cta_type as PlatformPopupCtaType,
     ctaTarget: row.cta_target ?? "",
     externalUrl: row.external_url,
+    ctaLabel: row.cta_label ? String(row.cta_label) : null,
+    title: row.title ? String(row.title) : null,
+    body: row.body ? String(row.body) : null,
     surfaces,
     ownerStoreId: row.owner_store_id,
     ownerRequestId: row.owner_request_id,
@@ -143,7 +152,7 @@ export async function listPlatformPopupAdminCampaigns(
   let q = sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
     )
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -201,7 +210,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
   const { data, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
     )
     .eq("id", id)
     .maybeSingle();

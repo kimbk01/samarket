@@ -1,4 +1,8 @@
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
+import {
+  isEventBannerPlacementPresentationCompatible,
+  normalizeEventBannerPresentation,
+} from "@/lib/platform-promotion-distribution/banner-presentation";
 import type {
   BannerDistributionConfig,
   BellDistributionConfig,
@@ -26,6 +30,12 @@ export type BannerAdapterPlan = {
   channelRefType: Extract<PromotionChannelRefType, "feed_ad_campaign">;
   /** Owned promo path — never MEMBER_REQUESTED billing. */
   source: "ADMIN_DIRECT";
+  presentation: "INLINE_BANNER" | "HERO_BANNER";
+  /**
+   * INLINE → materialize feed_ad_campaigns.
+   * HERO → config-only in distribution SSOT; DeliveryAdBanner geometry at runtime (no paid Delivery write).
+   */
+  materializeFeedAd: boolean;
   placement: string;
   domain: "trade" | "community";
   destinationType: "internal_page";
@@ -85,13 +95,6 @@ export function planPopupDistributionAdapter(input: {
   };
 }
 
-const FEED_PLACEMENTS = new Set([
-  "TRADE_HOME",
-  "TRADE_CATEGORY",
-  "COMMUNITY_HOME",
-  "COMMUNITY_TOPIC",
-]);
-
 export function planBannerDistributionAdapter(input: {
   eventId: string;
   eventTitle: string;
@@ -101,9 +104,13 @@ export function planBannerDistributionAdapter(input: {
   const eventId = String(input.eventId ?? "").trim();
   if (!eventId) return { ok: false, error: "event_id_required" };
   const cfg = input.config ?? {};
+  const presentation = normalizeEventBannerPresentation(cfg.presentation);
   const placement = String(cfg.placement ?? "TRADE_HOME").trim().toUpperCase();
-  if (!FEED_PLACEMENTS.has(placement)) {
-    return { ok: false, error: `placement_invalid:${placement}` };
+  if (!isEventBannerPlacementPresentationCompatible(placement, presentation)) {
+    return {
+      ok: false,
+      error: `placement_presentation_incompatible:${placement}+${presentation}`,
+    };
   }
   const domain: "trade" | "community" =
     cfg.domain === "community" || placement.startsWith("COMMUNITY")
@@ -114,6 +121,8 @@ export function planBannerDistributionAdapter(input: {
     value: {
       channelRefType: "feed_ad_campaign",
       source: "ADMIN_DIRECT",
+      presentation,
+      materializeFeedAd: presentation === "INLINE_BANNER",
       placement,
       domain,
       destinationType: "internal_page",
