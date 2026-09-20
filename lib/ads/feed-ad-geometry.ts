@@ -3,14 +3,18 @@
  *
  * PLACEMENT
  *   → canonical aspect 3:1
+ *   → content-column bounded width (not unrestricted APP_MAIN / viewport)
  *   → responsive container (height = width ÷ 3)
  *   → creative fit policy (cover; no stretch)
  *
  * Upload / reference creative: 1200 × 400 (same 3:1).
+ * Recommended upload size ≠ displayed pixel size.
  * Community + Trade share one placement ratio — no device-specific ratios.
  *
- * Prior list-thumb fixed-height placement (independent of width) is removed.
- * Popup 36:25 and Delivery 39:16 / Sponsored 4:3 are separate authorities.
+ * WIDTH AUTHORITY (Phase 2):
+ *   FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_CONTENT_COLUMN_CLASS (max-w-[768px])
+ *   Same token as Delivery / Event HERO banners — not an invented magic width.
+ *   Trade grid cells are already narrower; the max is a no-op there.
  *
  * CONTRACT chain:
  *   CREATIVE SPEC (1200×400) → Member/Admin uploader
@@ -18,6 +22,7 @@
  */
 
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
+import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 
 export type FeedAdHostDensity = "trade" | "community";
 
@@ -28,6 +33,15 @@ export const FEED_AD_MEDIA_ASPECT_RATIO = `${FEED_AD_MEDIA_ASPECT_W} / ${FEED_AD
 
 /** Canonical Tailwind placement aspect — single geometry authority for Feed Banner. */
 export const FEED_AD_MEDIA_ASPECT_CLASS = "aspect-[3/1]";
+
+/**
+ * Feed INLINE banner content width — reuse Delivery/Hero content column.
+ * Prevents 3:1 media from growing with APP_MAIN_COLUMN (up to 66rem) on wide/landscape.
+ */
+export const FEED_AD_CONTENT_MAX_CLASS = STORES_HOME_CONTENT_COLUMN_CLASS;
+
+/** Pixel mirror of STORES_HOME_CONTENT_COLUMN max-w-[768px] for estimates/tests. */
+export const FEED_AD_CONTENT_MAX_WIDTH_PX = 768;
 
 /** Auto-advance interval — canonical owner: BANNER_PLACEMENT_CAPACITY_SSOT (Feed 4000ms). */
 export const FEED_AD_SLIDE_INTERVAL_MS =
@@ -91,6 +105,7 @@ export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
     frameClass: feedAdFrameClass(density),
     viewportClass: feedAdMediaViewportClass(density),
     heightClass: feedAdMediaHeightClass(density),
+    contentMaxClass: FEED_AD_CONTENT_MAX_CLASS,
     pixelLabel: feedAdStandardPixelLabel(),
   };
 }
@@ -99,11 +114,16 @@ export function feedAdListItemClass(density: FeedAdHostDensity): string {
   return density === "community" ? "list-none min-w-0 py-0" : "list-none min-w-0 py-0";
 }
 
+/**
+ * Outer frame — content-column bounded (mx-auto max-w-[768px]) + surface chrome.
+ * Width authority is FEED_AD_CONTENT_MAX_CLASS; aspect remains on the media viewport.
+ */
 export function feedAdFrameClass(density: FeedAdHostDensity): string {
-  if (density === "community") {
-    return "overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface";
-  }
-  return "overflow-hidden rounded-ui-rect bg-sam-surface";
+  const surface =
+    density === "community"
+      ? "overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
+      : "overflow-hidden rounded-ui-rect bg-sam-surface";
+  return `${FEED_AD_CONTENT_MAX_CLASS} ${surface}`;
 }
 
 export function feedAdChromeBarClass(_density: FeedAdHostDensity): string {
@@ -149,6 +169,21 @@ export function estimateFeedAdMediaHeightPx(
   void _breakpoint;
   const w = Number.isFinite(contentWidthPx) ? Math.max(0, contentWidthPx) : 0;
   return (w * FEED_AD_MEDIA_ASPECT_H) / FEED_AD_MEDIA_ASPECT_W;
+}
+
+/**
+ * Height after applying FEED_AD_CONTENT_MAX_WIDTH_PX (content-column bound).
+ * Use for landscape/desktop footprint proofs — not for Trade grid cell hosts.
+ */
+export function estimateFeedAdMediaHeightWithinContentMaxPx(
+  hostWidthPx: number,
+  density?: FeedAdHostDensity
+): number {
+  const capped = Math.min(
+    Number.isFinite(hostWidthPx) ? Math.max(0, hostWidthPx) : 0,
+    FEED_AD_CONTENT_MAX_WIDTH_PX
+  );
+  return estimateFeedAdMediaHeightPx(capped, density);
 }
 
 /** Placement ratio for a measured box (width/height). */

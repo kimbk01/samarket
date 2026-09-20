@@ -25,6 +25,10 @@ import {
 import type { PromotionDistributionToggleDraft } from "@/lib/platform-promotion-distribution/types";
 import { emptyDistributionToggles } from "@/lib/platform-promotion-distribution/types";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import {
+  adminBannerPreviewDeviceOuterWidthPx,
+  adminTradeInlinePreviewCellWidthPx,
+} from "@/lib/admin/admin-banner-preview-geometry";
 
 type Props = {
   eventId: string;
@@ -752,28 +756,38 @@ export function AdminPlatformEventDistributionPanel({
               <div
                 className="mx-auto overflow-hidden rounded-ui-rect border border-sam-border bg-slate-200/50 p-2"
                 style={{
-                  width: Math.min(
-                    bannerPreviewDevice === "phone"
-                      ? 390
-                      : bannerPreviewDevice === "tablet_portrait"
-                        ? 768
-                        : bannerPreviewDevice === "tablet_landscape"
-                          ? 1024
-                          : 960,
-                    720
-                  ),
+                  width: adminBannerPreviewDeviceOuterWidthPx(bannerPreviewDevice),
                   maxWidth: "100%",
                 }}
                 data-admin-banner-preview-frame={bannerPreviewDevice}
               >
                 {bannerPresentation === "INLINE_BANNER" ? (
                   bannerImageUrl ? (
-                    <FeedAdFramePreview
-                      density={inlineDensity}
-                      imageUrl={bannerImageUrl}
-                      headline={bannerHeadline || eventTitle}
-                      alt={bannerHeadline || eventTitle}
-                    />
+                    <div
+                      className={
+                        inlineDensity === "trade" ? "mx-auto w-full" : "w-full"
+                      }
+                      style={
+                        inlineDensity === "trade"
+                          ? {
+                              width: adminTradeInlinePreviewCellWidthPx(
+                                bannerPreviewDevice
+                              ),
+                              maxWidth: "100%",
+                            }
+                          : undefined
+                      }
+                      data-admin-banner-preview-host={
+                        inlineDensity === "trade" ? "trade-grid-cell" : "feed-column"
+                      }
+                    >
+                      <FeedAdFramePreview
+                        density={inlineDensity}
+                        imageUrl={bannerImageUrl}
+                        headline={bannerHeadline || eventTitle}
+                        alt={bannerHeadline || eventTitle}
+                      />
+                    </div>
                   ) : (
                     <p className="text-xs text-sam-muted">—</p>
                   )

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  FEED_AD_CONTENT_MAX_CLASS,
+  FEED_AD_CONTENT_MAX_WIDTH_PX,
   FEED_AD_MEDIA_ASPECT_CLASS,
   FEED_AD_MEDIA_ASPECT_H,
   FEED_AD_MEDIA_ASPECT_W,
@@ -10,6 +12,7 @@ import {
   FEED_AD_STANDARD_UPLOAD_HEIGHT_PX,
   FEED_AD_STANDARD_UPLOAD_WIDTH_PX,
   estimateFeedAdMediaHeightPx,
+  estimateFeedAdMediaHeightWithinContentMaxPx,
   feedAdFrameClass,
   feedAdMediaClass,
   feedAdMediaHeightClass,
@@ -19,6 +22,7 @@ import {
   feedAdStandardPixelLabel,
   getFeedAdCreativeSpec,
 } from "@/lib/ads/feed-ad-geometry";
+import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-ui";
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 import {
   feedAdPlacementHumanLabel,
@@ -65,6 +69,20 @@ describe("feed ad geometry SSOT — placement 3:1 + cover", () => {
     expect(feedAdMediaClass("community")).toBe(feedAdMediaClass("trade"));
     expect(feedAdMediaViewportClass("community")).toBe(feedAdMediaViewportClass("trade"));
     expect(feedAdMediaHeightClass("community")).toBe(feedAdMediaHeightClass("trade"));
+  });
+
+  it("Phase 2: frame width uses Delivery/Hero content column (STORES_HOME 768), not APP_MAIN 66rem", () => {
+    expect(FEED_AD_CONTENT_MAX_CLASS).toContain("max-w-[768px]");
+    expect(FEED_AD_CONTENT_MAX_CLASS).toBe(STORES_HOME_CONTENT_COLUMN_CLASS);
+    expect(FEED_AD_CONTENT_MAX_WIDTH_PX).toBe(768);
+    expect(feedAdFrameClass("community")).toContain("max-w-[768px]");
+    expect(feedAdFrameClass("trade")).toContain("max-w-[768px]");
+    expect(feedAdFrameClass("community")).toContain("mx-auto");
+    // Aspect unchanged
+    expect(FEED_AD_MEDIA_ASPECT_CLASS).toBe("aspect-[3/1]");
+    // Wide host does not grow media height past content max
+    expect(estimateFeedAdMediaHeightWithinContentMaxPx(1440)).toBe(768 / 3);
+    expect(estimateFeedAdMediaHeightWithinContentMaxPx(334)).toBe(334 / 3);
   });
 
   it("FeedAdBannerCarousel consumes shared viewport/media geometry; cover only", () => {
