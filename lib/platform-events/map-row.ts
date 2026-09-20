@@ -22,6 +22,8 @@ export type PlatformEventDbRow = {
   cta_target: string | null;
   cta_external_url: string | null;
   published_at: string | null;
+  source_owner_request_id?: string | null;
+  source_store_id?: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -47,6 +49,10 @@ export function mapPlatformEventDbRow(row: PlatformEventDbRow): PlatformEventRow
     ctaTarget: String(row.cta_target ?? "").trim(),
     ctaExternalUrl: row.cta_external_url?.trim() || null,
     publishedAt: row.published_at,
+    sourceOwnerRequestId: row.source_owner_request_id
+      ? String(row.source_owner_request_id)
+      : null,
+    sourceStoreId: row.source_store_id ? String(row.source_store_id) : null,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     createdAt: row.created_at,

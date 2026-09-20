@@ -268,6 +268,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-banners": "admin_menu_ads_banners",
   "ads-platform-popup": "admin_menu_ads_platform_popup",
   "ads-platform-events": "admin_menu_ads_platform_events",
+  "ads-event-owner-requests": "admin_menu_ads_event_owner_requests",
   "growth-rec": "admin_menu_growth_recommendation",
   "manage-ab": "admin_menu_manage_ab",
   "rec-analytics": "admin_menu_rec_analytics",
@@ -996,6 +997,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/platform-events",
             status: "partial",
             matchPaths: ["/admin/platform-events/", "/admin/platform-events/new"],
+          },
+          {
+            key: "ads-event-owner-requests",
+            title: "",
+            path: "/admin/platform-event-owner-requests",
+            status: "partial",
+            matchPaths: ["/admin/platform-event-owner-requests/"],
           },
           {
             key: "ads-placement-map",

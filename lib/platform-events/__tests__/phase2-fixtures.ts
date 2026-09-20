@@ -21,6 +21,8 @@ export const PHASE2_EVENT_A_ACTIVE = {
   ctaTarget: "/market",
   ctaExternalUrl: null,
   publishedAt: "2026-09-01T00:00:00.000Z",
+  sourceOwnerRequestId: null,
+  sourceStoreId: null,
   createdBy: null,
   updatedBy: null,
   createdAt: "2026-09-01T00:00:00.000Z",

@@ -73,6 +73,8 @@ export type PlatformEventRow = {
   ctaTarget: string;
   ctaExternalUrl: string | null;
   publishedAt: string | null;
+  sourceOwnerRequestId: string | null;
+  sourceStoreId: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
@@ -80,7 +82,7 @@ export type PlatformEventRow = {
 };
 
 export const PLATFORM_EVENTS_SELECT =
-  "id, title, subtitle, hero_image_url, hero_image_path, sections, terms, status, starts_at, ends_at, timezone, cta_label, cta_type, cta_target, cta_external_url, published_at, created_by, updated_by, created_at, updated_at";
+  "id, title, subtitle, hero_image_url, hero_image_path, sections, terms, status, starts_at, ends_at, timezone, cta_label, cta_type, cta_target, cta_external_url, published_at, source_owner_request_id, source_store_id, created_by, updated_by, created_at, updated_at";
 
 export function isPlatformEventStatus(v: string): v is PlatformEventStatus {
   return (PLATFORM_EVENT_STATUSES as readonly string[]).includes(v);

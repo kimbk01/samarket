@@ -57,6 +57,8 @@ function emptyDraft(): PlatformEventRow {
     ctaTarget: "/market",
     ctaExternalUrl: null,
     publishedAt: null,
+    sourceOwnerRequestId: null,
+    sourceStoreId: null,
     createdBy: null,
     updatedBy: null,
     createdAt: now,

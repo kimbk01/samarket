@@ -34,13 +34,13 @@ function makeMemorySb() {
   function from(table: string) {
     const rows = () => tables[table] ?? (tables[table] = []);
     const api: Record<string, unknown> = {};
-    let filters: Array<(r: Row) => boolean> = [];
+    const filters: Array<(r: Row) => boolean> = [];
     let pendingInsert: Row | null = null;
     let pendingUpdate: Row | null = null;
     let mode: "select" | "insert" | "update" = "select";
 
     const runSelect = () => {
-      let out = rows().filter((r) => filters.every((f) => f(r)));
+      const out = rows().filter((r) => filters.every((f) => f(r)));
       return out;
     };
 
