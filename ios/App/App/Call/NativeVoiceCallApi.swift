@@ -53,7 +53,16 @@ enum NativeVoiceCallApi {
     patchAsync(
       callId: callId,
       action: "heartbeat",
-      extraBody: ["nativePresenceCapable": true],
+      extraBody: ["nativePresenceCapable": true, "heartbeatPurpose": "native_lease"],
+      completion: completion
+    )
+  }
+
+  static func activeHeartbeatAsync(callId: String, completion: @escaping PatchCallback) {
+    patchAsync(
+      callId: callId,
+      action: "heartbeat",
+      extraBody: ["heartbeatPurpose": "active"],
       completion: completion
     )
   }

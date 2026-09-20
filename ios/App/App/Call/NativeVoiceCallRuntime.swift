@@ -119,6 +119,8 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         publishUiLocked(source: "pipeline_failed")
       }
     }
+    NativeActiveCallHeartbeatOwner.stop(callId: sessionId, reason: "pipeline_failed")
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "pipeline_failed")
   }
 
   // MARK: - Connect pipeline
@@ -171,6 +173,16 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       phase = .connected
       publishUiLocked(source: "connected")
     }
+    NativeActiveCallHeartbeatOwner.start(
+      callId: sessionId,
+      heartbeatTransport: { callId, completion in
+        NativeVoiceCallApi.activeHeartbeatAsync(callId: callId, completion: completion)
+      },
+      gate: { callId in
+        let snap = NativeVoiceCallRuntime.shared.snapshot()
+        return snap.session?.sessionId == callId && snap.phase == .connected
+      }
+    )
     NativePresenceLeaseRenewOwner.start(
       callId: sessionId,
       renewTransport: { callId, completion in
@@ -202,6 +214,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidSession
       }
     }
+    NativeActiveCallHeartbeatOwner.stop(callId: sessionId, reason: "begin_reject")
     NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_reject")
   }
 
@@ -238,6 +251,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         publishUiLocked(source: "begin_end")
       }
     }
+    NativeActiveCallHeartbeatOwner.stop(callId: sessionId, reason: "begin_end")
     NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_end")
   }
 
@@ -265,8 +279,10 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       if let sessionId {
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let active = session, active.sessionId == trimmed else { return }
+        NativeActiveCallHeartbeatOwner.stop(callId: trimmed, reason: "runtime_reset")
         NativePresenceLeaseRenewOwner.stop(callId: trimmed, reason: "runtime_reset")
       } else if let active = session {
+        NativeActiveCallHeartbeatOwner.stop(callId: active.sessionId, reason: "runtime_reset")
         NativePresenceLeaseRenewOwner.stop(callId: active.sessionId, reason: "runtime_reset")
       }
       cancelMissedLocked()

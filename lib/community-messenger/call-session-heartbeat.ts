@@ -39,6 +39,22 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+export type CallSessionHeartbeatPurpose = "active" | "native_lease";
+
+export function resolveCallSessionHeartbeatMutation(purpose?: CallSessionHeartbeatPurpose): {
+  purpose: CallSessionHeartbeatPurpose | "legacy_compat";
+  writeHeartbeat: boolean;
+  writeLease: boolean;
+} {
+  const resolved =
+    purpose === "active" || purpose === "native_lease" ? purpose : "legacy_compat";
+  return {
+    purpose: resolved,
+    writeHeartbeat: resolved !== "native_lease",
+    writeLease: resolved !== "active",
+  };
+}
+
 /** PATCH action=heartbeat — live active session only */
 export async function heartbeatCommunityMessengerCallSession(input: {
   userId: string;
@@ -51,6 +67,13 @@ export async function heartbeatCommunityMessengerCallSession(input: {
    * Does NOT flip Production end authority (still legacy_hb).
    */
   nativePresenceCapable?: boolean;
+  /**
+   * Semantic split for native calls:
+   * - active: production heartbeat only
+   * - native_lease: shadow lease only
+   * - omitted: legacy compatibility, writes both as before
+   */
+  heartbeatPurpose?: CallSessionHeartbeatPurpose;
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   const userId = trimText(input.userId);
@@ -75,23 +98,26 @@ export async function heartbeatCommunityMessengerCallSession(input: {
   const ts = nowIso();
   const shadowLeaseUntil = shadowPresenceLeaseUntilIso();
   const nativeCapable = input.nativePresenceCapable === true;
+  const { purpose, writeHeartbeat, writeLease } = resolveCallSessionHeartbeatMutation(
+    input.heartbeatPurpose,
+  );
   const patch: Record<string, string | null> = {
     reconnecting_since: input.reconnecting ? ts : null,
   };
   if (isCaller) {
-    patch.caller_last_heartbeat_at = ts;
-    // Native capable renew OR WebView secondary/compat observation — Production authority unchanged
-    patch.caller_presence_lease_until = shadowLeaseUntil;
+    if (writeHeartbeat) patch.caller_last_heartbeat_at = ts;
+    if (writeLease) patch.caller_presence_lease_until = shadowLeaseUntil;
   }
   if (isCallee) {
-    patch.callee_last_heartbeat_at = ts;
-    patch.callee_presence_lease_until = shadowLeaseUntil;
+    if (writeHeartbeat) patch.callee_last_heartbeat_at = ts;
+    if (writeLease) patch.callee_presence_lease_until = shadowLeaseUntil;
   }
   if (nativeCapable) {
     // Capability signal received — LEASE CUTOVER still NO; legacy_hb Production end preserved.
     console.info("[cm-call-presence-native-capable]", {
       sessionId,
       party: isCaller ? "caller" : "callee",
+      purpose,
       productionAuthority: "legacy_hb",
       leaseCutover: false,
     });

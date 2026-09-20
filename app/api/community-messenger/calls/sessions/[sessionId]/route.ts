@@ -83,6 +83,7 @@ export async function PATCH(
       clientEndedReason?: string;
       reconnecting?: boolean;
       nativePresenceCapable?: boolean;
+      heartbeatPurpose?: "active" | "native_lease";
       deviceId?: string;
       answeredDeviceId?: string;
     };
@@ -119,6 +120,10 @@ export async function PATCH(
         sessionId,
         reconnecting: body.reconnecting === true,
         nativePresenceCapable: body.nativePresenceCapable === true,
+        heartbeatPurpose:
+          body.heartbeatPurpose === "active" || body.heartbeatPurpose === "native_lease"
+            ? body.heartbeatPurpose
+            : undefined,
       });
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
     }

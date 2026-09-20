@@ -446,6 +446,7 @@ public final class NativeVideoCallRuntime {
     String sid = callId.trim();
     NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
+      com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(sid, reason);
       com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(sid, reason);
       NativeVideoCallAcceptTiming.clear(sid);
       NativeOutgoingRingbackOwner.stop(sid, reason);
@@ -547,8 +548,10 @@ public final class NativeVideoCallRuntime {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_CONNECTING);
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
+      startActiveHeartbeat(context, session.callId);
       startPresenceRenew(context, session.callId);
     } else if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
+      com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(session.callId, state.name().toLowerCase());
       com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(session.callId, state.name().toLowerCase());
     }
     ensureVideoUiVisible(context, session, state);
@@ -570,6 +573,19 @@ public final class NativeVideoCallRuntime {
         sid,
         (ctx, callId, cb) ->
             NativeVideoCallApi.presenceRenewAsync(
+                ctx, callId, (ok, status, error) -> cb.onDone(ok, status, error)),
+        callId -> {
+          Session live = SESSIONS.get(callId);
+          return live != null && live.state == State.CONNECTED;
+        });
+  }
+
+  private static void startActiveHeartbeat(Context app, String sid) {
+    com.dibay.app.call.NativeActiveCallHeartbeatOwner.start(
+        app,
+        sid,
+        (ctx, callId, cb) ->
+            NativeVideoCallApi.activeHeartbeatAsync(
                 ctx, callId, (ok, status, error) -> cb.onDone(ok, status, error)),
         callId -> {
           Session live = SESSIONS.get(callId);

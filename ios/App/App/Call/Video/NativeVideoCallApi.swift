@@ -94,7 +94,18 @@ enum NativeVideoCallApi {
       action: "heartbeat",
       startMarker: "presence_renew_patch_start",
       doneMarker: "presence_renew_patch_done",
-      extraBody: ["nativePresenceCapable": true],
+      extraBody: ["nativePresenceCapable": true, "heartbeatPurpose": "native_lease"],
+      completion: completion
+    )
+  }
+
+  static func activeHeartbeatAsync(callId: String, completion: @escaping PatchCallback) {
+    patchAsync(
+      callId: callId,
+      action: "heartbeat",
+      startMarker: "active_heartbeat_patch_start",
+      doneMarker: "active_heartbeat_patch_done",
+      extraBody: ["heartbeatPurpose": "active"],
       completion: completion
     )
   }

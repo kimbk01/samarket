@@ -61,10 +61,20 @@ public final class NativeVideoCallApi {
    * WebView-independent. Capability signal = explicit body flag (not non-null lease).
    */
   public static void presenceRenewAsync(Context context, String callId, PatchCallback callback) {
+    patchHeartbeatAsync(context, callId, true, callback);
+  }
+
+  /** Native production active-call heartbeat — legacy HB only, not shadow lease cadence. */
+  public static void activeHeartbeatAsync(Context context, String callId, PatchCallback callback) {
+    patchHeartbeatAsync(context, callId, false, callback);
+  }
+
+  private static void patchHeartbeatAsync(
+      Context context, String callId, boolean nativeLease, PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    NativeVideoCallLog.info("presence_renew_patch_start", sid);
+    NativeVideoCallLog.info(nativeLease ? "presence_renew_patch_start" : "active_heartbeat_patch_start", sid);
     new Thread(
             () -> {
               HttpURLConnection conn = null;
@@ -85,7 +95,10 @@ public final class NativeVideoCallApi {
                 String deviceId = resolveDeviceId(app);
                 JSONObject bodyJson = new JSONObject();
                 bodyJson.put("action", "heartbeat");
-                bodyJson.put("nativePresenceCapable", true);
+                bodyJson.put("heartbeatPurpose", nativeLease ? "native_lease" : "active");
+                if (nativeLease) {
+                  bodyJson.put("nativePresenceCapable", true);
+                }
                 if (deviceId != null && !deviceId.isEmpty()) {
                   bodyJson.put("deviceId", deviceId);
                 }
@@ -111,9 +124,14 @@ public final class NativeVideoCallApi {
                   } catch (Exception ignored) {
                   }
                   NativeVideoCallLog.warn(
-                      "presence_renew_patch_failed", sid, "status=" + status + " err=" + error);
+                      nativeLease ? "presence_renew_patch_failed" : "active_heartbeat_patch_failed",
+                      sid,
+                      "status=" + status + " err=" + error);
                 } else {
-                  NativeVideoCallLog.info("presence_renew_patch_done", sid, "status=" + status);
+                  NativeVideoCallLog.info(
+                      nativeLease ? "presence_renew_patch_done" : "active_heartbeat_patch_done",
+                      sid,
+                      "status=" + status);
                 }
                 finishPatch(callback, ok, status, ok ? null : error);
               } catch (Exception error) {

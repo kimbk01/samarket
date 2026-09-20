@@ -81,6 +81,11 @@ public final class NativeVoiceCallApi {
     patchHeartbeatCapableAsync(context, callId, callback);
   }
 
+  /** Native production active-call heartbeat — legacy HB only, not shadow lease cadence. */
+  public static void activeHeartbeatAsync(Context context, String callId, PatchCallback callback) {
+    patchActiveHeartbeatAsync(context, callId, callback);
+  }
+
   /** Phase V V1 — dead code until Runtime wiring (V4). */
   public static void upgradeToVideoAsync(Context context, String callId, PatchCallback callback) {
     patchAsync(
@@ -240,6 +245,7 @@ public final class NativeVoiceCallApi {
                 JSONObject bodyJson = new JSONObject();
                 bodyJson.put("action", "heartbeat");
                 bodyJson.put("nativePresenceCapable", true);
+                bodyJson.put("heartbeatPurpose", "native_lease");
                 if (deviceId != null && !deviceId.isEmpty()) {
                   bodyJson.put("deviceId", deviceId);
                 }
@@ -268,6 +274,72 @@ public final class NativeVoiceCallApi {
                       "presence_renew_patch_failed", sid, "status=" + status + " err=" + error);
                 } else {
                   NativeVoiceCallLog.info("presence_renew_patch_done", sid, "status=" + status);
+                }
+                finishPatch(callback, ok, status, ok ? null : error);
+              } catch (Exception error) {
+                finishPatch(callback, false, 0, error.getClass().getSimpleName());
+              } finally {
+                if (conn != null) conn.disconnect();
+              }
+            })
+        .start();
+  }
+
+  private static void patchActiveHeartbeatAsync(
+      Context context, String callId, PatchCallback callback) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    NativeVoiceCallLog.info("active_heartbeat_patch_start", sid);
+    new Thread(
+            () -> {
+              HttpURLConnection conn = null;
+              try {
+                String origin = DibayServerOrigin.resolve(app);
+                if (origin == null || origin.isEmpty()) {
+                  finishPatch(callback, false, 0, "no_server_origin");
+                  return;
+                }
+                URL url =
+                    new URL(
+                        origin
+                            + "/api/community-messenger/calls/sessions/"
+                            + URLEncoder.encode(sid, "UTF-8"));
+                conn = open(app, origin, url, 0L);
+                conn.setRequestMethod("PATCH");
+                conn.setDoOutput(true);
+                String deviceId = resolveDeviceId(app);
+                JSONObject bodyJson = new JSONObject();
+                bodyJson.put("action", "heartbeat");
+                bodyJson.put("heartbeatPurpose", "active");
+                if (deviceId != null && !deviceId.isEmpty()) {
+                  bodyJson.put("deviceId", deviceId);
+                }
+                byte[] body = bodyJson.toString().getBytes(StandardCharsets.UTF_8);
+                conn.setFixedLengthStreamingMode(body.length);
+                try (OutputStream os = conn.getOutputStream()) {
+                  os.write(body);
+                }
+                int status = conn.getResponseCode();
+                String responseBody = readBody(conn, status);
+                boolean ok = status >= 200 && status < 300;
+                String error = null;
+                if (!ok) {
+                  error = "status=" + status;
+                  try {
+                    if (responseBody != null && !responseBody.isEmpty()) {
+                      JSONObject json = new JSONObject(responseBody);
+                      String apiError = json.optString("error", "");
+                      if (apiError != null && !apiError.trim().isEmpty()) {
+                        error = apiError.trim();
+                      }
+                    }
+                  } catch (Exception ignored) {
+                  }
+                  NativeVoiceCallLog.warn(
+                      "active_heartbeat_patch_failed", sid, "status=" + status + " err=" + error);
+                } else {
+                  NativeVoiceCallLog.info("active_heartbeat_patch_done", sid, "status=" + status);
                 }
                 finishPatch(callback, ok, status, ok ? null : error);
               } catch (Exception error) {
