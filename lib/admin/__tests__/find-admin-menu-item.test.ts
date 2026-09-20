@@ -64,9 +64,10 @@ describe("find-admin-menu-item", () => {
 describe("admin-menu-config module load", () => {
   it("loads adapter sections from SSOT without inventing a second tree", async () => {
     const mod = await import("@/lib/admin-menu-config");
-    // Legacy section adapter stays 7 ids; nav workspaces live in adminMenu (CUT J = 10).
+    // Legacy section adapter stays 7 ids; nav workspaces live in adminMenu (CUT 3 = 11 with promotion).
     expect(mod.ADMIN_MENU_SECTIONS).toHaveLength(7);
-    expect(adminMenu).toHaveLength(10);
+    expect(adminMenu).toHaveLength(11);
+    expect(adminMenu.some((s) => s.key === "promotion")).toBe(true);
     expect(mod.OPS_QUICK_LINKS_PRIORITY.length).toBeGreaterThan(0);
     expect(mod.OPS_QUICK_LINKS_PRIORITY.some((l) => l.href === "/admin/operations")).toBe(
       false

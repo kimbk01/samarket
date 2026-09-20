@@ -112,24 +112,30 @@ describe("platform popup product completion — surface + suppression", () => {
 });
 
 describe("platform popup product completion — Admin IA", () => {
-  it("nav leaf exists under ads with discoverable path", () => {
-    const leaf = findAdminMenuByKey(adminMenu, "ads-platform-popup");
+  it("nav leaf exists under promotion workspace with discoverable path", () => {
+    // CUT 3: Platform Popup lives under promotion workspace (not Paid Ads).
+    const leaf = findAdminMenuByKey(adminMenu, "promotion-popup");
     expect(leaf?.path).toBe("/admin/platform-popup");
-    // Owner Policy LOCK: hub redirects to 노출 관리 — leaf remains discoverable (partial)
-    expect(leaf?.status).toBe("partial");
+    const promotion = findAdminMenuByKey(adminMenu, "promotion");
+    expect(promotion?.children?.some((c) => c.key === "promotion-popup")).toBe(true);
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.[0]?.key).toBe("ads-advertising-workspace");
     expect(ads?.children?.at(-1)?.key).toBe("ads-legacy");
-    // Delivery CP + popup hub absorbed under ads-legacy (PUBLIC = 7 authority leaves)
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe("/admin/delivery-ads");
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe("/admin/platform-popup");
+    // Legacy ads leaf remains non-public stub (no path) after CUT 3 move.
+    const legacyLeaf = findAdminMenuByKey(adminMenu, "ads-platform-popup");
+    expect(legacyLeaf?.sidebarPublic).toBe(false);
   });
 
-  it("hub page uses Control Center (not raw queue-only)", () => {
-    // Owner Policy LOCK: PUBLIC hub → /admin/advertising/operations; detail routes KEEP
+  it("hub page uses Platform Promotion popup list (not Paid Ads redirect)", () => {
+    // CUT 3: /admin/platform-popup is the Promotion popup list hub.
     const page = readRepo("app/admin/platform-popup/page.tsx");
-    expect(page).toContain("redirect");
-    expect(page).toContain("/admin/advertising/operations");
+    expect(page).toContain("AdminPlatformPopupListPage");
+    expect(page).not.toContain("redirect");
+    expect(page).not.toContain("/admin/advertising/operations");
+    const list = readRepo("components/admin/platform-popup/AdminPlatformPopupListPage.tsx");
+    expect(list).toContain("use client");
+    expect(list).toContain("AdminActionButton");
     const hub = readRepo("components/admin/platform-popup/AdminPlatformPopupHubPage.tsx");
     expect(hub).toContain("data-admin-platform-popup-hub");
     expect(hub).toContain("data-hub-tab=\"requests\"");
@@ -157,7 +163,8 @@ describe("platform popup product completion — Admin IA", () => {
     expect(surfaces).toContain("전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보");
     const preview = readRepo("components/admin/platform-popup/AdminPlatformPopupPreview.tsx");
     expect(preview).toContain("DibayPopupAd");
-    expect(preview).toContain("data-admin-popup-preview-landscape-note");
+    // Landscape deny marker (CUT 1 geometry) — not a soft "note".
+    expect(preview).toContain("data-admin-popup-preview-landscape-deny");
   });
 
   it("Owner apply uses surface multi-select + CTA kinds + requestId recovery", () => {

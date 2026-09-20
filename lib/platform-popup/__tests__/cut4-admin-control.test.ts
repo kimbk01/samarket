@@ -48,18 +48,20 @@ const validSnap = {
 
 describe("CUT4 Admin routes + preview authority", () => {
   it("admin pages exist under /admin/platform-popup", () => {
-    // Owner Policy LOCK: PUBLIC hub retires → 노출 관리; detail routes KEEP
+    // CUT 3: hub is Promotion popup list; detail routes KEEP
     const hub = readRepo("app/admin/platform-popup/page.tsx");
-    expect(hub).toContain("redirect");
-    expect(hub).toContain("/admin/advertising/operations");
+    expect(hub).toContain("AdminPlatformPopupListPage");
+    expect(hub).not.toContain("redirect");
+    expect(hub).not.toContain("/admin/advertising/operations");
     expect(readRepo("app/admin/platform-popup/[campaignId]/page.tsx")).toContain(
       "AdminPlatformPopupDetailWorkspace"
     );
   });
 
-  it("menu leaf is Global Popup Ads under growth ads, not delivery-ads", () => {
+  it("menu leaf is under Platform Promotion workspace, not delivery-ads", () => {
     const menu = readRepo("components/admin/admin-menu.ts");
     expect(menu).toContain('path: "/admin/platform-popup"');
+    expect(menu).toContain("promotion-popup");
     expect(menu).toContain("ads-platform-popup");
     expect(menu).not.toMatch(/platform-popup[\s\S]{0,40}delivery-ads/);
   });
