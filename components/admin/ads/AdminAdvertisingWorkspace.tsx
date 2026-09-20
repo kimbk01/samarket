@@ -257,8 +257,8 @@ function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
       : "Review ended, rejected, cancelled, and sanctioned ad history.";
   }
   return ko
-    ? "전체 광고를 검색하고 올바른 승인·운영·위치 authority로 진입합니다."
-    : "Search all ads and enter the correct approval, operation, or placement authority.";
+    ? "유료 광고와 광고 노출 위치/재고를 관리합니다. 이벤트 프로모션은 「프로모션 / 이벤트」에서 관리합니다."
+    : "Manage paid ads and ad placement inventory. Event promotions live under Promotion / Events.";
 }
 
 function isBoostDomain(domain: string): boolean {
@@ -611,10 +611,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       ) : null}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-sam-fg">
+          <h1 className="text-lg font-semibold text-sam-fg" data-admin-ads-workspace-title="1">
             {modeTitle(mode, ko)}
           </h1>
-          <p className="text-[13px] text-sam-muted">
+          <p className="text-[13px] text-sam-muted" data-admin-ads-workspace-purpose="1">
             {modeDescription(mode, ko)}
           </p>
         </div>

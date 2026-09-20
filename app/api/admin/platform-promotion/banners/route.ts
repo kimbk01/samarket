@@ -74,6 +74,11 @@ export async function GET() {
       startsAt: ev?.startsAt ?? null,
       endsAt: ev?.endsAt ?? null,
       href: buildPlatformEventDetailPath(row.contentId),
+      thumbUrl:
+        typeof row.config.imageUrl === "string" && row.config.imageUrl.trim()
+          ? row.config.imageUrl.trim()
+          : null,
+      destinationSummary: "event_detail",
     };
   });
 

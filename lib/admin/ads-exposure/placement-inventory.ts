@@ -62,6 +62,8 @@ export type PlacementCreativeSpec = {
   maxFileLabel: string | null;
 };
 
+export type FeedPoolCampaignOwnershipKind = "paid" | "admin_direct" | "event_promotion";
+
 export type FeedPoolCampaignCard = {
   id: string;
   title: string;
@@ -70,7 +72,12 @@ export type FeedPoolCampaignCard = {
   exposureHint: string | null;
   periodLabel: string | null;
   previewHref: string | null;
+  /** Paid / Admin Direct ops page — Event promotion rows use manageHref instead. */
   operationsHref: string;
+  ownershipKind: FeedPoolCampaignOwnershipKind;
+  /** Canonical Event Dist editor when ownershipKind=event_promotion (ID-based). */
+  manageHref: string | null;
+  eventId: string | null;
 };
 
 export type FeedPoolInventory = {
@@ -207,7 +214,8 @@ function feedExposureHint(status: string): string | null {
 
 /** Pure: group feed campaigns into placement pools (actual assigned placement only). */
 export function projectFeedPoolInventories(
-  campaigns: readonly FeedAdCampaignView[]
+  campaigns: readonly FeedAdCampaignView[],
+  eventPromoByCampaignId?: ReadonlyMap<string, { eventId: string }>
 ): FeedPoolInventory[] {
   const byPlacement = new Map<FeedAdPlacement, FeedAdCampaignView[]>();
   for (const key of FEED_POOL_PLACEMENTS) byPlacement.set(key, []);
@@ -253,6 +261,19 @@ export function projectFeedPoolInventories(
           categoryId: c.targetCategoryId,
           topicSlug: c.targetTopicSlug,
         });
+        const promo = eventPromoByCampaignId?.get(c.id);
+        let ownershipKind: FeedPoolCampaignOwnershipKind;
+        let manageHref: string | null = null;
+        let eventId: string | null = null;
+        if (promo?.eventId) {
+          ownershipKind = "event_promotion";
+          eventId = promo.eventId;
+          manageHref = `/admin/platform-events/${encodeURIComponent(promo.eventId)}#distribution`;
+        } else if (c.source === "MEMBER_REQUESTED") {
+          ownershipKind = "paid";
+        } else {
+          ownershipKind = "admin_direct";
+        }
         return {
           id: c.id,
           title: c.name || c.slides[0]?.headline || c.id.slice(0, 8),
@@ -262,6 +283,9 @@ export function projectFeedPoolInventories(
           periodLabel: periodLabel(c.startAt, c.endAt),
           previewHref,
           operationsHref: ADS_PLACEMENT_OPS_HREF,
+          ownershipKind,
+          manageHref,
+          eventId,
         };
       }),
       creativeSpec: feedCreativeSpec(),
@@ -376,6 +400,23 @@ export async function loadPlacementInventory(
     listPlatformPopupAdminCampaigns(sb, { limit: 200 }),
   ]);
 
+  /** ID-based: Dist channel_ref_id → Event (INLINE Event banners only). */
+  const eventPromoByCampaignId = new Map<string, { eventId: string }>();
+  const feedIds = feedCampaigns.map((c) => c.id).filter(Boolean);
+  if (feedIds.length > 0) {
+    const { data: distRows } = await sb
+      .from("platform_promotion_distributions")
+      .select("content_id, channel_ref_id")
+      .eq("channel", "banner")
+      .eq("content_type", "platform_event")
+      .in("channel_ref_id", feedIds);
+    for (const row of distRows ?? []) {
+      const ref = String((row as { channel_ref_id?: string | null }).channel_ref_id ?? "").trim();
+      const eventId = String((row as { content_id?: string }).content_id ?? "").trim();
+      if (ref && eventId) eventPromoByCampaignId.set(ref, { eventId });
+    }
+  }
+
   const metaById = new Map<string, PopupMeta>();
   if (popupAdmin.ok) {
     for (const item of popupAdmin.items) {
@@ -421,7 +462,7 @@ export async function loadPlacementInventory(
   const heroGuide = DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO;
 
   return {
-    feedPools: projectFeedPoolInventories(feedCampaigns),
+    feedPools: projectFeedPoolInventories(feedCampaigns, eventPromoByCampaignId),
     hero: {
       capacity: DELIVERY_HERO_CAPACITY,
       placementKey: "STORES_HOME_HERO",

@@ -12,6 +12,7 @@ export const PROMOTION_ADMIN_ACTIONS = [
   "CONFIGURE_EXPOSURE",
   "PUBLISH",
   "SCHEDULE",
+  "ACTIVATE",
   "PAUSE_STOP",
   "SEND_PUSH",
   "APPROVE",
@@ -95,6 +96,15 @@ export const PROMOTION_ADMIN_ACTION_META: Record<
     confirm: false,
     authorityNote: "Publish with future startsAt",
   },
+  ACTIVATE: {
+    id: "ACTIVATE",
+    variant: "primary",
+    labelKo: "노출 시작",
+    labelEn: "Start exposure",
+    customerVisible: true,
+    confirm: true,
+    authorityNote: "Popup activate / Dist enable — not Save, not Approve, not Push send",
+  },
   PAUSE_STOP: {
     id: "PAUSE_STOP",
     variant: "danger",
@@ -102,7 +112,7 @@ export const PROMOTION_ADMIN_ACTION_META: Record<
     labelEn: "Stop exposure",
     customerVisible: true,
     confirm: true,
-    authorityNote: "Event unpublished / popup pause transition",
+    authorityNote: "Event unpublished / popup pause / Dist banner OFF",
   },
   SEND_PUSH: {
     id: "SEND_PUSH",
@@ -120,7 +130,7 @@ export const PROMOTION_ADMIN_ACTION_META: Record<
     labelEn: "Approve",
     customerVisible: false,
     confirm: true,
-    authorityNote: "Owner request → Event draft only (not publish/send)",
+    authorityNote: "Approval workflow only — not Activate, not Publish, not Send",
   },
   REQUEST_REVISION: {
     id: "REQUEST_REVISION",

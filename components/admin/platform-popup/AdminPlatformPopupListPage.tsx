@@ -16,6 +16,16 @@ import {
   promotionOperatorStatusTone,
   resolvePopupOperatorStatus,
 } from "@/lib/admin/promotion-operation-status";
+import {
+  popupApprovalStatusLabel,
+  popupBenefitHintLabel,
+  popupDestinationSummary,
+  popupEditHref,
+  popupFrequencyOperatorLabel,
+  popupSurfaceOperatorLabel,
+  resolvePopupBenefitOperationalHint,
+  resolvePopupListCompositionLabel,
+} from "@/lib/admin/promotion-ownership-visibility";
 
 export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
@@ -40,13 +50,17 @@ export function AdminPlatformPopupListPage() {
       error?: string;
     };
     if (!res.ok || !json.ok) {
-      setError(json.error || "load_failed");
+      setError(
+        lang === "en"
+          ? "Could not load popup campaigns."
+          : "팝업 캠페인을 불러오지 못했습니다."
+      );
       setItems([]);
     } else {
       setItems(json.items ?? []);
     }
     setLoading(false);
-  }, [status]);
+  }, [status, lang]);
 
   useEffect(() => {
     void load();
@@ -78,10 +92,12 @@ export function AdminPlatformPopupListPage() {
     };
     setCreating(false);
     if (!res.ok || !json.ok || !json.id) {
-      setError(json.error || "create_failed");
+      setError(
+        lang === "en" ? "Could not create campaign." : "캠페인을 만들지 못했습니다."
+      );
       return;
     }
-    router.push(`/admin/platform-popup/${json.id}`);
+    router.push(popupEditHref(json.id));
   };
 
   const empty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
@@ -91,8 +107,10 @@ export function AdminPlatformPopupListPage() {
       <AdminPageHeader
         title={title}
         description={safeT("admin_platform_popup_list_desc", {
-          fallbackKo: "플랫폼 팝업 캠페인 — 형태 · 위치 · 기간 · 상태",
-          fallbackEn: "Platform popup campaigns — presentation · surface · period · status",
+          fallbackKo:
+            "앱 화면 위에 표시되는 프로모션 팝업을 관리합니다. 형태·이벤트·위치·빈도·상태를 확인하세요.",
+          fallbackEn:
+            "Manage promotion popups over the app. Review form, event, surface, frequency, and status.",
         })}
       />
 
@@ -100,7 +118,7 @@ export function AdminPlatformPopupListPage() {
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm text-sam-muted">
             {safeT("admin_platform_popup_filter_status", {
-              fallbackKo: "상태",
+              fallbackKo: "운영 상태",
               fallbackEn: "Status",
             })}
             <select
@@ -150,12 +168,25 @@ export function AdminPlatformPopupListPage() {
             })}
           </p>
         ) : empty ? (
-          <p className="text-sm text-sam-muted">
-            {safeT("admin_platform_popup_empty", {
-              fallbackKo: "캠페인이 없습니다.",
-              fallbackEn: "No campaigns yet.",
-            })}
-          </p>
+          <div>
+            <p className="text-sm text-sam-muted">
+              {safeT("admin_platform_popup_empty", {
+                fallbackKo: "등록된 프로모션 팝업이 없습니다.",
+                fallbackEn: "No promotion popups yet.",
+              })}
+            </p>
+            <AdminActionButton
+              className="mt-3"
+              variant="primary"
+              disabled={creating}
+              onClick={() => void onCreate()}
+            >
+              {safeT("admin_platform_popup_create", {
+                fallbackKo: "캠페인 만들기",
+                fallbackEn: "Create campaign",
+              })}
+            </AdminActionButton>
+          </div>
         ) : (
           <ul className="divide-y divide-sam-border" data-admin-popup-operational-list="1">
             {items.map((item) => {
@@ -164,57 +195,104 @@ export function AdminPlatformPopupListPage() {
                 startsAt: item.startAt,
                 endsAt: item.endAt,
               });
+              const compositionLabel = resolvePopupListCompositionLabel({
+                presentationType: item.presentationType,
+                creativeMode: item.creativeMode,
+                lang,
+              });
+              const benefitHint = resolvePopupBenefitOperationalHint({
+                presentationType: item.presentationType,
+                creativeMode: item.creativeMode,
+                linkedEventId: item.linkedEventId,
+                linkedEventHasBenefit: item.linkedEventHasBenefit,
+              });
+              const benefitLabel = popupBenefitHintLabel(benefitHint, lang);
+              const surfaces = item.surfaces
+                .map((s) => popupSurfaceOperatorLabel(s, lang))
+                .join(", ");
               return (
                 <li
                   key={item.id}
-                  className="flex flex-wrap items-start justify-between gap-3 py-3"
+                  className="flex flex-wrap items-start justify-between gap-2 py-2.5"
+                  data-admin-popup-composition={compositionLabel}
                 >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/admin/platform-popup/${item.id}`}
-                      className="font-semibold hover:underline"
-                    >
-                      {item.name}
-                    </Link>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-sam-muted">
-                      <span>{item.presentationType || "—"}</span>
-                      <span>·</span>
-                      <span>{item.surfaces.join(", ") || "—"}</span>
-                      <span>·</span>
-                      <span>
-                        {formatPromotionAdminSchedule(item.startAt, lang)} –{" "}
-                        {formatPromotionAdminSchedule(item.endAt, lang)}
-                      </span>
-                      <span>({item.timezone || "Asia/Manila"})</span>
-                    </div>
-                    <div className="mt-1 truncate text-xs text-sam-muted">
-                      {item.ctaType}
-                      {item.ctaType === "external_url"
-                        ? item.externalUrl
-                          ? ` · ${item.externalUrl}`
-                          : ""
-                        : item.ctaTarget
-                          ? ` · ${item.ctaTarget}`
-                          : ""}
+                  <div className="flex min-w-0 flex-1 gap-2">
+                    {item.creativeThumbUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin list thumb
+                      <img
+                        src={item.creativeThumbUrl}
+                        alt=""
+                        className="h-9 w-12 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <span className="h-9 w-12 shrink-0 rounded bg-sam-app" />
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={popupEditHref(item.id)}
+                        className="text-sm font-semibold hover:underline"
+                      >
+                        {item.name}
+                      </Link>
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-sam-muted">
+                        <span data-admin-popup-form-label="1">{compositionLabel}</span>
+                        {benefitLabel ? (
+                          <span className="text-amber-700" data-admin-popup-benefit-hint="1">
+                            {benefitLabel}
+                          </span>
+                        ) : null}
+                        <span>
+                          {lang === "en" ? "Event" : "이벤트"}:{" "}
+                          {item.linkedEventTitle ||
+                            (item.linkedEventId
+                              ? item.linkedEventId.slice(0, 8)
+                              : lang === "en"
+                                ? "—"
+                                : "없음")}
+                        </span>
+                        <span>
+                          {lang === "en" ? "Where" : "위치"}: {surfaces || "—"}
+                        </span>
+                        <span>
+                          {lang === "en" ? "Frequency" : "빈도"}:{" "}
+                          {popupFrequencyOperatorLabel(item.frequencyMode, lang)}
+                        </span>
+                        <span>
+                          {formatPromotionAdminSchedule(item.startAt, lang)} –{" "}
+                          {formatPromotionAdminSchedule(item.endAt, lang)}
+                        </span>
+                        <span>
+                          {lang === "en" ? "Destination" : "목적지"}:{" "}
+                          {popupDestinationSummary({
+                            ctaType: item.ctaType,
+                            ctaTarget: item.ctaTarget,
+                            externalUrl: item.externalUrl,
+                            lang,
+                          })}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                     <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
-                      {promotionOperatorStatusLabel(op, lang)}
+                      <span data-admin-popup-op-status="1">
+                        {promotionOperatorStatusLabel(op, lang)}
+                      </span>
                     </AdminToneBadge>
-                    <AdminActionLink
-                      href={`/admin/platform-popup/${item.id}`}
-                      variant="secondary"
+                    <span
+                      className="rounded border border-sam-border px-1.5 py-0.5 text-[10px] text-sam-muted"
+                      data-admin-popup-approval-status="1"
                     >
+                      {lang === "en" ? "Approval" : "승인"}:{" "}
+                      {popupApprovalStatusLabel(item.approvalStatus, lang)}
+                    </span>
+                    <AdminActionLink href={popupEditHref(item.id)} variant="secondary">
                       {safeT("admin_promotion_action_preview", {
                         fallbackKo: "미리보기",
                         fallbackEn: "Preview",
                       })}
                     </AdminActionLink>
-                    <AdminActionLink
-                      href={`/admin/platform-popup/${item.id}`}
-                      variant="secondary"
-                    >
+                    <AdminActionLink href={popupEditHref(item.id)} variant="secondary">
                       {safeT("admin_promotion_action_edit", {
                         fallbackKo: "수정",
                         fallbackEn: "Edit",

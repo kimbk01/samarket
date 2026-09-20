@@ -18,6 +18,16 @@ import {
   resolveDistributionOperatorStatus,
   type PromotionOperatorStatus,
 } from "@/lib/admin/promotion-operation-status";
+import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
+import {
+  bannerDestinationSummary,
+  bannerListPurposeCopy,
+  eventDistributionHref,
+  eventEditHref,
+  eventPreviewHref,
+  inlineSharesPlacementCopy,
+  PLACEMENTS_INVENTORY_HREF,
+} from "@/lib/admin/promotion-ownership-visibility";
 
 type BannerRow = {
   distributionId: string;
@@ -30,6 +40,7 @@ type BannerRow = {
   startsAt: string | null;
   endsAt: string | null;
   href: string | null;
+  thumbUrl?: string | null;
 };
 
 export function AdminPromotionBannerListClient() {
@@ -52,17 +63,19 @@ export function AdminPromotionBannerListClient() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(json.error || "load_failed");
+        setError(
+          lang === "en" ? "Could not load banners." : "배너를 불러오지 못했습니다."
+        );
         setRows([]);
         return;
       }
       setRows(json.items ?? []);
     } catch {
-      setError("load_failed");
+      setError(lang === "en" ? "Could not load banners." : "배너를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     void load();
@@ -78,13 +91,33 @@ export function AdminPromotionBannerListClient() {
               fallbackEn: "Banners",
             })}
           </h1>
-          <p className="mt-1 text-sm text-sam-muted">
+          <p
+            className="mt-1 max-w-2xl text-sm text-sam-muted"
+            data-admin-banner-list-purpose="1"
+          >
             {safeT("admin_promotion_banner_list_desc", {
-              fallbackKo:
-                "이벤트 Distribution 배너. 인라인(3:1) / 히어로(39:16) · 커뮤니티 홈 / 거래 홈.",
-              fallbackEn:
-                "Event Distribution banners. Inline (3:1) / Hero (39:16) · Community / Trade home.",
+              fallbackKo: bannerListPurposeCopy("ko"),
+              fallbackEn: bannerListPurposeCopy("en"),
             })}
+          </p>
+          <p
+            className="mt-1 max-w-2xl text-xs text-sam-muted"
+            data-admin-banner-inline-placement-note="1"
+          >
+            {safeT("admin_promotion_banner_inline_placement_note", {
+              fallbackKo: inlineSharesPlacementCopy("ko"),
+              fallbackEn: inlineSharesPlacementCopy("en"),
+            })}{" "}
+            <Link
+              href={PLACEMENTS_INVENTORY_HREF}
+              className="underline"
+              data-admin-banner-placements-link="1"
+            >
+              {safeT("admin_promotion_banner_view_placements", {
+                fallbackKo: "노출 위치 현황 보기",
+                fallbackEn: "View placement status",
+              })}
+            </Link>
           </p>
         </div>
         <AdminActionLink href="/admin/platform-events" variant="secondary">
@@ -98,14 +131,27 @@ export function AdminPromotionBannerListClient() {
       {loading ? (
         <p className="text-sm text-sam-muted">…</p>
       ) : error ? (
-        <p className="text-sm text-red-600">{error}</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted" data-admin-promotion-banner-empty="1">
-          {safeT("admin_promotion_banner_empty", {
-            fallbackKo: "설정된 배너 Distribution이 없습니다. 이벤트 노출 설정에서 추가하세요.",
-            fallbackEn: "No banner distributions yet. Add them in Event exposure settings.",
-          })}
+        <p className="text-sm text-red-600" role="alert">
+          {error}
         </p>
+      ) : rows.length === 0 ? (
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4"
+          data-admin-promotion-banner-empty="1"
+        >
+          <p className="text-sm text-sam-muted">
+            {safeT("admin_promotion_banner_empty", {
+              fallbackKo: "설정된 이벤트 배너가 없습니다. 이벤트 노출 설정에서 추가하세요.",
+              fallbackEn: "No event banners yet. Add them in Event exposure settings.",
+            })}
+          </p>
+          <AdminActionLink href="/admin/platform-events" variant="primary" className="mt-3">
+            {safeT("admin_promotion_banner_goto_events", {
+              fallbackKo: "이벤트에서 노출 설정",
+              fallbackEn: "Configure via Events",
+            })}
+          </AdminActionLink>
+        </div>
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
           {rows.map((row) => {
@@ -115,44 +161,82 @@ export function AdminPromotionBannerListClient() {
               startsAt: row.startsAt,
               endsAt: row.endsAt,
             });
+            const isInline = row.presentation === "INLINE_BANNER";
             return (
-              <li key={row.distributionId} className="px-3 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold">{row.eventTitle}</div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-sam-muted">
-                      <span>{eventBannerPresentationLabel(row.presentation, lang)}</span>
-                      <span>·</span>
-                      <span>{eventBannerPlacementLabel(row.placement, lang)}</span>
-                      <span>·</span>
-                      <span>
-                        {formatPromotionAdminSchedule(row.startsAt, lang)} –{" "}
-                        {formatPromotionAdminSchedule(row.endsAt, lang)}
-                      </span>
+              <li
+                key={row.distributionId}
+                className="px-3 py-2.5"
+                data-admin-banner-presentation={row.presentation}
+                data-admin-banner-placement={row.placement}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 gap-2">
+                    {row.thumbUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin list thumb
+                      <img
+                        src={row.thumbUrl}
+                        alt=""
+                        className="h-9 w-14 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <span className="h-9 w-14 shrink-0 rounded bg-sam-app" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{row.eventTitle}</div>
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-sam-muted">
+                        <span>{eventBannerPresentationLabel(row.presentation, lang)}</span>
+                        <span>{eventBannerPlacementLabel(row.placement, lang)}</span>
+                        <span>
+                          {formatPromotionAdminSchedule(row.startsAt, lang)} –{" "}
+                          {formatPromotionAdminSchedule(row.endsAt, lang)}
+                        </span>
+                        <span>
+                          {lang === "en" ? "Destination" : "목적지"}:{" "}
+                          {bannerDestinationSummary(row.href, lang)}
+                        </span>
+                        {isInline ? (
+                          <span data-admin-banner-inline-badge="1">
+                            {lang === "en"
+                              ? "Shares ad placement inventory"
+                              : "광고 노출 위치 공유"}
+                          </span>
+                        ) : (
+                          <span data-admin-banner-hero-badge="1">
+                            {lang === "en"
+                              ? "Promotion hero (not feed inventory)"
+                              : "히어로 · 피드 재고와 별도"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                     <AdminToneBadge tone={promotionOperatorStatusTone(op)}>
                       {promotionOperatorStatusLabel(op, lang)}
                     </AdminToneBadge>
-                    <AdminActionLink
-                      href={`/admin/platform-events/${encodeURIComponent(row.eventId)}`}
-                      variant="secondary"
-                    >
-                      {safeT("admin_promotion_action_configure_exposure", {
-                        fallbackKo: "노출 설정",
-                        fallbackEn: "Configure exposure",
-                      })}
+                    <AdminActionLink href={eventPreviewHref(row.eventId)} variant="secondary">
+                      {promotionAdminActionLabel("PREVIEW", lang)}
                     </AdminActionLink>
-                    <Link
-                      href={`/admin/platform-events/${encodeURIComponent(row.eventId)}`}
-                      className="text-xs text-sam-muted underline"
-                    >
+                    <AdminActionLink href={eventEditHref(row.eventId)} variant="secondary">
                       {safeT("admin_promotion_action_edit", {
                         fallbackKo: "수정",
                         fallbackEn: "Edit",
                       })}
-                    </Link>
+                    </AdminActionLink>
+                    <AdminActionLink
+                      href={eventDistributionHref(row.eventId)}
+                      variant="secondary"
+                      data-admin-banner-exposure-cta="1"
+                    >
+                      {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
+                    </AdminActionLink>
+                    <AdminActionLink
+                      href={eventDistributionHref(row.eventId)}
+                      variant="quiet"
+                      data-admin-banner-stop-deeplink="1"
+                    >
+                      {promotionAdminActionLabel("PAUSE_STOP", lang)}
+                    </AdminActionLink>
                   </div>
                 </div>
               </li>

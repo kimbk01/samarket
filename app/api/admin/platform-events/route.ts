@@ -10,8 +10,7 @@ import {
 } from "@/lib/platform-events/types";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import {
-  channelSummaryFromToggles,
-  distributionsToToggles,
+  channelSummaryFromDistributionRowsPreferringPresentation,
   listDistributionsForEvents,
 } from "@/lib/platform-promotion-distribution/repository";
 
@@ -50,7 +49,7 @@ export async function GET() {
     channelByEventId = Object.fromEntries(
       [...byId.entries()].map(([id, rows]) => [
         id,
-        channelSummaryFromToggles(distributionsToToggles(rows), "ko"),
+        channelSummaryFromDistributionRowsPreferringPresentation(rows, "ko"),
       ])
     );
   } catch {

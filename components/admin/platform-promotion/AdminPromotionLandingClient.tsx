@@ -5,6 +5,10 @@ import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 import { adminMenu } from "@/components/admin/admin-menu";
+import {
+  ADS_WORKSPACE_HREF,
+  promotionWorkspacePurposeCopy,
+} from "@/lib/admin/promotion-ownership-visibility";
 
 const ENTRIES = [
   {
@@ -12,40 +16,40 @@ const ENTRIES = [
     href: "/admin/platform-events",
     ko: "이벤트",
     en: "Events",
-    descKo: "무엇을 프로모션할지 — 콘텐츠 작성·게시",
-    descEn: "What you promote — create and publish content",
+    descKo: "고객이 보는 이벤트 콘텐츠와 이벤트 페이지를 관리합니다.",
+    descEn: "Manage event content and the public event page customers see.",
   },
   {
     key: "promotion-popup",
     href: "/admin/platform-popup",
     ko: "팝업",
     en: "Popups",
-    descKo: "어떻게 보일지 — A–D 팝업 노출",
-    descEn: "How it appears — A–D popup presentations",
+    descKo: "앱 화면 위에 표시되는 프로모션 팝업을 관리합니다.",
+    descEn: "Manage promotion popups shown over the app screen.",
   },
   {
     key: "promotion-banners",
     href: "/admin/platform-promotion/banners",
     ko: "배너",
     en: "Banners",
-    descKo: "어디에 보일지 — 인라인/히어로 × 커뮤니티/거래",
-    descEn: "Where it appears — Inline/Hero × Community/Trade",
+    descKo: "커뮤니티·거래 화면 안에 노출되는 이벤트 배너를 관리합니다.",
+    descEn: "Manage event banners shown inside Community and Trade screens.",
   },
   {
     key: "promotion-notifications",
     href: "/admin/platform-promotion/notifications",
     ko: "알림",
     en: "Notifications",
-    descKo: "Push 보내기 vs 앱 알림(Bell) — 저장 ≠ 발송",
-    descEn: "Push send vs in-app Bell — Save ≠ Send",
+    descKo: "Push 알림과 앱 알림함 전달을 관리합니다.",
+    descEn: "Manage Push delivery and in-app notification inbox.",
   },
   {
     key: "promotion-owner-requests",
     href: "/admin/platform-event-owner-requests",
     ko: "오너 요청",
     en: "Owner requests",
-    descKo: "오너 신청 검토 — 승인 = Event 초안 (게시/발송 아님)",
-    descEn: "Review owner requests — Approve = Event draft only",
+    descKo: "매장 오너가 신청한 프로모션을 검토합니다.",
+    descEn: "Review promotion requests submitted by store owners.",
   },
 ] as const;
 
@@ -63,16 +67,21 @@ export function AdminPromotionLandingClient() {
               fallbackEn: "Promotion / Events",
             })}
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-sam-muted">
+          <p
+            className="mt-1 max-w-2xl text-sm text-sam-muted"
+            data-admin-promotion-workspace-purpose="1"
+          >
             {safeT("admin_promotion_landing_desc", {
-              fallbackKo:
-                "플랫폼 프로모션 운영. 유료 광고(광고 / 노출)와 분리된 Admin 권한입니다.",
-              fallbackEn:
-                "Platform promotion operations. Separate from Paid Ads (Ads / Exposure).",
+              fallbackKo: promotionWorkspacePurposeCopy("ko"),
+              fallbackEn: promotionWorkspacePurposeCopy("en"),
             })}
           </p>
         </div>
-        <AdminActionLink href="/admin/platform-events/new" variant="primary" data-admin-promotion-create-cta="1">
+        <AdminActionLink
+          href="/admin/platform-events/new"
+          variant="primary"
+          data-admin-promotion-create-cta="1"
+        >
           {safeT("admin_platform_events_create", {
             fallbackKo: "새 이벤트 만들기",
             fallbackEn: "Create event",
@@ -95,6 +104,9 @@ export function AdminPromotionLandingClient() {
                 <p className="mt-1 text-xs text-sam-muted">
                   {lang === "en" ? entry.descEn : entry.descKo}
                 </p>
+                <p className="mt-2 text-[11px] font-medium text-sam-fg/80">
+                  {lang === "en" ? "Go to management →" : "관리 화면으로 →"}
+                </p>
               </Link>
             </li>
           );
@@ -103,10 +115,12 @@ export function AdminPromotionLandingClient() {
 
       <p className="text-xs text-sam-muted" data-admin-promotion-paid-ads-note="1">
         {safeT("admin_promotion_paid_ads_note", {
-          fallbackKo: "유료 광고·슬롯 현황은 「광고 / 노출」 워크스페이스에서 관리합니다.",
-          fallbackEn: "Paid ads and slot inventory live under the Ads / Exposure workspace.",
+          fallbackKo:
+            "유료 광고와 광고 노출 위치/재고는 「광고 / 노출」에서 관리합니다. 인라인 이벤트 배너는 노출 위치 현황에도 표시됩니다.",
+          fallbackEn:
+            "Paid ads and placement inventory live under Ads / Exposure. Inline event banners also appear on Placement status.",
         })}{" "}
-        <AdminActionLink href="/admin/advertising" variant="quiet">
+        <AdminActionLink href={ADS_WORKSPACE_HREF} variant="quiet">
           {safeT("admin_menu_ads", { fallbackKo: "광고 / 노출", fallbackEn: "Ads / Exposure" })}
         </AdminActionLink>
       </p>

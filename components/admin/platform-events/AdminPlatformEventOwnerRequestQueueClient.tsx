@@ -54,9 +54,9 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
         <p className="mt-1 text-sm text-sam-muted" data-admin-owner-request-boundary="1">
           {safeT("admin_promotion_owner_request_boundary", {
             fallbackKo:
-              "요청 채널 ≠ 최종 채널. 승인 = Event 초안 생성 (게시·배너 활성화·Push 발송 아님).",
+              "요청한 채널 ≠ 실제 노출 채널입니다. 승인하면 이벤트 초안만 만들어지며, 게시·배너 활성화·Push 발송은 하지 않습니다.",
             fallbackEn:
-              "Requested channels ≠ final channels. Approve = Event draft only (not publish/activate/send).",
+              "Requested channels ≠ active channels. Approve creates an Event draft only — not publish, banner activate, or Push send.",
           })}
         </p>
       </div>
@@ -79,7 +79,11 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
                 <div className="min-w-0">
                   <div className="font-medium">{item.title || "—"}</div>
                   <div className="mt-1 text-xs text-sam-muted">
-                    store {item.storeId.slice(0, 8)} · requested: {channels}
+                    {lang === "en" ? "Requested channels" : "요청 채널"}:{" "}
+                    {channels || (lang === "en" ? "none" : "없음")}
+                    <span className="ml-2 text-sam-muted/80">
+                      ({lang === "en" ? "not active yet" : "아직 활성 아님"})
+                    </span>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">

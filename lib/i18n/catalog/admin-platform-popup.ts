@@ -5,7 +5,8 @@
 export const adminPlatformPopupMessages = {
   ko: {
     admin_platform_popup_title: "글로벌 팝업 광고",
-    admin_platform_popup_list_desc: "플랫폼 팝업 캠페인 목록 · 승인 · 미리보기",
+    admin_platform_popup_list_desc:
+      "앱 화면 위에 표시되는 프로모션 팝업을 관리합니다. 형태·이벤트·위치·빈도·상태를 확인하세요.",
     admin_platform_popup_detail_desc: "캠페인 편집 · 승인 · 프로덕션 렌더러 미리보기",
     admin_platform_popup_detail_desc_admin_direct:
       "캠페인 편집 · 노출 운영 · 프로덕션 렌더러 미리보기",
@@ -19,7 +20,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_filter_status: "상태",
     admin_platform_popup_filter_all: "전체",
     admin_platform_popup_loading: "불러오는 중…",
-    admin_platform_popup_empty: "아직 등록된 팝업이 없습니다.",
+    admin_platform_popup_empty: "등록된 프로모션 팝업이 없습니다.",
     admin_platform_popup_save: "저장",
     admin_platform_popup_saving: "저장 중…",
     admin_platform_popup_section_basic: "기본 정보",
@@ -101,7 +102,8 @@ export const adminPlatformPopupMessages = {
   },
   en: {
     admin_platform_popup_title: "Global Popup Ads",
-    admin_platform_popup_list_desc: "Platform popup campaigns — list, approve, preview",
+    admin_platform_popup_list_desc:
+      "Manage promotion popups over the app. Review form, event, surface, frequency, and status.",
     admin_platform_popup_detail_desc: "Edit, approve, and preview with production renderer",
     admin_platform_popup_detail_desc_admin_direct:
       "Edit, operate exposure, and preview with production renderer",
@@ -114,7 +116,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_filter_status: "Status",
     admin_platform_popup_filter_all: "All",
     admin_platform_popup_loading: "Loading…",
-    admin_platform_popup_empty: "No popup ads yet.",
+    admin_platform_popup_empty: "No promotion popups yet.",
     admin_platform_popup_save: "Save",
     admin_platform_popup_saving: "Saving…",
     admin_platform_popup_section_basic: "Basic info",

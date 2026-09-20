@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolvePlatformPopupCreativePublicUrl } from "@/lib/platform-popup/resolve-popup-creative-url";
+import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/event-benefit-authority";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -25,6 +26,8 @@ export type PlatformPopupAdminListItem = {
   suppressionMode: PlatformPopupSuppressionMode;
   suppressionDurationSeconds: number | null;
   presentationType: string;
+  /** Ready creative mode — required to distinguish Artwork vs Card (shared center_modal). */
+  creativeMode: string | null;
   frequencyMode: string;
   ctaType: PlatformPopupCtaType;
   ctaTarget: string;
@@ -37,6 +40,10 @@ export type PlatformPopupAdminListItem = {
   ownerRequestId: string | null;
   updatedAt: string;
   creativeThumbUrl: string | null;
+  /** Event Dist reverse-link when this campaign was materialized from an Event. */
+  linkedEventId: string | null;
+  linkedEventTitle: string | null;
+  linkedEventHasBenefit: boolean | null;
 };
 
 export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
@@ -115,7 +122,13 @@ function rate(num: number, den: number): number | null {
 function mapListItem(
   row: CampaignRow,
   surfaces: PlatformPopupTargetSurface[],
-  thumb: string | null
+  thumb: string | null,
+  creativeMode: string | null,
+  linked: {
+    eventId: string | null;
+    eventTitle: string | null;
+    hasBenefit: boolean | null;
+  }
 ): PlatformPopupAdminListItem {
   return {
     id: row.id,
@@ -129,6 +142,7 @@ function mapListItem(
     suppressionMode: row.suppression_mode as PlatformPopupSuppressionMode,
     suppressionDurationSeconds: row.suppression_duration_seconds,
     presentationType: row.presentation_type ?? "bottom_sheet",
+    creativeMode,
     frequencyMode: row.frequency_mode ?? "close_only",
     ctaType: row.cta_type as PlatformPopupCtaType,
     ctaTarget: row.cta_target ?? "",
@@ -141,6 +155,9 @@ function mapListItem(
     ownerRequestId: row.owner_request_id,
     updatedAt: row.updated_at,
     creativeThumbUrl: thumb,
+    linkedEventId: linked.eventId,
+    linkedEventTitle: linked.eventTitle,
+    linkedEventHasBenefit: linked.hasBenefit,
   };
 }
 
@@ -167,13 +184,19 @@ export async function listPlatformPopupAdminCampaigns(
   if (!rows.length) return { ok: true, items: [] };
 
   const ids = rows.map((r) => r.id);
-  const [{ data: surfaceRows }, { data: creativeRows }] = await Promise.all([
+  const [{ data: surfaceRows }, { data: creativeRows }, { data: distRows }] = await Promise.all([
     sb.from("platform_popup_campaign_surfaces").select("campaign_id, surface").in("campaign_id", ids),
     sb
       .from("platform_popup_creatives")
-      .select("campaign_id, asset_path, asset_url, status")
+      .select("campaign_id, asset_path, asset_url, status, creative_mode")
       .in("campaign_id", ids)
       .eq("status", "ready"),
+    sb
+      .from("platform_promotion_distributions")
+      .select("content_id, channel_ref_id")
+      .eq("channel", "popup")
+      .eq("content_type", "platform_event")
+      .in("channel_ref_id", ids),
   ]);
 
   const surfacesBy = new Map<string, PlatformPopupTargetSurface[]>();
@@ -185,18 +208,71 @@ export async function listPlatformPopupAdminCampaigns(
   }
 
   const thumbBy = new Map<string, string>();
+  const modeBy = new Map<string, string>();
   for (const c of creativeRows ?? []) {
-    const row = c as { campaign_id: string; asset_path: string; asset_url: string | null };
+    const row = c as {
+      campaign_id: string;
+      asset_path: string;
+      asset_url: string | null;
+      creative_mode?: string | null;
+    };
     const url = resolvePlatformPopupCreativePublicUrl({
       assetUrl: row.asset_url,
       assetPath: row.asset_path,
     });
     if (url) thumbBy.set(row.campaign_id, url);
+    if (row.creative_mode) modeBy.set(row.campaign_id, String(row.creative_mode));
+  }
+
+  const eventIdByCampaign = new Map<string, string>();
+  for (const d of distRows ?? []) {
+    const ref = String((d as { channel_ref_id?: string | null }).channel_ref_id ?? "").trim();
+    const eventId = String((d as { content_id?: string }).content_id ?? "").trim();
+    if (ref && eventId) eventIdByCampaign.set(ref, eventId);
+  }
+  for (const r of rows) {
+    if (eventIdByCampaign.has(r.id)) continue;
+    if (r.cta_type === "event_detail" && r.cta_target) {
+      const tid = String(r.cta_target).trim();
+      if (tid) eventIdByCampaign.set(r.id, tid);
+    }
+  }
+
+  const eventIds = [...new Set(eventIdByCampaign.values())];
+  const eventMeta = new Map<string, { title: string; hasBenefit: boolean }>();
+  if (eventIds.length > 0) {
+    const { data: events } = await sb
+      .from("platform_events")
+      .select("id, title, sections")
+      .in("id", eventIds);
+    for (const ev of events ?? []) {
+      const id = String((ev as { id: string }).id);
+      eventMeta.set(id, {
+        title: String((ev as { title?: string }).title ?? ""),
+        hasBenefit: isBenefitDialogEligibleForEventSections(
+          (ev as { sections?: unknown }).sections
+        ),
+      });
+    }
   }
 
   return {
     ok: true,
-    items: rows.map((r) => mapListItem(r, surfacesBy.get(r.id) ?? [], thumbBy.get(r.id) ?? null)),
+    items: rows.map((r) => {
+      const linkedEventId = eventIdByCampaign.get(r.id) ?? null;
+      const meta = linkedEventId ? eventMeta.get(linkedEventId) : null;
+      return mapListItem(
+        r,
+        surfacesBy.get(r.id) ?? [],
+        thumbBy.get(r.id) ?? null,
+        modeBy.get(r.id) ?? null,
+        {
+          eventId: linkedEventId,
+          eventTitle: meta?.title ?? null,
+          hasBenefit: meta ? meta.hasBenefit : linkedEventId ? null : null,
+        }
+      );
+    }),
   };
 }
 
@@ -276,7 +352,11 @@ export async function loadPlatformPopupAdminCampaignDetail(
     };
   }
 
-  const list = mapListItem(row, surfaces, thumb);
+  const list = mapListItem(row, surfaces, thumb, creative?.creativeMode ?? null, {
+    eventId: null,
+    eventTitle: null,
+    hasBenefit: null,
+  });
   return {
     ok: true,
     campaign: {

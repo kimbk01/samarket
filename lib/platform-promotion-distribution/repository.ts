@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { channelSummaryFromDistributionRows } from "@/lib/admin/promotion-ownership-visibility";
 import {
   mapPromotionDistributionDbRow,
   type PromotionDistributionDbRow,
@@ -58,12 +59,23 @@ export function channelSummaryFromToggles(
   const labels =
     lang === "en"
       ? ({ popup: "Popup", banner: "Banner", push: "Push", bell: "Bell" } as const)
-      : ({ popup: "팝업", banner: "배너", push: "Push", bell: "앱알림" } as const);
+      : ({ popup: "팝업", banner: "배너", push: "Push", bell: "앱 알림" } as const);
   const on = (["popup", "banner", "push", "bell"] as const)
     .filter((k) => toggles[k])
     .map((k) => labels[k]);
   if (on.length === 0) return lang === "en" ? "No channels" : "채널 없음";
   return on.join(" · ");
+}
+
+/**
+ * Prefer Dist rows when available so Inline vs Hero is visible on Event list.
+ */
+export function channelSummaryFromDistributionRowsPreferringPresentation(
+  rows: PromotionDistributionRow[],
+  lang: "ko" | "en" = "ko"
+): string {
+  if (rows.length === 0) return channelSummaryFromToggles(emptyDistributionToggles(), lang);
+  return channelSummaryFromDistributionRows(rows, lang);
 }
 
 export type UpsertDistributionInput = {

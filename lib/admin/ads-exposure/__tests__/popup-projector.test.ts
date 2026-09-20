@@ -15,6 +15,7 @@ const campaign: PlatformPopupAdminListItem = {
   suppressionMode: "CLOSE",
   suppressionDurationSeconds: null,
   presentationType: "bottom_sheet",
+  creativeMode: "card",
   frequencyMode: "close_only",
   ctaType: "internal_page",
   ctaTarget: "/stores",
@@ -27,6 +28,9 @@ const campaign: PlatformPopupAdminListItem = {
   ownerRequestId: null,
   updatedAt: "2026-09-07T00:00:00.000Z",
   creativeThumbUrl: "https://cdn.example.com/popup.webp",
+  linkedEventId: null,
+  linkedEventTitle: null,
+  linkedEventHasBenefit: null,
 };
 
 describe("popup campaign action item", () => {

@@ -61,7 +61,6 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[14px] font-semibold text-sam-fg">{title}</p>
-          <p className="text-[11px] font-mono text-sam-muted">{pool.placementKey}</p>
         </div>
         <div className="text-right text-[12px] text-sam-muted">
           <p>
@@ -98,50 +97,87 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
         </p>
       ) : (
         <ul className="mt-3 space-y-2">
-          {pool.campaigns.map((c) => (
-            <li
-              key={c.id}
-              className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
-              data-feed-pool-campaign={c.id}
-            >
-              {c.thumbUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- admin inventory thumb
-                <img
-                  src={c.thumbUrl}
-                  alt=""
-                  className="h-10 w-[7.5rem] shrink-0 rounded-ui-rect object-cover"
-                />
-              ) : (
-                <span className="h-10 w-[7.5rem] shrink-0 rounded-ui-rect bg-sam-app" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-sam-fg">{c.title}</p>
-                <p className="text-[11px] text-sam-muted">
-                  {feedOperatingLabel(c.operatingStatus, ko)} ·{" "}
-                  {feedExposureLabel(c.exposureHint, ko)}
-                  {c.periodLabel ? ` · ${c.periodLabel}` : ""}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {c.previewHref ? (
+          {pool.campaigns.map((c) => {
+            const isEventPromo = c.ownershipKind === "event_promotion";
+            const sourceBadge =
+              c.ownershipKind === "event_promotion"
+                ? ko
+                  ? "이벤트 프로모션"
+                  : "Event promotion"
+                : c.ownershipKind === "admin_direct"
+                  ? ko
+                    ? "관리자 직접 광고"
+                    : "Admin direct ad"
+                  : ko
+                    ? "유료 광고"
+                    : "Paid ad";
+            const primaryManageHref = isEventPromo && c.manageHref ? c.manageHref : c.operationsHref;
+            const primaryManageLabel = isEventPromo
+              ? ko
+                ? "이벤트 노출 설정"
+                : "Event exposure settings"
+              : ko
+                ? "노출 관리에서 보기"
+                : "View in operations";
+            return (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+                data-feed-pool-campaign={c.id}
+                data-placement-source={c.ownershipKind}
+              >
+                {c.thumbUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- admin inventory thumb
+                  <img
+                    src={c.thumbUrl}
+                    alt=""
+                    className="h-10 w-[7.5rem] shrink-0 rounded-ui-rect object-cover"
+                  />
+                ) : (
+                  <span className="h-10 w-[7.5rem] shrink-0 rounded-ui-rect bg-sam-app" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-[13px] font-medium text-sam-fg">{c.title}</p>
+                    <span
+                      className={
+                        isEventPromo
+                          ? "rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800"
+                          : "rounded bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-muted"
+                      }
+                      data-placement-source-badge="1"
+                    >
+                      {sourceBadge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sam-muted">
+                    {feedOperatingLabel(c.operatingStatus, ko)} ·{" "}
+                    {feedExposureLabel(c.exposureHint, ko)}
+                    {c.periodLabel ? ` · ${c.periodLabel}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {c.previewHref ? (
+                    <Link
+                      href={c.previewHref}
+                      className="rounded border border-sam-border px-2 py-1 text-[11px] text-sam-fg"
+                      data-placement-preview="1"
+                    >
+                      {ko ? "미리보기" : "Preview"}
+                    </Link>
+                  ) : null}
                   <Link
-                    href={c.previewHref}
+                    href={primaryManageHref}
                     className="rounded border border-sam-border px-2 py-1 text-[11px] text-sam-fg"
-                    data-placement-preview="1"
+                    data-placement-ops={isEventPromo ? "event-dist" : "1"}
+                    data-placement-canonical-edit="1"
                   >
-                    {ko ? "미리보기" : "Preview"}
+                    {primaryManageLabel}
                   </Link>
-                ) : null}
-                <Link
-                  href={c.operationsHref}
-                  className="rounded border border-sam-border px-2 py-1 text-[11px] text-sam-fg"
-                  data-placement-ops="1"
-                >
-                  {ko ? "노출 관리에서 보기" : "View in operations"}
-                </Link>
-              </div>
-            </li>
-          ))}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -378,15 +414,15 @@ export function AdminAdsPlacementManagementView() {
             {ko ? "광고 / 노출" : "Ads / Exposure"}
           </Link>
           {" › "}
-          {ko ? "광고 위치" : "Placements"}
+          {ko ? "광고 노출 위치 현황" : "Ad placement status"}
         </p>
-        <h1 className="text-lg font-semibold text-sam-fg">
-          {ko ? "광고 위치" : "Ad placements"}
+        <h1 className="text-lg font-semibold text-sam-fg" data-admin-placements-title="1">
+          {ko ? "광고 노출 위치 현황" : "Ad placement status"}
         </h1>
-        <p className="text-[13px] text-sam-muted">
+        <p className="text-[13px] text-sam-muted" data-admin-placements-purpose="1">
           {ko
-            ? "광고가 실제로 노출되는 위치와 현재 사용 상태를 관리합니다."
-            : "Manage where ads actually appear and current inventory usage."}
+            ? "광고와 인라인 프로모션이 실제로 사용하는 노출 위치와 현재 사용 현황을 확인합니다. 이벤트 배너 편집은 프로모션 / 이벤트에서 합니다."
+            : "Inspect placements and current usage for paid ads and inline promotions. Edit event banners under Promotion / Events."}
         </p>
       </header>
 
