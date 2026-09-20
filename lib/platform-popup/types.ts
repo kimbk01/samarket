@@ -58,6 +58,7 @@ export const PLATFORM_POPUP_CTA_TYPES = [
   "store",
   "internal_page",
   "external_url",
+  "event_detail",
 ] as const;
 export type PlatformPopupCtaType = (typeof PLATFORM_POPUP_CTA_TYPES)[number];
 

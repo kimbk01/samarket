@@ -908,9 +908,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                             ? language === "en"
                               ? "Community post"
                               : "커뮤니티 글"
-                            : language === "en"
-                              ? "External URL"
-                              : "외부 URL"}
+                            : t === "event_detail"
+                              ? language === "en"
+                                ? "Event detail"
+                                : "이벤트 상세"
+                              : language === "en"
+                                ? "External URL"
+                                : "외부 URL"}
                   </option>
                 ))}
               </select>

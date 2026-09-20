@@ -105,6 +105,20 @@ export function normalizePlatformPopupCta(input: PlatformPopupCtaInput): Platfor
     };
   }
 
+  if (rawType === "event_detail") {
+    if (!target) return { ok: false, error: "destination_id_required" };
+    // Canonical path via Event SSOT — do not hardcode alternate event routes.
+    return {
+      ok: true,
+      value: {
+        ctaType: "event_detail",
+        ctaTarget: target,
+        externalUrl: null,
+        href: `/events/${encodeURIComponent(target)}`,
+      },
+    };
+  }
+
   if (rawType === "internal_page") {
     const path = target || url;
     if (!path.startsWith("/")) return { ok: false, error: "internal_path_required" };
