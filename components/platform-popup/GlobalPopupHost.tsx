@@ -13,6 +13,7 @@ import {
 import { isSupportModalOpen, subscribeSupportModalState } from "@/lib/support/support-modal-controller";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { getOrCreatePlatformPopupAppSessionId } from "@/lib/platform-popup/popup-app-session";
+import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import {
   readPlatformPopupCallRuntimeSnapshot,
   subscribePlatformPopupCallRuntime,
@@ -449,11 +450,13 @@ export function GlobalPopupHost() {
 
     // CTA lifecycle: navigate then frequency-dismiss (re-entry prevention).
     // Analytics: click ≠ dismiss; suppress write still follows frequency SSOT.
+    // Cross-channel: same-Event content visit (session) — covers multi-campaign + close_only.
     const dismissAfterCta = () => {
       void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
     };
 
     if (href.startsWith("/")) {
+      recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "POPUP" });
       router.push(href);
       void recordPlatformPopupEvent({
         campaignId: winner.campaignId,

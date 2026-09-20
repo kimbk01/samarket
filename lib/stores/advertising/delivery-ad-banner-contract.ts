@@ -50,6 +50,8 @@ export type DeliveryAdBannerProps = {
   exposureToken?: string | null;
   className?: string;
   priority?: boolean;
+  /** Optional pre-navigate hook (e.g. promotion content-visit). Not visual. */
+  onBeforeNavigate?: () => void;
 };
 
 export function inventoryViewFromKey(key: DeliveryAdInventoryKey): DeliveryAdBannerInventoryView {

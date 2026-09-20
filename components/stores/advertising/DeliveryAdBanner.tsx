@@ -30,6 +30,7 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
     exposureToken,
     className,
     priority,
+    onBeforeNavigate,
   } = props;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +68,7 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
       : false;
 
   const onCustomerClick = () => {
+    onBeforeNavigate?.();
     if (!isCustomer || !token) return;
     reportDeliveryAdClick({
       exposureToken: token,

@@ -31,6 +31,8 @@ import {
   type FeedAdHostDensity,
 } from "@/lib/ads/feed-ad-geometry";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
+import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
 
 function resolveHref(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): string {
   const type = slide?.destinationType ?? c.destinationType;
@@ -367,6 +369,13 @@ function FeedAdBannerCarouselView({
                     }
                     onClick={(e) => {
                       if (href === "#") e.preventDefault();
+                      // BANNER TAP only — impression alone does not coordinate.
+                      if (extractEventIdFromHref(href)) {
+                        recordPromotionContentVisitClient({
+                          hrefOrEventId: href,
+                          sourceChannel: "BANNER",
+                        });
+                      }
                     }}
                   >
                     <SamarketThumbnail

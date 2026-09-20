@@ -8,6 +8,7 @@ import {
   resolveDibaySurface,
 } from "@/lib/platform-popup/resolve-dibay-surface";
 import { resolvePopupAd } from "@/lib/platform-popup/resolve-popup-ad";
+import { loadSessionCoordinatedEventIds } from "@/lib/platform-promotion-lifecycle/load-content-visits";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -53,12 +54,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     anonymousDeviceKey: userId ? null : anonymousDeviceKey,
   });
 
+  const coordinatedEventIds = await loadSessionCoordinatedEventIds(sb, {
+    sessionKey,
+    userId,
+    anonymousDeviceKey: userId ? null : anonymousDeviceKey,
+  });
+
   const result = resolvePopupAd({
     pathname,
     now: new Date(),
     sessionKey,
     resolvedSurface: surface,
     candidates,
+    coordinatedEventIds,
   });
 
   if (!result.ok) {

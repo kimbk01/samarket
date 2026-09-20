@@ -447,6 +447,15 @@ export function PushRouteListener() {
 
       markNotificationConsumed(notificationId);
 
+      // PUSH OPEN → Event destination: session same-Event popup coordination.
+      // DELIVERED alone never reaches this path.
+      void import("@/lib/platform-promotion-lifecycle/client-record-content-visit").then((m) => {
+        m.recordPromotionContentVisitClient({
+          hrefOrEventId: path,
+          sourceChannel: "PUSH",
+        });
+      });
+
       if (isCallRoute(path) && shouldReplaceRoute(path)) {
         const sid = readCalleeAcceptSessionIdFromPath(path);
         if (sid) {

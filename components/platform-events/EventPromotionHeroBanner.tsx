@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { EventHeroBannerRuntimeItem } from "@/lib/platform-promotion-distribution/load-active-event-hero-banners";
+import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 
 type Props = {
   placement: "TRADE_HOME" | "COMMUNITY_HOME";
@@ -63,6 +64,13 @@ export function EventPromotionHeroBanner({ placement }: Props) {
         renderContext="customer"
         campaignId={item.distributionId}
         exposureToken={null}
+        onBeforeNavigate={() => {
+          recordPromotionContentVisitClient({
+            hrefOrEventId: item.href,
+            sourceChannel: "BANNER",
+            distributionId: item.distributionId,
+          });
+        }}
       />
     </div>
   );

@@ -35,6 +35,7 @@ import {
   type PlatformPopupFrequencyMode,
   type PlatformPopupInterruptivePresentation,
 } from "@/lib/platform-popup/presentation-contract";
+import { isPopupCandidateCoordinatedAway } from "@/lib/platform-promotion-lifecycle/content-visit-eligibility";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -88,6 +89,11 @@ export type ResolvePopupAdInput = {
   candidates: readonly PlatformPopupCandidate[];
   /** Optional pre-resolved surface; if omitted, derived from pathname+criticalUi. */
   resolvedSurface?: PlatformPopupConsumerSurface | null;
+  /**
+   * Same-Event coordination — Event ids intentionally opened this session
+   * via POPUP/BANNER/PUSH/BELL. Does not replace campaign frequency suppressions.
+   */
+  coordinatedEventIds?: ReadonlySet<string> | readonly string[] | null;
 };
 
 export type ResolvePopupAdWinner = {
@@ -159,6 +165,17 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
       c.ctaLookup
     );
     if (!cta.ok) continue;
+
+    if (
+      isPopupCandidateCoordinatedAway({
+        ctaType: c.ctaType,
+        ctaTarget: c.ctaTarget,
+        href: cta.value.href,
+        coordinatedEventIds: input.coordinatedEventIds,
+      })
+    ) {
+      continue;
+    }
 
     const suppressed = (c.suppressions ?? []).some((row) =>
       isPlatformPopupSuppressionActive(row, {

@@ -99,6 +99,10 @@ function handleAuthenticatedSession(
 
   if (event === "SIGNED_IN") {
     void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+    // Guest → Member: reconcile THIS device's promotion lifecycle onto the member.
+    void import("@/lib/platform-promotion-lifecycle/client-record-content-visit").then((m) => {
+      m.reconcileGuestPromotionLifecycleClient();
+    });
     return;
   }
 
