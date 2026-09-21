@@ -1000,8 +1000,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         messages: vm.displayRoomMessages,
         lastReadMessageId,
         afterMessageId: lastVisibleMessageId,
+        /** CUT-4: canon=0 → tip read floor; do not mix history distance into FAB badge. */
+        canonicalUnreadCount: roomUnreadCount,
       }),
-    [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
+    [lastReadMessageId, lastVisibleMessageId, roomUnreadCount, vm.displayRoomMessages]
   );
   const jumpLatestFabAction = useMemo(
     () =>

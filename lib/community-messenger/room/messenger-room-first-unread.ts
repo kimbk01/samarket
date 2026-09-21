@@ -38,26 +38,52 @@ export function resolveFirstUnreadMessageId(input: {
 }
 
 /**
- * Count unread candidates strictly after `afterMessageId` (viewport last visible).
- * If afterMessageId is null/missing, count all unread after lastRead.
+ * Count unread candidates for FAB badge — strictly after canonical read floor,
+ * optionally narrowed further by viewport (`afterMessageId` = last visible).
+ *
+ * CUT-4 invariant: already-canonical-read history must never become badge count
+ * merely because the viewport moved upward.
+ *
+ * - `afterMessageId` only narrows (max with lastRead); it must not widen past lastRead.
+ * - When `canonicalUnreadCount === 0`, the timeline tip is the read floor (client
+ *   lastRead can lag behind a completed mark_read while lastVisible=tip masks it
+ *   at bottom; scrolling up would otherwise resurrect history as "unread").
+ * - When lastRead is set but missing from the loaded window, return 0 — do not
+ *   fall back to viewport-only counting (that mixes historical distance into badge).
  */
 export function countUnreadMessagesBelow(input: {
   messages: readonly FirstUnreadMessageRow[];
   lastReadMessageId: string | null | undefined;
   afterMessageId: string | null | undefined;
+  /** Canonical room/participant unread — when 0, tip is treated as read floor. */
+  canonicalUnreadCount?: number | null;
 }): number {
-  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
   const after = typeof input.afterMessageId === "string" ? input.afterMessageId.trim() : "";
   const msgs = input.messages;
   if (msgs.length === 0) return 0;
 
-  let start = 0;
+  const canonRaw = input.canonicalUnreadCount;
+  const canon =
+    canonRaw == null || !Number.isFinite(Number(canonRaw)) ? null : Math.max(0, Math.floor(Number(canonRaw)));
+
+  let lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
+  /** Completed read (canon=0): tip is already read — history scroll must not revive badge. */
+  if (canon === 0) {
+    const tip = String(msgs[msgs.length - 1]?.id ?? "").trim();
+    if (tip) lastRead = tip;
+  }
+
   const lastReadIdx = lastRead ? msgs.findIndex((m) => m.id === lastRead) : -1;
+  if (lastRead && lastReadIdx < 0) {
+    return 0;
+  }
+
+  let start = 0;
   if (after) {
     const afterIdx = msgs.findIndex((m) => m.id === after);
     start = Math.max(afterIdx, lastReadIdx) + 1;
   } else if (lastRead) {
-    start = lastReadIdx >= 0 ? lastReadIdx + 1 : 0;
+    start = lastReadIdx + 1;
   }
 
   let n = 0;
