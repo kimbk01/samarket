@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -43,6 +45,8 @@ public class NativeVoiceCallActivity extends Activity {
 
   private String callId;
   private String uiMode = UI_MODE_INCOMING;
+  private OnBackInvokedCallback nativeVoiceBackCallback;
+  private boolean nativeVoiceBackCallbackRegistered;
   private TextView peerNameView;
   private TextView statusView;
   private TextView durationView;
@@ -139,6 +143,7 @@ public class NativeVoiceCallActivity extends Activity {
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(getIntent());
+    registerNativeVoiceBackCallback();
   }
 
   private void finishWithNotice(String reason) {
@@ -179,8 +184,13 @@ public class NativeVoiceCallActivity extends Activity {
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();
+    unregisterNativeVoiceBackCallback();
     NativeVoiceCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
+    // Proven zombie path: OEM/system can finish this separate-task Activity without end().
+    // If session is still live after surface destroy, terminate so FGS/audio cannot linger.
+    // cleanup() removes session before finishIfActive → getSession null → no double-end.
+    endLiveSessionIfSurfaceDestroyed();
     super.onDestroy();
   }
 
@@ -192,8 +202,74 @@ public class NativeVoiceCallActivity extends Activity {
 
   @Override
   public void onBackPressed() {
-    if (minimizeConnectedCall("back")) return;
-    NativeVoiceCallLog.info("native_voice_back_blocked", callId, "state=" + currentState);
+    handleNativeVoiceBack("back");
+  }
+
+  private void registerNativeVoiceBackCallback() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+    if (nativeVoiceBackCallbackRegistered) return;
+    nativeVoiceBackCallback = () -> handleNativeVoiceBack("back_invoked");
+    getOnBackInvokedDispatcher()
+        .registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT, nativeVoiceBackCallback);
+    nativeVoiceBackCallbackRegistered = true;
+    NativeVoiceCallLog.info(
+        "native_voice_back_callback_registered", callId, "state=" + currentState);
+  }
+
+  private void unregisterNativeVoiceBackCallback() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+    if (!nativeVoiceBackCallbackRegistered || nativeVoiceBackCallback == null) return;
+    getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(nativeVoiceBackCallback);
+    nativeVoiceBackCallbackRegistered = false;
+    nativeVoiceBackCallback = null;
+  }
+
+  private void handleNativeVoiceBack(String source) {
+    if (minimizeConnectedCall(source)) return;
+    if (cancelLiveCallFromBack(source)) return;
+    NativeVoiceCallLog.info(
+        "native_voice_back_blocked", callId, "state=" + currentState + " source=" + source);
+  }
+
+  /**
+   * BACK while not CONNECTED must cancel the call. Leaving CONNECTING/RINGING UI without
+   * {@code end}/{@code reject} leaves NativeVoiceCallService FGS + audio focus stuck.
+   */
+  private boolean cancelLiveCallFromBack(String source) {
+    if (callId == null || callId.isEmpty()) return false;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    NativeVoiceCallRuntime.State state =
+        session != null ? session.state : currentState;
+    if (state == null
+        || state == NativeVoiceCallRuntime.State.CONNECTED
+        || state == NativeVoiceCallRuntime.State.ENDING) {
+      return false;
+    }
+    NativeVoiceCallLog.info(
+        "native_voice_back_cancel", callId, "state=" + state + " source=" + source);
+    if (state == NativeVoiceCallRuntime.State.RINGING
+        && session != null
+        && !session.initiator) {
+      NativeVoiceCallRuntime.reject(getApplicationContext(), callId);
+    } else {
+      NativeVoiceCallRuntime.end(getApplicationContext(), callId, "back:" + source);
+    }
+    return true;
+  }
+
+  private void endLiveSessionIfSurfaceDestroyed() {
+    if (isChangingConfigurations()) return;
+    if (callId == null || callId.isEmpty()) return;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    if (session == null || session.state == NativeVoiceCallRuntime.State.ENDING) return;
+    NativeVoiceCallLog.info(
+        "activity_destroyed_while_live", callId, "state=" + session.state);
+    if (session.state == NativeVoiceCallRuntime.State.RINGING && !session.initiator) {
+      NativeVoiceCallRuntime.reject(getApplicationContext(), callId);
+    } else {
+      NativeVoiceCallRuntime.end(getApplicationContext(), callId, "activity_destroyed");
+    }
   }
 
   @Override

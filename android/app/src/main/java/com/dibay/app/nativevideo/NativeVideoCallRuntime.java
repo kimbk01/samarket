@@ -407,7 +407,13 @@ public final class NativeVideoCallRuntime {
   }
 
   public static void end(Context context, String callId) {
-    if (context != null && callId != null) NativeVideoCallLog.info("end_tapped", callId.trim());
+    end(context, callId, "ui");
+  }
+
+  public static void end(Context context, String callId, String source) {
+    if (context != null && callId != null) {
+      NativeVideoCallLog.info("end_tapped", callId.trim(), "source=" + safe(source));
+    }
     terminalPatch(context, callId, "end");
   }
 

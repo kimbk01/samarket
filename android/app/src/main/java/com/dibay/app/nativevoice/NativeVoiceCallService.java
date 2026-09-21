@@ -117,19 +117,20 @@ public class NativeVoiceCallService extends Service {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOnlyAlertOnce(true);
 
-    // Connected — tap-to-return content intent + status-bar CallStyle chip (Android 12+),
-    // so backgrounding the call (device back/home) still leaves a way back to the call screen.
-    // Read-only session lookup; NativeVoiceCallRuntime state machine is untouched.
-    if (ACTION_CONNECTED.equals(action) && callId != null && !callId.trim().isEmpty()) {
+    // CONNECTING + CONNECTED: return-to-call + hangup. Proven zombie: CONNECTING FGS with
+    // Activity gone and no hangup left users unable to terminate.
+    if ((ACTION_CONNECTED.equals(action) || ACTION_CONNECTING.equals(action))
+        && callId != null
+        && !callId.trim().isEmpty()) {
       String sid = callId.trim();
       NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(sid);
       PendingIntent contentPi = returnToCallIntent(sid, session);
       if (contentPi != null) {
         builder.setContentIntent(contentPi);
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        PendingIntent hangUpPi = hangUpIntent(sid);
-        if (hangUpPi != null) {
+      PendingIntent hangUpPi = hangUpIntent(sid);
+      if (hangUpPi != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
           try {
             String callerName =
                 session != null && session.callerName != null && !session.callerName.trim().isEmpty()
@@ -142,7 +143,16 @@ public class NativeVoiceCallService extends Service {
                 "ongoing_notification_callstyle_failed",
                 sid,
                 "err=" + error.getClass().getSimpleName());
+            builder.addAction(
+                new NotificationCompat.Action.Builder(
+                        0, getString(R.string.dibay_voice_call_end), hangUpPi)
+                    .build());
           }
+        } else {
+          builder.addAction(
+              new NotificationCompat.Action.Builder(
+                      0, getString(R.string.dibay_voice_call_end), hangUpPi)
+                  .build());
         }
       }
     }
@@ -155,6 +165,10 @@ public class NativeVoiceCallService extends Service {
     intent.setFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
+    boolean outgoing = session != null && session.initiator;
+    intent.putExtra(
+        NativeVoiceCallActivity.EXTRA_UI_MODE,
+        outgoing ? NativeVoiceCallActivity.UI_MODE_OUTGOING : NativeVoiceCallActivity.UI_MODE_INCOMING);
     if (session != null) {
       intent.putExtra("roomId", session.roomId);
       intent.putExtra("callerId", session.callerId);

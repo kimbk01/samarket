@@ -452,8 +452,32 @@ public class NativeVideoCallActivity extends Activity {
     if (minimizeConnectedCall(source)) {
       return;
     }
+    if (cancelLiveCallFromBack(source)) {
+      return;
+    }
     NativeVideoCallLog.info(
         "native_video_back_blocked", callId, "state=" + currentState + " source=" + source);
+  }
+
+  private boolean cancelLiveCallFromBack(String source) {
+    if (callId == null || callId.isEmpty()) return false;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    NativeVideoCallRuntime.State state = session != null ? session.state : currentState;
+    if (state == null
+        || state == NativeVideoCallRuntime.State.CONNECTED
+        || state == NativeVideoCallRuntime.State.ENDING) {
+      return false;
+    }
+    NativeVideoCallLog.info(
+        "native_video_back_cancel", callId, "state=" + state + " source=" + source);
+    if (state == NativeVideoCallRuntime.State.RINGING
+        && session != null
+        && !session.initiator) {
+      NativeVideoCallRuntime.reject(getApplicationContext(), callId);
+    } else {
+      NativeVideoCallRuntime.end(getApplicationContext(), callId, "back:" + source);
+    }
+    return true;
   }
 
   @Override
@@ -513,7 +537,23 @@ public class NativeVideoCallActivity extends Activity {
     detachDockView();
     NativeVideoCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
+    endLiveSessionIfSurfaceDestroyed();
     super.onDestroy();
+  }
+
+  private void endLiveSessionIfSurfaceDestroyed() {
+    if (isChangingConfigurations()) return;
+    if (isInPictureInPictureMode()) return;
+    if (callId == null || callId.isEmpty()) return;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (session == null || session.state == NativeVideoCallRuntime.State.ENDING) return;
+    NativeVideoCallLog.info(
+        "activity_destroyed_while_live", callId, "state=" + session.state);
+    if (session.state == NativeVideoCallRuntime.State.RINGING && !session.initiator) {
+      NativeVideoCallRuntime.reject(getApplicationContext(), callId);
+    } else {
+      NativeVideoCallRuntime.end(getApplicationContext(), callId, "activity_destroyed");
+    }
   }
 
   private boolean bindIntent(Intent intent) {

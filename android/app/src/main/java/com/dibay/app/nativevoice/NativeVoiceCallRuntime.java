@@ -438,7 +438,14 @@ public final class NativeVoiceCallRuntime {
   }
 
   public static void end(Context context, String callId) {
-    if (context != null && callId != null) NativeVoiceCallLog.info("end_tapped", callId.trim());
+    end(context, callId, "ui");
+  }
+
+  /** Local hangup / cancel. {@code source} is logged only (patch action remains {@code end}). */
+  public static void end(Context context, String callId, String source) {
+    if (context != null && callId != null) {
+      NativeVoiceCallLog.info("end_tapped", callId.trim(), "source=" + safe(source));
+    }
     terminalPatch(context, callId, "end");
   }
 

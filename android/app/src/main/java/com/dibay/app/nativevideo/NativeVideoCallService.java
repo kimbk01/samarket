@@ -122,10 +122,13 @@ public class NativeVideoCallService extends Service {
             .setSound(null)
             .setVibrate(null);
 
-    if (ACTION_CONNECTED.equals(action) && hasConnectedSession(callId)) {
+    // CONNECTING + CONNECTED: return-to-call + hangup (voice zombie parity).
+    if ((ACTION_CONNECTED.equals(action) || ACTION_CONNECTING.equals(action))
+        && callId != null
+        && !callId.trim().isEmpty()) {
       String sid = callId.trim();
       NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(sid);
-      PendingIntent contentPi = returnToCallIntent(sid, session);
+      PendingIntent contentPi = returnToCallIntent(sid, session, action);
       if (contentPi != null) {
         builder.setContentIntent(contentPi);
       }
@@ -141,19 +144,22 @@ public class NativeVideoCallService extends Service {
     return builder.build();
   }
 
-  private boolean hasConnectedSession(String callId) {
-    if (callId == null || callId.trim().isEmpty()) return false;
-    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId.trim());
-    return session != null && session.state == NativeVideoCallRuntime.State.CONNECTED;
-  }
-
-  private PendingIntent returnToCallIntent(String callId, NativeVideoCallRuntime.Session session) {
-    if (session == null || session.state != NativeVideoCallRuntime.State.CONNECTED) return null;
+  private PendingIntent returnToCallIntent(
+      String callId, NativeVideoCallRuntime.Session session, String action) {
+    if (session == null) return null;
     Intent intent = new Intent(this, NativeVideoCallActivity.class);
     intent.setFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, callId);
-    intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_CONNECTED_RESTORE);
+    if (ACTION_CONNECTED.equals(action)) {
+      intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_CONNECTED_RESTORE);
+    } else {
+      intent.putExtra(
+          NativeVideoCallActivity.EXTRA_UI_MODE,
+          session.initiator
+              ? NativeVideoCallActivity.UI_MODE_OUTGOING
+              : NativeVideoCallActivity.UI_MODE_INCOMING);
+    }
     intent.putExtra("roomId", session.roomId);
     intent.putExtra("callerId", session.callerId);
     intent.putExtra("callerName", session.callerName);

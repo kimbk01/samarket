@@ -147,6 +147,31 @@ public class NativeVoiceCallTerminalCleanupTest {
   }
 
   @Test
+  public void connectingActivityDestroy_endsLiveSession() {
+    String callId = "voice-zombie-connecting";
+    NativeVoiceCallRuntime.Session session =
+        new NativeVoiceCallRuntime.Session(callId, "room", "peer", "Peer", "voice", true);
+    session.state = NativeVoiceCallRuntime.State.CONNECTING;
+    NativeVoiceCallRuntime.putSessionForTests(session);
+
+    Intent intent = new Intent(context, NativeVoiceCallActivity.class);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_UI_MODE, NativeVoiceCallActivity.UI_MODE_OUTGOING);
+    ActivityController<NativeVoiceCallActivity> controller =
+        Robolectric.buildActivity(NativeVoiceCallActivity.class, intent).setup();
+    assertFalse(controller.get().isFinishing());
+    assertNotNull(NativeVoiceCallRuntime.getSession(callId));
+
+    controller.pause().stop().destroy();
+
+    assertEquals(1, patchCalls.get());
+    assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
+    assertNull(NativeVoiceCallRuntime.getSession(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
+  }
+
+  @Test
   public void activityFinish_afterCleanup() {
     String callId = "voice-finish";
     putConnected(callId);
