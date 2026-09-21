@@ -32,8 +32,33 @@ import {
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { notifyOpenRoomTerminalCatchUpFromCallLog } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
-/** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
-export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
+/**
+ * Supabase postgres_changes `in` 필터 청크 크기.
+ *
+ * Docs allow up to 100 values, but Realtime persists each filter in
+ * `subscription_subscription_id_entity_filters_key` (btree ~2704B). A 90-UUID
+ * `room_id=in.(…)` string alone is ~3340B → server may reject the postgres_changes
+ * registration while the channel still reports SUBSCRIBED (supabase/realtime#1670).
+ * CUT-2B cold proof: 264 rooms, target idx 202 in former chunk :180 (84 UUIDs /
+ * ~3120B) — membership+SUBSCRIBED OK, message INSERT callback absent.
+ * Align with `GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX` (50).
+ */
+export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 50;
+
+/** Realtime subscription filter btree practical ceiling (supabase/realtime#1670). */
+export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_BTREE_SAFE_BYTES = 2704;
+
+/** Build `room_id=in.(…)` / `id=in.(…)` filter strings for a room-id chunk. */
+export function buildCommunityMessengerHomeRoomsInFilters(chunkRoomIds: readonly string[]): {
+  roomsFilter: string;
+  messagesFilter: string;
+} {
+  const joined = chunkRoomIds.join(",");
+  return {
+    roomsFilter: `id=in.(${joined})`,
+    messagesFilter: `room_id=in.(${joined})`,
+  };
+}
 
 export function bindCommunityMessengerHomeRealtimeChannels(args: {
   sb: SupabaseClient;
@@ -254,8 +279,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   for (let offset = 0; offset < roomIds.length; offset += COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX) {
     if (cancelled()) break;
     const chunk = roomIds.slice(offset, offset + COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX);
-    const roomsFilter = `id=in.(${chunk.join(",")})`;
-    const messagesFilter = `room_id=in.(${chunk.join(",")})`;
+    const { roomsFilter, messagesFilter } = buildCommunityMessengerHomeRoomsInFilters(chunk);
     // First SUBSCRIBED of each rooms-in chunk is cold bind → no full sync (see meta above).
     let roomBundleFirstSubscribedSeen = false;
     const roomBundle = subscribeWithRetry({

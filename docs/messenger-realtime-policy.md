@@ -41,7 +41,7 @@
 
 1. **가벼운 이벤트만** — INSERT 한 건·메타 변경 한 건 단위로 클라이언트에서 머지; **전체 메시지 목록 재요청**은 디바운스된 `refresh` 로만.
 2. **방당 WebSocket 채널 1개** — `postgres_changes` 를 한 채널에 묶어 구독 수를 줄임.
-3. **홈 목록** — `community_messenger_rooms` 의 `id=in.(…)` 필터는 **90개 단위 청크** (Supabase `in` 한도 여유). 상수: `HOME_ROOMS_IN_FILTER_MAX` in [`use-community-messenger-realtime.ts`](../lib/community-messenger/use-community-messenger-realtime.ts).
+3. **홈 목록** — `community_messenger_rooms` / `community_messenger_messages` 의 `in.(…)` 필터는 **50개 단위 청크** (`COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX`). Docs `in` 한도(100)보다 작게 유지 — Realtime subscription btree(~2704B)가 60–90 UUID에서 조용히 실패할 수 있음(supabase/realtime#1670; CUT-2B/C). 상수: [`community-messenger-home-realtime-channels.ts`](../lib/community-messenger/realtime/community-messenger-home-realtime-channels.ts).
 4. **typing / presence** (향후) — 별 테이블 또는 브로드캐스트 채널, **수십 바이트 이하** 페이로드; 방 전체 `GET` 금지.
 5. **1:1 통화 히스토리** — terminal 상태(`rejected`/`cancelled`/`missed`/`ended`)는 세션 로그 중복 여부와 무관하게 채팅 `call_stub` 를 보장한다. 클라이언트는 즉시 로컬 stub 를 병합하고, 서버는 `replaceExisting` 으로 최종 stub 를 보정한다. 로컬 `cm-cevt-*`와 DB UUID stub는 `sessionId/tmpSessionId + callResolvedEvent/callStatus` 기준으로 한 줄만 표시하고, 숨김도 message id와 session key를 함께 저장한다.
 
