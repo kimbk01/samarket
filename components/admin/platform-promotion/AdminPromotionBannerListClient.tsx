@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -28,6 +28,7 @@ import {
   inlineSharesPlacementCopy,
   PLACEMENTS_INVENTORY_HREF,
 } from "@/lib/admin/promotion-ownership-visibility";
+import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
 
 type BannerRow = {
   distributionId: string;
@@ -43,12 +44,73 @@ type BannerRow = {
   thumbUrl?: string | null;
 };
 
+type DistChannel = "popup" | "banner" | "push" | "bell";
+
+/**
+ * Reuse existing Event Distribution PUT writer only.
+ * GET current toggles/configs → PUT with banner disabled (others preserved).
+ */
+async function pauseBannerViaExistingDistributionWriter(row: BannerRow): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const getRes = await fetch(
+    `/api/admin/platform-events/${encodeURIComponent(row.eventId)}/distribution`,
+    { credentials: "same-origin" }
+  );
+  const getJson = (await getRes.json().catch(() => ({}))) as {
+    ok?: boolean;
+    toggles?: Record<DistChannel, boolean>;
+    rows?: Array<{ channel?: string; config?: Record<string, unknown> }>;
+    error?: string;
+  };
+  if (!getRes.ok || !getJson.ok || !getJson.toggles) {
+    return { ok: false, error: getJson.error || "distribution_load_failed" };
+  }
+
+  const configOf = (channel: DistChannel): Record<string, unknown> => {
+    const found = (getJson.rows || []).find((r) => r.channel === channel);
+    return (found?.config && typeof found.config === "object" ? found.config : {}) as Record<
+      string,
+      unknown
+    >;
+  };
+
+  const putRes = await fetch(
+    `/api/admin/platform-events/${encodeURIComponent(row.eventId)}/distribution`,
+    {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventTitle: row.eventTitle,
+        toggles: {
+          popup: Boolean(getJson.toggles.popup),
+          banner: false,
+          push: Boolean(getJson.toggles.push),
+          bell: Boolean(getJson.toggles.bell),
+        },
+        popup: configOf("popup"),
+        banner: configOf("banner"),
+        push: configOf("push"),
+        bell: configOf("bell"),
+      }),
+    }
+  );
+  const putJson = (await putRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+  if (!putRes.ok || !putJson.ok) {
+    return { ok: false, error: putJson.error || "distribution_pause_failed" };
+  }
+  return { ok: true };
+}
+
 export function AdminPromotionBannerListClient() {
   const { language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [rows, setRows] = useState<BannerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pausingId, setPausingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,12 +224,14 @@ export function AdminPromotionBannerListClient() {
               endsAt: row.endsAt,
             });
             const isInline = row.presentation === "INLINE_BANNER";
+            const canDirectPause = op === "ACTIVE" || op === "SCHEDULED";
             return (
               <li
                 key={row.distributionId}
-                className="px-3 py-2.5"
+                className={`px-3 py-2.5 ${adminOperatorRowClassFromPromotionStatus(op)}`}
                 data-admin-banner-presentation={row.presentation}
                 data-admin-banner-placement={row.placement}
+                data-admin-op-status={op}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 gap-2">
@@ -230,13 +294,40 @@ export function AdminPromotionBannerListClient() {
                     >
                       {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
                     </AdminActionLink>
-                    <AdminActionLink
-                      href={eventDistributionHref(row.eventId)}
-                      variant="quiet"
-                      data-admin-banner-stop-deeplink="1"
-                    >
-                      {promotionAdminActionLabel("PAUSE_STOP", lang)}
-                    </AdminActionLink>
+                    {canDirectPause ? (
+                      <AdminActionButton
+                        variant="quiet"
+                        disabled={pausingId === row.distributionId}
+                        data-admin-banner-direct-pause="1"
+                        onClick={() => {
+                          void (async () => {
+                            setPausingId(row.distributionId);
+                            setError(null);
+                            const r = await pauseBannerViaExistingDistributionWriter(row);
+                            setPausingId(null);
+                            if (!r.ok) {
+                              setError(
+                                lang === "en"
+                                  ? `Could not pause banner (${r.error}).`
+                                  : `배너 중지에 실패했습니다 (${r.error}).`
+                              );
+                              return;
+                            }
+                            await load();
+                          })();
+                        }}
+                      >
+                        {promotionAdminActionLabel("PAUSE_STOP", lang)}
+                      </AdminActionButton>
+                    ) : (
+                      <AdminActionLink
+                        href={eventDistributionHref(row.eventId)}
+                        variant="quiet"
+                        data-admin-banner-stop-deeplink="1"
+                      >
+                        {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
+                      </AdminActionLink>
+                    )}
                   </div>
                 </div>
               </li>

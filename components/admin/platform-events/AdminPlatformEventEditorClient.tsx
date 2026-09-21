@@ -522,7 +522,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           />
           {draft.heroImageUrl ? (
             <div className="space-y-2">
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
+              <div className="relative aspect-[16/9] w-full max-h-56 overflow-hidden rounded-ui-rect border border-sam-border">
                 <SamarketThumbnail
                   src={draft.heroImageUrl}
                   alt=""

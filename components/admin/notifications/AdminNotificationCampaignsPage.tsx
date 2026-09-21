@@ -13,6 +13,8 @@ import {
   BOARD_LABEL,
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
+import { adminOperatorRowClassFromNotificationStatus } from "@/lib/admin/admin-operator-row-presentation";
+import { eventEditHref } from "@/lib/admin/promotion-ownership-visibility";
 
 type LatestOccurrence = {
   id?: string;
@@ -92,6 +94,14 @@ function readLinkedContentId(payload: unknown): string {
   return "";
 }
 
+/** Platform Event source identity (Event Dist Push/Bell) — not app-notice content_id. */
+export function readLinkedPlatformEventId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const p = payload as Record<string, unknown>;
+  if (typeof p.platform_event_id === "string") return p.platform_event_id.trim();
+  return "";
+}
+
 export function AdminNotificationCampaignsPage() {
   const { t, safeT, language } = useI18n();
   const [audience, setAudience] = useState<AudienceFilter>("ops");
@@ -100,6 +110,7 @@ export function AdminNotificationCampaignsPage() {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<CampaignRow[]>([]);
   const [noticeMap, setNoticeMap] = useState<Record<string, NoticeLite>>({});
+  const [eventTitleMap, setEventTitleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -120,6 +131,30 @@ export function AdminNotificationCampaignsPage() {
         setNoticeMap(map);
       } catch {
         /* optional join — list still works */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/platform-events", { credentials: "include" });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          events?: Array<{ id?: string; title?: string }>;
+        };
+        if (cancelled || !res.ok || !j.ok || !Array.isArray(j.events)) return;
+        const map: Record<string, string> = {};
+        for (const ev of j.events) {
+          if (ev?.id && ev.title) map[ev.id] = ev.title;
+        }
+        setEventTitleMap(map);
+      } catch {
+        /* optional */
       }
     })();
     return () => {
@@ -158,15 +193,44 @@ export function AdminNotificationCampaignsPage() {
 
   const linkedLabel = useMemo(() => {
     return (row: CampaignRow) => {
+      const eventId = readLinkedPlatformEventId(row.target_payload);
+      if (eventId) {
+        const resolved = eventTitleMap[eventId]?.trim();
+        if (resolved) {
+          return {
+            kind: "platform_event" as const,
+            contentId: eventId,
+            typeLabel: langKey === "en" ? "Event" : "이벤트",
+            title: resolved,
+            href: eventEditHref(eventId),
+            unresolved: false,
+          };
+        }
+        return {
+          kind: "platform_event_unresolved" as const,
+          contentId: eventId,
+          typeLabel: langKey === "en" ? "Event" : "이벤트",
+          title: langKey === "en" ? "Source unavailable" : "원본 확인 불가",
+          href: eventEditHref(eventId),
+          unresolved: true,
+        };
+      }
       const contentId = readLinkedContentId(row.target_payload);
       if (!contentId) return null;
       const notice = noticeMap[contentId];
       const ct = parseCustomerCenterContentType(notice?.content_type ?? row.type, "notice");
       const typeLabel = BOARD_LABEL[ct][langKey];
       const title = notice?.title?.trim() || contentId.slice(0, 8) + "…";
-      return { contentId, typeLabel, title };
+      return {
+        kind: "app_notice" as const,
+        contentId,
+        typeLabel,
+        title,
+        href: `/admin/app/notices/${encodeURIComponent(contentId)}`,
+        unresolved: false,
+      };
     };
-  }, [noticeMap, langKey]);
+  }, [noticeMap, eventTitleMap, langKey]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
@@ -254,13 +318,23 @@ export function AdminNotificationCampaignsPage() {
                 <th className="px-3 py-2">{t("admin_notif_th_result")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_run_times")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_author")}</th>
+                <th className="px-3 py-2">
+                  {safeT("admin_notif_th_actions", {
+                    fallbackKo: "작업",
+                    fallbackEn: "Actions",
+                  })}
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const linked = linkedLabel(r);
                 return (
-                  <tr key={r.id} className="border-b border-sam-border-soft">
+                  <tr
+                    key={r.id}
+                    className={`border-b border-sam-border-soft ${adminOperatorRowClassFromNotificationStatus(r.status)}`}
+                    data-admin-notif-status={r.status}
+                  >
                     <td className="px-3 py-2 font-medium text-sam-fg">
                       <Link href={`/admin/notifications/${r.id}`} className="hover:underline">
                         {r.title}
@@ -278,7 +352,7 @@ export function AdminNotificationCampaignsPage() {
                             <span className="text-sam-muted">{linked.typeLabel}</span> · {linked.title}
                           </p>
                           <Link
-                            href={`/admin/app/notices/${encodeURIComponent(linked.contentId)}`}
+                            href={linked.href}
                             className="text-signature hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -290,9 +364,9 @@ export function AdminNotificationCampaignsPage() {
                         </div>
                       ) : (
                         <span className="text-sam-muted">
-                          {safeT("admin_notif_legacy_unbound_short", {
-                            fallbackKo: "[레거시 unbound]",
-                            fallbackEn: "[Legacy unbound]",
+                          {safeT("admin_notif_legacy_unbound_human", {
+                            fallbackKo: "이전 방식 · 원본 연결 없음",
+                            fallbackEn: "Legacy · no linked source",
                           })}
                         </span>
                       )}
@@ -307,12 +381,24 @@ export function AdminNotificationCampaignsPage() {
                     <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
                       {r.created_by ? `${r.created_by.slice(0, 8)}…` : "—"}
                     </td>
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/admin/notifications/${r.id}`}
+                        className="text-signature hover:underline"
+                        data-admin-notif-manage="1"
+                      >
+                        {safeT("admin_notif_btn_manage", {
+                          fallbackKo: "관리",
+                          fallbackEn: "Manage",
+                        })}
+                      </Link>
+                    </td>
                   </tr>
                 );
               })}
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={11} className="px-3 py-8 text-center text-sam-muted">
                     {t("admin_notif_empty_campaigns")}
                   </td>
                 </tr>

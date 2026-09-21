@@ -85,6 +85,13 @@ function readLinkedContentId(payload: unknown): string {
   return "";
 }
 
+function readLinkedPlatformEventId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const p = payload as Record<string, unknown>;
+  if (typeof p.platform_event_id === "string") return p.platform_event_id.trim();
+  return "";
+}
+
 export function AdminNotificationCampaignDetailPage() {
   const { t, safeT, language } = useI18n();
   const params = useParams();
@@ -95,6 +102,7 @@ export function AdminNotificationCampaignDetailPage() {
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [deviceDeliveryLog, setDeviceDeliveryLog] = useState<DeviceLogRow[]>([]);
   const [linkedContent, setLinkedContent] = useState<LinkedContent | null>(null);
+  const [linkedEvent, setLinkedEvent] = useState<{ id: string; title: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -131,9 +139,51 @@ export function AdminNotificationCampaignDetailPage() {
   }, [refresh]);
 
   useEffect(() => {
+    const eventId = readLinkedPlatformEventId(camp?.target_payload);
+    if (eventId) {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const res = await fetch(`/api/admin/platform-events/${encodeURIComponent(eventId)}`, {
+            credentials: "include",
+          });
+          const j = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            event?: { id?: string; title?: string };
+          };
+          if (cancelled) return;
+          if (res.ok && j.ok && j.event?.id) {
+            setLinkedEvent({
+              id: j.event.id,
+              title: String(j.event.title || eventId).trim() || eventId,
+            });
+            setLinkedContent(null);
+          } else {
+            setLinkedEvent({
+              id: eventId,
+              title: language === "en" ? "Source unavailable" : "원본 확인 불가",
+            });
+            setLinkedContent(null);
+          }
+        } catch {
+          if (!cancelled) {
+            setLinkedEvent({
+              id: eventId,
+              title: language === "en" ? "Source unavailable" : "원본 확인 불가",
+            });
+            setLinkedContent(null);
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const contentId = readLinkedContentId(camp?.target_payload);
     if (!contentId) {
       setLinkedContent(null);
+      setLinkedEvent(null);
       return;
     }
     let cancelled = false;
@@ -147,10 +197,14 @@ export function AdminNotificationCampaignDetailPage() {
           notice?: LinkedContent;
         };
         if (cancelled) return;
+        setLinkedEvent(null);
         if (res.ok && j.ok && j.notice) setLinkedContent(j.notice);
         else setLinkedContent(null);
       } catch {
-        if (!cancelled) setLinkedContent(null);
+        if (!cancelled) {
+          setLinkedEvent(null);
+          setLinkedContent(null);
+        }
       }
     })();
     return () => {
@@ -225,7 +279,25 @@ export function AdminNotificationCampaignDetailPage() {
                 fallbackEn: "Linked original",
               })}
             </h2>
-            {linkedId && linkedContent ? (
+            {linkedEvent ? (
+              <div className="space-y-2 rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-3">
+                <div className="min-w-0 space-y-1">
+                  <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[11px] font-medium text-sam-muted">
+                    {language === "en" ? "Event" : "이벤트"}
+                  </span>
+                  <p className="break-words text-sm font-semibold text-sam-fg">{linkedEvent.title}</p>
+                </div>
+                <Link
+                  href={`/admin/platform-events/${encodeURIComponent(linkedEvent.id)}`}
+                  className="inline-block rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-signature"
+                >
+                  {safeT("admin_notif_btn_view_original", {
+                    fallbackKo: "원본 보기",
+                    fallbackEn: "View original",
+                  })}
+                </Link>
+              </div>
+            ) : linkedId && linkedContent ? (
               <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
                 <div className="flex flex-wrap items-start gap-3">
                   {linkedContent.hero_image_url ? (
@@ -264,9 +336,9 @@ export function AdminNotificationCampaignDetailPage() {
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 px-3 py-2 text-sm text-sam-fg">
                 {safeT("admin_notif_legacy_unbound_box", {
                   fallbackKo:
-                    "[레거시 unbound] 연결된 원본이 없습니다. 신규 발송은 차단됩니다. 기존 회원 알림은 읽기 호환만 유지됩니다.",
+                    "이전 방식 · 원본 연결 없음. 공지/시스템 신규 발송은 원본 연결이 필요합니다. 기존 회원 알림은 읽기 호환만 유지됩니다.",
                   fallbackEn:
-                    "[Legacy unbound] No linked original. New sends are blocked. Existing member notifications remain read-compatible only.",
+                    "Legacy · no linked source. Notice/system sends require a source. Existing member notifications remain read-compatible only.",
                 })}
               </p>
             )}

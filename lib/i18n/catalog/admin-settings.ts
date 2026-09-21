@@ -326,8 +326,9 @@ export const adminSettingsMessages = {
     admin_settings_battery_diagram_clamp: "0~100 클램프",
     admin_settings_battery_diagram_footer:
       "UI: trustScoreToUiPercent → mannerBatteryTier (고정 구간 1~6단) + 색상",
-    admin_push_devices_title: "푸시 기기·발송 로그",
-    admin_push_devices_desc: "user_devices 등록 상태와 notification_deliveries 최근 로그를 조회합니다.",
+    admin_push_devices_title: "푸시 기기·발송 로그 진단",
+    admin_push_devices_desc:
+      "푸시 기기/발송 로그 진단. 캠페인 발송 관리는 알림 캠페인 목록에서 합니다. user_devices 등록 상태와 notification_deliveries 최근 로그를 조회합니다.",
     admin_push_devices_query_hint:
       "아래 UUID로 조회합니다. 실기기에 로그인한 회원 UUID와 일치해야 합니다. 관리자 계정과 다를 수 있습니다.",
     admin_push_devices_use_session_user: "현재 로그인 UUID 입력",
@@ -822,8 +823,9 @@ export const adminSettingsMessages = {
     admin_settings_battery_diagram_clamp: "Clamp 0–100",
     admin_settings_battery_diagram_footer:
       "UI: trustScoreToUiPercent → mannerBatteryTier (fixed bands 1–6) + color",
-    admin_push_devices_title: "Push devices & delivery log",
-    admin_push_devices_desc: "Inspect user_devices registration and recent notification_deliveries.",
+    admin_push_devices_title: "Push device · delivery log (diagnostic)",
+    admin_push_devices_desc:
+      "Diagnostic only. Manage campaigns from the notification campaign list. Inspect user_devices registration and recent notification_deliveries.",
     admin_push_devices_query_hint:
       "Lookup uses the UUID below. It must match the account signed in on the test device (may differ from your admin account).",
     admin_push_devices_use_session_user: "Fill current session UUID",

@@ -18,6 +18,7 @@ import {
   eventIsContentDestinationCopy,
   eventPreviewHref,
 } from "@/lib/admin/promotion-ownership-visibility";
+import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
 
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
@@ -125,7 +126,12 @@ export function AdminPlatformEventsListClient() {
               endsAt: ev.endsAt,
             });
             return (
-              <li key={ev.id} className="px-3 py-2.5" data-admin-event-row={ev.id}>
+              <li
+                key={ev.id}
+                className={`px-3 py-2.5 ${adminOperatorRowClassFromPromotionStatus(op)}`}
+                data-admin-event-row={ev.id}
+                data-admin-op-status={op}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{ev.title}</div>

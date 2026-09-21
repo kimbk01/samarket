@@ -8,6 +8,17 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 
 const DELETABLE_STATUSES = new Set(["draft", "pending_review"]);
 
+export function isPlatformPopupDeleteSafeDraftRow(row: {
+  status?: string | null;
+  owner_store_id?: string | null;
+  owner_request_id?: string | null;
+}): boolean {
+  const adminDirect = !row.owner_store_id && !row.owner_request_id;
+  if (!adminDirect) return false;
+  const status = String(row.status || "").toLowerCase();
+  return DELETABLE_STATUSES.has(status);
+}
+
 export async function adminDeletePlatformPopupDraftCampaign(
   sb: SupabaseClient,
   input: { campaignId: string; adminUserId: string }
@@ -24,13 +35,11 @@ export async function adminDeletePlatformPopupDraftCampaign(
   if (error) return { ok: false, error: error.message, httpStatus: 500 };
   if (!row?.id) return { ok: false, error: "not_found", httpStatus: 404 };
 
-  const adminDirect = !row.owner_store_id && !row.owner_request_id;
-  if (!adminDirect) {
-    return { ok: false, error: "not_admin_direct", httpStatus: 400 };
-  }
-
-  const status = String(row.status || "").toLowerCase();
-  if (!DELETABLE_STATUSES.has(status)) {
+  if (!isPlatformPopupDeleteSafeDraftRow(row)) {
+    const adminDirect = !row.owner_store_id && !row.owner_request_id;
+    if (!adminDirect) {
+      return { ok: false, error: "not_admin_direct", httpStatus: 400 };
+    }
     return { ok: false, error: "not_draft", httpStatus: 400 };
   }
 
@@ -53,4 +62,65 @@ export async function adminDeletePlatformPopupDraftCampaign(
   });
 
   return { ok: true, id: campaignId };
+}
+
+/**
+ * Validate ALL ids first. If any is protected/unknown → delete NONE.
+ */
+export async function adminBulkDeletePlatformPopupDraftCampaigns(
+  sb: SupabaseClient,
+  input: { campaignIds: string[]; adminUserId: string }
+): Promise<
+  | { ok: true; deletedIds: string[] }
+  | { ok: false; error: string; httpStatus?: number; rejectedId?: string }
+> {
+  const ids = [
+    ...new Set((input.campaignIds || []).map((id) => String(id || "").trim()).filter(Boolean)),
+  ];
+  if (ids.length === 0) {
+    return { ok: false, error: "campaign_ids_required", httpStatus: 400 };
+  }
+
+  const { data: rows, error } = await sb
+    .from("platform_popup_campaigns")
+    .select("id, status, approval_status, owner_store_id, owner_request_id")
+    .in("id", ids);
+
+  if (error) return { ok: false, error: error.message, httpStatus: 500 };
+
+  const byId = new Map((rows ?? []).map((r) => [String(r.id), r]));
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (!row) {
+      return { ok: false, error: "not_found", httpStatus: 404, rejectedId: id };
+    }
+    if (!isPlatformPopupDeleteSafeDraftRow(row)) {
+      const adminDirect = !row.owner_store_id && !row.owner_request_id;
+      return {
+        ok: false,
+        error: adminDirect ? "not_draft" : "not_admin_direct",
+        httpStatus: 400,
+        rejectedId: id,
+      };
+    }
+  }
+
+  const deletedIds: string[] = [];
+  for (const id of ids) {
+    const del = await adminDeletePlatformPopupDraftCampaign(sb, {
+      campaignId: id,
+      adminUserId: input.adminUserId,
+    });
+    if (!del.ok) {
+      return {
+        ok: false,
+        error: del.error,
+        httpStatus: del.httpStatus,
+        rejectedId: id,
+      };
+    }
+    deletedIds.push(del.id);
+  }
+
+  return { ok: true, deletedIds };
 }

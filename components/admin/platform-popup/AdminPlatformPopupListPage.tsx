@@ -26,11 +26,26 @@ import {
   resolvePopupBenefitOperationalHint,
   resolvePopupListCompositionLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
+import { AdminManagementSelectionCheckbox } from "@/components/admin/management/AdminManagementSelectionCheckbox";
+import {
+  selectionHeaderState,
+  toggleCurrentPageSelection,
+  toggleRowSelection,
+} from "@/lib/admin/management/selection";
+import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
 import {
   PLATFORM_POPUP_COMPOSITIONS,
   resolvePlatformPopupComposition,
 } from "@/lib/platform-popup/resolve-presentation-composition";
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
+
+function isPopupDraftDeletable(item: PlatformPopupAdminListItem): boolean {
+  return (
+    !item.ownerStoreId &&
+    !item.ownerRequestId &&
+    (item.status === "draft" || item.status === "pending_review")
+  );
+}
 
 export function AdminPlatformPopupListPage() {
   const { safeT, language } = useI18n();
@@ -42,6 +57,8 @@ export function AdminPlatformPopupListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +138,61 @@ export function AdminPlatformPopupListPage() {
     () => !loading && items.length > 0 && visibleItems.length === 0,
     [loading, items.length, visibleItems.length]
   );
+  const deletableIds = useMemo(
+    () => visibleItems.filter(isPopupDraftDeletable).map((i) => i.id),
+    [visibleItems]
+  );
+  const headerSelectState = selectionHeaderState(selectedIds, deletableIds);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [status, compositionFilter]);
+
+  const onBulkDelete = async () => {
+    const ids = [...selectedIds].filter((id) => deletableIds.includes(id));
+    if (ids.length === 0) return;
+    const titles = ids
+      .map((id) => visibleItems.find((i) => i.id === id)?.name?.trim())
+      .filter(Boolean) as string[];
+    const msg =
+      ids.length === 1
+        ? lang === "en"
+          ? `Delete '${titles[0] || "this draft popup"}'? This cannot be undone.`
+          : `'${titles[0] || "팝업 캠페인"}'을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`
+        : lang === "en"
+          ? `Delete ${ids.length} selected popup campaigns? This cannot be undone.`
+          : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
+    if (!window.confirm(msg)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/platform-popup-campaigns/bulk-delete-draft", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        rejectedId?: string | null;
+      };
+      if (!res.ok || !json.ok) {
+        setError(
+          lang === "en"
+            ? `Delete rejected (${json.error || res.status}). None deleted.`
+            : `삭제 거부 (${json.error || res.status}). 선택된 항목은 삭제되지 않았습니다.`
+        );
+        await load();
+        setSelectedIds(new Set());
+        return;
+      }
+      setSelectedIds(new Set());
+      await load();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-4 p-4" data-admin-platform-popup-list="1">
@@ -214,6 +286,39 @@ export function AdminPlatformPopupListPage() {
       ) : null}
 
       <AdminCard>
+        {deletableIds.length > 0 ? (
+          <div
+            className="mb-3 flex flex-wrap items-center gap-3 border-b border-sam-border pb-3"
+            data-admin-popup-bulk-toolbar="1"
+          >
+            <AdminManagementSelectionCheckbox
+              role="header"
+              state={headerSelectState}
+              onToggle={() =>
+                setSelectedIds((prev) => toggleCurrentPageSelection(prev, deletableIds))
+              }
+              aria-label={lang === "en" ? "Select all deletable drafts" : "삭제 가능한 초안 전체 선택"}
+            />
+            <span className="text-sm text-sam-muted">
+              {lang === "en"
+                ? `${selectedIds.size} selected`
+                : `${selectedIds.size}개 선택`}
+            </span>
+            <AdminActionButton
+              variant="quiet"
+              disabled={deleting || selectedIds.size === 0}
+              onClick={() => void onBulkDelete()}
+              data-admin-popup-bulk-delete="1"
+            >
+              {lang === "en" ? "Delete" : "삭제"}
+            </AdminActionButton>
+            <span className="text-[11px] text-sam-muted">
+              {lang === "en"
+                ? "Only Admin Direct drafts can be deleted. Active rows are protected."
+                : "Admin Direct 초안만 삭제 가능. 노출 중 행은 선택되지 않습니다."}
+            </span>
+          </div>
+        ) : null}
         {loading ? (
           <p className="text-sm text-sam-muted">
             {safeT("admin_platform_popup_loading", {
@@ -274,10 +379,25 @@ export function AdminPlatformPopupListPage() {
               return (
                 <li
                   key={item.id}
-                  className="flex flex-wrap items-start justify-between gap-2 py-2.5"
+                  className={`flex flex-wrap items-start justify-between gap-2 py-2.5 pl-3 ${adminOperatorRowClassFromPromotionStatus(op)}`}
                   data-admin-popup-composition={compositionLabel}
+                  data-admin-op-status={op}
                 >
                   <div className="flex min-w-0 flex-1 gap-2">
+                    <div className="pt-1">
+                      <AdminManagementSelectionCheckbox
+                        role="row"
+                        checked={selectedIds.has(item.id)}
+                        disabled={!isPopupDraftDeletable(item)}
+                        onToggle={() => {
+                          if (!isPopupDraftDeletable(item)) return;
+                          setSelectedIds((prev) => toggleRowSelection(prev, item.id));
+                        }}
+                        aria-label={
+                          lang === "en" ? `Select ${item.name}` : `${item.name} 선택`
+                        }
+                      />
+                    </div>
                     {item.creativeThumbUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- admin list thumb
                       <img
