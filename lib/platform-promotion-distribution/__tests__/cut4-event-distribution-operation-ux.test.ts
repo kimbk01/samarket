@@ -9,6 +9,10 @@ import {
   resolveEventOperatorStatus,
   promotionOperatorStatusLabel,
 } from "@/lib/admin/promotion-operation-status";
+import {
+  eventDistributionHref,
+  eventPreviewHref,
+} from "@/lib/admin/promotion-ownership-visibility";
 import { planPopupDistributionAdapter } from "@/lib/platform-promotion-distribution/adapters";
 import { assertExplicitPushSendAllowed } from "@/lib/platform-promotion-distribution/save-event-distribution";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
@@ -195,10 +199,14 @@ describe("CUT 4 — Admin Event editor / Dist UI ownership", () => {
     expect(dist).toContain("push_dispatch_on_save_forbidden");
   });
 
-  it("list deep-links preview / distribution", () => {
-    expect(list).toContain("#preview");
-    expect(list).toContain("#distribution");
+  it("list deep-links preview / distribution via canonical href helpers", () => {
+    expect(list).toContain("eventPreviewHref");
+    expect(list).toContain("eventDistributionHref");
     expect(list).toContain("AdminActionLink");
+    expect(eventPreviewHref("evt-cut4")).toBe("/admin/platform-events/evt-cut4#preview");
+    expect(eventDistributionHref("evt-cut4")).toBe(
+      "/admin/platform-events/evt-cut4#distribution"
+    );
   });
 
   it("materializePopup persists presentation + optional creative replace", () => {
