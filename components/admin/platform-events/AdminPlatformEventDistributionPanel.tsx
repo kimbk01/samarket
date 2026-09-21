@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import {
   AdminPlatformPopupPreview,
@@ -31,7 +32,9 @@ import {
   adminTradeInlinePreviewCellWidthPx,
 } from "@/lib/admin/admin-banner-preview-geometry";
 import {
+  distributionBellLifecycleNotice,
   distributionPopupLifecycleNotice,
+  distributionPushLifecycleNotice,
   popupCompositionOperatorLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
 import { resolvePlatformPopupComposition } from "@/lib/platform-popup/resolve-presentation-composition";
@@ -137,6 +140,7 @@ export function AdminPlatformEventDistributionPanel({
 }: Props) {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const router = useRouter();
   const [toggles, setToggles] = useState<PromotionDistributionToggleDraft>(emptyDistributionToggles);
   const [channelStatuses, setChannelStatuses] = useState<
     Partial<Record<"popup" | "banner" | "push" | "bell", string>>
@@ -159,6 +163,8 @@ export function AdminPlatformEventDistributionPanel({
   const [popupFrequency, setPopupFrequency] = useState("once_per_session");
   const [popupChannelRefId, setPopupChannelRefId] = useState<string | null>(null);
   const [popupDistStatus, setPopupDistStatus] = useState<string | null>(null);
+  const [pushChannelRefId, setPushChannelRefId] = useState<string | null>(null);
+  const [bellChannelRefId, setBellChannelRefId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +189,18 @@ export function AdminPlatformEventDistributionPanel({
     enabled: toggles.popup,
     channelRefId: popupChannelRefId,
     distributionStatus: popupDistStatus,
+    lang,
+  });
+  const pushLifecycle = distributionPushLifecycleNotice({
+    enabled: toggles.push,
+    channelRefId: pushChannelRefId,
+    distributionStatus: channelStatuses.push ?? null,
+    lang,
+  });
+  const bellLifecycle = distributionBellLifecycleNotice({
+    enabled: toggles.bell,
+    channelRefId: bellChannelRefId,
+    distributionStatus: channelStatuses.bell ?? null,
     lang,
   });
   const popupCompositionLabel = popupCompositionOperatorLabel(
@@ -264,6 +282,8 @@ export function AdminPlatformEventDistributionPanel({
       const nextStatuses: Partial<Record<"popup" | "banner" | "push" | "bell", string>> = {};
       let nextPopupRef: string | null = null;
       let nextPopupStatus: string | null = null;
+      let nextPushRef: string | null = null;
+      let nextBellRef: string | null = null;
       for (const row of json.rows ?? []) {
         const cfg = row.config ?? {};
         const ch = row.channel as "popup" | "banner" | "push" | "bell";
@@ -273,10 +293,12 @@ export function AdminPlatformEventDistributionPanel({
         if (row.channel === "push") {
           setPushTitle(String(cfg.title ?? ""));
           setPushBody(String(cfg.body ?? ""));
+          nextPushRef = row.channelRefId ? String(row.channelRefId) : null;
         }
         if (row.channel === "bell") {
           setBellTitle(String(cfg.title ?? ""));
           setBellBody(String(cfg.body ?? ""));
+          nextBellRef = row.channelRefId ? String(row.channelRefId) : null;
         }
         if (row.channel === "banner") {
           setBannerPresentation(normalizeEventBannerPresentation(String(cfg.presentation ?? "")));
@@ -298,6 +320,8 @@ export function AdminPlatformEventDistributionPanel({
       }
       setPopupChannelRefId(nextPopupRef);
       setPopupDistStatus(nextPopupStatus);
+      setPushChannelRefId(nextPushRef);
+      setBellChannelRefId(nextBellRef);
       setChannelStatuses(nextStatuses);
     } catch {
       setError("load_failed");
@@ -389,6 +413,14 @@ export function AdminPlatformEventDistributionPanel({
       if (popupResult?.ok && popupResult.channelRefId) {
         setPopupChannelRefId(String(popupResult.channelRefId));
       }
+      const pushResult = json.channels?.push;
+      if (pushResult?.ok && pushResult.channelRefId) {
+        setPushChannelRefId(String(pushResult.channelRefId));
+      }
+      const bellResult = json.channels?.bell;
+      if (bellResult?.ok && bellResult.channelRefId) {
+        setBellChannelRefId(String(bellResult.channelRefId));
+      }
       if (json.pushDispatchCount !== 0 && json.pushDispatchCount != null) {
         setError("push_dispatch_on_save_forbidden");
         return;
@@ -452,9 +484,33 @@ export function AdminPlatformEventDistributionPanel({
         ok?: boolean;
         error?: string;
         sendPath?: string;
+        campaignId?: string;
+        deeplink?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(json.error || "push_send_blocked");
+        setError(
+          json.error === "campaign_source_required" || json.error === "marketing_source_required"
+            ? safeT("admin_platform_events_push_source_blocked", {
+                fallbackKo:
+                  "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
+                fallbackEn:
+                  "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
+              })
+            : json.error || "push_send_blocked"
+        );
+        return;
+      }
+      const campaignId = String(json.campaignId ?? pushChannelRefId ?? "").trim();
+      if (campaignId) {
+        setPushChannelRefId(campaignId);
+        setInfo(
+          safeT("admin_platform_events_distribution_push_handoff", {
+            fallbackKo: "알림 캠페인으로 이동합니다. 실제 발송은 캠페인의 Push 보내기에서만 합니다.",
+            fallbackEn:
+              "Opening the notification campaign. Actual dispatch only happens via Send push there.",
+          })
+        );
+        router.push(`/admin/notifications/${encodeURIComponent(campaignId)}`);
         return;
       }
       setInfo(
@@ -466,7 +522,7 @@ export function AdminPlatformEventDistributionPanel({
     } catch {
       setError("push_send_blocked");
     }
-  }, [eventId, safeT]);
+  }, [eventId, pushChannelRefId, router, safeT]);
 
   if (loading) {
     return <p className="text-sm text-sam-muted">…</p>;
@@ -499,7 +555,7 @@ export function AdminPlatformEventDistributionPanel({
             ["popup", "팝업", "Popup"],
             ["banner", "배너", "Banner"],
             ["push", "Push", "Push"],
-            ["bell", "앱 알림", "Bell"],
+            ["bell", "앱 알림함", "Bell inbox"],
           ] as const
         ).map(([key, ko, en]) => (
           <div key={key} data-admin-dist-channel-summary-item={key}>
@@ -877,7 +933,7 @@ export function AdminPlatformEventDistributionPanel({
       </div>
 
       {/* PUSH */}
-      <div className="space-y-2">
+      <div className="space-y-2" data-admin-event-push-editor="1">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -886,12 +942,41 @@ export function AdminPlatformEventDistributionPanel({
             data-admin-push-toggle={toggles.push ? "on" : "off"}
           />
           {safeT("admin_platform_events_channel_push", {
-            fallbackKo: "푸시 알림",
+            fallbackKo: "Push 알림",
             fallbackEn: "Push notification",
           })}
         </label>
         {toggles.push ? (
           <div className="ml-6 grid gap-2" data-admin-push-config="1">
+            <div
+              className="rounded border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm"
+              data-admin-push-dist-lifecycle="1"
+              data-admin-push-dist-lifecycle-kind={pushLifecycle.kind}
+            >
+              <p data-admin-push-save-not-send="1" className="font-medium">
+                {pushLifecycle.saveDoesNotSend}
+              </p>
+              <p className="mt-1 text-xs text-sam-muted" data-admin-push-dist-draft-notice="1">
+                {pushLifecycle.message}
+              </p>
+              <p className="mt-1 text-xs text-sam-muted" data-admin-push-campaign-source-note="1">
+                {pushLifecycle.campaignSourceNote}
+              </p>
+              {pushLifecycle.manageHref ? (
+                <p className="mt-1">
+                  <Link
+                    href={pushLifecycle.manageHref}
+                    className="font-medium underline"
+                    data-admin-push-dist-manage-link="1"
+                  >
+                    {safeT("admin_platform_events_push_manage", {
+                      fallbackKo: "Push 캠페인 관리 · 보내기",
+                      fallbackEn: "Manage Push campaign · Send",
+                    })}
+                  </Link>
+                </p>
+              ) : null}
+            </div>
             <label className="block text-sm">
               {safeT("admin_platform_events_push_title", {
                 fallbackKo: "푸시 제목",
@@ -940,11 +1025,15 @@ export function AdminPlatformEventDistributionPanel({
               })}
             </AdminActionButton>
           </div>
-        ) : null}
+        ) : (
+          <p className="ml-6 text-xs text-sam-muted" data-admin-push-off="1">
+            {pushLifecycle.message}
+          </p>
+        )}
       </div>
 
       {/* BELL */}
-      <div className="space-y-2">
+      <div className="space-y-2" data-admin-event-bell-editor="1">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -953,12 +1042,38 @@ export function AdminPlatformEventDistributionPanel({
             data-admin-bell-toggle={toggles.bell ? "on" : "off"}
           />
           {safeT("admin_platform_events_channel_bell", {
-            fallbackKo: "앱 알림",
-            fallbackEn: "App notification",
+            fallbackKo: "앱 알림함",
+            fallbackEn: "In-app notification inbox",
           })}
         </label>
         {toggles.bell ? (
           <div className="ml-6 grid gap-2" data-admin-bell-config="1">
+            <div
+              className="rounded border border-sam-border bg-sam-app/50 px-3 py-2 text-sm"
+              data-admin-bell-dist-lifecycle="1"
+              data-admin-bell-dist-lifecycle-kind={bellLifecycle.kind}
+            >
+              <p data-admin-bell-save-not-inbox="1" className="font-medium">
+                {bellLifecycle.saveDoesNotCreateInbox}
+              </p>
+              <p className="mt-1 text-xs text-sam-muted" data-admin-bell-dist-draft-notice="1">
+                {bellLifecycle.message}
+              </p>
+              {bellLifecycle.manageHref ? (
+                <p className="mt-1">
+                  <Link
+                    href={bellLifecycle.manageHref}
+                    className="font-medium underline"
+                    data-admin-bell-dist-manage-link="1"
+                  >
+                    {safeT("admin_platform_events_bell_manage", {
+                      fallbackKo: "앱 알림함 캠페인 등록/관리",
+                      fallbackEn: "Register / manage inbox campaign",
+                    })}
+                  </Link>
+                </p>
+              ) : null}
+            </div>
             <label className="block text-sm">
               {safeT("admin_platform_events_bell_title", {
                 fallbackKo: "알림함 제목",
@@ -990,13 +1105,18 @@ export function AdminPlatformEventDistributionPanel({
               <p className="text-xs text-sam-muted">{bellBody || "—"}</p>
               <p className="mt-1 text-[10px] text-sam-muted">
                 {safeT("admin_platform_events_bell_preview_note", {
-                  fallbackKo: "알림함 행 미리보기 · Push와 독립.",
-                  fallbackEn: "Inbox row preview · independent of Push.",
+                  fallbackKo: "알림함 행 미리보기 · Push와 독립 · 저장만으로 회원 알림함에 등록되지 않음.",
+                  fallbackEn:
+                    "Inbox row preview · independent of Push · Dist save does not register inbox rows.",
                 })}
               </p>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <p className="ml-6 text-xs text-sam-muted" data-admin-bell-off="1">
+            {bellLifecycle.message}
+          </p>
+        )}
       </div>
 
       <AdminActionButton

@@ -301,7 +301,7 @@ export function channelSummaryFromDistributionRows(
       continue;
     }
     if (row.channel === "bell") {
-      parts.push(lang === "en" ? "Bell" : "앱 알림");
+      parts.push(lang === "en" ? "Bell inbox" : "앱 알림함");
     }
   }
   if (parts.length === 0) return lang === "en" ? "No channels" : "채널 없음";
@@ -337,6 +337,201 @@ export function eventSectionsHaveBenefit(sections: unknown): boolean {
 export const PLACEMENTS_INVENTORY_HREF = "/admin/advertising/placements";
 export const ADS_WORKSPACE_HREF = "/admin/advertising";
 export const NOTIFICATIONS_SEND_HREF = "/admin/notifications";
+export const NOTIFICATIONS_CREATE_HREF = "/admin/notifications/create";
+export const PROMOTION_NOTIFICATIONS_HUB_HREF = "/admin/platform-promotion/notifications";
+
+/** Canonical notification campaign detail (Push send / Bell register owner). */
+export function notificationCampaignManageHref(campaignId: string): string {
+  return `/admin/notifications/${encodeURIComponent(campaignId)}`;
+}
+
+/**
+ * Event Dist Push/Bell are optional orchestration.
+ * Standalone campaigns can be created at /admin/notifications without an Event.
+ */
+export function notificationChannelEventRequirement(
+  channel: "push" | "bell"
+): "optional" {
+  void channel;
+  return "optional";
+}
+
+export function notificationCampaignStatusOperatorLabel(
+  status: string | null | undefined,
+  lang: OwnershipLabelLang
+): string {
+  const s = String(status ?? "").trim().toLowerCase();
+  const ko: Record<string, string> = {
+    draft: "초안",
+    scheduled: "예약",
+    sending: "발송 중",
+    sent: "발송 완료",
+    partially_failed: "일부 실패",
+    failed: "발송 실패",
+    cancelled: "취소",
+    configured: "설정됨 (미발송)",
+    disabled: "꺼짐",
+    active: "활성",
+  };
+  const en: Record<string, string> = {
+    draft: "Draft",
+    scheduled: "Scheduled",
+    sending: "Sending",
+    sent: "Sent",
+    partially_failed: "Partially failed",
+    failed: "Failed",
+    cancelled: "Cancelled",
+    configured: "Configured (not sent)",
+    disabled: "Off",
+    active: "Active",
+  };
+  return (lang === "en" ? en[s] : ko[s]) ?? (status || "—");
+}
+
+export function notificationAudienceOperatorLabel(
+  targetType: string | null | undefined,
+  lang: OwnershipLabelLang
+): string {
+  const s = String(targetType ?? "").trim().toLowerCase();
+  const ko: Record<string, string> = {
+    all: "전체",
+    selected_users: "선택 회원",
+    marketing_opt_in: "마케팅 수신 동의",
+    active_users: "활성 회원",
+    region: "지역 대상",
+  };
+  const en: Record<string, string> = {
+    all: "Everyone",
+    selected_users: "Selected members",
+    marketing_opt_in: "Marketing opt-in",
+    active_users: "Active members",
+    region: "Region",
+  };
+  return (lang === "en" ? en[s] : ko[s]) ?? (targetType || "—");
+}
+
+/**
+ * Dist Push lifecycle — configure/materialize ≠ dispatch.
+ * Event Dist drafts may use /events/{id} deeplink; SEND still requires campaign source authority.
+ */
+export function distributionPushLifecycleNotice(input: {
+  enabled: boolean;
+  channelRefId?: string | null;
+  distributionStatus?: string | null;
+  lang: OwnershipLabelLang;
+}): {
+  kind: "off" | "will_draft" | "draft_linked";
+  message: string;
+  manageHref: string | null;
+  saveDoesNotSend: string;
+  campaignSourceNote: string;
+} {
+  const saveDoesNotSend =
+    input.lang === "en"
+      ? "Saving alone does not send Push."
+      : "저장만으로 Push가 발송되지 않습니다.";
+  const campaignSourceNote =
+    input.lang === "en"
+      ? "Event Dist drafts may use /events/… which is not an approved marketing landing. Actual Send still requires the existing campaign source contract — do not bypass it."
+      : "이벤트 배포 초안은 /events/… 목적지를 쓸 수 있으나, 이는 현재 발송 소스 계약의 승인 랜딩이 아닙니다. 실제 Push 보내기는 기존 campaign source 계약을 통과해야 하며 검증을 우회하지 않습니다.";
+
+  if (!input.enabled) {
+    return {
+      kind: "off",
+      message:
+        input.lang === "en"
+          ? "Push OFF — save will not create or send a Push campaign."
+          : "Push 꺼짐 — 저장해도 Push 캠페인이 생성·발송되지 않습니다.",
+      manageHref: null,
+      saveDoesNotSend,
+      campaignSourceNote,
+    };
+  }
+  const ref = String(input.channelRefId ?? "").trim();
+  if (!ref) {
+    return {
+      kind: "will_draft",
+      message:
+        input.lang === "en"
+          ? "Push draft will be created on Dist save — Send still requires the notification campaign engine."
+          : "배포 저장 시 Push 초안이 생성됩니다 — 발송은 알림 캠페인에서 Push 보내기로만 합니다.",
+      manageHref: null,
+      saveDoesNotSend,
+      campaignSourceNote,
+    };
+  }
+  return {
+    kind: "draft_linked",
+    message:
+      input.lang === "en"
+        ? "Push draft linked — open the campaign to schedule or Send push (Dist save never dispatches)."
+        : "Push 초안 연결됨 — 예약·Push 보내기는 알림 캠페인에서 합니다 (배포 저장은 발송하지 않음).",
+    manageHref: notificationCampaignManageHref(ref),
+    saveDoesNotSend,
+    campaignSourceNote,
+  };
+}
+
+/**
+ * Dist Bell lifecycle — materialize draft campaign only.
+ * Member inbox rows (notification_events) are created on campaign SEND, not Dist save.
+ */
+export function distributionBellLifecycleNotice(input: {
+  enabled: boolean;
+  channelRefId?: string | null;
+  distributionStatus?: string | null;
+  lang: OwnershipLabelLang;
+}): {
+  kind: "off" | "will_draft" | "draft_linked";
+  message: string;
+  manageHref: string | null;
+  saveDoesNotCreateInbox: string;
+} {
+  const saveDoesNotCreateInbox =
+    input.lang === "en"
+      ? "Dist save does not create member inbox rows. Inbox registration happens when the in-app campaign is sent from the notification engine."
+      : "배포 저장만으로는 회원 알림함 행이 생기지 않습니다. 알림함 등록은 알림 캠페인에서 in-app 발송/등록할 때 이뤄집니다.";
+
+  if (!input.enabled) {
+    return {
+      kind: "off",
+      message:
+        input.lang === "en"
+          ? "Bell OFF — save will not create an inbox campaign."
+          : "앱 알림함 꺼짐 — 저장해도 알림함 캠페인이 생성되지 않습니다.",
+      manageHref: null,
+      saveDoesNotCreateInbox,
+    };
+  }
+  const ref = String(input.channelRefId ?? "").trim();
+  if (!ref) {
+    return {
+      kind: "will_draft",
+      message:
+        input.lang === "en"
+          ? "Bell campaign draft will be created on Dist save — not yet visible in the member inbox."
+          : "배포 저장 시 앱 알림함 캠페인 초안이 생성됩니다 — 아직 회원 알림함에 보이지 않습니다.",
+      manageHref: null,
+      saveDoesNotCreateInbox,
+    };
+  }
+  return {
+    kind: "draft_linked",
+    message:
+      input.lang === "en"
+        ? "Bell campaign draft linked — register/send from the notification campaign to create inbox rows."
+        : "앱 알림함 캠페인 초안 연결됨 — 회원 알림함 등록은 알림 캠페인에서 진행합니다.",
+    manageHref: notificationCampaignManageHref(ref),
+    saveDoesNotCreateInbox,
+  };
+}
+
+/** Admin Action Queue is ops workload — not Push/Bell delivery. */
+export function adminActionQueueIsNotNotificationDeliveryCopy(lang: OwnershipLabelLang): string {
+  return lang === "en"
+    ? "Admin Action Queue is ops pending work — not Push delivery and not the member notification inbox."
+    : "관리자 Action Queue는 운영 대기 작업입니다 — Push 발송·회원 알림함과 다릅니다.";
+}
 
 export function eventDistributionHref(eventId: string): string {
   return `/admin/platform-events/${encodeURIComponent(eventId)}#distribution`;

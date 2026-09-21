@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { NOTIFICATIONS_SEND_HREF } from "@/lib/admin/promotion-ownership-visibility";
+import {
+  NOTIFICATIONS_CREATE_HREF,
+  NOTIFICATIONS_SEND_HREF,
+  adminActionQueueIsNotNotificationDeliveryCopy,
+} from "@/lib/admin/promotion-ownership-visibility";
 import { promotionAdminActionLabel } from "@/lib/admin/promotion-operation-actions";
 
 /**
  * Promotion → Notifications hub.
- * Summarize + deep-link only. SAVE ≠ SEND. No duplicate send engine.
+ * Push vs Bell operational clarity only. SAVE ≠ SEND. No duplicate send engine.
  */
 export function AdminPromotionNotificationsHubClient() {
   const { safeT, language } = useI18n();
@@ -28,36 +33,72 @@ export function AdminPromotionNotificationsHubClient() {
         >
           {safeT("admin_promotion_notifications_desc", {
             fallbackKo:
-              "Push 알림과 앱 알림함 전달을 구분합니다. 이 화면은 안내·연결만 하며, 실제 발송은 아래 관리 화면에서 합니다. 저장·게시는 발송이 아닙니다.",
+              "같은 이벤트에서 나갈 수 있지만, Push와 앱 알림함은 서로 다른 전달 채널입니다. 이 화면은 안내·상태 이해·관리 화면 연결만 하며, 실제 발송/등록 엔진을 새로 만들지 않습니다.",
             fallbackEn:
-              "Separate Push delivery from the in-app notification inbox. This page explains and links only — send from the management screens below. Save/Publish is not Send.",
+              "They may share an Event, but Push and the in-app inbox are different delivery channels. This page explains and links only — it does not invent a new send engine.",
           })}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div
+      <div
+        className="rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-sam-muted"
+        data-admin-promotion-save-not-send="1"
+      >
+        {safeT("admin_promotion_notifications_save_not_send", {
+          fallbackKo:
+            "이벤트 저장 · 게시 · 배포 저장 · Push 초안 저장만으로는 Push가 발송되지 않습니다. 발송은 「Push 보내기」만 합니다.",
+          fallbackEn:
+            "Event save, publish, Dist save, and Push draft save never dispatch Push. Only 「Send push」 does.",
+        })}
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <section
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
           data-admin-promotion-channel="push"
         >
-          <div className="font-semibold">
+          <h2 className="text-base font-semibold">
             {safeT("admin_promotion_channel_push", {
               fallbackKo: "Push 알림",
               fallbackEn: "Push notification",
             })}
-          </div>
-          <p className="mt-1 text-xs text-sam-muted">
+          </h2>
+          <p className="mt-1 text-sm text-sam-muted" data-admin-promotion-push-explain="1">
             {safeT("admin_promotion_channel_push_desc", {
-              fallbackKo:
-                "기기 알림으로 전달합니다. 이벤트 노출 설정에서 초안을 만들고, 실제 발송은 Push 보내기로 합니다.",
-              fallbackEn:
-                "Delivered to the device. Draft from Event exposure settings; dispatch with Send push.",
+              fallbackKo: "휴대폰 시스템 알림으로 즉시 또는 예약 전달합니다.",
+              fallbackEn: "Delivers immediately or on a schedule as a phone system notification.",
             })}
           </p>
-          <ul className="mt-2 list-inside list-disc text-[11px] text-sam-muted">
-            <li>{lang === "en" ? "Channel: device Push" : "채널: 기기 Push"}</li>
-            <li>{lang === "en" ? "Save ≠ Send" : "저장 ≠ 발송"}</li>
-          </ul>
+          <dl className="mt-3 grid gap-1 text-xs text-sam-muted">
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Event" : "이벤트"}:{" "}
+              </dt>
+              <dd className="inline">
+                {safeT("admin_promotion_push_event_optional", {
+                  fallbackKo: "선택 — 이벤트 없이 독립 캠페인도 가능",
+                  fallbackEn: "Optional — standalone campaigns allowed",
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Status truth" : "상태 의미"}:{" "}
+              </dt>
+              <dd className="inline">
+                {safeT("admin_promotion_push_status_truth", {
+                  fallbackKo: "발송 완료 = 엔진 발송 기록 (기기 전달·열람과 동일하지 않음)",
+                  fallbackEn: "Sent = engine dispatch record (not proof of device delivery/open)",
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Owner" : "관리"}:{" "}
+              </dt>
+              <dd className="inline">/admin/notifications</dd>
+            </div>
+          </dl>
           <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionLink
               href={NOTIFICATIONS_SEND_HREF}
@@ -66,7 +107,11 @@ export function AdminPromotionNotificationsHubClient() {
             >
               {promotionAdminActionLabel("SEND_PUSH", lang)}
             </AdminActionLink>
-            <AdminActionLink href="/admin/notifications/create" variant="secondary">
+            <AdminActionLink
+              href={NOTIFICATIONS_CREATE_HREF}
+              variant="secondary"
+              data-admin-promotion-push-draft="1"
+            >
               {safeT("admin_promotion_create_push_draft", {
                 fallbackKo: "Push 초안 만들기",
                 fallbackEn: "Create push draft",
@@ -76,34 +121,71 @@ export function AdminPromotionNotificationsHubClient() {
               {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
             </AdminActionLink>
           </div>
-        </div>
+          <p
+            className="mt-3 text-xs text-sam-muted"
+            data-admin-promotion-push-empty="1"
+          >
+            {safeT("admin_promotion_push_empty", {
+              fallbackKo: "설정된 Push 알림이 없습니다. 이벤트 노출 설정 또는 Push 초안에서 구성하세요.",
+              fallbackEn:
+                "No Push notifications configured. Use Event exposure settings or create a Push draft.",
+            })}
+          </p>
+        </section>
 
-        <div
+        <section
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
           data-admin-promotion-channel="bell"
         >
-          <div className="font-semibold">
+          <h2 className="text-base font-semibold">
             {safeT("admin_promotion_channel_bell", {
               fallbackKo: "앱 알림함",
               fallbackEn: "In-app notification inbox",
             })}
-          </div>
-          <p className="mt-1 text-xs text-sam-muted">
+          </h2>
+          <p className="mt-1 text-sm text-sam-muted" data-admin-promotion-bell-explain="1">
             {safeT("admin_promotion_channel_bell_desc", {
               fallbackKo:
-                "앱 안 알림함(벨)에 남기는 알림입니다. Push와 다릅니다. 이벤트 노출 설정에서 구성하고, 등록/관리는 알림 캠페인에서 합니다.",
+                "dibaY 앱 안의 알림함에 남겨 사용자가 다시 확인할 수 있습니다.",
               fallbackEn:
-                "Persistent in-app inbox (bell). Not the same as Push. Configure on Event exposure; register/manage via notification campaigns.",
+                "Leaves an item in the dibaY in-app notification inbox for later review.",
             })}
           </p>
-          <ul className="mt-2 list-inside list-disc text-[11px] text-sam-muted">
-            <li>{lang === "en" ? "Channel: in-app Bell" : "채널: 앱 알림함"}</li>
-            <li>
-              {lang === "en"
-                ? "Requested on Event ≠ automatically sent"
-                : "이벤트 설정 ≠ 자동 등록"}
-            </li>
-          </ul>
+          <dl className="mt-3 grid gap-1 text-xs text-sam-muted">
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Event" : "이벤트"}:{" "}
+              </dt>
+              <dd className="inline">
+                {safeT("admin_promotion_bell_event_optional", {
+                  fallbackKo: "선택 — 이벤트 없이 독립 캠페인도 가능",
+                  fallbackEn: "Optional — standalone campaigns allowed",
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Dist save" : "배포 저장"}:{" "}
+              </dt>
+              <dd className="inline">
+                {safeT("admin_promotion_bell_dist_truth", {
+                  fallbackKo: "캠페인 초안만 생성 · 회원 알림함 행은 캠페인 등록/발송 시",
+                  fallbackEn: "Creates campaign draft only · inbox rows on campaign send/register",
+                })}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline font-medium text-sam-fg">
+                {lang === "en" ? "Action" : "동작"}:{" "}
+              </dt>
+              <dd className="inline">
+                {safeT("admin_promotion_bell_action_label", {
+                  fallbackKo: "앱 알림함 등록/관리 (Push 「보내기」와 다름)",
+                  fallbackEn: "Register / manage inbox (not the same as Send push)",
+                })}
+              </dd>
+            </div>
+          </dl>
           <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionLink
               href={NOTIFICATIONS_SEND_HREF}
@@ -119,16 +201,37 @@ export function AdminPromotionNotificationsHubClient() {
               {promotionAdminActionLabel("CONFIGURE_EXPOSURE", lang)}
             </AdminActionLink>
           </div>
-        </div>
+          <p
+            className="mt-3 text-xs text-sam-muted"
+            data-admin-promotion-bell-empty="1"
+          >
+            {safeT("admin_promotion_bell_empty", {
+              fallbackKo:
+                "설정된 앱 알림함 항목이 없습니다. 이벤트 노출 설정에서 켠 뒤 알림 캠페인에서 등록하세요.",
+              fallbackEn:
+                "No inbox items configured. Enable on Event exposure, then register via notification campaigns.",
+            })}
+          </p>
+        </section>
+      </div>
+
+      <div
+        className="rounded-ui-rect border border-sam-border bg-sam-app/40 px-3 py-2 text-xs text-sam-muted"
+        data-admin-promotion-action-queue-note="1"
+      >
+        {adminActionQueueIsNotNotificationDeliveryCopy(lang)}
       </div>
 
       <p className="text-xs text-sam-muted" data-admin-promotion-notif-empty-hint="1">
         {safeT("admin_promotion_notifications_empty_hint", {
           fallbackKo:
-            "설정된 이벤트 알림이 없다면 이벤트 노출 설정에서 Push·앱 알림 채널을 켠 뒤, 위 관리 화면에서 발송/등록하세요.",
+            "이벤트에서 Push·앱 알림함을 함께 쓰려면 이벤트 노출 설정에서 각 채널을 따로 켠 뒤, 위 알림 캠페인에서 발송/등록하세요.",
           fallbackEn:
-            "If no event notifications are set, enable Push/Bell on Event exposure, then send/register from the screens above.",
-        })}
+            "To use Push and Bell from one Event, enable each channel separately on Event exposure, then send/register from the notification campaigns above.",
+        })}{" "}
+        <Link href="/admin/platform-events" className="underline">
+          {lang === "en" ? "Open Events" : "이벤트 열기"}
+        </Link>
       </p>
     </div>
   );

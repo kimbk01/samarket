@@ -161,7 +161,7 @@ describe("Phase 1 promotion ownership visibility", () => {
     expect(summary).toContain("팝업");
     expect(summary).toContain("인라인 배너");
     expect(summary).toContain("Push");
-    expect(summary).not.toContain("앱 알림");
+    expect(summary).not.toContain("앱 알림함");
   });
 
   it("placement source badges and Event Dist deep-links use IDs", () => {

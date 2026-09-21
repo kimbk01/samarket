@@ -630,18 +630,17 @@ export const adminMessages = {
     admin_promotion_banner_empty:
       "설정된 이벤트 배너가 없습니다. 이벤트 노출 설정에서 추가하세요.",
     admin_promotion_notifications_desc:
-      "Push 알림과 앱 알림함 전달을 구분합니다. 이 화면은 안내·연결만 하며, 실제 발송은 아래 관리 화면에서 합니다. 저장·게시는 발송이 아닙니다.",
+      "같은 이벤트에서 나갈 수 있지만, Push와 앱 알림함은 서로 다른 전달 채널입니다. 이 화면은 안내·상태 이해·관리 화면 연결만 하며, 실제 발송/등록 엔진을 새로 만들지 않습니다.",
     admin_promotion_channel_push: "Push 알림",
-    admin_promotion_channel_push_desc:
-      "기기 알림으로 전달합니다. 이벤트 노출 설정에서 초안을 만들고, 실제 발송은 Push 보내기로 합니다.",
+    admin_promotion_channel_push_desc: "휴대폰 시스템 알림으로 즉시 또는 예약 전달합니다.",
     admin_promotion_open_push_campaigns: "Push 캠페인 열기",
     admin_promotion_create_push_draft: "Push 초안 만들기",
     admin_promotion_channel_bell: "앱 알림함",
     admin_promotion_channel_bell_desc:
-      "앱 안 알림함(벨)에 남기는 알림입니다. Push와 다릅니다. 이벤트 노출 설정에서 구성하고, 등록/관리는 알림 캠페인에서 합니다.",
+      "dibaY 앱 안의 알림함에 남겨 사용자가 다시 확인할 수 있습니다.",
     admin_promotion_bell_manage: "앱 알림함 등록/관리",
     admin_promotion_notifications_empty_hint:
-      "설정된 이벤트 알림이 없다면 이벤트 노출 설정에서 Push·앱 알림 채널을 켠 뒤, 위 관리 화면에서 발송/등록하세요.",
+      "이벤트에서 Push·앱 알림함을 함께 쓰려면 이벤트 노출 설정에서 각 채널을 따로 켠 뒤, 위 알림 캠페인에서 발송/등록하세요.",
     admin_platform_events_list_desc:
       "이벤트는 콘텐츠와 목적지입니다. 팝업·배너·Push·앱 알림은 노출 채널입니다.",
     admin_promotion_schedule_start: "노출 시작",
@@ -693,8 +692,8 @@ export const adminMessages = {
       "기존 알림 캠페인 발송으로 연결됩니다.",
     admin_platform_events_channel_popup: "팝업",
     admin_platform_events_channel_banner: "배너",
-    admin_platform_events_channel_push: "푸시 알림",
-    admin_platform_events_channel_bell: "알림함",
+    admin_platform_events_channel_push: "Push 알림",
+    admin_platform_events_channel_bell: "앱 알림함",
     admin_platform_events_banner_placement: "배치",
     admin_platform_events_banner_image: "배너 이미지 URL",
     admin_platform_events_banner_headline: "배너 문구 (선택)",
@@ -702,12 +701,13 @@ export const adminMessages = {
       "이 배치와 배너 형태 조합은 허용되지 않습니다.",
     admin_platform_events_push_title: "푸시 제목",
     admin_platform_events_push_body: "푸시 본문",
-    admin_platform_events_push_send_now: "지금 발송 (기존 엔진)",
+    admin_platform_events_push_send_now: "Push 보내기",
     admin_platform_events_push_preview_note:
       "미리보기만 · 저장해도 발송되지 않습니다.",
     admin_platform_events_bell_title: "알림함 제목",
     admin_platform_events_bell_body: "알림함 본문",
-    admin_platform_events_bell_preview_note: "알림함 행 미리보기 · Push와 독립.",
+    admin_platform_events_bell_preview_note:
+      "알림함 행 미리보기 · Push와 독립 · 저장만으로 회원 알림함에 등록되지 않음.",
     admin_platform_events_banner_off: "배너 꺼짐",
     admin_platform_events_benefit_group: "혜택 정보",
     admin_platform_events_distribution_partial_fail:
@@ -3649,18 +3649,18 @@ export const adminMessages = {
     admin_promotion_banner_empty:
       "No event banners yet. Add them in Event exposure settings.",
     admin_promotion_notifications_desc:
-      "Separate Push delivery from the in-app notification inbox. This page explains and links only — send from the management screens below. Save/Publish is not Send.",
+      "They may share an Event, but Push and the in-app inbox are different delivery channels. This page explains and links only — it does not invent a new send engine.",
     admin_promotion_channel_push: "Push notification",
     admin_promotion_channel_push_desc:
-      "Delivered to the device. Draft from Event exposure settings; dispatch with Send push.",
+      "Delivers immediately or on a schedule as a phone system notification.",
     admin_promotion_open_push_campaigns: "Open push campaigns",
     admin_promotion_create_push_draft: "Create push draft",
     admin_promotion_channel_bell: "In-app notification inbox",
     admin_promotion_channel_bell_desc:
-      "Persistent in-app inbox (bell). Not the same as Push. Configure on Event exposure; register/manage via notification campaigns.",
+      "Leaves an item in the dibaY in-app notification inbox for later review.",
     admin_promotion_bell_manage: "Register / manage inbox",
     admin_promotion_notifications_empty_hint:
-      "If no event notifications are set, enable Push/Bell on Event exposure, then send/register from the screens above.",
+      "To use Push and Bell from one Event, enable each channel separately on Event exposure, then send/register from the notification campaigns above.",
     admin_platform_events_list_desc:
       "An Event is the content and destination. Popup, Banner, Push, and Bell are exposure channels.",
     admin_promotion_schedule_start: "Starts",
@@ -3713,7 +3713,7 @@ export const adminMessages = {
     admin_platform_events_channel_popup: "Popup",
     admin_platform_events_channel_banner: "Banner",
     admin_platform_events_channel_push: "Push notification",
-    admin_platform_events_channel_bell: "Notification inbox",
+    admin_platform_events_channel_bell: "In-app notification inbox",
     admin_platform_events_banner_placement: "Placement",
     admin_platform_events_banner_image: "Banner image URL",
     admin_platform_events_banner_headline: "Banner headline (optional)",
@@ -3721,11 +3721,12 @@ export const adminMessages = {
       "This placement + presentation combination is not allowed.",
     admin_platform_events_push_title: "Push title",
     admin_platform_events_push_body: "Push body",
-    admin_platform_events_push_send_now: "Send now (existing engine)",
+    admin_platform_events_push_send_now: "Send Push",
     admin_platform_events_push_preview_note: "Visual only · Save does not dispatch.",
     admin_platform_events_bell_title: "Inbox title",
     admin_platform_events_bell_body: "Inbox body",
-    admin_platform_events_bell_preview_note: "Inbox row preview · independent of Push.",
+    admin_platform_events_bell_preview_note:
+      "Inbox row preview · independent of Push · Dist save does not register inbox rows.",
     admin_platform_events_banner_off: "Banner OFF",
     admin_platform_events_benefit_group: "Benefit info",
     admin_platform_events_distribution_partial_fail:
