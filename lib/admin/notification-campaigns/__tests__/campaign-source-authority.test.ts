@@ -102,4 +102,35 @@ describe("campaign source authority — CASE C blocked", () => {
       })
     ).toBe(true);
   });
+
+  it("platform Event identity is a marketing source; path-only /events is not", () => {
+    const eventId = "evt-src-1";
+    const path = `/events/${eventId}`;
+    expect(resolveApprovedMarketingLandingRoute(path, null, null)).toBeNull();
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "marketing",
+        deeplink_url: path,
+      }).ok
+    ).toBe(false);
+
+    const bound = validateOfficialCampaignSource({
+      campaign_type: "marketing",
+      deeplink_url: path,
+      target_payload: { platform_event_id: eventId },
+    });
+    expect(bound.ok).toBe(true);
+    if (bound.ok) {
+      expect(bound.mode).toBe("platform_event");
+      expect(bound.canonical_route).toBe(path);
+    }
+
+    expect(
+      isLegacyUnboundOfficialCampaign({
+        type: "marketing",
+        target_payload: { platform_event_id: eventId },
+        deeplink_url: path,
+      })
+    ).toBe(false);
+  });
 });

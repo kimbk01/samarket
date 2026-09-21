@@ -803,6 +803,9 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           <AdminPlatformEventDistributionPanel
             eventId={draft.id}
             eventTitle={draft.title || "Event"}
+            eventStatus={draft.status}
+            eventStartsAt={draft.startsAt}
+            eventEndsAt={draft.endsAt}
             benefitTitle={benefitTitle}
             benefitBody={benefitBody}
             heroImageUrl={draft.heroImageUrl}

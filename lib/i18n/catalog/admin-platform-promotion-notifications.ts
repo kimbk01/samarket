@@ -22,6 +22,7 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_platform_events_push_manage: "Push 캠페인 관리 · 보내기",
     admin_platform_events_push_source_blocked:
       "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
+    admin_platform_events_push_publish_required: "이벤트 게시 후 Push를 보낼 수 있습니다.",
     admin_platform_events_bell_manage: "앱 알림함 캠페인 등록/관리",
   },
   en: {
@@ -41,6 +42,7 @@ export const adminPlatformPromotionNotificationsMessages = {
     admin_platform_events_push_manage: "Manage Push campaign · Send",
     admin_platform_events_push_source_blocked:
       "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
+    admin_platform_events_push_publish_required: "Push can be sent after the event is published.",
     admin_platform_events_bell_manage: "Register / manage inbox campaign",
   },
 } as const;

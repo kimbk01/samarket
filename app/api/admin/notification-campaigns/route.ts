@@ -191,9 +191,12 @@ export async function POST(req: NextRequest) {
   const resolvedPayload = resolveCampaignTargetPayload({
     app_notice_id: source.mode === "content_bound" ? source.content_id : body.app_notice_id,
     target_payload:
-      source.mode === "content_bound" ? source.target_payload : body.target_payload,
+      source.mode === "content_bound" || source.mode === "platform_event"
+        ? source.target_payload
+        : body.target_payload,
     targetPayloadKeyPresent:
       source.mode === "content_bound" ||
+      source.mode === "platform_event" ||
       Object.prototype.hasOwnProperty.call(body, "target_payload"),
     campaign_type: typ,
   });
@@ -215,7 +218,9 @@ export async function POST(req: NextRequest) {
     target_type: targetType,
     channel,
     deeplink_url:
-      source.mode === "approved_landing" ? source.approved_landing : deeplink_url,
+      source.mode === "approved_landing" || source.mode === "platform_event"
+        ? source.approved_landing ?? source.canonical_route
+        : deeplink_url,
     web_url,
     push_image_url: optionalUrl(body.push_image_url) ?? optionalUrl(body.image_url),
     in_app_image_url: optionalUrl(body.in_app_image_url) ?? optionalUrl(body.image_url),

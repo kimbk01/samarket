@@ -230,4 +230,56 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
       canonical_route: "/mypage/customer-center/notice/n-1",
     });
   });
+
+  it("marketing Event identity + canonical path creates platform_event payload", async () => {
+    const inserted = mockInsertCapture();
+    const eventId = "evt-create-1";
+    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
+    const res = await POST(
+      new Request("http://localhost/api/admin/notification-campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "t",
+          body: "b",
+          type: "marketing",
+          channel: "push_only",
+          target_type: "marketing_opt_in",
+          save_as_draft: true,
+          deeplink_url: `/events/${eventId}`,
+          target_payload: { platform_event_id: eventId },
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(200);
+    expect(inserted[0]?.deeplink_url).toBe(`/events/${eventId}`);
+    expect(inserted[0]?.target_payload).toEqual({
+      platform_event_id: eventId,
+      canonical_route: `/events/${eventId}`,
+    });
+    expect(inserted[0]?.status).toBe("draft");
+  });
+
+  it("marketing /events path without Event identity is rejected", async () => {
+    const inserted = mockInsertCapture();
+    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
+    const res = await POST(
+      new Request("http://localhost/api/admin/notification-campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "t",
+          body: "b",
+          type: "marketing",
+          channel: "push_only",
+          target_type: "all",
+          deeplink_url: "/events/evt-orphan",
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(400);
+    expect(inserted).toHaveLength(0);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error).toBe("marketing_source_required");
+  });
 });

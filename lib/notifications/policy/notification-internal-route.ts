@@ -39,6 +39,28 @@ export function isAllowedSupportNotificationPath(pathname: string): boolean {
   return true;
 }
 
+/**
+ * Platform Event Detail — identity path, not `/events/*` prefix.
+ * Same shape as Support cases: exact `/events/{eventId}` only.
+ * Destination safety for tap/open; campaign SOURCE identity is separate
+ * (`validateOfficialCampaignSource` requires `platform_event_id`).
+ */
+export function isAllowedPlatformEventNotificationPath(pathname: string): boolean {
+  const path = String(pathname || "").trim();
+  const m = /^\/events\/([^/]+)$/.exec(path);
+  if (!m) return false;
+  let id = m[1];
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    return false;
+  }
+  const trimmed = id.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes("..") || trimmed.includes("/") || trimmed.includes("\\")) return false;
+  return true;
+}
+
 export function resolveSafeNotificationInternalRoute(
   value: unknown,
   fallback: string | null = null
@@ -70,6 +92,9 @@ export function resolveSafeNotificationInternalRoute(
   }
   const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
   if (isAllowedSupportNotificationPath(parsed.pathname)) {
+    return normalized;
+  }
+  if (isAllowedPlatformEventNotificationPath(parsed.pathname)) {
     return normalized;
   }
   if (

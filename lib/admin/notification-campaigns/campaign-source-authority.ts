@@ -3,16 +3,28 @@
  *
  * Campaign = DELIVERY ONLY.
  * Official notice / system bulletin require app_notices content bind.
- * Marketing requires content bind OR approved internal landing.
+ * Marketing requires content bind OR approved internal landing OR
+ * published Platform Event source identity (not a path-prefix bypass).
  * CASE C (title/body-only official campaign) is WRITE-FORBIDDEN.
  *
+ * SOURCE (content / Event identity) ≠ DESTINATION (click landing).
  * Legacy unbound rows remain READ-COMPATIBLE for members.
  */
 
-import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
+import {
+  isAllowedPlatformEventNotificationPath,
+  resolveSafeNotificationInternalRoute,
+} from "@/lib/notifications/policy/notification-internal-route";
 import { isBareNotificationsCenterHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer-center-campaign-bind";
 import { isCustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
+import {
+  isPlatformEventPubliclyAvailable,
+  resolvePlatformEventAvailability,
+  type PlatformEventPublicationInput,
+} from "@/lib/platform-events/publication";
+import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 
 export type OfficialCampaignType = "notice" | "system" | "marketing";
 
@@ -32,11 +44,14 @@ export type CampaignSourceAuthorityError =
   | "system_bulletin_content_required"
   | "marketing_source_required"
   | "invalid_campaign_type"
-  | "invalid_content_bind";
+  | "invalid_content_bind"
+  | "event_source_missing"
+  | "event_source_unpublished"
+  | "event_source_unavailable";
 
 export type CampaignSourceAuthorityOk = {
   ok: true;
-  mode: "content_bound" | "approved_landing";
+  mode: "content_bound" | "approved_landing" | "platform_event";
   content_id: string | null;
   content_type: "notice" | "system" | "marketing" | null;
   canonical_route: string | null;
@@ -63,9 +78,83 @@ function contentIdFromInput(input: CampaignSourceAuthorityInput): string {
   return "";
 }
 
+function payloadObject(input: CampaignSourceAuthorityInput): Record<string, unknown> | null {
+  const tp = input.target_payload;
+  if (tp && typeof tp === "object" && !Array.isArray(tp)) {
+    return tp as Record<string, unknown>;
+  }
+  return null;
+}
+
+function platformEventIdFromPayload(input: CampaignSourceAuthorityInput): string {
+  const o = payloadObject(input);
+  if (!o) return "";
+  return trimStr(o.platform_event_id) || trimStr(o.event_id);
+}
+
+function eventIdFromDestinationUrls(input: CampaignSourceAuthorityInput): string {
+  for (const candidate of [input.deeplink_url, input.web_url, input.target_url]) {
+    const id = extractEventIdFromHref(typeof candidate === "string" ? candidate : "");
+    if (id) return id;
+  }
+  return "";
+}
+
+function isUnsafeEventId(id: string): boolean {
+  return !id || id.includes("..") || id.includes("/") || id.includes("\\");
+}
+
+/**
+ * Event-originated marketing SOURCE — identity + canonical destination.
+ * Path-only `/events/…` without `platform_event_id` is not a source.
+ */
+export function resolvePlatformEventCampaignSource(
+  input: CampaignSourceAuthorityInput
+): CampaignSourceAuthorityResult | null {
+  const payloadId = platformEventIdFromPayload(input);
+  const pathId = eventIdFromDestinationUrls(input);
+  if (!payloadId && !pathId) return null;
+  if (isUnsafeEventId(payloadId || pathId)) {
+    return { ok: false, error: "marketing_source_required" };
+  }
+  if (!payloadId || !pathId || payloadId !== pathId) {
+    return { ok: false, error: "marketing_source_required" };
+  }
+  const canonical = buildPlatformEventDetailPath(payloadId);
+  if (extractEventIdFromHref(canonical) !== payloadId) {
+    return { ok: false, error: "marketing_source_required" };
+  }
+  return {
+    ok: true,
+    mode: "platform_event",
+    content_id: payloadId,
+    content_type: null,
+    canonical_route: canonical,
+    approved_landing: canonical,
+    target_payload: {
+      platform_event_id: payloadId,
+      canonical_route: canonical,
+    },
+  };
+}
+
+function safeRoutePathname(safe: string): string {
+  try {
+    return new URL(safe, "https://dibay.internal").pathname;
+  } catch {
+    const q = safe.indexOf("?");
+    const h = safe.indexOf("#");
+    const end = q >= 0 && h >= 0 ? Math.min(q, h) : q >= 0 ? q : h >= 0 ? h : safe.length;
+    return safe.slice(0, end);
+  }
+}
+
 /**
  * Approved marketing landing: safe internal route that is not bare /notifications
  * and not used as a substitute for missing content (must be a real destination).
+ *
+ * Platform Event Detail is DESTINATION-safe via the identity path registry, but
+ * is NOT a generic M2 landing. Event campaigns must bind `platform_event_id`.
  */
 export function resolveApprovedMarketingLandingRoute(
   deeplinkUrl?: unknown,
@@ -84,6 +173,9 @@ export function resolveApprovedMarketingLandingRoute(
       safe === "/mypage/customer-center/marketing" ||
       safe === "/mypage/customer-center"
     ) {
+      continue;
+    }
+    if (isAllowedPlatformEventNotificationPath(safeRoutePathname(safe))) {
       continue;
     }
     return safe;
@@ -161,7 +253,11 @@ export function validateOfficialCampaignSource(
     return { ok: false, error: "system_bulletin_content_required" };
   }
 
-  // marketing — landing allowed
+  // marketing — Event source identity (not a /events prefix landing)
+  const eventSource = resolvePlatformEventCampaignSource(input);
+  if (eventSource) return eventSource;
+
+  // marketing — generic approved internal landing
   const landing = resolveApprovedMarketingLandingRoute(
     input.deeplink_url,
     input.web_url,
@@ -219,5 +315,60 @@ export function isLegacyUnboundOfficialCampaign(row: {
   if (typ === "marketing" && resolveApprovedMarketingLandingRoute(row.deeplink_url, row.web_url, row.target_url)) {
     return false;
   }
+  if (
+    typ === "marketing" &&
+    resolvePlatformEventCampaignSource({
+      campaign_type: typ,
+      target_payload: row.target_payload,
+      deeplink_url: row.deeplink_url,
+      web_url: row.web_url,
+      target_url: row.target_url,
+    })?.ok
+  ) {
+    return false;
+  }
   return true;
+}
+
+export type PlatformEventSendLookup = (
+  eventId: string
+) => Promise<PlatformEventPublicationInput | null>;
+
+/**
+ * SEND/test-send eligibility — same SSOT as create, plus live Event publication
+ * when the campaign is Event-sourced. Does not dispatch.
+ */
+export async function evaluateOfficialCampaignSendEligibility(
+  row: {
+    type?: string | null;
+    target_payload?: unknown;
+    deeplink_url?: string | null;
+    web_url?: string | null;
+    target_url?: string | null;
+  },
+  lookupEvent: PlatformEventSendLookup
+): Promise<CampaignSourceAuthorityResult> {
+  const typ = trimStr(row.type).toLowerCase();
+  const structural = validateOfficialCampaignSource({
+    campaign_type: typ,
+    target_payload: row.target_payload,
+    deeplink_url: row.deeplink_url,
+    web_url: row.web_url,
+    target_url: row.target_url,
+  });
+  if (!structural.ok) return structural;
+  if (structural.mode !== "platform_event") return structural;
+  const eventId = trimStr(structural.content_id);
+  if (!eventId) return { ok: false, error: "event_source_missing" };
+  const event = await lookupEvent(eventId);
+  if (!event) return { ok: false, error: "event_source_missing" };
+  const availability = resolvePlatformEventAvailability(event);
+  if (availability === "missing") return { ok: false, error: "event_source_missing" };
+  if (availability === "draft" || availability === "unpublished") {
+    return { ok: false, error: "event_source_unpublished" };
+  }
+  if (!isPlatformEventPubliclyAvailable(event)) {
+    return { ok: false, error: "event_source_unavailable" };
+  }
+  return structural;
 }

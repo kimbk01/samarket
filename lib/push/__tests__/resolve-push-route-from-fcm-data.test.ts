@@ -308,6 +308,13 @@ describe("P0 URL security", () => {
     expect(resolveSafeNotificationInternalRoute("/support")).toBeNull();
     expect(resolveSafeNotificationInternalRoute("/support/cases")).toBeNull();
   });
+
+  it("Platform Event identity path PASS; prefix FAIL", () => {
+    expect(resolveSafeNotificationInternalRoute("/events/evt-src-1")).toBe("/events/evt-src-1");
+    expect(resolveSafeNotificationInternalRoute("/events")).toBeNull();
+    expect(resolveSafeNotificationInternalRoute("/events/")).toBeNull();
+    expect(resolveSafeNotificationInternalRoute("/events/a/b")).toBeNull();
+  });
 });
 
 describe("P0 authority open/read", () => {

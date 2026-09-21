@@ -16,7 +16,7 @@ Official Notice must have `app_notices` original with `content_type=notice` (`ap
 System Bulletin must have `app_notices` original with `content_type=system` (`app_notice_id` required).
 
 ## RULE 3
-Marketing must have content bind **OR** approved internal landing (not bare `/notifications`).
+Marketing must have content bind **OR** approved internal landing (not bare `/notifications`) **OR** published Platform Event source identity (`platform_event_id` + canonical `/events/{id}`). Unbound `/events/*` path is not an approved landing.
 
 ## RULE 4
 Campaign is **delivery authority**, not original content authority.

@@ -15,7 +15,10 @@ import {
   assertSaveIsNotSend,
   promotionAdminActionLabel,
 } from "@/lib/admin/promotion-operation-actions";
-import { resolveApprovedMarketingLandingRoute } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import {
+  resolveApprovedMarketingLandingRoute,
+  validateOfficialCampaignSource,
+} from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 
 const ROOT = process.cwd();
@@ -81,7 +84,15 @@ describe("Phase 4 — Push / Bell operational UX", () => {
     expect(linked.kind).toBe("draft_linked");
     expect(linked.manageHref).toBe(notificationCampaignManageHref("camp-push-1"));
     expect(linked.manageHref).toBe("/admin/notifications/camp-push-1");
-    expect(linked.campaignSourceNote).toMatch(/campaign source|소스 계약/);
+    expect(linked.campaignSourceNote).toMatch(/게시 후 Push|after the event is published/);
+
+    const published = distributionPushLifecycleNotice({
+      enabled: true,
+      channelRefId: "camp-push-1",
+      eventPublication: { status: "published" },
+      lang: "ko",
+    });
+    expect(published.campaignSourceNote).toMatch(/게시된 이벤트는 Push/);
   });
 
   it("Dist Bell draft ≠ member inbox row", () => {
@@ -95,14 +106,27 @@ describe("Phase 4 — Push / Bell operational UX", () => {
     expect(linked.manageHref).toBe("/admin/notifications/camp-bell-1");
   });
 
-  it("Event /events/{id} is NOT an approved marketing landing (campaign_source preserved)", () => {
+  it("Event /events/{id} is not a generic landing; published Event identity is the source", () => {
     const eventPath = buildPlatformEventDetailPath("evt-qa-1");
     expect(eventPath).toMatch(/^\/events\//);
     expect(resolveApprovedMarketingLandingRoute(eventPath)).toBeNull();
     expect(resolveApprovedMarketingLandingRoute("/market")).toBe("/market");
-    const authority = read("lib/admin/notification-campaigns/campaign-source-authority.ts");
-    expect(authority).toContain("marketing_source_required");
-    expect(authority).not.toMatch(/\/events/);
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "marketing",
+        deeplink_url: eventPath,
+      }).ok
+    ).toBe(false);
+    const bound = validateOfficialCampaignSource({
+      campaign_type: "marketing",
+      deeplink_url: eventPath,
+      target_payload: { platform_event_id: "evt-qa-1" },
+    });
+    expect(bound.ok).toBe(true);
+    if (bound.ok) {
+      expect(bound.mode).toBe("platform_event");
+      expect(bound.content_id).toBe("evt-qa-1");
+    }
   });
 
   it("Dist panel keeps Save ≠ Send and independent Push/Bell sections", () => {

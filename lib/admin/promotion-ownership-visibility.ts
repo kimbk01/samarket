@@ -16,6 +16,7 @@ import {
 } from "@/lib/platform-promotion-distribution/banner-presentation";
 import type { PromotionDistributionRow } from "@/lib/platform-promotion-distribution/types";
 import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/event-benefit-authority";
+import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
 
 export type OwnershipLabelLang = "ko" | "en";
 
@@ -412,12 +413,14 @@ export function notificationAudienceOperatorLabel(
 
 /**
  * Dist Push lifecycle — configure/materialize ≠ dispatch.
- * Event Dist drafts may use /events/{id} deeplink; SEND still requires campaign source authority.
+ * Published Platform Event + canonical destination + platform_event_id is a
+ * marketing SOURCE. SEND still uses the notification campaign engine.
  */
 export function distributionPushLifecycleNotice(input: {
   enabled: boolean;
   channelRefId?: string | null;
   distributionStatus?: string | null;
+  eventPublication?: { status?: string | null; startsAt?: string | null; endsAt?: string | null };
   lang: OwnershipLabelLang;
 }): {
   kind: "off" | "will_draft" | "draft_linked";
@@ -430,10 +433,14 @@ export function distributionPushLifecycleNotice(input: {
     input.lang === "en"
       ? "Saving alone does not send Push."
       : "저장만으로 Push가 발송되지 않습니다.";
-  const campaignSourceNote =
-    input.lang === "en"
-      ? "Event Dist drafts may use /events/… which is not an approved marketing landing. Actual Send still requires the existing campaign source contract — do not bypass it."
-      : "이벤트 배포 초안은 /events/… 목적지를 쓸 수 있으나, 이는 현재 발송 소스 계약의 승인 랜딩이 아닙니다. 실제 Push 보내기는 기존 campaign source 계약을 통과해야 하며 검증을 우회하지 않습니다.";
+  const eventPublic = isPlatformEventPubliclyAvailable(input.eventPublication ?? null);
+  const campaignSourceNote = eventPublic
+    ? input.lang === "en"
+      ? "Published Event is an approved Push source. Actual Send still requires the notification campaign engine — Dist save never dispatches."
+      : "게시된 이벤트는 Push 마케팅 소스입니다. 실제 발송은 알림 캠페인의 Push 보내기에서만 하며, 배포 저장은 발송하지 않습니다."
+    : input.lang === "en"
+      ? "Push can be sent after the event is published."
+      : "이벤트 게시 후 Push를 보낼 수 있습니다.";
 
   if (!input.enabled) {
     return {

@@ -42,6 +42,9 @@ import { resolvePlatformPopupComposition } from "@/lib/platform-popup/resolve-pr
 type Props = {
   eventId: string;
   eventTitle: string;
+  eventStatus?: string | null;
+  eventStartsAt?: string | null;
+  eventEndsAt?: string | null;
   /** Live Event Benefit form state — drives Benefit presentation eligibility. */
   benefitTitle?: string;
   benefitBody?: string | null;
@@ -134,6 +137,9 @@ function channelSummaryLabel(
 export function AdminPlatformEventDistributionPanel({
   eventId,
   eventTitle,
+  eventStatus = null,
+  eventStartsAt = null,
+  eventEndsAt = null,
   benefitTitle = "",
   benefitBody = null,
   heroImageUrl = null,
@@ -195,6 +201,7 @@ export function AdminPlatformEventDistributionPanel({
     enabled: toggles.push,
     channelRefId: pushChannelRefId,
     distributionStatus: channelStatuses.push ?? null,
+    eventPublication: { status: eventStatus, startsAt: eventStartsAt, endsAt: eventEndsAt },
     lang,
   });
   const bellLifecycle = distributionBellLifecycleNotice({
@@ -489,13 +496,22 @@ export function AdminPlatformEventDistributionPanel({
       };
       if (!res.ok || !json.ok) {
         setError(
-          json.error === "campaign_source_required" || json.error === "marketing_source_required"
-            ? safeT("admin_platform_events_push_source_blocked", {
-                fallbackKo:
-                  "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
-                fallbackEn:
-                  "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
-              })
+          json.error === "campaign_source_required" ||
+          json.error === "marketing_source_required" ||
+          json.error === "event_source_unpublished" ||
+          json.error === "event_source_missing" ||
+          json.error === "event_source_unavailable"
+            ? json.error === "event_source_unpublished"
+              ? safeT("admin_platform_events_push_publish_required", {
+                  fallbackKo: "이벤트 게시 후 Push를 보낼 수 있습니다.",
+                  fallbackEn: "Push can be sent after the event is published.",
+                })
+              : safeT("admin_platform_events_push_source_blocked", {
+                  fallbackKo:
+                    "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
+                  fallbackEn:
+                    "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
+                })
             : json.error || "push_send_blocked"
         );
         return;

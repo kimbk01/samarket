@@ -7,7 +7,7 @@ import {
   drainNotificationCampaignSendBatches,
   newCampaignSendClaimToken,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
-import { campaignRowHasOfficialSource } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import { evaluateOfficialCampaignSendEligibility } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -47,21 +47,45 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   if (campaignErr || !campaignRow) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  if (
-    !campaignRowHasOfficialSource({
+  const sourceEligibility = await evaluateOfficialCampaignSendEligibility(
+    {
       type: (campaignRow as { type?: string }).type,
       target_payload: (campaignRow as { target_payload?: unknown }).target_payload,
       deeplink_url: (campaignRow as { deeplink_url?: string | null }).deeplink_url,
       web_url: (campaignRow as { web_url?: string | null }).web_url,
       target_url: (campaignRow as { target_url?: string | null }).target_url,
-    })
-  ) {
+    },
+    async (eventId) => {
+      const { data } = await svc
+        .from("platform_events")
+        .select("status, starts_at, ends_at")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (!data) return null;
+      const row = data as { status?: string | null; starts_at?: string | null; ends_at?: string | null };
+      return { status: row.status, startsAt: row.starts_at, endsAt: row.ends_at };
+    }
+  );
+  if (!sourceEligibility.ok) {
+    const eventErrors = new Set([
+      "event_source_missing",
+      "event_source_unpublished",
+      "event_source_unavailable",
+    ]);
     return NextResponse.json(
       {
         ok: false,
-        error: "campaign_source_required",
+        error: eventErrors.has(sourceEligibility.error)
+          ? sourceEligibility.error
+          : "campaign_source_required",
         message:
-          "Official notice/system/marketing campaigns require content bind or approved landing. Legacy unbound campaigns cannot be sent.",
+          sourceEligibility.error === "event_source_unpublished"
+            ? "Event must be published before Push can be sent."
+            : sourceEligibility.error === "event_source_missing"
+              ? "Platform Event source was not found."
+              : sourceEligibility.error === "event_source_unavailable"
+                ? "Platform Event is not currently available as a Push destination."
+                : "Official notice/system/marketing campaigns require content bind or approved landing. Legacy unbound campaigns cannot be sent.",
       },
       { status: 400 }
     );

@@ -51,6 +51,7 @@ ORIGINAL DESTINATION
 
 - **M1** Content: `app_notices` `content_type=marketing` → CC marketing detail
 - **M2** Approved internal landing (safe route, not bare `/notifications`)
+- **M3** Published Platform Event source identity (`platform_event_id` + canonical `/events/{id}`). Path-only `/events/*` is not an approved landing.
 - Event: `admin_marketing_banner`
 - **NEW marketing without content AND without landing: FORBIDDEN**
 
@@ -112,6 +113,7 @@ No forced backfill in this cutover.
 | System bulletin bound | `/mypage/customer-center/system/{id}` |
 | Marketing bound | `/mypage/customer-center/marketing/{id}` |
 | Marketing landing | approved internal route |
+| Marketing Event source | `/events/{eventId}` (identity-bound; send requires published Event) |
 | Inquiry | `/mypage/inquiries/{threadId}` |
 | Message | `/mypage/inbox/{threadId}` |
 | Transactional | domain or `/notifications/{eventId}` |
