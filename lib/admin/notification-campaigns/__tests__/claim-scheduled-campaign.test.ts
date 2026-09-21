@@ -14,6 +14,14 @@ vi.mock("@/lib/admin/notification-campaigns/run-campaign-send-batch", () => ({
   })),
 }));
 
+vi.mock("@/lib/admin/notification-campaigns/campaign-source-authority", () => ({
+  evaluateOfficialCampaignSendEligibility: vi.fn(async () => ({
+    ok: true,
+    mode: "content_bound",
+    content_id: "notice-1",
+  })),
+}));
+
 import {
   claimDueScheduledCampaign,
   claimAdminCampaignManualSend,
@@ -70,6 +78,48 @@ describe("claim-scheduled-campaign occurrence", () => {
   });
 
   it("drains batches until done", async () => {
+    from.mockImplementation((table: string) => {
+      if (table === "admin_notification_campaign_occurrences") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "occ-1", campaign_id: "camp-1", status: "sending" },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+        };
+      }
+      if (table === "admin_notification_campaigns") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: "camp-1",
+                  type: "notice",
+                  target_payload: { appNoticeId: "notice-1", content_type: "notice" },
+                  deeplink_url: null,
+                  web_url: null,
+                  target_url: null,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+      };
+    });
+
     const out = await drainNotificationCampaignSendBatches(mockSvc(), "occ-1", {
       maxBatches: 5,
       maxWallMs: 10_000,
