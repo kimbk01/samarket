@@ -4,6 +4,8 @@
  * with the same SSOT used by explicit campaign send — lookup is injected.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   campaignRowHasOfficialSource,
   evaluateOfficialCampaignSendEligibility,
@@ -232,5 +234,17 @@ describe("Event Push source contract", () => {
     });
     expect(source.ok).toBe(true);
     if (source.ok) expect(source.mode).toBe("platform_event");
+  });
+
+  it("scheduled drain reuses evaluateOfficialCampaignSendEligibility before batches", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/admin/notification-campaigns/claim-scheduled-campaign.ts"),
+      "utf8"
+    );
+    expect(src).toContain("evaluateOfficialCampaignSendEligibility");
+    expect(src).toContain("drainNotificationCampaignSendBatches");
+    expect(src.indexOf("evaluateOfficialCampaignSendEligibility")).toBeLessThan(
+      src.indexOf("runNotificationCampaignSendBatch")
+    );
   });
 });

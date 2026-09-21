@@ -44,6 +44,8 @@ export async function claimAdminCampaignManualSend(
 
 /**
  * Run batch SSOT until done or wall-clock budget exhausted.
+ * Revalidates official campaign source (incl. live Event publication) before any batch —
+ * same gate as manual send. Scheduled cron must not bypass this.
  */
 export async function drainNotificationCampaignSendBatches(
   svc: SupabaseClient,
@@ -58,6 +60,104 @@ export async function drainNotificationCampaignSendBatches(
   failed: number;
   error?: string;
 }> {
+  const { getCampaignOccurrence } = await import(
+    "@/lib/admin/notification-campaigns/campaign-occurrence-service"
+  );
+  const { evaluateOfficialCampaignSendEligibility } = await import(
+    "@/lib/admin/notification-campaigns/campaign-source-authority"
+  );
+
+  const occurrence = await getCampaignOccurrence(svc, occurrenceId);
+  if (!occurrence) {
+    return {
+      ok: false,
+      done: true,
+      batches: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      error: "occurrence_not_found",
+    };
+  }
+
+  const { data: campaignRow, error: campaignErr } = await svc
+    .from("admin_notification_campaigns")
+    .select("id, type, target_payload, deeplink_url, web_url, target_url")
+    .eq("id", occurrence.campaign_id)
+    .maybeSingle();
+  if (campaignErr || !campaignRow) {
+    const nowMiss = new Date().toISOString();
+    await svc
+      .from("admin_notification_campaign_occurrences")
+      .update({
+        status: "failed",
+        last_error: "campaign_not_found",
+        completed_at: nowMiss,
+        updated_at: nowMiss,
+      })
+      .eq("id", occurrenceId);
+    return {
+      ok: false,
+      done: true,
+      batches: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      error: "campaign_not_found",
+    };
+  }
+
+  const sourceEligibility = await evaluateOfficialCampaignSendEligibility(
+    {
+      type: (campaignRow as { type?: string }).type,
+      target_payload: (campaignRow as { target_payload?: unknown }).target_payload,
+      deeplink_url: (campaignRow as { deeplink_url?: string | null }).deeplink_url,
+      web_url: (campaignRow as { web_url?: string | null }).web_url,
+      target_url: (campaignRow as { target_url?: string | null }).target_url,
+    },
+    async (eventId) => {
+      const { data } = await svc
+        .from("platform_events")
+        .select("status, starts_at, ends_at")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (!data) return null;
+      const row = data as {
+        status?: string | null;
+        starts_at?: string | null;
+        ends_at?: string | null;
+      };
+      return { status: row.status, startsAt: row.starts_at, endsAt: row.ends_at };
+    }
+  );
+  if (!sourceEligibility.ok) {
+    const now = new Date().toISOString();
+    const err = sourceEligibility.error;
+    await svc
+      .from("admin_notification_campaign_occurrences")
+      .update({
+        status: "failed",
+        last_error: err,
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq("id", occurrenceId);
+    await svc
+      .from("admin_notification_campaigns")
+      .update({ status: "failed", updated_at: now })
+      .eq("id", occurrence.campaign_id)
+      .in("status", ["scheduled", "sending"]);
+    return {
+      ok: false,
+      done: true,
+      batches: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      error: err,
+    };
+  }
+
   const { runNotificationCampaignSendBatch } = await import(
     "@/lib/admin/notification-campaigns/run-campaign-send-batch"
   );
