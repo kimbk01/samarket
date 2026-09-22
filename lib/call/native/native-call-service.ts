@@ -57,6 +57,23 @@ export type NativeCallServicePlugin = {
     peerUserId?: string;
     peerName?: string;
   }): Promise<{ ok: boolean; nativeOwned: boolean }>;
+  /** CUT-5C — PREPARING surface without server session.id */
+  startNativeOutgoingPreparing(options: {
+    attemptId: string;
+    roomId?: string;
+    mediaType: string;
+    peerUserId?: string;
+    peerName?: string;
+  }): Promise<{ ok: boolean }>;
+  finishNativeOutgoingPreparing(options: { attemptId: string }): Promise<{ ok: boolean }>;
+  bindNativeOutgoingEstablishment(options: {
+    attemptId: string;
+    callId: string;
+    roomId: string;
+    mediaType: string;
+    peerUserId?: string;
+    peerName?: string;
+  }): Promise<{ ok: boolean; nativeOwned: boolean }>;
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
   isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
   isNativeVideoOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;

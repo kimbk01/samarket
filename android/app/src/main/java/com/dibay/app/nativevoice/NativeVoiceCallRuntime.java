@@ -61,6 +61,23 @@ public final class NativeVoiceCallRuntime {
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
+  private static final Object PREPARING_LOCK = new Object();
+  private static volatile PreparingState preparingState;
+
+  /** CUT-5C — local PREPARING (no server session / no SESSIONS entry). */
+  private static final class PreparingState {
+    final String attemptId;
+    final String peerName;
+    final String peerUserId;
+    final String roomId;
+
+    PreparingState(String attemptId, String peerName, String peerUserId, String roomId) {
+      this.attemptId = attemptId;
+      this.peerName = peerName;
+      this.peerUserId = peerUserId;
+      this.roomId = roomId;
+    }
+  }
 
   interface TerminalPatchDispatcher {
     void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
@@ -234,6 +251,172 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
+  /**
+   * CUT-5C — show outgoing PREPARING Activity keyed by attemptId.
+   * No ringback / CONNECTING FGS / Agora / SESSIONS.put(server id).
+   */
+  public static boolean startPreparing(
+      Context context, String attemptId, String peerName, String peerUserId, String roomId) {
+    if (context == null || attemptId == null || attemptId.trim().isEmpty()) return false;
+    Context app = context.getApplicationContext();
+    String aid = attemptId.trim();
+    PreparingState superseded;
+    synchronized (PREPARING_LOCK) {
+      superseded = preparingState;
+      if (superseded != null && aid.equals(superseded.attemptId)) {
+        NativeVoiceCallLog.info("outgoing_preparing_idempotent", aid);
+        if (!NativeVoiceCallActivity.isShowingPreparing(aid)) {
+          startPreparingDialingActivity(app, aid, safePeerName(peerName));
+        }
+        return true;
+      }
+      preparingState =
+          new PreparingState(aid, safePeerName(peerName), safe(peerUserId), safe(roomId));
+    }
+    if (superseded != null) {
+      NativeVoiceCallLog.info(
+          "outgoing_preparing_supersede", aid, "priorAttempt=" + superseded.attemptId);
+      NativeCallVisibleSurfaceOwner.release(superseded.attemptId, "preparing_superseded");
+      NativeVoiceCallActivity.finishIfPreparing(superseded.attemptId);
+    }
+    NativeVideoCallRuntime.finishAnyPreparing(app);
+    releasePriorLiveSessionsForOutgoing(app, aid);
+    NativeVoiceCallLog.info(
+        "outgoing_preparing_start",
+        aid,
+        "roomId=" + safe(roomId) + " peer=" + safePeerName(peerName));
+    startPreparingDialingActivity(app, aid, safePeerName(peerName));
+    return true;
+  }
+
+  /** CUT-5C — close PREPARING without BIND / without server patch / without abandon event. */
+  public static void finishPreparing(Context context, String attemptId) {
+    if (attemptId == null || attemptId.trim().isEmpty()) return;
+    String aid = attemptId.trim();
+    boolean cleared;
+    synchronized (PREPARING_LOCK) {
+      PreparingState current = preparingState;
+      cleared = current != null && aid.equals(current.attemptId);
+      if (cleared) preparingState = null;
+    }
+    if (!cleared) return;
+    NativeVoiceCallLog.info("outgoing_preparing_finish", aid);
+    NativeCallVisibleSurfaceOwner.release(aid, "preparing_finished");
+    NativeVoiceCallActivity.finishIfPreparing(aid);
+  }
+
+  /** Close any active PREPARING on this lane (cross-lane / legacy handoff). */
+  public static void finishAnyPreparing(Context context) {
+    String aid;
+    synchronized (PREPARING_LOCK) {
+      PreparingState current = preparingState;
+      aid = current != null ? current.attemptId : null;
+    }
+    if (aid != null) finishPreparing(context, aid);
+  }
+
+  /**
+   * CUT-5C — user/system abandoned PREPARING UI. Publish JS event; no server patch.
+   */
+  public static void abandonPreparingFromUi(Context context, String attemptId, String source) {
+    if (attemptId == null || attemptId.trim().isEmpty()) return;
+    String aid = attemptId.trim();
+    boolean cleared;
+    synchronized (PREPARING_LOCK) {
+      PreparingState current = preparingState;
+      cleared = current != null && aid.equals(current.attemptId);
+      if (cleared) preparingState = null;
+    }
+    if (!cleared) return;
+    String src = source != null && !source.trim().isEmpty() ? source.trim() : "ui";
+    NativeVoiceCallLog.info("outgoing_preparing_abandoned", aid, "source=" + src);
+    NativeCallVisibleSurfaceOwner.release(aid, "preparing_abandoned");
+    NativeVoiceCallActivity.finishIfPreparing(aid);
+    com.dibay.app.call.NativeCallServicePlugin.publishNativeOutgoingPreparingAbandoned(aid, src);
+  }
+
+  public static boolean isPreparing(String attemptId) {
+    if (attemptId == null || attemptId.trim().isEmpty()) return false;
+    PreparingState current = preparingState;
+    return current != null && attemptId.trim().equals(current.attemptId);
+  }
+
+  /**
+   * CUT-5C — BIND real session.id onto active PREPARING, then post-session establishment
+   * (FGS + ringback + Agora). Remaps Activity without recreate when already showing.
+   */
+  public static boolean bindOutgoingFromPreparing(
+      Context context,
+      String attemptId,
+      String callId,
+      String roomId,
+      String peerUserId,
+      String peerName,
+      String mediaType) {
+    if (context == null
+        || attemptId == null
+        || attemptId.trim().isEmpty()
+        || callId == null
+        || callId.trim().isEmpty()) {
+      return false;
+    }
+    Context app = context.getApplicationContext();
+    String aid = attemptId.trim();
+    String sid = callId.trim();
+    PreparingState matched;
+    synchronized (PREPARING_LOCK) {
+      PreparingState current = preparingState;
+      if (current == null || !aid.equals(current.attemptId)) {
+        NativeVoiceCallLog.info(
+            "outgoing_preparing_bind_mismatch",
+            sid,
+            "attemptId=" + aid + " active=" + (current != null ? current.attemptId : "none"));
+        return false;
+      }
+      matched = current;
+      preparingState = null;
+    }
+    if (!NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
+      NativeCallVisibleSurfaceOwner.release(aid, "preparing_bind_unsupported_media");
+      NativeVoiceCallActivity.finishIfPreparing(aid);
+      return false;
+    }
+    String boundPeerName =
+        peerName != null && !peerName.trim().isEmpty()
+            ? safePeerName(peerName)
+            : matched.peerName;
+    String boundPeerUserId =
+        peerUserId != null && !peerUserId.trim().isEmpty() ? safe(peerUserId) : matched.peerUserId;
+    String boundRoomId =
+        roomId != null && !roomId.trim().isEmpty() ? safe(roomId) : matched.roomId;
+    NativeVoiceCallLog.info(
+        "outgoing_preparing_bind",
+        sid,
+        "attemptId=" + aid + " roomId=" + boundRoomId);
+    releasePriorLiveSessionsForOutgoing(app, sid);
+    if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_bind")) {
+      NativeCallVisibleSurfaceOwner.release(aid, "preparing_bind_claim_failed");
+      NativeVoiceCallActivity.finishIfPreparing(aid);
+      return false;
+    }
+    NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
+    NativeVoiceCallLog.info("session_created", sid, "roomId=" + boundRoomId);
+    Session session =
+        new Session(sid, boundRoomId, boundPeerUserId, boundPeerName, "voice", true);
+    SESSIONS.put(sid, session);
+    NativeCallVisibleSurfaceOwner.release(aid, "preparing_bound");
+    if (!NativeCallVisibleSurfaceOwner.isClaimed(sid)) {
+      NativeCallVisibleSurfaceOwner.claim(sid, "voice", "dialing");
+    }
+    boolean remapped = NativeVoiceCallActivity.bindToCallId(aid, sid);
+    if (!remapped && !NativeVoiceCallActivity.isShowing(sid)) {
+      // Activity was lost; post-session path will recreate dialing surface.
+      NativeVoiceCallLog.info("outgoing_preparing_bind_activity_missing", sid, "attemptId=" + aid);
+    }
+    startOutgoingEstablishmentAfterSession(app, session);
+    return true;
+  }
+
   /** Outgoing caller path — token fetch and Agora join without WebView establishment. */
   public static void handleOutgoing(
       Context context,
@@ -249,6 +432,9 @@ public final class NativeVoiceCallRuntime {
         "caller_outgoing_start",
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    // Legacy path must not leave a PREPARING surface hanging.
+    finishAnyPreparing(app);
+    NativeVideoCallRuntime.finishAnyPreparing(app);
     releasePriorLiveSessionsForOutgoing(app, sid);
     if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_start")) return;
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
@@ -266,11 +452,48 @@ public final class NativeVoiceCallRuntime {
             "voice",
             true);
     SESSIONS.put(sid, session);
+    startOutgoingEstablishmentAfterSession(app, session);
+  }
+
+  /** Post-session outgoing establish — FGS connecting + ringback + dialing Activity + Agora. */
+  private static void startOutgoingEstablishmentAfterSession(Context app, Session session) {
+    if (app == null || session == null) return;
+    String sid = session.callId;
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVoiceCallService.startConnecting(app, sid);
     NativeOutgoingRingbackOwner.start(app, sid, "voice");
     startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
+  }
+
+  private static void startPreparingDialingActivity(
+      Context context, String attemptId, String peerName) {
+    if (context == null || attemptId == null || attemptId.isEmpty()) return;
+    if (NativeVoiceCallActivity.isShowingPreparing(attemptId)) {
+      NativeVoiceCallLog.info("native_preparing_surface_already_showing", attemptId);
+      return;
+    }
+    if (!NativeCallVisibleSurfaceOwner.isClaimed(attemptId)) {
+      NativeCallVisibleSurfaceOwner.claim(attemptId, "voice", "preparing");
+    }
+    NativeVoiceCallLog.info("native_preparing_surface_start", attemptId);
+    android.content.Intent intent = new android.content.Intent(context, NativeVoiceCallActivity.class);
+    intent.addFlags(
+        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_ATTEMPT_ID, attemptId);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_PREPARING, true);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_PEER_NAME, peerName != null ? peerName : "");
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, attemptId);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_UI_MODE, NativeVoiceCallActivity.UI_MODE_OUTGOING);
+    context.startActivity(intent);
+    NativeVoiceCallLog.info("native_preparing_surface_shown", attemptId);
+  }
+
+  private static String safePeerName(String peerName) {
+    if (peerName == null || peerName.trim().isEmpty()) return "DIBAY";
+    return peerName.trim();
   }
 
   private static void promoteCallerToConnectedIfEligible(Context app, Session session) {
@@ -557,6 +780,9 @@ public final class NativeVoiceCallRuntime {
     }
     SESSIONS.clear();
     MISSED_TIMEOUTS.clear();
+    synchronized (PREPARING_LOCK) {
+      preparingState = null;
+    }
     NativeVoiceCallTerminalOnce.clearForTests();
     terminalPatchDispatcherForTests = null;
     skipAgoraLeaveForTests = false;

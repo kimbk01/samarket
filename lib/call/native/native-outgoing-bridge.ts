@@ -47,6 +47,95 @@ export async function isIOSNativeVideoOutgoingShell(): Promise<boolean> {
   return result?.enabled ?? false;
 }
 
+export type NativeOutgoingPreparingInput = {
+  attemptId: string;
+  mediaType: string;
+  peerUserId?: string | null;
+  peerName?: string | null;
+  roomId?: string | null;
+};
+
+export type NativeOutgoingPreparingResult = {
+  ok: boolean;
+};
+
+export type NativeOutgoingBindInput = {
+  attemptId: string;
+  callId: string;
+  roomId: string;
+  mediaType: string;
+  peerUserId?: string | null;
+  peerName?: string | null;
+};
+
+export const NATIVE_OUTGOING_PREPARING_ABANDONED_EVENT = "nativeOutgoingPreparingAbandoned";
+
+export type NativeOutgoingPreparingAbandonedPayload = {
+  attemptId: string;
+  source: string;
+};
+
+/** CUT-5C — show PREPARING Activity without server session.id (Android only). */
+export async function startNativeOutgoingPreparing(
+  input: NativeOutgoingPreparingInput,
+): Promise<NativeOutgoingPreparingResult> {
+  const attemptId = input.attemptId.trim();
+  if (!attemptId) return { ok: false };
+  if (!isAndroidNativeShell()) return { ok: false };
+  const result = await invokeNativeCallServicePlugin<NativeOutgoingPreparingResult>(
+    "startNativeOutgoingPreparing",
+    {
+      attemptId,
+      roomId: input.roomId?.trim() || "",
+      mediaType: input.mediaType.trim() || "voice",
+      peerUserId: input.peerUserId?.trim() || "",
+      peerName: input.peerName?.trim() || "",
+    },
+  );
+  return { ok: result?.ok ?? false };
+}
+
+/** Close PREPARING surface without BIND (create may still be in flight). */
+export async function finishNativeOutgoingPreparing(attemptId: string): Promise<void> {
+  const id = attemptId.trim();
+  if (!id || !isAndroidNativeShell()) return;
+  await invokeNativeCallServicePlugin("finishNativeOutgoingPreparing", { attemptId: id }).catch(
+    () => undefined,
+  );
+}
+
+/**
+ * CUT-5C — BIND real session.id onto existing PREPARING surface, then existing post-session path.
+ * Must only be called when JS attempt is still ACTIVE.
+ */
+export async function bindNativeOutgoingEstablishment(
+  input: NativeOutgoingBindInput,
+): Promise<NativeOutgoingEstablishmentResult> {
+  const attemptId = input.attemptId.trim();
+  const callId = input.callId.trim();
+  if (!attemptId || !callId) {
+    return { ok: false, nativeOwned: false };
+  }
+  if (!isAndroidNativeShell()) {
+    return { ok: false, nativeOwned: false };
+  }
+  const result = await invokeNativeCallServicePlugin<NativeOutgoingEstablishmentResult>(
+    "bindNativeOutgoingEstablishment",
+    {
+      attemptId,
+      callId,
+      roomId: input.roomId.trim(),
+      mediaType: input.mediaType.trim() || "voice",
+      peerUserId: input.peerUserId?.trim() || "",
+      peerName: input.peerName?.trim() || "",
+    },
+  );
+  return {
+    ok: result?.ok ?? false,
+    nativeOwned: result?.nativeOwned ?? false,
+  };
+}
+
 /** O2 — hand off outgoing establishment to Native Runtime (Android + iOS when gated). */
 export async function startNativeOutgoingEstablishment(
   input: NativeOutgoingEstablishmentInput,

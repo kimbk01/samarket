@@ -5,7 +5,13 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(process.cwd());
 
 const METHODS = ["prepareAccept", "startCall", "endCall", "getActiveCallId", "heartbeat"] as const;
-const OUTGOING_METHODS = ["startNativeOutgoingEstablishment", "isNativeEstablishmentOwned"] as const;
+const OUTGOING_METHODS = [
+  "startNativeOutgoingEstablishment",
+  "isNativeEstablishmentOwned",
+  "startNativeOutgoingPreparing",
+  "finishNativeOutgoingPreparing",
+  "bindNativeOutgoingEstablishment",
+] as const;
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
@@ -37,6 +43,8 @@ describe("NativeCallService bridge contract", () => {
     const bridge = read("lib/call/native/native-outgoing-bridge.ts");
     expect(bridge).toContain("startNativeOutgoingEstablishment");
     expect(bridge).toContain("isNativeEstablishmentOwned");
+    expect(bridge).toContain("startNativeOutgoingPreparing");
+    expect(bridge).toContain("bindNativeOutgoingEstablishment");
     expect(bridge).toContain('resolveCapacitorShellPlatform() === "android"');
   });
 

@@ -67,12 +67,28 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import {
+  bindNativeOutgoingEstablishment,
+  finishNativeOutgoingPreparing,
   isAndroidNativeOutgoingShell,
   isIOSNativeOutgoingShell,
   isIOSNativeVideoOutgoingShell,
   isNativeEstablishmentOwned,
+  NATIVE_OUTGOING_PREPARING_ABANDONED_EVENT,
   startNativeOutgoingEstablishment,
+  startNativeOutgoingPreparing,
+  type NativeOutgoingPreparingAbandonedPayload,
 } from "@/lib/call/native/native-outgoing-bridge";
+import { nativeCallServicePlugin } from "@/lib/call/native/native-call-service";
+import {
+  abandonCallV4OutgoingAttempt,
+  bindCallV4OutgoingAttempt,
+  clearCallV4OutgoingAttemptIf,
+  createCallV4OutgoingAttempt,
+  failCallV4OutgoingAttempt,
+  isCallV4OutgoingAttemptAbandoned,
+  isCallV4OutgoingAttemptBindable,
+  readCallV4OutgoingAttempt,
+} from "@/lib/community-messenger/call-v4/call-v4-outgoing-attempt";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -233,6 +249,69 @@ export type CallV4OutgoingLaunchResult =
   | { ok: false; userMessage: string; phoneVerificationRequired?: boolean };
 
 let outgoingCreateInFlight: Promise<CallV4OutgoingLaunchResult> | null = null;
+let preparingAbandonListenerStarted = false;
+
+/**
+ * CUT-5C — Native PREPARING END → mark attempt ABANDONED.
+ * Create fetch MUST keep running; late session.id gets canonical cancel (no BIND).
+ */
+export function ensureCallV4OutgoingPreparingAbandonListener(): void {
+  if (preparingAbandonListenerStarted) return;
+  if (typeof window === "undefined") return;
+  if (!isAndroidNativeOutgoingShell()) return;
+  preparingAbandonListenerStarted = true;
+  void nativeCallServicePlugin
+    .addListener(NATIVE_OUTGOING_PREPARING_ABANDONED_EVENT, (payload) => {
+      const data = payload as NativeOutgoingPreparingAbandonedPayload;
+      const attemptId = String(data?.attemptId ?? "").trim();
+      if (!attemptId) return;
+      const abandoned = abandonCallV4OutgoingAttempt(attemptId);
+      logCallV4("outgoing_preparing_abandoned_from_native", {
+        attemptId,
+        abandoned,
+        source: String(data?.source ?? "native"),
+      });
+      if (abandoned) {
+        useCallV4Store.setState({ canStartNewCall: true });
+      }
+    })
+    .catch(() => {
+      preparingAbandonListenerStarted = false;
+    });
+}
+
+/** Late create after ABANDON — cancel real session.id; never BIND. */
+async function cancelAbandonedOutgoingSession(sessionId: string, attemptId: string): Promise<void> {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  logCallV4("outgoing_abandoned_session_cancel_start", { callId: sid, attemptId });
+  if (!claimCallV4CancelPatchOnce(sid)) {
+    logCallV4("outgoing_abandoned_session_cancel_skip", { callId: sid, reason: "already_claimed" });
+    return;
+  }
+  const patched = await callV4PatchCancel(sid);
+  logCallV4("outgoing_abandoned_session_cancel_done", {
+    callId: sid,
+    attemptId,
+    ok: patched.ok,
+  });
+  if (!patched.ok) {
+    releaseCallV4CancelPatchClaim(sid);
+  }
+}
+
+export function abandonCallV4OutgoingPreparingFromUi(attemptId?: string | null): boolean {
+  const current = readCallV4OutgoingAttempt();
+  const id = (attemptId ?? current?.attemptId ?? "").trim();
+  if (!id) return false;
+  const abandoned = abandonCallV4OutgoingAttempt(id);
+  if (abandoned) {
+    logCallV4("outgoing_preparing_abandoned_from_js", { attemptId: id });
+    void finishNativeOutgoingPreparing(id);
+    useCallV4Store.setState({ canStartNewCall: true });
+  }
+  return abandoned;
+}
 
 function buildOutgoingIdentity(
   session: CommunityMessengerCallSession,
@@ -457,6 +536,18 @@ export async function callV4CreateOutgoing(input: {
   router: { push: (href: string) => void; replace?: (href: string) => void };
 }): Promise<CallV4OutgoingLaunchResult> {
   logCallV4("MARKER_A", { mediaType: input.mediaType });
+  ensureCallV4OutgoingPreparingAbandonListener();
+
+  // Serialize first: ACTIVE double-tap shares flight (even while canStartNewCall=false).
+  // After ABANDON/settle, wait then allow a new create.
+  if (outgoingCreateInFlight) {
+    const existing = readCallV4OutgoingAttempt();
+    if (existing?.state === "ACTIVE") {
+      return outgoingCreateInFlight;
+    }
+    await outgoingCreateInFlight.catch(() => undefined);
+  }
+
   const { canStartNewCall } = readCallV4Capabilities();
   if (!canStartNewCall) {
     logCallV4("outgoing_create_blocked_canStartNewCall", {
@@ -466,9 +557,13 @@ export async function callV4CreateOutgoing(input: {
     return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
   }
 
-  if (outgoingCreateInFlight) {
-    return outgoingCreateInFlight;
-  }
+  const androidNativeShell = isAndroidNativeOutgoingShell();
+  const attempt = createCallV4OutgoingAttempt({
+    mediaType: input.mediaType,
+    roomId: input.roomId,
+    peerUserId: input.peerUserId,
+    peerLabel: input.peerLabel,
+  });
 
   const flight: Promise<CallV4OutgoingLaunchResult> = (async (): Promise<CallV4OutgoingLaunchResult> => {
     useCallV4Store.getState().setPhase("creating");
@@ -476,21 +571,64 @@ export async function callV4CreateOutgoing(input: {
 
     const t0 = Date.now();
     const mono0 = typeof performance !== "undefined" ? performance.now() : t0;
-    logCallCorr("A0", { callId: null, stage: "outgoing_tap", mediaType: input.mediaType });
+    logCallCorr("A0", {
+      callId: null,
+      stage: "outgoing_tap",
+      mediaType: input.mediaType,
+      attemptId: attempt.attemptId,
+    });
+
+    // CUT-5C: PREPARING first paint BEFORE reconcile/create (Android native only).
+    if (androidNativeShell) {
+      logCallV4("outgoing_preparing_handoff_start", {
+        attemptId: attempt.attemptId,
+        mediaType: input.mediaType,
+      });
+      const preparing = await startNativeOutgoingPreparing({
+        attemptId: attempt.attemptId,
+        mediaType: input.mediaType === "video" ? "video" : "voice",
+        roomId: input.roomId,
+        peerUserId: input.peerUserId,
+        peerName: input.peerLabel,
+      });
+      logCallV4("outgoing_preparing_handoff_done", {
+        attemptId: attempt.attemptId,
+        ok: preparing.ok,
+      });
+      if (!preparing.ok) {
+        failCallV4OutgoingAttempt(attempt.attemptId);
+        clearCallV4OutgoingAttemptIf(attempt.attemptId);
+        useCallV4Store.getState().resetToIdle();
+        return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
+      }
+    }
 
     await callV4ReconcileBeforeCreate();
     logCallCorr("LATENCY_RECONCILE", {
       callId: null,
       elapsed_ms: Date.now() - t0,
       mono_elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - mono0,
+      attemptId: attempt.attemptId,
     });
+
+    if (!isCallV4OutgoingAttemptBindable(attempt.attemptId) && isCallV4OutgoingAttemptAbandoned(attempt.attemptId)) {
+      // Abandoned during reconcile — still continue create to recover session.id for cancel.
+      logCallV4("outgoing_create_continues_after_abandon", {
+        attemptId: attempt.attemptId,
+        stage: "post_reconcile",
+      });
+    }
 
     const roomResolved = await callV4ResolveOutgoingRoomId({
       roomId: input.roomId,
       peerUserId: input.peerUserId,
-      signal: input.signal,
+      // Never abort create pipeline on PREPARING cancel — signal unused for create.
+      signal: undefined,
     });
     if (!roomResolved.ok) {
+      failCallV4OutgoingAttempt(attempt.attemptId);
+      void finishNativeOutgoingPreparing(attempt.attemptId);
+      clearCallV4OutgoingAttemptIf(attempt.attemptId);
       useCallV4Store.getState().resetToIdle();
       return { ok: false as const, userMessage: outgoingMissingRoomMessage() };
     }
@@ -498,12 +636,14 @@ export async function callV4CreateOutgoing(input: {
       callId: null,
       roomId: roomResolved.roomId,
       elapsed_ms: Date.now() - t0,
+      attemptId: attempt.attemptId,
     });
 
     logCallV4("outgoing_create_session_attempt", {
       mediaType: input.mediaType,
       roomId: roomResolved.roomId,
       peerUserId: input.peerUserId?.trim() || undefined,
+      attemptId: attempt.attemptId,
     });
     const createStartedAt = Date.now();
     logCallCorr("A1", {
@@ -511,6 +651,7 @@ export async function callV4CreateOutgoing(input: {
       stage: "create_session_request",
       roomId: roomResolved.roomId,
       mediaType: input.mediaType,
+      attemptId: attempt.attemptId,
     });
 
     const created = await callV4CreateSession({
@@ -518,13 +659,40 @@ export async function callV4CreateOutgoing(input: {
       mediaType: input.mediaType,
     });
 
+    // HARD GATE — abandoned late create: never BIND; cancel real session.id.
+    if (!isCallV4OutgoingAttemptBindable(attempt.attemptId)) {
+      const abandoned = isCallV4OutgoingAttemptAbandoned(attempt.attemptId);
+      logCallV4("outgoing_bind_gate_rejected", {
+        attemptId: attempt.attemptId,
+        abandoned,
+        hasSession: Boolean(created.ok && created.session?.id),
+        sessionId: created.session?.id ?? null,
+      });
+      if (created.ok && created.session?.id) {
+        await cancelAbandonedOutgoingSession(created.session.id, attempt.attemptId);
+      }
+      void finishNativeOutgoingPreparing(attempt.attemptId);
+      clearCallV4OutgoingAttemptIf(attempt.attemptId);
+      if (abandoned) {
+        useCallV4Store.getState().resetToIdle();
+        return { ok: false as const, userMessage: "" };
+      }
+      failCallV4OutgoingAttempt(attempt.attemptId);
+      useCallV4Store.getState().resetToIdle();
+      return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
+    }
+
     if (!created.ok || !created.session?.id) {
+      failCallV4OutgoingAttempt(attempt.attemptId);
+      void finishNativeOutgoingPreparing(attempt.attemptId);
+      clearCallV4OutgoingAttemptIf(attempt.attemptId);
       useCallV4Store.getState().resetToIdle();
       const err = String(created.error ?? "").trim();
       logCallV4("outgoing_create_session_failed", {
         mediaType: input.mediaType,
         roomId: roomResolved.roomId,
         error: err || "unknown",
+        attemptId: attempt.attemptId,
       });
       const {
         inferCallInAppNoticeEventFromFailureMessage,
@@ -544,20 +712,33 @@ export async function callV4CreateOutgoing(input: {
       create_wall_ms: createWallMs,
       elapsed_from_tap_ms: Date.now() - t0,
       roomId: roomResolved.roomId,
+      attemptId: attempt.attemptId,
     });
     logCallV4("outgoing_create_session_done", {
       callId: created.session.id,
       mediaType: input.mediaType,
       callKind: created.session.callKind,
       roomId: roomResolved.roomId,
+      attemptId: attempt.attemptId,
     });
+
+    if (!bindCallV4OutgoingAttempt(attempt.attemptId, created.session.id)) {
+      logCallV4("outgoing_bind_attempt_state_race", {
+        attemptId: attempt.attemptId,
+        callId: created.session.id,
+      });
+      await cancelAbandonedOutgoingSession(created.session.id, attempt.attemptId);
+      void finishNativeOutgoingPreparing(attempt.attemptId);
+      clearCallV4OutgoingAttemptIf(attempt.attemptId);
+      useCallV4Store.getState().resetToIdle();
+      return { ok: false as const, userMessage: "" };
+    }
 
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
     useCallV4Store.getState().setIdentity(identity);
     useCallV4Store.getState().setPhase("outgoing_ringing");
     let shouldRouteToWebOutgoingPresentation = true;
 
-    const androidNativeShell = isAndroidNativeOutgoingShell();
     const iosNativeShell = androidNativeShell
       ? false
       : input.mediaType === "video"
@@ -568,11 +749,13 @@ export async function callV4CreateOutgoing(input: {
       iosNativeShell,
       androidNativeShell,
       mediaType: input.mediaType,
+      attemptId: attempt.attemptId,
     });
 
-    if (androidNativeShell || iosNativeShell) {
-      logCallV4("native_outgoing_handoff_start", {
+    if (androidNativeShell) {
+      logCallV4("native_outgoing_bind_start", {
         callId: created.session.id,
+        attemptId: attempt.attemptId,
         mediaType: input.mediaType,
         roomId: roomResolved.roomId,
       });
@@ -580,15 +763,32 @@ export async function callV4CreateOutgoing(input: {
         callId: created.session.id,
         mediaType: input.mediaType,
         roomId: roomResolved.roomId,
+        attemptId: attempt.attemptId,
       });
       const handoffStartedAt = Date.now();
       logCallCorr("A4", {
         callId: created.session.id,
-        stage: "native_handoff_start",
+        stage: "native_bind_start",
         mediaType: input.mediaType,
         elapsed_from_tap_ms: Date.now() - t0,
+        attemptId: attempt.attemptId,
       });
-      const nativeHandoff = await startNativeOutgoingEstablishment({
+      // Re-check gate immediately before native BIND (late abandon race).
+      {
+        const att = readCallV4OutgoingAttempt();
+        const bindOk =
+          att?.attemptId === attempt.attemptId &&
+          (att.state === "BOUND" || att.state === "ACTIVE");
+        if (!bindOk) {
+          await cancelAbandonedOutgoingSession(created.session.id, attempt.attemptId);
+          void finishNativeOutgoingPreparing(attempt.attemptId);
+          clearCallV4OutgoingAttemptIf(attempt.attemptId);
+          useCallV4Store.getState().resetToIdle();
+          return { ok: false as const, userMessage: "" };
+        }
+      }
+      const nativeHandoff = await bindNativeOutgoingEstablishment({
+        attemptId: attempt.attemptId,
         callId: created.session.id,
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
@@ -602,7 +802,56 @@ export async function callV4CreateOutgoing(input: {
           elapsed_from_tap_ms: Date.now() - t0,
           ok: true,
           nativeOwned: true,
+          attemptId: attempt.attemptId,
         });
+        logCallV4("native_outgoing_bind_done", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+          attemptId: attempt.attemptId,
+        });
+        clearCallV4MissedTimer();
+        startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
+        startNativeOutgoingTerminalSync(created.session.id, input.router);
+        shouldRouteToWebOutgoingPresentation = false;
+      } else {
+        logCallV4("native_outgoing_bind_failed", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+          ok: nativeHandoff.ok,
+          nativeOwned: nativeHandoff.nativeOwned,
+          attemptId: attempt.attemptId,
+        });
+        // Fall through to legacy establishment if bind failed with preparing gone.
+        const fallback = await startNativeOutgoingEstablishment({
+          callId: created.session.id,
+          roomId: roomResolved.roomId,
+          mediaType: input.mediaType,
+          peerUserId: input.peerUserId,
+          peerName: input.peerLabel,
+        });
+        if (fallback.ok && fallback.nativeOwned) {
+          clearCallV4MissedTimer();
+          startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
+          startNativeOutgoingTerminalSync(created.session.id, input.router);
+          shouldRouteToWebOutgoingPresentation = false;
+        }
+      }
+    } else if (iosNativeShell) {
+      logCallV4("native_outgoing_handoff_start", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+      });
+      const nativeHandoff = await startNativeOutgoingEstablishment({
+        callId: created.session.id,
+        roomId: roomResolved.roomId,
+        mediaType: input.mediaType,
+        peerUserId: input.peerUserId,
+        peerName: input.peerLabel,
+      });
+      if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallV4("native_outgoing_handoff_done", {
           callId: created.session.id,
           mediaType: input.mediaType,
@@ -613,13 +862,6 @@ export async function callV4CreateOutgoing(input: {
         startNativeOutgoingTerminalSync(created.session.id, input.router);
         shouldRouteToWebOutgoingPresentation = false;
       } else {
-        if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
-          logCallV4("native_establishment_unavailable", {
-            callId: created.session.id,
-            mediaType: input.mediaType,
-            roomId: roomResolved.roomId,
-          });
-        }
         logCallV4("native_outgoing_failed", {
           callId: created.session.id,
           mediaType: input.mediaType,
@@ -646,6 +888,7 @@ export async function callV4CreateOutgoing(input: {
       routedWeb: shouldRouteToWebOutgoingPresentation,
       wall_ms: Date.now(),
       mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+      attemptId: attempt.attemptId,
     });
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
@@ -653,7 +896,9 @@ export async function callV4CreateOutgoing(input: {
 
   outgoingCreateInFlight = flight;
   void flight.finally(() => {
-    outgoingCreateInFlight = null;
+    if (outgoingCreateInFlight === flight) {
+      outgoingCreateInFlight = null;
+    }
   });
 
   return flight;

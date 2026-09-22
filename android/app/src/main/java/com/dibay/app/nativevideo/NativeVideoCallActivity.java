@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
@@ -48,6 +49,10 @@ public class NativeVideoCallActivity extends Activity {
   public static final String EXTRA_UI_MODE = "uiMode";
   public static final String EXTRA_SHOW_DOCK = "showDock";
   public static final String EXTRA_NOTIFICATION_ACCEPT = "notificationAccept";
+  /** CUT-5C — local attempt id while PREPARING (no server session yet). */
+  public static final String EXTRA_ATTEMPT_ID = "attemptId";
+  public static final String EXTRA_PREPARING = "preparing";
+  public static final String EXTRA_PEER_NAME = "peerName";
   public static final String ACTION_NOTIFICATION_ACCEPT = "com.dibay.app.nativevideo.NOTIFICATION_ACCEPT";
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
@@ -76,6 +81,9 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private String callId;
+  private String attemptId;
+  private String preparingPeerName;
+  private boolean preparing;
   private String uiMode = UI_MODE_INCOMING;
   private FrameLayout videoRoot;
   private FrameLayout remoteContainer;
@@ -281,6 +289,50 @@ public class NativeVideoCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  public static boolean isShowingPreparing(String attemptId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    return activity != null
+        && activity.preparing
+        && attemptId != null
+        && attemptId.equals(activity.attemptId);
+  }
+
+  /** CUT-5C — remap PREPARING Activity onto real session callId without recreate. */
+  public static boolean bindToCallId(String attemptId, String callId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || !activity.preparing) return false;
+    if (attemptId == null || callId == null) return false;
+    String aid = attemptId.trim();
+    String sid = callId.trim();
+    if (aid.isEmpty() || sid.isEmpty()) return false;
+    if (!aid.equals(activity.attemptId)) return false;
+    activity.preparing = false;
+    activity.callId = sid;
+    activity.runOnUiThread(
+        () -> {
+          NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(sid);
+          if (session != null) {
+            activity.applyState(session.state);
+          } else {
+            activity.applyState(NativeVideoCallRuntime.State.CONNECTING);
+          }
+        });
+    return true;
+  }
+
+  public static void finishIfPreparing(String attemptId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || attemptId == null) return;
+    String aid = attemptId.trim();
+    if (aid.isEmpty()) return;
+    if (activity.attemptId == null || !aid.equals(activity.attemptId)) return;
+    if (!activity.preparing) return;
+    activity.runOnUiThread(
+        () -> {
+          if (!activity.isFinishing()) activity.finish();
+        });
+  }
+
   /**
    * Wave-1 M3: MainActivity back/home must prefer Native Video Activity minimize
    * ({@link #minimizeConnectedCall}) over MainActivity system PiP.
@@ -318,7 +370,8 @@ public class NativeVideoCallActivity extends Activity {
       return;
     }
     // Wave-1 R4: H1/Voice twin — no session ⇒ no zombie shell (before surface claim).
-    if (NativeVideoCallRuntime.getSession(callId) == null) {
+    // CUT-5C: PREPARING may show before server session exists.
+    if (!preparing && NativeVideoCallRuntime.getSession(callId) == null) {
       NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
       finish();
       return;
@@ -337,6 +390,11 @@ public class NativeVideoCallActivity extends Activity {
     bindActions();
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
     logSurfaceShown();
+    if (preparing) {
+      applyPreparingPresentation();
+      registerNativeVideoBackCallback();
+      return;
+    }
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     if (session == null) {
       NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
@@ -391,6 +449,10 @@ public class NativeVideoCallActivity extends Activity {
     super.onNewIntent(intent);
     setIntent(intent);
     if (!bindIntent(intent)) return;
+    if (preparing) {
+      applyPreparingPresentation();
+      return;
+    }
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     if (session == null) {
       NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
@@ -449,6 +511,11 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void handleNativeVideoBack(String source) {
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVideoCallRuntime.abandonPreparingFromUi(
+          getApplicationContext(), attemptId, "back:" + source);
+      return;
+    }
     if (minimizeConnectedCall(source)) {
       return;
     }
@@ -537,7 +604,12 @@ public class NativeVideoCallActivity extends Activity {
     detachDockView();
     NativeVideoCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
-    endLiveSessionIfSurfaceDestroyed();
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVideoCallRuntime.abandonPreparingFromUi(
+          getApplicationContext(), attemptId, "activity_destroyed");
+    } else {
+      endLiveSessionIfSurfaceDestroyed();
+    }
     super.onDestroy();
   }
 
@@ -558,9 +630,19 @@ public class NativeVideoCallActivity extends Activity {
 
   private boolean bindIntent(Intent intent) {
     String previousCallId = callId;
+    preparing = intent != null && intent.getBooleanExtra(EXTRA_PREPARING, false);
+    attemptId = intent != null ? intent.getStringExtra(EXTRA_ATTEMPT_ID) : null;
+    if (attemptId != null) attemptId = attemptId.trim();
+    preparingPeerName = intent != null ? intent.getStringExtra(EXTRA_PEER_NAME) : null;
     callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : null;
-    if (callId == null || callId.trim().isEmpty()) return false;
-    callId = callId.trim();
+    if (callId != null) callId = callId.trim();
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      if (callId == null || callId.isEmpty()) callId = attemptId;
+      uiMode = UI_MODE_OUTGOING;
+      return true;
+    }
+    preparing = false;
+    if (callId == null || callId.isEmpty()) return false;
     if (previousCallId != null && !previousCallId.equals(callId)) {
       resetLocalPipDragMemory();
       if (localContainer != null) applyLocalPreviewLayout();
@@ -579,9 +661,11 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private boolean claimVisibleSurface() {
-    if (NativeCallVisibleSurfaceOwner.isClaimed(callId)) return true;
-    if (UI_MODE_OUTGOING.equals(uiMode)) {
-      return NativeCallVisibleSurfaceOwner.claim(callId, "video", "dialing");
+    String surfaceKey = preparing && attemptId != null ? attemptId : callId;
+    if (NativeCallVisibleSurfaceOwner.isClaimed(surfaceKey)) return true;
+    if (preparing || UI_MODE_OUTGOING.equals(uiMode)) {
+      return NativeCallVisibleSurfaceOwner.claim(
+          surfaceKey, "video", preparing ? "preparing" : "dialing");
     }
     if (UI_MODE_CONNECTED_RESTORE.equals(uiMode)) {
       return NativeCallVisibleSurfaceOwner.claim(callId, "video", "connected_restore");
@@ -596,6 +680,11 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void logSurfaceShown() {
+    if (preparing) {
+      NativeVideoCallLog.info(
+          "native_preparing_surface_shown", attemptId != null ? attemptId : callId);
+      return;
+    }
     if (UI_MODE_OUTGOING.equals(uiMode)) {
       NativeVideoCallLog.info("native_dialing_surface_shown", callId);
       return;
@@ -852,7 +941,7 @@ public class NativeVideoCallActivity extends Activity {
   private void bindActions() {
     acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVideoCallRuntime.reject(this, callId));
-    endButton.setOnClickListener(v -> NativeVideoCallRuntime.end(this, callId));
+    endButton.setOnClickListener(v -> onEndTapped());
     cameraFlipButton.setOnClickListener(
         v -> {
           NativeVideoCallAgoraEngine.switchCameraFacing();
@@ -868,7 +957,47 @@ public class NativeVideoCallActivity extends Activity {
     micButton.setOnClickListener(v -> onMicTapped());
   }
 
+  private void onEndTapped() {
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVideoCallRuntime.abandonPreparingFromUi(this, attemptId, "end_button");
+      return;
+    }
+    NativeVideoCallRuntime.end(this, callId);
+  }
+
+  private void applyPreparingPresentation() {
+    currentState = NativeVideoCallRuntime.State.CONNECTING;
+    String peer =
+        preparingPeerName != null && !preparingPeerName.trim().isEmpty()
+            ? IncomingCallUiCopy.sanitizeNickname(preparingPeerName.trim())
+            : "DIBAY";
+    if (peer.isEmpty()) peer = "DIBAY";
+    peerNameView.setText(peer);
+    statusView.setText(getString(R.string.dibay_video_call_calling));
+    avatarInitialView.setText(IncomingCallUiCopy.peerInitial(peer));
+    incomingActions.setVisibility(View.GONE);
+    activeActions.setVisibility(View.VISIBLE);
+    if (connectedControls != null) connectedControls.setVisibility(View.GONE);
+    if (videoRoot != null) videoRoot.setVisibility(View.GONE);
+    if (localContainer != null) localContainer.setVisibility(View.GONE);
+    if (statusPanel != null) statusPanel.setVisibility(View.VISIBLE);
+    if (overlayRoot != null) {
+      overlayRoot.setBackgroundResource(R.drawable.bg_dibay_incoming_fullscreen);
+    }
+    peerNameView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_primary, getTheme()));
+    statusView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_muted, getTheme()));
+    stopDurationTimer();
+    connectedAtElapsedMs = 0L;
+    if (durationView != null) durationView.setVisibility(View.GONE);
+    activeActions.bringToFront();
+    activeActions.setTranslationZ(32f);
+  }
+
   private void applyState(NativeVideoCallRuntime.State state) {
+    if (preparing) {
+      applyPreparingPresentation();
+      return;
+    }
     currentState = state;
     if (state != NativeVideoCallRuntime.State.CONNECTED && dockMode) {
       hideDock("state_change");

@@ -24,6 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @CapacitorPlugin(name = "NativeCallService")
 public class NativeCallServicePlugin extends Plugin {
   public static final String EVENT_NATIVE_CALL_CONNECTED = "nativeCallConnected";
+  /** CUT-5C — PREPARING Activity abandoned from Native UI (END/back/destroy). */
+  public static final String EVENT_NATIVE_OUTGOING_PREPARING_ABANDONED =
+      "nativeOutgoingPreparingAbandoned";
 
   private static final Set<String> CONNECTED_EMITTED = ConcurrentHashMap.newKeySet();
   private static volatile NativeCallServicePlugin instance;
@@ -65,6 +68,17 @@ public class NativeCallServicePlugin extends Plugin {
     payload.put("source", "native_connected_bridge");
 
     emitNativeCallConnected(payload);
+  }
+
+  /** CUT-5C — notify JS that PREPARING was abandoned locally (no server session patch). */
+  public static void publishNativeOutgoingPreparingAbandoned(String attemptId, String source) {
+    if (attemptId == null || attemptId.trim().isEmpty()) return;
+    JSObject payload = new JSObject();
+    payload.put("attemptId", attemptId.trim());
+    payload.put("source", source != null && !source.trim().isEmpty() ? source.trim() : "unknown");
+    NativeCallServicePlugin plugin = instance;
+    if (plugin == null) return;
+    plugin.notifyListeners(EVENT_NATIVE_OUTGOING_PREPARING_ABANDONED, payload);
   }
 
   static void emitNativeCallConnected(JSObject payload) {
@@ -297,6 +311,79 @@ public class NativeCallServicePlugin extends Plugin {
       NativeVideoCallApi.startCallerJoinAsync(app, callId, roomId, peerUserId, peerName, mediaType);
       nativeOwned = NativeVideoCallOwner.isNativeOwned(callId);
     }
+    JSObject result = new JSObject();
+    result.put("ok", nativeOwned);
+    result.put("nativeOwned", nativeOwned);
+    call.resolve(result);
+  }
+
+  /** CUT-5C — show PREPARING Activity before server session.id (no ringback/FGS/Agora). */
+  @PluginMethod
+  public void startNativeOutgoingPreparing(PluginCall call) {
+    String attemptId = call.getString("attemptId", "").trim();
+    String roomId = call.getString("roomId", "");
+    String mediaType = call.getString("mediaType", "voice");
+    String peerUserId = call.getString("peerUserId", "");
+    String peerName = call.getString("peerName", "");
+    if (attemptId.isEmpty()) {
+      call.reject("invalid_attempt_id");
+      return;
+    }
+    Context app = getContext().getApplicationContext();
+    boolean ok = false;
+    if (NativeVoiceCallLane.isEnabled(app) && NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
+      ok = NativeVoiceCallRuntime.startPreparing(app, attemptId, peerName, peerUserId, roomId);
+    } else if (NativeVideoCallLane.isEnabled(app) && NativeVideoCallLane.isVideoMediaType(mediaType)) {
+      ok = NativeVideoCallRuntime.startPreparing(app, attemptId, peerName, peerUserId, roomId);
+    }
+    call.resolve(new JSObject().put("ok", ok));
+  }
+
+  /** CUT-5C — close PREPARING without BIND (no server patch, no abandon event). */
+  @PluginMethod
+  public void finishNativeOutgoingPreparing(PluginCall call) {
+    String attemptId = call.getString("attemptId", "").trim();
+    if (attemptId.isEmpty()) {
+      call.reject("invalid_attempt_id");
+      return;
+    }
+    Context app = getContext().getApplicationContext();
+    NativeVoiceCallRuntime.finishPreparing(app, attemptId);
+    NativeVideoCallRuntime.finishPreparing(app, attemptId);
+    call.resolve(new JSObject().put("ok", true));
+  }
+
+  /**
+   * CUT-5C — BIND server session.id onto active PREPARING, then existing post-session path
+   * (FGS connecting + ringback + Agora).
+   */
+  @PluginMethod
+  public void bindNativeOutgoingEstablishment(PluginCall call) {
+    String attemptId = call.getString("attemptId", "").trim();
+    String callId = call.getString("callId", "").trim();
+    String roomId = call.getString("roomId", "");
+    String mediaType = call.getString("mediaType", "voice");
+    String peerUserId = call.getString("peerUserId", "");
+    String peerName = call.getString("peerName", "");
+    if (attemptId.isEmpty() || callId.isEmpty()) {
+      call.reject("invalid_bind_args");
+      return;
+    }
+    Context app = getContext().getApplicationContext();
+    boolean bound = false;
+    if (NativeVoiceCallLane.isEnabled(app) && NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
+      bound =
+          NativeVoiceCallRuntime.bindOutgoingFromPreparing(
+              app, attemptId, callId, roomId, peerUserId, peerName, mediaType);
+    } else if (NativeVideoCallLane.isEnabled(app) && NativeVideoCallLane.isVideoMediaType(mediaType)) {
+      bound =
+          NativeVideoCallRuntime.bindOutgoingFromPreparing(
+              app, attemptId, callId, roomId, peerUserId, peerName, mediaType);
+    }
+    boolean nativeOwned =
+        bound
+            && (NativeVoiceCallOwner.isNativeOwned(callId)
+                || NativeVideoCallOwner.isNativeOwned(callId));
     JSObject result = new JSObject();
     result.put("ok", nativeOwned);
     result.put("nativeOwned", nativeOwned);

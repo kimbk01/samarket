@@ -24,6 +24,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
@@ -36,6 +37,10 @@ public class NativeVoiceCallActivity extends Activity {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_UI_MODE = "uiMode";
   public static final String EXTRA_NOTIFICATION_ACCEPT = "notificationAccept";
+  /** CUT-5C — local attempt id while PREPARING (no server session yet). */
+  public static final String EXTRA_ATTEMPT_ID = "attemptId";
+  public static final String EXTRA_PREPARING = "preparing";
+  public static final String EXTRA_PEER_NAME = "peerName";
   public static final String ACTION_NOTIFICATION_ACCEPT = "com.dibay.app.nativevoice.NOTIFICATION_ACCEPT";
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
@@ -44,6 +49,9 @@ public class NativeVoiceCallActivity extends Activity {
   private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C0;
 
   private String callId;
+  private String attemptId;
+  private String preparingPeerName;
+  private boolean preparing;
   private String uiMode = UI_MODE_INCOMING;
   private OnBackInvokedCallback nativeVoiceBackCallback;
   private boolean nativeVoiceBackCallbackRegistered;
@@ -104,6 +112,53 @@ public class NativeVoiceCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  public static boolean isShowingPreparing(String attemptId) {
+    NativeVoiceCallActivity activity = activeRef.get();
+    return activity != null
+        && activity.preparing
+        && attemptId != null
+        && attemptId.equals(activity.attemptId);
+  }
+
+  /** CUT-5C — remap PREPARING Activity onto real session callId without recreate. */
+  public static boolean bindToCallId(String attemptId, String callId) {
+    NativeVoiceCallActivity activity = activeRef.get();
+    if (activity == null || !activity.preparing) return false;
+    if (attemptId == null || callId == null) return false;
+    String aid = attemptId.trim();
+    String sid = callId.trim();
+    if (aid.isEmpty() || sid.isEmpty()) return false;
+    if (!aid.equals(activity.attemptId)) return false;
+    activity.preparing = false;
+    activity.callId = sid;
+    activity.runOnUiThread(
+        () -> {
+          NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(sid);
+          if (session != null) {
+            activity.applyState(session.state);
+          } else {
+            activity.applyState(NativeVoiceCallRuntime.State.CONNECTING);
+          }
+        });
+    return true;
+  }
+
+  public static void finishIfPreparing(String attemptId) {
+    NativeVoiceCallActivity activity = activeRef.get();
+    if (activity == null || attemptId == null) return;
+    String aid = attemptId.trim();
+    if (aid.isEmpty()) return;
+    if (activity.attemptId == null || !aid.equals(activity.attemptId)) return;
+    if (!activity.preparing) {
+      // Already bound or finishing — only finish if still the preparing surface key.
+      return;
+    }
+    activity.runOnUiThread(
+        () -> {
+          if (!activity.isFinishing()) activity.finish();
+        });
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -120,7 +175,7 @@ public class NativeVoiceCallActivity extends Activity {
       finish();
       return;
     }
-    if (NativeVoiceCallRuntime.getSession(callId) == null) {
+    if (!preparing && NativeVoiceCallRuntime.getSession(callId) == null) {
       NativeVoiceCallLog.info("stale_activity_finish", callId, "reason=no_session");
       finish();
       return;
@@ -140,8 +195,12 @@ public class NativeVoiceCallActivity extends Activity {
     noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
     bindActions();
     logSurfaceShown();
-    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    applyState(session != null ? session.state : defaultStateForMode());
+    if (preparing) {
+      applyPreparingPresentation();
+    } else {
+      NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+      applyState(session != null ? session.state : defaultStateForMode());
+    }
     maybeHandleNotificationAccept(getIntent());
     registerNativeVoiceBackCallback();
   }
@@ -163,6 +222,10 @@ public class NativeVoiceCallActivity extends Activity {
     super.onNewIntent(intent);
     setIntent(intent);
     if (!bindIntent(intent)) return;
+    if (preparing) {
+      applyPreparingPresentation();
+      return;
+    }
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     if (session == null) {
       NativeVoiceCallLog.info("stale_activity_finish", callId, "reason=no_session");
@@ -190,7 +253,12 @@ public class NativeVoiceCallActivity extends Activity {
     // Proven zombie path: OEM/system can finish this separate-task Activity without end().
     // If session is still live after surface destroy, terminate so FGS/audio cannot linger.
     // cleanup() removes session before finishIfActive → getSession null → no double-end.
-    endLiveSessionIfSurfaceDestroyed();
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVoiceCallRuntime.abandonPreparingFromUi(
+          getApplicationContext(), attemptId, "activity_destroyed");
+    } else {
+      endLiveSessionIfSurfaceDestroyed();
+    }
     super.onDestroy();
   }
 
@@ -226,6 +294,11 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   private void handleNativeVoiceBack(String source) {
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVoiceCallRuntime.abandonPreparingFromUi(
+          getApplicationContext(), attemptId, "back:" + source);
+      return;
+    }
     if (minimizeConnectedCall(source)) return;
     if (cancelLiveCallFromBack(source)) return;
     NativeVoiceCallLog.info(
@@ -288,18 +361,30 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   private boolean bindIntent(Intent intent) {
+    preparing = intent != null && intent.getBooleanExtra(EXTRA_PREPARING, false);
+    attemptId = intent != null ? intent.getStringExtra(EXTRA_ATTEMPT_ID) : null;
+    if (attemptId != null) attemptId = attemptId.trim();
+    preparingPeerName = intent != null ? intent.getStringExtra(EXTRA_PEER_NAME) : null;
     callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : null;
-    if (callId == null || callId.trim().isEmpty()) return false;
-    callId = callId.trim();
+    if (callId != null) callId = callId.trim();
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      if (callId == null || callId.isEmpty()) callId = attemptId;
+      uiMode = UI_MODE_OUTGOING;
+      return true;
+    }
+    preparing = false;
+    if (callId == null || callId.isEmpty()) return false;
     String mode = intent != null ? intent.getStringExtra(EXTRA_UI_MODE) : null;
     uiMode = UI_MODE_OUTGOING.equals(mode) ? UI_MODE_OUTGOING : UI_MODE_INCOMING;
     return true;
   }
 
   private boolean claimVisibleSurface() {
-    if (NativeCallVisibleSurfaceOwner.isClaimed(callId)) return true;
-    if (UI_MODE_OUTGOING.equals(uiMode)) {
-      return NativeCallVisibleSurfaceOwner.claim(callId, "voice", "dialing");
+    String surfaceKey = preparing && attemptId != null ? attemptId : callId;
+    if (NativeCallVisibleSurfaceOwner.isClaimed(surfaceKey)) return true;
+    if (preparing || UI_MODE_OUTGOING.equals(uiMode)) {
+      return NativeCallVisibleSurfaceOwner.claim(
+          surfaceKey, "voice", preparing ? "preparing" : "dialing");
     }
     return NativeCallVisibleSurfaceOwner.claim(callId, "voice", "incoming");
   }
@@ -311,6 +396,10 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   private void logSurfaceShown() {
+    if (preparing) {
+      NativeVoiceCallLog.info("native_preparing_surface_shown", attemptId != null ? attemptId : callId);
+      return;
+    }
     if (UI_MODE_OUTGOING.equals(uiMode)) {
       NativeVoiceCallLog.info("native_dialing_surface_shown", callId);
       return;
@@ -420,7 +509,7 @@ public class NativeVoiceCallActivity extends Activity {
   private void bindActions() {
     acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVoiceCallRuntime.reject(this, callId));
-    endButton.setOnClickListener(v -> NativeVoiceCallRuntime.end(this, callId));
+    endButton.setOnClickListener(v -> onEndTapped());
     speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
@@ -445,7 +534,38 @@ public class NativeVoiceCallActivity extends Activity {
         });
   }
 
+  private void onEndTapped() {
+    if (preparing && attemptId != null && !attemptId.isEmpty()) {
+      NativeVoiceCallRuntime.abandonPreparingFromUi(this, attemptId, "end_button");
+      return;
+    }
+    NativeVoiceCallRuntime.end(this, callId);
+  }
+
+  private void applyPreparingPresentation() {
+    currentState = NativeVoiceCallRuntime.State.CONNECTING;
+    String peer =
+        preparingPeerName != null && !preparingPeerName.trim().isEmpty()
+            ? IncomingCallUiCopy.sanitizeNickname(preparingPeerName.trim())
+            : "DIBAY";
+    if (peer.isEmpty()) peer = "DIBAY";
+    peerNameView.setText(peer);
+    statusView.setText(getString(R.string.dibay_voice_call_dialing));
+    avatarInitialView.setText(IncomingCallUiCopy.peerInitial(peer));
+    incomingActions.setVisibility(View.GONE);
+    mediaActions.setVisibility(View.VISIBLE);
+    micChromeEnabled = false;
+    stopDurationTimer();
+    connectedAtElapsedMs = 0L;
+    durationView.setVisibility(View.GONE);
+    updateControlChrome();
+  }
+
   private void applyState(NativeVoiceCallRuntime.State state) {
+    if (preparing) {
+      applyPreparingPresentation();
+      return;
+    }
     currentState = state;
     if (state != NativeVoiceCallRuntime.State.CONNECTED && dockMode) {
       hideDock("state_change");
