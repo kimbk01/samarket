@@ -18,6 +18,36 @@ function isUnreadCandidate(row: FirstUnreadMessageRow): boolean {
 }
 
 /**
+ * Single FAB / unread read-floor rule:
+ * among known representations of the **viewer** last-read cursor, pick the
+ * farthest id already present in the loaded timeline (by message index).
+ *
+ * Same authority (viewer participant last_read) — never invent a peer
+ * `readReceipt` floor, never tip-floor by unread count.
+ * Cursors missing from the loaded window are ignored (not used to widen).
+ */
+export function resolveFabReadFloorMessageId(input: {
+  messages: readonly FirstUnreadMessageRow[];
+  cursors: readonly (string | null | undefined)[];
+}): string | null {
+  const msgs = input.messages;
+  if (msgs.length === 0) return null;
+  let bestIdx = -1;
+  let bestId: string | null = null;
+  for (const raw of input.cursors) {
+    const id = typeof raw === "string" ? raw.trim() : "";
+    if (!id) continue;
+    const idx = msgs.findIndex((m) => m.id === id);
+    if (idx < 0) continue;
+    if (idx > bestIdx) {
+      bestIdx = idx;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+/**
  * @returns first unread message id after lastRead, or null if unresolved
  */
 export function resolveFirstUnreadMessageId(input: {
@@ -44,46 +74,37 @@ export function resolveFirstUnreadMessageId(input: {
  * CUT-4 invariant: already-canonical-read history must never become badge count
  * merely because the viewport moved upward.
  *
+ * - `lastReadMessageId` is the resolved viewer read floor (see
+ *   `resolveFabReadFloorMessageId`). Historical rows at/before that floor are
+ *   never countable.
  * - `afterMessageId` only narrows (max with lastRead); it must not widen past lastRead.
- * - When `canonicalUnreadCount === 0`, the timeline tip is the read floor (client
- *   lastRead can lag behind a completed mark_read while lastVisible=tip masks it
- *   at bottom; scrolling up would otherwise resurrect history as "unread").
- * - When lastRead is set but missing from the loaded window, return 0 — do not
- *   fall back to viewport-only counting (that mixes historical distance into badge).
+ * - When lastRead is missing entirely, return 0 — do not fall back to
+ *   viewport-only counting (that mixes historical distance into badge).
+ * - When lastRead is set but missing from the loaded window, return 0.
  */
 export function countUnreadMessagesBelow(input: {
   messages: readonly FirstUnreadMessageRow[];
   lastReadMessageId: string | null | undefined;
   afterMessageId: string | null | undefined;
-  /** Canonical room/participant unread — when 0, tip is treated as read floor. */
-  canonicalUnreadCount?: number | null;
 }): number {
   const after = typeof input.afterMessageId === "string" ? input.afterMessageId.trim() : "";
   const msgs = input.messages;
   if (msgs.length === 0) return 0;
 
-  const canonRaw = input.canonicalUnreadCount;
-  const canon =
-    canonRaw == null || !Number.isFinite(Number(canonRaw)) ? null : Math.max(0, Math.floor(Number(canonRaw)));
-
-  let lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
-  /** Completed read (canon=0): tip is already read — history scroll must not revive badge. */
-  if (canon === 0) {
-    const tip = String(msgs[msgs.length - 1]?.id ?? "").trim();
-    if (tip) lastRead = tip;
-  }
-
-  const lastReadIdx = lastRead ? msgs.findIndex((m) => m.id === lastRead) : -1;
-  if (lastRead && lastReadIdx < 0) {
+  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
+  if (!lastRead) {
     return 0;
   }
 
-  let start = 0;
+  const lastReadIdx = msgs.findIndex((m) => m.id === lastRead);
+  if (lastReadIdx < 0) {
+    return 0;
+  }
+
+  let start = lastReadIdx + 1;
   if (after) {
     const afterIdx = msgs.findIndex((m) => m.id === after);
     start = Math.max(afterIdx, lastReadIdx) + 1;
-  } else if (lastRead) {
-    start = lastReadIdx + 1;
   }
 
   let n = 0;

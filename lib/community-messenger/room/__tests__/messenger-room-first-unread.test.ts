@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countUnreadMessagesBelow,
   formatUnreadBadgeCount,
+  resolveFabReadFloorMessageId,
   resolveFirstUnreadMessageId,
   resolveJumpToLatestFabAction,
   resolveJumpToLatestFabState,
@@ -88,101 +89,144 @@ describe("messenger-room-first-unread", () => {
         messages: msgs,
         lastReadMessageId: "missing-cursor",
         afterMessageId: "a",
-        canonicalUnreadCount: 0,
+      })
+    ).toBe(0);
+  });
+
+  it("TEST F — missing canonical cursor does not resurrect loaded history", () => {
+    expect(
+      countUnreadMessagesBelow({
+        messages: msgs,
+        lastReadMessageId: null,
+        afterMessageId: "a",
       })
     ).toBe(0);
     expect(
       countUnreadMessagesBelow({
         messages: msgs,
-        lastReadMessageId: "missing-cursor",
-        afterMessageId: "a",
+        lastReadMessageId: "",
+        afterMessageId: null,
       })
     ).toBe(0);
   });
 
-  it("CUT-4 Production S1→S5: history scroll with canon=0 keeps badge 0 (no resurrection)", () => {
-    /** 8 already-read peer rows + tip lastRead (or stale client lastRead masked at bottom). */
+  it("resolveFabReadFloorMessageId picks farthest cursor in window (never regresses)", () => {
+    expect(
+      resolveFabReadFloorMessageId({
+        messages: msgs,
+        cursors: ["a", "c", "missing"],
+      })
+    ).toBe("c");
+    expect(
+      resolveFabReadFloorMessageId({
+        messages: msgs,
+        cursors: ["stale-only", null, ""],
+      })
+    ).toBeNull();
+  });
+
+  it("TEST A — stale client cursor, canon=0: floor stays at tip/current read → badge 0", () => {
     const history = [
       { id: "old-a", isMine: false },
       { id: "old-b", isMine: false },
       ...Array.from({ length: 8 }, (_, i) => ({ id: `seed-${i}`, isMine: false as const })),
       { id: "tip", isMine: false },
     ];
-    /** S1 at bottom: lastVisible=tip; even stale lastRead is masked → 0 */
-    expect(
-      countUnreadMessagesBelow({
-        messages: history,
-        lastReadMessageId: "old-a",
-        afterMessageId: "tip",
-        canonicalUnreadCount: 0,
-      })
-    ).toBe(0);
-    expect(resolveJumpToLatestFabState({ atLatest: true, remainingUnreadCount: 0 })).toEqual({
-      visible: false,
-      badgeCount: 0,
+    const floor = resolveFabReadFloorMessageId({
+      messages: history,
+      cursors: ["old-a" /* stale viewer */, "tip" /* canonical / cache */],
     });
-
-    /** S2/S5 scroll up: lastVisible among history; canon still 0 → tip floor → badge 0 */
+    expect(floor).toBe("tip");
     const remaining = countUnreadMessagesBelow({
       messages: history,
-      lastReadMessageId: "old-a",
+      lastReadMessageId: floor,
       afterMessageId: "old-b",
-      canonicalUnreadCount: 0,
     });
     expect(remaining).toBe(0);
     expect(resolveJumpToLatestFabState({ atLatest: false, remainingUnreadCount: remaining })).toEqual({
       visible: true,
       badgeCount: 0,
     });
-
-    /** S3 pagination grows window — still canon=0 */
-    const paged = [
-      { id: "older-1", isMine: false },
-      { id: "older-2", isMine: false },
-      ...history,
-    ];
-    expect(
-      countUnreadMessagesBelow({
-        messages: paged,
-        lastReadMessageId: "old-a",
-        afterMessageId: "older-1",
-        canonicalUnreadCount: 0,
-      })
-    ).toBe(0);
   });
 
-  it("CUT-4 Production S6: genuine new-below increments badge 1 then 2 (not history+new)", () => {
+  it("TEST B — exact Production S6: stale viewer + canonical floor → badge 1 (not H+U)", () => {
     const base = [
-      { id: "old-a", isMine: false },
-      { id: "old-b", isMine: false },
+      { id: "a0ed1390-stale", isMine: false },
+      { id: "leftover", isMine: false },
       ...Array.from({ length: 8 }, (_, i) => ({ id: `seed-${i}`, isMine: false as const })),
-      { id: "tip-read", isMine: false },
+      { id: "4075dd59-canonical", isMine: false },
     ];
     const withOne = [...base, { id: "new-1", isMine: false }];
+    const floor = resolveFabReadFloorMessageId({
+      messages: withOne,
+      cursors: ["a0ed1390-stale", "4075dd59-canonical"],
+    });
+    expect(floor).toBe("4075dd59-canonical");
+    /** Stale alone would recount history+new */
+    expect(
+      countUnreadMessagesBelow({
+        messages: withOne,
+        lastReadMessageId: "a0ed1390-stale",
+        afterMessageId: "leftover",
+      })
+    ).toBeGreaterThan(1);
     const one = countUnreadMessagesBelow({
       messages: withOne,
-      lastReadMessageId: "tip-read",
-      afterMessageId: "old-b",
-      canonicalUnreadCount: 1,
+      lastReadMessageId: floor,
+      afterMessageId: "leftover",
     });
     expect(one).toBe(1);
     expect(resolveJumpToLatestFabState({ atLatest: false, remainingUnreadCount: one })).toEqual({
       visible: true,
       badgeCount: 1,
     });
-
-    const withTwo = [...withOne, { id: "new-2", isMine: false }];
-    const two = countUnreadMessagesBelow({
-      messages: withTwo,
-      lastReadMessageId: "tip-read",
-      afterMessageId: "old-b",
-      canonicalUnreadCount: 2,
-    });
-    expect(two).toBe(2);
   });
 
-  it("CUT-4: entry unread (canon>0) still counts after lastRead", () => {
-    const entry = [
+  it("TEST C — two genuine new messages with same stale client cursor → badge 2", () => {
+    const base = [
+      { id: "a0ed1390-stale", isMine: false },
+      ...Array.from({ length: 8 }, (_, i) => ({ id: `seed-${i}`, isMine: false as const })),
+      { id: "4075dd59-canonical", isMine: false },
+    ];
+    const withTwo = [...base, { id: "new-1", isMine: false }, { id: "new-2", isMine: false }];
+    const floor = resolveFabReadFloorMessageId({
+      messages: withTwo,
+      cursors: ["a0ed1390-stale", "4075dd59-canonical"],
+    });
+    expect(
+      countUnreadMessagesBelow({
+        messages: withTwo,
+        lastReadMessageId: floor,
+        afterMessageId: "seed-0",
+      })
+    ).toBe(2);
+  });
+
+  it("TEST D — pagination grows window; historical rows never re-enter badge", () => {
+    const tip = { id: "4075dd59-canonical", isMine: false as const };
+    const seeds = Array.from({ length: 8 }, (_, i) => ({ id: `seed-${i}`, isMine: false as const }));
+    const history = [{ id: "a0ed1390-stale", isMine: false as const }, ...seeds, tip];
+    const paged = [
+      { id: "older-1", isMine: false },
+      { id: "older-2", isMine: false },
+      ...history,
+    ];
+    const floor = resolveFabReadFloorMessageId({
+      messages: paged,
+      cursors: ["a0ed1390-stale", "4075dd59-canonical"],
+    });
+    expect(floor).toBe("4075dd59-canonical");
+    expect(
+      countUnreadMessagesBelow({
+        messages: paged,
+        lastReadMessageId: floor,
+        afterMessageId: "older-1",
+      })
+    ).toBe(0);
+  });
+
+  it("TEST E — viewport narrowing counts only unread below lastVisible, never historical read", () => {
+    const rows = [
       { id: "read-tip", isMine: false },
       { id: "u1", isMine: false },
       { id: "u2", isMine: false },
@@ -190,20 +234,25 @@ describe("messenger-room-first-unread", () => {
     ];
     expect(
       countUnreadMessagesBelow({
-        messages: entry,
+        messages: rows,
         lastReadMessageId: "read-tip",
         afterMessageId: "read-tip",
-        canonicalUnreadCount: 3,
       })
     ).toBe(3);
     expect(
       countUnreadMessagesBelow({
-        messages: entry,
+        messages: rows,
         lastReadMessageId: "read-tip",
-        afterMessageId: null,
-        canonicalUnreadCount: 3,
+        afterMessageId: "u1",
       })
-    ).toBe(3);
+    ).toBe(2);
+    expect(
+      countUnreadMessagesBelow({
+        messages: rows,
+        lastReadMessageId: "read-tip",
+        afterMessageId: "u2",
+      })
+    ).toBe(1);
   });
 
   it("formats 99+ badge", () => {

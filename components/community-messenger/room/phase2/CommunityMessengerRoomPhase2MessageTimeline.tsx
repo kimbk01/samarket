@@ -82,6 +82,7 @@ import {
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
 import {
   countUnreadMessagesBelow,
+  resolveFabReadFloorMessageId,
   resolveFirstUnreadMessageId,
   resolveJumpToLatestFabAction,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
@@ -93,6 +94,10 @@ import {
 import { markMessengerRoomTimelineTipEntryConsumed } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { clearMessengerRoomScrollPosition } from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
+  peekHotRoomSnapshot,
+  peekRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import {
   noteCmRoomSubtreeAttach,
   shouldBlockCmRoomStrictEffectReRun,
@@ -960,8 +965,33 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
   ]);
 
-  const lastReadMessageId = vm.snapshot.viewerLastReadMessageId ?? null;
   const roomUnreadCount = vm.snapshot.room.unreadCount ?? 0;
+  /**
+   * CUT-4E: FAB read floor = farthest known **viewer** last-read cursor in the
+   * loaded window. React `viewerLastReadMessageId` can lag mark_read while the
+   * room-snapshot-cache (patched by applyOptimisticRoomRead) already holds the
+   * advanced cursor. Peer `readReceipt` is orthogonal — never used here.
+   */
+  const lastReadMessageId = useMemo(() => {
+    const rid = vm.streamRoomId.trim();
+    const viewerId = String(vm.snapshot.viewerUserId ?? "").trim();
+    const cached =
+      rid && viewerId
+        ? (peekHotRoomSnapshot(rid, viewerId) ?? peekRoomSnapshot(rid, viewerId))
+            ?.viewerLastReadMessageId ?? null
+        : null;
+    return resolveFabReadFloorMessageId({
+      messages: vm.displayRoomMessages,
+      cursors: [vm.snapshot.viewerLastReadMessageId, cached],
+    });
+  }, [
+    vm.displayRoomMessages,
+    vm.snapshot.viewerLastReadMessageId,
+    vm.snapshot.viewerUserId,
+    vm.streamRoomId,
+    /** Re-resolve when unread clears/bumps — cache may have advanced without React cursor. */
+    roomUnreadCount,
+  ]);
   const firstUnreadMessageId = useMemo(
     () =>
       resolveFirstUnreadMessageId({
@@ -1000,10 +1030,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         messages: vm.displayRoomMessages,
         lastReadMessageId,
         afterMessageId: lastVisibleMessageId,
-        /** CUT-4: canon=0 → tip read floor; do not mix history distance into FAB badge. */
-        canonicalUnreadCount: roomUnreadCount,
       }),
-    [lastReadMessageId, lastVisibleMessageId, roomUnreadCount, vm.displayRoomMessages]
+    [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
   );
   const jumpLatestFabAction = useMemo(
     () =>

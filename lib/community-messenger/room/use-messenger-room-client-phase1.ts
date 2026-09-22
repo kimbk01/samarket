@@ -506,18 +506,46 @@ export function useMessengerRoomClientPhase1({
           roomSummary: snapshotRef.current?.room ?? initialServerSnapshot?.room ?? undefined,
         });
       } else if (ev.type === "cm.room.read") {
+        /** Bus already carries viewer last-read from mark_read — apply into React snapshot
+         * so FAB floor does not keep a stale `viewerLastReadMessageId` while unread→0. */
+        const busLastRead =
+          typeof ev.lastReadMessageId === "string" ? ev.lastReadMessageId.trim() : "";
         patchMessengerRoomReadSnapshotRuntime({
           viewerUserId: viewerId,
           roomId: rid,
+          unreadCount: 0,
+          ...(busLastRead ? { viewerLastReadMessageId: busLastRead } : {}),
         });
         setSnapshot((prev) => {
-          if (prev?.room.unreadCount && prev.room.unreadCount > 0) {
+          if (!prev) return prev;
+          if (prev.room.unreadCount && prev.room.unreadCount > 0) {
             captureMessengerRoomEntryUnread({
               roomId: rid,
               unreadCount: prev.room.unreadCount,
             });
           }
-          return prev ? { ...prev, room: { ...prev.room, unreadCount: 0 } } : prev;
+          let viewerLastReadMessageId = prev.viewerLastReadMessageId ?? null;
+          if (busLastRead) {
+            const msgs = prev.messages ?? [];
+            const prevCursor =
+              typeof prev.viewerLastReadMessageId === "string"
+                ? prev.viewerLastReadMessageId.trim()
+                : "";
+            if (!prevCursor) {
+              viewerLastReadMessageId = busLastRead;
+            } else {
+              const prevIdx = msgs.findIndex((m) => m.id === prevCursor);
+              const nextIdx = msgs.findIndex((m) => m.id === busLastRead);
+              if (prevIdx < 0 || nextIdx < 0 || nextIdx > prevIdx) {
+                viewerLastReadMessageId = busLastRead;
+              }
+            }
+          }
+          return {
+            ...prev,
+            room: { ...prev.room, unreadCount: 0 },
+            viewerLastReadMessageId,
+          };
         });
         return;
       } else if (ev.type === "cm.room.summary_patch") {
