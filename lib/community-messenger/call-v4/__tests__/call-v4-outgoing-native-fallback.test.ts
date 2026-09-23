@@ -5,6 +5,9 @@ const bridgeMocks = vi.hoisted(() => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
   isIOSNativeOutgoingShell: vi.fn(async () => false),
   isIOSNativeVideoOutgoingShell: vi.fn(async () => false),
+  startNativeOutgoingPreparing: vi.fn(async () => ({ ok: true })),
+  finishNativeOutgoingPreparing: vi.fn(async () => undefined),
+  bindNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
 }));
 
@@ -36,8 +39,23 @@ vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: bridgeMocks.isAndroidNativeOutgoingShell,
   isIOSNativeOutgoingShell: bridgeMocks.isIOSNativeOutgoingShell,
   isIOSNativeVideoOutgoingShell: bridgeMocks.isIOSNativeVideoOutgoingShell,
+  startNativeOutgoingPreparing: bridgeMocks.startNativeOutgoingPreparing,
+  finishNativeOutgoingPreparing: bridgeMocks.finishNativeOutgoingPreparing,
+  bindNativeOutgoingEstablishment: bridgeMocks.bindNativeOutgoingEstablishment,
   startNativeOutgoingEstablishment: bridgeMocks.startNativeOutgoingEstablishment,
   isNativeEstablishmentOwned: vi.fn(async () => false),
+  NATIVE_OUTGOING_PREPARING_ABANDONED_EVENT: "nativeOutgoingPreparingAbandoned",
+}));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  nativeCallServicePlugin: {
+    addListener: vi.fn(async () => ({ remove: vi.fn() })),
+  },
+}));
+
+vi.mock("@/lib/community-messenger/call-v4/native-outgoing-terminal-sync", () => ({
+  startNativeOutgoingTerminalSync: vi.fn(),
+  stopNativeOutgoingTerminalSync: vi.fn(),
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", async (importOriginal) => {
@@ -59,6 +77,13 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
     bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
     bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(false);
+    bridgeMocks.startNativeOutgoingPreparing.mockReset();
+    bridgeMocks.startNativeOutgoingPreparing.mockResolvedValue({ ok: true });
+    bridgeMocks.finishNativeOutgoingPreparing.mockReset();
+    bridgeMocks.finishNativeOutgoingPreparing.mockResolvedValue(undefined);
+    bridgeMocks.bindNativeOutgoingEstablishment.mockReset();
+    bridgeMocks.bindNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
+    bridgeMocks.startNativeOutgoingEstablishment.mockReset();
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
     apiMocks.reconcile.mockClear();
     apiMocks.resolveRoom.mockClear();
@@ -67,6 +92,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
 
   it("Android native shell: handoff failure still shows Web outgoing presentation screen", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(true);
+    bridgeMocks.bindNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
 
     const replace = vi.fn();
@@ -78,6 +104,8 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(bridgeMocks.startNativeOutgoingPreparing).toHaveBeenCalled();
+    expect(bridgeMocks.bindNativeOutgoingEstablishment).toHaveBeenCalled();
     expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
@@ -85,7 +113,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
 
   it("Android native shell: handoff success does not create Web outgoing presentation screen", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(true);
-    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+    bridgeMocks.bindNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
 
     const replace = vi.fn();
     const result = await callV4CreateOutgoing({
@@ -95,6 +123,8 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(bridgeMocks.startNativeOutgoingPreparing).toHaveBeenCalled();
+    expect(bridgeMocks.bindNativeOutgoingEstablishment).toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
@@ -114,6 +144,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     });
 
     expect(result.ok).toBe(true);
+    expect(bridgeMocks.startNativeOutgoingPreparing).not.toHaveBeenCalled();
     expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
   });

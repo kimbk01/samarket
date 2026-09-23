@@ -477,19 +477,31 @@ describe("call-v4 import isolation", () => {
     const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
     expect(actions).toContain("isAndroidNativeOutgoingShell");
     expect(actions).toContain("isIOSNativeOutgoingShell");
+    expect(actions).toContain("startNativeOutgoingPreparing");
+    expect(actions).toContain("bindNativeOutgoingEstablishment");
+    expect(actions).toContain("outgoing_preparing_handoff_start");
+    expect(actions).toContain("native_outgoing_bind_done");
+    expect(actions).toContain("native_outgoing_bind_failed");
     expect(actions).toContain("native_outgoing_failed");
-    expect(actions).toContain("native_establishment_unavailable");
+    expect(actions).toContain("native_outgoing_handoff_done");
     expect(actions).toContain("startCallV4OutgoingMissedTimer");
     expect(actions).toContain("shouldRouteToWebOutgoingPresentation = false");
     expect(actions).toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
     expect(actions).toContain('useCallV4Store.getState().setPhase("outgoing_ringing")');
-    const nativeBlock = actions.match(/if \(androidNativeShell \|\| iosNativeShell\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
-    expect(nativeBlock).toContain("native_outgoing_failed");
-    expect(nativeBlock).toContain("native_outgoing_handoff_done");
-    expect(nativeBlock).toContain("shouldRouteToWebOutgoingPresentation = false");
-    expect(nativeBlock).not.toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
-    expect(nativeBlock).not.toContain("resetToIdle");
-    expect(nativeBlock).not.toContain("outgoingGenericErrorMessage");
+    // Android PREPARING → BIND path (CUT-5C): success skips Web outgoing presentation.
+    const androidBindBlock =
+      actions.match(/if \(androidNativeShell\) \{[\s\S]*?\} else if \(iosNativeShell\) \{/)?.[0] ?? "";
+    expect(androidBindBlock).toContain("bindNativeOutgoingEstablishment");
+    expect(androidBindBlock).toContain("native_outgoing_bind_done");
+    expect(androidBindBlock).toContain("shouldRouteToWebOutgoingPresentation = false");
+    expect(androidBindBlock).not.toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
+    // iOS still uses establishment handoff (not PREPARING bind).
+    const iosBlock = actions.match(/\} else if \(iosNativeShell\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+    expect(iosBlock).toContain("startNativeOutgoingEstablishment");
+    expect(iosBlock).toContain("native_outgoing_handoff_done");
+    expect(iosBlock).toContain("native_outgoing_failed");
+    expect(iosBlock).toContain("shouldRouteToWebOutgoingPresentation = false");
+    expect(iosBlock).not.toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
   });
 
   it("Track ③ — Android Legacy dead files removed (HARD LOCK)", () => {

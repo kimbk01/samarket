@@ -28,8 +28,19 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
   isIOSNativeOutgoingShell: vi.fn(async () => false),
+  isIOSNativeVideoOutgoingShell: vi.fn(async () => false),
+  startNativeOutgoingPreparing: vi.fn(async () => ({ ok: true })),
+  finishNativeOutgoingPreparing: vi.fn(async () => undefined),
+  bindNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
   isNativeEstablishmentOwned: vi.fn(async () => false),
+  NATIVE_OUTGOING_PREPARING_ABANDONED_EVENT: "nativeOutgoingPreparingAbandoned",
+}));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  nativeCallServicePlugin: {
+    addListener: vi.fn(async () => ({ remove: vi.fn() })),
+  },
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", async (importOriginal) => {
