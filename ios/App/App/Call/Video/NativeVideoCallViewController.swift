@@ -842,6 +842,11 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func reparentRemoteViewToFullscreen() {
     _ = ensureVideoRootForRemoteRender()
     if localIsMain { resetVideoSwapForPip() }
+    if #available(iOS 15.0, *), remoteRenderView == nil,
+       let owned = NativeVideoCallPipOwner.shared.borrowRemoteRenderView()
+    {
+      remoteRenderView = owned
+    }
     if let remoteView = remoteRenderView, remoteView.superview === remoteContainer {
       return
     }
@@ -867,7 +872,33 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     NativeVideoCallPipOwner.shared.setAutomaticPipFromInline(currentState == .connected)
   }
 
-  // MARK: - PipOwner bridge (CUT-6B)
+  // MARK: - PipOwner bridge (CUT-6B / CUT-6F)
+
+  /** CUT-6F — bind PipOwner to this VC and move live remote out of pipContentVC. */
+  func prepareSurfacesForPipRestoreFromOwner() {
+    guard #available(iOS 15.0, *) else { return }
+    configurePipIfNeeded()
+    if remoteRenderView == nil, let owned = NativeVideoCallPipOwner.shared.borrowRemoteRenderView() {
+      remoteRenderView = owned
+    }
+    reparentRemoteViewToFullscreen()
+    applyPipUiMode(false)
+    if currentState == .connected {
+      showConnectedChrome(source: "pip_restore")
+      restoreConnectedFullscreenVideoLayout(reason: "pip_restore")
+    }
+  }
+
+  func remoteContainerForPipOwner() -> UIView { remoteContainer }
+
+  func remoteSurfaceAttachedForPipOwner() -> Bool {
+    remoteRenderView != nil && remoteRenderView?.superview === remoteContainer
+      || remoteContainer.subviews.isEmpty == false
+  }
+
+  func localSurfaceAttachedForPipOwner() -> Bool {
+    localRenderView != nil || localContainer.subviews.isEmpty == false
+  }
 
   func cancelConnectedChromeHideForPipOwner(reason: String) {
     cancelConnectedChromeHide(reason: reason)

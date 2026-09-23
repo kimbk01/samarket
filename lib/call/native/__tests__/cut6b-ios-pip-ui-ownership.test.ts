@@ -89,4 +89,47 @@ describe("CUT-6B iOS PiP UI ownership contracts", () => {
     expect(didStart).toMatch(/releaseFullscreenForPip/);
     expect(didStart).not.toMatch(/fullscreenController/);
   });
+
+  it("CUT-6F: same-session restore does not teardown; completion after restore-ready", () => {
+    const owner = read(pipOwner);
+    const host = read(uiHost);
+    const engine = read(
+      path.join(ROOT, "ios/App/App/Call/Video/NativeVideoCallAgoraEngine.swift")
+    );
+    const view = read(vc);
+
+    const configure = owner.match(
+      /func configureIfNeeded\([\s\S]*?\n  func setAutomaticPipFromInline/
+    )?.[0] ?? "";
+    expect(configure).toMatch(/SAME ACTIVE SESSION/);
+    expect(configure).toMatch(/needsContentSourceRebindAfterPipStop/);
+    expect(configure).toMatch(/rebindContentSource/);
+    // Early same-session path must not call teardownSession (comment may mention the word).
+    const earlyMatch = configure.match(
+      /if pipController != nil, isBound\(to: sid\) \{([\s\S]*?)\n      return\n    \}/
+    );
+    expect(earlyMatch?.[1] ?? "").not.toMatch(/teardownSession\(/);
+
+    expect(owner).toMatch(/func applyRestoreReadyTransaction/);
+    expect(owner).toMatch(/controller_recreated=1/);
+    expect(owner).toMatch(/recreateController: true/);
+
+    const restoreHost = host.match(
+      /static func restoreFullscreenFromPip\([\s\S]*?\n  static func finishIfActive/
+    )?.[0] ?? "";
+    expect(restoreHost).toMatch(/applyRestoreReadyTransaction/);
+    expect(restoreHost).not.toMatch(/DispatchQueue\.main\.async/);
+    expect(restoreHost).toMatch(/forceRestoreFromPip: true/);
+    expect(restoreHost).not.toMatch(/joinChannel/);
+    expect(restoreHost).not.toMatch(/createOutgoing/);
+
+    expect(host).toMatch(/animated: !forceRestoreFromPip/);
+    expect(host).toMatch(/prepareSurfacesForPipRestoreFromOwner/);
+    expect(host).toMatch(/noteLocalPreviewSurfaceReleased/);
+
+    expect(engine).toMatch(/func noteLocalPreviewSurfaceReleased/);
+    expect(engine).toMatch(/func attachLocalPreviewNowIfNeeded/);
+    expect(view).toMatch(/func prepareSurfacesForPipRestoreFromOwner/);
+    expect(view).toMatch(/borrowRemoteRenderView/);
+  });
 });

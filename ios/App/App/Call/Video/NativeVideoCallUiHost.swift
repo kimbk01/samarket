@@ -93,7 +93,9 @@ enum NativeVideoCallUiHost {
     activeController = controller
     sync.unlock()
     controller.modalPresentationStyle = .fullScreen
-    presenter.present(controller, animated: true)
+    // CUT-6F: PiP restore must bind PipOwner + surfaces before Apple restore completion.
+    // Non-animated present keeps load/configure on the same main turn (no delay hack).
+    presenter.present(controller, animated: !forceRestoreFromPip)
     if session.initiator {
       NativeVideoCallLog.info("outgoing_activity_shown", callId: callId)
       NativeVideoCallLog.corr("LATENCY_UI", callId: callId, details: "stage=outgoing_activity_shown")
@@ -105,6 +107,10 @@ enum NativeVideoCallUiHost {
     }
     if forceRestoreFromPip {
       NativeVideoCallLog.info("native_video_ui_restored_from_pip", callId: callId)
+      controller.loadViewIfNeeded()
+      if #available(iOS 15.0, *) {
+        controller.prepareSurfacesForPipRestoreFromOwner()
+      }
     }
     attachVideoSurfacesIfNeeded(callId: callId)
   }
@@ -198,6 +204,8 @@ enum NativeVideoCallUiHost {
       // Explicit semantic: RELEASE_FULLSCREEN_FOR_PIP ≠ END_CALL.
       // Do not stopPip / finishIfActive / terminal here.
       controller.dismiss(animated: false)
+      // Local UIView left with dismissed VC — latch must clear so restore can rebind canvas.
+      NativeVideoCallAgoraEngine.shared.noteLocalPreviewSurfaceReleased(callId: sid)
       NativeVideoCallLog.info(
         "release_fullscreen_for_pip_dismissed",
         callId: sid,
@@ -234,20 +242,23 @@ enum NativeVideoCallUiHost {
       case .ringing, .accepting, .connecting, .connected:
         break
       }
-      if isShowing(callId: sid) {
-        completion(true)
-        return
+      if !isShowing(callId: sid) {
+        ensureIncomingPresented(
+          callId: sid,
+          session: session,
+          bypassLockCheck: true,
+          forceRestoreFromPip: true
+        )
+      } else if #available(iOS 15.0, *) {
+        controller(for: sid)?.prepareSurfacesForPipRestoreFromOwner()
+        attachVideoSurfacesIfNeeded(callId: sid)
       }
-      ensureIncomingPresented(
-        callId: sid,
-        session: session,
-        bypassLockCheck: true,
-        forceRestoreFromPip: true
-      )
-      // Allow presentation + surface attach to land before completing Apple restore handler.
-      DispatchQueue.main.async {
-        completion(isShowing(callId: sid))
+      // CUT-6F: Apple restore completion only after PipOwner restore-ready (no next-runloop delay).
+      var ready = isShowing(callId: sid)
+      if #available(iOS 15.0, *), ready {
+        ready = NativeVideoCallPipOwner.shared.applyRestoreReadyTransaction(callId: sid)
       }
+      completion(ready)
     }
   }
 

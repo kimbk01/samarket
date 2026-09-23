@@ -9,6 +9,10 @@ import UIKit
  *
  * This owner keeps PiP + remote media path alive across RELEASE_FULLSCREEN_FOR_PIP.
  * Call session authority remains NativeVideoCallRuntime (unchanged).
+ *
+ * CUT-6F — same-session restore must reach RESTORE_READY before Apple completion:
+ * fullscreen VC bound, remote on fullscreen, local attached, ContentSource rearmed for next PiP
+ * (rebind deferred until PiP stop when still active). No teardownSession on same-session restore.
  */
 @available(iOS 15.0, *)
 final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDelegate {
@@ -34,6 +38,8 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
   private var pipFrameBridge: NativeVideoCallPipFrameBridge?
   private weak var fullscreenController: NativeVideoCallViewController?
   private var restoreCompletion: ((Bool) -> Void)?
+  /// Same-session restore: ContentSource still points at dismissed VC#1 source until PiP stops.
+  private var needsContentSourceRebindAfterPipStop = false
 
   var isPictureInPictureActive: Bool {
     pipController?.isPictureInPictureActive == true
@@ -60,9 +66,22 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
 
     if pipController != nil, isBound(to: sid) {
-      // Refresh weak fullscreen pointer for willStart reparent (same call, same owner).
+      // SAME ACTIVE SESSION — do not teardownSession (preserves Runtime/Agora/PiP owner).
+      let sourceChanged = sourceAnchorView !== sourceView
       fullscreenController = fullscreen
       sourceAnchorView = sourceView
+      if sourceChanged {
+        if pipController?.isPictureInPictureActive == true {
+          needsContentSourceRebindAfterPipStop = true
+          NativeVideoCallLog.info(
+            "native_video_pip_content_source_rebind_deferred",
+            callId: sid,
+            details: "reason=pip_still_active"
+          )
+        } else {
+          rebindContentSource(sourceView: sourceView, callId: sid)
+        }
+      }
       return
     }
 
@@ -76,17 +95,10 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     let pipVC = AVPictureInPictureVideoCallViewController()
     pipVC.preferredContentSize = CGSize(width: 9, height: 16)
     pipContentViewController = pipVC
-    let source = AVPictureInPictureController.ContentSource(
-      activeVideoCallSourceView: sourceView,
-      contentViewController: pipVC
-    )
-    contentSource = source
-    let controller = AVPictureInPictureController(contentSource: source)
-    controller.canStartPictureInPictureAutomaticallyFromInline = true
-    controller.delegate = self
-    pipController = controller
+    installContentSource(sourceView: sourceView, pipVC: pipVC, callId: sid, recreateController: true)
     uiPresentationState = .fullscreen
     fullscreenReleasedForPip = false
+    needsContentSourceRebindAfterPipStop = false
     NativeVideoCallLog.info("native_video_pip_owner_configured", callId: sid)
   }
 
@@ -129,6 +141,11 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     remoteRenderView = view
   }
 
+  /** Live remote UIView owned while fullscreen VC was released for PiP. */
+  func borrowRemoteRenderView() -> UIView? {
+    remoteRenderView
+  }
+
   func attachRemoteViewToPipContent(_ view: UIView) {
     guard let pipVC = pipContentViewController else { return }
     remoteRenderView = view
@@ -159,6 +176,56 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
       callId: boundCallId ?? "unknown",
       details: "reason=\(reason)"
     )
+  }
+
+  /**
+   * CUT-6F — RESTORE_READY transaction (same session / same Runtime / same Agora).
+   * Requires fullscreenController already bound by configureIfNeeded / prepareSurfaces.
+   */
+  @discardableResult
+  func applyRestoreReadyTransaction(callId: String) -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard isBound(to: sid) else {
+      NativeVideoCallLog.warn(
+        "native_video_pip_restore_not_ready",
+        callId: sid,
+        details: "reason=not_bound"
+      )
+      return false
+    }
+    guard let vc = fullscreenController else {
+      NativeVideoCallLog.warn(
+        "native_video_pip_restore_not_ready",
+        callId: sid,
+        details: "reason=no_fullscreen_controller"
+      )
+      return false
+    }
+
+    vc.prepareSurfacesForPipRestoreFromOwner()
+    NativeVideoCallAgoraEngine.shared.attachLocalPreviewNowIfNeeded(callId: sid)
+
+    let remoteOk = vc.remoteSurfaceAttachedForPipOwner()
+    let localOk = vc.localSurfaceAttachedForPipOwner()
+    if !remoteOk || !localOk {
+      NativeVideoCallLog.warn(
+        "native_video_pip_restore_not_ready",
+        callId: sid,
+        details: "reason=surfaces remote=\(remoteOk ? 1 : 0) local=\(localOk ? 1 : 0)"
+      )
+      return false
+    }
+
+    // ContentSource still active for current PiP stop — rebind after didStop.
+    needsContentSourceRebindAfterPipStop = true
+    fullscreenReleasedForPip = false
+    uiPresentationState = .fullscreenRestored
+    NativeVideoCallLog.info(
+      "native_video_pip_restore",
+      callId: sid,
+      details: "remote=1 local=1 content_source_rebind=deferred"
+    )
+    return true
   }
 
   /// Terminal / END_CALL path — stops PiP and drops all strong refs.
@@ -218,6 +285,12 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
       if vc.currentRuntimeStateForPipOwner == .connected {
         vc.showConnectedChromeForPipOwner(source: "pip_exit")
       }
+      if needsContentSourceRebindAfterPipStop {
+        needsContentSourceRebindAfterPipStop = false
+        sourceAnchorView = vc.remoteContainerForPipOwner()
+        rebindContentSource(sourceView: vc.remoteContainerForPipOwner(), callId: sid)
+        setAutomaticPipFromInline(vc.currentRuntimeStateForPipOwner == .connected)
+      }
     }
     ScreenAwakeBridge.shared.notifyPresentationChanged(callId: sid, presentation: "fullscreen")
     DibayCallPipPlugin.publishPipModeChanged(inPipMode: false, callId: sid)
@@ -245,18 +318,8 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
         completionHandler(false)
         return
       }
-      if ok {
-        self.fullscreenReleasedForPip = false
-        self.uiPresentationState = .fullscreenRestored
-        if let vc = self.fullscreenController {
-          vc.reparentRemoteViewToFullscreenForPipOwner()
-          vc.applyPipUiMode(false)
-          if vc.currentRuntimeStateForPipOwner == .connected {
-            vc.showConnectedChromeForPipOwner(source: "pip_restore")
-          }
-        }
-        NativeVideoCallLog.info("native_video_pip_restore", callId: sid)
-      }
+      // Surfaces + fullscreenController bind happen inside restoreFullscreenFromPip /
+      // applyRestoreReadyTransaction — do not complete Apple handler early.
       let pending = self.restoreCompletion
       self.restoreCompletion = nil
       pending?(ok)
@@ -280,6 +343,44 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
 
   // MARK: - Private
 
+  private func rebindContentSource(sourceView: UIView, callId: String) {
+    guard let pipVC = pipContentViewController else { return }
+    sourceAnchorView = sourceView
+    // After PiP didStop, assigning contentSource alone can leave automatic-from-inline inert.
+    // Recreate the controller against the same pipVC + new fullscreen source view (same session).
+    installContentSource(sourceView: sourceView, pipVC: pipVC, callId: callId, recreateController: true)
+    NativeVideoCallLog.info(
+      "native_video_pip_content_source_rebound",
+      callId: callId,
+      details: "same_session=1 controller_recreated=1"
+    )
+  }
+
+  private func installContentSource(
+    sourceView: UIView,
+    pipVC: AVPictureInPictureVideoCallViewController,
+    callId: String,
+    recreateController: Bool
+  ) {
+    let source = AVPictureInPictureController.ContentSource(
+      activeVideoCallSourceView: sourceView,
+      contentViewController: pipVC
+    )
+    contentSource = source
+    if recreateController || pipController == nil {
+      pipController?.delegate = nil
+      let controller = AVPictureInPictureController(contentSource: source)
+      controller.canStartPictureInPictureAutomaticallyFromInline = true
+      controller.delegate = self
+      pipController = controller
+    } else {
+      pipController?.contentSource = source
+      pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+      pipController?.delegate = self
+    }
+    _ = callId
+  }
+
   private func teardownSession(reason: String, stopPip: Bool) {
     let sid = boundCallId
     if stopPip, pipController?.isPictureInPictureActive == true {
@@ -297,6 +398,7 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     uiPresentationState = .fullscreen
     fullscreenController = nil
     restoreCompletion = nil
+    needsContentSourceRebindAfterPipStop = false
     if let sid {
       NativeVideoCallLog.info("native_video_pip_owner_teardown", callId: sid, details: "reason=\(reason)")
     }

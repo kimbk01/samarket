@@ -191,6 +191,29 @@ final class NativeVideoCallAgoraEngine: NSObject {
     }
   }
 
+  /**
+   * CUT-6F — fullscreen VC dismissed for PiP released the UIView, but Agora lane stays joined.
+   * Clear the UI-attach latch so restore can setupLocalVideo onto the new VC without leave/join.
+   */
+  func noteLocalPreviewSurfaceReleased(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    lock.lock()
+    if activeCallId == sid {
+      localPreviewAttached = false
+    }
+    lock.unlock()
+  }
+
+  /** Main-thread restore path — no extra async hop (CUT-6F restore-ready). */
+  func attachLocalPreviewNowIfNeeded(callId: String) {
+    guard Thread.isMainThread else {
+      attachLocalPreviewIfUiReady(callId: callId)
+      return
+    }
+    attachLocalPreviewOnMain(callId: callId)
+  }
+
   func reattachRemoteVideo(callId: String) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
