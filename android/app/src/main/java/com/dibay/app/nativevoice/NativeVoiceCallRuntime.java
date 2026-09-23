@@ -764,6 +764,14 @@ public final class NativeVoiceCallRuntime {
     if (session != null) setState(app, session, State.ENDING);
     DibayCallConsumedStore.mark(app, sid, action);
     NativeVoiceCallActivity.finishIfActive(sid, action);
+    // Release Agora at terminal intent so remote observes USER_OFFLINE promptly.
+    if (!skipAgoraLeaveForTests) {
+      try {
+        NativeVoiceCallAgoraEngine.leave(sid, "ending_media_release");
+      } catch (RuntimeException ignored) {
+        // Cleanup callback still runs leave again.
+      }
+    }
     cancelMissed(sid);
     NativeVoiceCallApi.PatchCallback done =
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");

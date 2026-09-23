@@ -518,6 +518,11 @@ public final class NativeVideoCallRuntime {
                 }
 
                 @Override
+                public void onRemotePeerLeft(String reason) {
+                  onRemoteTerminal(app, sid, "ended", reason);
+                }
+
+                @Override
                 public void onError(String reason) {
                   fail(app, sid, "agora " + safe(reason));
                 }
@@ -580,6 +585,11 @@ public final class NativeVideoCallRuntime {
                 @Override
                 public void onDisconnected(String reason) {
                   NativeVideoCallLog.info("agora_native_disconnected", sid, "reason=" + safe(reason));
+                }
+
+                @Override
+                public void onRemotePeerLeft(String reason) {
+                  onRemoteTerminal(app, sid, "ended", reason);
                 }
 
                 @Override
@@ -730,6 +740,15 @@ public final class NativeVideoCallRuntime {
     DibayCallConsumedStore.mark(app, sid, action);
     // END UX: dismiss surface immediately; PATCH + cleanup continue on Runtime (survives Activity).
     NativeVideoCallActivity.finishIfActive(sid, action);
+    // Release Agora at terminal intent so remote peer observes USER_OFFLINE promptly.
+    // SESSIONS.remove still waits for PATCH → cleanup (locked lifecycle invariant).
+    if (!skipAgoraLeaveForTests) {
+      try {
+        NativeVideoCallAgoraEngine.leave("ending_media_release");
+      } catch (RuntimeException ignored) {
+        // Cleanup callback still runs leave again.
+      }
+    }
     cancelMissed(sid);
     NativeVideoCallApi.PatchCallback done =
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");

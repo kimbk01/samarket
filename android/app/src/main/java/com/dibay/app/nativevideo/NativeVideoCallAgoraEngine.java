@@ -25,6 +25,9 @@ public final class NativeVideoCallAgoraEngine {
 
     void onDisconnected(String reason);
 
+    /** Remote peer left the channel (USER_OFFLINE_QUIT). Not network drop. */
+    void onRemotePeerLeft(String reason);
+
     void onError(String reason);
   }
 
@@ -65,6 +68,7 @@ public final class NativeVideoCallAgoraEngine {
   private static NetworkQualityObserver networkQualityObserver;
   private static Context renderContext;
   private static boolean callerJoinActive;
+  private static int remoteUid;
   private static volatile boolean remoteVideoRendered;
   private static volatile String reattachInFlightCallId;
   private static volatile String localReattachInFlightCallId;
@@ -106,6 +110,7 @@ public final class NativeVideoCallAgoraEngine {
       activeCallId = sid;
       renderContext = context.getApplicationContext();
       callerJoinActive = caller;
+      remoteUid = 0;
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
@@ -462,6 +467,7 @@ public final class NativeVideoCallAgoraEngine {
       activeCallId = null;
       renderContext = null;
       callerJoinActive = false;
+      remoteUid = 0;
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
@@ -736,6 +742,7 @@ public final class NativeVideoCallAgoraEngine {
             currentListener = listener;
             sid = activeCallId;
             callerJoin = callerJoinActive;
+            if (uid != 0) remoteUid = uid;
           }
           if (sid == null || uid == 0) return;
           NativeVideoCallLog.info("remote_user_joined", sid, "uid=" + uid);
@@ -744,6 +751,26 @@ public final class NativeVideoCallAgoraEngine {
           }
           scheduleRemoteVideoSetup(uid, sid);
           if (callerJoin && currentListener != null) currentListener.onConnected();
+        }
+
+        @Override
+        public void onUserOffline(int uid, int reason) {
+          Listener currentListener;
+          String sid;
+          int expectedUid;
+          synchronized (LOCK) {
+            currentListener = listener;
+            sid = activeCallId;
+            expectedUid = remoteUid;
+          }
+          if (sid == null || uid == 0 || (expectedUid != 0 && uid != expectedUid)) return;
+          if (reason == Constants.USER_OFFLINE_QUIT) {
+            NativeVideoCallLog.info("agora_remote_user_offline_quit", sid, "uid=" + uid);
+            if (currentListener != null) currentListener.onRemotePeerLeft("agora_user_offline_quit");
+            return;
+          }
+          NativeVideoCallLog.info(
+              "agora_remote_user_offline_ignored", sid, "uid=" + uid + " reason=" + reason);
         }
 
         @Override

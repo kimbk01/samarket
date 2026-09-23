@@ -77,6 +77,16 @@ public class NativeVideoCallTerminalCleanupTest {
   }
 
   @Test
+  public void remotePeerLeft_convergesCleanup_likeRemoteTerminal() {
+    String callId = "video-agora-peer-left";
+    putConnected(callId);
+
+    NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "agora_user_offline_quit");
+
+    assertNull(NativeVideoCallRuntime.getSession(callId));
+  }
+
+  @Test
   public void activeConnected_isNotReclaimedByPrepareJoin() {
     String live = "video-live-active";
     putConnected(live);
