@@ -205,6 +205,15 @@ describe("owner admin scroll shell contract", () => {
     expect(src).not.toContain("/my/business/store-order-chat/");
   });
 
+  it("owner layout skips StoresOwnerLayoutClient for order-chat ensure (cold soft-nav #310)", () => {
+    const layout = readRepo("app/(main)/stores/owner/layout.tsx");
+    expect(layout).toContain('ownerPath.startsWith("/stores/owner/order-chat")');
+    expect(layout).toMatch(/isOrderChatEnsure[\s\S]*return <>\s*\{children\}\s*<\/>/);
+    const client = readRepo("app/(main)/stores/owner/StoresOwnerLayoutClient.tsx");
+    expect(client).toContain('pathname.startsWith("/stores/owner/order-chat")');
+    expect(client).toMatch(/isOrderChatEnsure[\s\S]*return <>\s*\{children\}\s*<\/>/);
+  });
+
   it("owner compact shell main offset includes fixed header border (SSOT)", () => {
     const css = readRepo("app/owner-compact-shell.css");
     expect(css).toContain("--owner-shell-header-border: 1px");

@@ -21,6 +21,17 @@ import { StoresOwnerLayoutClient } from "./StoresOwnerLayoutClient";
 export default async function StoresOwnerLayout({ children }: { children: React.ReactNode }) {
   const h = await headers();
   const ownerPath = h.get("x-sam-owner-path") ?? "";
+  /**
+   * Server-only ensure → `redirect` to messenger room.
+   * Must NOT mount StoresOwnerLayoutClient / admin shell — Cap soft-nav into this path
+   * hit React #310 while URL stayed on ensure (FIRST DIVERGENCE: layout client on soft entry).
+   * @see .tmp/messenger-page-nav-ssot/owner-ensure-cold/ROOT_CAUSE.md
+   */
+  const isOrderChatEnsure = ownerPath.startsWith("/stores/owner/order-chat");
+  if (isOrderChatEnsure) {
+    return <>{children}</>;
+  }
+
   const skipServerStores = ownerPath.startsWith("/stores/owner/apply");
 
   let seedStores: import("@/lib/stores/db-store-mapper").StoreRow[] | null = null;

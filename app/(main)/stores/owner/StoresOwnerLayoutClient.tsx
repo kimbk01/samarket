@@ -30,9 +30,9 @@ export function StoresOwnerLayoutClient({
   const isApply = pathname.startsWith("/stores/owner/apply");
   const isHub = pathname === "/stores/owner";
   /**
-   * Server-only ensure → `redirect` to messenger room.
-   * Do not mount Guard/Shell/Runtime — Cap soft-nav hit React #310
-   * ("Rendered more hooks than during the previous render") inside BusinessAdminShell.
+   * Soft-nav within `/stores/owner/*` reuses this client layout instance.
+   * Server layout skip only applies when the layout RSC is re-fetched (cold / outside → ensure).
+   * When pathname becomes order-chat, do not keep Guard/Shell/Runtime mounted.
    */
   const isOrderChatEnsure = pathname.startsWith("/stores/owner/order-chat");
 
