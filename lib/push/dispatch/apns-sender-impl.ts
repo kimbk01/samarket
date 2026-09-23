@@ -1,6 +1,10 @@
 import http2 from "node:http2";
 import crypto from "node:crypto";
 import type { SendPushResult } from "@/lib/push/dispatch/push-payload-types";
+import {
+  runApnsHttp2WithBoundedTransportRetry,
+  type ApnsPostOnceResult,
+} from "@/lib/push/dispatch/apns-http2-transport";
 
 function base64Url(input: Buffer | string): string {
   const buf = typeof input === "string" ? Buffer.from(input) : input;
@@ -28,52 +32,139 @@ function apnsTopic(): string | null {
   return process.env.APNS_BUNDLE_ID?.trim() || process.env.APNS_VOIP_TOPIC?.trim() || null;
 }
 
-async function apnsPost(path: string, body: unknown, topic: string): Promise<SendPushResult> {
+type ApnsHttp2RequestInput = {
+  path: string;
+  body: unknown;
+  topic: string;
+  pushType: "alert" | "voip";
+  channel: "alert" | "voip";
+  /** Extra provider_response fields merged on success/fail after transport wrap. */
+  successExtras?: Record<string, unknown>;
+};
+
+/**
+ * One HTTP/2 POST on a fresh APNs connection.
+ * Never reuses a session that may already be GOAWAY/closed.
+ */
+function apnsHttp2PostOnce(input: ApnsHttp2RequestInput): Promise<ApnsPostOnceResult> {
   const token = apnsJwt();
   if (!token) {
-    return { status: "skipped", provider_response: { reason: "apns_not_configured" } };
+    return Promise.resolve({
+      status: "skipped",
+      responseReceived: false,
+      httpStatus: null,
+      errorMessage: "apns_not_configured",
+      provider_response: { reason: "apns_not_configured" },
+    });
   }
 
-  return await new Promise((resolve) => {
+  return new Promise((resolve) => {
     const client = http2.connect(`https://${apnsHost()}`);
-    const req = client.request({
-      ":method": "POST",
-      ":path": path,
-      authorization: `bearer ${token}`,
-      "apns-topic": topic,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
-      "content-type": "application/json",
-    });
-
+    let settled = false;
+    let responseReceived = false;
     let status = 0;
     let responseBody = "";
-    req.on("response", (headers) => {
-      status = Number(headers[":status"] ?? 0);
+
+    const finish = (result: ApnsPostOnceResult) => {
+      if (settled) return;
+      settled = true;
+      try {
+        client.close();
+      } catch {
+        /* ignore */
+      }
+      resolve(result);
+    };
+
+    client.on("error", (e: NodeJS.ErrnoException) => {
+      finish({
+        status: "failed",
+        responseReceived,
+        httpStatus: responseReceived ? status || null : null,
+        errorMessage: e.message,
+        errorCode: typeof e.code === "string" ? e.code : null,
+        provider_response: { provider: input.channel === "voip" ? "voip_apns" : "apns" },
+      });
+    });
+
+    const headers: http2.OutgoingHttpHeaders = {
+      ":method": "POST",
+      ":path": input.path,
+      authorization: `bearer ${token}`,
+      "apns-topic": input.topic,
+      "apns-push-type": input.pushType,
+      "apns-priority": "10",
+      "content-type": "application/json",
+    };
+    if (input.pushType === "voip") {
+      headers["apns-expiration"] = "0";
+    }
+
+    const req = client.request(headers);
+    req.on("response", (resHeaders) => {
+      responseReceived = true;
+      status = Number(resHeaders[":status"] ?? 0);
     });
     req.setEncoding("utf8");
     req.on("data", (chunk) => {
       responseBody += chunk;
     });
     req.on("end", () => {
-      client.close();
+      if (!responseReceived) {
+        finish({
+          status: "failed",
+          responseReceived: false,
+          httpStatus: null,
+          errorMessage: "apns_stream_ended_without_response",
+          provider_response: { provider: input.channel === "voip" ? "voip_apns" : "apns" },
+        });
+        return;
+      }
       if (status === 200) {
-        resolve({ status: "sent", provider_response: { provider: "apns", http_status: status } });
+        finish({
+          status: "sent",
+          responseReceived: true,
+          httpStatus: 200,
+          provider_response: {
+            provider: input.channel === "voip" ? "voip_apns" : "apns",
+            http_status: 200,
+            ...(input.successExtras ?? {}),
+          },
+        });
         return;
       }
       const badToken = status === 410 || status === 400;
-      resolve({
+      finish({
         status: "failed",
-        error_message: responseBody || `apns_http_${status}`,
-        provider_response: { provider: "apns", http_status: status, bad_device_token: badToken },
+        responseReceived: true,
+        httpStatus: status,
+        errorMessage: responseBody || `apns_http_${status}`,
+        provider_response: {
+          provider: input.channel === "voip" ? "voip_apns" : "apns",
+          http_status: status,
+          bad_device_token: badToken,
+        },
       });
     });
-    req.on("error", (e) => {
-      client.close();
-      resolve({ status: "failed", error_message: e.message, provider_response: { provider: "apns" } });
+    req.on("error", (e: NodeJS.ErrnoException) => {
+      finish({
+        status: "failed",
+        responseReceived,
+        httpStatus: responseReceived ? status || null : null,
+        errorMessage: e.message,
+        errorCode: typeof e.code === "string" ? e.code : null,
+        provider_response: { provider: input.channel === "voip" ? "voip_apns" : "apns" },
+      });
     });
-    req.write(JSON.stringify(body));
+    req.write(JSON.stringify(input.body));
     req.end();
+  });
+}
+
+async function apnsPostWithTransportRetry(input: ApnsHttp2RequestInput): Promise<SendPushResult> {
+  return runApnsHttp2WithBoundedTransportRetry({
+    channel: input.channel,
+    postOnce: async () => apnsHttp2PostOnce(input),
   });
 }
 
@@ -130,11 +221,13 @@ export async function sendApnsAlertImpl(input: {
   const token = input.deviceToken.trim();
   if (!token) return { status: "failed", error_message: "empty_device_token" };
 
-  return apnsPost(
-    `/3/device/${token}`,
-    buildApnsAlertBody(input),
-    topic
-  );
+  return apnsPostWithTransportRetry({
+    path: `/3/device/${token}`,
+    body: buildApnsAlertBody(input),
+    topic,
+    pushType: "alert",
+    channel: "alert",
+  });
 }
 
 export async function sendVoipApnsImpl(input: {
@@ -159,58 +252,12 @@ export async function sendVoipApnsImpl(input: {
 
   const isCancel = callPushKind === "call_canceled";
 
-  return await new Promise((resolve) => {
-    const jwt = apnsJwt();
-    if (!jwt) {
-      resolve({ status: "skipped", provider_response: { reason: "apns_not_configured" } });
-      return;
-    }
-
-    const client = http2.connect(`https://${apnsHost()}`);
-    const req = client.request({
-      ":method": "POST",
-      ":path": `/3/device/${token}`,
-      authorization: `bearer ${jwt}`,
-      "apns-topic": topic,
-      "apns-push-type": "voip",
-      "apns-priority": "10",
-      "apns-expiration": "0",
-      "content-type": "application/json",
-    });
-
-    let status = 0;
-    let responseBody = "";
-    req.on("response", (headers) => {
-      status = Number(headers[":status"] ?? 0);
-    });
-    req.setEncoding("utf8");
-    req.on("data", (chunk) => {
-      responseBody += chunk;
-    });
-    req.on("end", () => {
-      client.close();
-      if (status === 200) {
-        resolve({
-          status: "sent",
-          provider_response: { provider: "voip_apns", kind: isCancel ? "cancel" : "ring", http_status: status },
-        });
-        return;
-      }
-      resolve({
-        status: "failed",
-        error_message: responseBody || `voip_http_${status}`,
-        provider_response: {
-          provider: "voip_apns",
-          http_status: status,
-          bad_device_token: status === 410 || status === 400,
-        },
-      });
-    });
-    req.on("error", (e) => {
-      client.close();
-      resolve({ status: "failed", error_message: e.message, provider_response: { provider: "voip_apns" } });
-    });
-    req.write(JSON.stringify({ ...input.data, call_push_kind: callPushKind }));
-    req.end();
+  return apnsPostWithTransportRetry({
+    path: `/3/device/${token}`,
+    body: { ...input.data, call_push_kind: callPushKind },
+    topic,
+    pushType: "voip",
+    channel: "voip",
+    successExtras: { kind: isCancel ? "cancel" : "ring" },
   });
 }
