@@ -68,6 +68,14 @@ export const TRUSTED_CLIENT_ENDED_REASONS = [
 
 export type TrustedClientEndedReason = (typeof TRUSTED_CLIENT_ENDED_REASONS)[number];
 
+/** Admin force-end wire: `admin_force_end:<reasonCode>` (INFRA_INTERNAL; not caller/callee end). */
+export const ADMIN_FORCE_END_REASON_PREFIX = "admin_force_end:" as const;
+
+export function isAdminForceEndClientReason(value: string | null | undefined): boolean {
+  const v = normalizeIncomingReasonToken(value);
+  return v.startsWith(ADMIN_FORCE_END_REASON_PREFIX) && v.length > ADMIN_FORCE_END_REASON_PREFIX.length;
+}
+
 /** Synonyms / legacy wire → normalized trusted or default wire token. */
 const CLIENT_REASON_ALIASES: Record<string, string> = {
   cancelled: "canceled",
@@ -94,9 +102,10 @@ const CLIENT_REASON_ALIASES: Record<string, string> = {
   ended_by_callee: "ended_by_callee",
 };
 
-export function isTrustedClientEndedReason(value: string | null | undefined): value is TrustedClientEndedReason {
+export function isTrustedClientEndedReason(value: string | null | undefined): boolean {
   const v = normalizeIncomingReasonToken(value);
-  return (TRUSTED_CLIENT_ENDED_REASONS as readonly string[]).includes(v);
+  if ((TRUSTED_CLIENT_ENDED_REASONS as readonly string[]).includes(v)) return true;
+  return isAdminForceEndClientReason(v);
 }
 
 export function isCanonicalTerminalReason(value: string | null | undefined): value is CanonicalTerminalReason {
@@ -240,6 +249,7 @@ export function resolveCanonicalTerminalReason(
   if (status === "missed" || status === "timeout") return "missed_timeout";
 
   if (er === "redial_replaced" || er === "incoming_policy_superseded") return "superseded";
+  if (er.startsWith("admin_force_end:")) return "superseded";
 
   if (er === "ended_by_callee") return "ended_by_callee";
   if (er === "ended_by_caller") return "ended_by_caller";

@@ -271,6 +271,7 @@ import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
 import {
+  isAdminForceEndClientReason,
   isTrustedClientEndedReason,
   resolveTerminalEndedReason,
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
@@ -19099,7 +19100,12 @@ export async function updateCommunityMessengerCallSession(input: {
     if (input.action === "end") {
       const fr = trimText(input.clientEndedReason ?? "");
       const isFailedJoin = isTrustedClientEndedReason(fr) && fr.startsWith("failed_");
-      if (status === "ringing" && messengerUserIdsEqual(initiatorUserId, input.userId) && isFailedJoin) {
+      const isAdminForceEnd = isAdminForceEndClientReason(fr);
+      if (
+        status === "ringing" &&
+        messengerUserIdsEqual(initiatorUserId, input.userId) &&
+        (isFailedJoin || isAdminForceEnd)
+      ) {
         return { nextStatus: "ended", endedAt: nowIso() };
       }
       /**

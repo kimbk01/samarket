@@ -1,6 +1,9 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { createCommunityMessengerCallLog } from "@/lib/community-messenger/service";
+import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import {
+  ADMIN_FORCE_END_REASON_PREFIX,
+} from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 import {
   COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS,
   getCommunityMessengerCallForceEndReasonLabel,
@@ -970,7 +973,7 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
   action: "force_end";
   reasonCode?: CommunityMessengerCallForceEndReasonCode;
   adminNote?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; endedReason?: string }> {
   const now = new Date().toISOString();
   const note = t(input.adminNote);
   const reasonCode = t(input.reasonCode);
@@ -980,6 +983,7 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
   if (!isCommunityMessengerCallForceEndReasonCode(reasonCode)) {
     return { ok: false, error: "reason_code_required" };
   }
+  const endedReason = `${ADMIN_FORCE_END_REASON_PREFIX}${reasonCode}`;
   const { data: sessionData, error: sessionError } = await (sb() as any)
     .from("community_messenger_call_sessions")
     .select("id, room_id, initiator_user_id, recipient_user_id, session_mode, call_kind, status, started_at, answered_at, ended_at, created_at")
@@ -997,15 +1001,26 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
     return { ok: false, error: "already_finished" };
   }
 
-  const { error: updateSessionError } = await (sb() as any)
-    .from("community_messenger_call_sessions")
-    .update({
-      status: "ended",
-      ended_at: now,
-      updated_at: now,
-    })
-    .eq("id", input.sessionId);
-  if (updateSessionError) return { ok: false, error: updateSessionError.message };
+  const initiatorUserId = t(session.initiator_user_id);
+  if (!initiatorUserId) {
+    return { ok: false, error: "session_initiator_missing" };
+  }
+
+  /**
+   * CD-1 — Admin authorizes; canonical writer owns terminal persistence + stub/history.
+   * Actor userId = session initiator (participant) so writer CAS/auth is unchanged.
+   * Do NOT direct-update community_messenger_call_sessions.status here.
+   */
+  const writer = await updateCommunityMessengerCallSession({
+    userId: initiatorUserId,
+    sessionId: session.id,
+    action: "end",
+    clientEndedReason: endedReason,
+  });
+  if (!writer.ok) {
+    return { ok: false, error: writer.error || "writer_failed" };
+  }
+  const writerEndedReason = t(writer.session?.endedReason) || endedReason;
 
   const { error: participantError } = await (sb() as any)
     .from("community_messenger_call_session_participants")
@@ -1016,24 +1031,6 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
     .eq("session_id", input.sessionId)
     .in("participation_status", ["invited", "joined"]);
   if (participantError) return { ok: false, error: participantError.message };
-
-  const { data: existingLog } = await (sb() as any)
-    .from("community_messenger_call_logs")
-    .select("id")
-    .eq("session_id", input.sessionId)
-    .maybeSingle();
-  if (!existingLog) {
-    const logResult = await createCommunityMessengerCallLog({
-      userId: session.initiator_user_id,
-      roomId: session.room_id,
-      sessionId: session.id,
-      peerUserId: (session.session_mode ?? "direct") === "direct" ? session.recipient_user_id : null,
-      callKind: session.call_kind,
-      status: "ended",
-      durationSeconds: 0,
-    });
-    if (!logResult.ok) return logResult;
-  }
 
   if (note) {
     await (sb() as any)
@@ -1069,7 +1066,7 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
     after_json: {
       sessionId: session.id,
       roomId: session.room_id,
-      status: "ended",
+      status: writer.session?.status ?? "ended",
       callKind: session.call_kind,
       sessionMode: session.session_mode ?? "direct",
       participantCount: participants.length,
@@ -1080,10 +1077,12 @@ export async function runAdminCommunityMessengerCallSessionAction(input: {
       reasonCode,
       reasonLabel: getCommunityMessengerCallForceEndReasonLabel(reasonCode),
       adminNote: note || null,
+      endedReason: writerEndedReason,
+      writerOk: true,
       forcedEndedAt: now,
     },
   });
-  return { ok: true };
+  return { ok: true, endedReason: writerEndedReason };
 }
 
 export async function runAdminCommunityMessengerFriendRequestAction(input: {

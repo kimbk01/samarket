@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAdminForceEndClientReason,
   isTrustedClientEndedReason,
   mapStoredToProductEndReason,
   normalizeIncomingReasonToken,
@@ -31,6 +32,32 @@ describe("call-terminal-reason-authority CUT3", () => {
     expect(resolveTerminalEndedReason({ action: "cancel", nextStatus: "cancelled" })).toBe("canceled");
     expect(resolveTerminalEndedReason({ action: "missed", nextStatus: "missed" })).toBe("missed");
     expect(resolveTerminalEndedReason({ action: "end", nextStatus: "ended" })).toBe("ended");
+  });
+
+  it("CD-1: trusts admin_force_end:* wire and folds canonical to superseded", () => {
+    expect(isTrustedClientEndedReason("admin_force_end:policy_violation")).toBe(true);
+    expect(isAdminForceEndClientReason("admin_force_end:policy_violation")).toBe(true);
+    expect(
+      resolveTerminalEndedReason({
+        action: "end",
+        nextStatus: "ended",
+        clientEndedReason: "admin_force_end:policy_violation",
+        actorUserId: "caller",
+        initiatorUserId: "caller",
+        recipientUserId: "callee",
+        answeredAt: "2026-01-01T00:00:00.000Z",
+      }),
+    ).toBe("admin_force_end:policy_violation");
+    expect(
+      resolveCanonicalTerminalReason({
+        status: "ended",
+        endedReason: "admin_force_end:policy_violation",
+        terminalActorUserId: "caller",
+        initiatorUserId: "caller",
+        recipientUserId: "callee",
+        answeredAt: "2026-01-01T00:00:00.000Z",
+      }),
+    ).toBe("superseded");
   });
 
   it("writes ended_by_caller / ended_by_callee when actor + answered known", () => {
