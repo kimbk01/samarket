@@ -2,10 +2,15 @@
  * Notification destination bottom→top enter — same arm/consume contract as
  * `lib/navigation/main-shell-push-session.ts` (path-matched, TTL).
  * Presentation only. Does not change route authority or badge writers.
+ *
+ * PAGE NAV SSOT: Messenger PAGE_HIERARCHY destinations (rooms / trade-chats /
+ * delivery-chats / web call routes) must NOT take notif bottom→top — messenger
+ * surface shells own RIGHT→LEFT enter (`shouldSuppressMessengerPageMotionMainShellSlide`).
  */
 
 import { pathFromHref } from "@/lib/navigation/main-shell-push-session";
 import { NOTIFICATION_DESTINATION_ENTER_MS } from "@/lib/notifications/notification-destination-enter-constants";
+import { isMessengerInternalPageHierarchyPathname } from "@/components/route-transition/route-transition-config";
 
 export type NotificationDestinationEnterSession = {
   toPath: string;
@@ -44,6 +49,8 @@ export function armNotificationDestinationEnterSession(toHref: string): void {
   if (prefersReducedMotion()) return;
   const toPath = pathFromHref(toHref);
   if (!toPath || toPath === "/") return;
+  /** Messenger hierarchy — room/pillar/call shells own page enter (no notif 하→상). */
+  if (isMessengerInternalPageHierarchyPathname(toPath)) return;
   const payload: NotificationDestinationEnterSession = {
     toPath,
     at: Date.now(),
@@ -99,6 +106,17 @@ export function consumeNotificationDestinationEnterSession(
   }
 
   if (!pathMatches(current, normalizePath(parsed.toPath))) {
+    return null;
+  }
+
+  /** Stale arms to messenger hierarchy — clear without applying bottom→top. */
+  if (isMessengerInternalPageHierarchyPathname(current)) {
+    memorySession = null;
+    try {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
     return null;
   }
 

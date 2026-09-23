@@ -53,6 +53,13 @@ describe("notification destination enter session", () => {
     expect(session?.toPath).toBe("/mypage/customer-center/notice/abc");
   });
 
+  it("PAGE NAV SSOT: does not arm bottom→top for messenger room hierarchy", () => {
+    armNotificationDestinationEnterSession("/community-messenger/rooms/room-1");
+    expect(consumeNotificationDestinationEnterSession("/community-messenger/rooms/room-1")).toBeNull();
+    armNotificationDestinationEnterSession("/community-messenger/trade-chats");
+    expect(consumeNotificationDestinationEnterSession("/community-messenger/trade-chats")).toBeNull();
+  });
+
   it("applies bottom-up class on push surface", () => {
     const el = document.createElement("div");
     applyNotificationDestinationEnterOnSurface(el);

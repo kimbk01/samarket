@@ -21,7 +21,7 @@ describe("messenger presentation contract", () => {
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeLessThanOrEqual(250);
   });
 
-  it("room enter is 360ms — mobile bottom→top, wide left→right", () => {
+  it("room enter is 360ms — mobile RIGHT→LEFT, wide pane left→right", () => {
     expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(360);
     expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(280);
   });
@@ -46,14 +46,12 @@ describe("messenger presentation contract", () => {
     expect(css).toContain(`--sam-messenger-pillar-list-enter-duration: ${MESSENGER_PILLAR_LIST_ENTER_MS}ms`);
     expect(css).toContain(`--sam-messenger-pillar-list-exit-duration: ${MESSENGER_PILLAR_LIST_EXIT_MS}ms`);
 
-    const roomEnterBlock = css.match(
-      /\/\* 모바일\(세로\): 하→상 방 진입[^*]*\*\/\s*\.messenger-enter \{[\s\S]*?\}\s*\.messenger-enter-active \{[\s\S]*?\}/
-    )?.[0];
-    expect(roomEnterBlock).toBeTruthy();
-    expect(roomEnterBlock).toMatch(/translate3d\(0,\s*32%,\s*0\)/);
-    expect(roomEnterBlock).not.toMatch(/translate3d\(0,\s*24px/);
-    expect(roomEnterBlock).not.toMatch(/opacity:\s*0\./);
-    expect(roomEnterBlock).toMatch(/opacity:\s*1/);
+    // Mobile PAGE_HIERARCHY blocks (exclude wide/split selectors)
+    expect(css).toContain("모바일 PAGE_HIERARCHY: List → Room = RIGHT → LEFT");
+    expect(css).toMatch(/\n\.messenger-enter \{[\s\S]*?translate3d\(90%,\s*0,\s*0\)/);
+    expect(css).not.toMatch(/\n\.messenger-enter \{[\s\S]*?translate3d\(0,\s*32%/);
+    expect(css).toMatch(/\n\.messenger-exit-active \{[\s\S]*?translate3d\(90%,\s*0,\s*0\)/);
+    expect(css).not.toMatch(/\n\.messenger-exit-active \{[\s\S]*?translate3d\(0,\s*20%/);
 
     expect(css).toMatch(
       /\[data-messenger-responsive-shell="wide"\] \.messenger-enter \{[\s\S]*?translate3d\(-28px/
@@ -239,10 +237,15 @@ describe("messenger presentation contract", () => {
       resolve(root, "app/(main)/community-messenger/delivery-chats/layout.tsx"),
       "utf8"
     );
-    expect(tradeLayout).toContain("sam-messenger-pillar-list-enter");
-    expect(deliveryLayout).toContain("sam-messenger-pillar-list-enter");
-    expect(tradeLayout).toContain('data-messenger-pillar-enter-ms="369"');
-    expect(deliveryLayout).toContain('data-messenger-pillar-enter-ms="369"');
+    expect(tradeLayout).toContain("MessengerPillarHierarchyMotionShell");
+    expect(deliveryLayout).toContain("MessengerPillarHierarchyMotionShell");
+    const shell = readFileSync(
+      resolve(root, "components/community-messenger/MessengerPillarHierarchyMotionShell.tsx"),
+      "utf8"
+    );
+    expect(shell).toContain("sam-messenger-pillar-list-enter");
+    expect(shell).toContain("sam-messenger-pillar-list-exit");
+    expect(shell).toContain("MESSENGER_PILLAR_LIST_ENTER_MS");
 
     const tradeLoading = readFileSync(
       resolve(root, "app/(main)/community-messenger/trade-chats/loading.tsx"),

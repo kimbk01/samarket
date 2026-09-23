@@ -61,6 +61,49 @@ export function shouldSuppressMessengerRoomMainShellSlide(prev: string | null, n
 }
 
 /**
+ * Messenger PAGE_HIERARCHY internal surfaces — AppRouteTransition must not compete.
+ * Token/consumer SSOT: `lib/community-messenger/messenger-list-room-slide.ts` + surface shells.
+ *
+ * CONTRACT:
+ * - Bottom-nav MAIN↔MAIN (e.g. /market → /community-messenger) keeps AppRouteTransition.
+ * - Hub ↔ trade-chats ↔ delivery-chats ↔ rooms ↔ web call routes: kind = none.
+ * - Room paths remain suppressed even when the other side is outside messenger (deep entry).
+ */
+export function isMessengerInternalPageHierarchyPathname(pathname: string | null | undefined): boolean {
+  const p = normalizePathForRouteTransition(pathname ?? null);
+  if (!p) return false;
+  if (p === "/community-messenger") return true;
+  if (p.startsWith("/community-messenger/trade-chats")) return true;
+  if (p.startsWith("/community-messenger/delivery-chats")) return true;
+  if (isCommunityMessengerRoomPathname(p)) return true;
+  if (p === "/community-messenger/calls/logs" || p === "/community-messenger/calls/outgoing") return true;
+  if (/^\/community-messenger\/calls\/[^/]+$/.test(p)) return true;
+  if (/^\/community-messenger\/calls-v[34]\/[^/]+$/.test(p)) return true;
+  return false;
+}
+
+/** Hub↔pillar (and other messenger-internal pairs) — both sides messenger hierarchy. */
+export function shouldSuppressMessengerInternalHierarchyMainShellSlide(
+  prev: string | null,
+  next: string | null
+): boolean {
+  return (
+    isMessengerInternalPageHierarchyPathname(prev) && isMessengerInternalPageHierarchyPathname(next)
+  );
+}
+
+/** Room OR messenger-internal hierarchy — single gate for AppRouteTransition competition. */
+export function shouldSuppressMessengerPageMotionMainShellSlide(
+  prev: string | null,
+  next: string | null
+): boolean {
+  return (
+    shouldSuppressMessengerRoomMainShellSlide(prev, next) ||
+    shouldSuppressMessengerInternalHierarchyMainShellSlide(prev, next)
+  );
+}
+
+/**
  * Canonical 인덱스. 매칭 실패 시 null → 슬라이드 없음.
  */
 export function resolveCanonicalNavIndex(pathname: string | null): number | null {

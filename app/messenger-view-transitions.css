@@ -8,7 +8,7 @@
 }
 
 :root {
-  /* 방 진입: 모바일 하→상 / wide 좌→우 — `MESSENGER_LIST_ROOM_ENTER_MS` */
+  /* 방 진입: 모바일 우→좌 / wide pane 좌→우 — `MESSENGER_LIST_ROOM_ENTER_MS` */
   --sam-messenger-room-enter-duration: 360ms;
   --sam-messenger-room-exit-duration: 280ms;
   --sam-messenger-call-enter-duration: 180ms;
@@ -189,9 +189,12 @@
   }
 }
 
-/* 모바일(세로): 하→상 방 진입 — pane 높이 기준 32% (24px 미만·100% 금지) */
+/**
+ * 모바일 PAGE_HIERARCHY: List → Room = RIGHT → LEFT (90%).
+ * WIDE split uses separate rules below (pane-local, not full-page copy).
+ */
 .messenger-enter {
-  transform: translate3d(0, 32%, 0);
+  transform: translate3d(90%, 0, 0);
   opacity: 1;
 }
 
@@ -206,8 +209,9 @@
   opacity: 1;
 }
 
+/** Room → List = LEFT → RIGHT (exact inverse of enter) */
 .messenger-exit-active {
-  transform: translate3d(0, 20%, 0);
+  transform: translate3d(90%, 0, 0);
   opacity: 1;
   transition: transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
 }

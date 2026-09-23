@@ -64,6 +64,45 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("subtle");
   });
 
+  it("PAGE NAV SSOT: messenger hub ↔ trade/delivery pillar suppresses AppRouteTransition", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/community-messenger", "/community-messenger/trade-chats", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("none");
+    expect(
+      computeRouteTransitionEnterKind("/community-messenger/trade-chats", "/community-messenger", {
+        popstateBack: true,
+        lastForwardAxisRef,
+      })
+    ).toBe("none");
+    expect(
+      computeRouteTransitionEnterKind("/community-messenger", "/community-messenger/delivery-chats", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("none");
+    expect(
+      computeRouteTransitionEnterKind(
+        "/community-messenger/trade-chats",
+        "/community-messenger/rooms/abc",
+        { popstateBack: false, lastForwardAxisRef }
+      )
+    ).toBe("none");
+  });
+
+  it("PAGE NAV SSOT: market → messenger hub keeps main-shell (not messenger-internal)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/market", "/community-messenger", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("rtl-forward");
+  });
+
   it("ARCH B2: browse ↔ store detail uses subtle (shell owns slide)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     expect(

@@ -4,22 +4,23 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 
-describe("messenger room swipe-back — no mount enter flicker (Fix A)", () => {
+describe("messenger room swipe — PAGE_HIERARCHY enter/exit SSOT", () => {
   const src = readFileSync(
     resolve(root, "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
     "utf8"
   );
 
-  it("initializes phase as idle (never mount enter / enter-active)", () => {
-    expect(src).toMatch(/useState<AnimPhase>\("idle"\)/);
-    expect(src).not.toMatch(/useState<AnimPhase>\("enter"\)/);
-    expect(src).not.toContain('current === "enter" ? "enter-active"');
-    expect(src).not.toContain("MESSENGER_LIST_ROOM_ENTER_MS");
+  it("mounts with enter → enter-active (RIGHT→LEFT)", () => {
+    expect(src).toContain('"enter"');
+    expect(src).toContain('"enter-active"');
+    expect(src).toContain("MESSENGER_LIST_ROOM_ENTER_MS");
+    expect(src).toMatch(/phase === "enter"\s*\?\s*"messenger-enter"/);
+    expect(src).toContain("messenger-enter-active");
   });
 
-  it("does not apply messenger-enter class on surface", () => {
-    expect(src).not.toMatch(/phase === "enter"\s*\?\s*"messenger-enter"/);
-    expect(src).not.toMatch(/phase === "enter-active"\s*\?\s*"messenger-enter-active"/);
+  it("UI back uses snap-away (LEFT→RIGHT) same as swipe", () => {
+    expect(src).toContain('setPhase("snap-away")');
+    expect(src).toContain("ONE return presentation owner");
   });
 
   it("keeps exit / swipe phases", () => {

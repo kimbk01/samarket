@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import {
   resolveCanonicalNavIndex,
   shouldSuppressCommerceConsumerMainShellSlide,
-  shouldSuppressMessengerRoomMainShellSlide,
+  shouldSuppressMessengerPageMotionMainShellSlide,
   shouldSuppressOwnerStackMainShellSlide,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
@@ -161,7 +161,7 @@ export function computeRouteTransitionEnterKind(
 
   if (prevPath === nextPath) {
     kind = "none";
-  } else if (shouldSuppressMessengerRoomMainShellSlide(prevPath, nextPath)) {
+  } else if (shouldSuppressMessengerPageMotionMainShellSlide(prevPath, nextPath)) {
     kind = "none";
   } else if (shouldSuppressOwnerStackMainShellSlide(prevPath, nextPath)) {
     kind = "none";
