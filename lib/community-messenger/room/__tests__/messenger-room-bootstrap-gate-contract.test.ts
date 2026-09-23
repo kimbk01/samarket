@@ -69,6 +69,11 @@ vi.mock("@/components/community-messenger/room/CommunityMessengerRoomEntryEmpty"
     createElement("div", { "data-testid": "room-entry-empty" }),
 }));
 
+vi.mock("@/components/community-messenger/room/MessengerRoomSwipeBackShell", () => ({
+  MessengerRoomSwipeBackShell: ({ children }: { children: unknown }) =>
+    createElement("div", { "data-testid": "room-swipe-shell" }, children as never),
+}));
+
 const emptyDirectRoomShell = {
   roomType: "direct" as const,
   roomStatus: "active" as const,

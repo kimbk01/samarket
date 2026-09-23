@@ -21,7 +21,6 @@ import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } fr
 import { MessengerRoomPhase1TimelineHeavyHost } from "@/components/community-messenger/room/MessengerRoomPhase1TimelineHeavyHost";
 /** Static Phase2 — dynamic loading:null 이 「입장 중」과 실방 사이 빈 화면 간섭을 만듦. */
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
-import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
 import {
   noteR2M11FirstClientBoundary,
@@ -195,9 +194,8 @@ export function CommunityMessengerRoomClientInner(props: {
         />
       ) : null}
       <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>
-        <MessengerRoomSwipeBackShell roomId={phase1.roomId} roomType={phase1.snapshot?.room.roomType}>
-          <CommunityMessengerRoomClientPhase2 />
-        </MessengerRoomSwipeBackShell>
+        {/* SwipeBackShell owns PAGE MOTION at BootstrapGate — do not wrap again (second enter). */}
+        <CommunityMessengerRoomClientPhase2 />
       </MessengerRoomGroupCallShell>
     </MessengerRoomClientPhase1Context.Provider>
   );

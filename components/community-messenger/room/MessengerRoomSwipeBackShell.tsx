@@ -99,9 +99,14 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     dragPxRef.current = dragPx;
   }, [dragPx]);
 
-  /** Mobile PAGE_HIERARCHY enter — RIGHT → LEFT (double rAF avoids first-frame flash). */
+  /**
+   * Mobile PAGE_HIERARCHY enter — RIGHT → LEFT (double rAF avoids first-frame flash).
+   * roomType may be null on cold BootstrapGate shell — still enter so PAGE MOTION OWNER
+   * owns first paint (EntryEmpty is content inside shell, not a pre-motion full-page flash).
+   * Gestures / animated back remain disabled until roomType is known.
+   */
   useEffect(() => {
-    if (splitPaneMode || reducedMotion || roomType == null) return;
+    if (splitPaneMode || reducedMotion) return;
     if (enterStartedRef.current) return;
     enterStartedRef.current = true;
     setPhase("enter");
@@ -115,7 +120,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
     };
-  }, [splitPaneMode, reducedMotion, roomType]);
+  }, [splitPaneMode, reducedMotion]);
 
   useEffect(() => {
     if (phase !== "enter-active") return;

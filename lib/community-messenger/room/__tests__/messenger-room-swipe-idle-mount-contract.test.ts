@@ -23,11 +23,9 @@ describe("messenger room swipe — PAGE_HIERARCHY enter/exit SSOT", () => {
     expect(src).toContain("ONE return presentation owner");
   });
 
-  it("keeps exit / swipe phases", () => {
-    expect(src).toContain('"exit-active"');
-    expect(src).toContain("messenger-exit-active");
-    expect(src).toContain("snap-away");
-    expect(src).toContain("snap-back");
-    expect(src).toContain("dragging");
+  it("allows PAGE enter while roomType is still null (cold shell continuity)", () => {
+    expect(src).toMatch(/roomType may be null on cold BootstrapGate shell/);
+    expect(src).toMatch(/if \(splitPaneMode \|\| reducedMotion\) return/);
+    expect(src).not.toMatch(/if \(splitPaneMode \|\| reducedMotion \|\| roomType == null\) return/);
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomEntryEmpty } from "@/components/community-messenger/room/CommunityMessengerRoomEntryEmpty";
+import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
@@ -246,30 +247,37 @@ export function CommunityMessengerRoomBootstrapGate({
       })
     : null;
 
-  if (
+  const cold =
     bootstrapPending ||
     !entrySnapshot ||
     !roomClientMountIdentity ||
-    !canMountCommunityMessengerRoomClient(entrySnapshot)
-  ) {
-    return (
-      <CommunityMessengerRoomEntryEmpty
-        roomId={roomId}
-        recordShellPaint={false}
-        recordPass1Milestones
-        dataAttrs={{ "data-cm-room-pass1-stable-shell": "" }}
-      />
-    );
-  }
+    !canMountCommunityMessengerRoomClient(entrySnapshot);
 
-  const viewer = viewerUserId || entrySnapshot.viewerUserId?.trim() || undefined;
-
+  /**
+   * ONE PAGE MOTION OWNER for cold + warm: SwipeBackShell wraps both EntryEmpty and RoomClient.
+   * Cold spinner is content inside the entering shell — not a pre-motion full-page flash.
+   * Shell stays mounted across cold→warm so enter does not run twice.
+   */
   return (
-    <CommunityMessengerRoomClient
-      key={roomClientMountIdentity}
+    <MessengerRoomSwipeBackShell
       roomId={roomId}
-      initialServerSnapshot={entrySnapshot}
-      initialViewerUserId={viewer}
-    />
+      roomType={entrySnapshot?.room?.roomType ?? null}
+    >
+      {cold ? (
+        <CommunityMessengerRoomEntryEmpty
+          roomId={roomId}
+          recordShellPaint={false}
+          recordPass1Milestones
+          dataAttrs={{ "data-cm-room-pass1-stable-shell": "" }}
+        />
+      ) : (
+        <CommunityMessengerRoomClient
+          key={roomClientMountIdentity!}
+          roomId={roomId}
+          initialServerSnapshot={entrySnapshot!}
+          initialViewerUserId={viewerUserId || entrySnapshot!.viewerUserId?.trim() || undefined}
+        />
+      )}
+    </MessengerRoomSwipeBackShell>
   );
 }
