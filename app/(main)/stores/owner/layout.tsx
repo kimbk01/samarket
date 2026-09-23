@@ -9,26 +9,29 @@ import {
   readOwnerActiveStoreIdFromCookieHeader,
   resolveOwnerActiveStoreRow,
 } from "@/lib/delivery/owner/resolve-owner-active-store";
+import {
+  X_SAM_OWNER_PATH_HEADER,
+  isOwnerOrderChatEnsurePath,
+} from "@/lib/business/owner-path-request-header";
 import { StoresOwnerLayoutClient } from "./StoresOwnerLayoutClient";
 
 /**
  * `/stores/owner/*` — 서버에서 매장 목록을 한 번 읽어 클라 `fetchMeStoresListDeduped` 캐시에 시드한다.
  * 이후 `StoreBusinessGuard`·`BusinessAdminShell` 의 첫 GET 이 캐시 히트로 떨어져 왕복을 없앤다.
- * (`x-sam-owner-path` 는 `proxy.ts` 가 설정)
+ * (`x-sam-owner-path` 는 `proxy.ts` 가 **request** 에 설정 — response-only 는 layout 이 못 읽음)
  *
  * ACTIVE_STORE first paint: cookie (client session mirror) → resolver → never invent stores[0] as preferred.
  */
 export default async function StoresOwnerLayout({ children }: { children: React.ReactNode }) {
   const h = await headers();
-  const ownerPath = h.get("x-sam-owner-path") ?? "";
+  const ownerPath = h.get(X_SAM_OWNER_PATH_HEADER) ?? "";
   /**
    * Server-only ensure → `redirect` to messenger room.
    * Must NOT mount StoresOwnerLayoutClient / admin shell — Cap soft-nav into this path
-   * hit React #310 while URL stayed on ensure (FIRST DIVERGENCE: layout client on soft entry).
+   * hit AppRouter React #310 while URL stayed on ensure.
    * @see .tmp/messenger-page-nav-ssot/owner-ensure-cold/ROOT_CAUSE.md
    */
-  const isOrderChatEnsure = ownerPath.startsWith("/stores/owner/order-chat");
-  if (isOrderChatEnsure) {
+  if (isOwnerOrderChatEnsurePath(ownerPath)) {
     return <>{children}</>;
   }
 

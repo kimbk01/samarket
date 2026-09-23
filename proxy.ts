@@ -15,6 +15,7 @@ import {
 import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
+import { applyOwnerPathRequestHeader } from "@/lib/business/owner-path-request-header";
 
 /**
  * 앱 UI(HTML·RSC) — 비회원은 공개 브라우징 allowlist 만 통과, private URL 은 404.
@@ -51,10 +52,20 @@ function preventAuthPageCache(res: NextResponse): NextResponse {
 }
 
 function finalizeOwnerDocResponse(res: NextResponse, pathname: string): NextResponse {
-  if (pathname === "/stores/owner" || pathname.startsWith("/stores/owner/")) {
-    res.headers.set("x-sam-owner-path", pathname);
-  }
+  // Response mirror for observability only — RSC layout reads the *request* header.
+  applyOwnerPathRequestHeader(res.headers, pathname);
   return preventAuthPageCache(res);
+}
+
+/** Pass owner pathname into RSC `headers()` (layout skip for order-chat ensure). */
+function nextWithOwnerPathRequest(request: NextRequest, pathname: string): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  applyOwnerPathRequestHeader(requestHeaders, pathname);
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 async function maybeRedirectIncompleteSignup(
@@ -164,7 +175,7 @@ export async function proxy(request: NextRequest) {
     return preventAuthPageCache(NextResponse.next());
   }
 
-  let response = NextResponse.next({ request });
+  let response = nextWithOwnerPathRequest(request, pathname);
 
   const cookieSecure = cookieSecureFromNextRequest(request);
   const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
@@ -179,7 +190,8 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        // Must re-inject request header — bare `NextResponse.next({ request })` drops it.
+        response = nextWithOwnerPathRequest(request, pathname);
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
         );

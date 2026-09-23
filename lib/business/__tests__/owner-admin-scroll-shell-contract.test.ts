@@ -207,11 +207,19 @@ describe("owner admin scroll shell contract", () => {
 
   it("owner layout skips StoresOwnerLayoutClient for order-chat ensure (cold soft-nav #310)", () => {
     const layout = readRepo("app/(main)/stores/owner/layout.tsx");
-    expect(layout).toContain('ownerPath.startsWith("/stores/owner/order-chat")');
-    expect(layout).toMatch(/isOrderChatEnsure[\s\S]*return <>\s*\{children\}\s*<\/>/);
+    expect(layout).toContain("isOwnerOrderChatEnsurePath(ownerPath)");
+    expect(layout).toContain("X_SAM_OWNER_PATH_HEADER");
+    expect(layout).toMatch(/isOwnerOrderChatEnsurePath\(ownerPath\)[\s\S]*return <>\s*\{children\}\s*<\/>/);
     const client = readRepo("app/(main)/stores/owner/StoresOwnerLayoutClient.tsx");
-    expect(client).toContain('pathname.startsWith("/stores/owner/order-chat")');
+    expect(client).toMatch(/pathname\.startsWith\("\/stores\/owner\/order-chat\/"\)/);
     expect(client).toMatch(/isOrderChatEnsure[\s\S]*return <>\s*\{children\}\s*<\/>/);
+    // Must not treat /order-chats (list) as ensure
+    expect(readRepo("lib/business/owner-path-request-header.ts")).toContain(
+      'pathname.startsWith("/stores/owner/order-chat/")'
+    );
+    const proxy = readRepo("proxy.ts");
+    expect(proxy).toContain("nextWithOwnerPathRequest");
+    expect(proxy).toContain("applyOwnerPathRequestHeader");
   });
 
   it("owner compact shell main offset includes fixed header border (SSOT)", () => {

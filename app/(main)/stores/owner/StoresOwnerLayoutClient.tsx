@@ -34,7 +34,9 @@ export function StoresOwnerLayoutClient({
    * Server layout skip only applies when the layout RSC is re-fetched (cold / outside → ensure).
    * When pathname becomes order-chat, do not keep Guard/Shell/Runtime mounted.
    */
-  const isOrderChatEnsure = pathname.startsWith("/stores/owner/order-chat");
+  const isOrderChatEnsure =
+    pathname === "/stores/owner/order-chat" ||
+    pathname.startsWith("/stores/owner/order-chat/");
 
   useLayoutEffect(() => {
     if (!isHub) return;
