@@ -104,7 +104,12 @@ public class NativeVoiceCallActivity extends Activity {
   public static void finishIfActive(String callId, String reason) {
     NativeVoiceCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
-    activity.runOnUiThread(() -> activity.finishWithNotice(reason));
+    // END UX: terminal surface exit must not wait for in-app notice duration.
+    activity.runOnUiThread(
+        () -> {
+          if (activity.isFinishing()) return;
+          activity.finish();
+        });
   }
 
   public static boolean isShowing(String callId) {

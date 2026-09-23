@@ -708,6 +708,7 @@ public final class NativeVoiceCallRuntime {
       NativeVoiceCallLog.info("runtime_cleanup_idempotent_skip", sid, "reason=" + safe(reason));
       return;
     }
+    NativeVoiceCallActivity.finishIfActive(sid, reason);
     NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
       com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(sid, reason);
@@ -761,6 +762,8 @@ public final class NativeVoiceCallRuntime {
     Session session = SESSIONS.get(sid);
     NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
+    DibayCallConsumedStore.mark(app, sid, action);
+    NativeVoiceCallActivity.finishIfActive(sid, action);
     cancelMissed(sid);
     NativeVoiceCallApi.PatchCallback done =
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");

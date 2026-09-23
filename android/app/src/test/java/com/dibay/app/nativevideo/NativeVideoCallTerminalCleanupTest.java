@@ -55,7 +55,7 @@ public class NativeVideoCallTerminalCleanupTest {
   }
 
   @Test
-  public void endingState_skipsRemoteTerminal_likeNormal() {
+  public void endingState_convergesCleanup_idempotent() {
     String callId = "video-ending";
     NativeVideoCallRuntime.Session session =
         new NativeVideoCallRuntime.Session(callId, "room", "peer", "Peer", "video", true);
@@ -64,11 +64,6 @@ public class NativeVideoCallTerminalCleanupTest {
 
     NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
 
-    // NORMAL: ENDING skips onRemoteTerminal; explicit cleanup still works.
-    assertNotNull(NativeVideoCallRuntime.getSession(callId));
-    assertEquals(NativeVideoCallRuntime.State.ENDING, NativeVideoCallRuntime.getSession(callId).state);
-
-    NativeVideoCallRuntime.cleanup(context, callId, "ended");
     assertNull(NativeVideoCallRuntime.getSession(callId));
   }
 
@@ -79,6 +74,18 @@ public class NativeVideoCallTerminalCleanupTest {
     NativeVideoCallRuntime.cleanup(context, callId, "ended");
     NativeVideoCallRuntime.cleanup(context, callId, "ended_again");
     assertNull(NativeVideoCallRuntime.getSession(callId));
+  }
+
+  @Test
+  public void activeConnected_isNotReclaimedByPrepareJoin() {
+    String live = "video-live-active";
+    putConnected(live);
+    com.dibay.app.nativecall.NativeCallEngineOwnership.GuardOutcome busy =
+        com.dibay.app.nativecall.NativeCallEngineOwnership.prepareJoin(
+            context, "video-other", com.dibay.app.nativecall.NativeCallEngineOwnership.JoinLane.VIDEO);
+    assertNotNull(NativeVideoCallRuntime.getSession(live));
+    assertEquals(
+        com.dibay.app.nativecall.NativeCallEngineOwnership.GuardOutcome.BUSY, busy);
   }
 
   private void putConnected(String callId) {

@@ -661,15 +661,18 @@ public final class NativeVideoCallRuntime {
       cancelMissed(sid);
       return;
     }
+    // ENDING/ENDED/FAILED still converge cleanup — prior skip left SESSIONS latched when PATCH stalled.
     if (session != null
         && (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED)) {
       NativeVideoCallLog.info(
-          "native_terminal_skip",
+          "native_terminal_converge",
           sid,
           "kind=" + reason + " source=" + safe(source) + " state=" + session.state.name().toLowerCase());
+      cleanup(app, sid, reason);
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
+    NativeVideoCallActivity.finishIfActive(sid, reason);
     cleanup(app, sid, reason);
   }
 
@@ -677,6 +680,8 @@ public final class NativeVideoCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
+    // UI exit before Agora leave — cleanup authority still completes in this method.
+    NativeVideoCallActivity.finishIfActive(sid, reason);
     NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
       com.dibay.app.call.NativeActiveCallHeartbeatOwner.stop(sid, reason);
@@ -721,6 +726,10 @@ public final class NativeVideoCallRuntime {
     Session session = SESSIONS.get(sid);
     NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
+    // Tombstone at terminal intent — incoming reclaimConsumed may use this; not a prepareJoin fix.
+    DibayCallConsumedStore.mark(app, sid, action);
+    // END UX: dismiss surface immediately; PATCH + cleanup continue on Runtime (survives Activity).
+    NativeVideoCallActivity.finishIfActive(sid, action);
     cancelMissed(sid);
     NativeVideoCallApi.PatchCallback done =
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");
