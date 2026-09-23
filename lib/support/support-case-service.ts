@@ -895,28 +895,49 @@ export async function reopenSupportCase(
   return { ok: true, case: data as SupportCaseRow };
 }
 
+/**
+ * Mark requester unread → 0.
+ * IDEMPOTENT: when already 0, perform **no UPDATE** (no `updated_at` bump).
+ * Prevents SupportModalHost Realtime `support_cases` UPDATE → GET → mark-read self-loop.
+ */
 export async function markSupportCaseReadForRequester(
   sb: SupabaseClient,
   input: { userId: string; caseId: string }
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; wrote: boolean } | { ok: false; error: string }> {
   const gate = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
   if (!gate.ok) return gate;
-  await sb
+  const unread = Number(gate.case.requester_unread_count ?? 0);
+  if (!Number.isFinite(unread) || unread <= 0) {
+    return { ok: true, wrote: false };
+  }
+  const { error } = await sb
     .from("support_cases")
     .update({ requester_unread_count: 0, updated_at: new Date().toISOString() })
     .eq("id", input.caseId);
-  return { ok: true };
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, wrote: true };
 }
 
+/**
+ * Mark admin unread → 0.
+ * IDEMPOTENT: when already 0, perform **no UPDATE** (same write contract as requester).
+ */
 export async function markSupportCaseReadForAdmin(
   sb: SupabaseClient,
   caseId: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  await sb
+): Promise<{ ok: true; wrote: boolean } | { ok: false; error: string }> {
+  const gate = await getSupportCaseForAdmin(sb, caseId);
+  if (!gate.ok) return gate;
+  const unread = Number(gate.case.admin_unread_count ?? 0);
+  if (!Number.isFinite(unread) || unread <= 0) {
+    return { ok: true, wrote: false };
+  }
+  const { error } = await sb
     .from("support_cases")
     .update({ admin_unread_count: 0, updated_at: new Date().toISOString() })
     .eq("id", caseId);
-  return { ok: true };
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, wrote: true };
 }
 
 export type AdminSupportSummary = {
