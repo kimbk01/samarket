@@ -18,8 +18,6 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private var durationTimer: Timer?
   private var acceptStarted = false
   private var inPipMode = false
-  private var pipController: AVPictureInPictureController?
-  private var pipContentViewController: AVPictureInPictureVideoCallViewController?
   private var remoteRenderView: UIView?
   private var outgoingLocalFirstFrameReadyFlag = false
   private var outgoingRemoteFirstFrameReadyFlag = false
@@ -124,7 +122,17 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     cancelConnectedChromeHide(reason: "deinit")
     NativeVideoCallAgoraEngine.shared.setNetworkQualityHandler(nil)
     NotificationCenter.default.removeObserver(self)
-    teardownPipFrameBridge(reason: "deinit")
+    // CUT-6B: do not tear down PiP ContentSource here — owned by NativeVideoCallPipOwner.
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.noteFullscreenControllerDeinit(self)
+      if !NativeVideoCallPipOwner.shared.isPictureInPictureActive
+        || !NativeVideoCallPipOwner.shared.isBound(to: boundCallId)
+      {
+        teardownPipFrameBridge(reason: "deinit")
+      }
+    } else {
+      teardownPipFrameBridge(reason: "deinit")
+    }
   }
 
   override func viewDidAppear(_ animated: Bool) {
@@ -225,7 +233,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
 
     // B1 — connected 동안에만 자동 시스템 PiP 활성(빈 화면 PiP 방지).
-    pipController?.canStartPictureInPictureAutomaticallyFromInline = (state == .connected)
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.setAutomaticPipFromInline(state == .connected)
+    }
 
     if model.showConnectedControls && (!isOutgoingVideoPresentation || outgoingTransitionCompleted) {
       updateConnectedControlChrome()
@@ -261,6 +271,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   func attachRemoteView(_ view: UIView) {
     ensureVideoRootForRemoteRender()
     remoteRenderView = view
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.adoptRemoteRenderView(view)
+    }
     replaceSubview(in: remoteContainer, with: view, mediaOverlay: false)
     if localIsMain { applyVideoSwap() }
   }
@@ -280,8 +293,13 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   var isPictureInPictureActive: Bool {
-    pipController?.isPictureInPictureActive == true
+    if #available(iOS 15.0, *) {
+      return NativeVideoCallPipOwner.shared.isPictureInPictureActive
+    }
+    return false
   }
+
+  var currentRuntimeStateForPipOwner: NativeVideoCallRuntimeState { currentState }
 
   func outgoingLocalFirstFrameReady(width: Int, height: Int) {
     guard isOutgoingVideoPresentation, !outgoingLocalFirstFrameReadyFlag else { return }
@@ -765,16 +783,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       )
       return false
     }
-    guard let pipController else {
-      NativeVideoCallLog.info("native_video_pip_blocked", callId: boundCallId, details: "source=\(source) no_controller")
-      return false
-    }
-    if pipController.isPictureInPictureActive {
-      return true
-    }
-    pipController.startPictureInPicture()
-    NativeVideoCallLog.info("native_video_pip_enter_requested", callId: boundCallId, details: "source=\(source)")
-    return true
+    guard #available(iOS 15.0, *) else { return false }
+    configurePipIfNeeded()
+    return NativeVideoCallPipOwner.shared.tryEnter(source: source)
   }
 
   func applyPipUiMode(_ enabled: Bool) {
@@ -796,10 +807,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   func stopPipIfActive() {
-    guard pipController?.isPictureInPictureActive == true else { return }
-    reparentRemoteViewToFullscreen()
-    applyPipUiMode(false)
-    pipController?.stopPictureInPicture()
+    guard #available(iOS 15.0, *) else { return }
+    NativeVideoCallPipOwner.shared.stopIfActive()
   }
 
   private func reparentRemoteView(to container: UIView) {
@@ -820,9 +829,13 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   private func reparentRemoteViewToPip() {
-    guard let pipVC = pipContentViewController else { return }
+    guard #available(iOS 15.0, *) else { return }
+    guard let pipVC = NativeVideoCallPipOwner.shared.contentViewControllerForReparent() else { return }
     _ = ensureVideoRootForRemoteRender()
     reparentRemoteView(to: pipVC.view)
+    if let remoteView = remoteRenderView {
+      NativeVideoCallPipOwner.shared.adoptRemoteRenderView(remoteView)
+    }
     NativeVideoCallLog.info("native_video_pip_remote_reparented", callId: boundCallId, details: "target=pip")
   }
 
@@ -846,20 +859,38 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func configurePipIfNeeded() {
     guard #available(iOS 15.0, *) else { return }
     guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
-    guard pipController == nil else { return }
-
-    let pipVC = AVPictureInPictureVideoCallViewController()
-    pipVC.preferredContentSize = CGSize(width: 9, height: 16)
-    pipContentViewController = pipVC
-    let contentSource = AVPictureInPictureController.ContentSource(
-      activeVideoCallSourceView: remoteContainer,
-      contentViewController: pipVC
+    NativeVideoCallPipOwner.shared.configureIfNeeded(
+      callId: boundCallId,
+      sourceView: remoteContainer,
+      fullscreen: self
     )
-    let controller = AVPictureInPictureController(contentSource: contentSource)
-    // B1 — 카톡·텔레그램식: connected 동안 앱을 나가면 시스템 PiP 자동 진입(타앱 위 플로팅).
-    controller.canStartPictureInPictureAutomaticallyFromInline = (currentState == .connected)
-    controller.delegate = self
-    pipController = controller
+    NativeVideoCallPipOwner.shared.setAutomaticPipFromInline(currentState == .connected)
+  }
+
+  // MARK: - PipOwner bridge (CUT-6B)
+
+  func cancelConnectedChromeHideForPipOwner(reason: String) {
+    cancelConnectedChromeHide(reason: reason)
+  }
+
+  func resetVideoSwapForPipOwner() {
+    resetVideoSwapForPip()
+  }
+
+  func reparentRemoteViewToPipForPipOwner() {
+    reparentRemoteViewToPip()
+  }
+
+  func reparentRemoteViewToFullscreenForPipOwner() {
+    reparentRemoteViewToFullscreen()
+  }
+
+  func attachPipFrameHostIfNeededForPipOwner() {
+    attachPipFrameHostIfNeeded()
+  }
+
+  func showConnectedChromeForPipOwner(source: String) {
+    showConnectedChrome(source: source)
   }
 
   // MARK: - Layout
@@ -1335,7 +1366,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   /// 연결된 영상통화 + Voice 미점유 시에만 프레임 델리게이트 등록 + sample 뷰 부착. 실패 시 no-op(fail-safe).
   private func preparePipFrameBridgeIfNeeded(reason: String) {
     guard currentState == .connected else { return }
-    guard pipContentViewController != nil else { return }
+    guard #available(iOS 15.0, *) else { return }
+    guard NativeVideoCallPipOwner.shared.contentViewControllerForReparent() != nil else { return }
     guard pipFrameBridge == nil else { return } // 중복 등록 방지
     guard let uid = NativeVideoCallAgoraEngine.shared.currentRemoteUid(callId: boundCallId), uid != 0 else { return }
     let bridge = NativeVideoCallPipFrameBridge(remoteUid: uid)
@@ -1345,13 +1377,17 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
     bridge.activate()
     pipFrameBridge = bridge
+    NativeVideoCallPipOwner.shared.adoptFrameBridge(bridge)
     attachPipFrameHostIfNeeded()
     NativeVideoCallLog.info("native_video_pip_frame_tap_started", callId: boundCallId, details: "reason=\(reason) uid=\(uid)")
   }
 
   /// sample-buffer 호스트 뷰를 pipVC.view에 채워 부착(보조 레이어). 기존 reparent된 Agora UIView 위에 얹힌다.
   private func attachPipFrameHostIfNeeded() {
-    guard let bridge = pipFrameBridge, let pipVC = pipContentViewController else { return }
+    guard #available(iOS 15.0, *) else { return }
+    guard let bridge = pipFrameBridge,
+          let pipVC = NativeVideoCallPipOwner.shared.contentViewControllerForReparent()
+    else { return }
     let host = bridge.hostView
     if host.superview === pipVC.view {
       pipVC.view.bringSubviewToFront(host)
@@ -1372,6 +1408,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func teardownPipFrameBridge(reason: String) {
     guard let bridge = pipFrameBridge else { return }
     pipFrameBridge = nil
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.adoptFrameBridge(nil)
+    }
     NativeVideoCallAgoraEngine.shared.stopPipFrameTap()
     bridge.deactivate()
     bridge.hostView.removeFromSuperview()
@@ -1601,60 +1640,6 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       bar.alpha = index < activeBars ? 1 : 0.28
       bar.backgroundColor = color
     }
-  }
-}
-
-@available(iOS 15.0, *)
-extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
-  func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-    cancelConnectedChromeHide(reason: "pip_will_start")
-    resetVideoSwapForPip()
-    reparentRemoteViewToPip()
-    // 조건 준수: willStart에서 최초 등록하지 않음 — willResignActive 워밍업으로 이미 준비된 브리지의 sample 뷰만 부착(부재 시 no-op).
-    attachPipFrameHostIfNeeded()
-    applyPipUiMode(true)
-    ScreenAwakeBridge.shared.notifyPresentationChanged(callId: boundCallId, presentation: "pip")
-    DibayCallPipPlugin.publishPipModeChanged(inPipMode: true, callId: boundCallId)
-    NativeVideoCallLog.info("native_video_pip_entered", callId: boundCallId)
-  }
-
-  func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-    teardownPipFrameBridge(reason: "pip_did_stop")
-    reparentRemoteViewToFullscreen()
-    applyPipUiMode(false)
-    ScreenAwakeBridge.shared.notifyPresentationChanged(callId: boundCallId, presentation: "fullscreen")
-    DibayCallPipPlugin.publishPipModeChanged(inPipMode: false, callId: boundCallId)
-    if currentState == .connected {
-      showConnectedChrome(source: "pip_exit")
-    }
-    NativeVideoCallLog.info("native_video_pip_exited", callId: boundCallId)
-  }
-
-  func pictureInPictureController(
-    _ pictureInPictureController: AVPictureInPictureController,
-    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
-  ) {
-    teardownPipFrameBridge(reason: "pip_restore")
-    reparentRemoteViewToFullscreen()
-    applyPipUiMode(false)
-    DibayCallPipPlugin.publishPipAction(action: "restore", callId: boundCallId)
-    if currentState == .connected {
-      showConnectedChrome(source: "pip_restore")
-    }
-    NativeVideoCallLog.info("native_video_pip_restore", callId: boundCallId)
-    completionHandler(true)
-  }
-
-  func pictureInPictureController(
-    _ pictureInPictureController: AVPictureInPictureController,
-    failedToStartPictureInPictureWithError error: Error
-  ) {
-    teardownPipFrameBridge(reason: "pip_enter_failed")
-    NativeVideoCallLog.warn(
-      "native_video_pip_enter_failed",
-      callId: boundCallId,
-      details: "err=\(error.localizedDescription)"
-    )
   }
 }
 

@@ -3,6 +3,9 @@ import UIKit
 /**
  * Static bridge between Runtime/Agora and `NativeVideoCallViewController` (Android Activity parity).
  * Render-only — no session ownership.
+ *
+ * CUT-6B: RELEASE_FULLSCREEN_FOR_PIP dismisses presentation without END_CALL.
+ * PiP ContentSource lifetime lives in NativeVideoCallPipOwner.
  */
 enum NativeVideoCallUiHost {
   private static let sync = NSLock()
@@ -40,16 +43,34 @@ enum NativeVideoCallUiHost {
   static func ensureIncomingPresented(
     callId: String,
     session: NativeVideoCallSession,
-    bypassLockCheck: Bool = false
+    bypassLockCheck: Bool = false,
+    forceRestoreFromPip: Bool = false
   ) {
     guard Thread.isMainThread else {
       DispatchQueue.main.async {
-        ensureIncomingPresented(callId: callId, session: session, bypassLockCheck: bypassLockCheck)
+        ensureIncomingPresented(
+          callId: callId,
+          session: session,
+          bypassLockCheck: bypassLockCheck,
+          forceRestoreFromPip: forceRestoreFromPip
+        )
       }
       return
     }
     if isShowing(callId: callId) {
       renderState(callId: callId, state: NativeVideoCallRuntime.shared.snapshot().state)
+      return
+    }
+    // CUT-6B: while PiP owns app-usable path, do not auto-resurrect fullscreen VC.
+    if !forceRestoreFromPip,
+       #available(iOS 15.0, *),
+       NativeVideoCallPipOwner.shared.shouldBlockAutoPresent(callId: callId)
+    {
+      NativeVideoCallLog.info(
+        "native_video_ui_present_suppressed_for_pip",
+        callId: callId,
+        details: "reason=pip_active_app_usable"
+      )
       return
     }
     if !bypassLockCheck && !canPresentVideoSurfaces() {
@@ -82,6 +103,9 @@ enum NativeVideoCallUiHost {
     if bypassLockCheck {
       NativeVideoCallLog.info("native_video_surface_shown_after_unlock", callId: callId)
     }
+    if forceRestoreFromPip {
+      NativeVideoCallLog.info("native_video_ui_restored_from_pip", callId: callId)
+    }
     attachVideoSurfacesIfNeeded(callId: callId)
   }
 
@@ -102,10 +126,16 @@ enum NativeVideoCallUiHost {
 
   static func attachRemoteView(callId: String, view: UIView) {
     onMain {
-      guard let controller = controller(for: callId) else { return }
-      controller.ensureVideoRootForRemoteRender()
-      controller.attachRemoteView(view)
-      NativeVideoCallLog.info("remote_surface_attached", callId: callId)
+      if let controller = controller(for: callId) {
+        controller.ensureVideoRootForRemoteRender()
+        controller.attachRemoteView(view)
+        NativeVideoCallLog.info("remote_surface_attached", callId: callId)
+        return
+      }
+      if #available(iOS 15.0, *), NativeVideoCallPipOwner.shared.isBound(to: callId) {
+        NativeVideoCallPipOwner.shared.attachRemoteViewToPipContent(view)
+        NativeVideoCallLog.info("remote_surface_attached", callId: callId, details: "target=pip_owner")
+      }
     }
   }
 
@@ -130,7 +160,13 @@ enum NativeVideoCallUiHost {
   @discardableResult
   static func ensureVideoRootForRemoteRender(callId: String) -> Bool {
     guard Thread.isMainThread else { return false }
-    return controller(for: callId)?.ensureVideoRootForRemoteRender() ?? false
+    if let controller = controller(for: callId) {
+      return controller.ensureVideoRootForRemoteRender()
+    }
+    if #available(iOS 15.0, *), NativeVideoCallPipOwner.shared.isBound(to: callId) {
+      return NativeVideoCallPipOwner.shared.contentViewControllerForReparent() != nil
+    }
+    return false
   }
 
   static func clearVideoSurfaces(callId: String) {
@@ -139,10 +175,98 @@ enum NativeVideoCallUiHost {
     }
   }
 
+  /**
+   * CUT-6B — UI-only release after PiP didStart.
+   * MUST NOT call finishIfActive / hangup / Agora leave / CallKit end / Runtime cleanup.
+   */
+  static func releaseFullscreenForPip(callId: String) {
+    onMain {
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard let controller = controller(for: sid) else {
+        NativeVideoCallLog.info(
+          "release_fullscreen_for_pip_skip",
+          callId: sid,
+          details: "reason=no_fullscreen_vc"
+        )
+        return
+      }
+      sync.lock()
+      if activeController === controller {
+        activeController = nil
+      }
+      sync.unlock()
+      // Explicit semantic: RELEASE_FULLSCREEN_FOR_PIP ≠ END_CALL.
+      // Do not stopPip / finishIfActive / terminal here.
+      controller.dismiss(animated: false)
+      NativeVideoCallLog.info(
+        "release_fullscreen_for_pip_dismissed",
+        callId: sid,
+        details: "terminal=0 animated=false"
+      )
+    }
+  }
+
+  /** Restore fullscreen from existing Runtime session — no new Agora join / no new callId. */
+  static func restoreFullscreenFromPip(callId: String, completion: @escaping (Bool) -> Void) {
+    onMain {
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      let snap = NativeVideoCallRuntime.shared.snapshot()
+      guard let session = snap.session,
+            session.sessionId == sid
+      else {
+        NativeVideoCallLog.warn(
+          "native_video_pip_restore_failed",
+          callId: sid,
+          details: "reason=no_active_runtime_session"
+        )
+        completion(false)
+        return
+      }
+      switch snap.state {
+      case .ending, .ended, .failed:
+        NativeVideoCallLog.warn(
+          "native_video_pip_restore_failed",
+          callId: sid,
+          details: "reason=terminal_state state=\(snap.state)"
+        )
+        completion(false)
+        return
+      case .ringing, .accepting, .connecting, .connected:
+        break
+      }
+      if isShowing(callId: sid) {
+        completion(true)
+        return
+      }
+      ensureIncomingPresented(
+        callId: sid,
+        session: session,
+        bypassLockCheck: true,
+        forceRestoreFromPip: true
+      )
+      // Allow presentation + surface attach to land before completing Apple restore handler.
+      DispatchQueue.main.async {
+        completion(isShowing(callId: sid))
+      }
+    }
+  }
+
   static func finishIfActive(callId: String, reason: String? = nil) {
     onMain {
       clearDeferredPresentation(callId: callId)
-      guard let controller = controller(for: callId) else { return }
+      if #available(iOS 15.0, *) {
+        // Terminal while PiP / after UI release: stop PiP + drop ContentSource once.
+        NativeVideoCallPipOwner.shared.teardownForTerminal(callId: callId)
+      }
+      guard let controller = controller(for: callId) else {
+        // Already released for PiP — no fullscreen resurrection.
+        NativeVideoCallLog.info(
+          "finish_if_active_no_fullscreen",
+          callId: callId,
+          details: "reason=\(reason ?? "nil") pip_owner_teardown=1"
+        )
+        return
+      }
       let dismissBlock = {
         controller.stopPipIfActive()
         DibayCallPipPlugin.clearPipEmitGuards(callId: callId)
@@ -167,13 +291,27 @@ enum NativeVideoCallUiHost {
       assertionFailure("stopPipBeforeDismiss must run on main — batch via cleanup main.async")
       return
     }
-    controller(for: callId)?.stopPipIfActive()
+    if let controller = controller(for: callId) {
+      controller.stopPipIfActive()
+      return
+    }
+    if #available(iOS 15.0, *) {
+      NativeVideoCallPipOwner.shared.stopIfActive()
+    }
   }
 
   static func publishPipEndActionIfNeeded(callId: String) {
     onMain {
-      guard let controller = controller(for: callId), controller.isPictureInPictureActive else { return }
-      DibayCallPipPlugin.publishPipAction(action: "end", callId: callId)
+      if let controller = controller(for: callId), controller.isPictureInPictureActive {
+        DibayCallPipPlugin.publishPipAction(action: "end", callId: callId)
+        return
+      }
+      if #available(iOS 15.0, *),
+         NativeVideoCallPipOwner.shared.isBound(to: callId),
+         NativeVideoCallPipOwner.shared.isPictureInPictureActive
+      {
+        DibayCallPipPlugin.publishPipAction(action: "end", callId: callId)
+      }
     }
   }
 
@@ -182,6 +320,15 @@ enum NativeVideoCallUiHost {
     defer { sync.unlock() }
     guard let active = activeController else { return false }
     return active.boundCallId == callId.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /** Fullscreen OR PipOwner holding an active PiP media path for this call. */
+  static func isUiOrPipActive(callId: String) -> Bool {
+    if isShowing(callId: callId) { return true }
+    if #available(iOS 15.0, *) {
+      return NativeVideoCallPipOwner.shared.isBound(to: callId)
+    }
+    return false
   }
 
   static func requestPip(callId: String, source: String) -> Bool {
@@ -207,12 +354,18 @@ enum NativeVideoCallUiHost {
   }
 
   private static func requestExitPipOnMain(callId: String) -> Bool {
-    guard let controller = controller(for: callId) else { return false }
-    if controller.isPictureInPictureActive {
-      controller.stopPipIfActive()
+    if let controller = controller(for: callId) {
+      if controller.isPictureInPictureActive {
+        controller.stopPipIfActive()
+        return true
+      }
       return true
     }
-    return true
+    if #available(iOS 15.0, *), NativeVideoCallPipOwner.shared.isBound(to: callId) {
+      NativeVideoCallPipOwner.shared.stopIfActive()
+      return true
+    }
+    return false
   }
 
   private static func attachVideoSurfacesIfNeeded(callId: String) {

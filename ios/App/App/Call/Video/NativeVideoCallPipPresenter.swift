@@ -14,6 +14,7 @@ enum NativeVideoCallPipPresenter {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return false }
     guard isSupported() else { return false }
+    // Enter requires fullscreen VC (source view + chrome). App-usable PiP path is post-didStart.
     guard NativeVideoCallUiHost.isShowing(callId: sid) else { return false }
     return NativeVideoCallUiHost.requestPip(callId: sid, source: source)
   }

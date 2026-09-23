@@ -68,6 +68,7 @@
 		C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */; };
 		C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */; };
 		C7VID0A22FED79650016851F /* NativeVideoCallPipPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */; };
+		C7VID0E22FED79650016851F /* NativeVideoCallPipOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0E12FED79650016851F /* NativeVideoCallPipOwner.swift */; };
 		C7VID0B22FED79650016851F /* NativeVideoCallBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0B12FED79650016851F /* NativeVideoCallBridge.swift */; };
 		C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */; };
 		C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */; };
@@ -141,6 +142,7 @@
 		C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallUiHost.swift; sourceTree = "<group>"; };
 		C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallViewController.swift; sourceTree = "<group>"; };
 		C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallPipPresenter.swift; sourceTree = "<group>"; };
+		C7VID0E12FED79650016851F /* NativeVideoCallPipOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallPipOwner.swift; sourceTree = "<group>"; };
 		C7VID0B12FED79650016851F /* NativeVideoCallBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallBridge.swift; sourceTree = "<group>"; };
 		C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallPipPlugin.swift; sourceTree = "<group>"; };
 		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
@@ -316,6 +318,7 @@
 				C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */,
 				C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */,
 				C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */,
+				C7VID0E12FED79650016851F /* NativeVideoCallPipOwner.swift */,
 				C7VID0B12FED79650016851F /* NativeVideoCallBridge.swift */,
 			);
 			path = Video;
@@ -508,6 +511,7 @@
 				C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */,
 				C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */,
 				C7VID0A22FED79650016851F /* NativeVideoCallPipPresenter.swift in Sources */,
+				C7VID0E22FED79650016851F /* NativeVideoCallPipOwner.swift in Sources */,
 				C7VID0B22FED79650016851F /* NativeVideoCallBridge.swift in Sources */,
 				C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
