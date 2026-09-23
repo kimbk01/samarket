@@ -63,4 +63,30 @@ describe("CUT-6B iOS PiP UI ownership contracts", () => {
     expect(view).toMatch(/NativeVideoCallPipOwner\.shared\.configureIfNeeded/);
     expect(view).toMatch(/noteFullscreenControllerDeinit/);
   });
+
+  it("CUT-6E: configure create-path restores fullscreenController after teardownSession", () => {
+    const owner = read(pipOwner);
+    const configure = owner.match(
+      /func configureIfNeeded\([\s\S]*?\n  func setAutomaticPipFromInline/
+    )?.[0] ?? "";
+    expect(configure.length).toBeGreaterThan(200);
+    expect(configure).toMatch(/teardownSession\(reason: "reconfigure"/);
+    // After teardown, fullscreenController must be reassigned before pip create completes.
+    const afterTeardown = configure.split(/teardownSession\(reason: "reconfigure"[^\n]*\n/)[1] ?? "";
+    expect(afterTeardown).toMatch(/fullscreenController = fullscreen/);
+    // willStart still requires fullscreen VC for reparent; didStart must not.
+    const willStart =
+      owner.match(
+        /func pictureInPictureControllerWillStartPictureInPicture\([\s\S]*?\n  func pictureInPictureControllerDidStart/
+      )?.[0] ?? "";
+    const didStart =
+      owner.match(
+        /func pictureInPictureControllerDidStartPictureInPicture\([\s\S]*?\n  func pictureInPictureControllerDidStop/
+      )?.[0] ?? "";
+    expect(willStart).toMatch(/guard let vc = fullscreenController/);
+    expect(willStart).toMatch(/reparentRemoteViewToPipForPipOwner/);
+    expect(willStart).toMatch(/native_video_pip_entered/);
+    expect(didStart).toMatch(/releaseFullscreenForPip/);
+    expect(didStart).not.toMatch(/fullscreenController/);
+  });
 });

@@ -1,25 +1,31 @@
 import Foundation
+import os.log
 
 /**
  * Phase B0 — Native video runtime logs.
  * Do not reuse DIBAY_CALL_V4 markers in this package.
+ *
+ * Device capture: same dual-write pattern as DibayCallLog
+ * (os_log %{public}@ + NSLog). Console filter: subsystem `com.dibay.app`,
+ * category `native_video`. Marker names / callId formatting unchanged.
  */
 enum NativeVideoCallLog {
   private static let prefix = "[DIBAY_NATIVE_VIDEO] "
+  private static let osLog = OSLog(subsystem: "com.dibay.app", category: "native_video")
 
   static func info(_ marker: String, callId: String) {
     info(marker, callId: callId, details: "")
   }
 
   static func info(_ marker: String, callId: String, details: String) {
-    NSLog("%@%@", prefix, format(marker: marker, callId: callId, details: details))
+    emit(level: .info, body: format(marker: marker, callId: callId, details: details))
     if let alias = qaAlias(marker) {
-      NSLog("%@%@", prefix, format(marker: alias, callId: callId, details: details))
+      emit(level: .info, body: format(marker: alias, callId: callId, details: details))
     }
   }
 
   static func warn(_ marker: String, callId: String, details: String) {
-    NSLog("%@%@", prefix, format(marker: marker, callId: callId, details: details))
+    emit(level: .default, body: format(marker: marker, callId: callId, details: details))
   }
 
   /** CUT1 evidence correlation — no tokens; grep DIBAY_CALL_CORR. */
@@ -30,7 +36,13 @@ enum NativeVideoCallLog {
       + (details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         ? ""
         : " \(details.trimmingCharacters(in: .whitespacesAndNewlines))")
-    NSLog("%@%@", prefix, format(marker: "DIBAY_CALL_CORR", callId: callId, details: extra))
+    emit(level: .info, body: format(marker: "DIBAY_CALL_CORR", callId: callId, details: extra))
+  }
+
+  private static func emit(level: OSLogType, body: String) {
+    let line = prefix + body
+    os_log("%{public}@", log: osLog, type: level, line)
+    NSLog("%@", line)
   }
 
   private static func format(marker: String, callId: String, details: String) -> String {

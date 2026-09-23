@@ -59,16 +59,19 @@ final class NativeVideoCallPipOwner: NSObject, AVPictureInPictureControllerDeleg
     guard !sid.isEmpty else { return }
     guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
 
-    fullscreenController = fullscreen
-
     if pipController != nil, isBound(to: sid) {
+      // Refresh weak fullscreen pointer for willStart reparent (same call, same owner).
+      fullscreenController = fullscreen
       sourceAnchorView = sourceView
       return
     }
 
     teardownSession(reason: "reconfigure", stopPip: pipController?.isPictureInPictureActive == true)
 
+    // CUT-6E: teardownSession clears fullscreenController. willStart requires it for
+    // reparent + native_video_pip_entered; didStart does not. Restore after teardown.
     boundCallId = sid
+    fullscreenController = fullscreen
     sourceAnchorView = sourceView
     let pipVC = AVPictureInPictureVideoCallViewController()
     pipVC.preferredContentSize = CGSize(width: 9, height: 16)
