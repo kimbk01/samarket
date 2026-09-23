@@ -29,6 +29,12 @@ export function StoresOwnerLayoutClient({
   const pathname = (usePathname() ?? "").replace(/\/+$/, "") || "/";
   const isApply = pathname.startsWith("/stores/owner/apply");
   const isHub = pathname === "/stores/owner";
+  /**
+   * Server-only ensure → `redirect` to messenger room.
+   * Do not mount Guard/Shell/Runtime — Cap soft-nav hit React #310
+   * ("Rendered more hooks than during the previous render") inside BusinessAdminShell.
+   */
+  const isOrderChatEnsure = pathname.startsWith("/stores/owner/order-chat");
 
   useLayoutEffect(() => {
     if (!isHub) return;
@@ -38,6 +44,10 @@ export function StoresOwnerLayoutClient({
 
   if (isApply) {
     return <StoresOwnerApplyShell>{children}</StoresOwnerApplyShell>;
+  }
+
+  if (isOrderChatEnsure) {
+    return <>{children}</>;
   }
 
   return (
