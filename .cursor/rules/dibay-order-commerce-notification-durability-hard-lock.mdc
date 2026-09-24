@@ -1,0 +1,29 @@
+# DIBAY Order/Commerce Notification Durability HARD LOCK (SR-1 P2)
+
+**ACTIVE.** Full contract: `docs/dibay-order-commerce-notification-durability-hard-lock.md`  
+Evidence: `.tmp/notification-sr1-class-c/FINAL_CLOSE.json`
+
+## AUTHORITY
+
+HEAD/ORIGIN/PRODUCTION `b3eecb8ee89349b6b67f6fdcad377022253ab8ac` · Deployment `dpl_6rN7aY3hByR2xmqhfFMXRYh7kfCX`
+
+## OWNER POLICY
+
+P2 — durable inbox + recoverable push handoff on `notification_events` (no new outbox). Device display NOT guaranteed.
+
+## LOCKED
+
+- Commerce deferPush + `push_handoff_*` columns + claim cron
+- W1 via `store_order_events` reconcile
+- Existing commerce dedupe keys
+
+## DO NOT
+
+- Guarantee FCM/APNs device display
+- New outbox table as first option
+- Touch Page Nav / CD-1 / CD-2 / Call locks
+- Wire dead `notifyBuyerStoreOrderAutoCompleted`
+
+## Change gate
+
+Commerce notification durability → **regression-only**. Reopen only on Owner PRODUCT FAIL.
