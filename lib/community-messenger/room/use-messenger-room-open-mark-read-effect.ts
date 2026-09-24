@@ -1078,12 +1078,22 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
     const onResize = () => scheduleRoomReadAck("resize");
     const onViewportScroll = () => scheduleRoomReadAck("near-bottom");
-    const viewport = messagesViewportRef.current;
+
+    const readGateLatestMessageId = lastMarkableMessageId(
+      roomMessagesRef.current,
+      snapshotRef.current?.messages
+    );
+    const previousReadGateMessageId = lastSeenReadGateMessageIdRef.current;
+    lastSeenReadGateMessageIdRef.current = readGateLatestMessageId;
+    const firstScheduleReason: RoomReadAckReason =
+      previousReadGateMessageId != null && readGateLatestMessageId !== previousReadGateMessageId
+        ? "incoming-visible"
+        : "initial-render";
+
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     window.addEventListener("resize", onResize);
-    viewport?.addEventListener("scroll", onViewportScroll, { passive: true });
     if (readMarkEffectEndRecordedRoomRef.current !== id) {
       readMarkEffectEndRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
@@ -1097,21 +1107,47 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }, 40);
     };
     let mutationObserver: MutationObserver | null = null;
-    if (viewport && typeof MutationObserver !== "undefined") {
-      mutationObserver = new MutationObserver(mutationScheduleReevaluate);
-      mutationObserver.observe(viewport, { childList: true, subtree: true });
-    }
+    let viewportAttachObserver: MutationObserver | null = null;
+    let boundViewport: HTMLElement | null = null;
 
-    const readGateLatestMessageId = lastMarkableMessageId(
-      roomMessagesRef.current,
-      snapshotRef.current?.messages
-    );
-    const previousReadGateMessageId = lastSeenReadGateMessageIdRef.current;
-    lastSeenReadGateMessageIdRef.current = readGateLatestMessageId;
-    const firstScheduleReason: RoomReadAckReason =
-      previousReadGateMessageId != null && readGateLatestMessageId !== previousReadGateMessageId
-        ? "incoming-visible"
-        : "initial-render";
+    const bindViewportListeners = (vp: HTMLElement) => {
+      if (boundViewport === vp) return;
+      if (boundViewport) {
+        boundViewport.removeEventListener("scroll", onViewportScroll);
+        mutationObserver?.disconnect();
+        mutationObserver = null;
+      }
+      boundViewport = vp;
+      vp.addEventListener("scroll", onViewportScroll, { passive: true });
+      if (typeof MutationObserver !== "undefined") {
+        mutationObserver = new MutationObserver(mutationScheduleReevaluate);
+        mutationObserver.observe(vp, { childList: true, subtree: true });
+      }
+    };
+
+    /**
+     * FIRST DIVERGENCE (Samsung GD Normal+Push runtime):
+     * Phase1 mark-read effect often runs before Phase2 assigns `messagesViewportRef`.
+     * Prior code only subscribed scroll/MutationObserver when viewport was already non-null,
+     * and `readGateVersion` does not bump on viewport attach → resolveReadCandidate stayed
+     * `viewport_not_ok` forever → mark_read PATCH never sent (READ_REQUEST_NOT_SENT).
+     * Re-arm once when the timeline viewport appears; no duplicate writers / no timer retry loop.
+     */
+    const viewportAtStart = messagesViewportRef.current;
+    if (viewportAtStart) {
+      bindViewportListeners(viewportAtStart);
+    } else if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {
+      viewportAttachObserver = new MutationObserver(() => {
+        if (cancelled) return;
+        const next = messagesViewportRef.current;
+        if (!next) return;
+        viewportAttachObserver?.disconnect();
+        viewportAttachObserver = null;
+        bindViewportListeners(next);
+        scheduleRoomReadAck(firstScheduleReason);
+      });
+      viewportAttachObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
 
     /** Entry only schedules a visibility-derived cursor candidate; route open alone never clears. */
     const startMarkReadOnRoomReady = () => {
@@ -1133,11 +1169,12 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       preOptimisticUnreadRef.current = null;
       if (mutationDebounce != null) clearTimeout(mutationDebounce);
       mutationObserver?.disconnect();
+      viewportAttachObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
-      viewport?.removeEventListener("scroll", onViewportScroll);
+      boundViewport?.removeEventListener("scroll", onViewportScroll);
     };
   }, [
     roomId,
