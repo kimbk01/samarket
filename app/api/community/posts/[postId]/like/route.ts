@@ -78,29 +78,32 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         return NextResponse.json({ ok: false, error: delErr.message ?? "like_failed" }, { status: 500 });
       }
     } else {
-      const { error: insErr } = await sb
+      const { data: likeRow, error: insErr } = await sb
         .from("community_post_likes")
-        .insert({ post_id: id, user_id: auth.userId });
+        .insert({ post_id: id, user_id: auth.userId })
+        .select("id")
+        .single();
       if (insErr) {
         return NextResponse.json({ ok: false, error: insErr.message ?? "like_failed" }, { status: 500 });
+      }
+      const likeId = String((likeRow as { id?: string } | null)?.id ?? "").trim();
+      if (liked && gate.authorId && likeId) {
+        const principalId = await loadCommunityImportPrincipalUserId(sb);
+        const recipientIsRealMember = Boolean(
+          gate.authorId && (!principalId || gate.authorId !== principalId)
+        );
+        if (recipientIsRealMember) {
+          void notifyCommunityPostLikeReceived(sb, {
+            postId: id,
+            postAuthorUserId: gate.authorId,
+            likerUserId: auth.userId,
+            likeId,
+          }).catch(() => {});
+        }
       }
     }
     const { data: postAfter } = await sb.from("community_posts").select("like_count").eq("id", id).maybeSingle();
     const likeCount = Number((postAfter as { like_count?: number } | null)?.like_count ?? 0);
-
-    if (liked && gate.authorId) {
-      const principalId = await loadCommunityImportPrincipalUserId(sb);
-      const recipientIsRealMember = Boolean(
-        gate.authorId && (!principalId || gate.authorId !== principalId)
-      );
-      if (recipientIsRealMember) {
-        void notifyCommunityPostLikeReceived(sb, {
-          postId: id,
-          postAuthorUserId: gate.authorId,
-          likerUserId: auth.userId,
-        }).catch(() => {});
-      }
-    }
 
     return NextResponse.json({ ok: true, liked, like_count: likeCount });
   } catch (e) {

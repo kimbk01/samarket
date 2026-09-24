@@ -13,6 +13,31 @@ function trimText(v: unknown): string {
 
 const POST_HREF = (postId: string) => buildCommunityPostNotificationPath(postId);
 
+/**
+ * Per-activity dedupe identity for community social notifications.
+ * Must NOT collapse to postId alone — that permanently suppresses later comment/like/reply
+ * under UNIQUE(user_id, dedupe_key) (see community_activity F9 forensic).
+ *
+ * Same activity retry → same key. Distinct activities → distinct keys.
+ */
+export function buildCommunityCommentNotificationDedupeKey(
+  recipientUserId: string,
+  commentId: string
+): string {
+  const recipient = trimText(recipientUserId);
+  const id = trimText(commentId);
+  return `community:${recipient}:community_comment:${id}`;
+}
+
+export function buildCommunityLikeNotificationDedupeKey(
+  recipientUserId: string,
+  likeRowId: string
+): string {
+  const recipient = trimText(recipientUserId);
+  const id = trimText(likeRowId);
+  return `community:${recipient}:community_like:${id}`;
+}
+
 export async function notifyCommunityPostCommentReceived(
   sb: SupabaseClient<any>,
   args: {
@@ -20,13 +45,16 @@ export async function notifyCommunityPostCommentReceived(
     postAuthorUserId: string;
     commenterUserId: string;
     commentPreview: string;
+    /** Canonical comment/reply row id — required for per-activity dedupe. */
+    commentId: string;
     parentCommentAuthorUserId?: string | null;
   }
 ): Promise<void> {
   const postId = trimText(args.postId);
   const postAuthorId = trimText(args.postAuthorUserId);
   const commenterId = trimText(args.commenterUserId);
-  if (!postId || !commenterId) return;
+  const commentId = trimText(args.commentId);
+  if (!postId || !commenterId || !commentId) return;
   // postAuthorUserId may be empty when caller skips author notify (e.g. imported origin).
 
   const nickMap = await fetchNicknamesForUserIds(sb, [commenterId]);
@@ -63,10 +91,12 @@ export async function notifyCommunityPostCommentReceived(
       link_url: linkUrl,
       domain: "community_chat",
       ref_id: postId,
+      dedupe_key: buildCommunityCommentNotificationDedupeKey(uid, commentId),
       push_kind: "community",
       meta: {
         kind: "community_comment",
         post_id: postId,
+        comment_id: commentId,
         commenter_id: commenterId,
         commenter_label: commenterLabel,
       },
@@ -80,12 +110,15 @@ export async function notifyCommunityPostLikeReceived(
     postId: string;
     postAuthorUserId: string;
     likerUserId: string;
+    /** Canonical community_post_likes row id — required for per-activity dedupe. */
+    likeId: string;
   }
 ): Promise<void> {
   const postId = trimText(args.postId);
   const postAuthorId = trimText(args.postAuthorUserId);
   const likerId = trimText(args.likerUserId);
-  if (!postId || !postAuthorId || !likerId || postAuthorId === likerId) return;
+  const likeId = trimText(args.likeId);
+  if (!postId || !postAuthorId || !likerId || !likeId || postAuthorId === likerId) return;
 
   const relation = await getBlockedRelation(postAuthorId, likerId);
   if (isNotificationSuppressedForActor(relation)) return;
@@ -102,10 +135,12 @@ export async function notifyCommunityPostLikeReceived(
     link_url: POST_HREF(postId),
     domain: "community_chat",
     ref_id: postId,
+    dedupe_key: buildCommunityLikeNotificationDedupeKey(postAuthorId, likeId),
     push_kind: "community",
     meta: {
       kind: "community_like",
       post_id: postId,
+      like_id: likeId,
       liker_id: likerId,
       liker_label: likerLabel,
     },

@@ -264,6 +264,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     const recipientIsRealMember = Boolean(
       postAuthorId && (!principalId || postAuthorId !== principalId)
     );
+    const commentId = (ins as { id: string }).id;
     if (postAuthorId && postAuthorId !== auth.userId && recipientIsRealMember) {
       void bumpNotificationTarget(sb, {
         userId: postAuthorId,
@@ -278,9 +279,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       postAuthorUserId: recipientIsRealMember ? postAuthorId : "",
       commenterUserId: auth.userId,
       commentPreview: content,
+      commentId,
       parentCommentAuthorUserId: parentCommentAuthorId,
     }).catch(() => {});
-    const commentId = (ins as { id: string }).id;
     await applyCommunityPointRewardOnCommentWrite({
       userId: auth.userId,
       postId: id,
