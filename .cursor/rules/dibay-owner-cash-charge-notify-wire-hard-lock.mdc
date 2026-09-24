@@ -1,0 +1,22 @@
+# DIBAY Owner Cash Charge Notify Wire HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-owner-cash-charge-notify-wire-hard-lock.md`  
+Evidence: `.tmp/notification-cd2-cash-charge-notify/PRODUCTION_PROOF.json`
+
+## AUTHORITY
+
+HEAD/ORIGIN/PRODUCTION `96cefb6b5637196075f02aa22fc4bb8fe92a536f` · Deployment `dpl_BxDJCARaA9pKFd1zkprRrsuFoEvB`
+
+## LOCKED
+
+Admin Cash top-up approve/reject must call existing Owner notify helpers on the canonical `business-cash-charges` POST path.
+
+## DO NOT
+
+- Unwire or bypass `safeNotifyOwnerBusinessCashChargeCompleted` / `Rejected`
+- Invent a second Cash money or notify writer
+- Treat this lock as live Admin runtime QA PASS (wire-only evidence)
+
+## Change gate
+
+Cash charge Admin decision / notify helpers → **regression-only**. Reopen only on Owner PRODUCT FAIL + first divergence.
