@@ -30,15 +30,16 @@ export async function resolveMentionUserIdsForGroupRoom(
     .filter(Boolean);
   if (!userIds.length) return [];
 
+  // Live profiles name SSOT only: nickname → display_name → username.
   const { data: profiles } = await (sb as any)
     .from("profiles")
-    .select("id, nickname, full_name, display_name, username")
+    .select("id, nickname, display_name, username")
     .in("id", userIds);
   const nicknameToId = new Map<string, string>();
   for (const row of (profiles ?? []) as Array<Record<string, unknown>>) {
     const id = trimText(row.id);
     if (!id) continue;
-    for (const key of ["nickname", "display_name", "full_name", "username"]) {
+    for (const key of ["nickname", "display_name", "username"] as const) {
       const label = normalizeNickname(trimText(row[key]));
       if (label && !nicknameToId.has(label)) nicknameToId.set(label, id);
     }
