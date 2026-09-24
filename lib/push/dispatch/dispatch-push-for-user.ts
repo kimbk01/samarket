@@ -277,7 +277,9 @@ export async function dispatchPushForUser(
   }
 
   if (!opts?.skip_settings_gate && !terminalDismiss) {
-    // Consent fail-closed: preference gate throw/unavailable must not send (CD-1).
+    // CD-1: outer safety net — unexpected gate rejection must not fail-open to send.
+    // Optional READ_FAILED is handled inside shouldSendWebPushForUser (returns false).
+    // Mandatory READ_FAILED is preserved there (returns true) before this catch.
     const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(
       () => false
     );
@@ -288,6 +290,7 @@ export async function dispatchPushForUser(
         target_type: opts?.target_type ?? null,
         target_id: opts?.target_id ?? null,
         status: "skipped",
+        // Existing taxonomy — covers OFF prefs and preference authority failure.
         provider_response: { reason: "user_settings_gate" },
         notification_event_id: opts?.notification_event_id ?? null,
         environment: resolvePushEnvironment(),

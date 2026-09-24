@@ -20,6 +20,16 @@ import { isMissingPreferenceRelationError } from "@/lib/notifications/policy/not
 
 export { isMissingPreferenceRelationError } from "@/lib/notifications/policy/notification-preference-relation-errors";
 
+/** Thrown when preference authority cannot be established (≠ NO_ROW). */
+export const NOTIFICATION_PREFERENCE_READ_FAILED_PREFIX = "notification_preference_read_failed:";
+
+export function isNotificationPreferenceReadFailedError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith(NOTIFICATION_PREFERENCE_READ_FAILED_PREFIX)
+  );
+}
+
 const NOTIFICATION_SETTINGS_SELECT =
   "service_enabled, trade_chat_enabled, community_chat_enabled, order_enabled, store_enabled, trade_events_enabled, community_social_enabled, notice_enabled, marketing_enabled, sound_enabled, vibration_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
 
@@ -41,11 +51,11 @@ async function maybeSinglePreferenceRow<T>(
 ): Promise<T | null> {
   const { data, error } = await query;
   if (error) {
-    // Missing table/relation → no-row compat (schema not yet applied).
+    // Missing table/relation → NO_ROW compat (existing defaults). Not READ_FAILED.
     if (isMissingPreferenceRelationError(error)) return null;
-    // Non-missing DB errors must not collapse to defaults-ON (CD-1 consent fail-closed).
+    // PREFERENCE_READ_FAILED — must not collapse to defaults-ON (CD-1).
     throw new Error(
-      `notification_preference_read_failed:${String(error.code ?? "unknown")}:${String(error.message ?? "")}`
+      `${NOTIFICATION_PREFERENCE_READ_FAILED_PREFIX}${String(error.code ?? "unknown")}:${String(error.message ?? "")}`
     );
   }
   return data;

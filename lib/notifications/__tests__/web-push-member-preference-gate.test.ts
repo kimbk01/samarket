@@ -353,7 +353,7 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
     expect(campaign).not.toContain(".catch(() => true)");
   });
 
-  it("CD-1 — non-missing preference DB error rejects (does not default-ON)", async () => {
+  it("CD-1 — non-missing preference DB error → optional fail-closed (false), no defaults-ON", async () => {
     const fromSpy = vi.fn((table: string) => {
       return {
         select: vi.fn().mockReturnThis(),
@@ -374,7 +374,34 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
         "user-1",
         payload({ notification_type: "chat", meta: { kind: "trade_chat" } })
       )
-    ).rejects.toThrow(/notification_preference_read_failed/);
+    ).resolves.toBe(false);
+  });
+
+  it("CD-1 — mandatory metaKind + preference READ_FAILED → still allow (contract preserved)", async () => {
+    const fromSpy = vi.fn((table: string) => {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: null,
+          error:
+            table === "user_notification_settings"
+              ? { code: "57014", message: "canceling statement due to statement timeout" }
+              : null,
+        }),
+      };
+    });
+    const svc = { from: fromSpy } as unknown as Parameters<typeof shouldSendWebPushForUser>[0];
+    await expect(
+      shouldSendWebPushForUser(
+        svc,
+        "user-1",
+        payload({
+          notification_type: "commerce",
+          meta: { kind: "store_order_payment_completed_buyer" },
+        })
+      )
+    ).resolves.toBe(true);
   });
 
   it("CD-1 — missing preference relation still no-row compat (not throw)", async () => {

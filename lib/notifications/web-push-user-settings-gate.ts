@@ -1,9 +1,15 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { resolveEffectiveNotificationPreference } from "@/lib/notifications/policy/effective-notification-preference";
 import type { NormalizedNotificationPreferenceSnapshot } from "@/lib/notifications/policy/notification-preference-normalized-snapshot";
-import { getNotificationPreferencePolicy } from "@/lib/notifications/policy/notification-preference-policy-registry";
+import {
+  getNotificationPreferencePolicy,
+  isMandatoryPreferencePolicy,
+} from "@/lib/notifications/policy/notification-preference-policy-registry";
 import type { NotificationPreferenceRecipientRole } from "@/lib/notifications/policy/notification-preference-policy-types";
-import { readNormalizedNotificationPreferenceSnapshot } from "@/lib/notifications/policy/notification-preference-storage-reader.server";
+import {
+  isNotificationPreferenceReadFailedError,
+  readNormalizedNotificationPreferenceSnapshot,
+} from "@/lib/notifications/policy/notification-preference-storage-reader.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** 인박스·푸시 라우팅용 (DB notifications.push_kind 와 정렬) */
@@ -191,6 +197,10 @@ async function shouldSendOwnerWebPushForUser(
  * Web Push 발송 전 사용자 설정·방해금지·마케팅 동의를 적용한다.
  * Member: P2-A4 read authority → P2-A3 resolver → P2-A2 policy.
  * Owner: P2-A6 owner_notification_settings → P2-A3 resolver → P2-A2 policy.
+ *
+ * CD-1: PREFERENCE_READ_FAILED ≠ NO_ROW.
+ * - optional → fail-closed (false)
+ * - mandatory (P2-A2) → preserve existing mandatory send without preference row
  */
 export async function shouldSendWebPushForUser(
   svc: SupabaseClient,
@@ -198,8 +208,19 @@ export async function shouldSendWebPushForUser(
   out: NotificationSideEffectPayloadOut
 ): Promise<boolean> {
   const recipientRole = resolveWebPushPreferenceRecipientRole(out);
-  if (recipientRole === "owner") {
-    return shouldSendOwnerWebPushForUser(svc, userId, out);
+  try {
+    if (recipientRole === "owner") {
+      return await shouldSendOwnerWebPushForUser(svc, userId, out);
+    }
+    return await shouldSendMemberWebPushForUser(svc, userId, out);
+  } catch (error) {
+    if (!isNotificationPreferenceReadFailedError(error)) throw error;
+    const policy = getNotificationPreferencePolicy({
+      eventType: resolveWebPushPreferenceEventType(out),
+      metaKind: metaKindFromOut(out),
+      recipientRole,
+    });
+    if (isMandatoryPreferencePolicy(policy)) return true;
+    return false;
   }
-  return shouldSendMemberWebPushForUser(svc, userId, out);
 }
