@@ -176,22 +176,46 @@ export async function ensureApkWebViewLogin({
     log(`${label} after inject probe=${JSON.stringify(probe)}`);
   }
 
+  /**
+   * FIRST FALSE (native eligibility / register 401): CDP cookie inject writes auth
+   * cookies into WebView CookieManager memory. Without flushAuthCookies, force-stop
+   * drops them from durable store → cold-start register Cookie present-but-stale →
+   * HTTP 401 → native_register_success never runs → member_call_eligible stays false.
+   * Canonical product login already flushes via runCommonAuthClientCompletion; this
+   * QA path must call the same DibayBootBridge.flushAuthCookies before restart.
+   */
+  let cookieFlush = "skipped";
+  try {
+    cookieFlush = await page.evaluate(() => {
+      const bridge = window.DibayBootBridge;
+      if (typeof bridge?.flushAuthCookies !== "function") return "bridge_unavailable";
+      try {
+        return bridge.flushAuthCookies() === true ? "flushed" : "flush_failed";
+      } catch {
+        return "flush_failed";
+      }
+    });
+  } catch {
+    cookieFlush = "evaluate_failed";
+  }
+  log(`${label} auth cookie flush=${cookieFlush}`);
+
   await browser.close().catch(() => {});
 
   if (!probe.ok || probe.userId !== expectedUserId) {
-    return { ok: false, probe, registerLogcat: "" };
+    return { ok: false, probe, registerLogcat: "", cookieFlush };
   }
 
   let registerLogcat = "";
   if (restartForFcm) {
     restartApkForPushRegister(adb, serial, pkg, act, `${prod}/community-messenger`);
     await new Promise((r) => setTimeout(r, 18000));
-    registerLogcat = adb(serial, "logcat", "-d", "-s", "DIBAY_FCM", "DIBAY_PUSH_REGISTER", "DIBAY_PUSH", "DIBAY_NOTIFY").stdout ?? "";
-    const tail = registerLogcat.split("\n").filter(Boolean).slice(-15);
+    registerLogcat = adb(serial, "logcat", "-d", "-s", "DIBAY_FCM", "DIBAY_PUSH_REGISTER", "DIBAY_PUSH", "DIBAY_NOTIFY", "DIBAY_CALL_AUTH").stdout ?? "";
+    const tail = registerLogcat.split("\n").filter(Boolean).slice(-20);
     for (const line of tail) log(`${label} logcat ${line}`);
   }
 
-  return { ok: true, probe, registerLogcat };
+  return { ok: true, probe, registerLogcat, cookieFlush };
 }
 
 /** 기기에 이미 로그인된 WebView 세션 probe — 강제 aaaa/qqqq 주입 없음 */
