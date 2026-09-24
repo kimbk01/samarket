@@ -950,7 +950,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         roomLoading: roomLoadingRef.current,
         overlayBlocked: readPhase1OverlayBlockedRef.current,
       });
-      const vp = messagesViewportRef.current;
+      const vp =
+        messagesViewportRef.current ??
+        (typeof document !== "undefined"
+          ? (document.querySelector(".chat-timeline-scroll") as HTMLElement | null)
+          : null);
+      if (vp && !messagesViewportRef.current) {
+        messagesViewportRef.current = vp as HTMLDivElement;
+      }
       const nearBottom = isNearBottom(vp);
       const previousCursor =
         roomOpenMarkReadRef.current.lastMarkedMessageId ??
@@ -1090,11 +1097,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
     const onResize = () => scheduleRoomReadAck("resize");
     const onViewportScroll = () => scheduleRoomReadAck("near-bottom");
-    const onEntryScrollSettled = (ev: Event) => {
-      const detail = (ev as CustomEvent<{ roomId?: string }>).detail;
-      if (String(detail?.roomId ?? "").trim() !== id) return;
-      scheduleRoomReadAck("initial-render");
-    };
 
     const readGateLatestMessageId = lastMarkableMessageId(
       roomMessagesRef.current,
@@ -1111,7 +1113,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     window.addEventListener("resize", onResize);
-    window.addEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
     if (readMarkEffectEndRecordedRoomRef.current !== id) {
       readMarkEffectEndRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
@@ -1170,6 +1171,28 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       bindViewportListeners(vp);
       scheduleRoomReadAck(firstScheduleReason);
     };
+
+    const onEntryScrollSettled = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ roomId?: string }>).detail;
+      if (String(detail?.roomId ?? "").trim() !== id) return;
+      /**
+       * Production Samsung: Phase2 scroll root can be in the DOM while
+       * messagesViewportRef.current is still null (callback-ref / remount race).
+       * Settle must heal the ref or resolveReadCandidate stays viewport_not_ok forever.
+       */
+      if (!messagesViewportRef.current && typeof document !== "undefined") {
+        const live = document.querySelector(".chat-timeline-scroll");
+        if (live instanceof HTMLElement) {
+          messagesViewportRef.current = live as HTMLDivElement;
+          armViewportWhenReady(live);
+          return;
+        }
+      } else if (messagesViewportRef.current) {
+        bindViewportListeners(messagesViewportRef.current);
+      }
+      scheduleRoomReadAck("initial-render");
+    };
+    window.addEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
 
     const viewportAtStart = messagesViewportRef.current;
     if (viewportAtStart) {
