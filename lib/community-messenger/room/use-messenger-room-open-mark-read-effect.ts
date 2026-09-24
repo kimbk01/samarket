@@ -41,10 +41,6 @@ import {
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
-import {
-  CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT,
-  isMessengerRoomEntryScrollSettled,
-} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -950,14 +946,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         roomLoading: roomLoadingRef.current,
         overlayBlocked: readPhase1OverlayBlockedRef.current,
       });
-      const vp =
-        messagesViewportRef.current ??
-        (typeof document !== "undefined"
-          ? (document.querySelector(".chat-timeline-scroll") as HTMLElement | null)
-          : null);
-      if (vp && !messagesViewportRef.current) {
-        messagesViewportRef.current = vp as HTMLDivElement;
-      }
+      const vp = messagesViewportRef.current;
       const nearBottom = isNearBottom(vp);
       const previousCursor =
         roomOpenMarkReadRef.current.lastMarkedMessageId ??
@@ -976,14 +965,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         hintId === lastId &&
         (nearBottom || stickToBottomRef.current);
       if (!visibleCandidate && peerTailViewportBypass) visibleCandidate = lastId;
-      /**
-       * Entry keep-bottom: virtualizer row ratio can lag after scroll-owner settle while
-       * the timeline is already at the tail (Samsung Production: gap≈0, ratio later→1,
-       * but mark_read never scheduled). Near-bottom + lastId is sufficient.
-       */
-      if (!visibleCandidate && lastId && nearBottom) {
-        visibleCandidate = lastId;
-      }
       if (
         visibleCandidate &&
         !isReadCursorMonotonicAdvance({
@@ -1097,22 +1078,12 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
     const onResize = () => scheduleRoomReadAck("resize");
     const onViewportScroll = () => scheduleRoomReadAck("near-bottom");
-
-    const readGateLatestMessageId = lastMarkableMessageId(
-      roomMessagesRef.current,
-      snapshotRef.current?.messages
-    );
-    const previousReadGateMessageId = lastSeenReadGateMessageIdRef.current;
-    lastSeenReadGateMessageIdRef.current = readGateLatestMessageId;
-    const firstScheduleReason: RoomReadAckReason =
-      previousReadGateMessageId != null && readGateLatestMessageId !== previousReadGateMessageId
-        ? "incoming-visible"
-        : "initial-render";
-
+    const viewport = messagesViewportRef.current;
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     window.addEventListener("resize", onResize);
+    viewport?.addEventListener("scroll", onViewportScroll, { passive: true });
     if (readMarkEffectEndRecordedRoomRef.current !== id) {
       readMarkEffectEndRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
@@ -1126,107 +1097,26 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }, 40);
     };
     let mutationObserver: MutationObserver | null = null;
-    let viewportResizeObserver: ResizeObserver | null = null;
-    let viewportAttachObserver: MutationObserver | null = null;
-    let boundViewport: HTMLElement | null = null;
-
-    const bindViewportListeners = (vp: HTMLElement) => {
-      if (boundViewport === vp) return;
-      if (boundViewport) {
-        boundViewport.removeEventListener("scroll", onViewportScroll);
-        mutationObserver?.disconnect();
-        mutationObserver = null;
-        viewportResizeObserver?.disconnect();
-        viewportResizeObserver = null;
-      }
-      boundViewport = vp;
-      vp.addEventListener("scroll", onViewportScroll, { passive: true });
-      if (typeof MutationObserver !== "undefined") {
-        mutationObserver = new MutationObserver(mutationScheduleReevaluate);
-        mutationObserver.observe(vp, { childList: true, subtree: true });
-      }
-      /**
-       * Virtualizer may update rows without childList mutations; Android WebView often
-       * omits "scroll" for programmatic keep-bottom. ResizeObserver fires when
-       * scrollHeight/layout settles → re-evaluate viewportOk (READ_REQUEST_NOT_SENT).
-       */
-      if (typeof ResizeObserver !== "undefined") {
-        viewportResizeObserver = new ResizeObserver(() => scheduleRoomReadAck("resize"));
-        viewportResizeObserver.observe(vp);
-      }
-    };
-
-    /**
-     * FIRST DIVERGENCE (Samsung GD Normal+Push runtime):
-     * Phase1 mark-read effect often runs before Phase2 assigns `messagesViewportRef`.
-     * Prior code only subscribed scroll/MutationObserver when viewport was already non-null,
-     * and `readGateVersion` did not bump on viewport attach → resolveReadCandidate stayed
-     * `viewport_not_ok` forever → mark_read PATCH never sent (READ_REQUEST_NOT_SENT).
-     * Re-arm once when the timeline viewport appears; no duplicate writers / no timer retry loop.
-     */
-    const armViewportWhenReady = (vp: HTMLElement) => {
-      if (cancelled) return;
-      viewportAttachObserver?.disconnect();
-      viewportAttachObserver = null;
-      bindViewportListeners(vp);
-      scheduleRoomReadAck(firstScheduleReason);
-    };
-
-    const onEntryScrollSettled = (ev: Event) => {
-      const detail = (ev as CustomEvent<{ roomId?: string }>).detail;
-      if (String(detail?.roomId ?? "").trim() !== id) return;
-      /**
-       * Production Samsung: Phase2 scroll root can be in the DOM while
-       * messagesViewportRef.current is still null (callback-ref / remount race).
-       * Settle must heal the ref or resolveReadCandidate stays viewport_not_ok forever.
-       */
-      if (!messagesViewportRef.current && typeof document !== "undefined") {
-        const live = document.querySelector(".chat-timeline-scroll");
-        if (live instanceof HTMLElement) {
-          messagesViewportRef.current = live as HTMLDivElement;
-          armViewportWhenReady(live);
-          return;
-        }
-      } else if (messagesViewportRef.current) {
-        bindViewportListeners(messagesViewportRef.current);
-      }
-      scheduleRoomReadAck("initial-render");
-    };
-    window.addEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
-
-    const viewportAtStart = messagesViewportRef.current;
-    if (viewportAtStart) {
-      bindViewportListeners(viewportAtStart);
-    } else if (typeof document !== "undefined" && typeof MutationObserver !== "undefined") {
-      viewportAttachObserver = new MutationObserver(() => {
-        if (cancelled) return;
-        const next = messagesViewportRef.current;
-        if (!next) return;
-        armViewportWhenReady(next);
-      });
-      viewportAttachObserver.observe(document.documentElement, { childList: true, subtree: true });
-      // Close check-then-observe race: Phase2 may assign the ref between the null
-      // read above and observe() — MutationObserver would miss that attach.
-      const raced = messagesViewportRef.current;
-      if (raced) armViewportWhenReady(raced);
+    if (viewport && typeof MutationObserver !== "undefined") {
+      mutationObserver = new MutationObserver(mutationScheduleReevaluate);
+      mutationObserver.observe(viewport, { childList: true, subtree: true });
     }
+
+    const readGateLatestMessageId = lastMarkableMessageId(
+      roomMessagesRef.current,
+      snapshotRef.current?.messages
+    );
+    const previousReadGateMessageId = lastSeenReadGateMessageIdRef.current;
+    lastSeenReadGateMessageIdRef.current = readGateLatestMessageId;
+    const firstScheduleReason: RoomReadAckReason =
+      previousReadGateMessageId != null && readGateLatestMessageId !== previousReadGateMessageId
+        ? "incoming-visible"
+        : "initial-render";
 
     /** Entry only schedules a visibility-derived cursor candidate; route open alone never clears. */
     const startMarkReadOnRoomReady = () => {
       if (cancelled) return;
       scheduleRoomReadAck(firstScheduleReason);
-      // Layout may assign messagesViewportRef one frame after this effect — one rAF re-check.
-      if (!messagesViewportRef.current && typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => {
-          if (cancelled) return;
-          const vp = messagesViewportRef.current;
-          if (vp) armViewportWhenReady(vp);
-        });
-      }
-      // Entry scroll may have settled before this effect subscribed to the window event.
-      if (isMessengerRoomEntryScrollSettled(id)) {
-        scheduleRoomReadAck(firstScheduleReason);
-      }
     };
     if (typeof window !== "undefined" && typeof requestAnimationFrame === "function") {
       requestAnimationFrame(startMarkReadOnRoomReady);
@@ -1243,14 +1133,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       preOptimisticUnreadRef.current = null;
       if (mutationDebounce != null) clearTimeout(mutationDebounce);
       mutationObserver?.disconnect();
-      viewportResizeObserver?.disconnect();
-      viewportAttachObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
-      window.removeEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
-      boundViewport?.removeEventListener("scroll", onViewportScroll);
+      viewport?.removeEventListener("scroll", onViewportScroll);
     };
   }, [
     roomId,
