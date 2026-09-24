@@ -53,6 +53,14 @@ export type MessengerRoomOpenMarkReadPhaseRef = MutableRefObject<{
   lastMarkedMessageId?: string | null;
 }>;
 
+/** TEMP DIAG — clean-baseline CASE gate only. Remove after proof. */
+function dibayReadTrace(entry: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const w = window as Window & { __DIBAY_READTRACE__?: Array<Record<string, unknown>> };
+  if (!Array.isArray(w.__DIBAY_READTRACE__)) w.__DIBAY_READTRACE__ = [];
+  w.__DIBAY_READTRACE__.push({ t: Date.now(), ...entry });
+}
+
 function lastMarkableMessageId(
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>,
   snapshotMessages: CommunityMessengerMessage[] | undefined
@@ -389,6 +397,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   useEffect(() => {
     const id = roomId?.trim();
     if (!id) return;
+    let activeCorr = "";
+    dibayReadTrace({ step: "HOOK_ENTER", roomId: id });
     readMarkEffectCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "read_mark_effect_count", readMarkEffectCountRef.current);
     if (readMarkReadyRecordedRoomRef.current !== id) readMarkReadyRecordedRoomRef.current = null;
@@ -765,6 +775,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       });
 
       cmReadBadgeLog("mark_read_patch_start", { roomId: id, path: "scroll_ack", lastReadMessageId });
+      dibayReadTrace({ step: "PATCH_ATTEMPT", corr: activeCorr, lastReadMessageId });
       void (async () => {
         const ac = new AbortController();
         const timeout = setTimeout(() => ac.abort(), CM_MARK_READ_SERVER_TIMEOUT_MS);
@@ -1016,11 +1027,29 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
 
     const scheduleRoomReadAck = (reason: RoomReadAckReason) => {
+      const hadPending = readAckDebounceTimer != null || readAckRafId != null;
       clearScheduledReadAck();
+      activeCorr = `READTRACE:${id.slice(-8)}:${Date.now()}:${reason}`;
+      dibayReadTrace({
+        step: "CALLER_ENTER",
+        corr: activeCorr,
+        reason,
+        clearedPending: hadPending,
+      });
       const run = () => {
         readAckRafId = null;
         if (cancelled) return;
+        dibayReadTrace({ step: "RESOLVE_ENTER", corr: activeCorr, reason });
         const candidate = resolveReadCandidate(reason);
+        dibayReadTrace({
+          step: "RESOLVE_RESULT",
+          corr: activeCorr,
+          result: candidate,
+          phase: roomOpenMarkReadRef.current.phase,
+          lastMarked: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+          unreadCount: snapshotRef.current?.room.unreadCount ?? null,
+          viewerLastRead: snapshotRef.current?.viewerLastReadMessageId ?? null,
+        });
         if (!candidate) {
           /**
            * viewport 미달로 candidate null 이어도 list unread optimistic 은 유지
@@ -1038,22 +1067,38 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           tryEarlyOptimisticListBadgeClear(reason, candidate, snapEarly);
         }
         /**
-         * 카톡·텔레그램형: 방 실제 오픈(initial)·하단 가시 수신은 고정 dwell 없이 즉시 flush.
+         * 카톡·텔레그램형: 방 실제 오픈(initial)·하단 가시 도착은 고정 dwell 없이 즉시 flush.
          * scroll/resize/focus 만 짧은 coalesce (연타 방지).
          */
         const immediateFlush =
           reason === "initial-render" || reason === "incoming-visible";
         if (immediateFlush) {
+          dibayReadTrace({ step: "FLUSH_ENTER", corr: activeCorr, reason, mode: "immediate", candidate });
           flushRoomReadAck(reason, candidate);
           return;
         }
+        dibayReadTrace({ step: "DEBOUNCE_SCHEDULED", corr: activeCorr, reason, candidate });
         readAckDebounceTimer = setTimeout(() => {
           readAckDebounceTimer = null;
           if (cancelled) return;
+          dibayReadTrace({ step: "DEBOUNCE_FIRE", corr: activeCorr, reason });
           const candidateAfter = resolveReadCandidate(reason);
+          dibayReadTrace({
+            step: "RESOLVE_RESULT",
+            corr: activeCorr,
+            result: candidateAfter,
+            afterDebounce: true,
+          });
           if (!candidateAfter) {
             return;
           }
+          dibayReadTrace({
+            step: "FLUSH_ENTER",
+            corr: activeCorr,
+            reason,
+            mode: "debounce",
+            candidate: candidateAfter,
+          });
           flushRoomReadAck(reason, candidateAfter);
         }, CM_MARK_READ_SCROLL_DEBOUNCE_MS);
       };
