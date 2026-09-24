@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
@@ -17,6 +18,9 @@ export async function notifyGroupPinMessage(
   const messageId = trimText(input.messageId);
   const actorUserId = trimText(input.actorUserId);
   if (!roomId || !messageId || !actorUserId) return;
+
+  // Same GROUP domain authority as working group_message notify path.
+  const domain = groupRoomIdentity(roomId);
 
   const { data: participants } = await (sb as any)
     .from("community_messenger_participants")
@@ -49,6 +53,8 @@ export async function notifyGroupPinMessage(
       pushSuppressedReason: null,
       soundSuppressedReason: null,
       unread: true,
+      chatDomain: domain.domain,
+      domainIdentityKey: domain.identityKey,
     });
     if (created.ok && created.row) {
       await dispatchNotificationPushIfAllowed(sb, created.row).catch(() => {});
