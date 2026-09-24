@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   approveBusinessCashTopUpRequest,
   rejectBusinessCashTopUpRequest,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import {
+  safeNotifyOwnerBusinessCashChargeCompleted,
+  safeNotifyOwnerBusinessCashChargeRejected,
+} from "@/lib/stores/advertising/delivery-ad-business-cash-charge-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +19,23 @@ export const dynamic = "force-dynamic";
  * Permission owner = `business` (Store economic authority — same as Coin / store-finance).
  * Do NOT invent a parallel `cash` permission key.
  */
+
+/** CD-2 — load notify fields only; money path stays in approve/reject RPCs. */
+async function loadCashChargeNotifyFields(
+  sb: SupabaseClient,
+  requestId: string
+): Promise<{ ownerUserId: string; amountMinor: number } | null> {
+  const { data, error } = await sb
+    .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
+    .select("owner_user_id, amount_minor")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const ownerUserId = String((data as { owner_user_id?: string }).owner_user_id ?? "").trim();
+  const amountMinor = Math.trunc(Number((data as { amount_minor?: number }).amount_minor) || 0);
+  if (!ownerUserId) return null;
+  return { ownerUserId, amountMinor };
+}
 
 /** GET — Admin canonical Cash top-up queue. */
 export async function GET(req: NextRequest) {
@@ -68,6 +90,14 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
+    const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    if (notify) {
+      await safeNotifyOwnerBusinessCashChargeCompleted(gate.sb, {
+        ownerUserId: notify.ownerUserId,
+        requestId,
+        amountMinor: notify.amountMinor,
+      });
+    }
     return NextResponse.json({
       ok: true,
       idempotent: result.idempotent,
@@ -84,6 +114,13 @@ export async function POST(req: NextRequest) {
     });
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    }
+    const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    if (notify) {
+      await safeNotifyOwnerBusinessCashChargeRejected(gate.sb, {
+        ownerUserId: notify.ownerUserId,
+        requestId,
+      });
     }
     return NextResponse.json({ ok: true, idempotent: result.idempotent });
   }

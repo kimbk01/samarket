@@ -16,6 +16,23 @@ describe("ARO-OPS-UX-002 repair — DEF-004 Cash permission", () => {
     const staff = read("lib/types/admin-staff.ts");
     expect(staff).not.toMatch(/\|\s*"cash"/);
   });
+
+  it("CD-2 — approve/reject wires existing Owner Cash charge notify helpers", () => {
+    const route = read("app/api/admin/business-cash-charges/route.ts");
+    expect(route).toContain("safeNotifyOwnerBusinessCashChargeCompleted");
+    expect(route).toContain("safeNotifyOwnerBusinessCashChargeRejected");
+    expect(route).toContain("delivery-ad-business-cash-charge-notify");
+    const approveAt = route.indexOf('if (op === "approve")');
+    const rejectAt = route.indexOf('if (op === "reject")');
+    expect(approveAt).toBeGreaterThan(-1);
+    expect(rejectAt).toBeGreaterThan(approveAt);
+    expect(route.indexOf("safeNotifyOwnerBusinessCashChargeCompleted", approveAt)).toBeGreaterThan(
+      approveAt
+    );
+    expect(route.indexOf("safeNotifyOwnerBusinessCashChargeRejected", rejectAt)).toBeGreaterThan(
+      rejectAt
+    );
+  });
 });
 
 describe("ARO-OPS-UX-002 repair — DEF-001 Order Admin Store", () => {
