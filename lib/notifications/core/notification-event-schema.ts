@@ -69,4 +69,11 @@ export type NotificationEventRow = {
   chat_domain?: string | null;
   domain_identity_key?: string | null;
   origin_device_id?: string | null;
+  /** SR-1 P2 commerce push handoff (null = unmanaged / legacy). */
+  push_handoff_status?: string | null;
+  push_handoff_attempts?: number | null;
+  push_handoff_next_at?: string | null;
+  push_handoff_claimed_at?: string | null;
+  push_handoff_claim_token?: string | null;
+  push_handoff_last_error?: string | null;
 };

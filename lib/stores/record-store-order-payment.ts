@@ -193,7 +193,7 @@ export async function recordStoreOrderPaid(
         metadata: { source: "record_store_order_paid", reconciled: true, audience: "owner" },
       });
       if (ownerEv.ok && ownerEv.inserted) {
-        void notifyStoreOwnerPaymentCompleted(sb, {
+        await notifyStoreOwnerPaymentCompleted(sb, {
           storeId,
           orderId: oid,
           orderNo: String(order.order_no ?? ""),
@@ -202,7 +202,7 @@ export async function recordStoreOrderPaid(
         });
       }
       if (!ownerEv.ok) {
-        void notifyStoreOwnerPaymentCompleted(sb, {
+        await notifyStoreOwnerPaymentCompleted(sb, {
           storeId,
           orderId: oid,
           orderNo: String(order.order_no ?? ""),
@@ -211,7 +211,7 @@ export async function recordStoreOrderPaid(
       }
       const buyerId = String((order as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
       if (buyerId && buyerEv.ok && buyerEv.inserted) {
-        void notifyBuyerStorePaymentCompleted(sb, {
+        await notifyBuyerStorePaymentCompleted(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo: String(order.order_no ?? ""),
@@ -220,7 +220,7 @@ export async function recordStoreOrderPaid(
         });
       }
       if (buyerId && !buyerEv.ok) {
-        void notifyBuyerStorePaymentCompleted(sb, {
+        await notifyBuyerStorePaymentCompleted(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo: String(order.order_no ?? ""),
@@ -278,7 +278,7 @@ export async function recordStoreOrderPaid(
     metadata: { source: "record_store_order_paid", audience: "owner" },
   });
   if (ownerEv.ok && ownerEv.inserted) {
-    void notifyStoreOwnerPaymentCompleted(sb, {
+    await notifyStoreOwnerPaymentCompleted(sb, {
       storeId,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
@@ -287,7 +287,7 @@ export async function recordStoreOrderPaid(
     });
   }
   if (!ownerEv.ok) {
-    void notifyStoreOwnerPaymentCompleted(sb, {
+    await notifyStoreOwnerPaymentCompleted(sb, {
       storeId,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
@@ -296,7 +296,7 @@ export async function recordStoreOrderPaid(
   }
   const buyerId = String((order as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
   if (buyerId && buyerEv.ok && buyerEv.inserted) {
-    void notifyBuyerStorePaymentCompleted(sb, {
+    await notifyBuyerStorePaymentCompleted(sb, {
       buyerUserId: buyerId,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
@@ -305,7 +305,7 @@ export async function recordStoreOrderPaid(
     });
   }
   if (buyerId && !buyerEv.ok) {
-    void notifyBuyerStorePaymentCompleted(sb, {
+    await notifyBuyerStorePaymentCompleted(sb, {
       buyerUserId: buyerId,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
@@ -396,7 +396,7 @@ export async function recordStoreOrderPaymentFailed(
     metadata: { source: "record_store_order_payment_failed" },
   });
   if (failEv.ok && failEv.inserted) {
-    void notifyBuyerStorePaymentFailed(sb, {
+    await notifyBuyerStorePaymentFailed(sb, {
       buyerUserId: order.buyer_user_id as string,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
@@ -405,7 +405,7 @@ export async function recordStoreOrderPaymentFailed(
     });
   }
   if (!failEv.ok) {
-    void notifyBuyerStorePaymentFailed(sb, {
+    await notifyBuyerStorePaymentFailed(sb, {
       buyerUserId: order.buyer_user_id as string,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),

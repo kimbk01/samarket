@@ -508,21 +508,21 @@ export async function applyStoreOrderStatusTransition(
   if (nextStatus === "cancelled" && actor === "CUSTOMER") {
     const cancelNotify = { storeId: sid, orderId: oid, orderNo };
     if (statusEv.ok && statusEv.inserted) {
-      void notifyStoreOwnerBuyerCancelled(sb, { ...cancelNotify, storeOrderEventId: statusEv.row.id });
+      await notifyStoreOwnerBuyerCancelled(sb, { ...cancelNotify, storeOrderEventId: statusEv.row.id });
     } else if (!statusEv.ok) {
-      void notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
+      await notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
     }
   } else if (nextStatus === "refund_requested") {
     const refundNotify = { storeId: sid, orderId: oid, orderNo };
     if (statusEv.ok && statusEv.inserted) {
-      void notifyStoreOwnerRefundRequested(sb, { ...refundNotify, storeOrderEventId: statusEv.row.id });
+      await notifyStoreOwnerRefundRequested(sb, { ...refundNotify, storeOrderEventId: statusEv.row.id });
     } else if (!statusEv.ok) {
-      void notifyStoreOwnerRefundRequested(sb, refundNotify);
+      await notifyStoreOwnerRefundRequested(sb, refundNotify);
     }
   } else if (nextStatus === "refunded") {
     if (buyerId) {
       if (statusEv.ok && statusEv.inserted) {
-        void notifyBuyerStoreRefundApproved(sb, {
+        await notifyBuyerStoreRefundApproved(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo,
@@ -530,7 +530,7 @@ export async function applyStoreOrderStatusTransition(
           storeOrderEventId: statusEv.row.id,
         });
       } else if (!statusEv.ok) {
-        void notifyBuyerStoreRefundApproved(sb, {
+        await notifyBuyerStoreRefundApproved(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo,
@@ -551,7 +551,7 @@ export async function applyStoreOrderStatusTransition(
         ""
     );
     if (statusEv.ok && statusEv.inserted) {
-      void notifyBuyerStoreRefundRejected(sb, {
+      await notifyBuyerStoreRefundRejected(sb, {
         buyerUserId: buyerId,
         orderId: oid,
         orderNo,
@@ -560,7 +560,7 @@ export async function applyStoreOrderStatusTransition(
         storeOrderEventId: statusEv.row.id,
       });
     } else if (!statusEv.ok) {
-      void notifyBuyerStoreRefundRejected(sb, {
+      await notifyBuyerStoreRefundRejected(sb, {
         buyerUserId: buyerId,
         orderId: oid,
         orderNo,
@@ -571,7 +571,7 @@ export async function applyStoreOrderStatusTransition(
   } else if (buyerId) {
     if (statusEv.ok) {
       if (statusEv.inserted) {
-        void notifyBuyerStoreOrderOwnerStatus(sb, {
+        await notifyBuyerStoreOrderOwnerStatus(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo,
@@ -581,7 +581,7 @@ export async function applyStoreOrderStatusTransition(
         });
       }
     } else {
-      void notifyBuyerStoreOrderOwnerStatus(sb, {
+      await notifyBuyerStoreOrderOwnerStatus(sb, {
         buyerUserId: buyerId,
         orderId: oid,
         orderNo,

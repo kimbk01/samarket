@@ -9,6 +9,8 @@ import { bumpNotificationTargetFromInboxRow } from "@/lib/notifications/notifica
 import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import { dispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import { markCommercePushHandoffPending } from "@/lib/notifications/commerce-notification-push-handoff";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 
@@ -155,28 +157,47 @@ export async function appendUserNotification(
   const eventType = toNotificationEventType(row);
   const category = categoryForEventType(eventType);
   const dedupeKey = buildLegacyNotificationEventDedupeKey(row);
+  // SR-1 P2: commerce intent is durable accept; push handoff is recoverable via cron.
+  const commerceDurablePush =
+    row.notification_type === "commerce" ||
+    row.push_kind === "delivery" ||
+    eventType === "order_status" ||
+    eventType === "delivery_status";
   try {
-    const created = await createAndDispatchNotificationEvent(sb, {
-      userId: uid,
-      type: eventType,
-      category,
-      title: row.title,
-      body: row.body ?? "",
-      dedupeKey,
-      actorUserId: actorId,
-      displayPayload: {
-        routeUrl: row.link_url ?? null,
-        imageUrl: row.image_url ?? null,
-        legacyNotificationType: row.notification_type,
-        legacyPushKind: row.push_kind ?? null,
-        legacyMeta: row.meta ?? null,
-        legacyRefId: row.ref_id ?? null,
-        legacyDomain: row.domain ?? null,
+    const created = await createAndDispatchNotificationEvent(
+      sb,
+      {
+        userId: uid,
+        type: eventType,
+        category,
+        title: row.title,
+        body: row.body ?? "",
+        dedupeKey,
+        actorUserId: actorId,
+        displayPayload: {
+          routeUrl: row.link_url ?? null,
+          imageUrl: row.image_url ?? null,
+          legacyNotificationType: row.notification_type,
+          legacyPushKind: row.push_kind ?? null,
+          legacyMeta: row.meta ?? null,
+          legacyRefId: row.ref_id ?? null,
+          legacyDomain: row.domain ?? null,
+        },
+        unread: true,
+        appState: "background",
       },
-      unread: true,
-      appState: "background",
-    });
+      commerceDurablePush ? { deferPush: true } : undefined
+    );
     if (created.ok || created.duplicate) {
+      if (created.ok && commerceDurablePush && "row" in created && created.row?.id) {
+        const marked = await markCommercePushHandoffPending(sb, created.row.id).catch(() => false);
+        // Schema/RPC not applied yet: keep inbox durable, fall back to inline push (pre-P2).
+        if (!marked) {
+          await dispatchNotificationEvent(sb, created.row, { appState: "background" }).catch(
+            () => {}
+          );
+        }
+      }
       // notification_events 전환 중에도 기존 허브/캐시 경로가 깨지지 않도록 최소 side-effect 유지.
       afterOwnerCommerceNotificationInserted(uid, metaMerged ?? undefined);
       void bumpNotificationTargetFromInboxRow(sb, {

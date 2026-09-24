@@ -8,6 +8,7 @@ const bumpNotificationTargetFromInboxRow = vi.fn();
 vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
   createAndDispatchNotificationEvent: (...args: unknown[]) =>
     createAndDispatchNotificationEvent(...args),
+  dispatchNotificationEvent: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/community-messenger/social-relations", () => ({
@@ -35,6 +36,10 @@ vi.mock("@/lib/notifications/notification-unread-count-cache", () => ({
 vi.mock("@/lib/delivery/owner/apply-owner-commerce-notification-invalidate", () => ({
   applyOwnerCommerceNotificationInvalidate: vi.fn(() => false),
   resolveOwnerCommerceNotificationStoreId: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/notifications/commerce-notification-push-handoff", () => ({
+  markCommercePushHandoffPending: vi.fn(async () => true),
 }));
 
 describe("appendUserNotification SSOT bridge", () => {
@@ -105,7 +110,8 @@ describe("appendUserNotification SSOT bridge", () => {
           legacyDomain: "store",
           legacyMeta: expect.objectContaining({ kind: "store_order_sold_out" }),
         }),
-      })
+      }),
+      { deferPush: true }
     );
   });
 
@@ -143,7 +149,8 @@ describe("appendUserNotification SSOT bridge", () => {
           legacyDomain: "trade_chat",
           legacyMeta: expect.objectContaining({ kind: "trade_completed" }),
         }),
-      })
+      }),
+      undefined
     );
     expect(insert).not.toHaveBeenCalled();
   });

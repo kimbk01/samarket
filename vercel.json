@@ -14,6 +14,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/commerce-notification-push-handoff",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/delivery-ads-schedule-transitions",
       "schedule": "*/5 * * * *"
     },
