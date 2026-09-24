@@ -57,6 +57,14 @@ export type MessengerRoomOpenMarkReadPhaseRef = MutableRefObject<{
   lastMarkedMessageId?: string | null;
 }>;
 
+/** TEMP DIAGNOSTIC ONLY — observation; no behavior change. Remove after first-false proof. */
+function dibayReadTrace(entry: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const w = window as Window & { __DIBAY_READTRACE__?: Array<Record<string, unknown>> };
+  if (!Array.isArray(w.__DIBAY_READTRACE__)) w.__DIBAY_READTRACE__ = [];
+  w.__DIBAY_READTRACE__.push({ t: Date.now(), ...entry });
+}
+
 function lastMarkableMessageId(
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>,
   snapshotMessages: CommunityMessengerMessage[] | undefined
@@ -393,6 +401,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   useEffect(() => {
     const id = roomId?.trim();
     if (!id) return;
+    let activeCorr = "";
+    dibayReadTrace({ step: "HOOK_ENTER", roomId: id });
     readMarkEffectCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "read_mark_effect_count", readMarkEffectCountRef.current);
     if (readMarkReadyRecordedRoomRef.current !== id) readMarkReadyRecordedRoomRef.current = null;
@@ -609,10 +619,44 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
 
     const flushRoomReadAck = (reason: RoomReadAckReason, lastReadMessageId: string) => {
+      const corr = activeCorr;
+      dibayReadTrace({
+        step: "FLUSH_ENTER",
+        corr,
+        reason,
+        lastReadMessageId,
+        phase: roomOpenMarkReadRef.current.phase,
+        lastMarked: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+      });
       const snap = snapshotRef.current;
-      if (!snap || String(snap.room.id) !== String(id)) return;
-      if (roomOpenMarkReadRef.current.phase !== "idle") return;
-      if (!lastReadMessageId || roomOpenMarkReadRef.current.lastMarkedMessageId === lastReadMessageId) return;
+      if (!snap || String(snap.room.id) !== String(id)) {
+        dibayReadTrace({ step: "FR-01", corr, result: "FAIL", why: "snap_or_room_mismatch" });
+        return;
+      }
+      dibayReadTrace({ step: "FR-01", corr, result: "PASS" });
+      if (roomOpenMarkReadRef.current.phase !== "idle") {
+        dibayReadTrace({
+          step: "FR-02",
+          corr,
+          result: "FAIL",
+          why: "phase_not_idle",
+          phase: roomOpenMarkReadRef.current.phase,
+        });
+        return;
+      }
+      dibayReadTrace({ step: "FR-02", corr, result: "PASS" });
+      if (!lastReadMessageId || roomOpenMarkReadRef.current.lastMarkedMessageId === lastReadMessageId) {
+        dibayReadTrace({
+          step: "FR-03",
+          corr,
+          result: "FAIL",
+          why: !lastReadMessageId ? "empty_candidate" : "same_as_lastMarked",
+          lastReadMessageId,
+          lastMarked: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+        });
+        return;
+      }
+      dibayReadTrace({ step: "FR-03", corr, result: "PASS" });
       const messages =
         roomMessagesRef.current.length > 0 ? roomMessagesRef.current : snap.messages ?? [];
       const previousCursor =
@@ -624,8 +668,19 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           nextCursorId: lastReadMessageId,
         })
       ) {
+        dibayReadTrace({
+          step: "FR-04",
+          corr,
+          result: "FAIL",
+          why: "monotonic_blocked",
+          previousCursor,
+          nextCursorId: lastReadMessageId,
+          viewerLastRead: snap.viewerLastReadMessageId ?? null,
+          unreadCount: snap.room.unreadCount,
+        });
         return;
       }
+      dibayReadTrace({ step: "FR-04", corr, result: "PASS", previousCursor });
 
       const optimisticAlreadyApplied = earlyOptimisticMessageIdRef.current === lastReadMessageId;
 
@@ -769,6 +824,12 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       });
 
       cmReadBadgeLog("mark_read_patch_start", { roomId: id, path: "scroll_ack", lastReadMessageId });
+      dibayReadTrace({
+        step: "PATCH_ATTEMPT",
+        corr,
+        lastReadMessageId,
+        path: communityMessengerRoomResourcePath(id),
+      });
       void (async () => {
         const ac = new AbortController();
         const timeout = setTimeout(() => ac.abort(), CM_MARK_READ_SERVER_TIMEOUT_MS);
@@ -779,6 +840,13 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody(lastReadMessageId)),
           });
           const parsed = await parseCommunityMessengerMarkReadResponse(res);
+          dibayReadTrace({
+            step: "PATCH_RESULT",
+            corr,
+            status: parsed.status,
+            okHttp: parsed.okHttp,
+            jsonOk: parsed.json?.ok === true,
+          });
           const json = parsed.json;
           const serverLastId =
             typeof json.lastReadMessageId === "string" && json.lastReadMessageId.trim()
@@ -918,9 +986,31 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
 
     const resolveReadCandidate = (reason: RoomReadAckReason): string | null => {
-      if (cancelled) return null;
+      const corr = activeCorr;
+      dibayReadTrace({ step: "RESOLVE_ENTER", corr, reason });
+      if (cancelled) {
+        dibayReadTrace({ step: "RC-01", corr, result: "FAIL", why: "cancelled" });
+        return null;
+      }
+      dibayReadTrace({ step: "RC-01", corr, result: "PASS" });
       const snap = snapshotRef.current;
-      if (!snap || String(snap.room.id) !== String(id)) return null;
+      if (!snap || String(snap.room.id) !== String(id)) {
+        dibayReadTrace({
+          step: "RC-02",
+          corr,
+          result: "FAIL",
+          why: !snap ? "no_snap" : "room_mismatch",
+          snapRoom: snap?.room.id ?? null,
+        });
+        return null;
+      }
+      dibayReadTrace({
+        step: "RC-02",
+        corr,
+        result: "PASS",
+        unreadCount: snap.room.unreadCount,
+        viewerLastRead: snap.viewerLastReadMessageId ?? null,
+      });
 
       const lastIdEarly = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
       if (roomOpenMarkReadRef.current.phase === "done") {
@@ -938,10 +1028,25 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           notificationThreadReadDoneRef.current = false;
         }
       }
-      if (roomOpenMarkReadRef.current.phase !== "idle") return null;
+      if (roomOpenMarkReadRef.current.phase !== "idle") {
+        dibayReadTrace({
+          step: "RC-03",
+          corr,
+          result: "FAIL",
+          why: "phase_not_idle",
+          phase: roomOpenMarkReadRef.current.phase,
+          lastMarked: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+        });
+        return null;
+      }
+      dibayReadTrace({ step: "RC-03", corr, result: "PASS", phase: "idle" });
 
       const lastId = lastIdEarly;
-      if (!lastId) return null;
+      if (!lastId) {
+        dibayReadTrace({ step: "RC-04", corr, result: "FAIL", why: "no_lastId" });
+        return null;
+      }
+      dibayReadTrace({ step: "RC-04", corr, result: "PASS", lastId });
 
       const state = isRoomActuallyReadableState({
         roomId: id,
@@ -984,6 +1089,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (!visibleCandidate && lastId && nearBottom) {
         visibleCandidate = lastId;
       }
+      let monotonicOk = true;
       if (
         visibleCandidate &&
         !isReadCursorMonotonicAdvance({
@@ -992,10 +1098,29 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           nextCursorId: visibleCandidate,
         })
       ) {
+        monotonicOk = false;
         visibleCandidate = null;
       }
       const viewportOk = Boolean(visibleCandidate);
       if (!state.readable || !viewportOk) {
+        dibayReadTrace({
+          step: "RC-05",
+          corr,
+          result: "FAIL",
+          why: !state.readable ? "room_not_readable_state" : "viewport_not_ok",
+          readable: state.readable,
+          visible: state.visible,
+          routeMatches: state.routeMatches,
+          rendered: state.rendered,
+          blocked: state.blocked,
+          nearBottom,
+          viewportOk,
+          vpPresent: Boolean(vp),
+          previousCursor,
+          lastId,
+          monotonicOk,
+          unreadCount: snap.room.unreadCount,
+        });
         cmRtReadSyncLog("event_ignored_reason", {
           roomId: id,
           viewerUserId: snap.viewerUserId,
@@ -1023,6 +1148,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
           optimisticApplied: Boolean(state.readable && earlyOptimisticMessageIdRef.current === lastId),
         });
+        dibayReadTrace({ step: "RESOLVE_RESULT", corr, result: null });
         return null;
       }
 
@@ -1031,16 +1157,24 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_ready_ms");
       }
 
+      dibayReadTrace({ step: "RC-05", corr, result: "PASS", visibleCandidate, lastId, previousCursor });
+      dibayReadTrace({ step: "RESOLVE_RESULT", corr, result: visibleCandidate });
       return visibleCandidate;
     };
 
     const scheduleRoomReadAck = (reason: RoomReadAckReason) => {
       clearScheduledReadAck();
+      activeCorr = `READTRACE:${id.slice(-8)}:${Date.now()}:${reason}`;
+      dibayReadTrace({ step: "CALLER_ENTER", corr: activeCorr, reason });
       const run = () => {
         readAckRafId = null;
-        if (cancelled) return;
+        if (cancelled) {
+          dibayReadTrace({ step: "SC-01", corr: activeCorr, result: "FAIL", why: "cancelled" });
+          return;
+        }
         const candidate = resolveReadCandidate(reason);
         if (!candidate) {
+          dibayReadTrace({ step: "SC-02", corr: activeCorr, result: "FAIL", why: "candidate_null" });
           /**
            * viewport 미달로 candidate null 이어도 list unread optimistic 은 유지
            * (resolveReadCandidate 가 readable 시 tryEarlyOptimistic 이미 적용).
@@ -1048,6 +1182,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
            */
           return;
         }
+        dibayReadTrace({ step: "SC-02", corr: activeCorr, result: "PASS", candidate });
         const snapEarly = snapshotRef.current;
         if (
           snapEarly &&
@@ -1057,7 +1192,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           tryEarlyOptimisticListBadgeClear(reason, candidate, snapEarly);
         }
         /**
-         * 카톡·텔레그램형: 방 실제 오픈(initial)·하단 가시 수신은 고정 dwell 없이 즉시 flush.
+         * 카톡·텔레그램형: 방 실제 오픈(initial)·하단 가시 도착은 고정 dwell 없이 즉시 flush.
          * scroll/resize/focus 만 짧은 coalesce (연타 방지).
          */
         const immediateFlush =
@@ -1068,9 +1203,18 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         }
         readAckDebounceTimer = setTimeout(() => {
           readAckDebounceTimer = null;
-          if (cancelled) return;
+          if (cancelled) {
+            dibayReadTrace({ step: "SC-03", corr: activeCorr, result: "FAIL", why: "cancelled_debounce" });
+            return;
+          }
           const candidateAfter = resolveReadCandidate(reason);
           if (!candidateAfter) {
+            dibayReadTrace({
+              step: "SC-04",
+              corr: activeCorr,
+              result: "FAIL",
+              why: "candidate_null_after_debounce",
+            });
             return;
           }
           flushRoomReadAck(reason, candidateAfter);
