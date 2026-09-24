@@ -39,8 +39,10 @@ describe("CM room open mark-read — timelineViewportMounted gate", () => {
     );
     const gateStart = phase1.indexOf("const readGateVersion = useMemo");
     expect(gateStart).toBeGreaterThan(0);
-    const gateBlock = phase1.slice(gateStart, gateStart + 900);
+    const gateBlock = phase1.slice(gateStart, gateStart + 1200);
     expect(gateBlock).toContain("timelineViewportMounted");
     expect(gateBlock).toContain('timelineViewportMounted ? "viewport" : "no-viewport"');
+    expect(gateBlock).toContain("DO NOT include snapshot.room.unreadCount");
+    expect(gateBlock).not.toMatch(/snapshot\?\.room\.unreadCount \?\? 0/);
   });
 });
