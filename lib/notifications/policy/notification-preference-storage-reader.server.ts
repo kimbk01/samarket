@@ -41,9 +41,12 @@ async function maybeSinglePreferenceRow<T>(
 ): Promise<T | null> {
   const { data, error } = await query;
   if (error) {
+    // Missing table/relation → no-row compat (schema not yet applied).
     if (isMissingPreferenceRelationError(error)) return null;
-    // Non-missing errors: treat as absent for preference decision (fail-open to no-row compat).
-    return null;
+    // Non-missing DB errors must not collapse to defaults-ON (CD-1 consent fail-closed).
+    throw new Error(
+      `notification_preference_read_failed:${String(error.code ?? "unknown")}:${String(error.message ?? "")}`
+    );
   }
   return data;
 }

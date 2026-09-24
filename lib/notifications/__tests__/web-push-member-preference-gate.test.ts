@@ -282,6 +282,8 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
     expect(src).toContain("sendWebPushToTarget");
     expect(src).toContain("sendFcmToTarget");
     expect(src).toContain("shouldSendWebPushForUser");
+    expect(src).not.toContain(".catch(() => true)");
+    expect(src).toMatch(/shouldSendWebPushForUser[\s\S]*?\.catch\(\s*\(\)\s*=>\s*false/);
   });
 
   it("T20 — sound modules untouched", () => {
@@ -334,5 +336,66 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
     expect(src).toContain("shouldSendMemberWebPushForUser");
     expect(src).toContain("shouldSendOwnerWebPushForUser");
     expect(src).not.toContain("shouldSendLegacyWebPushForUser");
+  });
+
+  it("CD-1 — dispatch + campaign preference gate fail-closed on throw", () => {
+    const dispatch = readFileSync(
+      join(process.cwd(), "lib/push/dispatch/dispatch-push-for-user.ts"),
+      "utf8"
+    );
+    const campaign = readFileSync(
+      join(process.cwd(), "lib/admin/notification-campaigns/campaign-eligibility.ts"),
+      "utf8"
+    );
+    expect(dispatch).toContain(".catch(\n      () => false\n    )");
+    expect(dispatch).not.toContain(".catch(() => true)");
+    expect(campaign).toContain(".catch(() => false)");
+    expect(campaign).not.toContain(".catch(() => true)");
+  });
+
+  it("CD-1 — non-missing preference DB error rejects (does not default-ON)", async () => {
+    const fromSpy = vi.fn((table: string) => {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: null,
+          error:
+            table === "user_notification_settings"
+              ? { code: "57014", message: "canceling statement due to statement timeout" }
+              : null,
+        }),
+      };
+    });
+    const svc = { from: fromSpy } as unknown as Parameters<typeof shouldSendWebPushForUser>[0];
+    await expect(
+      shouldSendWebPushForUser(
+        svc,
+        "user-1",
+        payload({ notification_type: "chat", meta: { kind: "trade_chat" } })
+      )
+    ).rejects.toThrow(/notification_preference_read_failed/);
+  });
+
+  it("CD-1 — missing preference relation still no-row compat (not throw)", async () => {
+    const fromSpy = vi.fn(() => {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "42P01", message: 'relation "user_notification_settings" does not exist' },
+        }),
+      };
+    });
+    const svc = { from: fromSpy } as unknown as Parameters<typeof shouldSendWebPushForUser>[0];
+    // No rows → defaults apply; optional chat with defaults ON may allow — prove no throw.
+    await expect(
+      shouldSendWebPushForUser(
+        svc,
+        "user-1",
+        payload({ notification_type: "chat", meta: { kind: "trade_chat" } })
+      )
+    ).resolves.toBeTypeOf("boolean");
   });
 });

@@ -277,7 +277,10 @@ export async function dispatchPushForUser(
   }
 
   if (!opts?.skip_settings_gate && !terminalDismiss) {
-    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(() => true);
+    // Consent fail-closed: preference gate throw/unavailable must not send (CD-1).
+    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(
+      () => false
+    );
     if (!allowed) {
       await auditDelivery(svc, audits, {
         user_id: out.user_id,

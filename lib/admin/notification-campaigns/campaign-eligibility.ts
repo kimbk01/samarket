@@ -95,7 +95,8 @@ export async function evaluateCampaignPushGate(
   userId: string,
   pushPayload: NotificationSideEffectPayloadOut
 ): Promise<{ allowed: boolean; skipReason: CampaignSkipReason | null }> {
-  const allowed = await shouldSendWebPushForUser(svc, userId, pushPayload).catch(() => true);
+  // Consent fail-closed: preference gate throw/unavailable must not send (CD-1).
+  const allowed = await shouldSendWebPushForUser(svc, userId, pushPayload).catch(() => false);
   if (allowed) return { allowed: true, skipReason: null };
 
   const kind =
