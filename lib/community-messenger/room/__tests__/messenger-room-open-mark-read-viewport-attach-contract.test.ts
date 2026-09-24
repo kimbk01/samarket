@@ -21,6 +21,9 @@ describe("CM room open mark-read — late viewport attach re-arm", () => {
     expect(src).toContain("Close check-then-observe race");
     expect(src).toContain("viewportResizeObserver");
     expect(src).toMatch(/new ResizeObserver/);
+    expect(src).toContain("CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT");
+    expect(src).toContain("onEntryScrollSettled");
+    expect(src).toContain("isMessengerRoomEntryScrollSettled");
   });
 
   it("does not introduce timer/retry mark-read loops or forced unread zero", () => {

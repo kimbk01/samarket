@@ -22,6 +22,9 @@ export type CmScrollOwnerReason =
   | "virtualizer_scroll_anchor"
   | string;
 
+/** Window event — room entry scroll SSOT settled; mark-read re-evaluates without timer loops. */
+export const CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT = "cm-room-entry-scroll-settled";
+
 type RoomEntryScrollState = {
   hydrationPass: number;
   entryScrollSettled: boolean;
@@ -190,6 +193,14 @@ export function markMessengerRoomEntryScrollSettled(roomId: string, reason: CmSc
     entryScrollSettled: true,
     layoutSettling: st.layoutSettling,
   });
+  if (typeof window !== "undefined") {
+    const rid = roomId.trim();
+    if (rid) {
+      window.dispatchEvent(
+        new CustomEvent(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, { detail: { roomId: rid, reason } })
+      );
+    }
+  }
 }
 
 export function markMessengerRoomLayoutSettling(roomId: string, settling: boolean): void {

@@ -41,6 +41,10 @@ import {
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import {
+  CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT,
+  isMessengerRoomEntryScrollSettled,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -965,6 +969,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         hintId === lastId &&
         (nearBottom || stickToBottomRef.current);
       if (!visibleCandidate && peerTailViewportBypass) visibleCandidate = lastId;
+      /**
+       * Entry keep-bottom: virtualizer row ratio can lag after scroll-owner settle while
+       * the timeline is already at the tail (Samsung Production: gap≈0, ratio later→1,
+       * but mark_read never scheduled). Near-bottom + lastId is sufficient.
+       */
+      if (!visibleCandidate && lastId && nearBottom) {
+        visibleCandidate = lastId;
+      }
       if (
         visibleCandidate &&
         !isReadCursorMonotonicAdvance({
@@ -1078,6 +1090,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     };
     const onResize = () => scheduleRoomReadAck("resize");
     const onViewportScroll = () => scheduleRoomReadAck("near-bottom");
+    const onEntryScrollSettled = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ roomId?: string }>).detail;
+      if (String(detail?.roomId ?? "").trim() !== id) return;
+      scheduleRoomReadAck("initial-render");
+    };
 
     const readGateLatestMessageId = lastMarkableMessageId(
       roomMessagesRef.current,
@@ -1094,6 +1111,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     window.addEventListener("resize", onResize);
+    window.addEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
     if (readMarkEffectEndRecordedRoomRef.current !== id) {
       readMarkEffectEndRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
@@ -1182,6 +1200,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           if (vp) armViewportWhenReady(vp);
         });
       }
+      // Entry scroll may have settled before this effect subscribed to the window event.
+      if (isMessengerRoomEntryScrollSettled(id)) {
+        scheduleRoomReadAck(firstScheduleReason);
+      }
     };
     if (typeof window !== "undefined" && typeof requestAnimationFrame === "function") {
       requestAnimationFrame(startMarkReadOnRoomReady);
@@ -1204,6 +1226,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener(CM_ROOM_ENTRY_SCROLL_SETTLED_EVENT, onEntryScrollSettled);
       boundViewport?.removeEventListener("scroll", onViewportScroll);
     };
   }, [
