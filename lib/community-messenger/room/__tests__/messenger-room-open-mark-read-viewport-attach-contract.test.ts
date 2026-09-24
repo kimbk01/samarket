@@ -14,9 +14,11 @@ describe("CM room open mark-read — late viewport attach re-arm", () => {
     const src = readSource();
     expect(src).toContain("viewportAttachObserver");
     expect(src).toContain("bindViewportListeners");
+    expect(src).toContain("armViewportWhenReady");
     expect(src).toContain("READ_REQUEST_NOT_SENT");
     expect(src).toMatch(/viewportAttachObserver\.observe\(\s*document\.documentElement/);
     expect(src).toContain("scheduleRoomReadAck(firstScheduleReason)");
+    expect(src).toContain("Close check-then-observe race");
   });
 
   it("does not introduce timer/retry mark-read loops or forced unread zero", () => {

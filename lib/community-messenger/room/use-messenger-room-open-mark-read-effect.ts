@@ -1133,6 +1133,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
      * `viewport_not_ok` forever → mark_read PATCH never sent (READ_REQUEST_NOT_SENT).
      * Re-arm once when the timeline viewport appears; no duplicate writers / no timer retry loop.
      */
+    const armViewportWhenReady = (vp: HTMLElement) => {
+      if (cancelled) return;
+      viewportAttachObserver?.disconnect();
+      viewportAttachObserver = null;
+      bindViewportListeners(vp);
+      scheduleRoomReadAck(firstScheduleReason);
+    };
+
     const viewportAtStart = messagesViewportRef.current;
     if (viewportAtStart) {
       bindViewportListeners(viewportAtStart);
@@ -1141,18 +1149,27 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         if (cancelled) return;
         const next = messagesViewportRef.current;
         if (!next) return;
-        viewportAttachObserver?.disconnect();
-        viewportAttachObserver = null;
-        bindViewportListeners(next);
-        scheduleRoomReadAck(firstScheduleReason);
+        armViewportWhenReady(next);
       });
       viewportAttachObserver.observe(document.documentElement, { childList: true, subtree: true });
+      // Close check-then-observe race: Phase2 may assign the ref between the null
+      // read above and observe() — MutationObserver would miss that attach.
+      const raced = messagesViewportRef.current;
+      if (raced) armViewportWhenReady(raced);
     }
 
     /** Entry only schedules a visibility-derived cursor candidate; route open alone never clears. */
     const startMarkReadOnRoomReady = () => {
       if (cancelled) return;
       scheduleRoomReadAck(firstScheduleReason);
+      // Layout may assign messagesViewportRef one frame after this effect — one rAF re-check.
+      if (!messagesViewportRef.current && typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          const vp = messagesViewportRef.current;
+          if (vp) armViewportWhenReady(vp);
+        });
+      }
     };
     if (typeof window !== "undefined" && typeof requestAnimationFrame === "function") {
       requestAnimationFrame(startMarkReadOnRoomReady);
