@@ -1,0 +1,28 @@
+# DIBAY Notification Preference Fail-Closed HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-notification-preference-fail-closed-hard-lock.md`  
+Evidence: `.tmp/notification-cd1-fail-closed/PRODUCTION_PROOF.json`
+
+## AUTHORITY
+
+HEAD/ORIGIN/PRODUCTION `2667426d154cd6818320230d19d3e8401de502c5` · Deployment `dpl_FK5jhtSMpWooWhRxNif6MNwhtRSu`
+
+## LOCKED
+
+Optional push preference gate is **fail-closed** on throw / non-missing preference DB error.
+
+- `dispatch-push-for-user.ts`: `.catch(() => false)` only
+- `campaign-eligibility.ts`: `.catch(() => false)` only
+- Preference reader: missing relation → null; other errors → throw
+- `skip_settings_gate` for call/system paths: **PRESERVED**
+
+## DO NOT
+
+- Restore `.catch(() => true)` on preference gates
+- Collapse non-missing preference DB errors to defaults-ON
+- Reopen CD-1 for speculative cleanup
+- Touch Call functional HARD LOCK or Android Page Navigation HARD LOCK under this rule
+
+## Change gate
+
+Preference / web-push settings gate / campaign push eligibility → **regression-only**. Reopen only on Owner PRODUCT FAIL + first divergence.
