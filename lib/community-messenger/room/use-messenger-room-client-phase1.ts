@@ -1440,6 +1440,8 @@ export function useMessengerRoomClientPhase1({
       snapshot?.room.unreadCount ?? 0,
       latestMessageId,
       loading ? "loading" : "ready",
+      /** Phase2 callback-ref attach — remount mark-read once scroll root exists (SSOT). */
+      timelineViewportMounted ? "viewport" : "no-viewport",
       activeSheet ?? "no-sheet",
       messageActionItem?.item.id ?? "no-message-action",
       callStubSheet?.item.id ?? "no-call-stub",
@@ -1452,6 +1454,7 @@ export function useMessengerRoomClientPhase1({
     snapshot?.messages,
     roomMessages,
     loading,
+    timelineViewportMounted,
     activeSheet,
     messageActionItem?.item.id,
     callStubSheet?.item.id,

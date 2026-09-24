@@ -1107,6 +1107,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }, 40);
     };
     let mutationObserver: MutationObserver | null = null;
+    let viewportResizeObserver: ResizeObserver | null = null;
     let viewportAttachObserver: MutationObserver | null = null;
     let boundViewport: HTMLElement | null = null;
 
@@ -1116,6 +1117,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         boundViewport.removeEventListener("scroll", onViewportScroll);
         mutationObserver?.disconnect();
         mutationObserver = null;
+        viewportResizeObserver?.disconnect();
+        viewportResizeObserver = null;
       }
       boundViewport = vp;
       vp.addEventListener("scroll", onViewportScroll, { passive: true });
@@ -1123,13 +1126,22 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         mutationObserver = new MutationObserver(mutationScheduleReevaluate);
         mutationObserver.observe(vp, { childList: true, subtree: true });
       }
+      /**
+       * Virtualizer may update rows without childList mutations; Android WebView often
+       * omits "scroll" for programmatic keep-bottom. ResizeObserver fires when
+       * scrollHeight/layout settles → re-evaluate viewportOk (READ_REQUEST_NOT_SENT).
+       */
+      if (typeof ResizeObserver !== "undefined") {
+        viewportResizeObserver = new ResizeObserver(() => scheduleRoomReadAck("resize"));
+        viewportResizeObserver.observe(vp);
+      }
     };
 
     /**
      * FIRST DIVERGENCE (Samsung GD Normal+Push runtime):
      * Phase1 mark-read effect often runs before Phase2 assigns `messagesViewportRef`.
      * Prior code only subscribed scroll/MutationObserver when viewport was already non-null,
-     * and `readGateVersion` does not bump on viewport attach → resolveReadCandidate stayed
+     * and `readGateVersion` did not bump on viewport attach → resolveReadCandidate stayed
      * `viewport_not_ok` forever → mark_read PATCH never sent (READ_REQUEST_NOT_SENT).
      * Re-arm once when the timeline viewport appears; no duplicate writers / no timer retry loop.
      */
@@ -1186,6 +1198,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       preOptimisticUnreadRef.current = null;
       if (mutationDebounce != null) clearTimeout(mutationDebounce);
       mutationObserver?.disconnect();
+      viewportResizeObserver?.disconnect();
       viewportAttachObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
