@@ -50,6 +50,11 @@ import {
   STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
 } from "@/lib/stores/stores-home-lcp-policy";
 import { getAppBootSnapshot, subscribeAppBoot } from "@/lib/app-boot/app-boot-store";
+import {
+  storesHomeEmptySnapKeepsPendingLoading,
+  storesHomeShouldArmPendingLoading,
+  storesHomeShouldRenderEmptyFallback,
+} from "@/lib/stores/stores-home-feed-state-classification";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -122,9 +127,16 @@ export function StoresHomeHub({
     feedSnapshotSeededRef.current = true;
     const snap = readStoresHomeFeedInitialSnapshot(querySuffix);
     if (snap.stores.length === 0) {
+      /**
+       * STATE CLASSIFICATION — empty snap + inflight ≠ READY_EMPTY.
+       * Keep PENDING (blocking blank) until loadFeed settles authoritative result.
+       * Do not clear loading when a single-flight is already in progress.
+       */
       const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
-      const inflight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
-      if (inflight) setLoading(false);
+      const inflight = !!getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
+      if (storesHomeEmptySnapKeepsPendingLoading(inflight)) {
+        setLoading(true);
+      }
       return;
     }
     setStores(snap.stores);
@@ -224,7 +236,14 @@ export function StoresHomeHub({
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
       const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
       const inflight = !force ? getSingleFlightPromise<StoreApiJsonResponse>(flightKey) : undefined;
-      if (!silent && !hasDisplayableStores && !inflight) setLoading(true);
+      if (
+        storesHomeShouldArmPendingLoading({
+          silent,
+          hasDisplayableStores,
+        })
+      ) {
+        setLoading(true);
+      }
       try {
         const { status, json } = await (inflight ??
           fetchStoresHomeFeedDeduped(querySuffix, {
@@ -446,7 +465,13 @@ export function StoresHomeHub({
               });
             })}
 
-            {stores.length === 0 && orderedVisibleSlots.length === 0 ? emptyFallback : null}
+            {storesHomeShouldRenderEmptyFallback({
+              loading,
+              storeCount: stores.length,
+              visibleSlotCount: orderedVisibleSlots.length,
+            })
+              ? emptyFallback
+              : null}
 
             {deferredSlots.length > 0 ?
               <StoresHomeDeferredViewport

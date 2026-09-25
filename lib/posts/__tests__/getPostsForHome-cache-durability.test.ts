@@ -5,6 +5,7 @@ import {
   peekCachedPostsForHome,
   primeHomePostsCache,
 } from "@/lib/posts/getPostsForHome";
+import { tradeHomeBootSkipsNetworkLoad } from "@/lib/posts/trade-home-boot-authority";
 
 const SESSION_PREFIX = "samarket:home-posts:v1:";
 const LOCAL_PREFIX = "samarket:home-posts:local:v1:";
@@ -254,5 +255,67 @@ describe("home posts durable local write on network (Fix 4)", () => {
     expect(homeRaw).toBeTruthy();
     expect(catRaw).toBeTruthy();
     expect(homeRaw).not.toEqual(catRaw);
+  });
+});
+
+describe("D2 — durable empty cache is not authoritative READY_EMPTY", () => {
+  it("storage posts=[] → peek miss; getPostsForHome still networks", async () => {
+    const empty = { posts: [], hasMore: false, favoriteMap: {} };
+    sessionStore.setItem(
+      sessionKey(),
+      JSON.stringify({ expiresAt: Date.now() + 45_000, data: empty })
+    );
+    expect(
+      peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })
+    ).toBeNull();
+    expect(tradeHomeBootSkipsNetworkLoad(empty)).toBe(false);
+
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ posts: sample.posts, hasMore: false, favoriteMap: sample.favoriteMap }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await getPostsForHome({
+      sort: "latest",
+      type: null,
+      tradeState: "latest",
+      locationAll: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.posts).toHaveLength(1);
+  });
+
+  it("storage posts=[] → network zero → legitimate READY_EMPTY (boot still would not skip)", async () => {
+    sessionStore.setItem(
+      sessionKey(),
+      JSON.stringify({
+        expiresAt: Date.now() + 45_000,
+        data: { posts: [], hasMore: false, favoriteMap: {} },
+      })
+    );
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ posts: [], hasMore: false, favoriteMap: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await getPostsForHome({
+      sort: "latest",
+      type: null,
+      tradeState: "latest",
+      locationAll: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(res.posts).toHaveLength(0);
+    expect(tradeHomeBootSkipsNetworkLoad(res)).toBe(false);
+  });
+
+  it("non-empty boot still skips network (preserve cache-first)", () => {
+    expect(tradeHomeBootSkipsNetworkLoad(sample)).toBe(true);
+    expect(tradeHomeBootSkipsNetworkLoad(null)).toBe(false);
   });
 });

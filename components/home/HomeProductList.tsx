@@ -17,6 +17,7 @@ import {
   type GetPostsForHomeOptions,
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
+import { tradeHomeBootSkipsNetworkLoad } from "@/lib/posts/trade-home-boot-authority";
 import type { HomeTradeStateFilter } from "@/lib/posts/getPostsForHome";
 import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -505,30 +506,34 @@ export function HomeProductList({
       setPendingNewCount(0);
     }
 
-    if (boot && !identityTransition) {
+    if (tradeHomeBootSkipsNetworkLoad(boot) && !identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
-      setServerHasMore(boot.hasMore === true);
-      setPosts((prev) => patchHomeTradePostsRows(prev, boot.posts));
-      setFavoriteMap(boot.favoriteMap ?? {});
+      setServerHasMore(boot!.hasMore === true);
+      setPosts((prev) => patchHomeTradePostsRows(prev, boot!.posts));
+      setFavoriteMap(boot!.favoriteMap ?? {});
       setPendingNewCount(0);
-      setListState(boot.posts.length === 0 ? "empty" : "idle");
+      setListState("idle");
       lastLoadedAtRef.current = Date.now();
       return;
     }
 
-    if (boot && identityTransition) {
+    if (tradeHomeBootSkipsNetworkLoad(boot) && identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
-      setServerHasMore(boot.hasMore === true);
-      setPosts(boot.posts);
-      setFavoriteMap(boot.favoriteMap ?? {});
+      setServerHasMore(boot!.hasMore === true);
+      setPosts(boot!.posts);
+      setFavoriteMap(boot!.favoriteMap ?? {});
       setPendingNewCount(0);
-      setListState(boot.posts.length === 0 ? "empty" : "idle");
+      setListState("idle");
       lastLoadedAtRef.current = Date.now();
       return;
     }
 
+    /**
+     * Empty boot (posts=[]) is non-authoritative — do not skip load().
+     * READY_EMPTY only after getPostsForHome network (or in-memory TTL after a real fetch).
+     */
     if (identityTransition) {
       setListState("loading");
     }

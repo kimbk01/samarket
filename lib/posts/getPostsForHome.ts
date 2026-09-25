@@ -325,6 +325,14 @@ function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeR
   const sessionHit = readHomePostsSessionCache(cacheKey);
   const localHit = sessionHit ?? readHomePostsLocalCache(cacheKey);
   if (!localHit) return null;
+  /**
+   * STATE CLASSIFICATION — durable empty `posts=[]` is NOT authoritative READY_EMPTY.
+   * Rejecting empty restore forces network revalidation (same as memory peek which
+   * already requires posts.length > 0). True zero is owned only after network settle.
+   */
+  if (!Array.isArray(localHit.posts) || localHit.posts.length === 0) {
+    return null;
+  }
   homePostsCache.set(cacheKey, {
     data: localHit,
     expiresAt: Date.now() + HOME_POSTS_TTL_MS,

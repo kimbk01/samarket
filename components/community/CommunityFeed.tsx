@@ -40,6 +40,11 @@ import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { whenAppShellReady } from "@/lib/startup/startup-metrics";
 import {
+  communityFeedShouldHoldPendingBeforeDeferredFetch,
+  communityFeedShouldShowEmptyCta,
+  communityInitialLoadFinallyClearsLoading,
+} from "@/lib/community/community-feed-loading-ownership";
+import {
   hubStateToCommunityNavSelection,
   readCommunityHubState,
   writeCommunityHubState,
@@ -893,7 +898,13 @@ export function CommunityFeed({
         }
         if (append) {
           setLoadingMore(false);
-        } else if (initialLoadToken === initialFeedLoadTokenRef.current) {
+        } else if (
+          communityInitialLoadFinallyClearsLoading({
+            append: false,
+            requestToken: initialLoadToken,
+            currentToken: initialFeedLoadTokenRef.current,
+          })
+        ) {
           setLoading(false);
         }
       }
@@ -993,6 +1004,8 @@ export function CommunityFeed({
       });
       return () => {
         cancelNetwork();
+        /** Invalidate token before abort — Abort finally must not clear loading into empty gap. */
+        initialFeedLoadTokenRef.current += 1;
         feedAbortRef.current?.abort();
       };
     }
@@ -1033,12 +1046,21 @@ export function CommunityFeed({
     }
 
     const hasRenderableRows = !!snapMeta?.posts?.length || postsRef.current.length > 0;
+    /**
+     * STATE CLASSIFICATION — cold miss must hold PENDING across whenAppShellReady deferral.
+     * Do not leave posts=[] + loading=false (false empty CTA) before fetchPage starts.
+     */
+    if (communityFeedShouldHoldPendingBeforeDeferredFetch({ hasRenderableRows })) {
+      setLoading(true);
+    }
     /** hasRenderableRows 면 loading UI 없이 background sync — shellReady 이후 */
     const cancelNetwork = whenAppShellReady(() => {
       void fetchPage(0, false, session, !hasRenderableRows);
     });
     return () => {
       cancelNetwork();
+      /** Invalidate token before abort — Abort finally must not clear loading into empty gap. */
+      initialFeedLoadTokenRef.current += 1;
       feedAbortRef.current?.abort();
     };
     /**
@@ -1990,7 +2012,11 @@ export function CommunityFeed({
         ) : null}
         {loading && postsForList.length === 0 && !err ? (
           <CommunityFeedSkeleton rows={5} />
-        ) : !err && postsForList.length === 0 ? (
+        ) : communityFeedShouldShowEmptyCta({
+            hasError: Boolean(err),
+            loading,
+            postCount: postsForList.length,
+          }) ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {tagFilter ? t("community_feed_hashtag_empty", { tag: tagFilter }) : t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
