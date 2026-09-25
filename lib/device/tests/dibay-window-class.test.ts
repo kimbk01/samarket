@@ -314,8 +314,8 @@ describe("FD2 breakpoint inventory", () => {
     expect(messengerSplit?.meaning).toMatch(/Not a tablet Device cutoff/i);
   });
 
-  it("keeps remaining shadow Device authorities named for later FDs", () => {
-    expect(DIBAY_SHADOW_DEVICE_AUTHORITIES_REMAINING.map((row) => row.id)).toContain(
+  it("does not keep the FD4-removed 5-tier viewport identity as a live shadow", () => {
+    expect(DIBAY_SHADOW_DEVICE_AUTHORITIES_REMAINING.map((row) => row.id)).not.toContain(
       "use-app-viewport-size-5-tier",
     );
   });

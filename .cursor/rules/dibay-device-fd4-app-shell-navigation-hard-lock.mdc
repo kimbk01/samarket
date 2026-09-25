@@ -1,0 +1,50 @@
+---
+description: DIBAY Device SSOT FD4 App Shell / Navigation HARD LOCK — DeviceClass is shell identity; do not infer Phone/Tablet/Desktop from width/touch/UA.
+alwaysApply: true
+---
+
+# DIBAY Device SSOT — FD4 App Shell / Navigation HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-device-fd4-app-shell-navigation-hard-lock.md`  
+Evidence: `.tmp/fd4-shell-runtime/`
+
+FD1 DeviceClass, FD2 Window/LayoutMode, FD3 orientation are READ-ONLY inputs.
+
+## AUTHORITY (baseline)
+
+HEAD is local FD4 implementation after `c399af0c4`.  
+ORIGIN/PRODUCTION `854dd5c920449badff151c761cf24c08a5c6f99a`  
+Not origin/Production until `git push origin main`.
+
+**FD4 APP SHELL = NOT LOCKED** until iPhonebk inspector runtime exists.  
+Samsung / Xiaomi runtime PASS. CURRENT SHELL DEFECT = NONE PROVEN.
+
+Do not start FD5. Do not invent a Tablet rail while waiting.
+
+## LOCKED
+
+- Shell identity = FD1 DeviceClass (`resolveAppShell`)
+- Presentation mode = FD2 LayoutMode (not wired to domain dual-pane)
+- Navigation presentation = existing main BottomNav for PHONE / TABLET / DESKTOP / UNKNOWN
+- UNKNOWN stays UNKNOWN_SAFE — no Phone/Tablet/Desktop guess
+- Phone cannot promote; Tablet cannot demote; Desktop narrow stays Desktop family
+- `use-app-viewport-size` is measurement only
+
+## NOT HARD LOCK blockers
+
+- iPad runtime = NOT_PROVEN
+- Windows runtime = NOT_PROVEN
+- iPhone physical rotate = FD3 NOT_PROVEN
+- HEAD not pushed = operational, not an FD4 defect
+
+## DO NOT
+
+- Reopen FD4 to invent a Tablet rail or restore Desktop side nav
+- Use 767/768/1024/touch/UA/orientation as Device shell identity
+- Remount the page tree when DeviceClass or LayoutMode changes
+- Migrate Community / Trade / Messenger / Call domain layout from this lock
+- Reopen FD1 600dp, FD2 floors, or FD3 native orientation
+
+## NEXT
+
+FD5 COMMUNITY is forbidden until FD4 is LOCKED.

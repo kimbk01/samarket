@@ -178,6 +178,15 @@ export function peekDibayDeviceClassSession(): DibayDeviceClassResult | null {
   return sessionResolved;
 }
 
+/** FD4 hydrate only. Does not reclassify. Refuses UNKNOWN so pre-resolution cannot pin the session. */
+export function seedDibayDeviceClassSession(result: DibayDeviceClassResult): DibayDeviceClassResult {
+  if (!isDibayDeviceClass(result.deviceClass) || result.deviceClass === "UNKNOWN") {
+    return result;
+  }
+  if (!sessionResolved) sessionResolved = result;
+  return sessionResolved;
+}
+
 export function resetDibayDeviceClassSessionForTests(): void {
   sessionResolved = null;
 }

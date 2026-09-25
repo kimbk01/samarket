@@ -9,6 +9,7 @@ import {
   peekDibayDeviceClassSession,
   resetDibayDeviceClassSessionForTests,
   resolveDibayDeviceClass,
+  seedDibayDeviceClassSession,
 } from "@/lib/device/dibay-device-class";
 
 const windowsWideUa =
@@ -194,6 +195,21 @@ describe("FD1 session stability", () => {
     expect(second).toBe(first);
     expect(peekDibayDeviceClassSession()).toBe(first);
     vi.unstubAllGlobals();
+  });
+
+  it("seed refuses UNKNOWN so pre-resolution cannot pin the session", () => {
+    seedDibayDeviceClassSession({
+      deviceClass: "UNKNOWN",
+      source: "unclassified_web_environment",
+      reason: "pre_resolution",
+    });
+    expect(peekDibayDeviceClassSession()).toBeNull();
+    const seeded = seedDibayDeviceClassSession({
+      deviceClass: "PHONE_ANDROID",
+      source: "smallestScreenWidthDp",
+    });
+    expect(seeded.deviceClass).toBe("PHONE_ANDROID");
+    expect(peekDibayDeviceClassSession()?.deviceClass).toBe("PHONE_ANDROID");
   });
 
   it("same session: window 390 → 844 class unchanged", async () => {

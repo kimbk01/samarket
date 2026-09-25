@@ -27,7 +27,7 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
     kind: "LEGACY_SHADOW",
     owner: "lib/ui/app-viewport-layout-breakpoints.ts APP_MOBILE_LAYOUT_MAX_PX",
     laterFdOwner: "FD4 APP SHELL / FD5–FD7 domain layouts",
-    meaning: "Named mobile-max. Used as width→layout identity in useAppViewportSize and use-is-mobile-viewport.",
+    meaning: "Named mobile-max. FD4 removed useAppViewportSize identity. Remaining consumers: MyPage / Messenger / Community geometry.",
   },
   {
     px: 768,
@@ -41,7 +41,7 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
     kind: "LEGACY_SHADOW",
     owner: "app/design-tokens.css --sam-bp-sm-tablet-min + use-app-viewport-size 5-tier",
     laterFdOwner: "FD4 APP SHELL",
-    meaning: "Named tablet-min / width+touch+orientation Device impersonation.",
+    meaning: "Named tablet-min token. FD4 removed use-app-viewport-size 5-tier identity. Token itself is VISUAL_TUNING / Owner.",
   },
   {
     px: 840,
@@ -90,7 +90,7 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
     kind: "LEGACY_SHADOW",
     owner: "lib/ui/use-app-viewport-size.ts pickBreakpoint",
     laterFdOwner: "FD4 APP SHELL",
-    meaning: "width>=1024 → tablet identity. Shadow Device authority.",
+    meaning: "Historical use-app-viewport-size width>=1024 → tablet identity. Removed in FD4.",
   },
   {
     px: 1025,
@@ -111,7 +111,7 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
     kind: "LEGACY_SHADOW",
     owner: "lib/ui/use-app-viewport-size.ts pickBreakpoint",
     laterFdOwner: "FD4 APP SHELL",
-    meaning: "width+touch → desktop/tablet identity. Shadow Device authority.",
+    meaning: "Historical use-app-viewport-size width+touch → desktop/tablet identity. Removed in FD4.",
   },
   {
     px: 1230,
@@ -138,27 +138,21 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
 
 export const DIBAY_SHADOW_DEVICE_AUTHORITIES_REMAINING = [
   {
-    id: "use-app-viewport-size-5-tier",
-    path: "lib/ui/use-app-viewport-size.ts",
-    laterFdOwner: "FD4 APP SHELL",
-    meaning: "width + touch + orientation impersonates DeviceClass.",
-  },
-  {
     id: "app-mobile-layout-767",
     path: "hooks/use-is-mobile-viewport.ts + lib/ui/use-match-max-width.ts + CommunityFeed 767 mq",
-    laterFdOwner: "FD4 / FD5",
-    meaning: "767 used as mobile identity.",
+    laterFdOwner: "FD5 COMMUNITY / FD7 MESSENGER / MyPage",
+    meaning: "767 remains page/domain geometry. Not App Shell Device identity after FD4.",
   },
   {
     id: "design-tokens-tablet-named-bands",
     path: "app/design-tokens.css --sam-bp-sm-tablet-*",
-    laterFdOwner: "FD4 APP SHELL",
-    meaning: "CSS token names still say tablet.",
+    laterFdOwner: "Owner shell / VISUAL_TUNING",
+    meaning: "CSS token names still say tablet. Not consumed by FD4 shell resolver.",
   },
   {
     id: "mypage-1200-desktop-name",
     path: "lib/ui/mypage-responsive-breakpoints.ts",
-    laterFdOwner: "FD4 / MyPage",
+    laterFdOwner: "MyPage",
     meaning: "width bands named tablet/desktop while classes are 1-column.",
   },
 ] as const;

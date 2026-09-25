@@ -71,6 +71,7 @@ import { BottomNav } from "./BottomNav";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
+import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -163,6 +164,7 @@ export function ConditionalAppShell({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
+  const appShell = useDibayAppShellAuthority();
   /**
    * DO NOT useSearchParams() here — this shell wraps `/stores/owner/**` above page Suspense.
    * Suspending remount paints only `Loading…` with no `data-biz` Owner shell.
@@ -379,6 +381,12 @@ export function ConditionalAppShell({
       className={`app-shell w-full min-w-0 ${
         hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
+      data-dibay-device-class={appShell.deviceClass}
+      data-dibay-shell-family={appShell.shellFamily}
+      data-dibay-layout-mode={appShell.layoutMode}
+      data-dibay-nav-presentation={appShell.navigationPresentation}
+      data-dibay-window-class={appShell.windowClass ?? ""}
+      suppressHydrationWarning
     >
       {/** App Ready before BottomNav layout — children layout effects run depth-first first→last */}
       <MarkAppShellReadyOnce pathname={pathname} routeSearch={routeSearch} />
