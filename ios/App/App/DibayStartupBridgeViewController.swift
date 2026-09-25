@@ -26,6 +26,16 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introOverlay: UIView?
   private var introContent: UIView?
   private var introDismissing = false
+  override var shouldAutorotate: Bool {
+    DibayAppOrientationPolicy.shouldAutorotate(deviceClass: DibayDeviceClassClassifier.classify().deviceClass)
+  }
+
+  override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+    DibayAppOrientationPolicy.supportedInterfaceOrientations(
+      deviceClass: DibayDeviceClassClassifier.classify().deviceClass
+    )
+  }
+
   /// One cold-startup Intro per VC lifetime. After dismiss, never reattach on viewDidAppear
   /// (call UI present/dismiss must not bring Intro back or block WebView touches).
   private enum IntroLifecycle: String {

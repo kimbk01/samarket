@@ -1088,6 +1088,9 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
+    // FD3: one native app-shell orientation request, before WebView first frame.
+    // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
+    DibayAppOrientationPolicy.applyToAppShell(this);
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);

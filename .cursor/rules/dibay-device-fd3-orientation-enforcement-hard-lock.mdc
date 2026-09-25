@@ -1,0 +1,31 @@
+# DIBAY Device SSOT — FD3 Orientation Enforcement HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-device-fd3-orientation-enforcement-hard-lock.md`  
+Evidence: `.tmp/fd3-orientation-runtime/`
+
+FD1 DeviceClass and FD2 Window authority are READ-ONLY.  
+FD2 band/floor numbers stay `CANDIDATE_NOT_LOCKED`.
+
+## LOCKED
+
+- PHONE_ANDROID / PHONE_IOS application shell = PORTRAIT_ONLY
+- TABLET_ANDROID / TABLET_IPAD = PORTRAIT_AND_LANDSCAPE (no portrait request)
+- DESKTOP / PWA = RESIZABLE (`orientation: any`)
+- Android classifier is shared: Plugin + MainActivity consume `DibayDeviceClassClassifier`
+- iOS classifier is shared: Plugin + root VC consume `DibayDeviceClassClassifier`
+- Single Android enforcement: `DibayAppOrientationPolicy.applyToAppShell` in `onCreate` before first WebView frame
+- Call video portrait stays Call presentation (FD8)
+
+## DO NOT
+
+- Manifest-wide MainActivity `screenOrientation=portrait`
+- Duplicate 600dp / idiom logic
+- JS boot → orientation snap
+- onResume portrait spam
+- Rotate hacks / width swap / CSS transform
+- Touch Call lifecycle or Call Activities
+- Reopen FD1/FD2 numbers
+
+## NEXT
+
+FD4 APP SHELL / NAVIGATION only.
