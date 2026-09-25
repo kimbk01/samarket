@@ -4,7 +4,7 @@
  * dropping App-target CAPBridgedPlugin classes.
  *
  * This file is the **common merge authority** for all App-target plugins
- * (Call + Auth + Delivery). Domain HARD LOCK docs must not invent a second list.
+ * (Call + Auth + Delivery + Device). Domain HARD LOCK docs must not invent a second list.
  *
  * @see docs/ios-capacitor-app-target-package-classlist.md
  */
@@ -35,6 +35,11 @@ export const IOS_DELIVERY_PACKAGE_CLASSES = [
   "MessengerPhotoLibraryPlugin",
 ];
 
+/** Device identity — not Call / Auth / Delivery */
+export const IOS_DEVICE_PACKAGE_CLASSES = [
+  "DibayDeviceClassPlugin",
+];
+
 /**
  * Full App-target merge list for post-`cap sync ios` restore.
  * Domain contracts reference this list; Call HARD LOCK is a subset only.
@@ -43,6 +48,7 @@ export const IOS_APP_TARGET_PACKAGE_CLASSES = [
   ...IOS_CALL_OUTGOING_PACKAGE_CLASSES,
   ...IOS_AUTH_PACKAGE_CLASSES,
   ...IOS_DELIVERY_PACKAGE_CLASSES,
+  ...IOS_DEVICE_PACKAGE_CLASSES,
 ];
 
 function mergePackageClassList(existing, required) {

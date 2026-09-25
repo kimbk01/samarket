@@ -74,6 +74,7 @@
 		C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */; };
 		C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */; };
 		C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */; };
+		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
 		C7NSE0022FED79650016851F /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NSE0012FED79650016851F /* NotificationService.swift */; };
 		C7NSE0192FED79650016851F /* DibayPushServiceExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C7NSE0042FED79650016851F /* DibayPushServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -148,6 +149,7 @@
 		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
 		C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryAdapter.swift; sourceTree = "<group>"; };
 		C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryPlugin.swift; sourceTree = "<group>"; };
+		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
 		C7NSE0012FED79650016851F /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		C7NSE0032FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C7NSE0042FED79650016851F /* DibayPushServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DibayPushServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -253,6 +255,7 @@
 				C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */,
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
+				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
 			);
 			path = Plugins;
 			sourceTree = "<group>";
@@ -518,6 +521,7 @@
 				C7MPL0022FED79650016851F /* MessengerPhotoLibraryPlugin.swift in Sources */,
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
+				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

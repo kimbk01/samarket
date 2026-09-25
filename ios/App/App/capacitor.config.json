@@ -28,6 +28,7 @@
 		"NativeKakaoAuthPlugin",
 		"NativeOAuthLauncherPlugin",
 		"DibayAppIconDeliveryPlugin",
-		"MessengerPhotoLibraryPlugin"
+		"MessengerPhotoLibraryPlugin",
+		"DibayDeviceClassPlugin"
 	]
 }

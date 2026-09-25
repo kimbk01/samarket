@@ -1087,6 +1087,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
+    registerPlugin(DibayDeviceClassPlugin.class);
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
