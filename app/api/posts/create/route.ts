@@ -18,6 +18,7 @@ import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-r
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
 import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
 import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
+import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
 
 const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
@@ -64,7 +65,9 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
       tradeLguId: tradeLguId || undefined,
       barangay,
       imageUrls: Array.isArray(raw.imageUrls)
-        ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+        ? raw.imageUrls.filter(
+            (u): u is string => typeof u === "string" && isPersistableStorageMediaRef(u)
+          )
         : undefined,
       meta:
         raw.meta != null && typeof raw.meta === "object" && !Array.isArray(raw.meta)

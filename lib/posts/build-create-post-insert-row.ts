@@ -1,6 +1,7 @@
 import type { CreatePostPayload } from "@/lib/posts/types";
 import { tradeJobColumnsForInsert } from "@/lib/posts/trade-job-db-fields";
 import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
+import { filterPersistableStorageMediaRefs } from "@/lib/media/persistable-storage-media-ref";
 
 /** `createPost` · `POST /api/posts/create` 공통 — posts INSERT 행 조립 */
 export function buildCreatePostInsertRow(
@@ -34,11 +35,11 @@ export function buildCreatePostInsertRow(
     Array.isArray(payload.imageUrls) &&
     payload.imageUrls.length > 0
   ) {
-    row.images = payload.imageUrls;
-    const firstThumb = payload.imageUrls.find(
-      (u): u is string => typeof u === "string" && u.trim().length > 0
-    );
-    if (firstThumb) row.thumbnail_url = firstThumb.trim();
+    const persistable = filterPersistableStorageMediaRefs(payload.imageUrls);
+    if (persistable.length > 0) {
+      row.images = persistable;
+      row.thumbnail_url = persistable[0];
+    }
   }
 
   if (payload.type === "trade" && "region" in payload && payload.region != null && String(payload.region).trim()) {

@@ -10,6 +10,7 @@ import {
 import {
   buildDerivativePublicUrl,
   canonicalBucketFromUrl,
+  isEligibleCanonicalOriginalStoragePath,
   normalizeToObjectPublicUrl,
   parseSupabasePublicObjectUrl,
 } from "@/lib/media/canonical-image-path";
@@ -49,6 +50,11 @@ export function resolveCanonicalImageUrl(input: CanonicalImageResolveInput): str
   if (!base) return resolved;
 
   if (bucket === STORE_PRODUCT_IMAGES_BUCKET && input.surface !== "hero") {
+    return base;
+  }
+
+  const parsed = parseSupabasePublicObjectUrl(base);
+  if (!parsed || !isEligibleCanonicalOriginalStoragePath(parsed.path)) {
     return base;
   }
 

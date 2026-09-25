@@ -89,4 +89,23 @@ describe("buildCreatePostInsertRow", () => {
     expect(row.city).toBe("c2");
     expect(row.price).toBeUndefined();
   });
+
+  it("does not persist blob/localhost image refs", () => {
+    const row = buildCreatePostInsertRow(
+      {
+        type: "trade",
+        categoryId: CATEGORY_ID,
+        title: "제목",
+        content: "본문",
+        imageUrls: [
+          "blob:http://localhost:3000/ab6d510b-2df8-46a1-847d-1e4bdf7b5cc4",
+          "https://cdn.example/ok.jpg",
+        ],
+      },
+      USER_ID,
+      NOW
+    );
+    expect(row.images).toEqual(["https://cdn.example/ok.jpg"]);
+    expect(row.thumbnail_url).toBe("https://cdn.example/ok.jpg");
+  });
 });

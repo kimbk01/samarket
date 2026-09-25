@@ -1,5 +1,9 @@
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  filterPersistableStorageMediaRefs,
+  isPersistableStorageMediaRef,
+} from "@/lib/media/persistable-storage-media-ref";
 
 /** 거래 글 통합 라이프사이클 (posts + meta + seller_listing_state 기반) */
 export type TradeLifecycleStatus =
@@ -446,11 +450,17 @@ export function mergeTradePostFromPatch(
       ? { ...before.meta, ...body.meta }
       : { ...before.meta };
 
-  const images = body.imageUrls !== undefined ? body.imageUrls : before.images;
+  const persistableImages =
+    body.imageUrls !== undefined
+      ? filterPersistableStorageMediaRefs(body.imageUrls)
+      : filterPersistableStorageMediaRefs(before.images);
+  const images = persistableImages.length > 0 ? persistableImages : null;
   const thumbnail_url =
-    Array.isArray(images) && images.length > 0 && typeof images[0] === "string"
-      ? images[0]
-      : before.thumbnail_url;
+    persistableImages.length > 0
+      ? persistableImages[0]
+      : isPersistableStorageMediaRef(before.thumbnail_url)
+        ? before.thumbnail_url
+        : null;
 
   return {
     title: body.title !== undefined ? String(body.title).trim() : before.title,

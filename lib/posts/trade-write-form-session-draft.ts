@@ -18,6 +18,7 @@
 
 import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 import { isUsedCarTradeWriteSkin } from "@/lib/trade/resolve-trade-write-skin-key";
+import { isPersistableStorageMediaRef } from "@/lib/media/persistable-storage-media-ref";
 
 const STORAGE_VERSION = 1 as const;
 const KEY_PREFIX = "samarket:trade-write-form";
@@ -162,8 +163,7 @@ export function readTradeWriteFormPersistedDraft(categoryId: string): TradeWrite
 }
 
 function isPersistableImageUrl(url: string): boolean {
-  const u = url.trim();
-  return u.startsWith("http://") || u.startsWith("https://");
+  return isPersistableStorageMediaRef(url) && /^https?:\/\//i.test(url.trim());
 }
 
 /** 복구 확인용 — 저장된 V1 초안이 사용자 입력으로 간주되는지 */

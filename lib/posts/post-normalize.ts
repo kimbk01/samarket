@@ -2,6 +2,8 @@
  * posts 행 정규화 (서버·클라이언트 공용, "use client" 없음)
  */
 
+import { filterPersistableStorageMediaRefs } from "@/lib/media/persistable-storage-media-ref";
+
 /** DB에서 온 price를 number | null 로 통일 (numeric → string 대비) */
 export function normalizePostPrice(raw: unknown): number | null {
   if (raw == null || raw === "") return null;
@@ -30,18 +32,18 @@ export function normalizePostMeta(raw: unknown): Record<string, unknown> | null 
 export function normalizePostImages(raw: unknown): string[] | null {
   if (raw == null) return null;
   if (Array.isArray(raw)) {
-    const arr = raw.filter((x): x is string => typeof x === "string");
+    const arr = filterPersistableStorageMediaRefs(raw);
     return arr.length > 0 ? arr : null;
   }
   if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (Array.isArray(parsed)) {
-        const arr = parsed.filter((x): x is string => typeof x === "string");
+        const arr = filterPersistableStorageMediaRefs(parsed);
         return arr.length > 0 ? arr : null;
       }
     } catch {
-      const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+      const parts = filterPersistableStorageMediaRefs(raw.split(",").map((s) => s.trim()));
       return parts.length > 0 ? parts : null;
     }
   }
