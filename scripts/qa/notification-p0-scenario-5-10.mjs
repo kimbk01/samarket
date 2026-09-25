@@ -143,7 +143,7 @@ async function queryDeliveries(limit = 8) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("notification_deliveries")
-    .select("id,status,reason,provider,created_at,event_id,user_id")
+    .select("id,status,reason,provider_response,created_at,notification_event_id,user_id")
     .eq("user_id", USER_B)
     .order("created_at", { ascending: false })
     .limit(limit);
