@@ -1,0 +1,35 @@
+# DIBAY Device SSOT — FD2 Window Class HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-device-fd2-window-class-hard-lock.md`  
+Evidence: `.tmp/fd2-window-class-runtime/`
+
+FD1 DeviceClass is READ-ONLY. Do not reopen 600dp, Xiaomi identity, native plugins, or rotation identity.
+
+## LOCKED
+
+- DeviceClass ≠ WindowClass ≠ Orientation ≠ LayoutMode
+- Usable width = visualViewport.width (else innerWidth) − `--safe-left` − `--safe-right`
+- PHONE_* + any width → PHONE_SINGLE
+- TABLET compact → TABLET_STACKED, never PHONE
+- DESKTOP narrow → DESKTOP_STACKED, never PHONE
+- Keyboard may change measurement, never Device family
+- 768 Messenger split = DOMAIN_PANE_FLOOR, not tablet identity
+
+## CANDIDATE_NOT_LOCKED
+
+WindowClass bands 760 / 1230 / 1302  
+Messenger 760 · Community 840 · Trade 720 floors
+
+Do not promote these numbers to Device cutoffs. Do not rewrite them without a new first divergence.
+
+## DO NOT
+
+- Width → Device identity
+- 3-pane auto-activate
+- Community / Trade / Messenger / Call UI wiring in FD2 files
+- FD3+ work unless FD2 is LOCKED
+- Mix FD1 lock-doc commits into FD2 product history
+
+## NEXT
+
+FD3 ORIENTATION ENFORCEMENT only.
