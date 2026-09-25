@@ -50,6 +50,7 @@ import {
   writeCommunityHubState,
 } from "@/lib/community/community-hub-state";
 import { tryRestoreCommunityFeedScroll } from "@/lib/community/community-post-entry-nav";
+import { useDibayCommunityPresentation } from "@/lib/device/use-dibay-community-presentation";
 import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
 import { AdPostCard } from "@/components/ads/AdPostCard";
@@ -1384,17 +1385,8 @@ export function CommunityFeed({
     }
   }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
 
-  const [feedSwipeOn, setFeedSwipeOn] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 767px)");
-    const go = () => {
-      setFeedSwipeOn(mq.matches);
-    };
-    go();
-    mq.addEventListener("change", go);
-    return () => mq.removeEventListener("change", go);
-  }, []);
+  const communityPresentation = useDibayCommunityPresentation();
+  const feedSwipeOn = communityPresentation.presentation === "SINGLE";
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);

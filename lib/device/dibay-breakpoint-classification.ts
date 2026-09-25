@@ -139,9 +139,9 @@ export const DIBAY_EXISTING_BREAKPOINT_CLASSIFICATION: readonly DibayBreakpointR
 export const DIBAY_SHADOW_DEVICE_AUTHORITIES_REMAINING = [
   {
     id: "app-mobile-layout-767",
-    path: "hooks/use-is-mobile-viewport.ts + lib/ui/use-match-max-width.ts + CommunityFeed 767 mq",
-    laterFdOwner: "FD5 COMMUNITY / FD7 MESSENGER / MyPage",
-    meaning: "767 remains page/domain geometry. Not App Shell Device identity after FD4.",
+    path: "hooks/use-is-mobile-viewport.ts + lib/ui/use-match-max-width.ts",
+    laterFdOwner: "FD7 MESSENGER / MyPage",
+    meaning: "767 remains page/domain geometry outside Community. Community 767 Device shadow removed in FD5.",
   },
   {
     id: "design-tokens-tablet-named-bands",

@@ -48,6 +48,47 @@
   min-height: 100vh;
 }
 
+/* FD5 dual composition — CSS styles the chosen mode; it does not select Device. */
+[data-community-ui][data-dibay-community-composed="dual"] .cm-page {
+  min-height: 0;
+}
+
+[data-community-ui] .dibay-community-dual-frame {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+[data-community-ui] .dibay-community-pane-list {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 0;
+  min-width: 360px;
+  width: clamp(360px, 38%, 420px);
+  flex: 0 0 clamp(360px, 38%, 420px);
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-right: 1px solid var(--cm-border);
+}
+
+[data-community-ui] .dibay-community-pane-detail {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+[data-main-hub-scroll-body]:has([data-dibay-community-composed="dual"]) {
+  overflow: hidden;
+}
+
 /** 주제·동네 탭 선택 — 우→좌 440ms 밀어 들어오기 */
 @keyframes community-topic-panel-slide-in {
   from {
