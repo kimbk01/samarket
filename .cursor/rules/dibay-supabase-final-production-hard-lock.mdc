@@ -1,0 +1,51 @@
+---
+description: DIBAY Supabase FINAL PRODUCTION HARD LOCK — do not reopen FD1–FD10 without new Production contradiction.
+alwaysApply: true
+---
+
+# DIBAY Supabase — FINAL PRODUCTION HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-supabase-final-production-hard-lock.md`  
+Evidence: `.tmp/supabase-forensic-audit/fd10-final/` · `.tmp/supabase-forensic-audit/final-ship-integrity/`
+
+## Two locks (do not merge)
+
+1. **PRODUCT/DB PRODUCTION HARD LOCK** — Production Product/DB tree closed.
+2. **REPOSITORY SSOT HARD LOCK** — this document + rule as Git authority. Local commit ≠ origin push.
+
+## AUTHORITY (Production)
+
+ORIGIN/PRODUCTION `854dd5c920449badff151c761cf24c08a5c6f99a`  
+Deployment `dpl_BCiszFHAiNMuK6q1USWwVNRySJXH` · Ready · `samarket.vercel.app`  
+Supabase `ckdosyydvgzqwpbwuhon`
+
+Do **not** claim HEAD=ORIGIN=PRODUCTION if local unrelated work is ahead.
+
+**FD1–FD10 = CLOSED · PRESERVED.** CURRENT P0=0 · CURRENT P1=0.  
+SUPABASE PRODUCT TREE EQUIVALENCE = PASS.
+
+## LOCKED
+
+- `user_sessions` restored · fail-closed · no invalidated resurrection
+- 42703 Product/mig repairs · no stale compatibility columns for QA
+- claim RPC client EXECUTE revoked · post-images public insert dropped
+- FD4 local-only 35 · `20260917140000` + `20261201270000` unapplied · do not zero migration drift
+- persistable media refs only · no invented AVIF `.feed.webp` · no orphan mass delete
+- Realtime slots/publication — no create/drop without new contradiction
+- Polling/Realtime rewrite only after measured Product defect
+- 409/23505 notification dedupe is expected idempotency (P2 noise)
+- NOT_PROVEN 25 · FIXTURE_BLOCKED 7 · intentional divergence 10 · P2/observations 7 are evidence/intentional states, not unfinished Product defects
+
+## DO NOT
+
+- Restart FD1–FD10 / create FD11 / full Supabase forensic because historical dashboard counts are non-zero
+- Speculative repair · RLS weakening · timeout/rate-limit raise to hide defects
+- Mix QA cleanup with Product or unrelated DeviceClass commits
+- Convert NOT_PROVEN or FIXTURE_BLOCKED into PASS
+- Push unrelated local DeviceClass to make SHA equality green
+- Reset / revert / amend / rewrite DeviceClass `15635e66` or WindowClass `b0a0f918b` for Supabase reasons
+- Push mixed device ancestry just to ship this SSOT
+
+## Reopen only if
+
+A new Production P0/P1 · B reproduced regression · C schema/security/migration authority change · D new current error signature contradicting this lock · E infra/config invalidating evidence.
