@@ -6,7 +6,7 @@ import {
   setUserSessionRegistryValidated,
 } from "@/lib/auth/user-session-registry-validate-cache";
 
-function isUserSessionSchemaError(error: { message?: string; code?: string } | null | undefined): boolean {
+export function isUserSessionSchemaError(error: { message?: string; code?: string } | null | undefined): boolean {
   const message = String(error?.message ?? "").toLowerCase();
   if (error?.code === "42P01") return true;
   if (error?.code === "42P10" && message.includes("on conflict")) return true;
@@ -18,6 +18,46 @@ function isUserSessionSchemaError(error: { message?: string; code?: string } | n
       message.includes("could not find") ||
       message.includes("column"))
   );
+}
+
+export type UserSessionRegistryInspectReason =
+  | "ok"
+  | "missing"
+  | "inactive"
+  | "authority_unavailable"
+  | "lookup_failed"
+  | "empty_session";
+
+export type UserSessionRegistryInspectResult = {
+  ok: boolean;
+  reason: UserSessionRegistryInspectReason;
+};
+
+/**
+ * Protected-path inspect.
+ * Schema/cache authority missing and other lookup failures are deny (fail-closed).
+ * Cleanup writers (invalidate*) still treat schema errors as NO-OP so logout is not blocked.
+ */
+export async function inspectUserSessionRegistry(
+  sb: SupabaseClient<any>,
+  userId: string,
+  sessionId: string
+): Promise<UserSessionRegistryInspectResult> {
+  const sid = String(sessionId ?? "").trim();
+  if (!sid) return { ok: false, reason: "empty_session" };
+  const { data, error } = await sb
+    .from("user_sessions")
+    .select("active, invalidation_reason")
+    .eq("user_id", userId)
+    .eq("session_id", sid)
+    .maybeSingle();
+  if (error) {
+    if (isUserSessionSchemaError(error)) return { ok: false, reason: "authority_unavailable" };
+    return { ok: false, reason: "lookup_failed" };
+  }
+  if (!data) return { ok: false, reason: "missing" };
+  if (data.active !== true) return { ok: false, reason: "inactive" };
+  return { ok: true, reason: "ok" };
 }
 
 /** GET hot path — TTL 캐시 후 miss 시 DB 1회 */
@@ -40,25 +80,8 @@ export async function validateUserSessionRegistry(
   userId: string,
   sessionId: string
 ): Promise<boolean> {
-  const { data, error } = await sb
-    .from("user_sessions")
-    .select("active, invalidation_reason")
-    .eq("user_id", userId)
-    .eq("session_id", sessionId)
-    .maybeSingle();
-  if (error) {
-    if (isUserSessionSchemaError(error)) return true;
-    return false;
-  }
-  if (!data) return false;
-  if (data.active !== true) {
-    const reason = String((data as { invalidation_reason?: string | null }).invalidation_reason ?? "");
-    if (reason && ["user_logout", "admin_revoke", "global_signout", "account_deleted"].includes(reason)) {
-      return false;
-    }
-    return false;
-  }
-  return true;
+  const inspected = await inspectUserSessionRegistry(sb, userId, sessionId);
+  return inspected.ok;
 }
 
 /** Supabase 세션은 유효한데 registry row 가 없을 때 lazy 등록 (다중 기기·쿠키 복구) */
@@ -76,8 +99,11 @@ export async function ensureUserSessionRegistryRow(
 ): Promise<boolean> {
   const sid = String(sessionId ?? "").trim();
   if (!sid) return false;
-  const ok = await validateUserSessionRegistry(sb, userId, sid);
-  if (ok) return true;
+  const inspected = await inspectUserSessionRegistry(sb, userId, sid);
+  if (inspected.ok) return true;
+  // Lazy-register only when no row exists. Never resurrect an invalidated row
+  // and never treat authority/lookup failure as a new session.
+  if (inspected.reason !== "missing") return false;
   try {
     await syncUserSessionRegistry(sb, userId, {
       nextSessionId: sid,

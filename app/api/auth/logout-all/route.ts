@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   const currentSessionId = await readActiveSessionIdCookie();
 
+  let registryError: string | null = null;
   if (sb) {
     try {
       await invalidateAllUserSessionRegistry(sb, auth.userId, "global_signout");
@@ -46,13 +47,8 @@ export async function POST(request: NextRequest) {
           .eq("id", auth.userId);
       }
     } catch (error) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: error instanceof Error ? error.message : "logout_all_cleanup_failed",
-        },
-        { status: 500 }
-      );
+      // Registry/device cleanup must not block Supabase global signOut.
+      registryError = error instanceof Error ? error.message : "logout_all_cleanup_failed";
     }
   } else if (currentSessionId) {
     /* degraded */
@@ -64,7 +60,10 @@ export async function POST(request: NextRequest) {
     /* client may have already global signOut */
   }
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json(
+    registryError ? { ok: false, error: registryError } : { ok: true },
+    { status: registryError ? 500 : 200 }
+  );
   await clearActiveSessionCookie(response, cookieSecure);
   return response;
 }
