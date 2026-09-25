@@ -12721,12 +12721,14 @@ async function withTradeChatListPostSchemaGate<T>(run: () => Promise<T>): Promis
   }
 }
 
+/**
+ * FD2: Production posts has neither `currency` nor `category_id`.
+ * Full-tier candidates use live-canonical columns only — do not probe known-missing
+ * columns as control flow (no intentional 42703).
+ * Legacy WITH_CURRENCY / EXTENDED(+category_id) strings remain defined above for
+ * reference/history but are excluded from the runtime candidate chain.
+ */
 const TRADE_CHAT_LIST_POST_SELECT_CANDIDATES: readonly string[] = [
-  TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITH_CURRENCY,
-  TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE_WITH_CURRENCY,
-  TRADE_CHAT_LIST_POST_SELECT_LEGACY_WITH_CURRENCY,
-  TRADE_CHAT_LIST_POST_SELECT_EXTENDED,
-  TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE,
   TRADE_CHAT_LIST_POST_SELECT,
   TRADE_CHAT_LIST_POST_SELECT_WITHOUT_TRADE_TYPE,
   TRADE_CHAT_LIST_POST_SELECT_LEGACY,
