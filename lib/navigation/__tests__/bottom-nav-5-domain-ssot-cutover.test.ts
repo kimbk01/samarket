@@ -54,6 +54,23 @@ describe("BottomNav 5-domain SSOT cutover contract", () => {
     expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(true);
   });
 
+  /**
+   * P12-OBS forensic lock: Cap cold community root is `/` (same surface as `/philife`).
+   * Tier1 hub pairs must always use replace — no push fallback for any MAIN root pair.
+   * (VIEW `/philife` atop Cap `/` is Cap dual-entry, not BottomNav push.)
+   */
+  it("all MAIN hub transitions use replace (no push fallback)", () => {
+    const paths = MAIN_ROOTS.map(([p]) => p);
+    for (const from of paths) {
+      for (const to of paths) {
+        expect(mainBottomNavRouteUsesReplace(from, to)).toBe(true);
+      }
+    }
+    const commit = read("lib/main-menu/main-bottom-nav-route-commit.ts");
+    expect(commit).toContain('BOTTOM_NAV_HISTORY_MODE = "replace"');
+    expect(commit).toContain("guardedClientNavigate(args.replace");
+  });
+
   it("BottomNav has no MAIN confirm popup and Chat uses commit not bare push", () => {
     const src = read("components/layout/BottomNav.tsx");
     expect(src).not.toContain("resolveBottomNavTransitionConfirmCopy");
