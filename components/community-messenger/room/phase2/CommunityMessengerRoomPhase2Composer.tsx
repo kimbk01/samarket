@@ -15,8 +15,9 @@ import {
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
-import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
+import { resolveTradeBlockedProductDetailPostId } from "@/lib/community-messenger/room/phase2/trade-blocked-product-detail-cta";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -150,6 +151,15 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const { t, safeT } = useI18n();
   const lastComposerPerfLogRef = useRef(0);
   const vm = useMessengerRoomPhase2ComposerView();
+  const tradePostDetailSlide = useTradePostDetailSlideHost();
+  const tradeBlockedProductPostId = resolveTradeBlockedProductDetailPostId({
+    contextMetaKind: vm.snapshot?.room.contextMeta?.kind,
+    contextMetaPostId:
+      vm.snapshot?.room.contextMeta?.kind === "trade"
+        ? vm.snapshot.room.contextMeta.postId
+        : null,
+    tradeListingPostId: vm.snapshot?.tradeChatRoomDetail?.product?.id ?? null,
+  });
   const {
     notifyComposerTextareaVisibleForSeededBootstrap,
     loading: phase1Loading,
@@ -495,15 +505,23 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   {t("cm_ui_add_friend")}
                 </Link>
               ) : null}
-              {vm.snapshot.room.contextMeta?.kind === "trade" &&
-              typeof vm.snapshot.room.contextMeta.productChatId === "string" &&
-              vm.snapshot.room.contextMeta.productChatId.trim() ? (
-                <Link
-                  href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
-                  className="sam-btn sam-btn--outline sam-btn--sm"
-                >
-                  {t("cm_ui_view_product_detail")}
-                </Link>
+              {tradeBlockedProductPostId ? (
+                tradePostDetailSlide ? (
+                  <button
+                    type="button"
+                    className="sam-btn sam-btn--outline sam-btn--sm"
+                    onClick={() => tradePostDetailSlide.openPostDetail(tradeBlockedProductPostId)}
+                  >
+                    {t("cm_ui_view_product_detail")}
+                  </button>
+                ) : (
+                  <Link
+                    href={`/post/${encodeURIComponent(tradeBlockedProductPostId)}`}
+                    className="sam-btn sam-btn--outline sam-btn--sm"
+                  >
+                    {t("cm_ui_view_product_detail")}
+                  </Link>
+                )
               ) : null}
             </div>
           </div>
