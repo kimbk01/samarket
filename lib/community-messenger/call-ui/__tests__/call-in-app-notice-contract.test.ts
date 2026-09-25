@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyCallTerminalReason,
   getCallInAppNoticeSpec,
   mapTerminalReasonToCallInAppNoticeEvent,
+  noticeEventForCallTerminalClass,
   shouldReplaceCallInAppNotice,
 } from "@/lib/community-messenger/call-ui/call-in-app-notice-contract";
 import { resolveCallInAppNoticeMessage } from "@/lib/community-messenger/stores/call-in-app-notice-store";
@@ -11,6 +13,19 @@ describe("call in-app notice contract", () => {
     expect(mapTerminalReasonToCallInAppNoticeEvent("peer_busy")).toBe("peer_busy");
     expect(mapTerminalReasonToCallInAppNoticeEvent("callee_busy")).toBe("peer_busy");
     expect(mapTerminalReasonToCallInAppNoticeEvent("busy")).toBe("peer_busy");
+  });
+
+  it("normal hangup classifies as NORMAL_ENDED → silent (no remote_ended notice)", () => {
+    expect(classifyCallTerminalReason("ended")).toBe("NORMAL_ENDED");
+    expect(classifyCallTerminalReason("remote_ended")).toBe("NORMAL_ENDED");
+    expect(noticeEventForCallTerminalClass("NORMAL_ENDED")).toBeNull();
+    expect(mapTerminalReasonToCallInAppNoticeEvent("ended")).toBeNull();
+    expect(mapTerminalReasonToCallInAppNoticeEvent("remote_ended")).toBeNull();
+  });
+
+  it("actionable failure still maps to call_failed", () => {
+    expect(classifyCallTerminalReason("failed")).toBe("ACTIONABLE_FAILURE");
+    expect(mapTerminalReasonToCallInAppNoticeEvent("failed")).toBe("call_failed");
   });
 
   it("terminal replaces reconnecting", () => {

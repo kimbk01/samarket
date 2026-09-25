@@ -12,6 +12,8 @@ enum NativeVideoCallUiHost {
   private static weak var activeController: NativeVideoCallViewController?
   private static var unlockObserverRegistered = false
   private static var deferredCallId: String?
+  /// Per-callId terminal dismiss latch — duplicate terminal events must not re-fire UI.
+  private static var terminalDismissCallId: String?
 
   /// Device unlocked — custom UI and camera surfaces are allowed (iOS protected-data contract).
   static func canPresentVideoSurfaces() -> Bool {
@@ -23,9 +25,15 @@ enum NativeVideoCallUiHost {
     let callId = session.sessionId
     DispatchQueue.main.async {
       switch snapshot.state {
-      case .ended, .failed:
+      case .ended:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: snapshot.state == .failed ? "failed" : "ended")
+        finishIfActive(callId: callId, terminalClass: .normalEnded)
+        return
+      case .failed:
+        clearDeferredPresentation(callId: callId)
+        let cls: NativeCallInAppNotice.CallTerminalClass =
+          snapshot.failure.map { NativeCallInAppNotice.classifyVideoFailure($0) } ?? .actionableFailure
+        finishIfActive(callId: callId, terminalClass: cls)
         return
       case .ending:
         renderState(callId: callId, state: snapshot.state)
@@ -88,6 +96,7 @@ enum NativeVideoCallUiHost {
       return
     }
     deferredCallId = nil
+    clearTerminalDismissLatchIfMatching(callId: callId)
     let controller = NativeVideoCallViewController(callId: callId, session: session)
     sync.lock()
     activeController = controller
@@ -262,25 +271,45 @@ enum NativeVideoCallUiHost {
     }
   }
 
-  static func finishIfActive(callId: String, reason: String? = nil) {
+  static func finishIfActive(
+    callId: String,
+    terminalClass: NativeCallInAppNotice.CallTerminalClass = .none
+  ) {
     onMain {
-      clearDeferredPresentation(callId: callId)
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      clearDeferredPresentation(callId: sid)
       if #available(iOS 15.0, *) {
         // Terminal while PiP / after UI release: stop PiP + drop ContentSource once.
-        NativeVideoCallPipOwner.shared.teardownForTerminal(callId: callId)
+        NativeVideoCallPipOwner.shared.teardownForTerminal(callId: sid)
       }
-      guard let controller = controller(for: callId) else {
-        // Already released for PiP — no fullscreen resurrection.
+      sync.lock()
+      if terminalDismissCallId == sid {
+        sync.unlock()
         NativeVideoCallLog.info(
-          "finish_if_active_no_fullscreen",
-          callId: callId,
-          details: "reason=\(reason ?? "nil") pip_owner_teardown=1"
+          "finish_if_active_duplicate_latched",
+          callId: sid,
+          details: "class=\(terminalClass.rawValue)"
         )
         return
       }
+      let active = activeController
+      let matches = active?.boundCallId == sid
+      guard matches, let controller = active else {
+        sync.unlock()
+        // Already released for PiP — no fullscreen resurrection. Do not latch (stale id).
+        NativeVideoCallLog.info(
+          "finish_if_active_no_fullscreen",
+          callId: sid,
+          details: "class=\(terminalClass.rawValue) pip_owner_teardown=1"
+        )
+        return
+      }
+      // Claim latch only when this call's VC is the dismiss target.
+      terminalDismissCallId = sid
+      sync.unlock()
       let dismissBlock = {
         controller.stopPipIfActive()
-        DibayCallPipPlugin.clearPipEmitGuards(callId: callId)
+        DibayCallPipPlugin.clearPipEmitGuards(callId: sid)
         sync.lock()
         if activeController === controller {
           activeController = nil
@@ -288,12 +317,22 @@ enum NativeVideoCallUiHost {
         sync.unlock()
         controller.dismiss(animated: true)
       }
-      if let event = NativeCallInAppNotice.mapTerminalReason(reason) {
+      let event = NativeCallInAppNotice.noticeEvent(for: terminalClass)
+      if let event {
         controller.presentCallInAppNoticeThenDismiss(event: event, then: dismissBlock)
       } else {
         dismissBlock()
       }
     }
+  }
+
+  private static func clearTerminalDismissLatchIfMatching(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    sync.lock()
+    if terminalDismissCallId == sid {
+      terminalDismissCallId = nil
+    }
+    sync.unlock()
   }
 
   /** Cleanup path — stop PiP on main before surfaces cleared / VC dismissed. Main thread only (no sync). */

@@ -263,6 +263,12 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         completion()
       }
     default:
+      // Ensure terminal snapshot owns dismiss before cleanup (no cleanup finishIfActive).
+      do {
+        try NativeVideoCallRuntime.shared.markEnded(sessionId: sid)
+      } catch {
+        try? NativeVideoCallRuntime.shared.markFailed(sessionId: sid, reason: .ended)
+      }
       cleanup(
         sessionId: sid,
         reason: "end_idle",
@@ -525,12 +531,12 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     NativeVideoCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivate()
 
-    // UI teardown on main FIFO: stopPip → clearSurfaces → dismiss (P4 — no main.sync from background).
+    // UI teardown on main FIFO: stopPip → clearSurfaces (P4 — no main.sync from background).
+    // Canonical dismiss owner = Runtime terminal snapshot → UiHost.finishIfActive (not cleanup).
     DispatchQueue.main.async {
       if !sid.isEmpty {
         NativeVideoCallUiHost.stopPipBeforeDismiss(callId: sid)
         NativeVideoCallUiHost.clearVideoSurfaces(callId: sid)
-        NativeVideoCallUiHost.finishIfActive(callId: sid)
       }
       NativeVideoCallRuntime.shared.reset(sessionId: sid)
       if DibayActiveCallSessionManager.shared.callId == sid {
@@ -557,14 +563,17 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
 
   private func terminalReason(for failure: NativeVideoCallFailure) -> String {
     switch failure {
-    case .missingCameraOrMicrophonePermission, .rejected:
+    case .missingCameraOrMicrophonePermission:
+      return "permission_required"
+    case .rejected:
       return "rejected"
-    case .acceptFailed, .tokenFailed, .joinFailed, .mediaFailed, .invalidSession, .internalInvariant:
+    case .missed:
+      return "missed"
+    case .acceptFailed, .tokenFailed, .joinFailed, .mediaFailed, .invalidSession, .internalInvariant,
+         .conflictingActiveCall, .duplicateAction:
       return "failed"
     case .ended:
       return "ended"
-    default:
-      return "failed"
     }
   }
 

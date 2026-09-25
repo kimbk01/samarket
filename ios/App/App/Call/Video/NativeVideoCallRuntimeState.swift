@@ -43,6 +43,7 @@ enum NativeVideoCallFailure: Equatable, Sendable {
   case missingCameraOrMicrophonePermission
   case rejected
   case ended
+  case missed
   case internalInvariant
 }
 
@@ -57,6 +58,18 @@ enum NativeVideoCallRuntimeError: Error, Equatable, Sendable {
 struct NativeVideoCallRuntimeSnapshot: Equatable, Sendable {
   let session: NativeVideoCallSession?
   let state: NativeVideoCallRuntimeState
+  /// Set when `state == .failed` — typed failure for terminal classification (no "failed" collapse).
+  let failure: NativeVideoCallFailure?
+
+  init(
+    session: NativeVideoCallSession?,
+    state: NativeVideoCallRuntimeState,
+    failure: NativeVideoCallFailure? = nil
+  ) {
+    self.session = session
+    self.state = state
+    self.failure = state == .failed ? failure : nil
+  }
 }
 
 enum NativeVideoCallLane {

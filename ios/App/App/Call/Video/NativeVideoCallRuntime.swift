@@ -17,6 +17,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
   private let queue = DispatchQueue(label: "com.dibay.app.native-video-call-runtime")
   private var session: NativeVideoCallSession?
   private var state: NativeVideoCallRuntimeState = .ended
+  private var lastFailure: NativeVideoCallFailure?
   private var generation: UInt64 = 0
   private var missedWorkItem: DispatchWorkItem?
 
@@ -35,7 +36,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   func snapshot() -> NativeVideoCallRuntimeSnapshot {
     queue.sync {
-      NativeVideoCallRuntimeSnapshot(session: session, state: state)
+      NativeVideoCallRuntimeSnapshot(session: session, state: state, failure: lastFailure)
     }
   }
 
@@ -191,11 +192,11 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       _ = try requireActiveSession(sid)
       guard !isTerminal(state) else { return }
       cancelMissedLocked()
+      lastFailure = reason
       state = .failed
       NativeVideoCallLog.warn("error_terminal", callId: sid, details: "reason=\(reason)")
       publishUiLocked(sessionId: sid)
       clearSessionLocked(sessionId: sid, releaseOwnerReason: "failed")
-      NativeVideoCallUiHost.finishIfActive(callId: sid)
     }
     NativeActiveCallHeartbeatOwner.stop(callId: sessionId, reason: "mark_failed")
     NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "mark_failed")
@@ -230,10 +231,10 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         return
       case .ending, .ringing, .accepting, .connecting, .connected:
         cancelMissedLocked()
+        lastFailure = .rejected
         state = .failed
         publishUiLocked(sessionId: sid)
         clearSessionLocked(sessionId: sid, releaseOwnerReason: "reject")
-        NativeVideoCallUiHost.finishIfActive(callId: sid)
       }
     }
   }
@@ -266,10 +267,10 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         return
       case .ending, .connected, .connecting, .accepting, .ringing, .failed:
         cancelMissedLocked()
+        lastFailure = nil
         state = .ended
         publishUiLocked(sessionId: sid)
         clearSessionLocked(sessionId: sid, releaseOwnerReason: "ended")
-        NativeVideoCallUiHost.finishIfActive(callId: sid)
       }
     }
   }
@@ -360,6 +361,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
     session = next
     state = initialState
+    lastFailure = nil
     generation &+= 1
   }
 
@@ -386,11 +388,11 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     guard let active = session, active.sessionId == sid else { return }
     guard state == .ringing else { return }
     cancelMissedLocked()
+    lastFailure = .missed
     state = .failed
     NativeVideoCallLog.info("missed_timeout", callId: sid)
     publishUiLocked(sessionId: sid)
     clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
-    NativeVideoCallUiHost.finishIfActive(callId: sid)
     DispatchQueue.main.async {
       CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .unanswered)
     }
@@ -446,7 +448,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   /// Phase C1b — UI hook only. No O2/O3/O4 logic.
   private func publishUiLocked(sessionId: String) {
-    let snap = NativeVideoCallRuntimeSnapshot(session: session, state: state)
+    let snap = NativeVideoCallRuntimeSnapshot(session: session, state: state, failure: lastFailure)
     let sid = normalize(sessionId)
     DispatchQueue.main.async {
       NativeVideoCallUiHost.handleRuntimeSnapshot(snap)

@@ -4,6 +4,9 @@ import UIKit
  * DIBAY Call in-app notice — iOS Native renderer (Voice/Video shared).
  * Product parity with Web CallInAppNoticeBanner / Android NativeCallInAppNoticeOverlay.
  * CallKit / system surfaces are out of scope.
+ *
+ * Terminal classification SSOT (mirrors Web `classifyCallTerminalReason`):
+ * RAW reason / typed failure → CallTerminalClass → UI policy (notice event or silent).
  */
 enum NativeCallInAppNotice {
   enum Event: String {
@@ -17,27 +20,27 @@ enum NativeCallInAppNotice {
     case permissionRequired
   }
 
-  static func mapTerminalReason(_ reason: String?) -> Event? {
+  /// Canonical terminal class — notice writers consume this, not raw reason strings.
+  enum CallTerminalClass: String {
+    case normalEnded
+    case peerBusy
+    case peerDeclined
+    case actionableFailure
+    case permissionRequired
+    case missed
+    case none
+  }
+
+  /// RAW → CANONICAL CLASS (Web `classifyCallTerminalReason` parity).
+  static func classifyTerminalReason(_ reason: String?) -> CallTerminalClass {
     guard let raw = reason?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !raw.isEmpty else {
-      return nil
+      return .none
     }
     if raw == "peer_busy" || raw == "callee_busy" || raw == "busy" || raw == "native_engine_busy" {
       return .peerBusy
     }
     if raw == "rejected" || raw == "reject" || raw == "declined" || raw == "call_rejected" {
       return .peerDeclined
-    }
-    if raw == "failed"
-      || raw.hasPrefix("agora")
-      || raw.contains("token")
-      || raw.contains("join")
-      || raw.contains("media")
-      || raw.contains("accept")
-    {
-      if raw.contains("permission") || raw.contains("mic") || raw.contains("camera") {
-        return .permissionRequired
-      }
-      return .callFailed
     }
     if raw == "ended"
       || raw == "remote_ended"
@@ -46,39 +49,83 @@ enum NativeCallInAppNotice {
       || raw == "local_ended"
       || raw == "remote_terminal"
     {
-      return .remoteEnded
+      return .normalEnded
     }
     if raw == "missed" || raw == "missed_call" || raw == "call_missed" || raw == "timeout" {
       return .missed
     }
-    if raw.contains("permission") {
+    if raw.contains("permission") || raw.contains("mic") || raw.contains("camera") {
       return .permissionRequired
     }
-    return nil
-  }
-
-  static func mapVoiceFailure(_ failure: NativeVoiceCallFailure) -> Event {
-    switch failure {
-    case .rejected:
-      return .peerDeclined
-    case .ended:
-      return .remoteEnded
-    default:
-      return .callFailed
+    if raw == "failed"
+      || raw.hasPrefix("agora")
+      || raw.contains("token")
+      || raw.contains("join")
+      || raw.contains("media")
+      || raw.contains("accept")
+      || raw == "failed_setup"
+      || raw == "failed_network"
+    {
+      return .actionableFailure
     }
+    return .none
   }
 
-  static func mapVideoFailure(_ failure: NativeVideoCallFailure) -> Event {
+  static func classifyVideoFailure(_ failure: NativeVideoCallFailure) -> CallTerminalClass {
     switch failure {
     case .rejected:
       return .peerDeclined
     case .ended:
-      return .remoteEnded
+      return .normalEnded
     case .missingCameraOrMicrophonePermission:
       return .permissionRequired
+    case .missed:
+      return .missed
     default:
-      return .callFailed
+      return .actionableFailure
     }
+  }
+
+  static func classifyVoiceFailure(_ failure: NativeVoiceCallFailure) -> CallTerminalClass {
+    switch failure {
+    case .rejected:
+      return .peerDeclined
+    case .ended:
+      return .normalEnded
+    default:
+      return .actionableFailure
+    }
+  }
+
+  /// CLASS → notice event (nil = SILENT_DISMISS).
+  static func noticeEvent(for terminalClass: CallTerminalClass) -> Event? {
+    switch terminalClass {
+    case .normalEnded, .none:
+      return nil
+    case .peerBusy:
+      return .peerBusy
+    case .peerDeclined:
+      return .peerDeclined
+    case .actionableFailure:
+      return .callFailed
+    case .permissionRequired:
+      return .permissionRequired
+    case .missed:
+      return .missed
+    }
+  }
+
+  /// Compatibility: RAW → event via canonical class (not a second SSOT).
+  static func mapTerminalReason(_ reason: String?) -> Event? {
+    noticeEvent(for: classifyTerminalReason(reason))
+  }
+
+  static func mapVoiceFailure(_ failure: NativeVoiceCallFailure) -> Event? {
+    noticeEvent(for: classifyVoiceFailure(failure))
+  }
+
+  static func mapVideoFailure(_ failure: NativeVideoCallFailure) -> Event? {
+    noticeEvent(for: classifyVideoFailure(failure))
   }
 
   static func message(for event: Event) -> String {

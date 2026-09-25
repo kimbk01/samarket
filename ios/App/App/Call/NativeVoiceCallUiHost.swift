@@ -12,6 +12,8 @@ enum NativeVoiceCallUiHost {
   private static var unlockObserverRegistered = false
   private static var lifecycleObserverRegistered = false
   private static var deferredCallId: String?
+  /// Per-callId terminal dismiss latch — duplicate terminal events must not re-fire UI.
+  private static var terminalDismissCallId: String?
 
   static func canPresentVoiceSurfaces() -> Bool {
     UIApplication.shared.isProtectedDataAvailable
@@ -21,7 +23,7 @@ enum NativeVoiceCallUiHost {
     DispatchQueue.main.async {
       guard let session = snapshot.session else {
         if isTerminalPhase(snapshot.phase) {
-          finishIfActiveAny(reason: noticeReason(for: snapshot.phase))
+          finishIfActiveAny(terminalClass: terminalClass(for: snapshot.phase))
         }
         return
       }
@@ -39,20 +41,21 @@ enum NativeVoiceCallUiHost {
         ensurePresented(callId: callId, session: session)
         renderState(callId: callId, snapshot: snapshot, source: source)
       case .ending:
+        // NORMAL: render-only — dismiss/notice owned by .ended / .failed terminal.
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: "ended")
+        renderState(callId: callId, snapshot: snapshot, source: source)
       case .rejecting:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: "rejected")
+        finishIfActive(callId: callId, terminalClass: .peerDeclined)
       case .ended:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: "ended")
+        finishIfActive(callId: callId, terminalClass: .normalEnded)
       case .failed(let failure):
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: voiceFailureReason(failure))
+        finishIfActive(callId: callId, terminalClass: NativeCallInAppNotice.classifyVoiceFailure(failure))
       case .idle:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId, reason: nil)
+        finishIfActive(callId: callId, terminalClass: .none)
       }
     }
   }
@@ -95,6 +98,7 @@ enum NativeVoiceCallUiHost {
       return
     }
     deferredCallId = nil
+    clearTerminalDismissLatchIfMatching(callId: callId)
     let controller = NativeVoiceCallViewController(callId: callId, session: session)
     sync.lock()
     activeController = controller
@@ -127,19 +131,37 @@ enum NativeVoiceCallUiHost {
     )
   }
 
-  static func finishIfActive(callId: String, reason: String? = nil) {
+  static func finishIfActive(
+    callId: String,
+    terminalClass: NativeCallInAppNotice.CallTerminalClass = .none
+  ) {
     onMain {
-      clearDeferredPresentation(callId: callId)
-      let targets = controllers(for: callId)
+      let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      clearDeferredPresentation(callId: sid)
+      sync.lock()
+      if terminalDismissCallId == sid {
+        sync.unlock()
+        DibayCallLog.info(
+          "ios_native_voice_finish_duplicate_latched",
+          sessionId: sid,
+          detail: "class=\(terminalClass.rawValue)"
+        )
+        return
+      }
+      sync.unlock()
+      let targets = controllers(for: sid)
       guard !targets.isEmpty else { return }
-      let event = NativeCallInAppNotice.mapTerminalReason(reason)
+      sync.lock()
+      terminalDismissCallId = sid
+      sync.unlock()
+      let event = NativeCallInAppNotice.noticeEvent(for: terminalClass)
       for controller in targets {
         if let event {
           controller.presentCallInAppNoticeThenDismiss(event: event) {
-            dismissController(controller, sessionId: callId)
+            dismissController(controller, sessionId: sid)
           }
         } else {
-          dismissController(controller, sessionId: callId)
+          dismissController(controller, sessionId: sid)
         }
       }
     }
@@ -149,35 +171,33 @@ enum NativeVoiceCallUiHost {
     !controllers(for: callId).isEmpty
   }
 
-  private static func finishIfActiveAny(reason: String? = nil) {
+  private static func finishIfActiveAny(terminalClass: NativeCallInAppNotice.CallTerminalClass) {
     let callIds = Set(presentedControllers.allObjects.map(\.boundCallId))
     for callId in callIds {
-      finishIfActive(callId: callId, reason: reason)
+      finishIfActive(callId: callId, terminalClass: terminalClass)
     }
   }
 
-  private static func noticeReason(for phase: NativeVoiceCallPhase) -> String? {
+  private static func terminalClass(for phase: NativeVoiceCallPhase) -> NativeCallInAppNotice.CallTerminalClass {
     switch phase {
     case .failed(let failure):
-      return voiceFailureReason(failure)
+      return NativeCallInAppNotice.classifyVoiceFailure(failure)
     case .rejecting:
-      return "rejected"
+      return .peerDeclined
     case .ending, .ended:
-      return "ended"
+      return .normalEnded
     default:
-      return nil
+      return .none
     }
   }
 
-  private static func voiceFailureReason(_ failure: NativeVoiceCallFailure) -> String {
-    switch failure {
-    case .rejected:
-      return "rejected"
-    case .ended:
-      return "ended"
-    default:
-      return "failed"
+  private static func clearTerminalDismissLatchIfMatching(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    sync.lock()
+    if terminalDismissCallId == sid {
+      terminalDismissCallId = nil
     }
+    sync.unlock()
   }
 
   private static func isTerminalPhase(_ phase: NativeVoiceCallPhase) -> Bool {

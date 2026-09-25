@@ -1,6 +1,10 @@
 /**
  * DIBAY CALL IN-APP NOTICE — product contract (transient only).
  * Full call shells / OS CallKit / FSI / FGS are out of scope.
+ *
+ * Terminal classification SSOT:
+ * RAW reason → CallTerminalClass → UI policy (notice event or silent dismiss).
+ * Notice writers must consume class/event — not re-parse raw strings.
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -17,6 +21,19 @@ export const CALL_IN_APP_NOTICE_EVENTS = [
 ] as const;
 
 export type CallInAppNoticeEvent = (typeof CALL_IN_APP_NOTICE_EVENTS)[number];
+
+/** Canonical terminal class (iOS `NativeCallInAppNotice.CallTerminalClass` parity). */
+export const CALL_TERMINAL_CLASSES = [
+  "NORMAL_ENDED",
+  "PEER_BUSY",
+  "PEER_DECLINED",
+  "ACTIONABLE_FAILURE",
+  "PERMISSION_REQUIRED",
+  "MISSED",
+  "NONE",
+] as const;
+
+export type CallTerminalClass = (typeof CALL_TERMINAL_CLASSES)[number];
 
 export type CallInAppNoticeSeverity =
   | "INFORMATION"
@@ -132,45 +149,87 @@ export function getCallInAppNoticeSpec(event: CallInAppNoticeEvent): CallInAppNo
   return CALL_IN_APP_NOTICE_SPECS[event];
 }
 
-/** Map native/server terminal reason tokens → notice event (or null = silent dismiss). */
-export function mapTerminalReasonToCallInAppNoticeEvent(
+/** RAW terminal reason → canonical class. */
+export function classifyCallTerminalReason(
   reason: string | null | undefined
-): CallInAppNoticeEvent | null {
+): CallTerminalClass {
   const kind = String(reason ?? "")
     .trim()
     .toLowerCase();
-  if (!kind) return null;
+  if (!kind) return "NONE";
   if (
     kind === "peer_busy" ||
     kind === "callee_busy" ||
     kind === "busy" ||
     kind === "native_engine_busy"
   ) {
-    return "peer_busy";
+    return "PEER_BUSY";
   }
   if (kind === "rejected" || kind === "reject" || kind === "declined" || kind === "call_rejected") {
-    return "peer_declined";
-  }
-  if (kind === "failed" || kind === "failed_setup" || kind === "failed_network" || kind.startsWith("agora")) {
-    return "call_failed";
+    return "PEER_DECLINED";
   }
   if (
     kind === "ended" ||
     kind === "remote_ended" ||
     kind === "call_ended" ||
     kind === "end" ||
-    kind === "local_ended"
+    kind === "local_ended" ||
+    kind === "remote_terminal"
   ) {
-    return "remote_ended";
+    return "NORMAL_ENDED";
   }
   if (kind === "missed" || kind === "missed_call" || kind === "call_missed" || kind === "timeout") {
-    return "missed";
+    return "MISSED";
   }
   if (kind.includes("permission") || kind.includes("mic") || kind.includes("camera")) {
-    return "permission_required";
+    return "PERMISSION_REQUIRED";
   }
-  // cancelled / answered_elsewhere → no transient notice (shell already ending)
-  return null;
+  if (
+    kind === "failed" ||
+    kind === "failed_setup" ||
+    kind === "failed_network" ||
+    kind.startsWith("agora") ||
+    kind.includes("token") ||
+    kind.includes("join") ||
+    kind.includes("media") ||
+    kind.includes("accept")
+  ) {
+    return "ACTIONABLE_FAILURE";
+  }
+  // cancelled / answered_elsewhere → silent (shell already ending)
+  return "NONE";
+}
+
+/** CLASS → notice event (null = SILENT_DISMISS). */
+export function noticeEventForCallTerminalClass(
+  terminalClass: CallTerminalClass
+): CallInAppNoticeEvent | null {
+  switch (terminalClass) {
+    case "NORMAL_ENDED":
+    case "NONE":
+      return null;
+    case "PEER_BUSY":
+      return "peer_busy";
+    case "PEER_DECLINED":
+      return "peer_declined";
+    case "ACTIONABLE_FAILURE":
+      return "call_failed";
+    case "PERMISSION_REQUIRED":
+      return "permission_required";
+    case "MISSED":
+      return "missed";
+    default: {
+      const _exhaustive: never = terminalClass;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Map native/server terminal reason tokens → notice event (or null = silent dismiss). */
+export function mapTerminalReasonToCallInAppNoticeEvent(
+  reason: string | null | undefined
+): CallInAppNoticeEvent | null {
+  return noticeEventForCallTerminalClass(classifyCallTerminalReason(reason));
 }
 
 export function shouldReplaceCallInAppNotice(
