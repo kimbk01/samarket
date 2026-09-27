@@ -1,15 +1,31 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, type FormEvent, type KeyboardEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-interface SearchInputBarProps {
+type NativeComposingEvent = {
+  isComposing?: boolean;
+  nativeEvent?: Event & { isComposing?: boolean };
+};
+
+function readNativeComposing(event: NativeComposingEvent): boolean | undefined {
+  if (typeof event.isComposing === "boolean") return event.isComposing;
+  const native = event.nativeEvent;
+  if (native && typeof native.isComposing === "boolean") return native.isComposing;
+  return undefined;
+}
+
+type SearchInputBarProps = {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   onSubmit: (keyword: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
-}
+  /** Parent records whether IME composition is in progress. */
+  onComposingChange?: (composing: boolean) => void;
+  /** Fired when composition ends so parent can treat the value as searchable. */
+  onCompositionCommit?: (value: string) => void;
+};
 
 export function SearchInputBar({
   value,
@@ -17,58 +33,92 @@ export function SearchInputBar({
   onSubmit,
   placeholder,
   autoFocus,
+  onComposingChange,
+  onCompositionCommit,
 }: SearchInputBarProps) {
-  const { t } = useI18n();
+  const { safeT } = useI18n();
+  const composingRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
-  }, [autoFocus]);
+  const setComposing = (next: boolean) => {
+    if (composingRef.current === next) return;
+    composingRef.current = next;
+    onComposingChange?.(next);
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const k = value.trim();
-    if (k) onSubmit(k);
+  const commitComposition = (nextValue: string) => {
+    composingRef.current = false;
+    onComposingChange?.(false);
+    onChange(nextValue);
+    onCompositionCommit?.(nextValue);
+  };
+
+  const isBlockedSubmit = (event?: NativeComposingEvent) => {
+    if (composingRef.current) return true;
+    if (event && readNativeComposing(event) === true) return true;
+    const el = inputRef.current as (HTMLInputElement & { composing?: boolean }) | null;
+    return el?.composing === true;
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isBlockedSubmit(event)) return;
+    const keyword = value.trim();
+    if (keyword) onSubmit(keyword);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-1 gap-2">
-      <div className="flex h-10 flex-1 items-stretch gap-2 rounded-ui-rect bg-sam-surface-muted px-4">
-        <SearchIcon />
-        <input
-          ref={inputRef}
-          type="search"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder ?? t("trade_024")}
-          className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 sam-text-body font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
-          aria-label={placeholder ?? t("marketplace_search_entry_aria")}
-        />
-      </div>
+    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        type="search"
+        value={value}
+        autoFocus={autoFocus}
+        enterKeyHint="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        onChange={(event) => {
+          const nativeComposing = readNativeComposing(event);
+          if (nativeComposing === true) {
+            setComposing(true);
+          } else if (nativeComposing === false && composingRef.current) {
+            commitComposition(event.target.value);
+            return;
+          }
+          onChange(event.target.value);
+        }}
+        onCompositionStart={() => {
+          setComposing(true);
+        }}
+        onCompositionUpdate={(event) => {
+          setComposing(true);
+          onChange((event.target as HTMLInputElement).value);
+        }}
+        onCompositionEnd={(event) => {
+          commitComposition((event.target as HTMLInputElement).value);
+        }}
+        onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+          if (event.key !== "Enter") return;
+          if (!isBlockedSubmit(event)) return;
+          event.preventDefault();
+        }}
+        placeholder={
+          placeholder ??
+          safeT("global_search_placeholder", {
+            fallbackKo: "검색어를 입력하세요",
+            fallbackEn: "Search",
+          })
+        }
+        className="min-w-0 flex-1 rounded-full border border-sam-border bg-sam-app-soft px-4 py-2.5 text-[15px] text-sam-fg outline-none placeholder:text-sam-fg-subtle"
+      />
       <button
         type="submit"
-        className="flex min-h-[44px] shrink-0 items-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-white"
+        className="shrink-0 rounded-full bg-sam-brand px-4 py-2.5 text-sm font-semibold text-white"
       >
-        {t("trade_024")}
+        {safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
       </button>
     </form>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      className="h-4 w-4 shrink-0 self-center text-sam-muted"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-      />
-    </svg>
   );
 }

@@ -60,6 +60,12 @@ describe("global search entry, adapters, back", () => {
     expect(view).toContain("originHrefOverride");
     expect(view).toContain("returnHrefOverride");
     expect(view).not.toContain("href={`/philife/");
+    expect(view).toContain("onSubmit={submitSearch}");
+    expect(view).toContain("submitSearch(item.keyword)");
+    expect(view).not.toMatch(/onSubmit=\{\(k\) =>/);
+    expect(read("components/search/SearchInputBar.tsx")).toContain('type="search"');
+    expect(read("components/search/SearchInputBar.tsx")).toContain("onCompositionStart");
+    expect(read("components/search/SearchInputBar.tsx")).toContain("onCompositionEnd");
   });
 
   it("neighborhood-feed q is additive keyword, not a new engine", () => {

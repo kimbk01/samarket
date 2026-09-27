@@ -107,7 +107,10 @@ export function GlobalSearchView() {
   const { scope } = useTradeMarketplaceLocationHydrate();
   const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
   const coordinatorRef = useRef(createGlobalSearchCoordinator());
+  const composingRef = useRef(false);
+  const lastImmediateQueryRef = useRef<string | null>(null);
   const [keyword, setKeyword] = useState(queryFromUrl);
+  const [composing, setComposing] = useState(false);
   const [recents, setRecents] = useState<GlobalRecentSearch[]>([]);
   const [communityStatus, setCommunityStatus] = useState<DomainLoad>("idle");
   const [tradeStatus, setTradeStatus] = useState<DomainLoad>("idle");
@@ -127,7 +130,13 @@ export function GlobalSearchView() {
   );
   useDeliveryListScrollRestore(listScrollRouteKey, showResults);
 
+  const setInputComposing = useCallback((next: boolean) => {
+    composingRef.current = next;
+    setComposing(next);
+  }, []);
+
   useEffect(() => {
+    if (composingRef.current) return;
     setKeyword(queryFromUrl);
   }, [queryFromUrl]);
 
@@ -254,8 +263,31 @@ export function GlobalSearchView() {
     [locGate]
   );
 
+  const submitSearch = useCallback(
+    (raw: string) => {
+      coordinatorRef.current.cancel();
+      if (composingRef.current) return;
+      const next = trimGlobalSearchQuery(raw);
+      if (!next) return;
+      lastImmediateQueryRef.current = next;
+      setKeyword(next);
+      commitUrl(next);
+      void runSearch(next);
+    },
+    [commitUrl, runSearch]
+  );
+
   useEffect(() => {
+    if (composing) {
+      coordinatorRef.current.cancel();
+      return;
+    }
     const q = trimGlobalSearchQuery(keyword);
+    if (q && lastImmediateQueryRef.current === q) {
+      lastImmediateQueryRef.current = null;
+      return;
+    }
+    lastImmediateQueryRef.current = null;
     if (!q) {
       coordinatorRef.current.cancel();
       setCommunityStatus("idle");
@@ -275,7 +307,7 @@ export function GlobalSearchView() {
     return () => {
       coordinatorRef.current.cancel();
     };
-  }, [keyword, runSearch]);
+  }, [keyword, composing, runSearch]);
 
   useEffect(() => {
     if (tradeStatus === "ok" && activeQuery) {
@@ -293,11 +325,9 @@ export function GlobalSearchView() {
               <SearchInputBar
                 value={keyword}
                 onChange={setKeyword}
-                onSubmit={(k) => {
-                  setKeyword(k);
-                  commitUrl(k);
-                  void runSearch(k);
-                }}
+                onComposingChange={setInputComposing}
+                onCompositionCommit={setKeyword}
+                onSubmit={submitSearch}
                 placeholder={safeT("global_search_placeholder", {
                   fallbackKo: "커뮤니티, 거래, 배달, 채팅 검색",
                   fallbackEn: "Search community, market, delivery, chat",
@@ -310,7 +340,7 @@ export function GlobalSearchView() {
       ),
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, keyword, commitUrl, runSearch, safeT]);
+  }, [setMainTier1Extras, keyword, submitSearch, setInputComposing, safeT]);
 
   const originHref = globalSearchHref(activeQuery);
   const originSearch = activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : "";
@@ -478,9 +508,7 @@ export function GlobalSearchView() {
                     type="button"
                     className="sam-text-body-secondary text-sam-fg"
                     onClick={() => {
-                      setKeyword(item.keyword);
-                      commitUrl(item.keyword);
-                      void runSearch(item.keyword);
+                      submitSearch(item.keyword);
                     }}
                   >
                     {item.keyword}
