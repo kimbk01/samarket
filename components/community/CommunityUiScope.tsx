@@ -1,82 +1,37 @@
-"use client";
-
-import { createContext, useContext, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { CM_PAGE_CLASS } from "@/lib/community/community-ui-classes";
-import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
-import { useDibayCommunityPresentation } from "@/lib/device/use-dibay-community-presentation";
-import { shouldMountCommunityMasterList } from "@/lib/device/dibay-community-presentation";
 
 /**
- * Canonical Community UI token scope + FD5 presentation authority.
+ * Canonical Community UI token scope — attachment 2 (rounded cards + page bg).
  *
- * CONTRACT: `--cm-*` tokens live under `[data-community-ui]` only.
- * Presentation is SINGLE | STACKED | DUAL from LayoutMode — CSS does not choose Device.
+ * CONTRACT: `--cm-*` tokens live under `[data-community-ui]` only
+ * (`lib/community/community-design-tokens.css`). Feed cards use
+ * `CM_FEED_CARD_CLASS` → `rounded-[var(--cm-radius-card)]`.
  *
- * Nested scopes passthrough so `/philife` layout + HomeSurface do not double-compose.
+ * Community is a single-page surface. Hub / read / write / edit are
+ * separate routes. Do not compose [LIST][DETAIL] here.
+ *
+ * DO NOT: put this only on `/philife/layout` — Cold Boot `/` and tab-enter
+ * pending panels must share the same scope or cards paint sharp (attachment 1).
+ * DO NOT: cold/warm alternate scopes or hydration class swaps for card chrome.
  */
 export const COMMUNITY_RENDERER_ID = "canonical-v1" as const;
 
-type CommunityPresentationContextValue = {
-  dualComposed: boolean;
-};
-
-const CommunityPresentationContext = createContext<CommunityPresentationContextValue | null>(null);
-
-export function useCommunityPresentationContext(): CommunityPresentationContextValue {
-  return useContext(CommunityPresentationContext) ?? { dualComposed: false };
-}
-
-function CommunityUiScopeRoot({ children }: { children: ReactNode }) {
-  const authority = useDibayCommunityPresentation();
-  const showHubFeed = shouldMountCommunityMasterList({
-    surface: authority.surface,
-    composed: authority.composed,
-  });
-  const showChildren = authority.surface !== "hub";
-  const columnClass = authority.composed
-    ? `flex min-h-0 w-full min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`
-    : `mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`;
-
+export function CommunityUiScope({ children }: { children: ReactNode }) {
   return (
-    <CommunityPresentationContext.Provider value={{ dualComposed: authority.composed }}>
+    <div
+      className="sam-domain-shell flex min-h-0 min-w-0 flex-1 flex-col"
+      data-community-ui
+      data-community-renderer={COMMUNITY_RENDERER_ID}
+      data-dibay-first-html-shell="1"
+      data-app-shell="canonical-v1"
+    >
       <div
-        className="sam-domain-shell flex min-h-0 min-w-0 flex-1 flex-col"
-        data-community-ui
-        data-community-renderer={COMMUNITY_RENDERER_ID}
-        data-dibay-first-html-shell="1"
-        data-app-shell="canonical-v1"
-        data-dibay-community-presentation={authority.presentation}
-        data-dibay-community-surface={authority.surface}
-        data-dibay-community-composed={authority.composed ? "dual" : "single"}
-        data-dibay-community-layout-mode={authority.layoutMode}
+        className={`mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`}
       >
-        <div className={columnClass}>
-          <div className={authority.composed ? "dibay-community-dual-frame" : "flex min-h-0 min-w-0 flex-1 flex-col"}>
-            {showHubFeed ? (
-              <div
-                className={authority.composed ? "dibay-community-pane-list" : "min-h-0 min-w-0 flex-1"}
-                data-dibay-community-pane={authority.composed ? "list" : undefined}
-              >
-                <PhilifeFeedClientEntry />
-              </div>
-            ) : null}
-            {authority.composed ? (
-              <div className="dibay-community-pane-detail" data-dibay-community-pane="detail">
-                {children}
-              </div>
-            ) : showChildren ? (
-              children
-            ) : null}
-          </div>
-        </div>
+        {children}
       </div>
-    </CommunityPresentationContext.Provider>
+    </div>
   );
-}
-
-export function CommunityUiScope({ children }: { children?: ReactNode }) {
-  const parent = useContext(CommunityPresentationContext);
-  if (parent) return <>{children}</>;
-  return <CommunityUiScopeRoot>{children}</CommunityUiScopeRoot>;
 }

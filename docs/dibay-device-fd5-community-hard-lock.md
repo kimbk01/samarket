@@ -1,8 +1,8 @@
 # DIBAY Device SSOT — FD5 Community Presentation HARD LOCK
 
-**Status:** IMPLEMENTATION COMPLETE · NOT LOCKED  
+**Status:** OWNER CORRECTED — Community dual revoked  
 **Declared:** 2026-09-26  
-**Evidence:** `.tmp/fd5-community-runtime/` (pending device close)
+**Corrected:** 2026-09-27
 
 FD1–FD4 remain READ-ONLY. This lock owns Community presentation only.
 
@@ -10,52 +10,33 @@ FD1–FD4 remain READ-ONLY. This lock owns Community presentation only.
 
 | Item | Value |
 |---|---|
-| HEAD BEFORE | `47e28a4b54a6ba9c1f9b8b6d9f5d84ea4d143bae` |
-| CURRENT COMMUNITY PRESENTATION DEFECT | NONE PROVEN until device close |
+| LAST KNOWN GOOD | `47e28a4b54a6ba9c1f9b8b6d9f5d84ea4d143bae` |
+| FIRST BAD | `150a46e55878cca98391492e603c83251189e40c` |
+| DUAL INTRODUCTION | `feat(device): resolve Community presentation from LayoutMode` |
+| ORIGINAL COMMUNITY | `max-w-[66rem]` single column. Hub / read / write / edit are separate routes. |
 
-## FIRST DIVERGENCE
+## OWNER CONTRACT
 
-`resolveLayoutMode` already produced `PHONE_SINGLE` / `TABLET_STACKED` / `TABLET_DUAL` / `DESKTOP_*`.
+Tablet / Windows landscape means: use the available width.
 
-The first Community layer that did not consume LayoutMode was `CommunityUiScope` + `CommunityFeed` 767 `matchMedia`. They encoded mobile/wide assumptions only, so Community could not distinguish SINGLE / STACKED / DUAL.
-
-767 was not itself the root cause. Missing presentation authority was.
-
-## COMMUNITY PRESENTATION CONTRACT
+It does **not** mean: split Community into left and right panes.
 
 ```text
-PHONE_*     → SINGLE
-TABLET compact / below floor → STACKED
-TABLET sufficient usable width → DUAL
-DESKTOP narrow → STACKED
-DESKTOP sufficient width → DUAL
-UNKNOWN_SAFE → STACKED (no Device guess, no dual)
+HUB   /philife           → single Community feed
+READ  /philife/:postId   → single Community detail
+WRITE /philife/write     → single Community write
+EDIT  /philife/write?edit= → single Community edit
 ```
 
-URL `/philife/:postId` remains selection authority. Dual consumes that URL.  
-Phone list → detail → back is unchanged.
+No `[LIST][DETAIL]`. No Community master-detail. No Community dual-pane.
 
-## COMMUNITY DUAL FLOOR
-
-| | |
-|---|---|
-| LIST_MIN | 360 (phone-proven list surface, padding inside pane) |
-| DETAIL_MIN | 480 (reading surface; `max-w-3xl` 768 is content cap) |
-| GAP/PADDING | 1px pane divider; card/page padding stays inside each pane |
-| FINAL FLOOR | 840 |
-| LOCK | CANDIDATE until device runtime close |
-
-Do not treat 840 as a Tablet Device cutoff.
+DeviceClass / WindowClass / Orientation stay classification and window authority.
+They do not authorize Messenger-style Community split.
 
 ## DO NOT
 
+- Restore `resolveCommunityPresentation` / `shouldComposeCommunityDual`
+- Mount a master list beside detail / write / edit
+- Fix independent pane scroll — dual panes must not exist
 - Replace 767 with 840 as a Device identity
-- Mount Phone navigation on Tablet stacked
-- Duplicate Community trees
-- Let CSS `@media` choose SINGLE/DUAL
 - Reopen Messenger 768, Trade grid, Call, FD1–FD4
-
-## NEXT
-
-Device runtime on Samsung / Xiaomi / iPhonebk, then LOCK.  
-FD6 TRADE is forbidden until FD5 is LOCKED.

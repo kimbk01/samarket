@@ -1,26 +1,26 @@
 ---
-description: DIBAY Device SSOT FD5 Community presentation — consume LayoutMode; do not infer Community dual from 767/840 width.
+description: DIBAY Community is original single-page. Tablet/Windows use available width. Do not split Community into left/right panes.
 alwaysApply: true
 ---
 
 # DIBAY Device SSOT — FD5 Community Presentation
 
-**ACTIVE · NOT LOCKED until device runtime.** Full contract: `docs/dibay-device-fd5-community-hard-lock.md`
+**ACTIVE · OWNER CORRECTED.** Full contract: `docs/dibay-device-fd5-community-hard-lock.md`
 
 FD1–FD4 are READ-ONLY.
 
 ## LOCKED INTENT
 
-- Community presentation = SINGLE | STACKED | DUAL from `resolveCommunityPresentation(LayoutMode)`
-- Phone stays SINGLE — existing list/detail/back
-- Tablet/Desktop stacked or dual from usable geometry + Community floor 840
-- UNKNOWN → STACKED, never a Device guess
-- URL post id remains selection authority
-- CSS styles the chosen mode; CSS must not choose Device
+- Community is a single-page product: HUB, READ, WRITE, EDIT are separate routes
+- Tablet / Windows landscape use available width (`max-w-[66rem]`), not split panes
+- `TABLET_ANDROID` / wide window ≠ Community master-detail
+- URL `/philife/:postId` is the detail page, not a dual-pane selection
 
 ## DO NOT
 
 - Reopen FD1 600dp, FD2 usable-window formula, FD3 orientation, FD4 shell
-- `if width < 767` / `if width >= 840` as Community Device identity
+- Compose Community `[LIST][DETAIL]` / `[LIST][WRITE]` / `[LIST][EDIT]`
+- Restore FD5 Community dual / STACKED / DUAL presentation
+- Use 767 / 840 as Community Device identity
 - Duplicate Mobile/Tablet/Desktop Community trees
-- Start FD6 TRADE in this lock
+- Change Messenger legitimate master-detail because of Community

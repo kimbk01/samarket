@@ -50,7 +50,7 @@ import {
   writeCommunityHubState,
 } from "@/lib/community/community-hub-state";
 import { tryRestoreCommunityFeedScroll } from "@/lib/community/community-post-entry-nav";
-import { useDibayCommunityPresentation } from "@/lib/device/use-dibay-community-presentation";
+import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
 import { AdPostCard } from "@/components/ads/AdPostCard";
@@ -1385,8 +1385,8 @@ export function CommunityFeed({
     }
   }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
 
-  const communityPresentation = useDibayCommunityPresentation();
-  const feedSwipeOn = communityPresentation.presentation === "SINGLE";
+  const { deviceClass } = useDibayAppShellAuthority();
+  const feedSwipeOn = deviceClass === "PHONE_ANDROID" || deviceClass === "PHONE_IOS";
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);

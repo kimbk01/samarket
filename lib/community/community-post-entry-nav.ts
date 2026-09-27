@@ -38,8 +38,6 @@ export function resolveCommunityFeedScrollRoot(
   doc: Document | null | undefined = typeof document === "undefined" ? null : document,
 ): HTMLElement | null {
   if (!doc) return null;
-  const list = doc.querySelector("[data-dibay-community-pane=\"list\"]");
-  if (list instanceof HTMLElement) return list;
   const hub = doc.querySelector("[data-main-hub-scroll-body]");
   if (hub instanceof HTMLElement) return hub;
   return null;
