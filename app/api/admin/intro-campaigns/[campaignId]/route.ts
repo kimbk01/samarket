@@ -30,7 +30,10 @@ export async function PATCH(
   const patch = (await req.json().catch(() => ({}))) as IntroAdminDraftPatch;
   const saved = await saveIntroAdminDraft(ctx.sb, campaignId, ctx.userId, patch);
   if (!saved.ok) {
-    return NextResponse.json({ ok: false, error: saved.error }, { status: saved.httpStatus });
+    return NextResponse.json(
+      { ok: false, error: saved.error, issues: "issues" in saved ? saved.issues ?? [] : [] },
+      { status: saved.httpStatus }
+    );
   }
   return NextResponse.json({ ok: true, campaign: saved.campaign });
 }

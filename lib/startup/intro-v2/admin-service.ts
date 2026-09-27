@@ -8,7 +8,10 @@ import { randomUUID } from "crypto";
 import { INTRO_V2_SCHEMA_VERSION } from "@/lib/startup/intro-v2/types";
 import { validateIntroCampaignWrite } from "@/lib/startup/intro-v2/admin-write-contract";
 import { validatePublishedManifest } from "@/lib/startup/intro-v2/publication";
-import { validateIntroCampaignForPublish } from "@/lib/startup/intro-v2/admin-validate";
+import {
+  validateIntroCampaignForPublish,
+  validateIntroScenesAgainstDbAdvanceGate,
+} from "@/lib/startup/intro-v2/admin-validate";
 import { introMediaKindFromMime, introMediaPublishBlockReason } from "@/lib/startup/intro-v2/admin-media";
 import {
   collectSceneMediaTypes,
@@ -306,7 +309,15 @@ export async function saveIntroAdminDraft(
   id: string,
   adminUserId: string,
   patch: IntroAdminDraftPatch
-): Promise<{ ok: true; campaign: IntroAdminCampaign } | { ok: false; error: string; httpStatus: number }> {
+): Promise<
+  | { ok: true; campaign: IntroAdminCampaign }
+  | {
+      ok: false;
+      error: string;
+      httpStatus: number;
+      issues?: ReturnType<typeof validateIntroScenesAgainstDbAdvanceGate>["issues"];
+    }
+> {
   const current = await getIntroAdminCampaign(sb, id);
   if (!current.ok) return current;
 
@@ -325,6 +336,24 @@ export async function saveIntroAdminDraft(
     endsAt: patch.endsAt === undefined ? current.campaign.endsAt : patch.endsAt,
   });
   if (!write.ok) return { ok: false, error: write.error, httpStatus: 400 };
+
+  if (patch.scenes) {
+    const persist = validateIntroScenesAgainstDbAdvanceGate({
+      ...current.campaign,
+      name: nextName,
+      status: nextStatus,
+      targeting: nextTargeting,
+      scenes: patch.scenes,
+    });
+    if (!persist.ok) {
+      return {
+        ok: false,
+        error: persist.issues[0]?.code ?? "scene_invalid",
+        httpStatus: 400,
+        issues: persist.issues,
+      };
+    }
+  }
 
   const { error: campErr } = await sb
     .from("intro_campaigns")

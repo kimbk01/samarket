@@ -172,10 +172,30 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
         deviceOverrides: campaign.deviceOverrides,
       }),
     });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; campaign?: IntroAdminCampaign; error?: string };
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      campaign?: IntroAdminCampaign;
+      error?: string;
+      issues?: IntroAdminIssue[];
+    };
     setBusy(false);
     if (!res.ok || !json.ok || !json.campaign) {
-      setError(json.error ?? (lang === "en" ? "Draft save failed." : "초안 저장에 실패했습니다."));
+      if (Array.isArray(json.issues) && json.issues.length > 0) {
+        setIssues(json.issues);
+        setError(lang === "en" ? json.issues[0]!.messageEn : json.issues[0]!.messageKo);
+        return;
+      }
+      setError(
+        json.error === "scene_save_failed"
+          ? lang === "en"
+            ? "The scene could not be saved. Check timer duration and max hold."
+            : "장면을 저장할 수 없습니다. 지정 시간과 최대 유지 시간을 확인하세요."
+          : json.error === "draft_save_failed"
+            ? lang === "en"
+              ? "Draft save failed."
+              : "초안 저장에 실패했습니다."
+            : (lang === "en" ? "Draft save failed." : "초안 저장에 실패했습니다.")
+      );
       return;
     }
     setCampaign(json.campaign);

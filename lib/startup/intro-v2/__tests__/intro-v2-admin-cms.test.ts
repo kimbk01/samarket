@@ -52,6 +52,7 @@ import {
   validateIntroCampaignDraft,
   validateIntroCampaignForPublish,
   validateIntroExternalUrlAdmin,
+  validateIntroScenesAgainstDbAdvanceGate,
 } from "@/lib/startup/intro-v2/admin-validate";
 import {
   INTRO_RESOLVER_PREVIEW_DEFAULT,
@@ -420,6 +421,44 @@ describe("create / edit / draft isolation", () => {
     expect(saved.campaign.scenes[0]?.sortOrder).toBe(0);
     expect(db.tables.intro_publications).toEqual(before);
     expect(db.writes.filter((w) => w.table === "intro_publications")).toEqual([]);
+  });
+
+  it("blocks TIMER duration 0 on draft save with scene-specific copy and does not write the scene", async () => {
+    const db = createMemoryIntroDb();
+    const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "Timer gate" });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const saved = await saveIntroAdminDraft(db, created.id, "admin-1", {
+      scenes: [validScene({ id: "tmp-s1", name: "Hold", advanceMode: "timer", durationMs: 0 })],
+    });
+    expect(saved.ok).toBe(false);
+    if (saved.ok) return;
+    expect(saved.httpStatus).toBe(400);
+    expect(saved.error).toBe("timer_duration_required");
+    expect(saved.issues?.some((i) => i.code === "timer_duration_required")).toBe(true);
+    expect(saved.issues?.[0]?.path).toBe("scenes[0].durationMs");
+    expect(saved.issues?.[0]?.messageKo).toMatch(/Hold: 지정 시간은 1ms 이상/);
+    expect(saved.issues?.[0]?.messageEn).toMatch(/at least 1ms/);
+    expect(db.tables.intro_scenes.filter((r) => r.campaign_id === created.id)).toEqual([]);
+    expect(db.writes.filter((w) => w.table === "intro_scenes")).toEqual([]);
+  });
+
+  it("lets V1 unconfirmed drafts keep a null TIMER duration without hitting persist gate", () => {
+    const imported = campaign({
+      name: "QA_FE_MAGENTA_CYAN",
+      requiresAdminConfirmation: true,
+      source: { v1_key: "startup_product_intro_v1", v1_display_duration_ms: 0 },
+      scenes: [validScene({ name: "Imported", advanceMode: "timer", durationMs: null })],
+    });
+    const persist = validateIntroScenesAgainstDbAdvanceGate(imported);
+    expect(persist.ok).toBe(true);
+    const zero = validateIntroScenesAgainstDbAdvanceGate(
+      campaign({
+        scenes: [validScene({ name: "Hold", advanceMode: "timer", durationMs: 0 })],
+      })
+    );
+    expect(zero.ok).toBe(false);
+    expect(zero.issues[0]?.code).toBe("timer_duration_required");
   });
 });
 

@@ -62,6 +62,66 @@ export function validateIntroExternalUrlAdmin(url: string): IntroAdminIssue | nu
   return null;
 }
 
+/**
+ * Checks that would otherwise raise intro_v2_scene_advance_ok on INSERT/UPDATE.
+ * Draft save must run this before writing so operators see scene/field copy, not scene_save_failed.
+ */
+export function validateIntroScenesAgainstDbAdvanceGate(
+  campaign: IntroAdminCampaign
+): IntroAdminValidation {
+  const issues: IntroAdminIssue[] = [];
+  const unconfirmed = isV1ImportedDraft(campaign);
+  campaign.scenes.forEach((scene, index) => {
+    if (scene.advanceMode === "timer") {
+      if (scene.durationMs == null || scene.durationMs < 1) {
+        if (!(unconfirmed && scene.durationMs == null)) {
+          issues.push(
+            issue(
+              "timer_duration_required",
+              scenePath(index, "durationMs"),
+              `${scene.name || `장면 ${index + 1}`}: 지정 시간은 1ms 이상이어야 합니다. 0은 사용할 수 없습니다.`,
+              `${scene.name || `Scene ${index + 1}`}: Timer duration must be at least 1ms. 0 is not allowed.`
+            )
+          );
+        }
+      }
+    } else if (scene.maxHoldMs == null || scene.maxHoldMs < 1) {
+      if (!(unconfirmed && scene.maxHoldMs == null)) {
+        issues.push(
+          issue(
+            "max_hold_ms_required",
+            scenePath(index, "maxHoldMs"),
+            `${scene.name || `장면 ${index + 1}`}: 최대 유지 시간을 1ms 이상으로 설정하세요.`,
+            `${scene.name || `Scene ${index + 1}`}: Set a max hold time of at least 1ms.`
+          )
+        );
+      }
+    }
+    if (scene.interactionMode === "tap_layer") {
+      if (!scene.interactionLayerId) {
+        issues.push(
+          issue(
+            "interaction_layer_required",
+            scenePath(index, "interactionLayerId"),
+            `${scene.name || `장면 ${index + 1}`}: 레이어 상호작용은 대상 레이어가 필요합니다.`,
+            `${scene.name || `Scene ${index + 1}`}: Layer interaction needs a target layer.`
+          )
+        );
+      } else if (!scene.layers.some((l) => l.id === scene.interactionLayerId)) {
+        issues.push(
+          issue(
+            "interaction_layer_missing",
+            scenePath(index, "interactionLayerId"),
+            `${scene.name || `장면 ${index + 1}`}: 선택한 레이어가 없습니다. 삭제된 레이어를 가리킬 수 없습니다.`,
+            `${scene.name || `Scene ${index + 1}`}: The selected layer is missing. Deleted layers cannot be referenced.`
+          )
+        );
+      }
+    }
+  });
+  return { ok: issues.length === 0, issues };
+}
+
 export function validateIntroCampaignDraft(campaign: IntroAdminCampaign): IntroAdminValidation {
   const issues: IntroAdminIssue[] = [];
   const write = validateIntroCampaignWrite({
