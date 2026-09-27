@@ -82,7 +82,8 @@ public final class DibayStartupIntroSurface {
   private boolean holdFired;
   private boolean skipRequested;
   private boolean ctaRequested;
-  private String pendingCtaHref;
+  /** Single CTA authority — chrome bind and navigation share this prepared contract. */
+  private PreparedCta preparedCta;
   private JSONObject activeProductIntro = new JSONObject();
   private static final Set<String> SESSION_SHOWN = new HashSet<>();
   private static final String FREQ_PREFS = "dibay_intro_freq";
@@ -142,6 +143,7 @@ public final class DibayStartupIntroSurface {
       holdTechnicalHandoffAtRest();
     } else {
       recordFrequencyShown(activeProductIntro);
+      prepareOperatorState(activeProductIntro);
       bindOperatorChrome(activeProductIntro);
       startOperatorHold(activeProductIntro);
     }
@@ -173,6 +175,26 @@ public final class DibayStartupIntroSurface {
     maybeFinishHold();
   }
 
+  /**
+   * Prepare complete operator chrome state before any view-existence decision.
+   * Hold/timer start must not be the first writer of CTA href.
+   */
+  private void prepareOperatorState(JSONObject pi) {
+    preparedCta = prepareOperatorCta(pi);
+  }
+
+  /** Package-visible for ordering regression tests. */
+  static PreparedCta prepareOperatorCta(JSONObject pi) {
+    if (pi == null) {
+      return PreparedCta.absent();
+    }
+    String label = pi.optString("ctaLabel", "").trim();
+    String actionType = pi.optString("actionType", "none");
+    String href = resolveNativeCtaHref(pi);
+    boolean enabled = href != null && !label.isEmpty();
+    return new PreparedCta(enabled, label, actionType, href);
+  }
+
   private void startOperatorHold(JSONObject pi) {
     int hold = pi.optInt("displayDurationMs", 0);
     holdingProductIntro = hold >= 1;
@@ -180,7 +202,6 @@ public final class DibayStartupIntroSurface {
     holdFired = hold < 1;
     skipRequested = false;
     ctaRequested = false;
-    pendingCtaHref = resolveNativeCtaHref(pi);
     if (holdingProductIntro) {
       mainHandler.postDelayed(
           () -> {
@@ -227,7 +248,7 @@ public final class DibayStartupIntroSurface {
                   TypedValue.COMPLEX_UNIT_DIP, 48f, activity.getResources().getDisplayMetrics());
       root.addView(logo, lp);
     }
-    if (pi.optBoolean("skipEnabled", true)) {
+    if (shouldAttachSkip(pi)) {
       TextView skip = new TextView(activity);
       skip.setText(ko ? "건너뛰기" : "Skip");
       skip.setTextColor(Color.WHITE);
@@ -235,8 +256,7 @@ public final class DibayStartupIntroSurface {
       skip.setBackgroundColor(0x73000000);
       skip.setOnClickListener(
           v -> {
-            if (skipRequested || ctaRequested || dismissing) return;
-            skipRequested = true;
+            if (!claimSkip()) return;
             maybeFinishHold();
           });
       FrameLayout.LayoutParams lp =
@@ -253,17 +273,15 @@ public final class DibayStartupIntroSurface {
                   TypedValue.COMPLEX_UNIT_DIP, 16f, activity.getResources().getDisplayMetrics());
       root.addView(skip, lp);
     }
-    String ctaLabel = pi.optString("ctaLabel", "").trim();
-    if (pendingCtaHref != null && !ctaLabel.isEmpty()) {
+    if (preparedCta != null && preparedCta.shouldAttachChrome()) {
       TextView cta = new TextView(activity);
-      cta.setText(ctaLabel);
+      cta.setText(preparedCta.label);
       cta.setTextColor(Color.WHITE);
       cta.setPadding(40, 20, 40, 20);
       cta.setBackgroundColor(0xE6111827);
       cta.setOnClickListener(
           v -> {
-            if (skipRequested || ctaRequested || dismissing) return;
-            ctaRequested = true;
+            if (!claimCta()) return;
             maybeFinishHold();
           });
       FrameLayout.LayoutParams lp =
@@ -279,8 +297,48 @@ public final class DibayStartupIntroSurface {
   }
 
   private void openCtaIfAllowed() {
-    if (!(activity instanceof MainActivity) || pendingCtaHref == null) return;
-    ((MainActivity) activity).openIntroCtaIfNoPending(pendingCtaHref);
+    String href = preparedCta != null ? preparedCta.href : null;
+    if (!(activity instanceof MainActivity) || href == null) return;
+    ((MainActivity) activity).openIntroCtaIfNoPending(href);
+  }
+
+  static boolean shouldAttachSkip(JSONObject pi) {
+    return pi == null || pi.optBoolean("skipEnabled", true);
+  }
+
+  boolean claimSkip() {
+    if (skipRequested || ctaRequested || dismissing) return false;
+    skipRequested = true;
+    return true;
+  }
+
+  boolean claimCta() {
+    if (skipRequested || ctaRequested || dismissing) return false;
+    ctaRequested = true;
+    return true;
+  }
+
+  /** Single CTA contract — chrome existence and navigation href. */
+  static final class PreparedCta {
+    final boolean enabled;
+    final String label;
+    final String actionType;
+    final String href;
+
+    PreparedCta(boolean enabled, String label, String actionType, String href) {
+      this.enabled = enabled;
+      this.label = label != null ? label : "";
+      this.actionType = actionType != null ? actionType : "none";
+      this.href = href;
+    }
+
+    static PreparedCta absent() {
+      return new PreparedCta(false, "", "none", null);
+    }
+
+    boolean shouldAttachChrome() {
+      return enabled && href != null && !label.isEmpty();
+    }
   }
 
   private boolean isFrequencyEligible(JSONObject pi) {
@@ -317,7 +375,7 @@ public final class DibayStartupIntroSurface {
         .apply();
   }
 
-  private static String resolveNativeCtaHref(JSONObject pi) {
+  static String resolveNativeCtaHref(JSONObject pi) {
     String type = pi.optString("actionType", "none");
     String target = pi.optString("actionTarget", "").trim();
     if ("none".equals(type) || target.isEmpty()) return null;
@@ -698,6 +756,7 @@ public final class DibayStartupIntroSurface {
           root = null;
           content = null;
           attached = false;
+          preparedCta = null;
           Log.i(TAG, "intro_removed");
           if (after != null) after.run();
         };

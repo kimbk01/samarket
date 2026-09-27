@@ -1373,11 +1373,19 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
 
-  /** Intro CTA after dismiss. Pending push/deep-link destination always wins. */
+  /**
+   * Intro CTA after dismiss. Pending push/deep-link destination always wins.
+   * Visibility of CTA chrome does not change this precedence.
+   */
   public void openIntroCtaIfNoPending(String href) {
-    if (href == null || !href.startsWith("/") || href.startsWith("//")) return;
-    if (pendingAppPath != null && !pendingAppPath.isEmpty()) {
-      Log.i(WEBVIEW_LOG_TAG, "intro_cta_skipped reason=pending_destination");
+    if (!introCtaMayNavigate(href, pendingAppPath)) {
+      if (href != null
+          && href.startsWith("/")
+          && !href.startsWith("//")
+          && pendingAppPath != null
+          && !pendingAppPath.isEmpty()) {
+        Log.i(WEBVIEW_LOG_TAG, "intro_cta_skipped reason=pending_destination");
+      }
       return;
     }
     try {
@@ -1388,6 +1396,15 @@ public class MainActivity extends BridgeActivity {
     } catch (Exception e) {
       Log.w(WEBVIEW_LOG_TAG, "intro_cta_nav_failed: " + e.getMessage());
     }
+  }
+
+  /**
+   * Package-visible CUT1 navigation contract.
+   * Authoritative pending destination retains precedence over Intro CTA.
+   */
+  static boolean introCtaMayNavigate(String href, String pendingAppPath) {
+    if (href == null || !href.startsWith("/") || href.startsWith("//")) return false;
+    return pendingAppPath == null || pendingAppPath.isEmpty();
   }
 
   /** Web 또는 native fallback — exit Native Intro after WebView visual-state commit. */
