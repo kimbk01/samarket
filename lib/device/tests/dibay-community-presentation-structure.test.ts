@@ -33,6 +33,16 @@ describe("FD5 Community presentation structure", () => {
     expect(css).not.toMatch(/@media\s*\(\s*min-width:\s*840px\s*\)/);
     expect(css).not.toMatch(/@media\s*\(\s*min-width:\s*767px\s*\)/);
     expect(css).not.toMatch(/@media\s*\(\s*max-width:\s*767px\s*\)/);
+    expect(css).not.toContain("clamp(360px, 38%, 420px)");
+    expect(css).not.toContain("CommunityDualEmptyDetail");
+  });
+
+  it("does not invent an unselected dual placeholder", () => {
+    const scope = read("components/community/CommunityUiScope.tsx");
+    expect(scope).not.toContain("CommunityDualEmptyDetail");
+    expect(scope).not.toContain("community_dual_select_post");
+    expect(scope).not.toContain("data-dibay-community-empty-detail");
+    expect(scope).toContain("max-w-[66rem]");
   });
 
   it("does not reopen Messenger 768 or Trade grid", () => {

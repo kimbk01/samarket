@@ -39,5 +39,13 @@ export function shouldComposeCommunityDual(input: {
   presentation: DibayCommunityPresentation;
   surface: DibayCommunityPresentationSurface;
 }): boolean {
-  return input.presentation === "DUAL" && (input.surface === "hub" || input.surface === "detail");
+  // Historical unselected wide = full-width feed. Dual is selection composition only.
+  return input.presentation === "DUAL" && input.surface === "detail";
+}
+
+export function shouldMountCommunityMasterList(input: {
+  surface: DibayCommunityPresentationSurface;
+  composed: boolean;
+}): boolean {
+  return input.surface === "hub" || input.composed;
 }

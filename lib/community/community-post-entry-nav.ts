@@ -34,12 +34,23 @@ export type CommunityPostEntryOrigin = {
 let navigatingHref: string | null = null;
 let navigateTimer: ReturnType<typeof setTimeout> | null = null;
 
+export function resolveCommunityFeedScrollRoot(
+  doc: Document | null | undefined = typeof document === "undefined" ? null : document,
+): HTMLElement | null {
+  if (!doc) return null;
+  const list = doc.querySelector("[data-dibay-community-pane=\"list\"]");
+  if (list instanceof HTMLElement) return list;
+  const hub = doc.querySelector("[data-main-hub-scroll-body]");
+  if (hub instanceof HTMLElement) return hub;
+  return null;
+}
+
 function readCommunityFeedScrollY(): number {
   if (typeof document === "undefined") return 0;
   try {
-    const hub = document.querySelector("[data-main-hub-scroll-body]");
-    if (hub instanceof HTMLElement) {
-      return Math.max(0, Math.round(hub.scrollTop || 0));
+    const root = resolveCommunityFeedScrollRoot(document);
+    if (root) {
+      return Math.max(0, Math.round(root.scrollTop || 0));
     }
   } catch {
     /* */
@@ -55,9 +66,9 @@ function writeCommunityFeedScrollY(y: number): void {
   if (typeof document === "undefined") return;
   const top = Math.max(0, Math.round(y));
   try {
-    const hub = document.querySelector("[data-main-hub-scroll-body]");
-    if (hub instanceof HTMLElement) {
-      hub.scrollTop = top;
+    const root = resolveCommunityFeedScrollRoot(document);
+    if (root) {
+      root.scrollTop = top;
       return;
     }
   } catch {

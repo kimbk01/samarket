@@ -85,8 +85,8 @@ describe("FD5 Community presentation", () => {
     expect(classifyCommunityPresentationSurface("/philife/my")).toBe("other");
   });
 
-  it("composes dual only on hub/detail, never on write/my", () => {
-    expect(shouldComposeCommunityDual({ presentation: "DUAL", surface: "hub" })).toBe(true);
+  it("composes dual only on selected detail, never on hub/write/my", () => {
+    expect(shouldComposeCommunityDual({ presentation: "DUAL", surface: "hub" })).toBe(false);
     expect(shouldComposeCommunityDual({ presentation: "DUAL", surface: "detail" })).toBe(true);
     expect(shouldComposeCommunityDual({ presentation: "DUAL", surface: "other" })).toBe(false);
     expect(shouldComposeCommunityDual({ presentation: "SINGLE", surface: "detail" })).toBe(false);

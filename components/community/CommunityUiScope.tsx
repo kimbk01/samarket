@@ -5,7 +5,7 @@ import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { CM_PAGE_CLASS } from "@/lib/community/community-ui-classes";
 import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
 import { useDibayCommunityPresentation } from "@/lib/device/use-dibay-community-presentation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { shouldMountCommunityMasterList } from "@/lib/device/dibay-community-presentation";
 
 /**
  * Canonical Community UI token scope + FD5 presentation authority.
@@ -27,25 +27,16 @@ export function useCommunityPresentationContext(): CommunityPresentationContextV
   return useContext(CommunityPresentationContext) ?? { dualComposed: false };
 }
 
-function CommunityDualEmptyDetail() {
-  const { safeT } = useI18n();
-  return (
-    <div
-      className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-[length:var(--cm-font-body)] text-[var(--cm-text-muted)]"
-      data-dibay-community-empty-detail
-    >
-      {safeT("community_dual_select_post", {
-        fallbackKo: "글을 선택하세요",
-        fallbackEn: "Select a post",
-      })}
-    </div>
-  );
-}
-
 function CommunityUiScopeRoot({ children }: { children: ReactNode }) {
   const authority = useDibayCommunityPresentation();
-  const showHubFeed = authority.surface === "hub" || authority.composed;
+  const showHubFeed = shouldMountCommunityMasterList({
+    surface: authority.surface,
+    composed: authority.composed,
+  });
   const showChildren = authority.surface !== "hub";
+  const columnClass = authority.composed
+    ? `flex min-h-0 w-full min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`
+    : `mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`;
 
   return (
     <CommunityPresentationContext.Provider value={{ dualComposed: authority.composed }}>
@@ -60,9 +51,7 @@ function CommunityUiScopeRoot({ children }: { children: ReactNode }) {
         data-dibay-community-composed={authority.composed ? "dual" : "single"}
         data-dibay-community-layout-mode={authority.layoutMode}
       >
-        <div
-          className={`mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`}
-        >
+        <div className={columnClass}>
           <div className={authority.composed ? "dibay-community-dual-frame" : "flex min-h-0 min-w-0 flex-1 flex-col"}>
             {showHubFeed ? (
               <div
@@ -74,7 +63,7 @@ function CommunityUiScopeRoot({ children }: { children: ReactNode }) {
             ) : null}
             {authority.composed ? (
               <div className="dibay-community-pane-detail" data-dibay-community-pane="detail">
-                {authority.surface === "detail" ? children : <CommunityDualEmptyDetail />}
+                {children}
               </div>
             ) : showChildren ? (
               children

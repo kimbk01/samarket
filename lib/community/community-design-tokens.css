@@ -66,8 +66,7 @@
   display: flex;
   min-height: 0;
   min-width: 360px;
-  width: clamp(360px, 38%, 420px);
-  flex: 0 0 clamp(360px, 38%, 420px);
+  flex: 1 1 0;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
@@ -78,8 +77,8 @@
   box-sizing: border-box;
   display: flex;
   min-height: 0;
-  min-width: 0;
-  flex: 1 1 auto;
+  min-width: 480px;
+  flex: 1 1 0;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
