@@ -116,6 +116,30 @@ function validScene(partial: Partial<IntroAdminScene> = {}): IntroAdminScene {
   };
 }
 
+function operatorReadyScene(partial: Partial<IntroAdminScene> = {}): IntroAdminScene {
+  return validScene({
+    id: "tmp-scene",
+    advanceMode: "timer",
+    durationMs: 4000,
+    maxHoldMs: 4000,
+    skipPolicy: "allow",
+    ...partial,
+  });
+}
+
+function seedReadyImage(db: { tables: Record<string, Row[]> }, id = "asset-1") {
+  db.tables.intro_assets.push({
+    id,
+    kind: "image",
+    storage_path: "intro/a.webp",
+    public_url: "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/intro/a.webp",
+    mime: "image/webp",
+    decode_status: "ready",
+    width: 1080,
+    height: 1350,
+  });
+}
+
 function campaign(partial: Partial<IntroAdminCampaign> = {}): IntroAdminCampaign {
   const draft = defaultNewCampaignDraft("Grand Open");
   return {
@@ -153,6 +177,7 @@ function createMemoryIntroDb(seed?: Partial<Record<string, Row[]>>) {
     intro_publications: [...(seed?.intro_publications ?? [])],
     intro_device_overrides: [...(seed?.intro_device_overrides ?? [])],
     intro_assets: [...(seed?.intro_assets ?? [])],
+    admin_settings: [...(seed?.admin_settings ?? [])],
   };
   const writes: Array<{ table: string; op: string }> = [];
   let seq = 1;
@@ -207,13 +232,27 @@ function createMemoryIntroDb(seed?: Partial<Record<string, Row[]>>) {
       this.pendingUpdate = row;
       return this;
     }
+    upsert(row: Row | Row[]) {
+      writes.push({ table: this.table, op: "upsert" });
+      const incoming = Array.isArray(row) ? row : [row];
+      const rows = (tables[this.table] ??= []);
+      for (const next of incoming) {
+        const existing = rows.find(
+          (current) =>
+            (next.key != null && current.key === next.key) || (next.id != null && current.id === next.id)
+        );
+        if (existing) Object.assign(existing, next);
+        else rows.push({ id: next.id ?? `id-${seq++}`, ...next });
+      }
+      return this;
+    }
     delete() {
       writes.push({ table: this.table, op: "delete" });
       this.pendingDelete = true;
       return this;
     }
     rows(): Row[] {
-      let rows = tables[this.table].filter((r) => match(r, this.filters));
+      let rows = (tables[this.table] ??= []).filter((r) => match(r, this.filters));
       if (this.orderCol) {
         const col = this.orderCol;
         const asc = this.orderAsc;
@@ -228,6 +267,7 @@ function createMemoryIntroDb(seed?: Partial<Record<string, Row[]>>) {
       return rows;
     }
     apply() {
+      const rows = (tables[this.table] ??= []);
       if (this.pendingInsert) {
         this.lastInserted = this.pendingInsert.map((r) => {
           const row = {
@@ -237,19 +277,19 @@ function createMemoryIntroDb(seed?: Partial<Record<string, Row[]>>) {
             published_at: r.published_at ?? new Date().toISOString(),
             ...r,
           };
-          tables[this.table].push(row);
+          rows.push(row);
           return row;
         });
         this.pendingInsert = null;
       }
       if (this.pendingUpdate) {
-        for (const row of tables[this.table]) {
+        for (const row of rows) {
           if (match(row, this.filters)) Object.assign(row, this.pendingUpdate);
         }
         this.pendingUpdate = null;
       }
       if (this.pendingDelete) {
-        tables[this.table] = tables[this.table].filter((r) => !match(r, this.filters));
+        tables[this.table] = rows.filter((r) => !match(r, this.filters));
         this.pendingDelete = false;
       }
     }
@@ -654,16 +694,9 @@ describe("V1 imported draft / publish revision", () => {
     const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "Grand Open" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    db.tables.intro_assets.push({
-      id: "asset-1",
-      kind: "image",
-      storage_path: "intro/a.webp",
-      public_url: "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/intro/a.webp",
-      mime: "image/webp",
-      decode_status: "ready",
-    });
+    seedReadyImage(db);
     await saveIntroAdminDraft(db, created.id, "admin-1", {
-      scenes: [validScene({ id: "tmp-scene" })],
+      scenes: [operatorReadyScene()],
     });
 
     const first = await publishIntroAdminCampaign(db, created.id, "admin-1");
@@ -699,6 +732,16 @@ describe("V1 imported draft / publish revision", () => {
     const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "Ops" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
+    seedReadyImage(db);
+    await saveIntroAdminDraft(db, created.id, "admin-1", {
+      scenes: [operatorReadyScene()],
+    });
+    const published = await publishIntroAdminCampaign(db, created.id, "admin-1");
+    expect(published.ok).toBe(true);
+    if (!published.ok) return;
+    const liveManifest = structuredClone(
+      db.tables.intro_publications.find((p) => p.id === published.publicationId)?.manifest
+    );
     const paused = await transitionIntroAdminCampaign(db, created.id, "admin-1", "pause");
     expect(paused.ok).toBe(true);
     if (paused.ok) expect(paused.campaign.status).toBe("paused");
@@ -708,6 +751,7 @@ describe("V1 imported draft / publish revision", () => {
     const archived = await transitionIntroAdminCampaign(db, created.id, "admin-1", "archive");
     expect(archived.ok).toBe(true);
     if (archived.ok) expect(archived.campaign.status).toBe("archived");
+    expect(db.tables.intro_publications.find((p) => p.id === published.publicationId)?.manifest).toEqual(liveManifest);
   });
 });
 
@@ -831,7 +875,7 @@ describe("composer reconstruction contract", () => {
     expect(introAdminPreviewFrame("android_tablet").width).toBe(800);
   });
 
-  it("Composer / Canvas / List source keep visual workspace contracts", () => {
+  it("Composer / Canvas leftover and Operator list keep their current contracts", () => {
     const editor = read("components/admin/intro/AdminIntroEditorPage.tsx");
     const canvas = read("components/admin/intro/AdminIntroPreviewCanvas.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
@@ -847,8 +891,10 @@ describe("composer reconstruction contract", () => {
     expect(canvas).toContain("onResizeLayerPct");
     expect(canvas).not.toContain("object-cover");
     expect(canvas).not.toContain("SamarketThumbnail");
-    expect(list).toContain('data-intro-list="composer"');
-    expect(list).toContain("introDerivedStatusLabel");
+    expect(list).toContain("introOperatorAppStateLabel");
+    expect(list).toContain('"applied"');
+    expect(list).not.toContain('data-intro-list="composer"');
+    expect(list).not.toContain("introDerivedStatusLabel");
     expect(read("lib/startup/intro-v2/live-status.ts")).toContain("현재 노출 중");
   });
 });
