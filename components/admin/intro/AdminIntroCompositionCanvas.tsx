@@ -59,6 +59,8 @@ export function AdminIntroCompositionCanvas({
     <div
       className="space-y-2"
       data-intro-preview-viewport={viewport}
+      data-intro-preview-frame-w={String(frame.width)}
+      data-intro-preview-frame-h={String(frame.height)}
       data-intro-preview-readonly="false"
       data-intro-preview-mutation="0"
       data-intro-campaign-id={identities.campaignId}

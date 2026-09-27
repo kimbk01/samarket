@@ -4,7 +4,6 @@
  */
 
 import { introDraftFingerprint } from "@/lib/startup/intro-v2/admin-document-state";
-import { introAdminPreviewFrame } from "@/lib/startup/intro-v2/admin-preview";
 import type { IntroAdminCampaign, IntroAdminScene } from "@/lib/startup/intro-v2/admin-editor-model";
 import type { IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
 import type { IntroSurfaceInsets } from "@/lib/startup/intro-v2/geometry";
@@ -113,22 +112,22 @@ export function introCmsPreviewFrame(viewport: IntroCmsPreviewViewport): {
   contract: "ADMIN_PREVIEW" | "ADMIN_VERIFICATION";
   writesCreative: false;
 } {
+  // Explicit numeric literals are required. Shared frame-object lookup was collapsed
+  // by the Production client bundler so tablet reused the phone 360×800 surface.
   if (viewport === "phone") {
-    const frame = introAdminPreviewFrame("samsung_phone");
     return {
       viewport,
-      width: frame.width,
-      height: frame.height,
+      width: 360,
+      height: 800,
       contract: "ADMIN_PREVIEW",
       writesCreative: false,
     };
   }
   if (viewport === "tablet") {
-    const frame = introAdminPreviewFrame("android_tablet");
     return {
       viewport,
-      width: frame.width,
-      height: frame.height,
+      width: 800,
+      height: 1280,
       contract: "ADMIN_PREVIEW",
       writesCreative: false,
     };
@@ -143,8 +142,8 @@ export function introCmsPreviewFrame(viewport: IntroCmsPreviewViewport): {
 }
 
 export function introCmsPreviewInsets(viewport: IntroCmsPreviewViewport): IntroSurfaceInsets {
-  if (viewport === "phone") return introAdminPreviewFrame("samsung_phone").safeAreaGuide;
-  if (viewport === "tablet") return introAdminPreviewFrame("android_tablet").safeAreaGuide;
+  if (viewport === "phone") return { top: 24, right: 0, bottom: 16, left: 0 };
+  if (viewport === "tablet") return { top: 24, right: 16, bottom: 24, left: 16 };
   return { top: 24, right: 24, bottom: 24, left: 24 };
 }
 

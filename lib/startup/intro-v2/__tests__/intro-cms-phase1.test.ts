@@ -137,6 +137,10 @@ describe("Phase 1 create / edit / scenes / no device copies", () => {
     expect(tablet.writesCreative).toBe(false);
     expect(wide.writesCreative).toBe(false);
     expect(wide.contract).toBe("ADMIN_VERIFICATION");
+    expect(phone.width).toBe(360);
+    expect(tablet.width).toBe(800);
+    expect(tablet.height).toBe(1280);
+    expect(wide.width).toBe(1280);
   });
 });
 

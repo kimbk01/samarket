@@ -2,6 +2,7 @@
  * @vitest-environment node
  * Phase 2 canonical composition — Scene / Layer / geometry / publish gate.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   applyIntroCmsSaveResult,
@@ -272,6 +273,13 @@ describe("Phase 2 responsive preview", () => {
     });
     expect(a).toEqual(b);
     expect(c.width).not.toBe(a.width);
+    expect(phone).toMatchObject({ width: 360, height: 800 });
+    expect(tablet).toMatchObject({ width: 800, height: 1280 });
+    expect(introCmsPreviewFrame("wide")).toMatchObject({ width: 1280, height: 800 });
+    const src = readFileSync("lib/startup/intro-v2/admin-cms-phase1.ts", "utf8");
+    expect(src).toMatch(/viewport === "tablet"[\s\S]*width:\s*800[\s\S]*height:\s*1280/);
+    expect(src).not.toMatch(/introAdminPreviewFrame\s*\(/);
+    expect(src).not.toContain('from "@/lib/startup/intro-v2/admin-preview"');
   });
 
   it("16. safe-area rule is deterministic", () => {
