@@ -23,7 +23,7 @@ import type { IntroCampaignStatus, IntroCta, IntroFrequencyMode, IntroLayer } fr
 export const INTRO_OPERATOR_SOURCE_KEY = "operator_cut1" as const;
 
 export const INTRO_OPERATOR_APP_STATES = [
-  "applied",
+  "published",
   "scheduled",
   "draft",
   "paused",
@@ -33,7 +33,7 @@ export type IntroOperatorAppState = (typeof INTRO_OPERATOR_APP_STATES)[number];
 
 export function introOperatorAppStateLabel(state: IntroOperatorAppState, lang: "ko" | "en"): string {
   const map: Record<IntroOperatorAppState, { ko: string; en: string }> = {
-    applied: { ko: "현재 앱 적용", en: "On the app now" },
+    published: { ko: "게시됨", en: "Published" },
     scheduled: { ko: "예약", en: "Scheduled" },
     draft: { ko: "초안", en: "Draft" },
     paused: { ko: "중지", en: "Paused" },
@@ -184,25 +184,27 @@ export function deriveIntroOperatorAppState(input: {
   status: IntroCampaignStatus;
   startsAt: string | null;
   endsAt: string | null;
+  /** Ignored. Settings campaign identity is not device LOCAL_READY. */
   appliedCampaignId: string | null;
+  /** Ignored. Settings status is not device application. */
   appliedStatus: string | null;
   nowMs?: number;
 }): IntroOperatorAppState {
+  void input.campaignId;
+  void input.appliedCampaignId;
+  void input.appliedStatus;
   const now = input.nowMs ?? Date.now();
   const starts = input.startsAt ? Date.parse(input.startsAt) : NaN;
   const ends = input.endsAt ? Date.parse(input.endsAt) : NaN;
-  const isApplied =
-    input.appliedCampaignId === input.campaignId && input.appliedStatus === "active";
 
   if (input.status === "archived" || input.status === "expired") return "ended";
   if (input.status === "paused") return "paused";
   if (input.status === "draft") return "draft";
   if (Number.isFinite(ends) && now >= ends) return "ended";
   if (input.status === "scheduled" || (Number.isFinite(starts) && now < starts)) {
-    return isApplied ? "scheduled" : "scheduled";
+    return "scheduled";
   }
-  if (isApplied) return "applied";
-  if (input.status === "active") return "scheduled";
+  if (input.status === "active") return "published";
   return "draft";
 }
 

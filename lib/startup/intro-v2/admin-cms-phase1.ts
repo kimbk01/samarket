@@ -1,0 +1,146 @@
+/**
+ * DIBAY Intro Phase 1 — Admin CMS editing foundation.
+ * Operator (Failed B) and Device Composer (Failed A) are not final editor authority.
+ */
+
+import { introDraftFingerprint } from "@/lib/startup/intro-v2/admin-document-state";
+import { introAdminPreviewFrame } from "@/lib/startup/intro-v2/admin-preview";
+import type { IntroAdminCampaign, IntroAdminScene } from "@/lib/startup/intro-v2/admin-editor-model";
+import type { IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
+
+export const INTRO_CMS_EDITOR_SHELL = "AdminIntroCmsEditorPage" as const;
+export const INTRO_CMS_EDITOR_DATA_ATTR = "cms-v1" as const;
+export const INTRO_CMS_EDITOR_ROUTE = "/admin/intro/[campaignId]" as const;
+
+export const INTRO_CMS_PREVIEW_VIEWPORTS = ["phone", "tablet", "wide"] as const;
+export type IntroCmsPreviewViewport = (typeof INTRO_CMS_PREVIEW_VIEWPORTS)[number];
+
+export const INTRO_CMS_SCENE_NAVIGATOR_ACTIONS = [
+  "add",
+  "duplicate",
+  "delete",
+  "reorder",
+  "select",
+] as const;
+
+export type IntroCmsUnsavedDecision = "stay" | "discard_leave";
+export type IntroCmsNavigationResolution = "allow" | "block" | "leave_without_save";
+export type IntroCmsDeviceReadiness = "unknown";
+
+export function cloneIntroAdminCampaign(campaign: IntroAdminCampaign): IntroAdminCampaign {
+  return structuredClone(campaign);
+}
+
+export function introCmsIsDirty(current: IntroAdminCampaign, saved: IntroAdminCampaign): boolean {
+  return introDraftFingerprint(current) !== introDraftFingerprint(saved);
+}
+
+export function discardIntroCmsEdits(saved: IntroAdminCampaign): IntroAdminCampaign {
+  return cloneIntroAdminCampaign(saved);
+}
+
+export function applyIntroCmsSaveResult(input: {
+  current: IntroAdminCampaign;
+  ok: boolean;
+  saved: IntroAdminCampaign | null;
+}): { campaign: IntroAdminCampaign; persisted: boolean } {
+  if (input.ok && input.saved) {
+    return { campaign: cloneIntroAdminCampaign(input.saved), persisted: true };
+  }
+  return { campaign: input.current, persisted: false };
+}
+
+export function resolveIntroCmsUnsavedNavigation(input: {
+  dirty: boolean;
+  decision: IntroCmsUnsavedDecision | null;
+}): IntroCmsNavigationResolution {
+  if (!input.dirty) return "allow";
+  if (input.decision === "discard_leave") return "leave_without_save";
+  return "block";
+}
+
+export function introCmsDraftSavePayload(campaign: IntroAdminCampaign): {
+  name: string;
+  status: IntroAdminCampaign["status"];
+  startsAt: string | null;
+  endsAt: string | null;
+  timezone: string;
+  priority: number;
+  targeting: IntroAdminCampaign["targeting"];
+  frequencyMode: IntroAdminCampaign["frequencyMode"];
+  deepLinkPolicy: IntroAdminCampaign["deepLinkPolicy"];
+  scenes: IntroAdminScene[];
+} {
+  return {
+    name: campaign.name,
+    status: campaign.status,
+    startsAt: campaign.startsAt,
+    endsAt: campaign.endsAt,
+    timezone: campaign.timezone,
+    priority: campaign.priority,
+    targeting: campaign.targeting,
+    frequencyMode: campaign.frequencyMode,
+    deepLinkPolicy: campaign.deepLinkPolicy,
+    scenes: campaign.scenes,
+  };
+}
+
+export function introCmsPreviewFrame(viewport: IntroCmsPreviewViewport): {
+  viewport: IntroCmsPreviewViewport;
+  width: number;
+  height: number;
+  contract: "ADMIN_PREVIEW" | "ADMIN_VERIFICATION";
+  writesCreative: false;
+} {
+  if (viewport === "phone") {
+    const frame = introAdminPreviewFrame("samsung_phone");
+    return {
+      viewport,
+      width: frame.width,
+      height: frame.height,
+      contract: "ADMIN_PREVIEW",
+      writesCreative: false,
+    };
+  }
+  if (viewport === "tablet") {
+    const frame = introAdminPreviewFrame("android_tablet");
+    return {
+      viewport,
+      width: frame.width,
+      height: frame.height,
+      contract: "ADMIN_PREVIEW",
+      writesCreative: false,
+    };
+  }
+  return {
+    viewport: "wide",
+    width: 1280,
+    height: 800,
+    contract: "ADMIN_VERIFICATION",
+    writesCreative: false,
+  };
+}
+
+export function introCmsCanDeleteScene(sceneCount: number): boolean {
+  return sceneCount > 1;
+}
+
+export function introCmsListDeviceReadiness(_appState: IntroOperatorAppState): IntroCmsDeviceReadiness {
+  return "unknown";
+}
+
+export function introCmsDeviceReadinessLabel(lang: "ko" | "en"): string {
+  return lang === "en" ? "Device receipt unconfirmed" : "기기 수신 상태 미확인";
+}
+
+export function isIntroCmsFinalEditorAuthority(input: {
+  routedComponent: string;
+  operatorRouted: boolean;
+  deviceComposerRouted: boolean;
+}): boolean {
+  return (
+    input.routedComponent === INTRO_CMS_EDITOR_SHELL &&
+    !input.operatorRouted &&
+    !input.deviceComposerRouted
+  );
+}

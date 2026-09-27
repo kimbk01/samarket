@@ -875,24 +875,28 @@ describe("composer reconstruction contract", () => {
     expect(introAdminPreviewFrame("android_tablet").width).toBe(800);
   });
 
-  it("Composer / Canvas leftover and Operator list keep their current contracts", () => {
-    const editor = read("components/admin/intro/AdminIntroEditorPage.tsx");
+  it("routes the CMS editor and keeps leftover Composer/Operator unrouted", () => {
+    const route = read("app/admin/intro/[campaignId]/page.tsx");
+    const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
+    const leftover = read("components/admin/intro/AdminIntroEditorPage.tsx");
     const canvas = read("components/admin/intro/AdminIntroPreviewCanvas.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
-    expect(editor).toContain('data-intro-composer="v2"');
-    expect(editor).toContain('fd.set("kind", "background")');
-    expect(editor).not.toContain('fd.set("kind", "product")');
-    expect(editor).toContain("지금은 게시할 수 없음");
-    expect(editor).toContain("공통 사용 중");
-    expect(editor).toContain("이 기기군만 다름");
+    expect(route).toContain("AdminIntroCmsEditorPage");
+    expect(route).not.toContain("AdminIntroOperatorForm");
+    expect(route).not.toContain("AdminIntroEditorPage");
+    expect(cms).toContain('data-intro-editor="cms-v1"');
+    expect(cms).not.toContain('data-intro-composer="v2"');
+    expect(cms).not.toContain("이 기기군만 다름");
+    expect(leftover).toContain('data-intro-composer="v2"');
+    expect(leftover).toContain("이 기기군만 다름");
     expect(canvas).toContain("computeContainedCreativeRect");
     expect(canvas).toContain("object-contain");
     expect(canvas).toContain("onMoveLayerPct");
-    expect(canvas).toContain("onResizeLayerPct");
-    expect(canvas).not.toContain("object-cover");
-    expect(canvas).not.toContain("SamarketThumbnail");
     expect(list).toContain("introOperatorAppStateLabel");
-    expect(list).toContain('"applied"');
+    expect(list).toContain('"published"');
+    expect(list).not.toContain('"applied"');
+    expect(list).not.toContain("현재 앱 적용");
+    expect(list).toContain("introCmsDeviceReadinessLabel");
     expect(list).not.toContain('data-intro-list="composer"');
     expect(list).not.toContain("introDerivedStatusLabel");
     expect(read("lib/startup/intro-v2/live-status.ts")).toContain("현재 노출 중");

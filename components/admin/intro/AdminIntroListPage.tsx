@@ -11,15 +11,19 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminScheduleRange } from "@/components/admin/intro/intro-admin-time";
 import { introFrequencyLabel } from "@/lib/startup/intro-v2/admin-labels";
 import {
+  introCmsDeviceReadinessLabel,
+  introCmsListDeviceReadiness,
+} from "@/lib/startup/intro-v2/admin-cms-phase1";
+import {
   introOperatorAppStateLabel,
   type IntroOperatorAppState,
 } from "@/lib/startup/intro-operator-contract";
 import type { IntroAdminListRow } from "@/lib/startup/intro-v2/admin-editor-model";
 
-const SECTIONS: IntroOperatorAppState[] = ["applied", "scheduled", "draft", "paused", "ended"];
+const SECTIONS: IntroOperatorAppState[] = ["published", "scheduled", "draft", "paused", "ended"];
 
 function appTone(state: IntroOperatorAppState): AdminTone {
-  if (state === "applied") return "success";
+  if (state === "published") return "success";
   if (state === "scheduled") return "progress";
   if (state === "paused") return "warning";
   if (state === "ended") return "neutral";
@@ -129,11 +133,10 @@ export function AdminIntroListPage() {
       <AdminPageHeader
         title={safeT("admin_intro_title", { fallbackKo: "인트로 관리", fallbackEn: "Intro" })}
         backHref="/admin/platform-promotion"
-        description={
-          lang === "en"
-            ? "Register one intro. The app shows that one. Phone and Tablet use the same image."
-            : "인트로 하나를 등록하면 앱에 그것이 적용됩니다. Phone과 Tablet은 같은 이미지를 사용합니다."
-        }
+        description={safeT("admin_intro_list_description", {
+          fallbackKo: "캠페인 초안을 만들고 게시할 수 있습니다. 게시됨은 서버 상태이며, 기기가 받았는지는 별도로 확인되지 않습니다.",
+          fallbackEn: "Create and publish intro campaigns. Published is a server state. Device receipt is not confirmed from settings identity.",
+        })}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <AdminActionButton variant="primary" onClick={() => void onCreate()} disabled={creating}>
@@ -209,9 +212,9 @@ export function AdminIntroListPage() {
                           {mediaLabel(item.mediaTypes, lang)} · {formatAdminScheduleRange(item.startsAt, item.endsAt, item.timezone, lang)} ·{" "}
                           {lang === "en" ? "Everyone" : "전체"} · {introFrequencyLabel(item.frequencyMode, lang)}
                         </p>
-                        {item.generationId && state === "applied" ? (
-                          <p className="text-xs text-sam-muted">
-                            {lang === "en" ? "App sync recorded" : "앱 적용 동기화 기록됨"}
+                        {state === "published" ? (
+                          <p className="text-xs text-sam-muted" data-intro-device-readiness={introCmsListDeviceReadiness(state)}>
+                            {introCmsDeviceReadinessLabel(lang)}
                           </p>
                         ) : null}
                         <div className="flex flex-wrap gap-2 pt-1">
@@ -221,7 +224,7 @@ export function AdminIntroListPage() {
                           <AdminActionLink href={`/admin/intro/${item.id}`} variant="secondary">
                             {safeT("admin_intro_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
                           </AdminActionLink>
-                          {state === "applied" || state === "scheduled" ? (
+                          {state === "published" || state === "scheduled" ? (
                             <AdminActionButton variant="quiet" onClick={() => void act(item.id, "pause")}>
                               {safeT("admin_intro_pause", { fallbackKo: "중지", fallbackEn: "Pause" })}
                             </AdminActionButton>

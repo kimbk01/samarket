@@ -115,8 +115,9 @@ export type IntroAdminListRow = {
   interactionModes: string[];
   thumbnailUrl: string | null;
   updatedAt: string;
-  appState?: "applied" | "scheduled" | "draft" | "paused" | "ended";
+  appState?: "published" | "scheduled" | "draft" | "paused" | "ended";
   generationId?: string | null;
+  deviceReadiness?: "unknown";
 };
 
 export function isV1ImportedDraft(campaign: { source: Record<string, unknown> }): boolean {

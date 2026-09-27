@@ -134,7 +134,7 @@ describe("intro operator CUT 1", () => {
     expect(clampIntroHoldMs(99999)).toBe(8000);
   });
 
-  it("labels 현재 앱 적용 from V1 generation, not resolver LIVE_NOW", () => {
+  it("labels published from campaign lifecycle, not settings campaign identity", () => {
     const now = Date.parse("2026-09-28T12:00:00.000Z");
     expect(
       deriveIntroOperatorAppState({
@@ -146,7 +146,7 @@ describe("intro operator CUT 1", () => {
         appliedStatus: "active",
         nowMs: now,
       })
-    ).toBe("applied");
+    ).toBe("published");
     expect(
       deriveIntroOperatorAppState({
         campaignId: "camp-live-now-fixture",
@@ -157,7 +157,7 @@ describe("intro operator CUT 1", () => {
         appliedStatus: "active",
         nowMs: now,
       })
-    ).toBe("scheduled");
+    ).toBe("published");
     expect(
       deriveIntroOperatorAppState({
         campaignId: "camp-1",

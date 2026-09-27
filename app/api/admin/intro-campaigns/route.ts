@@ -4,6 +4,7 @@ import {
   createIntroAdminCampaign,
   listIntroAdminCampaigns,
 } from "@/lib/startup/intro-v2/admin-service";
+import { introCmsListDeviceReadiness } from "@/lib/startup/intro-v2/admin-cms-phase1";
 import { deriveIntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
 import { loadProductIntroFromDb } from "@/lib/startup/product-intro-db";
 import { productIntroGenerationId } from "@/lib/startup/product-intro-native-sync";
@@ -25,18 +26,22 @@ export async function GET() {
   const appliedStatus = applied.ok ? applied.config.status : null;
   const generationId = applied.ok ? productIntroGenerationId(applied.config) : null;
 
-  const items = listed.items.map((item) => ({
-    ...item,
-    appState: deriveIntroOperatorAppState({
+  const items = listed.items.map((item) => {
+    const appState = deriveIntroOperatorAppState({
       campaignId: item.id,
       status: item.status,
       startsAt: item.startsAt,
       endsAt: item.endsAt,
       appliedCampaignId,
       appliedStatus,
-    }),
-    generationId: appliedCampaignId === item.id ? generationId : null,
-  }));
+    });
+    return {
+      ...item,
+      appState,
+      deviceReadiness: introCmsListDeviceReadiness(appState),
+      generationId: appliedCampaignId === item.id ? generationId : null,
+    };
+  });
 
   return NextResponse.json({ ok: true, items, appliedCampaignId, generationId });
 }
