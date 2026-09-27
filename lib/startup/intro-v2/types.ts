@@ -128,12 +128,45 @@ export type IntroTargeting = {
 export const INTRO_TEXT_ALIGNS = ["left", "center", "right"] as const;
 export type IntroTextAlign = (typeof INTRO_TEXT_ALIGNS)[number];
 
+export const INTRO_FONT_TOKENS = ["title", "body", "caption"] as const;
+export type IntroFontToken = (typeof INTRO_FONT_TOKENS)[number];
+
+export const INTRO_DECORATION_KINDS = ["shape", "sticker", "divider"] as const;
+export type IntroDecorationKind = (typeof INTRO_DECORATION_KINDS)[number];
+
+export const INTRO_EASINGS = ["linear", "ease_in", "ease_out", "ease_in_out"] as const;
+export type IntroEasing = (typeof INTRO_EASINGS)[number];
+
+export const INTRO_ANIMATION_TYPES = ["none", "fade", "slide", "scale"] as const;
+export type IntroAnimationType = (typeof INTRO_ANIMATION_TYPES)[number];
+
+export const INTRO_ANIMATION_PHASES = ["enter", "emphasis", "exit"] as const;
+export type IntroAnimationPhase = (typeof INTRO_ANIMATION_PHASES)[number];
+
+export const INTRO_REPEAT_POLICIES = ["none", "once", "loop"] as const;
+export type IntroRepeatPolicy = (typeof INTRO_REPEAT_POLICIES)[number];
+
+export type IntroAnimationClip = {
+  type: IntroAnimationType;
+  durationMs: number;
+  delayMs: number;
+  easing: IntroEasing;
+  repeat: IntroRepeatPolicy;
+};
+
+export type IntroAnimationMeta = {
+  enter?: IntroAnimationClip;
+  emphasis?: IntroAnimationClip;
+  exit?: IntroAnimationClip;
+};
+
 export type IntroLayer = {
   id: string;
   type: IntroLayerType;
   zIndex: number;
   anchor: IntroLayerAnchor;
   name?: string;
+  visible?: boolean;
   xPct?: number;
   yPct?: number;
   widthPct?: number;
@@ -146,11 +179,20 @@ export type IntroLayer = {
   aspectPolicy?: IntroAspectPolicy;
   assetId?: string;
   text?: string;
+  fontToken?: IntroFontToken;
   fontSizePct?: number;
   fontWeight?: number;
   lineHeight?: number;
   textAlign?: IntroTextAlign;
-  animation?: string;
+  wrap?: boolean;
+  maxLines?: number;
+  color?: string;
+  fillColor?: string;
+  strokeColor?: string;
+  strokeWidthPct?: number;
+  cornerRadiusPct?: number;
+  decorationKind?: IntroDecorationKind;
+  animation?: string | IntroAnimationMeta;
 };
 
 export type IntroCtaDestination = {

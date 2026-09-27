@@ -9,9 +9,11 @@ import { INTRO_V2_SCHEMA_VERSION } from "@/lib/startup/intro-v2/types";
 import { validateIntroCampaignWrite } from "@/lib/startup/intro-v2/admin-write-contract";
 import { validatePublishedManifest } from "@/lib/startup/intro-v2/publication";
 import {
+  validateIntroCampaignDraft,
   validateIntroCampaignForPublish,
   validateIntroScenesAgainstDbAdvanceGate,
 } from "@/lib/startup/intro-v2/admin-validate";
+import { introRichPublishBlockIssue } from "@/lib/startup/intro-v2/compat-publish";
 import { introMediaKindFromMime, introMediaPublishBlockReason } from "@/lib/startup/intro-v2/admin-media";
 import {
   collectSceneMediaTypes,
@@ -65,6 +67,58 @@ function asTargeting(raw: unknown): IntroTargeting {
     };
   }
   return emptyIntroTargeting();
+}
+
+function sceneTransitionsFromSource(
+  source: Record<string, unknown>
+): Record<string, { durationMs?: number; easing?: string }> {
+  const phase2 = source.phase2 && typeof source.phase2 === "object" ? (source.phase2 as Record<string, unknown>) : {};
+  const raw = phase2.sceneTransitions;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, { durationMs?: number; easing?: string }>;
+}
+
+function hydrateSceneTransitions(
+  scenes: IntroAdminScene[],
+  source: Record<string, unknown>
+): IntroAdminScene[] {
+  const transitions = sceneTransitionsFromSource(source);
+  return scenes.map((scene) => ({
+    ...scene,
+    transitionMs: scene.transitionMs ?? transitions[scene.id]?.durationMs ?? 280,
+    transitionEasing: scene.transitionEasing ?? transitions[scene.id]?.easing ?? "ease_out",
+  }));
+}
+
+function mergePhase2Source(
+  previous: Record<string, unknown>,
+  scenes: IntroAdminScene[] | undefined,
+  incoming?: Record<string, unknown>
+): Record<string, unknown> {
+  const base = { ...previous, ...(incoming ?? {}) };
+  const previousPhase2 =
+    base.phase2 && typeof base.phase2 === "object" ? (base.phase2 as Record<string, unknown>) : {};
+  const sceneTransitions: Record<string, { durationMs: number; easing: string }> = {
+    ...(typeof previousPhase2.sceneTransitions === "object" && previousPhase2.sceneTransitions
+      ? (previousPhase2.sceneTransitions as Record<string, { durationMs: number; easing: string }>)
+      : {}),
+  };
+  if (scenes) {
+    for (const scene of scenes) {
+      sceneTransitions[scene.id] = {
+        durationMs: scene.transitionMs ?? 280,
+        easing: scene.transitionEasing ?? "ease_out",
+      };
+    }
+  }
+  return {
+    ...base,
+    sizePresetFinalAuthority: false,
+    phase2: {
+      ...previousPhase2,
+      sceneTransitions,
+    },
+  };
 }
 
 function mapScene(row: Record<string, unknown>): IntroAdminScene {
@@ -250,7 +304,7 @@ export async function getIntroAdminCampaign(
     source,
     updatedAt: String(data.updated_at ?? ""),
     updatedBy: data.updated_by == null ? null : String(data.updated_by),
-    scenes: mappedScenes,
+    scenes: hydrateSceneTransitions(mappedScenes, source),
     assets: ((assets ?? []) as Record<string, unknown>[]).map(mapAsset),
     deviceOverrides: ((overrides ?? []) as Record<string, unknown>[]).map((o) => ({
       id: String(o.id),
@@ -364,6 +418,22 @@ export async function saveIntroAdminDraft(
   });
   if (!write.ok) return { ok: false, error: write.error, httpStatus: 400 };
 
+  if (patch.deviceOverrides?.some((row) => (row.layers?.length ?? 0) > 0 || Boolean(row.backgroundAssetId))) {
+    return {
+      ok: false,
+      error: "device_creative_override_forbidden",
+      httpStatus: 400,
+      issues: [
+        {
+          code: "device_creative_override_forbidden",
+          path: "deviceOverrides",
+          messageKo: "기기별 크리에이티브 복제는 저장할 수 없습니다.",
+          messageEn: "Per-device creative overrides cannot be written.",
+        },
+      ],
+    };
+  }
+
   if (patch.scenes) {
     const persist = validateIntroScenesAgainstDbAdvanceGate({
       ...current.campaign,
@@ -380,7 +450,33 @@ export async function saveIntroAdminDraft(
         issues: persist.issues,
       };
     }
+    const draft = validateIntroCampaignDraft({
+      ...current.campaign,
+      name: nextName,
+      status: nextStatus,
+      targeting: nextTargeting,
+      scenes: patch.scenes,
+    });
+    if (!draft.ok) {
+      return {
+        ok: false,
+        error: draft.issues[0]?.code ?? "scene_invalid",
+        httpStatus: 400,
+        issues: draft.issues,
+      };
+    }
   }
+
+  if (patch.scenes) {
+    const replaced = await replaceIntroScenes(sb, id, patch.scenes);
+    if (!replaced.ok) return replaced;
+  }
+
+  const nextSource = mergePhase2Source(
+    current.campaign.source,
+    patch.scenes,
+    patch.source
+  );
 
   const { error: campErr } = await sb
     .from("intro_campaigns")
@@ -396,31 +492,15 @@ export async function saveIntroAdminDraft(
       deep_link_policy: write.value.deepLinkPolicy,
       requires_admin_confirmation:
         patch.requiresAdminConfirmation ?? current.campaign.requiresAdminConfirmation,
-      source: patch.source ?? current.campaign.source,
+      source: nextSource,
       updated_by: adminUserId,
     })
     .eq("id", id);
-  if (campErr) return { ok: false, error: "draft_save_failed", httpStatus: 500 };
-
-  if (patch.scenes) {
-    const replaced = await replaceIntroScenes(sb, id, patch.scenes);
-    if (!replaced.ok) return replaced;
-  }
-  if (patch.deviceOverrides) {
-    const { error: delOv } = await sb.from("intro_device_overrides").delete().eq("campaign_id", id);
-    if (delOv) return { ok: false, error: "override_save_failed", httpStatus: 500 };
-    if (patch.deviceOverrides.length) {
-      const { error: insOv } = await sb.from("intro_device_overrides").insert(
-        patch.deviceOverrides.map((o) => ({
-          campaign_id: id,
-          scene_id: o.sceneId,
-          device_family: o.deviceFamily,
-          layers: o.layers,
-          background_asset_id: o.backgroundAssetId,
-        }))
-      );
-      if (insOv) return { ok: false, error: "override_save_failed", httpStatus: 500 };
+  if (campErr) {
+    if (patch.scenes) {
+      await replaceIntroScenes(sb, id, current.campaign.scenes);
     }
+    return { ok: false, error: "draft_save_failed", httpStatus: 500 };
   }
 
   return getIntroAdminCampaign(sb, id);
@@ -598,6 +678,10 @@ export async function publishIntroAdminCampaign(
   const current = await getIntroAdminCampaign(sb, id);
   if (!current.ok) return current;
   const campaign = current.campaign;
+  const richBlock = introRichPublishBlockIssue(campaign);
+  if (richBlock) {
+    return { ok: false, error: richBlock.code, httpStatus: 400, issues: [richBlock] };
+  }
   const operatorCheck = validateOperatorImageForPublish(campaign);
   if (!operatorCheck.ok) {
     return { ok: false, error: operatorCheck.error ?? "publish_validation_failed", httpStatus: 400 };

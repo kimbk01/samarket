@@ -15,6 +15,7 @@ import { validateIntroAdvance, validateIntroSceneContract } from "@/lib/startup/
 import { validateIntroCta, isAllowedIntroExternalHost } from "@/lib/startup/intro-v2/cta";
 import { validateIntroLayers } from "@/lib/startup/intro-v2/layers";
 import { validateIntroTargeting } from "@/lib/startup/intro-v2/targeting";
+import { sceneHasEndingMedia } from "@/lib/startup/intro-v2/composition";
 import type { IntroAdvanceMode, IntroLayer } from "@/lib/startup/intro-v2/types";
 
 export type IntroAdminIssue = {
@@ -63,6 +64,43 @@ function humanCtaIssue(code: string, sceneKo: string, sceneEn: string): { ko: st
 
 function scenePath(index: number, field?: string): string {
   return field ? `scenes[${index}].${field}` : `scenes[${index}]`;
+}
+
+function humanLayerIssue(code: string, sceneKo: string, sceneEn: string): { ko: string; en: string } {
+  if (code === "layer_asset_required") {
+    return {
+      ko: `${sceneKo}: 이미지/로고에는 미디어가 필요합니다.`,
+      en: `${sceneEn}: Image and logo layers need media.`,
+    };
+  }
+  if (code === "layer_text_required") {
+    return {
+      ko: `${sceneKo}: 텍스트를 입력하세요.`,
+      en: `${sceneEn}: Enter text content.`,
+    };
+  }
+  if (code === "layer_background_required") {
+    return {
+      ko: `${sceneKo}: 배경은 색상 또는 미디어가 필요합니다.`,
+      en: `${sceneEn}: Background needs a color or media.`,
+    };
+  }
+  if (code === "layer_id_duplicate") {
+    return {
+      ko: `${sceneKo}: 레이어 ID가 중복되었습니다.`,
+      en: `${sceneEn}: Layer IDs must be unique.`,
+    };
+  }
+  if (code === "layer_unknown_key") {
+    return {
+      ko: `${sceneKo}: 지원하지 않는 레이어 필드가 있습니다.`,
+      en: `${sceneEn}: Unsupported layer field.`,
+    };
+  }
+  return {
+    ko: `${sceneKo}: 레이어 구성에 문제가 있습니다.`,
+    en: `${sceneEn}: Layer configuration is invalid.`,
+  };
 }
 
 export function validateIntroExternalUrlAdmin(url: string): IntroAdminIssue | null {
@@ -180,16 +218,22 @@ export function validateIntroCampaignDraft(campaign: IntroAdminCampaign): IntroA
         )
       );
     }
-    const layers = validateIntroLayers(scene.layers);
-    if (!layers.ok) {
+    if (scene.advanceMode === "media_end" && !sceneHasEndingMedia(scene, campaign.assets)) {
       issues.push(
         issue(
-          layers.error,
-          scenePath(index, "layers"),
-          `${scene.name || `장면 ${index + 1}`}: 레이어 구성에 문제가 있습니다 (${layers.error}).`,
-          `${scene.name || `Scene ${index + 1}`}: Layer configuration failed (${layers.error}).`
+          "media_end_requires_ending_media",
+          scenePath(index, "advanceMode"),
+          `${scene.name || `장면 ${index + 1}`}: 미디어 종료 진행은 끝나는 미디어가 있을 때만 사용할 수 있습니다.`,
+          `${scene.name || `Scene ${index + 1}`}: MEDIA_END is valid only when the scene has ending media.`
         )
       );
+    }
+    const layers = validateIntroLayers(scene.layers);
+    if (!layers.ok) {
+      const sceneKo = scene.name || `장면 ${index + 1}`;
+      const sceneEn = scene.name || `Scene ${index + 1}`;
+      const human = humanLayerIssue(layers.error, sceneKo, sceneEn);
+      issues.push(issue(layers.error, scenePath(index, "layers"), human.ko, human.en));
     }
     if (scene.interactionMode === "tap_layer") {
       if (!scene.interactionLayerId) {

@@ -43,6 +43,8 @@ export type IntroAdminScene = {
   durationMs: number | null;
   maxHoldMs: number | null;
   transition: string;
+  transitionMs?: number;
+  transitionEasing?: string;
   skipPolicy: string;
   interactionMode: string;
   interactionLayerId: string | null;
@@ -203,6 +205,8 @@ export function defaultNewScene(id: string, sortOrder: number, name: string): In
     durationMs: null,
     maxHoldMs: INTRO_ADMIN_DEFAULT_MAX_HOLD_MS,
     transition: "none",
+    transitionMs: 280,
+    transitionEasing: "ease_out",
     skipPolicy: "deny",
     interactionMode: "none",
     interactionLayerId: null,

@@ -7,6 +7,7 @@ import { introDraftFingerprint } from "@/lib/startup/intro-v2/admin-document-sta
 import { introAdminPreviewFrame } from "@/lib/startup/intro-v2/admin-preview";
 import type { IntroAdminCampaign, IntroAdminScene } from "@/lib/startup/intro-v2/admin-editor-model";
 import type { IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
+import type { IntroSurfaceInsets } from "@/lib/startup/intro-v2/geometry";
 
 export const INTRO_CMS_EDITOR_SHELL = "AdminIntroCmsEditorPage" as const;
 export const INTRO_CMS_EDITOR_DATA_ATTR = "cms-v1" as const;
@@ -70,7 +71,19 @@ export function introCmsDraftSavePayload(campaign: IntroAdminCampaign): {
   frequencyMode: IntroAdminCampaign["frequencyMode"];
   deepLinkPolicy: IntroAdminCampaign["deepLinkPolicy"];
   scenes: IntroAdminScene[];
+  source: Record<string, unknown>;
 } {
+  const previousPhase2 =
+    campaign.source.phase2 && typeof campaign.source.phase2 === "object"
+      ? (campaign.source.phase2 as Record<string, unknown>)
+      : {};
+  const sceneTransitions: Record<string, { durationMs: number; easing: string }> = {};
+  for (const scene of campaign.scenes) {
+    sceneTransitions[scene.id] = {
+      durationMs: scene.transitionMs ?? 280,
+      easing: scene.transitionEasing ?? "ease_out",
+    };
+  }
   return {
     name: campaign.name,
     status: campaign.status,
@@ -82,6 +95,14 @@ export function introCmsDraftSavePayload(campaign: IntroAdminCampaign): {
     frequencyMode: campaign.frequencyMode,
     deepLinkPolicy: campaign.deepLinkPolicy,
     scenes: campaign.scenes,
+    source: {
+      ...campaign.source,
+      sizePresetFinalAuthority: false,
+      phase2: {
+        ...previousPhase2,
+        sceneTransitions,
+      },
+    },
   };
 }
 
@@ -119,6 +140,12 @@ export function introCmsPreviewFrame(viewport: IntroCmsPreviewViewport): {
     contract: "ADMIN_VERIFICATION",
     writesCreative: false,
   };
+}
+
+export function introCmsPreviewInsets(viewport: IntroCmsPreviewViewport): IntroSurfaceInsets {
+  if (viewport === "phone") return introAdminPreviewFrame("samsung_phone").safeAreaGuide;
+  if (viewport === "tablet") return introAdminPreviewFrame("android_tablet").safeAreaGuide;
+  return { top: 24, right: 24, bottom: 24, left: 24 };
 }
 
 export function introCmsCanDeleteScene(sceneCount: number): boolean {

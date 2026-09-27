@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { AdminIntroCompositionCanvas } from "@/components/admin/intro/AdminIntroCompositionCanvas";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isoToManilaLocal, manilaLocalToIso } from "@/components/admin/intro/intro-admin-time";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -16,7 +16,6 @@ import {
   introCmsDeviceReadinessLabel,
   introCmsDraftSavePayload,
   introCmsIsDirty,
-  introCmsPreviewFrame,
   resolveIntroCmsUnsavedNavigation,
   type IntroCmsPreviewViewport,
 } from "@/lib/startup/intro-v2/admin-cms-phase1";
@@ -39,7 +38,6 @@ import {
   toggleDeviceChip,
   togglePlatform,
 } from "@/lib/startup/intro-v2/admin-targeting-ui";
-import { layerPreviewStyle } from "@/lib/startup/intro-v2/admin-preview";
 import {
   defaultNewScene,
   duplicateScene,
@@ -50,112 +48,63 @@ import {
   type IntroAdminScene,
 } from "@/lib/startup/intro-v2/admin-editor-model";
 import {
+  createLayerOfType,
+  defaultImageLayer,
+  emptyAnimationMeta,
+  nextLayerId,
+} from "@/lib/startup/intro-v2/composition";
+import { adaptOperatorDraftToCanonical } from "@/lib/startup/intro-v2/legacy-operator-adapter";
+import {
   INTRO_ADVANCE_MODES,
+  INTRO_ANIMATION_TYPES,
+  INTRO_ASPECT_POLICIES,
   INTRO_AUDIENCES,
+  INTRO_CTA_DESTINATION_TYPES,
+  INTRO_DECORATION_KINDS,
   INTRO_DEEP_LINK_POLICIES,
+  INTRO_EASINGS,
+  INTRO_FONT_TOKENS,
   INTRO_FREQUENCY_MODES,
+  INTRO_LAYER_ANCHORS,
+  INTRO_LAYER_TYPES,
   INTRO_PLATFORMS,
+  INTRO_REPEAT_POLICIES,
   INTRO_SKIP_POLICIES,
+  INTRO_TEXT_ALIGNS,
   INTRO_TRANSITIONS,
   type IntroAdvanceMode,
+  type IntroAnimationMeta,
+  type IntroAspectPolicy,
+  type IntroCtaDestinationType,
+  type IntroDecorationKind,
   type IntroDeepLinkPolicy,
+  type IntroEasing,
+  type IntroFontToken,
   type IntroFrequencyMode,
   type IntroLayer,
+  type IntroLayerAnchor,
+  type IntroLayerType,
+  type IntroRepeatPolicy,
   type IntroSkipPolicy,
+  type IntroTextAlign,
   type IntroTransition,
 } from "@/lib/startup/intro-v2/types";
 
 const FIELD =
   "mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg";
 
-function defaultImageLayer(id: string, zIndex: number): IntroLayer {
-  return {
-    id,
-    type: "IMAGE",
-    zIndex,
-    anchor: "center",
-    name: "Image",
-    xPct: 50,
-    yPct: 50,
-    widthPct: 80,
-    heightPct: 60,
-    aspectPolicy: "contain",
-  };
+function firstIssueMessage(
+  issues: readonly { messageKo?: string; messageEn?: string }[] | undefined,
+  lang: "ko" | "en"
+): string | null {
+  const first = issues?.[0];
+  if (!first) return null;
+  return (lang === "en" ? first.messageEn : first.messageKo) || null;
 }
 
-function CmsReadOnlyPreview({
-  scene,
-  assets,
-  viewport,
-  lang,
-}: {
-  scene: IntroAdminScene | null;
-  assets: readonly IntroAdminAsset[];
-  viewport: IntroCmsPreviewViewport;
-  lang: "ko" | "en";
-}) {
-  const frame = introCmsPreviewFrame(viewport);
-  const scale = Math.min(320 / frame.width, 520 / frame.height);
-  const byId = new Map(assets.map((asset) => [asset.id, asset]));
-  const bg = scene?.backgroundAssetId ? byId.get(scene.backgroundAssetId) : null;
-  const layers = [...(scene?.layers ?? [])].sort((a, b) => a.zIndex - b.zIndex);
-  return (
-    <div className="space-y-2" data-intro-preview-viewport={viewport} data-intro-preview-readonly="true">
-      <p className="text-[12px] text-sam-muted">
-        {lang === "en"
-          ? `${frame.width}×${frame.height} · verification only`
-          : `${frame.width}×${frame.height} · 확인용`}
-      </p>
-      <div
-        className="relative mx-auto overflow-hidden rounded-ui-rect border border-sam-border"
-        style={{
-          width: frame.width * scale,
-          height: frame.height * scale,
-          backgroundColor: scene?.backgroundColor ?? "#ffffff",
-        }}
-      >
-        {bg?.publicUrl ? (
-          <SamarketThumbnail
-            src={bg.publicUrl}
-            alt=""
-            size={320}
-            className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-          />
-        ) : null}
-        {layers.map((layer) => {
-          const asset = layer.assetId ? byId.get(layer.assetId) : null;
-          return (
-            <div key={layer.id} className="pointer-events-none absolute" style={layerPreviewStyle(layer)}>
-              {asset?.publicUrl ? (
-                <SamarketThumbnail src={asset.publicUrl} alt="" size={240} className="h-full w-full object-contain" />
-              ) : layer.type === "TEXT" ? (
-                <p className="truncate text-center text-[11px] text-sam-fg">{layer.text || layer.name || "Text"}</p>
-              ) : (
-                <div className="flex h-full w-full items-center justify-center border border-dashed border-sam-border text-[10px] text-sam-muted">
-                  {layer.name || layer.type}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {scene?.cta?.enabled ? (
-          <div
-            className="pointer-events-none absolute flex items-center justify-center rounded-ui-rect bg-sam-fg text-[10px] text-sam-app"
-            style={layerPreviewStyle({
-              anchor: "center",
-              xPct: scene.cta.xPct,
-              yPct: scene.cta.yPct,
-              widthPct: scene.cta.widthPct,
-              heightPct: scene.cta.heightPct,
-              opacity: scene.cta.opacity,
-            })}
-          >
-            {scene.cta.label || "CTA"}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
+function layerAnimation(layer: IntroLayer): IntroAnimationMeta {
+  if (layer.animation && typeof layer.animation === "object") return layer.animation;
+  return emptyAnimationMeta();
 }
 
 export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) {
@@ -177,10 +126,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const fileRef = useRef<HTMLInputElement>(null);
 
   const applyLoaded = useCallback((next: IntroAdminCampaign) => {
-    const copy = discardIntroCmsEdits(next);
+    const adapted = adaptOperatorDraftToCanonical(next);
+    const copy = discardIntroCmsEdits(adapted);
     setCampaign(copy);
-    setSaved(discardIntroCmsEdits(next));
-    setSceneId((cur) => cur ?? next.scenes[0]?.id ?? null);
+    setSaved(discardIntroCmsEdits(adapted));
+    setSceneId((cur) => cur ?? adapted.scenes[0]?.id ?? null);
   }, []);
 
   const load = useCallback(async () => {
@@ -263,6 +213,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       campaign?: IntroAdminCampaign;
+      issues?: { messageKo?: string; messageEn?: string }[];
     };
     setBusy(false);
     const applied = applyIntroCmsSaveResult({
@@ -272,15 +223,18 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     });
     setCampaign(applied.campaign);
     if (applied.persisted && json.campaign) {
-      setSaved(discardIntroCmsEdits(json.campaign));
+      const adapted = adaptOperatorDraftToCanonical(json.campaign);
+      setCampaign(discardIntroCmsEdits(adapted));
+      setSaved(discardIntroCmsEdits(adapted));
       setError(null);
       return true;
     }
     setError(
-      safeT("admin_intro_save_failed", {
-        fallbackKo: "저장에 실패했습니다. 편집 내용은 그대로 있습니다.",
-        fallbackEn: "Save failed. Your unsaved edits are still here.",
-      })
+      firstIssueMessage(json.issues, lang) ??
+        safeT("admin_intro_save_failed", {
+          fallbackKo: "저장에 실패했습니다. 편집 내용은 그대로 있습니다.",
+          fallbackEn: "Save failed. Your unsaved edits are still here.",
+        })
     );
     return false;
   };
@@ -331,11 +285,92 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     patchScenes(reorderScenes(campaign.scenes, from, to));
   };
 
-  const addImageLayer = () => {
+  const patchLayer = (next: IntroLayer) => {
     if (!scene) return;
-    const next = defaultImageLayer(`tmp-l-${Date.now()}`, scene.layers.length + 1);
+    let nextScene: IntroAdminScene = {
+      ...scene,
+      layers: scene.layers.map((item) => (item.id === next.id ? next : item)),
+    };
+    if (next.type === "CTA") {
+      nextScene = {
+        ...nextScene,
+        cta: {
+          ...(scene.cta ?? { destination: { type: "COMMUNITY" }, label: "" }),
+          enabled: next.visible !== false,
+          destination: scene.cta?.destination ?? { type: "COMMUNITY" },
+          label: next.text ?? scene.cta?.label ?? "",
+          xPct: next.xPct,
+          yPct: next.yPct,
+          widthPct: next.widthPct,
+          heightPct: next.heightPct,
+        },
+      };
+    }
+    patchScene(nextScene);
+  };
+
+  const addLayer = (type: IntroLayerType) => {
+    if (!scene) return;
+    const next = createLayerOfType(type, nextLayerId(), scene.layers.length + 1);
+    let nextScene: IntroAdminScene = { ...scene, layers: [...scene.layers, next] };
+    if (type === "CTA") {
+      nextScene = {
+        ...nextScene,
+        cta: {
+          ...(scene.cta ?? { destination: { type: "COMMUNITY" }, label: "시작하기" }),
+          enabled: true,
+          destination: scene.cta?.destination ?? { type: "COMMUNITY" },
+          label: next.text ?? scene.cta?.label ?? "시작하기",
+          xPct: next.xPct,
+          yPct: next.yPct,
+          widthPct: next.widthPct,
+          heightPct: next.heightPct,
+        },
+      };
+    }
+    patchScene(nextScene);
+    setLayerId(next.id);
+  };
+
+  const dupLayer = () => {
+    if (!scene || !layer) return;
+    const next: IntroLayer = {
+      ...layer,
+      id: nextLayerId(),
+      name: `${layer.name || layer.type} copy`,
+      zIndex: scene.layers.length + 1,
+    };
     patchScene({ ...scene, layers: [...scene.layers, next] });
     setLayerId(next.id);
+  };
+
+  const deleteLayer = () => {
+    if (!scene || !layer) return;
+    patchScene({
+      ...scene,
+      layers: scene.layers
+        .filter((item) => item.id !== layer.id)
+        .map((item, index) => ({ ...item, zIndex: index + 1 })),
+    });
+    setLayerId(null);
+  };
+
+  const moveLayerZ = (dir: -1 | 1) => {
+    if (!scene || !layer) return;
+    const ordered = [...scene.layers].sort((a, b) => a.zIndex - b.zIndex);
+    const from = ordered.findIndex((item) => item.id === layer.id);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= ordered.length) return;
+    const swapped = [...ordered];
+    const a = swapped[from];
+    const b = swapped[to];
+    if (!a || !b) return;
+    swapped[from] = b;
+    swapped[to] = a;
+    patchScene({
+      ...scene,
+      layers: swapped.map((item, index) => ({ ...item, zIndex: index + 1 })),
+    });
   };
 
   const onUpload = async (file: File) => {
@@ -382,9 +417,16 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     }
     const nextAsset = regJson.asset;
     const target =
-      scene.layers.find((item) => item.id === layerId && item.type === "IMAGE") ??
+      scene.layers.find(
+        (item) =>
+          item.id === layerId &&
+          (item.type === "IMAGE" ||
+            item.type === "LOGO" ||
+            item.type === "BACKGROUND" ||
+            (item.type === "DECORATION" && item.decorationKind === "sticker"))
+      ) ??
       scene.layers.find((item) => item.type === "IMAGE") ??
-      defaultImageLayer(`tmp-l-${Date.now()}`, scene.layers.length + 1);
+      defaultImageLayer(nextLayerId(), scene.layers.length + 1);
     const layers = scene.layers.some((item) => item.id === target.id)
       ? scene.layers.map((item) => (item.id === target.id ? { ...item, assetId: nextAsset.id } : item))
       : [...scene.layers, { ...target, assetId: nextAsset.id }];
@@ -406,9 +448,16 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       method: "POST",
       credentials: "same-origin",
     });
+    const pubJson = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      issues?: { messageKo?: string; messageEn?: string }[];
+    };
     setBusy(false);
     if (!res.ok) {
-      setError(lang === "en" ? "Publish failed." : "게시에 실패했습니다.");
+      setError(
+        firstIssueMessage(pubJson.issues, lang) ??
+          (lang === "en" ? "Publish failed." : "게시에 실패했습니다.")
+      );
       return;
     }
     await load();
@@ -600,7 +649,19 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                 </AdminActionButton>
               ))}
             </div>
-            <CmsReadOnlyPreview scene={scene} assets={campaign.assets} viewport={viewport} lang={lang} />
+            <AdminIntroCompositionCanvas
+              campaignId={campaign.id}
+              scene={scene}
+              assets={campaign.assets}
+              viewport={viewport}
+              selectedLayerId={layer?.id ?? null}
+              onSelectLayer={setLayerId}
+              onMoveLayerPct={(id, xPct, yPct) => {
+                const current = scene?.layers.find((item) => item.id === id);
+                if (!current) return;
+                patchLayer({ ...current, xPct, yPct });
+              }}
+            />
           </AdminCard>
 
           <AdminCard>
@@ -608,9 +669,9 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               {safeT("admin_intro_layers", { fallbackKo: "레이어", fallbackEn: "Layers" })}
             </h2>
             <p className="mb-3 text-sm text-sam-muted">
-              {safeT("admin_intro_layer_runtime_pending", {
-                fallbackKo: "레이어 런타임은 이후 단계에서 완성됩니다.",
-                fallbackEn: "Layer runtime will be completed in a later phase.",
+              {safeT("admin_intro_layer_authoring", {
+                fallbackKo: "하나의 구성에 레이어를 추가합니다. Phone/Tablet/Wide는 미리보기만 바꿉니다.",
+                fallbackEn: "Add layers to one composition. Phone/Tablet/Wide only change the preview viewport.",
               })}
             </p>
             <ul className="space-y-2" data-intro-layer-inventory="1">
@@ -628,6 +689,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                         onClick={() => setLayerId(item.id)}
                       >
                         {introLayerTypeLabel(item.type, lang)} · {item.name || item.id}
+                        {item.visible === false ? (lang === "en" ? " · hidden" : " · 숨김") : ""}
                       </button>
                     </li>
                   ))
@@ -635,9 +697,25 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                 <li className="text-sm text-sam-muted">{lang === "en" ? "No layers yet." : "레이어가 없습니다."}</li>
               )}
             </ul>
-            <div className="mt-3">
-              <AdminActionButton variant="secondary" disabled={!scene} onClick={addImageLayer}>
-                {lang === "en" ? "Add image layer" : "이미지 레이어 추가"}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {INTRO_LAYER_TYPES.map((type) => (
+                <AdminActionButton key={type} variant="secondary" disabled={!scene} onClick={() => addLayer(type)}>
+                  {introLayerTypeLabel(type, lang)}
+                </AdminActionButton>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <AdminActionButton variant="quiet" disabled={!layer} onClick={dupLayer}>
+                {safeT("admin_intro_duplicate_layer", { fallbackKo: "레이어 복제", fallbackEn: "Duplicate layer" })}
+              </AdminActionButton>
+              <AdminActionButton variant="quiet" disabled={!layer} onClick={deleteLayer}>
+                {safeT("admin_intro_delete_layer", { fallbackKo: "레이어 삭제", fallbackEn: "Delete layer" })}
+              </AdminActionButton>
+              <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(1)}>
+                {safeT("admin_intro_layer_forward", { fallbackKo: "앞으로", fallbackEn: "Forward" })}
+              </AdminActionButton>
+              <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(-1)}>
+                {safeT("admin_intro_layer_back", { fallbackKo: "뒤로", fallbackEn: "Back" })}
               </AdminActionButton>
             </div>
           </AdminCard>
@@ -728,6 +806,35 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   </select>
                 </label>
                 <label className="mt-3 block text-sm">
+                  {lang === "en" ? "Transition duration (ms)" : "전환 시간 (ms)"}
+                  <input
+                    className={FIELD}
+                    type="number"
+                    min={0}
+                    value={scene.transitionMs ?? 280}
+                    onChange={(e) =>
+                      patchScene({
+                        ...scene,
+                        transitionMs: e.target.value ? Number(e.target.value) : 280,
+                      })
+                    }
+                  />
+                </label>
+                <label className="mt-3 block text-sm">
+                  {lang === "en" ? "Transition easing" : "전환 이징"}
+                  <select
+                    className={FIELD}
+                    value={scene.transitionEasing ?? "ease_out"}
+                    onChange={(e) => patchScene({ ...scene, transitionEasing: e.target.value })}
+                  >
+                    {INTRO_EASINGS.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="mt-3 block text-sm">
                   {lang === "en" ? "Skip" : "건너뛰기"}
                   <select
                     className={FIELD}
@@ -768,38 +875,404 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   {lang === "en" ? "CTA enabled" : "CTA 사용"}
                 </label>
                 {scene.cta?.enabled ? (
-                  <label className="mt-3 block text-sm">
-                    {lang === "en" ? "CTA label" : "CTA 문구"}
-                    <input
-                      className={FIELD}
-                      value={scene.cta.label ?? ""}
-                      onChange={(e) =>
-                        patchScene({
-                          ...scene,
-                          cta: { ...scene.cta!, label: e.target.value },
-                        })
-                      }
-                    />
-                  </label>
+                  <>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "CTA label" : "CTA 문구"}
+                      <input
+                        className={FIELD}
+                        value={scene.cta.label ?? ""}
+                        onChange={(e) =>
+                          patchScene({
+                            ...scene,
+                            cta: { ...scene.cta!, label: e.target.value },
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "CTA action" : "CTA 동작"}
+                      <select
+                        className={FIELD}
+                        value={scene.cta.destination.type}
+                        onChange={(e) =>
+                          patchScene({
+                            ...scene,
+                            cta: {
+                              ...scene.cta!,
+                              destination: { type: e.target.value as IntroCtaDestinationType },
+                            },
+                          })
+                        }
+                      >
+                        {INTRO_CTA_DESTINATION_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {["STORE", "PRODUCT", "LISTING", "POST", "CHAT_ROOM", "EVENT"].includes(
+                      scene.cta.destination.type
+                    ) ? (
+                      <label className="mt-3 block text-sm">
+                        {lang === "en" ? "Target id" : "대상 ID"}
+                        <input
+                          className={FIELD}
+                          value={scene.cta.destination.id ?? ""}
+                          onChange={(e) =>
+                            patchScene({
+                              ...scene,
+                              cta: {
+                                ...scene.cta!,
+                                destination: { ...scene.cta!.destination, id: e.target.value },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                    {scene.cta.destination.type === "INTERNAL_PATH" ? (
+                      <label className="mt-3 block text-sm">
+                        {lang === "en" ? "Path" : "경로"}
+                        <input
+                          className={FIELD}
+                          value={scene.cta.destination.path ?? ""}
+                          onChange={(e) =>
+                            patchScene({
+                              ...scene,
+                              cta: {
+                                ...scene.cta!,
+                                destination: { ...scene.cta!.destination, path: e.target.value },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                    {scene.cta.destination.type === "EXTERNAL_URL" ? (
+                      <label className="mt-3 block text-sm">
+                        {lang === "en" ? "https URL" : "https 주소"}
+                        <input
+                          className={FIELD}
+                          value={scene.cta.destination.url ?? ""}
+                          onChange={(e) =>
+                            patchScene({
+                              ...scene,
+                              cta: {
+                                ...scene.cta!,
+                                destination: { ...scene.cta!.destination, url: e.target.value },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : null}
             {layer ? (
-              <label className="mt-3 block text-sm">
-                {lang === "en" ? "Layer name" : "레이어 이름"}
-                <input
-                  className={FIELD}
-                  value={layer.name ?? ""}
-                  onChange={(e) =>
-                    patchScene({
-                      ...scene!,
-                      layers: scene!.layers.map((item) =>
-                        item.id === layer.id ? { ...item, name: e.target.value } : item
-                      ),
-                    })
-                  }
-                />
-              </label>
+              <>
+                <label className="mt-3 block text-sm">
+                  {lang === "en" ? "Layer name" : "레이어 이름"}
+                  <input
+                    className={FIELD}
+                    value={layer.name ?? ""}
+                    onChange={(e) => patchLayer({ ...layer, name: e.target.value })}
+                  />
+                </label>
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={layer.visible !== false}
+                    onChange={(e) => patchLayer({ ...layer, visible: e.target.checked })}
+                  />
+                  {lang === "en" ? "Visible" : "표시"}
+                </label>
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={layer.safeArea !== false}
+                    onChange={(e) => patchLayer({ ...layer, safeArea: e.target.checked })}
+                  />
+                  {lang === "en" ? "Safe-area relative" : "안전 영역 기준"}
+                </label>
+                <label className="mt-3 block text-sm">
+                  {lang === "en" ? "Anchor" : "앵커"}
+                  <select
+                    className={FIELD}
+                    value={layer.anchor}
+                    onChange={(e) => patchLayer({ ...layer, anchor: e.target.value as IntroLayerAnchor })}
+                  >
+                    {INTRO_LAYER_ANCHORS.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {(["xPct", "yPct", "widthPct", "heightPct"] as const).map((key) => (
+                  <label key={key} className="mt-3 block text-sm">
+                    {key}
+                    <input
+                      className={FIELD}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={layer[key] ?? ""}
+                      onChange={(e) =>
+                        patchLayer({
+                          ...layer,
+                          [key]: e.target.value === "" ? undefined : Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+                {layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND" ? (
+                  <label className="mt-3 block text-sm">
+                    {lang === "en" ? "Aspect" : "비율"}
+                    <select
+                      className={FIELD}
+                      value={layer.aspectPolicy ?? "contain"}
+                      onChange={(e) =>
+                        patchLayer({ ...layer, aspectPolicy: e.target.value as IntroAspectPolicy })
+                      }
+                    >
+                      {INTRO_ASPECT_POLICIES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {layer.type === "TEXT" || layer.type === "CTA" ? (
+                  <>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Text" : "텍스트"}
+                      <textarea
+                        className={FIELD}
+                        rows={3}
+                        value={layer.text ?? ""}
+                        onChange={(e) => patchLayer({ ...layer, text: e.target.value })}
+                      />
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Font token" : "글꼴 토큰"}
+                      <select
+                        className={FIELD}
+                        value={layer.fontToken ?? "body"}
+                        onChange={(e) =>
+                          patchLayer({ ...layer, fontToken: e.target.value as IntroFontToken })
+                        }
+                      >
+                        {INTRO_FONT_TOKENS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Align" : "정렬"}
+                      <select
+                        className={FIELD}
+                        value={layer.textAlign ?? "center"}
+                        onChange={(e) =>
+                          patchLayer({ ...layer, textAlign: e.target.value as IntroTextAlign })
+                        }
+                      >
+                        {INTRO_TEXT_ALIGNS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Color" : "색"}
+                      <input
+                        type="color"
+                        className="ml-2 align-middle"
+                        value={layer.color || "#111827"}
+                        onChange={(e) => patchLayer({ ...layer, color: e.target.value })}
+                      />
+                    </label>
+                    <label className="mt-3 flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={layer.wrap !== false}
+                        onChange={(e) => patchLayer({ ...layer, wrap: e.target.checked })}
+                      />
+                      {lang === "en" ? "Wrap" : "줄바꿈"}
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Max lines" : "최대 줄"}
+                      <input
+                        className={FIELD}
+                        type="number"
+                        min={1}
+                        value={layer.maxLines ?? 3}
+                        onChange={(e) =>
+                          patchLayer({
+                            ...layer,
+                            maxLines: e.target.value ? Number(e.target.value) : undefined,
+                          })
+                        }
+                      />
+                    </label>
+                  </>
+                ) : null}
+                {layer.type === "DECORATION" ? (
+                  <>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Decoration" : "장식"}
+                      <select
+                        className={FIELD}
+                        value={layer.decorationKind ?? "shape"}
+                        onChange={(e) =>
+                          patchLayer({
+                            ...layer,
+                            decorationKind: e.target.value as IntroDecorationKind,
+                          })
+                        }
+                      >
+                        {INTRO_DECORATION_KINDS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="mt-3 block text-sm">
+                      {lang === "en" ? "Fill" : "채움"}
+                      <input
+                        type="color"
+                        className="ml-2 align-middle"
+                        value={layer.fillColor || "#a855f7"}
+                        onChange={(e) => patchLayer({ ...layer, fillColor: e.target.value })}
+                      />
+                    </label>
+                  </>
+                ) : null}
+                {(["enter", "emphasis", "exit"] as const).map((phase) => {
+                  const clip = layerAnimation(layer)[phase] ?? {
+                    type: "none" as const,
+                    durationMs: 0,
+                    delayMs: 0,
+                    easing: "ease_out" as const,
+                    repeat: "none" as const,
+                  };
+                  return (
+                    <div key={phase} className="mt-3 rounded-ui-rect border border-sam-border p-2">
+                      <p className="text-xs font-medium uppercase text-sam-muted">{phase}</p>
+                      <label className="mt-2 block text-sm">
+                        {lang === "en" ? "Type" : "종류"}
+                        <select
+                          className={FIELD}
+                          value={clip.type}
+                          onChange={(e) =>
+                            patchLayer({
+                              ...layer,
+                              animation: {
+                                ...layerAnimation(layer),
+                                [phase]: { ...clip, type: e.target.value as (typeof INTRO_ANIMATION_TYPES)[number] },
+                              },
+                            })
+                          }
+                        >
+                          {INTRO_ANIMATION_TYPES.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="mt-2 block text-sm">
+                        {lang === "en" ? "Duration (ms)" : "시간 (ms)"}
+                        <input
+                          className={FIELD}
+                          type="number"
+                          min={0}
+                          value={clip.durationMs}
+                          onChange={(e) =>
+                            patchLayer({
+                              ...layer,
+                              animation: {
+                                ...layerAnimation(layer),
+                                [phase]: { ...clip, durationMs: Number(e.target.value || 0) },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="mt-2 block text-sm">
+                        {lang === "en" ? "Delay (ms)" : "지연 (ms)"}
+                        <input
+                          className={FIELD}
+                          type="number"
+                          min={0}
+                          value={clip.delayMs}
+                          onChange={(e) =>
+                            patchLayer({
+                              ...layer,
+                              animation: {
+                                ...layerAnimation(layer),
+                                [phase]: { ...clip, delayMs: Number(e.target.value || 0) },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="mt-2 block text-sm">
+                        easing
+                        <select
+                          className={FIELD}
+                          value={clip.easing}
+                          onChange={(e) =>
+                            patchLayer({
+                              ...layer,
+                              animation: {
+                                ...layerAnimation(layer),
+                                [phase]: { ...clip, easing: e.target.value as IntroEasing },
+                              },
+                            })
+                          }
+                        >
+                          {INTRO_EASINGS.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="mt-2 block text-sm">
+                        {lang === "en" ? "Repeat" : "반복"}
+                        <select
+                          className={FIELD}
+                          value={clip.repeat}
+                          onChange={(e) =>
+                            patchLayer({
+                              ...layer,
+                              animation: {
+                                ...layerAnimation(layer),
+                                [phase]: { ...clip, repeat: e.target.value as IntroRepeatPolicy },
+                              },
+                            })
+                          }
+                        >
+                          {INTRO_REPEAT_POLICIES.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  );
+                })}
+              </>
             ) : null}
           </AdminCard>
 
