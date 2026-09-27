@@ -1,14 +1,12 @@
 /**
- * Marketplace list ↔ detail — PRODUCT COMPOSITION presentation SSOT.
+ * Marketplace list ↔ detail — presentation coordinator SSOT.
  *
- * NEW engine (not a rename of MarketCardMorphHost).
- * Unit = product composition { media?, price, title, meta? }
- * ONE coordinator · ONE progress p · 360ms · ≤1 instance per semantic field.
- * No media ⇒ media node is NOT created (not hidden/placeholder/skeleton).
+ * VISUAL OWNER = real PostDetailView root (not reconstructed media/price/title/meta).
  * Navigation remains `<Link>` + App Router.
  *
- * Reverse destination authority: retained TradeListPresentationSession selected geometry
- * (captured at select). Live list bind is optional revalidation — never a cover-only wait.
+ * FORWARD: session arms source identity only. Covering real detail is FORBIDDEN.
+ * REVERSE: retain real detail root until list paint-ready (f462 / a5c29a).
+ * Live list bind is optional revalidation — never a cover-only wait.
  */
 
 import { peekTradeListPresentationSession } from "@/lib/trade/marketplace/trade-list-presentation-session";
@@ -60,6 +58,8 @@ export type TradeMarketProductCompositionSession = {
   destinationCommitted: boolean;
 };
 
+export type TradeDetailSurfacePhase = "idle" | "entering" | "settled" | "exiting";
+
 export const TRADE_MARKET_COMPOSITION_DURATION_MS = 360;
 
 const STORAGE_KEY = "samarket:trade-market-product-composition:v2";
@@ -82,8 +82,9 @@ let detailStanding: TradeMarketProductCompositionSession | null = null;
 /** Reverse: live destination bind is allowed once per generation (optional refine). */
 let reverseLiveBindGeneration: number | null = null;
 let reverseLiveBindCount = 0;
-/** Forward continuity handoff: detail must show under transition product. */
-let continuityHandoffActive = false;
+let surfacePhase: TradeDetailSurfacePhase = "idle";
+let surfaceListingId: string | null = null;
+let retainedSurface: { listingId: string; node: HTMLElement } | null = null;
 
 function notify(): void {
   for (const fn of listeners) {
@@ -255,9 +256,11 @@ function setSession(session: TradeMarketProductCompositionSession | null): void 
 }
 
 export function clearTradeMarketProductComposition(): void {
-  continuityHandoffActive = false;
   reverseLiveBindGeneration = null;
   reverseLiveBindCount = 0;
+  surfacePhase = "idle";
+  surfaceListingId = null;
+  releaseTradeDetailSurfaceRetain();
   setSession(null);
 }
 
@@ -293,27 +296,74 @@ export function isTradeMarketProductCompositionActive(): boolean {
 }
 
 /**
- * When true, forward handoff has begun: real detail must be visible under the
- * fading transition product (crossfade). Covering must release without clearing session.
+ * FORWARD COVER = FORBIDDEN. Real PostDetailView must remain visible on enter.
+ * Reverse white-gap uses retainTradeDetailSurfaceNode, not this cover.
  */
-export function setTradeMarketContinuityHandoffActive(active: boolean): void {
-  if (continuityHandoffActive === active) return;
-  continuityHandoffActive = active;
+export function isTradeMarketProductCompositionCoveringDetail(_postId: string): boolean {
+  return false;
+}
+
+export function peekTradeDetailSurfacePhase(): {
+  listingId: string | null;
+  phase: TradeDetailSurfacePhase;
+} {
+  return { listingId: surfaceListingId, phase: surfacePhase };
+}
+
+export function setTradeDetailSurfacePhase(listingId: string, phase: TradeDetailSurfacePhase): void {
+  surfaceListingId = listingId.trim() || null;
+  surfacePhase = phase;
   queueMicrotask(notify);
 }
 
-export function isTradeMarketContinuityHandoffActive(): boolean {
-  return continuityHandoffActive;
+export function peekTradeDetailSurfaceRetain(): { listingId: string } | null {
+  return retainedSurface ? { listingId: retainedSurface.listingId } : null;
 }
 
-export function isTradeMarketProductCompositionCoveringDetail(postId: string): boolean {
-  const session = peekTradeMarketProductComposition();
-  if (!session || session.listingId !== postId.trim() || session.direction !== "forward") {
-    return false;
+export function peekTradeDetailSurfaceRetainNode(): HTMLElement | null {
+  if (!retainedSurface) return null;
+  if (typeof document === "undefined") return retainedSurface.node;
+  return document.contains(retainedSurface.node) ? retainedSurface.node : null;
+}
+
+/**
+ * Reverse only: mark the live PostDetailView root as source owner.
+ * Must NOT steal the node from React (moving live nodes crashes on unmount).
+ */
+export function retainTradeDetailSurfaceNode(input: {
+  listingId: string;
+  rootEl?: HTMLElement | null;
+}): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  const listingId = input.listingId.trim();
+  if (!listingId) return null;
+  const held = peekTradeDetailSurfaceRetainNode();
+  if (held && retainedSurface?.listingId === listingId) return held;
+  if (retainedSurface && retainedSurface.listingId !== listingId) {
+    retainedSurface = null;
   }
-  // During continuity handoff, detail must paint under the transition product.
-  if (continuityHandoffActive) return false;
-  return true;
+
+  const root =
+    input.rootEl && input.rootEl.nodeType === 1
+      ? input.rootEl
+      : (document.querySelector(
+          '[data-trade-product-composition-detail-root="1"]'
+        ) as HTMLElement | null);
+  if (!root) return null;
+  root.setAttribute("data-trade-detail-surface-retained", "1");
+  root.setAttribute("data-trade-detail-surface-owner", "post-detail-root");
+  root.setAttribute("data-trade-detail-surface-phase", "settled");
+  root.style.opacity = "1";
+  retainedSurface = { listingId, node: root };
+  setTradeDetailSurfacePhase(listingId, "settled");
+  return root;
+}
+
+export function releaseTradeDetailSurfaceRetain(): void {
+  const held = retainedSurface;
+  retainedSurface = null;
+  if (!held?.node) return;
+  held.node.removeAttribute("data-trade-detail-surface-retained");
 }
 
 export function tradePostIdFromPath(path: string | null | undefined): string | null {

@@ -1,6 +1,6 @@
 /**
- * Marketplace list↔detail visual hooks.
- * Product composition cover + selected-return outline.
+ * Marketplace list↔detail — real PostDetailView surface fade.
+ * Covering the real detail behind a reconstructed overlay is FORBIDDEN.
  */
 
 .market-listing-card[data-market-selected-return="1"] {
@@ -9,14 +9,36 @@
   border-radius: var(--sam-radius-sm, 8px);
 }
 
-/* Real detail stays invisible while composition cover owns perception. */
-[data-trade-product-composition-detail-cover="1"] {
-  opacity: 0 !important;
-  pointer-events: none !important;
+@keyframes trade-detail-surface-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes trade-detail-surface-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+[data-trade-product-composition-detail-root="1"][data-trade-detail-surface-phase="entering"] {
+  animation: trade-detail-surface-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+[data-trade-product-composition-detail-root="1"][data-trade-detail-surface-phase="exiting"] {
+  animation: trade-detail-surface-exit 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-trade-product-composition-slot] {
-    transition: none !important;
+  [data-trade-product-composition-detail-root="1"][data-trade-detail-surface-phase="entering"],
+  [data-trade-product-composition-detail-root="1"][data-trade-detail-surface-phase="exiting"] {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

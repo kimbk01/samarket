@@ -483,34 +483,28 @@ describe("trade retained presentation — reverse / cover / wiring contracts", (
     expect(home).toContain("even if searchParams flickered");
     expect(home).toMatch(/if \(retained && retained\.posts\.length > 0\) \{/);
 
-    // Continuity handoff: one product root; no per-slot flight either direction.
-    expect(host).toContain('data-trade-product-composition-forward-model="product-continuity-handoff"');
-    expect(host).toContain("data-trade-product-composition-product");
-    expect(host).toContain("setTradeMarketContinuityHandoffActive");
-    expect(host).toContain("isDetailProductPaintReady");
+    // Real PostDetailView root owns visuals — reconstructed overlay is forbidden.
+    expect(host).toContain('data-trade-detail-surface-forward-owner="post-detail-root"');
+    expect(host).toContain("retainTradeDetailSurfaceNode");
     expect(host).toContain("isListProductPaintReady");
-    expect(host).toContain("enterForwardTransition");
     expect(host).toContain("enterReversePrepare");
-    expect(host).toContain('data-trade-product-composition-prepare={isForward ? "full-surface"');
-    expect(host).toContain('data-trade-product-composition-surface={isForward ? "full"');
-    // Forward must not pin list-sized hold on white underlayer while waiting.
-    expect(host).toContain("Forward: underlayer never used as waiting owner");
-    expect(host).toContain("paintHandoff");
-    // R-B: reverse must keep detail/source authoritative until handoff (not hideDetail in prepare loop).
-    expect(host).toContain("SOURCE (detail) composition remains authoritative while list target prepares");
-    expect(host).toContain("hideDetail only at handoff after isListProductPaintReady");
-    expect(host).toContain('layoutProductOnce("reverse-source")');
+    expect(host).toContain("SOURCE (real detail root) remains authoritative while list prepares");
+    expect(host).toContain("hide/release only at handoff after isListProductPaintReady");
     const reversePrepare = host.slice(host.indexOf("const enterReversePrepare"));
-    const reversePrepareBody = reversePrepare.slice(0, reversePrepare.indexOf("forceEnd = window.setTimeout"));
+    const reversePrepareBody = reversePrepare.slice(0, reversePrepare.indexOf("const beginHandoff"));
     expect(reversePrepareBody).not.toContain("hideDetail()");
-    expect(reversePrepareBody).toContain("showUnderlayer(false)");
-    expect(host).toMatch(/beginHandoff[\s\S]*?hideDetail\(\)/);
-    // Runtime geometric flight helpers must be absent (comments mentioning the words OK if functions gone).
+    expect(reversePrepareBody).toContain("retainTradeDetailSurfaceNode");
+    expect(host).not.toContain("layoutProductOnce");
+    expect(host).not.toContain("product-continuity-handoff");
+    expect(host).not.toContain("data-trade-product-composition-product");
+    expect(host).not.toContain("setTradeMarketContinuityHandoffActive");
     expect(host).not.toMatch(/\bfunction lerpRect\b|\blerpRect\s*\(/);
     expect(host).not.toMatch(/\bfunction applyBox\b|\bapplyBox\s*\(/);
     expect(host).not.toContain("paintReverse");
     expect(host).not.toContain("reverse-dock");
     expect(host).not.toContain("coverRef.current.style.opacity");
+    expect(host).not.toContain("object-cover");
+    expect(host).not.toContain("innerWidth * 0.92");
   });
 
   it("R-A — CLASS A reset invalidates matching presentation session only", () => {

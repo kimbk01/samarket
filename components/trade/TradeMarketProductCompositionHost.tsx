@@ -1,63 +1,56 @@
 "use client";
 
 /**
- * Sole Marketplace list↔detail PRODUCT COMPOSITION presentation coordinator.
+ * Trade list↔detail surface coordinator.
+ *
+ * VISUAL OWNER = real PostDetailView root.
+ * FORBIDDEN: reconstructed media/price/title/meta overlay as forward destination.
+ * Navigation remains `<Link>` + App Router.
  *
  * FORWARD:
- *   Tap → immediate FULL product surface (F_TRANSITION_ACTIVE)
- *   Detail prepares concurrently (not a visible frozen wait)
- *   isDetailProductPaintReady → F_HANDOFF → real detail owns
- * Forbidden: list-sized static hold on white; white-only hold; media lerp/hero flight.
- *
- * REVERSE (R-B):
- *   Source (detail) composition remains authoritative while list target prepares
- *   (covers App Router detail unmount — not white underlayer).
- *   hideDetail only at handoff after isListProductPaintReady.
- *   Underlayer must never be sole reverse owner on the ready path.
- *
- * Navigation remains `<Link>` + App Router.
+ *   Real detail mounts visible (no cover). Coordinator only settles the enter phase.
+ * REVERSE (f462 / a5c29a):
+ *   Retained real detail root stays authoritative until list paint-ready.
+ *   Then that same root exits (fade). Underlayer is never sole owner.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   TRADE_MARKET_COMPOSITION_DURATION_MS,
   armTradeMarketProductCompositionBackFromStandingIfNeeded,
-  canAcquireTradeMarketCompositionPerceptualOwnership,
   clearTradeMarketProductCompositionIfGeneration,
   clearTradeMarketProductCompositionStanding,
   findTradeMarketListDestinationCard,
   isTradeMarketCompositionMediaOwnershipValid,
   measureListComposition,
+  peekTradeDetailSurfaceRetainNode,
   peekTradeMarketProductComposition,
   peekTradeMarketProductCompositionStanding,
-  setTradeMarketContinuityHandoffActive,
+  releaseTradeDetailSurfaceRetain,
+  retainTradeDetailSurfaceNode,
+  setTradeDetailSurfacePhase,
   subscribeTradeMarketProductComposition,
   tradePostIdFromPath,
-  type TradeMarketCompositionRect,
   type TradeMarketProductCompositionSession,
 } from "@/lib/trade/marketplace/trade-market-product-composition";
 import { isMarketplaceListSurfacePath } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
 
 const MAX_MS = TRADE_MARKET_COMPOSITION_DURATION_MS + 2_000;
-const EASE = (t: number) => 1 - Math.pow(1 - t, 3.2);
 
-type ContinuityPhase =
-  | "source"
-  | "transition_active"
-  | "target_preparing"
-  | "target_ready"
-  | "handoff"
+type CoordinatorPhase =
+  | "idle"
+  | "forward_entering"
+  | "forward_settled"
+  | "reverse_prepare"
+  | "reverse_handoff"
   | "target";
 
 export function TradeMarketProductCompositionHost() {
   const pathname = usePathname();
   const [session, setSession] = useState<TradeMarketProductCompositionSession | null>(null);
-  const [mounted, setMounted] = useState(false);
   const prevPathRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setMounted(true);
     setSession(peekTradeMarketProductComposition());
     const unsub = subscribeTradeMarketProductComposition(() => {
       setSession(peekTradeMarketProductComposition());
@@ -71,6 +64,7 @@ export function TradeMarketProductCompositionHost() {
         fromPostId: standing.listingId,
         listRouteKey: path,
       });
+      retainTradeDetailSurfaceNode({ listingId: standing.listingId });
       clearTradeMarketProductCompositionStanding();
     };
     window.addEventListener("popstate", onPop, true);
@@ -94,6 +88,7 @@ export function TradeMarketProductCompositionHost() {
           listRouteKey: pathname.split("?")[0] || "/market",
         });
       }
+      retainTradeDetailSurfaceNode({ listingId: fromId });
       clearTradeMarketProductCompositionStanding();
     }
   }, [pathname]);
@@ -106,59 +101,15 @@ export function TradeMarketProductCompositionHost() {
       clearTradeMarketProductCompositionIfGeneration(listingId, generation);
       return;
     }
-    const mediaContract = session.mediaContract;
-    if (mediaContract === "present" && session.media?.url) {
-      const t = window.setTimeout(() => {
-        clearTradeMarketProductCompositionIfGeneration(listingId, generation);
-      }, MAX_MS + 4_000);
-      return () => window.clearTimeout(t);
-    }
     const t = window.setTimeout(() => {
       clearTradeMarketProductCompositionIfGeneration(listingId, generation);
-    }, MAX_MS);
+    }, MAX_MS + 4_000);
     return () => window.clearTimeout(t);
   }, [session]);
 
-  if (!mounted || !session) return null;
+  if (!session) return null;
   if (!isTradeMarketCompositionMediaOwnershipValid(session)) return null;
-  return createPortal(
-    <CompositionSurface
-      key={`${session.listingId}:${session.generation}:${session.direction}`}
-      session={session}
-    />,
-    document.body
-  );
-}
-
-function readRect(el: Element | null): TradeMarketCompositionRect | null {
-  if (!el || typeof (el as HTMLElement).getBoundingClientRect !== "function") return null;
-  const r = (el as HTMLElement).getBoundingClientRect();
-  if (!(r.width > 4 && r.height > 4)) return null;
-  return { x: r.x, y: r.y, width: r.width, height: r.height };
-}
-
-function isDetailProductPaintReady(
-  listingId: string,
-  mediaContract: TradeMarketProductCompositionSession["mediaContract"]
-): boolean {
-  if (tradePostIdFromPath(window.location.pathname) !== listingId) return false;
-  const root = document.querySelector(
-    '[data-trade-product-composition-detail-root="1"]'
-  ) as HTMLElement | null;
-  if (!root) return false;
-
-  if (mediaContract === "present") {
-    const photos = root.querySelector('[data-ui5-slot="photos"]');
-    const img = photos?.querySelector("img") as HTMLImageElement | null;
-    const mediaRect = readRect(photos);
-    if (!mediaRect || !img) return false;
-    if (!(img.complete && img.naturalWidth > 0)) return false;
-  }
-
-  const priceRect = readRect(root.querySelector('[data-ui5-slot="price"]'));
-  const titleRect = readRect(root.querySelector('[data-ui5-slot="title"]'));
-  if (!priceRect && !titleRect) return false;
-  return true;
+  return <DetailSurfaceCoordinator session={session} />;
 }
 
 function isListProductPaintReady(
@@ -186,186 +137,34 @@ function isListProductPaintReady(
   return r.width > 8 && r.height > 8;
 }
 
-function CompositionSurface({ session }: { session: TradeMarketProductCompositionSession }) {
-  const mediaRef = useRef<HTMLDivElement | null>(null);
-  const productRef = useRef<HTMLDivElement | null>(null);
-  const portalRootRef = useRef<HTMLDivElement | null>(null);
-  const underlayerRef = useRef<HTMLDivElement | null>(null);
-  const hiddenDestinationRef = useRef<HTMLElement | null>(null);
-  const hiddenDetailRef = useRef<HTMLElement | null>(null);
-  const laidOutRef = useRef(false);
-  const phaseRef = useRef<ContinuityPhase>("source");
+function findLiveDetailRoot(listingId: string): HTMLElement | null {
+  const retained = peekTradeDetailSurfaceRetainNode();
+  if (retained) return retained;
+  const root = document.querySelector(
+    `[data-trade-product-composition-detail-root="1"][data-trade-detail-listing="${CSS.escape(listingId)}"]`
+  ) as HTMLElement | null;
+  if (root) return root;
+  return document.querySelector(
+    '[data-trade-product-composition-detail-root="1"]'
+  ) as HTMLElement | null;
+}
 
-  const frozen = useRef({
-    generation: session.generation,
-    direction: session.direction,
-    media: session.media,
-    price: session.price,
-    title: session.title,
-    meta: session.meta,
-  }).current;
-
-  const hasMedia = Boolean(frozen.media);
-  const mediaContract = session.mediaContract ?? (hasMedia ? "present" : "absent_by_product");
-  const isForward = session.direction === "forward";
-  const [mediaPaintReady, setMediaPaintReady] = useState(mediaContract !== "present");
-  const [phase, setPhase] = useState<ContinuityPhase>("transition_active");
-
-  const restoreDestinationCard = () => {
-    const card = hiddenDestinationRef.current;
-    if (!card) return;
-    card.style.visibility = "";
-    card.removeAttribute("data-trade-product-composition-destination-hidden");
-    hiddenDestinationRef.current = null;
-  };
-
-  const restoreDetail = () => {
-    const detail = hiddenDetailRef.current;
-    if (!detail) return;
-    detail.style.visibility = "";
-    detail.removeAttribute("data-trade-product-composition-detail-hidden");
-    hiddenDetailRef.current = null;
-  };
-
-  const hideDetail = () => {
-    const detail = document.querySelector(
-      '[data-trade-product-composition-detail-root="1"]'
-    ) as HTMLElement | null;
-    if (!detail) return;
-    if (hiddenDetailRef.current === detail) return;
-    restoreDetail();
-    hiddenDetailRef.current = detail;
-    detail.setAttribute("data-trade-product-composition-detail-hidden", "1");
-    detail.style.visibility = "hidden";
-  };
+function DetailSurfaceCoordinator({ session }: { session: TradeMarketProductCompositionSession }) {
+  const [phase, setPhase] = useState<CoordinatorPhase>(
+    session.direction === "forward" ? "forward_entering" : "reverse_prepare"
+  );
+  const phaseRef = useRef<CoordinatorPhase>(phase);
 
   useLayoutEffect(() => {
-    if (mediaContract !== "present" || !frozen.media?.url) {
-      setMediaPaintReady(true);
-      return;
-    }
-    let cancelled = false;
-    const listingId = session.listingId;
-    const generation = session.generation;
-    const url = frozen.media.url;
-    const img = new Image();
-    img.decoding = "async";
-
-    const succeed = () => {
-      if (cancelled) return;
-      if (!(img.complete && img.naturalWidth > 0)) return;
-      setMediaPaintReady(true);
-    };
-    const failClosed = () => {
-      if (cancelled) return;
-      clearTradeMarketProductCompositionIfGeneration(listingId, generation);
-    };
-
-    img.onload = succeed;
-    img.onerror = failClosed;
-    img.src = url;
-    if (img.complete && img.naturalWidth > 0) {
-      succeed();
-    } else if (typeof img.decode === "function") {
-      img.decode().then(succeed, () => {});
-    }
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped media gate
-  }, [session.generation]);
-
-  /**
-   * FORWARD: immediate full-viewport PRODUCT SURFACE (covers list — not list-sized hold, not blank white).
-   * REVERSE prepare: SOURCE (detail) geometry product owns continuity while list target prepares.
-   * REVERSE handoff: list-geometry product, then fade to real list.
-   * Never grows via list→hero geometric flight.
-   */
-  const layoutProductOnce = (mode: "forward" | "reverse-source" | "reverse-target" = isForward ? "forward" : "reverse-target") => {
-    const root = productRef.current;
-    if (!root) return;
-
-    if (mode === "forward") {
-      if (laidOutRef.current) return;
-      const vw = typeof window !== "undefined" ? window.innerWidth : 390;
-      const mediaH = Math.min(vw, Math.round(vw * 0.92));
-      root.style.left = "0px";
-      root.style.top = "0px";
-      root.style.width = "100%";
-      root.style.height = "100%";
-      root.style.transform = "none";
-      root.style.opacity = "1";
-      root.style.background = "var(--sam-app, #fff)";
-      root.style.padding = "0";
-      root.style.boxSizing = "border-box";
-      if (mediaRef.current && frozen.media) {
-        mediaRef.current.style.width = "100%";
-        mediaRef.current.style.height = `${mediaH}px`;
-        mediaRef.current.style.borderRadius = "0px";
-        mediaRef.current.style.transform = "none";
-      }
-      laidOutRef.current = true;
-      return;
-    }
-
-    const useSource = mode === "reverse-source";
-    const mediaGeom = useSource
-      ? (frozen.media?.source ?? frozen.media?.target)
-      : (frozen.media?.target ?? frozen.media?.source);
-    const priceGeom = useSource
-      ? (frozen.price?.source ?? frozen.price?.target)
-      : (frozen.price?.target ?? frozen.price?.source);
-    const titleGeom = useSource
-      ? (frozen.title?.source ?? frozen.title?.target)
-      : (frozen.title?.target ?? frozen.title?.source);
-    const metaGeom = useSource
-      ? (frozen.meta?.source ?? frozen.meta?.target)
-      : (frozen.meta?.target ?? frozen.meta?.source);
-    const left = mediaGeom?.x ?? priceGeom?.x ?? titleGeom?.x ?? metaGeom?.x ?? 0;
-    const top = mediaGeom?.y ?? priceGeom?.y ?? titleGeom?.y ?? metaGeom?.y ?? 0;
-    const width = Math.max(
-      1,
-      mediaGeom?.width ?? priceGeom?.width ?? titleGeom?.width ?? metaGeom?.width ?? 180
-    );
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-    root.style.width = `${width}px`;
-    root.style.height = "";
-    root.style.transform = "none";
-    root.style.opacity = "1";
-    root.style.background = useSource ? "var(--sam-app, #fff)" : "";
-    root.style.padding = "";
-    if (mediaRef.current && mediaGeom) {
-      mediaRef.current.style.width = `${mediaGeom.width}px`;
-      mediaRef.current.style.height = `${mediaGeom.height}px`;
-      mediaRef.current.style.transform = "none";
-      mediaRef.current.style.borderRadius = useSource ? "0px" : "8px";
-    }
-    laidOutRef.current = true;
-  };
-
-  useLayoutEffect(() => {
-    if (
-      !canAcquireTradeMarketCompositionPerceptualOwnership({
-        mediaContract,
-        media: frozen.media,
-        mediaPaintReady,
-      })
-    ) {
-      return;
-    }
-
     const listingId = session.listingId;
     const generation = session.generation;
     const direction = session.direction;
+    const mediaContract = session.mediaContract;
     let raf = 0;
     let ended = false;
     let forceEnd: number | null = null;
-    let handoffStarted = false;
-    let start = performance.now();
 
-    const setPhaseSafe = (next: ContinuityPhase) => {
+    const setPhaseSafe = (next: CoordinatorPhase) => {
       phaseRef.current = next;
       setPhase(next);
     };
@@ -374,11 +173,7 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       if (ended) return;
       ended = true;
       if (raf) cancelAnimationFrame(raf);
-      const portal = portalRootRef.current;
-      if (portal) portal.style.display = "none";
-      restoreDestinationCard();
-      restoreDetail();
-      setTradeMarketContinuityHandoffActive(false);
+      releaseTradeDetailSurfaceRetain();
       setPhaseSafe("target");
       clearTradeMarketProductCompositionIfGeneration(listingId, generation);
     };
@@ -388,120 +183,104 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
       return live && live.generation === generation ? live : session;
     };
 
-    const targetPaintReady = () => {
-      if (direction === "forward") {
-        return isDetailProductPaintReady(listingId, mediaContract);
-      }
-      if (!readLive().destinationCommitted) return false;
-      return isListProductPaintReady(listingId, mediaContract);
-    };
-
-    const showUnderlayer = (on: boolean) => {
-      if (!underlayerRef.current) return;
-      // Forward: underlayer never used as waiting owner (product surface owns).
-      if (direction === "forward") {
-        underlayerRef.current.style.display = "none";
-        underlayerRef.current.style.opacity = "0";
-        return;
-      }
-      underlayerRef.current.style.display = on ? "block" : "none";
-      underlayerRef.current.style.opacity = on ? "1" : "0";
-    };
-
-    const paintHandoff = (pRaw: number) => {
-      const p = EASE(Math.min(1, Math.max(0, pRaw)));
-      layoutProductOnce();
-      if (productRef.current) productRef.current.style.opacity = String(1 - p);
-    };
-
-    const beginHandoff = () => {
-      if (handoffStarted || ended) return;
-      if (!targetPaintReady()) return;
-      handoffStarted = true;
-      setPhaseSafe("handoff");
-      showUnderlayer(false);
-
-      if (direction === "forward") {
-        setTradeMarketContinuityHandoffActive(true);
-      } else {
-        // R-B: detail/source authority held through prepare; release only here at target-ready.
-        hideDetail();
-        laidOutRef.current = false;
-        layoutProductOnce("reverse-target");
-        if (productRef.current) productRef.current.style.opacity = "1";
-      }
-
-      if (forceEnd != null) {
-        window.clearTimeout(forceEnd);
-        forceEnd = null;
-      }
-      start = performance.now();
-      paintHandoff(0);
-      const tick = (now: number) => {
-        if (ended) return;
-        const p = Math.min(1, (now - start) / TRADE_MARKET_COMPOSITION_DURATION_MS);
-        paintHandoff(p);
-        if (p < 1) {
-          raf = requestAnimationFrame(tick);
-          return;
-        }
-        finish();
-      };
-      raf = requestAnimationFrame(tick);
-    };
-
     /**
-     * FORWARD: F_TRANSITION_ACTIVE immediately (full product surface).
-     * Detail prepares concurrently — waitReady must NOT freeze a list-sized card on white.
-     * When paint-ready → F_HANDOFF (readiness remains final gate).
+     * FORWARD: real PostDetailView is already the painted owner.
+     * Coordinator must not insert a reconstructed product.
      */
-    const enterForwardTransition = () => {
-      setPhaseSafe("transition_active");
-      showUnderlayer(false);
-      layoutProductOnce();
-      if (productRef.current) productRef.current.style.opacity = "1";
-      setPhaseSafe("target_preparing");
-
-      const pollReady = () => {
-        if (ended || handoffStarted) return;
-        // Keep full surface authoritative while preparing — still a coherent product owner, not a blank wait.
-        layoutProductOnce();
-        if (productRef.current) productRef.current.style.opacity = "1";
-        showUnderlayer(false);
-
-        if (targetPaintReady()) {
-          setPhaseSafe("target_ready");
-          beginHandoff();
+    const enterForward = () => {
+      setPhaseSafe("forward_entering");
+      const startEnter = (root: HTMLElement) => {
+        setTradeDetailSurfacePhase(listingId, "entering");
+        root.setAttribute("data-trade-detail-surface-phase", "entering");
+        root.setAttribute("data-trade-detail-surface-owner", "post-detail-root");
+        const reduced =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduced) {
+          setTradeDetailSurfacePhase(listingId, "settled");
+          root.setAttribute("data-trade-detail-surface-phase", "settled");
+          setPhaseSafe("forward_settled");
+          finish();
           return;
         }
-        raf = requestAnimationFrame(pollReady);
+        const onEnd = (ev: AnimationEvent) => {
+          if (ev.target !== root) return;
+          root.removeEventListener("animationend", onEnd);
+          setTradeDetailSurfacePhase(listingId, "settled");
+          root.setAttribute("data-trade-detail-surface-phase", "settled");
+          setPhaseSafe("forward_settled");
+          finish();
+        };
+        root.addEventListener("animationend", onEnd);
+        if (forceEnd != null) window.clearTimeout(forceEnd);
+        forceEnd = window.setTimeout(() => {
+          root.removeEventListener("animationend", onEnd);
+          if (ended) return;
+          setTradeDetailSurfacePhase(listingId, "settled");
+          root.setAttribute("data-trade-detail-surface-phase", "settled");
+          finish();
+        }, MAX_MS);
       };
-      raf = requestAnimationFrame(pollReady);
+      const waitRoot = () => {
+        if (ended) return;
+        const root = findLiveDetailRoot(listingId);
+        if (root) {
+          startEnter(root);
+          return;
+        }
+        raf = requestAnimationFrame(waitRoot);
+      };
+      raf = requestAnimationFrame(waitRoot);
     };
 
     /**
-     * REVERSE (R-B): SOURCE (detail) composition remains authoritative while list target prepares.
-     * App Router may unmount detail on back — source-geometry product covers ownership (not white underlayer).
-     * hideDetail only at handoff after isListProductPaintReady.
+     * REVERSE: SOURCE (real detail root) remains authoritative while list prepares.
+     * hide/release only at handoff after isListProductPaintReady.
      */
     const enterReversePrepare = () => {
-      setPhaseSafe("target_preparing");
-      laidOutRef.current = false;
-      layoutProductOnce("reverse-source");
-      showUnderlayer(false);
-      if (productRef.current) productRef.current.style.opacity = "1";
+      setPhaseSafe("reverse_prepare");
+      retainTradeDetailSurfaceNode({ listingId });
+      const source = peekTradeDetailSurfaceRetainNode() ?? findLiveDetailRoot(listingId);
+      if (source) {
+        source.setAttribute("data-trade-detail-surface-phase", "settled");
+        source.setAttribute("data-trade-detail-surface-owner", "post-detail-root");
+        source.style.opacity = "1";
+        setTradeDetailSurfacePhase(listingId, "settled");
+      }
       if (!readLive().destinationCommitted) {
         finish();
         return;
       }
+
+      const beginHandoff = () => {
+        if (ended) return;
+        setPhaseSafe("reverse_handoff");
+        const node = peekTradeDetailSurfaceRetainNode() ?? findLiveDetailRoot(listingId);
+        if (!node) {
+          finish();
+          return;
+        }
+        setTradeDetailSurfacePhase(listingId, "exiting");
+        node.setAttribute("data-trade-detail-surface-phase", "exiting");
+        const onEnd = (ev: AnimationEvent) => {
+          if (ev.target !== node) return;
+          node.removeEventListener("animationend", onEnd);
+          finish();
+        };
+        node.addEventListener("animationend", onEnd);
+        if (forceEnd != null) window.clearTimeout(forceEnd);
+        forceEnd = window.setTimeout(() => {
+          node.removeEventListener("animationend", onEnd);
+          if (ended) return;
+          finish();
+        }, MAX_MS);
+      };
+
       const waitReady = () => {
-        if (ended || handoffStarted) return;
-        // Keep source product authoritative; never underlayer-sole; never hideDetail here.
-        if (!laidOutRef.current) layoutProductOnce("reverse-source");
-        showUnderlayer(false);
-        if (productRef.current) productRef.current.style.opacity = "1";
-        if (targetPaintReady()) {
-          setPhaseSafe("target_ready");
+        if (ended) return;
+        const node = peekTradeDetailSurfaceRetainNode() ?? findLiveDetailRoot(listingId);
+        if (node) node.style.opacity = "1";
+        if (isListProductPaintReady(listingId, mediaContract)) {
           beginHandoff();
           return;
         }
@@ -511,132 +290,32 @@ function CompositionSurface({ session }: { session: TradeMarketProductCompositio
     };
 
     forceEnd = window.setTimeout(() => {
-      if (ended || handoffStarted) return;
+      if (ended) return;
       finish();
     }, 4_000);
 
-    if (direction === "forward") enterForwardTransition();
+    if (direction === "forward") enterForward();
     else enterReversePrepare();
 
     return () => {
       ended = true;
       if (raf) cancelAnimationFrame(raf);
       if (forceEnd != null) window.clearTimeout(forceEnd);
-      setTradeMarketContinuityHandoffActive(false);
-      restoreDestinationCard();
-      restoreDetail();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped continuity clock
-  }, [session.generation, mediaPaintReady]);
-
-  if (
-    !canAcquireTradeMarketCompositionPerceptualOwnership({
-      mediaContract,
-      media: frozen.media,
-      mediaPaintReady,
-    })
-  ) {
-    return null;
-  }
-
-  const forwardMediaH =
-    typeof window !== "undefined" ? Math.min(window.innerWidth, Math.round(window.innerWidth * 0.92)) : 360;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generation-scoped surface clock
+  }, [session.generation]);
 
   return (
     <div
-      ref={portalRootRef}
-      className="pointer-events-none fixed inset-0 z-[60]"
-      data-trade-product-composition="1"
-      data-trade-product-composition-direction={session.direction}
-      data-trade-product-composition-listing={session.listingId}
-      data-trade-product-composition-generation={String(session.generation)}
-      data-trade-product-composition-duration-ms={String(TRADE_MARKET_COMPOSITION_DURATION_MS)}
-      data-trade-product-composition-mode={mediaContract === "present" ? "with-media" : "content-only"}
-      data-trade-product-composition-media-contract={mediaContract}
-      data-trade-product-composition-media-paint-ready="1"
+      className="pointer-events-none"
+      data-trade-detail-surface-coordinator="1"
+      data-trade-detail-surface-forward-owner="post-detail-root"
+      data-trade-detail-surface-direction={session.direction}
+      data-trade-detail-surface-listing={session.listingId}
+      data-trade-detail-surface-generation={String(session.generation)}
+      data-trade-detail-surface-phase={phase}
       data-trade-product-composition-destination-committed={session.destinationCommitted ? "1" : "0"}
-      data-trade-product-composition-forward-model="product-continuity-handoff"
-      data-trade-product-composition-phase={phase}
-      data-trade-product-composition-owner={
-        phase === "handoff" ? "handoff" : phase === "target" ? "target" : "transition"
-      }
-      data-trade-product-composition-prepare={isForward ? "full-surface" : "list-pin"}
       aria-hidden
-    >
-      {/* Reverse underlayer: infrastructure only — never sole owner on R-B prepare path. */}
-      <div
-        ref={underlayerRef}
-        className="absolute inset-0 bg-sam-app"
-        data-trade-product-composition-underlayer="1"
-        style={{ display: "none", opacity: 0 }}
-      />
-
-      <div
-        ref={productRef}
-        data-trade-product-composition-product="1"
-        data-trade-product-composition-surface={isForward ? "full" : "list"}
-        className={
-          isForward
-            ? "absolute inset-0 flex flex-col will-change-opacity bg-sam-app"
-            : "absolute left-0 top-0 flex flex-col gap-1 will-change-opacity"
-        }
-        style={{ opacity: 1 }}
-      >
-        {frozen.media ? (
-          <div
-            ref={mediaRef}
-            data-trade-product-composition-slot="media"
-            data-trade-product-composition-media-contract="present"
-            className="overflow-hidden"
-            style={
-              isForward
-                ? { width: "100%", height: forwardMediaH, borderRadius: 0 }
-                : {
-                    width: (frozen.media.target ?? frozen.media.source).width,
-                    height: (frozen.media.target ?? frozen.media.source).height,
-                    borderRadius: 8,
-                  }
-            }
-          >
-            <img
-              src={frozen.media.url}
-              alt=""
-              draggable={false}
-              className="pointer-events-none h-full w-full object-cover"
-              decoding="sync"
-            />
-          </div>
-        ) : null}
-        <div className={isForward ? "flex flex-col gap-1 px-4 pt-3" : "contents"}>
-          {frozen.price ? (
-            <div
-              data-trade-product-composition-slot="price"
-              className="overflow-hidden font-semibold leading-tight text-sam-fg"
-              style={{ fontSize: isForward ? 22 : 15 }}
-            >
-              {frozen.price.text}
-            </div>
-          ) : null}
-          {frozen.title ? (
-            <div
-              data-trade-product-composition-slot="title"
-              className="overflow-hidden leading-tight text-sam-fg"
-              style={{ fontSize: isForward ? 17 : 13 }}
-            >
-              {frozen.title.text}
-            </div>
-          ) : null}
-          {frozen.meta ? (
-            <div
-              data-trade-product-composition-slot="meta"
-              className="overflow-hidden leading-tight text-sam-muted"
-              style={{ fontSize: 12 }}
-            >
-              {frozen.meta.text}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
+    />
   );
 }

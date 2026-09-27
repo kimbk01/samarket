@@ -14,10 +14,10 @@ import {
 import { rememberTradeListPresentationSelection } from "@/lib/trade/marketplace/trade-list-presentation-session";
 
 /**
- * List→detail click prep (scroll DATA + product-composition arm).
+ * List→detail click prep (scroll DATA + source identity arm).
  *
  * Navigation owner: native `<Link href=/post/:id>` + App Router.
- * Presentation owner: TradeMarketProductCompositionHost.
+ * Visual owner: real PostDetailView root (Host coordinates enter/exit only).
  * FORBIDDEN: preventDefault, View Transitions as nav owner, manual router.push.
  */
 export function clearTradeMarketCardDetailNavigationMarkers(): void {

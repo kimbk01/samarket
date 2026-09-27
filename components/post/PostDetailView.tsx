@@ -11,10 +11,10 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import {
   armTradeMarketProductCompositionBack,
-  isTradeMarketProductCompositionCoveringDetail,
-  measureDetailComposition,
+  peekTradeMarketProductComposition,
   publishTradeMarketProductCompositionStanding,
-  publishTradeMarketProductCompositionTargets,
+  retainTradeDetailSurfaceNode,
+  setTradeDetailSurfacePhase,
   subscribeTradeMarketProductComposition,
 } from "@/lib/trade/marketplace/trade-market-product-composition";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
@@ -469,15 +469,26 @@ export function PostDetailView({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const tradeDetailHeaderTitle = category?.name?.trim() || t("trade_detail_header_fallback");
-  const [compositionCover, setCompositionCover] = useState(() =>
-    isTradeMarketProductCompositionCoveringDetail(post.id)
-  );
   const armCompositionBackRef = useRef<() => boolean>(() => false);
+  const [detailSurfacePhase, setDetailSurfacePhase] = useState<"entering" | "settled">("settled");
+
+  useLayoutEffect(() => {
+    const session = peekTradeMarketProductComposition();
+    if (session?.direction === "forward" && session.listingId === post.id) {
+      setDetailSurfacePhase("entering");
+      setTradeDetailSurfacePhase(post.id, "entering");
+      return;
+    }
+    setDetailSurfacePhase("settled");
+    setTradeDetailSurfacePhase(post.id, "settled");
+  }, [post.id]);
 
   useEffect(() => {
-    setCompositionCover(isTradeMarketProductCompositionCoveringDetail(post.id));
     return subscribeTradeMarketProductComposition(() => {
-      setCompositionCover(isTradeMarketProductCompositionCoveringDetail(post.id));
+      const session = peekTradeMarketProductComposition();
+      if (session?.direction === "forward" && session.listingId === post.id) return;
+      if (session?.direction === "back" && session.listingId === post.id) return;
+      setDetailSurfacePhase("settled");
     });
   }, [post.id]);
 
@@ -517,7 +528,11 @@ export function PostDetailView({
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
-            interceptBack={() => armCompositionBackRef.current()}
+            interceptBack={() => {
+              armCompositionBackRef.current();
+              retainTradeDetailSurfaceNode({ listingId: post.id, rootEl: rootRef.current });
+              return false;
+            }}
             ariaLabel={t("trade_detail_back_to_list")}
             className="text-[#111]"
           />
@@ -1216,29 +1231,6 @@ export function PostDetailView({
       post.trade_lgu_id
     ) || "";
 
-  useLayoutEffect(() => {
-    if (!compositionCover) return;
-    const publish = () => {
-      const measured = measureDetailComposition(rootRef.current);
-      publishTradeMarketProductCompositionTargets({
-        listingId: post.id,
-        mediaRect: measured.mediaRect,
-        priceRect: measured.priceRect,
-        titleRect: measured.titleRect,
-        metaRect: measured.metaRect,
-      });
-    };
-    publish();
-    const raf = requestAnimationFrame(publish);
-    const t1 = window.setTimeout(publish, 48);
-    const t2 = window.setTimeout(publish, 120);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, [compositionCover, post.id, detailImageUrls.length]);
-
   useEffect(() => {
     armCompositionBackRef.current = () => {
       armTradeMarketProductCompositionBack({
@@ -1263,7 +1255,6 @@ export function PostDetailView({
   ]);
 
   useEffect(() => {
-    if (compositionCover) return;
     const publish = () => {
       publishTradeMarketProductCompositionStanding({
         listingId: post.id,
@@ -1284,7 +1275,6 @@ export function PostDetailView({
       window.clearInterval(iv);
     };
   }, [
-    compositionCover,
     post.id,
     post.title,
     detailImageUrls,
@@ -1321,7 +1311,9 @@ export function PostDetailView({
     <div
       ref={rootRef}
       data-trade-product-composition-detail-root="1"
-      data-trade-product-composition-detail-cover={compositionCover ? "1" : undefined}
+      data-trade-detail-listing={post.id}
+      data-trade-detail-surface-owner="post-detail-root"
+      data-trade-detail-surface-phase={detailSurfacePhase}
       className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]"
     >
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>

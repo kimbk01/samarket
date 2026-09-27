@@ -85,7 +85,7 @@ describe("trade-market-product-composition", () => {
     expect(session?.media?.source).toEqual(session?.media?.target);
     expect(session?.media?.target.width).toBe(180);
     expect(session?.media?.target.height).toBe(180);
-    expect(isTradeMarketProductCompositionCoveringDetail("img-1")).toBe(true);
+    expect(isTradeMarketProductCompositionCoveringDetail("img-1")).toBe(false);
   });
 
   it("forward publish commits real detail photos as end target (no 0.55 reject)", () => {
