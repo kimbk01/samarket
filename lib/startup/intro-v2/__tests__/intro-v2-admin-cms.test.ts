@@ -65,6 +65,7 @@ import {
   saveIntroAdminDraft,
   transitionIntroAdminCampaign,
 } from "@/lib/startup/intro-v2/admin-service";
+import { introDocumentStateLabel, resolveIntroDocumentState } from "@/lib/startup/intro-v2/admin-document-state";
 import { deriveIntroLiveFlags } from "@/lib/startup/intro-v2/live-status";
 import { resolveIntroCampaign } from "@/lib/startup/intro-v2/resolver";
 import { targetingMatches } from "@/lib/startup/intro-v2/targeting";
@@ -743,5 +744,85 @@ describe("resolver preview / ZERO INTRO / media boundary", () => {
     );
     expect(blocked.ok).toBe(false);
     expect(blocked.issues.some((i) => i.code === "media_pipeline_not_ready")).toBe(true);
+  });
+});
+
+describe("composer reconstruction contract", () => {
+  it("uses document states instead of UUID / ISO as primary operator state", () => {
+    const draft = campaign({ status: "draft", published: null, updatedAt: "" });
+    expect(resolveIntroDocumentState({ campaign: draft, dirty: false, saving: false, issues: [] })).toBe("DRAFT");
+    expect(resolveIntroDocumentState({ campaign: draft, dirty: true, saving: false, issues: [] })).toBe("UNSAVED_CHANGES");
+    const published = campaign({
+      status: "active",
+      published: {
+        id: "pub-1",
+        revision: 2,
+        publishedAt: "2026-09-01T00:00:00.000Z",
+        publishedBy: "admin-1",
+        isLive: true,
+      },
+    });
+    expect(resolveIntroDocumentState({ campaign: published, dirty: false, saving: false, issues: [] })).toBe("PUBLISHED");
+    expect(resolveIntroDocumentState({ campaign: published, dirty: true, saving: false, issues: [] })).toBe("DIRTY_AFTER_PUBLISH");
+    expect(introDocumentStateLabel("PUBLISHED", "ko", 2)).toBe("게시됨 · Revision 2");
+    expect(introDocumentStateLabel("DIRTY_AFTER_PUBLISH", "ko")).toBe("게시 후 변경사항 있음");
+  });
+
+  it("leads validation with human CTA language, not schema paths", () => {
+    const blocked = validateIntroCampaignForPublish(
+      campaign({
+        scenes: [
+          validScene({
+            name: "오프닝",
+            interactionMode: "tap_cta",
+            cta: { enabled: true, destination: { type: "PRODUCT" } },
+          }),
+        ],
+      })
+    );
+    expect(blocked.ok).toBe(false);
+    const dest = blocked.issues.find((i) => i.code === "cta_destination_id_required" || i.code === "cta_destination_required");
+    expect(dest?.messageKo).toMatch(/오프닝/);
+    expect(dest?.messageKo).toMatch(/이동할 화면을 선택하세요/);
+    expect(dest?.messageKo.startsWith("scenes[")).toBe(false);
+    expect(dest?.sceneIndex).toBe(0);
+  });
+
+  it("emits heightPct in preview style and keeps Admin preview as ADMIN_PREVIEW", () => {
+    const style = layerPreviewStyle({
+      anchor: "center",
+      xPct: 50,
+      yPct: 50,
+      widthPct: 80,
+      heightPct: 60,
+    });
+    expect(style.height).toBe("60%");
+    expect(style.width).toBe("80%");
+    expect(style.left).toBe("50%");
+    const frame = introAdminPreviewFrame("samsung_phone");
+    expect(frame.contract).toBe("ADMIN_PREVIEW");
+    expect(frame.width).toBe(360);
+    expect(introAdminPreviewFrame("android_tablet").width).toBe(800);
+  });
+
+  it("Composer / Canvas / List source keep visual workspace contracts", () => {
+    const editor = read("components/admin/intro/AdminIntroEditorPage.tsx");
+    const canvas = read("components/admin/intro/AdminIntroPreviewCanvas.tsx");
+    const list = read("components/admin/intro/AdminIntroListPage.tsx");
+    expect(editor).toContain('data-intro-composer="v2"');
+    expect(editor).toContain('fd.set("kind", "background")');
+    expect(editor).not.toContain('fd.set("kind", "product")');
+    expect(editor).toContain("지금은 게시할 수 없음");
+    expect(editor).toContain("공통 사용 중");
+    expect(editor).toContain("이 기기군만 다름");
+    expect(canvas).toContain("computeContainedCreativeRect");
+    expect(canvas).toContain("object-contain");
+    expect(canvas).toContain("onMoveLayerPct");
+    expect(canvas).toContain("onResizeLayerPct");
+    expect(canvas).not.toContain("object-cover");
+    expect(canvas).not.toContain("SamarketThumbnail");
+    expect(list).toContain('data-intro-list="composer"');
+    expect(list).toContain("introDerivedStatusLabel");
+    expect(read("lib/startup/intro-v2/live-status.ts")).toContain("현재 노출 중");
   });
 });

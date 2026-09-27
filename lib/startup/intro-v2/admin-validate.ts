@@ -22,6 +22,8 @@ export type IntroAdminIssue = {
   path: string;
   messageKo: string;
   messageEn: string;
+  sceneIndex?: number;
+  layerId?: string;
 };
 
 export type IntroAdminValidation = {
@@ -30,7 +32,33 @@ export type IntroAdminValidation = {
 };
 
 function issue(code: string, path: string, messageKo: string, messageEn: string): IntroAdminIssue {
-  return { code, path, messageKo, messageEn };
+  const sceneMatch = path.match(/^scenes\[(\d+)\]/);
+  return {
+    code,
+    path,
+    messageKo,
+    messageEn,
+    sceneIndex: sceneMatch ? Number(sceneMatch[1]) : undefined,
+  };
+}
+
+function humanCtaIssue(code: string, sceneKo: string, sceneEn: string): { ko: string; en: string } {
+  if (code === "cta_destination_id_required" || code === "cta_destination_required") {
+    return {
+      ko: `${sceneKo} → 시작하기 버튼 → 이동할 화면을 선택하세요.`,
+      en: `${sceneEn} → Start button → Choose a destination.`,
+    };
+  }
+  if (code === "external_url_required" || code === "invalid_url" || code === "https_required") {
+    return {
+      ko: `${sceneKo} → 시작하기 버튼 → 올바른 https 주소를 입력하세요.`,
+      en: `${sceneEn} → Start button → Enter a valid https URL.`,
+    };
+  }
+  return {
+    ko: `${sceneKo} → 시작하기 버튼 → 이동할 화면을 확인하세요.`,
+    en: `${sceneEn} → Start button → Check the destination.`,
+  };
 }
 
 function scenePath(index: number, field?: string): string {
@@ -186,14 +214,11 @@ export function validateIntroCampaignDraft(campaign: IntroAdminCampaign): IntroA
     }
     const cta = validateIntroCta(scene.cta);
     if (!cta.ok) {
-      issues.push(
-        issue(
-          cta.error,
-          scenePath(index, "cta"),
-          `${scene.name || `장면 ${index + 1}`}: 이동 대상이 올바르지 않습니다 (${cta.error}).`,
-          `${scene.name || `Scene ${index + 1}`}: CTA destination is invalid (${cta.error}).`
-        )
-      );
+      const human = humanCtaIssue(cta.error, scene.name || `장면 ${index + 1}`, scene.name || `Scene ${index + 1}`);
+      issues.push({
+        ...issue(cta.error, scenePath(index, "cta"), human.ko, human.en),
+        sceneIndex: index,
+      });
     }
     if (scene.cta?.enabled && scene.cta.destination.type === "EXTERNAL_URL") {
       const urlIssue = validateIntroExternalUrlAdmin(String(scene.cta.destination.url ?? ""));

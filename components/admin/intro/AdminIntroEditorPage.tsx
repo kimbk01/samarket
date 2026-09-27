@@ -1,42 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminIntroPreviewCanvas } from "@/components/admin/intro/AdminIntroPreviewCanvas";
-import { isoToManilaLocal, manilaLocalToIso } from "@/components/admin/intro/intro-admin-time";
+import {
+  AdminIntroPreviewCanvas,
+  type IntroCanvasSelection,
+} from "@/components/admin/intro/AdminIntroPreviewCanvas";
+import { isoToManilaLocal, manilaLocalToIso, formatAdminScheduleRange } from "@/components/admin/intro/intro-admin-time";
 import {
   INTRO_ADMIN_DEFAULT_MAX_HOLD_MS,
   INTRO_ADMIN_DEFAULT_TIMEZONE,
   INTRO_ADMIN_INTERACTION_UI,
   INTRO_INTERACTION_UI_TO_MODE,
-  INTRO_TEXT_ALIGNMENTS,
-  INTRO_TEXT_STYLE_TOKENS,
-  composeIntroTextAnimation,
   introAdvanceLabel,
   introAudienceLabel,
   introCtaTypeLabel,
-  introDeepLinkLabel,
   introDeviceFamilyLabel,
   introFrequencyLabel,
   introInteractionLabel,
   introLayerTypeLabel,
   introPlatformLabel,
-  introStatusLabel,
-  introTextStyleLabel,
-  parseIntroTextAlignment,
-  parseIntroTextStyleToken,
   type IntroAdminInteractionUi,
 } from "@/lib/startup/intro-v2/admin-labels";
 import {
   INTRO_ADMIN_PLANNED_MEDIA,
   INTRO_ADMIN_UPLOADABLE_MEDIA,
+  introMediaKindFromMime,
+  isIntroMediaUploadableNow,
 } from "@/lib/startup/intro-v2/admin-media";
 import {
   INTRO_ADMIN_PREVIEW_PRESETS,
+  introAdminPreviewFrame,
   type IntroAdminPreviewPreset,
 } from "@/lib/startup/intro-v2/admin-preview";
 import {
@@ -49,6 +47,11 @@ import {
   type IntroAdminDeviceChip,
 } from "@/lib/startup/intro-v2/admin-targeting-ui";
 import {
+  introDocumentStateLabel,
+  introDraftFingerprint,
+  resolveIntroDocumentState,
+} from "@/lib/startup/intro-v2/admin-document-state";
+import {
   defaultNewScene,
   duplicateScene,
   reorderLayers,
@@ -56,67 +59,93 @@ import {
   sceneInteractionUi,
   type IntroAdminAsset,
   type IntroAdminCampaign,
+  type IntroAdminDeviceOverride,
   type IntroAdminScene,
 } from "@/lib/startup/intro-v2/admin-editor-model";
 import { validateIntroCampaignForPublish, type IntroAdminIssue } from "@/lib/startup/intro-v2/admin-validate";
 import {
-  INTRO_RESOLVER_PREVIEW_DEFAULT,
-  parseIntroResolverPreviewFixture,
-  type IntroResolverPreviewResult,
-} from "@/lib/startup/intro-v2/admin-resolver-preview";
+  creativeAspectWarning,
+  defaultComposerLayer,
+  formatAspect,
+  layerDisplayName,
+  withCtaVisual,
+  INTRO_CREATIVE_RECOMMENDED_HEIGHT,
+  INTRO_CREATIVE_RECOMMENDED_WIDTH,
+} from "@/lib/startup/intro-v2/composer-visual";
 import {
   INTRO_ADVANCE_MODES,
   INTRO_AUDIENCES,
   INTRO_CTA_DESTINATION_TYPES,
-  INTRO_DEEP_LINK_POLICIES,
-  INTRO_DEVICE_FAMILIES,
   INTRO_FREQUENCY_MODES,
-  INTRO_ASPECT_POLICIES,
-  INTRO_LAYER_ANCHORS,
-  INTRO_LAYER_TYPES,
   INTRO_PLATFORMS,
+  INTRO_TEXT_ALIGNS,
   type IntroAdvanceMode,
   type IntroCtaDestinationType,
   type IntroDeviceFamily,
   type IntroFrequencyMode,
   type IntroLayer,
-  type IntroLayerType,
+  type IntroTextAlign,
 } from "@/lib/startup/intro-v2/types";
 
 const ENTITY_KINDS = new Set(["STORE", "PRODUCT", "LISTING", "POST", "CHAT_ROOM", "EVENT"]);
 
-function defaultLayer(type: IntroLayerType, id: string, zIndex: number): IntroLayer {
-  return {
-    id,
-    type,
-    zIndex,
-    anchor: "center",
-    xPct: 50,
-    yPct: type === "CTA" ? 82 : 50,
-    widthPct: type === "BACKGROUND" ? 100 : 42,
-    opacity: 1,
-    safeArea: true,
-    aspectPolicy: "contain",
-    text: type === "TEXT" || type === "CTA" ? (type === "CTA" ? "Continue" : "") : undefined,
-    animation: type === "TEXT" ? composeIntroTextAnimation("title", "center", null) : undefined,
-  };
+type ImportInfo = {
+  filename: string;
+  width: number | null;
+  height: number | null;
+  aspect: string;
+  mediaType: string;
+  publishable: boolean;
+  warning: boolean;
+};
+
+type SecondaryPane = "validate" | "schedule" | "publish";
+
+function familyForPreset(preset: IntroAdminPreviewPreset): IntroDeviceFamily {
+  return introAdminPreviewFrame(preset).deviceFamily;
+}
+
+function analyzeImageFile(file: File): Promise<{ width: number; height: number } | null> {
+  if (!file.type.startsWith("image/")) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
 }
 
 export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [campaign, setCampaign] = useState<IntroAdminCampaign | null>(null);
+  const [savedFingerprint, setSavedFingerprint] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sceneId, setSceneId] = useState<string | null>(null);
-  const [layerId, setLayerId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<IntroCanvasSelection>(null);
   const [preset, setPreset] = useState<IntroAdminPreviewPreset>("samsung_phone");
+  const [composition, setComposition] = useState<"common" | IntroAdminPreviewPreset>("common");
   const [issues, setIssues] = useState<IntroAdminIssue[]>([]);
-  const [resolver, setResolver] = useState<IntroResolverPreviewResult | null>(null);
-  const [resolverFixture, setResolverFixture] = useState(INTRO_RESOLVER_PREVIEW_DEFAULT);
-  const [entityHits, setEntityHits] = useState<Array<{ id: string; label: string }>>([]);
+  const [entityHits, setEntityHits] = useState<Array<{ id: string; label: string; subtitle?: string }>>([]);
+  const [importInfo, setImportInfo] = useState<ImportInfo | null>(null);
+  const [secondary, setSecondary] = useState<SecondaryPane>("validate");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const applyLoaded = useCallback((next: IntroAdminCampaign) => {
+    setCampaign(next);
+    setSavedFingerprint(introDraftFingerprint(next));
+    setSceneId((cur) => cur ?? next.scenes[0]?.id ?? null);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,31 +157,64 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
     else if (!res.ok || !json.ok || !json.campaign) {
       setError(lang === "en" ? "Could not load intro." : "인트로를 불러오지 못했습니다.");
     } else {
-      setCampaign(json.campaign);
-      setSceneId(json.campaign.scenes[0]?.id ?? null);
+      applyLoaded(json.campaign);
+      void restoreDestinationLabels(json.campaign, applyLoaded);
     }
     setLoading(false);
-  }, [campaignId, lang]);
+  }, [applyLoaded, campaignId, lang]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const dirty = campaign ? introDraftFingerprint(campaign) !== savedFingerprint : false;
+  const documentState = campaign
+    ? resolveIntroDocumentState({ campaign, dirty, saving: busy, issues })
+    : "DRAFT";
+
   const scene = campaign?.scenes.find((s) => s.id === sceneId) ?? campaign?.scenes[0] ?? null;
-  const layer = scene?.layers.find((l) => l.id === layerId) ?? null;
+  const family = familyForPreset(preset);
+  const override = campaign?.deviceOverrides.find(
+    (o) => o.deviceFamily === family && (o.sceneId === scene?.id || o.sceneId == null)
+  ) ?? null;
+  const usingOverride = composition !== "common" && override != null;
+  const canvasScene = scene
+    ? usingOverride
+      ? {
+          ...scene,
+          layers: override.layers ?? scene.layers,
+          backgroundAssetId: override.backgroundAssetId ?? scene.backgroundAssetId,
+        }
+      : scene
+    : null;
 
   const patchCampaign = (next: IntroAdminCampaign) => setCampaign(next);
   const patchScenes = (scenes: IntroAdminScene[]) => {
     if (!campaign) return;
     patchCampaign({ ...campaign, scenes });
   };
-  const patchScene = (next: IntroAdminScene) => {
+  const patchCommonScene = (next: IntroAdminScene) => {
     if (!campaign) return;
     patchScenes(campaign.scenes.map((s) => (s.id === next.id ? next : s)));
   };
+  const patchCanvasScene = (next: IntroAdminScene) => {
+    if (!campaign || !scene) return;
+    if (usingOverride && override) {
+      patchCampaign({
+        ...campaign,
+        deviceOverrides: campaign.deviceOverrides.map((o) =>
+          o.id === override.id
+            ? { ...o, layers: next.layers, backgroundAssetId: next.backgroundAssetId }
+            : o
+        ),
+      });
+      return;
+    }
+    patchCommonScene(next);
+  };
 
-  const saveDraft = async () => {
-    if (!campaign) return;
+  const saveDraft = async (): Promise<boolean> => {
+    if (!campaign) return false;
     setBusy(true);
     const res = await fetch(`/api/admin/intro-campaigns/${campaign.id}`, {
       method: "PATCH",
@@ -163,7 +225,7 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
         status: campaign.status,
         startsAt: campaign.startsAt,
         endsAt: campaign.endsAt,
-        timezone: campaign.timezone,
+        timezone: campaign.timezone || INTRO_ADMIN_DEFAULT_TIMEZONE,
         priority: campaign.priority,
         targeting: campaign.targeting,
         frequencyMode: campaign.frequencyMode,
@@ -183,29 +245,22 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
       if (Array.isArray(json.issues) && json.issues.length > 0) {
         setIssues(json.issues);
         setError(lang === "en" ? json.issues[0]!.messageEn : json.issues[0]!.messageKo);
-        return;
+        setSecondary("validate");
+        return false;
       }
-      setError(
-        json.error === "scene_save_failed"
-          ? lang === "en"
-            ? "The scene could not be saved. Check timer duration and max hold."
-            : "장면을 저장할 수 없습니다. 지정 시간과 최대 유지 시간을 확인하세요."
-          : json.error === "draft_save_failed"
-            ? lang === "en"
-              ? "Draft save failed."
-              : "초안 저장에 실패했습니다."
-            : (lang === "en" ? "Draft save failed." : "초안 저장에 실패했습니다.")
-      );
-      return;
+      setError(lang === "en" ? "Draft save failed." : "초안 저장에 실패했습니다.");
+      return false;
     }
-    setCampaign(json.campaign);
+    applyLoaded(json.campaign);
     setError(null);
+    return true;
   };
 
   const runValidate = async () => {
     if (!campaign) return;
     const local = validateIntroCampaignForPublish(campaign);
     setIssues(local.issues);
+    setSecondary("validate");
     const res = await fetch(`/api/admin/intro-campaigns/${campaign.id}/validate`, {
       method: "POST",
       credentials: "same-origin",
@@ -219,7 +274,11 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
   const publish = async () => {
     if (!campaign) return;
     setBusy(true);
-    await saveDraft();
+    const saved = await saveDraft();
+    if (!saved) {
+      setBusy(false);
+      return;
+    }
     const res = await fetch(`/api/admin/intro-campaigns/${campaign.id}/publish`, {
       method: "POST",
       credentials: "same-origin",
@@ -234,10 +293,12 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
     if (!res.ok || !json.ok) {
       setIssues(json.issues ?? []);
       setError(json.error ?? (lang === "en" ? "Publish blocked." : "게시를 할 수 없습니다."));
+      setSecondary("validate");
       return;
     }
-    if (json.campaign) setCampaign(json.campaign);
+    if (json.campaign) applyLoaded(json.campaign);
     setIssues([]);
+    setSecondary("publish");
   };
 
   const transition = async (action: "pause" | "resume" | "archive") => {
@@ -251,19 +312,7 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; campaign?: IntroAdminCampaign };
     setBusy(false);
-    if (json.ok && json.campaign) setCampaign(json.campaign);
-  };
-
-  const runResolver = async () => {
-    const fixture = parseIntroResolverPreviewFixture(resolverFixture);
-    const res = await fetch("/api/admin/intro-campaigns/resolver-preview", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fixture),
-    });
-    const json = (await res.json().catch(() => ({}))) as { preview?: IntroResolverPreviewResult };
-    if (json.preview) setResolver(json.preview);
+    if (json.ok && json.campaign) applyLoaded(json.campaign);
   };
 
   const searchEntity = async (kind: string, q: string) => {
@@ -275,12 +324,33 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
       `/api/admin/intro-campaigns/entity-search?kind=${encodeURIComponent(kind)}&q=${encodeURIComponent(q)}`,
       { credentials: "same-origin" }
     );
-    const json = (await res.json().catch(() => ({}))) as { items?: Array<{ id: string; label: string }> };
+    const json = (await res.json().catch(() => ({}))) as { items?: Array<{ id: string; label: string; subtitle?: string }> };
     setEntityHits(json.items ?? []);
   };
 
-  const uploadAsset = async (file: File) => {
+  const importFile = async (file: File) => {
     if (!campaign) return;
+    const dims = await analyzeImageFile(file);
+    const kind = introMediaKindFromMime(file.type);
+    const publishable = isIntroMediaUploadableNow(kind, file.type);
+    const info: ImportInfo = {
+      filename: file.name,
+      width: dims?.width ?? null,
+      height: dims?.height ?? null,
+      aspect: dims ? formatAspect(dims.width, dims.height) : lang === "en" ? "Unknown" : "알 수 없음",
+      mediaType: file.type || kind,
+      publishable,
+      warning: dims ? creativeAspectWarning(dims.width, dims.height) : true,
+    };
+    setImportInfo(info);
+    if (!publishable) {
+      setError(
+        lang === "en"
+          ? `${file.name} is in the product contract but is not publishable yet. PNG, JPG, or WebP can be published now.`
+          : `${file.name}은 제품 계약에 포함되지만 지금은 게시할 수 없습니다. 지금 게시 가능한 형식은 PNG, JPG, WebP입니다.`
+      );
+      return;
+    }
     const fd = new FormData();
     fd.set("kind", "background");
     fd.set("file", file);
@@ -291,19 +361,57 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
     });
     const upJson = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string };
     if (!up.ok || !upJson.ok || !upJson.url) {
-      setError(lang === "en" ? "Upload failed." : "업로드에 실패했습니다.");
+      setError(lang === "en" ? "Upload failed. The file was not converted." : "업로드에 실패했습니다. 파일을 변환하지 않았습니다.");
       return;
     }
     const reg = await fetch("/api/admin/intro-campaigns/assets", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicUrl: upJson.url, mime: file.type, bytes: file.size }),
+      body: JSON.stringify({
+        publicUrl: upJson.url,
+        mime: file.type,
+        bytes: file.size,
+        width: dims?.width ?? null,
+        height: dims?.height ?? null,
+      }),
     });
     const regJson = (await reg.json().catch(() => ({}))) as { ok?: boolean; asset?: IntroAdminAsset };
-    if (reg.ok && regJson.ok && regJson.asset) {
-      setCampaign({ ...campaign, assets: [...campaign.assets, regJson.asset] });
+    if (!reg.ok || !regJson.ok || !regJson.asset) {
+      setError(lang === "en" ? "Asset save failed." : "미디어를 저장하지 못했습니다.");
+      return;
     }
+    const asset = regJson.asset;
+    let scenes = campaign.scenes;
+    let target = scenes[0] ?? null;
+    if (!target) {
+      target = defaultNewScene(`tmp-${Date.now()}`, 0, lang === "en" ? "Scene 1" : "장면 1");
+      scenes = [target];
+    }
+    const layer = {
+      ...defaultComposerLayer("IMAGE", `layer-${Date.now()}`, target.layers.length + 1),
+      name: file.name.replace(/\.[^.]+$/, "") || (lang === "en" ? "Image" : "이미지"),
+      assetId: asset.id,
+      aspectPolicy: "contain" as const,
+      xPct: 50,
+      yPct: 50,
+      widthPct: 80,
+      heightPct: 64,
+    };
+    const nextScene = {
+      ...target,
+      layers: [...target.layers, layer],
+      backgroundAssetId: target.backgroundAssetId ?? asset.id,
+    };
+    const next = {
+      ...campaign,
+      assets: [...campaign.assets, asset],
+      scenes: scenes.map((s) => (s.id === nextScene.id ? nextScene : s)),
+    };
+    setCampaign(next);
+    setSceneId(nextScene.id);
+    setSelection({ type: "layer", id: layer.id });
+    setError(null);
   };
 
   const chips = useMemo(
@@ -336,727 +444,736 @@ export function AdminIntroEditorPage({ campaignId }: { campaignId: string }) {
 
   const v1Unconfirmed =
     campaign.requiresAdminConfirmation && Number(campaign.source.v1_display_duration_ms ?? 0) === 0;
+  const selectedLayer =
+    selection?.type === "layer" ? canvasScene?.layers.find((l) => l.id === selection.id) ?? null : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3" data-intro-composer="v2">
       <AdminPageHeader
-        title={campaign.name}
+        title={campaign.name || (lang === "en" ? "New intro" : "새 인트로")}
         backHref="/admin/intro"
-        description={lang === "en" ? "Draft does not change the published snapshot or V1 runtime." : "초안 저장은 게시 스냅샷과 V1 런타임을 바꾸지 않습니다."}
+        description={lang === "en" ? "Draft save does not change the published snapshot." : "초안 저장은 게시본을 바꾸지 않습니다."}
       />
+
+      <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+        <AdminToneBadge tone={documentState === "VALIDATION_ERROR" ? "danger" : documentState === "PUBLISHED" ? "success" : "progress"}>
+          {introDocumentStateLabel(documentState, lang, campaign.published?.revision)}
+        </AdminToneBadge>
+        <input
+          className="min-w-[12rem] flex-1 rounded-ui-rect border border-sam-border px-2 py-1 text-sm"
+          value={campaign.name}
+          onChange={(e) => patchCampaign({ ...campaign, name: e.target.value })}
+          aria-label={lang === "en" ? "Intro name" : "인트로 이름"}
+        />
+        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void saveDraft()}>
+          {lang === "en" ? "Save" : "저장"}
+        </AdminActionButton>
+        <AdminActionButton variant="neutral" onClick={() => void runValidate()}>
+          {lang === "en" ? "Validate" : "검사"}
+        </AdminActionButton>
+        <AdminActionButton variant="neutral" onClick={() => setSecondary("schedule")}>
+          {lang === "en" ? "Schedule" : "일정"}
+        </AdminActionButton>
+        <AdminActionButton variant="primary" disabled={busy} onClick={() => void publish()}>
+          {lang === "en" ? "Publish" : "게시"}
+        </AdminActionButton>
+        <AdminActionButton variant="neutral" onClick={() => void transition("pause")}>
+          {lang === "en" ? "Pause" : "일시중지"}
+        </AdminActionButton>
+        {campaign.status === "paused" ? (
+          <AdminActionButton variant="secondary" onClick={() => void transition("resume")}>
+            {lang === "en" ? "Resume" : "다시 시작"}
+          </AdminActionButton>
+        ) : null}
+        <AdminActionButton variant="danger" onClick={() => void transition("archive")}>
+          {lang === "en" ? "Archive" : "보관"}
+        </AdminActionButton>
+      </div>
 
       {error ? <p className="text-red-800">{error}</p> : null}
       {v1Unconfirmed ? (
         <AdminCard>
-          <AdminToneBadge tone="warning">{lang === "en" ? "V1 import" : "V1 가져오기"}</AdminToneBadge>
+          <AdminToneBadge tone="warning">{lang === "en" ? "Imported draft" : "가져온 초안"}</AdminToneBadge>
           <p className="mt-2 text-sm text-sam-fg">
             {safeT("admin_intro_v1_warning", {
-              fallbackKo:
-                "V1에서 가져온 초안입니다. displayDurationMs=0이라 진행 방식이 확정되지 않았습니다. 게시 전에 장면 진행 방법을 직접 선택하세요.",
-              fallbackEn:
-                "This V1-imported draft has displayDurationMs=0, so advance semantics are unconfirmed. Choose scene advance explicitly before publish.",
+              fallbackKo: "가져온 초안입니다. 게시 전에 장면이 어떻게 넘어갈지 직접 선택하세요.",
+              fallbackEn: "This imported draft needs an explicit scene advance before publish.",
             })}
           </p>
         </AdminCard>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void saveDraft()}>
-          {safeT("admin_intro_save_draft", { fallbackKo: "초안 저장", fallbackEn: "Save draft" })}
-        </AdminActionButton>
-        <AdminActionButton variant="neutral" onClick={() => void runValidate()}>
-          {safeT("admin_intro_validate", { fallbackKo: "검사", fallbackEn: "Validate" })}
-        </AdminActionButton>
-        <AdminActionButton variant="primary" disabled={busy} onClick={() => void publish()}>
-          {safeT("admin_intro_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
-        </AdminActionButton>
-        <AdminActionButton variant="neutral" onClick={() => void transition("pause")}>
-          {safeT("admin_intro_pause", { fallbackKo: "일시중지", fallbackEn: "Pause" })}
-        </AdminActionButton>
-        {campaign.status === "paused" ? (
-          <AdminActionButton variant="secondary" onClick={() => void transition("resume")}>
-            {safeT("admin_intro_resume", { fallbackKo: "다시 시작", fallbackEn: "Resume" })}
-          </AdminActionButton>
-        ) : null}
-        <AdminActionButton variant="danger" onClick={() => void transition("archive")}>
-          {safeT("admin_intro_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
-        </AdminActionButton>
-      </div>
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">{lang === "en" ? "Campaign" : "캠페인"}</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block text-sm">
-            {lang === "en" ? "Name" : "이름"}
-            <input
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.name}
-              onChange={(e) => patchCampaign({ ...campaign, name: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Status" : "상태"}
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.status}
-              onChange={(e) => patchCampaign({ ...campaign, status: e.target.value as IntroAdminCampaign["status"] })}
-            >
-              {(["draft", "scheduled", "active", "paused", "expired", "archived"] as const).map((s) => (
-                <option key={s} value={s}>{introStatusLabel(s, lang)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Start" : "시작"}
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={isoToManilaLocal(campaign.startsAt)}
-              onChange={(e) => patchCampaign({ ...campaign, startsAt: manilaLocalToIso(e.target.value) })}
-            />
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "End" : "종료"}
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={isoToManilaLocal(campaign.endsAt)}
-              onChange={(e) => patchCampaign({ ...campaign, endsAt: manilaLocalToIso(e.target.value) })}
-            />
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Timezone" : "시간대"}
-            <input
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.timezone || INTRO_ADMIN_DEFAULT_TIMEZONE}
-              onChange={(e) => patchCampaign({ ...campaign, timezone: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Priority" : "우선순위"}
-            <input
-              type="number"
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.priority}
-              onChange={(e) => patchCampaign({ ...campaign, priority: Number(e.target.value) })}
-            />
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Frequency" : "빈도"}
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.frequencyMode}
-              onChange={(e) =>
-                patchCampaign({ ...campaign, frequencyMode: e.target.value as IntroFrequencyMode })
-              }
-            >
-              {INTRO_FREQUENCY_MODES.map((m) => (
-                <option key={m} value={m}>{introFrequencyLabel(m, lang)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Deep link" : "딥링크"}
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={campaign.deepLinkPolicy}
-              onChange={(e) =>
-                patchCampaign({ ...campaign, deepLinkPolicy: e.target.value as IntroAdminCampaign["deepLinkPolicy"] })
-              }
-            >
-              {INTRO_DEEP_LINK_POLICIES.map((p) => (
-                <option key={p} value={p}>{introDeepLinkLabel(p, lang)}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <p className="mt-2 text-[12px] text-sam-muted">
-          {lang === "en" ? "Published revision" : "게시 리비전"}: {campaign.published?.revision ?? "—"}
-          {campaign.published?.publishedAt ? ` · ${campaign.published.publishedAt}` : ""}
-          {campaign.published?.publishedBy ? ` · ${campaign.published.publishedBy}` : ""}
-        </p>
-      </AdminCard>
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">{lang === "en" ? "Targeting" : "대상"}</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
-          {lang === "en" ? "Empty selection = ALL. UNKNOWN is never written." : "빈 선택 = 전체. UNKNOWN은 저장하지 않습니다."}
-        </p>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <p className="mb-1 text-sm font-medium">{lang === "en" ? "Audience" : "대상"}</p>
-            {INTRO_AUDIENCES.map((a) => (
-              <label key={a} className="mr-3 inline-flex items-center gap-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={campaign.targeting.audiences.includes(a)}
-                  onChange={() =>
-                    patchCampaign({
-                      ...campaign,
-                      targeting: buildAdminTargeting({
-                        audiences: toggleAudience(campaign.targeting.audiences, a),
-                        platforms: campaign.targeting.platforms,
-                        deviceChips: chips,
-                      }),
-                    })
-                  }
-                />
-                {introAudienceLabel(a, lang)}
-              </label>
-            ))}
-            {campaign.targeting.audiences.length === 0 ? (
-              <p className="mt-1 text-[12px] text-sam-muted">{safeT("admin_intro_all", { fallbackKo: "전체", fallbackEn: "All" })}</p>
-            ) : null}
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium">{lang === "en" ? "Platform" : "플랫폼"}</p>
-            {INTRO_PLATFORMS.map((p) => (
-              <label key={p} className="mr-3 inline-flex items-center gap-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={campaign.targeting.platforms.includes(p)}
-                  onChange={() =>
-                    patchCampaign({
-                      ...campaign,
-                      targeting: buildAdminTargeting({
-                        audiences: campaign.targeting.audiences,
-                        platforms: togglePlatform(campaign.targeting.platforms, p),
-                        deviceChips: chips,
-                      }),
-                    })
-                  }
-                />
-                {introPlatformLabel(p, lang)}
-              </label>
-            ))}
-          </div>
-          <div>
-            <p className="mb-1 text-sm font-medium">{lang === "en" ? "Device" : "기기"}</p>
-            {INTRO_ADMIN_DEVICE_CHIPS.map((chip) => (
-              <label key={chip} className="mr-3 inline-flex items-center gap-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={chips.includes(chip)}
-                  onChange={() =>
-                    patchCampaign({
-                      ...campaign,
-                      targeting: buildAdminTargeting({
-                        audiences: campaign.targeting.audiences,
-                        platforms: campaign.targeting.platforms,
-                        deviceChips: toggleDeviceChip(chips, chip as IntroAdminDeviceChip),
-                      }),
-                    })
-                  }
-                />
-                {introDeviceFamilyLabel(chip === "Phone" ? "PHONE" : "TABLET", lang)}
-              </label>
-            ))}
-          </div>
-        </div>
-      </AdminCard>
-
-      <AdminCard>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">{lang === "en" ? "Scenes" : "장면"}</h2>
-          <AdminActionButton
-            variant="secondary"
-            onClick={() => {
-              const id = `tmp-${Date.now()}`;
-              const next = defaultNewScene(id, campaign.scenes.length, `Scene ${campaign.scenes.length + 1}`);
-              patchScenes([...campaign.scenes, next]);
-              setSceneId(id);
-            }}
-          >
-            {lang === "en" ? "Add scene" : "장면 추가"}
-          </AdminActionButton>
-        </div>
-        <div className="space-y-2">
-          {campaign.scenes.map((s, index) => (
+      <div className="grid gap-3 xl:grid-cols-[240px_minmax(0,1fr)_280px]">
+        <AdminCard>
+          <div className="mb-3">
+            <p className="mb-2 text-sm font-semibold">{lang === "en" ? "Import image" : "파일 불러오기"}</p>
             <div
-              key={s.id}
-              className={`flex flex-wrap items-center gap-2 rounded-ui-rect border px-2 py-2 ${s.id === scene?.id ? "border-violet-500" : "border-sam-border"}`}
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData("text/plain", String(index))}
+              className="rounded-ui-rect border border-dashed border-sam-border px-3 py-4 text-center text-[12px] text-sam-muted"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                const from = Number(e.dataTransfer.getData("text/plain"));
-                patchScenes(reorderScenes(campaign.scenes, from, index));
+                const file = e.dataTransfer.files[0];
+                if (file) void importFile(file);
               }}
             >
-              <button type="button" className="font-semibold" onClick={() => setSceneId(s.id)}>
-                {index + 1}. {s.name}
-              </button>
-              <span className="text-[12px] text-sam-muted">{introAdvanceLabel(s.advanceMode, lang)}</span>
+              <p>{lang === "en" ? "Drop a file or choose from this computer." : "파일을 끌어오거나 이 컴퓨터에서 선택하세요."}</p>
+              <p className="mt-1">
+                {lang === "en"
+                  ? `Publishable now: ${INTRO_ADMIN_UPLOADABLE_MEDIA.join(", ")}. Also in contract: ${INTRO_ADMIN_PLANNED_MEDIA.join(", ")}.`
+                  : `지금 게시 가능: ${INTRO_ADMIN_UPLOADABLE_MEDIA.join(", ")}. 제품 계약: ${INTRO_ADMIN_PLANNED_MEDIA.join(", ")}.`}
+              </p>
+              <AdminActionButton className="mt-2" variant="secondary" onClick={() => fileRef.current?.click()}>
+                {lang === "en" ? "Choose file" : "파일 선택"}
+              </AdminActionButton>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {importInfo ? (
+              <div className="mt-2 space-y-1 text-[12px] text-sam-fg" data-intro-import="analysis">
+                <p>{importInfo.filename}</p>
+                <p>
+                  {importInfo.width && importInfo.height
+                    ? `${importInfo.width} × ${importInfo.height}`
+                    : lang === "en"
+                      ? "Size unknown"
+                      : "크기 확인 불가"}{" "}
+                  · {importInfo.aspect} · {importInfo.mediaType}
+                </p>
+                {importInfo.warning ? (
+                  <p className="text-amber-800">
+                    {lang === "en"
+                      ? `Recommended source is ${INTRO_CREATIVE_RECOMMENDED_WIDTH}×${INTRO_CREATIVE_RECOMMENDED_HEIGHT} (4:5). The image will stay contained.`
+                      : `권장 원본은 ${INTRO_CREATIVE_RECOMMENDED_WIDTH}×${INTRO_CREATIVE_RECOMMENDED_HEIGHT} (4:5)입니다. 이미지는 잘리지 않고 비율을 유지합니다.`}
+                  </p>
+                ) : null}
+                <p className={importInfo.publishable ? "text-sam-muted" : "text-amber-800"}>
+                  {importInfo.publishable
+                    ? lang === "en"
+                      ? "Publishable now"
+                      : "지금 게시 가능"
+                    : lang === "en"
+                      ? "Not publishable yet"
+                      : "지금은 게시할 수 없음"}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">{lang === "en" ? "Scenes" : "장면"}</h2>
+            <AdminActionButton
+              variant="quiet"
+              onClick={() => {
+                const id = `tmp-${Date.now()}`;
+                const next = defaultNewScene(id, campaign.scenes.length, lang === "en" ? `Scene ${campaign.scenes.length + 1}` : `장면 ${campaign.scenes.length + 1}`);
+                patchScenes([...campaign.scenes, next]);
+                setSceneId(id);
+                setSelection({ type: "scene" });
+              }}
+            >
+              {lang === "en" ? "Add" : "추가"}
+            </AdminActionButton>
+          </div>
+          <div className="space-y-1">
+            {campaign.scenes.map((s, index) => {
+              const media = campaign.assets.find((a) => a.id === s.backgroundAssetId);
+              return (
+                <div
+                  key={s.id}
+                  className={`rounded-ui-rect border px-2 py-2 ${s.id === scene?.id ? "border-violet-500" : "border-sam-border"}`}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", String(index))}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = Number(e.dataTransfer.getData("text/plain"));
+                    patchScenes(reorderScenes(campaign.scenes, from, index));
+                  }}
+                >
+                  <button type="button" className="block w-full text-left text-sm font-semibold" onClick={() => { setSceneId(s.id); setSelection({ type: "scene" }); }}>
+                    {s.name || (lang === "en" ? `Scene ${index + 1}` : `장면 ${index + 1}`)}
+                  </button>
+                  <p className="text-[11px] text-sam-muted">
+                    {media ? `${media.width ?? "?"}×${media.height ?? "?"}` : lang === "en" ? "No media" : "미디어 없음"}
+                    {" · "}
+                    {introAdvanceLabel(s.advanceMode, lang)}
+                    {" · "}
+                    {introInteractionLabel(sceneInteractionUi(s), lang)}
+                  </p>
+                  <div className="mt-1 flex gap-1">
+                    <AdminActionButton
+                      variant="quiet"
+                      onClick={() => {
+                        const id = `tmp-${Date.now()}`;
+                        patchScenes([...campaign.scenes, duplicateScene(s, id, campaign.scenes.length)]);
+                      }}
+                    >
+                      {lang === "en" ? "Duplicate" : "복제"}
+                    </AdminActionButton>
+                    <AdminActionButton
+                      variant="quiet"
+                      onClick={() => {
+                        patchScenes(campaign.scenes.filter((x) => x.id !== s.id).map((x, i) => ({ ...x, sortOrder: i })));
+                        if (sceneId === s.id) setSceneId(null);
+                      }}
+                    >
+                      {lang === "en" ? "Delete" : "삭제"}
+                    </AdminActionButton>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {canvasScene ? (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold">{lang === "en" ? "Layers" : "레이어"}</h2>
+                <AdminActionButton
+                  variant="quiet"
+                  onClick={() => {
+                    const next = defaultComposerLayer("TEXT", `layer-${Date.now()}`, canvasScene.layers.length + 1);
+                    patchCanvasScene({ ...canvasScene, layers: [...canvasScene.layers, next] });
+                    setSelection({ type: "layer", id: next.id });
+                  }}
+                >
+                  {lang === "en" ? "Add text" : "텍스트 추가"}
+                </AdminActionButton>
+              </div>
+              <div className="space-y-1">
+                {canvasScene.layers.map((l, i) => (
+                  <div key={l.id} className={`flex items-center gap-1 rounded-ui-rect border px-2 py-1 ${selection?.type === "layer" && selection.id === l.id ? "border-violet-500" : "border-sam-border"}`}>
+                    <button type="button" className="flex-1 text-left text-[12px]" onClick={() => setSelection({ type: "layer", id: l.id })}>
+                      {layerDisplayName(l, introLayerTypeLabel(l.type, lang))}
+                    </button>
+                    <button type="button" className="text-[11px]" disabled={i === 0} onClick={() => patchCanvasScene({ ...canvasScene, layers: reorderLayers(canvasScene.layers, i, i - 1) })}>↑</button>
+                    <button type="button" className="text-[11px]" disabled={i === canvasScene.layers.length - 1} onClick={() => patchCanvasScene({ ...canvasScene, layers: reorderLayers(canvasScene.layers, i, i + 1) })}>↓</button>
+                    <button
+                      type="button"
+                      className="text-[11px] text-red-700"
+                      onClick={() => {
+                        patchCanvasScene({
+                          ...canvasScene,
+                          layers: canvasScene.layers.filter((x) => x.id !== l.id),
+                          interactionLayerId: canvasScene.interactionLayerId === l.id ? null : canvasScene.interactionLayerId,
+                        });
+                        if (selection?.type === "layer" && selection.id === l.id) setSelection({ type: "scene" });
+                      }}
+                    >
+                      {lang === "en" ? "Del" : "삭제"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </AdminCard>
+
+        <AdminCard>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <AdminActionButton
+              variant={composition === "common" ? "primary" : "secondary"}
+              onClick={() => setComposition("common")}
+            >
+              {lang === "en" ? "Common" : "공통"}
+            </AdminActionButton>
+            {INTRO_ADMIN_PREVIEW_PRESETS.map((p) => (
+              <AdminActionButton
+                key={p}
+                variant={composition === p ? "primary" : "secondary"}
+                onClick={() => {
+                  setPreset(p);
+                  setComposition(p);
+                }}
+              >
+                {introAdminPreviewFrame(p).labelKo}
+              </AdminActionButton>
+            ))}
+          </div>
+          <p className="mb-2 text-[12px] text-sam-muted">
+            {usingOverride
+              ? lang === "en"
+                ? `${introDeviceFamilyLabel(family, "en")} is different from common.`
+                : `이 기기군만 다름 · ${introDeviceFamilyLabel(family, "ko")}`
+              : lang === "en"
+                ? "Using common composition"
+                : "공통 사용 중"}
+          </p>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {!usingOverride ? (
+              <AdminActionButton
+                variant="secondary"
+                onClick={() => {
+                  if (!scene) return;
+                  const next: IntroAdminDeviceOverride = {
+                    id: `tmp-ov-${Date.now()}`,
+                    sceneId: scene.id,
+                    deviceFamily: family,
+                    layers: scene.layers,
+                    backgroundAssetId: scene.backgroundAssetId,
+                  };
+                  patchCampaign({ ...campaign, deviceOverrides: [...campaign.deviceOverrides, next] });
+                  setComposition(preset);
+                }}
+              >
+                {lang === "en" ? "Create override" : "이 기기군만 다르게"}
+              </AdminActionButton>
+            ) : (
               <AdminActionButton
                 variant="quiet"
                 onClick={() => {
-                  const id = `tmp-${Date.now()}`;
-                  const copy = duplicateScene(s, id, campaign.scenes.length);
-                  patchScenes([...campaign.scenes, copy]);
-                }}
-              >
-                {lang === "en" ? "Duplicate" : "복제"}
-              </AdminActionButton>
-              <AdminActionButton
-                variant="quiet"
-                onClick={() => patchScenes(campaign.scenes.filter((x) => x.id !== s.id).map((x, i) => ({ ...x, sortOrder: i })))}
-              >
-                {lang === "en" ? "Delete" : "삭제"}
-              </AdminActionButton>
-            </div>
-          ))}
-        </div>
-      </AdminCard>
-
-      {scene ? (
-        <AdminCard>
-          <h2 className="mb-3 font-semibold">{lang === "en" ? "Scene settings" : "장면 설정"}</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="block text-sm">
-              {lang === "en" ? "Scene name" : "장면 이름"}
-              <input
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-                value={scene.name}
-                onChange={(e) => patchScene({ ...scene, name: e.target.value })}
-              />
-            </label>
-            <label className="block text-sm">
-              {lang === "en" ? "Advance" : "진행"}
-              <select
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-                value={scene.advanceMode}
-                onChange={(e) => {
-                  const advanceMode = e.target.value as IntroAdvanceMode;
-                  patchScene({
-                    ...scene,
-                    advanceMode,
-                    durationMs: advanceMode === "timer" ? Math.max(1, scene.durationMs ?? 2500) : null,
-                    maxHoldMs:
-                      advanceMode === "timer" ? null : Math.max(1, scene.maxHoldMs ?? INTRO_ADMIN_DEFAULT_MAX_HOLD_MS),
+                  if (!override) return;
+                  patchCampaign({
+                    ...campaign,
+                    deviceOverrides: campaign.deviceOverrides.filter((o) => o.id !== override.id),
                   });
+                  setComposition("common");
                 }}
               >
-                {INTRO_ADVANCE_MODES.map((m) => (
-                  <option key={m} value={m}>{introAdvanceLabel(m, lang)}</option>
-                ))}
-              </select>
-            </label>
-            {scene.advanceMode === "timer" ? (
-              <label className="block text-sm">
-                {lang === "en" ? "Duration (ms)" : "지속 시간 (ms)"}
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-                  value={scene.durationMs ?? ""}
-                  onChange={(e) => patchScene({ ...scene, durationMs: Number(e.target.value) })}
-                />
-              </label>
-            ) : (
-              <label className="block text-sm">
-                {lang === "en" ? `Max hold (ms, default ${INTRO_ADMIN_DEFAULT_MAX_HOLD_MS})` : `최대 유지 (ms, 기본 ${INTRO_ADMIN_DEFAULT_MAX_HOLD_MS})`}
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-                  value={scene.maxHoldMs ?? INTRO_ADMIN_DEFAULT_MAX_HOLD_MS}
-                  onChange={(e) => patchScene({ ...scene, maxHoldMs: Number(e.target.value) })}
-                />
-              </label>
+                {lang === "en" ? "Reset to common" : "공통으로 되돌리기"}
+              </AdminActionButton>
             )}
-            <label className="block text-sm">
-              {lang === "en" ? "Interaction" : "상호작용"}
+          </div>
+          <AdminIntroPreviewCanvas
+            scene={canvasScene}
+            assets={campaign.assets}
+            preset={preset}
+            selection={selection}
+            lang={lang}
+            onSelect={setSelection}
+            onMoveLayerPct={(id, xPct, yPct) => {
+              if (!canvasScene) return;
+              patchCanvasScene({
+                ...canvasScene,
+                layers: canvasScene.layers.map((l) => (l.id === id ? { ...l, xPct, yPct } : l)),
+              });
+            }}
+            onResizeLayerPct={(id, next) => {
+              if (!canvasScene) return;
+              patchCanvasScene({
+                ...canvasScene,
+                layers: canvasScene.layers.map((l) => (l.id === id ? { ...l, ...next } : l)),
+              });
+            }}
+            onMoveCtaPct={(xPct, yPct) => {
+              if (!scene) return;
+              patchCommonScene({ ...scene, cta: { ...withCtaVisual(scene.cta), xPct, yPct } });
+            }}
+            onResizeCtaPct={(next) => {
+              if (!scene) return;
+              patchCommonScene({ ...scene, cta: { ...withCtaVisual(scene.cta), ...next } });
+            }}
+          />
+        </AdminCard>
+
+        <AdminCard>
+          <h2 className="mb-3 text-sm font-semibold">{lang === "en" ? "Properties" : "속성"}</h2>
+          {scene && (selection?.type === "scene" || !selection) ? (
+            <SceneProps scene={scene} lang={lang} onChange={patchCommonScene} />
+          ) : null}
+          {selectedLayer && canvasScene ? (
+            <LayerProps
+              layer={selectedLayer}
+              assets={campaign.assets}
+              lang={lang}
+              onChange={(next) =>
+                patchCanvasScene({
+                  ...canvasScene,
+                  layers: canvasScene.layers.map((l) => (l.id === next.id ? next : l)),
+                })
+              }
+            />
+          ) : null}
+          {selection?.type === "cta" && scene ? (
+            <CtaProps
+              scene={scene}
+              lang={lang}
+              hits={entityHits}
+              onSearch={searchEntity}
+              onChange={patchCommonScene}
+            />
+          ) : null}
+          {scene ? (
+            <div className="mt-4 border-t border-sam-border pt-3">
+              <p className="mb-2 text-sm font-semibold">{lang === "en" ? "Tap action" : "누르기 방식"}</p>
               <select
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+                className="w-full rounded-ui-rect border border-sam-border px-2 py-1 text-sm"
                 value={sceneInteractionUi(scene)}
                 onChange={(e) => {
                   const ui = e.target.value as IntroAdminInteractionUi;
-                  patchScene({
+                  patchCommonScene({
                     ...scene,
                     interactionMode: INTRO_INTERACTION_UI_TO_MODE[ui],
                     interactionLayerId: ui === "LAYER" ? scene.interactionLayerId : null,
                     cta:
                       ui === "BUTTON"
-                        ? { enabled: true, destination: scene.cta?.destination ?? { type: "COMMUNITY" } }
-                        : scene.cta,
+                        ? { ...withCtaVisual(scene.cta), enabled: true }
+                        : { ...withCtaVisual(scene.cta), enabled: false },
                   });
+                  if (ui === "BUTTON") setSelection({ type: "cta" });
                 }}
               >
                 {INTRO_ADMIN_INTERACTION_UI.map((ui) => (
                   <option key={ui} value={ui}>{introInteractionLabel(ui, lang)}</option>
                 ))}
               </select>
-            </label>
-            {scene.interactionMode === "tap_layer" ? (
-              <label className="block text-sm">
-                {lang === "en" ? "Target layer" : "대상 레이어"}
+              {scene.interactionMode === "tap_layer" ? (
                 <select
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+                  className="mt-2 w-full rounded-ui-rect border border-sam-border px-2 py-1 text-sm"
                   value={scene.interactionLayerId ?? ""}
-                  onChange={(e) => patchScene({ ...scene, interactionLayerId: e.target.value || null })}
+                  onChange={(e) => patchCommonScene({ ...scene, interactionLayerId: e.target.value || null })}
                 >
-                  <option value="">{lang === "en" ? "Select" : "선택"}</option>
+                  <option value="">{lang === "en" ? "Choose element" : "요소 선택"}</option>
                   {scene.layers.map((l) => (
-                    <option key={l.id} value={l.id}>{l.id} ({l.type})</option>
+                    <option key={l.id} value={l.id}>{layerDisplayName(l, introLayerTypeLabel(l.type, lang))}</option>
                   ))}
                 </select>
-              </label>
-            ) : null}
+              ) : null}
+              {scene.interactionMode === "tap_cta" ? (
+                <AdminActionButton className="mt-2" variant="secondary" onClick={() => setSelection({ type: "cta" })}>
+                  {lang === "en" ? "Edit button" : "버튼 편집"}
+                </AdminActionButton>
+              ) : null}
+            </div>
+          ) : null}
+        </AdminCard>
+      </div>
+
+      <AdminCard>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(["validate", "schedule", "publish"] as const).map((pane) => (
+            <AdminActionButton key={pane} variant={secondary === pane ? "primary" : "secondary"} onClick={() => setSecondary(pane)}>
+              {pane === "validate" ? (lang === "en" ? "Validation" : "검사") : pane === "schedule" ? (lang === "en" ? "Schedule" : "일정") : (lang === "en" ? "Publish review" : "게시 검토")}
+            </AdminActionButton>
+          ))}
+        </div>
+
+        {secondary === "validate" ? (
+          issues.length === 0 ? (
+            <p className="text-sm text-sam-muted">{lang === "en" ? "No validation issues." : "검사에서 발견한 문제가 없습니다."}</p>
+          ) : (
+            <ul className="space-y-2 text-sm text-red-800">
+              {issues.map((issue) => (
+                <li key={`${issue.path}-${issue.code}`}>
+                  <button
+                    type="button"
+                    className="text-left underline"
+                    onClick={() => {
+                      if (issue.sceneIndex != null && campaign.scenes[issue.sceneIndex]) {
+                        setSceneId(campaign.scenes[issue.sceneIndex]!.id);
+                      }
+                      if (issue.layerId) setSelection({ type: "layer", id: issue.layerId });
+                      else if (issue.path.includes("cta")) setSelection({ type: "cta" });
+                    }}
+                  >
+                    {lang === "en" ? issue.messageEn : issue.messageKo}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+
+        {secondary === "schedule" ? (
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="block text-sm">
-              {lang === "en" ? "Background color" : "배경색"}
+              {lang === "en" ? "Start (Manila)" : "시작 (마닐라)"}
               <input
-                type="color"
-                className="mt-1 h-9 w-16"
-                value={scene.backgroundColor}
-                onChange={(e) => patchScene({ ...scene, backgroundColor: e.target.value })}
+                type="datetime-local"
+                className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+                value={isoToManilaLocal(campaign.startsAt)}
+                onChange={(e) => patchCampaign({ ...campaign, startsAt: manilaLocalToIso(e.target.value) })}
               />
             </label>
             <label className="block text-sm">
-              {lang === "en" ? "Background media" : "배경 미디어"}
+              {lang === "en" ? "End (Manila)" : "종료 (마닐라)"}
+              <input
+                type="datetime-local"
+                className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+                value={isoToManilaLocal(campaign.endsAt)}
+                onChange={(e) => patchCampaign({ ...campaign, endsAt: manilaLocalToIso(e.target.value) })}
+              />
+            </label>
+            <p className="text-[12px] text-sam-muted md:col-span-2">
+              {lang === "en" ? "Times are Asia/Manila (UTC+8). No UTC conversion is required." : "시간은 마닐라(UTC+8)입니다. UTC로 계산할 필요가 없습니다."}
+            </p>
+            <div className="md:col-span-2">
+              <p className="mb-1 text-sm font-medium">{lang === "en" ? "Audience" : "대상"}</p>
+              {INTRO_AUDIENCES.map((a) => (
+                <label key={a} className="mr-3 inline-flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={campaign.targeting.audiences.includes(a)}
+                    onChange={() =>
+                      patchCampaign({
+                        ...campaign,
+                        targeting: buildAdminTargeting({
+                          audiences: toggleAudience(campaign.targeting.audiences, a),
+                          platforms: campaign.targeting.platforms,
+                          deviceChips: chips,
+                        }),
+                      })
+                    }
+                  />
+                  {introAudienceLabel(a, lang)}
+                </label>
+              ))}
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">{lang === "en" ? "Platform" : "플랫폼"}</p>
+              {INTRO_PLATFORMS.map((p) => (
+                <label key={p} className="mr-3 inline-flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={campaign.targeting.platforms.includes(p)}
+                    onChange={() =>
+                      patchCampaign({
+                        ...campaign,
+                        targeting: buildAdminTargeting({
+                          audiences: campaign.targeting.audiences,
+                          platforms: togglePlatform(campaign.targeting.platforms, p),
+                          deviceChips: chips,
+                        }),
+                      })
+                    }
+                  />
+                  {introPlatformLabel(p, lang)}
+                </label>
+              ))}
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">{lang === "en" ? "Device" : "기기"}</p>
+              {INTRO_ADMIN_DEVICE_CHIPS.map((chip) => (
+                <label key={chip} className="mr-3 inline-flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={chips.includes(chip)}
+                    onChange={() =>
+                      patchCampaign({
+                        ...campaign,
+                        targeting: buildAdminTargeting({
+                          audiences: campaign.targeting.audiences,
+                          platforms: campaign.targeting.platforms,
+                          deviceChips: toggleDeviceChip(chips, chip as IntroAdminDeviceChip),
+                        }),
+                      })
+                    }
+                  />
+                  {introDeviceFamilyLabel(chip === "Phone" ? "PHONE" : "TABLET", lang)}
+                </label>
+              ))}
+            </div>
+            <label className="block text-sm">
+              {lang === "en" ? "Frequency" : "빈도"}
               <select
                 className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-                value={scene.backgroundAssetId ?? ""}
-                onChange={(e) => patchScene({ ...scene, backgroundAssetId: e.target.value || null })}
+                value={campaign.frequencyMode}
+                onChange={(e) =>
+                  patchCampaign({ ...campaign, frequencyMode: e.target.value as IntroFrequencyMode })
+                }
               >
-                <option value="">{lang === "en" ? "None" : "없음"}</option>
-                {campaign.assets.map((a) => (
-                  <option key={a.id} value={a.id}>{a.kind} · {a.id.slice(0, 8)}</option>
+                {INTRO_FREQUENCY_MODES.map((m) => (
+                  <option key={m} value={m}>{introFrequencyLabel(m, lang)}</option>
                 ))}
               </select>
             </label>
           </div>
-        </AdminCard>
-      ) : null}
+        ) : null}
 
-      {scene ? (
-        <AdminCard>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold">{lang === "en" ? "Layers" : "레이어"}</h2>
-            <div className="flex flex-wrap gap-2">
-              {INTRO_LAYER_TYPES.map((type) => (
-                <AdminActionButton
-                  key={type}
-                  variant="quiet"
-                  onClick={() => {
-                    const id = `layer-${Date.now()}`;
-                    const next = defaultLayer(type, id, scene.layers.length + 1);
-                    patchScene({ ...scene, layers: [...scene.layers, next] });
-                    setLayerId(id);
-                  }}
-                >
-                  + {introLayerTypeLabel(type, lang)}
-                </AdminActionButton>
-              ))}
-            </div>
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {scene.layers.map((l, i) => (
-              <div key={l.id} className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className={`rounded-ui-rect border px-2 py-1 text-[12px] ${l.id === layerId ? "border-violet-500" : "border-sam-border"}`}
-                  onClick={() => setLayerId(l.id)}
-                >
-                  {i + 1}. {introLayerTypeLabel(l.type, lang)}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-ui-rect border border-sam-border px-1 text-[11px]"
-                  disabled={i === 0}
-                  onClick={() => {
-                    patchScene({ ...scene, layers: reorderLayers(scene.layers, i, i - 1) });
-                    setLayerId(l.id);
-                  }}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="rounded-ui-rect border border-sam-border px-1 text-[11px]"
-                  disabled={i === scene.layers.length - 1}
-                  onClick={() => {
-                    patchScene({ ...scene, layers: reorderLayers(scene.layers, i, i + 1) });
-                    setLayerId(l.id);
-                  }}
-                >
-                  ↓
-                </button>
-              </div>
-            ))}
-          </div>
-          {layer ? (
-            <LayerFields
-              layer={layer}
-              assets={campaign.assets}
-              lang={lang}
-              onChange={(next) =>
-                patchScene({ ...scene, layers: scene.layers.map((l) => (l.id === next.id ? next : l)) })
-              }
-              onDelete={() => {
-                patchScene({
-                  ...scene,
-                  layers: scene.layers.filter((l) => l.id !== layer.id),
-                  interactionLayerId: scene.interactionLayerId === layer.id ? null : scene.interactionLayerId,
-                });
-                setLayerId(null);
-              }}
-            />
-          ) : null}
-        </AdminCard>
-      ) : null}
-
-      {scene?.cta?.enabled || scene?.interactionMode === "tap_cta" ? (
-        <AdminCard>
-          <h2 className="mb-3 font-semibold">{lang === "en" ? "CTA destination" : "이동 대상"}</h2>
-          <CtaFields
-            scene={scene}
-            lang={lang}
-            hits={entityHits}
-            onSearch={searchEntity}
-            onChange={(next) => patchScene(next)}
-          />
-        </AdminCard>
-      ) : null}
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">{lang === "en" ? "Media" : "미디어"}</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
-          {lang === "en"
-            ? `Planned: ${INTRO_ADMIN_PLANNED_MEDIA.join(", ")}. Uploadable now: ${INTRO_ADMIN_UPLOADABLE_MEDIA.join(", ")}.`
-            : `예정: ${INTRO_ADMIN_PLANNED_MEDIA.join(", ")}. 지금 업로드: ${INTRO_ADMIN_UPLOADABLE_MEDIA.join(", ")}.`}
-        </p>
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void uploadAsset(file);
-          }}
-        />
-        <ul className="mt-2 text-sm">
-          {campaign.assets.map((a) => (
-            <li key={a.id}>{a.kind} · {a.decodeStatus} · {a.publicUrl ? "https" : "no url"}</li>
-          ))}
-        </ul>
-      </AdminCard>
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">{lang === "en" ? "Device overrides" : "기기 설정"}</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
-          {lang === "en" ? "Without an override, COMMON composition is used." : "오버라이드가 없으면 공통 구성을 사용합니다."}
-        </p>
-        <AdminActionButton
-          variant="secondary"
-          onClick={() =>
-            patchCampaign({
-              ...campaign,
-              deviceOverrides: [
-                ...campaign.deviceOverrides,
-                {
-                  id: `tmp-ov-${Date.now()}`,
-                  sceneId: scene?.id ?? null,
-                  deviceFamily: "PHONE",
-                  layers: scene?.layers ?? [],
-                  backgroundAssetId: scene?.backgroundAssetId ?? null,
-                },
-              ],
-            })
-          }
-        >
-          {lang === "en" ? "Add override" : "오버라이드 추가"}
-        </AdminActionButton>
-        {campaign.deviceOverrides.map((ov, i) => (
-          <div key={ov.id} className="mt-2 flex flex-wrap items-center gap-2">
-            <select
-              className="rounded-ui-rect border border-sam-border px-2 py-1"
-              value={ov.deviceFamily}
-              onChange={(e) => {
-                const next = [...campaign.deviceOverrides];
-                next[i] = { ...ov, deviceFamily: e.target.value as IntroDeviceFamily };
-                patchCampaign({ ...campaign, deviceOverrides: next });
-              }}
-            >
-              {INTRO_DEVICE_FAMILIES.map((f) => (
-                <option key={f} value={f}>{introDeviceFamilyLabel(f, lang)}</option>
-              ))}
-            </select>
-            <AdminActionButton
-              variant="quiet"
-              onClick={() =>
-                patchCampaign({
-                  ...campaign,
-                  deviceOverrides: campaign.deviceOverrides.filter((x) => x.id !== ov.id),
-                })
-              }
-            >
-              {lang === "en" ? "Remove" : "삭제"}
-            </AdminActionButton>
-          </div>
-        ))}
-      </AdminCard>
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">{safeT("admin_intro_preview", { fallbackKo: "미리보기", fallbackEn: "Preview" })}</h2>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {INTRO_ADMIN_PREVIEW_PRESETS.map((p) => (
-            <AdminActionButton key={p} variant={preset === p ? "primary" : "secondary"} onClick={() => setPreset(p)}>
-              {p.replaceAll("_", " ")}
-            </AdminActionButton>
-          ))}
-        </div>
-        <AdminIntroPreviewCanvas
-          scene={scene}
-          assets={campaign.assets}
-          preset={preset}
-          selectedLayerId={layerId}
-          lang={lang}
-          onSelectLayer={setLayerId}
-          onMoveLayerPct={(id, xPct, yPct) => {
-            if (!scene) return;
-            patchScene({
-              ...scene,
-              layers: scene.layers.map((l) => (l.id === id ? { ...l, xPct, yPct } : l)),
-            });
-          }}
-        />
-      </AdminCard>
-
-      <AdminCard>
-        <h2 className="mb-3 font-semibold">
-          {safeT("admin_intro_resolver_preview", { fallbackKo: "노출 미리보기", fallbackEn: "Resolver preview" })}
-        </h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block text-sm">
-            DATETIME
-            <input
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={resolverFixture.now}
-              onChange={(e) => setResolverFixture({ ...resolverFixture, now: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            AUDIENCE
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={resolverFixture.audience}
-              onChange={(e) =>
-                setResolverFixture({ ...resolverFixture, audience: e.target.value as typeof resolverFixture.audience })
-              }
-            >
-              {["guest", "authenticated", "new", "returning", "unknown"].map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            PLATFORM
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={resolverFixture.platform}
-              onChange={(e) =>
-                setResolverFixture({ ...resolverFixture, platform: e.target.value as typeof resolverFixture.platform })
-              }
-            >
-              {["android", "ios", "web", "unknown"].map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            DEVICE CLASS
-            <select
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={resolverFixture.deviceClass}
-              onChange={(e) =>
-                setResolverFixture({
-                  ...resolverFixture,
-                  deviceClass: e.target.value as typeof resolverFixture.deviceClass,
-                })
-              }
-            >
-              {["PHONE_ANDROID", "PHONE_IOS", "TABLET_ANDROID", "TABLET_IPAD"].map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={resolverFixture.frequencyEligible}
-              onChange={(e) => setResolverFixture({ ...resolverFixture, frequencyEligible: e.target.checked })}
-            />
-            FREQUENCY ELIGIBLE
-          </label>
-        </div>
-        <AdminActionButton className="mt-3" variant="secondary" onClick={() => void runResolver()}>
-          {lang === "en" ? "Run resolver" : "승자 확인"}
-        </AdminActionButton>
-        {resolver ? (
-          <div className="mt-3 text-sm">
-            {resolver.zeroIntro ? (
-              <>
-                <p className="font-semibold">ZERO INTRO</p>
-                <p>{lang === "en" ? resolver.reasonEn : resolver.reasonKo}</p>
-              </>
-            ) : (
-              <>
-                <p className="font-semibold">WINNER: {resolver.winner?.name}</p>
-                <p>{lang === "en" ? resolver.reasonEn : resolver.reasonKo}</p>
-              </>
-            )}
+        {secondary === "publish" ? (
+          <div className="space-y-2 text-sm">
+            <p>{lang === "en" ? "Scenes" : "장면"}: {campaign.scenes.length}</p>
+            <p>{lang === "en" ? "Schedule" : "일정"}: {formatAdminScheduleRange(campaign.startsAt, campaign.endsAt, campaign.timezone, lang)}</p>
+            <p>
+              {lang === "en" ? "Target" : "대상"}:{" "}
+              {campaign.targeting.audiences.length
+                ? campaign.targeting.audiences.map((a) => introAudienceLabel(a, lang)).join(", ")
+                : lang === "en"
+                  ? "All"
+                  : "전체"}
+            </p>
+            <p>
+              {lang === "en" ? "Devices" : "기기"}:{" "}
+              {chips.length
+                ? chips.map((d) => introDeviceFamilyLabel(d === "Phone" ? "PHONE" : "TABLET", lang)).join(", ")
+                : lang === "en"
+                  ? "All"
+                  : "전체"}
+            </p>
+            <p>
+              {lang === "en" ? "Current revision" : "현재 리비전"}:{" "}
+              {campaign.published?.revision != null
+                ? `Revision ${campaign.published.revision}`
+                : lang === "en"
+                  ? "Not published"
+                  : "게시 전"}
+            </p>
+            <p>
+              {lang === "en" ? "Validation" : "검사"}:{" "}
+              {issues.length
+                ? lang === "en"
+                  ? `${issues.length} issues`
+                  : `문제 ${issues.length}건`
+                : lang === "en"
+                  ? "Ready"
+                  : "문제 없음"}
+            </p>
           </div>
         ) : null}
       </AdminCard>
-
-      {issues.length > 0 ? (
-        <AdminCard>
-          <h2 className="mb-2 font-semibold">{lang === "en" ? "Validation" : "검사 결과"}</h2>
-          <ul className="space-y-1 text-sm text-red-800">
-            {issues.map((issue) => (
-              <li key={`${issue.path}-${issue.code}`}>
-                <span className="font-mono text-[12px]">{issue.path}</span> — {lang === "en" ? issue.messageEn : issue.messageKo}
-              </li>
-            ))}
-          </ul>
-        </AdminCard>
-      ) : null}
     </div>
   );
 }
 
-function LayerFields({
+async function restoreDestinationLabels(
+  campaign: IntroAdminCampaign,
+  apply: (next: IntroAdminCampaign) => void
+) {
+  const byKind = new Map<string, string[]>();
+  for (const scene of campaign.scenes) {
+    const dest = scene.cta?.destination;
+    if (!dest?.id || dest.label || !ENTITY_KINDS.has(dest.type)) continue;
+    const list = byKind.get(dest.type) ?? [];
+    list.push(dest.id);
+    byKind.set(dest.type, list);
+  }
+  if (byKind.size === 0) return;
+  const labels = new Map<string, string>();
+  await Promise.all(
+    [...byKind.entries()].map(async ([kind, ids]) => {
+      const res = await fetch(
+        `/api/admin/intro-campaigns/entity-search?kind=${encodeURIComponent(kind)}&ids=${encodeURIComponent(ids.join(","))}`,
+        { credentials: "same-origin" }
+      );
+      const json = (await res.json().catch(() => ({}))) as { items?: Array<{ id: string; label: string }> };
+      for (const item of json.items ?? []) labels.set(`${kind}:${item.id}`, item.label);
+    })
+  );
+  apply({
+    ...campaign,
+    scenes: campaign.scenes.map((scene) => {
+      const dest = scene.cta?.destination;
+      if (!dest?.id) return scene;
+      const label = labels.get(`${dest.type}:${dest.id}`);
+      if (!label) return scene;
+      return { ...scene, cta: scene.cta ? { ...scene.cta, destination: { ...dest, label } } : scene.cta };
+    }),
+  });
+}
+
+function SceneProps({
+  scene,
+  lang,
+  onChange,
+}: {
+  scene: IntroAdminScene;
+  lang: "ko" | "en";
+  onChange: (scene: IntroAdminScene) => void;
+}) {
+  return (
+    <div className="space-y-2 text-sm">
+      <label className="block">
+        {lang === "en" ? "Scene name" : "장면 이름"}
+        <input
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+          value={scene.name}
+          onChange={(e) => onChange({ ...scene, name: e.target.value })}
+        />
+      </label>
+      <label className="block">
+        {lang === "en" ? "Advance" : "다음 화면으로"}
+        <select
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+          value={scene.advanceMode}
+          onChange={(e) => {
+            const advanceMode = e.target.value as IntroAdvanceMode;
+            onChange({
+              ...scene,
+              advanceMode,
+              durationMs: advanceMode === "timer" ? Math.max(1, scene.durationMs ?? 2500) : null,
+              maxHoldMs: advanceMode === "timer" ? null : Math.max(1, scene.maxHoldMs ?? INTRO_ADMIN_DEFAULT_MAX_HOLD_MS),
+            });
+          }}
+        >
+          {INTRO_ADVANCE_MODES.map((m) => (
+            <option key={m} value={m}>{introAdvanceLabel(m, lang)}</option>
+          ))}
+        </select>
+      </label>
+      {scene.advanceMode === "timer" ? (
+        <label className="block">
+          {lang === "en" ? "Duration (ms)" : "지속 시간 (ms)"}
+          <input
+            type="number"
+            min={1}
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+            value={scene.durationMs ?? ""}
+            onChange={(e) => onChange({ ...scene, durationMs: Number(e.target.value) })}
+          />
+        </label>
+      ) : (
+        <label className="block">
+          {lang === "en" ? "Max hold (ms)" : "최대 유지 (ms)"}
+          <input
+            type="number"
+            min={1}
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+            value={scene.maxHoldMs ?? INTRO_ADMIN_DEFAULT_MAX_HOLD_MS}
+            onChange={(e) => onChange({ ...scene, maxHoldMs: Number(e.target.value) })}
+          />
+        </label>
+      )}
+      <label className="block">
+        {lang === "en" ? "Background color" : "배경색"}
+        <input
+          type="color"
+          className="mt-1 h-9 w-16"
+          value={scene.backgroundColor}
+          onChange={(e) => onChange({ ...scene, backgroundColor: e.target.value })}
+        />
+      </label>
+    </div>
+  );
+}
+
+function LayerProps({
   layer,
   assets,
   lang,
   onChange,
-  onDelete,
 }: {
   layer: IntroLayer;
   assets: readonly IntroAdminAsset[];
   lang: "ko" | "en";
   onChange: (layer: IntroLayer) => void;
-  onDelete: () => void;
 }) {
-  const style = parseIntroTextStyleToken(layer.animation);
-  const align = parseIntroTextAlignment(layer.animation);
   return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <label className="block text-sm">
-        Anchor
-        <select
+    <div className="space-y-2 text-sm">
+      <label className="block">
+        {lang === "en" ? "Name" : "이름"}
+        <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-          value={layer.anchor}
-          onChange={(e) => onChange({ ...layer, anchor: e.target.value as IntroLayer["anchor"] })}
-        >
-          {INTRO_LAYER_ANCHORS.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
+          value={layer.name ?? ""}
+          onChange={(e) => onChange({ ...layer, name: e.target.value })}
+        />
       </label>
-      {(["xPct", "yPct", "widthPct", "minWidthPct", "maxWidthPct", "opacity", "zIndex"] as const).map((key) => (
-        <label key={key} className="block text-sm">
-          {key}
+      <p className="text-[12px] text-sam-muted">{introLayerTypeLabel(layer.type, lang)}</p>
+      {(["xPct", "yPct", "widthPct", "heightPct", "opacity"] as const).map((key) => (
+        <label key={key} className="block">
+          {key === "xPct" ? (lang === "en" ? "X %" : "가로 위치 %")
+            : key === "yPct" ? (lang === "en" ? "Y %" : "세로 위치 %")
+              : key === "widthPct" ? (lang === "en" ? "Width %" : "너비 %")
+                : key === "heightPct" ? (lang === "en" ? "Height %" : "높이 %")
+                  : (lang === "en" ? "Opacity" : "투명도")}
           <input
             type="number"
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
@@ -1065,31 +1182,9 @@ function LayerFields({
           />
         </label>
       ))}
-      <label className="inline-flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={layer.safeArea !== false}
-          onChange={(e) => onChange({ ...layer, safeArea: e.target.checked })}
-        />
-        Safe area
-      </label>
-      <label className="block text-sm">
-        Aspect
-        <select
-          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-          value={layer.aspectPolicy ?? "contain"}
-          onChange={(e) =>
-            onChange({ ...layer, aspectPolicy: e.target.value as IntroLayer["aspectPolicy"] })
-          }
-        >
-          {INTRO_ASPECT_POLICIES.map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-      </label>
-      {(layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND" || layer.type === "DECORATION") ? (
-        <label className="block text-sm">
-          Asset
+      {(layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND") ? (
+        <label className="block">
+          {lang === "en" ? "Media" : "미디어"}
           <select
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
             value={layer.assetId ?? ""}
@@ -1097,65 +1192,79 @@ function LayerFields({
           >
             <option value="">{lang === "en" ? "None" : "없음"}</option>
             {assets.map((a) => (
-              <option key={a.id} value={a.id}>{a.kind}</option>
+              <option key={a.id} value={a.id}>
+                {a.width && a.height ? `${a.width}×${a.height}` : a.kind} {a.publicUrl ? "" : ""}
+              </option>
             ))}
           </select>
         </label>
       ) : null}
-      {layer.type === "TEXT" || layer.type === "CTA" ? (
+      {layer.type === "TEXT" ? (
         <>
-          <label className="block text-sm md:col-span-3">
-            {lang === "en" ? "Text" : "텍스트"}
-            <input
+          <label className="block">
+            {lang === "en" ? "Text" : "내용"}
+            <textarea
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
               value={layer.text ?? ""}
               onChange={(e) => onChange({ ...layer, text: e.target.value })}
             />
           </label>
-          <label className="block text-sm">
-            {lang === "en" ? "Style" : "스타일"}
-            <select
+          <label className="block">
+            {lang === "en" ? "Font size %" : "글자 크기 %"}
+            <input
+              type="number"
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={style}
-              onChange={(e) =>
-                onChange({
-                  ...layer,
-                  animation: composeIntroTextAnimation(e.target.value as (typeof INTRO_TEXT_STYLE_TOKENS)[number], align, null),
-                })
-              }
-            >
-              {INTRO_TEXT_STYLE_TOKENS.map((t) => (
-                <option key={t} value={t}>{introTextStyleLabel(t, lang)}</option>
-              ))}
-            </select>
+              value={layer.fontSizePct ?? 4.2}
+              onChange={(e) => onChange({ ...layer, fontSizePct: Number(e.target.value) })}
+            />
           </label>
-          <label className="block text-sm">
+          <label className="block">
+            {lang === "en" ? "Weight" : "굵기"}
+            <input
+              type="number"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+              value={layer.fontWeight ?? 700}
+              onChange={(e) => onChange({ ...layer, fontWeight: Number(e.target.value) })}
+            />
+          </label>
+          <label className="block">
+            {lang === "en" ? "Line height" : "줄간격"}
+            <input
+              type="number"
+              step="0.1"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+              value={layer.lineHeight ?? 1.3}
+              onChange={(e) => onChange({ ...layer, lineHeight: Number(e.target.value) })}
+            />
+          </label>
+          <label className="block">
             {lang === "en" ? "Align" : "정렬"}
             <select
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-              value={align}
-              onChange={(e) =>
-                onChange({
-                  ...layer,
-                  animation: composeIntroTextAnimation(style, e.target.value as (typeof INTRO_TEXT_ALIGNMENTS)[number], null),
-                })
-              }
+              value={layer.textAlign ?? "center"}
+              onChange={(e) => onChange({ ...layer, textAlign: e.target.value as IntroTextAlign })}
             >
-              {INTRO_TEXT_ALIGNMENTS.map((a) => (
-                <option key={a} value={a}>{a}</option>
+              {INTRO_TEXT_ALIGNS.map((a) => (
+                <option key={a} value={a}>{a === "left" ? (lang === "en" ? "Left" : "왼쪽") : a === "right" ? (lang === "en" ? "Right" : "오른쪽") : (lang === "en" ? "Center" : "가운데")}</option>
               ))}
             </select>
           </label>
+          <label className="block">
+            {lang === "en" ? "Max width %" : "최대 너비 %"}
+            <input
+              type="number"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+              value={layer.maxWidthPct ?? 80}
+              onChange={(e) => onChange({ ...layer, maxWidthPct: Number(e.target.value) })}
+            />
+          </label>
         </>
       ) : null}
-      <AdminActionButton variant="danger" onClick={onDelete}>
-        {lang === "en" ? "Delete layer" : "레이어 삭제"}
-      </AdminActionButton>
     </div>
   );
 }
 
-function CtaFields({
+function CtaProps({
   scene,
   lang,
   hits,
@@ -1164,77 +1273,90 @@ function CtaFields({
 }: {
   scene: IntroAdminScene;
   lang: "ko" | "en";
-  hits: Array<{ id: string; label: string }>;
+  hits: Array<{ id: string; label: string; subtitle?: string }>;
   onSearch: (kind: string, q: string) => void;
   onChange: (scene: IntroAdminScene) => void;
 }) {
-  const dest = scene.cta?.destination ?? { type: "COMMUNITY" as const };
-  const type = dest.type;
+  const cta = withCtaVisual(scene.cta);
+  const dest = cta.destination;
+  const patchCta = (partial: Partial<typeof cta>) => onChange({ ...scene, cta: { ...cta, ...partial } });
   return (
-    <div className="space-y-3">
-      <label className="block text-sm">
-        {lang === "en" ? "Destination" : "대상"}
+    <div className="space-y-2 text-sm">
+      <label className="block">
+        {lang === "en" ? "Button label" : "버튼 문구"}
+        <input
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+          value={cta.label ?? ""}
+          onChange={(e) => patchCta({ label: e.target.value })}
+        />
+      </label>
+      {(["xPct", "yPct", "widthPct", "heightPct", "fontSizePct", "fontWeight", "cornerRadiusPct", "opacity"] as const).map((key) => (
+        <label key={key} className="block">
+          {key}
+          <input
+            type="number"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
+            value={cta[key] ?? ""}
+            onChange={(e) => patchCta({ [key]: Number(e.target.value) })}
+          />
+        </label>
+      ))}
+      <label className="block">
+        {lang === "en" ? "Go to" : "이동할 화면"}
         <select
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-          value={type}
-          onChange={(e) =>
-            onChange({
-              ...scene,
-              cta: { enabled: true, destination: { type: e.target.value as IntroCtaDestinationType } },
-            })
-          }
+          value={dest.type}
+          onChange={(e) => patchCta({ destination: { type: e.target.value as IntroCtaDestinationType } })}
         >
           {INTRO_CTA_DESTINATION_TYPES.map((t) => (
             <option key={t} value={t}>{introCtaTypeLabel(t, lang)}</option>
           ))}
         </select>
       </label>
-      {ENTITY_KINDS.has(type) ? (
-        <label className="block text-sm">
+      {ENTITY_KINDS.has(dest.type) ? (
+        <label className="block">
           {lang === "en" ? "Search" : "검색"}
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
-            onChange={(e) => onSearch(type, e.target.value)}
+            onChange={(e) => onSearch(dest.type, e.target.value)}
           />
-          <ul className="mt-1">
+          <ul className="mt-1 space-y-1">
             {hits.map((hit) => (
               <li key={hit.id}>
                 <button
                   type="button"
-                  className="text-left text-sm underline"
-                  onClick={() =>
-                    onChange({ ...scene, cta: { enabled: true, destination: { type, id: hit.id } } })
-                  }
+                  className="text-left underline"
+                  onClick={() => patchCta({ destination: { type: dest.type, id: hit.id, label: hit.label } })}
                 >
                   {hit.label}
                 </button>
               </li>
             ))}
           </ul>
-          {dest.id ? <p className="mt-1 text-[12px] text-sam-muted">ID: {dest.id}</p> : null}
+          {dest.label ? (
+            <p className="mt-1 text-[12px] text-sam-fg">{dest.label}</p>
+          ) : dest.id ? (
+            <p className="mt-1 text-[12px] text-amber-800">{lang === "en" ? "Label is loading." : "이름을 불러오는 중입니다."}</p>
+          ) : null}
         </label>
       ) : null}
-      {type === "INTERNAL_PATH" ? (
-        <label className="block text-sm">
-          Path
+      {dest.type === "INTERNAL_PATH" ? (
+        <label className="block">
+          {lang === "en" ? "Path" : "경로"}
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
             value={dest.path ?? ""}
-            onChange={(e) =>
-              onChange({ ...scene, cta: { enabled: true, destination: { type, path: e.target.value } } })
-            }
+            onChange={(e) => patchCta({ destination: { type: dest.type, path: e.target.value } })}
           />
         </label>
       ) : null}
-      {type === "EXTERNAL_URL" ? (
-        <label className="block text-sm">
-          https URL
+      {dest.type === "EXTERNAL_URL" ? (
+        <label className="block">
+          https
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1"
             value={dest.url ?? ""}
-            onChange={(e) =>
-              onChange({ ...scene, cta: { enabled: true, destination: { type, url: e.target.value } } })
-            }
+            onChange={(e) => patchCta({ destination: { type: dest.type, url: e.target.value } })}
           />
         </label>
       ) : null}

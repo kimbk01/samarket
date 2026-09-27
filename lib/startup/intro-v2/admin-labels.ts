@@ -69,10 +69,10 @@ const ADVANCE: Record<IntroAdvanceMode, { ko: string; en: string }> = {
 };
 
 const INTERACTION: Record<IntroAdminInteractionUi, { ko: string; en: string }> = {
-  NONE: { ko: "상호작용 없음", en: "No interaction" },
-  BUTTON: { ko: "버튼", en: "Button" },
-  FULL_SCENE: { ko: "전체 화면", en: "Full scene" },
-  LAYER: { ko: "레이어", en: "Layer" },
+  NONE: { ko: "사용 안 함", en: "None" },
+  BUTTON: { ko: "버튼 누르기", en: "Tap button" },
+  FULL_SCENE: { ko: "화면 전체 누르기", en: "Tap full screen" },
+  LAYER: { ko: "특정 요소 누르기", en: "Tap an element" },
 };
 
 const AUDIENCE: Record<IntroAudience, { ko: string; en: string }> = {

@@ -88,3 +88,54 @@ export async function searchIntroEntities(
     label: String(r.title ?? r.id),
   }));
 }
+
+export async function resolveIntroEntitiesByIds(
+  sb: QueryClient,
+  kind: IntroEntityKind,
+  ids: string[]
+): Promise<IntroEntityHit[]> {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  if (kind === "STORE") {
+    const { data } = await sb.from("stores").select("id, store_name, slug").in("id", unique);
+    return rows(data).map((r) => ({
+      id: String(r.id),
+      label: String(r.store_name ?? r.slug ?? r.id),
+      subtitle: r.slug ? String(r.slug) : undefined,
+    }));
+  }
+
+  if (kind === "PRODUCT") {
+    const { data } = await sb.from("store_products").select("id, name, store_id").in("id", unique);
+    return rows(data).map((r) => ({
+      id: String(r.id),
+      label: String(r.name ?? r.id),
+      subtitle: r.store_id ? String(r.store_id) : undefined,
+    }));
+  }
+
+  if (kind === "LISTING" || kind === "POST") {
+    const { data } = await sb.from("posts").select("id, title, type").in("id", unique);
+    return rows(data).map((r) => ({
+      id: String(r.id),
+      label: String(r.title ?? r.id),
+      subtitle: r.type ? String(r.type) : undefined,
+    }));
+  }
+
+  if (kind === "EVENT") {
+    const { data } = await sb.from("platform_events").select("id, title, status").in("id", unique);
+    return rows(data).map((r) => ({
+      id: String(r.id),
+      label: String(r.title ?? r.id),
+      subtitle: r.status ? String(r.status) : undefined,
+    }));
+  }
+
+  const { data } = await sb.from("community_messenger_rooms").select("id, title").in("id", unique);
+  return rows(data).map((r) => ({
+    id: String(r.id),
+    label: String(r.title ?? r.id),
+  }));
+}

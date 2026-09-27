@@ -120,10 +120,10 @@ export function introDerivedStatusLabel(
   lang: "ko" | "en"
 ): string {
   const map: Record<IntroDerivedStatus, { ko: string; en: string }> = {
-    LIVE_NOW: { ko: "지금 노출", en: "Live now" },
+    LIVE_NOW: { ko: "현재 노출 중", en: "Currently live" },
     SCHEDULED: { ko: "예약됨", en: "Scheduled" },
     PAUSED: { ko: "일시중지", en: "Paused" },
-    EXPIRED: { ko: "만료", en: "Expired" },
+    EXPIRED: { ko: "노출 종료", en: "Ended" },
     DRAFT: { ko: "초안", en: "Draft" },
     ARCHIVED: { ko: "보관", en: "Archived" },
     ACTIVE: { ko: "활성", en: "Active" },

@@ -15,9 +15,9 @@ export function manilaLocalToIso(local: string): string | null {
 }
 
 export function formatAdminSchedule(iso: string | null, timezone: string): string {
-  if (!iso) return "—";
+  if (!iso) return "";
   const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return "—";
+  if (!Number.isFinite(ms)) return "";
   try {
     return new Intl.DateTimeFormat("en-PH", {
       timeZone: timezone || "Asia/Manila",
@@ -28,6 +28,20 @@ export function formatAdminSchedule(iso: string | null, timezone: string): strin
       minute: "2-digit",
     }).format(new Date(ms));
   } catch {
-    return iso;
+    return "";
   }
+}
+
+export function formatAdminScheduleRange(
+  startsAt: string | null,
+  endsAt: string | null,
+  timezone: string,
+  lang: "ko" | "en"
+): string {
+  const start = formatAdminSchedule(startsAt, timezone);
+  const end = formatAdminSchedule(endsAt, timezone);
+  if (!start && !end) return lang === "en" ? "No schedule" : "일정 없음";
+  if (start && end) return `${start} – ${end}`;
+  if (start) return lang === "en" ? `From ${start}` : `${start}부터`;
+  return lang === "en" ? `Until ${end}` : `${end}까지`;
 }

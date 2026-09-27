@@ -173,6 +173,67 @@ describe("intro-v2 layer / CTA schema", () => {
       }).ok
     ).toBe(false);
   });
+
+  it("accepts additive Composer visual fields and keeps old snapshots valid", () => {
+    const oldLayer = validateIntroLayer(validLayer);
+    expect(oldLayer.ok).toBe(true);
+    const named = validateIntroLayer({
+      ...validLayer,
+      name: "히어로 이미지",
+      heightPct: 60,
+      fontSizePct: 4.2,
+      fontWeight: 700,
+      lineHeight: 1.3,
+      textAlign: "center",
+      maxWidthPct: 80,
+    });
+    expect(named.ok).toBe(true);
+    if (named.ok) {
+      expect(named.value.name).toBe("히어로 이미지");
+      expect(named.value.heightPct).toBe(60);
+      expect(named.value.fontSizePct).toBe(4.2);
+    }
+    expect(validateIntroLayer({ ...validLayer, cssPx: 360 }).ok).toBe(false);
+    expect(validateIntroLayer({ ...validLayer, heightPct: 140 }).ok).toBe(false);
+
+    const oldCta = validateIntroCta({ enabled: false, destination: { type: "COMMUNITY" } });
+    expect(oldCta.ok).toBe(true);
+    const visual = validateIntroCta({
+      enabled: true,
+      destination: { type: "PRODUCT", id: "p1", label: "여름 원피스" },
+      label: "시작하기",
+      xPct: 50,
+      yPct: 86,
+      widthPct: 56,
+      heightPct: 8,
+      fontSizePct: 3.2,
+      fontWeight: 700,
+      cornerRadiusPct: 24,
+      opacity: 1,
+      align: "center",
+    });
+    expect(visual.ok).toBe(true);
+    if (visual.ok && visual.value) {
+      expect(visual.value.label).toBe("시작하기");
+      expect(visual.value.heightPct).toBe(8);
+      expect(visual.value.destination.label).toBe("여름 원피스");
+    }
+    const disabledVisual = validateIntroCta({
+      enabled: false,
+      destination: { type: "COMMUNITY" },
+      label: "시작하기",
+      xPct: 50,
+      yPct: 86,
+      widthPct: 56,
+      heightPct: 8,
+    });
+    expect(disabledVisual.ok).toBe(true);
+    if (disabledVisual.ok && disabledVisual.value) {
+      expect(disabledVisual.value.enabled).toBe(false);
+      expect(disabledVisual.value.heightPct).toBe(8);
+    }
+    expect(validateIntroCta({ enabled: false, cssPx: 12 }).ok).toBe(false);
+  });
 });
 
 describe("intro-v2 publication isolation + resolver", () => {

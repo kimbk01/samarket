@@ -2,6 +2,7 @@ import {
   INTRO_ASPECT_POLICIES,
   INTRO_LAYER_ANCHORS,
   INTRO_LAYER_TYPES,
+  INTRO_TEXT_ALIGNS,
   isIn,
   type ContractResult,
   type IntroLayer,
@@ -12,9 +13,11 @@ const LAYER_KEYS = new Set([
   "type",
   "zIndex",
   "anchor",
+  "name",
   "xPct",
   "yPct",
   "widthPct",
+  "heightPct",
   "minWidthPct",
   "maxWidthPct",
   "opacity",
@@ -23,6 +26,10 @@ const LAYER_KEYS = new Set([
   "aspectPolicy",
   "assetId",
   "text",
+  "fontSizePct",
+  "fontWeight",
+  "lineHeight",
+  "textAlign",
   "animation",
 ]);
 
@@ -54,6 +61,8 @@ export function validateIntroLayer(raw: unknown): ContractResult<IntroLayer> {
   if (!yPct.ok) return yPct;
   const widthPct = optNumber(rec.widthPct, 0, 100, "widthPct");
   if (!widthPct.ok) return widthPct;
+  const heightPct = optNumber(rec.heightPct, 0, 100, "heightPct");
+  if (!heightPct.ok) return heightPct;
   const minWidthPct = optNumber(rec.minWidthPct, 0, 100, "minWidthPct");
   if (!minWidthPct.ok) return minWidthPct;
   const maxWidthPct = optNumber(rec.maxWidthPct, 0, 100, "maxWidthPct");
@@ -72,7 +81,17 @@ export function validateIntroLayer(raw: unknown): ContractResult<IntroLayer> {
   if (rec.assetId != null && (typeof rec.assetId !== "string" || !rec.assetId.trim())) {
     return { ok: false, error: "assetId_invalid" };
   }
+  if (rec.name != null && typeof rec.name !== "string") return { ok: false, error: "layer_name_invalid" };
   if (rec.text != null && typeof rec.text !== "string") return { ok: false, error: "text_invalid" };
+  const fontSizePct = optNumber(rec.fontSizePct, 0.5, 20, "fontSizePct");
+  if (!fontSizePct.ok) return fontSizePct;
+  const fontWeight = optNumber(rec.fontWeight, 100, 900, "fontWeight");
+  if (!fontWeight.ok) return fontWeight;
+  const lineHeight = optNumber(rec.lineHeight, 0.8, 3, "lineHeight");
+  if (!lineHeight.ok) return lineHeight;
+  if (rec.textAlign != null && !isIn(INTRO_TEXT_ALIGNS, rec.textAlign)) {
+    return { ok: false, error: "textAlign_invalid" };
+  }
   if (rec.animation != null && typeof rec.animation !== "string") return { ok: false, error: "animation_invalid" };
 
   const needsAsset = rec.type === "BACKGROUND" || rec.type === "IMAGE" || rec.type === "LOGO" || rec.type === "DECORATION";
@@ -86,9 +105,11 @@ export function validateIntroLayer(raw: unknown): ContractResult<IntroLayer> {
       type: rec.type,
       zIndex: rec.zIndex,
       anchor: rec.anchor,
+      name: typeof rec.name === "string" && rec.name.trim() ? rec.name.trim() : undefined,
       xPct: xPct.value,
       yPct: yPct.value,
       widthPct: widthPct.value,
+      heightPct: heightPct.value,
       minWidthPct: minWidthPct.value,
       maxWidthPct: maxWidthPct.value,
       opacity: opacity.value,
@@ -97,6 +118,10 @@ export function validateIntroLayer(raw: unknown): ContractResult<IntroLayer> {
       aspectPolicy: isIn(INTRO_ASPECT_POLICIES, rec.aspectPolicy) ? rec.aspectPolicy : undefined,
       assetId: typeof rec.assetId === "string" ? rec.assetId : undefined,
       text: typeof rec.text === "string" ? rec.text : undefined,
+      fontSizePct: fontSizePct.value,
+      fontWeight: fontWeight.value,
+      lineHeight: lineHeight.value,
+      textAlign: isIn(INTRO_TEXT_ALIGNS, rec.textAlign) ? rec.textAlign : undefined,
       animation: typeof rec.animation === "string" ? rec.animation : undefined,
     },
   };

@@ -8,13 +8,12 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { formatAdminSchedule } from "@/components/admin/intro/intro-admin-time";
+import { formatAdminSchedule, formatAdminScheduleRange } from "@/components/admin/intro/intro-admin-time";
 import {
   introAudienceLabel,
   introDeviceFamilyLabel,
   introFrequencyLabel,
   introPlatformLabel,
-  introStatusLabel,
 } from "@/lib/startup/intro-v2/admin-labels";
 import { deviceChipsFromClasses } from "@/lib/startup/intro-v2/admin-targeting-ui";
 import { introDerivedStatusLabel, type IntroDerivedStatus, type IntroLiveFlags } from "@/lib/startup/intro-v2/live-status";
@@ -36,6 +35,23 @@ function derivedTone(derived?: IntroDerivedStatus, liveNow?: boolean): AdminTone
   return "waiting";
 }
 
+function operationalLabel(item: ListItem, lang: "ko" | "en"): string {
+  if (item.liveNow || item.derived === "LIVE_NOW") return introDerivedStatusLabel("LIVE_NOW", lang);
+  if (item.derived) return introDerivedStatusLabel(item.derived, lang);
+  return lang === "en" ? "Draft" : "초안";
+}
+
+function targetSummary(item: ListItem, lang: "ko" | "en"): string {
+  const all = lang === "en" ? "All" : "전체";
+  const audiences = item.targeting.audiences.length
+    ? item.targeting.audiences.map((a) => introAudienceLabel(a, lang)).join(", ")
+    : all;
+  const platforms = item.targeting.platforms.length
+    ? item.targeting.platforms.map((p) => introPlatformLabel(p, lang)).join(", ")
+    : all;
+  return `${audiences} · ${platforms}`;
+}
+
 export function AdminIntroListPage() {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -45,6 +61,7 @@ export function AdminIntroListPage() {
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,8 +122,8 @@ export function AdminIntroListPage() {
         backHref="/admin/platform-promotion"
         description={
           lang === "en"
-            ? "Create, preview, and publish first-entry intro campaigns. This is Admin CMS only — not Native V2 playback."
-            : "첫 진입 인트로를 만들고 미리보고 게시합니다. Admin CMS이며 Native V2 재생이 아닙니다."
+            ? "Create and publish first-entry intro campaigns. This is the Admin composer, not Native playback."
+            : "첫 진입 인트로를 만들고 게시합니다. 운영자 편집 화면이며 기기 재생이 아닙니다."
         }
       />
 
@@ -153,47 +170,36 @@ export function AdminIntroListPage() {
         </AdminCard>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-[13px]">
+          <table className="min-w-full border-collapse text-left text-[13px]" data-intro-list="composer">
             <thead>
               <tr className="border-b border-sam-border text-sam-muted">
-                <th className="px-2 py-2"> </th>
-                <th className="px-2 py-2">{lang === "en" ? "Name" : "이름"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Status" : "상태"}</th>
-                <th className="px-2 py-2">{safeT("admin_intro_live_now", { fallbackKo: "지금 노출", fallbackEn: "Live now" })}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Thumbnail" : "썸네일"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Intro name" : "인트로 이름"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Status" : "운영 상태"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Schedule" : "일정"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Target" : "대상 요약"}</th>
                 <th className="px-2 py-2">{lang === "en" ? "Scenes" : "장면"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Media" : "미디어"}</th>
-                <th className="px-2 py-2">CTA</th>
-                <th className="px-2 py-2">{lang === "en" ? "Start" : "시작"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "End" : "종료"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Priority" : "우선순위"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Audience" : "대상"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Platform" : "플랫폼"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Device" : "기기"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Frequency" : "빈도"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Published" : "게시"}</th>
-                <th className="px-2 py-2">{lang === "en" ? "Modified" : "수정"}</th>
-                <th className="px-2 py-2"> </th>
+                <th className="px-2 py-2">{lang === "en" ? "Revision" : "게시 리비전"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Updated" : "수정"}</th>
+                <th className="px-2 py-2">{lang === "en" ? "Actions" : "작업"}</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
-                const audiences = item.targeting.audiences.length
-                  ? item.targeting.audiences.map((a) => introAudienceLabel(a, lang)).join(", ")
-                  : safeT("admin_intro_all", { fallbackKo: "전체", fallbackEn: "All" });
-                const platforms = item.targeting.platforms.length
-                  ? item.targeting.platforms.map((p) => introPlatformLabel(p, lang)).join(", ")
-                  : safeT("admin_intro_all", { fallbackKo: "전체", fallbackEn: "All" });
                 const devices = deviceChipsFromClasses(item.targeting.deviceClasses);
                 const deviceLabel = devices.length
                   ? devices
                       .map((d) => introDeviceFamilyLabel(d === "Phone" ? "PHONE" : "TABLET", lang))
                       .join(", ")
-                  : safeT("admin_intro_all", { fallbackKo: "전체", fallbackEn: "All" });
+                  : lang === "en"
+                    ? "All devices"
+                    : "모든 기기";
+                const updated = formatAdminSchedule(item.updatedAt, item.timezone);
                 return (
                   <tr key={item.id} className="border-b border-sam-border align-top">
                     <td className="px-2 py-2">
-                      <div className="h-12 w-10 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                        <SamarketThumbnail src={item.thumbnailUrl} alt="" size={48} className="h-12 w-10" />
+                      <div className="h-14 w-11 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                        <SamarketThumbnail src={item.thumbnailUrl} alt="" size={56} className="h-14 w-11" />
                       </div>
                     </td>
                     <td className="px-2 py-2 font-semibold text-sam-fg">
@@ -203,61 +209,87 @@ export function AdminIntroListPage() {
                           {lang === "en" ? "Needs confirmation" : "확인 필요"}
                         </div>
                       ) : null}
+                    </td>
+                    <td className="px-2 py-2">
+                      <AdminToneBadge tone={derivedTone(item.derived, item.liveNow)}>
+                        {operationalLabel(item, lang)}
+                      </AdminToneBadge>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {item.flags?.targetLimited ? (
-                          <span className="text-[10px] text-sam-muted">
-                            {introDerivedStatusLabel("TARGET_LIMITED", lang)}
-                          </span>
+                          <span className="text-[11px] text-sam-muted">{introDerivedStatusLabel("TARGET_LIMITED", lang)}</span>
                         ) : null}
                         {item.flags?.deviceLimited ? (
-                          <span className="text-[10px] text-sam-muted">
-                            {introDerivedStatusLabel("DEVICE_LIMITED", lang)}
-                          </span>
-                        ) : null}
-                        {item.flags?.frequencyControlled ? (
-                          <span className="text-[10px] text-sam-muted">
-                            {introDerivedStatusLabel("FREQUENCY_CONTROLLED", lang)}
-                          </span>
+                          <span className="text-[11px] text-sam-muted">{introDerivedStatusLabel("DEVICE_LIMITED", lang)}</span>
                         ) : null}
                       </div>
                     </td>
                     <td className="px-2 py-2">
-                      <AdminToneBadge tone={derivedTone(item.derived, item.liveNow)}>
-                        {introStatusLabel(item.status, lang)}
-                      </AdminToneBadge>
-                      {item.derived && item.derived !== item.status.toUpperCase() ? (
-                        <div className="mt-1 text-[11px] text-sam-muted">
-                          {introDerivedStatusLabel(item.derived, lang)}
+                      {formatAdminScheduleRange(item.startsAt, item.endsAt, item.timezone, lang)}
+                    </td>
+                    <td className="px-2 py-2">{targetSummary(item, lang)}</td>
+                    <td className="px-2 py-2">{item.sceneCount}</td>
+                    <td className="px-2 py-2">
+                      {item.publishedRevision != null
+                        ? `Revision ${item.publishedRevision}`
+                        : lang === "en"
+                          ? "Not published"
+                          : "게시 전"}
+                    </td>
+                    <td className="px-2 py-2">
+                      {updated || (lang === "en" ? "Not updated" : "수정 기록 없음")}
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <AdminActionLink href={`/admin/intro/${item.id}`} variant="secondary">
+                          {lang === "en" ? "Edit" : "편집"}
+                        </AdminActionLink>
+                        <AdminActionButton
+                          variant="quiet"
+                          onClick={() => setOpenId((cur) => (cur === item.id ? null : item.id))}
+                        >
+                          {openId === item.id
+                            ? lang === "en"
+                              ? "Hide details"
+                              : "자세히 닫기"
+                            : lang === "en"
+                              ? "Details"
+                              : "자세히"}
+                        </AdminActionButton>
+                      </div>
+                      {openId === item.id ? (
+                        <div className="mt-2 space-y-1 text-[12px] text-sam-muted">
+                          <p>
+                            {lang === "en" ? "Media" : "미디어"}:{" "}
+                            {item.mediaTypes.length
+                              ? item.mediaTypes.join(", ")
+                              : lang === "en"
+                                ? "None"
+                                : "없음"}
+                          </p>
+                          <p>
+                            {lang === "en" ? "Interaction" : "상호작용"}:{" "}
+                            {item.hasCta
+                              ? lang === "en"
+                                ? "Button"
+                                : "버튼"
+                              : item.interactionModes.length
+                                ? item.interactionModes.join(", ")
+                                : lang === "en"
+                                  ? "None"
+                                  : "사용 안 함"}
+                          </p>
+                          <p>
+                            {lang === "en" ? "Devices" : "기기"}: {deviceLabel}
+                          </p>
+                          <p>
+                            {lang === "en" ? "Frequency" : "빈도"}:{" "}
+                            {introFrequencyLabel(item.frequencyMode as IntroFrequencyMode, lang)}
+                          </p>
+                          <p>
+                            {lang === "en" ? "Priority" : "우선순위"}: {item.priority}
+                          </p>
                         </div>
                       ) : null}
-                    </td>
-                    <td className="px-2 py-2">
-                      {item.liveNow ? (
-                        <AdminToneBadge tone="success">
-                          {safeT("admin_intro_live_now", { fallbackKo: "지금 노출", fallbackEn: "Live now" })}
-                        </AdminToneBadge>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-2 py-2">{item.sceneCount}</td>
-                    <td className="px-2 py-2 uppercase">{item.mediaTypes.join(", ") || "—"}</td>
-                    <td className="px-2 py-2">{item.hasCta ? "CTA" : item.interactionModes.join(", ") || "—"}</td>
-                    <td className="px-2 py-2">{formatAdminSchedule(item.startsAt, item.timezone)}</td>
-                    <td className="px-2 py-2">{formatAdminSchedule(item.endsAt, item.timezone)}</td>
-                    <td className="px-2 py-2">{item.priority}</td>
-                    <td className="px-2 py-2">{audiences}</td>
-                    <td className="px-2 py-2">{platforms}</td>
-                    <td className="px-2 py-2">{deviceLabel}</td>
-                    <td className="px-2 py-2">
-                      {introFrequencyLabel(item.frequencyMode as IntroFrequencyMode, lang)}
-                    </td>
-                    <td className="px-2 py-2">{item.publishedRevision ?? "—"}</td>
-                    <td className="px-2 py-2">{formatAdminSchedule(item.updatedAt, item.timezone)}</td>
-                    <td className="px-2 py-2">
-                      <AdminActionLink href={`/admin/intro/${item.id}`} variant="secondary">
-                        {lang === "en" ? "Edit" : "편집"}
-                      </AdminActionLink>
                     </td>
                   </tr>
                 );

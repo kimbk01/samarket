@@ -125,14 +125,19 @@ export type IntroTargeting = {
   deviceClasses: IntroDeviceClass[];
 };
 
+export const INTRO_TEXT_ALIGNS = ["left", "center", "right"] as const;
+export type IntroTextAlign = (typeof INTRO_TEXT_ALIGNS)[number];
+
 export type IntroLayer = {
   id: string;
   type: IntroLayerType;
   zIndex: number;
   anchor: IntroLayerAnchor;
+  name?: string;
   xPct?: number;
   yPct?: number;
   widthPct?: number;
+  heightPct?: number;
   minWidthPct?: number;
   maxWidthPct?: number;
   opacity?: number;
@@ -141,6 +146,10 @@ export type IntroLayer = {
   aspectPolicy?: IntroAspectPolicy;
   assetId?: string;
   text?: string;
+  fontSizePct?: number;
+  fontWeight?: number;
+  lineHeight?: number;
+  textAlign?: IntroTextAlign;
   animation?: string;
 };
 
@@ -149,11 +158,23 @@ export type IntroCtaDestination = {
   id?: string;
   path?: string;
   url?: string;
+  /** Display cache only. Stable `id` remains authority. */
+  label?: string;
 };
 
 export type IntroCta = {
   enabled: boolean;
   destination: IntroCtaDestination;
+  label?: string;
+  xPct?: number;
+  yPct?: number;
+  widthPct?: number;
+  heightPct?: number;
+  fontSizePct?: number;
+  fontWeight?: number;
+  cornerRadiusPct?: number;
+  opacity?: number;
+  align?: IntroTextAlign;
 };
 
 export type IntroResolverInput = {

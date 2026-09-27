@@ -79,12 +79,14 @@ export function layerPreviewStyle(layer: {
   xPct?: number;
   yPct?: number;
   widthPct?: number;
+  heightPct?: number;
   opacity?: number;
   rotation?: number;
 }): Record<string, string> {
   const x = layer.xPct ?? 50;
   const y = layer.yPct ?? 50;
   const width = layer.widthPct ?? 40;
+  const height = layer.heightPct;
   const transform: string[] = [];
   if (layer.anchor.includes("center") && !layer.anchor.startsWith("center_")) {
     transform.push("translate(-50%, -50%)");
@@ -94,7 +96,7 @@ export function layerPreviewStyle(layer: {
     transform.push("translateY(-50%)");
   }
   if (layer.rotation) transform.push(`rotate(${layer.rotation}deg)`);
-  return {
+  const style: Record<string, string> = {
     position: "absolute",
     left: `${x}%`,
     top: `${y}%`,
@@ -102,4 +104,6 @@ export function layerPreviewStyle(layer: {
     opacity: String(layer.opacity ?? 1),
     transform: transform.join(" "),
   };
+  if (height != null) style.height = `${height}%`;
+  return style;
 }
