@@ -60,6 +60,7 @@ import {
 } from "@/lib/startup/intro-v2/admin-resolver-preview";
 import {
   createIntroAdminCampaign,
+  getIntroAdminCampaign,
   listIntroAdminCampaigns,
   publishIntroAdminCampaign,
   saveIntroAdminDraft,
@@ -681,10 +682,16 @@ describe("V1 imported draft / publish revision", () => {
     expect(db.tables.intro_publications.find((p) => p.id === first.publicationId)?.is_live).toBe(false);
     expect(db.tables.intro_publications.find((p) => p.id === second.publicationId)?.is_live).toBe(true);
 
+    const afterPublish = await getIntroAdminCampaign(db, created.id);
+    expect(afterPublish.ok && afterPublish.campaign.draftDivergedFromPublication).toBe(false);
+
     await saveIntroAdminDraft(db, created.id, "admin-1", { name: "Draft after publish" });
     const kept = db.tables.intro_publications.find((p) => p.id === second.publicationId);
     expect(kept?.revision).toBe(2);
     expect((kept?.manifest as { campaign?: { name?: string } } | undefined)?.campaign?.name).toBe("Grand Open");
+    const afterDraft = await getIntroAdminCampaign(db, created.id);
+    expect(afterDraft.ok && afterDraft.campaign.draftDivergedFromPublication).toBe(true);
+    expect(afterDraft.ok && afterDraft.campaign.name).toBe("Draft after publish");
   });
 
   it("pauses and archives through status transitions, not publication mutation", async () => {
@@ -775,6 +782,14 @@ describe("composer reconstruction contract", () => {
     });
     expect(resolveIntroDocumentState({ campaign: published, dirty: false, saving: false, issues: [] })).toBe("PUBLISHED");
     expect(resolveIntroDocumentState({ campaign: published, dirty: true, saving: false, issues: [] })).toBe("DIRTY_AFTER_PUBLISH");
+    expect(
+      resolveIntroDocumentState({
+        campaign: { ...published, draftDivergedFromPublication: true },
+        dirty: false,
+        saving: false,
+        issues: [],
+      })
+    ).toBe("DIRTY_AFTER_PUBLISH");
     expect(introDocumentStateLabel("PUBLISHED", "ko", 2)).toBe("게시됨 · Revision 2");
     expect(introDocumentStateLabel("DIRTY_AFTER_PUBLISH", "ko")).toBe("게시 후 변경사항 있음");
   });

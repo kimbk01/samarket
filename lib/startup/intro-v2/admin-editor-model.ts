@@ -89,6 +89,7 @@ export type IntroAdminCampaign = {
   assets: IntroAdminAsset[];
   deviceOverrides: IntroAdminDeviceOverride[];
   published: IntroAdminPublicationSummary | null;
+  draftDivergedFromPublication: boolean;
 };
 
 export type IntroAdminListRow = {
@@ -241,6 +242,7 @@ export function defaultNewCampaignDraft(name: string): Omit<IntroAdminCampaign, 
     assets: [],
     deviceOverrides: [],
     published: null,
+    draftDivergedFromPublication: false,
   };
 }
 

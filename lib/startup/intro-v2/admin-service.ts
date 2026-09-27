@@ -24,6 +24,7 @@ import {
 } from "@/lib/startup/intro-v2/admin-editor-model";
 import { emptyIntroTargeting } from "@/lib/startup/intro-v2/admin-targeting-ui";
 import { INTRO_ADMIN_DEFAULT_TIMEZONE } from "@/lib/startup/intro-v2/admin-labels";
+import { introDraftDivergedFromPublication } from "@/lib/startup/intro-v2/admin-document-state";
 import type {
   IntroCampaignStatus,
   IntroCta,
@@ -196,7 +197,7 @@ export async function getIntroAdminCampaign(
     sb.from("intro_scenes").select("*").eq("campaign_id", id).order("sort_order", { ascending: true }),
     sb.from("intro_device_overrides").select("*").eq("campaign_id", id),
     data.published_publication_id
-      ? sb.from("intro_publications").select("id, revision, published_at, published_by, is_live").eq("id", data.published_publication_id).maybeSingle()
+      ? sb.from("intro_publications").select("id, revision, published_at, published_by, is_live, manifest").eq("id", data.published_publication_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -252,7 +253,12 @@ export async function getIntroAdminCampaign(
           isLive: pub.is_live === true,
         }
       : null,
+    draftDivergedFromPublication: false,
   };
+  campaign.draftDivergedFromPublication = introDraftDivergedFromPublication(
+    campaign,
+    pub && typeof pub === "object" && "manifest" in pub ? (pub as { manifest?: unknown }).manifest : null
+  );
   return { ok: true, campaign };
 }
 

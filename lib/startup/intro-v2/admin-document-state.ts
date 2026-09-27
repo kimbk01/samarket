@@ -4,6 +4,10 @@
 
 import type { IntroAdminCampaign } from "@/lib/startup/intro-v2/admin-editor-model";
 import type { IntroAdminIssue } from "@/lib/startup/intro-v2/admin-validate";
+import {
+  validatePublishedManifest,
+  type IntroPublishedManifest,
+} from "@/lib/startup/intro-v2/publication";
 
 export const INTRO_DOCUMENT_STATES = [
   "DRAFT",
@@ -18,6 +22,52 @@ export const INTRO_DOCUMENT_STATES = [
   "ARCHIVED",
 ] as const;
 export type IntroDocumentState = (typeof INTRO_DOCUMENT_STATES)[number];
+
+function normIso(value: string | null): string | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : value;
+}
+
+function stable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((key) => [key, stable((value as Record<string, unknown>)[key])])
+    );
+  }
+  return value;
+}
+
+function authorityFingerprint(input: {
+  name: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  timezone: string;
+  priority: number;
+  targeting: unknown;
+  frequencyMode: string;
+  deepLinkPolicy: string;
+  scenes: unknown;
+  deviceOverrides: unknown;
+}): string {
+  return JSON.stringify(
+    stable({
+      name: input.name,
+      startsAt: normIso(input.startsAt),
+      endsAt: normIso(input.endsAt),
+      timezone: input.timezone,
+      priority: input.priority,
+      targeting: input.targeting,
+      frequencyMode: input.frequencyMode,
+      deepLinkPolicy: input.deepLinkPolicy,
+      scenes: input.scenes,
+      deviceOverrides: input.deviceOverrides,
+    })
+  );
+}
 
 export function introDraftFingerprint(campaign: IntroAdminCampaign): string {
   return JSON.stringify({
@@ -35,6 +85,65 @@ export function introDraftFingerprint(campaign: IntroAdminCampaign): string {
   });
 }
 
+export function introCampaignAuthorityFingerprint(campaign: IntroAdminCampaign): string {
+  return authorityFingerprint({
+    name: campaign.name,
+    startsAt: campaign.startsAt,
+    endsAt: campaign.endsAt,
+    timezone: campaign.timezone,
+    priority: campaign.priority,
+    targeting: campaign.targeting,
+    frequencyMode: campaign.frequencyMode,
+    deepLinkPolicy: campaign.deepLinkPolicy,
+    scenes: campaign.scenes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      sortOrder: s.sortOrder,
+      advanceMode: s.advanceMode,
+      durationMs: s.durationMs,
+      maxHoldMs: s.maxHoldMs,
+      transition: s.transition,
+      skipPolicy: s.skipPolicy,
+      interactionMode: s.interactionMode,
+      interactionLayerId: s.interactionLayerId,
+      layers: s.layers,
+      cta: s.cta,
+      backgroundColor: s.backgroundColor,
+      backgroundAssetId: s.backgroundAssetId,
+    })),
+    deviceOverrides: campaign.deviceOverrides.map((o) => ({
+      deviceFamily: o.deviceFamily,
+      sceneId: o.sceneId,
+      layers: o.layers,
+      backgroundAssetId: o.backgroundAssetId,
+    })),
+  });
+}
+
+export function introManifestAuthorityFingerprint(manifest: IntroPublishedManifest): string {
+  return authorityFingerprint({
+    name: manifest.campaign.name,
+    startsAt: manifest.campaign.startsAt,
+    endsAt: manifest.campaign.endsAt,
+    timezone: manifest.campaign.timezone,
+    priority: manifest.campaign.priority,
+    targeting: manifest.targeting,
+    frequencyMode: manifest.frequencyMode,
+    deepLinkPolicy: manifest.deepLinkPolicy,
+    scenes: manifest.scenes,
+    deviceOverrides: manifest.deviceOverrides,
+  });
+}
+
+export function introDraftDivergedFromPublication(
+  campaign: IntroAdminCampaign,
+  manifest: unknown
+): boolean {
+  const checked = validatePublishedManifest(manifest);
+  if (!checked.ok) return false;
+  return introCampaignAuthorityFingerprint(campaign) !== introManifestAuthorityFingerprint(checked.value);
+}
+
 export function resolveIntroDocumentState(input: {
   campaign: IntroAdminCampaign;
   dirty: boolean;
@@ -45,7 +154,9 @@ export function resolveIntroDocumentState(input: {
   if (input.issues.length > 0) return "VALIDATION_ERROR";
   if (input.campaign.status === "archived") return "ARCHIVED";
   if (input.campaign.status === "paused") return "PAUSED";
-  if (input.campaign.published && input.dirty) return "DIRTY_AFTER_PUBLISH";
+  if (input.campaign.published && (input.dirty || input.campaign.draftDivergedFromPublication)) {
+    return "DIRTY_AFTER_PUBLISH";
+  }
   if (input.dirty) return "UNSAVED_CHANGES";
   if (input.campaign.published) return "PUBLISHED";
   if (input.campaign.status === "scheduled") return "SCHEDULED";
