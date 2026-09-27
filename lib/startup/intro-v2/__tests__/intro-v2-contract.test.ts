@@ -235,6 +235,26 @@ describe("intro-v2 publication isolation + resolver", () => {
     expect(resolveIntroCampaign([a], { ...input, frequencyEligible: false })).toBeNull();
   });
 
+  it("allows a SCHEDULED campaign only when the fixture time is inside its window", () => {
+    const scheduled = candidate({
+      id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      status: "scheduled",
+      startsAt: "2030-06-01T00:00:00.000Z",
+      endsAt: "2030-06-30T23:59:00.000Z",
+      targeting: { audiences: ["guest"], platforms: ["android"], deviceClasses: ["PHONE_ANDROID"] },
+    });
+    const inside = {
+      now: "2030-06-15T01:00:00.000Z",
+      audience: "guest" as const,
+      platform: "android" as const,
+      deviceClass: "PHONE_ANDROID" as const,
+      frequencyEligible: true,
+    };
+
+    expect(resolveIntroCampaign([scheduled], inside)?.id).toBe(scheduled.id);
+    expect(resolveIntroCampaign([scheduled], { ...inside, now: "2026-06-15T01:00:00.000Z" })).toBeNull();
+  });
+
   it("does not invent a fake campaign for ZERO INTRO", () => {
     expect(
       resolveIntroCampaign([], {

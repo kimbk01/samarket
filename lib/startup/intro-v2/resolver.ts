@@ -5,7 +5,7 @@ import type {
 } from "@/lib/startup/intro-v2/types";
 
 function inSchedule(candidate: IntroResolverCandidate, nowMs: number): boolean {
-  if (candidate.status !== "active") return false;
+  if (candidate.status !== "active" && candidate.status !== "scheduled") return false;
   if (candidate.startsAt) {
     const starts = Date.parse(candidate.startsAt);
     if (!Number.isFinite(starts) || nowMs < starts) return false;
