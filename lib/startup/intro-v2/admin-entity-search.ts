@@ -42,12 +42,12 @@ export async function searchIntroEntities(
   if (kind === "PRODUCT") {
     const { data } = await sb
       .from("store_products")
-      .select("id, name, store_id")
-      .ilike("name", `%${q}%`)
+      .select("id, title, store_id")
+      .ilike("title", `%${q}%`)
       .limit(20);
     return rows(data).map((r) => ({
       id: String(r.id),
-      label: String(r.name ?? r.id),
+      label: String(r.title ?? r.id),
       subtitle: r.store_id ? String(r.store_id) : undefined,
     }));
   }
@@ -107,10 +107,10 @@ export async function resolveIntroEntitiesByIds(
   }
 
   if (kind === "PRODUCT") {
-    const { data } = await sb.from("store_products").select("id, name, store_id").in("id", unique);
+    const { data } = await sb.from("store_products").select("id, title, store_id").in("id", unique);
     return rows(data).map((r) => ({
       id: String(r.id),
-      label: String(r.name ?? r.id),
+      label: String(r.title ?? r.id),
       subtitle: r.store_id ? String(r.store_id) : undefined,
     }));
   }

@@ -327,6 +327,17 @@ describe("intro admin auth / routes", () => {
   });
 });
 
+describe("intro destination entity search", () => {
+  it("searches live store_products.title, not a non-existent name column", () => {
+    const src = read("lib/startup/intro-v2/admin-entity-search.ts");
+    expect(src).toContain('.from("store_products")');
+    expect(src).toContain(".ilike(\"title\"");
+    expect(src).toContain("select(\"id, title, store_id\")");
+    expect(src).not.toMatch(/store_products[\s\S]*ilike\("name"/);
+    expect(src).not.toContain("r.name ??");
+  });
+});
+
 describe("intro list / empty / live flags", () => {
   it("lists empty campaigns without inventing rows", async () => {
     const db = createMemoryIntroDb();
