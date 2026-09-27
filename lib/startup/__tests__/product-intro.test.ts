@@ -57,14 +57,15 @@ describe("product-intro SSOT", () => {
     ).toBe(false);
   });
 
-  it("clamps display duration bounds (0 = no intentional hold after ready)", () => {
+  it("clamps display duration bounds (0 = legacy cover-only; operator IMAGE uses 1–8000)", () => {
     const zero = normalizeProductIntroConfig({ displayDurationMs: 0 });
     expect(zero.displayDurationMs).toBe(0);
+    const mid = normalizeProductIntroConfig({ displayDurationMs: 2500 });
+    expect(mid.displayDurationMs).toBe(2500);
     const low = normalizeProductIntroConfig({ displayDurationMs: -5 });
     expect(low.displayDurationMs).toBe(0);
-    // V2: architectural min display = 0 — Admin cannot raise post-ready wait.
     const high = normalizeProductIntroConfig({ displayDurationMs: 99999 });
-    expect(high.displayDurationMs).toBe(0);
+    expect(high.displayDurationMs).toBe(8000);
     expect(normalizeProductIntroConfig({ objectFit: "cover" }).objectFit).toBe("contain");
   });
 

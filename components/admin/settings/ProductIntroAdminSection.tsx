@@ -8,6 +8,7 @@
 
 import type { InputHTMLAttributes, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUNDLED_PRODUCT_INTRO_CONFIG,
@@ -503,6 +504,19 @@ export function ProductIntroAdminSection() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <p>
+          {safeT("admin_intro_v1_read_only", {
+            fallbackKo:
+              "이 화면은 이전 저장 상태만 보여 줍니다. 앱에 적용하려면 인트로 운영에서 게시하세요.",
+            fallbackEn:
+              "This page is a legacy status view. Publish from Intro operations to apply the intro to the app.",
+          })}
+        </p>
+        <Link href="/admin/intro" className="mt-2 inline-block font-semibold text-sam-brand underline">
+          {safeT("admin_intro_title", { fallbackKo: "인트로 관리", fallbackEn: "Intro" })}
+        </Link>
+      </div>
       <div className="grid gap-8 lg:grid-cols-[1fr_240px]">
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
@@ -905,8 +919,8 @@ export function ProductIntroAdminSection() {
             <button
               type="button"
               className="sam-btn sam-btn-primary"
-              disabled={!dirty || saving}
-              onClick={() => void save()}
+              disabled
+              onClick={() => undefined}
             >
               {saving
                 ? safeT("common_loading", { fallbackKo: "저장 중…", fallbackEn: "Saving…" })

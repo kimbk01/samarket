@@ -33,6 +33,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
@@ -75,6 +77,15 @@ public final class DibayStartupIntroSurface {
   private boolean dismissing;
   private JSONObject activeConfig = new JSONObject();
   private boolean usingProductIntro;
+  private boolean holdingProductIntro;
+  private boolean destinationReady;
+  private boolean holdFired;
+  private boolean skipRequested;
+  private boolean ctaRequested;
+  private String pendingCtaHref;
+  private JSONObject activeProductIntro = new JSONObject();
+  private static final Set<String> SESSION_SHOWN = new HashSet<>();
+  private static final String FREQ_PREFS = "dibay_intro_freq";
 
   public DibayStartupIntroSurface(Activity activity) {
     this.activity = activity;
@@ -91,7 +102,13 @@ public final class DibayStartupIntroSurface {
     activeConfig = readActiveConfig(activity);
     JSONObject productIntro = readActiveProductIntroGeneration(activity);
     Bitmap productBmp = productIntro != null ? loadLocalProductIntroMedia() : null;
+    if (productIntro != null && productBmp != null && !isFrequencyEligible(productIntro)) {
+      productBmp.recycle();
+      productBmp = null;
+      productIntro = null;
+    }
     usingProductIntro = productIntro != null && productBmp != null;
+    activeProductIntro = productIntro != null ? productIntro : new JSONObject();
 
     root = new FrameLayout(activity);
     root.setLayoutParams(
@@ -123,6 +140,10 @@ public final class DibayStartupIntroSurface {
     // OS logo fallback holds at rest; Admin creative may run configured entrance motion.
     if (!usingProductIntro) {
       holdTechnicalHandoffAtRest();
+    } else {
+      recordFrequencyShown(activeProductIntro);
+      bindOperatorChrome(activeProductIntro);
+      startOperatorHold(activeProductIntro);
     }
     Log.i(
         TAG,
@@ -141,6 +162,198 @@ public final class DibayStartupIntroSurface {
 
   public boolean isAttached() {
     return attached && root != null;
+  }
+
+  public boolean isHoldingProductIntro() {
+    return holdingProductIntro && attached && !dismissing;
+  }
+
+  public void markDestinationReady() {
+    destinationReady = true;
+    maybeFinishHold();
+  }
+
+  private void startOperatorHold(JSONObject pi) {
+    int hold = pi.optInt("displayDurationMs", 0);
+    holdingProductIntro = hold >= 1;
+    destinationReady = false;
+    holdFired = hold < 1;
+    skipRequested = false;
+    ctaRequested = false;
+    pendingCtaHref = resolveNativeCtaHref(pi);
+    if (holdingProductIntro) {
+      mainHandler.postDelayed(
+          () -> {
+            holdFired = true;
+            maybeFinishHold();
+          },
+          hold);
+    }
+  }
+
+  private void maybeFinishHold() {
+    if (!attached || dismissing) return;
+    if (skipRequested || ctaRequested) {
+      holdingProductIntro = false;
+      dismissWithExit(ctaRequested ? this::openCtaIfAllowed : null);
+      return;
+    }
+    if (holdingProductIntro && holdFired && destinationReady) {
+      holdingProductIntro = false;
+      dismissWithExit(null);
+    }
+  }
+
+  private void bindOperatorChrome(JSONObject pi) {
+    if (root == null) return;
+    boolean ko = java.util.Locale.getDefault().getLanguage().startsWith("ko");
+    if (pi.optBoolean("showLogo", true)) {
+      ImageView logo = new ImageView(activity);
+      try {
+        logo.setImageResource(R.drawable.ic_dibay_splash_logo);
+      } catch (Exception e) {
+        logo.setImageResource(activity.getApplicationInfo().icon);
+      }
+      logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+      int size =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 56f, activity.getResources().getDisplayMetrics());
+      FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
+      lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+      lp.topMargin =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 48f, activity.getResources().getDisplayMetrics());
+      root.addView(logo, lp);
+    }
+    if (pi.optBoolean("skipEnabled", true)) {
+      TextView skip = new TextView(activity);
+      skip.setText(ko ? "건너뛰기" : "Skip");
+      skip.setTextColor(Color.WHITE);
+      skip.setPadding(28, 16, 28, 16);
+      skip.setBackgroundColor(0x73000000);
+      skip.setOnClickListener(
+          v -> {
+            if (skipRequested || ctaRequested || dismissing) return;
+            skipRequested = true;
+            maybeFinishHold();
+          });
+      FrameLayout.LayoutParams lp =
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+      lp.gravity = Gravity.TOP | Gravity.END;
+      lp.topMargin =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 20f, activity.getResources().getDisplayMetrics());
+      lp.rightMargin =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 16f, activity.getResources().getDisplayMetrics());
+      root.addView(skip, lp);
+    }
+    String ctaLabel = pi.optString("ctaLabel", "").trim();
+    if (pendingCtaHref != null && !ctaLabel.isEmpty()) {
+      TextView cta = new TextView(activity);
+      cta.setText(ctaLabel);
+      cta.setTextColor(Color.WHITE);
+      cta.setPadding(40, 20, 40, 20);
+      cta.setBackgroundColor(0xE6111827);
+      cta.setOnClickListener(
+          v -> {
+            if (skipRequested || ctaRequested || dismissing) return;
+            ctaRequested = true;
+            maybeFinishHold();
+          });
+      FrameLayout.LayoutParams lp =
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+      lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+      lp.bottomMargin =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 36f, activity.getResources().getDisplayMetrics());
+      root.addView(cta, lp);
+    }
+  }
+
+  private void openCtaIfAllowed() {
+    if (!(activity instanceof MainActivity) || pendingCtaHref == null) return;
+    ((MainActivity) activity).openIntroCtaIfNoPending(pendingCtaHref);
+  }
+
+  private boolean isFrequencyEligible(JSONObject pi) {
+    String campaignId = pi.optString("campaignId", "").trim();
+    String mode = pi.optString("frequencyMode", "every_launch");
+    if (campaignId.isEmpty()) return true;
+    if ("once_per_session".equals(mode) && SESSION_SHOWN.contains(campaignId)) return false;
+    android.content.SharedPreferences prefs =
+        activity.getSharedPreferences(FREQ_PREFS, Context.MODE_PRIVATE);
+    long last = prefs.getLong(campaignId + ".lastShownAtMs", 0L);
+    boolean ever = prefs.getBoolean(campaignId + ".shownEver", false);
+    if ("once_ever".equals(mode) && ever) return false;
+    if ("once_per_day".equals(mode) && last > 0) {
+      java.util.Calendar prev = java.util.Calendar.getInstance();
+      prev.setTimeInMillis(last);
+      java.util.Calendar now = java.util.Calendar.getInstance();
+      if (prev.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR)
+          && prev.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private void recordFrequencyShown(JSONObject pi) {
+    String campaignId = pi.optString("campaignId", "").trim();
+    if (campaignId.isEmpty()) return;
+    SESSION_SHOWN.add(campaignId);
+    activity
+        .getSharedPreferences(FREQ_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putLong(campaignId + ".lastShownAtMs", System.currentTimeMillis())
+        .putBoolean(campaignId + ".shownEver", true)
+        .apply();
+  }
+
+  private static String resolveNativeCtaHref(JSONObject pi) {
+    String type = pi.optString("actionType", "none");
+    String target = pi.optString("actionTarget", "").trim();
+    if ("none".equals(type) || target.isEmpty()) return null;
+    if (target.contains("javascript:") || target.contains("..")) return null;
+    switch (type) {
+      case "internal_surface":
+        if ("community".equals(target)) return "/philife";
+        if ("trade".equals(target)) return "/market";
+        if ("food".equals(target)) return "/stores";
+        if ("chat".equals(target)) return "/community-messenger";
+        if ("my".equals(target)) return "/mypage";
+        return null;
+      case "internal_path":
+        if (!target.startsWith("/") || target.startsWith("//")) return null;
+        String lower = target.toLowerCase(java.util.Locale.US);
+        if (lower.startsWith("/admin") || lower.startsWith("/stores/owner")) return null;
+        return target;
+      case "store":
+        if (target.contains("/")) return null;
+        return "/stores/" + target;
+      case "product":
+        String[] parts = target.split("/");
+        if (parts.length != 2) return null;
+        return "/stores/" + parts[0] + "/p/" + parts[1];
+      case "market_listing":
+        if (target.contains("/")) return null;
+        return "/post/" + target;
+      case "community_post":
+        if (target.contains("/")) return null;
+        return "/philife/post/" + target;
+      case "chat_room":
+        if (target.contains("/")) return null;
+        return "/community-messenger/rooms/" + target;
+      default:
+        return null;
+    }
   }
 
   /**

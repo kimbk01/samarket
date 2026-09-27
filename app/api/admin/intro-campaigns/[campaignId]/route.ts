@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireIntroAdminContext } from "@/lib/startup/intro-v2/admin-api-context";
-import { getIntroAdminCampaign, saveIntroAdminDraft } from "@/lib/startup/intro-v2/admin-service";
+import {
+  deleteIntroAdminDraft,
+  duplicateIntroAdminCampaign,
+  getIntroAdminCampaign,
+  saveIntroAdminDraft,
+} from "@/lib/startup/intro-v2/admin-service";
 import type { IntroAdminDraftPatch } from "@/lib/startup/intro-v2/admin-service";
 
 export const runtime = "nodejs";
@@ -36,4 +41,18 @@ export async function PATCH(
     );
   }
   return NextResponse.json({ ok: true, campaign: saved.campaign });
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  ctxParams: { params: Promise<{ campaignId: string }> }
+) {
+  const ctx = await requireIntroAdminContext();
+  if (!ctx.ok) return ctx.response;
+  const { campaignId } = await ctxParams.params;
+  const deleted = await deleteIntroAdminDraft(ctx.sb, campaignId);
+  if (!deleted.ok) {
+    return NextResponse.json({ ok: false, error: deleted.error }, { status: deleted.httpStatus });
+  }
+  return NextResponse.json({ ok: true, removedAssets: deleted.removedAssets });
 }

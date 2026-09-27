@@ -33,9 +33,24 @@ import type {
   IntroTargeting,
 } from "@/lib/startup/intro-v2/types";
 import type { IntroResolverCandidate } from "@/lib/startup/intro-v2/types";
+import {
+  deriveIntroOperatorAppState,
+  isSupportedIntroImageMime,
+  operatorSourcePatch,
+  validateOperatorImageForPublish,
+} from "@/lib/startup/intro-operator-contract";
+import {
+  syncCanonicalIntroAfterTransition,
+  writeCanonicalPublishedIntro,
+} from "@/lib/startup/intro-canonical-writer";
+import { loadProductIntroFromDb } from "@/lib/startup/product-intro-db";
+import { productIntroGenerationId } from "@/lib/startup/product-intro-native-sync";
 
 export type IntroAdminDb = {
   from: (table: string) => any;
+  storage?: {
+    from: (bucket: string) => { remove: (paths: string[]) => Promise<unknown> };
+  };
 };
 
 function asTargeting(raw: unknown): IntroTargeting {
@@ -286,7 +301,12 @@ export async function createIntroAdminCampaign(
       frequency_mode: "every_launch",
       deep_link_policy: "honor",
       requires_admin_confirmation: false,
-      source: {},
+      source: operatorSourcePatch({
+        sizePreset: "max",
+        showLogo: true,
+        displayDurationMs: 2500,
+        previous: {},
+      }),
       updated_by: input.adminUserId,
     })
     .select("id")
@@ -308,6 +328,7 @@ export type IntroAdminDraftPatch = {
   requiresAdminConfirmation?: boolean;
   scenes?: IntroAdminScene[];
   deviceOverrides?: IntroAdminCampaign["deviceOverrides"];
+  source?: Record<string, unknown>;
 };
 
 export async function saveIntroAdminDraft(
@@ -375,6 +396,7 @@ export async function saveIntroAdminDraft(
       deep_link_policy: write.value.deepLinkPolicy,
       requires_admin_confirmation:
         patch.requiresAdminConfirmation ?? current.campaign.requiresAdminConfirmation,
+      source: patch.source ?? current.campaign.source,
       updated_by: adminUserId,
     })
     .eq("id", id);
@@ -476,7 +498,11 @@ export async function transitionIntroAdminCampaign(
     .update({ status, updated_by: adminUserId })
     .eq("id", id);
   if (error) return { ok: false, error: "transition_failed", httpStatus: 500 };
-  return getIntroAdminCampaign(sb, id);
+  const after = await getIntroAdminCampaign(sb, id);
+  if (!after.ok) return after;
+  const synced = await syncCanonicalIntroAfterTransition(sb, after.campaign);
+  if (!synced.ok) return { ok: false, error: synced.error, httpStatus: 500 };
+  return after;
 }
 
 function collectReferencedAssetIds(campaign: IntroAdminCampaign): string[] {
@@ -572,6 +598,10 @@ export async function publishIntroAdminCampaign(
   const current = await getIntroAdminCampaign(sb, id);
   if (!current.ok) return current;
   const campaign = current.campaign;
+  const operatorCheck = validateOperatorImageForPublish(campaign);
+  if (!operatorCheck.ok) {
+    return { ok: false, error: operatorCheck.error ?? "publish_validation_failed", httpStatus: 400 };
+  }
   const validation = validateIntroCampaignForPublish(campaign);
   if (!validation.ok) {
     return { ok: false, error: "publish_validation_failed", httpStatus: 400, issues: validation.issues };
@@ -624,6 +654,16 @@ export async function publishIntroAdminCampaign(
 
   const after = await getIntroAdminCampaign(sb, id);
   if (!after.ok) return after;
+  const written = await writeCanonicalPublishedIntro(sb, after.campaign, "active");
+  if (!written.ok) {
+    await sb.from("intro_publications").update({ is_live: false }).eq("id", publicationId);
+    await sb.from("intro_campaigns").update({
+      status: campaign.status,
+      published_publication_id: campaign.publishedPublicationId,
+      updated_by: adminUserId,
+    }).eq("id", id);
+    return { ok: false, error: written.error, httpStatus: 500 };
+  }
   return { ok: true, campaign: after.campaign, revision: nextRev, publicationId };
 }
 
@@ -639,7 +679,7 @@ export async function registerIntroAdminAsset(
   }
 ): Promise<{ ok: true; asset: IntroAdminAsset } | { ok: false; error: string; httpStatus: number }> {
   const kind = introMediaKindFromMime(input.mime);
-  if (kind !== "image") {
+  if (kind !== "image" || !isSupportedIntroImageMime(input.mime)) {
     return { ok: false, error: "media_pipeline_not_ready", httpStatus: 400 };
   }
   const { data, error } = await sb
@@ -720,4 +760,121 @@ export function listRowMediaSummary(row: IntroAdminListRow): string {
   ).join(", ");
 }
 
-export { isV1ImportedDraft, v1DisplayDurationMs };
+export async function collectReferencedIntroAssetIds(sb: IntroAdminDb): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const { data: scenes } = await sb
+    .from("intro_scenes")
+    .select("background_asset_id, layers");
+  for (const scene of (scenes ?? []) as Record<string, unknown>[]) {
+    if (scene.background_asset_id) ids.add(String(scene.background_asset_id));
+    const layers = Array.isArray(scene.layers) ? (scene.layers as IntroLayer[]) : [];
+    for (const layer of layers) if (layer.assetId) ids.add(layer.assetId);
+  }
+  const { data: overrides } = await sb
+    .from("intro_device_overrides")
+    .select("background_asset_id, layers");
+  for (const ov of (overrides ?? []) as Record<string, unknown>[]) {
+    if (ov.background_asset_id) ids.add(String(ov.background_asset_id));
+    const layers = Array.isArray(ov.layers) ? (ov.layers as IntroLayer[]) : [];
+    for (const layer of layers) if (layer.assetId) ids.add(layer.assetId);
+  }
+  const { data: pubs } = await sb.from("intro_publications").select("manifest");
+  for (const pub of (pubs ?? []) as Record<string, unknown>[]) {
+    const manifest = pub.manifest && typeof pub.manifest === "object" ? (pub.manifest as Record<string, unknown>) : {};
+    const assets = Array.isArray(manifest.assets) ? (manifest.assets as Array<{ id?: unknown }>) : [];
+    for (const asset of assets) if (asset.id) ids.add(String(asset.id));
+  }
+  return ids;
+}
+
+function bucketFromPublicUrl(url: string): { bucket: string; path: string } | null {
+  const marker = "/storage/v1/object/public/";
+  const idx = url.indexOf(marker);
+  if (idx < 0) return null;
+  const rest = url.slice(idx + marker.length);
+  const slash = rest.indexOf("/");
+  if (slash < 0) return null;
+  return { bucket: rest.slice(0, slash), path: rest.slice(slash + 1) };
+}
+
+export async function cleanupUnreferencedIntroImageAssets(
+  sb: IntroAdminDb,
+  candidateIds: string[]
+): Promise<{ ok: true; removed: string[] } | { ok: false; error: string }> {
+  const unique = [...new Set(candidateIds.filter(Boolean))];
+  if (!unique.length) return { ok: true, removed: [] };
+  const referenced = await collectReferencedIntroAssetIds(sb);
+  const eligible = unique.filter((id) => !referenced.has(id));
+  if (!eligible.length) return { ok: true, removed: [] };
+  const { data: rows } = await sb
+    .from("intro_assets")
+    .select("id, kind, public_url, storage_path")
+    .in("id", eligible)
+    .eq("kind", "image");
+  const removed: string[] = [];
+  for (const row of (rows ?? []) as Record<string, unknown>[]) {
+    const publicUrl = row.public_url == null ? "" : String(row.public_url);
+    const parsed = publicUrl ? bucketFromPublicUrl(publicUrl) : null;
+    const path = parsed?.path || String(row.storage_path ?? "");
+    if (parsed?.bucket && path && sb.storage) {
+      await sb.storage.from(parsed.bucket).remove([path]);
+    }
+    const { error } = await sb.from("intro_assets").delete().eq("id", String(row.id));
+    if (!error) removed.push(String(row.id));
+  }
+  return { ok: true, removed };
+}
+
+export async function deleteIntroAdminDraft(
+  sb: IntroAdminDb,
+  id: string
+): Promise<{ ok: true; removedAssets: string[] } | { ok: false; error: string; httpStatus: number }> {
+  const current = await getIntroAdminCampaign(sb, id);
+  if (!current.ok) return current;
+  if (current.campaign.status !== "draft") {
+    return { ok: false, error: "draft_only_delete", httpStatus: 409 };
+  }
+  const candidateIds = collectReferencedAssetIds(current.campaign);
+  await sb.from("intro_device_overrides").delete().eq("campaign_id", id);
+  await sb.from("intro_scenes").delete().eq("campaign_id", id);
+  const { error } = await sb.from("intro_campaigns").delete().eq("id", id);
+  if (error) return { ok: false, error: "delete_failed", httpStatus: 500 };
+  const cleaned = await cleanupUnreferencedIntroImageAssets(sb, candidateIds);
+  return { ok: true, removedAssets: cleaned.ok ? cleaned.removed : [] };
+}
+
+export async function duplicateIntroAdminCampaign(
+  sb: IntroAdminDb,
+  id: string,
+  adminUserId: string
+): Promise<{ ok: true; id: string } | { ok: false; error: string; httpStatus: number }> {
+  const current = await getIntroAdminCampaign(sb, id);
+  if (!current.ok) return current;
+  const created = await createIntroAdminCampaign(sb, {
+    adminUserId,
+    name: `${current.campaign.name} copy`.slice(0, 120),
+  });
+  if (!created.ok) return created;
+  const scenes = current.campaign.scenes.map((scene, index) => ({
+    ...scene,
+    id: `tmp-${index}-${Date.now()}`,
+  }));
+  const saved = await saveIntroAdminDraft(sb, created.id, adminUserId, {
+    targeting: current.campaign.targeting,
+    frequencyMode: current.campaign.frequencyMode,
+    deepLinkPolicy: current.campaign.deepLinkPolicy,
+    startsAt: current.campaign.startsAt,
+    endsAt: current.campaign.endsAt,
+    timezone: current.campaign.timezone,
+    source: {
+      ...current.campaign.source,
+      duplicatedFrom: current.campaign.id,
+    },
+    scenes,
+    deviceOverrides: [],
+  });
+  if (!saved.ok) return { ok: false, error: saved.error, httpStatus: saved.httpStatus };
+  return { ok: true, id: created.id };
+}
+
+export { isV1ImportedDraft, v1DisplayDurationMs, deriveIntroOperatorAppState, productIntroGenerationId, loadProductIntroFromDb };

@@ -13,12 +13,17 @@ import {
 export function productIntroGenerationId(config: ProductIntroConfig): string {
   const url = config.media.mobileUrl ?? "";
   return [
+    config.campaignId ?? "",
     config.updatedAt,
     url,
     config.backgroundColor,
     config.sizePreset,
-    config.animationIn,
-    config.animationOut,
+    String(config.displayDurationMs),
+    config.skipEnabled ? "1" : "0",
+    config.showLogo ? "1" : "0",
+    config.frequencyMode,
+    config.action.type,
+    config.action.target,
     config.startsAt ?? "",
     config.endsAt ?? "",
   ].join("|");
@@ -28,10 +33,12 @@ export function productIntroGenerationId(config: ProductIntroConfig): string {
 export function toNativeProductIntroPayload(config: ProductIntroConfig): Record<string, unknown> {
   return {
     status: config.status,
+    campaignId: config.campaignId,
     mediaUrl: config.media.mobileUrl,
+    mediaWidth: config.mediaWidth,
+    mediaHeight: config.mediaHeight,
     generationId: productIntroGenerationId(config),
     updatedAt: config.updatedAt,
-    // V2 fixed contract — legacy cover/card fields ignored by Native.
     displayMode: "fullscreen",
     objectFit: "contain",
     presentationSizePreset: config.sizePreset,
@@ -41,7 +48,12 @@ export function toNativeProductIntroPayload(config: ProductIntroConfig): Record<
     enterMotion: config.animationIn,
     exitMotion: config.animationOut,
     enterDurationMs: productIntroEnterMotionMs(config.animationIn),
+    displayDurationMs: config.displayDurationMs,
     exitDurationMs: productIntroExitMotionMs(config.animationOut),
+    skipEnabled: config.skipEnabled,
+    showLogo: config.showLogo,
+    frequencyMode: config.frequencyMode,
+    ctaLabel: config.ctaLabel,
     backgroundColor: config.backgroundColor,
     startsAt: config.startsAt,
     endsAt: config.endsAt,

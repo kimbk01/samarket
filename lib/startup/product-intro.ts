@@ -31,6 +31,7 @@ export type ProductIntroAnimOut = (typeof PRODUCT_INTRO_ANIM_OUT)[number];
 export const PRODUCT_INTRO_ACTION_TYPES = [
   "none",
   "internal_surface",
+  "internal_path",
   "store",
   "product",
   "delivery_category",
@@ -41,15 +42,24 @@ export const PRODUCT_INTRO_ACTION_TYPES = [
 ] as const;
 export type ProductIntroActionType = (typeof PRODUCT_INTRO_ACTION_TYPES)[number];
 
+export const PRODUCT_INTRO_FREQUENCY_MODES = [
+  "every_launch",
+  "once_ever",
+  "once_per_day",
+  "once_per_session",
+] as const;
+export type ProductIntroFrequencyMode = (typeof PRODUCT_INTRO_FREQUENCY_MODES)[number];
+
 export const PRODUCT_INTRO_ANIM_MS_MIN = 150;
 export const PRODUCT_INTRO_ANIM_MS_MAX = 1200;
 export const PRODUCT_INTRO_ENTER_FADE_MS = 220;
 export const PRODUCT_INTRO_ENTER_EXPAND_MS = 260;
 export const PRODUCT_INTRO_EXIT_FADE_MS = 180;
 export const PRODUCT_INTRO_EXIT_EXPAND_MS = 260;
-/** 0 = no intentional hold after app ready (cover-only during boot). */
+/** 0 = legacy cover-only cache. Operator IMAGE publish uses 1–MAX. */
 export const PRODUCT_INTRO_DISPLAY_MS_MIN = 0;
 export const PRODUCT_INTRO_DISPLAY_MS_MAX = 8000;
+export const PRODUCT_INTRO_DISPLAY_MS_DEFAULT = 2500;
 export const PRODUCT_INTRO_RADIUS_MIN = 0;
 export const PRODUCT_INTRO_RADIUS_MAX = 48;
 export const PRODUCT_INTRO_CUSTOM_SIZE_MIN = 40;
@@ -65,10 +75,13 @@ export type ProductIntroConfig = {
   version: number;
   status: ProductIntroStatus;
   name: string;
+  campaignId: string | null;
   media: {
     mobileUrl: string | null;
     tabletUrl: string | null;
   };
+  mediaWidth: number | null;
+  mediaHeight: number | null;
   displayMode: ProductIntroDisplayMode;
   objectFit: ProductIntroObjectFit;
   sizePreset: ProductIntroSizePreset;
@@ -81,6 +94,10 @@ export type ProductIntroConfig = {
   enterDurationMs: number;
   displayDurationMs: number;
   exitDurationMs: number;
+  skipEnabled: boolean;
+  showLogo: boolean;
+  frequencyMode: ProductIntroFrequencyMode;
+  ctaLabel: string;
   action: ProductIntroAction;
   startsAt: string | null;
   endsAt: string | null;
@@ -91,7 +108,10 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   version: 1,
   status: "inactive",
   name: "",
+  campaignId: null,
   media: { mobileUrl: null, tabletUrl: null },
+  mediaWidth: null,
+  mediaHeight: null,
   displayMode: "fullscreen",
   objectFit: "contain",
   sizePreset: "max",
@@ -103,6 +123,10 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   enterDurationMs: PRODUCT_INTRO_ENTER_FADE_MS,
   displayDurationMs: 0,
   exitDurationMs: PRODUCT_INTRO_EXIT_EXPAND_MS,
+  skipEnabled: true,
+  showLogo: true,
+  frequencyMode: "every_launch",
+  ctaLabel: "",
   action: { type: "none", target: "" },
   startsAt: null,
   endsAt: null,
@@ -215,10 +239,21 @@ export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
     backgroundColor: asHexColor(o.backgroundColor, base.backgroundColor),
     animationIn: normalizeEnterMotion(o.enterMotion ?? o.animationIn),
     animationOut: normalizeExitMotion(o.exitMotion ?? o.animationOut),
+    campaignId: asTrimmed(o.campaignId).slice(0, 64) || null,
+    mediaWidth: clampInt(o.mediaWidth, 1, 20_000, 0) || null,
+    mediaHeight: clampInt(o.mediaHeight, 1, 20_000, 0) || null,
     enterDurationMs: productIntroEnterMotionMs(normalizeEnterMotion(o.enterMotion ?? o.animationIn)),
-    // Architectural min display = 0 (no post-ready wait).
-    displayDurationMs: 0,
+    displayDurationMs: clampInt(
+      o.displayDurationMs,
+      PRODUCT_INTRO_DISPLAY_MS_MIN,
+      PRODUCT_INTRO_DISPLAY_MS_MAX,
+      base.displayDurationMs
+    ),
     exitDurationMs: productIntroExitMotionMs(normalizeExitMotion(o.exitMotion ?? o.animationOut)),
+    skipEnabled: o.skipEnabled !== false,
+    showLogo: o.showLogo !== false,
+    frequencyMode: pickEnum(o.frequencyMode, PRODUCT_INTRO_FREQUENCY_MODES, "every_launch"),
+    ctaLabel: asTrimmed(o.ctaLabel).slice(0, 40),
     action: { type: actionType, target: actionType === "none" ? "" : actionTarget.slice(0, 256) },
     startsAt: asNullableIso(o.startsAt),
     endsAt: asNullableIso(o.endsAt),
@@ -279,6 +314,17 @@ export function resolveProductIntroAction(action: ProductIntroAction): ProductIn
       return { ok: false, error: "invalid_surface" };
     }
     return { ok: true, href: pathForInitialAppSurface(surface), replace: true };
+  }
+
+  if (type === "internal_path") {
+    if (!target.startsWith("/") || target.startsWith("//")) {
+      return { ok: false, error: "invalid_path" };
+    }
+    const lower = target.toLowerCase();
+    if (lower.startsWith("/admin") || lower.startsWith("/stores/owner")) {
+      return { ok: false, error: "forbidden_path" };
+    }
+    return { ok: true, href: target, replace: true };
   }
 
   if (type === "store") {

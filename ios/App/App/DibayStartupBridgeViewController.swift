@@ -48,6 +48,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var activeConfig: [String: Any] = [:]
   /// CASE B: Admin First Entry painted by Native (not a second Web Intro).
   private var usingProductIntroCover = false
+  private var holdingProductIntro = false
+  private var destinationReady = false
+  private var holdFired = false
+  private var skipRequested = false
+  private var ctaRequested = false
+  private var pendingCtaHref: String?
+  private static var sessionShown = Set<String>()
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -119,8 +126,12 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     DispatchQueue.main.async {
       switch action {
       case "dismissSplash":
-        self.startupInfo("intro_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue)")
-        self.dismissNativeIntroThenHideSplash()
+        self.startupInfo("intro_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue) holding=\(self.holdingProductIntro)")
+        if self.holdingProductIntro {
+          self.markDestinationReady()
+        } else {
+          self.dismissNativeIntroThenHideSplash()
+        }
       case "beginHandoffCover":
         NSLog("[DIBAY_Startup] handoff_cover_begin_ignored reason=native_splash_direct_remote")
       case "endHandoffCover":
@@ -162,8 +173,12 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       return
     }
 
-    let productIntro = DibayStartupConfigCache.loadActiveProductIntroGeneration()
-    let productImage = productIntro != nil ? DibayStartupConfigCache.loadProductIntroImage() : nil
+    var productIntro = DibayStartupConfigCache.loadActiveProductIntroGeneration()
+    var productImage = productIntro != nil ? DibayStartupConfigCache.loadProductIntroImage() : nil
+    if let pi = productIntro, productImage != nil, !Self.isFrequencyEligible(pi) {
+      productIntro = nil
+      productImage = nil
+    }
     let usingProductIntro = productIntro != nil && productImage != nil
 
     let overlay = UIView(frame: view.bounds)
@@ -205,8 +220,179 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     // LaunchScreen → Native = ONE continuous canvas (no enter re-fade).
     if !usingProductIntro {
       holdTechnicalHandoffAtRest(on: content)
-    } else {
+    } else if let productIntro = productIntro {
       applyProductIntroEnterMotion(on: content, config: activeConfig)
+      Self.recordFrequencyShown(productIntro)
+      bindOperatorChrome(config: productIntro, overlay: overlay)
+      startOperatorHold(config: productIntro)
+    }
+  }
+
+  private func startOperatorHold(config: [String: Any]) {
+    let hold = Self.holdMs(config)
+    holdingProductIntro = hold >= 1
+    destinationReady = false
+    holdFired = hold < 1
+    skipRequested = false
+    ctaRequested = false
+    pendingCtaHref = Self.resolveNativeCtaHref(config)
+    if holdingProductIntro {
+      DispatchQueue.main.asyncAfter(deadline: .now() + Double(hold) / 1000.0) { [weak self] in
+        self?.holdFired = true
+        self?.maybeFinishHold()
+      }
+    }
+  }
+
+  private func markDestinationReady() {
+    destinationReady = true
+    maybeFinishHold()
+  }
+
+  private func maybeFinishHold() {
+    if introLifecycle == .dismissed || introDismissing { return }
+    if skipRequested || ctaRequested {
+      holdingProductIntro = false
+      dismissNativeIntroThenHideSplash()
+      if ctaRequested { openCtaIfAllowed() }
+      return
+    }
+    if holdingProductIntro && holdFired && destinationReady {
+      holdingProductIntro = false
+      dismissNativeIntroThenHideSplash()
+    }
+  }
+
+  private func bindOperatorChrome(config: [String: Any], overlay: UIView) {
+    let showLogo = (config["showLogo"] as? Bool) ?? true
+    if showLogo {
+      let logo = UIImageView(image: UIImage(named: "DibayStartupLogo") ?? UIImage(named: "Splash"))
+      logo.contentMode = .scaleAspectFit
+      logo.translatesAutoresizingMaskIntoConstraints = false
+      overlay.addSubview(logo)
+      NSLayoutConstraint.activate([
+        logo.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+        logo.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor, constant: 36),
+        logo.widthAnchor.constraint(equalToConstant: 56),
+        logo.heightAnchor.constraint(equalToConstant: 56),
+      ])
+    }
+    let skipEnabled = (config["skipEnabled"] as? Bool) ?? true
+    if skipEnabled {
+      let skip = UIButton(type: .system)
+      skip.setTitle((Locale.preferredLanguages.first ?? "").hasPrefix("ko") ? "건너뛰기" : "Skip", for: .normal)
+      skip.setTitleColor(.white, for: .normal)
+      skip.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+      skip.layer.cornerRadius = 14
+      skip.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+      skip.translatesAutoresizingMaskIntoConstraints = false
+      skip.addAction(UIAction { [weak self] _ in
+        guard let self, !self.skipRequested, !self.ctaRequested else { return }
+        self.skipRequested = true
+        self.maybeFinishHold()
+      }, for: .touchUpInside)
+      overlay.addSubview(skip)
+      NSLayoutConstraint.activate([
+        skip.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor, constant: 12),
+        skip.trailingAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+      ])
+    }
+    let label = ((config["ctaLabel"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    if let href = pendingCtaHref, !label.isEmpty {
+      let cta = UIButton(type: .system)
+      cta.setTitle(label, for: .normal)
+      cta.setTitleColor(.white, for: .normal)
+      cta.backgroundColor = UIColor(white: 0.07, alpha: 0.9)
+      cta.layer.cornerRadius = 18
+      cta.contentEdgeInsets = UIEdgeInsets(top: 10, left: 20, bottom: 10, right: 20)
+      cta.translatesAutoresizingMaskIntoConstraints = false
+      cta.addAction(UIAction { [weak self] _ in
+        guard let self, !self.skipRequested, !self.ctaRequested else { return }
+        self.ctaRequested = true
+        self.maybeFinishHold()
+      }, for: .touchUpInside)
+      overlay.addSubview(cta)
+      NSLayoutConstraint.activate([
+        cta.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+        cta.bottomAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.bottomAnchor, constant: -28),
+      ])
+      _ = href
+    }
+  }
+
+  private func openCtaIfAllowed() {
+    guard let href = pendingCtaHref, href.hasPrefix("/"), !href.hasPrefix("//") else { return }
+    let js = "window.location.assign(\(Self.jsString(href)))"
+    webView?.evaluateJavaScript(js, completionHandler: nil)
+  }
+
+  private static func holdMs(_ config: [String: Any]) -> Int {
+    if let n = config["displayDurationMs"] as? NSNumber { return n.intValue }
+    if let n = config["displayDurationMs"] as? Int { return n }
+    return 0
+  }
+
+  private static func jsString(_ value: String) -> String {
+    let escaped = value
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "\"", with: "\\\"")
+    return "\"\(escaped)\""
+  }
+
+  private static func isFrequencyEligible(_ pi: [String: Any]) -> Bool {
+    let campaignId = ((pi["campaignId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let mode = (pi["frequencyMode"] as? String) ?? "every_launch"
+    if campaignId.isEmpty { return true }
+    if mode == "once_per_session" && sessionShown.contains(campaignId) { return false }
+    let last = UserDefaults.standard.double(forKey: "dibay_intro_freq.\(campaignId).lastShownAtMs")
+    let ever = UserDefaults.standard.bool(forKey: "dibay_intro_freq.\(campaignId).shownEver")
+    if mode == "once_ever" && ever { return false }
+    if mode == "once_per_day" && last > 0 {
+      let prev = Date(timeIntervalSince1970: last / 1000.0)
+      if Calendar.current.isDateInToday(prev) { return false }
+    }
+    return true
+  }
+
+  private static func recordFrequencyShown(_ pi: [String: Any]) {
+    let campaignId = ((pi["campaignId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    if campaignId.isEmpty { return }
+    sessionShown.insert(campaignId)
+    UserDefaults.standard.set(Date().timeIntervalSince1970 * 1000.0, forKey: "dibay_intro_freq.\(campaignId).lastShownAtMs")
+    UserDefaults.standard.set(true, forKey: "dibay_intro_freq.\(campaignId).shownEver")
+  }
+
+  private static func resolveNativeCtaHref(_ pi: [String: Any]) -> String? {
+    let type = (pi["actionType"] as? String) ?? "none"
+    let target = ((pi["actionTarget"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    if type == "none" || target.isEmpty { return nil }
+    if target.contains("javascript:") || target.contains("..") { return nil }
+    switch type {
+    case "internal_surface":
+      if target == "community" { return "/philife" }
+      if target == "trade" { return "/market" }
+      if target == "food" { return "/stores" }
+      if target == "chat" { return "/community-messenger" }
+      if target == "my" { return "/mypage" }
+      return nil
+    case "internal_path":
+      if !target.hasPrefix("/") || target.hasPrefix("//") { return nil }
+      let lower = target.lowercased()
+      if lower.hasPrefix("/admin") || lower.hasPrefix("/stores/owner") { return nil }
+      return target
+    case "store":
+      return target.contains("/") ? nil : "/stores/\(target)"
+    case "product":
+      let parts = target.split(separator: "/").map(String.init)
+      return parts.count == 2 ? "/stores/\(parts[0])/p/\(parts[1])" : nil
+    case "market_listing":
+      return target.contains("/") ? nil : "/post/\(target)"
+    case "community_post":
+      return target.contains("/") ? nil : "/philife/post/\(target)"
+    case "chat_room":
+      return target.contains("/") ? nil : "/community-messenger/rooms/\(target)"
+    default:
+      return nil
     }
   }
 

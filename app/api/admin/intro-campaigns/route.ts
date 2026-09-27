@@ -3,10 +3,10 @@ import { requireIntroAdminContext } from "@/lib/startup/intro-v2/admin-api-conte
 import {
   createIntroAdminCampaign,
   listIntroAdminCampaigns,
-  listLiveIntroResolverCandidates,
 } from "@/lib/startup/intro-v2/admin-service";
-import { attachWinnerFlags } from "@/lib/startup/intro-v2/admin-resolver-preview";
-import { deriveIntroLiveFlags } from "@/lib/startup/intro-v2/live-status";
+import { deriveIntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
+import { loadProductIntroFromDb } from "@/lib/startup/product-intro-db";
+import { productIntroGenerationId } from "@/lib/startup/product-intro-native-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,42 +20,25 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: listed.error }, { status: listed.httpStatus });
   }
 
-  const nowIso = new Date().toISOString();
-  const candidates = await listLiveIntroResolverCandidates(ctx.sb);
-  const flagged = attachWinnerFlags(
-    listed.items.map((item) => ({
-      id: item.id,
-      status: item.status,
-      startsAt: item.startsAt,
-      endsAt: item.endsAt,
-      targeting: item.targeting,
-      frequencyMode: item.frequencyMode,
-    })),
-    candidates,
-    {
-      now: nowIso,
-      audience: "guest",
-      platform: "android",
-      deviceClass: "PHONE_ANDROID",
-      frequencyEligible: true,
-    }
-  );
-  const items = listed.items.map((item, i) => {
-    const live = flagged[i];
-    const flags = deriveIntroLiveFlags({
-      status: item.status,
-      startsAt: item.startsAt,
-      endsAt: item.endsAt,
-      targeting: item.targeting,
-      frequencyMode: item.frequencyMode,
-      nowIso,
-      winnerId: live.liveNow ? item.id : null,
-      campaignId: item.id,
-    });
-    return { ...item, liveNow: live.liveNow, derived: live.derived, flags };
-  });
+  const applied = await loadProductIntroFromDb(ctx.sb as never);
+  const appliedCampaignId = applied.ok ? applied.config.campaignId : null;
+  const appliedStatus = applied.ok ? applied.config.status : null;
+  const generationId = applied.ok ? productIntroGenerationId(applied.config) : null;
 
-  return NextResponse.json({ ok: true, items });
+  const items = listed.items.map((item) => ({
+    ...item,
+    appState: deriveIntroOperatorAppState({
+      campaignId: item.id,
+      status: item.status,
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      appliedCampaignId,
+      appliedStatus,
+    }),
+    generationId: appliedCampaignId === item.id ? generationId : null,
+  }));
+
+  return NextResponse.json({ ok: true, items, appliedCampaignId, generationId });
 }
 
 export async function POST(req: NextRequest) {

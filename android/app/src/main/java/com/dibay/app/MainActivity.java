@@ -42,6 +42,7 @@ import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import java.security.MessageDigest;
 import java.util.concurrent.CountDownLatch;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
@@ -1372,6 +1373,23 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
 
+  /** Intro CTA after dismiss. Pending push/deep-link destination always wins. */
+  public void openIntroCtaIfNoPending(String href) {
+    if (href == null || !href.startsWith("/") || href.startsWith("//")) return;
+    if (pendingAppPath != null && !pendingAppPath.isEmpty()) {
+      Log.i(WEBVIEW_LOG_TAG, "intro_cta_skipped reason=pending_destination");
+      return;
+    }
+    try {
+      Bridge bridge = getBridge();
+      WebView webView = bridge != null ? bridge.getWebView() : null;
+      if (webView == null) return;
+      webView.evaluateJavascript("window.location.assign(" + JSONObject.quote(href) + ")", null);
+    } catch (Exception e) {
+      Log.w(WEBVIEW_LOG_TAG, "intro_cta_nav_failed: " + e.getMessage());
+    }
+  }
+
   /** Web 또는 native fallback — exit Native Intro after WebView visual-state commit. */
   public static void requestWebSplashDismiss(String source) {
     if (webSplashDismissRequested) return;
@@ -1381,6 +1399,10 @@ public class MainActivity extends BridgeActivity {
     final DibayStartupIntroSurface intro = startupIntroSurfaceStatic;
     final MainActivity act = activeInstance;
     final Handler handler = act != null ? act.mainHandler : new Handler(Looper.getMainLooper());
+    if (intro != null && intro.isHoldingProductIntro()) {
+      handler.post(intro::markDestinationReady);
+      return;
+    }
     if (intro != null) {
       handler.post(
           () -> {
