@@ -17,6 +17,7 @@ import { introRichPublishBlockIssue } from "@/lib/startup/intro-v2/compat-publis
 import { introMediaKindFromMime, introMediaPublishBlockReason } from "@/lib/startup/intro-v2/admin-media";
 import {
   collectSceneMediaTypes,
+  defaultNewScene,
   isV1ImportedDraft,
   v1DisplayDurationMs,
   type IntroAdminAsset,
@@ -366,7 +367,13 @@ export async function createIntroAdminCampaign(
     .select("id")
     .single();
   if (error || !data) return { ok: false, error: "create_failed", httpStatus: 500 };
-  return { ok: true, id: String(data.id) };
+  const id = String(data.id);
+  const seeded = await replaceIntroScenes(sb, id, [defaultNewScene("tmp-scene-1", 0, "Scene 1")]);
+  if (!seeded.ok) {
+    await sb.from("intro_campaigns").delete().eq("id", id);
+    return { ok: false, error: "create_scene_failed", httpStatus: 500 };
+  }
+  return { ok: true, id };
 }
 
 export type IntroAdminDraftPatch = {

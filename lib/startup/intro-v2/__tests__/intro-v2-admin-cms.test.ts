@@ -448,6 +448,20 @@ describe("intro list / empty / live flags", () => {
 });
 
 describe("create / edit / draft isolation", () => {
+  it("seeds Scene 1 on campaign create so a campaign is never scene-empty", async () => {
+    const db = createMemoryIntroDb();
+    const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "New intro" });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const loaded = await getIntroAdminCampaign(db, created.id);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.campaign.scenes).toHaveLength(1);
+    expect(loaded.campaign.scenes[0]?.sortOrder).toBe(0);
+    expect(loaded.campaign.scenes[0]?.id).not.toMatch(/^tmp-/);
+    expect(loaded.campaign.scenes[0]?.advanceMode).toBe("manual");
+  });
+
   it("creates a draft campaign and edits without touching publications", async () => {
     const db = createMemoryIntroDb();
     const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "New intro" });
@@ -481,6 +495,10 @@ describe("create / edit / draft isolation", () => {
     const created = await createIntroAdminCampaign(db, { adminUserId: "admin-1", name: "Timer gate" });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
+    const seededScenes = structuredClone(
+      db.tables.intro_scenes.filter((r) => r.campaign_id === created.id)
+    );
+    expect(seededScenes).toHaveLength(1);
     const saved = await saveIntroAdminDraft(db, created.id, "admin-1", {
       scenes: [validScene({ id: "tmp-s1", name: "Hold", advanceMode: "timer", durationMs: 0 })],
     });
@@ -492,8 +510,7 @@ describe("create / edit / draft isolation", () => {
     expect(saved.issues?.[0]?.path).toBe("scenes[0].durationMs");
     expect(saved.issues?.[0]?.messageKo).toMatch(/Hold: 지정 시간은 1ms 이상/);
     expect(saved.issues?.[0]?.messageEn).toMatch(/at least 1ms/);
-    expect(db.tables.intro_scenes.filter((r) => r.campaign_id === created.id)).toEqual([]);
-    expect(db.writes.filter((w) => w.table === "intro_scenes")).toEqual([]);
+    expect(db.tables.intro_scenes.filter((r) => r.campaign_id === created.id)).toEqual(seededScenes);
   });
 
   it("lets V1 unconfirmed drafts keep a null TIMER duration without hitting persist gate", () => {
