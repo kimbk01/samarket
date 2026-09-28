@@ -9,7 +9,7 @@ import os.log
  * shellReady / dismissSplash → fade out → Cap WebView.
  * Authored Product Intro is removed. No Hybrid boot HTML · no location.replace.
  */
-class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
+class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler, OpeningPlayerHost {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
 
   private func startupInfo(_ message: String) {
@@ -51,6 +51,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     super.viewDidLoad()
     applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
+    if OpeningPackStore.isReady() {
+      introLifecycle = .dismissed
+      hideCapacitorSplash()
+      return
+    }
     attachNativeIntroIfNeeded(source: "viewDidLoad")
   }
 
@@ -59,6 +64,10 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
+    if OpeningRuntimeCoordinator.presentIfReady(host: self) {
+      startupInfo("startup_boot_skip reason=opening_player intro_lifecycle=\(introLifecycle.rawValue)")
+      return
+    }
     // First appear may run before viewDidLoad attach completes; after dismiss, must not reattach.
     attachNativeIntroIfNeeded(source: "viewDidAppear")
     startupInfo("startup_boot_skip reason=native_splash_direct_remote intro_lifecycle=\(introLifecycle.rawValue)")
@@ -208,6 +217,21 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introDismissing = false
     introLifecycle = .dismissed
     startupInfo("intro_removed source=\(source) interaction=0 superview=nil lifecycle=dismissed")
+  }
+
+  var openingHostView: UIView { view }
+
+  func openingPlayerDidStart() {
+    if let overlay = introOverlay {
+      finalizeIntroRemoved(overlay: overlay, source: "opening_start")
+    } else {
+      introLifecycle = .dismissed
+    }
+    hideCapacitorSplash()
+  }
+
+  func openingPlayerDidEnd() {
+    dismissNativeIntroThenHideSplash()
   }
 
   private func dismissNativeIntroThenHideSplash() {

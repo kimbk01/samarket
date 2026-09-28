@@ -27,6 +27,10 @@ import {
   setLayerVisible,
 } from "@/lib/opening-show/layer-ops";
 import type { OpeningReadyMedia, OpeningShowDetail } from "@/lib/opening-show/types";
+import {
+  openingPublishFailCopy,
+  type OpeningPublishFailReason,
+} from "@/lib/opening-show/publish-validate";
 
 type PickerMode = { kind: "add" } | { kind: "replace"; layerId: string };
 
@@ -49,6 +53,13 @@ export function OpeningStudio({ showId }: { showId: string }) {
   const [previewing, setPreviewing] = useState(false);
   const [stageSize, setStageSize] = useState({ w: 9, h: 16 });
   const [stageHost, setStageHost] = useState<HTMLDivElement | null>(null);
+  const [latestRevisionId, setLatestRevisionId] = useState<string | null>(null);
+  const [latestRevisionNumber, setLatestRevisionNumber] = useState<number | null>(null);
+  const [liveRevisionNumber, setLiveRevisionNumber] = useState<number | null>(null);
+  const [isLive, setIsLive] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [settingLive, setSettingLive] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const mediaById = useMemo(() => new Map(media.map((item) => [item.id, item])), [media]);
   const selected = findLayer(document, selectedLayerId);
@@ -80,6 +91,10 @@ export function OpeningStudio({ showId }: { showId: string }) {
     setDocument(parsed);
     setSavedDocument(parsed);
     setMedia(json.show.media);
+    setLatestRevisionId(json.show.latestRevisionId);
+    setLatestRevisionNumber(json.show.latestRevisionNumber);
+    setLiveRevisionNumber(json.show.liveRevisionNumber);
+    setIsLive(json.show.isLive);
     setLoading(false);
   }, [safeT, showId]);
 
@@ -187,6 +202,80 @@ export function OpeningStudio({ showId }: { showId: string }) {
     setSavedTitle(title.trim());
   };
 
+  const onPublish = async () => {
+    if (dirty) {
+      setPublishError(
+        safeT("admin_opening_publish_need_save", {
+          fallbackKo: "먼저 저장한 뒤에 게시하세요.",
+          fallbackEn: "Save first, then publish.",
+        })
+      );
+      return;
+    }
+    setPublishing(true);
+    setPublishError(null);
+    const res = await fetch(`/api/admin/opening-shows/${showId}/publish`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      revisionId?: string;
+      revisionNumber?: number;
+      reason?: OpeningPublishFailReason;
+    };
+    setPublishing(false);
+    if (!res.ok || json.ok !== true) {
+      if (json.reason) {
+        const copy = openingPublishFailCopy(json.reason);
+        setPublishError(safeT("admin_opening_publish_error", copy));
+      } else {
+        setPublishError(
+          safeT("admin_opening_publish_error", {
+            fallbackKo: "게시하지 못했습니다.",
+            fallbackEn: "Could not publish.",
+          })
+        );
+      }
+      return;
+    }
+    setLatestRevisionId(json.revisionId ?? null);
+    setLatestRevisionNumber(json.revisionNumber ?? null);
+  };
+
+  const onSetLive = async () => {
+    if (!latestRevisionId) {
+      setPublishError(
+        safeT("admin_opening_live_need_publish", {
+          fallbackKo: "먼저 게시한 뒤에 앱에 적용하세요.",
+          fallbackEn: "Publish first, then set live.",
+        })
+      );
+      return;
+    }
+    setSettingLive(true);
+    setPublishError(null);
+    const res = await fetch(`/api/admin/opening-shows/${showId}/live`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revisionId: latestRevisionId }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+    setSettingLive(false);
+    if (!res.ok || json.ok !== true) {
+      setPublishError(
+        safeT("admin_opening_live_error", {
+          fallbackKo: "앱에 적용하지 못했습니다.",
+          fallbackEn: "Could not apply to the app.",
+        })
+      );
+      return;
+    }
+    setIsLive(true);
+    setLiveRevisionNumber(latestRevisionNumber);
+  };
+
   if (loading) {
     return (
       <p className="p-6 text-sm text-sam-muted">
@@ -215,10 +304,28 @@ export function OpeningStudio({ showId }: { showId: string }) {
           className="min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-sm text-sam-fg"
           aria-label={safeT("admin_opening_title_label", { fallbackKo: "이름", fallbackEn: "Name" })}
         />
-        <p className="hidden text-xs text-sam-muted sm:block">
+        <p className="hidden min-w-0 max-w-[18rem] truncate text-xs text-sam-muted sm:block">
           {dirty
             ? safeT("admin_opening_unsaved", { fallbackKo: "저장되지 않음", fallbackEn: "Unsaved" })
-            : safeT("admin_opening_saved", { fallbackKo: "저장됨", fallbackEn: "Saved" })}
+            : latestRevisionNumber
+              ? `${safeT("admin_opening_saved", { fallbackKo: "저장됨", fallbackEn: "Saved" })} · ${safeT(
+                  "admin_opening_published",
+                  { fallbackKo: "게시됨", fallbackEn: "Published" }
+                )} v${latestRevisionNumber}${
+                  isLive && liveRevisionNumber
+                    ? ` · ${safeT("admin_opening_live_now", {
+                        fallbackKo: "현재 앱 적용 중",
+                        fallbackEn: "Live on the app",
+                      })} v${liveRevisionNumber}`
+                    : ` · ${safeT("admin_opening_not_live", {
+                        fallbackKo: "앱에 아직 적용되지 않음",
+                        fallbackEn: "Not live on the app yet",
+                      })}`
+                }`
+              : `${safeT("admin_opening_draft", { fallbackKo: "초안", fallbackEn: "Draft" })} · ${safeT(
+                  "admin_opening_saved",
+                  { fallbackKo: "저장됨", fallbackEn: "Saved" }
+                )}`}
         </p>
         <AdminActionButton variant="secondary" onClick={() => setPreviewing(true)}>
           {safeT("admin_opening_preview", { fallbackKo: "미리보기", fallbackEn: "Preview" })}
@@ -228,8 +335,23 @@ export function OpeningStudio({ showId }: { showId: string }) {
             ? safeT("admin_opening_saving", { fallbackKo: "저장 중…", fallbackEn: "Saving…" })
             : safeT("admin_opening_save", { fallbackKo: "저장", fallbackEn: "Save" })}
         </AdminActionButton>
+        <AdminActionButton variant="secondary" disabled={publishing || dirty} onClick={() => void onPublish()}>
+          {publishing
+            ? safeT("admin_opening_publishing", { fallbackKo: "게시 중…", fallbackEn: "Publishing…" })
+            : safeT("admin_opening_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
+        </AdminActionButton>
+        <AdminActionButton
+          variant="primary"
+          disabled={settingLive || dirty || !latestRevisionId || (isLive && liveRevisionNumber === latestRevisionNumber)}
+          onClick={() => void onSetLive()}
+        >
+          {settingLive
+            ? safeT("admin_opening_setting_live", { fallbackKo: "적용 중…", fallbackEn: "Applying…" })
+            : safeT("admin_opening_set_live", { fallbackKo: "Live 적용", fallbackEn: "Set live" })}
+        </AdminActionButton>
       </header>
       {saveError ? <p className="bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</p> : null}
+      {publishError ? <p className="bg-red-50 px-4 py-2 text-sm text-red-700">{publishError}</p> : null}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[13rem_minmax(0,1fr)_16rem]">
         <aside className="border-b border-sam-border bg-sam-surface p-3 md:border-b-0 md:border-r">
@@ -280,17 +402,35 @@ export function OpeningStudio({ showId }: { showId: string }) {
             <OpeningImageProperties
               layer={selected}
               fileName={mediaById.get(selected.mediaId)?.fileName ?? ""}
-              onFit={(fit: OpeningImageFit) => markDocument(setLayerFit(document, selected.id, fit))}
-              onVisible={(visible) => markDocument(setLayerVisible(document, selected.id, visible))}
-              onForward={() => markDocument(moveLayerZ(document, selected.id, "forward"))}
-              onBackward={() => markDocument(moveLayerZ(document, selected.id, "backward"))}
+              onFit={(fit: OpeningImageFit) => {
+                const layerId = selected.id;
+                setDocument((current) => setLayerFit(current, layerId, fit));
+                setSaveError(null);
+              }}
+              onVisible={(visible) => {
+                const layerId = selected.id;
+                setDocument((current) => setLayerVisible(current, layerId, visible));
+                setSaveError(null);
+              }}
+              onForward={() => {
+                const layerId = selected.id;
+                setDocument((current) => moveLayerZ(current, layerId, "forward"));
+                setSaveError(null);
+              }}
+              onBackward={() => {
+                const layerId = selected.id;
+                setDocument((current) => moveLayerZ(current, layerId, "backward"));
+                setSaveError(null);
+              }}
               onReplace={() => {
                 setUploadError(null);
                 setPicker({ kind: "replace", layerId: selected.id });
               }}
               onDelete={() => {
-                markDocument(removeLayer(document, selected.id));
+                const layerId = selected.id;
+                setDocument((current) => removeLayer(current, layerId));
                 setSelectedLayerId(null);
+                setSaveError(null);
               }}
             />
           ) : (

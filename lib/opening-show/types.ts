@@ -4,6 +4,9 @@ export type OpeningShowListItem = {
   id: string;
   title: string;
   updatedAt: string;
+  latestRevisionNumber: number | null;
+  liveRevisionNumber: number | null;
+  isLive: boolean;
 };
 
 export type OpeningReadyMedia = {
@@ -23,4 +26,9 @@ export type OpeningShowDetail = {
   document: OpeningDocument;
   media: OpeningReadyMedia[];
   updatedAt: string;
+  latestRevisionId: string | null;
+  latestRevisionNumber: number | null;
+  liveRevisionId: string | null;
+  liveRevisionNumber: number | null;
+  isLive: boolean;
 };

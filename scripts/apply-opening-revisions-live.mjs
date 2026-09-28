@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Apply ONLY Opening Show CUT 1A migration to linked Production.
+ * Apply ONLY Opening revisions + live_revision_id to linked Production.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import pg from "pg";
 
 const { Client } = pg;
-const VERSION = "20270328100000";
-const NAME = "opening_show_cut1a";
+const VERSION = "20270328130000";
+const NAME = "opening_revisions_live";
 const MIGRATION = `supabase/migrations/${VERSION}_${NAME}.sql`;
 
 function loadEnvLocal() {
@@ -42,24 +42,28 @@ function buildConnectionString() {
 async function verifySchema(client) {
   const checks = [
     [
-      "opening_shows",
-      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='opening_shows'`,
+      "opening_revisions",
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='opening_revisions'`,
     ],
     [
-      "opening_drafts",
-      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='opening_drafts'`,
+      "opening_shows.live_revision_id",
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public' AND table_name='opening_shows' AND column_name='live_revision_id'`,
     ],
     [
-      "opening_media",
-      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='opening_media'`,
+      "opening_shows_one_live",
+      `SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='opening_shows_one_live'`,
     ],
     [
-      "opening_media_derivatives",
-      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='opening_media_derivatives'`,
+      "set_opening_live",
+      `SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+       WHERE n.nspname='public' AND p.proname='set_opening_live'`,
     ],
     [
-      "bucket opening-show-media",
-      `SELECT 1 FROM storage.buckets WHERE id='opening-show-media'`,
+      "runtimeDisplay kind",
+      `SELECT 1 FROM pg_constraint
+       WHERE conrelid='public.opening_media_derivatives'::regclass
+         AND conname='opening_media_derivatives_kind_check'`,
     ],
   ];
   for (const [label, sql] of checks) {
@@ -67,12 +71,6 @@ async function verifySchema(client) {
     if (!rows.length) throw new Error(`MISSING: ${label}`);
     console.log("[verify]", label, "OK");
   }
-
-  const { rows: bucket } = await client.query(
-    `SELECT id, public, file_size_limit, allowed_mime_types
-     FROM storage.buckets WHERE id='opening-show-media'`
-  );
-  console.log("[verify] bucket:", JSON.stringify(bucket[0]));
 }
 
 async function main() {
@@ -94,23 +92,19 @@ async function main() {
   } else {
     const sql = readFileSync(resolve(process.cwd(), MIGRATION), "utf8");
     console.log("[apply]", MIGRATION);
-    try {
-      await client.query(sql);
-      await client.query(
-        `INSERT INTO supabase_migrations.schema_migrations (version, name)
-         VALUES ($1, $2)
-         ON CONFLICT (version) DO NOTHING`,
-        [VERSION, NAME]
-      );
-      console.log("[ok]", MIGRATION, "ledger recorded");
-    } catch (e) {
-      throw e;
-    }
+    await client.query(sql);
+    await client.query(
+      `INSERT INTO supabase_migrations.schema_migrations (version, name)
+       VALUES ($1, $2)
+       ON CONFLICT (version) DO NOTHING`,
+      [VERSION, NAME]
+    );
+    console.log("[ok]", MIGRATION, "ledger recorded");
   }
 
   await verifySchema(client);
   await client.end();
-  console.log("[apply-opening-show-cut1a] PASS");
+  console.log("[apply-opening-revisions-live] PASS");
 }
 
 main().catch((e) => {

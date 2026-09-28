@@ -113,6 +113,15 @@ describe("opening geometry", () => {
     expect(next.x).toBeCloseTo(0.15);
     expect(next.y).toBeCloseTo(0.08);
   });
+
+  it("accumulates sequential pointer deltas from the last frame, not the start frame", () => {
+    const start = { x: 0.1, y: 0.1, w: 0.2, h: 0.2 };
+    const staleFromStart = translateFrame(start, 0.01, 0);
+    const accumulated = translateFrame(translateFrame(start, 0.2, 0.1), 0.2, 0.1);
+    expect(staleFromStart.x).toBeCloseTo(0.11);
+    expect(accumulated.x).toBeCloseTo(0.5);
+    expect(accumulated.y).toBeCloseTo(0.3);
+  });
 });
 
 describe("opening media validate", () => {

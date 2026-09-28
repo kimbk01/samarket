@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
 import { StoresCategoryLifecycleBridge } from "@/components/stores/StoresCategoryLifecycleBridge";
 import { TradeMarketProductCompositionHost } from "@/components/trade/TradeMarketProductCompositionHost";
+import { OpeningRuntimeSync } from "@/components/opening-show/OpeningRuntimeSync";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -38,6 +39,7 @@ export function MainAppProviders({
     >
       <StoresCategoryLifecycleBridge />
       <TradeMarketProductCompositionHost />
+      <OpeningRuntimeSync />
       {children}
     </MainAppProviderTree>
   );

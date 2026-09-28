@@ -7,6 +7,7 @@ import {
   frameStyle,
   resizeFrameKeepAspect,
   translateFrame,
+  type NormalizedRect,
   type ResizeHandle,
 } from "@/lib/opening-show/geometry";
 import { setLayerFrame } from "@/lib/opening-show/layer-ops";
@@ -22,8 +23,15 @@ const HANDLE_CLASS: Record<ResizeHandle, string> = {
 };
 
 type DragState =
-  | { kind: "move"; layerId: string; startX: number; startY: number }
-  | { kind: "resize"; layerId: string; handle: ResizeHandle; startX: number; startY: number };
+  | { kind: "move"; layerId: string; startX: number; startY: number; frame: NormalizedRect }
+  | {
+      kind: "resize";
+      layerId: string;
+      handle: ResizeHandle;
+      startX: number;
+      startY: number;
+      frame: NormalizedRect;
+    };
 
 export function OpeningLiveStage({
   document,
@@ -55,16 +63,14 @@ export function OpeningLiveStage({
       if (rect.width < 1 || rect.height < 1) return;
       const dx = (clientX - drag.startX) / rect.width;
       const dy = (clientY - drag.startY) / rect.height;
-      const current = docRef.current;
-      const layer = openingPrimaryScene(current).layers.find((item) => item.id === drag.layerId);
-      if (!layer) return;
       const nextFrame =
         drag.kind === "move"
-          ? translateFrame(layer.frame, dx, dy)
-          : resizeFrameKeepAspect(layer.frame, drag.handle, dx, dy);
-      onDocumentChange(setLayerFrame(current, drag.layerId, nextFrame));
+          ? translateFrame(drag.frame, dx, dy)
+          : resizeFrameKeepAspect(drag.frame, drag.handle, dx, dy);
+      drag.frame = nextFrame;
       drag.startX = clientX;
       drag.startY = clientY;
+      onDocumentChange(setLayerFrame(docRef.current, drag.layerId, nextFrame));
     },
     [onDocumentChange]
   );
@@ -86,11 +92,14 @@ export function OpeningLiveStage({
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelect(layerId);
+    const layer = openingPrimaryScene(docRef.current).layers.find((item) => item.id === layerId);
+    if (!layer) return;
     dragRef.current = {
       kind: "move",
       layerId,
       startX: event.clientX,
       startY: event.clientY,
+      frame: layer.frame,
     };
   };
 
@@ -102,12 +111,15 @@ export function OpeningLiveStage({
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelect(layerId);
+    const layer = openingPrimaryScene(docRef.current).layers.find((item) => item.id === layerId);
+    if (!layer) return;
     dragRef.current = {
       kind: "resize",
       layerId,
       handle,
       startX: event.clientX,
       startY: event.clientY,
+      frame: layer.frame,
     };
   };
 

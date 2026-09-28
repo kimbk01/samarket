@@ -99,18 +99,26 @@ export async function insertReadyOpeningMedia(
     sourcePath: string;
     displayPath: string;
     thumbPath: string;
+    runtimeDisplayPath: string;
     displayWidth: number;
     displayHeight: number;
     displayBytes: number;
     thumbWidth: number;
     thumbHeight: number;
     thumbBytes: number;
+    runtimeWidth: number;
+    runtimeHeight: number;
+    runtimeBytes: number;
   }
 ): Promise<{ ok: true; media: OpeningReadyMedia } | { ok: false; error: string; httpStatus: number }> {
   if (!assertOpeningStoragePath(input.sourcePath)) {
     return { ok: false, error: "invalid_storage_path", httpStatus: 400 };
   }
-  if (!assertOpeningStoragePath(input.displayPath) || !assertOpeningStoragePath(input.thumbPath)) {
+  if (
+    !assertOpeningStoragePath(input.displayPath) ||
+    !assertOpeningStoragePath(input.thumbPath) ||
+    !assertOpeningStoragePath(input.runtimeDisplayPath)
+  ) {
     return { ok: false, error: "invalid_storage_path", httpStatus: 400 };
   }
 
@@ -120,6 +128,18 @@ export async function insertReadyOpeningMedia(
     .eq("id", input.mediaId)
     .maybeSingle();
   if (existing) {
+    await sb.from("opening_media_derivatives").upsert(
+      {
+        media_id: input.mediaId,
+        kind: "runtimeDisplay",
+        storage_path: input.runtimeDisplayPath,
+        mime: "image/webp",
+        width: input.runtimeWidth,
+        height: input.runtimeHeight,
+        byte_size: input.runtimeBytes,
+      },
+      { onConflict: "media_id,kind" }
+    );
     return {
       ok: true,
       media: {
@@ -166,6 +186,15 @@ export async function insertReadyOpeningMedia(
       width: input.thumbWidth,
       height: input.thumbHeight,
       byte_size: input.thumbBytes,
+    },
+    {
+      media_id: input.mediaId,
+      kind: "runtimeDisplay",
+      storage_path: input.runtimeDisplayPath,
+      mime: "image/webp",
+      width: input.runtimeWidth,
+      height: input.runtimeHeight,
+      byte_size: input.runtimeBytes,
     },
   ]);
   if (derError) {

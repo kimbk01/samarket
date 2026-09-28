@@ -62,6 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const displayPath = openingDerivativePath(showId, mediaId, "display");
   const thumbPath = openingDerivativePath(showId, mediaId, "thumb");
+  const runtimeDisplayPath = openingDerivativePath(showId, mediaId, "runtimeDisplay");
 
   const displayUp = await sb.storage.from(OPENING_SHOW_BUCKET).upload(displayPath, processed.result.display.buf, {
     contentType: "image/webp",
@@ -77,6 +78,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (thumbUp.error) {
     return NextResponse.json({ ok: false, error: thumbUp.error.message }, { status: 500 });
   }
+  const runtimeUp = await sb.storage
+    .from(OPENING_SHOW_BUCKET)
+    .upload(runtimeDisplayPath, processed.result.display.buf, {
+      contentType: "image/webp",
+      upsert: true,
+    });
+  if (runtimeUp.error) {
+    return NextResponse.json({ ok: false, error: runtimeUp.error.message }, { status: 500 });
+  }
 
   const inserted = await insertReadyOpeningMedia(sb, {
     showId,
@@ -90,12 +100,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     sourcePath,
     displayPath,
     thumbPath,
+    runtimeDisplayPath,
     displayWidth: processed.result.display.width,
     displayHeight: processed.result.display.height,
     displayBytes: processed.result.display.buf.byteLength,
     thumbWidth: processed.result.thumb.width,
     thumbHeight: processed.result.thumb.height,
     thumbBytes: processed.result.thumb.buf.byteLength,
+    runtimeWidth: processed.result.display.width,
+    runtimeHeight: processed.result.display.height,
+    runtimeBytes: processed.result.display.buf.byteLength,
   });
   if (!inserted.ok) {
     return NextResponse.json({ ok: false, error: inserted.error }, { status: inserted.httpStatus });

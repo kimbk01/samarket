@@ -15,10 +15,12 @@ export function openingSourcePath(showId: string, mediaId: string, ext: string):
   return `${OPENING_STORAGE_NAMESPACE}/${showId}/${mediaId}/source.${ext}`;
 }
 
+export type OpeningDerivativeKind = "display" | "thumb" | "runtimeDisplay";
+
 export function openingDerivativePath(
   showId: string,
   mediaId: string,
-  kind: "display" | "thumb"
+  kind: OpeningDerivativeKind
 ): string {
   return `${OPENING_STORAGE_NAMESPACE}/${showId}/${mediaId}/${kind}.webp`;
 }

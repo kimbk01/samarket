@@ -146,8 +146,19 @@ export function OpeningShowListPage() {
                 onClick={() => router.push(`/admin/intro/${item.id}`)}
               >
                 <span className="font-medium text-sam-fg">{item.title}</span>
-                <span className="text-xs text-sam-muted">
-                  {new Date(item.updatedAt).toLocaleString()}
+                <span className="flex items-center gap-2 text-xs text-sam-muted">
+                  {item.isLive
+                    ? safeT("admin_opening_badge_live", {
+                        fallbackKo: "앱 적용 중",
+                        fallbackEn: "Live",
+                      })
+                    : item.latestRevisionNumber
+                      ? `${safeT("admin_opening_published", {
+                          fallbackKo: "게시됨",
+                          fallbackEn: "Published",
+                        })} v${item.latestRevisionNumber}`
+                      : safeT("admin_opening_draft", { fallbackKo: "초안", fallbackEn: "Draft" })}
+                  <span>{new Date(item.updatedAt).toLocaleString()}</span>
                 </span>
               </button>
             </li>
