@@ -382,10 +382,10 @@ describe("RESET 2 Scene/Layer domain", () => {
     expect(classifyIntroLayer(defaultImageLayer("img-ghost", 1), assets)).toBe("INVALID_GHOST");
   });
 
-  it("Rebuild B editor does not author IMAGE layers", () => {
+  it("CUT 1 editor authors IMAGE layers through the V3 Media Library", () => {
     const editor = readFileSync("components/admin/intro/IntroEditor/IntroEditor.tsx", "utf8");
-    expect(editor).not.toContain("addImageLayerToDocument");
-    expect(editor).not.toContain("IntroV3MediaLibrary");
+    expect(editor).toContain("commitIntroV3ImageLibraryOutcome");
+    expect(editor).toContain("IntroMediaLibrary");
     expect(editor).not.toContain('addElement("IMAGE")');
     expect(editor).not.toContain("defaultImageLayer");
     expect(editor).not.toContain("AdminIntroCmsEditorPage");

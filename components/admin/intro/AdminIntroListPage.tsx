@@ -10,11 +10,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminScheduleRange } from "@/components/admin/intro/intro-admin-time";
 import { introFrequencyLabel } from "@/lib/startup/intro-v2/admin-labels";
-import {
-  introCmsDeviceReadinessLabel,
-  introCmsListDeviceReadiness,
-  introCmsListStateLabel,
-} from "@/lib/startup/intro-v2/admin-cms-phase1";
+import { introCmsListStateLabel } from "@/lib/startup/intro-v2/admin-cms-phase1";
 import { type IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
 import type { IntroAdminListRow } from "@/lib/startup/intro-v2/admin-editor-model";
 
@@ -132,8 +128,8 @@ export function AdminIntroListPage() {
         title={safeT("admin_intro_title", { fallbackKo: "인트로 관리", fallbackEn: "Intro" })}
         backHref="/admin/platform-promotion"
         description={safeT("admin_intro_list_description", {
-          fallbackKo: "캠페인 초안을 만들고 게시할 수 있습니다. 게시됨은 서버 상태이며, 기기가 받았는지는 별도로 확인되지 않습니다.",
-          fallbackEn: "Create and publish intro campaigns. Published is a server state. Device receipt is not confirmed from settings identity.",
+          fallbackKo: "캠페인 초안을 만들고 게시할 수 있습니다.",
+          fallbackEn: "Create and publish intro campaigns.",
         })}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -206,11 +202,6 @@ export function AdminIntroListPage() {
                           {mediaLabel(item.mediaTypes, lang)} · {formatAdminScheduleRange(item.startsAt, item.endsAt, item.timezone, lang)} ·{" "}
                           {lang === "en" ? "Everyone" : "전체"} · {introFrequencyLabel(item.frequencyMode, lang)}
                         </p>
-                        {state === "published" ? (
-                          <p className="text-xs text-sam-muted" data-intro-device-readiness={introCmsListDeviceReadiness(state)}>
-                            {introCmsDeviceReadinessLabel(lang)}
-                          </p>
-                        ) : null}
                         <div className="flex flex-wrap gap-2 pt-1">
                           <AdminActionLink href={`/admin/intro/${item.id}`} variant="secondary">
                             {safeT("admin_intro_preview", { fallbackKo: "미리보기", fallbackEn: "Preview" })}

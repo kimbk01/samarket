@@ -34,7 +34,7 @@ describe("intro rebuild B demolition", () => {
     expect(existsSync(join(ROOT, "components/admin/intro-v3/IntroV3MediaLibrary.tsx"))).toBe(false);
   });
 
-  it("Owner /admin/intro/[id] mounts IntroEditor foundation, not rejected products", () => {
+  it("Owner /admin/intro/[id] mounts CUT 1 IMAGE editor, not rejected products", () => {
     const page = read("app/admin/intro/[campaignId]/page.tsx");
     const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
     const editor = read("components/admin/intro/IntroEditor/IntroEditor.tsx");
@@ -50,19 +50,19 @@ describe("intro rebuild B demolition", () => {
     expect(gate).toContain("AdminIntroLegacyReadOnly");
     expect(gate).not.toContain("NewIntroEditor");
     expect(gate).not.toContain("AdminIntroCmsEditorPage");
-    expect(editor).toContain('data-intro-editor="foundation-b"');
+    expect(editor).toContain('data-intro-editor="cut-1-image"');
+    expect(editor).not.toContain('data-intro-editor="foundation-b"');
     expect(editor).toContain("SceneStoryboard");
     expect(editor).toContain("SceneWorkspace");
     expect(editor).toContain("ScenePropertiesPanel");
+    expect(editor).toContain("IntroMediaLibrary");
     expect(storyboard).toContain("data-intro-storyboard");
     expect(workspace).toContain("data-intro-workspace");
     expect(workspace).toContain("data-intro-scene-surface");
+    expect(workspace).toContain("data-intro-image-render");
     expect(properties).toContain("data-intro-scene-properties");
-    expect(editor).not.toContain("IntroV3MediaLibrary");
     expect(editor).not.toContain("fitIntroEditorCanvas");
     expect(editor).not.toContain("occupancy");
-    expect(workspace).toContain("data-intro-scene-surface");
-    expect(workspace).not.toContain("aspect-ratio");
     expect(workspace).not.toContain("9 / 16");
     expect(v3Page).toContain('redirect("/admin/intro")');
     expect(v3Campaign).toContain("redirect(`/admin/intro/${campaignId}`)");

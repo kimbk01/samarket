@@ -7,6 +7,8 @@
  */
 
 import {
+  introLockedHeightPct,
+  introLockedWidthPct,
   transformLayerToRect,
   type IntroRenderRect,
   type IntroViewportSize,
@@ -178,4 +180,67 @@ export function transformIntroV3GeometryToRect(input: {
     mediaWidth: input.mediaWidth,
     mediaHeight: input.mediaHeight,
   });
+}
+
+export function translateIntroV3Geometry(
+  geometry: IntroV3Geometry,
+  delta: { dxPct: number; dyPct: number }
+): IntroV3Geometry {
+  return (
+    normalizeIntroV3Geometry({
+      ...geometry,
+      xPct: geometry.xPct + delta.dxPct,
+      yPct: geometry.yPct + delta.dyPct,
+    }) ?? geometry
+  );
+}
+
+export type IntroV3ResizeHandle = "nw" | "ne" | "sw" | "se";
+
+/**
+ * Corner resize that keeps the opposite corner and the media aspect.
+ * Pointer deltas are SCENE_NORMALIZED_PCT, never CSS px persistence.
+ */
+export function resizeIntroV3GeometryPreserveAspect(input: {
+  geometry: IntroV3Geometry;
+  handle: IntroV3ResizeHandle;
+  dxPct: number;
+  dyPct: number;
+  mediaAspect: number;
+  surfaceWidth: number;
+  surfaceHeight: number;
+}): IntroV3Geometry {
+  const aspect = input.mediaAspect > 0 ? input.mediaAspect : 1;
+  const start = input.geometry;
+  const left = start.xPct - start.widthPct / 2;
+  const right = start.xPct + start.widthPct / 2;
+  const top = start.yPct - start.heightPct / 2;
+  const bottom = start.yPct + start.heightPct / 2;
+  let nextLeft = left;
+  let nextRight = right;
+  let nextTop = top;
+  let nextBottom = bottom;
+  if (input.handle.includes("e")) nextRight = right + input.dxPct;
+  if (input.handle.includes("w")) nextLeft = left + input.dxPct;
+  if (input.handle.includes("s")) nextBottom = bottom + input.dyPct;
+  if (input.handle.includes("n")) nextTop = top + input.dyPct;
+  let widthPct = Math.max(4, nextRight - nextLeft);
+  let heightPct = introLockedHeightPct(widthPct, aspect, input.surfaceWidth, input.surfaceHeight);
+  if (heightPct < 4) {
+    heightPct = 4;
+    widthPct = introLockedWidthPct(heightPct, aspect, input.surfaceWidth, input.surfaceHeight);
+  }
+  if (input.handle.includes("w")) nextLeft = nextRight - widthPct;
+  else nextRight = nextLeft + widthPct;
+  if (input.handle.includes("n")) nextTop = nextBottom - heightPct;
+  else nextBottom = nextTop + heightPct;
+  return (
+    normalizeIntroV3Geometry({
+      ...start,
+      xPct: (nextLeft + nextRight) / 2,
+      yPct: (nextTop + nextBottom) / 2,
+      widthPct,
+      heightPct,
+    }) ?? start
+  );
 }

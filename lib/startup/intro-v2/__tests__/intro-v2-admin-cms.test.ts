@@ -917,7 +917,8 @@ describe("composer reconstruction contract", () => {
     expect(list).toContain('"published"');
     expect(list).not.toContain('"applied"');
     expect(list).not.toContain("현재 앱 적용");
-    expect(list).toContain("introCmsDeviceReadinessLabel");
+    expect(list).not.toContain("introCmsDeviceReadinessLabel");
+    expect(list).not.toContain("data-intro-device-readiness");
     expect(list).not.toContain('data-intro-list="composer"');
     expect(list).not.toContain("introDerivedStatusLabel");
     expect(catalog).not.toContain("새 Intro 런타임 게시 지원 준비 중");

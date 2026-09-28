@@ -28,11 +28,6 @@ import {
   resolveIntroUploadAttach,
 } from "@/lib/startup/intro-v2/admin-operator-ux";
 import {
-  INTRO_ADMIN_UPLOAD_MAX_SOURCE_BYTES,
-  inspectIntroUploadFile,
-  mapIntroUploadError,
-} from "@/lib/startup/intro-v2/admin-upload";
-import {
   INTRO_RICH_PUBLISH_MESSAGE_KO,
   introRichPublishBlockIssue,
 } from "@/lib/startup/intro-v2/compat-publish";
@@ -290,34 +285,23 @@ describe("Intro Phase 2 product semantics", () => {
 
   it("Owner Rebuild B editor is the foundation shell, not Media Library or CMS", () => {
     const editor = readFileSync("components/admin/intro/IntroEditor/IntroEditor.tsx", "utf8");
-    expect(editor).toContain('data-intro-editor="foundation-b"');
+    expect(editor).toContain('data-intro-editor="cut-1-image"');
     expect(editor).toContain("data-intro-topbar");
-    expect(editor).not.toContain("IntroV3MediaLibrary");
+    expect(editor).toContain("IntroMediaLibrary");
     expect(editor).not.toContain('data-intro-editor="cms-v1"');
     expect(editor).not.toContain("/api/admin/intro-campaigns/upload-image");
     expect(editor).not.toContain("/api/admin/startup-config/upload-image");
     expect(editor).not.toContain("이 기기군만 다름");
   });
 
-  it("Intro CMS upload accepts 8MB images, sniffs empty mime, and does not use the 2MB Product Intro route", () => {
-    expect(INTRO_ADMIN_UPLOAD_MAX_SOURCE_BYTES).toBe(8 * 1024 * 1024);
-    expect(inspectIntroUploadFile({ name: "hero.jpg", type: "", size: 3 * 1024 * 1024 })).toEqual({
-      ok: true,
-      mime: "image/jpeg",
-      needsCompress: false,
-    });
-    expect(inspectIntroUploadFile({ name: "hero.png", type: "image/png", size: 9 * 1024 * 1024 }).ok).toBe(
-      false
-    );
-    expect(inspectIntroUploadFile({ name: "clip.heic", type: "", size: 400_000 }).ok).toBe(false);
-    expect(mapIntroUploadError("file_too_large", "ko")).toContain("8MB");
-    const route = readFileSync("app/api/admin/intro-campaigns/upload-image/route.ts", "utf8");
-    expect(route).toContain("requireIntroAdminContext");
-    expect(route).toContain("inspectIntroUploadFile");
-    expect(route).toContain("registerIntroAdminAsset");
-    expect(route).not.toContain("1080");
-    expect(route).not.toContain("1350");
-    expect(route).not.toContain("PRODUCT_INTRO_MAX_FILE_BYTES");
-    expect(route).not.toContain("optimizeProductIntroCreativeBuffer");
+  it("CUT 1 IMAGE authoring uses the verified V3 signed media pipeline, not the obsolete 8MB uploader", () => {
+    const editor = readFileSync("components/admin/intro/IntroEditor/IntroEditor.tsx", "utf8");
+    const upload = readFileSync("lib/startup/intro-v3/media-upload-client.ts", "utf8");
+    expect(editor).toContain("IntroMediaLibrary");
+    expect(upload).toContain("/api/admin/intro-v3/media/sign");
+    expect(upload).toContain("/api/admin/intro-v3/media/process");
+    expect(upload).not.toContain("8 * 1024 * 1024");
+    expect(existsSync("app/api/admin/intro-campaigns/upload-image/route.ts")).toBe(false);
+    expect(existsSync("lib/startup/intro-v2/admin-upload-client.ts")).toBe(false);
   });
 });

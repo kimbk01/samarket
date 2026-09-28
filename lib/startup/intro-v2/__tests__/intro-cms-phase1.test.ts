@@ -159,7 +159,8 @@ describe("Phase 1 list application wording", () => {
     const contract = read("lib/startup/intro-operator-contract.ts");
     expect(list).not.toContain("현재 앱 적용");
     expect(list).not.toContain('"applied"');
-    expect(list).toContain("introCmsDeviceReadinessLabel");
+    expect(list).not.toContain("introCmsDeviceReadinessLabel");
+    expect(list).not.toContain("data-intro-device-readiness");
     expect(list).toContain("introCmsListStateLabel");
     expect(list).not.toContain("introOperatorAppStateLabel");
     expect(contract).not.toContain("현재 앱 적용");

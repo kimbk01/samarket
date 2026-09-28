@@ -30,8 +30,7 @@ export const adminIntroMessages = {
     admin_intro_v1_warning:
       "V1에서 가져온 초안입니다. displayDurationMs=0이라 진행 방식이 확정되지 않았습니다. 게시 전에 장면 진행 방법을 직접 선택하세요.",
     admin_intro_all: "전체",
-    admin_intro_list_description:
-      "캠페인 초안을 만들고 게시할 수 있습니다. 게시됨은 서버 상태이며, 기기가 받았는지는 별도로 확인되지 않습니다.",
+    admin_intro_list_description: "캠페인 초안을 만들고 게시할 수 있습니다.",
     admin_intro_cms_description:
       "하나의 구성으로 캠페인을 편집합니다. 미리보기 기기를 바꿔도 별도 크리에이티브를 만들지 않습니다.",
     admin_intro_dirty: "저장하지 않은 변경사항",
@@ -184,8 +183,7 @@ export const adminIntroMessages = {
     admin_intro_v1_warning:
       "This V1-imported draft has displayDurationMs=0, so advance semantics are unconfirmed. Choose scene advance explicitly before publish.",
     admin_intro_all: "All",
-    admin_intro_list_description:
-      "Create and publish intro campaigns. Published is a server state. Device receipt is not confirmed from settings identity.",
+    admin_intro_list_description: "Create and publish intro campaigns.",
     admin_intro_cms_description:
       "Edit one authored composition. Changing the preview viewport does not create a separate creative.",
     admin_intro_dirty: "Unsaved changes",

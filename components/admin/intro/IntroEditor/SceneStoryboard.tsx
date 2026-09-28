@@ -25,17 +25,6 @@ export function SceneStoryboard({
       >
         {sceneLabel}
       </button>
-      <button
-        type="button"
-        disabled
-        className="mx-2 mt-2 rounded-ui-rect px-3 py-2 text-left text-[13px] text-sam-muted"
-        data-intro-add-scene="disabled"
-      >
-        {safeT("admin_intro_add_scene_later", {
-          fallbackKo: "+ 장면 (이후)",
-          fallbackEn: "+ Scene (later)",
-        })}
-      </button>
     </aside>
   );
 }
