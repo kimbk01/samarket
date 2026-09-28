@@ -5,18 +5,14 @@
  * @see docs/dibay-local-runtime-startup-rearchitecture.md
  *
  * CONTRACT:
- * - Single Intro owner (this document).
+ * - Authored Intro overlay = NONE.
  * - Single AppShell + BottomNav silhouette until full router lands.
  * - Remote = API origin fetch only — never main-frame navigation to remote HTML.
  * - DO NOT: location.replace · window.location = remote · iframe app body · Cover normal flow.
  */
 
 import { BUNDLED_STARTUP_NAV, type StartupNavTabCache } from "@/lib/startup/startup-cache";
-import {
-  BUNDLED_STARTUP_CONFIG,
-  isStartupIntroActive,
-  type StartupConfig,
-} from "@/lib/startup/startup-config";
+import { BUNDLED_STARTUP_CONFIG, type StartupConfig } from "@/lib/startup/startup-config";
 import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
 import { buildStartupShellCss } from "@/lib/startup/startup-shell-markup";
 
@@ -64,20 +60,8 @@ function tabLabel(tab: StartupNavTabCache, lang: "ko" | "en"): string {
   return tab.label;
 }
 
-function buildIntroHtml(config: StartupConfig, logoSrc: string): string {
-  if (!isStartupIntroActive(config)) {
-    return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" data-local-runtime-intro="1" hidden aria-hidden="true"></div>`;
-  }
-  const wordmark = escapeHtml(config.wordmark || "DIBAY");
-  const subtitle = config.subtitle ? `<p class="dibay-startup-subtitle">${escapeHtml(config.subtitle)}</p>` : "";
-  const spinner = config.showSpinner ? `<div class="dibay-startup-spinner" aria-hidden="true"></div>` : "";
-  const wordmarkEl = config.showWordmark ? `<p class="dibay-startup-wordmark">${wordmark}</p>` : "";
-  return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" data-local-runtime-intro="1" aria-hidden="false">
-  <img class="dibay-startup-logo" src="${escapeHtml(logoSrc)}" width="72" height="72" alt=""/>
-  ${wordmarkEl}
-  ${subtitle}
-  ${spinner}
-</div>`;
+function buildIntroHtml(_config: StartupConfig, _logoSrc: string): string {
+  return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" data-local-runtime-intro="1" hidden aria-hidden="true"></div>`;
 }
 
 function buildNavHtml(tabs: readonly StartupNavTabCache[], lang: "ko" | "en"): string {

@@ -364,7 +364,7 @@ export function startupConfigEquals(a: StartupConfig, b: StartupConfig): boolean
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Web Intro must stay off — Native owns the surface. */
+/** Authored Intro overlay is removed. Always false. */
 export function isStartupIntroActive(_config: StartupConfig): boolean {
   return false;
 }

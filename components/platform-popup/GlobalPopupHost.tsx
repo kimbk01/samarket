@@ -6,10 +6,6 @@ import { DibayPopupAd } from "@/components/platform-popup/DibayPopupAd";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { isAppShellReady, whenAppShellReady } from "@/lib/startup/startup-metrics";
-import {
-  isProductIntroOverlayActive,
-  subscribeProductIntroOverlayActive,
-} from "@/lib/startup/product-intro-runtime";
 import { isSupportModalOpen, subscribeSupportModalState } from "@/lib/support/support-modal-controller";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { getOrCreatePlatformPopupAppSessionId } from "@/lib/platform-popup/popup-app-session";
@@ -122,11 +118,6 @@ export function GlobalPopupHost() {
 
   const storesLcpDeferred = useStoresHomeOverlayDeferUntilInput();
   const [shellReady, setShellReady] = useState(() => isAppShellReady());
-  const productIntroActive = useSyncExternalStore(
-    subscribeProductIntroOverlayActive,
-    isProductIntroOverlayActive,
-    () => false
-  );
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
@@ -180,7 +171,7 @@ export function GlobalPopupHost() {
       permissionGate: criticalFlags.permissionGate,
       addressGate: criticalFlags.addressGate,
       criticalDialog: criticalFlags.criticalDialog || supportOpen,
-      startupDeferred: isAdminPath ? false : !shellReady || productIntroActive,
+      startupDeferred: isAdminPath ? false : !shellReady,
       storesLcpDeferred: isAdminPath ? false : storesLcpDeferred,
       appSessionId,
     };

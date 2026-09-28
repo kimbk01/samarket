@@ -5,9 +5,9 @@ import os.log
 
 /**
  * Product Startup (iOS):
- * LaunchScreen (cream + DIBAY logo) → Native Startup Intro (cached Admin config) →
- * shellReady / dismissSplash → exit animation → remove Intro → Cap WebView.
- * No Hybrid boot HTML · no location.replace · no second Web Intro.
+ * LaunchScreen (cream + DIBAY logo) → Native boot overlay (logo canvas) →
+ * shellReady / dismissSplash → fade out → Cap WebView.
+ * Authored Product Intro is removed. No Hybrid boot HTML · no location.replace.
  */
 class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
@@ -46,15 +46,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
   private var introLifecycle: IntroLifecycle = .pending
   private var activeConfig: [String: Any] = [:]
-  /// CASE B: Admin First Entry painted by Native (not a second Web Intro).
-  private var usingProductIntroCover = false
-  private var holdingProductIntro = false
-  private var destinationReady = false
-  private var holdFired = false
-  private var skipRequested = false
-  private var ctaRequested = false
-  private var pendingCtaHref: String?
-  private static var sessionShown = Set<String>()
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -107,9 +98,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         persistStartupConfig:function(json){
           try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'persistStartupConfig',json:String(json||'')});}catch(e){}
         },
-        persistProductIntro:function(json){
-          try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'persistProductIntro',json:String(json||'')});}catch(e){}
-        },
         getPendingRoute:function(){ return ''; }
       };
     })();
@@ -126,12 +114,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     DispatchQueue.main.async {
       switch action {
       case "dismissSplash":
-        self.startupInfo("intro_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue) holding=\(self.holdingProductIntro)")
-        if self.holdingProductIntro {
-          self.markDestinationReady()
-        } else {
-          self.dismissNativeIntroThenHideSplash()
-        }
+        self.startupInfo("boot_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue)")
+        self.dismissNativeIntroThenHideSplash()
       case "beginHandoffCover":
         NSLog("[DIBAY_Startup] handoff_cover_begin_ignored reason=native_splash_direct_remote")
       case "endHandoffCover":
@@ -143,10 +127,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       case "persistStartupConfig":
         let json = (body["json"] as? String) ?? ""
         DibayStartupConfigCache.persist(json: json)
-      case "persistProductIntro":
-        // iOS materialization follow-up — accept bridge without blocking; NOT_PROVEN device close.
-        let piJson = (body["json"] as? String) ?? ""
-        DibayStartupConfigCache.persistProductIntro(json: piJson)
       default:
         break
       }
@@ -173,36 +153,15 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       return
     }
 
-    var productIntro = DibayStartupConfigCache.loadActiveProductIntroGeneration()
-    var productImage = productIntro != nil ? DibayStartupConfigCache.loadProductIntroImage() : nil
-    if let pi = productIntro, productImage != nil, !Self.isFrequencyEligible(pi) {
-      productIntro = nil
-      productImage = nil
-    }
-    let usingProductIntro = productIntro != nil && productImage != nil
-
     let overlay = UIView(frame: view.bounds)
     overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     overlay.isUserInteractionEnabled = true
 
     let canvasBg = UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1) // #FFFCFC
-    let content: UIView
-    if usingProductIntro, let productImage = productImage, let productIntro = productIntro {
-      let bg = DibayStartupConfigCache.color(
-        from: (productIntro["backgroundColor"] as? String),
-        fallback: canvasBg
-      )
-      overlay.backgroundColor = bg
-      content = buildProductIntroContent(config: productIntro, image: productImage)
-      activeConfig = productIntro
-      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff size=\(resolveSizePreset(productIntro)) enter=\(resolveEnterMotion(productIntro)) exit=\(resolveExitMotion(productIntro)) fit=contain")
-    } else {
-      // V2 logo canvas — same bundled cream + centered logo (no Technical FE product).
-      overlay.backgroundColor = canvasBg
-      content = buildLogoCanvasContent()
-      activeConfig = ["backgroundColor": "#FFFCFC"]
-      startupInfo("intro_attach source=\(source) product_intro=false continuity=os_native_handoff enter=none fit=contain")
-    }
+    overlay.backgroundColor = canvasBg
+    let content = buildLogoCanvasContent()
+    activeConfig = ["backgroundColor": "#FFFCFC", "exitAnimation": "fade_out", "exitDurationMs": 220]
+    startupInfo("boot_overlay_attach source=\(source) continuity=os_native_handoff")
 
     content.translatesAutoresizingMaskIntoConstraints = false
     overlay.addSubview(content)
@@ -216,188 +175,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introOverlay = overlay
     introContent = content
     introLifecycle = .attached
-    usingProductIntroCover = usingProductIntro
-    // LaunchScreen → Native = ONE continuous canvas (no enter re-fade).
-    if !usingProductIntro {
-      holdTechnicalHandoffAtRest(on: content)
-    } else if let productIntro = productIntro {
-      applyProductIntroEnterMotion(on: content, config: activeConfig)
-      Self.recordFrequencyShown(productIntro)
-      bindOperatorChrome(config: productIntro, overlay: overlay)
-      startOperatorHold(config: productIntro)
-    }
-  }
-
-  private func startOperatorHold(config: [String: Any]) {
-    let hold = Self.holdMs(config)
-    holdingProductIntro = hold >= 1
-    destinationReady = false
-    holdFired = hold < 1
-    skipRequested = false
-    ctaRequested = false
-    pendingCtaHref = Self.resolveNativeCtaHref(config)
-    if holdingProductIntro {
-      DispatchQueue.main.asyncAfter(deadline: .now() + Double(hold) / 1000.0) { [weak self] in
-        self?.holdFired = true
-        self?.maybeFinishHold()
-      }
-    }
-  }
-
-  private func markDestinationReady() {
-    destinationReady = true
-    maybeFinishHold()
-  }
-
-  private func maybeFinishHold() {
-    if introLifecycle == .dismissed || introDismissing { return }
-    if skipRequested || ctaRequested {
-      holdingProductIntro = false
-      dismissNativeIntroThenHideSplash()
-      if ctaRequested { openCtaIfAllowed() }
-      return
-    }
-    if holdingProductIntro && holdFired && destinationReady {
-      holdingProductIntro = false
-      dismissNativeIntroThenHideSplash()
-    }
-  }
-
-  private func bindOperatorChrome(config: [String: Any], overlay: UIView) {
-    let showLogo = (config["showLogo"] as? Bool) ?? true
-    if showLogo {
-      let logo = UIImageView(image: UIImage(named: "DibayStartupLogo") ?? UIImage(named: "Splash"))
-      logo.contentMode = .scaleAspectFit
-      logo.translatesAutoresizingMaskIntoConstraints = false
-      overlay.addSubview(logo)
-      NSLayoutConstraint.activate([
-        logo.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-        logo.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor, constant: 36),
-        logo.widthAnchor.constraint(equalToConstant: 56),
-        logo.heightAnchor.constraint(equalToConstant: 56),
-      ])
-    }
-    let skipEnabled = (config["skipEnabled"] as? Bool) ?? true
-    if skipEnabled {
-      let skip = UIButton(type: .system)
-      skip.setTitle((Locale.preferredLanguages.first ?? "").hasPrefix("ko") ? "건너뛰기" : "Skip", for: .normal)
-      skip.setTitleColor(.white, for: .normal)
-      skip.backgroundColor = UIColor.black.withAlphaComponent(0.45)
-      skip.layer.cornerRadius = 14
-      skip.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
-      skip.translatesAutoresizingMaskIntoConstraints = false
-      skip.addAction(UIAction { [weak self] _ in
-        guard let self, !self.skipRequested, !self.ctaRequested else { return }
-        self.skipRequested = true
-        self.maybeFinishHold()
-      }, for: .touchUpInside)
-      overlay.addSubview(skip)
-      NSLayoutConstraint.activate([
-        skip.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor, constant: 12),
-        skip.trailingAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-      ])
-    }
-    let label = ((config["ctaLabel"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    if let href = pendingCtaHref, !label.isEmpty {
-      let cta = UIButton(type: .system)
-      cta.setTitle(label, for: .normal)
-      cta.setTitleColor(.white, for: .normal)
-      cta.backgroundColor = UIColor(white: 0.07, alpha: 0.9)
-      cta.layer.cornerRadius = 18
-      cta.contentEdgeInsets = UIEdgeInsets(top: 10, left: 20, bottom: 10, right: 20)
-      cta.translatesAutoresizingMaskIntoConstraints = false
-      cta.addAction(UIAction { [weak self] _ in
-        guard let self, !self.skipRequested, !self.ctaRequested else { return }
-        self.ctaRequested = true
-        self.maybeFinishHold()
-      }, for: .touchUpInside)
-      overlay.addSubview(cta)
-      NSLayoutConstraint.activate([
-        cta.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-        cta.bottomAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.bottomAnchor, constant: -28),
-      ])
-      _ = href
-    }
-  }
-
-  private func openCtaIfAllowed() {
-    guard let href = pendingCtaHref, href.hasPrefix("/"), !href.hasPrefix("//") else { return }
-    let js = "window.location.assign(\(Self.jsString(href)))"
-    webView?.evaluateJavaScript(js, completionHandler: nil)
-  }
-
-  private static func holdMs(_ config: [String: Any]) -> Int {
-    if let n = config["displayDurationMs"] as? NSNumber { return n.intValue }
-    if let n = config["displayDurationMs"] as? Int { return n }
-    return 0
-  }
-
-  private static func jsString(_ value: String) -> String {
-    let escaped = value
-      .replacingOccurrences(of: "\\", with: "\\\\")
-      .replacingOccurrences(of: "\"", with: "\\\"")
-    return "\"\(escaped)\""
-  }
-
-  private static func isFrequencyEligible(_ pi: [String: Any]) -> Bool {
-    let campaignId = ((pi["campaignId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    let mode = (pi["frequencyMode"] as? String) ?? "every_launch"
-    if campaignId.isEmpty { return true }
-    if mode == "once_per_session" && sessionShown.contains(campaignId) { return false }
-    let last = UserDefaults.standard.double(forKey: "dibay_intro_freq.\(campaignId).lastShownAtMs")
-    let ever = UserDefaults.standard.bool(forKey: "dibay_intro_freq.\(campaignId).shownEver")
-    if mode == "once_ever" && ever { return false }
-    if mode == "once_per_day" && last > 0 {
-      let prev = Date(timeIntervalSince1970: last / 1000.0)
-      if Calendar.current.isDateInToday(prev) { return false }
-    }
-    return true
-  }
-
-  private static func recordFrequencyShown(_ pi: [String: Any]) {
-    let campaignId = ((pi["campaignId"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    if campaignId.isEmpty { return }
-    sessionShown.insert(campaignId)
-    UserDefaults.standard.set(Date().timeIntervalSince1970 * 1000.0, forKey: "dibay_intro_freq.\(campaignId).lastShownAtMs")
-    UserDefaults.standard.set(true, forKey: "dibay_intro_freq.\(campaignId).shownEver")
-  }
-
-  private static func resolveNativeCtaHref(_ pi: [String: Any]) -> String? {
-    let type = (pi["actionType"] as? String) ?? "none"
-    let target = ((pi["actionTarget"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    if type == "none" || target.isEmpty { return nil }
-    if target.contains("javascript:") || target.contains("..") { return nil }
-    switch type {
-    case "internal_surface":
-      if target == "community" { return "/philife" }
-      if target == "trade" { return "/market" }
-      if target == "food" { return "/stores" }
-      if target == "chat" { return "/community-messenger" }
-      if target == "my" { return "/mypage" }
-      return nil
-    case "internal_path":
-      if !target.hasPrefix("/") || target.hasPrefix("//") { return nil }
-      let lower = target.lowercased()
-      if lower.hasPrefix("/admin") || lower.hasPrefix("/stores/owner") { return nil }
-      return target
-    case "store":
-      return target.contains("/") ? nil : "/stores/\(target)"
-    case "product":
-      let parts = target.split(separator: "/").map(String.init)
-      return parts.count == 2 ? "/stores/\(parts[0])/p/\(parts[1])" : nil
-    case "market_listing":
-      return target.contains("/") ? nil : "/post/\(target)"
-    case "community_post":
-      return target.contains("/") ? nil : "/philife/post/\(target)"
-    case "chat_room":
-      return target.contains("/") ? nil : "/community-messenger/rooms/\(target)"
-    default:
-      return nil
-    }
-  }
-
-  private func buildProductIntroContent(config: [String: Any], image: UIImage) -> UIView {
-    ProductIntroContentView(image: image, sizePreset: resolveSizePreset(config))
+    holdTechnicalHandoffAtRest(on: content)
   }
 
   private func buildLogoCanvasContent() -> UIView {
@@ -443,15 +221,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
     introDismissing = true
     introLifecycle = .dismissing
-    let exit = usingProductIntroCover
-      ? resolveExitMotion(activeConfig)
-      : ((activeConfig["exitAnimation"] as? String) ?? "fade_out")
-    let durMs = usingProductIntroCover
-      ? exitDurationMs(exit)
-      : DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
+    let exit = (activeConfig["exitAnimation"] as? String) ?? "fade_out"
+    let durMs = DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
     let seconds = TimeInterval(durMs) / 1000.0
-    let target = usingProductIntroCover ? introOverlay : (introContent ?? introOverlay)
-    let scaleTarget = usingProductIntroCover ? introContent : target
+    let target = introContent ?? introOverlay
+    let scaleTarget = target
     guard let target = target, let overlay = introOverlay else {
       // No overlay (warm / race) — still terminal so viewDidAppear cannot create one.
       introDismissing = false
@@ -490,58 +264,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     default:
       break
     }
-  }
-
-  private func applyProductIntroEnterMotion(on view: UIView, config: [String: Any]) {
-    let enter = resolveEnterMotion(config)
-    let durMs = enterDurationMs(enter)
-    if enter == "none" || durMs <= 0 {
-      view.alpha = 1
-      view.transform = .identity
-      return
-    }
-    let startScale: CGFloat = enter == "fade_in_expand" && !UIAccessibility.isReduceMotionEnabled ? 0.96 : 1
-    view.alpha = 0
-    view.transform = CGAffineTransform(scaleX: startScale, y: startScale)
-    UIView.animate(withDuration: TimeInterval(durMs) / 1000.0, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-      view.alpha = 1
-      view.transform = .identity
-    })
-  }
-
-  private func resolveSizePreset(_ config: [String: Any]) -> String {
-    let raw = (config["presentationSizePreset"] as? String) ?? (config["sizePreset"] as? String) ?? "max"
-    if raw == "full" { return "max" }
-    if ["small", "medium", "large", "max"].contains(raw) { return raw }
-    return "max"
-  }
-
-  private func resolveEnterMotion(_ config: [String: Any]) -> String {
-    let raw = (config["enterMotion"] as? String) ?? (config["animationIn"] as? String) ?? "fade_in"
-    if raw == "fade" { return "fade_in" }
-    if raw == "fade_scale" || raw == "scale" { return "fade_in_expand" }
-    if ["none", "fade_in", "fade_in_expand"].contains(raw) { return raw }
-    return "fade_in"
-  }
-
-  private func resolveExitMotion(_ config: [String: Any]) -> String {
-    let raw = (config["exitMotion"] as? String) ?? (config["animationOut"] as? String) ?? "expand_fade_out"
-    if raw == "fade" { return "fade_out" }
-    if raw == "fade_scale" { return "expand_fade_out" }
-    if ["none", "fade_out", "expand_fade_out"].contains(raw) { return raw }
-    return "expand_fade_out"
-  }
-
-  private func enterDurationMs(_ enter: String) -> Int {
-    if enter == "fade_in_expand" { return 260 }
-    if enter == "fade_in" { return 220 }
-    return 0
-  }
-
-  private func exitDurationMs(_ exit: String) -> Int {
-    if exit == "expand_fade_out" { return 260 }
-    if exit == "fade_out" { return 180 }
-    return 0
   }
 
   /// Technical Boot after LaunchScreen — logo/bg at rest. Enter anim must not replay.
@@ -701,53 +423,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 }
 
-final class ProductIntroContentView: UIView {
-  private let imageView: UIImageView
-  private let imageSize: CGSize
-  private let sizePreset: String
-
-  init(image: UIImage, sizePreset: String) {
-    self.imageView = UIImageView(image: image)
-    self.imageSize = image.size.width > 0 && image.size.height > 0
-      ? image.size
-      : CGSize(width: 1080, height: 1350)
-    self.sizePreset = sizePreset
-    super.init(frame: .zero)
-    backgroundColor = .clear
-    imageView.contentMode = .scaleAspectFit
-    imageView.clipsToBounds = true
-    addSubview(imageView)
-  }
-
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
-
-  override func layoutSubviews() {
-    super.layoutSubviews()
-    let w = max(bounds.width, 1)
-    let h = max(bounds.height, 1)
-    let scale = min(w / imageSize.width, h / imageSize.height) * Self.scale(for: sizePreset)
-    let iw = max(imageSize.width * scale, 1)
-    let ih = max(imageSize.height * scale, 1)
-    imageView.frame = CGRect(
-      x: (w - iw) / 2,
-      y: (h - ih) / 2,
-      width: iw,
-      height: ih
-    )
-  }
-
-  private static func scale(for preset: String) -> CGFloat {
-    switch preset {
-    case "small": return 0.56
-    case "medium": return 0.72
-    case "large": return 0.88
-    default: return 1.0
-    }
-  }
-}
-
 enum DibayStartupConfigCache {
   private static let dirName = "startup"
   private static let configActive = "startup-config.json"
@@ -813,104 +488,6 @@ enum DibayStartupConfigCache {
     }
   }
 
-  /// Persist Admin Product Intro as one ACTIVE generation for next cold.
-  /// Never blocks App Ready. Incomplete download keeps prior generation.
-  /// Forbidden: orphan media, JSON-only, mixed generations.
-  static func persistProductIntro(json: String) {
-    DispatchQueue.global(qos: .utility).async {
-      guard var data = json.data(using: .utf8),
-            var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-      let dir = directory()
-      try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-      let active = dir.appendingPathComponent("product-intro.json")
-      let mediaActive = dir.appendingPathComponent("product-intro-media.bin")
-      let genActive = dir.appendingPathComponent("product-intro.generation")
-      let status = (obj["status"] as? String) ?? "inactive"
-      var generationId = (obj["generationId"] as? String) ?? ""
-      if generationId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        let updated = (obj["updatedAt"] as? String) ?? ""
-        let media = (obj["mediaUrl"] as? String) ?? ""
-        generationId = "\(updated)|\(media)"
-        obj["generationId"] = generationId
-        data = (try? JSONSerialization.data(withJSONObject: obj)) ?? data
-      }
-
-      if let existing = try? Data(contentsOf: genActive),
-         let prev = try? JSONSerialization.jsonObject(with: existing) as? [String: Any],
-         (prev["generationId"] as? String) == generationId,
-         status == "active",
-         httpURL(obj["mediaUrl"] as? String) != nil,
-         FileManager.default.fileExists(atPath: mediaActive.path),
-         FileManager.default.fileExists(atPath: active.path) {
-        NSLog("[DIBAY_Startup] pi_persist_skip identity_unchanged")
-        return
-      }
-
-      if status != "active" || httpURL(obj["mediaUrl"] as? String) == nil {
-        try? FileManager.default.removeItem(at: genActive)
-        try? FileManager.default.removeItem(at: mediaActive)
-        do {
-          try data.write(to: active, options: .atomic)
-        } catch {
-          NSLog("[DIBAY_Startup] pi_persist_clear_json_failed")
-          return
-        }
-        NSLog("[DIBAY_Startup] pi_persist_cleared status=%@", status)
-        return
-      }
-      guard let mediaUrl = httpURL(obj["mediaUrl"] as? String) else { return }
-      let mediaStaging = dir.appendingPathComponent("product-intro-media.staging.bin")
-      guard download(mediaUrl, to: mediaStaging) else {
-        NSLog("[DIBAY_Startup] pi_persist_media_incomplete")
-        return
-      }
-      guard let mediaData = try? Data(contentsOf: mediaStaging),
-            UIImage(data: mediaData) != nil else {
-        try? FileManager.default.removeItem(at: mediaStaging)
-        NSLog("[DIBAY_Startup] pi_persist_media_undecodable")
-        return
-      }
-
-      obj["objectFit"] = "contain"
-      guard let configData = try? JSONSerialization.data(withJSONObject: obj) else {
-        try? FileManager.default.removeItem(at: mediaStaging)
-        return
-      }
-      let genObj: [String: Any] = [
-        "generationId": generationId,
-        "mediaUrl": mediaUrl.absoluteString,
-        "mediaBytes": mediaData.count,
-        "committedAt": Date().timeIntervalSince1970,
-      ]
-      guard let genData = try? JSONSerialization.data(withJSONObject: genObj) else {
-        try? FileManager.default.removeItem(at: mediaStaging)
-        return
-      }
-      let configStaging = dir.appendingPathComponent("product-intro.staging.json")
-      let genStaging = dir.appendingPathComponent("product-intro.generation.staging")
-      do {
-        try configData.write(to: configStaging, options: .atomic)
-        try genData.write(to: genStaging, options: .atomic)
-        // Commit: media → config → generation marker.
-        if FileManager.default.fileExists(atPath: mediaActive.path) {
-          try FileManager.default.removeItem(at: mediaActive)
-        }
-        try FileManager.default.moveItem(at: mediaStaging, to: mediaActive)
-        try configData.write(to: active, options: .atomic)
-        try genData.write(to: genActive, options: .atomic)
-        try? FileManager.default.removeItem(at: configStaging)
-        try? FileManager.default.removeItem(at: genStaging)
-      } catch {
-        try? FileManager.default.removeItem(at: mediaStaging)
-        try? FileManager.default.removeItem(at: configStaging)
-        try? FileManager.default.removeItem(at: genStaging)
-        NSLog("[DIBAY_Startup] pi_persist_commit_failed")
-        return
-      }
-      NSLog("[DIBAY_Startup] pi_persist_ok generation=%@", generationId)
-    }
-  }
-
   static func loadLogoImage() -> UIImage? {
     let url = directory().appendingPathComponent(logoActive)
     guard let data = try? Data(contentsOf: url) else { return nil }
@@ -921,87 +498,6 @@ enum DibayStartupConfigCache {
     let url = directory().appendingPathComponent(bgActive)
     guard let data = try? Data(contentsOf: url) else { return nil }
     return UIImage(data: data)
-  }
-
-  /// Cold FE reads only a complete ACTIVE generation.
-  /// One-time repair: pre-V2 json+media without marker → write generation if eligible.
-  static func loadActiveProductIntroGeneration() -> [String: Any]? {
-    let dir = directory()
-    let genUrl = dir.appendingPathComponent("product-intro.generation")
-    let cfgUrl = dir.appendingPathComponent("product-intro.json")
-    let mediaUrl = dir.appendingPathComponent("product-intro-media.bin")
-    guard FileManager.default.fileExists(atPath: cfgUrl.path),
-          FileManager.default.fileExists(atPath: mediaUrl.path) else {
-      return nil
-    }
-    guard let cfgData = try? Data(contentsOf: cfgUrl),
-          var pi = try? JSONSerialization.jsonObject(with: cfgData) as? [String: Any],
-          isProductIntroEligible(pi) else {
-      return nil
-    }
-    var piId = (pi["generationId"] as? String) ?? ""
-    if piId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      let updated = (pi["updatedAt"] as? String) ?? ""
-      let media = (pi["mediaUrl"] as? String) ?? ""
-      piId = "\(updated)|\(media)"
-      pi["generationId"] = piId
-    }
-    if !FileManager.default.fileExists(atPath: genUrl.path) {
-      let mediaBytes = (try? FileManager.default.attributesOfItem(atPath: mediaUrl.path)[.size] as? NSNumber)?.intValue ?? 0
-      let genObj: [String: Any] = [
-        "generationId": piId,
-        "mediaUrl": (pi["mediaUrl"] as? String) ?? "",
-        "mediaBytes": mediaBytes,
-        "committedAt": Date().timeIntervalSince1970,
-        "repaired": true,
-      ]
-      if let genData = try? JSONSerialization.data(withJSONObject: genObj),
-         let piData = try? JSONSerialization.data(withJSONObject: pi) {
-        try? genData.write(to: genUrl, options: .atomic)
-        try? piData.write(to: cfgUrl, options: .atomic)
-      }
-      return pi
-    }
-    guard let genData = try? Data(contentsOf: genUrl),
-          let gen = try? JSONSerialization.jsonObject(with: genData) as? [String: Any] else {
-      return nil
-    }
-    let genId = (gen["generationId"] as? String) ?? ""
-    guard !genId.isEmpty, genId == piId else { return nil }
-    return pi
-  }
-
-  static func loadActiveProductIntro() -> [String: Any]? {
-    loadActiveProductIntroGeneration()
-  }
-
-  static func loadProductIntroImage() -> UIImage? {
-    let url = directory().appendingPathComponent("product-intro-media.bin")
-    guard let data = try? Data(contentsOf: url) else { return nil }
-    return UIImage(data: data)
-  }
-
-  static func isProductIntroEligible(_ raw: [String: Any]?) -> Bool {
-    guard let pi = raw else { return false }
-    guard (pi["status"] as? String) == "active" else { return false }
-    guard let media = pi["mediaUrl"] as? String, !media.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      return false
-    }
-    let now = Date().timeIntervalSince1970
-    if let starts = parseIsoSeconds(pi["startsAt"] as? String), now < starts { return false }
-    if let ends = parseIsoSeconds(pi["endsAt"] as? String), now >= ends { return false }
-    return true
-  }
-
-  private static func parseIsoSeconds(_ raw: String?) -> TimeInterval? {
-    guard var t = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
-    let f1 = ISO8601DateFormatter()
-    f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let d = f1.date(from: t) { return d.timeIntervalSince1970 }
-    let f2 = ISO8601DateFormatter()
-    f2.formatOptions = [.withInternetDateTime]
-    if let d = f2.date(from: t) { return d.timeIntervalSince1970 }
-    return nil
   }
 
   static func logoWidth(config: [String: Any]) -> CGFloat {

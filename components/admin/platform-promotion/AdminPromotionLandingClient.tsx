@@ -28,14 +28,6 @@ const ENTRIES = [
     descEn: "Manage promotion popups shown over the app screen.",
   },
   {
-    key: "promotion-intro",
-    href: "/admin/intro",
-    ko: "인트로",
-    en: "Intro",
-    descKo: "앱 첫 진입 인트로 캠페인을 만들고 게시합니다.",
-    descEn: "Create and publish first-entry intro campaigns.",
-  },
-  {
     key: "promotion-banners",
     href: "/admin/platform-promotion/banners",
     ko: "배너",

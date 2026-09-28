@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
-import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
-import { ProductIntroMaterializeController } from "@/components/app/ProductIntroMaterializeController";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
@@ -93,14 +91,11 @@ export default async function RootLayout({
     <html lang={initialLanguage} suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased" suppressHydrationWarning>
-        {/* Web Startup Intro = 0 — Native splash is the only cold branded surface. */}
+        {/* Authored Intro overlay = NONE. OS/native min boot then HOME. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <DibayAppDialogProvider>
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
-            <DibayStartupIntroController />
-            {/* CASE B: Native owns First Entry pixels; Web only materializes LKG → persistProductIntro. */}
-            <ProductIntroMaterializeController />
             <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />

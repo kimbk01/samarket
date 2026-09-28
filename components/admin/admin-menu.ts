@@ -69,7 +69,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "promotion-home": "admin_menu_promotion_home",
   "promotion-events": "admin_menu_promotion_events",
   "promotion-popup": "admin_menu_promotion_popup",
-  "promotion-intro": "admin_menu_promotion_intro",
   "promotion-banners": "admin_menu_promotion_banners",
   "promotion-notifications": "admin_menu_promotion_notifications",
   "promotion-owner-requests": "admin_menu_promotion_owner_requests",
@@ -1051,13 +1050,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           "/admin/platform-popup/requests",
           "/admin/platform-popup/requests/",
         ],
-        status: "done",
-      },
-      {
-        key: "promotion-intro",
-        title: "",
-        path: "/admin/intro",
-        matchPaths: ["/admin/intro/", "/admin/intro/new"],
         status: "done",
       },
       {

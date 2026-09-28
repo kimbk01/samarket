@@ -1,6 +1,5 @@
 import type { AppLanguageCode } from "./config";
 import { adminMessages } from "./catalog/admin";
-import { adminIntroMessages } from "./catalog/admin-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
@@ -159,7 +158,6 @@ const KO_MESSAGES = {
   ...platformPopupOwnerMessages.ko,
   ...platformEventsUiMessages.ko,
   ...adminMessages.ko,
-  ...adminIntroMessages.ko,
   ...adminPlatformPromotionNotificationsMessages.ko,
   ...koJson,
 } as LocaleMessageBag;
@@ -236,7 +234,6 @@ const EN_MESSAGES = {
   ...platformPopupOwnerMessages.en,
   ...platformEventsUiMessages.en,
   ...adminMessages.en,
-  ...adminIntroMessages.en,
   ...adminPlatformPromotionNotificationsMessages.en,
   ...enJson,
 } as LocaleMessageBag;

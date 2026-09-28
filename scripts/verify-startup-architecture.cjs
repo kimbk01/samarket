@@ -41,7 +41,6 @@ const required = [
   "app/api/app/startup-config/route.ts",
   "app/api/admin/startup-config/route.ts",
   "app/admin/settings/startup-config/page.tsx",
-  "components/app/DibayStartupIntro.tsx",
   "ios/App/App/DibayStartupBridgeViewController.swift",
 ];
 for (const rel of required) {
@@ -109,20 +108,31 @@ if (/splashDismissAttempted[\s\S]{0,80}setTimeout|setTimeout[\s\S]{0,80}splash|m
 }
 ok("startup metrics App Ready contract");
 
-// --- Single intro source ---
+// --- Authored Intro overlay MUST be absent from live product mounts ---
 const markup = read("lib/startup/startup-shell-markup.ts");
-if (!markup.includes("buildStartupBootDocumentHtml") || !markup.includes("buildStartupIntroMarkup")) {
-  fail("startup-shell-markup must export boot + intro builders");
+if (!markup.includes("buildStartupBootDocumentHtml")) {
+  fail("startup-shell-markup must export boot document builder");
 }
 const layout = read("app/layout.tsx");
-if (!layout.includes("buildStartupIntroMarkup")) fail("layout must use startup-shell-markup");
-if (!layout.includes("STARTUP_HANDOFF_SESSION_KEY") && !layout.includes("dibay:startup:handoff")) {
-  fail("layout must suppress intro on handoff flag");
+const bannedLayout = [
+  "DibayStartupIntro",
+  "ProductIntroHost",
+  "ProductIntroMaterializeController",
+  "buildStartupIntroMarkup",
+  "persistProductIntro",
+];
+for (const token of bannedLayout) {
+  if (layout.includes(token)) fail(`layout must not mount authored Intro: ${token}`);
 }
 if (layout.includes("DibayColdBootIntro") || layout.includes("dibay-cold-boot-intro")) {
   fail("layout must not retain legacy cold-boot intro");
 }
-ok("single intro source + handoff suppress");
+if (exists("components/app/DibayStartupIntro.tsx")) fail("DibayStartupIntro.tsx must be deleted");
+if (exists("components/app/ProductIntroHost.tsx")) fail("ProductIntroHost.tsx must be deleted");
+if (exists("android/app/src/main/java/com/dibay/app/DibayStartupIntroSurface.java")) {
+  fail("DibayStartupIntroSurface.java must be deleted");
+}
+ok("authored Intro overlay absent from layout/native product tree");
 
 // --- Legacy purge ---
 const legacy = [

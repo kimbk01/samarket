@@ -23,53 +23,13 @@ export function getStartupConfigCached(): StartupConfig {
   return { ...memory };
 }
 
-export function applyStartupConfigToDom(config: StartupConfig): void {
+export function applyStartupConfigToDom(_config: StartupConfig): void {
   if (typeof document === "undefined") return;
   const root = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
   if (!root) return;
-
-  const prefersDark =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const bg = prefersDark ? config.backgroundColorDark : config.backgroundColor;
-
-  if (config.forceDisable || !config.enabled) {
-    root.setAttribute("data-ready", "1");
-    root.setAttribute("hidden", "");
-    root.setAttribute("aria-hidden", "true");
-    return;
-  }
-
-  root.style.background = bg;
-  root.removeAttribute("hidden");
+  root.setAttribute("data-ready", "1");
+  root.setAttribute("hidden", "");
   root.setAttribute("aria-hidden", "true");
-
-  const logo = root.querySelector<HTMLImageElement>(".dibay-startup-logo");
-  if (logo) {
-    const src =
-      prefersDark && config.darkLogoUrl.trim() ? config.darkLogoUrl : config.logoUrl;
-    if (src && logo.getAttribute("src") !== src) logo.src = src;
-    logo.style.display = "";
-  }
-
-  const wordmark = root.querySelector<HTMLElement>(".dibay-startup-wordmark");
-  if (wordmark) {
-    wordmark.textContent = config.wordmark;
-    wordmark.style.display = config.showWordmark ? "" : "none";
-  }
-
-  const subtitle = root.querySelector<HTMLElement>(".dibay-startup-subtitle");
-  if (subtitle) {
-    const text = config.subtitle.trim();
-    subtitle.textContent = text;
-    subtitle.style.display = text ? "" : "none";
-  }
-
-  const spinner = root.querySelector<HTMLElement>(".dibay-startup-spinner");
-  if (spinner) {
-    spinner.style.display = config.showSpinner ? "" : "none";
-  }
 }
 
 /**

@@ -1,18 +1,13 @@
 /**
- * Single source for Startup Intro + Local AppShell (header + BottomNav) markup/CSS.
+ * Single source for Startup boot shell + Local AppShell (header + BottomNav) markup/CSS.
  * Used by:
  * - scripts/build-startup-shell.mjs → self-contained APK/iOS boot HTML
- * - app/layout.tsx → remote web first-HTML intro (intro-only fragment)
  *
- * DO NOT: fetch remote assets inside boot HTML · duplicate intro markup elsewhere.
+ * Authored Intro overlay is removed. Boot CSS may keep a hidden splash slot.
  */
 
 import { BUNDLED_STARTUP_NAV, type StartupNavTabCache } from "@/lib/startup/startup-cache";
-import {
-  BUNDLED_STARTUP_CONFIG,
-  isStartupIntroActive,
-  type StartupConfig,
-} from "@/lib/startup/startup-config";
+import { BUNDLED_STARTUP_CONFIG, type StartupConfig } from "@/lib/startup/startup-config";
 import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
 
 export type StartupShellBuildOptions = {
@@ -90,20 +85,9 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 `.trim();
 }
 
-/** Intro-only fragment for remote root layout (same visual contract as boot shell intro). */
-export function buildStartupIntroMarkup(opts: StartupShellBuildOptions = {}): string {
-  const config = opts.config ?? BUNDLED_STARTUP_CONFIG;
-  const logoSrc = opts.logoSrc ?? config.logoUrl;
-  const active = isStartupIntroActive(config);
-  if (!active) {
-    return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" hidden aria-hidden="true"></div>`;
-  }
-  return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" aria-hidden="true" style="position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:${escapeHtml(config.backgroundColor)};pointer-events:none">
-<img class="dibay-startup-logo" src="${escapeHtml(logoSrc)}" alt="" width="72" height="72" decoding="async" fetchpriority="high" style="width:72px;height:72px;object-fit:contain"/>
-<p class="dibay-startup-wordmark" style="margin:0;font-size:15px;font-weight:700;letter-spacing:0.08em;color:#0B421A">${escapeHtml(config.wordmark)}</p>
-<p class="dibay-startup-subtitle" style="display:none;margin:0;font-size:13px;font-weight:500;letter-spacing:0.02em;color:#0B421A;opacity:0.72;max-width:80vw;text-align:center"></p>
-<div class="dibay-startup-spinner" style="width:22px;height:22px;border-radius:9999px;border:2px solid rgba(11,66,26,0.22);border-top-color:#0B421A"></div>
-</div>`;
+/** Hidden splash slot only. Authored Intro overlay is never emitted. */
+export function buildStartupIntroMarkup(_opts: StartupShellBuildOptions = {}): string {
+  return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" hidden aria-hidden="true"></div>`;
 }
 
 function buildNavButtonsHtml(tabs: readonly StartupNavTabCache[], lang: "ko" | "en", activeTabId: string): string {
@@ -130,15 +114,7 @@ export function buildStartupBootDocumentHtml(opts: StartupShellBuildOptions = {}
   const defaultRoute = opts.defaultRoute ?? "/";
   const css = buildStartupShellCss();
   const navHtml = buildNavButtonsHtml(tabs, lang, "community");
-  const introActive = isStartupIntroActive(config);
-  const introHtml = introActive
-    ? `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" aria-hidden="true">
-<img class="dibay-startup-logo" src="${escapeHtml(logoSrc)}" alt="" width="72" height="72" decoding="async"/>
-<p class="dibay-startup-wordmark">${escapeHtml(config.wordmark)}</p>
-<p class="dibay-startup-subtitle"${config.subtitle ? "" : ' style="display:none"'}>${escapeHtml(config.subtitle)}</p>
-${config.showSpinner ? '<div class="dibay-startup-spinner"></div>' : ""}
-</div>`
-    : "";
+  const introHtml = buildStartupIntroMarkup({ config, logoSrc });
 
   const script = `
 (function(){

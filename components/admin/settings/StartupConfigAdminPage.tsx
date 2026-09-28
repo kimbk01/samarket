@@ -1,16 +1,13 @@
 "use client";
 
 /**
- * Admin first-entry page — ONE operational editor.
- * Product Intro (startup_product_intro_v1) is the operator-facing first-entry authority.
- * startup_config_v1 Technical Boot branding is NOT exposed (INTERNAL fallback only).
- * Optional: cold-start BottomNav tab via initialSurface (not a second intro image).
+ * Admin cold-start tab — initialSurface only.
+ * Authored Product Intro is removed. Boot branding is OS/native, not this page.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { ProductIntroAdminSection } from "@/components/admin/settings/ProductIntroAdminSection";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUNDLED_STARTUP_CONFIG,
@@ -80,18 +77,14 @@ export function StartupConfigAdminPage() {
     <div className="space-y-4">
       <AdminPageHeader
         title={safeT("admin_startup_config_title", {
-          fallbackKo: "앱 첫 진입 화면",
-          fallbackEn: "App first-entry screen",
+          fallbackKo: "앱 시작 탭",
+          fallbackEn: "App launch tab",
         })}
         description={safeT("admin_startup_config_desc", {
-          fallbackKo: "앱을 실행할 때 처음 표시할 화면을 설정합니다.",
-          fallbackEn: "Configure the screen shown when the app launches.",
+          fallbackKo: "앱을 열었을 때 기본으로 들어갈 하단 탭을 설정합니다.",
+          fallbackEn: "Choose the default bottom tab when the app opens.",
         })}
       />
-
-      <AdminCard>
-        <ProductIntroAdminSection />
-      </AdminCard>
 
       <AdminCard>
         <h2 className="mb-1 sam-text-title font-semibold text-sam-fg">
@@ -102,10 +95,8 @@ export function StartupConfigAdminPage() {
         </h2>
         <p className="mb-4 sam-text-body text-sam-muted">
           {safeT("admin_startup_config_initial_surface_hint", {
-            fallbackKo:
-              "첫 진입 화면 이후(또는 사용 안 함일 때) 기본으로 열릴 하단 탭입니다. 첫 진입 이미지와는 별개입니다.",
-            fallbackEn:
-              "Default bottom tab after the first-entry screen (or immediately when it is off). Not a second intro image.",
+            fallbackKo: "앱을 열었을 때 기본으로 열릴 하단 탭입니다.",
+            fallbackEn: "Default bottom tab when the app opens.",
           })}
         </p>
         {loading ? (

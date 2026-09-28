@@ -70,7 +70,7 @@ describe("startup config client cache", () => {
     expect(getStartupConfigCached().wordmark).toBe("NEXT");
   });
 
-  it("applies config to DOM", () => {
+  it("never paints an authored Intro overlay", () => {
     applyStartupConfigToDom({
       ...BUNDLED_STARTUP_CONFIG,
       enabled: true,
@@ -79,11 +79,9 @@ describe("startup config client cache", () => {
       subtitle: "hi",
       showSpinner: false,
     });
-    expect(document.querySelector(".dibay-startup-wordmark")?.textContent).toBe("APPLIED");
-    expect((document.querySelector(".dibay-startup-subtitle") as HTMLElement).style.display).not.toBe(
-      "none"
-    );
-    expect((document.querySelector(".dibay-startup-spinner") as HTMLElement).style.display).toBe("none");
+    const root = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
+    expect(root?.hasAttribute("hidden")).toBe(true);
+    expect(root?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("normalizes initialSurface enum", () => {

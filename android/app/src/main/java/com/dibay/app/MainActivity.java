@@ -50,7 +50,7 @@ public class MainActivity extends BridgeActivity {
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /**
    * Splash keep until App Ready (JS DibayBootBridge / tryDismissNativeSplash) only.
-   * DO NOT: 3/5/8s display timers — white/cream flash before Web intro.
+   * DO NOT: 3/5/8s display timers — OS splash until App Ready, then HOME.
    * WebView fatal load failure may still dismiss via requestWebSplashDismiss elsewhere.
    */
   /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
@@ -80,6 +80,7 @@ public class MainActivity extends BridgeActivity {
   private static volatile MainActivity activeInstance = null;
   /** Web dismissSplash / native fallback — keepOnScreenCondition false when true. */
   private static volatile boolean webSplashDismissRequested = false;
+  private static volatile boolean webSplashDismissPending = false;
   private static volatile long splashKeepStartElapsedMs = 0L;
   private static volatile String splashDismissSource = "none";
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
@@ -143,10 +144,6 @@ public class MainActivity extends BridgeActivity {
   private Runnable v4AcceptScreenReadyWatchdogRunnable = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
-  /** Admin-driven Native Startup Intro (cache) — not Web Intro / not fake AppShell. */
-  private DibayStartupIntroSurface startupIntroSurface = null;
-  private static volatile DibayStartupIntroSurface startupIntroSurfaceStatic = null;
-  private static volatile boolean startupIntroAttached = false;
   /** Local→Remote handoff cover — shown once before location.replace, removed on remote shellReady. */
   private View handoffCoverOverlay = null;
   private View handoffCoverErrorPanel = null;
@@ -1096,7 +1093,7 @@ public class MainActivity extends BridgeActivity {
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
     // Theme splash until Native Intro overlay is attached (same cream/logo continuity).
-    splashScreen.setKeepOnScreenCondition(() -> !startupIntroAttached && !webSplashDismissRequested);
+    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
@@ -1106,10 +1103,6 @@ public class MainActivity extends BridgeActivity {
             /* ignore */
           }
         });
-    startupIntroSurface = new DibayStartupIntroSurface(this);
-    startupIntroSurface.attachIfNeeded();
-    startupIntroSurfaceStatic = startupIntroSurface;
-    startupIntroAttached = startupIntroSurface.isAttached();
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1374,81 +1367,46 @@ public class MainActivity extends BridgeActivity {
   }
 
   /**
-   * Intro CTA after dismiss. Pending push/deep-link destination always wins.
-   * Visibility of CTA chrome does not change this precedence.
+   * Web or native fallback — release OS splash after WebView visual-state commit.
+   * Authored Intro surface is gone. This waits for first Web paint only.
    */
-  public void openIntroCtaIfNoPending(String href) {
-    if (!introCtaMayNavigate(href, pendingAppPath)) {
-      if (href != null
-          && href.startsWith("/")
-          && !href.startsWith("//")
-          && pendingAppPath != null
-          && !pendingAppPath.isEmpty()) {
-        Log.i(WEBVIEW_LOG_TAG, "intro_cta_skipped reason=pending_destination");
-      }
-      return;
-    }
-    try {
-      Bridge bridge = getBridge();
-      WebView webView = bridge != null ? bridge.getWebView() : null;
-      if (webView == null) return;
-      webView.evaluateJavascript("window.location.assign(" + JSONObject.quote(href) + ")", null);
-    } catch (Exception e) {
-      Log.w(WEBVIEW_LOG_TAG, "intro_cta_nav_failed: " + e.getMessage());
-    }
-  }
-
-  /**
-   * Package-visible CUT1 navigation contract.
-   * Authoritative pending destination retains precedence over Intro CTA.
-   */
-  static boolean introCtaMayNavigate(String href, String pendingAppPath) {
-    if (href == null || !href.startsWith("/") || href.startsWith("//")) return false;
-    return pendingAppPath == null || pendingAppPath.isEmpty();
-  }
-
-  /** Web 또는 native fallback — exit Native Intro after WebView visual-state commit. */
   public static void requestWebSplashDismiss(String source) {
-    if (webSplashDismissRequested) return;
-    webSplashDismissRequested = true;
+    if (webSplashDismissRequested || webSplashDismissPending) return;
+    webSplashDismissPending = true;
     splashDismissSource = source != null ? source : "unknown";
-    Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
-    final DibayStartupIntroSurface intro = startupIntroSurfaceStatic;
     final MainActivity act = activeInstance;
     final Handler handler = act != null ? act.mainHandler : new Handler(Looper.getMainLooper());
-    if (intro != null && intro.isHoldingProductIntro()) {
-      handler.post(intro::markDestinationReady);
-      return;
-    }
-    if (intro != null) {
-      handler.post(
-          () -> {
-            WebView webView = null;
-            try {
-              Bridge bridge = act != null ? act.getBridge() : null;
-              webView = bridge != null ? bridge.getWebView() : null;
-            } catch (Exception ignored) {
-              webView = null;
-            }
-            if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-              intro.dismissWithExit(null);
-              return;
-            }
-            final long requestId = SystemClock.uptimeMillis();
-            Log.i(WEBVIEW_LOG_TAG, "dismissSplash visual_state_wait requestId=" + requestId);
-            webView.postVisualStateCallback(
-                requestId,
-                new WebView.VisualStateCallback() {
-                  @Override
-                  public void onComplete(long callbackRequestId) {
-                    Log.i(
-                        WEBVIEW_LOG_TAG,
-                        "dismissSplash visual_state_ready requestId=" + callbackRequestId);
-                    intro.dismissWithExit(null);
-                  }
-                });
-          });
-    }
+    handler.post(
+        () -> {
+          if (webSplashDismissRequested) return;
+          WebView webView = null;
+          try {
+            Bridge bridge = act != null ? act.getBridge() : null;
+            webView = bridge != null ? bridge.getWebView() : null;
+          } catch (Exception ignored) {
+            webView = null;
+          }
+          if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            webSplashDismissRequested = true;
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+            return;
+          }
+          final long requestId = SystemClock.uptimeMillis();
+          Log.i(WEBVIEW_LOG_TAG, "dismissSplash visual_state_wait requestId=" + requestId);
+          webView.postVisualStateCallback(
+              requestId,
+              new WebView.VisualStateCallback() {
+                @Override
+                public void onComplete(long callbackRequestId) {
+                  if (webSplashDismissRequested) return;
+                  webSplashDismissRequested = true;
+                  Log.i(
+                      WEBVIEW_LOG_TAG,
+                      "dismissSplash visual_state_ready requestId=" + callbackRequestId);
+                  Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+                }
+              });
+        });
   }
 
   /**
@@ -1560,6 +1518,7 @@ public class MainActivity extends BridgeActivity {
 
   private void injectBootMetricOnCreate() {
     webSplashDismissRequested = false;
+    webSplashDismissPending = false;
     splashDismissSource = "none";
     splashKeepStartElapsedMs = SystemClock.elapsedRealtime();
     handoffCoverShown = false;
@@ -1689,35 +1648,14 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Persist full StartupConfig JSON + download assets for next cold start.
-     * Never blocks App Ready / current Intro.
+     * Persist full StartupConfig JSON for next cold start.
+     * Boot overlay is OS splash only — Product Intro persist is removed.
      */
     @JavascriptInterface
     public void persistStartupConfig(String json) {
-      Log.i(WEBVIEW_LOG_TAG, "persistStartupConfig bridge bytes=" + (json != null ? json.length() : 0));
-      mainHandler.post(
-          () -> {
-            if (startupIntroSurface == null) {
-              startupIntroSurface = new DibayStartupIntroSurface(MainActivity.this);
-            }
-            startupIntroSurface.persistFromBridgeJson(json);
-          });
-    }
-
-    /**
-     * Persist Product Intro LKG media for next-cold first-entry visual (same Admin image).
-     * Never blocks App Ready.
-     */
-    @JavascriptInterface
-    public void persistProductIntro(String json) {
-      Log.i(WEBVIEW_LOG_TAG, "persistProductIntro bridge bytes=" + (json != null ? json.length() : 0));
-      mainHandler.post(
-          () -> {
-            if (startupIntroSurface == null) {
-              startupIntroSurface = new DibayStartupIntroSurface(MainActivity.this);
-            }
-            startupIntroSurface.persistProductIntroFromBridgeJson(json);
-          });
+      Log.i(
+          WEBVIEW_LOG_TAG,
+          "persistStartupConfig ignored bytes=" + (json != null ? json.length() : 0));
     }
 
     /** Remove Native Handoff Cover — Remote App Ready / shellReady only. */
