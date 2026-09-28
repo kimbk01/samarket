@@ -108,6 +108,7 @@ export function isBottomNavEligibleRoute(
   if (isPostOrProductDetailPath(p)) return false;
   if (p === "/orders" || p.startsWith("/orders/")) return false;
   if (p === "/market/trade-meet-spot") return false;
+  if (p === "/search") return false;
   return true;
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import {
   isBottomNavEligibleRoute,
   shouldRenderMainBottomNav,
@@ -55,6 +56,8 @@ describe("bottom-nav-route-policy", () => {
     "/mypage/business",
     "/my/business",
     "/market/trade-meet-spot",
+    "/search",
+    "/search?q=디바이",
   ])("hides main bottom nav on excluded route %s", (pathname) => {
     expect(isBottomNavEligibleRoute(pathname)).toBe(false);
     expect(shouldRenderMainBottomNav({ pathname })).toBe(false);
@@ -81,5 +84,16 @@ describe("bottom-nav-route-policy", () => {
   it("keeps nav decision independent from badge, auth, profile, and membership data", () => {
     const input: BottomNavSuppressionInput = { pathname: "/mypage" };
     expect(shouldRenderMainBottomNav(input)).toBe(true);
+  });
+
+  it("B1 — /search is not BottomNav eligible", () => {
+    expect(isBottomNavEligibleRoute("/search")).toBe(false);
+    expect(shouldRenderMainBottomNav({ pathname: "/search" })).toBe(false);
+  });
+
+  it("B4 — ConditionalAppShell /search does not show BottomNav", () => {
+    const flags = resolveConditionalAppShellFlags("/search", false);
+    expect(flags.showBottomNav).toBe(false);
+    expect(flags.isSearch).toBe(true);
   });
 });
