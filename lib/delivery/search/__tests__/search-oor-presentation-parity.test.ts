@@ -62,6 +62,8 @@ describe("CUT11 home search result OOR parity", () => {
     const src = readFileSync(join(root, "lib/delivery/search/search-delivery.ts"), "utf8");
     expect(src).toMatch(/shouldExcludeOutOfRangeFromNormalList/);
     expect(src).toMatch(/resolveListDistanceOutOfRange/);
-    expect(src).toMatch(/if \(meta\.out\) continue/);
+    expect(src).toMatch(/isDeliverySearchMenuVisible/);
+    expect(src).toMatch(/unionDeliverySearchServiceAreaStoreIds/);
+    expect(src).not.toMatch(/if \(meta\.out\) continue/);
   });
 });

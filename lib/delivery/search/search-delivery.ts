@@ -6,7 +6,12 @@ import {
 import { loadStoreServiceAreaRuntimeMap } from "@/lib/delivery/service-area/load-store-service-area-runtime-map";
 import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
 import { DELIVERY_SERVICE_AREA_AUTHORITY } from "@/lib/delivery/service-area/authority";
-import { resolveListDistanceOutOfRange, shouldExcludeOutOfRangeFromNormalList } from "@/lib/delivery/delivery-list-oor-policy";
+import {
+  resolveListDistanceOutOfRange,
+  shouldExcludeOutOfRangeFromNormalList,
+  type DeliveryListOriginSource,
+} from "@/lib/delivery/delivery-list-oor-policy";
+import type { DeliveryServiceabilityResult } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -97,6 +102,80 @@ type ProductRow = {
   local_delivery_available?: boolean | null;
   item_type?: string | null;
 };
+
+/**
+ * Parent-store delivery eligibility for Global Search.
+ * Distinct from STORE RESULT VISIBILITY (keyword hits remaining after OOR filter).
+ * Menu gating must use this map, never leftover storeMetaById from remaining store hits.
+ */
+export type DeliverySearchStoreEligibility = {
+  excludeFromMemberList: boolean;
+  distanceOutOfRange: boolean;
+  distanceKm: number | null;
+  maxDeliveryDistanceKm: number | null;
+  distancePolicyApplied: boolean;
+};
+
+export function unionDeliverySearchServiceAreaStoreIds(
+  keywordStoreIds: readonly string[],
+  menuParentStoreIds: readonly string[]
+): string[] {
+  return Array.from(
+    new Set(
+      [...keywordStoreIds, ...menuParentStoreIds]
+        .map((id) => String(id ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+export function resolveDeliverySearchStoreEligibility(args: {
+  originSource: DeliveryListOriginSource;
+  svc: DeliveryServiceabilityResult;
+}): DeliverySearchStoreEligibility {
+  const distanceOutOfRange = resolveListDistanceOutOfRange({
+    originSource: args.originSource,
+    serviceabilityApplies: args.svc.applies,
+    reason: args.svc.reason,
+  });
+  return {
+    excludeFromMemberList: shouldExcludeOutOfRangeFromNormalList({
+      originSource: args.originSource,
+      distanceOutOfRange,
+    }),
+    distanceOutOfRange,
+    distanceKm: args.svc.distanceKm,
+    maxDeliveryDistanceKm: args.svc.applies ? args.svc.maxKm : null,
+    distancePolicyApplied: args.svc.applies,
+  };
+}
+
+/** Keyword store section: Member OOR stores are removed from the API payload. Guest discovery preserved. */
+export function isDeliverySearchStoreVisible(args: {
+  originSource: DeliveryListOriginSource;
+  eligibility: DeliverySearchStoreEligibility | undefined;
+}): boolean {
+  if (args.originSource !== "saved_address") return true;
+  if (!args.eligibility) return false;
+  return args.eligibility.excludeFromMemberList !== true;
+}
+
+/**
+ * Menu section: keyword match AND parent-store delivery eligibility.
+ * Parent need not appear in the keyword Store section (menu-only match).
+ * Member: fail-closed when parent eligibility was not evaluated.
+ * Guest (`none`): do not apply Member OOR exclusion.
+ */
+export function isDeliverySearchMenuVisible(args: {
+  originSource: DeliveryListOriginSource;
+  parentStoreMetaExists: boolean;
+  parentEligibility: DeliverySearchStoreEligibility | undefined;
+}): boolean {
+  if (!args.parentStoreMetaExists) return false;
+  if (args.originSource !== "saved_address") return true;
+  if (!args.parentEligibility) return false;
+  return args.parentEligibility.excludeFromMemberList !== true;
+}
 
 export async function searchDeliveryDomain(input: {
   q: string;
@@ -325,9 +404,18 @@ export async function searchDeliveryDomain(input: {
 
   const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
   const originSource = input.userId ? ("saved_address" as const) : ("none" as const);
+  /**
+   * Eligibility authority = keyword stores ∪ menu parent stores.
+   * Do not load service-area only for remaining keyword hits — OOR parents
+   * would disappear from the map and their menus would leak.
+   */
+  const eligibilityStoreIds = unionDeliverySearchServiceAreaStoreIds(
+    mergedStoresRaw.map((s) => s.id),
+    [...deliveryStoreById.keys()]
+  );
   const serviceAreaById = await loadStoreServiceAreaRuntimeMap(
     sb as SupabaseClient,
-    mergedStoresRaw.map((s) => s.id)
+    eligibilityStoreIds
   );
   let memberLguId: string | null = null;
   if (input.userId) {
@@ -342,11 +430,19 @@ export async function searchDeliveryDomain(input: {
       /* ignore */
     }
   }
-  const annotated = mergedStoresRaw.map((s) => {
-    const area = serviceAreaById.get(s.id);
+  const storesByIdForEligibility = new Map<string, DeliverySearchStoreResult>();
+  for (const s of mergedStoresRaw) storesByIdForEligibility.set(s.id, s);
+  for (const [id, s] of deliveryStoreById) {
+    if (!storesByIdForEligibility.has(id)) storesByIdForEligibility.set(id, s);
+  }
+  const eligibilityByStoreId = new Map<string, DeliverySearchStoreEligibility>();
+  for (const id of eligibilityStoreIds) {
+    const s = storesByIdForEligibility.get(id);
+    if (!s) continue;
+    const area = serviceAreaById.get(id);
     const svc = evaluateStoreDeliveryServiceability({
       ctx: svcCtx,
-      storeId: s.id,
+      storeId: id,
       storeDeliveryRadiusKm: s.delivery_radius_km,
       customerLat,
       customerLng,
@@ -356,51 +452,52 @@ export async function searchDeliveryDomain(input: {
       selectedLguIds: area?.selectedLguIds ?? [],
       memberLguId,
     });
-    const outOfRange = resolveListDistanceOutOfRange({
-      originSource,
-      serviceabilityApplies: svc.applies,
-      reason: svc.reason,
-    });
+    eligibilityByStoreId.set(id, resolveDeliverySearchStoreEligibility({ originSource, svc }));
+  }
+  const annotated = mergedStoresRaw.map((s) => {
+    const elig = eligibilityByStoreId.get(s.id);
     return {
       ...s,
-      distanceKm: svc.distanceKm,
-      distanceOutOfRange: outOfRange,
-      maxDeliveryDistanceKm: svc.applies ? svc.maxKm : null,
-      distancePolicyApplied: svc.applies,
+      distanceKm: elig?.distanceKm ?? null,
+      distanceOutOfRange: elig?.distanceOutOfRange === true,
+      maxDeliveryDistanceKm: elig?.maxDeliveryDistanceKm ?? null,
+      distancePolicyApplied: elig?.distancePolicyApplied === true,
     };
   });
-  const filtered =
-    originSource === "saved_address"
-      ? annotated.filter(
-          (s) =>
-            !shouldExcludeOutOfRangeFromNormalList({
-              originSource,
-              distanceOutOfRange: s.distanceOutOfRange === true,
-            })
-        )
-      : annotated;
-  const mergedStores: DeliverySearchStoreResult[] = filtered;
+  const mergedStores: DeliverySearchStoreResult[] = annotated.filter((s) =>
+    isDeliverySearchStoreVisible({
+      originSource,
+      eligibility: eligibilityByStoreId.get(s.id),
+    })
+  );
 
   const menus: DeliverySearchMenuResult[] = [];
-  const storeMetaById = new Map<string, { slug: string; store_name: string; out?: boolean }>();
+  /** Display metadata only — never used as delivery eligibility authority. */
+  const storeMetaById = new Map<string, { slug: string; store_name: string }>();
   for (const [id, row] of deliveryStoreById) {
     storeMetaById.set(id, { slug: row.slug, store_name: row.store_name });
   }
   for (const s of mergedStores) {
-    storeMetaById.set(s.id, {
-      slug: s.slug,
-      store_name: s.store_name,
-      out: s.distanceOutOfRange === true,
-    });
+    if (!storeMetaById.has(s.id)) {
+      storeMetaById.set(s.id, { slug: s.slug, store_name: s.store_name });
+    }
   }
   for (const p of prodsRaw) {
     if (menus.length >= menuLimit) break;
     const id = String(p.id ?? "");
     const store_id = String(p.store_id ?? "");
     const meta = storeMetaById.get(store_id);
-    if (!id || !store_id || !meta) continue;
-    /** Out-of-range stores: keep store in list with badge, but do not surface orderable menus. */
-    if (meta.out) continue;
+    if (!id || !store_id) continue;
+    if (
+      !isDeliverySearchMenuVisible({
+        originSource,
+        parentStoreMetaExists: !!meta,
+        parentEligibility: eligibilityByStoreId.get(store_id),
+      })
+    ) {
+      continue;
+    }
+    if (!meta) continue;
     const price = Number(p.price);
     const discount_price = p.discount_price != null ? Number(p.discount_price) : null;
     menus.push({
