@@ -5,6 +5,7 @@
  */
 import { adminMessages } from "./catalog/admin";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
+import { adminIntroShowMessages } from "./catalog/admin-intro-show";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -154,6 +155,7 @@ export type MessageKey =
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
+  | KeyOf<typeof adminIntroShowMessages.ko>
   | KeyOf<typeof koJson>;
 
 /** EN sources — used only for compile-time KO/EN key parity. */
@@ -230,6 +232,7 @@ type EnMessageKey =
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
+  | KeyOf<typeof adminIntroShowMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

@@ -1086,6 +1086,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
+    registerPlugin(IntroShowHostPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
@@ -1094,6 +1095,7 @@ public class MainActivity extends BridgeActivity {
     super.onCreate(savedInstanceState);
     // Theme splash until Native Intro overlay is attached (same cream/logo continuity).
     splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    IntroShowHostPlugin.tryPresentFromDisk(this);
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
@@ -1184,6 +1186,7 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onPause() {
+    IntroShowHostPlugin.abortIfPresenting(this, "activity_pause");
     super.onPause();
   }
 
@@ -1371,6 +1374,16 @@ public class MainActivity extends BridgeActivity {
    * Authored Intro surface is gone. This waits for first Web paint only.
    */
   public static void requestWebSplashDismiss(String source) {
+    if (IntroShowHostPlugin.isHoldingSplash() && !"intro_first_frame".equals(source)) {
+      Log.i(WEBVIEW_LOG_TAG, "splash_hold intro presenting source=" + source);
+      return;
+    }
+    if ("intro_first_frame".equals(source)) {
+      if (webSplashDismissRequested) return;
+      webSplashDismissRequested = true;
+      Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=intro_first_frame");
+      return;
+    }
     if (webSplashDismissRequested || webSplashDismissPending) return;
     webSplashDismissPending = true;
     splashDismissSource = source != null ? source : "unknown";

@@ -1,6 +1,7 @@
 import type { AppLanguageCode } from "./config";
 import { adminMessages } from "./catalog/admin";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
+import { adminIntroShowMessages } from "./catalog/admin-intro-show";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -159,6 +160,7 @@ const KO_MESSAGES = {
   ...platformEventsUiMessages.ko,
   ...adminMessages.ko,
   ...adminPlatformPromotionNotificationsMessages.ko,
+  ...adminIntroShowMessages.ko,
   ...koJson,
 } as LocaleMessageBag;
 
@@ -235,6 +237,7 @@ const EN_MESSAGES = {
   ...platformEventsUiMessages.en,
   ...adminMessages.en,
   ...adminPlatformPromotionNotificationsMessages.en,
+  ...adminIntroShowMessages.en,
   ...enJson,
 } as LocaleMessageBag;
 
