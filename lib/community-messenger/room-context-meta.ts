@@ -119,3 +119,32 @@ export function isCommunityMessengerStoreOrderDeliveryRoom(
 ): boolean {
   return resolveCommunityMessengerDeliveryContextMeta(room) != null;
 }
+
+/**
+ * Messenger home-list commerce subline — same authority as `MessengerChatListItem`.
+ * Trade shows `roleLabel`; delivery shows `headline · priceLabel`.
+ * Envelope keys (`v`, `kind`, ids) are never display text.
+ */
+export function presentCommunityMessengerRoomContextListText(
+  meta: CommunityMessengerRoomContextMetaV1 | null | undefined
+): string {
+  if (!meta) return "";
+  if (meta.kind === "trade") {
+    return (meta.roleLabel ?? "").trim();
+  }
+  const parts = [meta.headline, meta.priceLabel]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  return parts.join(" · ");
+}
+
+export function resolveCommunityMessengerRoomContextMeta(room: {
+  contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
+  summary?: string | null;
+}): CommunityMessengerRoomContextMetaV1 | null {
+  const inline = room.contextMeta;
+  if (inline?.kind === "trade" || inline?.kind === "delivery") return inline;
+  return parseCommunityMessengerRoomContextMeta(
+    typeof room.summary === "string" ? room.summary : null
+  );
+}

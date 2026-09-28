@@ -28,6 +28,7 @@ import {
   messengerRoomSwipeItemId,
   type MessengerChatListContext,
 } from "@/lib/community-messenger/messenger-ia";
+import { presentCommunityMessengerRoomContextListText } from "@/lib/community-messenger/room-context-meta";
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { CommunityMessengerChatTypeBadge } from "@/components/community-messenger/chat-list/CommunityMessengerChatTypeBadge";
 import {
@@ -294,10 +295,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ? room.peerUserId ?? null
       : null;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
-  const commerceSubline =
-    commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
-      ? [commerceMeta.headline, commerceMeta.priceLabel].filter(Boolean).join(" · ")
-      : null;
+  const commerceSubline = presentCommunityMessengerRoomContextListText(commerceMeta) || null;
   const archiveBusy = _busyId === `room-archive:${room.id}`;
   const readBusy = _busyId === `room-read:${room.id}`;
   const leaveBusy = _busyId === `room-leave:${room.id}`;
@@ -309,7 +307,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const actionTotalPx = ACTION_W * swipeActions.length;
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
-  const tradeRoleLabel = commerceMeta?.kind === "trade" ? commerceMeta.roleLabel?.trim() || null : null;
   const tradeViewerRoleForTint = messengerTradeViewerRoleFromContextMeta(commerceMeta ?? undefined);
   const commerceListPresentation = useMemo(
     () => resolveCommerceChatListPresentation(room),
@@ -991,13 +988,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
         </div>
-        {commerceMeta?.kind === "trade" ? (
-          tradeRoleLabel ? (
-            <p className="mt-0.5 truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-              {tradeRoleLabel}
-            </p>
-          ) : null
-        ) : commerceSubline ? (
+        {commerceSubline ? (
           <p className="mt-0.5 truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {commerceSubline}
           </p>

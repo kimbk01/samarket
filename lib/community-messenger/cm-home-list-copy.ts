@@ -3,6 +3,7 @@ import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
+import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerRoomSummary,
@@ -108,7 +109,9 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary): string 
       : translateCmUi("cm_home_preview_call_named", { detail: lastMessage });
   }
   /** TEXT: show content as-is (including https://…jpg) — no URL→photo heuristic. */
-  if (lastMessage) return lastMessage;
+  if (lastMessage && !parseCommunityMessengerRoomContextMeta(lastMessage)) {
+    return lastMessage;
+  }
   const meta = room.contextMeta;
   if (meta?.headline) return meta.headline;
   const summary = room.summary?.trim();

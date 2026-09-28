@@ -56,4 +56,27 @@ describe("getRoomPreviewText TEXT URL safety", () => {
     expect(preview).toBe("https://x.com/a.jpg");
     expect(preview).not.toBe("사진");
   });
+
+  it("does not return room-context JSON as last-message preview", () => {
+    const envelope = '{"v":1,"kind":"delivery","headline":"나의 오른손쌀빵"}';
+    const room = {
+      id: "r1",
+      roomType: "direct",
+      title: "테스트1",
+      lastMessage: envelope,
+      lastMessageType: "text",
+      lastMessageAt: "2026-09-10T00:00:00.000Z",
+      unreadCount: 0,
+      isPinned: false,
+      isMuted: false,
+      memberCount: 2,
+      avatarUrl: null,
+      peerUserId: "u2",
+      summary: envelope,
+      contextMeta: { v: 1 as const, kind: "delivery" as const, headline: "나의 오른손쌀빵" },
+    } as CommunityMessengerRoomSummary;
+    const preview = getRoomPreviewText(room);
+    expect(preview).toBe("나의 오른손쌀빵");
+    expect(preview).not.toContain("{");
+  });
 });
