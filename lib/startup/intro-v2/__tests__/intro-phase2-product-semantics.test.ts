@@ -302,7 +302,8 @@ describe("Intro Phase 2 product semantics", () => {
     expect(editor).toContain("data-intro-add-elements");
     expect(editor).toContain("data-intro-layer-inventory");
     expect(editor).toContain("data-intro-unsaved-guard");
-    expect(editor).toContain("INTRO_OPERATOR_CTA_DESTINATIONS");
+    expect(editor).toContain("AdminIntroCmsCtaDestinationFields");
+    expect(editor).toContain("INTRO_ADMIN_INTERACTION_UI");
     expect(editor).toContain("INTRO_OPERATOR_ANIMATION_PRESETS");
     expect(editor).toContain("requestUpload");
     expect(editor).toContain("onUpload");

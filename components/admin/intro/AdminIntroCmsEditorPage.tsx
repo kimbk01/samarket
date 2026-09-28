@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { AdminIntroCmsCtaDestinationFields } from "@/components/admin/intro/AdminIntroCmsCtaDestinationFields";
 import { AdminIntroCompositionCanvas } from "@/components/admin/intro/AdminIntroCompositionCanvas";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isoToManilaLocal, manilaLocalToIso } from "@/components/admin/intro/intro-admin-time";
@@ -13,7 +14,6 @@ import {
   applyIntroCmsSaveResult,
   discardIntroCmsEdits,
   introCmsCanDeleteScene,
-  introCmsDeviceReadinessLabel,
   introCmsDraftSavePayload,
   introCmsIsDirty,
   introCmsPreviewFrame,
@@ -23,24 +23,25 @@ import {
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   INTRO_ADMIN_DEFAULT_TIMEZONE,
+  INTRO_ADMIN_INTERACTION_UI,
+  INTRO_INTERACTION_UI_TO_MODE,
   introAdvanceLabel,
   introAnchorLabel,
   introAspectPolicyLabel,
   introAudienceLabel,
-  introCtaTypeLabel,
   introDecorationKindLabel,
   introDeepLinkLabel,
   introFrequencyLabel,
+  introInteractionLabel,
   introLayerTypeLabel,
   introPlatformLabel,
   introStatusLabel,
   introTransitionLabel,
+  type IntroAdminInteractionUi,
 } from "@/lib/startup/intro-v2/admin-labels";
 import {
   INTRO_OPERATOR_ANIMATION_PRESETS,
-  INTRO_OPERATOR_CTA_DESTINATIONS,
   applyOperatorAnimationPreset,
-  applyOperatorCtaDestination,
   canDestructivelyRemoveIntroAsset,
   inferOperatorAnimationPreset,
   introAspectRatioLabel,
@@ -72,6 +73,7 @@ import {
   duplicateScene,
   nextSceneSortOrder,
   reorderScenes,
+  sceneInteractionUi,
   type IntroAdminAsset,
   type IntroAdminCampaign,
   type IntroAdminScene,
@@ -81,6 +83,8 @@ import {
   defaultImageLayer,
   nextLayerId,
 } from "@/lib/startup/intro-v2/composition";
+import { searchIntroCtaEntities, withResolvedIntroCtaLabels } from "@/lib/startup/intro-v2/admin-cta-entity-client";
+import type { IntroEntityHit } from "@/lib/startup/intro-v2/admin-entity-search";
 import { adaptOperatorDraftToCanonical } from "@/lib/startup/intro-v2/legacy-operator-adapter";
 import {
   INTRO_ADVANCE_MODES,
@@ -98,7 +102,6 @@ import {
   INTRO_TRANSITIONS,
   type IntroAdvanceMode,
   type IntroAspectPolicy,
-  type IntroCtaDestinationType,
   type IntroDecorationKind,
   type IntroDeepLinkPolicy,
   type IntroFontToken,
@@ -141,6 +144,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const [aspectLock, setAspectLock] = useState(true);
   const [inspector, setInspector] = useState<"layer" | "scene" | "campaign">("layer");
   const [validateMessage, setValidateMessage] = useState<string | null>(null);
+  const [entityHits, setEntityHits] = useState<IntroEntityHit[]>([]);
   const leaveHrefRef = useRef<string | null>(null);
   const campaignRef = useRef<IntroAdminCampaign | null>(null);
   const layerIdRef = useRef<string | null>(null);
@@ -149,12 +153,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const uploadIntentRef = useRef<"image" | "logo" | "background" | "replace">("image");
   const uploadTargetLayerIdRef = useRef<string | null>(null);
 
-  const applyLoaded = useCallback((next: IntroAdminCampaign) => {
+  const applyLoaded = useCallback(async (next: IntroAdminCampaign) => {
     const adapted = adaptOperatorDraftToCanonical(next);
-    const copy = discardIntroCmsEdits(adapted);
+    const labeled = await withResolvedIntroCtaLabels(adapted);
+    const copy = discardIntroCmsEdits(labeled);
     setCampaign(copy);
-    setSaved(discardIntroCmsEdits(adapted));
-    setSceneId((cur) => cur ?? adapted.scenes[0]?.id ?? null);
+    setSaved(discardIntroCmsEdits(labeled));
+    setSceneId((cur) => cur ?? labeled.scenes[0]?.id ?? null);
   }, []);
 
   const load = useCallback(async () => {
@@ -167,7 +172,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     else if (!res.ok || !json.ok || !json.campaign) {
       setError(lang === "en" ? "Could not load intro." : "인트로를 불러오지 못했습니다.");
     } else {
-      applyLoaded(json.campaign);
+      await applyLoaded(json.campaign);
     }
     setLoading(false);
   }, [applyLoaded, campaignId, lang]);
@@ -249,9 +254,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     });
     setCampaign(applied.campaign);
     if (applied.persisted && json.campaign) {
-      const adapted = adaptOperatorDraftToCanonical(json.campaign);
-      setCampaign(discardIntroCmsEdits(adapted));
-      setSaved(discardIntroCmsEdits(adapted));
+      await applyLoaded(json.campaign);
       setError(null);
       return true;
     }
@@ -263,6 +266,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
         })
     );
     return false;
+  };
+
+  const searchEntity = async (kind: string, q: string) => {
+    const items = await searchIntroCtaEntities(kind, q);
+    setEntityHits(items);
   };
 
   const discardEdits = () => {
@@ -737,7 +745,6 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
             : safeT("admin_intro_saved", { fallbackKo: "저장됨", fallbackEn: "Saved" })}
         </AdminToneBadge>
         <AdminToneBadge tone="neutral">{introStatusLabel(campaign.status, lang)}</AdminToneBadge>
-        <span className="text-xs text-sam-muted">{introCmsDeviceReadinessLabel(lang)}</span>
         <AdminActionButton
           variant="primary"
           disabled={busy || !dirty}
@@ -752,7 +759,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
         <AdminActionButton variant="quiet" disabled={busy} onClick={() => void validateDraft()}>
           {safeT("admin_intro_validate", { fallbackKo: "검사", fallbackEn: "Validate" })}
         </AdminActionButton>
-        <AdminActionButton variant="quiet" disabled={busy} onClick={() => void publish()}>
+        <AdminActionButton variant="quiet" disabled={busy || Boolean(introRichPublishBlockIssue(campaign))} onClick={() => void publish()}>
           {safeT("admin_intro_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
         </AdminActionButton>
         {campaign.status === "active" || campaign.status === "scheduled" ? (
@@ -774,10 +781,10 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       {error ? <p className="text-red-800">{error}</p> : null}
       {validateMessage ? <p className="text-sm text-sam-fg">{validateMessage}</p> : null}
       {introRichPublishBlockIssue(campaign) ? (
-        <p className="text-sm text-amber-800">
+        <p className="text-sm text-sam-muted" data-intro-publish-blocked="1">
           {safeT("admin_intro_rich_publish_blocked", {
-            fallbackKo: "새 Intro 런타임 게시 지원 준비 중",
-            fallbackEn: "Rich Intro publish is not ready for the current Native runtime.",
+            fallbackKo: "현재 Native에서는 이 초안을 게시할 수 없습니다.",
+            fallbackEn: "This draft cannot be published on the current Native runtime.",
           })}
         </p>
       ) : null}
@@ -1098,6 +1105,50 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   </select>
                 </label>
                 <label className="mt-3 block text-sm">
+                  {safeT("admin_intro_tap_action", { fallbackKo: "누르기 방식", fallbackEn: "Tap action" })}
+                  <select
+                    className={FIELD}
+                    data-intro-interaction="1"
+                    value={sceneInteractionUi(scene)}
+                    onChange={(e) => {
+                      const ui = e.target.value as IntroAdminInteractionUi;
+                      patchScene({
+                        ...scene,
+                        interactionMode: INTRO_INTERACTION_UI_TO_MODE[ui],
+                        interactionLayerId: ui === "LAYER" ? scene.interactionLayerId : null,
+                        cta: {
+                          ...(scene.cta ?? { destination: { type: "COMMUNITY" }, label: "" }),
+                          enabled: ui === "BUTTON",
+                          destination: scene.cta?.destination ?? { type: "COMMUNITY" },
+                        },
+                      });
+                    }}
+                  >
+                    {INTRO_ADMIN_INTERACTION_UI.map((ui) => (
+                      <option key={ui} value={ui}>
+                        {introInteractionLabel(ui, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {scene.interactionMode === "tap_layer" ? (
+                  <label className="mt-3 block text-sm">
+                    {safeT("admin_intro_choose_element", { fallbackKo: "요소 선택", fallbackEn: "Choose element" })}
+                    <select
+                      className={FIELD}
+                      value={scene.interactionLayerId ?? ""}
+                      onChange={(e) => patchScene({ ...scene, interactionLayerId: e.target.value || null })}
+                    >
+                      <option value="">{lang === "en" ? "Choose element" : "요소 선택"}</option>
+                      {scene.layers.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name || introLayerTypeLabel(item.type, lang)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <label className="mt-3 block text-sm">
                   {lang === "en" ? "Background" : "배경"}
                   <input
                     type="color"
@@ -1138,84 +1189,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                         }
                       />
                     </label>
-                    <label className="mt-3 block text-sm">
-                      {safeT("admin_intro_destination", { fallbackKo: "이동 위치", fallbackEn: "Destination" })}
-                      <select
-                        className={FIELD}
-                        value={scene.cta.destination.type}
-                        onChange={(e) =>
-                          patchScene({
-                            ...scene,
-                            cta: applyOperatorCtaDestination(
-                              scene.cta,
-                              e.target.value as IntroCtaDestinationType
-                            ),
-                          })
-                        }
-                      >
-                        {INTRO_OPERATOR_CTA_DESTINATIONS.map((type) => (
-                          <option key={type} value={type}>
-                            {introCtaTypeLabel(type, lang)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {["STORE", "PRODUCT", "LISTING", "POST", "CHAT_ROOM", "EVENT"].includes(
-                      scene.cta.destination.type
-                    ) ? (
-                      <label className="mt-3 block text-sm">
-                        {lang === "en" ? "Target id" : "대상 ID"}
-                        <input
-                          className={FIELD}
-                          value={scene.cta.destination.id ?? ""}
-                          onChange={(e) =>
-                            patchScene({
-                              ...scene,
-                              cta: {
-                                ...scene.cta!,
-                                destination: { ...scene.cta!.destination, id: e.target.value },
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
-                    {scene.cta.destination.type === "INTERNAL_PATH" ? (
-                      <label className="mt-3 block text-sm">
-                        {lang === "en" ? "Path" : "경로"}
-                        <input
-                          className={FIELD}
-                          value={scene.cta.destination.path ?? ""}
-                          onChange={(e) =>
-                            patchScene({
-                              ...scene,
-                              cta: {
-                                ...scene.cta!,
-                                destination: { ...scene.cta!.destination, path: e.target.value },
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
-                    {scene.cta.destination.type === "EXTERNAL_URL" ? (
-                      <label className="mt-3 block text-sm">
-                        {lang === "en" ? "https URL" : "https 주소"}
-                        <input
-                          className={FIELD}
-                          value={scene.cta.destination.url ?? ""}
-                          onChange={(e) =>
-                            patchScene({
-                              ...scene,
-                              cta: {
-                                ...scene.cta!,
-                                destination: { ...scene.cta!.destination, url: e.target.value },
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
+                    <AdminIntroCmsCtaDestinationFields
+                      cta={scene.cta}
+                      lang={lang}
+                      hits={entityHits}
+                      onSearch={(kind, q) => void searchEntity(kind, q)}
+                      onChange={(cta) => patchScene({ ...scene, cta })}
+                    />
                   </>
                 ) : null}
               </>
@@ -1436,28 +1416,19 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   </>
                 ) : null}
                 {layer.type === "CTA" && scene ? (
-                  <label className="mt-3 block text-sm">
-                    {safeT("admin_intro_destination", { fallbackKo: "이동 위치", fallbackEn: "Destination" })}
-                    <select
-                      className={FIELD}
-                      value={scene.cta?.destination.type ?? "COMMUNITY"}
-                      onChange={(e) =>
-                        patchScene({
-                          ...scene,
-                          cta: applyOperatorCtaDestination(
-                            scene.cta,
-                            e.target.value as IntroCtaDestinationType
-                          ),
-                        })
+                  <AdminIntroCmsCtaDestinationFields
+                    cta={
+                      scene.cta ?? {
+                        enabled: true,
+                        destination: { type: "COMMUNITY" },
+                        label: "",
                       }
-                    >
-                      {INTRO_OPERATOR_CTA_DESTINATIONS.map((type) => (
-                        <option key={type} value={type}>
-                          {introCtaTypeLabel(type, lang)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    }
+                    lang={lang}
+                    hits={entityHits}
+                    onSearch={(kind, q) => void searchEntity(kind, q)}
+                    onChange={(cta) => patchScene({ ...scene, cta: { ...cta, enabled: true } })}
+                  />
                 ) : null}
                 <label className="mt-3 block text-sm">
                   {lang === "en" ? "Appear" : "등장"}

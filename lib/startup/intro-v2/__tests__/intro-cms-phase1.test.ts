@@ -2,7 +2,7 @@
  * @vitest-environment node
  * Phase 1 Intro CMS editing foundation — original owner contract.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,11 +14,13 @@ import {
   introCmsDraftSavePayload,
   introCmsIsDirty,
   introCmsListDeviceReadiness,
+  introCmsListStateLabel,
   introCmsPreviewFrame,
   isIntroCmsFinalEditorAuthority,
   resolveIntroCmsUnsavedNavigation,
 } from "@/lib/startup/intro-v2/admin-cms-phase1";
 import { defaultNewCampaignDraft, defaultNewScene, type IntroAdminCampaign } from "@/lib/startup/intro-v2/admin-editor-model";
+import { applyIntroCtaEntityLabels, collectUnresolvedIntroCtaEntityIds } from "@/lib/startup/intro-v2/admin-cta-entity-client";
 import { deriveIntroOperatorAppState, introOperatorAppStateLabel } from "@/lib/startup/intro-operator-contract";
 
 const ROOT = process.cwd();
@@ -50,6 +52,14 @@ describe("Phase 1 CMS editor route authority", () => {
     expect(cms).not.toContain("이 기기군만 다름");
     expect(cms).toContain("data-intro-scene-navigator");
     expect(cms).toContain("data-intro-unsaved-guard");
+    expect(cms).toContain("AdminIntroCmsCtaDestinationFields");
+    expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
+    expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorPreview.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "lib/startup/intro-v2/composer-visual.ts"))).toBe(false);
     expect(
       isIntroCmsFinalEditorAuthority({
         routedComponent: "AdminIntroCmsEditorPage",
@@ -151,8 +161,15 @@ describe("Phase 1 list application wording", () => {
     expect(list).not.toContain("현재 앱 적용");
     expect(list).not.toContain('"applied"');
     expect(list).toContain("introCmsDeviceReadinessLabel");
+    expect(list).toContain("introCmsListStateLabel");
+    expect(list).not.toContain("introOperatorAppStateLabel");
     expect(contract).not.toContain("현재 앱 적용");
     expect(introOperatorAppStateLabel("published", "ko")).toBe("게시됨");
+    expect(introCmsListStateLabel("published", "ko")).toBe("게시됨");
+    expect(introCmsListStateLabel("scheduled", "ko")).toBe("예약됨");
+    expect(introCmsListStateLabel("draft", "ko")).toBe("초안");
+    expect(introCmsListStateLabel("paused", "ko")).toBe("일시중지");
+    expect(introCmsListStateLabel("ended", "ko")).toBe("보관");
     expect(introCmsDeviceReadinessLabel("ko")).toBe("기기 수신 상태 미확인");
     expect(introCmsListDeviceReadiness("published")).toBe("unknown");
     expect(
@@ -166,5 +183,21 @@ describe("Phase 1 list application wording", () => {
         nowMs: Date.parse("2026-09-28T12:00:00.000Z"),
       })
     ).toBe("published");
+  });
+
+  it("restores saved CTA entity labels without dirtying the draft", () => {
+    const draft = campaign({
+      scenes: [
+        {
+          ...defaultNewScene("scene-1", 0, "Scene 1"),
+          cta: { enabled: true, destination: { type: "POST", id: "post-1" } },
+        },
+      ],
+    });
+    const unresolved = collectUnresolvedIntroCtaEntityIds(draft);
+    expect(unresolved.get("POST")).toEqual(["post-1"]);
+    const labeled = applyIntroCtaEntityLabels(draft, new Map([["POST:post-1", "Medal"]]));
+    expect(labeled.scenes[0]?.cta?.destination.label).toBe("Medal");
+    expect(collectUnresolvedIntroCtaEntityIds(labeled).size).toBe(0);
   });
 });

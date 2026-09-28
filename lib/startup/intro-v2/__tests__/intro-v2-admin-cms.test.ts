@@ -2,7 +2,7 @@
  * @vitest-environment node
  * Phase 2 Intro Admin CMS contract — Admin only, not Native runtime.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { adminMenu } from "@/components/admin/admin-menu";
@@ -878,27 +878,36 @@ describe("composer reconstruction contract", () => {
   it("routes the CMS editor and keeps leftover Composer/Operator unrouted", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
     const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
-    const leftover = read("components/admin/intro/AdminIntroEditorPage.tsx");
-    const canvas = read("components/admin/intro/AdminIntroPreviewCanvas.tsx");
+    const dest = read("components/admin/intro/AdminIntroCmsCtaDestinationFields.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
+    const catalog = read("lib/i18n/catalog/admin-intro.ts");
+    const backend = read("lib/startup/intro-v2/compat-publish.ts");
     expect(route).toContain("AdminIntroCmsEditorPage");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
     expect(cms).toContain('data-intro-editor="cms-v1"');
     expect(cms).not.toContain('data-intro-composer="v2"');
     expect(cms).not.toContain("이 기기군만 다름");
-    expect(leftover).toContain('data-intro-composer="v2"');
-    expect(leftover).toContain("이 기기군만 다름");
-    expect(canvas).toContain("computeContainedCreativeRect");
-    expect(canvas).toContain("object-contain");
-    expect(canvas).toContain("onMoveLayerPct");
-    expect(list).toContain("introOperatorAppStateLabel");
+    expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
+    expect(cms).toContain("data-intro-publish-blocked");
+    expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
+    expect(dest).toContain("INTRO_CTA_DESTINATION_TYPES");
+    expect(cms).toContain("searchIntroCtaEntities");
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorPreview.tsx"))).toBe(false);
+    expect(existsSync(join(ROOT, "lib/startup/intro-v2/composer-visual.ts"))).toBe(false);
+    expect(list).toContain("introCmsListStateLabel");
     expect(list).toContain('"published"');
     expect(list).not.toContain('"applied"');
     expect(list).not.toContain("현재 앱 적용");
     expect(list).toContain("introCmsDeviceReadinessLabel");
     expect(list).not.toContain('data-intro-list="composer"');
     expect(list).not.toContain("introDerivedStatusLabel");
+    expect(catalog).not.toContain("새 Intro 런타임 게시 지원 준비 중");
+    expect(backend).toContain('INTRO_RICH_PUBLISH_BLOCKED_CODE = "rich_runtime_not_ready"');
+    expect(backend).toContain("새 Intro 런타임 게시 지원 준비 중");
     expect(read("lib/startup/intro-v2/live-status.ts")).toContain("현재 노출 중");
   });
 });

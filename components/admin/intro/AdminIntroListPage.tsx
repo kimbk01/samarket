@@ -13,11 +13,9 @@ import { introFrequencyLabel } from "@/lib/startup/intro-v2/admin-labels";
 import {
   introCmsDeviceReadinessLabel,
   introCmsListDeviceReadiness,
+  introCmsListStateLabel,
 } from "@/lib/startup/intro-v2/admin-cms-phase1";
-import {
-  introOperatorAppStateLabel,
-  type IntroOperatorAppState,
-} from "@/lib/startup/intro-operator-contract";
+import { type IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
 import type { IntroAdminListRow } from "@/lib/startup/intro-v2/admin-editor-model";
 
 const SECTIONS: IntroOperatorAppState[] = ["published", "scheduled", "draft", "paused", "ended"];
@@ -144,12 +142,8 @@ export function AdminIntroListPage() {
         </AdminActionButton>
         <AdminActionButton variant="quiet" onClick={() => setShowEnded((v) => !v)}>
           {showEnded
-            ? lang === "en"
-              ? "Hide ended"
-              : "종료 숨기기"
-            : lang === "en"
-              ? "Show ended / archived"
-              : "종료 / 보관 보기"}
+            ? safeT("admin_intro_hide_archived", { fallbackKo: "보관 숨기기", fallbackEn: "Hide archived" })
+            : safeT("admin_intro_show_archived", { fallbackKo: "보관 보기", fallbackEn: "Show archived" })}
         </AdminActionButton>
       </div>
       {loading ? (
@@ -193,7 +187,7 @@ export function AdminIntroListPage() {
           if (rows.length === 0) return null;
           return (
             <section key={state} className="space-y-2">
-              <h2 className="text-sm font-semibold text-sam-fg">{introOperatorAppStateLabel(state, lang)}</h2>
+              <h2 className="text-sm font-semibold text-sam-fg">{introCmsListStateLabel(state, lang)}</h2>
               <div className="grid gap-3">
                 {rows.map((item) => (
                   <AdminCard key={item.id}>
@@ -205,7 +199,7 @@ export function AdminIntroListPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-sam-fg">{item.name}</p>
                           <AdminToneBadge tone={appTone(state)}>
-                            {introOperatorAppStateLabel(state, lang)}
+                            {introCmsListStateLabel(state, lang)}
                           </AdminToneBadge>
                         </div>
                         <p className="text-sm text-sam-muted">

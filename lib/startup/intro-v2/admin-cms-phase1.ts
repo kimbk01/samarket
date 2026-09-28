@@ -190,6 +190,15 @@ export function introCmsDeviceReadinessLabel(lang: "ko" | "en"): string {
   return lang === "en" ? "Device receipt unconfirmed" : "기기 수신 상태 미확인";
 }
 
+/** CMS list lifecycle copy. Operator CUT1 labels are not list authority. */
+export function introCmsListStateLabel(state: IntroOperatorAppState, lang: "ko" | "en"): string {
+  if (state === "published") return lang === "en" ? "Published" : "게시됨";
+  if (state === "scheduled") return lang === "en" ? "Scheduled" : "예약됨";
+  if (state === "paused") return lang === "en" ? "Paused" : "일시중지";
+  if (state === "ended") return lang === "en" ? "Archived" : "보관";
+  return lang === "en" ? "Draft" : "초안";
+}
+
 export function isIntroCmsFinalEditorAuthority(input: {
   routedComponent: string;
   operatorRouted: boolean;
