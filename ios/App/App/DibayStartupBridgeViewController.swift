@@ -134,14 +134,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   private func attachNativeIntroIfNeeded(source: String) {
-    if introLifecycle != .pending { return }
-    if IntroShowHost.tryPresent(on: self) {
-      introLifecycle = .attached
-      startupInfo("intro_attach source=\(source) local_ready=1")
-      return
+    // ZERO baseline: OS LaunchScreen only. No product logo overlay before HOME.
+    if introLifecycle == .pending {
+      introLifecycle = .dismissed
+      startupInfo("intro_attach_skipped source=\(source) reason=zero_baseline_os_launch_only")
     }
-    introLifecycle = .dismissed
-    startupInfo("intro_attach_skipped source=\(source) reason=no_local_ready fail_open_home")
   }
 
   private func finalizeIntroRemoved(overlay: UIView, source: String) {
@@ -156,10 +153,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   private func dismissNativeIntroThenHideSplash() {
-    if IntroShowHost.isHoldingSplash() || IntroShowHost.isPresenting() {
-      startupInfo("splash_hold intro presenting call_mutation=0")
-      return
-    }
     if introLifecycle == .dismissed {
       hideCapacitorSplash()
       return

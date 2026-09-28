@@ -50,7 +50,6 @@ import {
   writeCommunityHubState,
 } from "@/lib/community/community-hub-state";
 import { tryRestoreCommunityFeedScroll } from "@/lib/community/community-post-entry-nav";
-import { signalCommunityHomePresentationReady } from "@/lib/intro-show/home-presentation-ready";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
@@ -1515,34 +1514,10 @@ export function CommunityFeed({
           recordAppWidePhaseLastMs("community_list_swipe_first_card_paint_ms", elapsed);
           setPhilifePerfMirrorDev({ community_list_swipe_first_card_paint_ms: elapsed });
           firstCardPaintStartRef.current = 0;
-          signalCommunityHomePresentationReady("first_card");
         });
       });
     });
   }, [feedPaintQueryKey, loading, err, postsForList.length]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (err) {
-      const r1 = requestAnimationFrame(() => {
-        requestAnimationFrame(() => signalCommunityHomePresentationReady("error"));
-      });
-      return () => cancelAnimationFrame(r1);
-    }
-    if (
-      communityFeedShouldShowEmptyCta({
-        hasError: Boolean(err),
-        loading,
-        postCount: postsForList.length,
-      })
-    ) {
-      const r1 = requestAnimationFrame(() => {
-        requestAnimationFrame(() => signalCommunityHomePresentationReady("empty"));
-      });
-      return () => cancelAnimationFrame(r1);
-    }
-    return undefined;
-  }, [loading, err, postsForList.length]);
 
   useLayoutEffect(() => {
     if (!chipsLoadDone) return;

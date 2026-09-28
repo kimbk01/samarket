@@ -1,10 +1,5 @@
-import { IntroShowStudioPage } from "@/components/admin/intro-show/IntroShowStudioPage";
+import { IntroRebuildNotice } from "@/app/admin/intro/IntroRebuildNotice";
 
-export default async function AdminIntroStudioRoute({
-  params,
-}: {
-  params: Promise<{ showId: string }>;
-}) {
-  const { showId } = await params;
-  return <IntroShowStudioPage showId={showId} />;
+export default function AdminIntroShowRebuildNoticeRoute() {
+  return <IntroRebuildNotice />;
 }

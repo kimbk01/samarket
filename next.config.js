@@ -49,11 +49,6 @@ const nextConfig = {
       "./benchmark-runs/**",
     ],
   },
-  outputFileTracingIncludes: {
-    "/api/admin/intro-shows/[showId]/publish": ["./intro-engine/runtime-build/engine.js"],
-    "/api/app/intro-runtime": ["./intro-engine/runtime-build/engine.js"],
-    "/api/app/intro-runtime/pack": ["./intro-engine/runtime-build/engine.js"],
-  },
   experimental: {
     /**
      * Webpack 빌드 시 메모리 피크 완화(큰 앱 dev/build 공통). 기존 experimental 과 병합 유지.
