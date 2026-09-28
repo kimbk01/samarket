@@ -64,8 +64,9 @@ describe("global search entry, adapters, back", () => {
     expect(view).toContain("submitSearch(item.keyword)");
     expect(view).not.toMatch(/onSubmit=\{\(k\) =>/);
     expect(read("components/search/SearchInputBar.tsx")).toContain('type="search"');
-    expect(read("components/search/SearchInputBar.tsx")).toContain("onCompositionStart");
-    expect(read("components/search/SearchInputBar.tsx")).toContain("onCompositionEnd");
+    expect(read("components/search/SearchInputBar.tsx")).not.toContain("onCompositionStart");
+    expect(read("components/search/SearchInputBar.tsx")).not.toContain("onCompositionEnd");
+    expect(read("components/search/SearchInputBar.tsx")).not.toContain("onCompositionUpdate");
   });
 
   it("neighborhood-feed q is additive keyword, not a new engine", () => {

@@ -2,6 +2,8 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { SearchInputBar } from "@/components/search/SearchInputBar";
 
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({
@@ -14,38 +16,33 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function setNativeInputValue(input: HTMLInputElement, value: string, isComposing?: boolean) {
+function setNativeInputValue(input: HTMLInputElement, value: string) {
   const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   proto?.set?.call(input, value);
-  const event = new InputEvent("input", { bubbles: true, data: value });
-  if (typeof isComposing === "boolean") {
-    Object.defineProperty(event, "isComposing", { value: isComposing });
-  }
-  input.dispatchEvent(event);
+  input.dispatchEvent(new InputEvent("input", { bubbles: true, data: value }));
 }
 
 function ControlledBar({
   onSubmit,
-  onComposingChange,
-  onCompositionCommit,
+  onChangeSpy,
 }: {
   onSubmit: (keyword: string) => void;
-  onComposingChange?: (composing: boolean) => void;
-  onCompositionCommit?: (value: string) => void;
+  onChangeSpy?: (value: string) => void;
 }) {
   const [value, setValue] = useState("");
   return (
     <SearchInputBar
       value={value}
-      onChange={setValue}
+      onChange={(next) => {
+        setValue(next);
+        onChangeSpy?.(next);
+      }}
       onSubmit={onSubmit}
-      onComposingChange={onComposingChange}
-      onCompositionCommit={onCompositionCommit}
     />
   );
 }
 
-describe("SearchInputBar composition contract", () => {
+describe("SearchInputBar Korean IME rebuild contract", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -66,29 +63,65 @@ describe("SearchInputBar composition contract", () => {
     container.remove();
   });
 
-  it("T1 — composition display updates the visible value", async () => {
+  it("K1 — composition events do not rewrite the input value", async () => {
+    const onSubmit = vi.fn();
+    const onChangeSpy = vi.fn();
+    act(() => {
+      root.render(<ControlledBar onSubmit={onSubmit} onChangeSpy={onChangeSpy} />);
+    });
+    await flush();
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    act(() => {
+      input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "ㄷ" }));
+      input.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: "디" }));
+      input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "디" }));
+    });
+    await flush();
+    expect(onChangeSpy).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("K2 — plain onChange is the single owner of the display keyword", async () => {
+    const onSubmit = vi.fn();
+    const onChangeSpy = vi.fn();
+    act(() => {
+      root.render(<ControlledBar onSubmit={onSubmit} onChangeSpy={onChangeSpy} />);
+    });
+    await flush();
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    act(() => {
+      setNativeInputValue(input, "디바이");
+    });
+    await flush();
+    expect(onChangeSpy).toHaveBeenCalledTimes(1);
+    expect(onChangeSpy).toHaveBeenCalledWith("디바이");
+    expect(container.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe("디바이");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("K3 — Enter during composition does not submit", async () => {
     const onSubmit = vi.fn();
     act(() => {
       root.render(<ControlledBar onSubmit={onSubmit} />);
     });
     await flush();
-    const input = container.querySelector<HTMLInputElement>('input[type="search"]');
-    expect(input).toBeTruthy();
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
     act(() => {
-      input!.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-      setNativeInputValue(input!, "ㄷ", true);
+      setNativeInputValue(input, "디");
     });
     await flush();
-    expect(container.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe("ㄷ");
     act(() => {
-      setNativeInputValue(container.querySelector<HTMLInputElement>('input[type="search"]')!, "디", true);
+      const current = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      Object.defineProperty(event, "isComposing", { value: true });
+      current.dispatchEvent(event);
     });
     await flush();
-    expect(container.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe("디");
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("T3 — submit during composition is blocked", async () => {
+  it("K4 — explicit search after composition ends submits once", async () => {
     const onSubmit = vi.fn();
     act(() => {
       root.render(<ControlledBar onSubmit={onSubmit} />);
@@ -97,19 +130,19 @@ describe("SearchInputBar composition contract", () => {
     const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
     act(() => {
       input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-      setNativeInputValue(input, "디", true);
+      setNativeInputValue(input, "디바이");
+      input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "디바이" }));
     });
     await flush();
     act(() => {
-      const current = container.querySelector<HTMLInputElement>('input[type="search"]')!;
-      current.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-      container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+      container.querySelector<HTMLInputElement>('input[type="search"]')?.form?.requestSubmit();
     });
     await flush();
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith("디바이");
   });
 
-  it("T10 — input identity, focus, and value stay during composition", async () => {
+  it("K10 — keyword change does not remount the search input", async () => {
     const onSubmit = vi.fn();
     act(() => {
       root.render(<ControlledBar onSubmit={onSubmit} />);
@@ -118,12 +151,8 @@ describe("SearchInputBar composition contract", () => {
     const before = container.querySelector<HTMLInputElement>('input[type="search"]')!;
     act(() => {
       before.focus();
-    });
-    expect(document.activeElement).toBe(before);
-    act(() => {
-      before.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-      setNativeInputValue(before, "ㄷ", true);
-      setNativeInputValue(before, "디", true);
+      setNativeInputValue(before, "ㄷ");
+      setNativeInputValue(before, "디");
     });
     await flush();
     const after = container.querySelector<HTMLInputElement>('input[type="search"]')!;
@@ -131,5 +160,17 @@ describe("SearchInputBar composition contract", () => {
     expect(after.isConnected).toBe(true);
     expect(after.value).toBe("디");
     expect(document.activeElement).toBe(after);
+  });
+
+  it("does not keep a custom IME lifecycle layer", () => {
+    const source = readFileSync(resolve(process.cwd(), "components/search/SearchInputBar.tsx"), "utf8");
+    expect(source).not.toContain("onCompositionStart");
+    expect(source).not.toContain("onCompositionUpdate");
+    expect(source).not.toContain("onCompositionEnd");
+    expect(source).not.toContain("readNativeComposing");
+    expect(source).not.toContain("onComposingChange");
+    expect(source).not.toContain("onCompositionCommit");
+    expect(source).toContain("onChange={(event) => onChange(event.target.value)}");
+    expect(source).toContain("event.nativeEvent.isComposing");
   });
 });

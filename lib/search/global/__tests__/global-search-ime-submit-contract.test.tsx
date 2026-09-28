@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { act } from "react";
+import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const adapterFns = vi.hoisted(() => ({
   community: vi.fn(async (_query: string) => ({ ok: true as const, posts: [] })),
@@ -119,14 +121,10 @@ const { GlobalSearchView } = await import("@/components/search/global/GlobalSear
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function setNativeInputValue(input: HTMLInputElement, value: string, isComposing?: boolean) {
+function setNativeInputValue(input: HTMLInputElement, value: string) {
   const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   proto?.set?.call(input, value);
-  const event = new InputEvent("input", { bubbles: true, data: value });
-  if (typeof isComposing === "boolean") {
-    Object.defineProperty(event, "isComposing", { value: isComposing });
-  }
-  input.dispatchEvent(event);
+  input.dispatchEvent(new InputEvent("input", { bubbles: true, data: value }));
 }
 
 function searchInput(container: HTMLElement): HTMLInputElement {
@@ -135,14 +133,22 @@ function searchInput(container: HTMLElement): HTMLInputElement {
   return el;
 }
 
-function StickyHost() {
+function StickyHost({
+  extrasRef,
+}: {
+  extrasRef: { current: unknown };
+}) {
   const extras = useMainTier1ExtrasOptional()?.extras ?? null;
+  useEffect(() => {
+    extrasRef.current = extras;
+  }, [extras, extrasRef]);
   return <div data-sticky-host="">{extras?.stickyBelow ?? null}</div>;
 }
 
-describe("global search IME / submit contract", () => {
+describe("global search IME rebuild / submit contract", () => {
   let container: HTMLDivElement;
   let root: Root;
+  const extrasRef = { current: null as unknown };
 
   async function flush() {
     await act(async () => {
@@ -156,7 +162,7 @@ describe("global search IME / submit contract", () => {
       root.render(
         <MainTier1ExtrasProvider>
           <GlobalSearchView />
-          <StickyHost />
+          <StickyHost extrasRef={extrasRef} />
         </MainTier1ExtrasProvider>
       );
     });
@@ -173,6 +179,7 @@ describe("global search IME / submit contract", () => {
   }
 
   beforeEach(() => {
+    extrasRef.current = null;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -195,42 +202,18 @@ describe("global search IME / submit contract", () => {
     vi.clearAllMocks();
   });
 
-  it("T2 — composing intermediate input does not dispatch domain search", async () => {
-    beginDebounceClock();
+  it("K3 — Enter during composition does not commit URL, recent, or search", async () => {
     renderView();
     await flush();
     const input = searchInput(container);
     act(() => {
-      input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-      setNativeInputValue(input, "ㄷ", true);
+      setNativeInputValue(input, "디");
     });
     await flush();
     act(() => {
-      setNativeInputValue(searchInput(container), "디", true);
-      setNativeInputValue(searchInput(container), "딥", true);
-      setNativeInputValue(searchInput(container), "디바", true);
-    });
-    await flush();
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).not.toHaveBeenCalled();
-    expect(adapterFns.trade).not.toHaveBeenCalled();
-    expect(adapterFns.delivery).not.toHaveBeenCalled();
-    expect(adapterFns.chat).not.toHaveBeenCalled();
-  });
-
-  it("T3 — submit during composition does not commit URL, recent, or search", async () => {
-    renderView();
-    await flush();
-    const input = searchInput(container);
-    act(() => {
-      input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-      setNativeInputValue(input, "디", true);
-    });
-    await flush();
-    act(() => {
-      searchInput(container).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-      container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      Object.defineProperty(event, "isComposing", { value: true });
+      searchInput(container).dispatchEvent(event);
     });
     await flush();
     expect(routerApi.replace).not.toHaveBeenCalled();
@@ -238,118 +221,7 @@ describe("global search IME / submit contract", () => {
     expect(adapterFns.community).not.toHaveBeenCalled();
   });
 
-  it("T4 — composition end commits 디바이 and allows debounce search", async () => {
-    beginDebounceClock();
-    renderView();
-    await flush();
-    act(() => {
-      searchInput(container).dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-    });
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디바이", true);
-    });
-    await flush();
-    act(() => {
-      searchInput(container).dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "디바이" }));
-    });
-    await flush();
-    expect(searchInput(container).value).toBe("디바이");
-    expect(adapterFns.community).not.toHaveBeenCalled();
-    advanceDebounce(250);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    expect(adapterFns.community.mock.calls[0]?.[0]).toBe("디바이");
-  });
-
-  it("T5 — normal submit cancels pending debounce and runs one search", async () => {
-    beginDebounceClock();
-    renderView();
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디바이");
-    });
-    await flush();
-    expect(adapterFns.community).not.toHaveBeenCalled();
-    act(() => {
-      searchInput(container).form?.requestSubmit();
-    });
-    await flush();
-    expect(routerApi.replace).toHaveBeenCalledTimes(1);
-    expect(routerApi.replace.mock.calls[0]?.[0]).toBe(`/search?q=${encodeURIComponent("디바이")}`);
-    expect(recentApi.add).toHaveBeenCalledTimes(1);
-    expect(recentApi.add.mock.calls[0]?.[0]).toBe("디바이");
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    expect(adapterFns.trade).toHaveBeenCalledTimes(1);
-    expect(adapterFns.delivery).toHaveBeenCalledTimes(1);
-    expect(adapterFns.chat).toHaveBeenCalledTimes(1);
-  });
-
-  it("T6 — button submit uses the same one-search contract", async () => {
-    beginDebounceClock();
-    renderView();
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디바이");
-    });
-    await flush();
-    act(() => {
-      container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
-    });
-    await flush();
-    expect(routerApi.replace).toHaveBeenCalledTimes(1);
-    expect(recentApi.add).toHaveBeenCalledTimes(1);
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-  });
-
-  it("T7 — recent click uses canonical submitSearch", async () => {
-    recentApi.get.mockReturnValue([{ keyword: "디바이", createdAt: "2026-01-01T00:00:00.000Z" }]);
-    beginDebounceClock();
-    renderView();
-    await flush();
-    const recentBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "디바이");
-    expect(recentBtn).toBeTruthy();
-    act(() => {
-      recentBtn?.click();
-    });
-    await flush();
-    expect(routerApi.replace).toHaveBeenCalledTimes(1);
-    expect(routerApi.replace.mock.calls[0]?.[0]).toBe(`/search?q=${encodeURIComponent("디바이")}`);
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-  });
-
-  it("T8 — typing then submit within 250ms runs the same query once", async () => {
-    beginDebounceClock();
-    renderView();
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디");
-    });
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디바이");
-    });
-    await flush();
-    act(() => {
-      searchInput(container).form?.requestSubmit();
-    });
-    await flush();
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    expect(adapterFns.community.mock.calls[0]?.[0]).toBe("디바이");
-  });
-
-  it("S1 — typing 디바이 then submit before 250ms: same query search total = 1", async () => {
+  it("K5 — rapid typing then submit cancels pending debounce and searches once", async () => {
     beginDebounceClock();
     renderView();
     await flush();
@@ -372,7 +244,7 @@ describe("global search IME / submit contract", () => {
     expect(adapterFns.chat).toHaveBeenCalledTimes(1);
   });
 
-  it("S2 — settled 디바이 submit does not suppress a later explicit 디바이 submit", async () => {
+  it("K6 — settled query can be explicitly resubmitted", async () => {
     beginDebounceClock();
     renderView();
     await flush();
@@ -406,7 +278,7 @@ describe("global search IME / submit contract", () => {
     expect(adapterFns.chat).toHaveBeenCalledTimes(1);
   });
 
-  it("S3 — after 디바이, clear then type 디바이 again still searches", async () => {
+  it("K7 — clear then type the same query still searches", async () => {
     beginDebounceClock();
     renderView();
     await flush();
@@ -440,6 +312,120 @@ describe("global search IME / submit contract", () => {
     await flush();
     expect(adapterFns.community).toHaveBeenCalledTimes(1);
     expect(adapterFns.community.mock.calls[0]?.[0]).toBe("디바이");
+  });
+
+  it("K8 — typing alone does not change the URL", async () => {
+    beginDebounceClock();
+    renderView();
+    await flush();
+    act(() => {
+      setNativeInputValue(searchInput(container), "디");
+      setNativeInputValue(searchInput(container), "디바이");
+    });
+    await flush();
+    advanceDebounce(400);
+    await flush();
+    expect(routerApi.replace).not.toHaveBeenCalled();
+    expect(recentApi.add).not.toHaveBeenCalled();
+  });
+
+  it("K9 — explicit submit writes URL, recent, and search exactly once", async () => {
+    beginDebounceClock();
+    renderView();
+    await flush();
+    act(() => {
+      setNativeInputValue(searchInput(container), "디바이");
+    });
+    await flush();
+    act(() => {
+      searchInput(container).form?.requestSubmit();
+    });
+    await flush();
+    expect(routerApi.replace).toHaveBeenCalledTimes(1);
+    expect(routerApi.replace.mock.calls[0]?.[0]).toBe(`/search?q=${encodeURIComponent("디바이")}`);
+    expect(recentApi.add).toHaveBeenCalledTimes(1);
+    expect(recentApi.add.mock.calls[0]?.[0]).toBe("디바이");
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
+    advanceDebounce(400);
+    await flush();
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
+  });
+
+  it("K10 — typing does not remount the search input", async () => {
+    renderView();
+    await flush();
+    const before = searchInput(container);
+    act(() => {
+      before.focus();
+      setNativeInputValue(before, "ㄷ");
+      setNativeInputValue(before, "디");
+      setNativeInputValue(before, "디바이");
+    });
+    await flush();
+    const after = searchInput(container);
+    expect(after).toBe(before);
+    expect(after.isConnected).toBe(true);
+    expect(after.value).toBe("디바이");
+    expect(document.activeElement).toBe(after);
+  });
+
+  it("K11 — header extras registration is not tied to keyword keystrokes", async () => {
+    renderView();
+    await flush();
+    const extrasAfterMount = extrasRef.current;
+    expect(extrasAfterMount).toBeTruthy();
+    act(() => {
+      setNativeInputValue(searchInput(container), "디");
+      setNativeInputValue(searchInput(container), "디바이");
+    });
+    await flush();
+    expect(extrasRef.current).toBe(extrasAfterMount);
+    const view = readFileSync(resolve(process.cwd(), "components/search/global/GlobalSearchView.tsx"), "utf8");
+    expect(view).toContain("}, [setMainTier1Extras, submitSearch]);");
+    expect(view).not.toMatch(/\[setMainTier1Extras, keyword/);
+    expect(view).not.toContain("composingRef");
+    expect(view).not.toContain("setInputComposing");
+    expect(view).not.toContain("onComposingChange");
+    expect(view).not.toContain("onCompositionCommit");
+  });
+
+  it("button submit uses the same one-search contract", async () => {
+    beginDebounceClock();
+    renderView();
+    await flush();
+    act(() => {
+      setNativeInputValue(searchInput(container), "디바이");
+    });
+    await flush();
+    act(() => {
+      container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+    });
+    await flush();
+    expect(routerApi.replace).toHaveBeenCalledTimes(1);
+    expect(recentApi.add).toHaveBeenCalledTimes(1);
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
+    advanceDebounce(400);
+    await flush();
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
+  });
+
+  it("recent click uses canonical submitSearch", async () => {
+    recentApi.get.mockReturnValue([{ keyword: "디바이", createdAt: "2026-01-01T00:00:00.000Z" }]);
+    beginDebounceClock();
+    renderView();
+    await flush();
+    const recentBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "디바이");
+    expect(recentBtn).toBeTruthy();
+    act(() => {
+      recentBtn?.click();
+    });
+    await flush();
+    expect(routerApi.replace).toHaveBeenCalledTimes(1);
+    expect(routerApi.replace.mock.calls[0]?.[0]).toBe(`/search?q=${encodeURIComponent("디바이")}`);
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
+    advanceDebounce(400);
+    await flush();
+    expect(adapterFns.community).toHaveBeenCalledTimes(1);
   });
 
   it("S3b — after 디바이, other query, then 디바이 again still searches", async () => {
@@ -480,38 +466,5 @@ describe("global search IME / submit contract", () => {
     await flush();
     expect(adapterFns.community).toHaveBeenCalledTimes(1);
     expect(adapterFns.community.mock.calls[0]?.[0]).toBe("디바이");
-  });
-
-  it("S4 — compositionend 디바이 then immediate submit: cancel pending debounce, search = 1", async () => {
-    beginDebounceClock();
-    renderView();
-    await flush();
-    act(() => {
-      searchInput(container).dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-    });
-    await flush();
-    act(() => {
-      setNativeInputValue(searchInput(container), "디바이", true);
-    });
-    await flush();
-    act(() => {
-      searchInput(container).dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "디바이" }));
-    });
-    await flush();
-    expect(searchInput(container).value).toBe("디바이");
-    expect(adapterFns.community).not.toHaveBeenCalled();
-
-    act(() => {
-      searchInput(container).form?.requestSubmit();
-    });
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    expect(adapterFns.community.mock.calls[0]?.[0]).toBe("디바이");
-    advanceDebounce(400);
-    await flush();
-    expect(adapterFns.community).toHaveBeenCalledTimes(1);
-    expect(adapterFns.trade).toHaveBeenCalledTimes(1);
-    expect(adapterFns.delivery).toHaveBeenCalledTimes(1);
-    expect(adapterFns.chat).toHaveBeenCalledTimes(1);
   });
 });

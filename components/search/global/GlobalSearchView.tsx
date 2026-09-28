@@ -52,6 +52,45 @@ function globalSearchHref(q: string): string {
   return keyword ? `/search?q=${encodeURIComponent(keyword)}` : "/search";
 }
 
+function GlobalSearchStickyInput({
+  onKeywordChange,
+  submitSearch,
+}: {
+  onKeywordChange: (value: string) => void;
+  submitSearch: (keyword: string) => void;
+}) {
+  const { safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const queryFromUrl = trimGlobalSearchQuery(searchParams.get("q"));
+  const [value, setValue] = useState(queryFromUrl);
+
+  useEffect(() => {
+    setValue(queryFromUrl);
+  }, [queryFromUrl]);
+
+  return (
+    <div className="border-b border-sam-border bg-[var(--sub-bg)]">
+      <div className="flex h-12 items-center gap-2 px-4 py-1.5">
+        <div className="min-w-0 flex-1">
+          <SearchInputBar
+            value={value}
+            onChange={(next) => {
+              setValue(next);
+              onKeywordChange(next);
+            }}
+            onSubmit={submitSearch}
+            placeholder={safeT("global_search_placeholder", {
+              fallbackKo: "커뮤니티, 거래, 배달, 채팅 검색",
+              fallbackEn: "Search community, market, delivery, chat",
+            })}
+            autoFocus
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChatKindSection({
   title,
   hits,
@@ -99,7 +138,7 @@ function ChatKindSection({
 }
 
 export function GlobalSearchView() {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -107,10 +146,8 @@ export function GlobalSearchView() {
   const { scope } = useTradeMarketplaceLocationHydrate();
   const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
   const coordinatorRef = useRef(createGlobalSearchCoordinator());
-  const composingRef = useRef(false);
   const lastImmediateQueryRef = useRef<string | null>(null);
   const [keyword, setKeyword] = useState(queryFromUrl);
-  const [composing, setComposing] = useState(false);
   const [recents, setRecents] = useState<GlobalRecentSearch[]>([]);
   const [communityStatus, setCommunityStatus] = useState<DomainLoad>("idle");
   const [tradeStatus, setTradeStatus] = useState<DomainLoad>("idle");
@@ -130,13 +167,7 @@ export function GlobalSearchView() {
   );
   useDeliveryListScrollRestore(listScrollRouteKey, showResults);
 
-  const setInputComposing = useCallback((next: boolean) => {
-    composingRef.current = next;
-    setComposing(next);
-  }, []);
-
   useEffect(() => {
-    if (composingRef.current) return;
     setKeyword(queryFromUrl);
   }, [queryFromUrl]);
 
@@ -266,7 +297,6 @@ export function GlobalSearchView() {
   const submitSearch = useCallback(
     (raw: string) => {
       coordinatorRef.current.cancel();
-      if (composingRef.current) return;
       const next = trimGlobalSearchQuery(raw);
       if (!next) return;
       lastImmediateQueryRef.current = next;
@@ -278,10 +308,6 @@ export function GlobalSearchView() {
   );
 
   useEffect(() => {
-    if (composing) {
-      coordinatorRef.current.cancel();
-      return;
-    }
     const q = trimGlobalSearchQuery(keyword);
     if (q && lastImmediateQueryRef.current === q) {
       lastImmediateQueryRef.current = null;
@@ -307,7 +333,7 @@ export function GlobalSearchView() {
     return () => {
       coordinatorRef.current.cancel();
     };
-  }, [keyword, composing, runSearch]);
+  }, [keyword, runSearch]);
 
   useEffect(() => {
     if (tradeStatus === "ok" && activeQuery) {
@@ -319,28 +345,11 @@ export function GlobalSearchView() {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       stickyBelow: (
-        <div className="border-b border-sam-border bg-[var(--sub-bg)]">
-          <div className="flex h-12 items-center gap-2 px-4 py-1.5">
-            <div className="min-w-0 flex-1">
-              <SearchInputBar
-                value={keyword}
-                onChange={setKeyword}
-                onComposingChange={setInputComposing}
-                onCompositionCommit={setKeyword}
-                onSubmit={submitSearch}
-                placeholder={safeT("global_search_placeholder", {
-                  fallbackKo: "커뮤니티, 거래, 배달, 채팅 검색",
-                  fallbackEn: "Search community, market, delivery, chat",
-                })}
-                autoFocus
-              />
-            </div>
-          </div>
-        </div>
+        <GlobalSearchStickyInput onKeywordChange={setKeyword} submitSearch={submitSearch} />
       ),
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, keyword, submitSearch, setInputComposing, safeT]);
+  }, [setMainTier1Extras, submitSearch]);
 
   const originHref = globalSearchHref(activeQuery);
   const originSearch = activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : "";
