@@ -382,14 +382,12 @@ describe("RESET 2 Scene/Layer domain", () => {
     expect(classifyIntroLayer(defaultImageLayer("img-ghost", 1), assets)).toBe("INVALID_GHOST");
   });
 
-  it("rebuild editor creates IMAGE only after READY media, not before", () => {
-    const editor = readFileSync("components/admin/intro/NewIntroEditor.tsx", "utf8");
-    expect(editor).toContain("addImageLayerToDocument");
-    expect(editor).toContain("applyIntroV3LibraryOutcome");
-    expect(editor).toContain("IntroV3MediaLibrary");
+  it("Rebuild B editor does not author IMAGE layers", () => {
+    const editor = readFileSync("components/admin/intro/IntroEditor/IntroEditor.tsx", "utf8");
+    expect(editor).not.toContain("addImageLayerToDocument");
+    expect(editor).not.toContain("IntroV3MediaLibrary");
     expect(editor).not.toContain('addElement("IMAGE")');
     expect(editor).not.toContain("defaultImageLayer");
-    expect(editor).not.toContain("adaptOperatorDraftToCanonical(");
     expect(editor).not.toContain("AdminIntroCmsEditorPage");
   });
 });

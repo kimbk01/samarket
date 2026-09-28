@@ -1,7 +1,8 @@
 import { introV3CampaignSource, type IntroV3Document, type IntroV3Scene } from "@/lib/startup/intro-v3/document";
 import { defaultIntroV3SceneTransition } from "@/lib/startup/intro-v3/motion";
 
-export const INTRO_V3_SEED_BACKGROUND_COLOR = "#0B5F3A";
+/** Operator-changeable default. Not a brand lock. */
+export const INTRO_V3_SEED_BACKGROUND_COLOR = "#111111";
 export const INTRO_V3_SEED_HOLD_MS = 3200;
 export const INTRO_V3_SEED_TRANSITION_MS = 300;
 

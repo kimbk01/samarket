@@ -5,13 +5,13 @@ import { createIntroV3SeedDocument } from "@/lib/startup/intro-v3/seed";
 import { validateIntroV3Document } from "@/lib/startup/intro-v3/validation";
 
 describe("intro-v3 document seed", () => {
-  it("seeds exactly one Scene with green COLOR background, TIMER 3200, FADE 300, zero IMAGE layers", () => {
+  it("seeds exactly one Scene with COLOR background, TIMER 3200, FADE 300, zero IMAGE layers", () => {
     const doc = createIntroV3SeedDocument({ sceneId: "scene-1" });
     expect(doc.schemaVersion).toBe(3);
     expect(doc.scenes).toHaveLength(1);
     const scene = doc.scenes[0]!;
     expect(scene.id).toBe("scene-1");
-    expect(scene.background).toEqual({ type: "COLOR", color: "#0B5F3A" });
+    expect(scene.background).toEqual({ type: "COLOR", color: "#111111" });
     expect(scene.advance).toBe("TIMER");
     expect(scene.holdMs).toBe(3200);
     expect(scene.transition.preset).toBe("FADE");

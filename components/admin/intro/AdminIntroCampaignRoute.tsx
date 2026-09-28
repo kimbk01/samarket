@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IntroEditor } from "@/components/admin/intro/IntroEditor/IntroEditor";
 import { AdminIntroLegacyReadOnly } from "@/components/admin/intro/AdminIntroLegacyReadOnly";
-import { NewIntroEditor } from "@/components/admin/intro/NewIntroEditor";
 
 export function AdminIntroCampaignRoute({ campaignId }: { campaignId: string }) {
   const [mode, setMode] = useState<"loading" | "v3" | "legacy" | "missing">("loading");
@@ -36,6 +36,6 @@ export function AdminIntroCampaignRoute({ campaignId }: { campaignId: string }) 
   if (mode === "missing") {
     return <div className="sam-text-body text-sam-muted" data-intro-route-missing="1" />;
   }
-  if (mode === "v3") return <NewIntroEditor campaignId={campaignId} />;
+  if (mode === "v3") return <IntroEditor campaignId={campaignId} />;
   return <AdminIntroLegacyReadOnly campaignId={campaignId} />;
 }

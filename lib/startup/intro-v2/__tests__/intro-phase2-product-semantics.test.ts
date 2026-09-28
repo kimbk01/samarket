@@ -2,7 +2,7 @@
  * @vitest-environment node
  * Phase 2 reopen — product semantics. Green geometry is not enough.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   applyIntroCmsSaveResult,
@@ -257,15 +257,8 @@ describe("Intro Phase 2 product semantics", () => {
     expect(inferOperatorAnimationPreset(undefined)).toBe("none");
   });
 
-  it("Admin canvas dropped the 320×520 inner-composition letterbox", () => {
-    const canvas = readFileSync("components/admin/intro/AdminIntroCompositionCanvas.tsx", "utf8");
-    expect(canvas).toContain("introCmsDisplayFit");
-    expect(canvas).toContain("transformLayerToRect");
-    expect(canvas).toContain("introCmsPreviewFrame");
-    expect(canvas).toContain('data-intro-inner-composition="none"');
-    expect(canvas).not.toContain("computeContainedCreativeRect");
-    expect(canvas).not.toContain("320 / frame.width");
-    expect(canvas).not.toContain("520 / frame.height");
+  it("rejected CMS composition canvas is demolished", () => {
+    expect(existsSync("components/admin/intro/AdminIntroCompositionCanvas.tsx")).toBe(false);
   });
 
   it("Late image upload attaches to the intended layer and does not steal a later TEXT selection", () => {
@@ -295,15 +288,11 @@ describe("Intro Phase 2 product semantics", () => {
     expect(freshImage.targetLayerId).toBe("img-1");
   });
 
-  it("Owner rebuild editor presents scenes, canvas, and add-image — not the rejected CMS shell", () => {
-    const editor = readFileSync("components/admin/intro/NewIntroEditor.tsx", "utf8");
-    expect(editor).toContain('data-intro-editor="rebuild-v3"');
-    expect(editor).toContain("data-intro-storyboard");
-    expect(editor).toContain("data-intro-add-image");
-    expect(editor).toContain("data-intro-properties");
+  it("Owner Rebuild B editor is the foundation shell, not Media Library or CMS", () => {
+    const editor = readFileSync("components/admin/intro/IntroEditor/IntroEditor.tsx", "utf8");
+    expect(editor).toContain('data-intro-editor="foundation-b"');
     expect(editor).toContain("data-intro-topbar");
-    expect(editor).toContain("IntroEditorCanvas");
-    expect(editor).toContain("IntroV3MediaLibrary");
+    expect(editor).not.toContain("IntroV3MediaLibrary");
     expect(editor).not.toContain('data-intro-editor="cms-v1"');
     expect(editor).not.toContain("/api/admin/intro-campaigns/upload-image");
     expect(editor).not.toContain("/api/admin/startup-config/upload-image");

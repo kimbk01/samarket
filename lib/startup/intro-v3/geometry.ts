@@ -12,7 +12,6 @@ import {
   type IntroViewportSize,
 } from "@/lib/startup/intro-v2/geometry";
 import type { IntroLayerAnchor } from "@/lib/startup/intro-v2/types";
-import { INTRO_EDITOR_LOGICAL_ASPECT } from "@/lib/startup/intro-v3/editor-canvas-fit";
 
 export {
   INTRO_GEOMETRY_SSOT,
@@ -30,9 +29,6 @@ export {
 } from "@/lib/startup/intro-v2/geometry";
 
 export const INTRO_V3_GEOMETRY_SSOT = "SCENE_NORMALIZED_PCT" as const;
-
-/** Max occupancy of the Scene for a newly inserted IMAGE. Not a poster size. */
-export const INTRO_V3_INITIAL_IMAGE_OCCUPANCY_PCT = 72;
 
 export const INTRO_V3_ANCHORS = [
   "top-left",
@@ -64,30 +60,22 @@ export type IntroV3Geometry = {
 const CSS_PERSIST_RE = /(\d+(\.\d+)?)(px|rem|em|vw|vh|%)|calc\(|translate|matrix/i;
 
 /**
- * Initial IMAGE box from intrinsic media ratio.
- *
- * sceneAspect = logicalW / logicalH (default 9/16)
- * mediaAspect = mediaW / mediaH
- *
- * In Scene % space, visual aspect is preserved when:
- *   widthPct / heightPct = mediaAspect / sceneAspect
- *
- * Occupancy: the larger axis is min(maxOccupancyPct, the other-axis-derived size).
- * fit = CONTAIN · anchor = middle-center · position = center.
- * Does not crop, stretch, or assume 1080×1350.
+ * Contain media in the Scene surface (full available region).
+ * Surface size is the Scene at that moment — not a locked 9:16 / 4:5 / occupancy %.
  */
 export function initialIntroV3ImageGeometry(input: {
   mediaWidth: number;
   mediaHeight: number;
-  sceneAspect?: number;
-  maxOccupancyPct?: number;
+  surfaceWidth?: number;
+  surfaceHeight?: number;
 }): IntroV3Geometry {
-  const occupancy = input.maxOccupancyPct ?? INTRO_V3_INITIAL_IMAGE_OCCUPANCY_PCT;
-  const sceneAspect = input.sceneAspect ?? INTRO_EDITOR_LOGICAL_ASPECT;
+  const surfaceW = input.surfaceWidth && input.surfaceWidth > 0 ? input.surfaceWidth : input.mediaWidth || 1;
+  const surfaceH = input.surfaceHeight && input.surfaceHeight > 0 ? input.surfaceHeight : input.mediaHeight || 1;
+  const sceneAspect = surfaceW / surfaceH;
   const mediaAspect =
     input.mediaWidth > 0 && input.mediaHeight > 0 ? input.mediaWidth / input.mediaHeight : 1;
-  const widthPct = Math.min(occupancy, occupancy * (mediaAspect / sceneAspect));
-  const heightPct = Math.min(occupancy, occupancy * (sceneAspect / mediaAspect));
+  const widthPct = Math.min(100, 100 * (mediaAspect / sceneAspect));
+  const heightPct = Math.min(100, 100 * (sceneAspect / mediaAspect));
   return {
     xPct: 50,
     yPct: 50,
@@ -99,9 +87,8 @@ export function initialIntroV3ImageGeometry(input: {
   };
 }
 
-/** Parse fallback when intrinsic media size is unknown (square media in 9:16 Scene). */
 export function defaultIntroV3ImageGeometry(): IntroV3Geometry {
-  return initialIntroV3ImageGeometry({ mediaWidth: 1, mediaHeight: 1 });
+  return initialIntroV3ImageGeometry({ mediaWidth: 1, mediaHeight: 1, surfaceWidth: 1, surfaceHeight: 1 });
 }
 
 export function defaultIntroV3LogoGeometry(): IntroV3Geometry {

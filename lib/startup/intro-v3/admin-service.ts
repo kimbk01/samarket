@@ -141,7 +141,8 @@ export async function saveIntroV3Document(
   sb: IntroV3AdminDb,
   id: string,
   adminUserId: string,
-  documentRaw: unknown
+  documentRaw: unknown,
+  extra?: { name?: string }
 ): Promise<
   | { ok: true; campaign: IntroV3CampaignRow }
   | { ok: false; error: string; httpStatus: number; issues?: ReturnType<typeof validateIntroV3Document>["issues"] }
@@ -154,9 +155,11 @@ export async function saveIntroV3Document(
   }
   const { data: row } = await sb.from("intro_campaigns").select("source").eq("id", id).maybeSingle();
   const previous = asSource((row ?? {}) as Record<string, unknown>);
+  const nextName = typeof extra?.name === "string" ? extra.name.trim() : "";
   const { error } = await sb
     .from("intro_campaigns")
     .update({
+      ...(nextName ? { name: nextName } : {}),
       source: { ...previous, introV3: true, v3: validated.document },
       updated_by: adminUserId,
     })

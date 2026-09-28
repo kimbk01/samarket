@@ -150,6 +150,8 @@ export const adminIntroMessages = {
     admin_intro_advance_mode: "다음 장면",
     admin_intro_scene_transition: "전환",
     admin_intro_enter_motion: "등장 모션",
+    admin_intro_add_scene_later: "+ 장면 (이후)",
+    admin_intro_scene_one: "Scene 1",
   },
   en: {
     admin_menu_promotion_intro: "Intro",
@@ -300,5 +302,7 @@ export const adminIntroMessages = {
     admin_intro_advance_mode: "Advance",
     admin_intro_scene_transition: "Transition",
     admin_intro_enter_motion: "Enter motion",
+    admin_intro_add_scene_later: "+ Scene (later)",
+    admin_intro_scene_one: "Scene 1",
   },
 } as const;

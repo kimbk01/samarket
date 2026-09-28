@@ -895,19 +895,19 @@ describe("composer reconstruction contract", () => {
   it("routes the rebuild editor and keeps leftover Composer/Operator unrouted", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
     const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
-    const dest = read("components/admin/intro/AdminIntroCmsCtaDestinationFields.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
     const catalog = read("lib/i18n/catalog/admin-intro.ts");
     const backend = read("lib/startup/intro-v2/compat-publish.ts");
     expect(route).toContain("AdminIntroCampaignRoute");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
-    expect(gate).toContain("NewIntroEditor");
+    expect(gate).toContain("IntroEditor");
+    expect(gate).not.toContain("NewIntroEditor");
     expect(gate).not.toContain("AdminIntroCmsEditorPage");
     expect(gate).not.toContain("IntroV3OpenNotice");
     expect(gate).not.toContain("AdminIntroOperatorForm");
     expect(gate).not.toContain("AdminIntroEditorPage");
-    expect(dest).toContain("INTRO_CTA_DESTINATION_TYPES");
+    expect(read("lib/startup/intro-v2/cta.ts")).toContain("INTRO_CTA_DESTINATION_TYPES");
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);

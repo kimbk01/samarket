@@ -48,7 +48,7 @@ describe("Phase 1 CMS editor route authority", () => {
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
     expect(route).not.toContain("AdminIntroCmsEditorPage");
-    expect(gate).toContain("NewIntroEditor");
+    expect(gate).toContain("IntroEditor");
     expect(gate).toContain("AdminIntroLegacyReadOnly");
     expect(gate).not.toContain("AdminIntroCmsEditorPage");
     expect(gate).not.toContain("IntroV3OpenNotice");

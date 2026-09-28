@@ -29,8 +29,10 @@ export async function PATCH(
   const ctx = await requireIntroAdminContext();
   if (!ctx.ok) return ctx.response;
   const { campaignId } = await params;
-  const body = (await req.json().catch(() => ({}))) as { document?: unknown };
-  const saved = await saveIntroV3Document(ctx.sb, campaignId, ctx.userId, body.document);
+  const body = (await req.json().catch(() => ({}))) as { document?: unknown; name?: string };
+  const saved = await saveIntroV3Document(ctx.sb, campaignId, ctx.userId, body.document, {
+    name: body.name,
+  });
   if (!saved.ok) {
     return NextResponse.json(
       { ok: false, error: saved.error, issues: saved.issues ?? [] },

@@ -22,11 +22,17 @@ describe("intro-v3 geometry", () => {
     expect(normalizeIntroV3Geometry({ ...defaultIntroV3ImageGeometry(), widthPx: 320 })).toBeNull();
   });
 
-  it("initial IMAGE placement preserves intrinsic aspect inside occupancy", () => {
-    const geo = initialIntroV3ImageGeometry({ mediaWidth: 1080, mediaHeight: 1920 });
+  it("initial IMAGE placement contains intrinsic aspect in the Scene surface without occupancy %", () => {
+    const geo = initialIntroV3ImageGeometry({
+      mediaWidth: 1600,
+      mediaHeight: 900,
+      surfaceWidth: 900,
+      surfaceHeight: 1600,
+    });
     expect(geo.fit).toBe("CONTAIN");
-    expect(geo.widthPct).toBe(72);
-    expect(geo.heightPct).toBe(72);
+    expect(geo.widthPct).toBe(100);
+    expect(geo.heightPct).toBe(31.6);
+    expect(geo.widthPct).not.toBe(72);
   });
 
   it("rejects STRETCH", () => {
