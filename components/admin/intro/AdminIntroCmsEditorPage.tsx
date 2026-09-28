@@ -57,7 +57,8 @@ import {
   introLockedWidthPct,
   introMediaAspectRatio,
 } from "@/lib/startup/intro-v2/geometry";
-import { isSupportedIntroImageMime } from "@/lib/startup/intro-operator-contract";
+import { prepareIntroAdminUploadFile } from "@/lib/startup/intro-v2/admin-upload-client";
+import { mapIntroUploadError } from "@/lib/startup/intro-v2/admin-upload";
 import {
   INTRO_ADMIN_DEVICE_CHIPS,
   buildAdminTargeting,
@@ -574,62 +575,55 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
 
   const onUpload = async (file: File) => {
     if (!campaignRef.current) return;
-    if (!isSupportedIntroImageMime(file.type)) {
-      setError(lang === "en" ? "Use PNG, JPG, or static WebP." : "PNG, JPG, 정적 WebP만 사용할 수 있습니다.");
-      return;
-    }
     const intent = uploadIntentRef.current;
-    setUploading(true);
-    const latest = campaignRef.current;
-    const existing = latest.assets.find((asset) => asset.publicUrl && asset.bytes === file.size);
-    const fd = new FormData();
-    fd.set("kind", intent === "logo" ? "logo" : "background");
-    fd.set("file", file);
-    const up = await fetch("/api/admin/startup-config/upload-image", {
-      method: "POST",
-      credentials: "same-origin",
-      body: fd,
-    });
-    const upJson = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string };
-    if (!up.ok || !upJson.ok || !upJson.url) {
-      setUploading(false);
-      setError(lang === "en" ? "Upload failed." : "업로드에 실패했습니다.");
-      return;
-    }
-    const reused =
-      campaignRef.current?.assets.find((asset) => asset.publicUrl === upJson.url) ?? existing;
-    if (reused) {
-      attachUploadedAsset(reused, intent);
-      setUploading(false);
-      setError(null);
-      return;
-    }
-    const probe = await new Promise<{ width: number; height: number } | null>((resolve) => {
-      const image = new window.Image();
-      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-      image.onerror = () => resolve(null);
-      image.src = upJson.url!;
-    });
-    const reg = await fetch("/api/admin/intro-campaigns/assets", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicUrl: upJson.url,
-        mime: file.type,
-        bytes: file.size,
-        width: probe?.width ?? null,
-        height: probe?.height ?? null,
-      }),
-    });
-    const regJson = (await reg.json().catch(() => ({}))) as { ok?: boolean; asset?: IntroAdminAsset };
-    setUploading(false);
-    if (!reg.ok || !regJson.ok || !regJson.asset) {
-      setError(lang === "en" ? "Could not keep the image." : "이미지를 저장하지 못했습니다.");
-      return;
-    }
-    attachUploadedAsset(regJson.asset, intent);
     setError(null);
+    setUploading(true);
+    try {
+      const prepared = await prepareIntroAdminUploadFile(file);
+      if (!prepared.ok) {
+        setError(mapIntroUploadError(prepared.error, lang));
+        return;
+      }
+      const fd = new FormData();
+      fd.set("file", prepared.value.file);
+      if (prepared.value.width) fd.set("width", String(prepared.value.width));
+      if (prepared.value.height) fd.set("height", String(prepared.value.height));
+      const up = await fetch("/api/admin/intro-campaigns/upload-image", {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd,
+      });
+      const upJson = (await up.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+        asset?: IntroAdminAsset;
+      };
+      if (up.status === 413) {
+        setError(mapIntroUploadError("file_too_large", lang));
+        return;
+      }
+      if (!up.ok || !upJson.ok) {
+        setError(mapIntroUploadError(upJson.error, lang));
+        return;
+      }
+      const reused = campaignRef.current?.assets.find((asset) => asset.publicUrl === upJson.url);
+      if (reused) {
+        attachUploadedAsset(reused, intent);
+        setError(null);
+        return;
+      }
+      if (!upJson.asset) {
+        setError(lang === "en" ? "Could not keep the image." : "이미지를 저장하지 못했습니다.");
+        return;
+      }
+      attachUploadedAsset(upJson.asset, intent);
+      setError(null);
+    } catch {
+      setError(mapIntroUploadError("upload_failed", lang));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const publish = async () => {
