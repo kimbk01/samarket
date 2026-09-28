@@ -7,12 +7,24 @@ import { SearchInputBar } from "@/components/search/SearchInputBar";
 import { CommunityPostCard } from "@/components/community/CommunityPostCard";
 import { ProductCard } from "@/components/product/ProductCard";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
 import { closeGlobalSearch } from "@/lib/search/global/global-search-navigation-ssot";
 import { createGlobalSearchCoordinator, trimGlobalSearchQuery } from "@/lib/search/global/coordinate-search";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
+import {
+  orderGlobalSearchDomains,
+  readGlobalSearchEntryDomain,
+  type GlobalSearchEntryDomain,
+} from "@/lib/search/global/semantics/entry-domain";
+import {
+  matchDeliveryMenuGlobalSearch,
+  matchDeliveryStoreGlobalSearch,
+} from "@/lib/search/global/semantics/domain-fields";
+import { buildMatchedSnippet } from "@/lib/search/global/semantics/match";
 import {
   addGlobalRecentSearch,
   getGlobalRecentSearches,
@@ -133,10 +145,12 @@ function GlobalSearchStickyInput({
 function ChatKindSection({
   title,
   hits,
+  query,
   onOpen,
 }: {
   title: string;
   hits: GlobalSearchChatHit[];
+  query: string;
   onOpen: (hit: GlobalSearchChatHit) => void;
 }) {
   if (hits.length === 0) return null;
@@ -159,13 +173,25 @@ function ChatKindSection({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="truncate sam-text-body font-semibold text-sam-fg">{hit.room.title}</p>
+                  <p className="truncate sam-text-body font-semibold text-sam-fg">
+                    {hit.matchedField === "title" ? (
+                      <SearchHighlightText text={hit.room.title} query={query} />
+                    ) : (
+                      hit.room.title
+                    )}
+                  </p>
                   <span className="shrink-0 rounded-full bg-sam-primary-soft px-1.5 py-0.5 sam-text-xxs text-sam-primary">
                     {getRoomTypeBadgeLabel(hit.room)}
                   </span>
                 </div>
                 {hit.preview ? (
-                  <p className="mt-0.5 truncate sam-text-helper text-sam-muted">{hit.preview}</p>
+                  <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
+                    {hit.matchedField !== "title" ? (
+                      <SearchHighlightText text={hit.preview} query={query} />
+                    ) : (
+                      hit.preview
+                    )}
+                  </p>
                 ) : null}
               </div>
             </button>
@@ -184,6 +210,8 @@ export function GlobalSearchView() {
   const queryFromUrl = trimGlobalSearchQuery(searchParams.get("q"));
   const { scope } = useTradeMarketplaceLocationHydrate();
   const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
+  const entryDomain = useMemo(() => readGlobalSearchEntryDomain(), []);
+  const domainOrder = useMemo(() => orderGlobalSearchDomains(entryDomain), [entryDomain]);
   const coordinatorRef = useRef(createGlobalSearchCoordinator());
   const lastImmediateQueryRef = useRef<string | null>(null);
   const [keyword, setKeyword] = useState(queryFromUrl);
@@ -199,7 +227,8 @@ export function GlobalSearchView() {
   const [chatHits, setChatHits] = useState<GlobalSearchChatHit[]>([]);
 
   const activeQuery = trimGlobalSearchQuery(keyword);
-  const showResults = activeQuery.length > 0;
+  const searchableQuery = isSearchableGlobalQuery(activeQuery);
+  const showResults = searchableQuery;
   const listScrollRouteKey = useMemo(
     () => buildDeliveryListScrollRouteKey("/search", activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : ""),
     [activeQuery]
@@ -227,7 +256,7 @@ export function GlobalSearchView() {
   const runSearch = useCallback(
     async (raw: string) => {
       const q = trimGlobalSearchQuery(raw);
-      if (!q) {
+      if (!q || !isSearchableGlobalQuery(q)) {
         coordinatorRef.current.cancel();
         setCommunityStatus("idle");
         setTradeStatus("idle");
@@ -337,7 +366,7 @@ export function GlobalSearchView() {
     (raw: string) => {
       coordinatorRef.current.cancel();
       const next = trimGlobalSearchQuery(raw);
-      if (!next) return;
+      if (!next || !isSearchableGlobalQuery(next)) return;
       lastImmediateQueryRef.current = next;
       setKeyword(next);
       commitUrl(next);
@@ -357,7 +386,7 @@ export function GlobalSearchView() {
       return;
     }
     lastImmediateQueryRef.current = null;
-    if (!q) {
+    if (!q || !isSearchableGlobalQuery(q)) {
       coordinatorRef.current.cancel();
       setCommunityStatus("idle");
       setTradeStatus("idle");
@@ -459,7 +488,7 @@ export function GlobalSearchView() {
   const retryDomain = useCallback(
     (domain: "community" | "trade" | "delivery" | "chat") => {
       const q = activeQuery;
-      if (!q) return;
+      if (!q || !isSearchableGlobalQuery(q)) return;
       if (domain === "community") {
         setCommunityStatus("loading");
         void searchCommunityForGlobal(q, new AbortController().signal)
@@ -551,8 +580,242 @@ export function GlobalSearchView() {
   );
   const globalEmpty = showResults && allSettled && !anyHits && !anyError;
 
+  const renderDomain = (domain: GlobalSearchEntryDomain) => {
+    if (domain === "community") {
+      if (communityStatus === "loading") {
+        return (
+          <section key="community" data-global-search-section="community" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
+            <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
+          </section>
+        );
+      }
+      if (communityStatus === "error") {
+        return (
+          <section key="community" data-global-search-section="community" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
+            <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("community")}>
+              {t("common_retry")}
+            </button>
+          </section>
+        );
+      }
+      if (communityPosts.length === 0) return null;
+      return (
+        <section key="community" data-global-search-section="community" className="space-y-2">
+          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
+          <ul className="space-y-2">
+            {communityPosts.map((post) => (
+              <li key={post.id}>
+                <CommunityPostCard post={post} highlightQuery={activeQuery} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    }
+
+    if (domain === "trade") {
+      if (tradeStatus === "loading") {
+        return (
+          <section key="trade" data-global-search-section="trade" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
+            <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
+          </section>
+        );
+      }
+      if (tradeStatus === "error") {
+        return (
+          <section key="trade" data-global-search-section="trade" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
+            <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("trade")}>
+              {t("common_retry")}
+            </button>
+          </section>
+        );
+      }
+      if (tradeProducts.length === 0) return null;
+      return (
+        <section key="trade" data-global-search-section="trade" className="space-y-2">
+          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
+          <ul className="space-y-2">
+            {tradeProducts.map((product) => (
+              <li key={product.id}>
+                <ProductCard product={product} highlightQuery={activeQuery} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    }
+
+    if (domain === "delivery") {
+      if (deliveryStatus === "loading") {
+        return (
+          <section key="delivery" data-global-search-section="delivery" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_delivery_store")}</h2>
+            <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
+          </section>
+        );
+      }
+      if (deliveryStatus === "error") {
+        return (
+          <section key="delivery" data-global-search-section="delivery" className="space-y-2">
+            <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_delivery_store")}</h2>
+            <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("delivery")}>
+              {t("common_retry")}
+            </button>
+          </section>
+        );
+      }
+      if (deliveryStores.length === 0 && deliveryMenus.length === 0) return null;
+      return (
+        <div key="delivery" className="space-y-6">
+          {deliveryStores.length > 0 ? (
+            <section data-global-search-section="delivery-store" className="space-y-2">
+              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
+                {t("global_search_section_delivery_store")}
+              </h2>
+              <ul className="space-y-2">
+                {deliveryStores.map((s) => {
+                  const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+                    distanceOutOfRange: s.distanceOutOfRange === true,
+                    maxDeliveryDistanceKm: s.maxDeliveryDistanceKm,
+                    labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
+                    labelGeneric: t("store_delivery_distance_out_of_range"),
+                  });
+                  const storeMatch = matchDeliveryStoreGlobalSearch(s, activeQuery);
+                  const descSnippet =
+                    storeMatch.matchedField === "description"
+                      ? buildMatchedSnippet(s.description ?? "", activeQuery)
+                      : null;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => onClickStore(s.slug)}
+                        className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left active:scale-[0.98]"
+                      >
+                        <SamarketThumbnail
+                          src={s.profile_image_url}
+                          size={48}
+                          roundedClassName="rounded-ui-rect"
+                          className="bg-sam-surface-muted"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate sam-text-body font-semibold text-sam-fg">
+                            {storeMatch.matchedField === "store_name" ? (
+                              <SearchHighlightText text={s.store_name} query={activeQuery} />
+                            ) : (
+                              s.store_name
+                            )}
+                          </p>
+                          {descSnippet ? (
+                            <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">
+                              <SearchHighlightText text={descSnippet} query={activeQuery} />
+                            </p>
+                          ) : s.description ? (
+                            <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">{s.description}</p>
+                          ) : null}
+                          {outOfRangeLabel ? (
+                            <p className="mt-1 sam-text-helper font-semibold text-sam-warning">{outOfRangeLabel}</p>
+                          ) : null}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+          {deliveryMenus.length > 0 ? (
+            <section data-global-search-section="delivery-menu" className="space-y-2">
+              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
+                {t("global_search_section_delivery_menu")}
+              </h2>
+              <ul className="space-y-2">
+                {deliveryMenus.map((m) => {
+                  const menuMatch = matchDeliveryMenuGlobalSearch(m, activeQuery);
+                  const summarySnippet =
+                    menuMatch.matchedField === "summary"
+                      ? buildMatchedSnippet(m.summary ?? "", activeQuery)
+                      : null;
+                  return (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => onClickMenu(m)}
+                        className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left active:scale-[0.98]"
+                      >
+                        <SamarketThumbnail
+                          src={m.thumbnail_url}
+                          size={48}
+                          roundedClassName="rounded-ui-rect"
+                          className="bg-sam-surface-muted"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate sam-text-body font-semibold text-sam-fg">
+                            {menuMatch.matchedField === "title" ? (
+                              <SearchHighlightText text={m.title} query={activeQuery} />
+                            ) : (
+                              m.title
+                            )}
+                          </p>
+                          {summarySnippet ? (
+                            <p className="mt-0.5 truncate sam-text-body text-sam-muted">
+                              <SearchHighlightText text={summarySnippet} query={activeQuery} />
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (chatStatus === "loading") {
+      return (
+        <section key="chat" data-global-search-section="chat" className="space-y-2">
+          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
+          <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
+        </section>
+      );
+    }
+    if (chatStatus === "error") {
+      return (
+        <section key="chat" data-global-search-section="chat" className="space-y-2">
+          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
+          <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("chat")}>
+            {t("common_retry")}
+          </button>
+        </section>
+      );
+    }
+    if (chatHits.length === 0) return null;
+    return (
+      <section key="chat" data-global-search-section="chat" className="space-y-4">
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
+        <ChatKindSection title={t("global_search_section_chat_direct")} hits={chatByKind.direct} query={activeQuery} onOpen={onOpenChat} />
+        <ChatKindSection title={t("global_search_section_chat_group")} hits={chatByKind.group} query={activeQuery} onOpen={onOpenChat} />
+        <ChatKindSection title={t("global_search_section_chat_trade")} hits={chatByKind.trade} query={activeQuery} onOpen={onOpenChat} />
+        <ChatKindSection title={t("global_search_section_chat_order")} hits={chatByKind.order} query={activeQuery} onOpen={onOpenChat} />
+      </section>
+    );
+  };
+
   return (
-    <div className={`mx-auto max-w-lg ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`} data-global-search="true">
+    <div
+      className={`mx-auto max-w-lg ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      data-global-search="true"
+      data-global-search-entry-domain={entryDomain ?? "canonical"}
+    >
       {!showResults ? (
         <div className="space-y-3 px-4 py-4">
           <h2 className="sam-text-body-secondary font-semibold text-sam-muted">{t("global_search_recent")}</h2>
@@ -585,173 +848,14 @@ export function GlobalSearchView() {
           )}
         </div>
       ) : (
-        <div className="space-y-6 px-4 py-4">
+        <div className="space-y-6 px-4 py-4" data-global-search-domain-order={domainOrder.join(",")}>
           {globalEmpty ? (
             <div className="py-10 text-center">
               <p className="sam-text-body font-semibold text-sam-fg">{t("global_search_empty_title")}</p>
               <p className="mt-1 sam-text-body text-sam-muted">{t("global_search_empty_hint")}</p>
             </div>
           ) : null}
-
-          {communityStatus === "loading" ? (
-            <section data-global-search-section="community" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
-              <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
-            </section>
-          ) : communityStatus === "error" ? (
-            <section data-global-search-section="community" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
-              <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("community")}>
-                {t("common_retry")}
-              </button>
-            </section>
-          ) : communityPosts.length > 0 ? (
-            <section data-global-search-section="community" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_community")}</h2>
-              <ul className="space-y-2">
-                {communityPosts.map((post) => (
-                  <li key={post.id}>
-                    <CommunityPostCard post={post} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {tradeStatus === "loading" ? (
-            <section data-global-search-section="trade" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
-              <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
-            </section>
-          ) : tradeStatus === "error" ? (
-            <section data-global-search-section="trade" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
-              <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("trade")}>
-                {t("common_retry")}
-              </button>
-            </section>
-          ) : tradeProducts.length > 0 ? (
-            <section data-global-search-section="trade" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_trade")}</h2>
-              <ul className="space-y-2">
-                {tradeProducts.map((product) => (
-                  <li key={product.id}>
-                    <ProductCard product={product} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {deliveryStatus === "loading" ? (
-            <section data-global-search-section="delivery" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_delivery_store")}</h2>
-              <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
-            </section>
-          ) : deliveryStatus === "error" ? (
-            <section data-global-search-section="delivery" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_delivery_store")}</h2>
-              <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("delivery")}>
-                {t("common_retry")}
-              </button>
-            </section>
-          ) : (
-            <>
-              {deliveryStores.length > 0 ? (
-                <section data-global-search-section="delivery-store" className="space-y-2">
-                  <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
-                    {t("global_search_section_delivery_store")}
-                  </h2>
-                  <ul className="space-y-2">
-                    {deliveryStores.map((s) => {
-                      const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
-                        distanceOutOfRange: s.distanceOutOfRange === true,
-                        maxDeliveryDistanceKm: s.maxDeliveryDistanceKm,
-                        labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
-                        labelGeneric: t("store_delivery_distance_out_of_range"),
-                      });
-                      return (
-                        <li key={s.id}>
-                          <button
-                            type="button"
-                            onClick={() => onClickStore(s.slug)}
-                            className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left active:scale-[0.98]"
-                          >
-                            <SamarketThumbnail
-                              src={s.profile_image_url}
-                              size={48}
-                              roundedClassName="rounded-ui-rect"
-                              className="bg-sam-surface-muted"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
-                              {s.description ? (
-                                <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">{s.description}</p>
-                              ) : null}
-                              {outOfRangeLabel ? (
-                                <p className="mt-1 sam-text-helper font-semibold text-sam-warning">{outOfRangeLabel}</p>
-                              ) : null}
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ) : null}
-              {deliveryMenus.length > 0 ? (
-                <section data-global-search-section="delivery-menu" className="space-y-2">
-                  <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
-                    {t("global_search_section_delivery_menu")}
-                  </h2>
-                  <ul className="space-y-2">
-                    {deliveryMenus.map((m) => (
-                      <li key={m.id}>
-                        <button
-                          type="button"
-                          onClick={() => onClickMenu(m)}
-                          className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left active:scale-[0.98]"
-                        >
-                          <SamarketThumbnail
-                            src={m.thumbnail_url}
-                            size={48}
-                            roundedClassName="rounded-ui-rect"
-                            className="bg-sam-surface-muted"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate sam-text-body font-semibold text-sam-fg">{m.title}</p>
-                            <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </>
-          )}
-
-          {chatStatus === "loading" ? (
-            <section data-global-search-section="chat" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
-              <p className="sam-text-body text-sam-muted">{t("global_search_searching")}</p>
-            </section>
-          ) : chatStatus === "error" ? (
-            <section data-global-search-section="chat" className="space-y-2">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
-              <button type="button" className="sam-text-body font-semibold text-sam-primary" onClick={() => retryDomain("chat")}>
-                {t("common_retry")}
-              </button>
-            </section>
-          ) : chatHits.length > 0 ? (
-            <section data-global-search-section="chat" className="space-y-4">
-              <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("global_search_section_chat")}</h2>
-              <ChatKindSection title={t("global_search_section_chat_direct")} hits={chatByKind.direct} onOpen={onOpenChat} />
-              <ChatKindSection title={t("global_search_section_chat_group")} hits={chatByKind.group} onOpen={onOpenChat} />
-              <ChatKindSection title={t("global_search_section_chat_trade")} hits={chatByKind.trade} onOpen={onOpenChat} />
-              <ChatKindSection title={t("global_search_section_chat_order")} hits={chatByKind.order} onOpen={onOpenChat} />
-            </section>
-          ) : null}
+          {domainOrder.map((domain) => renderDomain(domain))}
         </div>
       )}
     </div>

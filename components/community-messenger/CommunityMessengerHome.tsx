@@ -2323,7 +2323,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => (
       <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
-          onOpenSearch={() => openGlobalSearchFromHere(router)}
+          onOpenSearch={() => openGlobalSearchFromHere(router, { domain: "chat" })}
           onOpenSettings={() => openHomeOverlay("settings")}
         />
       </div>

@@ -7,6 +7,12 @@ import {
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { MessengerRoomListSource } from "@/lib/community-messenger/messenger-entry-origin";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
+import {
+  matchChatGlobalSearch,
+  type GlobalSearchChatField,
+} from "@/lib/search/global/semantics/domain-fields";
+import { buildMatchedSnippet } from "@/lib/search/global/semantics/match";
 
 export type GlobalSearchChatKind = "direct" | "group" | "trade" | "order";
 
@@ -15,6 +21,7 @@ export type GlobalSearchChatHit = {
   kind: GlobalSearchChatKind;
   listSource: MessengerRoomListSource;
   preview: string;
+  matchedField: GlobalSearchChatField;
 };
 
 export type ChatSearchAdapterResult =
@@ -38,29 +45,40 @@ export function listSourceForGlobalSearchChatKind(kind: GlobalSearchChatKind): M
   return "inbox";
 }
 
-function roomMatchesKeyword(room: CommunityMessengerRoomSummary, keyword: string): boolean {
-  const hay = [room.title, room.subtitle, room.summary, room.lastMessage]
-    .join(" ")
-    .toLowerCase();
-  return hay.includes(keyword);
+function roomPreviewForMatch(
+  room: CommunityMessengerRoomSummary,
+  matchedField: GlobalSearchChatField,
+  query: string
+): string {
+  if (matchedField === "title") {
+    return (room.lastMessage || room.summary || room.subtitle || "").trim();
+  }
+  const source =
+    matchedField === "lastMessage"
+      ? room.lastMessage
+      : matchedField === "summary"
+        ? room.summary
+        : room.subtitle;
+  return buildMatchedSnippet(source ?? "", query);
 }
 
 export function filterMembershipRoomsForGlobalSearch(
   rooms: CommunityMessengerRoomSummary[],
   q: string
 ): GlobalSearchChatHit[] {
-  const keyword = q.trim().toLowerCase();
-  if (!keyword) return [];
+  if (!isSearchableGlobalQuery(q)) return [];
   const out: GlobalSearchChatHit[] = [];
   for (const room of rooms) {
     const kind = classifyGlobalSearchChatRoom(room);
     if (!kind) continue;
-    if (!roomMatchesKeyword(room, keyword)) continue;
+    const match = matchChatGlobalSearch(room, q);
+    if (!match.matched || match.matchedField === "NONE") continue;
     out.push({
       room,
       kind,
       listSource: listSourceForGlobalSearchChatKind(kind),
-      preview: (room.lastMessage || room.summary || room.subtitle || "").trim(),
+      preview: roomPreviewForMatch(room, match.matchedField, q),
+      matchedField: match.matchedField,
     });
     if (out.length >= 24) break;
   }
@@ -72,7 +90,7 @@ export async function searchChatForGlobal(
   signal: AbortSignal
 ): Promise<ChatSearchAdapterResult> {
   const keyword = q.trim();
-  if (!keyword) return { ok: true, hits: [], unauthorized: false };
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return { ok: true, hits: [], unauthorized: false };
   try {
     const res = await fetch("/api/community-messenger/rooms", {
       cache: "no-store",

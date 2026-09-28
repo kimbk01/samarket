@@ -128,11 +128,12 @@ describe("global search entry / close / return SSOT", () => {
     const communityTrade = read("components/layout/RegionBarMainHubTier1.tsx");
     const delivery = read("components/stores/home/hub/StoresConsumerHeaderActions.tsx");
     const messenger = read("components/community-messenger/CommunityMessengerHome.tsx");
-    expect(communityTrade).toContain("openGlobalSearchFromHere(router)");
+    expect(communityTrade).toContain('openGlobalSearchFromHere(router, { domain: "community" })');
+    expect(communityTrade).toContain('openGlobalSearchFromHere(router, { domain: "trade" })');
     expect(communityTrade).not.toContain('href="/search"');
-    expect(delivery).toContain("openGlobalSearchFromHere(router)");
+    expect(delivery).toContain('openGlobalSearchFromHere(router, { domain: "delivery" })');
     expect(delivery).not.toContain('href="/search"');
-    expect(messenger).toContain("openGlobalSearchFromHere(router)");
+    expect(messenger).toContain('openGlobalSearchFromHere(router, { domain: "chat" })');
     expect(messenger).not.toContain('router.push("/search")');
   });
 

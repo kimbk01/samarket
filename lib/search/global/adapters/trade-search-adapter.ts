@@ -1,5 +1,7 @@
 import { postsToSearchProducts } from "@/lib/search/post-with-meta-to-product";
 import { GLOBAL_SEARCH_TRADE_API_PATH } from "@/lib/search/global/trade-match-only";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
+import { matchTradeGlobalSearch } from "@/lib/search/global/semantics/domain-fields";
 import {
   appendMarketplaceLocationSearchParams,
   sanitizeMarketplaceQueryText,
@@ -22,7 +24,7 @@ export async function searchTradeForGlobal(
   }
 ): Promise<TradeSearchAdapterResult> {
   const keyword = sanitizeMarketplaceQueryText(q);
-  if (!keyword) return { ok: true, products: [] };
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return { ok: true, products: [] };
   if (!input.canFetch) return { ok: true, products: [] };
   try {
     const params = new URLSearchParams();
@@ -42,7 +44,12 @@ export async function searchTradeForGlobal(
     const json = (await res.json()) as { ok?: boolean; posts?: PostWithMeta[] };
     if (json.ok === false) return { ok: false };
     const posts = Array.isArray(json.posts) ? json.posts : [];
-    return { ok: true, products: postsToSearchProducts(posts) };
+    return {
+      ok: true,
+      products: postsToSearchProducts(posts).filter((product) =>
+        matchTradeGlobalSearch(product.title, keyword).matched
+      ),
+    };
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     return { ok: false };

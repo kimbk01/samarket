@@ -16,12 +16,14 @@ import {
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image";
 import { prefetchTradePostDetailHeroImage } from "@/lib/image/prefetch-trade-detail-hero";
+import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 
 interface ProductCardProps {
   product: Product;
+  highlightQuery?: string;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, highlightQuery }: ProductCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
   const isSold = product.status === "sold";
@@ -75,7 +77,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {formatPrice(product.price)}
           </p>
           <p data-ui4-slot="title" className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
-            {product.title}
+            {highlightQuery ? <SearchHighlightText text={product.title} query={highlightQuery} /> : product.title}
           </p>
           {product.hasPromotionOverlay ? (
             <span

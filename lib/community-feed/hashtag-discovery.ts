@@ -1,4 +1,5 @@
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
+import { matchCommunityGlobalSearch } from "@/lib/search/global/semantics/domain-fields";
 
 /** Normalize URL/query hashtag token (strip #, trim, lower, max 32). */
 export function normalizeCommunityHashtagQuery(raw: string | null | undefined): string {
@@ -62,8 +63,5 @@ export function communityPostTextMatchesKeyword(
   parts: { title?: string | null; content?: string | null; summary?: string | null },
   raw: string
 ): boolean {
-  const keyword = sanitizeCommunityKeywordQuery(raw).toLowerCase();
-  if (!keyword) return false;
-  const hay = `${parts.title ?? ""}\n${parts.content ?? ""}\n${parts.summary ?? ""}`.toLowerCase();
-  return hay.includes(keyword);
+  return matchCommunityGlobalSearch(parts, raw).matched;
 }

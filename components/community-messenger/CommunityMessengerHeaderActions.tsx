@@ -35,7 +35,13 @@ export function CommunityMessengerHeaderActions({
 
   return (
     <div className={samTier1HeaderIconCluster}>
-      <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label={t("cm_ui_messenger_search")}>
+      <button
+        type="button"
+        data-global-search-open="chat"
+        onClick={onOpenSearch}
+        className={iconBtn}
+        aria-label={t("cm_ui_messenger_search")}
+      >
         <Tier1HeaderSearchGlyph />
       </button>
       <button type="button" onClick={onOpenSettings} className={iconBtn} aria-label={t("nav_messenger_settings")}>

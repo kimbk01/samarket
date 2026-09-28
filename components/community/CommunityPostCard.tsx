@@ -11,6 +11,8 @@ import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-
 import { philifeAppPaths } from "@domain/philife/paths";
 import { resolveCommunityFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
+import { matchCommunityGlobalSearch } from "@/lib/search/global/semantics/domain-fields";
+import { buildMatchedSnippet } from "@/lib/search/global/semantics/match";
 import {
   FeedListLayoutCarrotThumbLeft,
   FeedListLayoutCarrotThumbRight,
@@ -23,7 +25,8 @@ import {
 function buildCommunityFeedListViewModel(
   post: CommunityFeedPostDTO,
   noTitleLabel: string,
-  lang: AppLanguageCode
+  lang: AppLanguageCode,
+  highlightQuery?: string
 ): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, lang) : "";
@@ -40,12 +43,23 @@ function buildCommunityFeedListViewModel(
   /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 다중 이미지 뱃지는 1(썸 있음)/0. */
   const imageCount = thumbnailUrl ? 1 : 0;
 
+  let summary = stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? ""));
+  let highlightBody = false;
+  if (highlightQuery) {
+    const match = matchCommunityGlobalSearch(post, highlightQuery);
+    if (match.matched && match.matchedField !== "title") {
+      const source = match.matchedField === "summary" ? post.summary : post.content;
+      summary = buildMatchedSnippet(source ?? "", highlightQuery);
+      highlightBody = true;
+    }
+  }
+
   return {
     href: philifeAppPaths.post(post.id),
     topicLabel: resolveCommunityTopicUILabel(lang, post.topic_name, post.topic_name_en, post.topic_slug),
     topicColor: post.topic_color,
     title: post.title?.trim() || noTitleLabel,
-    summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
+    summary,
     timeLabel: time,
     authorName: post.author_name,
     secondaryMeta: post.region_label?.trim() ?? "",
@@ -58,6 +72,8 @@ function buildCommunityFeedListViewModel(
     imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
     hashtagTags,
+    highlightQuery,
+    highlightBody,
   };
 }
 
@@ -86,10 +102,16 @@ function isSameCommunityPostCard(prev: CommunityFeedPostDTO, next: CommunityFeed
   );
 }
 
-export const CommunityPostCard = memo(function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
+export const CommunityPostCard = memo(function CommunityPostCard({
+  post,
+  highlightQuery,
+}: {
+  post: CommunityFeedPostDTO;
+  highlightQuery?: string;
+}) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language);
+  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language, highlightQuery);
   const hasThumb = Boolean(vm.thumbnailUrl);
 
   if (skin === "text_primary") {
@@ -107,4 +129,6 @@ export const CommunityPostCard = memo(function CommunityPostCard({ post }: { pos
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
   return <FeedListLayoutCarrotThumbRight vm={vm} />;
-}, (prev, next) => isSameCommunityPostCard(prev.post, next.post));
+}, (prev, next) =>
+  prev.highlightQuery === next.highlightQuery && isSameCommunityPostCard(prev.post, next.post)
+);

@@ -63,7 +63,7 @@ export function StoresConsumerHeaderActions() {
         aria-label={t("store_search_placeholder")}
         data-stores-consumer-header-action="search"
         data-global-search-open="delivery"
-        onClick={() => openGlobalSearchFromHere(router)}
+        onClick={() => openGlobalSearchFromHere(router, { domain: "delivery" })}
       >
         <SearchIcon />
       </button>

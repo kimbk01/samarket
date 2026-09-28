@@ -102,7 +102,7 @@ function CommunityHeaderRightActions() {
         data-global-search-open="community"
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
         aria-label={t("common_search")}
-        onClick={() => openGlobalSearchFromHere(router)}
+        onClick={() => openGlobalSearchFromHere(router, { domain: "community" })}
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>
@@ -140,7 +140,7 @@ function TradeHeaderRightActions() {
         data-global-search-open="trade"
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
         aria-label={t("marketplace_search_entry_aria")}
-        onClick={() => openGlobalSearchFromHere(router)}
+        onClick={() => openGlobalSearchFromHere(router, { domain: "trade" })}
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>

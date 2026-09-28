@@ -12,6 +12,8 @@ import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/tr
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 import { shouldApplyMixedDiscoverySellIntent } from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
+import { matchTradeGlobalSearch } from "@/lib/search/global/semantics/domain-fields";
 import {
   GLOBAL_SEARCH_TRADE_LIMIT,
   GLOBAL_SEARCH_TRADE_MATCH_FIELD,
@@ -50,7 +52,7 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
   }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean }> {
   const keyword = sanitizeMarketplaceQueryText(input.q);
-  if (!keyword) return { posts: [], hasMore: false };
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return { posts: [], hasMore: false };
 
   const page = Math.max(1, Math.floor(input.page ?? 1));
   const from = (page - 1) * GLOBAL_SEARCH_TRADE_LIMIT;
@@ -91,7 +93,9 @@ export async function fetchGlobalSearchTradeMatchOnlyPosts(
 
   await enrichPostsAuthorNicknamesFromProfiles(readSb, pack.posts);
 
-  const posts = pack.posts.slice(0, GLOBAL_SEARCH_TRADE_LIMIT);
+  const posts = pack.posts
+    .filter((post) => matchTradeGlobalSearch(post.title, keyword).matched)
+    .slice(0, GLOBAL_SEARCH_TRADE_LIMIT);
   return {
     posts,
     hasMore: pack.hasMore === true || pack.posts.length > GLOBAL_SEARCH_TRADE_LIMIT,
@@ -108,7 +112,7 @@ export async function resolveGlobalSearchTradeMatchOnly(
     matchField: GLOBAL_SEARCH_TRADE_MATCH_FIELD,
   };
   const keyword = sanitizeMarketplaceQueryText(req.nextUrl.searchParams.get("q"));
-  if (!keyword) return empty;
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return empty;
 
   const clients = resolvePostsReadClients(req);
   if (!clients) return empty;

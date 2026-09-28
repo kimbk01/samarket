@@ -1,10 +1,22 @@
 /**
  * Global Search entry / close / return SSOT.
  * Origin lives in session/navigation state — never as a public Search URL query.
+ * Entry domain intent is a separate session key — never inferred from return href.
  */
+
+import {
+  clearGlobalSearchEntryDomain,
+  type GlobalSearchEntryDomain,
+  writeGlobalSearchEntryDomain,
+} from "@/lib/search/global/semantics/entry-domain";
 
 export const GLOBAL_SEARCH_HREF = "/search";
 export const GLOBAL_SEARCH_NO_ORIGIN_FALLBACK = "/philife";
+
+export type OpenGlobalSearchOptions = {
+  domain?: GlobalSearchEntryDomain;
+  currentHref?: string;
+};
 
 const ORIGIN_STORAGE_KEY = "dibay_global_search_entry_origin_v1";
 
@@ -108,15 +120,21 @@ export function resolveGlobalSearchCloseHref(): string {
 
 export function openGlobalSearchFromHere(
   router: GlobalSearchPushRouter,
-  currentHref?: string
+  currentHrefOrOptions?: string | OpenGlobalSearchOptions
 ): void {
-  const origin = captureExactOriginHref(currentHref);
+  const options: OpenGlobalSearchOptions =
+    typeof currentHrefOrOptions === "string"
+      ? { currentHref: currentHrefOrOptions }
+      : currentHrefOrOptions ?? {};
+  const origin = captureExactOriginHref(options.currentHref);
   if (origin) setGlobalSearchEntryOrigin(origin);
+  if (options.domain) writeGlobalSearchEntryDomain(options.domain);
   router.push(GLOBAL_SEARCH_HREF);
 }
 
 export function closeGlobalSearch(router: GlobalSearchReplaceRouter): void {
   const dest = resolveGlobalSearchCloseHref();
   clearGlobalSearchEntryOrigin();
+  clearGlobalSearchEntryDomain();
   router.replace(dest);
 }

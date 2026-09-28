@@ -13,6 +13,7 @@ import { communityAuthorDisplayName } from "@/lib/community/community-author-dis
 import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
 import { beginCommunityPostEntryFromCard } from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
 
 export type FeedListCardViewModel = {
   href: string;
@@ -34,6 +35,8 @@ export type FeedListCardViewModel = {
   imageCount: number;
   placeLine: string | null;
   hashtagTags: string[];
+  highlightQuery?: string;
+  highlightBody?: boolean;
 };
 
 const FEED_LINK_PREFETCH_TTL_MS = 60_000;
@@ -100,21 +103,23 @@ function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
   );
 }
 
-function ListTitleOnly({ title }: { title: string }) {
+function ListTitleOnly({ title, highlightQuery }: { title: string; highlightQuery?: string }) {
   return (
     <h3
       className="min-w-0 truncate text-left text-[15px] font-semibold leading-snug text-[var(--cm-text)]"
       title={title}
     >
-      {title}
+      {highlightQuery ? <SearchHighlightText text={title} query={highlightQuery} /> : title}
     </h3>
   );
 }
 
-function ListBodyPreview({ text }: { text: string }) {
+function ListBodyPreview({ text, highlightQuery }: { text: string; highlightQuery?: string }) {
   if (!text.trim()) return null;
   return (
-    <p className="mt-1 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[var(--cm-text-muted)]">{text}</p>
+    <p className="mt-1 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[var(--cm-text-muted)]">
+      {highlightQuery ? <SearchHighlightText text={text} query={highlightQuery} /> : text}
+    </p>
   );
 }
 
@@ -237,8 +242,8 @@ function ListTextStack({
         <ListCategoryPillRow vm={vm} />
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           <div className="flex min-w-0 flex-1 flex-col">
-            <ListTitleOnly title={vm.title} />
-            <ListBodyPreview text={vm.summary} />
+            <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
+            <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
             {firstHashtag ? <ListHashtagOne tag={firstHashtag} /> : null}
           </div>
           {trailingAside}
@@ -252,8 +257,8 @@ function ListTextStack({
       <ListCategoryPillRow vm={vm} />
       <div className="flex min-w-0 items-stretch gap-2.5 sm:gap-3">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ListTitleOnly title={vm.title} />
-          <ListBodyPreview text={vm.summary} />
+          <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
+          <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
           {firstHashtag ? <ListHashtagOne tag={firstHashtag} /> : null}
           <ListMetaKarrot vm={vm} placeInMeta={placeInMeta} />
         </div>
@@ -369,8 +374,8 @@ export function FeedListLayoutCarrotThumbLeft({
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <ListTitleOnly title={vm.title} />
-            <ListBodyPreview text={vm.summary} />
+            <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
+            <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
           </div>
         </div>
         <ListMetaKarrot vm={vm} placeInMeta={placeInMetaForVm(vm)} className="!mt-2" />
@@ -414,8 +419,13 @@ export function FeedListLayoutPlace({
             <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
             <div className="min-w-0 flex-1">
               <ListCategoryPillRow vm={vm} />
-              <ListTitleOnly title={vm.title} />
-              {vm.summary.trim() ? <ListBodyPreview text={vm.summary} /> : null}
+              <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
+              {vm.summary.trim() ? (
+                <ListBodyPreview
+                  text={vm.summary}
+                  highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined}
+                />
+              ) : null}
             </div>
           </div>
           <ListMetaKarrot vm={vm} placeInMeta={pinM} className="!mt-2" />
@@ -470,8 +480,8 @@ export function FeedListLayoutTags({
             <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
             <div className="min-w-0 flex-1">
               <ListCategoryPillRow vm={vm} />
-              <ListTitleOnly title={vm.title} />
-              <ListBodyPreview text={vm.summary} />
+              <ListTitleOnly title={vm.title} highlightQuery={vm.highlightQuery} />
+              <ListBodyPreview text={vm.summary} highlightQuery={vm.highlightBody ? vm.highlightQuery : undefined} />
               {one ? <ListHashtagOne tag={one} /> : null}
             </div>
           </div>

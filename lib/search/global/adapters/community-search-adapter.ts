@@ -1,5 +1,6 @@
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
-import { sanitizeCommunityKeywordQuery } from "@/lib/community-feed/hashtag-discovery";
+import { sanitizeCommunityKeywordQuery, communityPostTextMatchesKeyword } from "@/lib/community-feed/hashtag-discovery";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 
 export type CommunitySearchAdapterResult =
@@ -11,7 +12,7 @@ export async function searchCommunityForGlobal(
   signal: AbortSignal
 ): Promise<CommunitySearchAdapterResult> {
   const keyword = sanitizeCommunityKeywordQuery(q);
-  if (!keyword) return { ok: true, posts: [] };
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return { ok: true, posts: [] };
   try {
     const url = buildPhilifeNeighborhoodFeedClientUrl({
       globalFeed: true,
@@ -24,7 +25,10 @@ export async function searchCommunityForGlobal(
     const json = (await res.json()) as { ok?: boolean; posts?: CommunityFeedPostDTO[] };
     if (json.ok === false) return { ok: false };
     const posts = Array.isArray(json.posts) ? json.posts : [];
-    return { ok: true, posts };
+    return {
+      ok: true,
+      posts: posts.filter((post) => communityPostTextMatchesKeyword(post, keyword)),
+    };
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     return { ok: false };

@@ -13,6 +13,11 @@ import {
   loadStoresSearchTopBannerSlide,
   type SearchTopBannerSlide,
 } from "@/lib/stores/load-store-search-top-banners";
+import { isSearchableGlobalQuery } from "@/lib/search/global/semantics/is-searchable-query";
+import {
+  matchDeliveryMenuGlobalSearch,
+  matchDeliveryStoreGlobalSearch,
+} from "@/lib/search/global/semantics/domain-fields";
 
 function sanitizeForIlike(raw: string): string {
   return raw
@@ -26,7 +31,7 @@ function sanitizeForIlike(raw: string): string {
 
 export function normalizeDeliveryKeyword(raw: string): { keyword: string; normalized: string } | null {
   const keyword = sanitizeForIlike(raw);
-  if (!keyword) return null;
+  if (!keyword || !isSearchableGlobalQuery(keyword)) return null;
   return { keyword, normalized: keyword.toLowerCase() };
 }
 
@@ -152,7 +157,7 @@ export async function searchDeliveryDomain(input: {
       approval_status: "approved",
       is_visible: true,
       delivery_available: true,
-      ilike_any: ["store_name", "description", "district", "city", "region"],
+      ilike_any: ["store_name", "description"],
     },
     pattern: pat,
   });
@@ -194,9 +199,6 @@ export async function searchDeliveryDomain(input: {
       [
         `store_name.ilike."${pat}"`,
         `description.ilike."${pat}"`,
-        `region.ilike."${pat}"`,
-        `city.ilike."${pat}"`,
-        `district.ilike."${pat}"`,
       ].join(",")
     )
     .order("rating_avg", { ascending: false })
@@ -219,17 +221,23 @@ export async function searchDeliveryDomain(input: {
   const stores: DeliverySearchStoreResult[] =
     (storesRes.data ?? [])
       .map((r) => r as unknown as DeliverySearchStoreResult)
-      .filter((s) => !!s?.id && !!s?.slug) ?? [];
+      .filter((s) => !!s?.id && !!s?.slug)
+      .filter((s) => matchDeliveryStoreGlobalSearch(s, parsed.keyword).matched) ?? [];
 
-  const prodsRaw = (prodsRes.data ?? []) as unknown as ProductRow[];
+  const prodsRaw = ((prodsRes.data ?? []) as unknown as ProductRow[]).filter((p) =>
+    matchDeliveryMenuGlobalSearch(
+      { title: String(p.title ?? ""), summary: p.summary != null ? String(p.summary) : null },
+      parsed.keyword
+    ).matched
+  );
   console.log("[delivery-search-debug] raw matched products count", prodsRaw.length);
   const storeIdsFromProducts = Array.from(
     new Set(prodsRaw.map((p) => String(p.store_id ?? "")).filter(Boolean))
   );
 
   /**
-   * 메뉴 검색 결과에서 매칭된 store_id의 매장도 stores 결과에 포함.
-   * (정확도 보강) 단, 매장은 반드시 delivery 조건을 만족해야 한다.
+   * Menu match loads parent store metadata for the menu card / eligibility only.
+   * Do not promote the parent into the keyword Store section.
    */
   const deliveryStoreById = new Map<string, DeliverySearchStoreResult>();
   if (storeIdsFromProducts.length > 0) {
@@ -285,15 +293,9 @@ export async function searchDeliveryDomain(input: {
   console.log("[delivery-search-debug] matched stores count", stores.length);
   console.log("[delivery-search-debug] delivery store ids count", deliveryStoreById.size);
 
-  // stores 결과에 메뉴 매칭 store를 merge (중복 제거) + limit 유지
+  // Keyword store hits only. Menu parents stay in deliveryStoreById for menu cards.
   const byId = new Map<string, DeliverySearchStoreResult>();
   const merged: DeliverySearchStoreResult[] = [];
-  for (const storeId of storeIdsFromProducts) {
-    const s = deliveryStoreById.get(storeId);
-    if (!s || byId.has(s.id)) continue;
-    byId.set(s.id, s);
-    merged.push(s);
-  }
   for (const s of stores) {
     if (!s?.id || byId.has(s.id)) continue;
     byId.set(s.id, s);
