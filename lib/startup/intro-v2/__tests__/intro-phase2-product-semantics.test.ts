@@ -25,6 +25,7 @@ import {
   canDestructivelyRemoveIntroAsset,
   inferOperatorAnimationPreset,
   introAspectRatioLabel,
+  resolveIntroUploadAttach,
 } from "@/lib/startup/intro-v2/admin-operator-ux";
 import {
   INTRO_RICH_PUBLISH_MESSAGE_KO,
@@ -262,6 +263,33 @@ describe("Intro Phase 2 product semantics", () => {
     expect(canvas).not.toContain("520 / frame.height");
   });
 
+  it("Late image upload attaches to the intended layer and does not steal a later TEXT selection", () => {
+    const layers = [
+      { id: "img-1", type: "IMAGE" },
+      { id: "logo-1", type: "LOGO" },
+      { id: "txt-1", type: "TEXT" },
+    ];
+    const lateLogo = resolveIntroUploadAttach({
+      layers,
+      selectedLayerId: "txt-1",
+      intendedLayerId: "logo-1",
+      intent: "logo",
+    });
+    expect(lateLogo).toEqual({
+      targetLayerId: "logo-1",
+      createType: null,
+      selectAfter: false,
+    });
+    const freshImage = resolveIntroUploadAttach({
+      layers: [{ id: "img-1", type: "IMAGE" }],
+      selectedLayerId: "img-1",
+      intendedLayerId: "img-1",
+      intent: "image",
+    });
+    expect(freshImage.selectAfter).toBe(true);
+    expect(freshImage.targetLayerId).toBe("img-1");
+  });
+
   it("Editor presents sequential scenes, add-elements, and human CTA destinations", () => {
     const editor = readFileSync("components/admin/intro/AdminIntroCmsEditorPage.tsx", "utf8");
     expect(editor).toContain('data-intro-editor="cms-v1"');
@@ -273,6 +301,8 @@ describe("Intro Phase 2 product semantics", () => {
     expect(editor).toContain("INTRO_OPERATOR_ANIMATION_PRESETS");
     expect(editor).toContain("requestUpload");
     expect(editor).toContain("onUpload");
+    expect(editor).toContain("resolveIntroUploadAttach");
+    expect(editor).toContain("data-intro-layer-text");
     expect(editor).not.toContain("INTRO_LAYER_TYPES.map");
     expect(editor).not.toContain("이 기기군만 다름");
   });

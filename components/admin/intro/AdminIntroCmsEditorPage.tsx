@@ -48,6 +48,7 @@ import {
   introFormatBytes,
   introOperatorAnimationLabel,
   introSceneDurationLabel,
+  resolveIntroUploadAttach,
   type IntroOperatorAnimationPreset,
 } from "@/lib/startup/intro-v2/admin-operator-ux";
 import { introRichPublishBlockIssue } from "@/lib/startup/intro-v2/compat-publish";
@@ -141,8 +142,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const [validateMessage, setValidateMessage] = useState<string | null>(null);
   const leaveHrefRef = useRef<string | null>(null);
   const campaignRef = useRef<IntroAdminCampaign | null>(null);
+  const layerIdRef = useRef<string | null>(null);
+  const sceneIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadIntentRef = useRef<"image" | "logo" | "background" | "replace">("image");
+  const uploadTargetLayerIdRef = useRef<string | null>(null);
 
   const applyLoaded = useCallback((next: IntroAdminCampaign) => {
     const adapted = adaptOperatorDraftToCanonical(next);
@@ -172,6 +176,8 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   }, [load]);
 
   campaignRef.current = campaign;
+  layerIdRef.current = layerId;
+  sceneIdRef.current = sceneId;
   const dirty = campaign && saved ? introCmsIsDirty(campaign, saved) : false;
 
   useEffect(() => {
@@ -350,10 +356,18 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     patchScene(nextScene);
     setLayerId(next.id);
     setInspector("layer");
+    if (type === "IMAGE" || type === "LOGO") {
+      uploadTargetLayerIdRef.current = next.id;
+    }
   };
 
   const requestUpload = (intent: "image" | "logo" | "background" | "replace") => {
     uploadIntentRef.current = intent;
+    if (intent === "background") {
+      uploadTargetLayerIdRef.current = null;
+    } else if (intent === "replace" && layer) {
+      uploadTargetLayerIdRef.current = layer.id;
+    }
     fileRef.current?.click();
   };
 
@@ -512,11 +526,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     intent: "image" | "logo" | "background" | "replace"
   ) => {
     const current = campaignRef.current;
+    const liveSceneId = sceneIdRef.current;
     const currentScene =
-      current?.scenes.find((item) => item.id === sceneId) ?? current?.scenes[0] ?? null;
+      current?.scenes.find((item) => item.id === liveSceneId) ?? current?.scenes[0] ?? null;
     if (!current || !currentScene) return;
     const nextAssets = [...current.assets.filter((item) => item.id !== asset.id), asset];
     if (intent === "background") {
+      uploadTargetLayerIdRef.current = null;
       setCampaign({
         ...current,
         assets: nextAssets,
@@ -527,17 +543,18 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       setInspector("scene");
       return;
     }
-    const mediaLayer = currentScene.layers.find(
-      (item) =>
-        item.id === layerId &&
-        (item.type === "IMAGE" ||
-          item.type === "LOGO" ||
-          item.type === "BACKGROUND" ||
-          (item.type === "DECORATION" && item.decorationKind === "sticker"))
-    );
+    const plan = resolveIntroUploadAttach({
+      layers: currentScene.layers,
+      selectedLayerId: layerIdRef.current,
+      intendedLayerId: uploadTargetLayerIdRef.current,
+      intent,
+    });
+    const mediaLayer = plan.targetLayerId
+      ? currentScene.layers.find((item) => item.id === plan.targetLayerId)
+      : undefined;
     const target =
       mediaLayer ??
-      (intent === "logo"
+      (plan.createType === "LOGO"
         ? createLayerOfType("LOGO", nextLayerId(), currentScene.layers.length + 1)
         : defaultImageLayer(nextLayerId(), currentScene.layers.length + 1));
     const layers = currentScene.layers.some((item) => item.id === target.id)
@@ -548,8 +565,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       assets: nextAssets,
       scenes: current.scenes.map((item) => (item.id === currentScene.id ? { ...item, layers } : item)),
     });
-    setLayerId(target.id);
-    setInspector("layer");
+    if (plan.selectAfter) {
+      setLayerId(target.id);
+      setInspector("layer");
+    }
+    uploadTargetLayerIdRef.current = null;
   };
 
   const onUpload = async (file: File) => {
@@ -689,6 +709,8 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       data-intro-editor="cms-v1"
       data-intro-dirty={dirty ? "true" : "false"}
       data-intro-name={campaign.name}
+      data-intro-uploading={uploading ? "true" : "false"}
+      data-intro-selected-layer-type={layer?.type ?? ""}
     >
       <div className="mb-4 flex flex-wrap items-start gap-3">
         <span data-intro-back="1">
@@ -1314,6 +1336,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                     <label className="mt-3 block text-sm">
                       {lang === "en" ? "Text" : "텍스트"}
                       <textarea
+                        data-intro-layer-text="1"
                         className={FIELD}
                         rows={3}
                         value={layer.text ?? ""}

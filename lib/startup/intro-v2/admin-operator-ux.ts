@@ -158,3 +158,51 @@ export function canDestructivelyRemoveIntroAsset(input: {
   if (input.published && input.referenced) return false;
   return true;
 }
+
+export type IntroUploadAttachIntent = "image" | "logo" | "background" | "replace";
+
+function layerAcceptsIntroAsset(layer: { type: string; decorationKind?: string | null }): boolean {
+  return (
+    layer.type === "IMAGE" ||
+    layer.type === "LOGO" ||
+    layer.type === "BACKGROUND" ||
+    (layer.type === "DECORATION" && layer.decorationKind === "sticker")
+  );
+}
+
+/** Late uploads attach to the intended media layer and must not steal a later TEXT/CTA selection. */
+export function resolveIntroUploadAttach(input: {
+  layers: readonly { id: string; type: string; decorationKind?: string | null }[];
+  selectedLayerId: string | null;
+  intendedLayerId: string | null;
+  intent: IntroUploadAttachIntent;
+}): {
+  targetLayerId: string | null;
+  createType: "IMAGE" | "LOGO" | null;
+  selectAfter: boolean;
+} {
+  if (input.intent === "background") {
+    return { targetLayerId: null, createType: null, selectAfter: false };
+  }
+  const intended = input.intendedLayerId
+    ? input.layers.find((layer) => layer.id === input.intendedLayerId && layerAcceptsIntroAsset(layer))
+    : undefined;
+  if (intended) {
+    return {
+      targetLayerId: intended.id,
+      createType: null,
+      selectAfter: !input.selectedLayerId || input.selectedLayerId === intended.id,
+    };
+  }
+  const selected = input.selectedLayerId
+    ? input.layers.find((layer) => layer.id === input.selectedLayerId && layerAcceptsIntroAsset(layer))
+    : undefined;
+  if (selected) {
+    return { targetLayerId: selected.id, createType: null, selectAfter: true };
+  }
+  return {
+    targetLayerId: null,
+    createType: input.intent === "logo" ? "LOGO" : "IMAGE",
+    selectAfter: !input.selectedLayerId,
+  };
+}
