@@ -55,6 +55,8 @@ describe("Phase 1 CMS editor route authority", () => {
     expect(cms).toContain("AdminIntroCmsCtaDestinationFields");
     expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
     expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
+    expect(cms).not.toContain("not in this phase");
+    expect(cms).not.toContain("이 단계에 없습니다");
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);

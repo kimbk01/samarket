@@ -1548,9 +1548,10 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               </div>
             ) : null}
             <p className="mt-2 text-sm text-sam-muted">
-              {lang === "en"
-                ? "PNG, JPEG, static WebP. GIF and MP4 are not in this phase."
-                : "PNG, JPEG, 정적 WebP. GIF/MP4는 이 단계에 없습니다."}
+              {safeT("admin_intro_upload_invalid_type", {
+                fallbackKo: "PNG, JPG, 정적 WebP만 사용할 수 있습니다.",
+                fallbackEn: "PNG, JPG, and static WebP only.",
+              })}
             </p>
           </AdminCard>
 

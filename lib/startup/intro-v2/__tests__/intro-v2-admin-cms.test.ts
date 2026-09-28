@@ -889,6 +889,8 @@ describe("composer reconstruction contract", () => {
     expect(cms).not.toContain('data-intro-composer="v2"');
     expect(cms).not.toContain("이 기기군만 다름");
     expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
+    expect(cms).not.toContain("not in this phase");
+    expect(cms).not.toContain("이 단계에 없습니다");
     expect(cms).toContain("data-intro-publish-blocked");
     expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
     expect(dest).toContain("INTRO_CTA_DESTINATION_TYPES");
