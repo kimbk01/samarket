@@ -1,5 +1,5 @@
 import type { IntroV3Document, IntroV3Layer } from "@/lib/startup/intro-v3/document";
-import { defaultIntroV3ImageGeometry } from "@/lib/startup/intro-v3/geometry";
+import { initialIntroV3ImageGeometry } from "@/lib/startup/intro-v3/geometry";
 import { defaultIntroV3LayerMotion } from "@/lib/startup/intro-v3/motion";
 import { formatMediaRefToken, mediaRefFromLayer } from "@/lib/startup/intro-v3/media-library";
 import type { IntroV3LibrarySelection, IntroV3MediaRef } from "@/lib/startup/intro-v3/media-types";
@@ -26,7 +26,10 @@ export function createIntroV3ImageLayerFromSelection(input: {
     type: "IMAGE",
     visible: true,
     z: input.z ?? 1,
-    geometry: defaultIntroV3ImageGeometry(),
+    geometry: initialIntroV3ImageGeometry({
+      mediaWidth: selection.derivative.width,
+      mediaHeight: selection.derivative.height,
+    }),
     motion: defaultIntroV3LayerMotion(),
     payload: { mediaRef: formatMediaRefToken(selection.mediaRef), alt: selection.source.filename },
   };

@@ -92,6 +92,12 @@ describe("intro rebuild CUT 1-3 owner route", () => {
     expect(editor).not.toContain("기존 파일로 추가");
     expect(editor).not.toContain("현재 Native에서는");
     expect(editor).toContain("IntroEditorCanvas");
+    expect(editor).toContain("fitIntroEditorCanvas");
+    expect(editor).toContain("data-intro-scene-properties");
+    expect(editor).not.toContain("h-full max-h-full w-auto");
+    expect(canvas).not.toContain("aspect-ratio");
+    expect(canvas).toContain("data-intro-select-outline");
+    expect(canvas).toContain("data-intro-resize-handle");
     expect(editor).toContain("IntroV3MediaLibrary");
     expect(editor).toContain('data-intro-editor="rebuild-v3"');
     expect(editor).toContain("data-intro-storyboard");
