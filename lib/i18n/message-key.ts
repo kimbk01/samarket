@@ -75,6 +75,7 @@ import { supportUiMessages } from "./catalog/support-ui";
 import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
+import { adminOpeningShowMessages } from "./catalog/admin-opening-show";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -152,6 +153,7 @@ export type MessageKey =
   | KeyOf<typeof platformPopupUiMessages.ko>
   | KeyOf<typeof platformPopupOwnerMessages.ko>
   | KeyOf<typeof platformEventsUiMessages.ko>
+  | KeyOf<typeof adminOpeningShowMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
   | KeyOf<typeof koJson>;
@@ -228,6 +230,7 @@ type EnMessageKey =
   | KeyOf<typeof platformPopupUiMessages.en>
   | KeyOf<typeof platformPopupOwnerMessages.en>
   | KeyOf<typeof platformEventsUiMessages.en>
+  | KeyOf<typeof adminOpeningShowMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
   | KeyOf<typeof enJson>;

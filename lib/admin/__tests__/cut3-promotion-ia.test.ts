@@ -35,12 +35,13 @@ function read(rel: string): string {
 }
 
 describe("CUT3 Promotion IA navigation", () => {
-  it("exposes promotion workspace with 5 children + home", () => {
+  it("exposes promotion workspace with intro + 5 children + home", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
     expect(keys).toEqual([
       "promotion-home",
+      "promotion-intro",
       "promotion-events",
       "promotion-popup",
       "promotion-banners",
@@ -57,6 +58,7 @@ describe("CUT3 Promotion IA navigation", () => {
   });
 
   it("routes resolve under promotion (not ads)", () => {
+    expect(resolveActiveWorkspace("/admin/intro", "master").id).toBe("promotion");
     expect(resolveActiveWorkspace("/admin/platform-events", "master").id).toBe("promotion");
     expect(resolveActiveWorkspace("/admin/platform-popup", "master").id).toBe("promotion");
     expect(resolveActiveWorkspace("/admin/platform-promotion/banners", "master").id).toBe(
