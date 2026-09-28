@@ -1,7 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { collectMediaIds } from "@/lib/dibay-intro/document";
 import { computeEngineSourceHash } from "@/lib/dibay-intro/engine/hash";
+import {
+  readPrebuiltEngineJs,
+  readPretendardVariableWoff2,
+} from "@/lib/dibay-intro/engine/load-engine-artifacts";
 import { DIBAY_INTRO_ALLOWED_MIME, DIBAY_INTRO_MEDIA_BUCKET } from "@/lib/dibay-intro/media-store";
 import { buildSealedIntroPack } from "@/lib/dibay-intro/pack/build-pack";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -18,9 +20,8 @@ function svc() {
 }
 
 function loadEngineJs(): Buffer {
-  const path = join(process.cwd(), DIBAY_INTRO_ENGINE_BUNDLE_REL);
   try {
-    const bytes = readFileSync(path);
+    const bytes = readPrebuiltEngineJs();
     if (!bytes.byteLength) throw new Error("engine_bundle_empty");
     return bytes;
   } catch (error) {
@@ -30,9 +31,7 @@ function loadEngineJs(): Buffer {
 }
 
 function pretendardBytes(): Buffer {
-  return readFileSync(
-    join(process.cwd(), "node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2"),
-  );
+  return readPretendardVariableWoff2();
 }
 
 export async function persistLiveIntroPack(): Promise<{ revisionId: string; engineHash: string }> {

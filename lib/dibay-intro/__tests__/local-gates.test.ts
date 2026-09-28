@@ -16,7 +16,7 @@ import { applyMediaAttach } from "@/lib/dibay-intro/media-layer-ops";
 import { countGifFrames, isGifBytes, isStillWebp, processIntroMediaBytes } from "@/lib/dibay-intro/media-process";
 import { DibayIntroMemoryAuthority, saveEqualityChain } from "@/lib/dibay-intro/persistence-memory";
 import { resolveCtaRuntimeAction } from "@/lib/dibay-intro/engine/cta-action";
-import { computeEngineSourceHash } from "@/lib/dibay-intro/engine/hash";
+import { computeEngineSourceHash, ENGINE_SOURCE_HASH } from "@/lib/dibay-intro/engine/hash";
 import { ENGINE_FILES } from "@/lib/dibay-intro/engine/identity";
 import { documentDurationMs, resolveTimeline } from "@/lib/dibay-intro/engine/timeline";
 import { buildSealedIntroPack } from "@/lib/dibay-intro/pack/build-pack";
@@ -323,11 +323,22 @@ describe("list ux live row", () => {
 });
 
 describe("engine hash", () => {
-  it("recalculates from the final engine file set", () => {
+  it("recalculates from the final engine file set and matches the frozen generated hash", () => {
     expect(ENGINE_FILES).toContain("lib/dibay-intro/engine/cta-action.ts");
     const hash = computeEngineSourceHash();
     expect(hash).toHaveLength(64);
     expect(hash).not.toBe("4726071f6f4a832bed1fb488123ccd2c010b14bb2fd39286b4fa91f846752239");
+    expect(hash).toBe(ENGINE_SOURCE_HASH);
+  });
+
+  it("falls back to the frozen hash when engine sources are missing (Vercel)", () => {
+    const missingRoot = join(tmpdir(), `dibay-intro-no-engine-${Date.now()}`);
+    mkdirSync(missingRoot, { recursive: true });
+    try {
+      expect(computeEngineSourceHash(missingRoot)).toBe(ENGINE_SOURCE_HASH);
+    } finally {
+      rmSync(missingRoot, { recursive: true, force: true });
+    }
   });
 });
 
