@@ -141,6 +141,37 @@ export function introCmsPreviewFrame(viewport: IntroCmsPreviewViewport): {
   };
 }
 
+/**
+ * Display-scale only. Must preserve Scene aspect.
+ * Phone 360×800 can render 1:1. Never contain the whole Intro into 320×520.
+ */
+export const INTRO_CMS_DISPLAY_MAX = {
+  phone: { width: 360, height: 800 },
+  tablet: { width: 400, height: 640 },
+  wide: { width: 640, height: 400 },
+} as const;
+
+export type IntroCmsDisplayFit = {
+  scale: number;
+  displayWidth: number;
+  displayHeight: number;
+  logicalWidth: number;
+  logicalHeight: number;
+};
+
+export function introCmsDisplayFit(viewport: IntroCmsPreviewViewport): IntroCmsDisplayFit {
+  const frame = introCmsPreviewFrame(viewport);
+  const max = INTRO_CMS_DISPLAY_MAX[viewport];
+  const scale = Math.min(max.width / frame.width, max.height / frame.height);
+  return {
+    scale,
+    displayWidth: Math.round(frame.width * scale),
+    displayHeight: Math.round(frame.height * scale),
+    logicalWidth: frame.width,
+    logicalHeight: frame.height,
+  };
+}
+
 export function introCmsPreviewInsets(viewport: IntroCmsPreviewViewport): IntroSurfaceInsets {
   if (viewport === "phone") return { top: 24, right: 0, bottom: 16, left: 0 };
   if (viewport === "tablet") return { top: 24, right: 16, bottom: 24, left: 16 };

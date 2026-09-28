@@ -12,8 +12,12 @@ import type {
   IntroDeviceFamily,
   IntroFrequencyMode,
   IntroInteractionMode,
+  IntroAspectPolicy,
+  IntroDecorationKind,
+  IntroLayerAnchor,
   IntroLayerType,
   IntroPlatform,
+  IntroTransition,
 } from "@/lib/startup/intro-v2/types";
 
 export type IntroLang = "ko" | "en";
@@ -167,6 +171,56 @@ export function introLayerTypeLabel(type: IntroLayerType, lang: IntroLang): stri
 
 export function introCtaTypeLabel(type: IntroCtaDestinationType, lang: IntroLang): string {
   return pick(CTA[type], lang);
+}
+
+const TRANSITION: Record<IntroTransition, { ko: string; en: string }> = {
+  none: { ko: "없음", en: "None" },
+  fade: { ko: "페이드", en: "Fade" },
+  fade_in_expand: { ko: "페이드 후 확대", en: "Fade then expand" },
+  expand_fade_out: { ko: "확대 후 페이드", en: "Expand then fade" },
+};
+
+const ANCHOR: Record<IntroLayerAnchor, { ko: string; en: string }> = {
+  top_left: { ko: "왼쪽 위", en: "Top left" },
+  top_center: { ko: "위 가운데", en: "Top center" },
+  top_right: { ko: "오른쪽 위", en: "Top right" },
+  center_left: { ko: "왼쪽 가운데", en: "Center left" },
+  center: { ko: "가운데", en: "Center" },
+  center_right: { ko: "오른쪽 가운데", en: "Center right" },
+  bottom_left: { ko: "왼쪽 아래", en: "Bottom left" },
+  bottom_center: { ko: "아래 가운데", en: "Bottom center" },
+  bottom_right: { ko: "오른쪽 아래", en: "Bottom right" },
+};
+
+const ASPECT: Record<IntroAspectPolicy, { ko: string; en: string }> = {
+  contain: { ko: "비율 유지 (넣기)", en: "Contain" },
+  cover: { ko: "화면 채우기", en: "Cover" },
+  fill: { ko: "늘리기", en: "Stretch" },
+  none: { ko: "원본 크기", en: "Original" },
+};
+
+const DECORATION: Record<IntroDecorationKind, { ko: string; en: string }> = {
+  shape: { ko: "도형", en: "Shape" },
+  sticker: { ko: "스티커/이미지", en: "Sticker" },
+  divider: { ko: "구분선", en: "Divider" },
+};
+
+export function introTransitionLabel(value: string, lang: IntroLang): string {
+  const known = TRANSITION[value as IntroTransition];
+  if (known) return pick(known, lang);
+  return value;
+}
+
+export function introAnchorLabel(anchor: IntroLayerAnchor, lang: IntroLang): string {
+  return pick(ANCHOR[anchor], lang);
+}
+
+export function introAspectPolicyLabel(policy: IntroAspectPolicy, lang: IntroLang): string {
+  return pick(ASPECT[policy], lang);
+}
+
+export function introDecorationKindLabel(kind: IntroDecorationKind, lang: IntroLang): string {
+  return pick(DECORATION[kind], lang);
 }
 
 export function parseIntroTextStyleToken(animation: string | undefined): IntroTextStyleToken {

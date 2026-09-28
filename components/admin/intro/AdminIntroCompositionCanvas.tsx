@@ -2,6 +2,7 @@
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
+  introCmsDisplayFit,
   introCmsPreviewFrame,
   introCmsPreviewInsets,
   type IntroCmsPreviewViewport,
@@ -17,8 +18,6 @@ import {
 import type { IntroAnimationMeta, IntroLayer } from "@/lib/startup/intro-v2/types";
 
 function fontFamilyForToken(token: IntroLayer["fontToken"]): string {
-  if (token === "title") return 'ui-sans-serif, system-ui, "Apple SD Gothic Neo", sans-serif';
-  if (token === "caption") return 'ui-sans-serif, system-ui, "Apple SD Gothic Neo", sans-serif';
   return 'ui-sans-serif, system-ui, "Apple SD Gothic Neo", sans-serif';
 }
 
@@ -47,13 +46,15 @@ export function AdminIntroCompositionCanvas({
 }) {
   const frame = introCmsPreviewFrame(viewport);
   const insets = introCmsPreviewInsets(viewport);
-  const scale = Math.min(320 / frame.width, 520 / frame.height);
+  const fit = introCmsDisplayFit(viewport);
+  const scale = fit.scale;
   const byId = new Map(assets.map((asset) => [asset.id, asset]));
   const layers = [...(scene?.layers ?? [])].filter(layerIsVisible).sort((a, b) => a.zIndex - b.zIndex);
   const identities = scene
     ? introCompositionIdentities({ campaignId, scene })
     : { campaignId, sceneId: "", layerIds: [], assetIds: [], texts: [], ctaTarget: "", zOrder: [] };
   const safeGuide = introUsableSceneRect({ width: frame.width, height: frame.height }, insets, true);
+  const backgroundAsset = scene?.backgroundAssetId ? byId.get(scene.backgroundAssetId) : null;
 
   return (
     <div
@@ -77,12 +78,29 @@ export function AdminIntroCompositionCanvas({
       <div
         className="relative mx-auto overflow-hidden rounded-ui-rect border border-sam-border"
         data-intro-composition-canvas="1"
+        data-intro-scene-surface="1"
+        data-intro-inner-composition="none"
+        data-intro-logical-w={String(fit.logicalWidth)}
+        data-intro-logical-h={String(fit.logicalHeight)}
+        data-intro-display-w={String(fit.displayWidth)}
+        data-intro-display-h={String(fit.displayHeight)}
         style={{
-          width: frame.width * scale,
-          height: frame.height * scale,
+          width: fit.displayWidth,
+          height: fit.displayHeight,
           backgroundColor: scene?.backgroundColor ?? "#ffffff",
         }}
       >
+        {backgroundAsset?.publicUrl ? (
+          <div className="pointer-events-none absolute inset-0" data-intro-scene-background="1">
+            <SamarketThumbnail
+              src={backgroundAsset.publicUrl}
+              alt=""
+              fill
+              className="h-full w-full"
+              imageClassName="h-full w-full object-cover"
+            />
+          </div>
+        ) : null}
         <div
           className="pointer-events-none absolute border border-dashed border-sky-400/70"
           data-intro-safe-area-guide="1"
@@ -110,6 +128,7 @@ export function AdminIntroCompositionCanvas({
           const selected = layer.id === selectedLayerId;
           const objectFit =
             layer.aspectPolicy === "cover" ? "cover" : layer.aspectPolicy === "fill" ? "fill" : "contain";
+          const isBackground = layer.type === "BACKGROUND";
           return (
             <div
               key={layer.id}
@@ -119,7 +138,9 @@ export function AdminIntroCompositionCanvas({
               data-intro-layer-type={layer.type}
               data-intro-layer-safe-area={layerUsesSafeArea(layer) ? "true" : "false"}
               data-intro-animation={animationHint(layer.animation)}
-              className={`absolute cursor-move ${selected ? "ring-2 ring-sam-fg" : ""}`}
+              className={`absolute ${isBackground ? "pointer-events-none" : "cursor-move"} ${
+                selected ? "ring-2 ring-sam-fg" : ""
+              }`}
               style={{
                 left: rect.x * scale,
                 top: rect.y * scale,
@@ -128,13 +149,14 @@ export function AdminIntroCompositionCanvas({
                 opacity: layer.opacity ?? 1,
                 transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
                 zIndex: layer.zIndex,
+                backgroundColor: isBackground ? layer.color ?? scene?.backgroundColor ?? undefined : undefined,
               }}
               onClick={(event) => {
                 event.stopPropagation();
                 onSelectLayer(layer.id);
               }}
               onPointerDown={(event) => {
-                if (!onMoveLayerPct) return;
+                if (!onMoveLayerPct || isBackground) return;
                 event.preventDefault();
                 onSelectLayer(layer.id);
                 const startX = event.clientX;
@@ -189,6 +211,8 @@ export function AdminIntroCompositionCanvas({
                 >
                   {layer.text || scene?.cta?.label || "CTA"}
                 </div>
+              ) : layer.type === "BACKGROUND" && !asset?.publicUrl ? (
+                <div className="h-full w-full" style={{ backgroundColor: layer.color ?? "transparent" }} />
               ) : layer.type === "DECORATION" && layer.decorationKind !== "sticker" ? (
                 <div
                   className="h-full w-full"
@@ -204,7 +228,7 @@ export function AdminIntroCompositionCanvas({
                 <SamarketThumbnail
                   src={asset.publicUrl}
                   alt=""
-                  size={240}
+                  fill
                   className="h-full w-full"
                   imageClassName={
                     objectFit === "cover"

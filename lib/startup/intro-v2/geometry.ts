@@ -34,16 +34,59 @@ export type IntroRenderRect = {
 
 export const INTRO_GEOMETRY_SSOT = "normalized_pct_safearea_anchor_aspect" as const;
 
+/** Actual Intro Scene surface = the startup viewport. Not an inner poster box. */
+export function introSceneSurfaceRect(viewport: IntroViewportSize): IntroUsableRect {
+  return {
+    x: 0,
+    y: 0,
+    width: Math.max(1, viewport.width),
+    height: Math.max(1, viewport.height),
+  };
+}
+
+/** Background always fills the complete Scene surface. */
+export function introBackgroundSurfaceRect(viewport: IntroViewportSize): IntroRenderRect {
+  const surface = introSceneSurfaceRect(viewport);
+  return { ...surface };
+}
+
+export function introMediaAspectRatio(naturalWidth: number, naturalHeight: number): number | null {
+  if (!(naturalWidth > 0) || !(naturalHeight > 0)) return null;
+  return naturalWidth / naturalHeight;
+}
+
+export function introLockedHeightPct(
+  widthPct: number,
+  aspect: number,
+  surfaceWidth: number,
+  surfaceHeight: number
+): number {
+  if (!(aspect > 0) || !(surfaceHeight > 0)) return widthPct;
+  const widthPx = (widthPct / 100) * surfaceWidth;
+  const heightPx = widthPx / aspect;
+  return Math.round((heightPx / surfaceHeight) * 1000) / 10;
+}
+
+export function introLockedWidthPct(
+  heightPct: number,
+  aspect: number,
+  surfaceWidth: number,
+  surfaceHeight: number
+): number {
+  if (!(aspect > 0) || !(surfaceWidth > 0)) return heightPct;
+  const heightPx = (heightPct / 100) * surfaceHeight;
+  const widthPx = heightPx * aspect;
+  return Math.round((widthPx / surfaceWidth) * 1000) / 10;
+}
+
 export function introUsableSceneRect(
   viewport: IntroViewportSize,
   insets: IntroSurfaceInsets,
   safeArea: boolean
 ): IntroUsableRect {
+  if (!safeArea) return introSceneSurfaceRect(viewport);
   const width = Math.max(1, viewport.width);
   const height = Math.max(1, viewport.height);
-  if (!safeArea) {
-    return { x: 0, y: 0, width, height };
-  }
   const left = Math.max(0, insets.left);
   const top = Math.max(0, insets.top);
   const right = Math.max(0, insets.right);
@@ -86,6 +129,9 @@ export function transformLayerToRect(input: {
   mediaWidth?: number | null;
   mediaHeight?: number | null;
 }): IntroRenderRect {
+  if (input.layer.type === "BACKGROUND") {
+    return introBackgroundSurfaceRect(input.viewport);
+  }
   const usable = introUsableSceneRect(input.viewport, input.insets, layerUsesSafeArea(input.layer));
   const ax = ((input.layer.xPct ?? 50) / 100) * usable.width;
   const ay = ((input.layer.yPct ?? 50) / 100) * usable.height;

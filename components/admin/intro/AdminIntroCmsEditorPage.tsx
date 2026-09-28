@@ -16,19 +16,46 @@ import {
   introCmsDeviceReadinessLabel,
   introCmsDraftSavePayload,
   introCmsIsDirty,
+  introCmsPreviewFrame,
   resolveIntroCmsUnsavedNavigation,
   type IntroCmsPreviewViewport,
 } from "@/lib/startup/intro-v2/admin-cms-phase1";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   INTRO_ADMIN_DEFAULT_TIMEZONE,
   introAdvanceLabel,
+  introAnchorLabel,
+  introAspectPolicyLabel,
   introAudienceLabel,
+  introCtaTypeLabel,
+  introDecorationKindLabel,
   introDeepLinkLabel,
   introFrequencyLabel,
   introLayerTypeLabel,
   introPlatformLabel,
   introStatusLabel,
+  introTransitionLabel,
 } from "@/lib/startup/intro-v2/admin-labels";
+import {
+  INTRO_OPERATOR_ANIMATION_PRESETS,
+  INTRO_OPERATOR_CTA_DESTINATIONS,
+  applyOperatorAnimationPreset,
+  applyOperatorCtaDestination,
+  canDestructivelyRemoveIntroAsset,
+  inferOperatorAnimationPreset,
+  introAspectRatioLabel,
+  introAssetFileName,
+  introFormatBytes,
+  introOperatorAnimationLabel,
+  introSceneDurationLabel,
+  type IntroOperatorAnimationPreset,
+} from "@/lib/startup/intro-v2/admin-operator-ux";
+import { introRichPublishBlockIssue } from "@/lib/startup/intro-v2/compat-publish";
+import {
+  introLockedHeightPct,
+  introLockedWidthPct,
+  introMediaAspectRatio,
+} from "@/lib/startup/intro-v2/geometry";
 import { isSupportedIntroImageMime } from "@/lib/startup/intro-operator-contract";
 import {
   INTRO_ADMIN_DEVICE_CHIPS,
@@ -50,41 +77,33 @@ import {
 import {
   createLayerOfType,
   defaultImageLayer,
-  emptyAnimationMeta,
   nextLayerId,
 } from "@/lib/startup/intro-v2/composition";
 import { adaptOperatorDraftToCanonical } from "@/lib/startup/intro-v2/legacy-operator-adapter";
 import {
   INTRO_ADVANCE_MODES,
-  INTRO_ANIMATION_TYPES,
   INTRO_ASPECT_POLICIES,
   INTRO_AUDIENCES,
-  INTRO_CTA_DESTINATION_TYPES,
   INTRO_DECORATION_KINDS,
-  INTRO_DEEP_LINK_POLICIES,
   INTRO_EASINGS,
+  INTRO_DEEP_LINK_POLICIES,
   INTRO_FONT_TOKENS,
   INTRO_FREQUENCY_MODES,
   INTRO_LAYER_ANCHORS,
-  INTRO_LAYER_TYPES,
   INTRO_PLATFORMS,
-  INTRO_REPEAT_POLICIES,
   INTRO_SKIP_POLICIES,
   INTRO_TEXT_ALIGNS,
   INTRO_TRANSITIONS,
   type IntroAdvanceMode,
-  type IntroAnimationMeta,
   type IntroAspectPolicy,
   type IntroCtaDestinationType,
   type IntroDecorationKind,
   type IntroDeepLinkPolicy,
-  type IntroEasing,
   type IntroFontToken,
   type IntroFrequencyMode,
   type IntroLayer,
   type IntroLayerAnchor,
   type IntroLayerType,
-  type IntroRepeatPolicy,
   type IntroSkipPolicy,
   type IntroTextAlign,
   type IntroTransition,
@@ -102,11 +121,6 @@ function firstIssueMessage(
   return (lang === "en" ? first.messageEn : first.messageKo) || null;
 }
 
-function layerAnimation(layer: IntroLayer): IntroAnimationMeta {
-  if (layer.animation && typeof layer.animation === "object") return layer.animation;
-  return emptyAnimationMeta();
-}
-
 export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -121,9 +135,14 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const [layerId, setLayerId] = useState<string | null>(null);
   const [viewport, setViewport] = useState<IntroCmsPreviewViewport>("phone");
   const [guardOpen, setGuardOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [aspectLock, setAspectLock] = useState(true);
+  const [inspector, setInspector] = useState<"layer" | "scene" | "campaign">("layer");
+  const [validateMessage, setValidateMessage] = useState<string | null>(null);
   const leaveHrefRef = useRef<string | null>(null);
   const campaignRef = useRef<IntroAdminCampaign | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadIntentRef = useRef<"image" | "logo" | "background" | "replace">("image");
 
   const applyLoaded = useCallback((next: IntroAdminCampaign) => {
     const adapted = adaptOperatorDraftToCanonical(next);
@@ -330,6 +349,121 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     }
     patchScene(nextScene);
     setLayerId(next.id);
+    setInspector("layer");
+  };
+
+  const requestUpload = (intent: "image" | "logo" | "background" | "replace") => {
+    uploadIntentRef.current = intent;
+    fileRef.current?.click();
+  };
+
+  const addElement = (type: IntroLayerType) => {
+    addLayer(type);
+    if (type === "IMAGE") requestUpload("image");
+    if (type === "LOGO") requestUpload("logo");
+  };
+
+  const patchLayerSize = (next: { widthPct?: number; heightPct?: number }) => {
+    if (!layer || !scene) return;
+    const frame = introCmsPreviewFrame(viewport);
+    const asset = layer.assetId ? campaign?.assets.find((item) => item.id === layer.assetId) : null;
+    const aspect =
+      asset?.width && asset.height ? introMediaAspectRatio(asset.width, asset.height) : null;
+    let widthPct = next.widthPct ?? layer.widthPct ?? 80;
+    let heightPct = next.heightPct ?? layer.heightPct ?? 20;
+    if (aspectLock && aspect && (layer.type === "IMAGE" || layer.type === "LOGO")) {
+      if (next.widthPct != null) {
+        heightPct = introLockedHeightPct(widthPct, aspect, frame.width, frame.height);
+      } else if (next.heightPct != null) {
+        widthPct = introLockedWidthPct(heightPct, aspect, frame.width, frame.height);
+      }
+    }
+    patchLayer({ ...layer, widthPct, heightPct });
+  };
+
+  const attachExistingAsset = (asset: IntroAdminAsset) => {
+    if (!scene) return;
+    if (inspector === "scene" || uploadIntentRef.current === "background") {
+      patchScene({ ...scene, backgroundAssetId: asset.id });
+      return;
+    }
+    if (layer && (layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND")) {
+      patchLayer({ ...layer, assetId: asset.id });
+    }
+  };
+
+  const detachLayerAsset = () => {
+    if (!scene) return;
+    if (inspector === "scene") {
+      patchScene({ ...scene, backgroundAssetId: null });
+      return;
+    }
+    if (!layer?.assetId) return;
+    const referenced =
+      campaign?.scenes.some(
+        (item) =>
+          item.id !== scene.id &&
+          (item.backgroundAssetId === layer.assetId ||
+            item.layers.some((row) => row.assetId === layer.assetId))
+      ) ?? false;
+    const publishedIds = campaign?.published
+      ? campaign.scenes.flatMap((item) => [
+          item.backgroundAssetId,
+          ...item.layers.map((row) => row.assetId),
+        ])
+      : [];
+    const canRemove = canDestructivelyRemoveIntroAsset({
+      assetId: layer.assetId,
+      published: campaign?.published ?? null,
+      referenced: referenced || publishedIds.includes(layer.assetId),
+    });
+    patchLayer({ ...layer, assetId: undefined });
+    if (canRemove && campaign) {
+      setCampaign({
+        ...campaign,
+        assets: campaign.assets.filter((asset) => asset.id !== layer.assetId),
+        scenes: campaign.scenes.map((item) =>
+          item.id === scene.id
+            ? {
+                ...scene,
+                layers: scene.layers.map((row) =>
+                  row.id === layer.id ? { ...row, assetId: undefined } : row
+                ),
+              }
+            : item
+        ),
+      });
+    }
+  };
+
+  const validateDraft = async () => {
+    if (!campaign) return;
+    setBusy(true);
+    const res = await fetch(`/api/admin/intro-campaigns/${campaign.id}/validate`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(introCmsDraftSavePayload(campaign)),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      issues?: { messageKo?: string; messageEn?: string }[];
+    };
+    setBusy(false);
+    if (res.ok && json.ok && !(json.issues && json.issues.length)) {
+      setValidateMessage(
+        safeT("admin_intro_validate_ok", { fallbackKo: "검사 통과", fallbackEn: "Validation passed" })
+      );
+      setError(null);
+      return;
+    }
+    setValidateMessage(
+      firstIssueMessage(json.issues, lang) ??
+        safeT("admin_intro_validate_fail", {
+          fallbackKo: "검사에 문제가 있습니다",
+          fallbackEn: "Validation found problems",
+        })
+    );
   };
 
   const dupLayer = () => {
@@ -379,8 +513,10 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       setError(lang === "en" ? "Use PNG, JPG, or static WebP." : "PNG, JPG, 정적 WebP만 사용할 수 있습니다.");
       return;
     }
+    setUploading(true);
+    const existing = campaign.assets.find((asset) => asset.publicUrl && asset.bytes === file.size);
     const fd = new FormData();
-    fd.set("kind", "background");
+    fd.set("kind", uploadIntentRef.current === "logo" ? "logo" : "background");
     fd.set("file", file);
     const up = await fetch("/api/admin/startup-config/upload-image", {
       method: "POST",
@@ -389,7 +525,29 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     });
     const upJson = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string };
     if (!up.ok || !upJson.ok || !upJson.url) {
+      setUploading(false);
       setError(lang === "en" ? "Upload failed." : "업로드에 실패했습니다.");
+      return;
+    }
+    const reused = campaign.assets.find((asset) => asset.publicUrl === upJson.url) ?? existing;
+    if (reused) {
+      if (uploadIntentRef.current === "background") {
+        patchScene({ ...scene, backgroundAssetId: reused.id });
+      } else {
+        const target =
+          scene.layers.find((item) => item.id === layerId) ??
+          defaultImageLayer(nextLayerId(), scene.layers.length + 1);
+        const layers = scene.layers.some((item) => item.id === target.id)
+          ? scene.layers.map((item) => (item.id === target.id ? { ...item, assetId: reused.id } : item))
+          : [...scene.layers, { ...target, assetId: reused.id }];
+        setCampaign({
+          ...campaign,
+          scenes: campaign.scenes.map((item) => (item.id === scene.id ? { ...scene, layers } : item)),
+        });
+        setLayerId(target.id);
+      }
+      setUploading(false);
+      setError(null);
       return;
     }
     const probe = await new Promise<{ width: number; height: number } | null>((resolve) => {
@@ -411,11 +569,24 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       }),
     });
     const regJson = (await reg.json().catch(() => ({}))) as { ok?: boolean; asset?: IntroAdminAsset };
+    setUploading(false);
     if (!reg.ok || !regJson.ok || !regJson.asset) {
       setError(lang === "en" ? "Could not keep the image." : "이미지를 저장하지 못했습니다.");
       return;
     }
     const nextAsset = regJson.asset;
+    if (uploadIntentRef.current === "background") {
+      setCampaign({
+        ...campaign,
+        assets: [...campaign.assets.filter((asset) => asset.id !== nextAsset.id), nextAsset],
+        scenes: campaign.scenes.map((item) =>
+          item.id === scene.id ? { ...scene, backgroundAssetId: nextAsset.id } : item
+        ),
+      });
+      setInspector("scene");
+      setError(null);
+      return;
+    }
     const target =
       scene.layers.find(
         (item) =>
@@ -425,8 +596,9 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
             item.type === "BACKGROUND" ||
             (item.type === "DECORATION" && item.decorationKind === "sticker"))
       ) ??
-      scene.layers.find((item) => item.type === "IMAGE") ??
-      defaultImageLayer(nextLayerId(), scene.layers.length + 1);
+      (uploadIntentRef.current === "logo"
+        ? createLayerOfType("LOGO", nextLayerId(), scene.layers.length + 1)
+        : defaultImageLayer(nextLayerId(), scene.layers.length + 1));
     const layers = scene.layers.some((item) => item.id === target.id)
       ? scene.layers.map((item) => (item.id === target.id ? { ...item, assetId: nextAsset.id } : item))
       : [...scene.layers, { ...target, assetId: nextAsset.id }];
@@ -436,6 +608,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       scenes: campaign.scenes.map((item) => (item.id === scene.id ? { ...scene, layers } : item)),
     });
     setLayerId(target.id);
+    setInspector("layer");
     setError(null);
   };
 
@@ -560,6 +733,9 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
         <AdminActionButton variant="secondary" disabled={busy || !dirty} onClick={discardEdits}>
           {safeT("admin_intro_discard", { fallbackKo: "변경 취소", fallbackEn: "Discard changes" })}
         </AdminActionButton>
+        <AdminActionButton variant="quiet" disabled={busy} onClick={() => void validateDraft()}>
+          {safeT("admin_intro_validate", { fallbackKo: "검사", fallbackEn: "Validate" })}
+        </AdminActionButton>
         <AdminActionButton variant="quiet" disabled={busy} onClick={() => void publish()}>
           {safeT("admin_intro_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
         </AdminActionButton>
@@ -580,19 +756,28 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
         ) : null}
       </div>
       {error ? <p className="text-red-800">{error}</p> : null}
+      {validateMessage ? <p className="text-sm text-sam-fg">{validateMessage}</p> : null}
+      {introRichPublishBlockIssue(campaign) ? (
+        <p className="text-sm text-amber-800">
+          {safeT("admin_intro_rich_publish_blocked", {
+            fallbackKo: "새 Intro 런타임 게시 지원 준비 중",
+            fallbackEn: "Rich Intro publish is not ready for the current Native runtime.",
+          })}
+        </p>
+      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_280px]">
+      <div className="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)_320px]">
         <AdminCard>
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="font-semibold">
-              {safeT("admin_intro_scenes", { fallbackKo: "장면", fallbackEn: "Scenes" })}
+              {safeT("admin_intro_storyboard", { fallbackKo: "장면 순서", fallbackEn: "Scene order" })}
             </h2>
             <AdminActionButton variant="secondary" onClick={addScene}>
               {safeT("admin_intro_add_scene", { fallbackKo: "장면 추가", fallbackEn: "Add scene" })}
             </AdminActionButton>
           </div>
-          <ol className="space-y-2" data-intro-scene-navigator="1">
-            {campaign.scenes.map((item) => (
+          <ol className="space-y-2" data-intro-scene-navigator="1" data-intro-storyboard="1">
+            {campaign.scenes.map((item, index) => (
               <li key={item.id}>
                 <button
                   type="button"
@@ -602,13 +787,22 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   onClick={() => {
                     setSceneId(item.id);
                     setLayerId(null);
+                    setInspector("scene");
                   }}
                 >
-                  <span className="font-medium text-sam-fg">{item.name || item.id}</span>
+                  <span className="block h-10 rounded-ui-rect" style={{ background: item.backgroundColor || "#e5e7eb" }} />
+                  <span className="mt-1 font-medium text-sam-fg">
+                    {item.name || (lang === "en" ? `Scene ${index + 1}` : `장면 ${index + 1}`)}
+                  </span>
                   <span className="mt-0.5 block text-[12px] text-sam-muted">
-                    {introAdvanceLabel(item.advanceMode, lang)}
+                    {introSceneDurationLabel(item, lang)}
                   </span>
                 </button>
+                {index < campaign.scenes.length - 1 ? (
+                  <p className="py-1 text-center text-[11px] text-sam-muted">
+                    ↓ {introTransitionLabel(item.transition, lang)}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -628,6 +822,82 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
             </AdminActionButton>
             <AdminActionButton variant="quiet" disabled={!scene} onClick={() => moveScene(1)}>
               {safeT("admin_intro_move_down", { fallbackKo: "아래로", fallbackEn: "Move down" })}
+            </AdminActionButton>
+          </div>
+          <div className="mt-4" data-intro-add-elements="1">
+            <p className="mb-2 text-xs font-medium text-sam-muted">
+              {lang === "en" ? "Add to this scene" : "이 장면에 추가"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("IMAGE")}>
+                + {safeT("admin_intro_add_image", { fallbackKo: "이미지", fallbackEn: "Image" })}
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("LOGO")}>
+                + {safeT("admin_intro_add_logo", { fallbackKo: "로고", fallbackEn: "Logo" })}
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("TEXT")}>
+                + {safeT("admin_intro_add_text", { fallbackKo: "텍스트", fallbackEn: "Text" })}
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("CTA")}>
+                + {safeT("admin_intro_add_cta", { fallbackKo: "버튼", fallbackEn: "Button" })}
+              </AdminActionButton>
+              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("DECORATION")}>
+                + {safeT("admin_intro_add_decoration", { fallbackKo: "장식", fallbackEn: "Decoration" })}
+              </AdminActionButton>
+            </div>
+          </div>
+          <h3 className="mt-4 font-semibold">
+            {safeT("admin_intro_layers", { fallbackKo: "레이어", fallbackEn: "Layers" })}
+          </h3>
+          <ul className="mt-2 space-y-2" data-intro-layer-inventory="1">
+            {scene?.layers.length ? (
+              scene.layers
+                .slice()
+                .sort((a, b) => b.zIndex - a.zIndex)
+                .map((item) => (
+                  <li key={item.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className={`min-w-0 flex-1 rounded-ui-rect border px-3 py-2 text-left text-sm ${
+                        item.id === layer?.id ? "border-sam-fg bg-sam-surface-muted" : "border-sam-border"
+                      }`}
+                      onClick={() => {
+                        setLayerId(item.id);
+                        setInspector("layer");
+                      }}
+                    >
+                      {introLayerTypeLabel(item.type, lang)}
+                      {item.visible === false ? (lang === "en" ? " · hidden" : " · 숨김") : ""}
+                    </button>
+                    <AdminActionButton
+                      variant="quiet"
+                      onClick={() =>
+                        patchLayer({
+                          ...item,
+                          visible: item.visible === false,
+                        })
+                      }
+                    >
+                      {item.visible === false ? "○" : "●"}
+                    </AdminActionButton>
+                  </li>
+                ))
+            ) : (
+              <li className="text-sm text-sam-muted">{lang === "en" ? "No layers yet." : "레이어가 없습니다."}</li>
+            )}
+          </ul>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <AdminActionButton variant="quiet" disabled={!layer} onClick={dupLayer}>
+              {safeT("admin_intro_duplicate_layer", { fallbackKo: "레이어 복제", fallbackEn: "Duplicate layer" })}
+            </AdminActionButton>
+            <AdminActionButton variant="quiet" disabled={!layer} onClick={deleteLayer}>
+              {safeT("admin_intro_delete_layer", { fallbackKo: "레이어 삭제", fallbackEn: "Delete layer" })}
+            </AdminActionButton>
+            <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(1)}>
+              {safeT("admin_intro_layer_forward", { fallbackKo: "앞으로", fallbackEn: "Forward" })}
+            </AdminActionButton>
+            <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(-1)}>
+              {safeT("admin_intro_layer_back", { fallbackKo: "뒤로", fallbackEn: "Back" })}
             </AdminActionButton>
           </div>
         </AdminCard>
@@ -663,69 +933,29 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               }}
             />
           </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-3 font-semibold">
-              {safeT("admin_intro_layers", { fallbackKo: "레이어", fallbackEn: "Layers" })}
-            </h2>
-            <p className="mb-3 text-sm text-sam-muted">
-              {safeT("admin_intro_layer_authoring", {
-                fallbackKo: "하나의 구성에 레이어를 추가합니다. Phone/Tablet/Wide는 미리보기만 바꿉니다.",
-                fallbackEn: "Add layers to one composition. Phone/Tablet/Wide only change the preview viewport.",
-              })}
-            </p>
-            <ul className="space-y-2" data-intro-layer-inventory="1">
-              {scene?.layers.length ? (
-                scene.layers
-                  .slice()
-                  .sort((a, b) => a.zIndex - b.zIndex)
-                  .map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={`w-full rounded-ui-rect border px-3 py-2 text-left text-sm ${
-                          item.id === layer?.id ? "border-sam-fg bg-sam-surface-muted" : "border-sam-border"
-                        }`}
-                        onClick={() => setLayerId(item.id)}
-                      >
-                        {introLayerTypeLabel(item.type, lang)} · {item.name || item.id}
-                        {item.visible === false ? (lang === "en" ? " · hidden" : " · 숨김") : ""}
-                      </button>
-                    </li>
-                  ))
-              ) : (
-                <li className="text-sm text-sam-muted">{lang === "en" ? "No layers yet." : "레이어가 없습니다."}</li>
-              )}
-            </ul>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {INTRO_LAYER_TYPES.map((type) => (
-                <AdminActionButton key={type} variant="secondary" disabled={!scene} onClick={() => addLayer(type)}>
-                  {introLayerTypeLabel(type, lang)}
-                </AdminActionButton>
-              ))}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <AdminActionButton variant="quiet" disabled={!layer} onClick={dupLayer}>
-                {safeT("admin_intro_duplicate_layer", { fallbackKo: "레이어 복제", fallbackEn: "Duplicate layer" })}
-              </AdminActionButton>
-              <AdminActionButton variant="quiet" disabled={!layer} onClick={deleteLayer}>
-                {safeT("admin_intro_delete_layer", { fallbackKo: "레이어 삭제", fallbackEn: "Delete layer" })}
-              </AdminActionButton>
-              <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(1)}>
-                {safeT("admin_intro_layer_forward", { fallbackKo: "앞으로", fallbackEn: "Forward" })}
-              </AdminActionButton>
-              <AdminActionButton variant="quiet" disabled={!layer} onClick={() => moveLayerZ(-1)}>
-                {safeT("admin_intro_layer_back", { fallbackKo: "뒤로", fallbackEn: "Back" })}
-              </AdminActionButton>
-            </div>
-          </AdminCard>
         </div>
 
         <div className="space-y-4">
           <AdminCard>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {(["layer", "scene", "campaign"] as const).map((tab) => (
+                <AdminActionButton
+                  key={tab}
+                  variant={inspector === tab ? "primary" : "secondary"}
+                  onClick={() => setInspector(tab)}
+                >
+                  {tab === "layer"
+                    ? safeT("admin_intro_inspector_layer", { fallbackKo: "레이어", fallbackEn: "Layer" })
+                    : tab === "scene"
+                      ? safeT("admin_intro_inspector_scene", { fallbackKo: "장면", fallbackEn: "Scene" })
+                      : safeT("admin_intro_inspector_campaign", { fallbackKo: "캠페인", fallbackEn: "Campaign" })}
+                </AdminActionButton>
+              ))}
+            </div>
             <h2 className="mb-3 font-semibold">
               {safeT("admin_intro_properties", { fallbackKo: "속성", fallbackEn: "Properties" })}
             </h2>
+            {inspector === "campaign" ? (
             <label className="block text-sm">
               {lang === "en" ? "Campaign name" : "캠페인 이름"}
               <input
@@ -734,10 +964,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                 onChange={(e) => patchCampaign({ ...campaign, name: e.target.value })}
               />
             </label>
+            ) : null}
+            {inspector === "campaign" ? (
             <p className="mt-3 text-sm text-sam-muted">
               {lang === "en" ? "Status" : "상태"}: {introStatusLabel(campaign.status, lang)}
             </p>
-            {scene ? (
+            ) : null}
+            {inspector === "scene" && scene ? (
               <>
                 <label className="mt-3 block text-sm">
                   {lang === "en" ? "Scene name" : "장면 이름"}
@@ -800,7 +1033,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   >
                     {INTRO_TRANSITIONS.map((value) => (
                       <option key={value} value={value}>
-                        {value}
+                        {introTransitionLabel(value, lang)}
                       </option>
                     ))}
                   </select>
@@ -890,23 +1123,23 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                       />
                     </label>
                     <label className="mt-3 block text-sm">
-                      {lang === "en" ? "CTA action" : "CTA 동작"}
+                      {safeT("admin_intro_destination", { fallbackKo: "이동 위치", fallbackEn: "Destination" })}
                       <select
                         className={FIELD}
                         value={scene.cta.destination.type}
                         onChange={(e) =>
                           patchScene({
                             ...scene,
-                            cta: {
-                              ...scene.cta!,
-                              destination: { type: e.target.value as IntroCtaDestinationType },
-                            },
+                            cta: applyOperatorCtaDestination(
+                              scene.cta,
+                              e.target.value as IntroCtaDestinationType
+                            ),
                           })
                         }
                       >
-                        {INTRO_CTA_DESTINATION_TYPES.map((type) => (
+                        {INTRO_OPERATOR_CTA_DESTINATIONS.map((type) => (
                           <option key={type} value={type}>
-                            {type}
+                            {introCtaTypeLabel(type, lang)}
                           </option>
                         ))}
                       </select>
@@ -971,7 +1204,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                 ) : null}
               </>
             ) : null}
-            {layer ? (
+            {inspector === "layer" && layer ? (
               <>
                 <label className="mt-3 block text-sm">
                   {lang === "en" ? "Layer name" : "레이어 이름"}
@@ -1006,14 +1239,14 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                   >
                     {INTRO_LAYER_ANCHORS.map((value) => (
                       <option key={value} value={value}>
-                        {value}
+                        {introAnchorLabel(value, lang)}
                       </option>
                     ))}
                   </select>
                 </label>
-                {(["xPct", "yPct", "widthPct", "heightPct"] as const).map((key) => (
+                {(["xPct", "yPct"] as const).map((key) => (
                   <label key={key} className="mt-3 block text-sm">
-                    {key}
+                    {key === "xPct" ? (lang === "en" ? "X position" : "가로 위치") : lang === "en" ? "Y position" : "세로 위치"}
                     <input
                       className={FIELD}
                       type="number"
@@ -1029,9 +1262,36 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                     />
                   </label>
                 ))}
+                {(layer.type === "IMAGE" || layer.type === "LOGO") ? (
+                  <label className="mt-3 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={aspectLock}
+                      onChange={(e) => setAspectLock(e.target.checked)}
+                    />
+                    {safeT("admin_intro_aspect_lock", { fallbackKo: "비율 고정", fallbackEn: "Lock aspect" })}
+                  </label>
+                ) : null}
+                {(["widthPct", "heightPct"] as const).map((key) => (
+                  <label key={key} className="mt-3 block text-sm">
+                    {key === "widthPct" ? (lang === "en" ? "Width" : "너비") : lang === "en" ? "Height" : "높이"}
+                    <input
+                      className={FIELD}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={layer[key] ?? ""}
+                      onChange={(e) =>
+                        patchLayerSize({
+                          [key]: e.target.value === "" ? undefined : Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                ))}
                 {layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND" ? (
                   <label className="mt-3 block text-sm">
-                    {lang === "en" ? "Aspect" : "비율"}
+                    {lang === "en" ? "Fit" : "맞춤"}
                     <select
                       className={FIELD}
                       value={layer.aspectPolicy ?? "contain"}
@@ -1039,11 +1299,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                         patchLayer({ ...layer, aspectPolicy: e.target.value as IntroAspectPolicy })
                       }
                     >
-                      {INTRO_ASPECT_POLICIES.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
+                      {INTRO_ASPECT_POLICIES.filter((value) => value === "contain" || value === "cover").map(
+                        (value) => (
+                          <option key={value} value={value}>
+                            {introAspectPolicyLabel(value, lang)}
+                          </option>
+                        )
+                      )}
                     </select>
                   </label>
                 ) : null}
@@ -1140,7 +1402,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                       >
                         {INTRO_DECORATION_KINDS.map((value) => (
                           <option key={value} value={value}>
-                            {value}
+                            {introDecorationKindLabel(value, lang)}
                           </option>
                         ))}
                       </select>
@@ -1156,122 +1418,51 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                     </label>
                   </>
                 ) : null}
-                {(["enter", "emphasis", "exit"] as const).map((phase) => {
-                  const clip = layerAnimation(layer)[phase] ?? {
-                    type: "none" as const,
-                    durationMs: 0,
-                    delayMs: 0,
-                    easing: "ease_out" as const,
-                    repeat: "none" as const,
-                  };
-                  return (
-                    <div key={phase} className="mt-3 rounded-ui-rect border border-sam-border p-2">
-                      <p className="text-xs font-medium uppercase text-sam-muted">{phase}</p>
-                      <label className="mt-2 block text-sm">
-                        {lang === "en" ? "Type" : "종류"}
-                        <select
-                          className={FIELD}
-                          value={clip.type}
-                          onChange={(e) =>
-                            patchLayer({
-                              ...layer,
-                              animation: {
-                                ...layerAnimation(layer),
-                                [phase]: { ...clip, type: e.target.value as (typeof INTRO_ANIMATION_TYPES)[number] },
-                              },
-                            })
-                          }
-                        >
-                          {INTRO_ANIMATION_TYPES.map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="mt-2 block text-sm">
-                        {lang === "en" ? "Duration (ms)" : "시간 (ms)"}
-                        <input
-                          className={FIELD}
-                          type="number"
-                          min={0}
-                          value={clip.durationMs}
-                          onChange={(e) =>
-                            patchLayer({
-                              ...layer,
-                              animation: {
-                                ...layerAnimation(layer),
-                                [phase]: { ...clip, durationMs: Number(e.target.value || 0) },
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="mt-2 block text-sm">
-                        {lang === "en" ? "Delay (ms)" : "지연 (ms)"}
-                        <input
-                          className={FIELD}
-                          type="number"
-                          min={0}
-                          value={clip.delayMs}
-                          onChange={(e) =>
-                            patchLayer({
-                              ...layer,
-                              animation: {
-                                ...layerAnimation(layer),
-                                [phase]: { ...clip, delayMs: Number(e.target.value || 0) },
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="mt-2 block text-sm">
-                        easing
-                        <select
-                          className={FIELD}
-                          value={clip.easing}
-                          onChange={(e) =>
-                            patchLayer({
-                              ...layer,
-                              animation: {
-                                ...layerAnimation(layer),
-                                [phase]: { ...clip, easing: e.target.value as IntroEasing },
-                              },
-                            })
-                          }
-                        >
-                          {INTRO_EASINGS.map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="mt-2 block text-sm">
-                        {lang === "en" ? "Repeat" : "반복"}
-                        <select
-                          className={FIELD}
-                          value={clip.repeat}
-                          onChange={(e) =>
-                            patchLayer({
-                              ...layer,
-                              animation: {
-                                ...layerAnimation(layer),
-                                [phase]: { ...clip, repeat: e.target.value as IntroRepeatPolicy },
-                              },
-                            })
-                          }
-                        >
-                          {INTRO_REPEAT_POLICIES.map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  );
-                })}
+                {layer.type === "CTA" && scene ? (
+                  <label className="mt-3 block text-sm">
+                    {safeT("admin_intro_destination", { fallbackKo: "이동 위치", fallbackEn: "Destination" })}
+                    <select
+                      className={FIELD}
+                      value={scene.cta?.destination.type ?? "COMMUNITY"}
+                      onChange={(e) =>
+                        patchScene({
+                          ...scene,
+                          cta: applyOperatorCtaDestination(
+                            scene.cta,
+                            e.target.value as IntroCtaDestinationType
+                          ),
+                        })
+                      }
+                    >
+                      {INTRO_OPERATOR_CTA_DESTINATIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {introCtaTypeLabel(type, lang)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <label className="mt-3 block text-sm">
+                  {lang === "en" ? "Appear" : "등장"}
+                  <select
+                    className={FIELD}
+                    value={inferOperatorAnimationPreset(layer.animation)}
+                    onChange={(e) =>
+                      patchLayer({
+                        ...layer,
+                        animation: applyOperatorAnimationPreset(
+                          e.target.value as IntroOperatorAnimationPreset
+                        ),
+                      })
+                    }
+                  >
+                    {INTRO_OPERATOR_ANIMATION_PRESETS.map((preset) => (
+                      <option key={preset} value={preset}>
+                        {introOperatorAnimationLabel(preset, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </>
             ) : null}
           </AdminCard>
@@ -1284,17 +1475,99 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="sr-only"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) void onUpload(file);
                 e.target.value = "";
               }}
             />
+            {uploading ? (
+              <p className="mb-2 text-sm text-sam-muted">
+                {safeT("admin_intro_upload_progress", { fallbackKo: "올리는 중…", fallbackEn: "Uploading…" })}
+              </p>
+            ) : null}
+            {(() => {
+              const mediaAssetId =
+                inspector === "scene" ? scene?.backgroundAssetId : layer?.assetId;
+              const media = mediaAssetId
+                ? campaign.assets.find((asset) => asset.id === mediaAssetId) ?? null
+                : null;
+              return media ? (
+                <div className="space-y-2 text-sm">
+                  <div className="overflow-hidden rounded-ui-rect border border-sam-border">
+                    <SamarketThumbnail
+                      src={media.publicUrl}
+                      alt={introAssetFileName(media)}
+                      size={120}
+                    />
+                  </div>
+                  <p className="font-medium">{introAssetFileName(media)}</p>
+                  <p className="text-sam-muted">
+                    {media.mime} · {introFormatBytes(media.bytes)}
+                  </p>
+                  <p>
+                    {safeT("admin_intro_media_original", { fallbackKo: "원본 크기", fallbackEn: "Original size" })}
+                    : {media.width && media.height ? `${media.width}×${media.height}` : "—"}
+                  </p>
+                  <p>
+                    {safeT("admin_intro_media_aspect", { fallbackKo: "비율", fallbackEn: "Aspect" })}
+                    : {introAspectRatioLabel(media.width, media.height)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <AdminActionButton
+                      variant="secondary"
+                      onClick={() =>
+                        requestUpload(inspector === "scene" ? "background" : "replace")
+                      }
+                    >
+                      {safeT("admin_intro_media_replace", { fallbackKo: "이미지 바꾸기", fallbackEn: "Replace" })}
+                    </AdminActionButton>
+                    <AdminActionButton variant="danger" onClick={detachLayerAsset}>
+                      {safeT("admin_intro_media_remove", { fallbackKo: "이미지 빼기", fallbackEn: "Remove" })}
+                    </AdminActionButton>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-sam-muted">
+                  {safeT("admin_intro_no_file", { fallbackKo: "선택한 파일 없음", fallbackEn: "No file selected" })}
+                </p>
+              );
+            })()}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <AdminActionButton
+                variant="secondary"
+                disabled={!scene}
+                onClick={() => requestUpload(inspector === "scene" ? "background" : "image")}
+              >
+                {inspector === "scene"
+                  ? safeT("admin_intro_bg_image", { fallbackKo: "배경 이미지", fallbackEn: "Background image" })
+                  : `+ ${safeT("admin_intro_add_image", { fallbackKo: "이미지", fallbackEn: "Image" })}`}
+              </AdminActionButton>
+            </div>
+            {campaign.assets.length ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {campaign.assets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className="overflow-hidden rounded-ui-rect border border-sam-border"
+                    onClick={() => attachExistingAsset(asset)}
+                  >
+                    <SamarketThumbnail src={asset.publicUrl} alt={introAssetFileName(asset)} size={80} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <p className="mt-2 text-sm text-sam-muted">
-              {lang === "en" ? "PNG, JPEG, static WebP. GIF and MP4 are not in this phase." : "PNG, JPEG, 정적 WebP. GIF/MP4는 이 단계에 없습니다."}
+              {lang === "en"
+                ? "PNG, JPEG, static WebP. GIF and MP4 are not in this phase."
+                : "PNG, JPEG, 정적 WebP. GIF/MP4는 이 단계에 없습니다."}
             </p>
           </AdminCard>
 
+          {inspector === "campaign" ? (
+          <>
           <AdminCard>
             <h2 className="mb-3 font-semibold">
               {safeT("admin_intro_schedule", { fallbackKo: "예약", fallbackEn: "Schedule" })}
@@ -1444,6 +1717,8 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               {lang === "en" ? "Draft revision" : "초안 개정"} {campaign.draftRevision}
             </p>
           </AdminCard>
+          </>
+          ) : null}
         </div>
       </div>
 

@@ -65,7 +65,7 @@ export function defaultBackgroundLayer(id: string, zIndex: number, color = "#111
     widthPct: 100,
     heightPct: 100,
     color,
-    aspectPolicy: "fill",
+    aspectPolicy: "cover",
   };
 }
 
