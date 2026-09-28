@@ -6,6 +6,13 @@
  * Math is the existing intro-v2 primitive (KEEP), re-exported — not a second formula.
  */
 
+import {
+  transformLayerToRect,
+  type IntroRenderRect,
+  type IntroViewportSize,
+} from "@/lib/startup/intro-v2/geometry";
+import type { IntroLayerAnchor } from "@/lib/startup/intro-v2/types";
+
 export {
   INTRO_GEOMETRY_SSOT,
   introBackgroundSurfaceRect,
@@ -115,4 +122,40 @@ export function introV3GeometryHasCssPixels(raw: unknown): boolean {
   if (!raw || typeof raw !== "object") return false;
   const rec = raw as Record<string, unknown>;
   return "xPx" in rec || "yPx" in rec || "widthPx" in rec || "heightPx" in rec;
+}
+
+const V3_TO_V2_ANCHOR: Record<IntroV3Anchor, IntroLayerAnchor> = {
+  "top-left": "top_left",
+  "top-center": "top_center",
+  "top-right": "top_right",
+  "middle-left": "center_left",
+  "middle-center": "center",
+  "middle-right": "center_right",
+  "bottom-left": "bottom_left",
+  "bottom-center": "bottom_center",
+  "bottom-right": "bottom_right",
+};
+
+export function transformIntroV3GeometryToRect(input: {
+  geometry: IntroV3Geometry;
+  viewport: IntroViewportSize;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+}): IntroRenderRect {
+  return transformLayerToRect({
+    layer: {
+      type: "IMAGE",
+      anchor: V3_TO_V2_ANCHOR[input.geometry.anchor],
+      xPct: input.geometry.xPct,
+      yPct: input.geometry.yPct,
+      widthPct: input.geometry.widthPct,
+      heightPct: input.geometry.heightPct,
+      safeArea: input.geometry.safeArea,
+      aspectPolicy: input.geometry.fit === "COVER" ? "cover" : "contain",
+    },
+    viewport: input.viewport,
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+    mediaWidth: input.mediaWidth,
+    mediaHeight: input.mediaHeight,
+  });
 }

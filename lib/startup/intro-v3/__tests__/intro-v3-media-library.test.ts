@@ -109,7 +109,7 @@ describe("intro-v3 media ready + library", () => {
     expect(failed.sceneMutated).toBe(false);
   });
 
-  it("successful ADD still creates zero Layers in V3-1", () => {
+  it("library selection is not a Scene mutation until ADD/REPLACE commit", () => {
     const applied = applyIntroV3LibraryOutcome({ kind: "select", selection: selection() });
     expect(applied.selected?.mediaRef.derivativeId).toBe("der-1");
     expect(applied.layersCreated).toBe(0);
