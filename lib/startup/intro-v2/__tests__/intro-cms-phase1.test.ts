@@ -43,10 +43,15 @@ function campaign(partial?: Partial<IntroAdminCampaign>): IntroAdminCampaign {
 describe("Phase 1 CMS editor route authority", () => {
   it("routes the final CMS shell, not Operator or Device Stage", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
+    const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
     const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
-    expect(route).toContain("AdminIntroCmsEditorPage");
+    expect(route).toContain("AdminIntroCampaignRoute");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
+    expect(gate).toContain("AdminIntroCmsEditorPage");
+    expect(gate).toContain("IntroV3OpenNotice");
+    expect(gate).not.toContain("AdminIntroOperatorForm");
+    expect(gate).not.toContain("AdminIntroEditorPage");
     expect(cms).toContain('data-intro-editor="cms-v1"');
     expect(cms).not.toContain('data-intro-composer="v2"');
     expect(cms).not.toContain("이 기기군만 다름");

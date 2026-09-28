@@ -894,14 +894,19 @@ describe("composer reconstruction contract", () => {
 
   it("routes the CMS editor and keeps leftover Composer/Operator unrouted", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
+    const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
     const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
     const dest = read("components/admin/intro/AdminIntroCmsCtaDestinationFields.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
     const catalog = read("lib/i18n/catalog/admin-intro.ts");
     const backend = read("lib/startup/intro-v2/compat-publish.ts");
-    expect(route).toContain("AdminIntroCmsEditorPage");
+    expect(route).toContain("AdminIntroCampaignRoute");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
+    expect(gate).toContain("AdminIntroCmsEditorPage");
+    expect(gate).toContain("IntroV3OpenNotice");
+    expect(gate).not.toContain("AdminIntroOperatorForm");
+    expect(gate).not.toContain("AdminIntroEditorPage");
     expect(cms).toContain('data-intro-editor="cms-v1"');
     expect(cms).not.toContain('data-intro-composer="v2"');
     expect(cms).not.toContain("이 기기군만 다름");
