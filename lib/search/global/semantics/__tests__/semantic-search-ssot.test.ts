@@ -21,6 +21,7 @@ import {
   matchDeliveryMenuGlobalSearch,
   matchDeliveryStoreGlobalSearch,
   matchTradeGlobalSearch,
+  communityGlobalSearchFeedPreview,
 } from "@/lib/search/global/semantics/domain-fields";
 import {
   closeGlobalSearch,
@@ -37,6 +38,33 @@ describe("K1–K7 Korean semantic contract", () => {
     expect(isSearchableGlobalQuery("김치")).toBe(true);
     expect(matchGlobalSearchText("김치찌개", "김치")).toBe(true);
     expect(matchCommunityGlobalSearch({ title: "김치찌개 후기" }, "김치").matched).toBe(true);
+  });
+
+  it("community keyword feed preview exposes later-body 김치 for highlight", () => {
+    const title = "세부샹그릴라 신혼여행 후기";
+    const opening = "세부샹그릴라 리조트에서 보낸 신혼여행 일정과 객실, 조식, 수영장 풍경을 정리했습니다. ";
+    const later = "마지막 저녁은 돼지고기 김치찌개를 먹었습니다.";
+    const fallback = opening.slice(0, 160);
+    expect(fallback.includes("김치")).toBe(false);
+    const truncatedMatch = matchCommunityGlobalSearch(
+      { title, content: fallback, summary: fallback },
+      "김치"
+    );
+    expect(truncatedMatch.matched).toBe(false);
+    const preview = communityGlobalSearchFeedPreview(
+      { title, content: opening + later, summary: opening },
+      "김치",
+      fallback
+    );
+    expect(preview.content).toContain("김치");
+    expect(preview.summary).toContain("김치");
+    const dtoMatch = matchCommunityGlobalSearch(
+      { title, content: preview.content, summary: preview.summary },
+      "김치"
+    );
+    expect(dtoMatch.matched).toBe(true);
+    expect(dtoMatch.matchedField).not.toBe("NONE");
+    expect(buildSearchHighlightSegments(preview.content, "김치").some((s) => s.matched)).toBe(true);
   });
 
   it("K2 김치 vs 김밥과 치킨 is not a match", () => {

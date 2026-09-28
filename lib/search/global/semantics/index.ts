@@ -46,4 +46,5 @@ export {
   matchDeliveryStoreGlobalSearch,
   matchDeliveryMenuGlobalSearch,
   matchChatGlobalSearch,
+  communityGlobalSearchFeedPreview,
 } from "@/lib/search/global/semantics/domain-fields";

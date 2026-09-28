@@ -81,6 +81,7 @@ describe("4 adapter semantic filters", () => {
   });
 
   it("community adapter: 김치 hits 김치찌개, rejects 김밥과 치킨, jamo does not fetch", async () => {
+    expect(read("lib/neighborhood/queries.ts")).toContain("communityGlobalSearchFeedPreview");
     expect(communityPostTextMatchesKeyword({ title: "김치찌개 후기", content: "", summary: "" }, "김치")).toBe(true);
     expect(communityPostTextMatchesKeyword({ title: "김밥과 치킨", content: "", summary: "" }, "김치")).toBe(false);
     const skipped = await searchCommunityForGlobal("ㄱ", new AbortController().signal);
@@ -101,6 +102,26 @@ describe("4 adapter semantic filters", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.posts.map((p) => p.id)).toEqual(["c1"]);
+  });
+
+  it("community adapter keeps later-body match when feed DTO carries a snippet", async () => {
+    const title = "세부샹그릴라 신혼여행 후기";
+    const truncated = "세부샹그릴라 리조트에서 보낸 신혼여행 일정과 객실, 조식, 수영장 풍경을 정리했습니다.";
+    const snippet = "마지막 저녁은 돼지고기 김치찌개를 먹었습니다.";
+    expect(communityPostTextMatchesKeyword({ title, content: truncated, summary: truncated }, "김치")).toBe(false);
+    expect(communityPostTextMatchesKeyword({ title, content: snippet, summary: snippet }, "김치")).toBe(true);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        posts: [{ id: "body-kimchi", title, content: snippet, summary: snippet }],
+      }),
+    });
+    const res = await searchCommunityForGlobal("김치", new AbortController().signal);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.posts.map((p) => p.id)).toEqual(["body-kimchi"]);
+    expect(buildSearchHighlightSegments(String(res.posts[0]?.content ?? ""), "김치").some((s) => s.matched)).toBe(true);
   });
 
   it("trade adapter: title-only match, go does not fetch, SQL overmatch is filtered", async () => {

@@ -59,6 +59,7 @@ import {
   sanitizeCommunityKeywordQuery,
 } from "@/lib/community-feed/hashtag-discovery";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+import { communityGlobalSearchFeedPreview } from "@/lib/search/global/semantics/domain-fields";
 
 function countCsvSelectColumns(selectList: string): number {
   return selectList.split(",").map((c) => c.trim()).filter(Boolean).length;
@@ -654,7 +655,18 @@ export async function listNeighborhoodFeed(options: {
       r.summary != null ? String(r.summary) : "",
       160
     );
-    const content = summaryRaw;
+    const keywordPreview = keywordQ
+      ? communityGlobalSearchFeedPreview(
+          {
+            title: String(r.title ?? ""),
+            content: String(r.content ?? ""),
+            summary: r.summary != null ? String(r.summary) : "",
+          },
+          keywordQ,
+          summaryRaw
+        )
+      : { content: summaryRaw, summary: summaryRaw };
+    const content = keywordPreview.content;
     const isQuestion = Boolean(r.is_question);
     const isMeetupRow = Boolean(r.is_meetup);
     const meetupPlace = r.meetup_place != null && String(r.meetup_place).trim() !== "" ? String(r.meetup_place).trim() : null;
@@ -686,7 +698,7 @@ export async function listNeighborhoodFeed(options: {
       meetup_place: meetupPlace,
       title: String(r.title ?? ""),
       content,
-      summary: summaryRaw,
+      summary: keywordPreview.summary,
       location_id: String(r.location_id ?? (allLocations ? "" : lid)),
       location_label: locationLabel,
       images: imgs,

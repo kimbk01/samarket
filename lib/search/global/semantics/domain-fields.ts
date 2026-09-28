@@ -1,4 +1,8 @@
-import { matchGlobalSearchRecord, type GlobalSearchFieldMatch } from "@/lib/search/global/semantics/match";
+import {
+  buildMatchedSnippet,
+  matchGlobalSearchRecord,
+  type GlobalSearchFieldMatch,
+} from "@/lib/search/global/semantics/match";
 
 export const GLOBAL_SEARCH_COMMUNITY_FIELDS = ["title", "content", "summary"] as const;
 export const GLOBAL_SEARCH_TRADE_FIELDS = ["title"] as const;
@@ -26,6 +30,28 @@ export function matchCommunityGlobalSearch(fields: {
     GLOBAL_SEARCH_COMMUNITY_FIELDS,
     query
   );
+}
+
+/**
+ * Neighborhood feed DTOs truncate content to a leading summary.
+ * Keyword results must still expose a highlightable matched snippet.
+ */
+export function communityGlobalSearchFeedPreview(
+  fields: {
+    title?: string | null;
+    content?: string | null;
+    summary?: string | null;
+  },
+  query: string,
+  fallbackPreview: string
+): { content: string; summary: string } {
+  const match = matchCommunityGlobalSearch(fields, query);
+  if (!match.matched || match.matchedField === "NONE" || match.matchedField === "title") {
+    return { content: fallbackPreview, summary: fallbackPreview };
+  }
+  const source = match.matchedField === "summary" ? fields.summary : fields.content;
+  const snippet = buildMatchedSnippet(source ?? "", query);
+  return { content: snippet, summary: snippet };
 }
 
 export function matchTradeGlobalSearch(title: string | null | undefined, query: string): GlobalSearchFieldMatch<GlobalSearchTradeField> {
