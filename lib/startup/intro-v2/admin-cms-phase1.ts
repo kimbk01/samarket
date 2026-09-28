@@ -5,6 +5,7 @@
 
 import { introDraftFingerprint } from "@/lib/startup/intro-v2/admin-document-state";
 import type { IntroAdminCampaign, IntroAdminScene } from "@/lib/startup/intro-v2/admin-editor-model";
+import { scenesForPersist } from "@/lib/startup/intro-v2/scene-layer-authority";
 import type { IntroOperatorAppState } from "@/lib/startup/intro-operator-contract";
 import type { IntroSurfaceInsets } from "@/lib/startup/intro-v2/geometry";
 
@@ -93,7 +94,7 @@ export function introCmsDraftSavePayload(campaign: IntroAdminCampaign): {
     targeting: campaign.targeting,
     frequencyMode: campaign.frequencyMode,
     deepLinkPolicy: campaign.deepLinkPolicy,
-    scenes: campaign.scenes,
+    scenes: scenesForPersist(campaign.scenes),
     source: {
       ...campaign.source,
       sizePresetFinalAuthority: false,

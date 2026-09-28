@@ -1,6 +1,8 @@
 /**
- * Map Failed-B Operator one-image drafts into the Phase 2 canonical Scene/Layer model.
- * Does not mutate published history. sizePreset is converted, then discarded as authority.
+ * Compatibility READ adapter only.
+ * Executes once per campaign GET / successful save hydrate in AdminIntroCmsEditorPage.applyLoaded
+ * via prepareIntroWorkingDraft. Must not become live CMS authority, add Layers, or
+ * rewrite sizePreset-derived content as a second document.
  */
 
 import { sizePresetToCanonicalGeometry } from "@/lib/startup/intro-v2/geometry";
@@ -32,6 +34,13 @@ export function adaptOperatorSceneToCanonical(
   const geometry = sizePresetToCanonicalGeometry(operatorSizePreset(extras.sizePreset));
   const layers = scene.layers.map((layer) => {
     if (layer.type !== "IMAGE") {
+      return {
+        ...layer,
+        visible: layer.visible !== false,
+        animation: layer.animation ?? emptyAnimationMeta(),
+      };
+    }
+    if (!layer.assetId) {
       return {
         ...layer,
         visible: layer.visible !== false,

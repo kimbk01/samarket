@@ -202,7 +202,7 @@ export function resolveIntroUploadAttach(input: {
   }
   return {
     targetLayerId: null,
-    createType: input.intent === "logo" ? "LOGO" : "IMAGE",
-    selectAfter: !input.selectedLayerId,
+    createType: null,
+    selectAfter: false,
   };
 }

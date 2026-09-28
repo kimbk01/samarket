@@ -33,7 +33,6 @@ import {
   introDeepLinkLabel,
   introFrequencyLabel,
   introInteractionLabel,
-  introLayerTypeLabel,
   introPlatformLabel,
   introStatusLabel,
   introTransitionLabel,
@@ -78,14 +77,15 @@ import {
   type IntroAdminCampaign,
   type IntroAdminScene,
 } from "@/lib/startup/intro-v2/admin-editor-model";
-import {
-  createLayerOfType,
-  defaultImageLayer,
-  nextLayerId,
-} from "@/lib/startup/intro-v2/composition";
+import { nextLayerId } from "@/lib/startup/intro-v2/composition";
 import { searchIntroCtaEntities, withResolvedIntroCtaLabels } from "@/lib/startup/intro-v2/admin-cta-entity-client";
 import type { IntroEntityHit } from "@/lib/startup/intro-v2/admin-entity-search";
-import { adaptOperatorDraftToCanonical } from "@/lib/startup/intro-v2/legacy-operator-adapter";
+import {
+  createSemanticLayer,
+  introLayerDisplayLabel,
+  nextSceneId,
+  prepareIntroWorkingDraft,
+} from "@/lib/startup/intro-v2/scene-layer-authority";
 import {
   INTRO_ADVANCE_MODES,
   INTRO_ASPECT_POLICIES,
@@ -150,11 +150,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const layerIdRef = useRef<string | null>(null);
   const sceneIdRef = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const uploadIntentRef = useRef<"image" | "logo" | "background" | "replace">("image");
+  const uploadIntentRef = useRef<"background" | "replace">("replace");
   const uploadTargetLayerIdRef = useRef<string | null>(null);
 
   const applyLoaded = useCallback(async (next: IntroAdminCampaign) => {
-    const adapted = adaptOperatorDraftToCanonical(next);
+    const adapted = prepareIntroWorkingDraft(next);
     const labeled = await withResolvedIntroCtaLabels(adapted);
     const copy = discardIntroCmsEdits(labeled);
     setCampaign(copy);
@@ -285,7 +285,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   const addScene = () => {
     if (!campaign) return;
     const next = defaultNewScene(
-      `tmp-${Date.now()}`,
+      nextSceneId(),
       nextSceneSortOrder(campaign.scenes),
       lang === "en" ? `Scene ${campaign.scenes.length + 1}` : `장면 ${campaign.scenes.length + 1}`
     );
@@ -295,7 +295,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
 
   const dupScene = () => {
     if (!campaign || !scene) return;
-    const next = duplicateScene(scene, `tmp-${Date.now()}`, nextSceneSortOrder(campaign.scenes));
+    const next = duplicateScene(scene, nextSceneId(), nextSceneSortOrder(campaign.scenes));
     patchScenes([...campaign.scenes, next]);
     setSceneId(next.id);
   };
@@ -343,9 +343,11 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     patchScene(nextScene);
   };
 
-  const addLayer = (type: IntroLayerType) => {
+  const addLayer = (type: IntroLayerType, assetId?: string) => {
     if (!scene) return;
-    const next = createLayerOfType(type, nextLayerId(), scene.layers.length + 1);
+    const created = createSemanticLayer(type, nextLayerId(), scene.layers.length + 1, { assetId });
+    if (!created.ok) return;
+    const next = created.value;
     let nextScene: IntroAdminScene = { ...scene, layers: [...scene.layers, next] };
     if (type === "CTA") {
       nextScene = {
@@ -365,12 +367,9 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     patchScene(nextScene);
     setLayerId(next.id);
     setInspector("layer");
-    if (type === "IMAGE" || type === "LOGO") {
-      uploadTargetLayerIdRef.current = next.id;
-    }
   };
 
-  const requestUpload = (intent: "image" | "logo" | "background" | "replace") => {
+  const requestUpload = (intent: "background" | "replace") => {
     uploadIntentRef.current = intent;
     if (intent === "background") {
       uploadTargetLayerIdRef.current = null;
@@ -381,9 +380,13 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
   };
 
   const addElement = (type: IntroLayerType) => {
+    if (type === "IMAGE" || type === "LOGO" || type === "BACKGROUND") return;
     addLayer(type);
-    if (type === "IMAGE") requestUpload("image");
-    if (type === "LOGO") requestUpload("logo");
+  };
+
+  const addLayerFromExistingAsset = (type: "IMAGE" | "LOGO", asset: IntroAdminAsset) => {
+    if (!asset.id) return;
+    addLayer(type, asset.id);
   };
 
   const patchLayerSize = (next: { widthPct?: number; heightPct?: number }) => {
@@ -406,13 +409,15 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
 
   const attachExistingAsset = (asset: IntroAdminAsset) => {
     if (!scene) return;
-    if (inspector === "scene" || uploadIntentRef.current === "background") {
+    if (inspector === "scene") {
       patchScene({ ...scene, backgroundAssetId: asset.id });
       return;
     }
-    if (layer && (layer.type === "IMAGE" || layer.type === "LOGO" || layer.type === "BACKGROUND")) {
+    if (layer && (layer.type === "IMAGE" || layer.type === "LOGO" || layer.decorationKind === "sticker")) {
       patchLayer({ ...layer, assetId: asset.id });
+      return;
     }
+    addLayerFromExistingAsset("IMAGE", asset);
   };
 
   const detachLayerAsset = () => {
@@ -530,10 +535,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     });
   };
 
-  const attachUploadedAsset = (
-    asset: IntroAdminAsset,
-    intent: "image" | "logo" | "background" | "replace"
-  ) => {
+  const attachUploadedAsset = (asset: IntroAdminAsset, intent: "background" | "replace") => {
     const current = campaignRef.current;
     const liveSceneId = sceneIdRef.current;
     const currentScene =
@@ -558,17 +560,17 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       intendedLayerId: uploadTargetLayerIdRef.current,
       intent,
     });
-    const mediaLayer = plan.targetLayerId
+    const target = plan.targetLayerId
       ? currentScene.layers.find((item) => item.id === plan.targetLayerId)
       : undefined;
-    const target =
-      mediaLayer ??
-      (plan.createType === "LOGO"
-        ? createLayerOfType("LOGO", nextLayerId(), currentScene.layers.length + 1)
-        : defaultImageLayer(nextLayerId(), currentScene.layers.length + 1));
-    const layers = currentScene.layers.some((item) => item.id === target.id)
-      ? currentScene.layers.map((item) => (item.id === target.id ? { ...item, assetId: asset.id } : item))
-      : [...currentScene.layers, { ...target, assetId: asset.id }];
+    if (!target) {
+      setCampaign({ ...current, assets: nextAssets });
+      uploadTargetLayerIdRef.current = null;
+      return;
+    }
+    const layers = currentScene.layers.map((item) =>
+      item.id === target.id ? { ...item, assetId: asset.id } : item
+    );
     setCampaign({
       ...current,
       assets: nextAssets,
@@ -852,10 +854,10 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               {lang === "en" ? "Add to this scene" : "이 장면에 추가"}
             </p>
             <div className="flex flex-wrap gap-2">
-              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("IMAGE")}>
+              <AdminActionButton variant="secondary" disabled>
                 + {safeT("admin_intro_add_image", { fallbackKo: "이미지", fallbackEn: "Image" })}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("LOGO")}>
+              <AdminActionButton variant="secondary" disabled>
                 + {safeT("admin_intro_add_logo", { fallbackKo: "로고", fallbackEn: "Logo" })}
               </AdminActionButton>
               <AdminActionButton variant="secondary" disabled={!scene} onClick={() => addElement("TEXT")}>
@@ -868,6 +870,30 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                 + {safeT("admin_intro_add_decoration", { fallbackKo: "장식", fallbackEn: "Decoration" })}
               </AdminActionButton>
             </div>
+            <p className="mt-2 text-xs text-sam-muted">
+              {safeT("admin_intro_add_image_needs_asset", {
+                fallbackKo: "유효한 파일이 있을 때만 이미지를 추가할 수 있습니다.",
+                fallbackEn: "Images can be added only with a valid file.",
+              })}
+            </p>
+            {campaign.assets.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {campaign.assets.map((asset) => (
+                  <AdminActionButton
+                    key={asset.id}
+                    variant="quiet"
+                    disabled={!scene}
+                    onClick={() => addLayerFromExistingAsset("IMAGE", asset)}
+                  >
+                    {safeT("admin_intro_use_existing_asset", {
+                      fallbackKo: "기존 파일로 추가",
+                      fallbackEn: "Add from existing file",
+                    })}{" "}
+                    · {introAssetFileName(asset)}
+                  </AdminActionButton>
+                ))}
+              </div>
+            ) : null}
           </div>
           <h3 className="mt-4 font-semibold">
             {safeT("admin_intro_layers", { fallbackKo: "레이어", fallbackEn: "Layers" })}
@@ -889,7 +915,12 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                         setInspector("layer");
                       }}
                     >
-                      {introLayerTypeLabel(item.type, lang)}
+                      {introLayerDisplayLabel({
+                        layer: item,
+                        assets: campaign.assets,
+                        siblings: scene.layers,
+                        lang,
+                      })}
                       {item.visible === false ? (lang === "en" ? " · hidden" : " · 숨김") : ""}
                     </button>
                     <AdminActionButton
@@ -1142,7 +1173,12 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
                       <option value="">{lang === "en" ? "Choose element" : "요소 선택"}</option>
                       {scene.layers.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name || introLayerTypeLabel(item.type, lang)}
+                          {introLayerDisplayLabel({
+                            layer: item,
+                            assets: campaign.assets,
+                            siblings: scene.layers,
+                            lang,
+                          })}
                         </option>
                       ))}
                     </select>
@@ -1523,15 +1559,23 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
               );
             })()}
             <div className="mt-3 flex flex-wrap gap-2">
-              <AdminActionButton
-                variant="secondary"
-                disabled={!scene}
-                onClick={() => requestUpload(inspector === "scene" ? "background" : "image")}
-              >
-                {inspector === "scene"
-                  ? safeT("admin_intro_bg_image", { fallbackKo: "배경 이미지", fallbackEn: "Background image" })
-                  : `+ ${safeT("admin_intro_add_image", { fallbackKo: "이미지", fallbackEn: "Image" })}`}
-              </AdminActionButton>
+              {inspector === "scene" ? (
+                <AdminActionButton
+                  variant="secondary"
+                  disabled={!scene}
+                  onClick={() => requestUpload("background")}
+                >
+                  {safeT("admin_intro_bg_image", { fallbackKo: "배경 이미지", fallbackEn: "Background image" })}
+                </AdminActionButton>
+              ) : layer && (layer.type === "IMAGE" || layer.type === "LOGO") ? (
+                <AdminActionButton
+                  variant="secondary"
+                  disabled={!scene}
+                  onClick={() => requestUpload("replace")}
+                >
+                  {safeT("admin_intro_media_replace", { fallbackKo: "이미지 바꾸기", fallbackEn: "Replace" })}
+                </AdminActionButton>
+              ) : null}
             </div>
             {campaign.assets.length ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
