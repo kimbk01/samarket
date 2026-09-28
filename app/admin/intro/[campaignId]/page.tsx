@@ -1,4 +1,4 @@
-import { AdminIntroCmsEditorPage } from "@/components/admin/intro/AdminIntroCmsEditorPage";
+import { AdminIntroCampaignRoute } from "@/components/admin/intro/AdminIntroCampaignRoute";
 
 export default async function AdminIntroCampaignPage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminIntroCampaignPage({
   params: Promise<{ campaignId: string }>;
 }) {
   const { campaignId } = await params;
-  return <AdminIntroCmsEditorPage campaignId={campaignId} />;
+  return <AdminIntroCampaignRoute campaignId={campaignId} />;
 }

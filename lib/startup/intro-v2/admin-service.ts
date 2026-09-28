@@ -169,7 +169,10 @@ export async function listIntroAdminCampaigns(
     .order("updated_at", { ascending: false });
   if (error) return { ok: false, error: "list_failed", httpStatus: 500 };
 
-  const campaigns = (data ?? []) as Record<string, unknown>[];
+  const campaigns = ((data ?? []) as Record<string, unknown>[]).filter((c) => {
+    const source = (c.source && typeof c.source === "object" ? c.source : {}) as Record<string, unknown>;
+    return source.introV3 !== true;
+  });
   const ids = campaigns.map((c) => String(c.id));
   const { data: scenes } = ids.length
     ? await sb
