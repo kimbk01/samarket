@@ -21,7 +21,6 @@ Domain HARD LOCK / Auth contracts reference subsets; they do not maintain a seco
 | `IOS_AUTH_PACKAGE_CLASSES` | Auth | Apple/Kakao native contracts + `docs/auth-ios-native-oauth-launcher-contract.md` |
 | `IOS_DELIVERY_PACKAGE_CLASSES` | Delivery | App Icon delivery |
 | `IOS_DEVICE_PACKAGE_CLASSES` | Device class | `DibayDeviceClassPlugin` only — not Call subset |
-| `IOS_OPENING_PACKAGE_CLASSES` | NEW Opening runtime | `OpeningRuntimePlugin` only — not old Intro |
 
 ## Sync
 

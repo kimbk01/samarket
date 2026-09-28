@@ -1,5 +1,5 @@
-import { OpeningShowListPage } from "@/components/admin/opening-show/OpeningShowListPage";
+import { IntroRebuildNotice } from "@/app/admin/intro/IntroRebuildNotice";
 
-export default function AdminOpeningShowListRoute() {
-  return <OpeningShowListPage />;
+export default function AdminIntroRebuildNoticeRoute() {
+  return <IntroRebuildNotice />;
 }

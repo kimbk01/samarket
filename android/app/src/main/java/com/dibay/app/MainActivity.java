@@ -1086,7 +1086,6 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
-    registerPlugin(com.dibay.app.opening.OpeningRuntimePlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
@@ -1140,13 +1139,6 @@ public class MainActivity extends BridgeActivity {
     }
     handleNotificationLaunchIntent(launchIntent);
     DibayWebSafeAreaBridge.attach(this);
-    boolean skipOpening =
-        launchIntent != null
-            && launchIntent.getBooleanExtra(
-                CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION, false);
-    if (!skipOpening) {
-      com.dibay.app.opening.OpeningRuntimeCoordinator.presentIfReady(this);
-    }
   }
 
   @Override
@@ -1372,12 +1364,6 @@ public class MainActivity extends BridgeActivity {
     }
     dibayWebViewClientAttached = true;
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
-  }
-
-  /** Opening player owns the first frame. Do not wait for WebView visual-state. */
-  public static void releaseSplashForOpeningPlayer() {
-    webSplashDismissRequested = true;
-    splashDismissSource = "opening_player";
   }
 
   /**

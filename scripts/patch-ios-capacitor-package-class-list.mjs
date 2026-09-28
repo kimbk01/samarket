@@ -40,11 +40,6 @@ export const IOS_DEVICE_PACKAGE_CLASSES = [
   "DibayDeviceClassPlugin",
 ];
 
-/** NEW Opening runtime — not old Intro, not Call */
-export const IOS_OPENING_PACKAGE_CLASSES = [
-  "OpeningRuntimePlugin",
-];
-
 /**
  * Full App-target merge list for post-`cap sync ios` restore.
  * Domain contracts reference this list; Call HARD LOCK is a subset only.
@@ -54,7 +49,6 @@ export const IOS_APP_TARGET_PACKAGE_CLASSES = [
   ...IOS_AUTH_PACKAGE_CLASSES,
   ...IOS_DELIVERY_PACKAGE_CLASSES,
   ...IOS_DEVICE_PACKAGE_CLASSES,
-  ...IOS_OPENING_PACKAGE_CLASSES,
 ];
 
 function mergePackageClassList(existing, required) {

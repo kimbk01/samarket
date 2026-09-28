@@ -9,7 +9,7 @@ import os.log
  * shellReady / dismissSplash → fade out → Cap WebView.
  * Authored Product Intro is removed. No Hybrid boot HTML · no location.replace.
  */
-class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler, OpeningPlayerHost {
+class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
 
   private func startupInfo(_ message: String) {
@@ -51,11 +51,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     super.viewDidLoad()
     applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
-    if OpeningPackStore.isReady() {
-      introLifecycle = .dismissed
-      hideCapacitorSplash()
-      return
-    }
     attachNativeIntroIfNeeded(source: "viewDidLoad")
   }
 
@@ -64,10 +59,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
-    if OpeningRuntimeCoordinator.presentIfReady(host: self) {
-      startupInfo("startup_boot_skip reason=opening_player intro_lifecycle=\(introLifecycle.rawValue)")
-      return
-    }
     // First appear may run before viewDidLoad attach completes; after dismiss, must not reattach.
     attachNativeIntroIfNeeded(source: "viewDidAppear")
     startupInfo("startup_boot_skip reason=native_splash_direct_remote intro_lifecycle=\(introLifecycle.rawValue)")
@@ -143,69 +134,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   private func attachNativeIntroIfNeeded(source: String) {
-    switch introLifecycle {
-    case .attached:
-      startupInfo("intro_attach_skipped source=\(source) reason=already_attached")
-      return
-    case .dismissing:
-      startupInfo("intro_reattach_blocked source=\(source) reason=dismissing")
-      return
-    case .dismissed:
-      startupInfo("intro_reattach_blocked source=\(source) reason=terminal_dismissed")
-      return
-    case .pending:
-      break
+    // ZERO baseline: OS LaunchScreen only. No product logo overlay before HOME.
+    if introLifecycle == .pending {
+      introLifecycle = .dismissed
+      startupInfo("intro_attach_skipped source=\(source) reason=zero_baseline_os_launch_only")
     }
-    if introOverlay != nil {
-      introLifecycle = .attached
-      startupInfo("intro_attach_skipped source=\(source) reason=overlay_present")
-      return
-    }
-
-    let overlay = UIView(frame: view.bounds)
-    overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    overlay.isUserInteractionEnabled = true
-
-    let canvasBg = UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1) // #FFFCFC
-    overlay.backgroundColor = canvasBg
-    let content = buildLogoCanvasContent()
-    activeConfig = ["backgroundColor": "#FFFCFC", "exitAnimation": "fade_out", "exitDurationMs": 220]
-    startupInfo("boot_overlay_attach source=\(source) continuity=os_native_handoff")
-
-    content.translatesAutoresizingMaskIntoConstraints = false
-    overlay.addSubview(content)
-    NSLayoutConstraint.activate([
-      content.leadingAnchor.constraint(equalTo: overlay.leadingAnchor),
-      content.trailingAnchor.constraint(equalTo: overlay.trailingAnchor),
-      content.topAnchor.constraint(equalTo: overlay.topAnchor),
-      content.bottomAnchor.constraint(equalTo: overlay.bottomAnchor),
-    ])
-    view.addSubview(overlay)
-    introOverlay = overlay
-    introContent = content
-    introLifecycle = .attached
-    holdTechnicalHandoffAtRest(on: content)
-  }
-
-  private func buildLogoCanvasContent() -> UIView {
-    let wrap = UIView()
-    wrap.backgroundColor = .clear
-    let iv = UIImageView()
-    if let logo = DibayStartupConfigCache.loadLogoImage() {
-      iv.image = logo
-    } else if let bundled = UIImage(named: "DibayStartupLogo") ?? UIImage(named: "Splash") ?? UIImage(named: "AppIcon") {
-      iv.image = bundled
-    }
-    iv.contentMode = .scaleAspectFit
-    iv.translatesAutoresizingMaskIntoConstraints = false
-    wrap.addSubview(iv)
-    NSLayoutConstraint.activate([
-      iv.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
-      iv.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
-      iv.widthAnchor.constraint(equalToConstant: 160),
-      iv.heightAnchor.constraint(equalToConstant: 160),
-    ])
-    return wrap
   }
 
   private func finalizeIntroRemoved(overlay: UIView, source: String) {
@@ -217,21 +150,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introDismissing = false
     introLifecycle = .dismissed
     startupInfo("intro_removed source=\(source) interaction=0 superview=nil lifecycle=dismissed")
-  }
-
-  var openingHostView: UIView { view }
-
-  func openingPlayerDidStart() {
-    if let overlay = introOverlay {
-      finalizeIntroRemoved(overlay: overlay, source: "opening_start")
-    } else {
-      introLifecycle = .dismissed
-    }
-    hideCapacitorSplash()
-  }
-
-  func openingPlayerDidEnd() {
-    dismissNativeIntroThenHideSplash()
   }
 
   private func dismissNativeIntroThenHideSplash() {
@@ -288,13 +206,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     default:
       break
     }
-  }
-
-  /// Technical Boot after LaunchScreen — logo/bg at rest. Enter anim must not replay.
-  private func holdTechnicalHandoffAtRest(on view: UIView) {
-    view.layer.removeAllAnimations()
-    view.alpha = 1
-    view.transform = .identity
   }
 
   private func applyBackground(to view: UIView, config: [String: Any]) {

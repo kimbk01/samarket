@@ -75,10 +75,6 @@
 		C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */; };
 		C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */; };
 		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
-		C7OPN0022FED79650016851F /* OpeningPackStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OPN0012FED79650016851F /* OpeningPackStore.swift */; };
-		C7OPN0122FED79650016851F /* OpeningPlayerSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OPN0112FED79650016851F /* OpeningPlayerSurface.swift */; };
-		C7OPN0222FED79650016851F /* OpeningRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OPN0212FED79650016851F /* OpeningRuntimeCoordinator.swift */; };
-		C7OPN0322FED79650016851F /* OpeningRuntimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OPN0312FED79650016851F /* OpeningRuntimePlugin.swift */; };
 		C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */; };
 		C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */; };
 		C7NSE0022FED79650016851F /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NSE0012FED79650016851F /* NotificationService.swift */; };
@@ -156,10 +152,6 @@
 		C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryAdapter.swift; sourceTree = "<group>"; };
 		C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryPlugin.swift; sourceTree = "<group>"; };
 		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
-		C7OPN0012FED79650016851F /* OpeningPackStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningPackStore.swift; sourceTree = "<group>"; };
-		C7OPN0112FED79650016851F /* OpeningPlayerSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningPlayerSurface.swift; sourceTree = "<group>"; };
-		C7OPN0212FED79650016851F /* OpeningRuntimeCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningRuntimeCoordinator.swift; sourceTree = "<group>"; };
-		C7OPN0312FED79650016851F /* OpeningRuntimePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningRuntimePlugin.swift; sourceTree = "<group>"; };
 		C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassClassifier.swift; sourceTree = "<group>"; };
 		C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppOrientationPolicy.swift; sourceTree = "<group>"; };
 		C7NSE0012FED79650016851F /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -268,10 +260,6 @@
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
-				C7OPN0012FED79650016851F /* OpeningPackStore.swift */,
-				C7OPN0112FED79650016851F /* OpeningPlayerSurface.swift */,
-				C7OPN0212FED79650016851F /* OpeningRuntimeCoordinator.swift */,
-				C7OPN0312FED79650016851F /* OpeningRuntimePlugin.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
 			);
@@ -540,10 +528,6 @@
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
-				C7OPN0022FED79650016851F /* OpeningPackStore.swift in Sources */,
-				C7OPN0122FED79650016851F /* OpeningPlayerSurface.swift in Sources */,
-				C7OPN0222FED79650016851F /* OpeningRuntimeCoordinator.swift in Sources */,
-				C7OPN0322FED79650016851F /* OpeningRuntimePlugin.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
 			);
