@@ -507,16 +507,63 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
     });
   };
 
+  const attachUploadedAsset = (
+    asset: IntroAdminAsset,
+    intent: "image" | "logo" | "background" | "replace"
+  ) => {
+    const current = campaignRef.current;
+    const currentScene =
+      current?.scenes.find((item) => item.id === sceneId) ?? current?.scenes[0] ?? null;
+    if (!current || !currentScene) return;
+    const nextAssets = [...current.assets.filter((item) => item.id !== asset.id), asset];
+    if (intent === "background") {
+      setCampaign({
+        ...current,
+        assets: nextAssets,
+        scenes: current.scenes.map((item) =>
+          item.id === currentScene.id ? { ...item, backgroundAssetId: asset.id } : item
+        ),
+      });
+      setInspector("scene");
+      return;
+    }
+    const mediaLayer = currentScene.layers.find(
+      (item) =>
+        item.id === layerId &&
+        (item.type === "IMAGE" ||
+          item.type === "LOGO" ||
+          item.type === "BACKGROUND" ||
+          (item.type === "DECORATION" && item.decorationKind === "sticker"))
+    );
+    const target =
+      mediaLayer ??
+      (intent === "logo"
+        ? createLayerOfType("LOGO", nextLayerId(), currentScene.layers.length + 1)
+        : defaultImageLayer(nextLayerId(), currentScene.layers.length + 1));
+    const layers = currentScene.layers.some((item) => item.id === target.id)
+      ? currentScene.layers.map((item) => (item.id === target.id ? { ...item, assetId: asset.id } : item))
+      : [...currentScene.layers, { ...target, assetId: asset.id }];
+    setCampaign({
+      ...current,
+      assets: nextAssets,
+      scenes: current.scenes.map((item) => (item.id === currentScene.id ? { ...item, layers } : item)),
+    });
+    setLayerId(target.id);
+    setInspector("layer");
+  };
+
   const onUpload = async (file: File) => {
-    if (!campaign || !scene) return;
+    if (!campaignRef.current) return;
     if (!isSupportedIntroImageMime(file.type)) {
       setError(lang === "en" ? "Use PNG, JPG, or static WebP." : "PNG, JPG, 정적 WebP만 사용할 수 있습니다.");
       return;
     }
+    const intent = uploadIntentRef.current;
     setUploading(true);
-    const existing = campaign.assets.find((asset) => asset.publicUrl && asset.bytes === file.size);
+    const latest = campaignRef.current;
+    const existing = latest.assets.find((asset) => asset.publicUrl && asset.bytes === file.size);
     const fd = new FormData();
-    fd.set("kind", uploadIntentRef.current === "logo" ? "logo" : "background");
+    fd.set("kind", intent === "logo" ? "logo" : "background");
     fd.set("file", file);
     const up = await fetch("/api/admin/startup-config/upload-image", {
       method: "POST",
@@ -529,23 +576,10 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       setError(lang === "en" ? "Upload failed." : "업로드에 실패했습니다.");
       return;
     }
-    const reused = campaign.assets.find((asset) => asset.publicUrl === upJson.url) ?? existing;
+    const reused =
+      campaignRef.current?.assets.find((asset) => asset.publicUrl === upJson.url) ?? existing;
     if (reused) {
-      if (uploadIntentRef.current === "background") {
-        patchScene({ ...scene, backgroundAssetId: reused.id });
-      } else {
-        const target =
-          scene.layers.find((item) => item.id === layerId) ??
-          defaultImageLayer(nextLayerId(), scene.layers.length + 1);
-        const layers = scene.layers.some((item) => item.id === target.id)
-          ? scene.layers.map((item) => (item.id === target.id ? { ...item, assetId: reused.id } : item))
-          : [...scene.layers, { ...target, assetId: reused.id }];
-        setCampaign({
-          ...campaign,
-          scenes: campaign.scenes.map((item) => (item.id === scene.id ? { ...scene, layers } : item)),
-        });
-        setLayerId(target.id);
-      }
+      attachUploadedAsset(reused, intent);
       setUploading(false);
       setError(null);
       return;
@@ -574,41 +608,7 @@ export function AdminIntroCmsEditorPage({ campaignId }: { campaignId: string }) 
       setError(lang === "en" ? "Could not keep the image." : "이미지를 저장하지 못했습니다.");
       return;
     }
-    const nextAsset = regJson.asset;
-    if (uploadIntentRef.current === "background") {
-      setCampaign({
-        ...campaign,
-        assets: [...campaign.assets.filter((asset) => asset.id !== nextAsset.id), nextAsset],
-        scenes: campaign.scenes.map((item) =>
-          item.id === scene.id ? { ...scene, backgroundAssetId: nextAsset.id } : item
-        ),
-      });
-      setInspector("scene");
-      setError(null);
-      return;
-    }
-    const target =
-      scene.layers.find(
-        (item) =>
-          item.id === layerId &&
-          (item.type === "IMAGE" ||
-            item.type === "LOGO" ||
-            item.type === "BACKGROUND" ||
-            (item.type === "DECORATION" && item.decorationKind === "sticker"))
-      ) ??
-      (uploadIntentRef.current === "logo"
-        ? createLayerOfType("LOGO", nextLayerId(), scene.layers.length + 1)
-        : defaultImageLayer(nextLayerId(), scene.layers.length + 1));
-    const layers = scene.layers.some((item) => item.id === target.id)
-      ? scene.layers.map((item) => (item.id === target.id ? { ...item, assetId: nextAsset.id } : item))
-      : [...scene.layers, { ...target, assetId: nextAsset.id }];
-    setCampaign({
-      ...campaign,
-      assets: [...campaign.assets.filter((asset) => asset.id !== nextAsset.id), nextAsset],
-      scenes: campaign.scenes.map((item) => (item.id === scene.id ? { ...scene, layers } : item)),
-    });
-    setLayerId(target.id);
-    setInspector("layer");
+    attachUploadedAsset(regJson.asset, intent);
     setError(null);
   };
 
