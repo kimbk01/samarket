@@ -29,6 +29,7 @@
 		"NativeOAuthLauncherPlugin",
 		"DibayAppIconDeliveryPlugin",
 		"MessengerPhotoLibraryPlugin",
-		"DibayDeviceClassPlugin"
+		"DibayDeviceClassPlugin",
+		"DibayIntroHostPlugin"
 	]
 }

@@ -40,6 +40,11 @@ export const IOS_DEVICE_PACKAGE_CLASSES = [
   "DibayDeviceClassPlugin",
 ];
 
+/** Intro host — not Call / Auth / Delivery / Device identity */
+export const IOS_INTRO_PACKAGE_CLASSES = [
+  "DibayIntroHostPlugin",
+];
+
 /**
  * Full App-target merge list for post-`cap sync ios` restore.
  * Domain contracts reference this list; Call HARD LOCK is a subset only.
@@ -49,6 +54,7 @@ export const IOS_APP_TARGET_PACKAGE_CLASSES = [
   ...IOS_AUTH_PACKAGE_CLASSES,
   ...IOS_DELIVERY_PACKAGE_CLASSES,
   ...IOS_DEVICE_PACKAGE_CLASSES,
+  ...IOS_INTRO_PACKAGE_CLASSES,
 ];
 
 function mergePackageClassList(existing, required) {

@@ -1,5 +1,5 @@
-import { IntroRebuildNotice } from "@/app/admin/intro/IntroRebuildNotice";
+import { DibayIntroListPage } from "@/components/admin/dibay-intro/DibayIntroListPage";
 
-export default function AdminIntroRebuildNoticeRoute() {
-  return <IntroRebuildNotice />;
+export default function AdminIntroPage() {
+  return <DibayIntroListPage />;
 }

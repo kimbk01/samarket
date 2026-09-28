@@ -1086,6 +1086,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
+    registerPlugin(com.dibay.app.intro.DibayIntroHostPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
@@ -1120,6 +1121,7 @@ public class MainActivity extends BridgeActivity {
     loadLocalStartupShellIfReady();
     ensureInitialRemotePathOnce();
     ensureWebViewLoadErrorOverlay();
+    com.dibay.app.intro.DibayIntroHostOwner.get().attachIfReady(this);
     logNativeAuthBootState();
     Intent launchIntent = getIntent();
     if (launchIntent != null

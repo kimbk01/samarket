@@ -1,0 +1,121 @@
+import { DIBAY_GREEN, type DibayIntroDocument } from "@/lib/dibay-intro/document";
+
+export const ACCEPTANCE_MEDIA_LOGO = "11111111-1111-4111-8111-111111111111";
+export const ACCEPTANCE_MEDIA_IMAGE = "22222222-2222-4222-8222-222222222222";
+
+/** PHASE 9 minimum acceptance composition: 3 scenes, IMAGE+LOGO+TEXT+CTA. */
+export function threeSceneAcceptanceDocument(): DibayIntroDocument {
+  return {
+    version: 1,
+    settings: { defaultBackgroundColor: DIBAY_GREEN },
+    scenes: [
+      {
+        id: "s1",
+        name: "open",
+        order: 0,
+        durationMs: 2400,
+        background: { type: "solid", color: DIBAY_GREEN },
+        transition: { kind: "FADE", durationMs: 240 },
+        layers: [
+          {
+            id: "logo",
+            type: "LOGO",
+            z: 2,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0.3, y: 0.2, width: 0.4, height: 0.2 },
+            mediaId: ACCEPTANCE_MEDIA_LOGO,
+            fit: "contain",
+          },
+          {
+            id: "t1",
+            type: "TEXT",
+            z: 3,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0.1, y: 0.5, width: 0.8, height: 0.2 },
+            content: "dibaY",
+            fontFamily: "Pretendard Variable",
+            fontSizePx: 28,
+            fontWeight: 700,
+            align: "center",
+            color: "#FFFFFF",
+            lineHeight: 1.3,
+          },
+        ],
+      },
+      {
+        id: "s2",
+        name: "media",
+        order: 1,
+        durationMs: 3200,
+        background: { type: "solid", color: "#111111" },
+        transition: { kind: "SLIDE", durationMs: 320, direction: "left" },
+        layers: [
+          {
+            id: "img",
+            type: "IMAGE",
+            z: 1,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0, y: 0, width: 1, height: 1 },
+            mediaId: ACCEPTANCE_MEDIA_IMAGE,
+            fit: "cover",
+          },
+          {
+            id: "t2",
+            type: "TEXT",
+            z: 2,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0.08, y: 0.8, width: 0.84, height: 0.12 },
+            content: "Scene 2",
+            fontFamily: "Pretendard Variable",
+            fontSizePx: 18,
+            fontWeight: 500,
+            align: "left",
+            color: "#FFFFFF",
+            lineHeight: 1.2,
+          },
+        ],
+      },
+      {
+        id: "s3",
+        name: "cta",
+        order: 2,
+        durationMs: 2800,
+        background: { type: "solid", color: DIBAY_GREEN },
+        transition: { kind: "CUT" },
+        layers: [
+          {
+            id: "t3",
+            type: "TEXT",
+            z: 1,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0.1, y: 0.3, width: 0.8, height: 0.2 },
+            content: "Continue",
+            fontFamily: "Pretendard Variable",
+            fontSizePx: 22,
+            fontWeight: 600,
+            align: "center",
+            color: "#FFFFFF",
+            lineHeight: 1.25,
+          },
+          {
+            id: "cta",
+            type: "CTA",
+            z: 2,
+            visible: true,
+            opacity: 1,
+            frame: { x: 0.25, y: 0.62, width: 0.5, height: 0.1 },
+            label: "시작하기",
+            style: "primary",
+            action: "CONTINUE",
+            destination: null,
+          },
+        ],
+      },
+    ],
+  };
+}

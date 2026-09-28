@@ -35,6 +35,7 @@ import {
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { PhilifePullRefreshHint } from "@/components/philife/PhilifePullRefreshHint";
 import { PhilifePullRefreshRegister } from "@/components/philife/PhilifePullRefreshRegister";
+import { CommunityHomePresentationProbe } from "@/components/community/CommunityHomePresentationProbe";
 import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
@@ -1727,6 +1728,7 @@ export function CommunityFeed({
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS} data-community-renderer="canonical-v1" data-community-feed="list">
+      <CommunityHomePresentationProbe />
       <PhilifePullRefreshRegister onRefresh={onPhilifePullRefresh} />
       <MySubpageHeader
         registerMainTier1={false}
