@@ -7,6 +7,8 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Sealed pack uploads Pretendard + media; keep headroom above default. */
+export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ introId: string }> };
 

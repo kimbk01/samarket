@@ -56,11 +56,12 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/dibay-intros/[introId]/set-live": [
       "./lib/dibay-intro/engine/runtime-bundle.iife.js",
-      "./lib/dibay-intro/engine/assets/PretendardVariable.woff2",
+      "./lib/dibay-intro/engine/assets/**/*",
+      "./lib/dibay-intro/engine/engine-source-hash.generated.ts",
     ],
     "/api/dibay-intro/runtime-pack": [
       "./lib/dibay-intro/engine/runtime-bundle.iife.js",
-      "./lib/dibay-intro/engine/assets/PretendardVariable.woff2",
+      "./lib/dibay-intro/engine/assets/**/*",
     ],
   },
   experimental: {

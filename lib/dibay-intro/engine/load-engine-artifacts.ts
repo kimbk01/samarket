@@ -2,13 +2,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Sibling-relative reads so Vercel NFT traces the prebuilt IIFE + Pretendard
- * into the set-live serverless function (no `process.cwd()` / node_modules walk).
+ * Paths are relative to process.cwd() and must match next.config.js
+ * `outputFileTracingIncludes` for the set-live / runtime-pack routes.
+ * Do not use `__dirname` here — Next serverless chunks rewrite it away from
+ * the traced sibling assets.
  */
-export function readPrebuiltEngineJs(): Buffer {
-  return readFileSync(join(__dirname, "runtime-bundle.iife.js"));
+export const DIBAY_INTRO_ENGINE_BUNDLE_REL =
+  "lib/dibay-intro/engine/runtime-bundle.iife.js" as const;
+export const DIBAY_INTRO_PRETENDARD_REL =
+  "lib/dibay-intro/engine/assets/PretendardVariable.woff2" as const;
+
+export function readPrebuiltEngineJs(repoRoot = process.cwd()): Buffer {
+  return readFileSync(join(repoRoot, DIBAY_INTRO_ENGINE_BUNDLE_REL));
 }
 
-export function readPretendardVariableWoff2(): Buffer {
-  return readFileSync(join(__dirname, "assets", "PretendardVariable.woff2"));
+export function readPretendardVariableWoff2(repoRoot = process.cwd()): Buffer {
+  return readFileSync(join(repoRoot, DIBAY_INTRO_PRETENDARD_REL));
 }

@@ -1,6 +1,7 @@
 import { collectMediaIds } from "@/lib/dibay-intro/document";
 import { computeEngineSourceHash } from "@/lib/dibay-intro/engine/hash";
 import {
+  DIBAY_INTRO_ENGINE_BUNDLE_REL,
   readPrebuiltEngineJs,
   readPretendardVariableWoff2,
 } from "@/lib/dibay-intro/engine/load-engine-artifacts";
@@ -9,9 +10,7 @@ import { buildSealedIntroPack } from "@/lib/dibay-intro/pack/build-pack";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { loadLiveRevision } from "@/lib/dibay-intro/admin-store";
 
-/** Prebuilt by `node scripts/bundle-dibay-intro-engine.mjs` — never import esbuild from App Routes. */
-export const DIBAY_INTRO_ENGINE_BUNDLE_REL =
-  "lib/dibay-intro/engine/runtime-bundle.iife.js" as const;
+export { DIBAY_INTRO_ENGINE_BUNDLE_REL };
 
 function svc() {
   const client = tryCreateSupabaseServiceClient();
@@ -31,7 +30,14 @@ function loadEngineJs(): Buffer {
 }
 
 function pretendardBytes(): Buffer {
-  return readPretendardVariableWoff2();
+  try {
+    const bytes = readPretendardVariableWoff2();
+    if (!bytes.byteLength) throw new Error("pretendard_empty");
+    return bytes;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "pretendard_missing";
+    throw new Error(`pretendard_unavailable:${reason}`);
+  }
 }
 
 export async function persistLiveIntroPack(): Promise<{ revisionId: string; engineHash: string }> {
