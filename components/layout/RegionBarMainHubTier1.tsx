@@ -2,7 +2,6 @@
 
 import { type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { FileText, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
@@ -24,6 +23,7 @@ import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules"
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -94,16 +94,18 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
 
 function CommunityHeaderRightActions() {
   const { t } = useI18n();
+  const router = useRouter();
   return (
     <div className={`${samTier1HeaderIconCluster} community-tier1-header-actions`}>
-      <Link
-        href="/search"
-        prefetch={false}
+      <button
+        type="button"
+        data-global-search-open="community"
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
         aria-label={t("common_search")}
+        onClick={() => openGlobalSearchFromHere(router)}
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
-      </Link>
+      </button>
       <PhilifeHeaderComposeButton />
       <PhilifeHeaderAddressMenuButton />
       <Tier1NotificationAnchor surface="bottom_nav_community" />
@@ -133,14 +135,15 @@ function TradeHeaderRightActions() {
       >
         <FileText className="h-4 w-4 text-sam-fg" aria-hidden />
       </button>
-      <Link
-        href="/search"
-        prefetch={false}
+      <button
+        type="button"
+        data-global-search-open="trade"
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
         aria-label={t("marketplace_search_entry_aria")}
+        onClick={() => openGlobalSearchFromHere(router)}
       >
         <Search className="h-4 w-4 text-sam-fg" aria-hidden />
-      </Link>
+      </button>
       <Tier1NotificationAnchor surface="bottom_nav_my" />
     </div>
   );

@@ -8,6 +8,10 @@ import { CommunityPostCard } from "@/components/community/CommunityPostCard";
 import { ProductCard } from "@/components/product/ProductCard";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
+import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
+import { closeGlobalSearch } from "@/lib/search/global/global-search-navigation-ssot";
 import { createGlobalSearchCoordinator, trimGlobalSearchQuery } from "@/lib/search/global/coordinate-search";
 import {
   addGlobalRecentSearch,
@@ -52,6 +56,42 @@ function globalSearchHref(q: string): string {
   return keyword ? `/search?q=${encodeURIComponent(keyword)}` : "/search";
 }
 
+function GlobalSearchHeaderBackButton({ onClose }: { onClose: () => void }) {
+  const { safeT } = useI18n();
+  return (
+    <button
+      type="button"
+      data-global-search-header-back="true"
+      className={SECTOR_HEADER_BACK_CLASS}
+      aria-label={safeT("global_search_close", {
+        fallbackKo: "검색 닫기",
+        fallbackEn: "Close search",
+      })}
+      onClick={onClose}
+    >
+      <AppBackIcon />
+    </button>
+  );
+}
+
+function GlobalSearchCloseButton({ onClose }: { onClose: () => void }) {
+  const { safeT } = useI18n();
+  return (
+    <button
+      type="button"
+      data-global-search-close="true"
+      className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+      aria-label={safeT("global_search_close", {
+        fallbackKo: "검색 닫기",
+        fallbackEn: "Close search",
+      })}
+      onClick={onClose}
+    >
+      <AppCloseIcon className="h-5 w-5" />
+    </button>
+  );
+}
+
 function GlobalSearchStickyInput({
   onKeywordChange,
   submitSearch,
@@ -83,7 +123,6 @@ function GlobalSearchStickyInput({
               fallbackKo: "커뮤니티, 거래, 배달, 채팅 검색",
               fallbackEn: "Search community, market, delivery, chat",
             })}
-            autoFocus
           />
         </div>
       </div>
@@ -307,6 +346,10 @@ export function GlobalSearchView() {
     [commitUrl, runSearch]
   );
 
+  const closeSearch = useCallback(() => {
+    closeGlobalSearch(router);
+  }, [router]);
+
   useEffect(() => {
     const q = trimGlobalSearchQuery(keyword);
     if (q && lastImmediateQueryRef.current === q) {
@@ -347,9 +390,15 @@ export function GlobalSearchView() {
       stickyBelow: (
         <GlobalSearchStickyInput onKeywordChange={setKeyword} submitSearch={submitSearch} />
       ),
+      tier1: {
+        showHubQuickActions: false,
+        preferHistoryBack: false,
+        leftSlot: <GlobalSearchHeaderBackButton onClose={closeSearch} />,
+        rightSlot: <GlobalSearchCloseButton onClose={closeSearch} />,
+      },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, submitSearch]);
+  }, [setMainTier1Extras, submitSearch, closeSearch]);
 
   const originHref = globalSearchHref(activeQuery);
   const originSearch = activeQuery ? `?q=${encodeURIComponent(activeQuery)}` : "";

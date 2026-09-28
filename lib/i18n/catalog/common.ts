@@ -179,6 +179,8 @@ export const commonMessages = {
     global_search_section_chat_group: "그룹",
     global_search_section_chat_trade: "거래",
     global_search_section_chat_order: "주문/배달",
+    global_search_close: "검색 닫기",
+    global_search_clear_query: "검색어 지우기",
   },
   en: {
     common_loading: "Loading…",
@@ -360,6 +362,8 @@ export const commonMessages = {
     global_search_section_chat_group: "Groups",
     global_search_section_chat_trade: "Trade",
     global_search_section_chat_order: "Orders",
+    global_search_close: "Close search",
+    global_search_clear_query: "Clear search",
   },
   
 } as const;

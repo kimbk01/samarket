@@ -351,6 +351,18 @@ describe("global search IME rebuild / submit contract", () => {
     expect(adapterFns.community).toHaveBeenCalledTimes(1);
   });
 
+  it("E1/E5 — mount does not autofocus; user can focus the field", async () => {
+    renderView();
+    await flush();
+    const input = searchInput(container);
+    expect(input.autofocus).toBe(false);
+    expect(document.activeElement).not.toBe(input);
+    act(() => {
+      input.focus();
+    });
+    expect(document.activeElement).toBe(input);
+  });
+
   it("K10 — typing does not remount the search input", async () => {
     renderView();
     await flush();
@@ -381,7 +393,7 @@ describe("global search IME rebuild / submit contract", () => {
     await flush();
     expect(extrasRef.current).toBe(extrasAfterMount);
     const view = readFileSync(resolve(process.cwd(), "components/search/global/GlobalSearchView.tsx"), "utf8");
-    expect(view).toContain("}, [setMainTier1Extras, submitSearch]);");
+    expect(view).toContain("}, [setMainTier1Extras, submitSearch, closeSearch]);");
     expect(view).not.toMatch(/\[setMainTier1Extras, keyword/);
     expect(view).not.toContain("composingRef");
     expect(view).not.toContain("setInputComposing");

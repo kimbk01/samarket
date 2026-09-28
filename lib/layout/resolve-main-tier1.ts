@@ -2,6 +2,7 @@ import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules"
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
+import { GLOBAL_SEARCH_NO_ORIGIN_FALLBACK } from "@/lib/search/global/global-search-navigation-ssot";
 
 function starts(p: string, prefix: string): boolean {
   return p === prefix || p.startsWith(`${prefix}/`);
@@ -241,10 +242,10 @@ export function resolveMainTier1Subpage(
   if (p === "/search") {
     return {
       ...DEFAULT,
-      backHref: "/market",
-      preferHistoryBack: true,
+      backHref: GLOBAL_SEARCH_NO_ORIGIN_FALLBACK,
+      preferHistoryBack: false,
       titleText: "global_search_title",
-      showHubQuickActions: true,
+      showHubQuickActions: false,
     };
   }
 

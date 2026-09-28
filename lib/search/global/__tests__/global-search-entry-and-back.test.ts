@@ -39,10 +39,10 @@ describe("global search entry, adapters, back", () => {
   it("hub magnifiers go to /search and SearchPageClient mounts GlobalSearchView", () => {
     expect(read("app/(main)/search/SearchPageClient.tsx")).toContain("GlobalSearchView");
     expect(read("app/(main)/search/SearchPageClient.tsx")).not.toContain('from "@/components/search/SearchView"');
-    expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain('href="/search"');
-    expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain('href="/search"');
+    expect(read("components/layout/RegionBarMainHubTier1.tsx")).toContain("openGlobalSearchFromHere");
+    expect(read("components/stores/home/hub/StoresConsumerHeaderActions.tsx")).toContain("openGlobalSearchFromHere");
     expect(read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")).not.toContain("StoresHomeSearchModal");
-    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain('router.push("/search")');
+    expect(read("components/community-messenger/CommunityMessengerHome.tsx")).toContain("openGlobalSearchFromHere");
   });
 
   it("keeps domain sections and existing CTA helpers", () => {
@@ -106,9 +106,11 @@ describe("global search entry, adapters, back", () => {
     expect(read("lib/navigation/resolve-dibay-back-target.ts")).not.toContain("global-search");
   });
 
-  it("search chrome title is global search with history back", () => {
+  it("search chrome title is global search without history-back /market fallback", () => {
     const resolved = resolveMainTier1Subpage("/search");
     expect(resolved?.titleText).toBe("global_search_title");
-    expect(resolved?.preferHistoryBack).toBe(true);
+    expect(resolved?.preferHistoryBack).toBe(false);
+    expect(resolved?.showHubQuickActions).toBe(false);
+    expect(resolved?.backHref).toBe("/philife");
   });
 });

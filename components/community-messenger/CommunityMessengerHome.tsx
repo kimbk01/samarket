@@ -2,6 +2,7 @@
 
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRouter, useSearchParams } from "next/navigation";
+import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import {
   memo,
   useCallback,
@@ -2322,7 +2323,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => (
       <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
-          onOpenSearch={() => router.push("/search")}
+          onOpenSearch={() => openGlobalSearchFromHere(router)}
           onOpenSettings={() => openHomeOverlay("settings")}
         />
       </div>

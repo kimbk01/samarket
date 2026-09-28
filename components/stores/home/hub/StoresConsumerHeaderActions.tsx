@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
@@ -46,6 +48,7 @@ function OrderHistoryIcon() {
  */
 export function StoresConsumerHeaderActions() {
   const { t } = useI18n();
+  const router = useRouter();
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
     COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART
   );
@@ -54,15 +57,16 @@ export function StoresConsumerHeaderActions() {
 
   return (
     <>
-      <Link
-        href="/search"
-        prefetch={false}
+      <button
+        type="button"
         className={STORES_HOME_HEADER_ICON_BTN_CLASS}
         aria-label={t("store_search_placeholder")}
         data-stores-consumer-header-action="search"
+        data-global-search-open="delivery"
+        onClick={() => openGlobalSearchFromHere(router)}
       >
         <SearchIcon />
-      </Link>
+      </button>
       <Link
         href={orderHistoryHref}
         prefetch={false}

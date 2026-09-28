@@ -29,7 +29,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
     expect(chrome).not.toContain("TradeHeaderLocationPinButton");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
-    expect(header).toContain('href="/search"');
+    expect(header).toContain("openGlobalSearchFromHere");
     expect(header).toContain("marketplace_search_entry_aria");
     expect(header).not.toContain("sanitizeMarketplaceQueryText");
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
@@ -50,8 +50,8 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tabs).toContain("MarketFilterSheet");
   });
 
-  it("search and write back fallback to Marketplace HOME", () => {
-    expect(resolveMainTier1Subpage("/search")?.backHref).toBe("/market");
+  it("search close fallback is Community home; write still returns to Marketplace HOME", () => {
+    expect(resolveMainTier1Subpage("/search")?.backHref).toBe("/philife");
     expect(resolveMainTier1Subpage("/write")?.backHref).toBe("/market");
   });
 
