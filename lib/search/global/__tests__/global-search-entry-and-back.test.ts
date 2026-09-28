@@ -79,10 +79,12 @@ describe("global search entry, adapters, back", () => {
     expect(route).toContain("q: keywordQ || undefined");
   });
 
-  it("trade adapter uses getPostsForHome and does not reopen CUT C", () => {
+  it("trade adapter uses match-only /api/search/trade and does not reuse CUT C home discovery", () => {
     const adapter = read("lib/search/global/adapters/trade-search-adapter.ts");
-    expect(adapter).toContain("getPostsForHome");
+    expect(adapter).toContain("GLOBAL_SEARCH_TRADE_API_PATH");
     expect(adapter).toContain("sanitizeMarketplaceQueryText");
+    expect(adapter).not.toContain("getPostsForHome");
+    expect(adapter).not.toContain("/api/philife/posts");
     expect(adapter).not.toContain("search-candidate-expansion");
   });
 
