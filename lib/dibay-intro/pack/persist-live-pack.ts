@@ -7,27 +7,26 @@ import { buildSealedIntroPack } from "@/lib/dibay-intro/pack/build-pack";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { loadLiveRevision } from "@/lib/dibay-intro/admin-store";
 
+/** Prebuilt by `node scripts/bundle-dibay-intro-engine.mjs` — never import esbuild from App Routes. */
+export const DIBAY_INTRO_ENGINE_BUNDLE_REL =
+  "lib/dibay-intro/engine/runtime-bundle.iife.js" as const;
+
 function svc() {
   const client = tryCreateSupabaseServiceClient();
   if (!client) throw new Error("service_unavailable");
   return client;
 }
 
-async function bundleEngineJs(): Promise<Buffer> {
-  const esbuild = await import("esbuild");
-  const result = await esbuild.build({
-    entryPoints: [join(process.cwd(), "lib/dibay-intro/engine/runtime-entry.ts")],
-    bundle: true,
-    write: false,
-    platform: "browser",
-    format: "iife",
-    target: ["es2020"],
-    absWorkingDir: process.cwd(),
-    alias: { "@": process.cwd() },
-  });
-  const file = result.outputFiles?.[0];
-  if (!file) throw new Error("engine_bundle_failed");
-  return Buffer.from(file.contents);
+function loadEngineJs(): Buffer {
+  const path = join(process.cwd(), DIBAY_INTRO_ENGINE_BUNDLE_REL);
+  try {
+    const bytes = readFileSync(path);
+    if (!bytes.byteLength) throw new Error("engine_bundle_empty");
+    return bytes;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "engine_bundle_missing";
+    throw new Error(`engine_bundle_unavailable:${reason}`);
+  }
 }
 
 function pretendardBytes(): Buffer {
@@ -65,7 +64,7 @@ export async function persistLiveIntroPack(): Promise<{ revisionId: string; engi
       });
     }
   }
-  const engineJs = await bundleEngineJs();
+  const engineJs = loadEngineJs();
   const engineHash = computeEngineSourceHash();
   const packed = buildSealedIntroPack({
     introId: live.introId,

@@ -5,6 +5,7 @@ import { buildSealedIntroPack } from "@/lib/dibay-intro/pack/build-pack";
 import { parseIntroPackManifest } from "@/lib/dibay-intro/pack/manifest";
 import { createBootstrapTraceBuffer } from "@/lib/dibay-intro/pack/bootstrap";
 import { DIBAY_INTRO_ALLOWED_MIME } from "@/lib/dibay-intro/media-process";
+import { DIBAY_INTRO_ENGINE_BUNDLE_REL } from "@/lib/dibay-intro/pack/persist-live-pack";
 
 describe("sealed intro pack", () => {
   it("contains engine document media gif runtime fonts manifest and READY", () => {
@@ -47,6 +48,17 @@ describe("sealed intro pack", () => {
       expect(parsed.manifest.completeness).toBe("READY");
       expect(parsed.manifest.media.some((m) => m.animated && m.file.endsWith(".gif"))).toBe(true);
     }
+  });
+
+  it("ships a prebuilt engine IIFE that App Routes can read without importing esbuild", () => {
+    const persistSrc = readFileSync("lib/dibay-intro/pack/persist-live-pack.ts", "utf8");
+    expect(persistSrc).not.toMatch(/import\(["']esbuild["']\)/);
+    expect(persistSrc).not.toMatch(/from ["']esbuild["']/);
+    expect(persistSrc).toContain(DIBAY_INTRO_ENGINE_BUNDLE_REL);
+    const bundle = readFileSync(DIBAY_INTRO_ENGINE_BUNDLE_REL, "utf8");
+    expect(bundle.length).toBeGreaterThan(1000);
+    expect(bundle).toContain("INTRO_FIRST_FRAME_READY");
+    expect(bundle).toContain("Pretendard Variable");
   });
 });
 
