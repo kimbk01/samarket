@@ -89,7 +89,7 @@ export function AdminIntroListPage() {
 
   const onCreate = async () => {
     setCreating(true);
-    const res = await fetch("/api/admin/intro-campaigns", {
+    const res = await fetch("/api/admin/intro-v3/campaigns", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },

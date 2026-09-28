@@ -41,27 +41,19 @@ function campaign(partial?: Partial<IntroAdminCampaign>): IntroAdminCampaign {
 }
 
 describe("Phase 1 CMS editor route authority", () => {
-  it("routes the final CMS shell, not Operator or Device Stage", () => {
+  it("Owner campaign route mounts the rebuild editor, not CmsEditor", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
     const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
-    const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
     expect(route).toContain("AdminIntroCampaignRoute");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
-    expect(gate).toContain("AdminIntroCmsEditorPage");
-    expect(gate).toContain("IntroV3OpenNotice");
+    expect(route).not.toContain("AdminIntroCmsEditorPage");
+    expect(gate).toContain("NewIntroEditor");
+    expect(gate).toContain("AdminIntroLegacyReadOnly");
+    expect(gate).not.toContain("AdminIntroCmsEditorPage");
+    expect(gate).not.toContain("IntroV3OpenNotice");
     expect(gate).not.toContain("AdminIntroOperatorForm");
     expect(gate).not.toContain("AdminIntroEditorPage");
-    expect(cms).toContain('data-intro-editor="cms-v1"');
-    expect(cms).not.toContain('data-intro-composer="v2"');
-    expect(cms).not.toContain("이 기기군만 다름");
-    expect(cms).toContain("data-intro-scene-navigator");
-    expect(cms).toContain("data-intro-unsaved-guard");
-    expect(cms).toContain("AdminIntroCmsCtaDestinationFields");
-    expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
-    expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
-    expect(cms).not.toContain("not in this phase");
-    expect(cms).not.toContain("이 단계에 없습니다");
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);

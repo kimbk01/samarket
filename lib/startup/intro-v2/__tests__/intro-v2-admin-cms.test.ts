@@ -892,10 +892,9 @@ describe("composer reconstruction contract", () => {
     expect(introAdminPreviewFrame("android_tablet").width).toBe(800);
   });
 
-  it("routes the CMS editor and keeps leftover Composer/Operator unrouted", () => {
+  it("routes the rebuild editor and keeps leftover Composer/Operator unrouted", () => {
     const route = read("app/admin/intro/[campaignId]/page.tsx");
     const gate = read("components/admin/intro/AdminIntroCampaignRoute.tsx");
-    const cms = read("components/admin/intro/AdminIntroCmsEditorPage.tsx");
     const dest = read("components/admin/intro/AdminIntroCmsCtaDestinationFields.tsx");
     const list = read("components/admin/intro/AdminIntroListPage.tsx");
     const catalog = read("lib/i18n/catalog/admin-intro.ts");
@@ -903,20 +902,12 @@ describe("composer reconstruction contract", () => {
     expect(route).toContain("AdminIntroCampaignRoute");
     expect(route).not.toContain("AdminIntroOperatorForm");
     expect(route).not.toContain("AdminIntroEditorPage");
-    expect(gate).toContain("AdminIntroCmsEditorPage");
-    expect(gate).toContain("IntroV3OpenNotice");
+    expect(gate).toContain("NewIntroEditor");
+    expect(gate).not.toContain("AdminIntroCmsEditorPage");
+    expect(gate).not.toContain("IntroV3OpenNotice");
     expect(gate).not.toContain("AdminIntroOperatorForm");
     expect(gate).not.toContain("AdminIntroEditorPage");
-    expect(cms).toContain('data-intro-editor="cms-v1"');
-    expect(cms).not.toContain('data-intro-composer="v2"');
-    expect(cms).not.toContain("이 기기군만 다름");
-    expect(cms).not.toContain("새 Intro 런타임 게시 지원 준비 중");
-    expect(cms).not.toContain("not in this phase");
-    expect(cms).not.toContain("이 단계에 없습니다");
-    expect(cms).toContain("data-intro-publish-blocked");
-    expect(cms).toContain("INTRO_ADMIN_INTERACTION_UI");
     expect(dest).toContain("INTRO_CTA_DESTINATION_TYPES");
-    expect(cms).toContain("searchIntroCtaEntities");
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroEditorPage.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroPreviewCanvas.tsx"))).toBe(false);
     expect(existsSync(join(ROOT, "components/admin/intro/AdminIntroOperatorForm.tsx"))).toBe(false);

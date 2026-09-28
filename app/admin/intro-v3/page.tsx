@@ -1,5 +1,5 @@
-import { AdminIntroV3ListPage } from "@/components/admin/intro-v3/AdminIntroV3ListPage";
+import { redirect } from "next/navigation";
 
 export default function AdminIntroV3Page() {
-  return <AdminIntroV3ListPage />;
+  redirect("/admin/intro");
 }

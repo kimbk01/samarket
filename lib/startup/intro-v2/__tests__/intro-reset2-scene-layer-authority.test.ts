@@ -382,14 +382,14 @@ describe("RESET 2 Scene/Layer domain", () => {
     expect(classifyIntroLayer(defaultImageLayer("img-ghost", 1), assets)).toBe("INVALID_GHOST");
   });
 
-  it("routed editor no longer creates IMAGE before a valid asset", () => {
-    const editor = readFileSync("components/admin/intro/AdminIntroCmsEditorPage.tsx", "utf8");
-    expect(editor).toContain("prepareIntroWorkingDraft");
-    expect(editor).toContain("createSemanticLayer");
-    expect(editor).toContain("introLayerDisplayLabel");
+  it("rebuild editor creates IMAGE only after READY media, not before", () => {
+    const editor = readFileSync("components/admin/intro/NewIntroEditor.tsx", "utf8");
+    expect(editor).toContain("addImageLayerToDocument");
+    expect(editor).toContain("applyIntroV3LibraryOutcome");
+    expect(editor).toContain("IntroV3MediaLibrary");
     expect(editor).not.toContain('addElement("IMAGE")');
-    expect(editor).not.toContain('requestUpload("image")');
     expect(editor).not.toContain("defaultImageLayer");
     expect(editor).not.toContain("adaptOperatorDraftToCanonical(");
+    expect(editor).not.toContain("AdminIntroCmsEditorPage");
   });
 });

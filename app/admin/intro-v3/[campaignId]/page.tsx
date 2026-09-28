@@ -1,4 +1,4 @@
-import { AdminIntroV3DraftPage } from "@/components/admin/intro-v3/AdminIntroV3DraftPage";
+import { redirect } from "next/navigation";
 
 export default async function AdminIntroV3CampaignPage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminIntroV3CampaignPage({
   params: Promise<{ campaignId: string }>;
 }) {
   const { campaignId } = await params;
-  return <AdminIntroV3DraftPage campaignId={campaignId} />;
+  redirect(`/admin/intro/${campaignId}`);
 }

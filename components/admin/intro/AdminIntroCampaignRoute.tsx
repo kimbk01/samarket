@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AdminIntroCmsEditorPage } from "@/components/admin/intro/AdminIntroCmsEditorPage";
-import { IntroV3OpenNotice } from "@/components/admin/intro-v3/IntroV3OpenNotice";
+import { AdminIntroLegacyReadOnly } from "@/components/admin/intro/AdminIntroLegacyReadOnly";
+import { NewIntroEditor } from "@/components/admin/intro/NewIntroEditor";
 
-/** Old /admin/intro/[id] entry. Does not patch the rejected editor; only avoids mounting it for V3 drafts. */
 export function AdminIntroCampaignRoute({ campaignId }: { campaignId: string }) {
-  const [mode, setMode] = useState<"loading" | "v3" | "legacy">("loading");
+  const [mode, setMode] = useState<"loading" | "v3" | "legacy" | "missing">("loading");
 
   useEffect(() => {
     let cancelled = false;
@@ -14,15 +13,29 @@ export function AdminIntroCampaignRoute({ campaignId }: { campaignId: string }) 
       const res = await fetch(`/api/admin/intro-v3/campaigns/${encodeURIComponent(campaignId)}`, {
         credentials: "same-origin",
       });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (cancelled) return;
-      setMode(res.ok ? "v3" : "legacy");
+      if (res.ok) {
+        setMode("v3");
+        return;
+      }
+      if (json.error === "not_found") {
+        setMode("missing");
+        return;
+      }
+      setMode("legacy");
     })();
     return () => {
       cancelled = true;
     };
   }, [campaignId]);
 
-  if (mode === "loading") return null;
-  if (mode === "v3") return <IntroV3OpenNotice campaignId={campaignId} />;
-  return <AdminIntroCmsEditorPage campaignId={campaignId} />;
+  if (mode === "loading") {
+    return <div className="sam-text-body text-sam-muted" data-intro-route-loading="1" />;
+  }
+  if (mode === "missing") {
+    return <div className="sam-text-body text-sam-muted" data-intro-route-missing="1" />;
+  }
+  if (mode === "v3") return <NewIntroEditor campaignId={campaignId} />;
+  return <AdminIntroLegacyReadOnly campaignId={campaignId} />;
 }

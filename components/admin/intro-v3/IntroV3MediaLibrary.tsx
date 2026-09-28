@@ -173,17 +173,23 @@ export function IntroV3MediaLibrary({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      data-intro-media-library="1"
+    >
       <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-section-title text-sam-fg">
-          {safeT("admin_intro_v3_media_title", { fallbackKo: "미디어 라이브러리", fallbackEn: "Media library" })}
+          {safeT("admin_intro_media_library_title", { fallbackKo: "미디어 선택", fallbackEn: "Choose media" })}
         </h2>
         <label className="mt-4 inline-flex min-h-9 cursor-pointer items-center rounded-ui-rect border border-sam-border px-3 py-1.5 text-[13px] font-semibold text-sam-fg">
-          {safeT("admin_intro_v3_upload_pc", { fallbackKo: "컴퓨터에서 업로드", fallbackEn: "Upload from computer" })}
+          {safeT("admin_intro_upload_from_pc", { fallbackKo: "PC에서 업로드", fallbackEn: "Upload from PC" })}
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
             className="sr-only"
+            data-intro-media-upload="1"
             disabled={busy}
             onChange={(e) => {
               const file = e.target.files?.[0];

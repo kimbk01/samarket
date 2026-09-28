@@ -295,23 +295,18 @@ describe("Intro Phase 2 product semantics", () => {
     expect(freshImage.targetLayerId).toBe("img-1");
   });
 
-  it("Editor presents sequential scenes, add-elements, and human CTA destinations", () => {
-    const editor = readFileSync("components/admin/intro/AdminIntroCmsEditorPage.tsx", "utf8");
-    expect(editor).toContain('data-intro-editor="cms-v1"');
+  it("Owner rebuild editor presents scenes, canvas, and add-image — not the rejected CMS shell", () => {
+    const editor = readFileSync("components/admin/intro/NewIntroEditor.tsx", "utf8");
+    expect(editor).toContain('data-intro-editor="rebuild-v3"');
     expect(editor).toContain("data-intro-storyboard");
-    expect(editor).toContain("data-intro-add-elements");
-    expect(editor).toContain("data-intro-layer-inventory");
-    expect(editor).toContain("data-intro-unsaved-guard");
-    expect(editor).toContain("AdminIntroCmsCtaDestinationFields");
-    expect(editor).toContain("INTRO_ADMIN_INTERACTION_UI");
-    expect(editor).toContain("INTRO_OPERATOR_ANIMATION_PRESETS");
-    expect(editor).toContain("requestUpload");
-    expect(editor).toContain("onUpload");
-    expect(editor).toContain("resolveIntroUploadAttach");
-    expect(editor).toContain("data-intro-layer-text");
-    expect(editor).toContain("/api/admin/intro-campaigns/upload-image");
+    expect(editor).toContain("data-intro-add-image");
+    expect(editor).toContain("data-intro-properties");
+    expect(editor).toContain("data-intro-topbar");
+    expect(editor).toContain("IntroEditorCanvas");
+    expect(editor).toContain("IntroV3MediaLibrary");
+    expect(editor).not.toContain('data-intro-editor="cms-v1"');
+    expect(editor).not.toContain("/api/admin/intro-campaigns/upload-image");
     expect(editor).not.toContain("/api/admin/startup-config/upload-image");
-    expect(editor).not.toContain("INTRO_LAYER_TYPES.map");
     expect(editor).not.toContain("이 기기군만 다름");
   });
 
