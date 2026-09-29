@@ -46,7 +46,7 @@ describe("13th intro V0 architecture", () => {
     expect(validateDocumentV0(doc)).toBeNull();
     expect(doc.scenes[0]?.background).toEqual({ type: "COLOR", color: "#4F46E5" });
     const text = doc.scenes[0]?.elements.find((e) => e.type === "TEXT");
-    expect((text?.payload as { text: string }).text).toBe("DIBAY-13-OWNER-MARKER");
+    expect((text?.payload as { text: string }).text).toBe("DIBAY");
   });
 
   it("geometry FIT is deterministic", () => {
