@@ -4,14 +4,12 @@ import WebKit
 import os.log
 
 /**
- * Product Startup (iOS) — V4:
- * LaunchScreen (cream platform primitive, no product logo)
- * → authored Scene1 from local ACTIVE Pack (when Ready exists)
- * → canonical timeline → Home.
- * Home may boot concurrently under Intro. Intro owns presentation until completion.
+ * Product Startup (iOS) — 13TH ZERO:
+ * LaunchScreen (cream OS primitive) → Home.
+ * No Product Intro / Pack / Active renderer.
  * CallKit/PushKit/Agora/RTC untouched.
  */
-class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler, DibayIntroRuntimeController.Listener {
+class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
 
   private func startupInfo(_ message: String) {
@@ -25,17 +23,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var handoffCoverRemoved = false
   private var handoffPendingURL: String?
   private var bridgeScriptInstalled = false
-  private var introOverlay: UIView?
-  private var introContent: UIView?
-  private var introDismissing = false
-  private var introRuntime: DibayIntroRuntimeController?
-  private var introSessionActive = false
-  private var introFirstFrameReady = false
-  /// Authored timeline done — may HOLD last frame until HOME_PRESENTATION_READY.
-  private var introTimelineCompleted = false
   private var homePresentationReady = false
-  private var introCompletedAt: CFAbsoluteTime = 0
-  private var homeReadyHoldMs: Double = 0
+
   override var shouldAutorotate: Bool {
     DibayAppOrientationPolicy.shouldAutorotate(deviceClass: DibayDeviceClassClassifier.classify().deviceClass)
   }
@@ -46,41 +35,18 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     )
   }
 
-  /// One cold-startup Intro per VC lifetime. After dismiss, never reattach on viewDidAppear
-  /// (call UI present/dismiss must not bring Intro back or block WebView touches).
-  private enum IntroLifecycle: String {
-    case pending
-    case attached
-    case dismissing
-    case dismissed
-  }
-  private var introLifecycle: IntroLifecycle = .pending
-  private var activeConfig: [String: Any] = [:]
-
   override func viewDidLoad() {
     super.viewDidLoad()
-    // V4: start Pack Intro before cream Home paints when Active/Ready exists.
-    tryStartAuthoredIntro(source: "viewDidLoad")
-    if !introSessionActive {
-      applyStartupBackground()
-    } else {
-      applyIntroHoldBackground()
-    }
+    applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
   }
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    if introSessionActive {
-      applyIntroHoldBackground()
-    } else if introLifecycle == .dismissed || introLifecycle == .pending {
-      applyStartupBackground()
-    }
+    applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
-    startupInfo(
-      "startup_boot intro_session=\(introSessionActive ? 1 : 0) first_frame=\(introFirstFrameReady ? 1 : 0) lifecycle=\(introLifecycle.rawValue)"
-    )
+    startupInfo("startup_boot product_intro=0 home_ready=\(homePresentationReady ? 1 : 0)")
   }
 
   private func applyStartupBackground() {
@@ -93,90 +59,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.scrollView.isOpaque = false
   }
 
-  /// Opaque black under Intro so LaunchScreen→Scene1 never reveals cream product frame.
-  private func applyIntroHoldBackground() {
-    view.backgroundColor = .black
-    view.window?.backgroundColor = .black
-    webView?.isOpaque = false
-    webView?.backgroundColor = .black
-    webView?.scrollView.backgroundColor = .black
-    webView?.scrollView.isOpaque = false
-  }
-
-  private func tryStartAuthoredIntro(source: String) {
-    if introLifecycle != .pending { return }
-    let runtime = DibayIntroRuntimeController()
-    runtime.listener = self
-    let started = runtime.tryStartFromLocalActive(hostView: view)
-    if started {
-      introRuntime = runtime
-      introSessionActive = true
-      introLifecycle = .attached
-      startupInfo("intro_session_active=1 source=\(source)")
-    } else {
-      introRuntime = nil
-      introSessionActive = false
-      introLifecycle = .dismissed
-      startupInfo("intro_attach_skipped source=\(source) reason=NO_ACTIVE_OR_FAIL_OPEN")
-    }
-  }
-
-  // MARK: - DibayIntroRuntimeController.Listener
-
-  func onFirstFrameReady(identity: [String: Any]) {
-    introFirstFrameReady = true
-    let packId = identity["packId"] as? String ?? ""
-    startupInfo("intro_first_frame_ready packId=\(packId)")
-    // LaunchScreen already replaced by this VC; Scene1 owns product pixels.
-    // Do NOT hide Intro. Keep Capacitor splash suppressed path open under Intro.
-  }
-
-  func onIntroCompleted(reason: String) {
-    introTimelineCompleted = true
-    introCompletedAt = CFAbsoluteTimeGetCurrent()
-    startupInfo("intro_completed reason=\(reason)")
-    startupInfo("INTRO_HOLD_LAST_FRAME awaiting=HOME_PRESENTATION_READY")
-    // Do NOT remove Intro or apply cream/background yet — tryIntroHomeHandoff owns release.
-    tryIntroHomeHandoff(source: "intro_completed")
-  }
-
-  func onIntroAborted(reason: String) {
-    introSessionActive = false
-    introFirstFrameReady = false
-    introTimelineCompleted = false
-    introLifecycle = .dismissed
-    introRuntime = nil
-    startupInfo("intro_aborted reason=\(reason)")
-    applyStartupBackground()
-  }
-
-  /// Intro→Home: KEEP | HOLD_LAST_FRAME | HANDOFF_HOME. Never blank gap.
-  private func tryIntroHomeHandoff(source: String) {
-    if !introTimelineCompleted {
-      startupInfo("handoff_keep_intro source=\(source)")
-      return
-    }
-    if !homePresentationReady {
-      startupInfo("handoff_hold_last_frame source=\(source) homeReady=0")
-      return
-    }
-    if introCompletedAt > 0 {
-      homeReadyHoldMs = max(0, (CFAbsoluteTimeGetCurrent() - introCompletedAt) * 1000)
-    }
-    startupInfo(
-      "handoff_home source=\(source) home_ready_hold_ms=\(Int(homeReadyHoldMs))"
-    )
-    introRuntime?.releaseToHome(source: source)
-    introRuntime = nil
-    introSessionActive = false
-    introLifecycle = .dismissed
-    hideCapacitorSplash()
-  }
-
   private func notifyHomePresentationReady(source: String) {
     homePresentationReady = true
     startupInfo("HOME_PRESENTATION_READY source=\(source)")
-    tryIntroHomeHandoff(source: "home_presentation_ready")
   }
 
   private func installBootBridgeIfNeeded() {
@@ -222,13 +107,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     DispatchQueue.main.async {
       switch action {
       case "dismissSplash":
-        self.startupInfo("boot_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue) intro_session=\(self.introSessionActive ? 1 : 0)")
-        // Intro owns presentation until handoff — do not remove for generic dismiss.
-        if self.introSessionActive || self.introTimelineCompleted {
-          self.startupInfo("boot_dismiss_deferred reason=intro_owns_presentation")
-          return
-        }
-        self.dismissNativeIntroThenHideSplash()
+        self.startupInfo("boot_dismiss_requested source=bridge")
+        self.hideCapacitorSplash()
       case "homePresentationReady":
         self.notifyHomePresentationReady(source: "bridge")
       case "beginHandoffCover":
@@ -240,213 +120,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         UserDefaults.standard.set(surface, forKey: "dibay_initial_surface")
         NSLog("[DIBAY_Startup] initial_surface_persisted surface=%@", surface)
       case "persistStartupConfig":
+        // Product Intro persist removed — initialSurface only if present in JSON.
         let json = (body["json"] as? String) ?? ""
-        DibayStartupConfigCache.persist(json: json)
+        DibayStartupConfigCache.persistInitialSurfaceOnly(json: json)
       default:
         break
       }
     }
-  }
-
-  private func attachNativeIntroIfNeeded(source: String) {
-    // V4: authored Pack Intro is started from viewDidLoad via tryStartAuthoredIntro.
-    // Legacy logo overlay path remains disabled.
-    if introLifecycle == .pending && !introSessionActive {
-      introLifecycle = .dismissed
-      startupInfo("intro_attach_skipped source=\(source) reason=no_active_pack")
-    }
-  }
-
-  private func finalizeIntroRemoved(overlay: UIView, source: String) {
-    overlay.isUserInteractionEnabled = false
-    overlay.layer.removeAllAnimations()
-    overlay.removeFromSuperview()
-    introOverlay = nil
-    introContent = nil
-    introDismissing = false
-    introLifecycle = .dismissed
-    startupInfo("intro_removed source=\(source) interaction=0 superview=nil lifecycle=dismissed")
-  }
-
-  private func dismissNativeIntroThenHideSplash() {
-    if introLifecycle == .dismissed {
-      hideCapacitorSplash()
-      return
-    }
-    if introDismissing || introLifecycle == .dismissing {
-      hideCapacitorSplash()
-      return
-    }
-    introDismissing = true
-    introLifecycle = .dismissing
-    let exit = (activeConfig["exitAnimation"] as? String) ?? "fade_out"
-    let durMs = DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
-    let seconds = TimeInterval(durMs) / 1000.0
-    let target = introContent ?? introOverlay
-    let scaleTarget = target
-    guard let target = target, let overlay = introOverlay else {
-      // No overlay (warm / race) — still terminal so viewDidAppear cannot create one.
-      introDismissing = false
-      introLifecycle = .dismissed
-      startupInfo("intro_removed source=dismiss_no_overlay lifecycle=dismissed")
-      hideCapacitorSplash()
-      return
-    }
-    if exit == "none" || durMs <= 0 {
-      finalizeIntroRemoved(overlay: overlay, source: "dismiss_immediate")
-      hideCapacitorSplash()
-      return
-    }
-    UIView.animate(withDuration: seconds, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
-      if let scaleTarget = scaleTarget {
-        self.applyExitTransform(exit, on: scaleTarget)
-      }
-      target.alpha = 0
-    }, completion: { _ in
-      self.finalizeIntroRemoved(overlay: overlay, source: "dismiss_animated")
-      self.hideCapacitorSplash()
-    })
-  }
-
-  private func applyExitTransform(_ exit: String, on view: UIView) {
-    switch exit {
-    case "expand_fade_out":
-      let scale: CGFloat = UIAccessibility.isReduceMotionEnabled ? 1.0 : 1.04
-      view.transform = CGAffineTransform(scaleX: scale, y: scale)
-    case "fade_out":
-      view.transform = .identity
-    case "scale_out", "fade_scale_out":
-      view.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
-    case "slide_up":
-      view.transform = CGAffineTransform(translationX: 0, y: -40)
-    default:
-      break
-    }
-  }
-
-  private func applyBackground(to view: UIView, config: [String: Any]) {
-    let solid = DibayStartupConfigCache.color(from: config["backgroundColor"] as? String, fallback: UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1))
-    let type = (config["backgroundType"] as? String) ?? "solid"
-    if type == "gradient" {
-      let layer = CAGradientLayer()
-      layer.frame = UIScreen.main.bounds
-      let from = DibayStartupConfigCache.color(from: config["gradientFrom"] as? String, fallback: solid)
-      let to = DibayStartupConfigCache.color(from: config["gradientTo"] as? String, fallback: solid)
-      layer.colors = [from.cgColor, to.cgColor]
-      let dir = (config["gradientDirection"] as? String) ?? "vertical"
-      if dir == "horizontal" {
-        layer.startPoint = CGPoint(x: 0, y: 0.5)
-        layer.endPoint = CGPoint(x: 1, y: 0.5)
-      } else if dir == "diagonal" {
-        layer.startPoint = CGPoint(x: 0, y: 0)
-        layer.endPoint = CGPoint(x: 1, y: 1)
-      } else {
-        layer.startPoint = CGPoint(x: 0.5, y: 0)
-        layer.endPoint = CGPoint(x: 0.5, y: 1)
-      }
-      view.layer.insertSublayer(layer, at: 0)
-      return
-    }
-    if type == "image", let img = DibayStartupConfigCache.loadBackgroundImage() {
-      let iv = UIImageView(image: img)
-      iv.frame = UIScreen.main.bounds
-      iv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-      // Technical boot bg — CONTAIN (COVER/scaleAspectFill rejected for all startup surfaces).
-      iv.contentMode = .scaleAspectFit
-      view.addSubview(iv)
-      view.sendSubviewToBack(iv)
-      view.backgroundColor = solid
-      return
-    }
-    view.backgroundColor = solid
-  }
-
-  private func buildContent(config: [String: Any]) -> UIView {
-    let stack = UIStackView()
-    stack.axis = .vertical
-    stack.alignment = .center
-    stack.spacing = 12
-    let vertical = (config["logoVertical"] as? String) ?? "center"
-    // Spacer top/bottom for vertical position
-    let top = UIView()
-    let bottom = UIView()
-    top.translatesAutoresizingMaskIntoConstraints = false
-    bottom.translatesAutoresizingMaskIntoConstraints = false
-
-    let logo = UIImageView(image: DibayStartupConfigCache.loadLogoImage() ?? UIImage(named: "DibayStartupLogo"))
-    logo.contentMode = .scaleAspectFit
-    let size = DibayStartupConfigCache.logoWidth(config: config)
-    logo.translatesAutoresizingMaskIntoConstraints = false
-    NSLayoutConstraint.activate([
-      logo.widthAnchor.constraint(equalToConstant: size),
-      logo.heightAnchor.constraint(equalToConstant: size),
-    ])
-
-    stack.addArrangedSubview(logo)
-
-    if (config["showWordmark"] as? Bool) ?? true {
-      let wm = UILabel()
-      wm.text = (config["wordmark"] as? String) ?? "DIBAY"
-      wm.font = .boldSystemFont(ofSize: 15)
-      wm.textColor = DibayStartupConfigCache.color(from: config["captionColor"] as? String, fallback: UIColor(red: 0.043, green: 0.259, blue: 0.102, alpha: 1))
-      stack.addArrangedSubview(wm)
-    }
-
-    if (config["captionEnabled"] as? Bool) ?? false {
-      var caption = (config["captionKo"] as? String) ?? ""
-      if caption.isEmpty { caption = (config["captionEn"] as? String) ?? "" }
-      if !caption.isEmpty {
-        let cap = UILabel()
-        cap.text = caption
-        cap.font = .systemFont(ofSize: 13)
-        cap.textAlignment = .center
-        cap.numberOfLines = 2
-        cap.textColor = DibayStartupConfigCache.color(from: config["captionColor"] as? String, fallback: UIColor(red: 0.043, green: 0.259, blue: 0.102, alpha: 1))
-        stack.addArrangedSubview(cap)
-      }
-    }
-
-    if ((config["showSpinner"] as? Bool) ?? true) || ((config["ambientAnimation"] as? String) == "spinner") {
-      let spinner = UIActivityIndicatorView(style: .medium)
-      spinner.startAnimating()
-      stack.addArrangedSubview(spinner)
-    }
-
-    let wrap = UIView()
-    wrap.addSubview(top)
-    wrap.addSubview(stack)
-    wrap.addSubview(bottom)
-    stack.translatesAutoresizingMaskIntoConstraints = false
-    NSLayoutConstraint.activate([
-      top.topAnchor.constraint(equalTo: wrap.topAnchor),
-      top.leadingAnchor.constraint(equalTo: wrap.leadingAnchor),
-      top.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
-      bottom.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
-      bottom.leadingAnchor.constraint(equalTo: wrap.leadingAnchor),
-      bottom.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
-      stack.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
-      stack.leadingAnchor.constraint(greaterThanOrEqualTo: wrap.leadingAnchor, constant: 24),
-      stack.trailingAnchor.constraint(lessThanOrEqualTo: wrap.trailingAnchor, constant: -24),
-    ])
-    if vertical == "upper" {
-      NSLayoutConstraint.activate([
-        stack.topAnchor.constraint(equalTo: top.bottomAnchor, constant: 48),
-        bottom.heightAnchor.constraint(equalTo: top.heightAnchor, multiplier: 2.2),
-        top.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
-      ])
-    } else if vertical == "lower" {
-      NSLayoutConstraint.activate([
-        stack.bottomAnchor.constraint(equalTo: bottom.topAnchor, constant: -48),
-        top.heightAnchor.constraint(equalTo: bottom.heightAnchor, multiplier: 2.2),
-        bottom.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
-      ])
-    } else {
-      NSLayoutConstraint.activate([
-        stack.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
-        top.heightAnchor.constraint(equalTo: bottom.heightAnchor),
-      ])
-    }
-    return wrap
   }
 
   private func hideCapacitorSplash() {
@@ -475,163 +155,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 }
 
 enum DibayStartupConfigCache {
-  private static let dirName = "startup"
-  private static let configActive = "startup-config.json"
-  private static let logoActive = "startup-logo.bin"
-  private static let bgActive = "startup-background.bin"
-
-  static func loadActive() -> [String: Any] {
-    let url = directory().appendingPathComponent(configActive)
-    guard let data = try? Data(contentsOf: url),
-          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      return defaultConfig()
-    }
-    return obj
-  }
-
-  static func persist(json: String) {
+  /// Persist Admin initialSurface only — no Product Intro assets.
+  static func persistInitialSurfaceOnly(json: String) {
     DispatchQueue.global(qos: .utility).async {
       guard let data = json.data(using: .utf8),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-      let dir = directory()
-      try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-      let stagingConfig = dir.appendingPathComponent("startup-config.staging.json")
-      try? data.write(to: stagingConfig, options: .atomic)
-
-      var logoOk = true
-      var bgOk = true
-      if let logoUrl = httpURL(obj["logoUrl"] as? String) {
-        logoOk = download(logoUrl, to: dir.appendingPathComponent("startup-logo.staging.bin"))
-      } else {
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent("startup-logo.staging.bin"))
-      }
-      if (obj["backgroundType"] as? String) == "image", let bgUrl = httpURL(obj["backgroundImageUrl"] as? String) {
-        bgOk = download(bgUrl, to: dir.appendingPathComponent("startup-background.staging.bin"))
-      } else {
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent("startup-background.staging.bin"))
-      }
-      guard logoOk && bgOk else {
-        NSLog("[DIBAY_Startup] persist_assets_incomplete")
-        return
-      }
-      let activeConfig = dir.appendingPathComponent(configActive)
-      try? FileManager.default.removeItem(at: activeConfig)
-      try? FileManager.default.moveItem(at: stagingConfig, to: activeConfig)
-      if httpURL(obj["logoUrl"] as? String) != nil {
-        let st = dir.appendingPathComponent("startup-logo.staging.bin")
-        let ac = dir.appendingPathComponent(logoActive)
-        try? FileManager.default.removeItem(at: ac)
-        try? FileManager.default.moveItem(at: st, to: ac)
-      } else {
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent(logoActive))
-      }
-      if (obj["backgroundType"] as? String) == "image", httpURL(obj["backgroundImageUrl"] as? String) != nil {
-        let st = dir.appendingPathComponent("startup-background.staging.bin")
-        let ac = dir.appendingPathComponent(bgActive)
-        try? FileManager.default.removeItem(at: ac)
-        try? FileManager.default.moveItem(at: st, to: ac)
-      } else {
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent(bgActive))
-      }
       let surface = (obj["initialSurface"] as? String) ?? "community"
       UserDefaults.standard.set(surface, forKey: "dibay_initial_surface")
       NSLog("[DIBAY_Startup] persist_ok surface=%@", surface)
     }
-  }
-
-  static func loadLogoImage() -> UIImage? {
-    let url = directory().appendingPathComponent(logoActive)
-    guard let data = try? Data(contentsOf: url) else { return nil }
-    return UIImage(data: data)
-  }
-
-  static func loadBackgroundImage() -> UIImage? {
-    let url = directory().appendingPathComponent(bgActive)
-    guard let data = try? Data(contentsOf: url) else { return nil }
-    return UIImage(data: data)
-  }
-
-  static func logoWidth(config: [String: Any]) -> CGFloat {
-    let preset = (config["logoWidthPreset"] as? String) ?? "medium"
-    if preset == "small" { return 56 }
-    if preset == "large" { return 96 }
-    if preset == "custom" {
-      let c = (config["logoCustomWidthPx"] as? Int) ?? 72
-      return CGFloat(min(160, max(40, c)))
-    }
-    return 72
-  }
-
-  static func clampDuration(_ ms: Int) -> Int {
-    min(1200, max(150, ms))
-  }
-
-  static func color(from hex: String?, fallback: UIColor) -> UIColor {
-    guard var h = hex?.trimmingCharacters(in: .whitespacesAndNewlines), h.hasPrefix("#") else { return fallback }
-    h.removeFirst()
-    guard h.count == 6 || h.count == 8, let v = UInt64(h, radix: 16) else { return fallback }
-    if h.count == 6 {
-      return UIColor(
-        red: CGFloat((v >> 16) & 0xff) / 255,
-        green: CGFloat((v >> 8) & 0xff) / 255,
-        blue: CGFloat(v & 0xff) / 255,
-        alpha: 1
-      )
-    }
-    return UIColor(
-      red: CGFloat((v >> 24) & 0xff) / 255,
-      green: CGFloat((v >> 16) & 0xff) / 255,
-      blue: CGFloat((v >> 8) & 0xff) / 255,
-      alpha: CGFloat(v & 0xff) / 255
-    )
-  }
-
-  private static func directory() -> URL {
-    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(dirName)
-  }
-
-  private static func httpURL(_ raw: String?) -> URL? {
-    guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
-          raw.hasPrefix("http://") || raw.hasPrefix("https://") else { return nil }
-    return URL(string: raw)
-  }
-
-  private static func download(_ url: URL, to dest: URL) -> Bool {
-    let sem = DispatchSemaphore(value: 0)
-    var ok = false
-    let task = URLSession.shared.dataTask(with: url) { data, response, _ in
-      defer { sem.signal() }
-      guard let data = data, data.count > 0, data.count < 3_000_000,
-            let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return }
-      do {
-        try data.write(to: dest, options: .atomic)
-        ok = true
-      } catch {
-        ok = false
-      }
-    }
-    task.resume()
-    _ = sem.wait(timeout: .now() + 25)
-    return ok
-  }
-
-  private static func defaultConfig() -> [String: Any] {
-    [
-      "version": 2,
-      "initialSurface": "community",
-      "backgroundType": "solid",
-      "backgroundColor": "#FFFCFC",
-      "logoSource": "default",
-      "logoWidthPreset": "medium",
-      "logoVertical": "center",
-      "wordmark": "DIBAY",
-      "showWordmark": true,
-      "showSpinner": true,
-      "enterAnimation": "none",
-      "exitAnimation": "fade_out",
-      "ambientAnimation": "none",
-      "enterDurationMs": 280,
-      "exitDurationMs": 220,
-    ]
   }
 }

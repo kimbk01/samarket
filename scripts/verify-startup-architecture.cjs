@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Startup architecture contract — Local First Boot Shell (Phase E).
+ * Startup architecture contract — 13TH ZERO.
+ * OS Splash / LaunchScreen → Home. No Product Intro shell.
  * Static analysis only. Exit 1 on FAIL.
  */
 const fs = require("node:fs");
@@ -25,48 +26,50 @@ function ok(msg) {
   console.log(`[verify:startup-architecture] OK: ${msg}`);
 }
 
-// --- SSOT files ---
 const required = [
   "lib/startup/startup-config.ts",
   "lib/startup/startup-cache.ts",
-  "lib/startup/startup-shell-markup.ts",
   "lib/startup/startup-metrics.ts",
   "lib/startup/startup-config-client.ts",
   "lib/startup/startup-config-db.ts",
-  "lib/startup/startup-detect.ts",
-  "scripts/build-startup-shell.mjs",
-  "android/app/src/main/assets/dibay-startup.html",
-  "ios/App/App/public/dibay-startup.html",
-  "capacitor-www/dibay-startup.html",
   "app/api/app/startup-config/route.ts",
   "app/api/admin/startup-config/route.ts",
   "app/admin/settings/startup-config/page.tsx",
   "ios/App/App/DibayStartupBridgeViewController.swift",
+  "android/app/src/main/res/values/styles.xml",
+  "ios/App/App/Base.lproj/LaunchScreen.storyboard",
 ];
 for (const rel of required) {
   if (!exists(rel)) fail(`missing ${rel}`);
 }
-ok("required startup files present");
+ok("required OS/startup files present");
 
-// --- Boot HTML self-contained + single handoff ---
-const bootHtml = read("android/app/src/main/assets/dibay-startup.html");
-if (!bootHtml.includes("location.replace")) fail("boot HTML missing location.replace");
-if ((bootHtml.match(/location\.replace/g) || []).length !== 1) {
-  fail("boot HTML must have exactly one location.replace");
+// Product Intro shell must be gone
+for (const rel of [
+  "android/app/src/main/assets/dibay-startup.html",
+  "ios/App/App/public/dibay-startup.html",
+  "capacitor-www/dibay-startup.html",
+  "lib/intro",
+  "components/admin/intro",
+  "app/admin/intro",
+  "app/api/admin/intro",
+  "app/api/intro",
+  "android/app/src/main/java/com/dibay/app/intro",
+]) {
+  if (exists(rel)) fail(`product intro path must be absent: ${rel}`);
 }
-if (/src=["']https?:\/\//.test(bootHtml) || /href=["']https?:\/\/(?!samarket)/.test(bootHtml)) {
-  // remoteOrigin string in script is OK; forbid external subresource tags
-}
-if (/<(?:link|script)\s[^>]*(?:src|href)=["']https?:\/\//i.test(bootHtml)) {
-  fail("boot HTML must not load external link/script subresources");
-}
-if (!bootHtml.includes("dibay-startup-nav")) fail("boot HTML missing BottomNav shell");
-if (!bootHtml.includes("dibay-startup-intro") && !bootHtml.includes("dibay-startup-root")) {
-  fail("boot HTML missing startup root/intro");
-}
-ok("boot HTML self-contained + single handoff");
+ok("product intro trees absent");
 
-// --- server.url (Hybrid) OR Local Runtime branch (Option A) ---
+const styles = read("android/app/src/main/res/values/styles.xml");
+if (!styles.includes("Theme.SplashScreen") && !styles.includes("AppTheme.NoActionBarLaunch")) {
+  fail("Android Theme.SplashScreen / NoActionBarLaunch required");
+}
+ok("Android OS Splash theme present");
+
+const launch = read("ios/App/App/Base.lproj/LaunchScreen.storyboard");
+if (!launch.includes("Launch")) fail("iOS LaunchScreen required");
+ok("iOS LaunchScreen present");
+
 const capConfig = read("capacitor.config.ts");
 const hasHybridServerUrl = /server:\s*\{[\s\S]*url:/.test(capConfig);
 const hasLocalRuntimeBranch = capConfig.includes("useLocalRuntime") && capConfig.includes("DIBAY_LOCAL_RUNTIME");
@@ -75,31 +78,25 @@ if (!hasHybridServerUrl && !hasLocalRuntimeBranch) {
 }
 ok(hasLocalRuntimeBranch ? "capacitor server: Hybrid url + Local Runtime branch" : "server.url retained");
 
-// --- Android intercept ---
-const client = read("android/app/src/main/java/com/dibay/app/DibayBridgeWebViewClient.java");
-if (!client.includes("shouldInterceptRequest")) fail("WebViewClient must override shouldInterceptRequest");
-if (!client.includes("__dibay-startup") && !client.includes("STARTUP_BOOT_PATH")) {
-  fail("WebViewClient must intercept /__dibay-startup");
-}
 const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-if (!main.includes("loadLocalStartupShellIfReady")) fail("MainActivity must load local startup shell");
+if (!main.includes("loadLocalStartupShellIfReady")) fail("MainActivity must keep loadLocalStartupShellIfReady");
 if (!main.includes("getPendingRoute")) fail("DibayBootBridge must expose getPendingRoute");
-if (!main.includes("showNativeHandoffCover") || !main.includes("hideNativeHandoffCover")) {
-  fail("MainActivity must implement Native Handoff Cover show/hide");
-}
 if (!main.includes("beginHandoffCover") || !main.includes("endHandoffCover")) {
   fail("DibayBootBridge must expose beginHandoffCover/endHandoffCover");
 }
 if (/SPLASH_MAX_KEEP_MS/.test(main)) fail("MainActivity must not use timed splash keep");
 if (!/webSplashDismissRequested/.test(main)) fail("MainActivity must use webSplashDismissRequested");
-ok("Android local startup intercept + handoff cover + no timed splash");
+if (/com\.dibay\.app\.intro|DibayIntro|tryStartDibayIntro|introSessionActive/.test(main)) {
+  fail("MainActivity must not reference Product Intro");
+}
+ok("Android OS splash boot; Product Intro absent");
 
-const bootHtmlCheck = read("android/app/src/main/assets/dibay-startup.html");
-if (!bootHtmlCheck.includes("beginHandoffCover")) fail("boot HTML must call beginHandoffCover before replace");
-if (!bootHtmlCheck.includes("hideIntroShowShell")) fail("boot HTML must hide intro before local shell paint");
-ok("boot HTML handoff cover + intro hide order");
+const iosVc = read("ios/App/App/DibayStartupBridgeViewController.swift");
+if (/DibayIntro|tryStartAuthoredIntro|introSessionActive|ACTIVE Pack/.test(iosVc)) {
+  fail("iOS startup VC must not reference Product Intro");
+}
+ok("iOS startup VC Product Intro absent");
 
-// --- Metrics / App Ready ---
 const metrics = read("lib/startup/startup-metrics.ts");
 if (!metrics.includes("markBootMetricsShellReady")) fail("startup-metrics missing shellReady");
 if (!metrics.includes("markAppReady")) fail("startup-metrics missing markAppReady");
@@ -108,50 +105,22 @@ if (/splashDismissAttempted[\s\S]{0,80}setTimeout|setTimeout[\s\S]{0,80}splash|m
 }
 ok("startup metrics App Ready contract");
 
-// --- Authored Intro overlay MUST be absent from live product mounts ---
-const markup = read("lib/startup/startup-shell-markup.ts");
-if (!markup.includes("buildStartupBootDocumentHtml")) {
-  fail("startup-shell-markup must export boot document builder");
-}
 const layout = read("app/layout.tsx");
 const bannedLayout = [
   "DibayStartupIntro",
   "ProductIntroHost",
   "ProductIntroMaterializeController",
-  "buildStartupIntroMarkup",
-  "persistProductIntro",
+  "IntroForegroundSyncHost",
 ];
-for (const token of bannedLayout) {
-  if (layout.includes(token)) fail(`layout must not mount authored Intro: ${token}`);
+for (const b of bannedLayout) {
+  if (layout.includes(b)) fail(`app/layout must not mount ${b}`);
 }
-if (layout.includes("DibayColdBootIntro") || layout.includes("dibay-cold-boot-intro")) {
-  fail("layout must not retain legacy cold-boot intro");
-}
-if (exists("components/app/DibayStartupIntro.tsx")) fail("DibayStartupIntro.tsx must be deleted");
-if (exists("components/app/ProductIntroHost.tsx")) fail("ProductIntroHost.tsx must be deleted");
-if (exists("android/app/src/main/java/com/dibay/app/DibayStartupIntroSurface.java")) {
-  fail("DibayStartupIntroSurface.java must be deleted");
-}
-ok("authored Intro overlay absent from layout/native product tree");
+ok("layout has no Product Intro mounts");
 
-// --- Legacy purge ---
-const legacy = [
-  "lib/app-boot/cold-boot-intro-config.ts",
-  "lib/app-boot/cold-boot-intro-client.ts",
-  "lib/app-boot/cold-boot-intro-db.ts",
-  "lib/app-boot/cold-boot-constants.ts",
-  "lib/app-boot/cold-boot-detect.ts",
-  "lib/app-boot/dibay-boot-metrics.ts",
-  "components/app/DibayColdBootIntro.tsx",
-  "app/api/app/cold-boot-intro/route.ts",
-  "app/api/admin/cold-boot-intro/route.ts",
-  "components/admin/settings/ColdBootIntroAdminPage.tsx",
-  "app/admin/settings/cold-boot-intro/page.tsx",
-  "scripts/verify-cold-boot-shell-cache-first.cjs",
-];
-for (const rel of legacy) {
-  if (exists(rel)) fail(`legacy file still present: ${rel}`);
+const tree = read("components/layout/MainAppProviderTree.tsx");
+if (tree.includes("IntroForegroundSyncHost") || tree.includes("lib/intro")) {
+  fail("MainAppProviderTree must not wire IntroForegroundSyncHost");
 }
-ok("legacy cold-boot files removed");
+ok("MainAppProviderTree Intro sync absent");
 
 console.log("[verify:startup-architecture] PASS");

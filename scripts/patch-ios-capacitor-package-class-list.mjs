@@ -38,7 +38,6 @@ export const IOS_DELIVERY_PACKAGE_CLASSES = [
 /** Device identity — not Call / Auth / Delivery */
 export const IOS_DEVICE_PACKAGE_CLASSES = [
   "DibayDeviceClassPlugin",
-  "DibayIntroAuthorityPlugin",
 ];
 
 /**

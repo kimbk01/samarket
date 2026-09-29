@@ -83,19 +83,8 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean webSplashDismissPending = false;
   private static volatile long splashKeepStartElapsedMs = 0L;
   private static volatile String splashDismissSource = "none";
-  /**
-   * V3: authored Scene1 FIRST_FRAME_READY — may release OS splash when Active Intro
-   * owns the first product frame (no cream gap).
-   */
-  private static volatile boolean introFirstFrameReady = false;
-  private static volatile boolean introSessionActive = false;
-  /** Authored Intro timeline completed — may still HOLD last authored frame. */
-  private static volatile boolean introTimelineCompleted = false;
   /** Meaningful Home presentation ready — not shellReady / dismissSplash alias. */
   private static volatile boolean homePresentationReady = false;
-  private static volatile long introCompletedElapsedMs = 0L;
-  private static volatile long homeReadyHoldMs = 0L;
-  private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
 
@@ -1099,22 +1088,14 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
-    registerPlugin(com.dibay.app.intro.DibayIntroAuthorityPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // When Active Intro owns startup: hold OS splash until authored Scene1 pixels ready.
-    // When no Active: existing web dismiss path (cream → Home).
-    splashScreen.setKeepOnScreenCondition(
-        () -> {
-          if (introSessionActive) {
-            return !introFirstFrameReady;
-          }
-          return !webSplashDismissRequested;
-        });
+    // OS Splash until Web App Ready (DibayBootBridge.dismissSplash). No Product Intro.
+    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
@@ -1124,7 +1105,6 @@ public class MainActivity extends BridgeActivity {
             /* ignore */
           }
         });
-    tryStartDibayIntroFromActive();
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1163,100 +1143,12 @@ public class MainActivity extends BridgeActivity {
     DibayWebSafeAreaBridge.attach(this);
   }
 
-  /**
-   * V3 cold Intro: product-driven Active → native Scene1 as first dibaY product frame.
-   * Home/WebView boot continues underneath. Fail-open leaves normal startup.
-   */
-  private void tryStartDibayIntroFromActive() {
-    try {
-      dibayIntroRuntime = new com.dibay.app.intro.DibayIntroRuntimeController(this);
-      dibayIntroRuntime.setListener(
-          new com.dibay.app.intro.DibayIntroRuntimeController.Listener() {
-            @Override
-            public void onFirstFrameReady(org.json.JSONObject identity) {
-              introFirstFrameReady = true;
-              Log.i(
-                  WEBVIEW_LOG_TAG,
-                  "intro_first_frame_ready packId="
-                      + (identity != null ? identity.optString("packId", "") : ""));
-            }
-
-            @Override
-            public void onIntroCompleted(String reason) {
-              introTimelineCompleted = true;
-              introCompletedElapsedMs = android.os.SystemClock.elapsedRealtime();
-              Log.i(WEBVIEW_LOG_TAG, "intro_completed reason=" + reason);
-              Log.i(WEBVIEW_LOG_TAG, "INTRO_HOLD_LAST_FRAME awaiting=HOME_PRESENTATION_READY");
-              // Do NOT remove Intro yet — tryIntroHomeHandoff owns release.
-              tryIntroHomeHandoff("intro_completed");
-            }
-
-            @Override
-            public void onIntroAborted(String reason) {
-              introSessionActive = false;
-              introFirstFrameReady = false;
-              introTimelineCompleted = false;
-              Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
-              // Fail-open: allow existing splash → Home path.
-            }
-          });
-      boolean started = dibayIntroRuntime.tryStartFromLocalActive();
-      introSessionActive = started;
-      if (!started) {
-        dibayIntroRuntime = null;
-      } else {
-        Log.i(WEBVIEW_LOG_TAG, "intro_session_active=1");
-      }
-    } catch (Exception e) {
-      introSessionActive = false;
-      Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
-    }
-  }
-
-  /**
-   * Intro→Home handoff contract:
-   * KEEP_INTRO | HOLD_FINAL_INTRO_FRAME | HANDOFF_HOME
-   * Never remove Intro then wait for Home (black/white/cream gap forbidden).
-   */
-  private void tryIntroHomeHandoff(String source) {
-    if (!introTimelineCompleted) {
-      Log.i(WEBVIEW_LOG_TAG, "handoff_keep_intro source=" + source);
-      return;
-    }
-    if (!homePresentationReady) {
-      Log.i(
-          WEBVIEW_LOG_TAG,
-          "handoff_hold_last_frame source=" + source + " homeReady=0");
-      return;
-    }
-    if (introCompletedElapsedMs > 0) {
-      homeReadyHoldMs =
-          Math.max(
-              0L, android.os.SystemClock.elapsedRealtime() - introCompletedElapsedMs);
-    }
-    Log.i(
-        WEBVIEW_LOG_TAG,
-        "handoff_home source="
-            + source
-            + " home_ready_hold_ms="
-            + homeReadyHoldMs);
-    if (dibayIntroRuntime != null) {
-      dibayIntroRuntime.releaseToHome(source);
-      dibayIntroRuntime = null;
-    }
-    introSessionActive = false;
-    requestWebSplashDismiss("intro_home_handoff");
-  }
-
-  /** Single-purpose HOME_PRESENTATION_READY from web (initialDestinationVisualReady). */
+  /** HOME_PRESENTATION_READY from web — retained for boot metrics; no Product Intro handoff. */
   public static void notifyHomePresentationReady(String source) {
     homePresentationReady = true;
     Log.i(WEBVIEW_LOG_TAG, "HOME_PRESENTATION_READY source=" + (source != null ? source : "unknown"));
-    final MainActivity act = activeInstance;
-    if (act != null) {
-      act.mainHandler.post(() -> act.tryIntroHomeHandoff("home_presentation_ready"));
-    }
   }
+
 
   @Override
   public void onConfigurationChanged(android.content.res.Configuration newConfig) {
@@ -1485,7 +1377,7 @@ public class MainActivity extends BridgeActivity {
 
   /**
    * Web or native fallback — release OS splash after WebView visual-state commit.
-   * Authored Intro surface is gone. This waits for first Web paint only.
+   * Waits for first Web paint only.
    */
   public static void requestWebSplashDismiss(String source) {
     if (webSplashDismissRequested || webSplashDismissPending) return;
@@ -1733,20 +1625,12 @@ public class MainActivity extends BridgeActivity {
       mainHandler.post(
           () -> {
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
-            // While Intro holds last frame, Home-ready must use homePresentationReady —
-            // do not tear Intro via generic dismissSplash.
-            if (introSessionActive || introTimelineCompleted) {
-              Log.i(
-                  WEBVIEW_LOG_TAG,
-                  "dismissSplash deferred reason=intro_owns_presentation");
-              return;
-            }
             requestWebSplashDismiss("DibayBootBridge");
           });
     }
 
     /**
-     * Meaningful Home presentation ready for Intro handoff.
+     * Meaningful Home presentation ready (boot metric).
      * Producer: markInitialDestinationVisualReady (web).
      * Not shellReady / DOM ready / React mounted alone.
      */
