@@ -212,6 +212,8 @@ export function IntroStudioPage({ documentId }: Props) {
   const textPayload = textEl?.payload as TextPayloadV1 | undefined;
   const imageEl = scene?.elements.find((e) => e.type === "IMAGE");
   const imagePayload = imageEl?.payload as ImagePayloadV1 | undefined;
+  const logoEl = scene?.elements.find((e) => e.type === "LOGO");
+  const logoPayload = logoEl?.payload as ImagePayloadV1 | undefined;
   const bgColor =
     scene?.background.type === "COLOR" ? scene.background.color : "#000000";
   const mediaUrls = Object.fromEntries(
@@ -220,13 +222,14 @@ export function IntroStudioPage({ documentId }: Props) {
       .map((m) => [m.mediaId, m.previewUrl as string]),
   );
 
-  async function uploadMedia(file: File) {
-    setBusy("upload");
+  async function uploadMedia(file: File, asLogo = false) {
+    setBusy(asLogo ? "upload-logo" : "upload");
     setError(null);
     setMessage(null);
     try {
       const form = new FormData();
       form.set("file", file);
+      if (asLogo) form.set("asLogo", "1");
       const res = await fetch("/api/admin/intro/media", {
         method: "POST",
         body: form,
@@ -240,35 +243,42 @@ export function IntroStudioPage({ documentId }: Props) {
         setError(json.error ?? "upload_failed");
         return;
       }
-      setMessage("미디어 준비됨");
+      setMessage(asLogo ? "로고 준비됨" : "미디어 준비됨");
       await loadMedia();
     } finally {
       setBusy(null);
     }
   }
 
-  function addOrReplaceImage(mediaId: string) {
+  function addOrReplaceMediaElement(
+    mediaId: string,
+    kind: "IMAGE" | "LOGO",
+  ) {
     updateScene((s) => {
-      const existing = s.elements.find((e) => e.type === "IMAGE");
+      const existing = s.elements.find((e) => e.type === kind);
       if (existing) {
         return {
           ...s,
           elements: s.elements.map((el) => {
-            if (el.type !== "IMAGE") return el;
+            if (el.type !== kind) return el;
             const p = el.payload as ImagePayloadV1;
             return { ...el, payload: { ...p, mediaId } };
           }),
         };
       }
+      const frame =
+        kind === "LOGO"
+          ? { x: 0.3, y: 0.08, w: 0.4, h: 0.12 }
+          : { x: 0.1, y: 0.15, w: 0.8, h: 0.35 };
       return {
         ...s,
         elements: [
           ...s.elements,
           {
             id: cryptoRandomId(),
-            type: "IMAGE" as const,
-            frame: { x: 0.1, y: 0.15, w: 0.8, h: 0.35 },
-            zIndex: 0,
+            type: kind,
+            frame,
+            zIndex: kind === "LOGO" ? 2 : 0,
             visible: true,
             opacity: 1,
             motion: DEFAULT_MOTION,
@@ -431,32 +441,80 @@ export function IntroStudioPage({ documentId }: Props) {
               disabled={Boolean(busy)}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void uploadMedia(f);
+                if (f) void uploadMedia(f, false);
                 e.target.value = "";
               }}
             />
             {imagePayload ? (
-              <p className="mt-2 text-xs text-sam-muted">
-                장면 이미지 선택됨
-              </p>
+              <p className="mt-2 text-xs text-sam-muted">장면 이미지 선택됨</p>
             ) : null}
             <ul className="mt-3 grid max-h-48 grid-cols-3 gap-2 overflow-auto">
+              {mediaItems
+                .filter((m) => m.mediaKind !== "LOGO")
+                .map((m) => (
+                  <li key={m.mediaId}>
+                    <button
+                      type="button"
+                      className="w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app p-1 text-left"
+                      onClick={() => addOrReplaceMediaElement(m.mediaId, "IMAGE")}
+                    >
+                      {m.previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.previewUrl}
+                          alt=""
+                          className="h-16 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 items-center justify-center text-[10px] text-sam-muted">
+                          READY
+                        </div>
+                      )}
+                      <span className="mt-1 block truncate text-[10px] text-sam-muted">
+                        {m.originalName}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+
+          <div className="border-t border-sam-border pt-4">
+            <h3 className="font-medium text-sam-fg">로고</h3>
+            <p className="mt-1 text-xs text-sam-muted">
+              로고도 동일 미디어 파이프라인. 장면 상단 기본 배치.
+            </p>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="mt-2 block w-full text-sm"
+              disabled={Boolean(busy)}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadMedia(f, true);
+                e.target.value = "";
+              }}
+            />
+            {logoPayload ? (
+              <p className="mt-2 text-xs text-sam-muted">장면 로고 선택됨</p>
+            ) : null}
+            <ul className="mt-3 grid max-h-40 grid-cols-3 gap-2 overflow-auto">
               {mediaItems.map((m) => (
-                <li key={m.mediaId}>
+                <li key={`logo-${m.mediaId}`}>
                   <button
                     type="button"
                     className="w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app p-1 text-left"
-                    onClick={() => addOrReplaceImage(m.mediaId)}
+                    onClick={() => addOrReplaceMediaElement(m.mediaId, "LOGO")}
                   >
                     {m.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={m.previewUrl}
                         alt=""
-                        className="h-16 w-full object-cover"
+                        className="h-12 w-full object-contain"
                       />
                     ) : (
-                      <div className="flex h-16 items-center justify-center text-[10px] text-sam-muted">
+                      <div className="flex h-12 items-center justify-center text-[10px] text-sam-muted">
                         READY
                       </div>
                     )}
