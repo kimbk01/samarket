@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!pass && !firstDivergence) {
-      firstDivergence = `fixture_fail:${id}`;
+      firstDivergence = `fixture_fail:${id}:sourceLoop=${sourceMeta.loop},processedLoop=${outMeta.loop},frames=${outMeta.frameCount},delays=${JSON.stringify(outMeta.delays)}`;
     }
 
     results.push({

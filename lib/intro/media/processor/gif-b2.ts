@@ -132,10 +132,23 @@ async function decodeCompositedPages(srcBuf: Buffer): Promise<DecodedGif> {
   };
 }
 
+/**
+ * sharp.metadata().loop uses "play count" semantics for finite loops:
+ * Netscape extension stores repetitions-after-first (N), sharp reports N+1.
+ * omggif.GifWriter writes the raw Netscape field. Convert sharp → Netscape
+ * so round-trip preserves source loop semantics (0 = forever, unchanged).
+ */
+export function sharpLoopToNetscape(sharpLoop: number): number {
+  if (!Number.isFinite(sharpLoop) || sharpLoop <= 0) return 0;
+  return Math.max(0, Math.floor(sharpLoop) - 1);
+}
+
 function encodeOmggif(decoded: DecodedGif): Buffer {
   const { width: w, height: h, frames, delays, loop } = decoded;
   const buf = Buffer.alloc(w * h * frames.length * 6 + 4096);
-  const enc = new GifWriter(buf, w, h, { loop: loop ?? 0 });
+  const enc = new GifWriter(buf, w, h, {
+    loop: sharpLoopToNetscape(loop ?? 0),
+  });
 
   for (let i = 0; i < frames.length; i++) {
     const data = frames[i]!.rgba;

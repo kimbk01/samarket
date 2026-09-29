@@ -53,6 +53,16 @@ describe("Phase 3 — local C-R1 processor", () => {
     }
   });
 
+  it("fixture 03: sharp↔omggif loop round-trip preserves source loop", async () => {
+    const src = readFileSync(join(GIF_DIR, "03_looping.gif"));
+    const sourceMeta = await sharp(src, { animated: true }).metadata();
+    const out = await processGifB2(src);
+    const reread = await sharp(out.bytes, { animated: true }).metadata();
+    expect(sourceMeta.loop).toBe(4);
+    expect(out.animationMetadata.loop).toBe(4);
+    expect(reread.loop).toBe(4);
+  });
+
   it("identifies JPEG/PNG/WebP/GIF by bytes", async () => {
     const gif = readFileSync(join(GIF_DIR, "01_normal_multiframe.gif"));
     expect((await identifySourceBytes(gif)).format).toBe(IdentifiedFormat.GIF);
