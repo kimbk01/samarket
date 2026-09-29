@@ -46,8 +46,10 @@ import {
 } from "@/lib/intro/document/mutations";
 import {
   getIntroDocumentApi,
+  getIntroLiveApi,
   publishIntroDocumentApi,
   saveIntroDocumentApi,
+  setIntroLiveApi,
 } from "./introDocumentApi";
 
 type DevicePreview = "PHONE" | "TABLET";
@@ -62,6 +64,12 @@ type PublishUi =
   | "idle"
   | "confirm"
   | "publishing"
+  | "success"
+  | "error";
+type SetLiveUi =
+  | "idle"
+  | "confirm"
+  | "setting"
   | "success"
   | "error";
 
@@ -116,6 +124,15 @@ export function IntroStudio({
   const [lastPublishPackId, setLastPublishPackId] = useState<string | null>(
     null,
   );
+  const [lastPublishedRevisionId, setLastPublishedRevisionId] = useState<
+    string | null
+  >(null);
+  const [setLiveUi, setSetLiveUi] = useState<SetLiveUi>("idle");
+  const [setLiveMessage, setSetLiveMessage] = useState<string | null>(null);
+  const [currentLiveKind, setCurrentLiveKind] = useState<string | null>(null);
+  const [currentLiveRevisionId, setCurrentLiveRevisionId] = useState<
+    string | null
+  >(null);
   const [picker, setPicker] = useState<PickerState>(null);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState<string | null>(
     null,
@@ -246,10 +263,72 @@ export function IntroStudio({
     }
     setPublishUi("success");
     setLastPublishPackId(res.result.packId);
+    setLastPublishedRevisionId(res.result.publishedRevisionId);
     setPublishMessage(
       ko
         ? `불변 게시 버전 생성됨 (앱 적용 아님). Pack ${res.result.packId.slice(0, 8)}…`
         : `Immutable revision created (NOT Live / NOT app exposure). Pack ${res.result.packId.slice(0, 8)}…`,
+    );
+  };
+
+  const refreshLive = useCallback(async () => {
+    const res = await getIntroLiveApi();
+    if (!res.ok || !res.live) return;
+    setCurrentLiveKind(res.live.liveKind);
+    setCurrentLiveRevisionId(res.live.publishedRevisionId);
+  }, []);
+
+  useEffect(() => {
+    void refreshLive();
+  }, [refreshLive]);
+
+  // Owner V1 production authority may already be published — allow Set Live without re-publish.
+  useEffect(() => {
+    if (documentId === "3347c673-0667-4605-a8c8-a306ae209896") {
+      setLastPublishedRevisionId((prev) =>
+        prev ?? "4b5cf115-3ede-45a6-b6dd-a255915a9158",
+      );
+      setLastPublishPackId((prev) =>
+        prev ?? "2f4dbc7d-b6ce-416f-80eb-012ef9bad153",
+      );
+    }
+  }, [documentId]);
+
+  const onSetLiveConfirmed = async () => {
+    if (!lastPublishedRevisionId || setLiveUi === "setting") return;
+    setSetLiveUi("setting");
+    setSetLiveMessage(ko ? "앱에 적용 중…" : "Setting Live…");
+    const liveRes = await getIntroLiveApi();
+    if (!liveRes.ok || !liveRes.live) {
+      setSetLiveUi("error");
+      setSetLiveMessage(
+        ko
+          ? `Live 상태 조회 실패: ${liveRes.error ?? "error"}`
+          : `Live status failed: ${liveRes.error ?? "error"}`,
+      );
+      return;
+    }
+    const res = await setIntroLiveApi({
+      publishedRevisionId: lastPublishedRevisionId,
+      expectedLiveKind: liveRes.live.liveKind,
+      expectedPublishedRevisionId: liveRes.live.publishedRevisionId,
+    });
+    if (!res.ok || !res.live) {
+      setSetLiveUi("error");
+      setSetLiveMessage(
+        ko
+          ? `앱 적용 실패: ${res.message ?? res.error ?? "error"}`
+          : `Set Live failed: ${res.message ?? res.error ?? "error"}`,
+      );
+      return;
+    }
+    setSetLiveUi("success");
+    setCurrentLiveKind(res.live.liveKind);
+    setCurrentLiveRevisionId(res.live.publishedRevisionId);
+    setSetLiveMessage(
+      ko
+        ? "CURRENT LIVE / 앱 적용 버전 — 기기 다운로드는 아직 증명되지 않음"
+        : "CURRENT LIVE — device download NOT claimed",
     );
   };
 
@@ -391,6 +470,54 @@ export function IntroStudio({
               ? "게시"
               : "Publish"}
         </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          disabled={
+            !lastPublishedRevisionId ||
+            setLiveUi === "setting" ||
+            setLiveUi === "confirm" ||
+            dirty
+          }
+          onClick={() => {
+            setSetLiveUi("confirm");
+            setSetLiveMessage(null);
+          }}
+          data-intro-set-live="1"
+          title={
+            ko
+              ? "앱에 적용 — 기기에 제공할 Live 버전 변경"
+              : "Set Live — change revision offered to devices"
+          }
+        >
+          {setLiveUi === "setting"
+            ? ko
+              ? "적용 중…"
+              : "Setting…"
+            : ko
+              ? "앱에 적용"
+              : "Set Live"}
+        </AdminActionButton>
+        <span
+          className="text-xs text-sam-muted"
+          data-intro-live-kind={currentLiveKind ?? undefined}
+          data-intro-live-revision={currentLiveRevisionId ?? undefined}
+        >
+          {currentLiveKind === "COMMITTED_LIVE"
+            ? ko
+              ? `CURRENT LIVE ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
+              : `CURRENT LIVE ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
+            : ko
+              ? `Live: ${currentLiveKind ?? "…"}`
+              : `Live: ${currentLiveKind ?? "…"}`}
+        </span>
+        {setLiveMessage ? (
+          <span
+            className="text-xs text-sam-muted"
+            data-intro-set-live-state={setLiveUi}
+          >
+            {setLiveMessage}
+          </span>
+        ) : null}
         <span
           className="text-xs text-sam-muted"
           data-intro-save-state={saveUi}
@@ -440,8 +567,8 @@ export function IntroStudio({
             </li>
             <li>
               {ko
-                ? "앱 적용: V1에서 아직 불가 (Live 설정 / Device sync 없음)"
-                : "App exposure: NOT YET AVAILABLE in V1 (no Live apply / device sync)"}
+                ? "앱 적용: 별도 「앱에 적용」으로 Live 설정 (기기 다운로드 완료를 주장하지 않음)"
+                : "App exposure: separate Set Live action (does NOT claim devices downloaded)"}
             </li>
           </ul>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -456,6 +583,54 @@ export function IntroStudio({
               variant="secondary"
               onClick={() => setPublishUi("idle")}
               data-intro-publish-confirm-no="1"
+            >
+              {ko ? "취소" : "Cancel"}
+            </AdminActionButton>
+          </div>
+        </div>
+      ) : null}
+
+      {setLiveUi === "confirm" ? (
+        <div
+          className="border-b border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sam-fg"
+          data-intro-set-live-confirm="1"
+          role="dialog"
+          aria-modal="true"
+        >
+          <p className="font-semibold">
+            {ko
+              ? "앱에 적용 확인 — 기기에 제공할 버전을 변경합니다"
+              : "Confirm Set Live — changes revision offered to devices"}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
+            <li>
+              {ko
+                ? "PUBLISHED ≠ CURRENT LIVE — 게시만으로는 앱에 적용되지 않습니다"
+                : "PUBLISHED ≠ CURRENT LIVE — Publish alone does not expose to apps"}
+            </li>
+            <li>
+              {ko
+                ? "이 동작은 서버 Live 포인터만 변경합니다. 기기 다운로드·적용 완료를 주장하지 않습니다"
+                : "This only changes the server Live pointer. Does NOT claim devices downloaded or applied"}
+            </li>
+            <li>
+              {ko
+                ? `대상 revision: ${lastPublishedRevisionId ?? "(없음)"}`
+                : `Target revision: ${lastPublishedRevisionId ?? "(none)"}`}
+            </li>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AdminActionButton
+              variant="primary"
+              onClick={() => void onSetLiveConfirmed()}
+              data-intro-set-live-confirm-yes="1"
+            >
+              {ko ? "앱에 적용" : "Set Live"}
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              onClick={() => setSetLiveUi("idle")}
+              data-intro-set-live-confirm-no="1"
             >
               {ko ? "취소" : "Cancel"}
             </AdminActionButton>
@@ -775,8 +950,8 @@ export function IntroStudio({
 
           <p className="text-[10px] text-sam-muted">
             {ko
-              ? "Preview / Publish / Live는 CUT A에서 구현하지 않습니다."
-              : "Preview / Publish / Live are not in CUT A."}
+              ? "Preview 런타임 제품 경로는 아직 없습니다. Publish ≠ Set Live."
+              : "No runtime Preview product path. Publish ≠ Set Live."}
           </p>
         </aside>
       </div>

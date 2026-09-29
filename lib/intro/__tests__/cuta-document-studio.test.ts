@@ -360,17 +360,17 @@ describe("CUT A — product surface / QA isolation structural", () => {
     expect(service).toContain('originFilter !== "ALL"');
   });
 
-  it("V1 allows Publish control — still forbids Live apply / Preview product path", () => {
+  it("V2 Set Live is distinct from Publish — Preview product path still denied", () => {
     const studio = readFileSync(
       "components/admin/intro/IntroStudio.tsx",
       "utf8",
     );
-    // V1 added real Publish — must not claim Live apply
     expect(studio).toContain("data-intro-publish");
-    expect(studio).not.toContain("Set Live");
+    expect(studio).toContain("data-intro-set-live");
+    expect(studio).toContain("setIntroLiveApi");
     expect(studio).not.toContain("Publish now");
-    expect(studio).not.toMatch(/setLive\s*\(/);
     expect(studio).toContain("not runtime Preview");
-    expect(studio).toContain("CUT A에서 구현하지 않습니다");
+    // Publish ≠ Set Live
+    expect(studio).toMatch(/PUBLISHED ≠ CURRENT LIVE|PUBLISHED != CURRENT LIVE|게시만으로는/);
   });
 });

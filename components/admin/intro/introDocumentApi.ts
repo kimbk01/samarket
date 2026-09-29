@@ -259,3 +259,93 @@ export async function saveIntroDocumentApi(args: {
     },
   };
 }
+
+export type IntroLiveAuthorityDto = {
+  liveKind: string;
+  publishedRevisionId: string | null;
+  packId: string | null;
+  setLiveAt: string | null;
+  setLiveBy: string | null;
+  disabledAt: string | null;
+  disabledBy: string | null;
+  updatedAt: string;
+};
+
+export async function getIntroLiveApi(): Promise<{
+  ok: boolean;
+  live?: IntroLiveAuthorityDto;
+  authority?: {
+    publishedRevisionId: string;
+    packId: string;
+    packIntegrity: string;
+  } | null;
+  error?: string;
+}> {
+  const res = await fetch("/api/admin/intro/live", {
+    credentials: "same-origin",
+    headers: { accept: "application/json" },
+  });
+  const json = await parseJson(res);
+  if (!res.ok || json.ok !== true) {
+    return { ok: false, error: String(json.error ?? "live_read_failed") };
+  }
+  return {
+    ok: true,
+    live: json.live as IntroLiveAuthorityDto,
+    authority:
+      (json.authority as {
+        publishedRevisionId: string;
+        packId: string;
+        packIntegrity: string;
+      } | null) ?? null,
+  };
+}
+
+/** Admin Set Live — changes revision offered to devices. Does NOT claim device download. */
+export async function setIntroLiveApi(args: {
+  publishedRevisionId: string;
+  expectedLiveKind: string;
+  expectedPublishedRevisionId: string | null;
+}): Promise<{
+  ok: boolean;
+  live?: IntroLiveAuthorityDto;
+  authority?: {
+    publishedRevisionId: string;
+    packId: string;
+    packIntegrity: string;
+  };
+  error?: string;
+  code?: string;
+  message?: string;
+  status: number;
+}> {
+  const res = await fetch("/api/admin/intro/live/set", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  const json = await parseJson(res);
+  if (!res.ok || json.ok !== true) {
+    return {
+      ok: false,
+      status: res.status,
+      error: String(json.error ?? "set_live_failed"),
+      code: json.code ? String(json.code) : undefined,
+      message: json.message ? String(json.message) : undefined,
+    };
+  }
+  return {
+    ok: true,
+    status: res.status,
+    live: json.live as IntroLiveAuthorityDto,
+    authority: json.authority as {
+      publishedRevisionId: string;
+      packId: string;
+      packIntegrity: string;
+    },
+  };
+}

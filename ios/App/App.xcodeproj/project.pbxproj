@@ -75,6 +75,12 @@
 		C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */; };
 		C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */; };
 		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
+		80F9BCFA8E214819BFAB508D /* DibayIntroAuthorityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB2C207CEED42ADAF79F94A /* DibayIntroAuthorityPlugin.swift */; };
+		1C5623451F704D498035FB15 /* DibayIntroAuthorityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3CE81257F8412391A27B08 /* DibayIntroAuthorityStore.swift */; };
+		A8EE2F3F5E3040B184409076 /* Pretendard-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F6C3E6F48D484D029C82E11D /* Pretendard-Regular.otf */; };
+		082D323962434EF48DE57761 /* Pretendard-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 9BFDC513E7F8449094127C73 /* Pretendard-Medium.otf */; };
+		D23306D5A44743B481ABCBC4 /* Pretendard-SemiBold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 14C205E56CA24C6EAF4B15A9 /* Pretendard-SemiBold.otf */; };
+		A6DDD7AA2E1E4F6FA98297C1 /* Pretendard-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 79514B82F882412CAF6E6D2B /* Pretendard-Bold.otf */; };
 		C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */; };
 		C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */; };
 		C7NSE0022FED79650016851F /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NSE0012FED79650016851F /* NotificationService.swift */; };
@@ -152,6 +158,12 @@
 		C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryAdapter.swift; sourceTree = "<group>"; };
 		C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryPlugin.swift; sourceTree = "<group>"; };
 		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
+		5FB2C207CEED42ADAF79F94A /* DibayIntroAuthorityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroAuthorityPlugin.swift; sourceTree = "<group>"; };
+		2E3CE81257F8412391A27B08 /* DibayIntroAuthorityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroAuthorityStore.swift; sourceTree = "<group>"; };
+		F6C3E6F48D484D029C82E11D /* Pretendard-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-Regular.otf; path = intro/fonts/Pretendard-Regular.otf; sourceTree = "<group>"; };
+		9BFDC513E7F8449094127C73 /* Pretendard-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-Medium.otf; path = intro/fonts/Pretendard-Medium.otf; sourceTree = "<group>"; };
+		14C205E56CA24C6EAF4B15A9 /* Pretendard-SemiBold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-SemiBold.otf; path = intro/fonts/Pretendard-SemiBold.otf; sourceTree = "<group>"; };
+		79514B82F882412CAF6E6D2B /* Pretendard-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-Bold.otf; path = intro/fonts/Pretendard-Bold.otf; sourceTree = "<group>"; };
 		C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassClassifier.swift; sourceTree = "<group>"; };
 		C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppOrientationPolicy.swift; sourceTree = "<group>"; };
 		C7NSE0012FED79650016851F /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -221,6 +233,10 @@
 			isa = PBXGroup;
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
+				F6C3E6F48D484D029C82E11D /* Pretendard-Regular.otf */,
+				9BFDC513E7F8449094127C73 /* Pretendard-Medium.otf */,
+				14C205E56CA24C6EAF4B15A9 /* Pretendard-SemiBold.otf */,
+				79514B82F882412CAF6E6D2B /* Pretendard-Bold.otf */,
 				C7B5J0012FED79650016851F /* dibay-call-lane.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				C7STU0012FED79650016851F /* DibayStartupBridgeViewController.swift */,
@@ -260,6 +276,8 @@
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
+				5FB2C207CEED42ADAF79F94A /* DibayIntroAuthorityPlugin.swift */,
+				2E3CE81257F8412391A27B08 /* DibayIntroAuthorityStore.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
 			);
@@ -451,7 +469,11 @@
 				C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
-			);
+			
+				A8EE2F3F5E3040B184409076 /* Pretendard-Regular.otf in Resources */,
+				082D323962434EF48DE57761 /* Pretendard-Medium.otf in Resources */,
+				D23306D5A44743B481ABCBC4 /* Pretendard-SemiBold.otf in Resources */,
+				A6DDD7AA2E1E4F6FA98297C1 /* Pretendard-Bold.otf in Resources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -528,6 +550,8 @@
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
+				80F9BCFA8E214819BFAB508D /* DibayIntroAuthorityPlugin.swift in Sources */,
+				1C5623451F704D498035FB15 /* DibayIntroAuthorityStore.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
 			);

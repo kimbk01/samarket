@@ -35,6 +35,7 @@ import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationCon
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
+import { IntroForegroundSyncHost } from "@/lib/intro/device/IntroForegroundSyncHost";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
@@ -190,6 +191,7 @@ export function MainAppProviderTree({
           <MissingProfileInfoModal />
           <DiBaYDevicePermissionOnboardingGate />
           <NotificationPermissionSyncHost />
+          <IntroForegroundSyncHost />
           <NativePushRegistrationLazy />
           <PushRouteListener />
           <NotificationRouteReadSync />

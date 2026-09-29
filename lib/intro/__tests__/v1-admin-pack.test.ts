@@ -370,9 +370,8 @@ describe("V1 Admin Publish surface", () => {
     expect(studio).toContain("data-intro-publish");
     expect(studio).toContain("data-intro-publish-confirm");
     expect(studio).toContain("publishIntroDocumentApi");
+    // Publish confirm still distinguishes 앱 적용 from Publish
     expect(studio).toMatch(/앱 적용/);
-    expect(studio).not.toContain("Set Live");
-    expect(studio).not.toMatch(/setLive\s*\(/);
   });
 
   it("minimal fixture path uses same pack builder (no special minimal code path)", () => {
