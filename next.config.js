@@ -49,21 +49,6 @@ const nextConfig = {
       "./benchmark-runs/**",
     ],
   },
-  /**
-   * Dibay Intro Set Live sealed pack — prebuilt IIFE + Pretendard must ship with
-   * the admin set-live / runtime-pack functions (sibling `__dirname` reads).
-   */
-  outputFileTracingIncludes: {
-    "/api/admin/dibay-intros/[introId]/set-live": [
-      "./lib/dibay-intro/engine/runtime-bundle.iife.js",
-      "./lib/dibay-intro/engine/assets/**/*",
-      "./lib/dibay-intro/engine/engine-source-hash.generated.ts",
-    ],
-    "/api/dibay-intro/runtime-pack": [
-      "./lib/dibay-intro/engine/runtime-bundle.iife.js",
-      "./lib/dibay-intro/engine/assets/**/*",
-    ],
-  },
   experimental: {
     /**
      * Webpack 빌드 시 메모리 피크 완화(큰 앱 dev/build 공통). 기존 experimental 과 병합 유지.

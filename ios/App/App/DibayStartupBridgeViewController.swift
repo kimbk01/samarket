@@ -52,7 +52,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     applyStartupBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     attachNativeIntroIfNeeded(source: "viewDidLoad")
-    DibayIntroHostOwner.shared.attachIfReady(on: view)
   }
 
   override func viewDidAppear(_ animated: Bool) {

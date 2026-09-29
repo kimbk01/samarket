@@ -1,5 +1,5 @@
 import { IntroRebuildNotice } from "@/app/admin/intro/IntroRebuildNotice";
 
-export default function AdminIntroRebuildNoticeRoute() {
+export default function AdminIntroShowRebuildNoticeRoute() {
   return <IntroRebuildNotice />;
 }
