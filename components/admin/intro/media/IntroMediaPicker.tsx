@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { IntroMediaLibrary } from "./IntroMediaLibrary";
 import type {
@@ -35,6 +35,19 @@ export function IntroMediaPicker({
 }) {
   const [pending, setPending] = useState<IntroMediaListItemDto | null>(null);
   const [tab, setTab] = useState<"existing" | "upload">("existing");
+  const onConfirmRef = useRef(onConfirm);
+  onConfirmRef.current = onConfirm;
+  const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      // Fresh open: do not reuse pending selection from a prior picker session
+      // (component stays mounted while open=false returns null).
+      setPending(null);
+      setTab("existing");
+    }
+    wasOpenRef.current = open;
+  }, [open]);
 
   if (!open) return null;
 
@@ -55,7 +68,7 @@ export function IntroMediaPicker({
 
   const confirmSelection = (item: IntroMediaListItemDto) => {
     if (item.status !== "READY") return;
-    onConfirm({
+    onConfirmRef.current({
       mediaRefId: item.mediaRefId,
       mediaId: item.mediaId,
     });

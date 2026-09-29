@@ -109,7 +109,16 @@ export function IntroStudio({
     null,
   );
 
+  // Always-latest refs: picker confirm / pointer frame writes must NOT close over a
+  // stale document (or a prior picker mode). Stale add/LOGO confirm was observed to
+  // wipe later TEXT/CTA layers and leave LOGO selected after IMAGE replace.
+  const documentRef = useRef<IntroDocumentV1 | null>(null);
+  const pickerRef = useRef<PickerState>(null);
+  documentRef.current = document;
+  pickerRef.current = picker;
+
   const applyLocal = useCallback((next: IntroDocumentV1) => {
+    documentRef.current = next;
     setDocument(next);
     setDirty(true);
     setSaveUi("dirty");
@@ -218,12 +227,14 @@ export function IntroStudio({
   };
 
   const onPickerConfirm = (result: IntroMediaPickerResult) => {
-    if (!document || !picker) return;
-    if (picker.mode === "add") {
+    const doc = documentRef.current;
+    const activePicker = pickerRef.current;
+    if (!doc || !activePicker) return;
+    if (activePicker.mode === "add") {
       const { document: next, layerId } = addLayer(
-        document,
-        picker.sceneId,
-        picker.type,
+        doc,
+        activePicker.sceneId,
+        activePicker.type,
         { mediaRefId: result.mediaRefId },
       );
       applyLocal(next);
@@ -231,19 +242,21 @@ export function IntroStudio({
     } else {
       applyLocal(
         setLayerMediaRef(
-          document,
-          picker.sceneId,
-          picker.layerId,
+          doc,
+          activePicker.sceneId,
+          activePicker.layerId,
           result.mediaRefId,
         ),
       );
     }
     setPicker(null);
+    pickerRef.current = null;
   };
 
   const onPickerCancel = () => {
     // Cancel: no ghost layer; replace keeps previous mediaRefId (never touched).
     setPicker(null);
+    pickerRef.current = null;
   };
 
   if (loading) {
@@ -463,8 +476,10 @@ export function IntroStudio({
               selectedLayerId={selectedLayerId}
               onSelectLayer={setSelectedLayerId}
               onFrameChange={(layerId, frame) => {
+                const doc = documentRef.current;
+                if (!doc) return;
                 applyLocal(
-                  setLayerFrame(document, selectedScene.sceneId, layerId, frame, {
+                  setLayerFrame(doc, selectedScene.sceneId, layerId, frame, {
                     tabletLandscape: tabletEdit && devicePreview === "TABLET",
                   }),
                 );
