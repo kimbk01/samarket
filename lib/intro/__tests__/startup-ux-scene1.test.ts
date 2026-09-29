@@ -16,7 +16,7 @@ import {
 } from "@/lib/intro/document/scene-truth";
 import { computeIntroDurationMs } from "@/lib/intro/timeline/compute-duration";
 import { createEmptyScene } from "@/lib/intro/document/factory";
-import type { IntroDocumentV1 } from "@/lib/intro/contracts/document";
+import type { IntroDocumentV1, SceneV1 } from "@/lib/intro/contracts/document";
 
 function cloneDoc(): IntroDocumentV1 {
   return JSON.parse(
@@ -101,14 +101,15 @@ describe("startup UX — Scene1 Startup Cover + empty truth", () => {
 
   it("deleting empty Scene2/Scene3 reduces authored black duration", () => {
     // Simulate Owner QA pack shape: Scene0 content + Scene1 empty 2500 + Scene2 empty 3000
-    const s0 = {
+    // CUT.durationMs is literal 0 — do not widen to number (CI tsc fails).
+    const s0: SceneV1 = {
       ...createEmptyScene({ name: "Scene1", durationMs: 2000 }),
       layers: cloneDoc().scenes[0]!.layers,
       background: {
-        type: "SOLID" as const,
+        type: "SOLID",
         color: { r: 1, g: 1, b: 1, a: 1 },
       },
-      transitionAfter: { type: "CUT" as const, durationMs: 0 },
+      transitionAfter: { type: "CUT", durationMs: 0 },
     };
     const s1 = createEmptyScene({
       name: "Scene2",
