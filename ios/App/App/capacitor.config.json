@@ -1,34 +1,34 @@
 {
-	"appId": "com.dibay.app",
-	"appName": "DIBAY",
-	"webDir": "capacitor-www",
-	"server": {
-		"url": "https://samarket.vercel.app",
-		"cleartext": false
-	},
-	"plugins": {
-		"SplashScreen": {
-			"launchAutoHide": false,
-			"launchShowDuration": 0,
-			"backgroundColor": "#FFFCFC",
-			"androidSplashResourceName": "splash"
-		}
-	},
-	"packageClassList": [
-		"AppPlugin",
-		"CAPBrowserPlugin",
-		"PushNotificationsPlugin",
-		"SharePlugin",
-		"SplashScreenPlugin",
-		"BadgePlugin",
-		"NativeCallServicePlugin",
-		"DibayVoipCallPlugin",
-		"DibayCallPipPlugin",
-		"NativeAppleAuthPlugin",
-		"NativeKakaoAuthPlugin",
-		"NativeOAuthLauncherPlugin",
-		"DibayAppIconDeliveryPlugin",
-		"MessengerPhotoLibraryPlugin",
-		"DibayDeviceClassPlugin"
-	]
+  "appId": "com.dibay.app",
+  "appName": "DIBAY",
+  "webDir": "capacitor-www",
+  "server": {
+    "url": "https://samarket.vercel.app",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchShowDuration": 0,
+      "backgroundColor": "#312E81",
+      "androidSplashResourceName": "splash"
+    }
+  },
+  "packageClassList": [
+    "AppPlugin",
+    "CAPBrowserPlugin",
+    "PushNotificationsPlugin",
+    "SharePlugin",
+    "SplashScreenPlugin",
+    "BadgePlugin",
+    "NativeCallServicePlugin",
+    "DibayVoipCallPlugin",
+    "DibayCallPipPlugin",
+    "NativeAppleAuthPlugin",
+    "NativeKakaoAuthPlugin",
+    "NativeOAuthLauncherPlugin",
+    "DibayAppIconDeliveryPlugin",
+    "MessengerPhotoLibraryPlugin",
+    "DibayDeviceClassPlugin"
+  ]
 }

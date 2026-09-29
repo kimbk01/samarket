@@ -48,7 +48,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    applyStartupBackground()
+    applySystemStartBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     tryStartAuthoredIntro(source: "viewDidLoad")
     if introSessionActive {
@@ -58,8 +58,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    if introSessionActive {
-      applyIntroHoldBackground()
+    if introSessionActive || introLifecycle == .pending {
+      applySystemStartBackground()
     } else {
       applyStartupBackground()
     }
@@ -71,6 +71,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   private func applyStartupBackground() {
+    // After Intro→Home: product cream. During System Start / pre-Intro use Scene1 match.
     let cream = UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // #FFFCFC
     view.backgroundColor = cream
     view.window?.backgroundColor = cream
@@ -80,10 +81,20 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.scrollView.isOpaque = false
   }
 
-  /// Opaque black under Intro so LaunchScreen→Scene1 never reveals cream product frame.
+  /// System Start / Scene1 hold — indigo #312E81 so LaunchScreen→Scene1 has no cream/black flash.
   private func applyIntroHoldBackground() {
-    view.backgroundColor = .black
-    view.window?.backgroundColor = .black
+    let scene1Match = UIColor(
+      red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+    view.backgroundColor = scene1Match
+    view.window?.backgroundColor = scene1Match
+    webView?.isOpaque = true
+    webView?.backgroundColor = scene1Match
+    webView?.scrollView.backgroundColor = scene1Match
+  }
+
+  /// Pre-decision System Start surface (same as LaunchScreen / Scene1 BG).
+  private func applySystemStartBackground() {
+    applyIntroHoldBackground()
   }
 
   private func tryStartAuthoredIntro(source: String) {

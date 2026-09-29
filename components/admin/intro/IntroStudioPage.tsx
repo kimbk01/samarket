@@ -738,14 +738,168 @@ export function IntroStudioPage({ documentId }: Props) {
         </section>
       </div>
 
-      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm text-sam-muted">
-        <h2 className="font-medium text-sam-fg">시스템 시작 (OS)</h2>
-        <p className="mt-1">
-          Android Theme.SplashScreen / iOS LaunchScreen 은 Product Intro가 아닙니다.
-          네이티브 리소스 변경은 Admin intent → build input → native build → distribution
-          경로로만 반영됩니다. 서비스 적용으로 LaunchScreen이 바뀌지 않습니다.
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-3">
+        <h2 className="font-medium text-sam-fg">시스템 시작 화면</h2>
+        <p className="text-sam-muted">
+          앱이 실행되는 동안 운영체제가 잠시 표시하는 화면입니다. Product Intro(Scene 1)와
+          다릅니다. 변경 사항은 새 앱 빌드/업데이트 후 적용됩니다. 서비스 적용으로 바뀌지
+          않습니다.
         </p>
+        <SystemStartAdminPanel
+          liveScene1Background={
+            document.scenes[0]?.background.type === "COLOR"
+              ? document.scenes[0].background.color
+              : null
+          }
+        />
       </section>
+    </div>
+  );
+}
+
+function SystemStartAdminPanel({
+  liveScene1Background,
+}: {
+  liveScene1Background: string | null;
+}) {
+  const [buildBg, setBuildBg] = useState("#312E81");
+  const [draftBg, setDraftBg] = useState("#312E81");
+  const [matchScene1, setMatchScene1] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch("/api/admin/intro/system-start", { cache: "no-store" });
+      const json = (await res.json()) as {
+        ok: boolean;
+        systemStart?: {
+          backgroundColor: string;
+          matchScene1Appearance: boolean;
+        };
+        error?: string;
+      };
+      if (!json.ok || !json.systemStart) {
+        setErr(json.error ?? "system_start_load_failed");
+        return;
+      }
+      setBuildBg(json.systemStart.backgroundColor);
+      setDraftBg(json.systemStart.backgroundColor);
+      setMatchScene1(json.systemStart.matchScene1Appearance);
+    })();
+  }, []);
+
+  const live = (liveScene1Background || "").toUpperCase();
+  const installed = buildBg.toUpperCase();
+  const status =
+    live && installed
+      ? live === installed
+        ? "MATCH"
+        : "DIFFERENT"
+      : "UNKNOWN";
+
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/intro/system-start", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          backgroundColor: draftBg,
+          matchScene1Appearance: matchScene1,
+          scene1BackgroundColor: liveScene1Background,
+        }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        systemStart?: { backgroundColor: string; matchScene1Appearance: boolean };
+        message?: string;
+        error?: string;
+      };
+      if (!json.ok || !json.systemStart) {
+        setErr(json.error ?? "save_failed");
+        return;
+      }
+      setBuildBg(json.systemStart.backgroundColor);
+      setDraftBg(json.systemStart.backgroundColor);
+      setMatchScene1(json.systemStart.matchScene1Appearance);
+      setMsg(
+        json.message ??
+          "저장됨. 새 앱 빌드/업데이트 후 반영됩니다.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="space-y-1">
+          <span className="text-xs text-sam-muted">배경색</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={/^#[0-9A-Fa-f]{6}$/.test(draftBg) ? draftBg : "#312E81"}
+              onChange={(e) => setDraftBg(e.target.value.toUpperCase())}
+              className="h-9 w-12 cursor-pointer rounded-ui-rect border border-sam-border bg-transparent"
+              disabled={busy || matchScene1}
+            />
+            <input
+              className={Sam.input.base}
+              value={draftBg}
+              onChange={(e) => setDraftBg(e.target.value.toUpperCase())}
+              disabled={busy || matchScene1}
+              spellCheck={false}
+            />
+          </div>
+        </label>
+        <label className="flex items-center gap-2 pb-2">
+          <input
+            type="checkbox"
+            checked={matchScene1}
+            onChange={(e) => setMatchScene1(e.target.checked)}
+            disabled={busy}
+          />
+          <span>Scene 1 시작 화면과 맞춤</span>
+        </label>
+        <button
+          type="button"
+          className={Sam.btn.primary}
+          disabled={busy}
+          onClick={() => void save()}
+        >
+          {busy ? "저장 중…" : "다음 빌드에 저장"}
+        </button>
+      </div>
+      <div
+        className="h-16 w-full max-w-xs rounded-ui-rect border border-sam-border"
+        style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(draftBg) ? draftBg : "#312E81" }}
+        aria-label="시스템 시작 미리보기"
+      />
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3 text-xs space-y-1">
+        <p>
+          현재 앱 빌드 시작 배경: <code className="text-sam-fg">{installed}</code>
+        </p>
+        <p>
+          현재 Live Scene1: <code className="text-sam-fg">{live || "(없음)"}</code>
+        </p>
+        <p className="font-medium text-sam-fg">
+          {status === "MATCH"
+            ? "MATCH — 시작 화면과 Scene 1 배경이 같습니다"
+            : status === "DIFFERENT"
+              ? "DIFFERENT — 새 앱 빌드 후 일치 가능"
+              : "상태 확인 중"}
+        </p>
+        <p className="text-sam-muted">
+          빌드 상태: 다음 네이티브 빌드에 반영 · Live CMS/서비스 적용과 무관
+        </p>
+      </div>
+      {msg ? <p className="text-xs text-emerald-700">{msg}</p> : null}
+      {err ? <p className="text-xs text-red-600">{err}</p> : null}
     </div>
   );
 }

@@ -50,10 +50,10 @@ const config: CapacitorConfig = {
       },
   plugins: {
     SplashScreen: {
-      /** ZERO CUT 2: cream-only bootstrap; no product logo resource. */
+      /** System Start: Scene1-matched BG for seamless OS→Scene1. Build-bound. */
       launchAutoHide: false,
       launchShowDuration: 0,
-      backgroundColor: "#FFFCFC",
+      backgroundColor: "#312E81",
       androidSplashResourceName: "splash",
     },
   },

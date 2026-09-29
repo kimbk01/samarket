@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "backgroundColor": "#312E81",
+  "matchScene1Appearance": true,
+  "brandMarkEnabled": false,
+  "note": "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply."
+}

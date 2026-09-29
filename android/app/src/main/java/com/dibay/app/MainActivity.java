@@ -88,6 +88,8 @@ public class MainActivity extends BridgeActivity {
   /** 13th Product Intro — verified local package Scene1 first authored frame. */
   private static volatile boolean introFirstFrameReady = false;
   private static volatile boolean introSessionActive = false;
+  /** True from cold Intro decision start until started/aborted — hold OS splash. */
+  private static volatile boolean introColdPathPending = false;
   private static volatile boolean introTimelineCompleted = false;
   private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
@@ -1099,12 +1101,15 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // OS Splash: hold while Intro sync/render OR until Web dismissSplash.
-    // When Intro owns startup: release splash only after authored Scene1 pixels.
+    // OS Splash: hold until Scene1 first authored frame (or NO_INTRO then Web).
+    // Never release to cream/WebView while Intro cold path is still deciding.
     splashScreen.setKeepOnScreenCondition(
         () -> {
-          if (introSessionActive) {
-            return !introFirstFrameReady;
+          if (introFirstFrameReady) {
+            return false;
+          }
+          if (introColdPathPending || introSessionActive) {
+            return true;
           }
           return !webSplashDismissRequested;
         });
@@ -1162,6 +1167,10 @@ public class MainActivity extends BridgeActivity {
    * Verified local package → native Scene1. No Candidate/Ready/Active.
    */
   private void tryStartDibayIntro13() {
+    introColdPathPending = true;
+    introFirstFrameReady = false;
+    introSessionActive = false;
+    introTimelineCompleted = false;
     new Thread(
             () -> {
               try {
@@ -1172,6 +1181,7 @@ public class MainActivity extends BridgeActivity {
                       @Override
                       public void onFirstFrameReady(org.json.JSONObject identity) {
                         introFirstFrameReady = true;
+                        introColdPathPending = false;
                         String packId =
                             identity != null ? identity.optString("packageId", "") : "";
                         Log.i(WEBVIEW_LOG_TAG, "intro_first_frame_ready packageId=" + packId);
@@ -1187,6 +1197,7 @@ public class MainActivity extends BridgeActivity {
                       @Override
                       public void onIntroAborted(String reason) {
                         introSessionActive = false;
+                        introColdPathPending = false;
                         introFirstFrameReady = false;
                         introTimelineCompleted = false;
                         Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
@@ -1196,12 +1207,16 @@ public class MainActivity extends BridgeActivity {
                 if (started) {
                   dibayIntroRuntime = runtime;
                   introSessionActive = true;
+                  introColdPathPending = false;
                   Log.i(WEBVIEW_LOG_TAG, "intro_session_active=1");
                 } else {
+                  introSessionActive = false;
+                  introColdPathPending = false;
                   Log.i(WEBVIEW_LOG_TAG, "intro_session_active=0 reason=NO_PRODUCT_INTRO");
                 }
               } catch (Exception e) {
                 introSessionActive = false;
+                introColdPathPending = false;
                 Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
               }
             },

@@ -17,8 +17,16 @@ final class DibayIntroLiveDelivery {
   let store = DibayIntroVerifiedStore()
 
   func syncForColdStart() -> Result {
+    // Critical path: verified local matching last Live pointer → Scene1 immediately.
+    // Do not wait Live/network before that first paint.
+    let localFast = offlinePolicy()
+    if localFast.canRender {
+      NSLog("[DibayIntroDelivery] verified_local_fast reason=%@ packageId=%@",
+            localFast.reason, localFast.packageId ?? "")
+      return localFast
+    }
     guard let origin = Self.resolveServerOrigin(), !origin.isEmpty else {
-      return offlinePolicy()
+      return localFast
     }
     do {
       guard let live = try httpGetJson(url: origin + "/api/intro/device/live", timeout: 8) else {
