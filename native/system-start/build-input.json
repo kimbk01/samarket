@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "SYSTEM_START",
+  "updatedAt": "2026-09-29T15:11:59.446Z",
+  "background": {
+    "type": "solid",
+    "color": "#FFFCFC",
+    "imageUrl": null
+  },
+  "logo": {
+    "source": "default",
+    "url": null,
+    "widthPreset": "medium",
+    "customWidthPx": null
+  },
+  "apply": {
+    "mode": "APP_UPDATE_REQUIRED",
+    "publish": false,
+    "serviceApply": false
+  },
+  "targets": {
+    "android": {
+      "splashColorResource": "android/app/src/main/res/values/colors_system_start.xml",
+      "splashDrawableHint": "android/app/src/main/res/drawable/splash.png",
+      "logoDrawableHint": "android/app/src/main/res/drawable-hdpi/ic_dibay_splash_logo.png"
+    },
+    "ios": {
+      "launchScreenStoryboard": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
+      "logoImagesetHint": "ios/App/App/Assets.xcassets/DibayStartupLogo.imageset",
+      "splashImagesetHint": "ios/App/App/Assets.xcassets/Splash.imageset"
+    }
+  },
+  "status": {
+    "adminPersisted": true,
+    "buildInputGenerated": true,
+    "binaryRebuildRequired": true,
+    "installedPixelsProven": false,
+    "note": "Color XML generated. Logo/bg binary replacement requires media copy during release build. Store/Play upload is out of repo scope."
+  }
+}

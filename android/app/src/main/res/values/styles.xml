@@ -17,16 +17,16 @@
 
 
     <!--
-      ZERO CUT 2 — FIRST ENTRY: minimum Android SplashScreen primitive only.
-      Cream background (#FFFCFC). NO product DIBAY logo in launch theme.
-      Future first DIBAY product frame = Intro Scene 1 (not implemented here).
-      DO NOT: restore ic_dibay_splash_logo / marketing splash / green overlays.
+      System Start (OS splash) — background color from Admin build input
+      (colors_system_start.xml). Logo/icon remains neutral until release
+      build copies Admin logo into drawable. App rebuild required.
+      DO NOT: treat Publish / Service Apply as System Start apply.
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <item name="windowSplashScreenBackground">@color/dibay_app_bg</item>
+        <item name="windowSplashScreenBackground">@color/dibay_system_start_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_system_start_background</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 

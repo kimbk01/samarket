@@ -34,11 +34,15 @@ describe("startup UX — Scene1 Startup Cover + empty truth", () => {
     expect(studio).not.toContain("첫 화면 / 시작 화면");
     expect(studio).not.toContain("Startup Cover");
     expect(studio).toContain("장면 ${");
-    expect(studio).toContain("앱 실행 순서");
-    expect(studio).toContain(
+    // Owner UX repair: mode switch replaces novel-like 앱 실행 순서 essay.
+    expect(studio).toContain('data-intro-mode-switch="1"');
+    expect(studio).toContain("시스템 시작 화면");
+    expect(studio).toContain("디바이 인트로");
+    expect(studio).not.toContain("data-intro-app-run-order");
+    expect(studio).not.toContain(
       "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다.",
     );
-    expect(studio).toContain("총 인트로 시간:");
+    expect(studio).toContain("총 시간:");
     expect(studio).toContain("data-intro-total-duration");
     expect(studio).toContain("data-intro-bg-image-pick");
     expect(studio).toContain("data-intro-publish-empty-warning");

@@ -65,6 +65,7 @@ import {
   ElementMotionControls,
   elementTypeLabelKo,
 } from "@/components/admin/intro/ElementMotionControls";
+import { SystemStartEditor } from "@/components/admin/intro/SystemStartEditor";
 import {
   getIntroDocumentApi,
   getIntroLiveApi,
@@ -72,6 +73,8 @@ import {
   saveIntroDocumentApi,
   setIntroLiveApi,
 } from "./introDocumentApi";
+
+type StudioMode = "system" | "intro";
 
 type DevicePreview = "PHONE" | "TABLET";
 type SaveUi =
@@ -189,6 +192,7 @@ export function IntroStudio({
   const [inspectorTab, setInspectorTab] = useState<"scene" | "element">(
     "scene",
   );
+  const [studioMode, setStudioMode] = useState<StudioMode>("intro");
 
   // Always-latest refs: picker confirm / pointer frame writes must NOT close over a
   // stale document (or a prior picker mode). Stale add/LOGO confirm was observed to
@@ -495,7 +499,55 @@ export function IntroStudio({
       data-document-id={documentId}
       data-draft-version={draftVersion}
       data-dirty={dirty ? "1" : "0"}
+      data-studio-mode={studioMode}
     >
+      <div
+        className="flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-surface px-4 py-2"
+        data-intro-mode-switch="1"
+      >
+        <span className="mr-2 text-sm font-semibold text-sam-fg">
+          {ko ? "인트로 관리" : "Intro management"}
+        </span>
+        <button
+          type="button"
+          className={`rounded-ui-rect px-3 py-1.5 text-sm font-medium ${
+            studioMode === "system"
+              ? "bg-sam-fg text-sam-bg"
+              : "border border-sam-border text-sam-fg hover:bg-sam-bg"
+          }`}
+          onClick={() => setStudioMode("system")}
+          data-intro-mode-system="1"
+          aria-pressed={studioMode === "system"}
+        >
+          {ko ? "시스템 시작 화면" : "System start"}
+        </button>
+        <button
+          type="button"
+          className={`rounded-ui-rect px-3 py-1.5 text-sm font-medium ${
+            studioMode === "intro"
+              ? "bg-sam-fg text-sam-bg"
+              : "border border-sam-border text-sam-fg hover:bg-sam-bg"
+          }`}
+          onClick={() => setStudioMode("intro")}
+          data-intro-mode-intro="1"
+          aria-pressed={studioMode === "intro"}
+        >
+          {ko ? "디바이 인트로" : "Dibay Intro"}
+        </button>
+        <span
+          className="ml-auto text-[11px] text-sam-muted"
+          data-intro-compact-sequence="1"
+        >
+          {ko
+            ? "시스템 시작 화면 → 디바이 인트로 → 홈"
+            : "System start → Dibay Intro → Home"}
+        </span>
+      </div>
+
+      {studioMode === "system" ? <SystemStartEditor ko={ko} /> : null}
+
+      {studioMode === "intro" ? (
+      <>
       <header className="flex flex-wrap items-center gap-3 border-b border-sam-border bg-sam-surface px-4 py-3">
         <Link
           href="/admin/intro"
@@ -503,8 +555,11 @@ export function IntroStudio({
         >
           ← {ko ? "인트로 목록" : "Intro list"}
         </Link>
+        <span className="text-sm font-semibold text-sam-fg">
+          {ko ? "디바이 인트로" : "Dibay Intro"}
+        </span>
         <input
-          className="min-w-[12rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-bg px-2 py-1.5 text-sm font-semibold text-sam-fg"
+          className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-bg px-2 py-1.5 text-sm text-sam-fg"
           value={document.title}
           onChange={(e) => applyLocal(setDocumentTitle(document, e.target.value))}
           data-intro-studio-title="1"
@@ -514,11 +569,8 @@ export function IntroStudio({
           data-intro-total-duration="1"
           data-intro-total-ms={totalMs}
         >
-          {ko ? "총 인트로 시간:" : "Total Intro:"}{" "}
+          {ko ? "총 시간:" : "Total:"}{" "}
           {formatTotalIntroSeconds(totalMs)}
-          <span className="ml-1 text-[10px] font-normal text-sam-muted">
-            v{draftVersion}
-          </span>
         </span>
         <AdminActionButton
           variant="primary"
@@ -548,15 +600,6 @@ export function IntroStudio({
             setPublishMessage(null);
           }}
           data-intro-publish="1"
-          title={
-            dirty
-              ? ko
-                ? "게시 전에 저장하세요"
-                : "Save before Publish"
-              : ko
-                ? "게시 (아직 서비스 미적용)"
-                : "Create immutable published revision (NOT app exposure)"
-          }
         >
           {publishUi === "publishing"
             ? ko
@@ -579,11 +622,6 @@ export function IntroStudio({
             setSetLiveMessage(null);
           }}
           data-intro-set-live="1"
-          title={
-            ko
-              ? "서비스에 적용 — Live 버전 변경 (즉시 앱 반영 아님)"
-              : "Apply to service — change Live (not instant device)"
-          }
         >
           {setLiveUi === "setting"
             ? ko
@@ -595,27 +633,6 @@ export function IntroStudio({
         </AdminActionButton>
         <span
           className="text-xs text-sam-muted"
-          data-intro-live-kind={currentLiveKind ?? undefined}
-          data-intro-live-revision={currentLiveRevisionId ?? undefined}
-        >
-          {currentLiveKind === "COMMITTED_LIVE"
-            ? ko
-              ? `서비스 ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
-              : `서비스 ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
-            : ko
-              ? `Live: ${currentLiveKind ?? "…"}`
-              : `Live: ${currentLiveKind ?? "…"}`}
-        </span>
-        {setLiveMessage ? (
-          <span
-            className="text-xs text-sam-muted"
-            data-intro-set-live-state={setLiveUi}
-          >
-            {setLiveMessage}
-          </span>
-        ) : null}
-        <span
-          className="text-xs text-sam-muted"
           data-intro-save-state={saveUi}
         >
           {saveMessage ??
@@ -624,8 +641,8 @@ export function IntroStudio({
                 ? "저장되지 않음"
                 : "Unsaved"
               : ko
-                ? "저장됨"
-                : "Saved")}
+                ? "초안 저장됨"
+                : "Draft saved")}
         </span>
         {publishMessage ? (
           <span
@@ -636,66 +653,70 @@ export function IntroStudio({
             {publishMessage}
           </span>
         ) : null}
+        {setLiveMessage ? (
+          <span
+            className="text-xs text-sam-muted"
+            data-intro-set-live-state={setLiveUi}
+          >
+            {setLiveMessage}
+          </span>
+        ) : null}
       </header>
 
       <div
-        className="grid gap-2 border-b border-sam-border bg-sam-bg px-4 py-2 text-[11px] sm:grid-cols-4"
+        className="flex flex-wrap items-center gap-4 border-b border-sam-border bg-sam-bg px-4 py-1.5 text-[11px]"
         data-intro-status-panel="1"
       >
-        <div data-intro-status-draft="1">
-          <p className="font-semibold text-sam-fg">{ko ? "초안" : "Draft"}</p>
-          <p className="text-sam-muted">
+        <span data-intro-status-draft="1">
+          <strong className="text-sam-fg">{ko ? "초안" : "Draft"}</strong>
+          {": "}
+          <span className="text-sam-muted">
             {dirty
               ? ko
-                ? "저장되지 않음"
+                ? "미저장"
                 : "Unsaved"
               : ko
-                ? `초안 저장됨 · v${draftVersion}`
-                : `Saved · v${draftVersion}`}
-          </p>
-          {saveUi === "saved" ? (
-            <p className="text-emerald-700 dark:text-emerald-300">
-              {ko ? "초안에만 반영" : "Draft only"}
-            </p>
-          ) : null}
-        </div>
-        <div data-intro-status-publish="1">
-          <p className="font-semibold text-sam-fg">{ko ? "게시" : "Published"}</p>
-          <p className="text-sam-muted">
+                ? "저장됨"
+                : "Saved"}
+          </span>
+        </span>
+        <span data-intro-status-publish="1">
+          <strong className="text-sam-fg">{ko ? "게시" : "Published"}</strong>
+          {": "}
+          <span className="text-sam-muted">
             {lastPublishedRevisionId
               ? ko
-                ? `게시됨 · 아직 서비스 미적용`
-                : "Published · not on service yet"
+                ? "게시됨"
+                : "Published"
               : ko
-                ? "게시 없음"
+                ? "없음"
                 : "None"}
-          </p>
-        </div>
-        <div data-intro-status-service="1">
-          <p className="font-semibold text-sam-fg">{ko ? "서비스" : "Service"}</p>
-          <p className="text-sam-muted">
+          </span>
+        </span>
+        <span
+          data-intro-status-service="1"
+          data-intro-live-kind={currentLiveKind ?? undefined}
+          data-intro-live-revision={currentLiveRevisionId ?? undefined}
+        >
+          <strong className="text-sam-fg">{ko ? "서비스" : "Service"}</strong>
+          {": "}
+          <span className="text-sam-muted">
             {currentLiveKind === "COMMITTED_LIVE"
               ? ko
-                ? "서비스 적용됨"
-                : "Service applied"
+                ? "현재 적용"
+                : "Applied"
               : ko
-                ? "서비스 미적용"
+                ? "미적용"
                 : "Not applied"}
-          </p>
-        </div>
-        <div data-intro-status-device="1">
-          <p className="font-semibold text-sam-fg">
-            {ko ? "기기 반영" : "Device"}
-          </p>
-          <p className="text-sam-muted">
-            {ko
-              ? "기기 동기화 후 · 다음 앱 실행부터"
-              : "After device sync · next cold start"}
-          </p>
-          <p className="text-[10px] text-sam-muted">
-            {ko ? "시스템 시작: 앱 빌드" : "System start: app build"}
-          </p>
-        </div>
+          </span>
+        </span>
+        <span data-intro-status-device="1">
+          <strong className="text-sam-fg">{ko ? "기기" : "Device"}</strong>
+          {": "}
+          <span className="text-sam-muted">
+            {ko ? "동기화 후 · 다음 실행" : "After sync · next launch"}
+          </span>
+        </span>
       </div>
 
       {publishUi === "confirm" ? (
@@ -706,14 +727,12 @@ export function IntroStudio({
           aria-modal="true"
         >
           <p className="font-semibold">
-            {ko
-              ? "게시 확인 — 아직 서비스에는 적용되지 않습니다"
-              : "Confirm Publish — not yet applied to service"}
+            {ko ? "인트로를 게시하시겠습니까?" : "Publish this intro?"}
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
             <li>
               {ko
-                ? `장면 수: ${document.scenes.length}`
+                ? `장면: ${document.scenes.length}개`
                 : `Scenes: ${document.scenes.length}`}
             </li>
             <li>
@@ -723,18 +742,13 @@ export function IntroStudio({
             </li>
             <li>
               {ko
-                ? "저장: Draft 저장 (편집 가능)"
-                : "Save: Draft save (still editable)"}
+                ? "이 작업은 새 게시 버전을 만듭니다."
+                : "Creates a new published revision."}
             </li>
             <li>
               {ko
-                ? "게시: 불변 게시 버전(Revision) + Pack 생성"
-                : "Publish: create immutable Published revision + Pack"}
-            </li>
-            <li>
-              {ko
-                ? "아직 서비스에는 적용되지 않습니다. 별도 「서비스에 적용」 필요"
-                : "Not applied to service yet — separate Apply to service required"}
+                ? "현재 서비스에는 아직 적용되지 않습니다."
+                : "Not yet applied to the current service."}
             </li>
           </ul>          {emptyWarnings.length > 0 ? (
             <div
@@ -778,7 +792,7 @@ export function IntroStudio({
               onClick={() => void onPublishConfirmed()}
               data-intro-publish-confirm-yes="1"
             >
-              {ko ? "불변 게시 버전 생성" : "Create immutable revision"}
+              {ko ? "게시" : "Publish"}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -803,30 +817,14 @@ export function IntroStudio({
         >
           <p className="font-semibold">
             {ko
-              ? "서비스에 적용 확인 — 기기에 제공할 버전을 변경합니다"
-              : "Confirm service apply — changes Live revision offered to devices"}
+              ? "이 인트로를 현재 서비스 버전으로 변경하시겠습니까?"
+              : "Change the current service intro to this version?"}
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
             <li>
               {ko
-                ? `현재 서비스 버전: ${currentLiveRevisionId ?? "(없음)"}`
-                : `Current service: ${currentLiveRevisionId ?? "(none)"}`}
-            </li>
-            <li>
-              {ko
-                ? `적용 후보 게시 버전: ${lastPublishedRevisionId ?? "(없음)"}`
-                : `Candidate published: ${lastPublishedRevisionId ?? "(none)"}`}
-            </li>
-            <li>{ko ? "범위: 디바이 인트로" : "Scope: Dibay Intro"}</li>
-            <li>
-              {ko
-                ? "기기가 새 인트로 버전을 동기화한 후 다음 적용 가능한 앱 실행부터 반영됩니다"
-                : "After device syncs the new intro version, it applies on the next eligible app launch"}
-            </li>
-            <li>
-              {ko
-                ? "즉시 앱에 반영되지 않습니다"
-                : "Does NOT apply to the app instantly"}
+                ? "반영: 기기가 새 버전을 동기화한 후 다음 앱 실행부터 적용됩니다."
+                : "Applies after the device syncs, on the next app launch."}
             </li>
           </ul>          <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionButton
@@ -853,39 +851,9 @@ export function IntroStudio({
           className="border-b border-sam-border p-3 lg:border-b-0 lg:border-r"
           data-intro-scene-rail="1"
         >
-          <div className="mb-3 rounded-ui-rect border border-sam-border bg-sam-bg p-2"
-            data-intro-app-run-order="1"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-sam-muted">
-              {ko ? "앱 실행 순서" : "App launch order"}
-            </p>
-            <ol className="mt-1 space-y-1 text-[11px] text-sam-fg">
-              <li>① {ko ? "시스템 시작 화면" : "System start"}</li>
-              <li>② {ko ? "디바이 인트로" : "Dibay Intro"}</li>
-              <li>③ {ko ? "홈 화면" : "Home"}</li>
-            </ol>
-            <div
-              className="mt-2 rounded border border-dashed border-sam-border p-2 text-[10px] text-sam-muted"
-              data-intro-system-start-info="1"
-            >
-              <p className="font-semibold text-sam-fg">
-                {ko ? "시스템 시작 화면" : "System start screen"}
-              </p>
-              <p>
-                {ko
-                  ? "현재: Android/iOS 시스템 관리 · 변경 방식: 앱 업데이트 필요 · 관리 기능: 준비 중 (구현 전)"
-                  : "Current: OS-managed · Change: app update · Admin: not implemented yet"}
-              </p>
-              <p>
-                {ko
-                  ? "앱 업데이트 후 반영 · 현재 관리 기능: 구현 전"
-                  : "Applies after app update · management: not implemented"}
-              </p>
-            </div>
-          </div>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-sam-muted">
-              {ko ? "인트로 장면" : "Intro scenes"}
+              {ko ? "장면" : "Scenes"}
             </h2>
             <AdminActionButton
               variant="secondary"
@@ -1163,50 +1131,46 @@ export function IntroStudio({
                   {emptySceneBannerText(selectedScene, ko)}
                 </div>
               ) : null}
-              <section
-                className="rounded-ui-rect border border-sam-border bg-sam-bg p-2"
+              <div
+                className="mb-2 flex flex-wrap items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-bg px-2 py-1.5 text-[11px] text-sam-fg"
                 data-intro-single-scene-timeline="1"
+                data-intro-compact-timeline="1"
               >
-                <p className="text-[10px] font-semibold uppercase text-sam-muted">
-                  {ko ? "실행 타임라인" : "Run timeline"}
-                </p>
-                <ol className="mt-1 space-y-1 text-[11px] text-sam-fg">
-                  <li>
-                    {ko ? "시스템 시작 화면" : "System start"}
-                    <span className="block text-[10px] text-sam-muted">
-                      {ko ? "운영체제 관리" : "OS managed"}
-                    </span>
-                  </li>
-                  <li>↓</li>
-                  <li>
-                    {ko
-                      ? `장면 ${
-                          document.scenes.findIndex(
-                            (s) => s.sceneId === selectedScene.sceneId,
-                          ) + 1
-                        } · ${selectedScene.name}`
-                      : `Scene ${
-                          document.scenes.findIndex(
-                            (s) => s.sceneId === selectedScene.sceneId,
-                          ) + 1
-                        } · ${selectedScene.name}`}
-                    <span className="block text-[10px] text-sam-muted">
-                      {formatSecondsKo(selectedScene.durationMs)}
-                    </span>
-                  </li>
-                  <li>↓</li>
-                  <li>{ko ? "홈 화면" : "Home"}</li>
-                </ol>
-                <p className="mt-1 text-[10px] text-sam-muted">
-                  {ko ? "총 인트로 시간:" : "Total intro:"}{" "}
-                  {formatTotalIntroSeconds(totalMs)}
-                  {document.scenes.length === 1
-                    ? ko
-                      ? " · 장면 전환 없음"
-                      : " · no scene transition"
-                    : ""}
-                </p>
-              </section>
+                {document.scenes.map((s, idx) => (
+                  <span key={s.sceneId} className="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      className={`rounded px-1.5 py-0.5 ${
+                        s.sceneId === selectedScene.sceneId
+                          ? "bg-sam-fg text-sam-bg"
+                          : "hover:bg-sam-surface"
+                      }`}
+                      onClick={() => {
+                        setSelectedSceneId(s.sceneId);
+                        setSelectedLayerId(null);
+                      }}
+                    >
+                      {ko ? `장면${idx + 1}` : `S${idx + 1}`}{" "}
+                      {formatSecondsKo(s.durationMs)}
+                    </button>
+                    {idx < document.scenes.length - 1 ? (
+                      <span className="text-sam-muted">
+                        {s.transitionAfter
+                          ? `--${s.transitionAfter.type}${
+                              s.transitionAfter.type !== "CUT"
+                                ? ` ${(s.transitionAfter.durationMs / 1000).toFixed(1)}s`
+                                : ""
+                            }-->`
+                          : "→"}
+                      </span>
+                    ) : (
+                      <span className="text-sam-muted">
+                        → {ko ? "홈" : "HOME"}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
               <section
                 className="space-y-1"
                 data-intro-element-list="1"
@@ -1396,25 +1360,20 @@ export function IntroStudio({
                 )
               }
             />
-          ) : selectedScene ? (
-            <p className="text-xs text-sam-muted" data-intro-inspector-default-scene="1">
-              {ko
-                ? "장면 설정이 기본입니다. 캔버스에서 장면 요소를 선택하세요."
-                : "Scene settings is the default. Select an element on the canvas."}
-            </p>
-          ) : (
+          ) : selectedScene ? null : (
             <p className="text-xs text-sam-muted">
-              {ko
-                ? "장면이 없습니다."
-                : "No scene."}
+              {ko ? "장면이 없습니다." : "No scene."}
             </p>
           )}
 
-          <p className="text-[10px] text-sam-muted">
-            {ko
-              ? "인트로 미리보기 · 준비 중"
-              : "Intro preview · preparing"}
-          </p>
+          <AdminActionButton
+            variant="secondary"
+            className="!min-h-8 !text-xs"
+            disabled
+            data-intro-preview-disabled="1"
+          >
+            {ko ? "인트로 미리보기 · 준비 중" : "Intro preview · preparing"}
+          </AdminActionButton>
         </aside>
       </div>
 
@@ -1815,6 +1774,8 @@ export function IntroStudio({
           </div>
         </div>
       ) : null}
+      </>
+      ) : null}
     </div>
   );
 }
@@ -2077,28 +2038,22 @@ function SceneInspector({
     <section
       className="space-y-2"
       data-intro-scene-inspector="1"
-      data-intro-startup-cover={isFirst ? "1" : "0"}
     >
       {isFirst ? (
-        <div
-          className="rounded-ui-rect border border-sky-500/30 bg-sky-500/10 px-2 py-2"
+        <h3
+          className="text-xs font-semibold text-sam-fg"
           data-intro-first-screen-panel="1"
+          data-intro-startup-cover="1"
         >
-          <h3 className="text-xs font-semibold text-sky-800 dark:text-sky-200">
-            {ko ? "장면 설정" : "Scene settings"}
-          </h3>
-          <p className="mt-1 text-[10px] text-sam-muted">
-            {ko
-              ? "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다."
-              : "This is the first authored frame after the OS launch primitive."}
-          </p>
-        </div>
-      ) : null}
-      <h3 className="text-xs font-semibold uppercase text-sam-muted">
-        {ko ? "장면 타이밍" : "Scene timing"}
-      </h3>
+          {ko ? "장면 설정" : "Scene settings"}
+        </h3>
+      ) : (
+        <h3 className="text-xs font-semibold uppercase text-sam-muted">
+          {ko ? "장면 설정" : "Scene settings"}
+        </h3>
+      )}
       <label className="block text-[11px] text-sam-muted">
-        {ko ? "장면 표시 시간 (초)" : "Scene duration (sec)"}
+        {ko ? "표시 시간 (초)" : "Duration (sec)"}
         <input
           type="number"
           step="0.1"
@@ -2175,63 +2130,63 @@ function SceneInspector({
           ) : null}
         </>
       ) : (
-        <p className="text-[11px] text-sam-muted">
-          {ko ? "마지막 장면 — 전환 없음 → HOME" : "Last scene — no transition → HOME"}
+        <p className="text-[11px] text-sam-muted" data-intro-scene-next-home="1">
+          {ko ? "다음: 홈 화면" : "Next: Home"}
         </p>
       )}
-      <label className="block text-[11px] text-sam-muted">
-        {ko ? "배경색" : "Background color"}
-        <input
-          type="color"
-          className="mt-1 block h-8 w-full"
-          value={bg}
-          onChange={(e) => {
-            const hex = e.target.value;
-            const r = parseInt(hex.slice(1, 3), 16) / 255;
-            const g = parseInt(hex.slice(3, 5), 16) / 255;
-            const b = parseInt(hex.slice(5, 7), 16) / 255;
-            onBackground({ r, g, b, a: 1 });
-          }}
-          data-intro-scene-bg="1"
-        />
-      </label>
-      <div
-        className="space-y-1 rounded-ui-rect border border-sam-border p-2"
-        data-intro-bg-image-controls="1"
-      >
+      <div className="space-y-2" data-intro-bg-mode="1">
         <p className="text-[11px] font-medium text-sam-fg">
-          {ko ? "배경 이미지" : "Background image"}
+          {ko ? "배경" : "Background"}
         </p>
-        <p className="text-[10px] text-sam-muted">
-          {ko
-            ? "전체 화면 배경 (로고/이미지와 별개)"
-            : "Full-screen background (separate from logo/image layers)"}
-        </p>
-        <div className="flex flex-wrap gap-1">
-          <AdminActionButton
-            variant="secondary"
-            className="!min-h-7 !px-2 !text-xs"
-            onClick={onPickBackgroundImage}
-            data-intro-bg-image-pick="1"
-          >
-            {hasBackgroundImage
-              ? ko
-                ? "배경 이미지 변경"
-                : "Change background image"
-              : ko
-                ? "배경 이미지 선택"
-                : "Select background image"}
-          </AdminActionButton>
-          {hasBackgroundImage ? (
+        <label className="block text-[11px] text-sam-muted">
+          {ko ? "색상" : "Color"}
+          <input
+            type="color"
+            className="mt-1 block h-8 w-full"
+            value={bg}
+            onChange={(e) => {
+              const hex = e.target.value;
+              const r = parseInt(hex.slice(1, 3), 16) / 255;
+              const g = parseInt(hex.slice(3, 5), 16) / 255;
+              const b = parseInt(hex.slice(5, 7), 16) / 255;
+              onBackground({ r, g, b, a: 1 });
+            }}
+            data-intro-scene-bg="1"
+          />
+        </label>
+        <div
+          className="space-y-1 rounded-ui-rect border border-sam-border p-2"
+          data-intro-bg-image-controls="1"
+        >
+          <p className="text-[11px] font-medium text-sam-fg">
+            {ko ? "이미지" : "Image"}
+          </p>
+          <div className="flex flex-wrap gap-1">
             <AdminActionButton
               variant="secondary"
               className="!min-h-7 !px-2 !text-xs"
-              onClick={onClearBackgroundImage}
-              data-intro-bg-image-clear="1"
+              onClick={onPickBackgroundImage}
+              data-intro-bg-image-pick="1"
             >
-              {ko ? "배경 이미지 제거" : "Remove background image"}
+              {hasBackgroundImage
+                ? ko
+                  ? "배경 이미지 변경"
+                  : "Change background image"
+                : ko
+                  ? "배경 이미지 선택"
+                  : "Select background image"}
             </AdminActionButton>
-          ) : null}
+            {hasBackgroundImage ? (
+              <AdminActionButton
+                variant="secondary"
+                className="!min-h-7 !px-2 !text-xs"
+                onClick={onClearBackgroundImage}
+                data-intro-bg-image-clear="1"
+              >
+                {ko ? "이미지 제거" : "Remove image"}
+              </AdminActionButton>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>
@@ -2272,14 +2227,6 @@ function LayerInspector({
       </h3>
       <p className="text-[10px] text-sam-muted" data-intro-apply-location="1">
         {ko ? "적용 위치" : "Apply location"}: {applyLocation}
-      </p>
-      <p className="text-[10px] text-amber-700 dark:text-amber-300">
-        {ko ? "초안에만 반영 · 게시 · 서비스 적용 · 기기 동기화 후 반영" : "Draft only until publish → service apply → device sync"}
-      </p>
-      <p className="text-[10px] text-sam-muted" data-intro-motion-list-summary="1">
-        {ko ? elementTypeLabelKo(layer.type) : layer.type}
-        {" · "}
-        {motionSummaryKo(resolveLayerMotion(layer.motion))}
       </p>
       <div className="flex flex-wrap gap-1">
         <AdminActionButton
