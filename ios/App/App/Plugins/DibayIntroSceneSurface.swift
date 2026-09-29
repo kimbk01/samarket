@@ -99,10 +99,14 @@ final class DibayIntroSceneSurface: UIView {
       child.frame = CGRect(x: rect.vx, y: rect.vy, width: childW, height: childH)
       child.alpha = max(0, min(1, layer.opacity))
       addSubview(child)
+      applyElementMotion(child, layer: layer, region: region)
       added += 1
       NSLog(
-        "[DibayIntroScene] layer_added type=%@ text=%@ frame=%.0f,%.0f,%.0fx%.0f",
+        "[DibayIntroScene] layer_added type=%@ motion=%@ start=%d dur=%d text=%@ frame=%.0f,%.0f,%.0fx%.0f",
         layer.type,
+        layer.motionType,
+        layer.motionStartMs,
+        layer.motionDurationMs,
         layer.textContent ?? layer.ctaLabel ?? "",
         child.frame.origin.x, child.frame.origin.y, childW, childH
       )
@@ -114,6 +118,56 @@ final class DibayIntroSceneSurface: UIView {
     if scene.layers.isEmpty {
       painted = true
     }
+  }
+
+  private func applyElementMotion(
+    _ child: UIView,
+    layer: DibayIntroPackModel.Layer,
+    region: DibayIntroFitGeometry.ContentRegion
+  ) {
+    let type = layer.motionType
+    guard type != "NONE", layer.motionDurationMs > 0 else { return }
+    let authoredAlpha = max(0, min(1, layer.opacity))
+    var startTransform = CGAffineTransform.identity
+    switch type {
+    case "FADE_IN":
+      child.alpha = 0
+    case "TOP_IN":
+      let dy = -DibayIntroMotionConstants.translationDistanceNorm * region.RH
+      startTransform = CGAffineTransform(translationX: 0, y: dy)
+      child.alpha = 0
+    case "BOTTOM_IN":
+      let dy = DibayIntroMotionConstants.translationDistanceNorm * region.RH
+      startTransform = CGAffineTransform(translationX: 0, y: dy)
+      child.alpha = 0
+    case "LEFT_IN":
+      let dx = -DibayIntroMotionConstants.translationDistanceNorm * region.RW
+      startTransform = CGAffineTransform(translationX: dx, y: 0)
+      child.alpha = 0
+    case "RIGHT_IN":
+      let dx = DibayIntroMotionConstants.translationDistanceNorm * region.RW
+      startTransform = CGAffineTransform(translationX: dx, y: 0)
+      child.alpha = 0
+    case "SCALE_IN":
+      let s = DibayIntroMotionConstants.scaleStartFactor
+      startTransform = CGAffineTransform(scaleX: s, y: s)
+      child.alpha = 0
+    default:
+      return
+    }
+    child.transform = startTransform
+    let duration = TimeInterval(max(1, layer.motionDurationMs)) / 1000.0
+    let delay = TimeInterval(max(0, layer.motionStartMs)) / 1000.0
+    UIView.animate(
+      withDuration: duration,
+      delay: delay,
+      options: [.curveEaseOut, .allowUserInteraction],
+      animations: {
+        child.alpha = authoredAlpha
+        child.transform = .identity
+      },
+      completion: nil
+    )
   }
 
   private func buildLayerView(

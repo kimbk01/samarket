@@ -11,12 +11,14 @@ import type {
   LayerV1,
   LayerTypeV1,
   LogoLayerV1,
+  SceneBackgroundV1,
   SceneV1,
   TextLayerV1,
   TransitionV1,
 } from "../contracts/document";
 import {
   BASE_COMPOSITION_ASPECT,
+  DEFAULT_LAYER_MOTION,
   INTRO_SCHEMA_VERSION,
   PRETENDARD_WEIGHT_TO_ASSET,
   TABLET_LANDSCAPE_ASPECT,
@@ -45,17 +47,22 @@ export function createEmptyIntroDocument(args: {
   };
 }
 
+/**
+ * Low-level scene factory. Prefer createSceneFromCandidate for Admin authoring
+ * so operators never silently inherit black / FADE300 / 2500.
+ */
 export function createEmptyScene(args?: {
   sceneId?: string;
   name?: string;
   durationMs?: number;
+  background?: SceneBackgroundV1;
   transitionAfter?: TransitionV1 | null;
 }): SceneV1 {
   return {
     sceneId: args?.sceneId ?? newId(),
     name: args?.name ?? "Scene",
     durationMs: args?.durationMs ?? 2500,
-    background: {
+    background: args?.background ?? {
       type: "SOLID",
       color: { r: 0, g: 0, b: 0, a: 1 },
     },
@@ -63,6 +70,23 @@ export function createEmptyScene(args?: {
       args?.transitionAfter === undefined
         ? { type: "FADE", durationMs: 300 }
         : args.transitionAfter,
+    layers: [],
+  };
+}
+
+/** Explicit operator-authored scene — no silent defaults beyond required shape. */
+export function createSceneFromCandidate(args: {
+  name: string;
+  durationMs: number;
+  background: SceneBackgroundV1;
+  transitionAfter: TransitionV1 | null;
+}): SceneV1 {
+  return {
+    sceneId: newId(),
+    name: args.name.trim() || "Scene",
+    durationMs: Math.max(100, Math.min(60_000, Math.round(args.durationMs))),
+    background: args.background,
+    transitionAfter: args.transitionAfter,
     layers: [],
   };
 }
@@ -79,6 +103,7 @@ export function createDefaultLayer(
 ): LayerV1 {
   const zIndex = nextZ(existing);
   const layerId = newId();
+  const motion = { ...DEFAULT_LAYER_MOTION };
   switch (type) {
     case "IMAGE": {
       const layer: ImageLayerV1 = {
@@ -88,6 +113,7 @@ export function createDefaultLayer(
         visible: true,
         opacity: 1,
         zIndex,
+        motion,
         mediaRefId: opts?.mediaRefId ?? "",
         fit: "CONTAIN",
         surface: "CONTENT",
@@ -102,6 +128,7 @@ export function createDefaultLayer(
         visible: true,
         opacity: 1,
         zIndex,
+        motion,
         mediaRefId: opts?.mediaRefId ?? "",
         fit: "CONTAIN",
       };
@@ -115,6 +142,7 @@ export function createDefaultLayer(
         visible: true,
         opacity: 1,
         zIndex,
+        motion,
         content: "텍스트",
         font: {
           family: "Pretendard",
@@ -140,6 +168,7 @@ export function createDefaultLayer(
         visible: true,
         opacity: 1,
         zIndex,
+        motion,
         label: "시작하기",
         text: {
           font: {

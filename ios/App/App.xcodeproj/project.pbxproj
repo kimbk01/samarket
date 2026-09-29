@@ -80,6 +80,7 @@
 		DCF7ED9DB04D59419EB1EDC5 /* DibayIntroRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF635619C8A5FB09BB34EAE /* DibayIntroRuntimeController.swift */; };
 		7F7E06CDC7D25618AB78B905 /* DibayIntroSceneSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D345931BFF5F5F66B53FC5D2 /* DibayIntroSceneSurface.swift */; };
 		1046514BD2ED58889988C958 /* DibayIntroPackModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E0F4C48B2B56B99CF3F0C6 /* DibayIntroPackModel.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* DibayIntroMotionConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* DibayIntroMotionConstants.swift */; };
 		D7E9AD0284DA53659E63B418 /* DibayIntroFitGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38C6E24D6FF5302B9A51A2F /* DibayIntroFitGeometry.swift */; };
 		A8EE2F3F5E3040B184409076 /* Pretendard-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = F6C3E6F48D484D029C82E11D /* Pretendard-Regular.otf */; };
 		082D323962434EF48DE57761 /* Pretendard-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 9BFDC513E7F8449094127C73 /* Pretendard-Medium.otf */; };
@@ -167,6 +168,7 @@
 		6CF635619C8A5FB09BB34EAE /* DibayIntroRuntimeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroRuntimeController.swift; sourceTree = "<group>"; };
 		D345931BFF5F5F66B53FC5D2 /* DibayIntroSceneSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroSceneSurface.swift; sourceTree = "<group>"; };
 		B0E0F4C48B2B56B99CF3F0C6 /* DibayIntroPackModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroPackModel.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* DibayIntroMotionConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroMotionConstants.swift; sourceTree = "<group>"; };
 		D38C6E24D6FF5302B9A51A2F /* DibayIntroFitGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroFitGeometry.swift; sourceTree = "<group>"; };
 		F6C3E6F48D484D029C82E11D /* Pretendard-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-Regular.otf; path = intro/fonts/Pretendard-Regular.otf; sourceTree = "<group>"; };
 		9BFDC513E7F8449094127C73 /* Pretendard-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Pretendard-Medium.otf; path = intro/fonts/Pretendard-Medium.otf; sourceTree = "<group>"; };
@@ -289,6 +291,7 @@
 				6CF635619C8A5FB09BB34EAE /* DibayIntroRuntimeController.swift */,
 				D345931BFF5F5F66B53FC5D2 /* DibayIntroSceneSurface.swift */,
 				B0E0F4C48B2B56B99CF3F0C6 /* DibayIntroPackModel.swift */,
+				B2C3D4E5F60718293A4B5C6D /* DibayIntroMotionConstants.swift */,
 				D38C6E24D6FF5302B9A51A2F /* DibayIntroFitGeometry.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
@@ -567,6 +570,7 @@
 				DCF7ED9DB04D59419EB1EDC5 /* DibayIntroRuntimeController.swift in Sources */,
 				7F7E06CDC7D25618AB78B905 /* DibayIntroSceneSurface.swift in Sources */,
 				1046514BD2ED58889988C958 /* DibayIntroPackModel.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* DibayIntroMotionConstants.swift in Sources */,
 				D7E9AD0284DA53659E63B418 /* DibayIntroFitGeometry.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,

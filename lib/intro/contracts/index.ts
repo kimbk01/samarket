@@ -6,5 +6,6 @@ export * from "./identities";
 export * from "./status";
 export * from "./events";
 export * from "./gif";
+export * from "./motion";
 export * from "./document";
 export * from "./pack";

@@ -197,12 +197,15 @@ describe("V2 surface files", () => {
     expect(existsSync("lib/intro/device/sync-engine.ts")).toBe(true);
   });
 
-  it("Admin Studio distinguishes PUBLISHED vs CURRENT LIVE", () => {
+  it("Admin Studio distinguishes Publish vs Service Apply (Vertical B terms)", () => {
     const studio = readFileSync("components/admin/intro/IntroStudio.tsx", "utf8");
     expect(studio).toContain("data-intro-set-live");
     expect(studio).toContain("data-intro-set-live-confirm");
-    expect(studio).toContain("앱에 적용");
-    expect(studio).toContain("CURRENT LIVE");
+    // Rejected: "앱에 적용" / "CURRENT LIVE <raw id>"
+    expect(studio).not.toContain("앱에 적용");
+    expect(studio).not.toContain("CURRENT LIVE");
+    expect(studio).toContain("서비스에 적용");
+    expect(studio).toContain("data-intro-status-service");
     expect(studio).not.toContain("모든 기기 적용 완료");
   });
 

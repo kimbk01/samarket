@@ -1,5 +1,7 @@
 package com.dibay.app.intro;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -9,6 +11,7 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -115,11 +118,18 @@ public final class DibayIntroSceneSurface extends FrameLayout {
       lp.topMargin = Math.round(rect.vy);
       child.setAlpha(Math.max(0f, Math.min(1f, layer.opacity)));
       addView(child, lp);
+      applyElementMotion(child, layer, region);
       added++;
       Log.i(
           "DibayIntroScene",
           "layer_added type="
               + layer.type
+              + " motion="
+              + layer.motionType
+              + "@"
+              + layer.motionStartMs
+              + "+"
+              + layer.motionDurationMs
               + " text="
               + (layer.textContent != null ? layer.textContent : layer.ctaLabel)
               + " frame="
@@ -142,6 +152,71 @@ public final class DibayIntroSceneSurface extends FrameLayout {
     if (scene.layers.isEmpty()) {
       painted = true;
     }
+  }
+
+  private void applyElementMotion(
+      View child,
+      DibayIntroPackModel.Layer layer,
+      DibayIntroFitGeometry.ContentRegion region) {
+    String type = layer.motionType != null ? layer.motionType : "NONE";
+    if ("NONE".equals(type) || layer.motionDurationMs <= 0) {
+      return;
+    }
+    float authoredAlpha = Math.max(0f, Math.min(1f, layer.opacity));
+    float dx = 0f;
+    float dy = 0f;
+    float startScale = 1f;
+    switch (type) {
+      case "FADE_IN":
+        child.setAlpha(0f);
+        break;
+      case "TOP_IN":
+        dy = -DibayIntroMotionConstants.TRANSLATION_DISTANCE_NORM * region.RH;
+        child.setTranslationY(dy);
+        child.setAlpha(0f);
+        break;
+      case "BOTTOM_IN":
+        dy = DibayIntroMotionConstants.TRANSLATION_DISTANCE_NORM * region.RH;
+        child.setTranslationY(dy);
+        child.setAlpha(0f);
+        break;
+      case "LEFT_IN":
+        dx = -DibayIntroMotionConstants.TRANSLATION_DISTANCE_NORM * region.RW;
+        child.setTranslationX(dx);
+        child.setAlpha(0f);
+        break;
+      case "RIGHT_IN":
+        dx = DibayIntroMotionConstants.TRANSLATION_DISTANCE_NORM * region.RW;
+        child.setTranslationX(dx);
+        child.setAlpha(0f);
+        break;
+      case "SCALE_IN":
+        startScale = DibayIntroMotionConstants.SCALE_START_FACTOR;
+        child.setScaleX(startScale);
+        child.setScaleY(startScale);
+        child.setAlpha(0f);
+        break;
+      default:
+        return;
+    }
+    PathInterpolator ease =
+        new PathInterpolator(
+            DibayIntroMotionConstants.EASE_X1,
+            DibayIntroMotionConstants.EASE_Y1,
+            DibayIntroMotionConstants.EASE_X2,
+            DibayIntroMotionConstants.EASE_Y2);
+    AnimatorSet set = new AnimatorSet();
+    ObjectAnimator alpha =
+        ObjectAnimator.ofFloat(child, View.ALPHA, child.getAlpha(), authoredAlpha);
+    ObjectAnimator tx = ObjectAnimator.ofFloat(child, View.TRANSLATION_X, child.getTranslationX(), 0f);
+    ObjectAnimator ty = ObjectAnimator.ofFloat(child, View.TRANSLATION_Y, child.getTranslationY(), 0f);
+    ObjectAnimator sx = ObjectAnimator.ofFloat(child, View.SCALE_X, child.getScaleX(), 1f);
+    ObjectAnimator sy = ObjectAnimator.ofFloat(child, View.SCALE_Y, child.getScaleY(), 1f);
+    set.playTogether(alpha, tx, ty, sx, sy);
+    set.setDuration(Math.max(1, layer.motionDurationMs));
+    set.setStartDelay(Math.max(0, layer.motionStartMs));
+    set.setInterpolator(ease);
+    set.start();
   }
 
   private View buildLayerView(

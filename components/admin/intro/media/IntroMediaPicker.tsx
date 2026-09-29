@@ -22,6 +22,9 @@ export function IntroMediaPicker({
   open,
   context = "ANY",
   initialMediaRefId = null,
+  title,
+  applyLocation,
+  confirmLabel,
   onConfirm,
   onCancel,
 }: {
@@ -30,6 +33,11 @@ export function IntroMediaPicker({
   context?: IntroMediaPickerContext;
   /** Preserved until new READY selection is confirmed — never cleared preemptively. */
   initialMediaRefId?: string | null;
+  /** Operator-visible picker title override (e.g. 장면 1 배경 이미지 선택). */
+  title?: string;
+  /** Apply location breadcrumb shown under title. */
+  applyLocation?: string;
+  confirmLabel?: string;
   onConfirm: (result: IntroMediaPickerResult) => void;
   onCancel: () => void;
 }) {
@@ -86,8 +94,17 @@ export function IntroMediaPicker({
         <header className="flex items-start justify-between gap-3 border-b border-sam-border px-4 py-3">
           <div>
             <h2 className="text-base font-semibold text-sam-fg">
-              {ko ? `${contextLabel} 선택` : `Select ${contextLabel}`}
+              {title ??
+                (ko ? `${contextLabel} 선택` : `Select ${contextLabel}`)}
             </h2>
+            {applyLocation ? (
+              <p
+                className="mt-0.5 text-xs font-medium text-sam-fg"
+                data-intro-media-apply-location="1"
+              >
+                {ko ? "적용 위치" : "Apply location"}: {applyLocation}
+              </p>
+            ) : null}
             <p className="mt-0.5 text-xs text-sam-muted">
               {ko
                 ? "기존 미디어를 고르거나 PC에서 새로 업로드하세요. 준비된 미디어만 선택할 수 있습니다."
@@ -158,7 +175,8 @@ export function IntroMediaPicker({
               onClick={() => pending && confirmSelection(pending)}
               data-testid="intro-media-picker-confirm"
             >
-              {ko ? "이 미디어 사용" : "Use this media"}
+              {confirmLabel ??
+                (ko ? "이 미디어 사용" : "Use this media")}
             </AdminActionButton>
           </div>
         </footer>

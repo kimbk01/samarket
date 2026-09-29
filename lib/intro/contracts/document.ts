@@ -10,6 +10,20 @@
  */
 
 import type { MediaRefId } from "./identities";
+import type { LayerMotionV1 } from "./motion";
+
+export type { LayerMotionTypeV1, LayerMotionV1 } from "./motion";
+export {
+  DEFAULT_LAYER_MOTION,
+  LAYER_MOTION_TYPES,
+  MOTION_EASING,
+  MOTION_SCALE_START_FACTOR,
+  MOTION_TRANSLATION_DISTANCE_NORM,
+  isLayerMotionType,
+  motionSummaryKo,
+  resolveLayerMotion,
+  validateMotionTiming,
+} from "./motion";
 
 export const INTRO_SCHEMA_VERSION = 1 as const;
 
@@ -85,6 +99,11 @@ export type LayerCommonV1 = {
   readonly visible: boolean;
   readonly opacity: number;
   readonly zIndex: number;
+  /**
+   * Semantic element motion. Optional for legacy documents/packs;
+   * missing → NONE via resolveLayerMotion / canonicalize.
+   */
+  readonly motion?: LayerMotionV1;
 };
 
 export type PretendardWeightV1 =

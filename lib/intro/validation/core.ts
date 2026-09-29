@@ -19,6 +19,9 @@ import {
   MIN_FRAME,
   PRETENDARD_WEIGHT_TO_ASSET,
   TABLET_LANDSCAPE_ASPECT,
+  isLayerMotionType,
+  resolveLayerMotion,
+  validateMotionTiming,
 } from "../contracts/document";
 import type { PackManifestStructuralV1 } from "../contracts/pack";
 import type {
@@ -207,11 +210,50 @@ function validateCtaAction(
   return issues;
 }
 
+function validateLayerMotion(
+  layer: LayerV1,
+  path: string,
+  sceneDurationMs: number,
+  mode: "DRAFT" | "PUBLISH",
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (layer.motion != null) {
+    if (
+      typeof layer.motion !== "object" ||
+      !isLayerMotionType(layer.motion.type)
+    ) {
+      issues.push(
+        issue(
+          "INVALID_LAYER_MOTION",
+          "error",
+          `${path}.motion.type`,
+          "Unsupported motion type",
+        ),
+      );
+      return issues;
+    }
+  }
+  const motion = resolveLayerMotion(layer.motion);
+  const timing = validateMotionTiming(motion, sceneDurationMs);
+  if (!timing.ok) {
+    issues.push(
+      issue(
+        "INVALID_LAYER_MOTION",
+        mode === "PUBLISH" ? "error" : "error",
+        `${path}.motion`,
+        timing.message ?? "Invalid motion timing",
+      ),
+    );
+  }
+  return issues;
+}
+
 function validateLayer(
   layer: LayerV1,
   path: string,
   mode: "DRAFT" | "PUBLISH",
   mediaLookup?: PublishMediaLookup,
+  sceneDurationMs?: number,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const types = ["IMAGE", "LOGO", "TEXT", "CTA"] as const;
@@ -237,6 +279,9 @@ function validateLayer(
   }
   if (!Number.isInteger(layer.zIndex)) {
     issues.push(issue("INVALID_LAYER", "error", `${path}.zIndex`, "zIndex must be integer"));
+  }
+  if (typeof sceneDurationMs === "number") {
+    issues.push(...validateLayerMotion(layer, path, sceneDurationMs, mode));
   }
 
   if (layer.type === "IMAGE" || layer.type === "LOGO") {
@@ -368,7 +413,9 @@ function validateScene(
       );
     }
     zSeen.add(layer.zIndex);
-    issues.push(...validateLayer(layer, layerPath, mode, mediaLookup));
+    issues.push(
+      ...validateLayer(layer, layerPath, mode, mediaLookup, scene.durationMs),
+    );
   }
   return issues;
 }

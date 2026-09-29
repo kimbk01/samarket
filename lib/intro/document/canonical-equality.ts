@@ -2,9 +2,12 @@
  * DIBAY INTRO — CUT A
  * Canonical authored-document equality for Save → hard-reload proof.
  * Does not normalize away real mismatches.
+ *
+ * Vertical B: missing layer.motion → explicit NONE (legacy decode).
  */
 
-import type { IntroDocumentV1 } from "../contracts/document";
+import type { IntroDocumentV1, LayerV1, SceneV1 } from "../contracts/document";
+import { resolveLayerMotion } from "../contracts/motion";
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -20,11 +23,29 @@ function stableStringify(value: unknown): string {
     .join(",")}}`;
 }
 
-/** Strip non-authoritative noise if any — currently identity for IntroDocumentV1. */
+function canonicalizeLayer(layer: LayerV1): LayerV1 {
+  return {
+    ...layer,
+    motion: resolveLayerMotion(layer.motion),
+  } as LayerV1;
+}
+
+function canonicalizeScene(scene: SceneV1): SceneV1 {
+  return {
+    ...scene,
+    layers: scene.layers.map(canonicalizeLayer),
+  };
+}
+
+/** Strip non-authoritative noise; normalize legacy missing motion → NONE. */
 export function canonicalizeAuthoredDocument(
   doc: IntroDocumentV1,
 ): IntroDocumentV1 {
-  return JSON.parse(JSON.stringify(doc)) as IntroDocumentV1;
+  const cloned = JSON.parse(JSON.stringify(doc)) as IntroDocumentV1;
+  return {
+    ...cloned,
+    scenes: cloned.scenes.map(canonicalizeScene),
+  };
 }
 
 export function authoredDocumentsEqual(

@@ -15,12 +15,18 @@ import type { IntroMediaPickerResult } from "@/components/admin/intro/media/type
 import type {
   FrameV1,
   IntroDocumentV1,
+  LayerMotionV1,
   LayerV1,
   PretendardWeightV1,
+  SceneBackgroundV1,
   SceneV1,
   TransitionV1,
 } from "@/lib/intro/contracts/document";
-import { PRETENDARD_WEIGHT_TO_ASSET } from "@/lib/intro/contracts/document";
+import {
+  PRETENDARD_WEIGHT_TO_ASSET,
+  motionSummaryKo,
+  resolveLayerMotion,
+} from "@/lib/intro/contracts/document";
 import {
   fitContentRegion,
   mapFrameToDevice,
@@ -28,7 +34,7 @@ import {
 import { computeIntroDurationMs } from "@/lib/intro/timeline/compute-duration";
 import {
   addLayer,
-  addScene,
+  addSceneFromCandidate,
   clampNormalizedFrame,
   clearSceneBackgroundImage,
   clearTabletOverride,
@@ -39,6 +45,7 @@ import {
   setDocumentTitle,
   setLayerFrame,
   setLayerMediaRef,
+  setLayerMotion,
   setLayerVisibility,
   setSceneBackground,
   setSceneBackgroundImage,
@@ -54,6 +61,10 @@ import {
   isEmptyScene,
   listEmptySceneWarnings,
 } from "@/lib/intro/document/scene-truth";
+import {
+  ElementMotionControls,
+  elementTypeLabelKo,
+} from "@/components/admin/intro/ElementMotionControls";
 import {
   getIntroDocumentApi,
   getIntroLiveApi,
@@ -152,7 +163,32 @@ export function IntroStudio({
   const [confirmDeleteScene, setConfirmDeleteScene] = useState<string | null>(
     null,
   );
+  const [confirmDeleteLayer, setConfirmDeleteLayer] = useState<{
+    sceneId: string;
+    layerId: string;
+  } | null>(null);
+  const [newSceneOpen, setNewSceneOpen] = useState(false);
+  const [newSceneDraft, setNewSceneDraft] = useState<{
+    name: string;
+    durationSec: string;
+    bgMode: "color" | "image";
+    color: string;
+    transitionType: "CUT" | "FADE" | "SLIDE";
+  }>({
+    name: "",
+    durationSec: "2.5",
+    bgMode: "color",
+    color: "#111111",
+    transitionType: "CUT",
+  });
+  const [pendingMediaConfirm, setPendingMediaConfirm] = useState<{
+    picker: NonNullable<PickerState>;
+    result: IntroMediaPickerResult;
+  } | null>(null);
   const [publishEmptyAck, setPublishEmptyAck] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<"scene" | "element">(
+    "scene",
+  );
 
   // Always-latest refs: picker confirm / pointer frame writes must NOT close over a
   // stale document (or a prior picker mode). Stale add/LOGO confirm was observed to
@@ -258,7 +294,7 @@ export function IntroStudio({
     setDraftVersion(res.record.draftVersion);
     setDirty(false);
     setSaveUi("saved");
-    setSaveMessage(ko ? "저장됨" : "Saved");
+    setSaveMessage(ko ? "초안 저장 완료" : "Draft saved");
     setPublishMessage(null);
   };
 
@@ -289,8 +325,8 @@ export function IntroStudio({
     setLastPublishedRevisionId(res.result.publishedRevisionId);
     setPublishMessage(
       ko
-        ? `불변 게시 버전 생성됨 (앱 적용 아님). Pack ${res.result.packId.slice(0, 8)}…`
-        : `Immutable revision created (NOT Live / NOT app exposure). Pack ${res.result.packId.slice(0, 8)}…`,
+        ? `불변 게시 버전 생성됨 — 아직 서비스에는 적용되지 않습니다. Pack ${res.result.packId.slice(0, 8)}…`
+        : `Immutable revision created — not yet applied to service. Pack ${res.result.packId.slice(0, 8)}…`,
     );
   };
 
@@ -305,7 +341,7 @@ export function IntroStudio({
     void refreshLive();
   }, [refreshLive]);
 
-  // Owner V1 production authority may already be published — allow Set Live without re-publish.
+  // Owner V1 production authority may already be published — allow service apply without re-publish.
   useEffect(() => {
     if (documentId === "3347c673-0667-4605-a8c8-a306ae209896") {
       setLastPublishedRevisionId((prev) =>
@@ -320,7 +356,7 @@ export function IntroStudio({
   const onSetLiveConfirmed = async () => {
     if (!lastPublishedRevisionId || setLiveUi === "setting") return;
     setSetLiveUi("setting");
-    setSetLiveMessage(ko ? "앱에 적용 중…" : "Setting Live…");
+    setSetLiveMessage(ko ? "서비스에 적용 중…" : "Applying to service…");
     const liveRes = await getIntroLiveApi();
     if (!liveRes.ok || !liveRes.live) {
       setSetLiveUi("error");
@@ -341,7 +377,7 @@ export function IntroStudio({
       setSetLiveMessage(
         ko
           ? `앱 적용 실패: ${res.message ?? res.error ?? "error"}`
-          : `Set Live failed: ${res.message ?? res.error ?? "error"}`,
+          : `Apply to service failed: ${res.message ?? res.error ?? "error"}`,
       );
       return;
     }
@@ -350,8 +386,8 @@ export function IntroStudio({
     setCurrentLiveRevisionId(res.live.publishedRevisionId);
     setSetLiveMessage(
       ko
-        ? "CURRENT LIVE / 앱 적용 버전 — 기기 다운로드는 아직 증명되지 않음"
-        : "CURRENT LIVE — device download NOT claimed",
+        ? "서비스 — 기기 동기화 후 다음 앱 실행부터 반영"
+        : "Service — sync then next cold start",
     );
   };
 
@@ -376,6 +412,31 @@ export function IntroStudio({
     const doc = documentRef.current;
     const activePicker = pickerRef.current;
     if (!doc || !activePicker) return;
+    // Replace / background: candidate → confirmation before mutation.
+    if (activePicker.mode === "replace" || activePicker.mode === "background") {
+      setPendingMediaConfirm({ picker: activePicker, result });
+      setPicker(null);
+      pickerRef.current = null;
+      return;
+    }
+    // Add IMAGE/LOGO: confirm in picker already selected READY media — mutate once.
+    const { document: next, layerId } = addLayer(
+      doc,
+      activePicker.sceneId,
+      activePicker.type,
+      { mediaRefId: result.mediaRefId },
+    );
+    applyLocal(next);
+    setSelectedLayerId(layerId);
+    setPicker(null);
+    pickerRef.current = null;
+  };
+
+  const applyPendingMediaConfirm = () => {
+    const doc = documentRef.current;
+    const pending = pendingMediaConfirm;
+    if (!doc || !pending) return;
+    const { picker: activePicker, result } = pending;
     if (activePicker.mode === "background") {
       const { document: next, layerId } = setSceneBackgroundImage(
         doc,
@@ -384,16 +445,7 @@ export function IntroStudio({
       );
       applyLocal(next);
       setSelectedLayerId(layerId);
-    } else if (activePicker.mode === "add") {
-      const { document: next, layerId } = addLayer(
-        doc,
-        activePicker.sceneId,
-        activePicker.type,
-        { mediaRefId: result.mediaRefId },
-      );
-      applyLocal(next);
-      setSelectedLayerId(layerId);
-    } else {
+    } else if (activePicker.mode === "replace") {
       applyLocal(
         setLayerMediaRef(
           doc,
@@ -403,8 +455,12 @@ export function IntroStudio({
         ),
       );
     }
-    setPicker(null);
-    pickerRef.current = null;
+    setPendingMediaConfirm(null);
+  };
+
+  const cancelPendingMediaConfirm = () => {
+    // Cancel: old mediaRef remains authoritative (never mutated).
+    setPendingMediaConfirm(null);
   };
 
   const onPickerCancel = () => {
@@ -498,7 +554,7 @@ export function IntroStudio({
                 ? "게시 전에 저장하세요"
                 : "Save before Publish"
               : ko
-                ? "불변 게시 버전 생성 (앱 적용 아님)"
+                ? "게시 (아직 서비스 미적용)"
                 : "Create immutable published revision (NOT app exposure)"
           }
         >
@@ -525,8 +581,8 @@ export function IntroStudio({
           data-intro-set-live="1"
           title={
             ko
-              ? "앱에 적용 — 기기에 제공할 Live 버전 변경"
-              : "Set Live — change revision offered to devices"
+              ? "서비스에 적용 — Live 버전 변경 (즉시 앱 반영 아님)"
+              : "Apply to service — change Live (not instant device)"
           }
         >
           {setLiveUi === "setting"
@@ -534,8 +590,8 @@ export function IntroStudio({
               ? "적용 중…"
               : "Setting…"
             : ko
-              ? "앱에 적용"
-              : "Set Live"}
+              ? "서비스에 적용"
+              : "Apply to service"}
         </AdminActionButton>
         <span
           className="text-xs text-sam-muted"
@@ -544,8 +600,8 @@ export function IntroStudio({
         >
           {currentLiveKind === "COMMITTED_LIVE"
             ? ko
-              ? `CURRENT LIVE ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
-              : `CURRENT LIVE ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
+              ? `서비스 ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
+              : `서비스 ${currentLiveRevisionId?.slice(0, 8) ?? ""}…`
             : ko
               ? `Live: ${currentLiveKind ?? "…"}`
               : `Live: ${currentLiveKind ?? "…"}`}
@@ -582,6 +638,66 @@ export function IntroStudio({
         ) : null}
       </header>
 
+      <div
+        className="grid gap-2 border-b border-sam-border bg-sam-bg px-4 py-2 text-[11px] sm:grid-cols-4"
+        data-intro-status-panel="1"
+      >
+        <div data-intro-status-draft="1">
+          <p className="font-semibold text-sam-fg">{ko ? "초안" : "Draft"}</p>
+          <p className="text-sam-muted">
+            {dirty
+              ? ko
+                ? "저장되지 않음"
+                : "Unsaved"
+              : ko
+                ? `초안 저장됨 · v${draftVersion}`
+                : `Saved · v${draftVersion}`}
+          </p>
+          {saveUi === "saved" ? (
+            <p className="text-emerald-700 dark:text-emerald-300">
+              {ko ? "초안에만 반영" : "Draft only"}
+            </p>
+          ) : null}
+        </div>
+        <div data-intro-status-publish="1">
+          <p className="font-semibold text-sam-fg">{ko ? "게시" : "Published"}</p>
+          <p className="text-sam-muted">
+            {lastPublishedRevisionId
+              ? ko
+                ? `게시됨 · 아직 서비스 미적용`
+                : "Published · not on service yet"
+              : ko
+                ? "게시 없음"
+                : "None"}
+          </p>
+        </div>
+        <div data-intro-status-service="1">
+          <p className="font-semibold text-sam-fg">{ko ? "서비스" : "Service"}</p>
+          <p className="text-sam-muted">
+            {currentLiveKind === "COMMITTED_LIVE"
+              ? ko
+                ? "서비스 적용됨"
+                : "Service applied"
+              : ko
+                ? "서비스 미적용"
+                : "Not applied"}
+          </p>
+        </div>
+        <div data-intro-status-device="1">
+          <p className="font-semibold text-sam-fg">
+            {ko ? "기기 반영" : "Device"}
+          </p>
+          <p className="text-sam-muted">
+            {ko
+              ? "기기 동기화 후 · 다음 앱 실행부터"
+              : "After device sync · next cold start"}
+          </p>
+          <p className="text-[10px] text-sam-muted">
+            {ko ? "시스템 시작: 앱 빌드" : "System start: app build"}
+          </p>
+        </div>
+      </div>
+
       {publishUi === "confirm" ? (
         <div
           className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-sam-fg"
@@ -591,10 +707,20 @@ export function IntroStudio({
         >
           <p className="font-semibold">
             {ko
-              ? "게시 확인 — 앱 적용이 아닙니다"
-              : "Confirm Publish — this is NOT app exposure"}
+              ? "게시 확인 — 아직 서비스에는 적용되지 않습니다"
+              : "Confirm Publish — not yet applied to service"}
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
+            <li>
+              {ko
+                ? `장면 수: ${document.scenes.length}`
+                : `Scenes: ${document.scenes.length}`}
+            </li>
+            <li>
+              {ko
+                ? `총 인트로 시간: ${formatTotalIntroSeconds(totalMs)}`
+                : `Total intro: ${formatTotalIntroSeconds(totalMs)}`}
+            </li>
             <li>
               {ko
                 ? "저장: Draft 저장 (편집 가능)"
@@ -607,11 +733,10 @@ export function IntroStudio({
             </li>
             <li>
               {ko
-                ? "앱 적용: 별도 「앱에 적용」으로 Live 설정 (기기 다운로드 완료를 주장하지 않음)"
-                : "App exposure: separate Set Live action (does NOT claim devices downloaded)"}
+                ? "아직 서비스에는 적용되지 않습니다. 별도 「서비스에 적용」 필요"
+                : "Not applied to service yet — separate Apply to service required"}
             </li>
-          </ul>
-          {emptyWarnings.length > 0 ? (
+          </ul>          {emptyWarnings.length > 0 ? (
             <div
               className="mt-3 rounded-ui-rect border border-amber-600/50 bg-amber-600/10 p-3"
               data-intro-publish-empty-warning="1"
@@ -678,33 +803,38 @@ export function IntroStudio({
         >
           <p className="font-semibold">
             {ko
-              ? "앱에 적용 확인 — 기기에 제공할 버전을 변경합니다"
-              : "Confirm Set Live — changes revision offered to devices"}
+              ? "서비스에 적용 확인 — 기기에 제공할 버전을 변경합니다"
+              : "Confirm service apply — changes Live revision offered to devices"}
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
             <li>
               {ko
-                ? "PUBLISHED ≠ CURRENT LIVE — 게시만으로는 앱에 적용되지 않습니다"
-                : "PUBLISHED ≠ CURRENT LIVE — Publish alone does not expose to apps"}
+                ? `현재 서비스 버전: ${currentLiveRevisionId ?? "(없음)"}`
+                : `Current service: ${currentLiveRevisionId ?? "(none)"}`}
             </li>
             <li>
               {ko
-                ? "이 동작은 서버 Live 포인터만 변경합니다. 기기 다운로드·적용 완료를 주장하지 않습니다"
-                : "This only changes the server Live pointer. Does NOT claim devices downloaded or applied"}
+                ? `적용 후보 게시 버전: ${lastPublishedRevisionId ?? "(없음)"}`
+                : `Candidate published: ${lastPublishedRevisionId ?? "(none)"}`}
+            </li>
+            <li>{ko ? "범위: 디바이 인트로" : "Scope: Dibay Intro"}</li>
+            <li>
+              {ko
+                ? "기기가 새 인트로 버전을 동기화한 후 다음 적용 가능한 앱 실행부터 반영됩니다"
+                : "After device syncs the new intro version, it applies on the next eligible app launch"}
             </li>
             <li>
               {ko
-                ? `대상 revision: ${lastPublishedRevisionId ?? "(없음)"}`
-                : `Target revision: ${lastPublishedRevisionId ?? "(none)"}`}
+                ? "즉시 앱에 반영되지 않습니다"
+                : "Does NOT apply to the app instantly"}
             </li>
-          </ul>
-          <div className="mt-3 flex flex-wrap gap-2">
+          </ul>          <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionButton
               variant="primary"
               onClick={() => void onSetLiveConfirmed()}
               data-intro-set-live-confirm-yes="1"
             >
-              {ko ? "앱에 적용" : "Set Live"}
+              {ko ? "서비스에 적용" : "Apply to service"}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -723,6 +853,36 @@ export function IntroStudio({
           className="border-b border-sam-border p-3 lg:border-b-0 lg:border-r"
           data-intro-scene-rail="1"
         >
+          <div className="mb-3 rounded-ui-rect border border-sam-border bg-sam-bg p-2"
+            data-intro-app-run-order="1"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-sam-muted">
+              {ko ? "앱 실행 순서" : "App launch order"}
+            </p>
+            <ol className="mt-1 space-y-1 text-[11px] text-sam-fg">
+              <li>① {ko ? "시스템 시작 화면" : "System start"}</li>
+              <li>② {ko ? "디바이 인트로" : "Dibay Intro"}</li>
+              <li>③ {ko ? "홈 화면" : "Home"}</li>
+            </ol>
+            <div
+              className="mt-2 rounded border border-dashed border-sam-border p-2 text-[10px] text-sam-muted"
+              data-intro-system-start-info="1"
+            >
+              <p className="font-semibold text-sam-fg">
+                {ko ? "시스템 시작 화면" : "System start screen"}
+              </p>
+              <p>
+                {ko
+                  ? "현재: Android/iOS 시스템 관리 · 변경 방식: 앱 업데이트 필요 · 관리 기능: 준비 중 (구현 전)"
+                  : "Current: OS-managed · Change: app update · Admin: not implemented yet"}
+              </p>
+              <p>
+                {ko
+                  ? "앱 업데이트 후 반영 · 현재 관리 기능: 구현 전"
+                  : "Applies after app update · management: not implemented"}
+              </p>
+            </div>
+          </div>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-sam-muted">
               {ko ? "인트로 장면" : "Intro scenes"}
@@ -731,14 +891,20 @@ export function IntroStudio({
               variant="secondary"
               className="!min-h-7 !px-2 !text-xs"
               onClick={() => {
-                const { document: next, sceneId } = addScene(document);
-                applyLocal(next);
-                setSelectedSceneId(sceneId);
-                setSelectedLayerId(null);
+                setNewSceneDraft({
+                  name: ko
+                    ? `장면 ${document.scenes.length + 1}`
+                    : `Scene ${document.scenes.length + 1}`,
+                  durationSec: "2.5",
+                  bgMode: "color",
+                  color: "#111111",
+                  transitionType: "CUT",
+                });
+                setNewSceneOpen(true);
               }}
               data-intro-add-scene="1"
             >
-              +
+              {ko ? "+ 장면 추가" : "+ Scene"}
             </AdminActionButton>
           </div>
           <ul className="space-y-1">
@@ -764,28 +930,50 @@ export function IntroStudio({
                   data-intro-scene-first={isFirst ? "1" : "0"}
                 >
                   <span className="font-medium text-sam-fg">
-                    {isFirst
-                      ? ko
-                        ? `1. 첫 화면 / 시작 화면`
-                        : `1. Startup / first screen`
-                      : `${idx + 1}. ${scene.name}`}
+                    {ko ? `장면 ${idx + 1}` : `Scene ${idx + 1}`}
+                    {scene.name ? ` · ${scene.name}` : ""}
                   </span>
-                  {isFirst ? (
-                    <span
-                      className="mt-0.5 block text-[10px] text-sky-700 dark:text-sky-300"
-                      data-intro-startup-cover-hint="1"
-                    >
-                      {ko
-                        ? "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다."
-                        : "First authored frame after OS launch."}
-                    </span>
-                  ) : null}
                   <span className="mt-0.5 block text-[10px] text-sam-muted">
                     {formatSecondsKo(scene.durationMs)}
-                    {scene.transitionAfter
-                      ? ` · ${scene.transitionAfter.type}`
-                      : ""}
+                    {" · "}
+                    {ko ? "이미지" : "img"}{" "}
+                    {
+                      scene.layers.filter(
+                        (l) =>
+                          l.type === "IMAGE" &&
+                          !(
+                            l.surface === "VIEWPORT" &&
+                            l.frame.w >= 0.96 &&
+                            l.frame.h >= 0.96
+                          ),
+                      ).length
+                    }
+                    {" · "}
+                    {ko ? "로고" : "logo"}{" "}
+                    {scene.layers.filter((l) => l.type === "LOGO").length}
+                    {" · "}
+                    {ko ? "텍스트" : "text"}{" "}
+                    {scene.layers.filter((l) => l.type === "TEXT").length}
+                    {" · "}
+                    {ko ? "버튼" : "btn"}{" "}
+                    {scene.layers.filter((l) => l.type === "CTA").length}
                   </span>
+                  {document.scenes.length === 1 ? (
+                    <span
+                      className="mt-0.5 block text-[10px] text-sky-700 dark:text-sky-300"
+                      data-intro-scene-dest-home="1"
+                    >
+                      → {ko ? "홈 화면" : "Home"}
+                    </span>
+                  ) : scene.transitionAfter ? (
+                    <span className="mt-0.5 block text-[10px] text-sam-muted">
+                      → {scene.transitionAfter.type}
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block text-[10px] text-sam-muted">
+                      → {ko ? "홈 화면" : "Home"}
+                    </span>
+                  )}
                   {empty ? (
                     <span
                       className="mt-1 inline-block rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
@@ -878,8 +1066,8 @@ export function IntroStudio({
             ) : null}
             <span className="text-[10px] text-sam-muted">
               {ko
-                ? "작성용 캔버스 (런타임 Preview 아님)"
-                : "Authoring canvas (not runtime Preview)"}
+                ? "장면 캔버스"
+                : "Scene canvas"}
             </span>
           </div>
 
@@ -902,7 +1090,7 @@ export function IntroStudio({
             />
           ) : (
             <div className="flex min-h-[420px] items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-sm text-sam-muted">
-              {ko ? "장면을 선택하세요" : "Select a scene"}
+              {ko ? "장면이 없습니다" : "No scene"}
             </div>
           )}
 
@@ -938,7 +1126,7 @@ export function IntroStudio({
                 }}
                 data-intro-add-text="1"
               >
-                + TEXT
+                {ko ? "+ 텍스트" : "+ TEXT"}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -954,7 +1142,7 @@ export function IntroStudio({
                 }}
                 data-intro-add-cta="1"
               >
-                + CTA
+                {ko ? "+ 버튼" : "+ BUTTON"}
               </AdminActionButton>
             </div>
           ) : null}
@@ -975,6 +1163,103 @@ export function IntroStudio({
                   {emptySceneBannerText(selectedScene, ko)}
                 </div>
               ) : null}
+              <section
+                className="rounded-ui-rect border border-sam-border bg-sam-bg p-2"
+                data-intro-single-scene-timeline="1"
+              >
+                <p className="text-[10px] font-semibold uppercase text-sam-muted">
+                  {ko ? "실행 타임라인" : "Run timeline"}
+                </p>
+                <ol className="mt-1 space-y-1 text-[11px] text-sam-fg">
+                  <li>
+                    {ko ? "시스템 시작 화면" : "System start"}
+                    <span className="block text-[10px] text-sam-muted">
+                      {ko ? "운영체제 관리" : "OS managed"}
+                    </span>
+                  </li>
+                  <li>↓</li>
+                  <li>
+                    {ko
+                      ? `장면 ${
+                          document.scenes.findIndex(
+                            (s) => s.sceneId === selectedScene.sceneId,
+                          ) + 1
+                        } · ${selectedScene.name}`
+                      : `Scene ${
+                          document.scenes.findIndex(
+                            (s) => s.sceneId === selectedScene.sceneId,
+                          ) + 1
+                        } · ${selectedScene.name}`}
+                    <span className="block text-[10px] text-sam-muted">
+                      {formatSecondsKo(selectedScene.durationMs)}
+                    </span>
+                  </li>
+                  <li>↓</li>
+                  <li>{ko ? "홈 화면" : "Home"}</li>
+                </ol>
+                <p className="mt-1 text-[10px] text-sam-muted">
+                  {ko ? "총 인트로 시간:" : "Total intro:"}{" "}
+                  {formatTotalIntroSeconds(totalMs)}
+                  {document.scenes.length === 1
+                    ? ko
+                      ? " · 장면 전환 없음"
+                      : " · no scene transition"
+                    : ""}
+                </p>
+              </section>
+              <section
+                className="space-y-1"
+                data-intro-element-list="1"
+              >
+                <h3 className="text-xs font-semibold uppercase text-sam-muted">
+                  {ko ? "장면 요소" : "Scene elements"}
+                </h3>
+                <ul className="space-y-1">
+                  {selectedScene.layers
+                    .filter((l) => {
+                      if (l.type !== "IMAGE") return true;
+                      // Hide internal VIEWPORT background image from primary element list
+                      return !(
+                        l.surface === "VIEWPORT" &&
+                        l.frame.w >= 0.96 &&
+                        l.frame.h >= 0.96
+                      );
+                    })
+                    .map((l) => {
+                      const motion = resolveLayerMotion(l.motion);
+                      let label = elementTypeLabelKo(l.type);
+                      if (l.type === "TEXT") {
+                        label = l.content.slice(0, 24) || label;
+                      } else if (l.type === "CTA") {
+                        label = l.label || label;
+                      }
+                      return (
+                        <li key={l.layerId}>
+                          <button
+                            type="button"
+                            className={`w-full rounded border px-2 py-1.5 text-left text-[11px] ${
+                              selectedLayerId === l.layerId
+                                ? "border-sam-fg bg-sam-surface"
+                                : "border-sam-border hover:bg-sam-surface"
+                            }`}
+                            onClick={() => {
+                              setSelectedLayerId(l.layerId);
+                              setInspectorTab("element");
+                            }}
+                            data-intro-element-list-item={l.layerId}
+                          >
+                            <span className="font-medium text-sam-fg">
+                              {elementTypeLabelKo(l.type)} · {label}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] text-sam-muted">
+                              {motionSummaryKo(motion)}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </section>
               <SceneInspector
                 ko={ko}
                 scene={selectedScene}
@@ -1039,6 +1324,20 @@ export function IntroStudio({
             <LayerInspector
               ko={ko}
               layer={selectedLayer}
+              sceneDurationMs={selectedScene.durationMs}
+              applyLocation={
+                ko
+                  ? `디바이 인트로 > 장면 ${
+                      document.scenes.findIndex(
+                        (s) => s.sceneId === selectedScene.sceneId,
+                      ) + 1
+                    } > ${elementTypeLabelKo(selectedLayer.type)}`
+                  : `Dibay Intro > Scene ${
+                      document.scenes.findIndex(
+                        (s) => s.sceneId === selectedScene.sceneId,
+                      ) + 1
+                    } > ${selectedLayer.type}`
+              }
               tabletEdit={tabletEdit && devicePreview === "TABLET"}
               onUpdate={(patch) =>
                 applyLocal(
@@ -1047,6 +1346,16 @@ export function IntroStudio({
                     selectedScene.sceneId,
                     selectedLayer.layerId,
                     patch,
+                  ),
+                )
+              }
+              onMotion={(motion) =>
+                applyLocal(
+                  setLayerMotion(
+                    document,
+                    selectedScene.sceneId,
+                    selectedLayer.layerId,
+                    motion,
                   ),
                 )
               }
@@ -1071,14 +1380,10 @@ export function IntroStudio({
                 )
               }
               onDelete={() => {
-                applyLocal(
-                  deleteLayer(
-                    document,
-                    selectedScene.sceneId,
-                    selectedLayer.layerId,
-                  ),
-                );
-                setSelectedLayerId(null);
+                setConfirmDeleteLayer({
+                  sceneId: selectedScene.sceneId,
+                  layerId: selectedLayer.layerId,
+                });
               }}
               onReplaceMedia={openReplaceMedia}
               onClearTablet={() =>
@@ -1091,16 +1396,24 @@ export function IntroStudio({
                 )
               }
             />
+          ) : selectedScene ? (
+            <p className="text-xs text-sam-muted" data-intro-inspector-default-scene="1">
+              {ko
+                ? "장면 설정이 기본입니다. 캔버스에서 장면 요소를 선택하세요."
+                : "Scene settings is the default. Select an element on the canvas."}
+            </p>
           ) : (
             <p className="text-xs text-sam-muted">
-              {ko ? "레이어를 선택하세요." : "Select a layer."}
+              {ko
+                ? "장면이 없습니다."
+                : "No scene."}
             </p>
           )}
 
           <p className="text-[10px] text-sam-muted">
             {ko
-              ? "Preview 런타임 제품 경로는 아직 없습니다. Publish ≠ Set Live."
-              : "No runtime Preview product path. Publish ≠ Set Live."}
+              ? "인트로 미리보기 · 준비 중"
+              : "Intro preview · preparing"}
           </p>
         </aside>
       </div>
@@ -1113,6 +1426,55 @@ export function IntroStudio({
             ? "IMAGE"
             : picker?.type ?? "ANY"
         }
+        title={
+          picker?.mode === "background"
+            ? ko
+              ? `장면 ${
+                  document.scenes.findIndex(
+                    (s) => s.sceneId === picker.sceneId,
+                  ) + 1
+                } 배경 이미지 선택`
+              : `Select scene ${
+                  document.scenes.findIndex(
+                    (s) => s.sceneId === picker.sceneId,
+                  ) + 1
+                } background image`
+            : undefined
+        }
+        applyLocation={
+          picker?.mode === "background"
+            ? ko
+              ? `디바이 인트로 > 장면 ${
+                  document.scenes.findIndex(
+                    (s) => s.sceneId === picker.sceneId,
+                  ) + 1
+                } > 배경`
+              : `Dibay Intro > Scene ${
+                  document.scenes.findIndex(
+                    (s) => s.sceneId === picker.sceneId,
+                  ) + 1
+                } > Background`
+            : picker?.mode === "replace"
+              ? ko
+                ? `디바이 인트로 > 장면 ${
+                    document.scenes.findIndex(
+                      (s) => s.sceneId === picker.sceneId,
+                    ) + 1
+                  } > ${elementTypeLabelKo(picker.type)}`
+                : `Dibay Intro > Scene ${
+                    document.scenes.findIndex(
+                      (s) => s.sceneId === picker.sceneId,
+                    ) + 1
+                  } > ${picker.type}`
+              : undefined
+        }
+        confirmLabel={
+          picker?.mode === "background" || picker?.mode === "replace"
+            ? ko
+              ? "다음 (변경 확인)"
+              : "Next (confirm change)"
+            : undefined
+        }
         initialMediaRefId={
           picker?.mode === "replace"
             ? picker.previousMediaRefId
@@ -1124,6 +1486,86 @@ export function IntroStudio({
         onCancel={onPickerCancel}
       />
 
+      {pendingMediaConfirm ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+          data-intro-media-replace-confirm="1"
+        >
+          <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-sm font-semibold text-sam-fg">
+              {pendingMediaConfirm.picker.mode === "background"
+                ? ko
+                  ? `장면 ${
+                      document.scenes.findIndex(
+                        (s) =>
+                          s.sceneId === pendingMediaConfirm.picker.sceneId,
+                      ) + 1
+                    }의 배경 이미지를 변경하시겠습니까?`
+                  : "Change this scene background image?"
+                : ko
+                  ? "이미지를 변경하시겠습니까?"
+                  : "Change this media?"}
+            </p>
+            <div className="mt-3 space-y-2 text-[11px] text-sam-muted">
+              <p>
+                {ko ? "현재:" : "Current:"}{" "}
+                <code className="text-sam-fg">
+                  {pendingMediaConfirm.picker.mode === "background"
+                    ? pendingMediaConfirm.picker.previousMediaRefId?.slice(
+                        0,
+                        12,
+                      ) ?? "(없음)"
+                    : pendingMediaConfirm.picker.mode === "replace"
+                      ? pendingMediaConfirm.picker.previousMediaRefId.slice(
+                          0,
+                          12,
+                        )
+                      : "—"}
+                  …
+                </code>
+              </p>
+              <p>
+                {ko ? "변경:" : "New:"}{" "}
+                <code className="text-sam-fg">
+                  {pendingMediaConfirm.result.mediaRefId.slice(0, 12)}…
+                </code>
+              </p>
+              <p>
+                {ko ? "적용 위치:" : "Apply location:"}{" "}
+                {pendingMediaConfirm.picker.mode === "background"
+                  ? ko
+                    ? `디바이 인트로 > 장면 ${
+                        document.scenes.findIndex(
+                          (s) =>
+                            s.sceneId === pendingMediaConfirm.picker.sceneId,
+                        ) + 1
+                      } > 배경`
+                    : `Dibay Intro > Scene > Background`
+                  : ko
+                    ? `디바이 인트로 > 장면 요소`
+                    : `Dibay Intro > Element`}
+              </p>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <AdminActionButton
+                variant="secondary"
+                data-intro-media-replace-cancel="1"
+                onClick={cancelPendingMediaConfirm}
+              >
+                {ko ? "취소" : "Cancel"}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
+                data-intro-media-replace-apply="1"
+                onClick={applyPendingMediaConfirm}
+              >
+                {ko ? "이미지 변경" : "Change image"}
+              </AdminActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {confirmDeleteScene ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -1134,9 +1576,10 @@ export function IntroStudio({
               <AdminActionButton
                 variant="danger"
                 onClick={() => {
-                  applyLocal(deleteScene(document, confirmDeleteScene));
+                  const nextDoc = deleteScene(document, confirmDeleteScene);
+                  applyLocal(nextDoc);
                   if (selectedSceneId === confirmDeleteScene) {
-                    setSelectedSceneId(null);
+                    setSelectedSceneId(nextDoc.scenes[0]?.sceneId ?? null);
                     setSelectedLayerId(null);
                   }
                   setConfirmDeleteScene(null);
@@ -1149,6 +1592,224 @@ export function IntroStudio({
                 onClick={() => setConfirmDeleteScene(null)}
               >
                 {ko ? "취소" : "Cancel"}
+              </AdminActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmDeleteLayer ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <p className="text-sm text-sam-fg">
+              {ko ? "이 장면 요소를 삭제할까요?" : "Delete this element?"}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <AdminActionButton
+                variant="danger"
+                data-intro-delete-layer-confirm="1"
+                onClick={() => {
+                  applyLocal(
+                    deleteLayer(
+                      document,
+                      confirmDeleteLayer.sceneId,
+                      confirmDeleteLayer.layerId,
+                    ),
+                  );
+                  if (selectedLayerId === confirmDeleteLayer.layerId) {
+                    setSelectedLayerId(null);
+                  }
+                  setConfirmDeleteLayer(null);
+                }}
+              >
+                {ko ? "삭제" : "Delete"}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="secondary"
+                data-intro-delete-layer-cancel="1"
+                onClick={() => setConfirmDeleteLayer(null)}
+              >
+                {ko ? "취소" : "Cancel"}
+              </AdminActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {newSceneOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-intro-new-scene-modal="1"
+          >
+            <h3 className="text-sm font-semibold text-sam-fg">
+              {ko ? "새 장면 만들기" : "Create scene"}
+            </h3>
+            <div className="mt-3 space-y-2">
+              <label className="block text-[11px] text-sam-muted">
+                {ko ? "장면 이름" : "Scene name"}
+                <input
+                  className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
+                  value={newSceneDraft.name}
+                  data-intro-new-scene-name="1"
+                  onChange={(e) =>
+                    setNewSceneDraft((d) => ({ ...d, name: e.target.value }))
+                  }
+                />
+              </label>
+              <div className="text-[11px] text-sam-muted">
+                {ko ? "배경" : "Background"}
+                <div className="mt-1 flex gap-2">
+                  <AdminActionButton
+                    variant={
+                      newSceneDraft.bgMode === "color" ? "primary" : "secondary"
+                    }
+                    className="!min-h-7 !text-xs"
+                    onClick={() =>
+                      setNewSceneDraft((d) => ({ ...d, bgMode: "color" }))
+                    }
+                  >
+                    {ko ? "색상" : "Color"}
+                  </AdminActionButton>
+                  <AdminActionButton
+                    variant="secondary"
+                    className="!min-h-7 !text-xs"
+                    disabled
+                    title={
+                      ko
+                        ? "이미지는 장면 생성 후 배경에서 선택"
+                        : "Pick image after create in scene background"
+                    }
+                  >
+                    {ko ? "이미지 (생성 후)" : "Image (after create)"}
+                  </AdminActionButton>
+                </div>
+                {newSceneDraft.bgMode === "color" ? (
+                  <input
+                    type="color"
+                    className="mt-2 h-9 w-full"
+                    value={newSceneDraft.color}
+                    data-intro-new-scene-color="1"
+                    onChange={(e) =>
+                      setNewSceneDraft((d) => ({
+                        ...d,
+                        color: e.target.value,
+                      }))
+                    }
+                  />
+                ) : null}
+              </div>
+              <label className="block text-[11px] text-sam-muted">
+                {ko ? "표시 시간 (초)" : "Duration (sec)"}
+                <input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
+                  value={newSceneDraft.durationSec}
+                  data-intro-new-scene-duration="1"
+                  onChange={(e) =>
+                    setNewSceneDraft((d) => ({
+                      ...d,
+                      durationSec: e.target.value,
+                    }))
+                  }
+                />
+              </label>
+              {document.scenes.length > 0 ? (
+                <label className="block text-[11px] text-sam-muted">
+                  {ko ? "이전 장면에서의 전환" : "Incoming from previous"}
+                  <select
+                    className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
+                    value={newSceneDraft.transitionType}
+                    onChange={(e) =>
+                      setNewSceneDraft((d) => ({
+                        ...d,
+                        transitionType: e.target.value as
+                          | "CUT"
+                          | "FADE"
+                          | "SLIDE",
+                      }))
+                    }
+                  >
+                    <option value="CUT">CUT</option>
+                    <option value="FADE">FADE</option>
+                    <option value="SLIDE">SLIDE</option>
+                  </select>
+                </label>
+              ) : null}
+              <p className="rounded bg-sam-bg p-2 text-[11px] text-sam-muted">
+                {ko
+                  ? `요약: ${newSceneDraft.name || "(이름 없음)"} · ${newSceneDraft.durationSec}초 · 배경 ${newSceneDraft.color}`
+                  : `Summary: ${newSceneDraft.name || "(unnamed)"} · ${newSceneDraft.durationSec}s · bg ${newSceneDraft.color}`}
+              </p>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminActionButton
+                variant="secondary"
+                data-intro-new-scene-cancel="1"
+                onClick={() => setNewSceneOpen(false)}
+              >
+                {ko ? "취소" : "Cancel"}
+              </AdminActionButton>
+              <AdminActionButton
+                variant="primary"
+                data-intro-new-scene-confirm="1"
+                onClick={() => {
+                  const hex = newSceneDraft.color.replace("#", "");
+                  const r = parseInt(hex.slice(0, 2), 16) / 255;
+                  const g = parseInt(hex.slice(2, 4), 16) / 255;
+                  const b = parseInt(hex.slice(4, 6), 16) / 255;
+                  const durationMs = Math.max(
+                    100,
+                    Math.round(Number(newSceneDraft.durationSec) * 1000) || 2500,
+                  );
+                  const background: SceneBackgroundV1 = {
+                    type: "SOLID",
+                    color: {
+                      r: Number.isFinite(r) ? r : 0,
+                      g: Number.isFinite(g) ? g : 0,
+                      b: Number.isFinite(b) ? b : 0,
+                      a: 1,
+                    },
+                  };
+                  // New scene is always last → transitionAfter null.
+                  // If document already has scenes, set previous last scene's transition.
+                  let nextDoc = document;
+                  if (document.scenes.length > 0) {
+                    const prev = document.scenes[document.scenes.length - 1]!;
+                    const t: TransitionV1 =
+                      newSceneDraft.transitionType === "CUT"
+                        ? { type: "CUT", durationMs: 0 }
+                        : newSceneDraft.transitionType === "SLIDE"
+                          ? {
+                              type: "SLIDE",
+                              durationMs: 300,
+                              direction: "LEFT",
+                            }
+                          : { type: "FADE", durationMs: 300 };
+                    nextDoc = setSceneTransition(
+                      nextDoc,
+                      prev.sceneId,
+                      t,
+                    );
+                  }
+                  const { document: created, sceneId } = addSceneFromCandidate(
+                    nextDoc,
+                    {
+                      name: newSceneDraft.name,
+                      durationMs,
+                      background,
+                      transitionAfter: null,
+                    },
+                  );
+                  applyLocal(created);
+                  setSelectedSceneId(sceneId);
+                  setSelectedLayerId(null);
+                  setNewSceneOpen(false);
+                }}
+              >
+                {ko ? "장면 만들기" : "Create scene"}
               </AdminActionButton>
             </div>
           </div>
@@ -1424,7 +2085,7 @@ function SceneInspector({
           data-intro-first-screen-panel="1"
         >
           <h3 className="text-xs font-semibold text-sky-800 dark:text-sky-200">
-            {ko ? "첫 화면 / 시작 화면" : "First screen / Startup"}
+            {ko ? "장면 설정" : "Scene settings"}
           </h3>
           <p className="mt-1 text-[10px] text-sam-muted">
             {ko
@@ -1580,8 +2241,11 @@ function SceneInspector({
 function LayerInspector({
   ko,
   layer,
+  sceneDurationMs,
+  applyLocation,
   tabletEdit,
   onUpdate,
+  onMotion,
   onVisibility,
   onZ,
   onDelete,
@@ -1590,8 +2254,11 @@ function LayerInspector({
 }: {
   ko: boolean;
   layer: LayerV1;
+  sceneDurationMs: number;
+  applyLocation: string;
   tabletEdit: boolean;
   onUpdate: (patch: Omit<Partial<LayerV1>, "layerId" | "type">) => void;
+  onMotion: (motion: LayerMotionV1) => void;
   onVisibility: (v: boolean) => void;
   onZ: (dir: "forward" | "backward") => void;
   onDelete: () => void;
@@ -1601,16 +2268,19 @@ function LayerInspector({
   return (
     <section className="space-y-2" data-intro-layer-inspector="1">
       <h3 className="text-xs font-semibold uppercase text-sam-muted">
-        {layer.type === "IMAGE"
-          ? ko
-            ? "이미지"
-            : "IMAGE"
-          : layer.type === "LOGO"
-            ? ko
-              ? "로고"
-              : "LOGO"
-            : layer.type}
+        {ko ? elementTypeLabelKo(layer.type) : layer.type}
       </h3>
+      <p className="text-[10px] text-sam-muted" data-intro-apply-location="1">
+        {ko ? "적용 위치" : "Apply location"}: {applyLocation}
+      </p>
+      <p className="text-[10px] text-amber-700 dark:text-amber-300">
+        {ko ? "초안에만 반영 · 게시 · 서비스 적용 · 기기 동기화 후 반영" : "Draft only until publish → service apply → device sync"}
+      </p>
+      <p className="text-[10px] text-sam-muted" data-intro-motion-list-summary="1">
+        {ko ? elementTypeLabelKo(layer.type) : layer.type}
+        {" · "}
+        {motionSummaryKo(resolveLayerMotion(layer.motion))}
+      </p>
       <div className="flex flex-wrap gap-1">
         <AdminActionButton
           variant="secondary"
@@ -1759,8 +2429,23 @@ function LayerInspector({
               <option value="FINISH_INTRO">FINISH_INTRO</option>
             </select>
           </label>
+          <p
+            className="text-[10px] font-medium text-amber-800 dark:text-amber-200"
+            data-intro-cta-runtime-status="1"
+          >
+            {ko
+              ? "버튼 동작 런타임: 후속 검증 필요"
+              : "Button action runtime: follow-up verification required"}
+          </p>
         </>
       ) : null}
+
+      <ElementMotionControls
+        ko={ko}
+        motion={layer.motion}
+        sceneDurationMs={sceneDurationMs}
+        onChange={onMotion}
+      />
 
       {tabletEdit && layer.layoutOverrides?.TABLET_LANDSCAPE ? (
         <AdminActionButton
@@ -1779,11 +2464,11 @@ function LayerInspector({
         onClick={onDelete}
         data-intro-delete-layer="1"
       >
-        {ko ? "레이어 삭제" : "Delete layer"}
+        {ko ? "요소 삭제" : "Delete element"}
       </AdminActionButton>
       <p className="text-[10px] text-sam-muted">
         {ko
-          ? "레이어 삭제는 미디어를 삭제하지 않습니다."
+          ? "요소 삭제는 미디어를 삭제하지 않습니다."
           : "Deleting a layer does not delete Media."}
       </p>
     </section>

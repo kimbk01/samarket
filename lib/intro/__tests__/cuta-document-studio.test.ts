@@ -369,8 +369,13 @@ describe("CUT A — product surface / QA isolation structural", () => {
     expect(studio).toContain("data-intro-set-live");
     expect(studio).toContain("setIntroLiveApi");
     expect(studio).not.toContain("Publish now");
-    expect(studio).toContain("not runtime Preview");
-    // Publish ≠ Set Live
-    expect(studio).toMatch(/PUBLISHED ≠ CURRENT LIVE|PUBLISHED != CURRENT LIVE|게시만으로는/);
+    // Vertical B: truthful disabled Preview — no fake runtime Preview
+    expect(studio).toContain("인트로 미리보기");
+    expect(studio).toContain("준비 중");
+    expect(studio).not.toContain("작성용 캔버스");
+    // Publish ≠ Service Apply
+    expect(studio).toMatch(
+      /아직 서비스에는 적용되지 않습니다|게시만으로는|서비스에 적용/,
+    );
   });
 });

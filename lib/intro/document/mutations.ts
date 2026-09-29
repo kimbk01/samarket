@@ -7,15 +7,18 @@
 import type {
   FrameV1,
   IntroDocumentV1,
+  LayerMotionV1,
   LayerTypeV1,
   LayerV1,
   SceneBackgroundV1,
   SceneV1,
   TransitionV1,
 } from "../contracts/document";
+import { resolveLayerMotion } from "../contracts/motion";
 import {
   createDefaultLayer,
   createEmptyScene,
+  createSceneFromCandidate,
   normalizeSceneTransitions,
   newId,
 } from "./factory";
@@ -36,6 +39,7 @@ export type AuthoringMutationKind =
   | "layer_visibility"
   | "layer_frame"
   | "layer_media"
+  | "layer_motion"
   | "layer_tablet_override"
   | "title";
 
@@ -96,6 +100,10 @@ export function setDocumentTitle(
   return { ...doc, title: title.trim() || doc.title };
 }
 
+/**
+ * @deprecated Prefer addSceneFromCandidate — immediate addScene is the rejected
+ * silent black/FADE300/2500 path. Kept for automated fixtures only.
+ */
 export function addScene(
   doc: IntroDocumentV1,
   opts?: { name?: string; durationMs?: number },
@@ -105,6 +113,24 @@ export function addScene(
     name: opts?.name ?? `Scene ${doc.scenes.length + 1}`,
     durationMs: opts?.durationMs,
   });
+  return {
+    document: withScenes(doc, [...doc.scenes, scene]),
+    sceneId: scene.sceneId,
+  };
+}
+
+/** Operator-confirmed scene create — ZERO mutation until this is called. */
+export function addSceneFromCandidate(
+  doc: IntroDocumentV1,
+  candidate: {
+    name: string;
+    durationMs: number;
+    background: SceneBackgroundV1;
+    transitionAfter: TransitionV1 | null;
+  },
+): { document: IntroDocumentV1; sceneId: string } {
+  emit("scene_add");
+  const scene = createSceneFromCandidate(candidate);
   return {
     document: withScenes(doc, [...doc.scenes, scene]),
     sceneId: scene.sceneId,
@@ -229,6 +255,18 @@ export function setLayerVisibility(
 ): IntroDocumentV1 {
   emit("layer_visibility");
   return updateLayer(doc, sceneId, layerId, { visible });
+}
+
+export function setLayerMotion(
+  doc: IntroDocumentV1,
+  sceneId: string,
+  layerId: string,
+  motion: LayerMotionV1,
+): IntroDocumentV1 {
+  emit("layer_motion");
+  return updateLayer(doc, sceneId, layerId, {
+    motion: resolveLayerMotion(motion),
+  });
 }
 
 /**

@@ -25,12 +25,16 @@ function cloneDoc(): IntroDocumentV1 {
 }
 
 describe("startup UX — Scene1 Startup Cover + empty truth", () => {
-  it("Studio labels Scene1 as first screen and shows total in seconds", () => {
+  it("Studio labels Scene1 with Vertical B terminology and shows total in seconds", () => {
     const studio = readFileSync(
       "components/admin/intro/IntroStudio.tsx",
       "utf8",
     );
-    expect(studio).toContain("첫 화면 / 시작 화면");
+    // Rejected operator terms must stay purged (Vertical B).
+    expect(studio).not.toContain("첫 화면 / 시작 화면");
+    expect(studio).not.toContain("Startup Cover");
+    expect(studio).toContain("장면 ${");
+    expect(studio).toContain("앱 실행 순서");
     expect(studio).toContain(
       "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다.",
     );

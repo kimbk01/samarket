@@ -99,6 +99,10 @@ public final class DibayIntroPackModel {
     public final String ctaActionType;
     public final int ctaBgArgb;
     public final float ctaCornerRadius;
+    /** Semantic motion — NONE when legacy pack omits field. */
+    public final String motionType;
+    public final int motionStartMs;
+    public final int motionDurationMs;
 
     public Layer(
         String layerId,
@@ -120,7 +124,10 @@ public final class DibayIntroPackModel {
         String ctaLabel,
         String ctaActionType,
         int ctaBgArgb,
-        float ctaCornerRadius) {
+        float ctaCornerRadius,
+        String motionType,
+        int motionStartMs,
+        int motionDurationMs) {
       this.layerId = layerId;
       this.type = type;
       this.frame = frame;
@@ -141,6 +148,9 @@ public final class DibayIntroPackModel {
       this.ctaActionType = ctaActionType;
       this.ctaBgArgb = ctaBgArgb;
       this.ctaCornerRadius = ctaCornerRadius;
+      this.motionType = motionType != null ? motionType : "NONE";
+      this.motionStartMs = Math.max(0, motionStartMs);
+      this.motionDurationMs = Math.max(0, motionDurationMs);
     }
   }
 
@@ -344,6 +354,21 @@ public final class DibayIntroPackModel {
     String ctaActionType = null;
     int ctaBgArgb = Color.TRANSPARENT;
     float ctaCornerRadius = 0f;
+    String motionType = "NONE";
+    int motionStartMs = 0;
+    int motionDurationMs = 0;
+
+    JSONObject motionJson = l.optJSONObject("motion");
+    if (motionJson != null) {
+      motionType = motionJson.optString("type", "NONE");
+      if (motionType == null || motionType.isEmpty()) motionType = "NONE";
+      motionStartMs = Math.max(0, motionJson.optInt("startMs", 0));
+      motionDurationMs = Math.max(0, motionJson.optInt("durationMs", 0));
+      if ("NONE".equals(motionType)) {
+        motionStartMs = 0;
+        motionDurationMs = 0;
+      }
+    }
 
     if ("IMAGE".equals(type) || "LOGO".equals(type)) {
       if (mediaRefId == null || mediaRefId.isEmpty()) {
@@ -411,7 +436,10 @@ public final class DibayIntroPackModel {
             ctaLabel,
             ctaActionType,
             ctaBgArgb,
-            ctaCornerRadius);
+            ctaCornerRadius,
+            motionType,
+            motionStartMs,
+            motionDurationMs);
     Scene stubScene =
         new Scene("", "", 0, Color.BLACK, null, Collections.singletonList(layer));
     DibayIntroPackModel stub =

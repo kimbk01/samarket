@@ -51,6 +51,10 @@ final class DibayIntroPackModel {
     let ctaActionType: String?
     let ctaBgColor: UIColor
     let ctaCornerRadius: CGFloat
+    /// Semantic motion — NONE when legacy pack omits field.
+    let motionType: String
+    let motionStartMs: Int
+    let motionDurationMs: Int
   }
 
   struct Transition {
@@ -234,6 +238,20 @@ final class DibayIntroPackModel {
     var ctaActionType: String?
     var ctaBgColor: UIColor = .clear
     var ctaCornerRadius: CGFloat = 0
+    var motionType = "NONE"
+    var motionStartMs = 0
+    var motionDurationMs = 0
+
+    if let motion = l["motion"] as? [String: Any] {
+      let raw = motion["type"] as? String ?? "NONE"
+      motionType = raw.isEmpty ? "NONE" : raw
+      motionStartMs = max(0, intVal(motion["startMs"], 0))
+      motionDurationMs = max(0, intVal(motion["durationMs"], 0))
+      if motionType == "NONE" {
+        motionStartMs = 0
+        motionDurationMs = 0
+      }
+    }
 
     if type == "IMAGE" || type == "LOGO" {
       if mediaRefId == nil || mediaRefId!.isEmpty {
@@ -297,7 +315,10 @@ final class DibayIntroPackModel {
       ctaLabel: ctaLabel,
       ctaActionType: ctaActionType,
       ctaBgColor: ctaBgColor,
-      ctaCornerRadius: ctaCornerRadius
+      ctaCornerRadius: ctaCornerRadius,
+      motionType: motionType,
+      motionStartMs: motionStartMs,
+      motionDurationMs: motionDurationMs
     )
     let stubScene = Scene(
       sceneId: "", name: "", durationMs: 0, backgroundColor: .black,

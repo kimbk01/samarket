@@ -172,6 +172,7 @@ export function packSummaryForReport(pack: IntroPackV1): Record<string, unknown>
         visible: l.visible,
         opacity: l.opacity,
         zIndex: l.zIndex,
+        motion: l.motion ?? { type: "NONE", startMs: 0, durationMs: 0 },
         hasTabletOverride: Boolean(l.layoutOverrides?.TABLET_LANDSCAPE),
         mediaRefId:
           l.type === "IMAGE" || l.type === "LOGO" ? l.mediaRefId : undefined,
