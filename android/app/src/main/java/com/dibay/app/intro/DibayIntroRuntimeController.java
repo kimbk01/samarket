@@ -332,9 +332,18 @@ public final class DibayIntroRuntimeController {
     mainHandler.removeCallbacks(sceneTick);
     mainHandler.removeCallbacks(firstFrameWatchdog);
     Log.i(TAG, "INTRO_COMPLETED reason=" + reason);
-    // Do NOT remove on FIRST_FRAME — only on completion.
-    removeOverlay();
+    // HOLD last authored frame until HOME_PRESENTATION_READY.
+    // Do NOT removeOverlay here — releaseToHome() owns removal.
     if (listener != null) listener.onIntroCompleted(reason);
+  }
+
+  /**
+   * Product handoff: remove Intro overlay only when Home is presentation-ready.
+   * Holding last authored frame is NOT extra authored Intro duration.
+   */
+  public void releaseToHome(String source) {
+    Log.i(TAG, "INTRO_RELEASE_TO_HOME source=" + source);
+    removeOverlay();
   }
 
   private void abort(String reason) {

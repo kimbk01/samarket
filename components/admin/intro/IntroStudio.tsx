@@ -30,6 +30,7 @@ import {
   addLayer,
   addScene,
   clampNormalizedFrame,
+  clearSceneBackgroundImage,
   clearTabletOverride,
   deleteLayer,
   deleteScene,
@@ -40,10 +41,19 @@ import {
   setLayerMediaRef,
   setLayerVisibility,
   setSceneBackground,
+  setSceneBackgroundImage,
   setSceneDuration,
   setSceneTransition,
   updateLayer,
 } from "@/lib/intro/document/mutations";
+import {
+  emptySceneBannerText,
+  findBackgroundImageLayer,
+  formatSecondsKo,
+  formatTotalIntroSeconds,
+  isEmptyScene,
+  listEmptySceneWarnings,
+} from "@/lib/intro/document/scene-truth";
 import {
   getIntroDocumentApi,
   getIntroLiveApi,
@@ -86,6 +96,11 @@ type PickerState =
       sceneId: string;
       layerId: string;
       previousMediaRefId: string;
+    }
+  | {
+      mode: "background";
+      sceneId: string;
+      previousMediaRefId: string | null;
     };
 
 function colorCss(c: unknown): string {
@@ -137,6 +152,7 @@ export function IntroStudio({
   const [confirmDeleteScene, setConfirmDeleteScene] = useState<string | null>(
     null,
   );
+  const [publishEmptyAck, setPublishEmptyAck] = useState(false);
 
   // Always-latest refs: picker confirm / pointer frame writes must NOT close over a
   // stale document (or a prior picker mode). Stale add/LOGO confirm was observed to
@@ -203,6 +219,13 @@ export function IntroStudio({
     () => (document ? computeIntroDurationMs(document) : 0),
     [document],
   );
+
+  const emptyWarnings = useMemo(
+    () => (document ? listEmptySceneWarnings(document, ko) : []),
+    [document, ko],
+  );
+
+  const firstSceneId = document?.scenes[0]?.sceneId ?? null;
 
   const onSave = async () => {
     if (!document || saveUi === "saving") return;
@@ -353,7 +376,15 @@ export function IntroStudio({
     const doc = documentRef.current;
     const activePicker = pickerRef.current;
     if (!doc || !activePicker) return;
-    if (activePicker.mode === "add") {
+    if (activePicker.mode === "background") {
+      const { document: next, layerId } = setSceneBackgroundImage(
+        doc,
+        activePicker.sceneId,
+        result.mediaRefId,
+      );
+      applyLocal(next);
+      setSelectedLayerId(layerId);
+    } else if (activePicker.mode === "add") {
       const { document: next, layerId } = addLayer(
         doc,
         activePicker.sceneId,
@@ -422,8 +453,16 @@ export function IntroStudio({
           onChange={(e) => applyLocal(setDocumentTitle(document, e.target.value))}
           data-intro-studio-title="1"
         />
-        <span className="text-xs text-sam-muted">
-          {ko ? "총" : "Total"} {totalMs}ms · v{draftVersion}
+        <span
+          className="rounded-ui-rect bg-sam-bg px-2 py-1 text-sm font-semibold text-sam-fg"
+          data-intro-total-duration="1"
+          data-intro-total-ms={totalMs}
+        >
+          {ko ? "총 인트로 시간:" : "Total Intro:"}{" "}
+          {formatTotalIntroSeconds(totalMs)}
+          <span className="ml-1 text-[10px] font-normal text-sam-muted">
+            v{draftVersion}
+          </span>
         </span>
         <AdminActionButton
           variant="primary"
@@ -448,6 +487,7 @@ export function IntroStudio({
             !document
           }
           onClick={() => {
+            setPublishEmptyAck(false);
             setPublishUi("confirm");
             setPublishMessage(null);
           }}
@@ -571,9 +611,45 @@ export function IntroStudio({
                 : "App exposure: separate Set Live action (does NOT claim devices downloaded)"}
             </li>
           </ul>
+          {emptyWarnings.length > 0 ? (
+            <div
+              className="mt-3 rounded-ui-rect border border-amber-600/50 bg-amber-600/10 p-3"
+              data-intro-publish-empty-warning="1"
+            >
+              <p className="font-semibold text-amber-900 dark:text-amber-200">
+                {ko
+                  ? "빈 장면이 포함되어 있습니다."
+                  : "Empty scenes are included."}
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {emptyWarnings.map((w) => (
+                  <li key={w.sceneId} data-intro-empty-warn-scene={w.sceneId}>
+                    {ko
+                      ? `Scene ${w.sceneIndex}는 약 ${formatSecondsKo(w.durationMs)} 동안 배경만 표시됩니다. (${w.backgroundLabel})`
+                      : `Scene ${w.sceneIndex} shows background only for about ${formatSecondsKo(w.durationMs)}. (${w.backgroundLabel})`}
+                  </li>
+                ))}
+              </ul>
+              <label className="mt-3 flex items-start gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={publishEmptyAck}
+                  onChange={(e) => setPublishEmptyAck(e.target.checked)}
+                  data-intro-publish-empty-ack="1"
+                  className="mt-0.5"
+                />
+                <span>
+                  {ko
+                    ? "빈 장면이 실제 재생 시간에 포함되는 것을 확인했습니다."
+                    : "I understand empty scenes play for their authored duration."}
+                </span>
+              </label>
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionButton
               variant="primary"
+              disabled={emptyWarnings.length > 0 && !publishEmptyAck}
               onClick={() => void onPublishConfirmed()}
               data-intro-publish-confirm-yes="1"
             >
@@ -581,7 +657,10 @@ export function IntroStudio({
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
-              onClick={() => setPublishUi("idle")}
+              onClick={() => {
+                setPublishUi("idle");
+                setPublishEmptyAck(false);
+              }}
               data-intro-publish-confirm-no="1"
             >
               {ko ? "취소" : "Cancel"}
@@ -646,7 +725,7 @@ export function IntroStudio({
         >
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-sam-muted">
-              {ko ? "장면" : "Scenes"}
+              {ko ? "인트로 장면" : "Intro scenes"}
             </h2>
             <AdminActionButton
               variant="secondary"
@@ -663,7 +742,10 @@ export function IntroStudio({
             </AdminActionButton>
           </div>
           <ul className="space-y-1">
-            {document.scenes.map((scene, idx) => (
+            {document.scenes.map((scene, idx) => {
+              const empty = isEmptyScene(scene);
+              const isFirst = idx === 0;
+              return (
               <li key={scene.sceneId}>
                 <button
                   type="button"
@@ -677,16 +759,41 @@ export function IntroStudio({
                     setSelectedLayerId(null);
                   }}
                   data-intro-scene={scene.sceneId}
+                  data-intro-scene-index={idx}
+                  data-intro-scene-empty={empty ? "1" : "0"}
+                  data-intro-scene-first={isFirst ? "1" : "0"}
                 >
                   <span className="font-medium text-sam-fg">
-                    {idx + 1}. {scene.name}
+                    {isFirst
+                      ? ko
+                        ? `1. 첫 화면 / 시작 화면`
+                        : `1. Startup / first screen`
+                      : `${idx + 1}. ${scene.name}`}
                   </span>
+                  {isFirst ? (
+                    <span
+                      className="mt-0.5 block text-[10px] text-sky-700 dark:text-sky-300"
+                      data-intro-startup-cover-hint="1"
+                    >
+                      {ko
+                        ? "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다."
+                        : "First authored frame after OS launch."}
+                    </span>
+                  ) : null}
                   <span className="mt-0.5 block text-[10px] text-sam-muted">
-                    {scene.durationMs}ms
+                    {formatSecondsKo(scene.durationMs)}
                     {scene.transitionAfter
                       ? ` · ${scene.transitionAfter.type}`
                       : ""}
                   </span>
+                  {empty ? (
+                    <span
+                      className="mt-1 inline-block rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
+                      data-intro-empty-badge="1"
+                    >
+                      EMPTY SCENE
+                    </span>
+                  ) : null}
                 </button>
                 <div className="mt-0.5 flex gap-1 px-1">
                   <button
@@ -727,7 +834,8 @@ export function IntroStudio({
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
           {document.scenes.length === 0 ? (
             <p className="mt-3 text-xs text-sam-muted">
@@ -806,7 +914,7 @@ export function IntroStudio({
                 onClick={() => openAddMediaLayer("IMAGE")}
                 data-intro-add-image="1"
               >
-                + IMAGE
+                {ko ? "+ 이미지" : "+ IMAGE"}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -814,7 +922,7 @@ export function IntroStudio({
                 onClick={() => openAddMediaLayer("LOGO")}
                 data-intro-add-logo="1"
               >
-                + LOGO
+                {ko ? "+ 로고" : "+ LOGO"}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -858,32 +966,73 @@ export function IntroStudio({
           data-intro-inspector="1"
         >
           {selectedScene ? (
-            <SceneInspector
-              ko={ko}
-              scene={selectedScene}
-              isLast={
-                document.scenes[document.scenes.length - 1]?.sceneId ===
-                selectedScene.sceneId
-              }
-              onDuration={(ms) =>
-                applyLocal(
-                  setSceneDuration(document, selectedScene.sceneId, ms),
-                )
-              }
-              onTransition={(t) =>
-                applyLocal(
-                  setSceneTransition(document, selectedScene.sceneId, t),
-                )
-              }
-              onBackground={(color) =>
-                applyLocal(
-                  setSceneBackground(document, selectedScene.sceneId, {
-                    type: "SOLID",
-                    color,
-                  }),
-                )
-              }
-            />
+            <>
+              {isEmptyScene(selectedScene) ? (
+                <div
+                  className="rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-2 py-2 text-[11px] text-amber-900 dark:text-amber-100"
+                  data-intro-empty-scene-banner="1"
+                >
+                  {emptySceneBannerText(selectedScene, ko)}
+                </div>
+              ) : null}
+              <SceneInspector
+                ko={ko}
+                scene={selectedScene}
+                isFirst={selectedScene.sceneId === firstSceneId}
+                isLast={
+                  document.scenes[document.scenes.length - 1]?.sceneId ===
+                  selectedScene.sceneId
+                }
+                onDuration={(ms) =>
+                  applyLocal(
+                    setSceneDuration(document, selectedScene.sceneId, ms),
+                  )
+                }
+                onTransition={(t) =>
+                  applyLocal(
+                    setSceneTransition(document, selectedScene.sceneId, t),
+                  )
+                }
+                onBackground={(color) =>
+                  applyLocal(
+                    setSceneBackground(document, selectedScene.sceneId, {
+                      type: "SOLID",
+                      color,
+                    }),
+                  )
+                }
+                onPickBackgroundImage={() => {
+                  const existing = findBackgroundImageLayer(selectedScene);
+                  setPicker({
+                    mode: "background",
+                    sceneId: selectedScene.sceneId,
+                    previousMediaRefId:
+                      existing &&
+                      (existing.type === "IMAGE" || existing.type === "LOGO")
+                        ? existing.mediaRefId || null
+                        : null,
+                  });
+                }}
+                onClearBackgroundImage={() =>
+                  applyLocal(
+                    clearSceneBackgroundImage(
+                      document,
+                      selectedScene.sceneId,
+                    ),
+                  )
+                }
+                hasBackgroundImage={Boolean(
+                  findBackgroundImageLayer(selectedScene) &&
+                    findBackgroundImageLayer(selectedScene)?.type ===
+                      "IMAGE" &&
+                    (
+                      findBackgroundImageLayer(selectedScene) as {
+                        mediaRefId?: string;
+                      }
+                    )?.mediaRefId,
+                )}
+              />
+            </>
           ) : null}
 
           {selectedScene && selectedLayer ? (
@@ -959,9 +1108,17 @@ export function IntroStudio({
       <IntroMediaPicker
         ko={ko}
         open={picker != null}
-        context={picker?.type ?? "ANY"}
+        context={
+          picker?.mode === "background"
+            ? "IMAGE"
+            : picker?.type ?? "ANY"
+        }
         initialMediaRefId={
-          picker?.mode === "replace" ? picker.previousMediaRefId : null
+          picker?.mode === "replace"
+            ? picker.previousMediaRefId
+            : picker?.mode === "background"
+              ? picker.previousMediaRefId
+              : null
         }
         onConfirm={onPickerConfirm}
         onCancel={onPickerCancel}
@@ -1220,17 +1377,25 @@ function LayerPreview({ layer }: { layer: LayerV1 }) {
 function SceneInspector({
   ko,
   scene,
+  isFirst,
   isLast,
   onDuration,
   onTransition,
   onBackground,
+  onPickBackgroundImage,
+  onClearBackgroundImage,
+  hasBackgroundImage,
 }: {
   ko: boolean;
   scene: SceneV1;
+  isFirst: boolean;
   isLast: boolean;
   onDuration: (ms: number) => void;
   onTransition: (t: TransitionV1 | null) => void;
   onBackground: (c: { r: number; g: number; b: number; a: number }) => void;
+  onPickBackgroundImage: () => void;
+  onClearBackgroundImage: () => void;
+  hasBackgroundImage: boolean;
 }) {
   const t = scene.transitionAfter;
   const bg =
@@ -1243,28 +1408,58 @@ function SceneInspector({
               .padStart(2, "0"),
           )
           .join("")}`;
+  const durationSec = scene.durationMs / 1000;
+  const transitionSec =
+    t && t.type !== "CUT" ? t.durationMs / 1000 : 0;
 
   return (
-    <section className="space-y-2" data-intro-scene-inspector="1">
+    <section
+      className="space-y-2"
+      data-intro-scene-inspector="1"
+      data-intro-startup-cover={isFirst ? "1" : "0"}
+    >
+      {isFirst ? (
+        <div
+          className="rounded-ui-rect border border-sky-500/30 bg-sky-500/10 px-2 py-2"
+          data-intro-first-screen-panel="1"
+        >
+          <h3 className="text-xs font-semibold text-sky-800 dark:text-sky-200">
+            {ko ? "첫 화면 / 시작 화면" : "First screen / Startup"}
+          </h3>
+          <p className="mt-1 text-[10px] text-sam-muted">
+            {ko
+              ? "앱 실행 시 가장 먼저 표시되는 인트로 화면입니다."
+              : "This is the first authored frame after the OS launch primitive."}
+          </p>
+        </div>
+      ) : null}
       <h3 className="text-xs font-semibold uppercase text-sam-muted">
         {ko ? "장면 타이밍" : "Scene timing"}
       </h3>
       <label className="block text-[11px] text-sam-muted">
-        {ko ? "지속 시간 (ms)" : "Duration (ms)"}
+        {ko ? "장면 표시 시간 (초)" : "Scene duration (sec)"}
         <input
           type="number"
+          step="0.1"
           className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
-          value={scene.durationMs}
-          min={100}
-          max={60000}
-          onChange={(e) => onDuration(Number(e.target.value))}
+          value={Number.isFinite(durationSec) ? durationSec : 0}
+          min={0.1}
+          max={60}
+          onChange={(e) => {
+            const sec = Math.max(0.1, Number(e.target.value) || 0.1);
+            onDuration(Math.round(sec * 1000));
+          }}
           data-intro-scene-duration="1"
+          data-intro-scene-duration-sec="1"
         />
+        <span className="mt-0.5 block text-[10px] text-sam-muted">
+          {formatSecondsKo(scene.durationMs)}
+        </span>
       </label>
       {!isLast ? (
         <>
           <label className="block text-[11px] text-sam-muted">
-            {ko ? "전환" : "Transition"}
+            {ko ? "다음 장면 전환" : "Transition to next"}
             <select
               className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
               value={t?.type ?? "FADE"}
@@ -1293,14 +1488,16 @@ function SceneInspector({
           </label>
           {t && t.type !== "CUT" ? (
             <label className="block text-[11px] text-sam-muted">
-              {ko ? "전환 시간 (ms)" : "Transition ms"}
+              {ko ? "전환 시간 (초)" : "Transition (sec)"}
               <input
                 type="number"
+                step="0.1"
                 className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
-                value={t.durationMs}
-                min={1}
+                value={transitionSec}
+                min={0.1}
                 onChange={(e) => {
-                  const durationMs = Math.max(1, Number(e.target.value) || 1);
+                  const sec = Math.max(0.1, Number(e.target.value) || 0.1);
+                  const durationMs = Math.round(sec * 1000);
                   if (t.type === "FADE")
                     onTransition({ type: "FADE", durationMs });
                   else if (t.type === "SLIDE")
@@ -1311,17 +1508,18 @@ function SceneInspector({
                     });
                 }}
                 data-intro-transition-duration="1"
+                data-intro-transition-duration-sec="1"
               />
             </label>
           ) : null}
         </>
       ) : (
         <p className="text-[11px] text-sam-muted">
-          {ko ? "마지막 장면 — 전환 없음" : "Last scene — no transition"}
+          {ko ? "마지막 장면 — 전환 없음 → HOME" : "Last scene — no transition → HOME"}
         </p>
       )}
       <label className="block text-[11px] text-sam-muted">
-        {ko ? "배경색" : "Background"}
+        {ko ? "배경색" : "Background color"}
         <input
           type="color"
           className="mt-1 block h-8 w-full"
@@ -1336,6 +1534,45 @@ function SceneInspector({
           data-intro-scene-bg="1"
         />
       </label>
+      <div
+        className="space-y-1 rounded-ui-rect border border-sam-border p-2"
+        data-intro-bg-image-controls="1"
+      >
+        <p className="text-[11px] font-medium text-sam-fg">
+          {ko ? "배경 이미지" : "Background image"}
+        </p>
+        <p className="text-[10px] text-sam-muted">
+          {ko
+            ? "전체 화면 배경 (로고/이미지와 별개)"
+            : "Full-screen background (separate from logo/image layers)"}
+        </p>
+        <div className="flex flex-wrap gap-1">
+          <AdminActionButton
+            variant="secondary"
+            className="!min-h-7 !px-2 !text-xs"
+            onClick={onPickBackgroundImage}
+            data-intro-bg-image-pick="1"
+          >
+            {hasBackgroundImage
+              ? ko
+                ? "배경 이미지 변경"
+                : "Change background image"
+              : ko
+                ? "배경 이미지 선택"
+                : "Select background image"}
+          </AdminActionButton>
+          {hasBackgroundImage ? (
+            <AdminActionButton
+              variant="secondary"
+              className="!min-h-7 !px-2 !text-xs"
+              onClick={onClearBackgroundImage}
+              data-intro-bg-image-clear="1"
+            >
+              {ko ? "배경 이미지 제거" : "Remove background image"}
+            </AdminActionButton>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1364,7 +1601,15 @@ function LayerInspector({
   return (
     <section className="space-y-2" data-intro-layer-inspector="1">
       <h3 className="text-xs font-semibold uppercase text-sam-muted">
-        {layer.type}
+        {layer.type === "IMAGE"
+          ? ko
+            ? "이미지"
+            : "IMAGE"
+          : layer.type === "LOGO"
+            ? ko
+              ? "로고"
+              : "LOGO"
+            : layer.type}
       </h3>
       <div className="flex flex-wrap gap-1">
         <AdminActionButton
@@ -1401,8 +1646,14 @@ function LayerInspector({
 
       {(layer.type === "IMAGE" || layer.type === "LOGO") && (
         <div className="space-y-1">
-          <p className="truncate text-[10px] text-sam-muted">
-            mediaRefId: {layer.mediaRefId ? "set" : "(empty)"}
+          <p className="text-[10px] text-sam-muted">
+            {layer.mediaRefId
+              ? ko
+                ? "미디어 선택됨"
+                : "Media selected"
+              : ko
+                ? "미디어 없음"
+                : "No media"}
           </p>
           <AdminActionButton
             variant="secondary"
@@ -1410,11 +1661,11 @@ function LayerInspector({
             onClick={onReplaceMedia}
             data-intro-replace-media="1"
           >
-            {ko ? "미디어 교체" : "Replace media"}
+            {ko ? "미디어 변경" : "Change media"}
           </AdminActionButton>
           {layer.type === "IMAGE" ? (
             <label className="block text-[11px] text-sam-muted">
-              Surface
+              {ko ? "표면 (고급)" : "Surface (advanced)"}
               <select
                 className="mt-1 w-full rounded border border-sam-border bg-sam-bg px-2 py-1 text-sm"
                 value={layer.surface}

@@ -4,13 +4,14 @@ import WebKit
 import os.log
 
 /**
- * Product Startup (iOS) — ZERO CUT 2:
- * LaunchScreen (cream ONLY, no product DIBAY logo) → Cap WebView → HOME.
- * Authored Product Intro = 0. Native logo overlay attach = skipped.
- * Future first DIBAY product frame = Intro Scene 1 (not implemented here).
- * No Hybrid boot HTML · no location.replace · no logo mask over white.
+ * Product Startup (iOS) — V4:
+ * LaunchScreen (cream platform primitive, no product logo)
+ * → authored Scene1 from local ACTIVE Pack (when Ready exists)
+ * → canonical timeline → Home.
+ * Home may boot concurrently under Intro. Intro owns presentation until completion.
+ * CallKit/PushKit/Agora/RTC untouched.
  */
-class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
+class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler, DibayIntroRuntimeController.Listener {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
 
   private func startupInfo(_ message: String) {
@@ -27,6 +28,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introOverlay: UIView?
   private var introContent: UIView?
   private var introDismissing = false
+  private var introRuntime: DibayIntroRuntimeController?
+  private var introSessionActive = false
+  private var introFirstFrameReady = false
+  /// Authored timeline done — may HOLD last frame until HOME_PRESENTATION_READY.
+  private var introTimelineCompleted = false
+  private var homePresentationReady = false
+  private var introCompletedAt: CFAbsoluteTime = 0
+  private var homeReadyHoldMs: Double = 0
   override var shouldAutorotate: Bool {
     DibayAppOrientationPolicy.shouldAutorotate(deviceClass: DibayDeviceClassClassifier.classify().deviceClass)
   }
@@ -50,19 +59,28 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    applyStartupBackground()
+    // V4: start Pack Intro before cream Home paints when Active/Ready exists.
+    tryStartAuthoredIntro(source: "viewDidLoad")
+    if !introSessionActive {
+      applyStartupBackground()
+    } else {
+      applyIntroHoldBackground()
+    }
     DibayWebViewKeyboardChrome.install(on: webView)
-    attachNativeIntroIfNeeded(source: "viewDidLoad")
   }
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    applyStartupBackground()
+    if introSessionActive {
+      applyIntroHoldBackground()
+    } else if introLifecycle == .dismissed || introLifecycle == .pending {
+      applyStartupBackground()
+    }
     DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
-    // First appear may run before viewDidLoad attach completes; after dismiss, must not reattach.
-    attachNativeIntroIfNeeded(source: "viewDidAppear")
-    startupInfo("startup_boot_skip reason=native_splash_direct_remote intro_lifecycle=\(introLifecycle.rawValue)")
+    startupInfo(
+      "startup_boot intro_session=\(introSessionActive ? 1 : 0) first_frame=\(introFirstFrameReady ? 1 : 0) lifecycle=\(introLifecycle.rawValue)"
+    )
   }
 
   private func applyStartupBackground() {
@@ -73,6 +91,92 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.backgroundColor = cream
     webView?.scrollView.backgroundColor = cream
     webView?.scrollView.isOpaque = false
+  }
+
+  /// Opaque black under Intro so LaunchScreen→Scene1 never reveals cream product frame.
+  private func applyIntroHoldBackground() {
+    view.backgroundColor = .black
+    view.window?.backgroundColor = .black
+    webView?.isOpaque = false
+    webView?.backgroundColor = .black
+    webView?.scrollView.backgroundColor = .black
+    webView?.scrollView.isOpaque = false
+  }
+
+  private func tryStartAuthoredIntro(source: String) {
+    if introLifecycle != .pending { return }
+    let runtime = DibayIntroRuntimeController()
+    runtime.listener = self
+    let started = runtime.tryStartFromLocalActive(hostView: view)
+    if started {
+      introRuntime = runtime
+      introSessionActive = true
+      introLifecycle = .attached
+      startupInfo("intro_session_active=1 source=\(source)")
+    } else {
+      introRuntime = nil
+      introSessionActive = false
+      introLifecycle = .dismissed
+      startupInfo("intro_attach_skipped source=\(source) reason=NO_ACTIVE_OR_FAIL_OPEN")
+    }
+  }
+
+  // MARK: - DibayIntroRuntimeController.Listener
+
+  func onFirstFrameReady(identity: [String: Any]) {
+    introFirstFrameReady = true
+    let packId = identity["packId"] as? String ?? ""
+    startupInfo("intro_first_frame_ready packId=\(packId)")
+    // LaunchScreen already replaced by this VC; Scene1 owns product pixels.
+    // Do NOT hide Intro. Keep Capacitor splash suppressed path open under Intro.
+  }
+
+  func onIntroCompleted(reason: String) {
+    introTimelineCompleted = true
+    introCompletedAt = CFAbsoluteTimeGetCurrent()
+    startupInfo("intro_completed reason=\(reason)")
+    startupInfo("INTRO_HOLD_LAST_FRAME awaiting=HOME_PRESENTATION_READY")
+    // Do NOT remove Intro or apply cream/background yet — tryIntroHomeHandoff owns release.
+    tryIntroHomeHandoff(source: "intro_completed")
+  }
+
+  func onIntroAborted(reason: String) {
+    introSessionActive = false
+    introFirstFrameReady = false
+    introTimelineCompleted = false
+    introLifecycle = .dismissed
+    introRuntime = nil
+    startupInfo("intro_aborted reason=\(reason)")
+    applyStartupBackground()
+  }
+
+  /// Intro→Home: KEEP | HOLD_LAST_FRAME | HANDOFF_HOME. Never blank gap.
+  private func tryIntroHomeHandoff(source: String) {
+    if !introTimelineCompleted {
+      startupInfo("handoff_keep_intro source=\(source)")
+      return
+    }
+    if !homePresentationReady {
+      startupInfo("handoff_hold_last_frame source=\(source) homeReady=0")
+      return
+    }
+    if introCompletedAt > 0 {
+      homeReadyHoldMs = max(0, (CFAbsoluteTimeGetCurrent() - introCompletedAt) * 1000)
+    }
+    startupInfo(
+      "handoff_home source=\(source) home_ready_hold_ms=\(Int(homeReadyHoldMs))"
+    )
+    introRuntime?.releaseToHome(source: source)
+    introRuntime = nil
+    introSessionActive = false
+    introLifecycle = .dismissed
+    hideCapacitorSplash()
+  }
+
+  private func notifyHomePresentationReady(source: String) {
+    homePresentationReady = true
+    startupInfo("HOME_PRESENTATION_READY source=\(source)")
+    tryIntroHomeHandoff(source: "home_presentation_ready")
   }
 
   private func installBootBridgeIfNeeded() {
@@ -86,6 +190,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       window.DibayBootBridge={
         dismissSplash:function(){
           try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'dismissSplash'});}catch(e){}
+        },
+        homePresentationReady:function(){
+          try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'homePresentationReady'});}catch(e){}
         },
         beginHandoffCover:function(url){
           try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'beginHandoffCover',url:String(url||'')});}catch(e){}
@@ -115,8 +222,15 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     DispatchQueue.main.async {
       switch action {
       case "dismissSplash":
-        self.startupInfo("boot_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue)")
+        self.startupInfo("boot_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue) intro_session=\(self.introSessionActive ? 1 : 0)")
+        // Intro owns presentation until handoff — do not remove for generic dismiss.
+        if self.introSessionActive || self.introTimelineCompleted {
+          self.startupInfo("boot_dismiss_deferred reason=intro_owns_presentation")
+          return
+        }
         self.dismissNativeIntroThenHideSplash()
+      case "homePresentationReady":
+        self.notifyHomePresentationReady(source: "bridge")
       case "beginHandoffCover":
         NSLog("[DIBAY_Startup] handoff_cover_begin_ignored reason=native_splash_direct_remote")
       case "endHandoffCover":
@@ -135,10 +249,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   private func attachNativeIntroIfNeeded(source: String) {
-    // ZERO baseline: OS LaunchScreen only. No product logo overlay before HOME.
-    if introLifecycle == .pending {
+    // V4: authored Pack Intro is started from viewDidLoad via tryStartAuthoredIntro.
+    // Legacy logo overlay path remains disabled.
+    if introLifecycle == .pending && !introSessionActive {
       introLifecycle = .dismissed
-      startupInfo("intro_attach_skipped source=\(source) reason=zero_baseline_os_launch_only")
+      startupInfo("intro_attach_skipped source=\(source) reason=no_active_pack")
     }
   }
 

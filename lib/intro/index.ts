@@ -39,6 +39,17 @@ export {
   canonicalizeAuthoredDocument,
   diffAuthoredDocuments,
 } from "./document/canonical-equality";
+export {
+  isEmptyScene,
+  isBackgroundImageLayer,
+  findBackgroundImageLayer,
+  layerHasMeaningfulContent,
+  formatSecondsKo,
+  formatTotalIntroSeconds,
+  listEmptySceneWarnings,
+  emptySceneBannerText,
+  type EmptySceneWarning,
+} from "./document/scene-truth";
 export * from "./pack";
 export {
   collectAuthoredMediaRefIds,

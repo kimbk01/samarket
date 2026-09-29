@@ -354,13 +354,61 @@ export function markBootMetricsShellReady(): void {
 
 /**
  * Initial destination has a legitimate nonblank browser frame ready to replace Native FE.
- * This is not API completion, image completion, interactivity, or network idle.
+ * This is the single-purpose HOME_PRESENTATION_READY producer for Intro handoff.
+ * Not API completion, image completion, interactivity, network idle, shellReady alone,
+ * React mounted, or DOM ready.
  */
 export function markInitialDestinationVisualReady(): void {
   if (initialDestinationVisualReadyMarked) return;
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
+  notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+/**
+ * Notify native Intro runtime that Home is presentation-ready.
+ * Consumer: Android MainActivity / iOS DibayStartupBridge — last-frame hold release.
+ */
+function notifyNativeHomePresentationReady(): void {
+  if (typeof window === "undefined") return;
+  if (typeof console !== "undefined" && typeof console.info === "function") {
+    console.info("[dibay-boot] HOME_PRESENTATION_READY producer=initialDestinationVisualReady");
+  }
+  void (async () => {
+    try {
+      const bridge = (
+        window as unknown as {
+          DibayBootBridge?: {
+            homePresentationReady?: () => void;
+          };
+          webkit?: {
+            messageHandlers?: {
+              DibayBootBridge?: { postMessage: (msg: unknown) => void };
+            };
+          };
+        }
+      ).DibayBootBridge;
+      if (bridge?.homePresentationReady) {
+        bridge.homePresentationReady();
+        return;
+      }
+      const wk = (
+        window as unknown as {
+          webkit?: {
+            messageHandlers?: {
+              DibayBootBridge?: { postMessage: (msg: unknown) => void };
+            };
+          };
+        }
+      ).webkit?.messageHandlers?.DibayBootBridge;
+      if (wk?.postMessage) {
+        wk.postMessage({ action: "homePresentationReady" });
+      }
+    } catch {
+      /* ignore — native may not be present on web */
+    }
+  })();
 }
 
 export function isInitialDestinationVisualReady(): boolean {

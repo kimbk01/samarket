@@ -59,7 +59,7 @@ function activeMemoryStore(opts?: {
   active?: IntroActiveMetaV1 | null;
   failActivate?: boolean;
 }) {
-  let ready = opts?.ready ?? null;
+  const ready = opts?.ready ?? null;
   let active = opts?.active ?? null;
   const failActivate = opts?.failActivate ?? false;
   return {
@@ -265,7 +265,8 @@ describe("V3 FIRST_FRAME != COMPLETED contract in code", () => {
     );
     expect(src).toContain("INTRO_FIRST_FRAME_READY");
     expect(src).toContain("INTRO_COMPLETED");
-    expect(src).toContain("Do NOT remove on FIRST_FRAME");
+    expect(src).toContain("HOLD last authored frame until HOME_PRESENTATION_READY");
+    expect(src).toContain("releaseToHome");
     expect(src).toMatch(/complete\("TIMELINE_COMPLETE"\)/);
   });
 

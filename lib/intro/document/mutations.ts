@@ -358,3 +358,86 @@ export function clampNormalizedFrame(frame: FrameV1): FrameV1 {
   const y = Math.max(0, Math.min(1 - h, frame.y));
   return { x, y, w, h };
 }
+
+/**
+ * Set Scene full-bleed background IMAGE via canonical VIEWPORT IMAGE layer.
+ * Does NOT reopen SceneBackground schema. Media authority unchanged.
+ */
+export function setSceneBackgroundImage(
+  doc: IntroDocumentV1,
+  sceneId: string,
+  mediaRefId: string,
+): { document: IntroDocumentV1; layerId: string } {
+  emit("layer_media");
+  let layerId = "";
+  const document = mapScene(doc, sceneId, (s) => {
+    const existing = s.layers.find(
+      (l) =>
+        l.type === "IMAGE" &&
+        l.surface === "VIEWPORT" &&
+        l.frame.x <= 0.02 &&
+        l.frame.y <= 0.02 &&
+        l.frame.w >= 0.96 &&
+        l.frame.h >= 0.96,
+    );
+    if (existing && existing.type === "IMAGE") {
+      layerId = existing.layerId;
+      return {
+        ...s,
+        layers: s.layers.map((l) =>
+          l.layerId === existing.layerId
+            ? {
+                ...l,
+                mediaRefId,
+                visible: true,
+                opacity: 1,
+                fit: "COVER" as const,
+                surface: "VIEWPORT" as const,
+                frame: { x: 0, y: 0, w: 1, h: 1 },
+              }
+            : l,
+        ),
+      };
+    }
+    const minZ =
+      s.layers.length === 0
+        ? 0
+        : Math.min(...s.layers.map((l) => l.zIndex)) - 1;
+    const layer = createDefaultLayer("IMAGE", s.layers, { mediaRefId });
+    if (layer.type !== "IMAGE") return s;
+    layerId = layer.layerId;
+    const bgLayer: typeof layer = {
+      ...layer,
+      frame: { x: 0, y: 0, w: 1, h: 1 },
+      fit: "COVER",
+      surface: "VIEWPORT",
+      zIndex: minZ,
+      visible: true,
+      opacity: 1,
+    };
+    return { ...s, layers: [bgLayer, ...s.layers] };
+  });
+  return { document, layerId };
+}
+
+/** Remove Scene background IMAGE layer only — keeps SOLID background color. */
+export function clearSceneBackgroundImage(
+  doc: IntroDocumentV1,
+  sceneId: string,
+): IntroDocumentV1 {
+  emit("layer_delete");
+  return mapScene(doc, sceneId, (s) => ({
+    ...s,
+    layers: s.layers.filter(
+      (l) =>
+        !(
+          l.type === "IMAGE" &&
+          l.surface === "VIEWPORT" &&
+          l.frame.x <= 0.02 &&
+          l.frame.y <= 0.02 &&
+          l.frame.w >= 0.96 &&
+          l.frame.h >= 0.96
+        ),
+    ),
+  }));
+}

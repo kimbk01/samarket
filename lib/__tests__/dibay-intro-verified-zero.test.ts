@@ -46,10 +46,27 @@ describe("dibay intro verified zero", () => {
     expect(cap).toContain("DibayCallPipPlugin");
   });
 
-  it("HOME_PRESENTATION_READY Intro coupling is absent", () => {
+  it("HOME_PRESENTATION_READY Intro coupling uses startup-metrics producer — burned probe absent", () => {
     expect(existsSync("components/community/CommunityHomePresentationProbe.tsx")).toBe(false);
     const feed = readFileSync("components/community/CommunityFeed.tsx", "utf8");
     expect(feed).not.toContain("CommunityHomePresentationProbe");
     expect(feed).not.toContain("markHomePresentationReady");
+    const metrics = readFileSync("lib/startup/startup-metrics.ts", "utf8");
+    expect(metrics).toContain("HOME_PRESENTATION_READY");
+    expect(metrics).toContain("notifyNativeHomePresentationReady");
+    expect(metrics).toContain("homePresentationReady");
+    const main = readFileSync(
+      "android/app/src/main/java/com/dibay/app/MainActivity.java",
+      "utf8",
+    );
+    expect(main).toContain("HOME_PRESENTATION_READY");
+    expect(main).toContain("tryIntroHomeHandoff");
+    expect(main).toContain("INTRO_HOLD_LAST_FRAME");
+    const ios = readFileSync(
+      "ios/App/App/DibayStartupBridgeViewController.swift",
+      "utf8",
+    );
+    expect(ios).toContain("HOME_PRESENTATION_READY");
+    expect(ios).toContain("tryIntroHomeHandoff");
   });
 });

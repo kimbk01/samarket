@@ -89,6 +89,12 @@ public class MainActivity extends BridgeActivity {
    */
   private static volatile boolean introFirstFrameReady = false;
   private static volatile boolean introSessionActive = false;
+  /** Authored Intro timeline completed — may still HOLD last authored frame. */
+  private static volatile boolean introTimelineCompleted = false;
+  /** Meaningful Home presentation ready — not shellReady / dismissSplash alias. */
+  private static volatile boolean homePresentationReady = false;
+  private static volatile long introCompletedElapsedMs = 0L;
+  private static volatile long homeReadyHoldMs = 0L;
   private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
@@ -1177,16 +1183,19 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onIntroCompleted(String reason) {
-              introSessionActive = false;
+              introTimelineCompleted = true;
+              introCompletedElapsedMs = android.os.SystemClock.elapsedRealtime();
               Log.i(WEBVIEW_LOG_TAG, "intro_completed reason=" + reason);
-              // Temporary Home handoff boundary — NOT FINAL (V5 owns HOME_PRESENTATION_READY).
-              requestWebSplashDismiss("intro_completed_v3_temp");
+              Log.i(WEBVIEW_LOG_TAG, "INTRO_HOLD_LAST_FRAME awaiting=HOME_PRESENTATION_READY");
+              // Do NOT remove Intro yet — tryIntroHomeHandoff owns release.
+              tryIntroHomeHandoff("intro_completed");
             }
 
             @Override
             public void onIntroAborted(String reason) {
               introSessionActive = false;
               introFirstFrameReady = false;
+              introTimelineCompleted = false;
               Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
               // Fail-open: allow existing splash → Home path.
             }
@@ -1201,6 +1210,51 @@ public class MainActivity extends BridgeActivity {
     } catch (Exception e) {
       introSessionActive = false;
       Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
+    }
+  }
+
+  /**
+   * Intro→Home handoff contract:
+   * KEEP_INTRO | HOLD_FINAL_INTRO_FRAME | HANDOFF_HOME
+   * Never remove Intro then wait for Home (black/white/cream gap forbidden).
+   */
+  private void tryIntroHomeHandoff(String source) {
+    if (!introTimelineCompleted) {
+      Log.i(WEBVIEW_LOG_TAG, "handoff_keep_intro source=" + source);
+      return;
+    }
+    if (!homePresentationReady) {
+      Log.i(
+          WEBVIEW_LOG_TAG,
+          "handoff_hold_last_frame source=" + source + " homeReady=0");
+      return;
+    }
+    if (introCompletedElapsedMs > 0) {
+      homeReadyHoldMs =
+          Math.max(
+              0L, android.os.SystemClock.elapsedRealtime() - introCompletedElapsedMs);
+    }
+    Log.i(
+        WEBVIEW_LOG_TAG,
+        "handoff_home source="
+            + source
+            + " home_ready_hold_ms="
+            + homeReadyHoldMs);
+    if (dibayIntroRuntime != null) {
+      dibayIntroRuntime.releaseToHome(source);
+      dibayIntroRuntime = null;
+    }
+    introSessionActive = false;
+    requestWebSplashDismiss("intro_home_handoff");
+  }
+
+  /** Single-purpose HOME_PRESENTATION_READY from web (initialDestinationVisualReady). */
+  public static void notifyHomePresentationReady(String source) {
+    homePresentationReady = true;
+    Log.i(WEBVIEW_LOG_TAG, "HOME_PRESENTATION_READY source=" + (source != null ? source : "unknown"));
+    final MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(() -> act.tryIntroHomeHandoff("home_presentation_ready"));
     }
   }
 
@@ -1679,7 +1733,29 @@ public class MainActivity extends BridgeActivity {
       mainHandler.post(
           () -> {
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
+            // While Intro holds last frame, Home-ready must use homePresentationReady —
+            // do not tear Intro via generic dismissSplash.
+            if (introSessionActive || introTimelineCompleted) {
+              Log.i(
+                  WEBVIEW_LOG_TAG,
+                  "dismissSplash deferred reason=intro_owns_presentation");
+              return;
+            }
             requestWebSplashDismiss("DibayBootBridge");
+          });
+    }
+
+    /**
+     * Meaningful Home presentation ready for Intro handoff.
+     * Producer: markInitialDestinationVisualReady (web).
+     * Not shellReady / DOM ready / React mounted alone.
+     */
+    @JavascriptInterface
+    public void homePresentationReady() {
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "homePresentationReady bridge_js");
+            notifyHomePresentationReady("DibayBootBridge");
           });
     }
 
