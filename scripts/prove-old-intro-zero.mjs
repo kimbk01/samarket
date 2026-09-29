@@ -53,7 +53,7 @@ const FORBIDDEN_FILES = [
 const ENTRY_FILES = [
   "app/layout.tsx",
   "app/admin/intro/page.tsx",
-  "app/admin/intro/[showId]/page.tsx",
+  "app/admin/intro/[documentId]/page.tsx",
   "app/admin/intro-v3/page.tsx",
   "app/admin/intro-v3/[campaignId]/page.tsx",
   "components/platform-popup/GlobalPopupHost.tsx",

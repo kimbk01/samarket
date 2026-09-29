@@ -8,14 +8,14 @@ import { describe, expect, it } from "vitest";
 describe("dibay intro verified zero", () => {
   it("failed Admin studio/list components are absent", () => {
     expect(existsSync("components/admin/dibay-intro")).toBe(false);
+    expect(existsSync("app/admin/intro/IntroRebuildNotice.tsx")).toBe(false);
+    expect(existsSync("app/admin/intro/[showId]")).toBe(false);
     const page = readFileSync("app/admin/intro/page.tsx", "utf8");
-    expect(page).toContain("IntroRebuildNotice");
+    expect(page).toContain("IntroDocumentHub");
     expect(page).not.toContain("DibayIntroListPage");
     expect(page).not.toContain("DibayIntroStudioPage");
-    const notice = readFileSync("app/admin/intro/IntroRebuildNotice.tsx", "utf8");
-    expect(notice).toContain("인트로 시스템 재구성 중");
-    expect(notice).not.toContain("Set Live");
-    expect(notice).not.toContain("Publish");
+    expect(page).not.toContain("인트로 시스템 재구성 중");
+    expect(page).not.toContain("Set Live");
   });
 
   it("current Intro domain/engine/pack are absent", () => {
