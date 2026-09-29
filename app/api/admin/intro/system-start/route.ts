@@ -14,16 +14,31 @@ type SystemStartBuild = {
   backgroundColor: string;
   matchScene1Appearance: boolean;
   brandMarkEnabled: boolean;
+  logoFit: "CONTAIN" | "COVER" | "ORIGINAL";
+  logoSizeNorm: number;
+  logoXNorm: number;
+  logoYNorm: number;
   note?: string;
 };
 
+function clamp01(n: number, fallback: number): number {
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(0.95, Math.max(0.05, n));
+}
+
 function readBuild(): SystemStartBuild {
-  const raw = JSON.parse(fs.readFileSync(BUILD_PATH, "utf8")) as SystemStartBuild;
+  const raw = JSON.parse(fs.readFileSync(BUILD_PATH, "utf8")) as Partial<SystemStartBuild>;
+  const fit = raw.logoFit;
   return {
     version: Number(raw.version) || 1,
     backgroundColor: String(raw.backgroundColor || "#312E81").toUpperCase(),
-    matchScene1Appearance: raw.matchScene1Appearance !== false,
+    matchScene1Appearance: !!raw.matchScene1Appearance,
     brandMarkEnabled: !!raw.brandMarkEnabled,
+    logoFit:
+      fit === "COVER" || fit === "ORIGINAL" || fit === "CONTAIN" ? fit : "CONTAIN",
+    logoSizeNorm: clamp01(Number(raw.logoSizeNorm), 0.28),
+    logoXNorm: clamp01(Number(raw.logoXNorm), 0.5),
+    logoYNorm: clamp01(Number(raw.logoYNorm), 0.42),
     note:
       raw.note ||
       "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply.",
@@ -68,6 +83,10 @@ export async function PUT(req: Request) {
       matchScene1Appearance?: boolean;
       brandMarkEnabled?: boolean;
       scene1BackgroundColor?: string | null;
+      logoFit?: "CONTAIN" | "COVER" | "ORIGINAL";
+      logoSizeNorm?: number;
+      logoXNorm?: number;
+      logoYNorm?: number;
     };
     const current = readBuild();
     const nextColor = normalizeHex(body.backgroundColor ?? current.backgroundColor);
@@ -83,6 +102,7 @@ export async function PUT(req: Request) {
       const scene1 = normalizeHex(body.scene1BackgroundColor);
       if (scene1) backgroundColor = scene1;
     }
+    const fit = body.logoFit;
     const next: SystemStartBuild = {
       version: current.version,
       backgroundColor,
@@ -91,6 +111,22 @@ export async function PUT(req: Request) {
         body.brandMarkEnabled !== undefined
           ? !!body.brandMarkEnabled
           : current.brandMarkEnabled,
+      logoFit:
+        fit === "COVER" || fit === "ORIGINAL" || fit === "CONTAIN"
+          ? fit
+          : current.logoFit,
+      logoSizeNorm:
+        body.logoSizeNorm !== undefined
+          ? clamp01(Number(body.logoSizeNorm), current.logoSizeNorm)
+          : current.logoSizeNorm,
+      logoXNorm:
+        body.logoXNorm !== undefined
+          ? clamp01(Number(body.logoXNorm), current.logoXNorm)
+          : current.logoXNorm,
+      logoYNorm:
+        body.logoYNorm !== undefined
+          ? clamp01(Number(body.logoYNorm), current.logoYNorm)
+          : current.logoYNorm,
       note: current.note,
     };
     fs.writeFileSync(BUILD_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf8");

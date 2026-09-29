@@ -147,14 +147,20 @@ export async function getDocumentAuthority(
   const live = await getLiveStatus(sb);
   const liveReleaseId = live.kind === "LIVE" ? live.releaseId : null;
 
+  let isLive = false;
+  if (liveReleaseId) {
+    const { data: liveRev } = await sb
+      .from("app_intro_revisions")
+      .select("document_id")
+      .eq("published_revision_id", liveReleaseId)
+      .maybeSingle();
+    isLive = liveRev?.document_id === documentId;
+  }
+
   return {
     draftVersion: doc.draft_version,
     latestReleaseId: latest?.published_revision_id ?? null,
     liveReleaseId,
-    isLive: Boolean(
-      liveReleaseId &&
-        latest?.published_revision_id &&
-        liveReleaseId === latest.published_revision_id,
-    ),
+    isLive,
   };
 }

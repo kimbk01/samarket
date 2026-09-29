@@ -156,7 +156,7 @@ export function createEmptyV0Document(title = "Intro"): IntroDocumentV1 {
             opacity: 1,
             motion: DEFAULT_MOTION,
             payload: {
-              text: "DIBAY-13-OWNER-MARKER",
+              text: "DIBAY",
               color: "#FFFFFF",
               fontSizeNorm: 0.045,
               align: "center",

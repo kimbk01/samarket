@@ -324,3 +324,23 @@ export async function getReadyRuntimeForMedia(
     ext: extForRuntimeFormat(rt.format),
   };
 }
+
+/** Soft-delete library asset. Does not remove Scene elements that reference it. */
+export async function softDeleteIntroMedia(
+  sb: SupabaseClient,
+  mediaId: string,
+): Promise<{ deleted: true }> {
+  const { data, error } = await sb
+    .from("app_intro_media")
+    .update({
+      status: "DELETED",
+      deleted_at: new Date().toISOString(),
+    })
+    .eq("media_id", mediaId)
+    .is("deleted_at", null)
+    .select("media_id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("media_not_found");
+  return { deleted: true };
+}

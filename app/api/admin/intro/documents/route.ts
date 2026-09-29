@@ -3,7 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import {
   createIntroDocument,
-  listIntroDocuments,
+  listIntroOperatorDocuments,
 } from "@/lib/intro/document/service";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   try {
-    const documents = await listIntroDocuments(sb);
+    const documents = await listIntroOperatorDocuments(sb);
     return NextResponse.json({ ok: true as const, documents });
   } catch (e) {
     return NextResponse.json(

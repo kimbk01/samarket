@@ -1,7 +1,11 @@
 {
   "version": 1,
   "backgroundColor": "#312E81",
-  "matchScene1Appearance": true,
+  "matchScene1Appearance": false,
   "brandMarkEnabled": false,
-  "note": "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply."
+  "logoFit": "CONTAIN",
+  "logoSizeNorm": 0.28,
+  "logoXNorm": 0.5,
+  "logoYNorm": 0.42,
+  "note": "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply. Artificial hold = 0."
 }

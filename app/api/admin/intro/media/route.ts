@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import {
   listReadyIntroMedia,
+  softDeleteIntroMedia,
   uploadAndReadyIntroMedia,
 } from "@/lib/intro/media/service";
 
@@ -54,5 +55,26 @@ export async function POST(req: NextRequest) {
       { ok: false, error: e instanceof Error ? e.message : "upload_failed" },
       { status: 500 },
     );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+  const mediaId = req.nextUrl.searchParams.get("mediaId");
+  if (!mediaId) {
+    return NextResponse.json({ ok: false, error: "mediaId_required" }, { status: 400 });
+  }
+  try {
+    await softDeleteIntroMedia(sb, mediaId);
+    return NextResponse.json({ ok: true as const, deleted: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "delete_failed";
+    const status = msg === "media_not_found" ? 404 : 500;
+    return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }
