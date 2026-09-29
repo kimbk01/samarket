@@ -106,7 +106,9 @@ export async function publishIntroDocument(
     const runtime = await getReadyRuntimeForMedia(sb, mediaId);
     if (!runtime) throw new Error(`media_not_ready:${mediaId}`);
     const relativePath = `assets/${mediaId}.${runtime.ext}`;
-    const sealedPath = `authority/v1/packs/${packageId}/${relativePath}`;
+    // DB sealed_assets check: storage_path LIKE 'authority/v1/sealed/%'
+    // Pack relativePath stays local layout under verified package root.
+    const sealedPath = `authority/v1/sealed/${packageId}/${relativePath}`;
     const { error: sealUpErr } = await sb.storage.from(BUCKET).upload(sealedPath, runtime.bytes, {
       contentType: runtime.mime || "application/octet-stream",
       upsert: false,

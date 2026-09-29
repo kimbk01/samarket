@@ -40,7 +40,28 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
     throw new Error(`signed_url:${signErr?.message ?? "missing"}`);
   }
 
-  // Download pack.json to discover asset relative paths, then mint asset URLs.
+  // Sign sealed asset storage paths (authority/v1/sealed/…) — not pack-relative.
+  const { data: sealedRows, error: sealedErr } = await sb
+    .from("app_intro_sealed_assets")
+    .select("media_id, storage_bucket, storage_path")
+    .eq("published_revision_id", data.published_revision_id);
+  if (sealedErr) throw new Error(sealedErr.message);
+
+  const assetRetrievalUrls: Record<string, string> = {};
+  for (const row of sealedRows ?? []) {
+    const mediaId = row.media_id as string | null;
+    const storagePath = row.storage_path as string | null;
+    if (!mediaId || !storagePath) continue;
+    const { data: assetSigned, error: assetSignErr } = await sb.storage
+      .from(row.storage_bucket || pack.storage_bucket || BUCKET)
+      .createSignedUrl(storagePath, 60 * 30);
+    if (assetSignErr || !assetSigned?.signedUrl) {
+      throw new Error(`asset_signed_url:${mediaId}:${assetSignErr?.message ?? "missing"}`);
+    }
+    assetRetrievalUrls[mediaId] = assetSigned.signedUrl;
+  }
+
+  // Fail closed: every pack asset must have a retrieval URL.
   const { data: packBlob, error: packDlErr } = await sb.storage
     .from(pack.storage_bucket || BUCKET)
     .download(pack.storage_path);
@@ -48,21 +69,12 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
     throw new Error(`pack_download:${packDlErr?.message ?? "missing"}`);
   }
   const packJson = JSON.parse(await packBlob.text()) as {
-    assets?: Record<string, { relativePath?: string }>;
+    assets?: Record<string, unknown>;
   };
-  const assetRetrievalUrls: Record<string, string> = {};
-  const packDir = pack.storage_path.replace(/\/pack\.json$/, "");
-  for (const [mediaId, asset] of Object.entries(packJson.assets ?? {})) {
-    const rel = asset?.relativePath;
-    if (!rel) continue;
-    const assetPath = `${packDir}/${rel}`;
-    const { data: assetSigned, error: assetSignErr } = await sb.storage
-      .from(pack.storage_bucket || BUCKET)
-      .createSignedUrl(assetPath, 60 * 30);
-    if (assetSignErr || !assetSigned?.signedUrl) {
-      throw new Error(`asset_signed_url:${mediaId}:${assetSignErr?.message ?? "missing"}`);
+  for (const mediaId of Object.keys(packJson.assets ?? {})) {
+    if (!assetRetrievalUrls[mediaId]) {
+      throw new Error(`asset_url_missing_for_pack_asset:${mediaId}`);
     }
-    assetRetrievalUrls[mediaId] = assetSigned.signedUrl;
   }
 
   return {
