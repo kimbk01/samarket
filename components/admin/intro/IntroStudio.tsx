@@ -46,6 +46,7 @@ import {
 } from "@/lib/intro/document/mutations";
 import {
   getIntroDocumentApi,
+  publishIntroDocumentApi,
   saveIntroDocumentApi,
 } from "./introDocumentApi";
 
@@ -57,6 +58,12 @@ type SaveUi =
   | "saved"
   | "error"
   | "conflict";
+type PublishUi =
+  | "idle"
+  | "confirm"
+  | "publishing"
+  | "success"
+  | "error";
 
 type PickerState =
   | null
@@ -104,6 +111,11 @@ export function IntroStudio({
   const [dirty, setDirty] = useState(false);
   const [saveUi, setSaveUi] = useState<SaveUi>("idle");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [publishUi, setPublishUi] = useState<PublishUi>("idle");
+  const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [lastPublishPackId, setLastPublishPackId] = useState<string | null>(
+    null,
+  );
   const [picker, setPicker] = useState<PickerState>(null);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState<string | null>(
     null,
@@ -207,6 +219,38 @@ export function IntroStudio({
     setDirty(false);
     setSaveUi("saved");
     setSaveMessage(ko ? "저장됨" : "Saved");
+    setPublishMessage(null);
+  };
+
+  const onPublishConfirmed = async () => {
+    if (!document || publishUi === "publishing" || dirty) return;
+    setPublishUi("publishing");
+    setPublishMessage(ko ? "게시 중…" : "Publishing…");
+    const idempotencyKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `publish-${documentId}-${draftVersion}-${Date.now()}`;
+    const res = await publishIntroDocumentApi({
+      documentId,
+      sourceDraftVersion: draftVersion,
+      idempotencyKey,
+    });
+    if (!res.ok || !res.result) {
+      setPublishUi("error");
+      setPublishMessage(
+        ko
+          ? `게시 실패: ${res.message ?? res.error ?? "error"}`
+          : `Publish failed: ${res.message ?? res.error ?? "error"}`,
+      );
+      return;
+    }
+    setPublishUi("success");
+    setLastPublishPackId(res.result.packId);
+    setPublishMessage(
+      ko
+        ? `불변 게시 버전 생성됨 (앱 적용 아님). Pack ${res.result.packId.slice(0, 8)}…`
+        : `Immutable revision created (NOT Live / NOT app exposure). Pack ${res.result.packId.slice(0, 8)}…`,
+    );
   };
 
   const openAddMediaLayer = (type: "IMAGE" | "LOGO") => {
@@ -316,6 +360,37 @@ export function IntroStudio({
               ? "저장"
               : "Save"}
         </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          disabled={
+            dirty ||
+            publishUi === "publishing" ||
+            publishUi === "confirm" ||
+            !document
+          }
+          onClick={() => {
+            setPublishUi("confirm");
+            setPublishMessage(null);
+          }}
+          data-intro-publish="1"
+          title={
+            dirty
+              ? ko
+                ? "게시 전에 저장하세요"
+                : "Save before Publish"
+              : ko
+                ? "불변 게시 버전 생성 (앱 적용 아님)"
+                : "Create immutable published revision (NOT app exposure)"
+          }
+        >
+          {publishUi === "publishing"
+            ? ko
+              ? "게시 중…"
+              : "Publishing…"
+            : ko
+              ? "게시"
+              : "Publish"}
+        </AdminActionButton>
         <span
           className="text-xs text-sam-muted"
           data-intro-save-state={saveUi}
@@ -329,7 +404,64 @@ export function IntroStudio({
                 ? "저장됨"
                 : "Saved")}
         </span>
+        {publishMessage ? (
+          <span
+            className="text-xs text-sam-muted"
+            data-intro-publish-state={publishUi}
+            data-intro-publish-pack-id={lastPublishPackId ?? undefined}
+          >
+            {publishMessage}
+          </span>
+        ) : null}
       </header>
+
+      {publishUi === "confirm" ? (
+        <div
+          className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-sam-fg"
+          data-intro-publish-confirm="1"
+          role="dialog"
+          aria-modal="true"
+        >
+          <p className="font-semibold">
+            {ko
+              ? "게시 확인 — 앱 적용이 아닙니다"
+              : "Confirm Publish — this is NOT app exposure"}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
+            <li>
+              {ko
+                ? "저장: Draft 저장 (편집 가능)"
+                : "Save: Draft save (still editable)"}
+            </li>
+            <li>
+              {ko
+                ? "게시: 불변 게시 버전(Revision) + Pack 생성"
+                : "Publish: create immutable Published revision + Pack"}
+            </li>
+            <li>
+              {ko
+                ? "앱 적용: V1에서 아직 불가 (Live 설정 / Device sync 없음)"
+                : "App exposure: NOT YET AVAILABLE in V1 (no Live apply / device sync)"}
+            </li>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AdminActionButton
+              variant="primary"
+              onClick={() => void onPublishConfirmed()}
+              data-intro-publish-confirm-yes="1"
+            >
+              {ko ? "불변 게시 버전 생성" : "Create immutable revision"}
+            </AdminActionButton>
+            <AdminActionButton
+              variant="secondary"
+              onClick={() => setPublishUi("idle")}
+              data-intro-publish-confirm-no="1"
+            >
+              {ko ? "취소" : "Cancel"}
+            </AdminActionButton>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid flex-1 grid-cols-1 lg:grid-cols-[220px_1fr_280px]">
         {/* Scene rail */}

@@ -88,8 +88,20 @@ export async function listIntroDocuments(args: {
   if (error) {
     throw new Error(`list_documents_failed:${error.message}`);
   }
-  return (data ?? []).map((row) => {
-    const r = row as DocRow;
+  const rows = (data ?? []) as DocRow[];
+  const ids = rows.map((r) => r.document_id);
+  const published = new Set<string>();
+  if (ids.length > 0) {
+    const { data: revHits } = await args.sb
+      .from("app_intro_revisions")
+      .select("document_id")
+      .eq("publish_state", "COMMITTED")
+      .in("document_id", ids);
+    for (const r of revHits ?? []) {
+      published.add(r.document_id as string);
+    }
+  }
+  return rows.map((r) => {
     return {
       documentId: r.document_id,
       title: r.title,
@@ -97,7 +109,7 @@ export async function listIntroDocuments(args: {
       sceneCount: sceneCountOf(r.document),
       updatedAt: r.updated_at,
       createdAt: r.created_at,
-      hasPublishedRevision: false,
+      hasPublishedRevision: published.has(r.document_id),
       isCurrentLive: false,
     };
   });

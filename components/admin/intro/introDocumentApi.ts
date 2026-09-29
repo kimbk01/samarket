@@ -114,6 +114,92 @@ export async function getIntroDocumentApi(documentId: string): Promise<{
   };
 }
 
+export type IntroPublishResultDto = {
+  publishOperationId: string;
+  publishedRevisionId: string;
+  packId: string;
+  documentIntegrity: string;
+  packIntegrity: string;
+  packStoragePath: string;
+  sourceDraftVersion: number;
+  liveKind: string;
+  liveInert: boolean;
+  resumed: boolean;
+  verdict: {
+    adminToPack: string;
+    adminToApp: string;
+    setLive: boolean;
+    appExposure: string;
+  };
+  identityTrace?: Record<string, unknown>;
+  packSummary?: Record<string, unknown>;
+};
+
+export async function publishIntroDocumentApi(args: {
+  documentId: string;
+  sourceDraftVersion: number;
+  idempotencyKey: string;
+}): Promise<{
+  ok: boolean;
+  result?: IntroPublishResultDto;
+  error?: string;
+  code?: string;
+  status: number;
+  issues?: unknown;
+  message?: string;
+}> {
+  const res = await fetch(
+    `/api/admin/intro/documents/${args.documentId}/publish`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sourceDraftVersion: args.sourceDraftVersion,
+        idempotencyKey: args.idempotencyKey,
+      }),
+    },
+  );
+  const json = await parseJson(res);
+  if (!res.ok || json.ok !== true) {
+    return {
+      ok: false,
+      status: res.status,
+      error: String(json.error ?? "publish_failed"),
+      code: typeof json.code === "string" ? json.code : undefined,
+      issues: json.issues,
+      message: typeof json.message === "string" ? json.message : undefined,
+    };
+  }
+  return {
+    ok: true,
+    status: res.status,
+    result: {
+      publishOperationId: String(json.publishOperationId),
+      publishedRevisionId: String(json.publishedRevisionId),
+      packId: String(json.packId),
+      documentIntegrity: String(json.documentIntegrity),
+      packIntegrity: String(json.packIntegrity),
+      packStoragePath: String(json.packStoragePath),
+      sourceDraftVersion: Number(json.sourceDraftVersion),
+      liveKind: String(json.liveKind ?? "NEVER_CONFIGURED"),
+      liveInert: Boolean(json.liveInert),
+      resumed: Boolean(json.resumed),
+      verdict: (json.verdict as IntroPublishResultDto["verdict"]) ?? {
+        adminToPack: "NOT_PROVEN",
+        adminToApp: "NOT_PROVEN",
+        setLive: false,
+        appExposure: "NOT_AVAILABLE_IN_V1",
+      },
+      identityTrace: json.identityTrace as Record<string, unknown> | undefined,
+      packSummary: json.packSummary as Record<string, unknown> | undefined,
+    },
+  };
+}
+
 export async function saveIntroDocumentApi(args: {
   documentId: string;
   expectedDraftVersion: number;

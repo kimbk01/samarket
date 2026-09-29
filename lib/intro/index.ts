@@ -39,3 +39,7 @@ export {
   canonicalizeAuthoredDocument,
   diffAuthoredDocuments,
 } from "./document/canonical-equality";
+export * from "./pack";
+export {
+  collectAuthoredMediaRefIds,
+} from "./publish/collect-media";
