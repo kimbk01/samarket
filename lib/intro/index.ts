@@ -28,3 +28,14 @@ export {
 } from "./fixtures/canonical-document";
 export * from "./db/authority";
 export * from "./db/alignment";
+export {
+  createEmptyIntroDocument,
+  createEmptyScene,
+  createDefaultLayer,
+  normalizeSceneTransitions,
+} from "./document/factory";
+export {
+  authoredDocumentsEqual,
+  canonicalizeAuthoredDocument,
+  diffAuthoredDocuments,
+} from "./document/canonical-equality";

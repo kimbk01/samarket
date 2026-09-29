@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AppIntroMediaLifecycleState,
+  AppIntroMediaOrigin,
   APP_INTRO_STORAGE_BUCKET,
   AppIntroStorageSubspace,
+  type AppIntroMediaOrigin as MediaOrigin,
 } from "@/lib/intro/db/authority";
 import { GifRuntimeFormat } from "@/lib/intro/contracts/gif";
 import {
@@ -44,6 +46,7 @@ type MediaRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  media_origin?: string | null;
 };
 
 type SourceGenRow = {
@@ -129,13 +132,17 @@ export async function createIntroMedia(args: {
   userId: string;
   mediaKind?: "IMAGE" | "LOGO" | "GIF";
   originalName?: string;
-}): Promise<{ mediaId: string; status: string }> {
+  /** Default OPERATOR for product Studio/Library. QA scripts pass QA_EVIDENCE. */
+  mediaOrigin?: MediaOrigin;
+}): Promise<{ mediaId: string; status: string; mediaOrigin: MediaOrigin }> {
   const mediaId = randomUUID();
+  const mediaOrigin = args.mediaOrigin ?? AppIntroMediaOrigin.OPERATOR;
   const { error } = await args.sb.from("app_intro_media").insert({
     media_id: mediaId,
     media_kind: args.mediaKind ?? "IMAGE",
     status: AppIntroMediaLifecycleState.CREATED,
     original_name: args.originalName ?? "",
+    media_origin: mediaOrigin,
     created_by: args.userId,
     updated_by: args.userId,
   });
@@ -146,7 +153,11 @@ export async function createIntroMedia(args: {
       error,
     );
   }
-  return { mediaId, status: AppIntroMediaLifecycleState.CREATED };
+  return {
+    mediaId,
+    status: AppIntroMediaLifecycleState.CREATED,
+    mediaOrigin,
+  };
 }
 
 /**
@@ -838,21 +849,32 @@ export type IntroMediaListItem = {
   failureMessage: string | null;
   updatedAt: string;
   createdAt: string;
+  mediaOrigin: MediaOrigin;
 };
 
 export async function listIntroMedia(args: {
   sb: SupabaseClient;
   limit?: number;
   q?: string;
+  /**
+   * Default OPERATOR — product Library/Picker.
+   * Pass QA_EVIDENCE only for explicit QA diagnostics.
+   * Pass "ALL" only for admin QA tooling (not normal operator path).
+   */
+  mediaOrigin?: MediaOrigin | "ALL";
 }): Promise<IntroMediaListItem[]> {
+  const originFilter = args.mediaOrigin ?? AppIntroMediaOrigin.OPERATOR;
   let query = args.sb
     .from("app_intro_media")
     .select(
-      "media_id,status,media_kind,original_name,mime,width,height,current_runtime_artifact_id,failure_code,failure_message,updated_at,created_at,deleted_at",
+      "media_id,status,media_kind,original_name,mime,width,height,current_runtime_artifact_id,failure_code,failure_message,updated_at,created_at,deleted_at,media_origin",
     )
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(args.limit ?? 100);
+  if (originFilter !== "ALL") {
+    query = query.eq("media_origin", originFilter);
+  }
   const q = args.q?.trim();
   if (q) {
     query = query.ilike("original_name", `%${q.replace(/[%_]/g, "")}%`);
@@ -896,6 +918,12 @@ export async function listIntroMedia(args: {
     const animated =
       Boolean(art?.animation_metadata?.animated) ||
       art?.format === GifRuntimeFormat.CANONICAL_ANIMATED_GIF;
+    const originRaw = (row.media_origin as string | null) ?? AppIntroMediaOrigin.OPERATOR;
+    const mediaOrigin =
+      originRaw === AppIntroMediaOrigin.QA_EVIDENCE ||
+      originRaw === AppIntroMediaOrigin.SYSTEM
+        ? originRaw
+        : AppIntroMediaOrigin.OPERATOR;
     return {
       mediaId,
       mediaRefId: mediaId,
@@ -912,6 +940,7 @@ export async function listIntroMedia(args: {
       failureMessage: row.failure_message as string | null,
       updatedAt: row.updated_at as string,
       createdAt: row.created_at as string,
+      mediaOrigin,
     };
   });
 }

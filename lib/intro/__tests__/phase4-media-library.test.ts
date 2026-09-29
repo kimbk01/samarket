@@ -72,12 +72,16 @@ describe("Phase 4 — Media Library operator contracts", () => {
     );
   });
 
-  it("Admin Media routes exist on product surface", () => {
-    const hub = readFileSync("app/admin/intro/IntroRebuildNotice.tsx", "utf8");
+  it("Admin Media routes remain available as secondary", () => {
+    const hub = readFileSync(
+      "components/admin/intro/IntroDocumentHub.tsx",
+      "utf8",
+    );
     expect(hub).toContain("/admin/intro/media");
     expect(hub).toContain("미디어 라이브러리");
     expect(hub).not.toContain("Set Live");
-    expect(hub).not.toContain("Publish");
+    expect(hub).not.toMatch(/[^a-zA-Z]Publish[^a-zA-Z]/);
+    expect(hub).not.toContain("Publish now");
     expect(existsSync("app/admin/intro/media/page.tsx")).toBe(true);
     expect(existsSync("app/admin/intro/media/picker/page.tsx")).toBe(true);
     expect(
@@ -116,9 +120,10 @@ describe("Phase 4 — Media Library operator contracts", () => {
     expect(lib).toContain("IntroMediaRuntimePreview");
   });
 
-  it("verified-zero still blocks old studio product", () => {
+  it("CUT A replaces rebuild hub — old DibayIntroStudio still absent", () => {
     const page = readFileSync("app/admin/intro/page.tsx", "utf8");
-    expect(page).toContain("IntroRebuildNotice");
+    expect(page).toContain("IntroDocumentHub");
+    expect(page).not.toContain("IntroRebuildNotice");
     expect(page).not.toContain("DibayIntroStudioPage");
     expect(existsSync("components/admin/dibay-intro")).toBe(false);
   });

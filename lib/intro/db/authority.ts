@@ -75,6 +75,19 @@ export const APP_INTRO_MUTATION_AUTHORITY = {
   directClientTablePolicies: false,
 } as const;
 
+/**
+ * CUT A — Media Library / Picker classification.
+ * Normal operator surfaces default to OPERATOR.
+ * QA diagnostics may request QA_EVIDENCE explicitly.
+ */
+export const AppIntroMediaOrigin = {
+  OPERATOR: "OPERATOR",
+  QA_EVIDENCE: "QA_EVIDENCE",
+  SYSTEM: "SYSTEM",
+} as const;
+export type AppIntroMediaOrigin =
+  (typeof AppIntroMediaOrigin)[keyof typeof AppIntroMediaOrigin];
+
 export function mapsToDeviceNoLiveIntro(kind: AppIntroLiveKind): boolean {
   return (
     kind === AppIntroLiveKind.NEVER_CONFIGURED ||

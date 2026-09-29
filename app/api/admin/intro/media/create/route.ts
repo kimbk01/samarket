@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   let body: {
     mediaKind?: "IMAGE" | "LOGO" | "GIF";
     originalName?: string;
+    mediaOrigin?: "OPERATOR" | "QA_EVIDENCE" | "SYSTEM";
   } = {};
   try {
     body = (await req.json()) as typeof body;
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
       userId: admin.userId,
       mediaKind: body.mediaKind,
       originalName: body.originalName,
+      // Product create defaults OPERATOR; only explicit QA may set QA_EVIDENCE.
+      mediaOrigin:
+        body.mediaOrigin === "QA_EVIDENCE" || body.mediaOrigin === "SYSTEM"
+          ? body.mediaOrigin
+          : "OPERATOR",
     });
     return NextResponse.json({ ok: true as const, ...created });
   } catch (err) {

@@ -23,9 +23,14 @@ export async function GET(req: NextRequest) {
   const limitRaw = req.nextUrl.searchParams.get("limit");
   const limit = limitRaw ? Number(limitRaw) : 100;
   const q = req.nextUrl.searchParams.get("q") ?? undefined;
+  const originRaw = req.nextUrl.searchParams.get("origin");
+  const mediaOrigin =
+    originRaw === "QA_EVIDENCE" || originRaw === "SYSTEM" || originRaw === "ALL"
+      ? originRaw
+      : "OPERATOR";
 
   try {
-    const items = await listIntroMedia({ sb, limit, q });
+    const items = await listIntroMedia({ sb, limit, q, mediaOrigin });
     return NextResponse.json({ ok: true as const, items });
   } catch (err) {
     const f = toClientFailure(err);

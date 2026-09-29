@@ -26,6 +26,7 @@ export type IntroMediaListItemDto = {
   failureMessage: string | null;
   updatedAt: string;
   createdAt: string;
+  mediaOrigin?: "OPERATOR" | "QA_EVIDENCE" | "SYSTEM";
 };
 
 export type IntroMediaPickerContext = "IMAGE" | "LOGO" | "GIF" | "ANY";

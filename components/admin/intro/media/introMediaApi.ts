@@ -8,12 +8,19 @@ async function parseJson(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
-export async function listIntroMediaApi(q?: string): Promise<{
+export async function listIntroMediaApi(
+  q?: string,
+  opts?: { origin?: "OPERATOR" | "QA_EVIDENCE" | "SYSTEM" | "ALL" },
+): Promise<{
   ok: boolean;
   items: IntroMediaListItemDto[];
   error?: string;
 }> {
-  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  // Product default OPERATOR — never silently include QA_EVIDENCE.
+  params.set("origin", opts?.origin ?? "OPERATOR");
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`/api/admin/intro/media${qs}`, {
     credentials: "same-origin",
     headers: { accept: "application/json" },
