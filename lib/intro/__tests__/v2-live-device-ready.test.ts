@@ -508,8 +508,9 @@ describe("V1 identity lock for V2", () => {
     expect(V1_IDS.sealedAssetId).toBe(
       "96994097-b73f-4a22-ba12-ac441d2493b1",
     );
+    // Committed V1 lock fixture — do not depend on gitignored .tmp evidence.
     const trace = JSON.parse(
-      readFileSync(".tmp/intro-v1-admin-pack/IDENTITY_TRACE.json", "utf8"),
+      readFileSync("lib/intro/fixtures/v1-identity-trace.json", "utf8"),
     );
     expect(trace.publishedRevisionId).toBe(V1_IDS.publishedRevisionId);
     expect(trace.packId).toBe(V1_IDS.packId);

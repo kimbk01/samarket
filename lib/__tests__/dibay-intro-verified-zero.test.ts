@@ -29,7 +29,10 @@ describe("dibay intro verified zero", () => {
   });
 
   it("DibayIntroHost native files are absent", () => {
-    expect(existsSync("android/app/src/main/java/com/dibay/app/intro")).toBe(false);
+    // Burned Host product must stay gone. V2+ DibayIntroAuthority under the same
+    // package path is the intended recovery surface and is allowed.
+    expect(existsSync("android/app/src/main/java/com/dibay/app/intro/DibayIntroHostOwner.java")).toBe(false);
+    expect(existsSync("android/app/src/main/java/com/dibay/app/intro/DibayIntroHostPlugin.java")).toBe(false);
     expect(existsSync("ios/App/App/Plugins/DibayIntroHostOwner.swift")).toBe(false);
     expect(existsSync("ios/App/App/Plugins/DibayIntroHostPlugin.swift")).toBe(false);
     const main = readFileSync("android/app/src/main/java/com/dibay/app/MainActivity.java", "utf8");
