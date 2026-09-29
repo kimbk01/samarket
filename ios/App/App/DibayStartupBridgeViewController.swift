@@ -4,10 +4,11 @@ import WebKit
 import os.log
 
 /**
- * Product Startup (iOS):
- * LaunchScreen (cream + DIBAY logo) → Native boot overlay (logo canvas) →
- * shellReady / dismissSplash → fade out → Cap WebView.
- * Authored Product Intro is removed. No Hybrid boot HTML · no location.replace.
+ * Product Startup (iOS) — ZERO CUT 2:
+ * LaunchScreen (cream ONLY, no product DIBAY logo) → Cap WebView → HOME.
+ * Authored Product Intro = 0. Native logo overlay attach = skipped.
+ * Future first DIBAY product frame = Intro Scene 1 (not implemented here).
+ * No Hybrid boot HTML · no location.replace · no logo mask over white.
  */
 class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
   private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")

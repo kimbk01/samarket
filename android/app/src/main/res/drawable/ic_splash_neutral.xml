@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ZERO CUT 2:
+  Android 12+ SplashScreen requires windowSplashScreenAnimatedIcon.
+  Empty vector falls back to the launcher icon (product DIBAY mark) on Samsung.
+  Solid cream fill matching @color/dibay_app_bg makes the icon slot invisible
+  without destroying AppIcon / launcher identity.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <path
+        android:fillColor="#FFFCFC"
+        android:pathData="M0,0h288v288h-288z" />
+</vector>

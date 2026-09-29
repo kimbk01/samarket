@@ -50,9 +50,9 @@ const config: CapacitorConfig = {
       },
   plugins: {
     SplashScreen: {
+      /** ZERO CUT 2: cream-only bootstrap; no product logo resource. */
       launchAutoHide: false,
       launchShowDuration: 0,
-      /** Match web `--sam-bg-app` / `--dibay-cream` — avoid gray→cream flash after native splash. */
       backgroundColor: "#FFFCFC",
       androidSplashResourceName: "splash",
     },
