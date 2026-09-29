@@ -4,6 +4,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildActiveMetaFromReady,
@@ -20,6 +21,18 @@ import {
   mapFrameToDevice,
 } from "@/lib/intro/geometry/responsive-mapping";
 import { computeIntroDurationMs } from "@/lib/intro/timeline/compute-duration";
+
+/**
+ * V3 Samsung READY Pack lock fixtures — committed under lib/intro/fixtures.
+ * NEVER read .tmp/ in CI: agent evidence dirs are not checked into git.
+ */
+const V3_FIXTURE_DIR = join(
+  process.cwd(),
+  "lib/intro/fixtures/v3-samsung-visible",
+);
+const V3_READY_PACK = join(V3_FIXTURE_DIR, "READY_PACK.json");
+const V3_EXPECTED_SCENE1 = join(V3_FIXTURE_DIR, "EXPECTED_SCENE1.json");
+const V3_SEALED_PNG = join(V3_FIXTURE_DIR, "sealed.png");
 
 const LOCKED = {
   publishedRevisionId: "4b5cf115-3ede-45a6-b6dd-a255915a9158",
@@ -186,11 +199,10 @@ describe("V3 READY→ACTIVE atomicity", () => {
 
 describe("V3 Expected Scene1 from Samsung READY Pack", () => {
   it("local evidence pack identity + Scene1 semantics match lock", () => {
-    const packPath = ".tmp/intro-v3-samsung-visible/READY_PACK.json";
-    const expectedPath = ".tmp/intro-v3-samsung-visible/EXPECTED_SCENE1.json";
-    expect(existsSync(packPath)).toBe(true);
-    expect(existsSync(expectedPath)).toBe(true);
-    const packBytes = readFileSync(packPath);
+    expect(existsSync(V3_READY_PACK)).toBe(true);
+    expect(existsSync(V3_EXPECTED_SCENE1)).toBe(true);
+    expect(existsSync(V3_SEALED_PNG)).toBe(true);
+    const packBytes = readFileSync(V3_READY_PACK);
     const pack = JSON.parse(packBytes.toString("utf8")) as {
       packId: string;
       publishedRevisionId: string;
@@ -222,21 +234,19 @@ describe("V3 Expected Scene1 from Samsung READY Pack", () => {
     expect(types).toEqual(["CTA", "IMAGE", "LOGO", "TEXT"]);
     expect(scene1.layers.every((l) => l.visible)).toBe(true);
 
-    const expected = JSON.parse(readFileSync(expectedPath, "utf8")) as {
+    const expected = JSON.parse(readFileSync(V3_EXPECTED_SCENE1, "utf8")) as {
       scene1: { content?: string; layers: Array<{ type: string }> };
       visibleDescription: { TEXT: string; CTA: string };
     };
     expect(expected.visibleDescription.TEXT).toContain("CUT A BROWSER QA TEXT");
     expect(expected.visibleDescription.CTA).toContain("시작하기");
 
-    const sealed = readFileSync(".tmp/intro-v3-samsung-visible/sealed.png");
+    const sealed = readFileSync(V3_SEALED_PNG);
     expect(`sha256:${sha256Hex(sealed)}`).toBe(LOCKED.sealedIntegrity);
   });
 
   it("timeline uses authored durations (no fixed Android timeout substitute)", () => {
-    const pack = JSON.parse(
-      readFileSync(".tmp/intro-v3-samsung-visible/READY_PACK.json", "utf8"),
-    ) as {
+    const pack = JSON.parse(readFileSync(V3_READY_PACK, "utf8")) as {
       document: Parameters<typeof computeIntroDurationMs>[0];
     };
     // 2000 + CUT0 + 2500 + FADE300 + 3000 = 7800
@@ -297,9 +307,7 @@ describe("V3 fail-open / no-network Intro dependency", () => {
       "utf8",
     );
     expect(packModel).toContain('"SLIDE"');
-    const pack = JSON.parse(
-      readFileSync(".tmp/intro-v3-samsung-visible/READY_PACK.json", "utf8"),
-    ) as {
+    const pack = JSON.parse(readFileSync(V3_READY_PACK, "utf8")) as {
       document: {
         scenes: Array<{ transitionAfter: { type: string } | null }>;
       };
@@ -310,9 +318,7 @@ describe("V3 fail-open / no-network Intro dependency", () => {
   });
 
   it("GIF not manufactured into Production Scene1", () => {
-    const pack = JSON.parse(
-      readFileSync(".tmp/intro-v3-samsung-visible/READY_PACK.json", "utf8"),
-    ) as {
+    const pack = JSON.parse(readFileSync(V3_READY_PACK, "utf8")) as {
       assets: Array<{ mime: string; kind: string }>;
       document: { scenes: Array<{ layers: Array<{ type: string }> }> };
     };
