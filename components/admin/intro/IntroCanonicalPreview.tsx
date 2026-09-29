@@ -154,6 +154,22 @@ export function IntroCanonicalPreview({
                 />
               );
             }
+            if (el.type === "CTA") {
+              const p = el.payload as import("@/lib/intro/contracts/document").CtaPayloadV1;
+              return (
+                <div
+                  key={el.id}
+                  className="absolute flex items-center justify-center text-center text-sm font-bold"
+                  style={{
+                    ...box,
+                    background: p.backgroundColor,
+                    color: p.textColor,
+                  }}
+                >
+                  {p.label}
+                </div>
+              );
+            }
             return null;
           })}
       </div>

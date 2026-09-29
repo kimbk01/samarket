@@ -87,10 +87,30 @@ final class DibayIntroRuntimeController {
     let surface = DibayIntroSceneSurface(frame: root.bounds)
     surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     surface.setMediaFiles(mediaFiles)
+    surface.onCta = { [weak self] action, dest in
+      self?.onCta(actionType: action, destination: dest)
+    }
     root.addSubview(surface)
     host.addSubview(root)
     overlay = root
     self.surface = surface
+  }
+
+  private func onCta(actionType: String, destination: String?) {
+    guard !aborted, !completed else { return }
+    if actionType == "NEXT_SCENE" {
+      sceneWorkItem?.cancel()
+      let next = sceneIndex + 1
+      if let model, next < model.scenes.count {
+        showScene(next)
+      } else {
+        complete("CTA_FINISH")
+      }
+    } else if actionType == "FINISH_INTRO" {
+      complete("CTA_FINISH")
+    } else if actionType == "INTERNAL_DESTINATION" {
+      complete("CTA_DESTINATION:\(destination ?? "")")
+    }
   }
 
   private func showScene(_ index: Int) {
@@ -141,11 +161,49 @@ final class DibayIntroRuntimeController {
       return
     }
     let current = model.scenes[sceneIndex]
-    if current.transitionType == "FADE" || current.transitionType == "SLIDE" {
-      abort("TRANSITION_NOT_IMPLEMENTED:\(current.transitionType)")
+    if current.transitionType == "FADE" {
+      runCrossfadeTo(next, durationMs: max(100, current.transitionDurationMs))
+      return
+    }
+    if current.transitionType == "SLIDE" {
+      runSlideTo(next, durationMs: max(100, current.transitionDurationMs))
       return
     }
     showScene(next)
+  }
+
+  private func runCrossfadeTo(_ nextIndex: Int, durationMs: Int) {
+    guard let model, let overlay, let hostView else {
+      abort("FADE_NO_SURFACE")
+      return
+    }
+    let nextScene = model.scenes[nextIndex]
+    let incoming = DibayIntroSceneSurface(frame: overlay.bounds)
+    incoming.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    incoming.setMediaFiles(mediaFiles)
+    incoming.onCta = { [weak self] action, dest in
+      self?.onCta(actionType: action, destination: dest)
+    }
+    incoming.alpha = 0
+    overlay.addSubview(incoming)
+    incoming.bindScene(nextScene, compositionW: model.compositionW, compositionH: model.compositionH)
+    let outgoing = surface
+    UIView.animate(withDuration: Double(durationMs) / 1000.0, animations: {
+      outgoing?.alpha = 0
+      incoming.alpha = 1
+    }, completion: { [weak self] _ in
+      guard let self, !self.aborted, !self.completed else { return }
+      outgoing?.removeFromSuperview()
+      self.surface = incoming
+      self.sceneIndex = nextIndex
+      self.watchFirstFrame()
+      self.sceneWorkItem?.cancel()
+      let work = DispatchWorkItem { [weak self] in self?.onSceneTick() }
+      self.sceneWorkItem = work
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + .milliseconds(max(100, nextScene.durationMs)), execute: work)
+    })
+    _ = hostView
   }
 
   private func complete(_ reason: String) {

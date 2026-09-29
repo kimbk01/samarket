@@ -147,11 +147,30 @@ public final class DibayIntroRuntimeController {
     overlayRoot.setBackgroundColor(0xFF000000);
     sceneSurface = new DibayIntroSceneSurface(activity);
     sceneSurface.setMediaFiles(mediaFiles);
+    sceneSurface.setCtaListener(this::onCta);
     overlayRoot.addView(
         sceneSurface,
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     decor.addView(overlayRoot);
+  }
+
+  private void onCta(String actionType, String destination) {
+    if (aborted || completed) return;
+    if ("NEXT_SCENE".equals(actionType)) {
+      mainHandler.removeCallbacks(sceneTick);
+      int next = sceneIndex + 1;
+      if (next >= (model != null ? model.scenes.size() : 0)) {
+        complete("CTA_FINISH");
+      } else {
+        showScene(next);
+      }
+    } else if ("FINISH_INTRO".equals(actionType)) {
+      complete("CTA_FINISH");
+    } else if ("INTERNAL_DESTINATION".equals(actionType)) {
+      complete("CTA_DESTINATION:" + (destination != null ? destination : ""));
+      // Web navigation is applied after handoff by MainActivity/JS bridge consumers.
+    }
   }
 
   private void showScene(int index) {
@@ -210,14 +229,102 @@ public final class DibayIntroRuntimeController {
       complete("TIMELINE_DONE");
       return;
     }
-    // V0: CUT only between scenes
     DibayIntroPackModel.Scene current = model.scenes.get(sceneIndex);
-    if ("FADE".equals(current.transitionType) || "SLIDE".equals(current.transitionType)) {
-      // Not yet implemented — fail closed (no silent CUT fallback)
-      abort("TRANSITION_NOT_IMPLEMENTED:" + current.transitionType);
+    if ("FADE".equals(current.transitionType)) {
+      runCrossfadeTo(next, Math.max(100, current.transitionDurationMs));
+      return;
+    }
+    if ("SLIDE".equals(current.transitionType)) {
+      runSlideTo(next, Math.max(100, current.transitionDurationMs));
       return;
     }
     showScene(next);
+  }
+
+  /** True crossfade: A + B simultaneous. No black interstitial. */
+  private void runCrossfadeTo(int nextIndex, int durationMs) {
+    if (model == null || sceneSurface == null || overlayRoot == null) {
+      abort("FADE_NO_SURFACE");
+      return;
+    }
+    DibayIntroPackModel.Scene nextScene = model.scenes.get(nextIndex);
+    DibayIntroSceneSurface incoming = new DibayIntroSceneSurface(activity);
+    incoming.setMediaFiles(mediaFilesSnapshot());
+    incoming.setCtaListener(this::onCta);
+    FrameLayout.LayoutParams lp =
+        new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    incoming.setAlpha(0f);
+    overlayRoot.addView(incoming, lp);
+    incoming.bindScene(nextScene, model.compositionW, model.compositionH);
+    final DibayIntroSceneSurface outgoing = sceneSurface;
+    outgoing
+        .animate()
+        .alpha(0f)
+        .setDuration(durationMs)
+        .start();
+    incoming
+        .animate()
+        .alpha(1f)
+        .setDuration(durationMs)
+        .withEndAction(
+            () -> {
+              if (aborted || completed) return;
+              overlayRoot.removeView(outgoing);
+              sceneSurface = incoming;
+              sceneIndex = nextIndex;
+              watchFirstFrame();
+              mainHandler.removeCallbacks(sceneTick);
+              mainHandler.postDelayed(sceneTick, Math.max(100, nextScene.durationMs));
+            })
+        .start();
+  }
+
+
+  /** Outgoing + incoming simultaneous slide (no black interstitial). */
+  private void runSlideTo(int nextIndex, int durationMs) {
+    if (model == null || sceneSurface == null || overlayRoot == null) {
+      abort("SLIDE_NO_SURFACE");
+      return;
+    }
+    DibayIntroPackModel.Scene nextScene = model.scenes.get(nextIndex);
+    DibayIntroSceneSurface incoming = new DibayIntroSceneSurface(activity);
+    incoming.setMediaFiles(mediaFilesSnapshot());
+    incoming.setCtaListener(this::onCta);
+    int width = overlayRoot.getWidth();
+    FrameLayout.LayoutParams lp =
+        new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    incoming.setTranslationX(width);
+    overlayRoot.addView(incoming, lp);
+    incoming.bindScene(nextScene, model.compositionW, model.compositionH);
+    final DibayIntroSceneSurface outgoing = sceneSurface;
+    outgoing.animate().translationX(-width).setDuration(durationMs).start();
+    incoming
+        .animate()
+        .translationX(0f)
+        .setDuration(durationMs)
+        .withEndAction(
+            () -> {
+              if (aborted || completed) return;
+              overlayRoot.removeView(outgoing);
+              sceneSurface = incoming;
+              sceneIndex = nextIndex;
+              watchFirstFrame();
+              mainHandler.removeCallbacks(sceneTick);
+              mainHandler.postDelayed(sceneTick, Math.max(100, nextScene.durationMs));
+            })
+        .start();
+  }
+
+  private Map<String, File> mediaFilesSnapshot() {
+    Map<String, File> out = new HashMap<>();
+    if (model == null) return out;
+    File verifiedRoot = delivery.store().verifiedDir();
+    for (DibayIntroPackModel.Asset asset : model.assetsByMediaId.values()) {
+      out.put(asset.mediaId, new File(verifiedRoot, asset.relativePath));
+    }
+    return out;
   }
 
   private void complete(String reason) {

@@ -34,6 +34,14 @@ final class DibayIntroPackModel {
     let weight: String
     let mediaId: String?
     let fit: String?
+    let ctaLabel: String?
+    let ctaActionType: String?
+    let ctaDestination: String?
+    let ctaBg: UIColor
+    let ctaText: UIColor
+    let motionType: String
+    let motionStartMs: Int
+    let motionDurationMs: Int
   }
 
   struct Scene {
@@ -162,10 +170,7 @@ final class DibayIntroPackModel {
 
   private static func parseElement(_ el: [String: Any]) throws -> Element {
     let type = (el["type"] as? String) ?? ""
-    if type == "CTA" {
-      throw ParseError.failure("ELEMENT_NOT_YET:CTA")
-    }
-    guard type == "TEXT" || type == "IMAGE" || type == "LOGO" else {
+    guard type == "TEXT" || type == "IMAGE" || type == "LOGO" || type == "CTA" else {
       throw ParseError.failure("UNSUPPORTED_ELEMENT:\(type)")
     }
     guard let frameJson = el["frame"] as? [String: Any] else {
@@ -179,6 +184,14 @@ final class DibayIntroPackModel {
     )
     guard let payload = el["payload"] as? [String: Any] else {
       throw ParseError.failure("MISSING_PAYLOAD")
+    }
+    var motionType = "NONE"
+    var motionStartMs = 0
+    var motionDurationMs = 0
+    if let motion = el["motion"] as? [String: Any] {
+      motionType = (motion["type"] as? String) ?? "NONE"
+      motionStartMs = (motion["startMs"] as? NSNumber)?.intValue ?? 0
+      motionDurationMs = (motion["durationMs"] as? NSNumber)?.intValue ?? 0
     }
     if type == "TEXT" {
       let text = (payload["text"] as? String) ?? ""
@@ -198,7 +211,55 @@ final class DibayIntroPackModel {
         align: (payload["align"] as? String) ?? "center",
         weight: (payload["weight"] as? String) ?? "bold",
         mediaId: nil,
-        fit: nil
+        fit: nil,
+        ctaLabel: nil,
+        ctaActionType: nil,
+        ctaDestination: nil,
+        ctaBg: .clear,
+        ctaText: .clear,
+        motionType: motionType,
+        motionStartMs: motionStartMs,
+        motionDurationMs: motionDurationMs
+      )
+    }
+    if type == "CTA" {
+      let label = (payload["label"] as? String) ?? ""
+      if label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        throw ParseError.failure("EMPTY_CTA_LABEL")
+      }
+      guard let action = payload["action"] as? [String: Any] else {
+        throw ParseError.failure("CTA_MISSING_ACTION")
+      }
+      let actionType = (action["type"] as? String) ?? ""
+      if actionType != "NEXT_SCENE" && actionType != "FINISH_INTRO" && actionType != "INTERNAL_DESTINATION" {
+        throw ParseError.failure("CTA_BAD_ACTION:\(actionType)")
+      }
+      let destination = (action["destination"] as? String) ?? ""
+      if actionType == "INTERNAL_DESTINATION" && destination.isEmpty {
+        throw ParseError.failure("CTA_MISSING_DESTINATION")
+      }
+      return Element(
+        id: (el["id"] as? String) ?? "",
+        type: type,
+        frame: frame,
+        zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
+        visible: (el["visible"] as? Bool) ?? true,
+        opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
+        text: "",
+        textColor: .clear,
+        fontSizeNorm: 0,
+        align: "center",
+        weight: "bold",
+        mediaId: nil,
+        fit: nil,
+        ctaLabel: label,
+        ctaActionType: actionType,
+        ctaDestination: destination,
+        ctaBg: color(fromHex: (payload["backgroundColor"] as? String) ?? "#4F46E5", fallback: UIColor(red: 0.31, green: 0.275, blue: 0.898, alpha: 1)),
+        ctaText: color(fromHex: (payload["textColor"] as? String) ?? "#FFFFFF", fallback: .white),
+        motionType: motionType,
+        motionStartMs: motionStartMs,
+        motionDurationMs: motionDurationMs
       )
     }
     let mediaId = (payload["mediaId"] as? String) ?? ""
@@ -220,7 +281,15 @@ final class DibayIntroPackModel {
       align: "center",
       weight: "regular",
       mediaId: mediaId,
-      fit: fit
+      fit: fit,
+      ctaLabel: nil,
+      ctaActionType: nil,
+      ctaDestination: nil,
+      ctaBg: .clear,
+      ctaText: .clear,
+      motionType: motionType,
+      motionStartMs: motionStartMs,
+      motionDurationMs: motionDurationMs
     )
   }
 

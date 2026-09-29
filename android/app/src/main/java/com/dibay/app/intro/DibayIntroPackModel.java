@@ -72,6 +72,14 @@ public final class DibayIntroPackModel {
     public final String weight;
     public final String mediaId;
     public final String fit;
+    public final String ctaLabel;
+    public final String ctaActionType;
+    public final String ctaDestination;
+    public final int ctaBgArgb;
+    public final int ctaTextArgb;
+    public final String motionType;
+    public final int motionStartMs;
+    public final int motionDurationMs;
 
     public Element(
         String id,
@@ -86,7 +94,15 @@ public final class DibayIntroPackModel {
         String align,
         String weight,
         String mediaId,
-        String fit) {
+        String fit,
+        String ctaLabel,
+        String ctaActionType,
+        String ctaDestination,
+        int ctaBgArgb,
+        int ctaTextArgb,
+        String motionType,
+        int motionStartMs,
+        int motionDurationMs) {
       this.id = id;
       this.type = type;
       this.frame = frame;
@@ -100,6 +116,14 @@ public final class DibayIntroPackModel {
       this.weight = weight;
       this.mediaId = mediaId;
       this.fit = fit;
+      this.ctaLabel = ctaLabel;
+      this.ctaActionType = ctaActionType;
+      this.ctaDestination = ctaDestination;
+      this.ctaBgArgb = ctaBgArgb;
+      this.ctaTextArgb = ctaTextArgb;
+      this.motionType = motionType != null ? motionType : "NONE";
+      this.motionStartMs = motionStartMs;
+      this.motionDurationMs = motionDurationMs;
     }
   }
 
@@ -337,10 +361,10 @@ public final class DibayIntroPackModel {
 
   private static ParseResult parseElement(JSONObject el) throws Exception {
     String type = el.optString("type", "");
-    if ("CTA".equals(type)) {
-      return new ParseResult(false, "ELEMENT_NOT_YET:CTA", null);
-    }
-    if (!"TEXT".equals(type) && !"IMAGE".equals(type) && !"LOGO".equals(type)) {
+    if (!"TEXT".equals(type)
+        && !"IMAGE".equals(type)
+        && !"LOGO".equals(type)
+        && !"CTA".equals(type)) {
       return new ParseResult(false, "UNSUPPORTED_ELEMENT:" + type, null);
     }
     JSONObject frameJson = el.optJSONObject("frame");
@@ -356,6 +380,15 @@ public final class DibayIntroPackModel {
     JSONObject payload = el.optJSONObject("payload");
     if (payload == null) {
       return new ParseResult(false, "MISSING_PAYLOAD", null);
+    }
+    JSONObject motion = el.optJSONObject("motion");
+    String motionType = "NONE";
+    int motionStartMs = 0;
+    int motionDurationMs = 0;
+    if (motion != null) {
+      motionType = motion.optString("type", "NONE");
+      motionStartMs = motion.optInt("startMs", 0);
+      motionDurationMs = motion.optInt("durationMs", 0);
     }
     Element element;
     if ("TEXT".equals(type)) {
@@ -377,7 +410,57 @@ public final class DibayIntroPackModel {
               payload.optString("align", "center"),
               payload.optString("weight", "bold"),
               null,
-              null);
+              null,
+              null,
+              null,
+              null,
+              Color.TRANSPARENT,
+              Color.TRANSPARENT,
+              motionType,
+              motionStartMs,
+              motionDurationMs);
+    } else if ("CTA".equals(type)) {
+      String label = payload.optString("label", "");
+      if (label.trim().isEmpty()) {
+        return new ParseResult(false, "EMPTY_CTA_LABEL", null);
+      }
+      JSONObject action = payload.optJSONObject("action");
+      if (action == null) {
+        return new ParseResult(false, "CTA_MISSING_ACTION", null);
+      }
+      String actionType = action.optString("type", "");
+      if (!"NEXT_SCENE".equals(actionType)
+          && !"FINISH_INTRO".equals(actionType)
+          && !"INTERNAL_DESTINATION".equals(actionType)) {
+        return new ParseResult(false, "CTA_BAD_ACTION:" + actionType, null);
+      }
+      String destination = action.optString("destination", "");
+      if ("INTERNAL_DESTINATION".equals(actionType) && destination.isEmpty()) {
+        return new ParseResult(false, "CTA_MISSING_DESTINATION", null);
+      }
+      element =
+          new Element(
+              el.optString("id", ""),
+              type,
+              frame,
+              el.optInt("zIndex", 0),
+              el.optBoolean("visible", true),
+              (float) el.optDouble("opacity", 1),
+              null,
+              Color.TRANSPARENT,
+              0f,
+              "center",
+              "bold",
+              null,
+              null,
+              label,
+              actionType,
+              destination,
+              parseColorHex(payload.optString("backgroundColor", "#4F46E5"), 0xFF4F46E5),
+              parseColorHex(payload.optString("textColor", "#FFFFFF"), Color.WHITE),
+              motionType,
+              motionStartMs,
+              motionDurationMs);
     } else {
       String mediaId = payload.optString("mediaId", "");
       if (mediaId.isEmpty()) {
@@ -401,7 +484,15 @@ public final class DibayIntroPackModel {
               "center",
               "regular",
               mediaId,
-              fit);
+              fit,
+              null,
+              null,
+              null,
+              Color.TRANSPARENT,
+              Color.TRANSPARENT,
+              motionType,
+              motionStartMs,
+              motionDurationMs);
     }
     Scene scene =
         new Scene(

@@ -91,12 +91,90 @@ export function IntroStudioPage({ documentId }: Props) {
     void loadMedia();
   }, [load, loadMedia]);
 
+  const [sceneIndex, setSceneIndex] = useState(0);
+
   function updateScene(mutator: (scene: SceneV1) => SceneV1) {
     setDocument((prev) => {
-      if (!prev || !prev.scenes[0]) return prev;
+      if (!prev || !prev.scenes[sceneIndex]) return prev;
       const scenes = [...prev.scenes];
-      scenes[0] = mutator(scenes[0]);
+      scenes[sceneIndex] = mutator(scenes[sceneIndex]);
       return { ...prev, scenes };
+    });
+  }
+
+  function addScene() {
+    setDocument((prev) => {
+      if (!prev) return prev;
+      const last = prev.scenes[prev.scenes.length - 1];
+      const bg =
+        last?.background.type === "COLOR"
+          ? last.background.color
+          : "#1E293B";
+      const next: SceneV1 = {
+        id: cryptoRandomId(),
+        durationMs: 2500,
+        background: { type: "COLOR", color: bg },
+        transition: { type: "CUT", durationMs: 0 },
+        elements: [
+          {
+            id: cryptoRandomId(),
+            type: "TEXT",
+            frame: { x: 0.08, y: 0.42, w: 0.84, h: 0.12 },
+            zIndex: 1,
+            visible: true,
+            opacity: 1,
+            motion: DEFAULT_MOTION,
+            payload: {
+              text: `장면 ${prev.scenes.length + 1}`,
+              color: "#FFFFFF",
+              fontSizeNorm: 0.045,
+              align: "center",
+              weight: "bold",
+            },
+          },
+        ],
+      };
+      return { ...prev, scenes: [...prev.scenes, next] };
+    });
+    setSceneIndex((i) => i + 1);
+  }
+
+  function setTransitionType(type: "CUT" | "FADE" | "SLIDE") {
+    updateScene((s) => ({
+      ...s,
+      transition:
+        type === "CUT"
+          ? { type: "CUT", durationMs: 0 }
+          : type === "FADE"
+            ? { type: "FADE", durationMs: 400 }
+            : { type: "SLIDE", durationMs: 400, direction: "LEFT" },
+    }));
+  }
+
+  function addCta() {
+    updateScene((s) => {
+      if (s.elements.some((e) => e.type === "CTA")) return s;
+      return {
+        ...s,
+        elements: [
+          ...s.elements,
+          {
+            id: cryptoRandomId(),
+            type: "CTA" as const,
+            frame: { x: 0.2, y: 0.78, w: 0.6, h: 0.08 },
+            zIndex: 5,
+            visible: true,
+            opacity: 1,
+            motion: DEFAULT_MOTION,
+            payload: {
+              label: "시작하기",
+              action: { type: "FINISH_INTRO" as const },
+              backgroundColor: "#4F46E5",
+              textColor: "#FFFFFF",
+            },
+          },
+        ],
+      };
     });
   }
 
@@ -207,7 +285,7 @@ export function IntroStudioPage({ documentId }: Props) {
     );
   }
 
-  const scene = document.scenes[0];
+  const scene = document.scenes[sceneIndex] ?? document.scenes[0];
   const textEl = scene?.elements.find((e) => e.type === "TEXT");
   const textPayload = textEl?.payload as TextPayloadV1 | undefined;
   const imageEl = scene?.elements.find((e) => e.type === "IMAGE");
@@ -353,7 +431,120 @@ export function IntroStudioPage({ documentId }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <section className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="font-medium text-sam-fg">장면 1</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-medium text-sam-fg">장면</h2>
+            {document.scenes.map((_, i) => (
+              <button
+                key={document.scenes[i].id}
+                type="button"
+                className={i === sceneIndex ? Sam.btn.primary : Sam.btn.secondary}
+                onClick={() => setSceneIndex(i)}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button type="button" className={Sam.btn.secondary} onClick={() => addScene()}>
+              + 새 장면
+            </button>
+            <button type="button" className={Sam.btn.secondary} onClick={() => addCta()}>
+              CTA 추가
+            </button>
+          </div>
+          <label className="block text-sm">
+            <span className="text-sam-muted">전환</span>
+            <select
+              className={`${Sam.input.base} mt-1 w-40`}
+              value={scene?.transition.type ?? "CUT"}
+              onChange={(e) =>
+                setTransitionType(e.target.value as "CUT" | "FADE" | "SLIDE")
+              }
+            >
+              <option value="CUT">CUT</option>
+              <option value="FADE">FADE</option>
+              <option value="SLIDE">SLIDE</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-sam-muted">텍스트 정렬</span>
+            <select
+              className={`${Sam.input.base} mt-1 w-40`}
+              value={textPayload?.align ?? "center"}
+              onChange={(e) => {
+                const align = e.target.value as "left" | "center" | "right";
+                updateScene((s) => ({
+                  ...s,
+                  elements: s.elements.map((el) => {
+                    if (el.type !== "TEXT") return el;
+                    const p = el.payload as TextPayloadV1;
+                    return { ...el, payload: { ...p, align } };
+                  }),
+                }));
+              }}
+            >
+              <option value="left">왼쪽</option>
+              <option value="center">가운데</option>
+              <option value="right">오른쪽</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-sam-muted">텍스트 색</span>
+            <input
+              type="color"
+              className="mt-1 block"
+              value={(textPayload?.color ?? "#FFFFFF").slice(0, 7)}
+              onChange={(e) => {
+                const color = e.target.value.toUpperCase();
+                updateScene((s) => ({
+                  ...s,
+                  elements: s.elements.map((el) => {
+                    if (el.type !== "TEXT") return el;
+                    const p = el.payload as TextPayloadV1;
+                    return { ...el, payload: { ...p, color } };
+                  }),
+                }));
+              }}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-sam-muted">텍스트 모션</span>
+            <select
+              className={`${Sam.input.base} mt-1 w-48`}
+              value={
+                (textEl?.motion?.type as string) ?? "NONE"
+              }
+              onChange={(e) => {
+                const type = e.target.value as
+                  | "NONE"
+                  | "FADE_IN"
+                  | "ENTER_TOP"
+                  | "ENTER_BOTTOM"
+                  | "ENTER_LEFT"
+                  | "ENTER_RIGHT"
+                  | "SCALE_IN";
+                updateScene((s) => ({
+                  ...s,
+                  elements: s.elements.map((el) => {
+                    if (el.type !== "TEXT") return el;
+                    return {
+                      ...el,
+                      motion:
+                        type === "NONE"
+                          ? DEFAULT_MOTION
+                          : { type, startMs: 0, durationMs: 500 },
+                    };
+                  }),
+                }));
+              }}
+            >
+              <option value="NONE">없음</option>
+              <option value="FADE_IN">페이드 인</option>
+              <option value="ENTER_TOP">위에서</option>
+              <option value="ENTER_BOTTOM">아래에서</option>
+              <option value="ENTER_LEFT">왼쪽에서</option>
+              <option value="ENTER_RIGHT">오른쪽에서</option>
+              <option value="SCALE_IN">확대</option>
+            </select>
+          </label>
 
           <label className="block text-sm">
             <span className="text-sam-muted">배경색</span>
@@ -534,10 +725,19 @@ export function IntroStudioPage({ documentId }: Props) {
             Admin / Android / iOS 동일 기하 해석
           </p>
           <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
-            <IntroCanonicalPreview document={document} mediaUrls={mediaUrls} />
+            <IntroCanonicalPreview document={document} sceneIndex={sceneIndex} mediaUrls={mediaUrls} />
           </div>
         </section>
       </div>
+
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm text-sam-muted">
+        <h2 className="font-medium text-sam-fg">시스템 시작 (OS)</h2>
+        <p className="mt-1">
+          Android Theme.SplashScreen / iOS LaunchScreen 은 Product Intro가 아닙니다.
+          네이티브 리소스 변경은 Admin intent → build input → native build → distribution
+          경로로만 반영됩니다. 서비스 적용으로 LaunchScreen이 바뀌지 않습니다.
+        </p>
+      </section>
     </div>
   );
 }
