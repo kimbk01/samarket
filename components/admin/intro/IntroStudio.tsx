@@ -80,6 +80,13 @@ import {
   humanLiveVersionLabel,
   humanPublishedVersionLabel,
 } from "@/lib/intro/document/authority-labels";
+import {
+  buildDraftConflictInfo,
+  draftVersionAfterAuthorityReload,
+  isDraftConflictBlockingWrites,
+  isDraftVersionConflictStatus,
+  type DraftConflictInfo,
+} from "@/lib/intro/document/draft-conflict";
 
 type StudioMode = "system" | "intro";
 
@@ -155,6 +162,11 @@ export function IntroStudio({
   const [dirty, setDirty] = useState(false);
   const [saveUi, setSaveUi] = useState<SaveUi>("idle");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  /** Open only on 409 — local edits kept until operator reloads server Draft. */
+  const [draftConflict, setDraftConflict] = useState<DraftConflictInfo | null>(
+    null,
+  );
+  const [conflictReloading, setConflictReloading] = useState(false);
   const [publishUi, setPublishUi] = useState<PublishUi>("idle");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   /** Authoritative from server — never session-hardcoded revision. */
@@ -208,8 +220,14 @@ export function IntroStudio({
     documentRef.current = next;
     setDocument(next);
     setDirty(true);
-    setSaveUi("dirty");
-    setSaveMessage(null);
+    setSaveUi((prev) => (prev === "conflict" ? "conflict" : "dirty"));
+    setSaveMessage((prev) => {
+      if (!prev) return null;
+      if (prev.includes("저장되지 않았습니다") || prev.includes("Not saved")) {
+        return prev;
+      }
+      return null;
+    });
   }, []);
 
   const load = useCallback(async () => {
@@ -227,7 +245,9 @@ export function IntroStudio({
     setSelectedSceneId(res.record.document.scenes[0]?.sceneId ?? null);
     setSelectedLayerId(null);
     setDirty(false);
+    setDraftConflict(null);
     setSaveUi("idle");
+    setSaveMessage(null);
     setLoading(false);
   }, [documentId]);
 
@@ -244,6 +264,19 @@ export function IntroStudio({
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
+
+  const refreshAuthority = useCallback(async () => {
+    setAuthorityLoading(true);
+    const res = await getIntroDocumentAuthorityApi(documentId);
+    setAuthorityLoading(false);
+    if (!res.ok || !res.authority) return null;
+    setRevisionAuthority(res.authority);
+    return res.authority;
+  }, [documentId]);
+
+  useEffect(() => {
+    void refreshAuthority();
+  }, [refreshAuthority]);
 
   const selectedScene = useMemo(() => {
     if (!document || !selectedSceneId) return null;
@@ -268,22 +301,48 @@ export function IntroStudio({
   );
 
   const firstSceneId = document?.scenes[0]?.sceneId ?? null;
+  const conflictBlocksWrites = isDraftConflictBlockingWrites(
+    saveUi,
+    draftConflict,
+  );
 
   const onSave = async () => {
     if (!document || saveUi === "saving") return;
+    // Never retry blindly with stale version while conflict is open.
+    if (conflictBlocksWrites) {
+      setSaveMessage(
+        ko
+          ? "버전 충돌 상태입니다. 서버 최신 초안을 불러온 뒤 다시 저장하세요."
+          : "Version conflict open. Reload the server draft before saving.",
+      );
+      return;
+    }
+    const expected = draftVersion;
     setSaveUi("saving");
     setSaveMessage(ko ? "저장 중…" : "Saving…");
     const res = await saveIntroDocumentApi({
       documentId,
-      expectedDraftVersion: draftVersion,
+      expectedDraftVersion: expected,
       document,
     });
-    if (res.status === 409) {
+    if (isDraftVersionConflictStatus(res.status)) {
+      // Keep local edits. Do not mark saved. Do not overwrite server.
+      let serverVersion = res.currentDraftVersion;
+      const authority = await getIntroDocumentApi(documentId);
+      if (authority.ok && authority.record) {
+        serverVersion = authority.record.draftVersion;
+      }
+      const info = buildDraftConflictInfo({
+        localExpectedDraftVersion: expected,
+        serverDraftVersionFrom409: serverVersion,
+      });
+      setDraftConflict(info);
+      setDirty(true);
       setSaveUi("conflict");
       setSaveMessage(
         ko
-          ? "다른 편집본과 충돌했습니다. 다시 불러온 뒤 편집하세요."
-          : "Version conflict. Reload and re-apply edits.",
+          ? `저장되지 않았습니다. 서버 초안이 더 최신입니다(서버 v${serverVersion ?? "?"} · 로컬 기대 v${expected}). 로컬 편집은 유지됩니다.`
+          : `Not saved. Server draft is newer (server v${serverVersion ?? "?"} · local expected v${expected}). Local edits kept.`,
       );
       return;
     }
@@ -299,23 +358,47 @@ export function IntroStudio({
     setDocument(res.record.document);
     setDraftVersion(res.record.draftVersion);
     setDirty(false);
+    setDraftConflict(null);
     setSaveUi("saved");
     setSaveMessage(ko ? "초안 저장 완료" : "Draft saved");
     setPublishMessage(null);
   };
 
-  const refreshAuthority = useCallback(async () => {
-    setAuthorityLoading(true);
-    const res = await getIntroDocumentAuthorityApi(documentId);
-    setAuthorityLoading(false);
-    if (!res.ok || !res.authority) return null;
-    setRevisionAuthority(res.authority);
-    return res.authority;
-  }, [documentId]);
-
-  useEffect(() => {
-    void refreshAuthority();
-  }, [refreshAuthority]);
+  /** Operator recovery: discard local conflict edits and adopt server Draft. */
+  const onReloadAuthoritativeDraft = async () => {
+    if (conflictReloading) return;
+    setConflictReloading(true);
+    setSaveMessage(
+      ko ? "서버 최신 초안 불러오는 중…" : "Loading authoritative draft…",
+    );
+    const res = await getIntroDocumentApi(documentId);
+    if (!res.ok || !res.record) {
+      setConflictReloading(false);
+      setSaveMessage(
+        ko
+          ? `서버 초안 불러오기 실패: ${res.error ?? "error"}`
+          : `Failed to reload server draft: ${res.error ?? "error"}`,
+      );
+      return;
+    }
+    const nextVersion = draftVersionAfterAuthorityReload(
+      res.record.draftVersion,
+    );
+    setDocument(res.record.document);
+    setDraftVersion(nextVersion);
+    setSelectedSceneId(res.record.document.scenes[0]?.sceneId ?? null);
+    setSelectedLayerId(null);
+    setDirty(false);
+    setDraftConflict(null);
+    setSaveUi("idle");
+    setSaveMessage(
+      ko
+        ? `서버 초안 v${nextVersion} 불러옴. 이전 로컬 미저장 편집은 버려졌습니다.`
+        : `Loaded server draft v${nextVersion}. Prior unsaved local edits discarded.`,
+    );
+    setConflictReloading(false);
+    await refreshAuthority();
+  };
 
   const serviceApplyCandidate: IntroPublishedRevisionSummaryDto | null =
     revisionAuthority?.latestPublished ?? null;
@@ -325,7 +408,8 @@ export function IntroStudio({
     revisionAuthority?.live.publishedRevisionId ?? null;
 
   const onPublishConfirmed = async () => {
-    if (!document || publishUi === "publishing" || dirty) return;
+    if (!document || publishUi === "publishing" || dirty || conflictBlocksWrites)
+      return;
     setPublishUi("publishing");
     setPublishMessage(ko ? "게시 중…" : "Publishing…");
     const idempotencyKey =
@@ -357,7 +441,13 @@ export function IntroStudio({
   };
 
   const onSetLiveConfirmed = async () => {
-    if (!serviceApplyCandidate || setLiveUi === "setting") return;
+    if (
+      !serviceApplyCandidate ||
+      setLiveUi === "setting" ||
+      conflictBlocksWrites ||
+      dirty
+    )
+      return;
     const targetRevisionId = serviceApplyCandidate.publishedRevisionId;
     setSetLiveUi("setting");
     setSetLiveMessage(ko ? "서비스에 적용 중…" : "Applying to service…");
@@ -526,6 +616,7 @@ export function IntroStudio({
       data-document-id={documentId}
       data-draft-version={draftVersion}
       data-dirty={dirty ? "1" : "0"}
+      data-draft-conflict={draftConflict ? "1" : "0"}
       data-studio-mode={studioMode}
     >
       <div
@@ -601,7 +692,12 @@ export function IntroStudio({
         </span>
         <AdminActionButton
           variant="primary"
-          disabled={!dirty || saveUi === "saving"}
+          disabled={
+            !dirty ||
+            saveUi === "saving" ||
+            conflictBlocksWrites ||
+            conflictReloading
+          }
           onClick={() => void onSave()}
           data-intro-save="1"
         >
@@ -617,6 +713,7 @@ export function IntroStudio({
           variant="secondary"
           disabled={
             dirty ||
+            conflictBlocksWrites ||
             publishUi === "publishing" ||
             publishUi === "confirm" ||
             !document
@@ -643,6 +740,7 @@ export function IntroStudio({
             setLiveUi === "setting" ||
             setLiveUi === "confirm" ||
             dirty ||
+            conflictBlocksWrites ||
             authorityLoading
           }
           onClick={() => {
@@ -695,6 +793,59 @@ export function IntroStudio({
           </span>
         ) : null}
       </header>
+
+      {saveUi === "conflict" && draftConflict ? (
+        <div
+          className="border-b border-amber-600/50 bg-amber-500/15 px-4 py-3 text-sm text-sam-fg"
+          data-intro-draft-conflict="1"
+          role="alert"
+        >
+          <p className="font-semibold" data-intro-draft-conflict-title="1">
+            {ko ? "초안 버전 충돌" : "Draft version conflict"}
+          </p>
+          <ul className="mt-2 list-none space-y-1 text-xs text-sam-muted">
+            <li data-intro-draft-conflict-local="1">
+              {ko ? "로컬 기대 버전" : "Local expected"}: v
+              {draftConflict.localExpectedDraftVersion}
+            </li>
+            <li data-intro-draft-conflict-server="1">
+              {ko ? "서버 최신 버전" : "Server draft"}: v
+              {draftConflict.serverDraftVersion}
+            </li>
+            <li>
+              {ko
+                ? "실패한 저장은 DB를 바꾸지 않았습니다. 로컬 미저장 편집은 아직 화면에 있습니다."
+                : "The failed Save did not mutate the database. Unsaved local edits are still on screen."}
+            </li>
+            <li>
+              {ko
+                ? "게시·서비스 적용은 충돌이 해소될 때까지 차단됩니다."
+                : "Publish and Service Apply stay blocked until conflict is resolved."}
+            </li>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AdminActionButton
+              variant="primary"
+              disabled={conflictReloading}
+              onClick={() => void onReloadAuthoritativeDraft()}
+              data-intro-draft-conflict-reload="1"
+            >
+              {conflictReloading
+                ? ko
+                  ? "불러오는 중…"
+                  : "Loading…"
+                : ko
+                  ? "서버 최신 초안 불러오기"
+                  : "Reload server draft"}
+            </AdminActionButton>
+          </div>
+          <p className="mt-2 text-[11px] text-sam-muted">
+            {ko
+              ? "불러오면 현재 로컬 미저장 편집은 버려지고, 다음 저장은 서버 버전을 기준으로 합니다."
+              : "Reload discards unsaved local edits and adopts the server draftVersion for the next Save."}
+          </p>
+        </div>
+      ) : null}
 
       <div
         className="flex flex-wrap items-center gap-4 border-b border-sam-border bg-sam-bg px-4 py-1.5 text-[11px]"
