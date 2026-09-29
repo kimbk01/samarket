@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AppIntroMediaLifecycleState,
   APP_INTRO_STORAGE_BUCKET,
+  AppIntroStorageSubspace,
 } from "@/lib/intro/db/authority";
 import { GifRuntimeFormat } from "@/lib/intro/contracts/gif";
 import {
@@ -820,31 +821,43 @@ export async function getIntroMedia(args: {
   return { media, source, runtime };
 }
 
+export type IntroMediaListItem = {
+  mediaId: string;
+  /** Authored document selection identity — equals mediaId for canonical Media. */
+  mediaRefId: string;
+  status: string;
+  mediaKind: string;
+  originalName: string;
+  mime: string | null;
+  width: number | null;
+  height: number | null;
+  runtimeArtifactId: string | null;
+  runtimeFormat: string | null;
+  animated: boolean;
+  failureCode: string | null;
+  failureMessage: string | null;
+  updatedAt: string;
+  createdAt: string;
+};
+
 export async function listIntroMedia(args: {
   sb: SupabaseClient;
   limit?: number;
-}): Promise<
-  Array<{
-    mediaId: string;
-    status: string;
-    mediaKind: string;
-    originalName: string;
-    mime: string | null;
-    width: number | null;
-    height: number | null;
-    runtimeArtifactId: string | null;
-    failureCode: string | null;
-    updatedAt: string;
-  }>
-> {
-  const { data, error } = await args.sb
+  q?: string;
+}): Promise<IntroMediaListItem[]> {
+  let query = args.sb
     .from("app_intro_media")
     .select(
-      "media_id,status,media_kind,original_name,mime,width,height,current_runtime_artifact_id,failure_code,updated_at,deleted_at",
+      "media_id,status,media_kind,original_name,mime,width,height,current_runtime_artifact_id,failure_code,failure_message,updated_at,created_at,deleted_at",
     )
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(args.limit ?? 100);
+  const q = args.q?.trim();
+  if (q) {
+    query = query.ilike("original_name", `%${q.replace(/[%_]/g, "")}%`);
+  }
+  const { data, error } = await query;
   if (error) {
     throw new MediaPipelineError(
       MediaFailureCategory.STORAGE_ERROR,
@@ -852,18 +865,190 @@ export async function listIntroMedia(args: {
       error,
     );
   }
-  return (data ?? []).map((row) => ({
-    mediaId: row.media_id as string,
-    status: row.status as string,
-    mediaKind: row.media_kind as string,
-    originalName: row.original_name as string,
-    mime: row.mime as string | null,
-    width: row.width as number | null,
-    height: row.height as number | null,
-    runtimeArtifactId: row.current_runtime_artifact_id as string | null,
-    failureCode: row.failure_code as string | null,
-    updatedAt: row.updated_at as string,
-  }));
+
+  const rows = data ?? [];
+  const runtimeIds = rows
+    .map((r) => r.current_runtime_artifact_id as string | null)
+    .filter((id): id is string => Boolean(id));
+
+  const runtimeById = new Map<
+    string,
+    { format: string; animation_metadata: Record<string, unknown> | null }
+  >();
+  if (runtimeIds.length > 0) {
+    const { data: arts } = await args.sb
+      .from("app_intro_runtime_artifacts")
+      .select("runtime_artifact_id,format,animation_metadata")
+      .in("runtime_artifact_id", runtimeIds);
+    for (const art of arts ?? []) {
+      runtimeById.set(art.runtime_artifact_id as string, {
+        format: art.format as string,
+        animation_metadata:
+          (art.animation_metadata as Record<string, unknown> | null) ?? null,
+      });
+    }
+  }
+
+  return rows.map((row) => {
+    const mediaId = row.media_id as string;
+    const runtimeId = row.current_runtime_artifact_id as string | null;
+    const art = runtimeId ? runtimeById.get(runtimeId) : undefined;
+    const animated =
+      Boolean(art?.animation_metadata?.animated) ||
+      art?.format === GifRuntimeFormat.CANONICAL_ANIMATED_GIF;
+    return {
+      mediaId,
+      mediaRefId: mediaId,
+      status: row.status as string,
+      mediaKind: row.media_kind as string,
+      originalName: row.original_name as string,
+      mime: row.mime as string | null,
+      width: row.width as number | null,
+      height: row.height as number | null,
+      runtimeArtifactId: runtimeId,
+      runtimeFormat: art?.format ?? null,
+      animated,
+      failureCode: row.failure_code as string | null,
+      failureMessage: row.failure_message as string | null,
+      updatedAt: row.updated_at as string,
+      createdAt: row.created_at as string,
+    };
+  });
+}
+
+/**
+ * Temporary signed READ for READY runtime artifact only.
+ * No permanent public URL. No sealed/packs/source authority via this path
+ * unless explicitly requesting source for non-authoritative upload preview.
+ */
+export async function issueSignedMediaRead(args: {
+  sb: SupabaseClient;
+  mediaId: string;
+  /** Default: runtime when READY. Source only for non-authoritative preview. */
+  purpose?: "runtime" | "source_preview";
+  expiresInSec?: number;
+}): Promise<{
+  mediaId: string;
+  purpose: "runtime" | "source_preview";
+  signedUrl: string;
+  expiresInSec: number;
+  mime: string | null;
+  format: string | null;
+  animated: boolean;
+}> {
+  const media = await getMedia(args.sb, args.mediaId);
+  const purpose = args.purpose ?? "runtime";
+  const expiresInSec = Math.min(Math.max(args.expiresInSec ?? 600, 60), 3600);
+
+  if (purpose === "runtime") {
+    if (media.status !== AppIntroMediaLifecycleState.READY) {
+      throw new MediaPipelineError(
+        MediaFailureCategory.INVALID_STATE,
+        "Runtime read requires READY media",
+      );
+    }
+    if (!media.current_runtime_artifact_id) {
+      throw new MediaPipelineError(
+        MediaFailureCategory.NOT_FOUND,
+        "READY media missing runtime artifact",
+      );
+    }
+    const { data: runtime, error } = await args.sb
+      .from("app_intro_runtime_artifacts")
+      .select("*")
+      .eq("runtime_artifact_id", media.current_runtime_artifact_id)
+      .maybeSingle();
+    if (error || !runtime) {
+      throw new MediaPipelineError(
+        MediaFailureCategory.NOT_FOUND,
+        "Runtime artifact not found",
+        error,
+      );
+    }
+    const path = runtime.storage_path as string;
+    if (!path.startsWith(AppIntroStorageSubspace.RUNTIME)) {
+      throw new MediaPipelineError(
+        MediaFailureCategory.STORAGE_ERROR,
+        "Runtime path is not under authority/v1/runtime/",
+      );
+    }
+    const { data: signed, error: signErr } = await args.sb.storage
+      .from(INTRO_MEDIA_BUCKET)
+      .createSignedUrl(path, expiresInSec);
+    if (signErr || !signed?.signedUrl) {
+      throw new MediaPipelineError(
+        MediaFailureCategory.STORAGE_ERROR,
+        "Failed to issue runtime signed read",
+        signErr,
+      );
+    }
+    const anim = (runtime.animation_metadata as Record<string, unknown> | null) ?? null;
+    return {
+      mediaId: args.mediaId,
+      purpose: "runtime",
+      signedUrl: signed.signedUrl,
+      expiresInSec,
+      mime: mimeForRuntimeFormat(runtime.format as string),
+      format: runtime.format as string,
+      animated:
+        Boolean(anim?.animated) ||
+        runtime.format === GifRuntimeFormat.CANONICAL_ANIMATED_GIF,
+    };
+  }
+
+  // Non-authoritative source preview only (never treated as READY visual).
+  if (!media.current_source_generation_id) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.NOT_FOUND,
+      "No source generation for preview",
+    );
+  }
+  const { data: source } = await args.sb
+    .from("app_intro_source_generations")
+    .select("*")
+    .eq("source_generation_id", media.current_source_generation_id)
+    .maybeSingle();
+  if (!source || source.integrity === PENDING_UPLOAD_INTEGRITY) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.NOT_FOUND,
+      "Source object not available for preview",
+    );
+  }
+  assertSourcePath(source.storage_path as string);
+  const { data: signed, error: signErr } = await args.sb.storage
+    .from(INTRO_MEDIA_BUCKET)
+    .createSignedUrl(source.storage_path as string, expiresInSec);
+  if (signErr || !signed?.signedUrl) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.STORAGE_ERROR,
+      "Failed to issue source preview signed read",
+      signErr,
+    );
+  }
+  return {
+    mediaId: args.mediaId,
+    purpose: "source_preview",
+    signedUrl: signed.signedUrl,
+    expiresInSec,
+    mime: (source.mime as string | null) ?? media.mime,
+    format: null,
+    animated: false,
+  };
+}
+
+function mimeForRuntimeFormat(format: string): string | null {
+  switch (format) {
+    case "JPEG":
+      return "image/jpeg";
+    case "PNG":
+      return "image/png";
+    case "WEBP":
+      return "image/webp";
+    case GifRuntimeFormat.CANONICAL_ANIMATED_GIF:
+      return "image/gif";
+    default:
+      return null;
+  }
 }
 
 /**

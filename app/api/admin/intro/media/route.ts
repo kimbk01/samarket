@@ -7,7 +7,7 @@ import { toClientFailure } from "@/lib/intro/media/failure";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/intro/media — list for future Media Library (backend only). */
+/** GET /api/admin/intro/media — Admin Media Library list (operator UX). */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -22,9 +22,10 @@ export async function GET(req: NextRequest) {
 
   const limitRaw = req.nextUrl.searchParams.get("limit");
   const limit = limitRaw ? Number(limitRaw) : 100;
+  const q = req.nextUrl.searchParams.get("q") ?? undefined;
 
   try {
-    const items = await listIntroMedia({ sb, limit });
+    const items = await listIntroMedia({ sb, limit, q });
     return NextResponse.json({ ok: true as const, items });
   } catch (err) {
     const f = toClientFailure(err);
