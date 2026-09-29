@@ -159,14 +159,14 @@ async function uploadOne(cookie, name, bytes, mime, mediaKind = "IMAGE") {
     { method: "POST", body: "{}" },
   );
   if (confirm.status !== 200) {
-    throw new Error(`confirm failed ${JSON.stringify(confirm.json)}`);
+    return { mediaId, confirm, process: null, failedAt: "confirm" };
   }
   const process = await api(
     `/api/admin/intro/media/${mediaId}/process`,
     cookie,
     { method: "POST", body: "{}" },
   );
-  return { mediaId, process };
+  return { mediaId, confirm, process, failedAt: null };
 }
 
 async function main() {
@@ -273,33 +273,68 @@ async function main() {
   log(`fixture05 runtime pages=${pages} (expect >= 3)`);
   if (pages < 3) throw new Error("fixture 05 runtime is not multi-frame");
 
-  // Upload smoke: tiny JPEG through Library APIs
+  // Upload smoke: tiny JPEG/PNG/WebP through Library APIs
   const jpeg = await sharp({
     create: { width: 32, height: 24, channels: 3, background: "#336699" },
   })
     .jpeg()
     .toBuffer();
-  const up = await uploadOne(
+  const png = await sharp({
+    create: { width: 28, height: 28, channels: 4, background: { r: 20, g: 180, b: 90, alpha: 0.8 } },
+  })
+    .png()
+    .toBuffer();
+  const webp = await sharp({
+    create: { width: 40, height: 30, channels: 3, background: "#aa55ff" },
+  })
+    .webp()
+    .toBuffer();
+
+  const upJpeg = await uploadOne(
     cookie,
     `phase4-lib-${Date.now()}.jpg`,
     jpeg,
     "image/jpeg",
   );
-  report.steps.uploadJpeg = {
-    mediaId: up.mediaId,
-    processStatus: up.process.status,
-    mediaStatus: up.process.json?.status,
-    ready: up.process.json?.status === "READY",
-  };
-  log(
-    `upload jpeg → process ${up.process.status} status=${up.process.json?.status}`,
-  );
-  if (!report.steps.uploadJpeg.ready) {
-    throw new Error(`jpeg not READY ${JSON.stringify(up.process.json)}`);
+  if (upJpeg.failedAt || upJpeg.process?.json?.status !== "READY") {
+    throw new Error(`jpeg not READY ${JSON.stringify(upJpeg)}`);
   }
+  report.steps.uploadJpeg = {
+    mediaId: upJpeg.mediaId,
+    processStatus: upJpeg.process.status,
+    mediaStatus: upJpeg.process.json?.status,
+    ready: true,
+  };
+  log(`upload jpeg → READY ${upJpeg.mediaId}`);
+
+  const upPng = await uploadOne(
+    cookie,
+    `phase4-lib-${Date.now()}.png`,
+    png,
+    "image/png",
+  );
+  report.steps.uploadPng = {
+    mediaId: upPng.mediaId,
+    ready: upPng.process?.json?.status === "READY",
+  };
+  log(`upload png → ${upPng.process?.json?.status}`);
+  if (!report.steps.uploadPng.ready) throw new Error("png not READY");
+
+  const upWebp = await uploadOne(
+    cookie,
+    `phase4-lib-${Date.now()}.webp`,
+    webp,
+    "image/webp",
+  );
+  report.steps.uploadWebp = {
+    mediaId: upWebp.mediaId,
+    ready: upWebp.process?.json?.status === "READY",
+  };
+  log(`upload webp → ${upWebp.process?.json?.status}`);
+  if (!report.steps.uploadWebp.ready) throw new Error("webp not READY");
 
   const readJpeg = await api(
-    `/api/admin/intro/media/${up.mediaId}/signed-read`,
+    `/api/admin/intro/media/${upJpeg.mediaId}/signed-read`,
     cookie,
     { method: "POST", body: JSON.stringify({ purpose: "runtime" }) },
   );
@@ -308,22 +343,28 @@ async function main() {
     format: readJpeg.json?.format,
   };
 
-  // Malformed failure — not READY
+  // Malformed failure — not READY (may fail at confirm)
   const bad = await uploadOne(
     cookie,
     `phase4-bad-${Date.now()}.bin`,
     Buffer.from("not-an-image-payload"),
     "application/octet-stream",
   );
+  const badGet = await api(`/api/admin/intro/media/${bad.mediaId}`, cookie);
   report.steps.malformed = {
     mediaId: bad.mediaId,
-    status: bad.process.json?.status,
-    category: bad.process.json?.category,
-    notReady: bad.process.json?.status !== "READY",
+    failedAt: bad.failedAt,
+    confirmCategory: bad.confirm?.json?.category ?? null,
+    getStatus: badGet.json?.status,
+    notReady: badGet.json?.status !== "READY",
+    category: bad.confirm?.json?.category ?? bad.process?.json?.category,
   };
   log(
-    `malformed → status=${bad.process.json?.status} cat=${bad.process.json?.category}`,
+    `malformed → get=${badGet.json?.status} cat=${report.steps.malformed.category} failedAt=${bad.failedAt}`,
   );
+  if (!report.steps.malformed.notReady) {
+    throw new Error("malformed unexpectedly READY");
+  }
 
   // Live inert
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -356,6 +397,8 @@ async function main() {
     report.steps.signedRead.ok &&
     report.steps.fixture05RuntimeBytes.animatedPagesPass &&
     report.steps.uploadJpeg.ready &&
+    report.steps.uploadPng.ready &&
+    report.steps.uploadWebp.ready &&
     report.steps.jpegSignedRead.ok &&
     report.steps.malformed.notReady &&
     report.steps.live.inert;
