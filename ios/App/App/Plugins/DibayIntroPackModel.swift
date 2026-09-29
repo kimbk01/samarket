@@ -275,9 +275,27 @@ final class DibayIntroPackModel {
   }
 
   private static func jsonStringLiteral(_ s: String) -> String {
-    let data = try? JSONSerialization.data(withJSONObject: s, options: [])
-    if let data, let out = String(data: data, encoding: .utf8) { return out }
-    return "\"\""
+    // Match JSON.stringify — do NOT escape solidus `/` (Foundation JSONSerialization may).
+    var out = "\""
+    for ch in s.unicodeScalars {
+      switch ch {
+      case "\"": out += "\\\""
+      case "\\": out += "\\\\"
+      case "\u{8}": out += "\\b"
+      case "\u{c}": out += "\\f"
+      case "\n": out += "\\n"
+      case "\r": out += "\\r"
+      case "\t": out += "\\t"
+      default:
+        if ch.value < 0x20 {
+          out += String(format: "\\u%04x", ch.value)
+        } else {
+          out.append(Character(ch))
+        }
+      }
+    }
+    out += "\""
+    return out
   }
 
   static func sha256Hex(ofCanonical value: Any) -> String {

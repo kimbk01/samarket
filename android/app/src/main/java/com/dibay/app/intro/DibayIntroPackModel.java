@@ -173,11 +173,31 @@ public final class DibayIntroPackModel {
         && !expectedIntegrity.equals(embedded)) {
       return new ParseResult(false, "PACK_INTEGRITY_MISMATCH", null);
     }
-    // Verify canonical integrity of object without packageIntegrity
-    JSONObject forHash = new JSONObject(root.toString());
-    forHash.remove("packageIntegrity");
+    // Mutate a shallow copy — do NOT re-serialize via root.toString() (float drift).
+    JSONObject forHash = new JSONObject();
+    Iterator<String> keys = root.keys();
+    while (keys.hasNext()) {
+      String k = keys.next();
+      if ("packageIntegrity".equals(k)) continue;
+      forHash.put(k, root.get(k));
+    }
     String computed = sha256Hex(canonicalize(forHash).getBytes(StandardCharsets.UTF_8));
     if (!computed.equals(embedded)) {
+      try {
+        String canon = canonicalize(forHash);
+        android.util.Log.e(
+            "DibayIntroPack",
+            "integrity_mismatch computed="
+                + computed
+                + " embedded="
+                + embedded
+                + " canonLen="
+                + canon.length()
+                + " canonHead="
+                + canon.substring(0, Math.min(240, canon.length())));
+      } catch (Exception logErr) {
+        android.util.Log.e("DibayIntroPack", "integrity_mismatch_log_failed", logErr);
+      }
       return new ParseResult(false, "PACK_INTEGRITY_COMPUTE_MISMATCH", null);
     }
     return parseRoot(root, embedded);
@@ -415,7 +435,7 @@ public final class DibayIntroPackModel {
     return fallback;
   }
 
-  /** Canonical JSON with sorted object keys — matches lib/intro/integrity.ts */
+  /** Canonical JSON with sorted object keys — matches lib/intro/integrity.ts JSON.stringify(sortKeys). */
   public static String canonicalize(Object value) throws Exception {
     if (value == null || value == JSONObject.NULL) {
       return "null";
@@ -434,7 +454,7 @@ public final class DibayIntroPackModel {
       for (String k : sorted.keySet()) {
         if (!first) sb.append(',');
         first = false;
-        sb.append(JSONObject.quote(k));
+        sb.append(jsonStringLiteral(k));
         sb.append(':');
         sb.append(canonicalize(sorted.get(k)));
       }
@@ -453,12 +473,71 @@ public final class DibayIntroPackModel {
       return sb.toString();
     }
     if (value instanceof String) {
-      return JSONObject.quote((String) value);
+      return jsonStringLiteral((String) value);
     }
-    if (value instanceof Number || value instanceof Boolean) {
-      return JSONObject.wrap(value).toString();
+    if (value instanceof Boolean) {
+      return ((Boolean) value) ? "true" : "false";
     }
-    return JSONObject.wrap(value).toString();
+    if (value instanceof Number) {
+      // Match JSON.stringify number formatting (no scientific for our authored values).
+      return numberLiteral((Number) value);
+    }
+    return jsonStringLiteral(String.valueOf(value));
+  }
+
+  /**
+   * ECMAScript JSON.stringify string quoting — does NOT escape solidus `/`.
+   * Android JSONObject.quote escapes `/` as `\/`, which breaks pack integrity.
+   */
+  static String jsonStringLiteral(String s) {
+    StringBuilder sb = new StringBuilder(s.length() + 2);
+    sb.append('"');
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      switch (c) {
+        case '"':
+          sb.append("\\\"");
+          break;
+        case '\\':
+          sb.append("\\\\");
+          break;
+        case '\b':
+          sb.append("\\b");
+          break;
+        case '\f':
+          sb.append("\\f");
+          break;
+        case '\n':
+          sb.append("\\n");
+          break;
+        case '\r':
+          sb.append("\\r");
+          break;
+        case '\t':
+          sb.append("\\t");
+          break;
+        default:
+          if (c < 0x20) {
+            sb.append(String.format("\\u%04x", (int) c));
+          } else {
+            sb.append(c);
+          }
+      }
+    }
+    sb.append('"');
+    return sb.toString();
+  }
+
+  static String numberLiteral(Number n) {
+    if (n instanceof Double || n instanceof Float) {
+      double d = n.doubleValue();
+      if (d == Math.rint(d) && !Double.isInfinite(d)) {
+        return Long.toString((long) d);
+      }
+      // Double.toString matches JS for our authored normalized geometry.
+      return Double.toString(d);
+    }
+    return n.toString();
   }
 
   public static String sha256Hex(byte[] bytes) throws Exception {
