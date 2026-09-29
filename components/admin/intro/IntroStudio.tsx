@@ -827,6 +827,12 @@ function StudioCanvas({
               data-intro-layer={layer.layerId}
               data-layer-type={layer.type}
               onPointerDown={(e) => onPointerDown(e, layer, "move")}
+              onClick={(e) => {
+                // Keep selection after pointerup. Canvas onClick clears selection;
+                // without this stop, every layer click/drag ends deselected and
+                // resize handles become unreachable (CUT A Production browser QA).
+                e.stopPropagation();
+              }}
             >
               <LayerPreview layer={layer} />
               {selected ? (
