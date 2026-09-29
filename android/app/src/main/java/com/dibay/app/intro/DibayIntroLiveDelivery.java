@@ -57,26 +57,16 @@ public final class DibayIntroLiveDelivery {
 
   /**
    * Cold-start sync. Runs on caller thread (background).
-   * Critical path: verified local matching last Live pointer → Scene1 immediately.
-   * Do NOT wait Live/network/WebView before that first paint.
-   * Network Live refresh only when local match is absent.
+   * Authority: always refresh Live when network origin is available.
+   * Local verified package may render only after it matches CURRENT Live
+   * (or offlinePolicy when Live cannot be fetched).
+   * Do NOT skip Live check based on a previously cached pointer alone —
+   * that breaks Admin Publish/Apply → device cold start.
    */
   public Result syncForColdStart() {
-    Result localFast = offlinePolicy();
-    if (localFast.canRender) {
-      Log.i(
-          TAG,
-          "verified_local_fast reason="
-              + localFast.reason
-              + " packageId="
-              + localFast.packageId);
-      return localFast;
-    }
     String origin = DibayServerOrigin.resolve(context);
     if (origin == null || origin.isEmpty()) {
-      // Offline: only matching verified may render — but we don't know Live.
-      // Without Live pointer, LIVE_MATCH_OR_NO_INTRO → try last pointer.
-      return localFast;
+      return offlinePolicy();
     }
     try {
       JSONObject live = httpGetJson(origin + "/api/intro/device/live", 8_000);

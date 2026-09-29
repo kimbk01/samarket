@@ -17,16 +17,12 @@ final class DibayIntroLiveDelivery {
   let store = DibayIntroVerifiedStore()
 
   func syncForColdStart() -> Result {
-    // Critical path: verified local matching last Live pointer → Scene1 immediately.
-    // Do not wait Live/network before that first paint.
-    let localFast = offlinePolicy()
-    if localFast.canRender {
-      NSLog("[DibayIntroDelivery] verified_local_fast reason=%@ packageId=%@",
-            localFast.reason, localFast.packageId ?? "")
-      return localFast
-    }
+    // Authority: always refresh Live when network origin is available.
+    // Local verified package may render only after it matches CURRENT Live
+    // (or offlinePolicy when Live cannot be fetched).
+    // Do NOT skip Live check based on a previously cached pointer alone.
     guard let origin = Self.resolveServerOrigin(), !origin.isEmpty else {
-      return localFast
+      return offlinePolicy()
     }
     do {
       guard let live = try httpGetJson(url: origin + "/api/intro/device/live", timeout: 8) else {

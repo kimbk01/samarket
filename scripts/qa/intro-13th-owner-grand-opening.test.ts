@@ -2,7 +2,7 @@
  * Owner fixture via Admin document services (same code path as Admin APIs).
  * Run: npx vitest run scripts/qa/intro-13th-owner-grand-opening.test.ts
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { uploadAndReadyIntroMedia } from "@/lib/intro/media/service";
@@ -20,6 +20,7 @@ import {
 const OUT = ".tmp/intro-13th-owner-cms";
 const TITLE = "DIBAY GRAND OPENING";
 const USER = "11111111-1111-1111-1111-111111111111";
+const HAS_LOCAL_ENV = existsSync(".env.local");
 
 function loadEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -38,7 +39,7 @@ function loadEnv(): Record<string, string> {
   return env;
 }
 
-describe("intro 13th owner grand opening fixture", () => {
+describe.skipIf(!HAS_LOCAL_ENV)("intro 13th owner grand opening fixture", () => {
   it(
     "creates publishes and applies DIBAY GRAND OPENING via admin services",
     async () => {

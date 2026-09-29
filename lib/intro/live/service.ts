@@ -89,16 +89,34 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
 
 export async function setLiveRelease(
   sb: SupabaseClient,
-  args: { releaseId: string; userId: string },
+  args: {
+    releaseId: string;
+    userId: string;
+    /**
+     * When set, Apply fail-closes unless the release was published from this
+     * draft version — prevents applying a stale release after draft edits.
+     */
+    expectedSourceDraftVersion?: number;
+  },
 ): Promise<LiveStatus> {
   const { data: rev, error: revErr } = await sb
     .from("app_intro_revisions")
-    .select("published_revision_id, pack_id, publish_state")
+    .select(
+      "published_revision_id, pack_id, publish_state, source_draft_version, document_id",
+    )
     .eq("published_revision_id", args.releaseId)
     .maybeSingle();
   if (revErr) throw new Error(revErr.message);
   if (!rev || rev.publish_state !== "COMMITTED" || !rev.pack_id) {
     throw new Error("release_not_committed");
+  }
+  if (
+    typeof args.expectedSourceDraftVersion === "number" &&
+    rev.source_draft_version !== args.expectedSourceDraftVersion
+  ) {
+    const err = new Error("stale_release_for_current_draft");
+    (err as Error & { status: number }).status = 409;
+    throw err;
   }
 
   const { error } = await sb.from("app_intro_live").upsert(
@@ -125,7 +143,13 @@ export async function getDocumentAuthority(
 ): Promise<{
   draftVersion: number;
   latestReleaseId: string | null;
+  latestReleaseSourceDraftVersion: number | null;
+  /** True when current saved draft has a matching committed publish. */
+  draftMatchesLatestRelease: boolean;
+  /** True when Live pointer equals this document's latest release. */
+  liveMatchesLatestRelease: boolean;
   liveReleaseId: string | null;
+  /** This document owns the current SERVER Live pointer (content may still lag draft). */
   isLive: boolean;
 }> {
   const { data: doc } = await sb
@@ -137,7 +161,7 @@ export async function getDocumentAuthority(
 
   const { data: latest } = await sb
     .from("app_intro_revisions")
-    .select("published_revision_id")
+    .select("published_revision_id, source_draft_version")
     .eq("document_id", documentId)
     .eq("publish_state", "COMMITTED")
     .order("created_at", { ascending: false })
@@ -146,6 +170,16 @@ export async function getDocumentAuthority(
 
   const live = await getLiveStatus(sb);
   const liveReleaseId = live.kind === "LIVE" ? live.releaseId : null;
+  const latestReleaseId = latest?.published_revision_id ?? null;
+  const latestReleaseSourceDraftVersion =
+    typeof latest?.source_draft_version === "number"
+      ? latest.source_draft_version
+      : null;
+  const draftMatchesLatestRelease =
+    latestReleaseSourceDraftVersion != null &&
+    latestReleaseSourceDraftVersion === doc.draft_version;
+  const liveMatchesLatestRelease =
+    Boolean(latestReleaseId) && liveReleaseId === latestReleaseId;
 
   let isLive = false;
   if (liveReleaseId) {
@@ -159,7 +193,10 @@ export async function getDocumentAuthority(
 
   return {
     draftVersion: doc.draft_version,
-    latestReleaseId: latest?.published_revision_id ?? null,
+    latestReleaseId,
+    latestReleaseSourceDraftVersion,
+    draftMatchesLatestRelease,
+    liveMatchesLatestRelease,
     liveReleaseId,
     isLive,
   };

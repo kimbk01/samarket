@@ -47,6 +47,11 @@ export default defineConfig({
        * or keep describe.skipIf gate inside the file when included.
        */
       "**/*.live.test.ts",
+      /**
+       * Local operator fixtures (require `.env.local` + live Supabase).
+       * Opt-in: `npx vitest run scripts/qa/<file>.test.ts`
+       */
+      "**/scripts/qa/**",
     ],
   },
 });

@@ -153,19 +153,17 @@ export function IntroDocumentHub() {
     }
   }
 
-  async function applyLive(id: string, releaseId: string | null) {
-    if (!releaseId) {
-      setError("먼저 편집 화면에서 게시하세요");
-      return;
-    }
-    if (!window.confirm("이 인트로를 서비스에 적용할까요?")) return;
+  async function applyLive(id: string, _releaseId: string | null) {
+    if (!window.confirm("이 인트로의 저장된 최신 초안을 서비스에 적용할까요?")) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/intro/live/set", {
+      const res = await fetch(`/api/admin/intro/documents/${id}/apply-service`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ releaseId }),
+        body: JSON.stringify({
+          idempotencyKey: `hub_apply_${id}_${Date.now()}`,
+        }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
       if (!json.ok) {

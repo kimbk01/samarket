@@ -14,9 +14,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   let releaseId = "";
+  let expectedSourceDraftVersion: number | undefined;
   try {
-    const body = (await req.json()) as { releaseId?: string };
+    const body = (await req.json()) as {
+      releaseId?: string;
+      expectedSourceDraftVersion?: number;
+    };
     releaseId = typeof body.releaseId === "string" ? body.releaseId.trim() : "";
+    if (typeof body.expectedSourceDraftVersion === "number") {
+      expectedSourceDraftVersion = body.expectedSourceDraftVersion;
+    }
   } catch {
     return NextResponse.json({ ok: false, error: "bad_json" }, { status: 400 });
   }
@@ -24,16 +31,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "missing_releaseId" }, { status: 400 });
   }
   try {
-    const live = await setLiveRelease(sb, { releaseId, userId: admin.userId });
+    const live = await setLiveRelease(sb, {
+      releaseId,
+      userId: admin.userId,
+      expectedSourceDraftVersion,
+    });
     return NextResponse.json({
       ok: true as const,
       live,
       note: "SERVER_LIVE_SUCCESS_NE_DEVICE_INTRO_SUCCESS",
     });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "set_live_failed" },
-      { status: 500 },
-    );
+    const msg = e instanceof Error ? e.message : "set_live_failed";
+    const status = (e as { status?: number }).status === 409 ? 409 : 500;
+    return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }

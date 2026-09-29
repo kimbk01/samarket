@@ -26,6 +26,9 @@ type Props = { documentId: string };
 type Authority = {
   draftVersion: number;
   latestReleaseId: string | null;
+  latestReleaseSourceDraftVersion: number | null;
+  draftMatchesLatestRelease: boolean;
+  liveMatchesLatestRelease: boolean;
   liveReleaseId: string | null;
   isLive: boolean;
 };
@@ -55,10 +58,13 @@ export function IntroStudioPage({ documentId }: Props) {
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [draftVersion, setDraftVersion] = useState(1);
   const [authority, setAuthority] = useState<Authority | null>(null);
-  const [lastPublish, setLastPublish] = useState<{
+  const [lastApply, setLastApply] = useState<{
     releaseId: string;
     packageId: string;
+    draftVersion: number;
   } | null>(null);
+  const [applyDetailsOpen, setApplyDetailsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -319,22 +325,28 @@ export function IntroStudioPage({ documentId }: Props) {
     }
   }
 
-  async function publish() {
+  /**
+   * Owner atomic 서비스 적용.
+   * Internally: validate Draft → Release → Package → Live.
+   * Separate Publish is never required in the primary workflow.
+   */
+  async function applyService() {
     if (dirty) {
       setError("먼저 저장하세요");
       return;
     }
-    setBusy("publish");
+    setBusy("apply");
     setError(null);
     setMessage(null);
+    setApplyDetailsOpen(false);
     try {
       const res = await fetch(
-        `/api/admin/intro/documents/${documentId}/publish`,
+        `/api/admin/intro/documents/${documentId}/apply-service`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            idempotencyKey: `pub_${documentId}_${draftVersion}_${Date.now()}`,
+            idempotencyKey: `apply_${documentId}_${draftVersion}_${Date.now()}`,
           }),
         },
       );
@@ -342,41 +354,20 @@ export function IntroStudioPage({ documentId }: Props) {
         ok: boolean;
         releaseId?: string;
         packageId?: string;
+        draftVersion?: number;
         error?: string;
       };
       if (!json.ok || !json.releaseId || !json.packageId) {
-        setError(json.error ?? "publish_failed");
-        return;
-      }
-      setLastPublish({ releaseId: json.releaseId, packageId: json.packageId });
-      setMessage("게시됨 (불변 릴리스)");
-      await load();
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function applyLive() {
-    const releaseId = lastPublish?.releaseId ?? authority?.latestReleaseId;
-    if (!releaseId) {
-      setError("먼저 게시하세요");
-      return;
-    }
-    setBusy("apply");
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/admin/intro/live/set", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ releaseId }),
-      });
-      const json = (await res.json()) as { ok: boolean; error?: string };
-      if (!json.ok) {
         setError(json.error ?? "apply_failed");
         return;
       }
-      setMessage("서비스 적용됨 — 기기에서 확인하세요");
+      setLastApply({
+        releaseId: json.releaseId,
+        packageId: json.packageId,
+        draftVersion: json.draftVersion ?? draftVersion,
+      });
+      setMessage("서비스 적용됨");
+      setApplyDetailsOpen(true);
       await load();
     } finally {
       setBusy(null);
@@ -506,16 +497,39 @@ export function IntroStudioPage({ documentId }: Props) {
                 )
               }
             />
-            {authority?.isLive ? (
+            {authority?.isLive && authority.liveMatchesLatestRelease && authority.draftMatchesLatestRelease ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                현재 서비스 적용 중
+                서비스 적용됨 · 현재 초안과 동일
+              </span>
+            ) : authority?.isLive ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                서비스 중 · 초안과 다름 (서비스 적용 필요)
               </span>
             ) : null}
             <span
-              className={`text-xs ${dirty ? "font-medium text-amber-700" : "text-sam-muted"}`}
+              className={`text-xs ${
+                dirty ||
+                (authority &&
+                  !(
+                    authority.isLive &&
+                    authority.liveMatchesLatestRelease &&
+                    authority.draftMatchesLatestRelease
+                  ))
+                  ? "font-medium text-amber-700"
+                  : "text-sam-muted"
+              }`}
             >
-              {dirty ? "저장하지 않은 변경사항" : "저장됨"}
+              {dirty
+                ? "저장하지 않은 변경사항"
+                : authority?.isLive &&
+                    authority.liveMatchesLatestRelease &&
+                    authority.draftMatchesLatestRelease
+                  ? "저장됨 · 서비스 적용됨"
+                  : authority?.draftMatchesLatestRelease
+                    ? "저장됨 · 서비스 미적용"
+                    : "저장됨"}
             </span>
           </div>
         </div>
@@ -524,6 +538,7 @@ export function IntroStudioPage({ documentId }: Props) {
             type="button"
             className={Sam.btn.secondary}
             disabled={Boolean(busy) || !dirty}
+            title="현재 편집 내용을 초안으로 저장"
             onClick={() => void save()}
           >
             {busy === "save" ? "저장 중…" : "저장"}
@@ -532,33 +547,73 @@ export function IntroStudioPage({ documentId }: Props) {
             type="button"
             className={Sam.btn.secondary}
             disabled={Boolean(busy)}
+            title="현재 편집 중인 정확한 화면 (앱과 동일 semantics)"
             onClick={() => setPreviewOpen(true)}
           >
             미리보기
           </button>
           <button
             type="button"
-            className={Sam.btn.secondary}
+            className={Sam.btn.primary}
             disabled={Boolean(busy) || dirty}
-            onClick={() => void publish()}
+            title="저장된 초안을 서비스에 적용 (내부적으로 버전 생성 + Live 전환)"
+            onClick={() => void applyService()}
           >
-            {busy === "publish" ? "게시 중…" : "게시"}
+            {busy === "apply" ? "적용 중…" : "서비스 적용"}
           </button>
           <button
             type="button"
-            className={Sam.btn.primary}
-            disabled={Boolean(busy)}
-            onClick={() => void applyLive()}
+            className="rounded-ui-rect border border-sam-border px-2 py-1.5 text-xs text-sam-muted hover:bg-sam-app"
+            onClick={() => setHistoryOpen((v) => !v)}
           >
-            {busy === "apply" ? "적용 중…" : "서비스 적용"}
+            버전 기록
           </button>
         </div>
       </header>
 
       {message ? (
-        <p className="border-b border-sam-border bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
-          {message}
-        </p>
+        <div className="border-b border-sam-border bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">{message}</span>
+            {lastApply ? (
+              <button
+                type="button"
+                className="text-xs underline"
+                onClick={() => setApplyDetailsOpen((v) => !v)}
+              >
+                {applyDetailsOpen ? "세부 숨기기" : "세부 상태"}
+              </button>
+            ) : null}
+          </div>
+          {applyDetailsOpen && lastApply ? (
+            <ul className="mt-1 list-inside list-disc text-xs text-emerald-900/90">
+              <li>서비스 버전 생성 완료 (초안 v{lastApply.draftVersion})</li>
+              <li>Live 적용 완료</li>
+              <li>기기 전달: 앱 재실행 시 최신 Live 확인 (store clear 불필요)</li>
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      {historyOpen ? (
+        <div className="border-b border-sam-border bg-sam-surface px-4 py-2 text-xs text-sam-muted">
+          <p className="font-medium text-sam-fg">버전 기록 (고급)</p>
+          <p className="mt-1">
+            최신 서비스 버전:{" "}
+            {authority?.latestReleaseId
+              ? `${authority.latestReleaseId.slice(0, 8)}… (초안 v${authority.latestReleaseSourceDraftVersion ?? "?"})`
+              : "없음"}
+          </p>
+          <p>
+            현재 Live:{" "}
+            {authority?.liveReleaseId
+              ? `${authority.liveReleaseId.slice(0, 8)}…`
+              : "없음"}
+          </p>
+          <p className="mt-1 text-sam-muted">
+            Owner 기본 흐름은 저장 → 미리보기 → 서비스 적용입니다. 별도 게시 단계는
+            필요 없습니다.
+          </p>
+        </div>
       ) : null}
       {error ? (
         <p className="border-b border-sam-border bg-red-50 px-4 py-2 text-sm text-red-700" role="alert">
@@ -640,8 +695,15 @@ export function IntroStudioPage({ documentId }: Props) {
 
           {authority?.isLive ? (
             <div className="mt-4 rounded-ui-rect border border-emerald-400 bg-emerald-50 p-2 text-[11px] text-emerald-900">
-              <div className="font-semibold">● 현재 서비스 적용 중</div>
-              <div className="mt-1">Live Release: {(authority.liveReleaseId ?? "").slice(0, 8)}</div>
+              <div className="font-semibold">● 현재 서비스 중</div>
+              <div className="mt-1">
+                Scene {document.scenes.length} ·{" "}
+                {(
+                  document.scenes.reduce((sum, s) => sum + (s.durationMs || 0), 0) /
+                  1000
+                ).toFixed(1)}
+                s
+              </div>
               {document.scenes.map((s, i) => (
                 <div key={s.id} className="mt-1 flex items-center gap-2">
                   <span
@@ -654,9 +716,17 @@ export function IntroStudioPage({ documentId }: Props) {
                     }}
                   />
                   Scene{i + 1}
-                  {s.background.type === "COLOR" ? ` ${s.background.color}` : ""}
+                  {s.background.type === "COLOR" ? ` ${s.background.color}` : " 이미지"}
                 </div>
               ))}
+              {!(
+                authority.liveMatchesLatestRelease &&
+                authority.draftMatchesLatestRelease
+              ) ? (
+                <p className="mt-2 text-amber-800">
+                  초안이 서비스 버전과 다릅니다. 「서비스 적용」으로 반영하세요.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </aside>
