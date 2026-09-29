@@ -1,17 +1,30 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "SYSTEM_START",
-  "updatedAt": "2026-09-29T15:11:59.446Z",
+  "updatedAt": "2026-09-29T22:57:02.729Z",
   "background": {
     "type": "solid",
-    "color": "#FFFCFC",
+    "color": "#312E81",
     "imageUrl": null
   },
   "logo": {
-    "source": "default",
+    "source": "none",
+    "mediaId": null,
+    "integrity": null,
+    "bytesProven": false,
     "url": null,
-    "widthPreset": "medium",
-    "customWidthPx": null
+    "fit": "CONTAIN",
+    "sizeNorm": 0.28,
+    "brandSizePreset": "M",
+    "xNorm": 0.5,
+    "yNorm": 0.5,
+    "assetCopied": false
+  },
+  "timing": {
+    "SYSTEM_START_MIN_VISIBLE_MS": 500,
+    "appliesTo": "App_Cap_continuation",
+    "doesNotApplyTo": "OS_splash_duration",
+    "handoff": "max(platform_ready, configured_min_visible)"
   },
   "apply": {
     "mode": "APP_UPDATE_REQUIRED",
@@ -21,20 +34,22 @@
   "targets": {
     "android": {
       "splashColorResource": "android/app/src/main/res/values/colors_system_start.xml",
-      "splashDrawableHint": "android/app/src/main/res/drawable/splash.png",
+      "timingResource": "android/app/src/main/res/values/system_start_timing.xml",
+      "splashAnimatedIcon": "ic_splash_neutral",
       "logoDrawableHint": "android/app/src/main/res/drawable-hdpi/ic_dibay_splash_logo.png"
     },
     "ios": {
       "launchScreenStoryboard": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
-      "logoImagesetHint": "ios/App/App/Assets.xcassets/DibayStartupLogo.imageset",
-      "splashImagesetHint": "ios/App/App/Assets.xcassets/Splash.imageset"
+      "logoImageset": "ios/App/App/Assets.xcassets/DibayStartupLogo.imageset",
+      "timingJson": "ios/App/App/system_start_timing.json"
     }
   },
   "status": {
     "adminPersisted": true,
     "buildInputGenerated": true,
     "binaryRebuildRequired": true,
+    "brandBytesIntegrityMatched": true,
     "installedPixelsProven": false,
-    "note": "Color XML generated. Logo/bg binary replacement requires media copy during release build. Store/Play upload is out of repo scope."
+    "note": "Build-bound. Service Apply does not update installed System Start. Pixel PASS requires installed binary Owner observation."
   }
 }

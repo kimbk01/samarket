@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Sam } from "@/lib/ui/css-vars";
+import {
+  AdminActionLabel,
+} from "@/components/admin/ui/AdminActionButton";
 
 type MediaItem = {
   mediaId: string;
@@ -99,7 +101,7 @@ export function IntroMediaLibraryPanel() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <label className={`${Sam.btn.secondary} cursor-pointer`}>
+        <AdminActionLabel variant="secondary">
           이미지 업로드
           <input
             type="file"
@@ -112,8 +114,8 @@ export function IntroMediaLibraryPanel() {
               e.target.value = "";
             }}
           />
-        </label>
-        <label className={`${Sam.btn.secondary} cursor-pointer`}>
+        </AdminActionLabel>
+        <AdminActionLabel variant="secondary">
           로고 업로드
           <input
             type="file"
@@ -126,7 +128,7 @@ export function IntroMediaLibraryPanel() {
               e.target.value = "";
             }}
           />
-        </label>
+        </AdminActionLabel>
       </div>
 
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}

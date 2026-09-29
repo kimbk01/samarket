@@ -14,6 +14,7 @@ export const APP_INTRO_TABLES = [
   "app_intro_sealed_assets",
   "app_intro_packs",
   "app_intro_live",
+  "app_system_start_config",
 ] as const;
 
 export type AppIntroTable = (typeof APP_INTRO_TABLES)[number];

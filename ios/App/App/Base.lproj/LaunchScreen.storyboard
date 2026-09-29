@@ -8,7 +8,7 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
-        <!--Launch Screen — System Start: Scene1-matched BG (#312E81), no product logo animation-->
+        <!-- GENERATED System Start LaunchScreen — BG + optional brand asset (F2). Duration OS-owned. -->
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
@@ -24,4 +24,5 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
+    
 </document>

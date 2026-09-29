@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Sam } from "@/lib/ui/css-vars";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
 export type IntroAdminTab = "intros" | "system-start" | "media";
 
@@ -25,25 +24,22 @@ export function IntroAdminTabs({ active }: { active: IntroAdminTab }) {
 
   return (
     <nav
-      className="mb-6 flex flex-wrap gap-2 border-b border-sam-border pb-3"
+      className="mb-6 flex flex-wrap gap-2 border-b border-[var(--admin-console-border,#d0d7e2)] pb-3"
       data-intro13-admin-tabs="1"
       aria-label="인트로 운영"
     >
       {TABS.map((tab) => {
         const selected = tab.id === active;
         return (
-          <Link
+          <AdminActionLink
             key={tab.id}
             href={tab.href}
-            className={
-              selected
-                ? `${Sam.btn.primary} text-sm`
-                : `${Sam.btn.secondary} text-sm`
-            }
+            variant={selected ? "primary" : "secondary"}
+            className="text-sm"
             aria-current={selected ? "page" : undefined}
           >
             {tab.label}
-          </Link>
+          </AdminActionLink>
         );
       })}
     </nav>

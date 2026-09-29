@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import {
-  getReadyRuntimeForMedia,
-  listReadyIntroMedia,
-} from "@/lib/intro/media/service";
+  BRAND_SIZE_NORM,
+  BRAND_SIZE_PRESETS,
+  SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
+  type BrandSizePreset,
+} from "@/lib/intro/system-start/contract";
+import {
+  getSystemStartConfig,
+  putSystemStartConfig,
+} from "@/lib/intro/system-start/service";
+import { getReadyRuntimeForMedia } from "@/lib/intro/media/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,158 +21,103 @@ export const dynamic = "force-dynamic";
 const BUILD_PATH = path.join(process.cwd(), "config/system-start.build.json");
 const LOGO_ASSET_DIR = path.join(process.cwd(), "native/system-start/assets");
 
-/** Owner-configurable SYSTEM_START_MIN_VISIBLE_MS. 0 = no configured min. */
-export const SYSTEM_START_MIN_VISIBLE_PRESETS_MS = [0, 300, 500, 800, 1000] as const;
-
-type LogoFit = "CONTAIN" | "COVER" | "ORIGINAL";
-
-type SystemStartBuild = {
-  version: number;
+/**
+ * DERIVED only — never durable authority.
+ * Best-effort on local/CI; Production Save must succeed even if FS is ephemeral.
+ */
+async function syncDerivedBuildInput(opts: {
+  revision: number;
   backgroundColor: string;
-  matchScene1Appearance: boolean;
-  brandMarkEnabled: boolean;
-  logoMediaId: string | null;
-  logoFit: LogoFit;
-  logoSizeNorm: number;
-  logoXNorm: number;
-  logoYNorm: number;
-  /** SYSTEM_START_MIN_VISIBLE_MS — Owner-configurable; not a hidden timer. */
+  brandAssetEnabled: boolean;
+  brandAssetMediaId: string | null;
+  brandSizePreset: BrandSizePreset;
   minVisibleMs: number;
-  note?: string;
-};
-
-function clamp01(n: number, fallback: number): number {
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(0.95, Math.max(0.05, n));
-}
-
-function normalizeMinVisibleMs(raw: unknown, fallback: number): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  const rounded = Math.round(n);
-  if (
-    (SYSTEM_START_MIN_VISIBLE_PRESETS_MS as readonly number[]).includes(rounded)
-  ) {
-    return rounded;
-  }
-  // Snap to nearest allowed preset (never invent false sub-minima).
-  let best: number = SYSTEM_START_MIN_VISIBLE_PRESETS_MS[0];
-  let bestDist = Math.abs(rounded - best);
-  for (const p of SYSTEM_START_MIN_VISIBLE_PRESETS_MS) {
-    const d = Math.abs(rounded - p);
-    if (d < bestDist) {
-      best = p;
-      bestDist = d;
-    }
-  }
-  return best;
-}
-
-function readBuild(): SystemStartBuild {
-  const raw = JSON.parse(fs.readFileSync(BUILD_PATH, "utf8")) as Partial<SystemStartBuild>;
-  const fit = raw.logoFit;
-  const logoMediaId =
-    typeof raw.logoMediaId === "string" && raw.logoMediaId.trim()
-      ? raw.logoMediaId.trim()
-      : null;
-  return {
-    version: Number(raw.version) || 1,
-    backgroundColor: String(raw.backgroundColor || "#312E81").toUpperCase(),
-    matchScene1Appearance: !!raw.matchScene1Appearance,
-    brandMarkEnabled: !!raw.brandMarkEnabled,
-    logoMediaId,
-    logoFit:
-      fit === "COVER" || fit === "ORIGINAL" || fit === "CONTAIN" ? fit : "CONTAIN",
-    logoSizeNorm: clamp01(Number(raw.logoSizeNorm), 0.28),
-    logoXNorm: clamp01(Number(raw.logoXNorm), 0.5),
-    logoYNorm: clamp01(Number(raw.logoYNorm), 0.42),
-    minVisibleMs: normalizeMinVisibleMs(raw.minVisibleMs, 0),
-    note:
-      raw.note ||
-      "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply.",
-  };
-}
-
-function normalizeHex(input: string): string | null {
-  const h = String(input || "")
-    .trim()
-    .replace(/^#/, "")
-    .toUpperCase();
-  if (!/^[0-9A-F]{6}$/.test(h)) return null;
-  return `#${h}`;
-}
-
-async function resolveLogoPreview(
-  logoMediaId: string | null,
-): Promise<string | null> {
-  if (!logoMediaId) return null;
-  const sb = resolveServiceSupabaseForApi();
-  if (!sb) return null;
-  const items = await listReadyIntroMedia(sb);
-  return items.find((m) => m.mediaId === logoMediaId)?.previewUrl ?? null;
-}
-
-async function materializeLogoAsset(logoMediaId: string | null): Promise<{
-  assetRelPath: string | null;
-  cleared: boolean;
-}> {
-  if (!logoMediaId) {
-    if (fs.existsSync(LOGO_ASSET_DIR)) {
+  sb: NonNullable<ReturnType<typeof resolveServiceSupabaseForApi>>;
+}): Promise<{ derivedOk: boolean; detail?: string; logoIntegrity?: string | null }> {
+  try {
+    let logoIntegrity: string | null = null;
+    if (opts.brandAssetEnabled && opts.brandAssetMediaId) {
+      const runtime = await getReadyRuntimeForMedia(opts.sb, opts.brandAssetMediaId);
+      if (!runtime) return { derivedOk: false, detail: "brand_media_not_ready" };
+      // F2: identity = runtime integrity bytes, not mediaId alone.
+      logoIntegrity = runtime.integrity;
+      fs.mkdirSync(LOGO_ASSET_DIR, { recursive: true });
+      for (const name of fs.readdirSync(LOGO_ASSET_DIR)) {
+        if (name.startsWith("logo.")) {
+          fs.unlinkSync(path.join(LOGO_ASSET_DIR, name));
+        }
+      }
+      const fileName = `logo.${runtime.ext}`;
+      fs.writeFileSync(path.join(LOGO_ASSET_DIR, fileName), runtime.bytes);
+      fs.writeFileSync(
+        path.join(LOGO_ASSET_DIR, "logo.integrity"),
+        `${logoIntegrity}\n`,
+        "utf8",
+      );
+    } else if (fs.existsSync(LOGO_ASSET_DIR)) {
       for (const name of fs.readdirSync(LOGO_ASSET_DIR)) {
         if (name.startsWith("logo.")) {
           fs.unlinkSync(path.join(LOGO_ASSET_DIR, name));
         }
       }
     }
-    return { assetRelPath: null, cleared: true };
-  }
-  const sb = resolveServiceSupabaseForApi();
-  if (!sb) throw new Error("supabase_unconfigured");
-  const runtime = await getReadyRuntimeForMedia(sb, logoMediaId);
-  if (!runtime) throw new Error("logo_media_not_ready");
-  fs.mkdirSync(LOGO_ASSET_DIR, { recursive: true });
-  for (const name of fs.readdirSync(LOGO_ASSET_DIR)) {
-    if (name.startsWith("logo.")) {
-      fs.unlinkSync(path.join(LOGO_ASSET_DIR, name));
-    }
-  }
-  const fileName = `logo.${runtime.ext}`;
-  const abs = path.join(LOGO_ASSET_DIR, fileName);
-  fs.writeFileSync(abs, runtime.bytes);
-  return { assetRelPath: `native/system-start/assets/${fileName}`, cleared: false };
-}
 
-function runGenerate(): { ok: true } | { ok: false; detail: string } {
-  const gen = spawnSync(
-    process.execPath,
-    [path.join(process.cwd(), "scripts/generate-system-start-build-input.mjs")],
-    { encoding: "utf8" },
-  );
-  if (gen.status !== 0) {
+    const derived = {
+      version: opts.revision,
+      backgroundColor: opts.backgroundColor,
+      matchScene1Appearance: false,
+      brandMarkEnabled: opts.brandAssetEnabled,
+      logoMediaId: opts.brandAssetMediaId,
+      logoIntegrity,
+      brandSizePreset: opts.brandSizePreset,
+      logoFit: "CONTAIN" as const,
+      logoSizeNorm: BRAND_SIZE_NORM[opts.brandSizePreset],
+      logoXNorm: 0.5,
+      logoYNorm: 0.5,
+      minVisibleMs: opts.minVisibleMs,
+      note:
+        "DERIVED from app_system_start_config. Not durable authority. minVisibleMs = App/Cap continuation only (F1). logoIntegrity required when brand enabled (F2).",
+    };
+    fs.mkdirSync(path.dirname(BUILD_PATH), { recursive: true });
+    fs.writeFileSync(BUILD_PATH, `${JSON.stringify(derived, null, 2)}\n`, "utf8");
+    return { derivedOk: true, logoIntegrity };
+  } catch (e) {
     return {
-      ok: false,
-      detail: (gen.stderr || gen.stdout || "").slice(0, 500),
+      derivedOk: false,
+      detail: e instanceof Error ? e.message : "derived_sync_failed",
     };
   }
-  return { ok: true };
 }
 
 export async function GET() {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
   try {
-    const build = readBuild();
-    const logoPreviewUrl = await resolveLogoPreview(build.logoMediaId);
+    const { nextBuild, installed } = await getSystemStartConfig(sb);
     return NextResponse.json({
       ok: true as const,
+      nextBuild,
+      installed,
+      /** @deprecated alias — prefer nextBuild */
       systemStart: {
-        ...build,
-        logoPreviewUrl,
+        version: nextBuild.revision,
+        backgroundColor: nextBuild.backgroundColor,
+        brandMarkEnabled: nextBuild.brandAssetEnabled,
+        logoMediaId: nextBuild.brandAssetMediaId,
+        logoPreviewUrl: nextBuild.brandPreviewUrl,
+        brandSizePreset: nextBuild.brandSizePreset,
+        minVisibleMs: nextBuild.minVisibleMs,
       },
       minVisibleMsPresets: SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
+      brandSizePresets: BRAND_SIZE_PRESETS,
       buildBound: true,
       appliesVia: "native_app_build_update",
       notLiveCms: true,
+      durableAuthority: "app_system_start_config",
     });
   } catch (e) {
     return NextResponse.json(
@@ -179,105 +130,79 @@ export async function GET() {
 export async function PUT(req: Request) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
   try {
     const body = (await req.json()) as {
       backgroundColor?: string;
-      matchScene1Appearance?: boolean;
+      brandAssetEnabled?: boolean;
       brandMarkEnabled?: boolean;
+      brandAssetMediaId?: string | null;
       logoMediaId?: string | null;
+      clearBrandAsset?: boolean;
       clearLogo?: boolean;
-      scene1BackgroundColor?: string | null;
-      logoFit?: LogoFit;
-      logoSizeNorm?: number;
-      logoXNorm?: number;
-      logoYNorm?: number;
+      brandSizePreset?: BrandSizePreset;
       minVisibleMs?: number;
     };
-    const current = readBuild();
-    const nextColor = normalizeHex(body.backgroundColor ?? current.backgroundColor);
-    if (!nextColor) {
-      return NextResponse.json({ ok: false, error: "invalid_background_color" }, { status: 400 });
-    }
-    const matchScene1 =
-      body.matchScene1Appearance !== undefined
-        ? !!body.matchScene1Appearance
-        : current.matchScene1Appearance;
-    let backgroundColor = nextColor;
-    if (matchScene1 && body.scene1BackgroundColor) {
-      const scene1 = normalizeHex(body.scene1BackgroundColor);
-      if (scene1) backgroundColor = scene1;
-    }
-    const fit = body.logoFit;
 
-    let logoMediaId = current.logoMediaId;
-    if (body.clearLogo === true || body.logoMediaId === null) {
-      logoMediaId = null;
-    } else if (typeof body.logoMediaId === "string" && body.logoMediaId.trim()) {
-      logoMediaId = body.logoMediaId.trim();
-    }
+    const saved = await putSystemStartConfig(sb, {
+      backgroundColor: body.backgroundColor,
+      brandAssetEnabled:
+        body.brandAssetEnabled !== undefined
+          ? body.brandAssetEnabled
+          : body.brandMarkEnabled,
+      brandAssetMediaId:
+        body.brandAssetMediaId !== undefined
+          ? body.brandAssetMediaId
+          : body.logoMediaId,
+      clearBrandAsset: body.clearBrandAsset === true || body.clearLogo === true,
+      brandSizePreset: body.brandSizePreset,
+      minVisibleMs: body.minVisibleMs,
+      updatedBy: admin.userId,
+    });
 
-    const brandMarkEnabled =
-      body.brandMarkEnabled !== undefined
-        ? !!body.brandMarkEnabled
-        : logoMediaId
-          ? true
-          : current.brandMarkEnabled;
+    const derived = await syncDerivedBuildInput({
+      revision: saved.nextBuild.revision,
+      backgroundColor: saved.nextBuild.backgroundColor,
+      brandAssetEnabled: saved.nextBuild.brandAssetEnabled,
+      brandAssetMediaId: saved.nextBuild.brandAssetMediaId,
+      brandSizePreset: saved.nextBuild.brandSizePreset,
+      minVisibleMs: saved.nextBuild.minVisibleMs,
+      sb,
+    });
 
-    // ON without media is invalid — force OFF until media selected.
-    const effectiveBrand = brandMarkEnabled && !!logoMediaId;
-
-    await materializeLogoAsset(effectiveBrand ? logoMediaId : null);
-
-    const next: SystemStartBuild = {
-      version: current.version,
-      backgroundColor,
-      matchScene1Appearance: matchScene1,
-      brandMarkEnabled: effectiveBrand,
-      logoMediaId: effectiveBrand ? logoMediaId : null,
-      logoFit:
-        fit === "COVER" || fit === "ORIGINAL" || fit === "CONTAIN"
-          ? fit
-          : current.logoFit,
-      logoSizeNorm:
-        body.logoSizeNorm !== undefined
-          ? clamp01(Number(body.logoSizeNorm), current.logoSizeNorm)
-          : current.logoSizeNorm,
-      logoXNorm:
-        body.logoXNorm !== undefined
-          ? clamp01(Number(body.logoXNorm), current.logoXNorm)
-          : current.logoXNorm,
-      logoYNorm:
-        body.logoYNorm !== undefined
-          ? clamp01(Number(body.logoYNorm), current.logoYNorm)
-          : current.logoYNorm,
-      minVisibleMs: normalizeMinVisibleMs(
-        body.minVisibleMs !== undefined ? body.minVisibleMs : current.minVisibleMs,
-        current.minVisibleMs,
-      ),
-      note: current.note,
-    };
-    fs.writeFileSync(BUILD_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-    const gen = runGenerate();
-    if (!gen.ok) {
-      return NextResponse.json(
-        { ok: false, error: "generate_failed", detail: gen.detail },
-        { status: 500 },
-      );
-    }
-    const logoPreviewUrl = await resolveLogoPreview(next.logoMediaId);
     return NextResponse.json({
       ok: true as const,
-      systemStart: { ...next, logoPreviewUrl },
+      nextBuild: saved.nextBuild,
+      installed: saved.installed,
+      systemStart: {
+        version: saved.nextBuild.revision,
+        backgroundColor: saved.nextBuild.backgroundColor,
+        brandMarkEnabled: saved.nextBuild.brandAssetEnabled,
+        logoMediaId: saved.nextBuild.brandAssetMediaId,
+        logoPreviewUrl: saved.nextBuild.brandPreviewUrl,
+        brandSizePreset: saved.nextBuild.brandSizePreset,
+        minVisibleMs: saved.nextBuild.minVisibleMs,
+      },
       minVisibleMsPresets: SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
+      brandSizePresets: BRAND_SIZE_PRESETS,
       buildBound: true,
       requiresNativeRebuild: true,
+      derivedBuildInputSynced: derived.derivedOk,
+      derivedDetail: derived.detail,
+      logoIntegrity: derived.logoIntegrity ?? null,
+      durableAuthority: "app_system_start_config",
       message:
         "다음 앱 버전 설정이 저장되었습니다. 앱 업데이트가 필요합니다. 서비스 적용으로 설치 앱이 바뀌지 않습니다.",
     });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "system_start_write_failed" },
-      { status: 500 },
-    );
+    const msg = e instanceof Error ? e.message : "system_start_write_failed";
+    const status =
+      msg === "invalid_background_color" || msg === "brand_media_not_ready"
+        ? 400
+        : 500;
+    return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }

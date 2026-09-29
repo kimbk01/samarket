@@ -271,6 +271,8 @@
     "cap:open:ios": "npx cap open ios",
     "generate:app-build-fingerprint": "node scripts/generate-app-build-fingerprint.mjs",
     "generate:dibay-brand": "node scripts/generate-dibay-icons.mjs",
+    "generate:system-start": "node scripts/generate-system-start-build-input.mjs",
+    "stamp:system-start": "node scripts/stamp-system-start-materialized.mjs",
     "cap:assets:android": "npx capacitor-assets generate --android",
     "sql:copy:community-feed-daangn": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260321120000_community_feed_daangn.sql",
     "sql:copy:dangnae": "node scripts/copy-sql-clipboard.mjs supabase/scripts/paste-dangnae-community-sample.sql",

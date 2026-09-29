@@ -2,24 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { Sam } from "@/lib/ui/css-vars";
+import {
+  BRAND_SIZE_NORM,
+  SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
+  type BrandSizePreset,
+} from "@/lib/intro/system-start/contract";
 
-type LogoFit = "CONTAIN" | "COVER" | "ORIGINAL";
-
-type SystemStartState = {
-  version: number;
+type NextBuildState = {
+  revision: number;
   backgroundColor: string;
-  matchScene1Appearance: boolean;
-  brandMarkEnabled: boolean;
-  logoMediaId: string | null;
-  logoPreviewUrl?: string | null;
-  logoFit?: LogoFit;
-  logoSizeNorm?: number;
-  logoXNorm?: number;
-  logoYNorm?: number;
-  minVisibleMs?: number;
-  note?: string;
+  brandAssetEnabled: boolean;
+  brandAssetMediaId: string | null;
+  brandPreviewUrl: string | null;
+  brandSizePreset: BrandSizePreset;
+  minVisibleMs: number;
 };
+
+type InstalledState = {
+  revision: number;
+  backgroundColor: string;
+  brandAssetEnabled: boolean;
+  brandAssetMediaId: string | null;
+  brandPreviewUrl: string | null;
+  brandSizePreset: BrandSizePreset;
+  minVisibleMs: number;
+  materializedAt: string;
+} | null;
 
 type MediaItem = {
   mediaId: string;
@@ -28,27 +36,20 @@ type MediaItem = {
   previewUrl: string | null;
 };
 
-const FIT_OPTIONS: { value: LogoFit; label: string; hint: string }[] = [
-  { value: "ORIGINAL", label: "원본 비율", hint: "ORIGINAL" },
-  { value: "CONTAIN", label: "화면 안에 맞춤", hint: "Contain" },
-  { value: "COVER", label: "화면 채우기", hint: "Cover" },
-];
-
-const DURATION_PRESETS: { ms: number; label: string }[] = [
-  { ms: 0, label: "최소" },
-  { ms: 300, label: "0.3초" },
-  { ms: 500, label: "0.5초" },
-  { ms: 800, label: "0.8초" },
-  { ms: 1000, label: "1.0초" },
+const SIZE_OPTIONS: { value: BrandSizePreset; label: string }[] = [
+  { value: "S", label: "작게 (S)" },
+  { value: "M", label: "보통 (M)" },
+  { value: "L", label: "크게 (L)" },
 ];
 
 /**
- * Independent OS System Start editor (build-bound).
- * Preview reflects next app version appearance — never claims Live Apply.
+ * System Start Admin — F1/F2 frozen capability only.
+ * No free x/y, arbitrary fit, full-bleed BG image, or minVisibleMs=0.
  */
 export function IntroSystemStartPanel() {
-  const [installed, setInstalled] = useState<SystemStartState | null>(null);
-  const [draft, setDraft] = useState<SystemStartState | null>(null);
+  const [installed, setInstalled] = useState<InstalledState>(null);
+  const [draft, setDraft] = useState<NextBuildState | null>(null);
+  const [saved, setSaved] = useState<NextBuildState | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -60,16 +61,18 @@ export function IntroSystemStartPanel() {
       const res = await fetch("/api/admin/intro/system-start", { cache: "no-store" });
       const json = (await res.json()) as {
         ok: boolean;
-        systemStart?: SystemStartState;
+        nextBuild?: NextBuildState;
+        installed?: InstalledState;
         error?: string;
       };
-      if (!json.ok || !json.systemStart) {
+      if (!json.ok || !json.nextBuild) {
         setErr(json.error ?? "load_failed");
         return;
       }
-      const next = normalizeState(json.systemStart);
-      setInstalled(next);
+      const next = normalizeNext(json.nextBuild);
       setDraft(next);
+      setSaved(next);
+      setInstalled(json.installed ? normalizeInstalled(json.installed) : null);
     })();
   }, []);
 
@@ -80,19 +83,15 @@ export function IntroSystemStartPanel() {
   }
 
   const dirty = useMemo(() => {
-    if (!installed || !draft) return false;
+    if (!saved || !draft) return false;
     return (
-      draft.backgroundColor !== installed.backgroundColor ||
-      draft.logoFit !== installed.logoFit ||
-      draft.logoSizeNorm !== installed.logoSizeNorm ||
-      draft.logoXNorm !== installed.logoXNorm ||
-      draft.logoYNorm !== installed.logoYNorm ||
-      draft.brandMarkEnabled !== installed.brandMarkEnabled ||
-      draft.logoMediaId !== installed.logoMediaId ||
-      draft.minVisibleMs !== installed.minVisibleMs ||
-      draft.matchScene1Appearance !== installed.matchScene1Appearance
+      draft.backgroundColor !== saved.backgroundColor ||
+      draft.brandAssetEnabled !== saved.brandAssetEnabled ||
+      draft.brandAssetMediaId !== saved.brandAssetMediaId ||
+      draft.brandSizePreset !== saved.brandSizePreset ||
+      draft.minVisibleMs !== saved.minVisibleMs
     );
-  }, [installed, draft]);
+  }, [saved, draft]);
 
   if (!draft) {
     return (
@@ -100,13 +99,12 @@ export function IntroSystemStartPanel() {
     );
   }
 
-  const logoW = Math.round((draft.logoSizeNorm ?? 0.28) * 100);
-  const logoX = Math.round((draft.logoXNorm ?? 0.5) * 100);
-  const logoY = Math.round((draft.logoYNorm ?? 0.42) * 100);
-  const previewUrl = draft.logoPreviewUrl ?? null;
-  const showLogo = draft.brandMarkEnabled && !!previewUrl;
+  const sizeNorm = BRAND_SIZE_NORM[draft.brandSizePreset];
+  const logoPct = Math.round(sizeNorm * 100);
+  const previewUrl = draft.brandPreviewUrl;
+  const showLogo = draft.brandAssetEnabled && !!previewUrl;
 
-  async function persist(next: SystemStartState, clearLogo = false) {
+  async function persist(next: NextBuildState, clearBrand = false) {
     setBusy(true);
     setMsg(null);
     setErr(null);
@@ -116,30 +114,28 @@ export function IntroSystemStartPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           backgroundColor: next.backgroundColor,
-          matchScene1Appearance: false,
-          brandMarkEnabled: next.brandMarkEnabled,
-          logoMediaId: clearLogo ? null : next.logoMediaId,
-          clearLogo,
-          logoFit: next.logoFit,
-          logoSizeNorm: next.logoSizeNorm,
-          logoXNorm: next.logoXNorm,
-          logoYNorm: next.logoYNorm,
+          brandAssetEnabled: next.brandAssetEnabled,
+          brandAssetMediaId: clearBrand ? null : next.brandAssetMediaId,
+          clearBrandAsset: clearBrand,
+          brandSizePreset: next.brandSizePreset,
           minVisibleMs: next.minVisibleMs,
         }),
       });
       const json = (await res.json()) as {
         ok: boolean;
-        systemStart?: SystemStartState;
+        nextBuild?: NextBuildState;
+        installed?: InstalledState;
         message?: string;
         error?: string;
       };
-      if (!json.ok || !json.systemStart) {
+      if (!json.ok || !json.nextBuild) {
         setErr(json.error ?? "save_failed");
         return;
       }
-      const saved = normalizeState(json.systemStart);
-      setInstalled(saved);
-      setDraft(saved);
+      const normalized = normalizeNext(json.nextBuild);
+      setDraft(normalized);
+      setSaved(normalized);
+      setInstalled(json.installed ? normalizeInstalled(json.installed) : installed);
       setMsg(
         json.message ??
           "다음 앱 버전 설정이 저장되었습니다. 앱 업데이트가 필요합니다.",
@@ -170,11 +166,11 @@ export function IntroSystemStartPanel() {
         return;
       }
       if (!draft) return;
-      const next: SystemStartState = {
+      const next: NextBuildState = {
         ...draft,
-        brandMarkEnabled: true,
-        logoMediaId: json.item.mediaId,
-        logoPreviewUrl: json.item.previewUrl,
+        brandAssetEnabled: true,
+        brandAssetMediaId: json.item.mediaId,
+        brandPreviewUrl: json.item.previewUrl,
       };
       setDraft(next);
       await persist(next);
@@ -185,11 +181,11 @@ export function IntroSystemStartPanel() {
 
   async function selectFromLibrary(mediaId: string, previewUrl: string | null) {
     if (!draft) return;
-    const next: SystemStartState = {
+    const next: NextBuildState = {
       ...draft,
-      brandMarkEnabled: true,
-      logoMediaId: mediaId,
-      logoPreviewUrl: previewUrl,
+      brandAssetEnabled: true,
+      brandAssetMediaId: mediaId,
+      brandPreviewUrl: previewUrl,
     };
     setDraft(next);
     setPickerOpen(false);
@@ -198,39 +194,33 @@ export function IntroSystemStartPanel() {
 
   async function deleteLogo() {
     if (!draft) return;
-    if (!window.confirm("선택한 로고/이미지를 제거할까요?")) return;
-    const next: SystemStartState = {
+    if (!window.confirm("선택한 브랜드 이미지를 제거할까요?")) return;
+    const next: NextBuildState = {
       ...draft,
-      brandMarkEnabled: false,
-      logoMediaId: null,
-      logoPreviewUrl: null,
+      brandAssetEnabled: false,
+      brandAssetMediaId: null,
+      brandPreviewUrl: null,
     };
     setDraft(next);
     await persist(next, true);
   }
-
-  const objectFit =
-    draft.logoFit === "COVER"
-      ? "cover"
-      : draft.logoFit === "CONTAIN"
-        ? "contain"
-        : "none";
 
   return (
     <div className="space-y-6" data-intro13-system-start="1">
       <div>
         <h2 className="text-lg font-semibold text-sam-fg">시스템 시작 화면</h2>
         <p className="mt-1 text-sm text-sam-muted">
-          앱 아이콘 직후 OS가 보여주는 독립 화면입니다. Product Intro Scene1과
-          다릅니다. 숨은 강제 대기는 없고, Owner가 설정한 최소 표시시간과 Scene1
-          준비가 모두 충족되면 바로 넘깁니다.
+          앱 아이콘 직후 OS/앱 연속 화면입니다. Product Intro와 다릅니다. 배경색 ·
+          브랜드 이미지 · 크기 프리셋 · 최소 표시시간만 설정할 수 있습니다. 자유
+          위치·맞춤·전체 배경 이미지는 플랫폼 공통 capability가 아니므로 제공하지
+          않습니다.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <div className="space-y-2">
           <div className="text-xs font-medium text-sam-muted">
-            Preview · 다음 앱 버전
+            빌드 미리보기 (OS 한계 반영)
           </div>
           <div
             className="relative mx-auto aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-ui-rect border border-sam-border"
@@ -242,27 +232,17 @@ export function IntroSystemStartPanel() {
               <img
                 src={previewUrl!}
                 alt=""
-                className="absolute"
-                style={{
-                  left: `${logoX}%`,
-                  top: `${logoY}%`,
-                  width: `${logoW}%`,
-                  height: draft.logoFit === "ORIGINAL" ? "auto" : `${logoW}%`,
-                  maxHeight: draft.logoFit === "ORIGINAL" ? `${logoW}%` : undefined,
-                  transform: "translate(-50%, -50%)",
-                  objectFit,
-                }}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain"
+                style={{ width: `${logoPct}%`, height: `${logoPct}%` }}
               />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-white/60">
-                {draft.brandMarkEnabled
-                  ? "이미지를 선택하세요"
-                  : "배경만"}
+                {draft.brandAssetEnabled ? "이미지를 선택하세요" : "배경만"}
               </div>
             )}
           </div>
           <p className="text-[11px] text-sam-muted">
-            배경 · 로고/이미지 · 맞춤 · 크기 · 위치가 반영됩니다.
+            중앙 브랜드 마크 · 배경색 · 크기 프리셋만 반영됩니다.
           </p>
         </div>
 
@@ -278,12 +258,15 @@ export function IntroSystemStartPanel() {
                     : "#312E81"
                 }
                 onChange={(e) =>
-                  setDraft({ ...draft, backgroundColor: e.target.value.toUpperCase() })
+                  setDraft({
+                    ...draft,
+                    backgroundColor: e.target.value.toUpperCase(),
+                  })
                 }
                 className="h-9 w-12 cursor-pointer rounded-ui-rect border border-sam-border"
               />
               <input
-                className={Sam.input.base}
+                className="min-h-9 flex-1 rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-3 text-sm text-[var(--admin-console-fg,#1f2937)]"
                 value={draft.backgroundColor}
                 onChange={(e) =>
                   setDraft({
@@ -300,20 +283,18 @@ export function IntroSystemStartPanel() {
             <label className="flex items-center gap-2 text-sm font-medium text-sam-fg">
               <input
                 type="checkbox"
-                checked={draft.brandMarkEnabled}
+                checked={draft.brandAssetEnabled}
                 onChange={(e) => {
-                  const on = e.target.checked;
                   setDraft({
                     ...draft,
-                    brandMarkEnabled: on,
-                    ...(on ? {} : { logoMediaId: draft.logoMediaId }),
+                    brandAssetEnabled: e.target.checked,
                   });
                 }}
               />
-              이미지 / 로고 사용
+              브랜드 이미지 / 로고 사용
             </label>
 
-            {draft.brandMarkEnabled ? (
+            {draft.brandAssetEnabled ? (
               <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
                 {previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -337,110 +318,58 @@ export function IntroSystemStartPanel() {
                   >
                     {previewUrl ? "교체 · 미디어에서 선택" : "이미지 선택"}
                   </AdminActionButton>
-                  <label className="inline-flex">
-                    <span className="sr-only">업로드</span>
-                    <AdminActionButton
-                      variant="secondary"
-                      disabled={busy}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        document.getElementById("system-start-logo-upload")?.click();
-                      }}
-                    >
-                      업로드
-                    </AdminActionButton>
-                    <input
-                      id="system-start-logo-upload"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      className="hidden"
-                      disabled={busy}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void uploadLogo(f);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
                   <AdminActionButton
-                    variant="danger"
-                    disabled={busy || !draft.logoMediaId}
-                    onClick={() => void deleteLogo()}
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      document.getElementById("system-start-logo-upload")?.click();
+                    }}
                   >
-                    삭제
+                    업로드
                   </AdminActionButton>
+                  <input
+                    id="system-start-logo-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadLogo(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  {draft.brandAssetMediaId ? (
+                    <AdminActionButton
+                      variant="danger"
+                      disabled={busy}
+                      onClick={() => void deleteLogo()}
+                    >
+                      삭제
+                    </AdminActionButton>
+                  ) : null}
                 </div>
 
                 <div>
-                  <div className="mb-1 text-sm font-medium text-sam-fg">맞춤 방식</div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {FIT_OPTIONS.map((opt) => (
+                  <div className="mb-1 text-sm font-medium text-sam-fg">
+                    브랜드 크기
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {SIZE_OPTIONS.map((o) => (
                       <AdminActionButton
-                        key={opt.value}
-                        variant={draft.logoFit === opt.value ? "primary" : "secondary"}
-                        onClick={() => setDraft({ ...draft, logoFit: opt.value })}
+                        key={o.value}
+                        variant={
+                          draft.brandSizePreset === o.value
+                            ? "primary"
+                            : "secondary"
+                        }
+                        onClick={() =>
+                          setDraft({ ...draft, brandSizePreset: o.value })
+                        }
                       >
-                        <span className="flex flex-col items-center leading-tight">
-                          <span>{opt.label}</span>
-                          <span className="text-[10px] font-normal opacity-70">
-                            ({opt.hint})
-                          </span>
-                        </span>
+                        {o.label}
                       </AdminActionButton>
                     ))}
                   </div>
-                </div>
-
-                <label className="block text-sm">
-                  <span className="text-sam-muted">크기 {logoW}%</span>
-                  <input
-                    type="range"
-                    min={8}
-                    max={80}
-                    value={logoW}
-                    className="mt-1 w-full"
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        logoSizeNorm: Number(e.target.value) / 100,
-                      })
-                    }
-                  />
-                </label>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block text-sm">
-                    <span className="text-sam-muted">가로 위치 {logoX}%</span>
-                    <input
-                      type="range"
-                      min={10}
-                      max={90}
-                      value={logoX}
-                      className="mt-1 w-full"
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          logoXNorm: Number(e.target.value) / 100,
-                        })
-                      }
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-sam-muted">세로 위치 {logoY}%</span>
-                    <input
-                      type="range"
-                      min={10}
-                      max={90}
-                      value={logoY}
-                      className="mt-1 w-full"
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          logoYNorm: Number(e.target.value) / 100,
-                        })
-                      }
-                    />
-                  </label>
                 </div>
               </div>
             ) : null}
@@ -449,17 +378,17 @@ export function IntroSystemStartPanel() {
           <div>
             <div className="mb-1 text-sm font-medium text-sam-fg">최소 표시시간</div>
             <p className="mb-2 text-[11px] text-sam-muted">
-              SYSTEM_START_MIN_VISIBLE_MS · Scene1 준비와 설정된 최소 시간이 모두
-              충족되면 즉시 handoff합니다. 그 이상 기다리지 않습니다.
+              앱이 제어하는 연속 화면(continuation)에만 적용됩니다. OS LaunchScreen
+              자체 표시시간은 설정할 수 없습니다. 범위 0.5–5.0초.
             </p>
             <div className="flex flex-wrap gap-2">
-              {DURATION_PRESETS.map((p) => (
+              {SYSTEM_START_MIN_VISIBLE_PRESETS_MS.map((ms) => (
                 <AdminActionButton
-                  key={p.ms}
-                  variant={draft.minVisibleMs === p.ms ? "primary" : "secondary"}
-                  onClick={() => setDraft({ ...draft, minVisibleMs: p.ms })}
+                  key={ms}
+                  variant={draft.minVisibleMs === ms ? "primary" : "secondary"}
+                  onClick={() => setDraft({ ...draft, minVisibleMs: ms })}
                 >
-                  {p.label}
+                  {(ms / 1000).toFixed(1)}초
                 </AdminActionButton>
               ))}
             </div>
@@ -482,42 +411,53 @@ export function IntroSystemStartPanel() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm">
           <div className="font-medium text-sam-fg">현재 설치 앱</div>
-          <p className="mt-2 text-sam-muted">
-            배경{" "}
-            <code className="text-sam-fg">{installed?.backgroundColor ?? "—"}</code>
-            {" · "}
-            로고 {installed?.brandMarkEnabled && installed.logoMediaId ? "있음" : "없음"}
-            {" · "}
-            최소{" "}
-            {installed?.minVisibleMs
-              ? `${(installed.minVisibleMs / 1000).toFixed(1)}초`
-              : "최소(플랫폼 준비)"}
-          </p>
-          <div
-            className="relative mt-2 h-16 w-full overflow-hidden rounded-ui-rect border border-sam-border"
-            style={{ backgroundColor: installed?.backgroundColor }}
-          >
-            {installed?.logoPreviewUrl && installed.brandMarkEnabled ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={installed.logoPreviewUrl}
-                alt=""
-                className="absolute left-1/2 top-1/2 h-8 -translate-x-1/2 -translate-y-1/2 object-contain"
-              />
-            ) : null}
-          </div>
+          {installed ? (
+            <>
+              <p className="mt-2 text-sam-muted">
+                rev {installed.revision} · 배경{" "}
+                <code className="text-sam-fg">{installed.backgroundColor}</code>
+                {" · "}
+                브랜드{" "}
+                {installed.brandAssetEnabled && installed.brandAssetMediaId
+                  ? `있음 (${installed.brandSizePreset})`
+                  : "없음"}
+                {" · "}
+                최소 {(installed.minVisibleMs / 1000).toFixed(1)}초
+              </p>
+              <div
+                className="relative mt-2 h-16 w-full overflow-hidden rounded-ui-rect border border-sam-border"
+                style={{ backgroundColor: installed.backgroundColor }}
+              >
+                {installed.brandPreviewUrl && installed.brandAssetEnabled ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={installed.brandPreviewUrl}
+                    alt=""
+                    className="absolute left-1/2 top-1/2 h-8 -translate-x-1/2 -translate-y-1/2 object-contain"
+                  />
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sam-muted">
+              아직 네이티브 빌드로 반영된 기록이 없습니다. 다음 앱 빌드 후
+              표시됩니다.
+            </p>
+          )}
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm">
           <div className="font-medium text-sam-fg">다음 앱 버전</div>
           <p className="mt-2 text-sam-muted">
-            배경 <code className="text-sam-fg">{draft.backgroundColor}</code>
+            rev {draft.revision}
+            {dirty ? " (미저장 변경)" : ""} · 배경{" "}
+            <code className="text-sam-fg">{draft.backgroundColor}</code>
             {" · "}
-            로고 {draft.brandMarkEnabled && draft.logoMediaId ? "있음" : "없음"}
+            브랜드{" "}
+            {draft.brandAssetEnabled && draft.brandAssetMediaId
+              ? `있음 (${draft.brandSizePreset})`
+              : "없음"}
             {" · "}
-            최소{" "}
-            {draft.minVisibleMs
-              ? `${(draft.minVisibleMs / 1000).toFixed(1)}초`
-              : "최소(플랫폼 준비)"}
+            최소 {(draft.minVisibleMs / 1000).toFixed(1)}초
           </p>
           <div
             className="relative mt-2 h-16 w-full overflow-hidden rounded-ui-rect border border-sam-border"
@@ -535,7 +475,7 @@ export function IntroSystemStartPanel() {
           <p className="mt-3 text-xs font-medium text-amber-800">
             {dirty
               ? "다음 앱 버전에 적용될 설정입니다. 앱 업데이트가 필요합니다."
-              : "빌드 입력과 일치"}
+              : "Durable SSOT와 일치"}
           </p>
         </div>
       </div>
@@ -552,7 +492,10 @@ export function IntroSystemStartPanel() {
           <div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-ui-rect bg-sam-surface p-4 shadow-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-semibold text-sam-fg">미디어에서 선택</h3>
-              <AdminActionButton variant="secondary" onClick={() => setPickerOpen(false)}>
+              <AdminActionButton
+                variant="secondary"
+                onClick={() => setPickerOpen(false)}
+              >
                 닫기
               </AdminActionButton>
             </div>
@@ -562,7 +505,9 @@ export function IntroSystemStartPanel() {
                   <button
                     type="button"
                     className="w-full overflow-hidden rounded-ui-rect border border-sam-border text-left hover:border-sky-500"
-                    onClick={() => void selectFromLibrary(m.mediaId, m.previewUrl)}
+                    onClick={() =>
+                      void selectFromLibrary(m.mediaId, m.previewUrl)
+                    }
                   >
                     {m.previewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -584,7 +529,9 @@ export function IntroSystemStartPanel() {
               ))}
             </ul>
             {mediaItems.length === 0 ? (
-              <p className="text-sm text-sam-muted">미디어 라이브러리가 비어 있습니다.</p>
+              <p className="text-sm text-sam-muted">
+                미디어 라이브러리가 비어 있습니다.
+              </p>
             ) : null}
           </div>
         </div>
@@ -593,16 +540,31 @@ export function IntroSystemStartPanel() {
   );
 }
 
-function normalizeState(raw: SystemStartState): SystemStartState {
+function normalizeNext(raw: NextBuildState): NextBuildState {
   return {
-    ...raw,
-    logoMediaId: raw.logoMediaId ?? null,
-    logoPreviewUrl: raw.logoPreviewUrl ?? null,
-    logoFit: raw.logoFit ?? "CONTAIN",
-    logoSizeNorm: raw.logoSizeNorm ?? 0.28,
-    logoXNorm: raw.logoXNorm ?? 0.5,
-    logoYNorm: raw.logoYNorm ?? 0.42,
-    minVisibleMs: raw.minVisibleMs ?? 0,
-    brandMarkEnabled: !!raw.brandMarkEnabled,
+    revision: Number(raw.revision) || 1,
+    backgroundColor: String(raw.backgroundColor || "#312E81").toUpperCase(),
+    brandAssetEnabled: !!raw.brandAssetEnabled,
+    brandAssetMediaId: raw.brandAssetMediaId ?? null,
+    brandPreviewUrl: raw.brandPreviewUrl ?? null,
+    brandSizePreset:
+      raw.brandSizePreset === "S" ||
+      raw.brandSizePreset === "M" ||
+      raw.brandSizePreset === "L"
+        ? raw.brandSizePreset
+        : "M",
+    minVisibleMs: Math.min(
+      5000,
+      Math.max(500, Number(raw.minVisibleMs) || 500),
+    ),
+  };
+}
+
+function normalizeInstalled(
+  raw: NonNullable<InstalledState>,
+): NonNullable<InstalledState> {
+  return {
+    ...normalizeNext(raw),
+    materializedAt: raw.materializedAt,
   };
 }

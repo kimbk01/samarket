@@ -69,7 +69,7 @@ public final class DibayIntroLiveDelivery {
       return offlinePolicy();
     }
     try {
-      JSONObject live = httpGetJson(origin + "/api/intro/device/live", 8_000);
+      JSONObject live = httpGetJson(origin + "/api/intro/device/live", 1_500);
       if (live == null || !live.optBoolean("ok", false)) {
         return offlinePolicy();
       }
@@ -97,7 +97,9 @@ public final class DibayIntroLiveDelivery {
         return new Result(true, "VERIFIED_MATCH", packageId, releaseId, packageIntegrity);
       }
 
-      byte[] packBytes = httpGetBytes(packUrl, 15_000);
+      // F3-B: download budget hard ≤4000ms wall after metadata decides download needed.
+      final long downloadDeadline = System.currentTimeMillis() + 4_000;
+      byte[] packBytes = httpGetBytes(packUrl, remainingTimeout(downloadDeadline));
       if (packBytes == null || packBytes.length == 0) {
         return Result.noIntro("PACK_DOWNLOAD_FAILED");
       }
@@ -108,7 +110,11 @@ public final class DibayIntroLiveDelivery {
           String mediaId = keys.next();
           String url = assetUrls.optString(mediaId, "");
           if (url.isEmpty()) continue;
-          byte[] bytes = httpGetBytes(url, 30_000);
+          int assetTimeout = remainingTimeout(downloadDeadline);
+          if (assetTimeout <= 0) {
+            return Result.noIntro("DOWNLOAD_BUDGET_EXCEEDED");
+          }
+          byte[] bytes = httpGetBytes(url, assetTimeout);
           if (bytes == null || bytes.length == 0) {
             return Result.noIntro("ASSET_DOWNLOAD_FAILED:" + mediaId);
           }
@@ -176,6 +182,12 @@ public final class DibayIntroLiveDelivery {
     }
   }
 
+  private static int remainingTimeout(long deadlineMs) {
+    long left = deadlineMs - System.currentTimeMillis();
+    if (left <= 0) return 0;
+    return (int) Math.min(4_000, left);
+  }
+
   private static JSONObject httpGetJson(String urlStr, int timeoutMs) throws Exception {
     byte[] bytes = httpGetBytes(urlStr, timeoutMs);
     if (bytes == null) return null;
@@ -183,6 +195,7 @@ public final class DibayIntroLiveDelivery {
   }
 
   private static byte[] httpGetBytes(String urlStr, int timeoutMs) throws Exception {
+    if (timeoutMs <= 0) return null;
     HttpURLConnection conn = null;
     try {
       URL url = new URL(urlStr);

@@ -7,7 +7,12 @@
  */
 
 import Link from "next/link";
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  LabelHTMLAttributes,
+  ReactNode,
+} from "react";
 
 export type AdminActionVariant =
   | "primary"
@@ -88,5 +93,26 @@ export function AdminActionLink({
     >
       {children}
     </Link>
+  );
+}
+
+/** File-picker / labeled control that must share Admin CTA contrast SSOT (never Sam.btn). */
+export function AdminActionLabel({
+  variant = "secondary",
+  className = "",
+  children,
+  ...rest
+}: LabelHTMLAttributes<HTMLLabelElement> & {
+  variant?: AdminActionVariant;
+  children: ReactNode;
+}) {
+  return (
+    <label
+      data-admin-action={variant === "quiet" ? "quiet" : variant}
+      className={actionClassName(variant, `cursor-pointer ${className}`.trim())}
+      {...rest}
+    >
+      {children}
+    </label>
   );
 }

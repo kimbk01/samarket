@@ -155,6 +155,8 @@ public final class DibayIntroPackModel {
     public final String id;
     public final int durationMs;
     public final int backgroundArgb;
+    public final String backgroundMediaId;
+    public final String backgroundFit;
     public final String transitionType;
     public final int transitionDurationMs;
     public final List<Element> elements;
@@ -163,12 +165,16 @@ public final class DibayIntroPackModel {
         String id,
         int durationMs,
         int backgroundArgb,
+        String backgroundMediaId,
+        String backgroundFit,
         String transitionType,
         int transitionDurationMs,
         List<Element> elements) {
       this.id = id;
       this.durationMs = durationMs;
       this.backgroundArgb = backgroundArgb;
+      this.backgroundMediaId = backgroundMediaId;
+      this.backgroundFit = backgroundFit;
       this.transitionType = transitionType;
       this.transitionDurationMs = transitionDurationMs;
       this.elements = elements;
@@ -309,12 +315,24 @@ public final class DibayIntroPackModel {
     }
     JSONObject bg = s.optJSONObject("background");
     int bgArgb = Color.BLACK;
+    String bgMediaId = null;
+    String bgFit = null;
     if (bg != null) {
       String bgType = bg.optString("type", "");
       if ("COLOR".equals(bgType)) {
         bgArgb = parseColorHex(bg.optString("color", "#000000"), Color.BLACK);
       } else if ("IMAGE".equals(bgType)) {
-        return new ParseResult(false, "BACKGROUND_IMAGE_NOT_YET", null);
+        bgMediaId = bg.optString("mediaId", "");
+        if (bgMediaId.isEmpty()) {
+          return new ParseResult(false, "BACKGROUND_IMAGE_MISSING_MEDIA", null);
+        }
+        bgFit = bg.optString("fit", "COVER");
+        if (!"CONTAIN".equals(bgFit) && !"COVER".equals(bgFit)) {
+          return new ParseResult(false, "BACKGROUND_IMAGE_BAD_FIT:" + bgFit, null);
+        }
+        if (bg.has("color")) {
+          bgArgb = parseColorHex(bg.optString("color", "#000000"), Color.BLACK);
+        }
       } else {
         return new ParseResult(false, "UNSUPPORTED_BACKGROUND:" + bgType, null);
       }
@@ -344,6 +362,8 @@ public final class DibayIntroPackModel {
             id,
             durationMs,
             bgArgb,
+            bgMediaId,
+            bgFit,
             trType,
             trMs,
             Collections.unmodifiableList(elements));
@@ -499,6 +519,8 @@ public final class DibayIntroPackModel {
             "",
             1000,
             Color.BLACK,
+            null,
+            null,
             "CUT",
             0,
             Collections.singletonList(element));

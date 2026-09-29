@@ -90,6 +90,29 @@ public final class DibayIntroSceneSurface extends FrameLayout {
     painted = false;
     if (scene == null) return;
     setBackgroundColor(scene.backgroundArgb);
+    if (scene.backgroundMediaId != null && !scene.backgroundMediaId.isEmpty()) {
+      File bgFile = mediaFiles.get(scene.backgroundMediaId);
+      if (bgFile != null && bgFile.isFile()) {
+        Bitmap bmp = BitmapFactory.decodeFile(bgFile.getAbsolutePath());
+        if (bmp != null) {
+          ImageView bgIv = new ImageView(getContext());
+          bgIv.setImageBitmap(bmp);
+          if ("CONTAIN".equals(scene.backgroundFit)) {
+            bgIv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+          } else {
+            bgIv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+          }
+          FrameLayout.LayoutParams bgLp =
+              new FrameLayout.LayoutParams(
+                  FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+          addView(bgIv, bgLp);
+        } else {
+          Log.w("DibayIntroScene", "bg_image_decode_failed mediaId=" + scene.backgroundMediaId);
+        }
+      } else {
+        Log.w("DibayIntroScene", "bg_image_missing mediaId=" + scene.backgroundMediaId);
+      }
+    }
     DibayIntroFitGeometry.ContentRegion region =
         DibayIntroFitGeometry.fitContentRegion(VW, VH, compositionW, compositionH);
     List<DibayIntroPackModel.Element> elements = scene.elements;

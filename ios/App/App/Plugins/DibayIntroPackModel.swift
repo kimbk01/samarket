@@ -48,6 +48,8 @@ final class DibayIntroPackModel {
     let id: String
     let durationMs: Int
     let backgroundColor: UIColor
+    let backgroundMediaId: String?
+    let backgroundFit: String?
     let transitionType: String
     let transitionDurationMs: Int
     let elements: [Element]
@@ -150,12 +152,24 @@ final class DibayIntroPackModel {
     let durationMs = (s["durationMs"] as? NSNumber)?.intValue ?? 0
     if durationMs < 100 { throw ParseError.failure("SCENE_DURATION") }
     var bg = UIColor.black
+    var bgMediaId: String? = nil
+    var bgFit: String? = nil
     if let background = s["background"] as? [String: Any] {
       let type = (background["type"] as? String) ?? ""
       if type == "COLOR" {
         bg = color(fromHex: (background["color"] as? String) ?? "#000000", fallback: .black)
       } else if type == "IMAGE" {
-        throw ParseError.failure("BACKGROUND_IMAGE_NOT_YET")
+        let mediaId = (background["mediaId"] as? String) ?? ""
+        if mediaId.isEmpty { throw ParseError.failure("BACKGROUND_IMAGE_MISSING_MEDIA") }
+        let fit = (background["fit"] as? String) ?? "COVER"
+        if fit != "CONTAIN" && fit != "COVER" {
+          throw ParseError.failure("BACKGROUND_IMAGE_BAD_FIT:\(fit)")
+        }
+        bgMediaId = mediaId
+        bgFit = fit
+        if let colorHex = background["color"] as? String {
+          bg = color(fromHex: colorHex, fallback: .black)
+        }
       } else {
         throw ParseError.failure("UNSUPPORTED_BACKGROUND:\(type)")
       }
@@ -180,6 +194,8 @@ final class DibayIntroPackModel {
       id: id,
       durationMs: durationMs,
       backgroundColor: bg,
+      backgroundMediaId: bgMediaId,
+      backgroundFit: bgFit,
       transitionType: trType,
       transitionDurationMs: trMs,
       elements: elements

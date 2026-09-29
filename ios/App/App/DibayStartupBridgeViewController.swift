@@ -29,6 +29,10 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introFirstFrameReady = false
   private var introTimelineCompleted = false
   private var introLifecycle: IntroLifecycle = .pending
+  /// F1 App/Cap continuation clock — not OS LaunchScreen duration.
+  private var splashKeepStart = Date()
+  private var capacitorSplashHidden = false
+  private var capacitorSplashHideWorkItem: DispatchWorkItem?
 
   private enum IntroLifecycle: String {
     case pending
@@ -48,6 +52,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    splashKeepStart = Date()
+    capacitorSplashHidden = false
     applySystemStartBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
     tryStartAuthoredIntro(source: "viewDidLoad")
@@ -81,10 +87,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.scrollView.isOpaque = false
   }
 
-  /// System Start / Scene1 hold — indigo #312E81 so LaunchScreen→Scene1 has no cream/black flash.
+  /// System Start / Scene1 hold — build-bound BG from system_start_timing.json (F1/F4).
   private func applyIntroHoldBackground() {
-    let scene1Match = UIColor(
-      red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+    let scene1Match = Self.resolveSystemStartBackgroundColor()
     view.backgroundColor = scene1Match
     view.window?.backgroundColor = scene1Match
     webView?.isOpaque = true
@@ -118,6 +123,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
           self.startupInfo(
             "intro_attach_skipped source=\(source) reason=\(sync.reason)"
           )
+          // F1: NO_INTRO / attach fail — Cap continuation still honors minVisibleMs.
+          self.hideCapacitorSplash()
         }
       }
     }
@@ -133,6 +140,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   func onIntroCompleted(reason: String) {
     introTimelineCompleted = true
     startupInfo("intro_completed reason=\(reason)")
+    if reason.hasPrefix("CTA_DESTINATION:") {
+      let dest = String(reason.dropFirst("CTA_DESTINATION:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+      if !dest.isEmpty {
+        UserDefaults.standard.set(dest.lowercased(), forKey: "dibay_initial_surface")
+        startupInfo("intro_cta_destination surface=\(dest)")
+      }
+    }
     tryIntroHomeHandoff(source: "intro_completed")
   }
 
@@ -160,6 +174,55 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introLifecycle = .dismissed
     applyStartupBackground()
     startupInfo("intro_handoff_done source=\(source)")
+    ensureInitialRemotePathOnce()
+  }
+
+  private var initialRemotePathApplied = false
+
+  /// Apply CTA / Admin initialSurface after Intro→Home handoff (V7).
+  private func ensureInitialRemotePathOnce() {
+    if initialRemotePathApplied { return }
+    guard let webView = self.webView else { return }
+    let surface = (
+      (UserDefaults.standard.string(forKey: "dibay_initial_surface") ?? "community")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+    )
+    if surface.isEmpty || surface == "community" {
+      initialRemotePathApplied = true
+      startupInfo("initial_remote_path skip surface=community")
+      return
+    }
+    let path: String
+    switch surface {
+    case "trade": path = "/market"
+    case "food": path = "/stores"
+    case "chat": path = "/community-messenger?section=chats"
+    case "my": path = "/mypage"
+    default:
+      initialRemotePathApplied = true
+      return
+    }
+    guard let origin = Self.resolveCapServerOrigin(), !origin.isEmpty else {
+      return
+    }
+    initialRemotePathApplied = true
+    let url = origin + path
+    startupInfo("initial_remote_path url=\(url)")
+    if let u = URL(string: url) {
+      webView.load(URLRequest(url: u))
+    }
+  }
+
+  private static func resolveCapServerOrigin() -> String? {
+    guard let path = Bundle.main.path(forResource: "capacitor.config", ofType: "json"),
+          let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+          let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let server = root["server"] as? [String: Any],
+          var url = server["url"] as? String
+    else { return nil }
+    while url.hasSuffix("/") { url.removeLast() }
+    return url.isEmpty ? nil : url
   }
 
   private func notifyHomePresentationReady(source: String) {
@@ -234,7 +297,30 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
   }
 
+  /// F1: Admin minVisibleMs applies to Cap continuation hide — not OS LaunchScreen duration.
   private func hideCapacitorSplash() {
+    if capacitorSplashHidden { return }
+    let minMs = Self.resolveSystemStartMinVisibleMs()
+    let elapsedMs = Date().timeIntervalSince(splashKeepStart) * 1000.0
+    let remaining = max(0, Double(minMs) - elapsedMs)
+    capacitorSplashHideWorkItem?.cancel()
+    if remaining > 0 {
+      startupInfo("cap_splash_hold_remaining_ms=\(Int(remaining)) min=\(minMs)")
+      let work = DispatchWorkItem { [weak self] in
+        self?.hideCapacitorSplashNow(source: "min_visible_elapsed")
+      }
+      capacitorSplashHideWorkItem = work
+      DispatchQueue.main.asyncAfter(deadline: .now() + remaining / 1000.0, execute: work)
+      return
+    }
+    hideCapacitorSplashNow(source: "ready")
+  }
+
+  private func hideCapacitorSplashNow(source: String) {
+    if capacitorSplashHidden { return }
+    capacitorSplashHidden = true
+    capacitorSplashHideWorkItem = nil
+    startupInfo("cap_splash_hide source=\(source)")
     NotificationCenter.default.post(name: Notification.Name("splashScreenHide"), object: nil)
     DispatchQueue.main.async {
       if self.introSessionActive {
@@ -243,6 +329,45 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         self.applyStartupBackground()
       }
     }
+  }
+
+  private static func resolveSystemStartMinVisibleMs() -> Int {
+    guard let url = Bundle.main.url(forResource: "system_start_timing", withExtension: "json"),
+          let data = try? Data(contentsOf: url),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return 500
+    }
+    let n = (obj["SYSTEM_START_MIN_VISIBLE_MS"] as? Int)
+      ?? Int(obj["SYSTEM_START_MIN_VISIBLE_MS"] as? Double ?? 500)
+    if n < 500 { return 500 }
+    if n > 5000 { return 5000 }
+    return n
+  }
+
+  private static func resolveSystemStartBackgroundColor() -> UIColor {
+    guard let url = Bundle.main.url(forResource: "system_start_timing", withExtension: "json"),
+          let data = try? Data(contentsOf: url),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let hex = obj["backgroundColor"] as? String
+    else {
+      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+    }
+    return colorFromHex(hex)
+  }
+
+  private static func colorFromHex(_ raw: String) -> UIColor {
+    var h = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    if h.hasPrefix("#") { h.removeFirst() }
+    guard h.count == 6, let n = UInt32(h, radix: 16) else {
+      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+    }
+    return UIColor(
+      red: CGFloat((n >> 16) & 0xFF) / 255.0,
+      green: CGFloat((n >> 8) & 0xFF) / 255.0,
+      blue: CGFloat(n & 0xFF) / 255.0,
+      alpha: 1.0
+    )
   }
 
   private func hideNativeHandoffCover(source: String) {

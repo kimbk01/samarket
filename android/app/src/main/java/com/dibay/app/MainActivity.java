@@ -1101,17 +1101,23 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // OS Splash: hold until Scene1 first authored frame (or NO_INTRO then Web).
-    // Never release to cream/WebView while Intro cold path is still deciding.
+    // F1: App continuation clock = max(minVisibleMs, Intro-ready | NO_INTRO web dismiss).
+    // Admin minVisibleMs applies HERE — not to OS-owned splash duration API.
     splashScreen.setKeepOnScreenCondition(
         () -> {
+          long minMs = resolveSystemStartMinVisibleMs();
+          long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
+          boolean minElapsed = elapsed >= minMs;
           if (introFirstFrameReady) {
-            return false;
+            return !minElapsed;
           }
           if (introColdPathPending || introSessionActive) {
             return true;
           }
-          return !webSplashDismissRequested;
+          if (!webSplashDismissRequested) {
+            return true;
+          }
+          return !minElapsed;
         });
 
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
@@ -1191,6 +1197,17 @@ public class MainActivity extends BridgeActivity {
                       public void onIntroCompleted(String reason) {
                         introTimelineCompleted = true;
                         Log.i(WEBVIEW_LOG_TAG, "intro_completed reason=" + reason);
+                        if (reason != null && reason.startsWith("CTA_DESTINATION:")) {
+                          String dest = reason.substring("CTA_DESTINATION:".length()).trim();
+                          if (!dest.isEmpty()) {
+                            getSharedPreferences("dibay_startup", MODE_PRIVATE)
+                                .edit()
+                                .putString("initial_surface", dest.toLowerCase(java.util.Locale.US))
+                                .apply();
+                            initialRemotePathApplied = false;
+                            Log.i(WEBVIEW_LOG_TAG, "intro_cta_destination surface=" + dest);
+                          }
+                        }
                         mainHandler.post(() -> tryIntroHomeHandoff("intro_completed"));
                       }
 
@@ -1243,6 +1260,7 @@ public class MainActivity extends BridgeActivity {
     }
     introSessionActive = false;
     Log.i(WEBVIEW_LOG_TAG, "intro_handoff_done source=" + source);
+    ensureInitialRemotePathOnce();
   }
 
   /** HOME_PRESENTATION_READY from web — also drives Intro handoff when timeline done. */
@@ -1639,6 +1657,18 @@ public class MainActivity extends BridgeActivity {
     handoffCoverShown = false;
     handoffCoverRemoved = false;
     handoffPendingRemoteUrl = null;
+  }
+
+  /** F1 App continuation floor from build resource. OS splash duration is not Admin-controlled. */
+  private long resolveSystemStartMinVisibleMs() {
+    try {
+      int v = getResources().getInteger(R.integer.dibay_system_start_min_visible_ms);
+      if (v < 500) return 500L;
+      if (v > 5000) return 5000L;
+      return v;
+    } catch (Exception e) {
+      return 500L;
+    }
   }
 
   private void attachDibayBootBridge(WebView webView) {

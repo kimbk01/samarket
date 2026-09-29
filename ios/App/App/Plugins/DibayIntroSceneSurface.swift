@@ -31,6 +31,18 @@ final class DibayIntroSceneSurface: UIView {
     guard let scene, bounds.width > 0, bounds.height > 0 else { return }
     subviews.forEach { $0.removeFromSuperview() }
     backgroundColor = scene.backgroundColor
+    if let mediaId = scene.backgroundMediaId, !mediaId.isEmpty,
+       let url = mediaFiles[mediaId],
+       let data = try? Data(contentsOf: url),
+       let image = UIImage(data: data)
+    {
+      let bgIv = UIImageView(frame: bounds)
+      bgIv.image = image
+      bgIv.contentMode = scene.backgroundFit == "CONTAIN" ? .scaleAspectFit : .scaleAspectFill
+      bgIv.clipsToBounds = true
+      bgIv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      addSubview(bgIv)
+    }
     let region = DibayIntroFitGeometry.fitContentRegion(
       viewportW: bounds.width,
       viewportH: bounds.height,

@@ -19,8 +19,10 @@ import {
 } from "@/lib/intro/contracts/document";
 import { IntroCanonicalPreview } from "@/components/admin/intro/IntroCanonicalPreview";
 import { IntroCanvas } from "@/components/admin/intro/IntroCanvas";
-import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { Sam } from "@/lib/ui/css-vars";
+import {
+  AdminActionButton,
+  AdminActionLabel,
+} from "@/components/admin/ui/AdminActionButton";
 
 type Props = { documentId: string };
 
@@ -492,7 +494,7 @@ export function IntroStudioPage({ documentId }: Props) {
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <input
-              className={`${Sam.input.base} max-w-xs font-semibold`}
+              className={`sam-input max-w-xs font-semibold`}
               value={document.title}
               onChange={(e) =>
                 setDocument((prev) =>
@@ -964,13 +966,12 @@ export function IntroStudioPage({ documentId }: Props) {
           <div className="max-h-[95vh] overflow-auto rounded-ui-rect bg-sam-surface p-4 shadow-xl">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="font-semibold text-sam-fg">미리보기 · 전체 타임라인</h3>
-              <button
-                type="button"
-                className={Sam.btn.secondary}
+              <AdminActionButton
+                variant="secondary"
                 onClick={() => setPreviewOpen(false)}
               >
                 닫기
-              </button>
+              </AdminActionButton>
             </div>
             <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
               <IntroCanonicalPreview
@@ -1172,7 +1173,7 @@ function ElementProperties({
         <div className="text-xs font-medium text-sam-fg">요소 등장 효과</div>
         <p className="text-[10px] text-sam-muted">장면 전환과 별개입니다.</p>
         <select
-          className={Sam.input.base}
+          className="sam-input"
           value={element.motion.type}
           onChange={(e) => {
             const type = e.target.value as MotionTypeV1;
@@ -1258,7 +1259,7 @@ function NumField({
       {label}
       <input
         type="number"
-        className={`${Sam.input.base} mt-0.5`}
+        className={`sam-input mt-0.5`}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       />
@@ -1367,7 +1368,7 @@ function TextProps({
       <label className="block text-xs text-sam-muted">
         내용
         <textarea
-          className={`${Sam.input.base} mt-1 min-h-[72px]`}
+          className={`sam-input mt-1 min-h-[72px]`}
           value={p.text}
           onChange={(e) =>
             onChange({ ...element, payload: { ...p, text: e.target.value } })
@@ -1386,7 +1387,7 @@ function TextProps({
           }
         />
         <select
-          className={Sam.input.base}
+          className="sam-input"
           value={p.align}
           onChange={(e) =>
             onChange({
@@ -1403,7 +1404,7 @@ function TextProps({
           <option value="right">오른쪽</option>
         </select>
         <select
-          className={Sam.input.base}
+          className="sam-input"
           value={p.weight}
           onChange={(e) =>
             onChange({
@@ -1457,7 +1458,7 @@ function CtaProps({
       <label className="block text-xs text-sam-muted">
         버튼 텍스트
         <input
-          className={`${Sam.input.base} mt-1`}
+          className={`sam-input mt-1`}
           value={p.label}
           onChange={(e) =>
             onChange({ ...element, payload: { ...p, label: e.target.value } })
@@ -1500,7 +1501,7 @@ function CtaProps({
       <label className="block text-xs text-sam-muted">
         동작
         <select
-          className={`${Sam.input.base} mt-1`}
+          className={`sam-input mt-1`}
           value={
             p.action.type === "INTERNAL_DESTINATION"
               ? `DEST:${p.action.destination}`
@@ -1556,11 +1557,11 @@ function MediaPickerModal({
       <div className="max-h-[80vh] w-full max-w-lg overflow-auto rounded-ui-rect bg-sam-surface p-4 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-medium text-sam-fg">{title}</h3>
-          <button type="button" className={Sam.btn.secondary} onClick={onClose}>
+          <AdminActionButton variant="secondary" onClick={onClose}>
             취소
-          </button>
+          </AdminActionButton>
         </div>
-        <label className={`${Sam.btn.secondary} mb-3 inline-block cursor-pointer`}>
+        <AdminActionLabel variant="secondary" className="mb-3 inline-block">
           새 파일 업로드
           <input
             type="file"
@@ -1572,7 +1573,7 @@ function MediaPickerModal({
               e.target.value = "";
             }}
           />
-        </label>
+        </AdminActionLabel>
         <ul className="grid grid-cols-3 gap-2">
           {items.map((m) => (
             <li key={m.mediaId}>

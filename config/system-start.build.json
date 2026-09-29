@@ -4,10 +4,11 @@
   "matchScene1Appearance": false,
   "brandMarkEnabled": false,
   "logoMediaId": null,
+  "brandSizePreset": "M",
   "logoFit": "CONTAIN",
   "logoSizeNorm": 0.28,
   "logoXNorm": 0.5,
-  "logoYNorm": 0.42,
-  "minVisibleMs": 0,
-  "note": "Build-bound OS System Start. Changing this requires a native app build/update. Not Live CMS / Service Apply. minVisibleMs = SYSTEM_START_MIN_VISIBLE_MS (Owner-configurable). No hidden artificial hold beyond configured minimum."
+  "logoYNorm": 0.5,
+  "minVisibleMs": 500,
+  "note": "DERIVED from app_system_start_config. Not durable authority. minVisibleMs = App/Cap continuation only (F1). logoIntegrity required when brand enabled (F2)."
 }

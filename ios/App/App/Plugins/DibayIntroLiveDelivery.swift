@@ -25,7 +25,7 @@ final class DibayIntroLiveDelivery {
       return offlinePolicy()
     }
     do {
-      guard let live = try httpGetJson(url: origin + "/api/intro/device/live", timeout: 8) else {
+      guard let live = try httpGetJson(url: origin + "/api/intro/device/live", timeout: 1.5) else {
         return offlinePolicy()
       }
       guard (live["ok"] as? Bool) == true else { return offlinePolicy() }
@@ -49,7 +49,11 @@ final class DibayIntroLiveDelivery {
           canRender: true, reason: "VERIFIED_MATCH",
           packageId: packageId, releaseId: releaseId, packageIntegrity: packageIntegrity)
       }
-      guard let packBytes = try httpGetData(url: packUrl, timeout: 15), !packBytes.isEmpty else {
+      // F3-B: download budget hard ≤4000ms wall after metadata decides download needed.
+      let downloadDeadline = Date().addingTimeInterval(4.0)
+      guard let packBytes = try httpGetData(
+        url: packUrl, timeout: Self.remainingTimeout(until: downloadDeadline)), !packBytes.isEmpty
+      else {
         return .noIntro("PACK_DOWNLOAD_FAILED")
       }
       guard let packRoot = try JSONSerialization.jsonObject(with: packBytes) as? [String: Any] else {
@@ -64,7 +68,11 @@ final class DibayIntroLiveDelivery {
         if rel.isEmpty || url.isEmpty {
           return .noIntro("ASSET_MAP_FAILED:\(mediaId)")
         }
-        guard let bytes = try httpGetData(url: url, timeout: 30), !bytes.isEmpty else {
+        let assetTimeout = Self.remainingTimeout(until: downloadDeadline)
+        if assetTimeout <= 0 {
+          return .noIntro("DOWNLOAD_BUDGET_EXCEEDED")
+        }
+        guard let bytes = try httpGetData(url: url, timeout: assetTimeout), !bytes.isEmpty else {
           return .noIntro("ASSET_DOWNLOAD_FAILED:\(mediaId)")
         }
         byRel[rel] = bytes
@@ -109,6 +117,12 @@ final class DibayIntroLiveDelivery {
     return .noIntro("OFFLINE_LIVE_MISMATCH_OR_MISSING")
   }
 
+  private static func remainingTimeout(until deadline: Date) -> TimeInterval {
+    let left = deadline.timeIntervalSinceNow
+    if left <= 0 { return 0 }
+    return min(4.0, left)
+  }
+
   private static func resolveServerOrigin() -> String? {
     guard let path = Bundle.main.path(forResource: "capacitor.config", ofType: "json"),
           let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
@@ -126,7 +140,7 @@ final class DibayIntroLiveDelivery {
   }
 
   private func httpGetData(url: String, timeout: TimeInterval) throws -> Data? {
-    guard let u = URL(string: url) else { return nil }
+    guard timeout > 0, let u = URL(string: url) else { return nil }
     var req = URLRequest(url: u, timeoutInterval: timeout)
     req.httpMethod = "GET"
     let sem = DispatchSemaphore(value: 0)
@@ -139,7 +153,7 @@ final class DibayIntroLiveDelivery {
       }
       sem.signal()
     }.resume()
-    _ = sem.wait(timeout: .now() + timeout + 1)
+    _ = sem.wait(timeout: .now() + timeout + 0.25)
     if let err { throw err }
     return out
   }
