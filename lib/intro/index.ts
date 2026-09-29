@@ -1,6 +1,7 @@
 /**
- * DIBAY INTRO — Phase 1 public surface.
- * Contracts + pure utilities + fixtures only.
+ * DIBAY INTRO — public surface.
+ * Phase 1: contracts + pure utilities + fixtures.
+ * Phase 2: additive DB/storage/security authority constants (no processor).
  */
 
 export * from "./contracts";
@@ -24,3 +25,5 @@ export {
   TABLET_NO_OVERRIDE_EXPECTED,
   FIXTURE_TRANSITION_TYPES,
 } from "./fixtures/canonical-document";
+export * from "./db/authority";
+export * from "./db/alignment";
