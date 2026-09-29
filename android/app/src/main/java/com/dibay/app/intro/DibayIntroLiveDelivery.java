@@ -1,0 +1,175 @@
+package com.dibay.app.intro;
+
+import android.content.Context;
+import android.util.Log;
+import com.dibay.app.DibayServerOrigin;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
+
+/**
+ * LIVE_MATCH_OR_NO_INTRO delivery.
+ * Fetch Live → download complete pack → integrity verify → atomic commit.
+ * Never render partial / stale-as-success.
+ */
+public final class DibayIntroLiveDelivery {
+  public static final String TAG = "DibayIntroDelivery";
+
+  public static final class Result {
+    public final boolean canRender;
+    public final String reason;
+    public final String packageId;
+    public final String releaseId;
+    public final String packageIntegrity;
+
+    public Result(
+        boolean canRender,
+        String reason,
+        String packageId,
+        String releaseId,
+        String packageIntegrity) {
+      this.canRender = canRender;
+      this.reason = reason;
+      this.packageId = packageId;
+      this.releaseId = releaseId;
+      this.packageIntegrity = packageIntegrity;
+    }
+
+    public static Result noIntro(String reason) {
+      return new Result(false, reason, null, null, null);
+    }
+  }
+
+  private final Context context;
+  private final DibayIntroVerifiedStore store;
+
+  public DibayIntroLiveDelivery(Context context) {
+    this.context = context.getApplicationContext();
+    this.store = new DibayIntroVerifiedStore(this.context);
+  }
+
+  public DibayIntroVerifiedStore store() {
+    return store;
+  }
+
+  /**
+   * Cold-start sync. Runs on caller thread (background). Timeout ~8s.
+   */
+  public Result syncForColdStart() {
+    String origin = DibayServerOrigin.resolve(context);
+    if (origin == null || origin.isEmpty()) {
+      // Offline: only matching verified may render — but we don't know Live.
+      // Without Live pointer, LIVE_MATCH_OR_NO_INTRO → try last pointer.
+      return offlinePolicy();
+    }
+    try {
+      JSONObject live = httpGetJson(origin + "/api/intro/device/live", 8_000);
+      if (live == null || !live.optBoolean("ok", false)) {
+        return offlinePolicy();
+      }
+      String kind = live.optString("kind", "");
+      if ("NO_LIVE".equals(kind)) {
+        store.writeLivePointer(live);
+        return Result.noIntro("NO_LIVE");
+      }
+      if (!"LIVE".equals(kind)) {
+        return Result.noIntro("LIVE_KIND_UNKNOWN:" + kind);
+      }
+      String releaseId = live.optString("releaseId", "");
+      String packageId = live.optString("packageId", "");
+      String packageIntegrity = live.optString("packageIntegrity", "");
+      String packUrl = live.optString("packRetrievalUrl", "");
+      store.writeLivePointer(live);
+
+      if (packageId.isEmpty() || packageIntegrity.isEmpty() || packUrl.isEmpty()) {
+        return Result.noIntro("LIVE_INCOMPLETE");
+      }
+
+      if (store.hasVerifiedMatching(packageId, packageIntegrity)) {
+        Log.i(TAG, "verified_match packageId=" + packageId);
+        return new Result(true, "VERIFIED_MATCH", packageId, releaseId, packageIntegrity);
+      }
+
+      // Must download complete package — do not render previous.
+      byte[] packBytes = httpGetBytes(packUrl, 15_000);
+      if (packBytes == null || packBytes.length == 0) {
+        return Result.noIntro("PACK_DOWNLOAD_FAILED");
+      }
+      try {
+        store.atomicCommitVerified(packBytes, releaseId, packageId, packageIntegrity);
+      } catch (Exception e) {
+        Log.e(TAG, "atomic_commit_failed", e);
+        store.quarantineVerified("commit_failed");
+        return Result.noIntro("COMMIT_FAILED:" + e.getMessage());
+      }
+      return new Result(true, "DOWNLOADED_COMMITTED", packageId, releaseId, packageIntegrity);
+    } catch (Exception e) {
+      Log.e(TAG, "sync_failed", e);
+      return offlinePolicy();
+    }
+  }
+
+  private Result offlinePolicy() {
+    try {
+      JSONObject pointer = store.readLivePointerOrNull();
+      JSONObject meta = store.readVerifiedMetaOrNull();
+      if (pointer == null) {
+        // First install offline / never saw Live
+        return Result.noIntro("FIRST_INSTALL_OR_NO_POINTER");
+      }
+      if ("NO_LIVE".equals(pointer.optString("kind", ""))) {
+        return Result.noIntro("NO_LIVE_CACHED");
+      }
+      String packageId = pointer.optString("packageId", "");
+      String integrity = pointer.optString("packageIntegrity", "");
+      String releaseId = pointer.optString("releaseId", "");
+      if (meta != null
+          && packageId.equals(meta.optString("packageId", ""))
+          && integrity.equals(meta.optString("packageIntegrity", ""))
+          && store.hasVerifiedMatching(packageId, integrity)) {
+        return new Result(true, "OFFLINE_VERIFIED_MATCH", packageId, releaseId, integrity);
+      }
+      // Know Live but cannot prove match / download — no stale campaign
+      return Result.noIntro("OFFLINE_LIVE_MISMATCH_OR_MISSING");
+    } catch (Exception e) {
+      return Result.noIntro("OFFLINE_POLICY_ERROR");
+    }
+  }
+
+  private static JSONObject httpGetJson(String urlStr, int timeoutMs) throws Exception {
+    byte[] bytes = httpGetBytes(urlStr, timeoutMs);
+    if (bytes == null) return null;
+    return new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+  }
+
+  private static byte[] httpGetBytes(String urlStr, int timeoutMs) throws Exception {
+    HttpURLConnection conn = null;
+    try {
+      URL url = new URL(urlStr);
+      conn = (HttpURLConnection) url.openConnection();
+      conn.setConnectTimeout(timeoutMs);
+      conn.setReadTimeout(timeoutMs);
+      conn.setRequestMethod("GET");
+      conn.setInstanceFollowRedirects(true);
+      int code = conn.getResponseCode();
+      InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+      if (in == null) return null;
+      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      byte[] buf = new byte[8192];
+      int n;
+      while ((n = in.read(buf)) >= 0) {
+        bos.write(buf, 0, n);
+      }
+      if (code < 200 || code >= 300) {
+        Log.w(TAG, "http_fail code=" + code + " url=" + urlStr);
+        return null;
+      }
+      return bos.toByteArray();
+    } finally {
+      if (conn != null) conn.disconnect();
+    }
+  }
+}

@@ -85,6 +85,11 @@ public class MainActivity extends BridgeActivity {
   private static volatile String splashDismissSource = "none";
   /** Meaningful Home presentation ready — not shellReady / dismissSplash alias. */
   private static volatile boolean homePresentationReady = false;
+  /** 13th Product Intro — verified local package Scene1 first authored frame. */
+  private static volatile boolean introFirstFrameReady = false;
+  private static volatile boolean introSessionActive = false;
+  private static volatile boolean introTimelineCompleted = false;
+  private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
 
@@ -1094,8 +1099,16 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // OS Splash until Web App Ready (DibayBootBridge.dismissSplash). No Product Intro.
-    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    // OS Splash: hold while Intro sync/render OR until Web dismissSplash.
+    // When Intro owns startup: release splash only after authored Scene1 pixels.
+    splashScreen.setKeepOnScreenCondition(
+        () -> {
+          if (introSessionActive) {
+            return !introFirstFrameReady;
+          }
+          return !webSplashDismissRequested;
+        });
+
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
@@ -1141,12 +1154,90 @@ public class MainActivity extends BridgeActivity {
     }
     handleNotificationLaunchIntent(launchIntent);
     DibayWebSafeAreaBridge.attach(this);
+    tryStartDibayIntro13();
   }
 
-  /** HOME_PRESENTATION_READY from web — retained for boot metrics; no Product Intro handoff. */
+  /**
+   * 13th Product Intro cold path — LIVE_MATCH_OR_NO_INTRO on background thread.
+   * Verified local package → native Scene1. No Candidate/Ready/Active.
+   */
+  private void tryStartDibayIntro13() {
+    new Thread(
+            () -> {
+              try {
+                com.dibay.app.intro.DibayIntroRuntimeController runtime =
+                    new com.dibay.app.intro.DibayIntroRuntimeController(this);
+                runtime.setListener(
+                    new com.dibay.app.intro.DibayIntroRuntimeController.Listener() {
+                      @Override
+                      public void onFirstFrameReady(org.json.JSONObject identity) {
+                        introFirstFrameReady = true;
+                        String packId =
+                            identity != null ? identity.optString("packageId", "") : "";
+                        Log.i(WEBVIEW_LOG_TAG, "intro_first_frame_ready packageId=" + packId);
+                      }
+
+                      @Override
+                      public void onIntroCompleted(String reason) {
+                        introTimelineCompleted = true;
+                        Log.i(WEBVIEW_LOG_TAG, "intro_completed reason=" + reason);
+                        mainHandler.post(() -> tryIntroHomeHandoff("intro_completed"));
+                      }
+
+                      @Override
+                      public void onIntroAborted(String reason) {
+                        introSessionActive = false;
+                        introFirstFrameReady = false;
+                        introTimelineCompleted = false;
+                        Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
+                      }
+                    });
+                boolean started = runtime.tryStartWithLiveMatchPolicy();
+                if (started) {
+                  dibayIntroRuntime = runtime;
+                  introSessionActive = true;
+                  Log.i(WEBVIEW_LOG_TAG, "intro_session_active=1");
+                } else {
+                  Log.i(WEBVIEW_LOG_TAG, "intro_session_active=0 reason=NO_PRODUCT_INTRO");
+                }
+              } catch (Exception e) {
+                introSessionActive = false;
+                Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
+              }
+            },
+            "dibay-intro-13")
+        .start();
+  }
+
+  /**
+   * Intro→Home handoff: hold last authored frame until HOME_PRESENTATION_READY.
+   * Never Intro → white/black/cream gap.
+   */
+  private void tryIntroHomeHandoff(String source) {
+    if (!introTimelineCompleted) {
+      Log.i(WEBVIEW_LOG_TAG, "intro_handoff_wait timeline source=" + source);
+      return;
+    }
+    if (!homePresentationReady) {
+      Log.i(WEBVIEW_LOG_TAG, "intro_handoff_hold_last_frame source=" + source);
+      return;
+    }
+    if (dibayIntroRuntime != null) {
+      dibayIntroRuntime.dismissAfterHandoff();
+      dibayIntroRuntime = null;
+    }
+    introSessionActive = false;
+    Log.i(WEBVIEW_LOG_TAG, "intro_handoff_done source=" + source);
+  }
+
+  /** HOME_PRESENTATION_READY from web — also drives Intro handoff when timeline done. */
   public static void notifyHomePresentationReady(String source) {
     homePresentationReady = true;
     Log.i(WEBVIEW_LOG_TAG, "HOME_PRESENTATION_READY source=" + (source != null ? source : "unknown"));
+    MainActivity inst = activeInstance;
+    if (inst != null) {
+      inst.mainHandler.post(() -> inst.tryIntroHomeHandoff("home_ready"));
+    }
   }
 
 
