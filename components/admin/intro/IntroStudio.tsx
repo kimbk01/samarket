@@ -68,11 +68,18 @@ import {
 import { SystemStartEditor } from "@/components/admin/intro/SystemStartEditor";
 import {
   getIntroDocumentApi,
-  getIntroLiveApi,
+  getIntroDocumentAuthorityApi,
   publishIntroDocumentApi,
   saveIntroDocumentApi,
   setIntroLiveApi,
+  type IntroDocumentAuthorityDto,
+  type IntroPublishedRevisionSummaryDto,
 } from "./introDocumentApi";
+import {
+  humanDraftVersionLabel,
+  humanLiveVersionLabel,
+  humanPublishedVersionLabel,
+} from "@/lib/intro/document/authority-labels";
 
 type StudioMode = "system" | "intro";
 
@@ -150,18 +157,13 @@ export function IntroStudio({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [publishUi, setPublishUi] = useState<PublishUi>("idle");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
-  const [lastPublishPackId, setLastPublishPackId] = useState<string | null>(
-    null,
-  );
-  const [lastPublishedRevisionId, setLastPublishedRevisionId] = useState<
-    string | null
-  >(null);
+  /** Authoritative from server — never session-hardcoded revision. */
+  const [revisionAuthority, setRevisionAuthority] =
+    useState<IntroDocumentAuthorityDto | null>(null);
+  const [authorityLoading, setAuthorityLoading] = useState(false);
+  const [showAuthorityDetail, setShowAuthorityDetail] = useState(false);
   const [setLiveUi, setSetLiveUi] = useState<SetLiveUi>("idle");
   const [setLiveMessage, setSetLiveMessage] = useState<string | null>(null);
-  const [currentLiveKind, setCurrentLiveKind] = useState<string | null>(null);
-  const [currentLiveRevisionId, setCurrentLiveRevisionId] = useState<
-    string | null
-  >(null);
   const [picker, setPicker] = useState<PickerState>(null);
   const [confirmDeleteScene, setConfirmDeleteScene] = useState<string | null>(
     null,
@@ -302,6 +304,26 @@ export function IntroStudio({
     setPublishMessage(null);
   };
 
+  const refreshAuthority = useCallback(async () => {
+    setAuthorityLoading(true);
+    const res = await getIntroDocumentAuthorityApi(documentId);
+    setAuthorityLoading(false);
+    if (!res.ok || !res.authority) return null;
+    setRevisionAuthority(res.authority);
+    return res.authority;
+  }, [documentId]);
+
+  useEffect(() => {
+    void refreshAuthority();
+  }, [refreshAuthority]);
+
+  const serviceApplyCandidate: IntroPublishedRevisionSummaryDto | null =
+    revisionAuthority?.latestPublished ?? null;
+  const liveRevisionSummary = revisionAuthority?.liveRevision ?? null;
+  const currentLiveKind = revisionAuthority?.live.liveKind ?? null;
+  const currentLiveRevisionId =
+    revisionAuthority?.live.publishedRevisionId ?? null;
+
   const onPublishConfirmed = async () => {
     if (!document || publishUi === "publishing" || dirty) return;
     setPublishUi("publishing");
@@ -325,56 +347,47 @@ export function IntroStudio({
       return;
     }
     setPublishUi("success");
-    setLastPublishPackId(res.result.packId);
-    setLastPublishedRevisionId(res.result.publishedRevisionId);
     setPublishMessage(
       ko
         ? `불변 게시 버전 생성됨 — 아직 서비스에는 적용되지 않습니다. Pack ${res.result.packId.slice(0, 8)}…`
         : `Immutable revision created — not yet applied to service. Pack ${res.result.packId.slice(0, 8)}…`,
     );
+    // Refresh authoritative revision state from server — do not rely solely on local assignment.
+    await refreshAuthority();
   };
 
-  const refreshLive = useCallback(async () => {
-    const res = await getIntroLiveApi();
-    if (!res.ok || !res.live) return;
-    setCurrentLiveKind(res.live.liveKind);
-    setCurrentLiveRevisionId(res.live.publishedRevisionId);
-  }, []);
-
-  useEffect(() => {
-    void refreshLive();
-  }, [refreshLive]);
-
-  // Owner V1 production authority may already be published — allow service apply without re-publish.
-  useEffect(() => {
-    if (documentId === "3347c673-0667-4605-a8c8-a306ae209896") {
-      setLastPublishedRevisionId((prev) =>
-        prev ?? "4b5cf115-3ede-45a6-b6dd-a255915a9158",
-      );
-      setLastPublishPackId((prev) =>
-        prev ?? "2f4dbc7d-b6ce-416f-80eb-012ef9bad153",
-      );
-    }
-  }, [documentId]);
-
   const onSetLiveConfirmed = async () => {
-    if (!lastPublishedRevisionId || setLiveUi === "setting") return;
+    if (!serviceApplyCandidate || setLiveUi === "setting") return;
+    const targetRevisionId = serviceApplyCandidate.publishedRevisionId;
     setSetLiveUi("setting");
     setSetLiveMessage(ko ? "서비스에 적용 중…" : "Applying to service…");
-    const liveRes = await getIntroLiveApi();
-    if (!liveRes.ok || !liveRes.live) {
+
+    // Re-fetch authority immediately before apply — stale session cannot override server.
+    const fresh = await refreshAuthority();
+    if (!fresh?.latestPublished) {
       setSetLiveUi("error");
       setSetLiveMessage(
         ko
-          ? `Live 상태 조회 실패: ${liveRes.error ?? "error"}`
-          : `Live status failed: ${liveRes.error ?? "error"}`,
+          ? "적용할 게시 버전을 서버에서 확인할 수 없습니다."
+          : "Could not confirm published candidate from server.",
       );
       return;
     }
+    if (fresh.latestPublished.publishedRevisionId !== targetRevisionId) {
+      setSetLiveUi("error");
+      setSetLiveMessage(
+        ko
+          ? "게시 버전이 변경되었습니다. 확인 후 다시 적용하세요."
+          : "Published candidate changed. Re-confirm and apply again.",
+      );
+      return;
+    }
+
     const res = await setIntroLiveApi({
-      publishedRevisionId: lastPublishedRevisionId,
-      expectedLiveKind: liveRes.live.liveKind,
-      expectedPublishedRevisionId: liveRes.live.publishedRevisionId,
+      publishedRevisionId: targetRevisionId,
+      documentId,
+      expectedLiveKind: fresh.live.liveKind,
+      expectedPublishedRevisionId: fresh.live.publishedRevisionId,
     });
     if (!res.ok || !res.live) {
       setSetLiveUi("error");
@@ -385,13 +398,27 @@ export function IntroStudio({
       );
       return;
     }
+
+    // HTTP 200 alone is insufficient — refetch Live authority.
+    const after = await refreshAuthority();
+    if (
+      !after ||
+      after.live.publishedRevisionId !== targetRevisionId
+    ) {
+      setSetLiveUi("error");
+      setSetLiveMessage(
+        ko
+          ? "적용 응답은 받았으나 Live 재조회가 요청 revision과 일치하지 않습니다."
+          : "Apply returned OK but Live refetch does not match requested revision.",
+      );
+      return;
+    }
+
     setSetLiveUi("success");
-    setCurrentLiveKind(res.live.liveKind);
-    setCurrentLiveRevisionId(res.live.publishedRevisionId);
     setSetLiveMessage(
       ko
-        ? "서비스 — 기기 동기화 후 다음 앱 실행부터 반영"
-        : "Service — sync then next cold start",
+        ? "서비스 버전 변경 완료 — 기기 반영: 동기화 확인 필요."
+        : "Service version updated — device sync still required.",
     );
   };
 
@@ -612,16 +639,20 @@ export function IntroStudio({
         <AdminActionButton
           variant="secondary"
           disabled={
-            !lastPublishedRevisionId ||
+            !serviceApplyCandidate ||
             setLiveUi === "setting" ||
             setLiveUi === "confirm" ||
-            dirty
+            dirty ||
+            authorityLoading
           }
           onClick={() => {
             setSetLiveUi("confirm");
             setSetLiveMessage(null);
           }}
           data-intro-set-live="1"
+          data-intro-set-live-candidate={
+            serviceApplyCandidate?.publishedRevisionId ?? undefined
+          }
         >
           {setLiveUi === "setting"
             ? ko
@@ -648,7 +679,9 @@ export function IntroStudio({
           <span
             className="text-xs text-sam-muted"
             data-intro-publish-state={publishUi}
-            data-intro-publish-pack-id={lastPublishPackId ?? undefined}
+            data-intro-publish-pack-id={
+              serviceApplyCandidate?.packId ?? undefined
+            }
           >
             {publishMessage}
           </span>
@@ -671,23 +704,25 @@ export function IntroStudio({
           <strong className="text-sam-fg">{ko ? "초안" : "Draft"}</strong>
           {": "}
           <span className="text-sam-muted">
-            {dirty
-              ? ko
-                ? "미저장"
-                : "Unsaved"
-              : ko
-                ? "저장됨"
-                : "Saved"}
+            {humanDraftVersionLabel(draftVersion, dirty, ko ? "ko" : "en")}
           </span>
         </span>
-        <span data-intro-status-publish="1">
-          <strong className="text-sam-fg">{ko ? "게시" : "Published"}</strong>
+        <span
+          data-intro-status-publish="1"
+          data-intro-published-revision={
+            serviceApplyCandidate?.publishedRevisionId ?? undefined
+          }
+        >
+          <strong className="text-sam-fg">
+            {ko ? "게시 버전" : "Published"}
+          </strong>
           {": "}
           <span className="text-sam-muted">
-            {lastPublishedRevisionId
-              ? ko
-                ? "게시됨"
-                : "Published"
+            {serviceApplyCandidate
+              ? humanPublishedVersionLabel(
+                  serviceApplyCandidate,
+                  ko ? "ko" : "en",
+                )
               : ko
                 ? "없음"
                 : "None"}
@@ -698,18 +733,33 @@ export function IntroStudio({
           data-intro-live-kind={currentLiveKind ?? undefined}
           data-intro-live-revision={currentLiveRevisionId ?? undefined}
         >
-          <strong className="text-sam-fg">{ko ? "서비스" : "Service"}</strong>
+          <strong className="text-sam-fg">
+            {ko ? "서비스 버전" : "Service"}
+          </strong>
           {": "}
           <span className="text-sam-muted">
-            {currentLiveKind === "COMMITTED_LIVE"
+            {humanLiveVersionLabel(
+              liveRevisionSummary,
+              currentLiveKind ?? "NEVER_CONFIGURED",
+              ko ? "ko" : "en",
+            )}
+            {revisionAuthority &&
+            currentLiveKind === "COMMITTED_LIVE" &&
+            !revisionAuthority.liveBelongsToDocument
               ? ko
-                ? "현재 적용"
-                : "Applied"
-              : ko
-                ? "미적용"
-                : "Not applied"}
+                ? " (다른 문서)"
+                : " (other document)"
+              : ""}
           </span>
         </span>
+        <button
+          type="button"
+          className="text-[11px] text-sam-muted underline"
+          data-intro-authority-detail-toggle="1"
+          onClick={() => setShowAuthorityDetail((v) => !v)}
+        >
+          {ko ? "상세 정보" : "Details"}
+        </button>
         <span data-intro-status-device="1">
           <strong className="text-sam-fg">{ko ? "기기" : "Device"}</strong>
           {": "}
@@ -718,6 +768,25 @@ export function IntroStudio({
           </span>
         </span>
       </div>
+      {showAuthorityDetail ? (
+        <div
+          className="border-b border-sam-border bg-sam-bg px-4 py-2 font-mono text-[10px] text-sam-muted"
+          data-intro-authority-detail="1"
+        >
+          <div>
+            draftVersion={draftVersion}
+            {dirty ? " (dirty)" : ""}
+          </div>
+          <div>
+            publishedRevisionId=
+            {serviceApplyCandidate?.publishedRevisionId ?? "null"}
+          </div>
+          <div>
+            liveRevisionId={currentLiveRevisionId ?? "null"} packId=
+            {revisionAuthority?.live.packId ?? "null"}
+          </div>
+        </div>
+      ) : null}
 
       {publishUi === "confirm" ? (
         <div
@@ -817,29 +886,55 @@ export function IntroStudio({
         >
           <p className="font-semibold">
             {ko
-              ? "이 인트로를 현재 서비스 버전으로 변경하시겠습니까?"
-              : "Change the current service intro to this version?"}
+              ? "이 게시 버전을 서비스에 적용하시겠습니까?"
+              : "Apply this published version to service?"}
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-sam-muted">
+          <ul className="mt-2 list-none space-y-1 text-xs text-sam-muted">
+            <li data-intro-set-live-current="1">
+              <strong className="text-sam-fg">
+                {ko ? "현재 서비스 버전" : "Current service"}
+              </strong>
+              {": "}
+              {humanLiveVersionLabel(
+                liveRevisionSummary,
+                currentLiveKind ?? "NEVER_CONFIGURED",
+                ko ? "ko" : "en",
+              )}
+            </li>
+            <li data-intro-set-live-target="1">
+              <strong className="text-sam-fg">
+                {ko ? "적용할 게시 버전" : "Apply published"}
+              </strong>
+              {": "}
+              {serviceApplyCandidate
+                ? humanPublishedVersionLabel(
+                    serviceApplyCandidate,
+                    ko ? "ko" : "en",
+                  )
+                : ko
+                  ? "없음"
+                  : "None"}
+            </li>
             <li>
               {ko
-                ? "반영: 기기가 새 버전을 동기화한 후 다음 앱 실행부터 적용됩니다."
-                : "Applies after the device syncs, on the next app launch."}
+                ? "반영: 기기 동기화 후 다음 적용 가능한 앱 실행부터"
+                : "Applies after device sync, on the next eligible app launch."}
             </li>
-          </ul>          <div className="mt-3 flex flex-wrap gap-2">
-            <AdminActionButton
-              variant="primary"
-              onClick={() => void onSetLiveConfirmed()}
-              data-intro-set-live-confirm-yes="1"
-            >
-              {ko ? "서비스에 적용" : "Apply to service"}
-            </AdminActionButton>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
             <AdminActionButton
               variant="secondary"
               onClick={() => setSetLiveUi("idle")}
               data-intro-set-live-confirm-no="1"
             >
               {ko ? "취소" : "Cancel"}
+            </AdminActionButton>
+            <AdminActionButton
+              variant="primary"
+              onClick={() => void onSetLiveConfirmed()}
+              data-intro-set-live-confirm-yes="1"
+            >
+              {ko ? "서비스에 적용" : "Apply to service"}
             </AdminActionButton>
           </div>
         </div>

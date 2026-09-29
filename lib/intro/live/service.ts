@@ -183,15 +183,29 @@ export async function setLiveToCommittedRevision(args: {
   userId: string;
   publishedRevisionId: string;
   cas: LiveCasExpectation;
+  /**
+   * When set, revision MUST belong to this documentId.
+   * Admin Service Apply always passes current document — do not trust arbitrary UUID.
+   */
+  expectedDocumentId?: string;
 }): Promise<{
   live: LiveAuthorityView;
   authority: CommittedRevisionAuthority;
 }> {
-  const { sb, userId, publishedRevisionId, cas } = args;
+  const { sb, userId, publishedRevisionId, cas, expectedDocumentId } = args;
   const authority = await resolveCommittedRevisionAuthority(
     sb,
     publishedRevisionId,
   );
+  if (
+    expectedDocumentId &&
+    authority.documentId !== expectedDocumentId
+  ) {
+    throw new LiveValidationError(
+      "REVISION_DOCUMENT_MISMATCH",
+      `expectedDocument=${expectedDocumentId} actual=${authority.documentId}`,
+    );
+  }
   const current = await readLiveRow(sb);
   await assertCas(current, cas);
 

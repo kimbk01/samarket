@@ -14,9 +14,15 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/admin/intro/live/set
- * Body: { publishedRevisionId, expectedLiveKind, expectedPublishedRevisionId }
+ * Body: {
+ *   publishedRevisionId,
+ *   expectedLiveKind,
+ *   expectedPublishedRevisionId,
+ *   documentId?  — when present, revision MUST belong to this document
+ * }
  *
  * Set Live for COMMITTED revision only. Does NOT claim devices already downloaded.
+ * Does NOT trust arbitrary client UUID without document / COMMITTED / pack checks.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -34,6 +40,7 @@ export async function POST(req: NextRequest) {
     publishedRevisionId?: string;
     expectedLiveKind?: string;
     expectedPublishedRevisionId?: string | null;
+    documentId?: string;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -69,12 +76,22 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  if (
+    body.documentId !== undefined &&
+    (typeof body.documentId !== "string" || !body.documentId.trim())
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_document_id" },
+      { status: 400 },
+    );
+  }
 
   try {
     const result = await setLiveToCommittedRevision({
       sb,
       userId: admin.userId,
       publishedRevisionId: body.publishedRevisionId.trim(),
+      expectedDocumentId: body.documentId?.trim(),
       cas: {
         expectedLiveKind: body.expectedLiveKind,
         expectedPublishedRevisionId:

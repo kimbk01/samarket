@@ -271,6 +271,62 @@ export type IntroLiveAuthorityDto = {
   updatedAt: string;
 };
 
+export type IntroPublishedRevisionSummaryDto = {
+  publishedRevisionId: string;
+  packId: string;
+  documentId: string;
+  sourceDraftVersion: number;
+  publishState: "COMMITTED";
+  createdAt: string;
+  createdBy: string | null;
+};
+
+export type IntroDocumentAuthorityDto = {
+  documentId: string;
+  draft: {
+    draftVersion: number;
+    title: string;
+    updatedAt: string;
+  };
+  latestPublished: IntroPublishedRevisionSummaryDto | null;
+  committedRevisions: IntroPublishedRevisionSummaryDto[];
+  live: IntroLiveAuthorityDto;
+  liveRevision: IntroPublishedRevisionSummaryDto | null;
+  liveBelongsToDocument: boolean;
+};
+
+/** Canonical draft / published / live authority for current document — server only. */
+export async function getIntroDocumentAuthorityApi(
+  documentId: string,
+): Promise<{
+  ok: boolean;
+  authority?: IntroDocumentAuthorityDto;
+  error?: string;
+  status: number;
+}> {
+  const res = await fetch(
+    `/api/admin/intro/documents/${encodeURIComponent(documentId)}/authority`,
+    {
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    },
+  );
+  const json = await parseJson(res);
+  if (!res.ok || json.ok !== true) {
+    return {
+      ok: false,
+      status: res.status,
+      error: String(json.error ?? "authority_failed"),
+    };
+  }
+  return {
+    ok: true,
+    status: res.status,
+    authority: json.authority as IntroDocumentAuthorityDto,
+  };
+}
+
 export async function getIntroLiveApi(): Promise<{
   ok: boolean;
   live?: IntroLiveAuthorityDto;
@@ -306,6 +362,8 @@ export async function setIntroLiveApi(args: {
   publishedRevisionId: string;
   expectedLiveKind: string;
   expectedPublishedRevisionId: string | null;
+  /** Required for Admin Service Apply — server rejects wrong-document revision. */
+  documentId: string;
 }): Promise<{
   ok: boolean;
   live?: IntroLiveAuthorityDto;
@@ -313,6 +371,8 @@ export async function setIntroLiveApi(args: {
     publishedRevisionId: string;
     packId: string;
     packIntegrity: string;
+    documentId?: string;
+    sourceDraftVersion?: number;
   };
   error?: string;
   code?: string;
@@ -346,6 +406,8 @@ export async function setIntroLiveApi(args: {
       publishedRevisionId: string;
       packId: string;
       packIntegrity: string;
+      documentId?: string;
+      sourceDraftVersion?: number;
     },
   };
 }
