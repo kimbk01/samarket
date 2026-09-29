@@ -61,6 +61,24 @@ final class DibayIntroPackModel {
   let scenes: [Scene]
   let assetsByMediaId: [String: Asset]
 
+  private init(
+    packageId: String,
+    releaseId: String,
+    packageIntegrity: String,
+    compositionW: CGFloat,
+    compositionH: CGFloat,
+    scenes: [Scene],
+    assetsByMediaId: [String: Asset]
+  ) {
+    self.packageId = packageId
+    self.releaseId = releaseId
+    self.packageIntegrity = packageIntegrity
+    self.compositionW = compositionW
+    self.compositionH = compositionH
+    self.scenes = scenes
+    self.assetsByMediaId = assetsByMediaId
+  }
+
   enum ParseError: Error {
     case failure(String)
   }

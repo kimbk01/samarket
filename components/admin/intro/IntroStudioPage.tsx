@@ -722,11 +722,19 @@ export function IntroStudioPage({ documentId }: Props) {
         <section className="space-y-2">
           <h2 className="font-medium text-sam-fg">미리보기</h2>
           <p className="text-xs text-sam-muted">
-            Admin / Android / iOS 동일 기하 해석
+            Admin / Android / iOS 동일 기하·타임라인 해석
           </p>
           <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
-            <IntroCanonicalPreview document={document} sceneIndex={sceneIndex} mediaUrls={mediaUrls} />
+            <IntroCanonicalPreview
+              document={document}
+              sceneIndex={sceneIndex}
+              mediaUrls={mediaUrls}
+              playTimeline
+            />
           </div>
+          <p className="text-[11px] text-sam-muted">
+            전체 장면 duration · CUT/FADE/SLIDE · element motion 재생
+          </p>
         </section>
       </div>
 

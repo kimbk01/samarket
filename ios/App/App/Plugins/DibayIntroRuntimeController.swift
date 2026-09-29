@@ -206,6 +206,42 @@ final class DibayIntroRuntimeController {
     _ = hostView
   }
 
+  /** Outgoing + incoming simultaneous slide (no black interstitial). */
+  private func runSlideTo(_ nextIndex: Int, durationMs: Int) {
+    guard let model, let overlay else {
+      abort("SLIDE_NO_SURFACE")
+      return
+    }
+    let nextScene = model.scenes[nextIndex]
+    let width = overlay.bounds.width
+    let incoming = DibayIntroSceneSurface(frame: overlay.bounds)
+    incoming.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    incoming.setMediaFiles(mediaFiles)
+    incoming.onCta = { [weak self] action, dest in
+      self?.onCta(actionType: action, destination: dest)
+    }
+    incoming.transform = CGAffineTransform(translationX: width, y: 0)
+    overlay.addSubview(incoming)
+    incoming.bindScene(nextScene, compositionW: model.compositionW, compositionH: model.compositionH)
+    let outgoing = surface
+    UIView.animate(withDuration: Double(durationMs) / 1000.0, animations: {
+      outgoing?.transform = CGAffineTransform(translationX: -width, y: 0)
+      incoming.transform = .identity
+    }, completion: { [weak self] _ in
+      guard let self, !self.aborted, !self.completed else { return }
+      outgoing?.removeFromSuperview()
+      outgoing?.transform = .identity
+      self.surface = incoming
+      self.sceneIndex = nextIndex
+      self.watchFirstFrame()
+      self.sceneWorkItem?.cancel()
+      let work = DispatchWorkItem { [weak self] in self?.onSceneTick() }
+      self.sceneWorkItem = work
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + .milliseconds(max(100, nextScene.durationMs)), execute: work)
+    })
+  }
+
   private func complete(_ reason: String) {
     guard !completed, !aborted else { return }
     completed = true
