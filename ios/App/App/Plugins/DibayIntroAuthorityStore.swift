@@ -45,6 +45,10 @@ final class DibayIntroAuthorityStore {
     try baseDir().appendingPathComponent("ready", isDirectory: true)
   }
 
+  private func activeDir() throws -> URL {
+    try baseDir().appendingPathComponent("active", isDirectory: true)
+  }
+
   private func fontsDir() throws -> URL {
     try baseDir().appendingPathComponent("fonts", isDirectory: true)
   }
@@ -55,6 +59,7 @@ final class DibayIntroAuthorityStore {
     out["baseDir"] = try baseDir().path
     out["ready"] = try readReadyIdentity()
     out["candidate"] = try readCandidateIdentity()
+    out["active"] = try readActiveIdentity()
     let marker = try baseDir().appendingPathComponent("no-live.json")
     if FileManager.default.fileExists(atPath: marker.path),
        let data = try? Data(contentsOf: marker),
@@ -94,6 +99,70 @@ final class DibayIntroAuthorityStore {
       "sealedIntegrities": digests,
       "activePointer": NSNull(),
     ]
+  }
+
+  private func readActiveIdentity() throws -> [String: Any] {
+    let metaURL = try activeDir().appendingPathComponent("meta.json")
+    guard FileManager.default.fileExists(atPath: metaURL.path),
+          let data = try? Data(contentsOf: metaURL),
+          let meta = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return ["status": "NONE"]
+    }
+    return [
+      "status": "ACTIVE",
+      "publishedRevisionId": meta["publishedRevisionId"] as? String ?? "",
+      "packId": meta["packId"] as? String ?? "",
+      "packIntegrity": meta["packIntegrity"] as? String ?? "",
+      "localPackPath": meta["localPackPath"] as? String ?? "ready/pack.json",
+      "localAssetsRoot": meta["localAssetsRoot"] as? String ?? "ready/assets",
+      "compatibilityVersion": meta["compatibilityVersion"] as? String ?? "",
+      "activatedAt": meta["activatedAt"] as? String ?? "",
+    ]
+  }
+
+  /// V3 Active pointer only — no iOS Intro renderer in V3 scope.
+  func promoteReadyToActive(metaJson: String) throws {
+    let readyMetaURL = try readyDir().appendingPathComponent("meta.json")
+    let readyPackURL = try readyDir().appendingPathComponent("pack.json")
+    guard FileManager.default.fileExists(atPath: readyMetaURL.path),
+          FileManager.default.fileExists(atPath: readyPackURL.path),
+          let readyData = try? Data(contentsOf: readyMetaURL),
+          var ready = try JSONSerialization.jsonObject(with: readyData) as? [String: Any],
+          let incomingData = metaJson.data(using: .utf8),
+          var incoming = try JSONSerialization.jsonObject(with: incomingData) as? [String: Any]
+    else {
+      throw NSError(domain: "DibayIntro", code: 1, userInfo: [NSLocalizedDescriptionKey: "NO_READY"])
+    }
+    let pub = incoming["publishedRevisionId"] as? String ?? ""
+    let packId = incoming["packId"] as? String ?? ""
+    let packIntegrity = incoming["packIntegrity"] as? String ?? ""
+    guard pub == (ready["publishedRevisionId"] as? String ?? ""),
+          packId == (ready["packId"] as? String ?? ""),
+          packIntegrity == (ready["packIntegrity"] as? String ?? "")
+    else {
+      throw NSError(domain: "DibayIntro", code: 2, userInfo: [NSLocalizedDescriptionKey: "READY_ACTIVE_IDENTITY_MISMATCH"])
+    }
+    // packIntegrity is canonical digest, not raw file SHA-256.
+    guard let packData = try? Data(contentsOf: readyPackURL),
+          let packJson = try JSONSerialization.jsonObject(with: packData) as? [String: Any],
+          pub == (packJson["publishedRevisionId"] as? String ?? ""),
+          packId == (packJson["packId"] as? String ?? ""),
+          packIntegrity == (packJson["packIntegrity"] as? String ?? "")
+    else {
+      throw NSError(domain: "DibayIntro", code: 3, userInfo: [NSLocalizedDescriptionKey: "READY_PACK_EMBEDDED_IDENTITY_MISMATCH"])
+    }
+    incoming["status"] = "ACTIVE"
+    if (incoming["localPackPath"] as? String ?? "").isEmpty {
+      incoming["localPackPath"] = "ready/pack.json"
+    }
+    if (incoming["localAssetsRoot"] as? String ?? "").isEmpty {
+      incoming["localAssetsRoot"] = "ready/assets"
+    }
+    let active = try activeDir()
+    try FileManager.default.createDirectory(at: active, withIntermediateDirectories: true)
+    let outData = try JSONSerialization.data(withJSONObject: incoming)
+    try writeAtomic(active.appendingPathComponent("meta.json"), outData)
   }
 
   private func readCandidateIdentity() throws -> [String: Any] {

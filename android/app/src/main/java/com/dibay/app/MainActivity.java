@@ -83,6 +83,13 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean webSplashDismissPending = false;
   private static volatile long splashKeepStartElapsedMs = 0L;
   private static volatile String splashDismissSource = "none";
+  /**
+   * V3: authored Scene1 FIRST_FRAME_READY — may release OS splash when Active Intro
+   * owns the first product frame (no cream gap).
+   */
+  private static volatile boolean introFirstFrameReady = false;
+  private static volatile boolean introSessionActive = false;
+  private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
 
@@ -1093,8 +1100,15 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // Theme splash until Native Intro overlay is attached (same cream/logo continuity).
-    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    // When Active Intro owns startup: hold OS splash until authored Scene1 pixels ready.
+    // When no Active: existing web dismiss path (cream → Home).
+    splashScreen.setKeepOnScreenCondition(
+        () -> {
+          if (introSessionActive) {
+            return !introFirstFrameReady;
+          }
+          return !webSplashDismissRequested;
+        });
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
@@ -1104,6 +1118,7 @@ public class MainActivity extends BridgeActivity {
             /* ignore */
           }
         });
+    tryStartDibayIntroFromActive();
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1140,6 +1155,53 @@ public class MainActivity extends BridgeActivity {
     }
     handleNotificationLaunchIntent(launchIntent);
     DibayWebSafeAreaBridge.attach(this);
+  }
+
+  /**
+   * V3 cold Intro: product-driven Active → native Scene1 as first dibaY product frame.
+   * Home/WebView boot continues underneath. Fail-open leaves normal startup.
+   */
+  private void tryStartDibayIntroFromActive() {
+    try {
+      dibayIntroRuntime = new com.dibay.app.intro.DibayIntroRuntimeController(this);
+      dibayIntroRuntime.setListener(
+          new com.dibay.app.intro.DibayIntroRuntimeController.Listener() {
+            @Override
+            public void onFirstFrameReady(org.json.JSONObject identity) {
+              introFirstFrameReady = true;
+              Log.i(
+                  WEBVIEW_LOG_TAG,
+                  "intro_first_frame_ready packId="
+                      + (identity != null ? identity.optString("packId", "") : ""));
+            }
+
+            @Override
+            public void onIntroCompleted(String reason) {
+              introSessionActive = false;
+              Log.i(WEBVIEW_LOG_TAG, "intro_completed reason=" + reason);
+              // Temporary Home handoff boundary — NOT FINAL (V5 owns HOME_PRESENTATION_READY).
+              requestWebSplashDismiss("intro_completed_v3_temp");
+            }
+
+            @Override
+            public void onIntroAborted(String reason) {
+              introSessionActive = false;
+              introFirstFrameReady = false;
+              Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
+              // Fail-open: allow existing splash → Home path.
+            }
+          });
+      boolean started = dibayIntroRuntime.tryStartFromLocalActive();
+      introSessionActive = started;
+      if (!started) {
+        dibayIntroRuntime = null;
+      } else {
+        Log.i(WEBVIEW_LOG_TAG, "intro_session_active=1");
+      }
+    } catch (Exception e) {
+      introSessionActive = false;
+      Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
+    }
   }
 
   @Override

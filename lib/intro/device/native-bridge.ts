@@ -1,5 +1,5 @@
 /**
- * DIBAY INTRO — Capacitor native Intro authority bridge (V2).
+ * DIBAY INTRO — Capacitor native Intro authority bridge (V2 + V3 Active).
  */
 
 import { registerPlugin } from "@capacitor/core";
@@ -22,11 +22,23 @@ export type NativeCandidateIdentity = {
   failureCode?: string;
 };
 
+export type NativeActiveIdentity = {
+  status: "ACTIVE" | "NONE";
+  publishedRevisionId?: string;
+  packId?: string;
+  packIntegrity?: string;
+  localPackPath?: string;
+  localAssetsRoot?: string;
+  compatibilityVersion?: string;
+  activatedAt?: string;
+};
+
 export type DibayIntroAuthorityPlugin = {
   getAuthorityStatus(): Promise<{
     baseDir: string;
     ready: NativeReadyIdentity;
     candidate: NativeCandidateIdentity;
+    active: NativeActiveIdentity;
     noLiveMarker: string | null;
     fontAuthorityOk: boolean;
     fontMissing: string[];
@@ -44,6 +56,9 @@ export type DibayIntroAuthorityPlugin = {
     failureCode: string;
   }): Promise<{ ok: boolean }>;
   promoteCandidateToReady(options: {
+    metaJson: string;
+  }): Promise<{ ok: boolean }>;
+  promoteReadyToActive(options: {
     metaJson: string;
   }): Promise<{ ok: boolean }>;
   assertFontAuthority(): Promise<{

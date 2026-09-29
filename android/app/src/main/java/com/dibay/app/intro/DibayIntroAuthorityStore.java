@@ -17,9 +17,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * DIBAY INTRO — Android local Intro authority store (V2).
+ * DIBAY INTRO — Android local Intro authority store (V2 Ready + V3 Active).
  * Base: context.getFilesDir()/intro/authority/v1/
- * Candidate → READY atomic promotion. Active pointer remains null (inert).
+ * Candidate → READY atomic promotion.
+ * READY → ACTIVE is a pointer promotion only (does not mutate Pack bytes).
  */
 public final class DibayIntroAuthorityStore {
   private static final String TAG = "DibayIntroAuth";
@@ -56,6 +57,10 @@ public final class DibayIntroAuthorityStore {
     return new File(baseDir(), "ready");
   }
 
+  private File activeDir() {
+    return new File(baseDir(), "active");
+  }
+
   private File fontsDir() {
     return new File(baseDir(), "fonts");
   }
@@ -66,6 +71,7 @@ public final class DibayIntroAuthorityStore {
     out.put("baseDir", baseDir().getAbsolutePath());
     out.put("ready", readReadyIdentity());
     out.put("candidate", readCandidateIdentity());
+    out.put("active", readActiveIdentity());
     File marker = new File(baseDir(), "no-live.json");
     if (marker.isFile()) {
       out.put("noLiveMarker", readUtf8(marker));
@@ -106,6 +112,161 @@ public final class DibayIntroAuthorityStore {
     o.put("sealedIntegrities", digests);
     o.put("activePointer", JSONObject.NULL);
     return o;
+  }
+
+  private JSONObject readActiveIdentity() throws Exception {
+    JSONObject o = new JSONObject();
+    File meta = new File(activeDir(), "meta.json");
+    if (!meta.isFile()) {
+      o.put("status", "NONE");
+      return o;
+    }
+    JSONObject metaJson = new JSONObject(readUtf8(meta));
+    o.put("status", "ACTIVE");
+    o.put("publishedRevisionId", metaJson.optString("publishedRevisionId", ""));
+    o.put("packId", metaJson.optString("packId", ""));
+    o.put("packIntegrity", metaJson.optString("packIntegrity", ""));
+    o.put("localPackPath", metaJson.optString("localPackPath", "ready/pack.json"));
+    o.put(
+        "localAssetsRoot",
+        metaJson.optString("localAssetsRoot", "ready/assets"));
+    o.put(
+        "compatibilityVersion",
+        metaJson.optString("compatibilityVersion", ""));
+    o.put("activatedAt", metaJson.optString("activatedAt", ""));
+    return o;
+  }
+
+  /**
+   * Atomic Ready → Active pointer promotion. Does not copy or mutate Pack.
+   * On failure previous Active remains authoritative.
+   */
+  public void promoteReadyToActive(String metaJson) throws Exception {
+    File readyMeta = new File(readyDir(), "meta.json");
+    File readyPack = new File(readyDir(), "pack.json");
+    if (!readyMeta.isFile() || !readyPack.isFile()) {
+      throw new IOException("NO_READY");
+    }
+    JSONObject incoming = new JSONObject(metaJson);
+    JSONObject ready = new JSONObject(readUtf8(readyMeta));
+    String pub = incoming.optString("publishedRevisionId", "");
+    String packId = incoming.optString("packId", "");
+    String packIntegrity = incoming.optString("packIntegrity", "");
+    if (!pub.equals(ready.optString("publishedRevisionId", ""))
+        || !packId.equals(ready.optString("packId", ""))
+        || !packIntegrity.equals(ready.optString("packIntegrity", ""))) {
+      throw new IOException("READY_ACTIVE_IDENTITY_MISMATCH");
+    }
+    incoming.put("status", "ACTIVE");
+    if (!incoming.has("localPackPath")
+        || incoming.optString("localPackPath", "").isEmpty()) {
+      incoming.put("localPackPath", "ready/pack.json");
+    }
+    if (!incoming.has("localAssetsRoot")
+        || incoming.optString("localAssetsRoot", "").isEmpty()) {
+      incoming.put("localAssetsRoot", "ready/assets");
+    }
+
+    // packIntegrity is canonical-payload digest (excludes packIntegrity field),
+    // NOT raw file SHA-256. V2 already verified canonical integrity at Ready.
+    // Activation re-checks identity fields embedded in local Pack JSON.
+    JSONObject packJson = new JSONObject(readUtf8(readyPack));
+    if (!pub.equals(packJson.optString("publishedRevisionId", ""))
+        || !packId.equals(packJson.optString("packId", ""))
+        || !packIntegrity.equals(packJson.optString("packIntegrity", ""))) {
+      throw new IOException("READY_PACK_EMBEDDED_IDENTITY_MISMATCH");
+    }
+
+    File active = activeDir();
+    if (!active.exists() && !active.mkdirs()) {
+      throw new IOException("active_mkdir_failed");
+    }
+    // Atomic meta write only — Pack stays in Ready storage.
+    writeUtf8Atomic(new File(active, "meta.json"), incoming.toString());
+    Log.i(
+        TAG,
+        "active_promoted packId="
+            + packId
+            + " revision="
+            + pub);
+  }
+
+  /** Resolve Active pack file from pointer. Returns null when no Active. */
+  public File resolveActivePackFile() throws Exception {
+    JSONObject active = readActiveIdentity();
+    if (!"ACTIVE".equals(active.optString("status", "NONE"))) return null;
+    String rel = active.optString("localPackPath", "ready/pack.json");
+    if (rel.contains("..")) throw new IOException("invalid_active_pack_path");
+    File pack = new File(baseDir(), rel);
+    if (!pack.isFile()) return null;
+    return pack;
+  }
+
+  public File resolveActiveAssetsRoot() throws Exception {
+    JSONObject active = readActiveIdentity();
+    if (!"ACTIVE".equals(active.optString("status", "NONE"))) return null;
+    String rel = active.optString("localAssetsRoot", "ready/assets");
+    if (rel.contains("..")) throw new IOException("invalid_active_assets_path");
+    return new File(baseDir(), rel);
+  }
+
+  public JSONObject readActiveMetaOrNull() throws Exception {
+    JSONObject active = readActiveIdentity();
+    if (!"ACTIVE".equals(active.optString("status", "NONE"))) return null;
+    File meta = new File(activeDir(), "meta.json");
+    if (!meta.isFile()) return null;
+    return new JSONObject(readUtf8(meta));
+  }
+
+  public JSONObject readReadyMetaOrNull() throws Exception {
+    File meta = new File(readyDir(), "meta.json");
+    if (!meta.isFile()) return null;
+    return new JSONObject(readUtf8(meta));
+  }
+
+  /**
+   * Product-driven activation when Ready exists and Active is missing/stale.
+   * Used on cold start so offline true-cold can consume Active without network.
+   */
+  public boolean ensureActiveFromReadyIfNeeded() throws Exception {
+    JSONObject ready = readReadyMetaOrNull();
+    if (ready == null) return false;
+    JSONObject active = readActiveMetaOrNull();
+    if (active != null
+        && ready.optString("publishedRevisionId", "")
+            .equals(active.optString("publishedRevisionId", ""))
+        && ready
+            .optString("packId", "")
+            .equals(active.optString("packId", ""))
+        && ready
+            .optString("packIntegrity", "")
+            .equals(active.optString("packIntegrity", ""))) {
+      return true;
+    }
+    JSONObject meta = new JSONObject();
+    meta.put("status", "ACTIVE");
+    meta.put("publishedRevisionId", ready.optString("publishedRevisionId", ""));
+    meta.put("packId", ready.optString("packId", ""));
+    meta.put("packIntegrity", ready.optString("packIntegrity", ""));
+    meta.put("localPackPath", "ready/pack.json");
+    meta.put("localAssetsRoot", "ready/assets");
+    meta.put("compatibilityVersion", "intro-pack-v1/r1");
+    meta.put("activatedAt", java.time.Instant.now().toString());
+    JSONArray verified = new JSONArray();
+    JSONArray sealed = ready.optJSONArray("sealedAssets");
+    if (sealed != null) {
+      for (int i = 0; i < sealed.length(); i++) {
+        JSONObject a = sealed.getJSONObject(i);
+        JSONObject v = new JSONObject();
+        v.put("sealedAssetId", a.optString("sealedAssetId", ""));
+        v.put("sealedIntegrity", a.optString("sealedIntegrity", ""));
+        v.put("relativePackPath", a.optString("relativePackPath", ""));
+        verified.put(v);
+      }
+    }
+    meta.put("verifiedAssetAuthority", verified);
+    promoteReadyToActive(meta.toString());
+    return true;
   }
 
   private JSONObject readCandidateIdentity() throws Exception {

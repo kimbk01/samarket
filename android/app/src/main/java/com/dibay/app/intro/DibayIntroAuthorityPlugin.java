@@ -109,6 +109,23 @@ public class DibayIntroAuthorityPlugin extends Plugin {
   }
 
   @PluginMethod
+  public void promoteReadyToActive(PluginCall call) {
+    try {
+      String metaJson = call.getString("metaJson");
+      if (metaJson == null) {
+        call.reject("missing_metaJson");
+        return;
+      }
+      store().promoteReadyToActive(metaJson);
+      JSObject o = new JSObject();
+      o.put("ok", true);
+      call.resolve(o);
+    } catch (Exception e) {
+      call.reject("promoteReadyToActive_failed", e);
+    }
+  }
+
+  @PluginMethod
   public void assertFontAuthority(PluginCall call) {
     try {
       DibayIntroAuthorityStore.FontCheck check = store().assertFonts();

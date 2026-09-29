@@ -11,12 +11,14 @@ export const INTRO_AUTHORITY_RELATIVE_ROOT = "intro/authority/v1" as const;
 export const INTRO_STORE_LAYOUT = {
   candidateDir: "candidate",
   readyDir: "ready",
+  activeDir: "active",
   candidateMeta: "candidate/meta.json",
   candidatePack: "candidate/pack.json",
   candidateAssetsDir: "candidate/assets",
   readyMeta: "ready/meta.json",
   readyPack: "ready/pack.json",
   readyAssetsDir: "ready/assets",
+  activeMeta: "active/meta.json",
   fontsDir: "fonts",
 } as const;
 
@@ -47,6 +49,27 @@ export type IntroReadyMetaV1 = {
     byteLength: number;
   }>;
   promotedAt: string;
-  /** Active pointer reserved inert for V3/V4 — never used for cold start in V2. */
+  /**
+   * V2 left this null. V3 Active is a separate authority pointer under active/,
+   * not an in-Ready field mutation.
+   */
   activePointer: null;
+};
+
+/** V3 Active — pointer/authority promotion only. Does not mutate Pack bytes. */
+export type IntroActiveMetaV1 = {
+  status: "ACTIVE";
+  publishedRevisionId: string;
+  packId: string;
+  packIntegrity: string;
+  /** Relative to authority root — points at Ready pack bytes (no rewrite). */
+  localPackPath: string;
+  localAssetsRoot: string;
+  verifiedAssetAuthority: Array<{
+    sealedAssetId: string;
+    sealedIntegrity: string;
+    relativePackPath: string;
+  }>;
+  compatibilityVersion: string;
+  activatedAt: string;
 };

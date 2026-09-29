@@ -116,20 +116,24 @@ function makeMinimalPack(overrides?: Partial<IntroPackV1>): IntroPackV1 {
 function memoryStore(): IntroAuthorityStore & {
   ready: IntroPackV1 | null;
   readyMeta: import("@/lib/intro/device/local-store-paths").IntroReadyMetaV1 | null;
+  activeMeta: import("@/lib/intro/device/local-store-paths").IntroActiveMetaV1 | null;
   candidateMeta: import("@/lib/intro/device/local-store-paths").IntroCandidateMetaV1 | null;
   candidatePack: Uint8Array | null;
   candidateAssets: Map<string, Uint8Array>;
   noLive: string | null;
   fontsOk: boolean;
+  activateShouldFail: boolean;
 } {
   const state = {
     ready: null as IntroPackV1 | null,
     readyMeta: null as import("@/lib/intro/device/local-store-paths").IntroReadyMetaV1 | null,
+    activeMeta: null as import("@/lib/intro/device/local-store-paths").IntroActiveMetaV1 | null,
     candidateMeta: null as import("@/lib/intro/device/local-store-paths").IntroCandidateMetaV1 | null,
     candidatePack: null as Uint8Array | null,
     candidateAssets: new Map<string, Uint8Array>(),
     noLive: null as string | null,
     fontsOk: true,
+    activateShouldFail: false,
   };
   const store: IntroAuthorityStore & typeof state = {
     ...state,
@@ -138,6 +142,9 @@ function memoryStore(): IntroAuthorityStore & {
     },
     async readCandidateMeta() {
       return this.candidateMeta;
+    },
+    async readActiveMeta() {
+      return this.activeMeta;
     },
     async beginCandidate(meta) {
       this.candidateMeta = meta;
@@ -158,6 +165,12 @@ function memoryStore(): IntroAuthorityStore & {
       this.candidateMeta = null;
       this.candidatePack = null;
       this.candidateAssets = new Map();
+    },
+    async promoteReadyToActive(meta) {
+      if (this.activateShouldFail) {
+        throw new Error("ACTIVATE_FAIL_FIXTURE");
+      }
+      this.activeMeta = meta;
     },
     async assertFontAuthority() {
       return this.fontsOk
@@ -246,13 +259,14 @@ describe("V2 surface files", () => {
     expect(tree).toContain("IntroForegroundSyncHost");
   });
 
-  it("startup / MainActivity Intro rendering unchanged by V2 sync", () => {
+  it("startup / MainActivity does not render from Ready without Active", () => {
     const main = readFileSync(
       "android/app/src/main/java/com/dibay/app/MainActivity.java",
       "utf8",
     );
-    // Plugin registered, but no cold Intro render from Ready
+    // V2 lock: no Ready-direct render. V3 may consume Active via RuntimeController.
     expect(main).not.toMatch(/promoteCandidateToReady|IntroReadyRenderer|renderIntroFromReady/);
+    expect(main).toContain("DibayIntroRuntimeController");
   });
 });
 

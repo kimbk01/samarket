@@ -10,9 +10,14 @@ import { ServerLiveStatus } from "@/lib/intro/contracts/status";
 import { evaluatePackCompatibility } from "./compatibility";
 import { INTRO_FONT_AUTHORITY } from "./fonts";
 import type {
+  IntroActiveMetaV1,
   IntroCandidateMetaV1,
   IntroReadyMetaV1,
 } from "./local-store-paths";
+import {
+  promoteReadyToActiveAuthority,
+  type ActivateResult,
+} from "./activate-engine";
 
 export type DeviceLiveFetchResult =
   | {
@@ -44,6 +49,7 @@ export type DeviceLiveFetchResult =
 export type IntroAuthorityStore = {
   readReadyMeta(): Promise<IntroReadyMetaV1 | null>;
   readCandidateMeta(): Promise<IntroCandidateMetaV1 | null>;
+  readActiveMeta(): Promise<IntroActiveMetaV1 | null>;
   beginCandidate(meta: IntroCandidateMetaV1): Promise<void>;
   writeCandidatePackJson(bytes: Uint8Array): Promise<void>;
   writeCandidateAsset(args: {
@@ -55,6 +61,7 @@ export type IntroAuthorityStore = {
     meta: IntroCandidateMetaV1;
   }): Promise<void>;
   promoteCandidateToReady(meta: IntroReadyMetaV1): Promise<void>;
+  promoteReadyToActive(meta: IntroActiveMetaV1): Promise<void>;
   /** Verify bundled Gate E fonts — must not substitute system fonts. */
   assertFontAuthority(
     expected: ReadonlyArray<{ assetId: string; sha256: string }>,
@@ -74,10 +81,12 @@ export type SyncResult =
       outcome: "READY";
       ready: IntroReadyMetaV1;
       idempotent: boolean;
+      activation?: ActivateResult;
     }
   | {
       outcome: "ALREADY_READY";
       ready: IntroReadyMetaV1;
+      activation?: ActivateResult;
     }
   | {
       outcome: "NO_LIVE";
@@ -163,7 +172,11 @@ export async function runIntroForegroundSync(args: {
     priorReady.packId === live.packId &&
     priorReady.packIntegrity === live.packIntegrity
   ) {
-    return { outcome: "ALREADY_READY", ready: priorReady };
+    const activation = await promoteReadyToActiveAuthority({
+      store: args.store,
+      now,
+    });
+    return { outcome: "ALREADY_READY", ready: priorReady, activation };
   }
 
   const createdAt = now();
@@ -371,9 +384,15 @@ export async function runIntroForegroundSync(args: {
   };
   await args.store.promoteCandidateToReady(readyMeta);
 
+  const activation = await promoteReadyToActiveAuthority({
+    store: args.store,
+    now,
+  });
+
   return {
     outcome: "READY",
     ready: readyMeta,
     idempotent: false,
+    activation,
   };
 }

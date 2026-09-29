@@ -14,10 +14,12 @@ import {
 } from "./sync-engine";
 import { DibayIntroAuthority } from "./native-bridge";
 import type {
+  IntroActiveMetaV1,
   IntroCandidateMetaV1,
   IntroReadyMetaV1,
 } from "./local-store-paths";
 import { ServerLiveStatus } from "@/lib/intro/contracts/status";
+import { INTRO_STORE_LAYOUT } from "./local-store-paths";
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -79,6 +81,23 @@ function createNativeStore(): IntroAuthorityStore {
         sealedAssetIds: [],
       } satisfies IntroCandidateMetaV1;
     },
+    async readActiveMeta() {
+      const st = await DibayIntroAuthority.getAuthorityStatus();
+      if (st.active?.status !== "ACTIVE") return null;
+      return {
+        status: "ACTIVE",
+        publishedRevisionId: st.active.publishedRevisionId ?? "",
+        packId: st.active.packId ?? "",
+        packIntegrity: st.active.packIntegrity ?? "",
+        localPackPath:
+          st.active.localPackPath ?? INTRO_STORE_LAYOUT.readyPack,
+        localAssetsRoot:
+          st.active.localAssetsRoot ?? INTRO_STORE_LAYOUT.readyAssetsDir,
+        verifiedAssetAuthority: [],
+        compatibilityVersion: st.active.compatibilityVersion ?? "",
+        activatedAt: st.active.activatedAt ?? "",
+      } satisfies IntroActiveMetaV1;
+    },
     async beginCandidate(meta) {
       await DibayIntroAuthority.beginCandidate({
         metaJson: JSON.stringify(meta),
@@ -103,6 +122,11 @@ function createNativeStore(): IntroAuthorityStore {
     },
     async promoteCandidateToReady(meta) {
       await DibayIntroAuthority.promoteCandidateToReady({
+        metaJson: JSON.stringify(meta),
+      });
+    },
+    async promoteReadyToActive(meta) {
+      await DibayIntroAuthority.promoteReadyToActive({
         metaJson: JSON.stringify(meta),
       });
     },

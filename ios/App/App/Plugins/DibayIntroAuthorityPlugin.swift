@@ -12,6 +12,7 @@ public class DibayIntroAuthorityPlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "writeCandidateAsset", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "markCandidateFailed", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "promoteCandidateToReady", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "promoteReadyToActive", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "assertFontAuthority", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "recordNoLiveMarker", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "clearNoLiveMarker", returnType: CAPPluginReturnPromise),
@@ -94,6 +95,19 @@ public class DibayIntroAuthorityPlugin: CAPPlugin, CAPBridgedPlugin {
       call.resolve(["ok": true])
     } catch {
       call.reject("promoteCandidateToReady_failed", error.localizedDescription, error)
+    }
+  }
+
+  @objc func promoteReadyToActive(_ call: CAPPluginCall) {
+    guard let metaJson = call.getString("metaJson") else {
+      call.reject("missing_metaJson")
+      return
+    }
+    do {
+      try DibayIntroAuthorityStore.shared.promoteReadyToActive(metaJson: metaJson)
+      call.resolve(["ok": true])
+    } catch {
+      call.reject("promoteReadyToActive_failed", error.localizedDescription, error)
     }
   }
 
