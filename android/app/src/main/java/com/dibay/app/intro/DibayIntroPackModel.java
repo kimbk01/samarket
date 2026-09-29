@@ -9,8 +9,10 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -26,6 +28,7 @@ public final class DibayIntroPackModel {
   public final float compositionW;
   public final float compositionH;
   public final List<Scene> scenes;
+  public final Map<String, Asset> assetsByMediaId;
 
   public DibayIntroPackModel(
       String packageId,
@@ -33,13 +36,15 @@ public final class DibayIntroPackModel {
       String packageIntegrity,
       float compositionW,
       float compositionH,
-      List<Scene> scenes) {
+      List<Scene> scenes,
+      Map<String, Asset> assetsByMediaId) {
     this.packageId = packageId;
     this.releaseId = releaseId;
     this.packageIntegrity = packageIntegrity;
     this.compositionW = compositionW;
     this.compositionH = compositionH;
     this.scenes = scenes;
+    this.assetsByMediaId = assetsByMediaId;
   }
 
   public static final class Frame {
@@ -65,6 +70,8 @@ public final class DibayIntroPackModel {
     public final float fontSizeNorm;
     public final String align;
     public final String weight;
+    public final String mediaId;
+    public final String fit;
 
     public Element(
         String id,
@@ -77,7 +84,9 @@ public final class DibayIntroPackModel {
         int textColorArgb,
         float fontSizeNorm,
         String align,
-        String weight) {
+        String weight,
+        String mediaId,
+        String fit) {
       this.id = id;
       this.type = type;
       this.frame = frame;
@@ -89,6 +98,32 @@ public final class DibayIntroPackModel {
       this.fontSizeNorm = fontSizeNorm;
       this.align = align;
       this.weight = weight;
+      this.mediaId = mediaId;
+      this.fit = fit;
+    }
+  }
+
+  public static final class Asset {
+    public final String mediaId;
+    public final String relativePath;
+    public final String integrity;
+    public final int width;
+    public final int height;
+    public final String format;
+
+    public Asset(
+        String mediaId,
+        String relativePath,
+        String integrity,
+        int width,
+        int height,
+        String format) {
+      this.mediaId = mediaId;
+      this.relativePath = relativePath;
+      this.integrity = integrity;
+      this.width = width;
+      this.height = height;
+      this.format = format;
     }
   }
 
@@ -180,6 +215,25 @@ public final class DibayIntroPackModel {
       CaW = (float) aspect.optDouble("w", 9);
       CaH = (float) aspect.optDouble("h", 16);
     }
+    Map<String, Asset> assets = new HashMap<>();
+    JSONObject assetsObj = root.optJSONObject("assets");
+    if (assetsObj != null) {
+      Iterator<String> keys = assetsObj.keys();
+      while (keys.hasNext()) {
+        String mediaId = keys.next();
+        JSONObject a = assetsObj.optJSONObject(mediaId);
+        if (a == null) continue;
+        assets.put(
+            mediaId,
+            new Asset(
+                mediaId,
+                a.optString("relativePath", ""),
+                a.optString("integrity", ""),
+                a.optInt("width", 0),
+                a.optInt("height", 0),
+                a.optString("format", "")));
+      }
+    }
     JSONArray sceneArr = root.optJSONArray("scenes");
     if (sceneArr == null || sceneArr.length() == 0) {
       return new ParseResult(false, "PACK_NO_SCENES", null);
@@ -199,7 +253,8 @@ public final class DibayIntroPackModel {
             packageIntegrity,
             CaW,
             CaH,
-            Collections.unmodifiableList(scenes)));
+            Collections.unmodifiableList(scenes),
+            Collections.unmodifiableMap(assets)));
   }
 
   private static ParseResult parseScene(JSONObject s) throws Exception {
@@ -215,8 +270,7 @@ public final class DibayIntroPackModel {
       if ("COLOR".equals(bgType)) {
         bgArgb = parseColorHex(bg.optString("color", "#000000"), Color.BLACK);
       } else if ("IMAGE".equals(bgType)) {
-        // V0: IMAGE background not yet renderable — fail closed (no partial)
-        return new ParseResult(false, "BACKGROUND_IMAGE_NOT_V0", null);
+        return new ParseResult(false, "BACKGROUND_IMAGE_NOT_YET", null);
       } else {
         return new ParseResult(false, "UNSUPPORTED_BACKGROUND:" + bgType, null);
       }
@@ -250,17 +304,23 @@ public final class DibayIntroPackModel {
             trMs,
             Collections.unmodifiableList(elements));
     DibayIntroPackModel stub =
-        new DibayIntroPackModel("", "", "", 9, 16, Collections.singletonList(scene));
+        new DibayIntroPackModel(
+            "",
+            "",
+            "",
+            9,
+            16,
+            Collections.singletonList(scene),
+            Collections.emptyMap());
     return new ParseResult(true, null, stub);
   }
 
   private static ParseResult parseElement(JSONObject el) throws Exception {
     String type = el.optString("type", "");
-    // V0 supports TEXT only for elements; IMAGE/LOGO/CTA fail closed until vertical gates
-    if ("IMAGE".equals(type) || "LOGO".equals(type) || "CTA".equals(type)) {
-      return new ParseResult(false, "ELEMENT_NOT_V0:" + type, null);
+    if ("CTA".equals(type)) {
+      return new ParseResult(false, "ELEMENT_NOT_YET:CTA", null);
     }
-    if (!"TEXT".equals(type)) {
+    if (!"TEXT".equals(type) && !"IMAGE".equals(type) && !"LOGO".equals(type)) {
       return new ParseResult(false, "UNSUPPORTED_ELEMENT:" + type, null);
     }
     JSONObject frameJson = el.optJSONObject("frame");
@@ -275,25 +335,54 @@ public final class DibayIntroPackModel {
             (float) frameJson.optDouble("h", 0));
     JSONObject payload = el.optJSONObject("payload");
     if (payload == null) {
-      return new ParseResult(false, "TEXT_MISSING_PAYLOAD", null);
+      return new ParseResult(false, "MISSING_PAYLOAD", null);
     }
-    String text = payload.optString("text", "");
-    if (text.trim().isEmpty()) {
-      return new ParseResult(false, "EMPTY_TEXT", null);
+    Element element;
+    if ("TEXT".equals(type)) {
+      String text = payload.optString("text", "");
+      if (text.trim().isEmpty()) {
+        return new ParseResult(false, "EMPTY_TEXT", null);
+      }
+      element =
+          new Element(
+              el.optString("id", ""),
+              type,
+              frame,
+              el.optInt("zIndex", 0),
+              el.optBoolean("visible", true),
+              (float) el.optDouble("opacity", 1),
+              text,
+              parseColorHex(payload.optString("color", "#FFFFFF"), Color.WHITE),
+              (float) payload.optDouble("fontSizeNorm", 0.045),
+              payload.optString("align", "center"),
+              payload.optString("weight", "bold"),
+              null,
+              null);
+    } else {
+      String mediaId = payload.optString("mediaId", "");
+      if (mediaId.isEmpty()) {
+        return new ParseResult(false, "IMAGE_MISSING_MEDIA", null);
+      }
+      String fit = payload.optString("fit", "CONTAIN");
+      if (!"CONTAIN".equals(fit) && !"COVER".equals(fit)) {
+        return new ParseResult(false, "BAD_IMAGE_FIT", null);
+      }
+      element =
+          new Element(
+              el.optString("id", ""),
+              type,
+              frame,
+              el.optInt("zIndex", 0),
+              el.optBoolean("visible", true),
+              (float) el.optDouble("opacity", 1),
+              null,
+              Color.TRANSPARENT,
+              0f,
+              "center",
+              "regular",
+              mediaId,
+              fit);
     }
-    Element element =
-        new Element(
-            el.optString("id", ""),
-            type,
-            frame,
-            el.optInt("zIndex", 0),
-            el.optBoolean("visible", true),
-            (float) el.optDouble("opacity", 1),
-            text,
-            parseColorHex(payload.optString("color", "#FFFFFF"), Color.WHITE),
-            (float) payload.optDouble("fontSizeNorm", 0.045),
-            payload.optString("align", "center"),
-            payload.optString("weight", "bold"));
     Scene scene =
         new Scene(
             "",
@@ -303,7 +392,10 @@ public final class DibayIntroPackModel {
             0,
             Collections.singletonList(element));
     return new ParseResult(
-        true, null, new DibayIntroPackModel("", "", "", 9, 16, Collections.singletonList(scene)));
+        true,
+        null,
+        new DibayIntroPackModel(
+            "", "", "", 9, 16, Collections.singletonList(scene), Collections.emptyMap()));
   }
 
   static int parseColorHex(String hex, int fallback) {

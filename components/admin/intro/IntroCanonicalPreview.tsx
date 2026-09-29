@@ -1,26 +1,32 @@
 "use client";
 
 import { useMemo } from "react";
-import type { IntroDocumentV1, SceneV1, TextPayloadV1 } from "@/lib/intro/contracts/document";
+import type {
+  IntroDocumentV1,
+  SceneV1,
+  TextPayloadV1,
+  ImagePayloadV1,
+} from "@/lib/intro/contracts/document";
 import { fitContentRegion, mapFrame } from "@/lib/intro/geometry/fit";
 
 type Props = {
   document: IntroDocumentV1;
   sceneIndex?: number;
-  /** Preview viewport CSS pixels */
   viewportW?: number;
   viewportH?: number;
+  /** mediaId → preview URL for IMAGE/LOGO */
+  mediaUrls?: Record<string, string>;
 };
 
 /**
  * Canonical preview — same FIT + frame mapping as Android/iOS.
- * Not a fake renderer.
  */
 export function IntroCanonicalPreview({
   document,
   sceneIndex = 0,
   viewportW = 270,
   viewportH = 480,
+  mediaUrls = {},
 }: Props) {
   const scene: SceneV1 | undefined = document.scenes[sceneIndex];
   const region = useMemo(
@@ -45,16 +51,30 @@ export function IntroCanonicalPreview({
     );
   }
 
-  const bg =
+  const bgColor =
     scene.background.type === "COLOR" ? scene.background.color : "#000000";
 
   return (
     <div
       data-intro13-preview="1"
       className="relative overflow-hidden"
-      style={{ width: viewportW, height: viewportH, background: bg }}
+      style={{
+        width: viewportW,
+        height: viewportH,
+        background: bgColor,
+      }}
     >
-      {/* Letterbox outside composition stays black — matches native underlay */}
+      {scene.background.type === "IMAGE" && mediaUrls[scene.background.mediaId] ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          src={mediaUrls[scene.background.mediaId]}
+          className="absolute inset-0 h-full w-full"
+          style={{
+            objectFit: scene.background.fit === "CONTAIN" ? "contain" : "cover",
+          }}
+        />
+      ) : null}
       <div
         className="absolute"
         style={{
@@ -62,7 +82,7 @@ export function IntroCanonicalPreview({
           top: region.OY,
           width: region.RW,
           height: region.RH,
-          background: bg,
+          background: scene.background.type === "COLOR" ? scene.background.color : "transparent",
         }}
       >
         {[...scene.elements]
@@ -70,6 +90,13 @@ export function IntroCanonicalPreview({
           .sort((a, b) => a.zIndex - b.zIndex)
           .map((el) => {
             const rect = mapFrame(el.frame, region);
+            const box = {
+              left: rect.left - region.OX,
+              top: rect.top - region.OY,
+              width: rect.width,
+              height: rect.height,
+              opacity: el.opacity,
+            };
             if (el.type === "TEXT") {
               const p = el.payload as TextPayloadV1;
               const fontPx = Math.max(8, p.fontSizeNorm * region.RH);
@@ -78,10 +105,7 @@ export function IntroCanonicalPreview({
                   key={el.id}
                   className="absolute flex items-center overflow-hidden"
                   style={{
-                    left: rect.left - region.OX,
-                    top: rect.top - region.OY,
-                    width: rect.width,
-                    height: rect.height,
+                    ...box,
                     color: p.color,
                     fontSize: fontPx,
                     fontWeight:
@@ -93,7 +117,6 @@ export function IntroCanonicalPreview({
                           ? "flex-end"
                           : "center",
                     textAlign: p.align,
-                    opacity: el.opacity,
                     lineHeight: 1.2,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
@@ -101,6 +124,34 @@ export function IntroCanonicalPreview({
                 >
                   {p.text}
                 </div>
+              );
+            }
+            if (el.type === "IMAGE" || el.type === "LOGO") {
+              const p = el.payload as ImagePayloadV1;
+              const url = mediaUrls[p.mediaId];
+              if (!url) {
+                return (
+                  <div
+                    key={el.id}
+                    className="absolute flex items-center justify-center bg-black/40 text-[10px] text-white"
+                    style={box}
+                  >
+                    미디어
+                  </div>
+                );
+              }
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={el.id}
+                  alt=""
+                  src={url}
+                  className="absolute"
+                  style={{
+                    ...box,
+                    objectFit: p.fit === "CONTAIN" ? "contain" : "cover",
+                  }}
+                />
               );
             }
             return null;

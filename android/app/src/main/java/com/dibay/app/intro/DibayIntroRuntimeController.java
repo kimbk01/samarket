@@ -7,6 +7,8 @@ import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import org.json.JSONObject;
 
 /**
@@ -85,12 +87,24 @@ public final class DibayIntroRuntimeController {
       identity.put("packageIntegrity", model.packageIntegrity);
       identity.put("syncReason", sync.reason);
 
+      final Map<String, File> mediaFiles = new HashMap<>();
+      File verifiedRoot = delivery.store().verifiedDir();
+      for (DibayIntroPackModel.Asset asset : model.assetsByMediaId.values()) {
+        File f = new File(verifiedRoot, asset.relativePath);
+        if (!f.isFile()) {
+          delivery.store().quarantineVerified("asset_missing_at_render");
+          abort("ASSET_MISSING:" + asset.mediaId);
+          return false;
+        }
+        mediaFiles.put(asset.mediaId, f);
+      }
+
       final boolean[] started = {false};
       final Object lock = new Object();
       mainHandler.post(
           () -> {
             try {
-              attachOverlay();
+              attachOverlay(mediaFiles);
               running = true;
               sceneIndex = 0;
               showScene(0);
@@ -122,7 +136,7 @@ public final class DibayIntroRuntimeController {
     }
   }
 
-  private void attachOverlay() {
+  private void attachOverlay(Map<String, File> mediaFiles) {
     ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
     overlayRoot = new FrameLayout(activity);
     overlayRoot.setLayoutParams(
@@ -132,6 +146,7 @@ public final class DibayIntroRuntimeController {
     overlayRoot.setFocusable(true);
     overlayRoot.setBackgroundColor(0xFF000000);
     sceneSurface = new DibayIntroSceneSurface(activity);
+    sceneSurface.setMediaFiles(mediaFiles);
     overlayRoot.addView(
         sceneSurface,
         new FrameLayout.LayoutParams(

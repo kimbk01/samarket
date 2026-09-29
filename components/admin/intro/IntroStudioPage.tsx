@@ -6,6 +6,11 @@ import type {
   IntroDocumentV1,
   SceneV1,
   TextPayloadV1,
+  ImagePayloadV1,
+} from "@/lib/intro/contracts/document";
+import {
+  cryptoRandomId,
+  DEFAULT_MOTION,
 } from "@/lib/intro/contracts/document";
 import { IntroCanonicalPreview } from "@/components/admin/intro/IntroCanonicalPreview";
 import { Sam } from "@/lib/ui/css-vars";
@@ -19,6 +24,15 @@ type Authority = {
   isLive: boolean;
 };
 
+type MediaItem = {
+  mediaId: string;
+  mediaKind: string;
+  originalName: string;
+  previewUrl: string | null;
+  width: number | null;
+  height: number | null;
+};
+
 export function IntroStudioPage({ documentId }: Props) {
   const [document, setDocument] = useState<IntroDocumentV1 | null>(null);
   const [draftVersion, setDraftVersion] = useState(1);
@@ -30,6 +44,16 @@ export function IntroStudioPage({ documentId }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+
+  const loadMedia = useCallback(async () => {
+    const res = await fetch("/api/admin/intro/media", { cache: "no-store" });
+    const json = (await res.json()) as {
+      ok: boolean;
+      items?: MediaItem[];
+    };
+    if (json.ok) setMediaItems(json.items ?? []);
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -64,7 +88,8 @@ export function IntroStudioPage({ documentId }: Props) {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadMedia();
+  }, [load, loadMedia]);
 
   function updateScene(mutator: (scene: SceneV1) => SceneV1) {
     setDocument((prev) => {
@@ -185,8 +210,77 @@ export function IntroStudioPage({ documentId }: Props) {
   const scene = document.scenes[0];
   const textEl = scene?.elements.find((e) => e.type === "TEXT");
   const textPayload = textEl?.payload as TextPayloadV1 | undefined;
+  const imageEl = scene?.elements.find((e) => e.type === "IMAGE");
+  const imagePayload = imageEl?.payload as ImagePayloadV1 | undefined;
   const bgColor =
     scene?.background.type === "COLOR" ? scene.background.color : "#000000";
+  const mediaUrls = Object.fromEntries(
+    mediaItems
+      .filter((m) => m.previewUrl)
+      .map((m) => [m.mediaId, m.previewUrl as string]),
+  );
+
+  async function uploadMedia(file: File) {
+    setBusy("upload");
+    setError(null);
+    setMessage(null);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await fetch("/api/admin/intro/media", {
+        method: "POST",
+        body: form,
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        item?: MediaItem;
+        error?: string;
+      };
+      if (!json.ok || !json.item) {
+        setError(json.error ?? "upload_failed");
+        return;
+      }
+      setMessage("미디어 준비됨");
+      await loadMedia();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function addOrReplaceImage(mediaId: string) {
+    updateScene((s) => {
+      const existing = s.elements.find((e) => e.type === "IMAGE");
+      if (existing) {
+        return {
+          ...s,
+          elements: s.elements.map((el) => {
+            if (el.type !== "IMAGE") return el;
+            const p = el.payload as ImagePayloadV1;
+            return { ...el, payload: { ...p, mediaId } };
+          }),
+        };
+      }
+      return {
+        ...s,
+        elements: [
+          ...s.elements,
+          {
+            id: cryptoRandomId(),
+            type: "IMAGE" as const,
+            frame: { x: 0.1, y: 0.15, w: 0.8, h: 0.35 },
+            zIndex: 0,
+            visible: true,
+            opacity: 1,
+            motion: DEFAULT_MOTION,
+            payload: {
+              mediaId,
+              fit: "CONTAIN" as const,
+            },
+          },
+        ],
+      };
+    });
+  }
 
   const statusDraft = `초안 v${draftVersion}`;
   const statusPublished = authority?.latestReleaseId
@@ -324,6 +418,56 @@ export function IntroStudioPage({ documentId }: Props) {
               }
             />
           </label>
+
+          <div className="border-t border-sam-border pt-4">
+            <h3 className="font-medium text-sam-fg">이미지</h3>
+            <p className="mt-1 text-xs text-sam-muted">
+              업로드 → 처리 → 검증 후 READY. 저장 시에만 문서에 반영됩니다.
+            </p>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="mt-2 block w-full text-sm"
+              disabled={Boolean(busy)}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadMedia(f);
+                e.target.value = "";
+              }}
+            />
+            {imagePayload ? (
+              <p className="mt-2 text-xs text-sam-muted">
+                장면 이미지 선택됨
+              </p>
+            ) : null}
+            <ul className="mt-3 grid max-h-48 grid-cols-3 gap-2 overflow-auto">
+              {mediaItems.map((m) => (
+                <li key={m.mediaId}>
+                  <button
+                    type="button"
+                    className="w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app p-1 text-left"
+                    onClick={() => addOrReplaceImage(m.mediaId)}
+                  >
+                    {m.previewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.previewUrl}
+                        alt=""
+                        className="h-16 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 items-center justify-center text-[10px] text-sam-muted">
+                        READY
+                      </div>
+                    )}
+                    <span className="mt-1 block truncate text-[10px] text-sam-muted">
+                      {m.originalName}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         <section className="space-y-2">
@@ -332,7 +476,7 @@ export function IntroStudioPage({ documentId }: Props) {
             Admin / Android / iOS 동일 기하 해석
           </p>
           <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
-            <IntroCanonicalPreview document={document} />
+            <IntroCanonicalPreview document={document} mediaUrls={mediaUrls} />
           </div>
         </section>
       </div>

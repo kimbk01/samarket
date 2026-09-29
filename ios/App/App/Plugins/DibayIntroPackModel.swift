@@ -2,13 +2,22 @@ import Foundation
 import UIKit
 import CommonCrypto
 
-/// Parses IntroRuntimePackageV1 (13th) — scenes[].elements[]
+/// Parses IntroRuntimePackageV1 (13th) — scenes[].elements[] + assets
 final class DibayIntroPackModel {
   struct Frame {
     let x: CGFloat
     let y: CGFloat
     let w: CGFloat
     let h: CGFloat
+  }
+
+  struct Asset {
+    let mediaId: String
+    let relativePath: String
+    let integrity: String
+    let width: Int
+    let height: Int
+    let format: String
   }
 
   struct Element {
@@ -23,6 +32,8 @@ final class DibayIntroPackModel {
     let fontSizeNorm: CGFloat
     let align: String
     let weight: String
+    let mediaId: String?
+    let fit: String?
   }
 
   struct Scene {
@@ -40,6 +51,7 @@ final class DibayIntroPackModel {
   let compositionW: CGFloat
   let compositionH: CGFloat
   let scenes: [Scene]
+  let assetsByMediaId: [String: Asset]
 
   enum ParseError: Error {
     case failure(String)
@@ -75,6 +87,20 @@ final class DibayIntroPackModel {
       CaW = CGFloat((aspect["w"] as? NSNumber)?.doubleValue ?? 9)
       CaH = CGFloat((aspect["h"] as? NSNumber)?.doubleValue ?? 16)
     }
+    var assets: [String: Asset] = [:]
+    if let assetsObj = root["assets"] as? [String: Any] {
+      for (mediaId, raw) in assetsObj {
+        guard let a = raw as? [String: Any] else { continue }
+        assets[mediaId] = Asset(
+          mediaId: mediaId,
+          relativePath: (a["relativePath"] as? String) ?? "",
+          integrity: (a["integrity"] as? String) ?? "",
+          width: (a["width"] as? NSNumber)?.intValue ?? 0,
+          height: (a["height"] as? NSNumber)?.intValue ?? 0,
+          format: (a["format"] as? String) ?? ""
+        )
+      }
+    }
     guard let sceneArr = root["scenes"] as? [[String: Any]], !sceneArr.isEmpty else {
       throw ParseError.failure("PACK_NO_SCENES")
     }
@@ -88,7 +114,8 @@ final class DibayIntroPackModel {
       packageIntegrity: packageIntegrity,
       compositionW: CaW,
       compositionH: CaH,
-      scenes: scenes
+      scenes: scenes,
+      assetsByMediaId: assets
     )
   }
 
@@ -102,7 +129,7 @@ final class DibayIntroPackModel {
       if type == "COLOR" {
         bg = color(fromHex: (background["color"] as? String) ?? "#000000", fallback: .black)
       } else if type == "IMAGE" {
-        throw ParseError.failure("BACKGROUND_IMAGE_NOT_V0")
+        throw ParseError.failure("BACKGROUND_IMAGE_NOT_YET")
       } else {
         throw ParseError.failure("UNSUPPORTED_BACKGROUND:\(type)")
       }
@@ -135,10 +162,12 @@ final class DibayIntroPackModel {
 
   private static func parseElement(_ el: [String: Any]) throws -> Element {
     let type = (el["type"] as? String) ?? ""
-    if type == "IMAGE" || type == "LOGO" || type == "CTA" {
-      throw ParseError.failure("ELEMENT_NOT_V0:\(type)")
+    if type == "CTA" {
+      throw ParseError.failure("ELEMENT_NOT_YET:CTA")
     }
-    guard type == "TEXT" else { throw ParseError.failure("UNSUPPORTED_ELEMENT:\(type)") }
+    guard type == "TEXT" || type == "IMAGE" || type == "LOGO" else {
+      throw ParseError.failure("UNSUPPORTED_ELEMENT:\(type)")
+    }
     guard let frameJson = el["frame"] as? [String: Any] else {
       throw ParseError.failure("ELEMENT_MISSING_FRAME")
     }
@@ -149,11 +178,34 @@ final class DibayIntroPackModel {
       h: CGFloat((frameJson["h"] as? NSNumber)?.doubleValue ?? 0)
     )
     guard let payload = el["payload"] as? [String: Any] else {
-      throw ParseError.failure("TEXT_MISSING_PAYLOAD")
+      throw ParseError.failure("MISSING_PAYLOAD")
     }
-    let text = (payload["text"] as? String) ?? ""
-    if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      throw ParseError.failure("EMPTY_TEXT")
+    if type == "TEXT" {
+      let text = (payload["text"] as? String) ?? ""
+      if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        throw ParseError.failure("EMPTY_TEXT")
+      }
+      return Element(
+        id: (el["id"] as? String) ?? "",
+        type: type,
+        frame: frame,
+        zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
+        visible: (el["visible"] as? Bool) ?? true,
+        opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
+        text: text,
+        textColor: color(fromHex: (payload["color"] as? String) ?? "#FFFFFF", fallback: .white),
+        fontSizeNorm: CGFloat((payload["fontSizeNorm"] as? NSNumber)?.doubleValue ?? 0.045),
+        align: (payload["align"] as? String) ?? "center",
+        weight: (payload["weight"] as? String) ?? "bold",
+        mediaId: nil,
+        fit: nil
+      )
+    }
+    let mediaId = (payload["mediaId"] as? String) ?? ""
+    if mediaId.isEmpty { throw ParseError.failure("IMAGE_MISSING_MEDIA") }
+    let fit = (payload["fit"] as? String) ?? "CONTAIN"
+    if fit != "CONTAIN" && fit != "COVER" {
+      throw ParseError.failure("BAD_IMAGE_FIT")
     }
     return Element(
       id: (el["id"] as? String) ?? "",
@@ -162,11 +214,13 @@ final class DibayIntroPackModel {
       zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
       visible: (el["visible"] as? Bool) ?? true,
       opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
-      text: text,
-      textColor: color(fromHex: (payload["color"] as? String) ?? "#FFFFFF", fallback: .white),
-      fontSizeNorm: CGFloat((payload["fontSizeNorm"] as? NSNumber)?.doubleValue ?? 0.045),
-      align: (payload["align"] as? String) ?? "center",
-      weight: (payload["weight"] as? String) ?? "bold"
+      text: "",
+      textColor: .clear,
+      fontSizeNorm: 0,
+      align: "center",
+      weight: "regular",
+      mediaId: mediaId,
+      fit: fit
     )
   }
 
@@ -201,7 +255,6 @@ final class DibayIntroPackModel {
       return jsonStringLiteral(s)
     }
     if let n = value as? NSNumber {
-      // Distinguish Bool from number
       if CFGetTypeID(n) == CFBooleanGetTypeID() {
         return n.boolValue ? "true" : "false"
       }
@@ -233,6 +286,14 @@ final class DibayIntroPackModel {
     var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
     bytes.withUnsafeBytes { ptr in
       _ = CC_SHA256(ptr.baseAddress, CC_LONG(bytes.count), &digest)
+    }
+    return digest.map { String(format: "%02x", $0) }.joined()
+  }
+
+  static func sha256Hex(of data: Data) -> String {
+    var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+    data.withUnsafeBytes { ptr in
+      _ = CC_SHA256(ptr.baseAddress, CC_LONG(data.count), &digest)
     }
     return digest.map { String(format: "%02x", $0) }.joined()
   }

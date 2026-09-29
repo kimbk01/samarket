@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.json.JSONObject;
 
 /**
@@ -62,7 +63,12 @@ public final class DibayIntroVerifiedStore {
     if (!pack.isFile()) return false;
     DibayIntroPackModel.ParseResult parsed =
         DibayIntroPackModel.parseAndVerify(pack, packageIntegrity);
-    return parsed.ok;
+    if (!parsed.ok || parsed.model == null) return false;
+    for (DibayIntroPackModel.Asset asset : parsed.model.assetsByMediaId.values()) {
+      File f = new File(verifiedDir(), asset.relativePath);
+      if (!f.isFile()) return false;
+    }
+    return true;
   }
 
   public void writeLivePointer(JSONObject live) throws Exception {
@@ -78,12 +84,14 @@ public final class DibayIntroVerifiedStore {
   }
 
   /**
-   * Atomic commit of a complete verified package.
-   * Staging → verify → rename verified.tmp → verified.
-   * On failure previous verified remains, or none.
+   * Atomic commit of complete verified package (pack.json + assets).
    */
   public void atomicCommitVerified(
-      byte[] packBytes, String releaseId, String packageId, String packageIntegrity)
+      byte[] packBytes,
+      Map<String, byte[]> assetBytesByRelativePath,
+      String releaseId,
+      String packageId,
+      String packageIntegrity)
       throws Exception {
     File staging = stagingDir();
     deleteRecursive(staging);
@@ -91,9 +99,28 @@ public final class DibayIntroVerifiedStore {
       throw new IllegalStateException("staging_mkdir_failed");
     }
     File stagingPack = new File(staging, "pack.json");
-    try (FileOutputStream out = new FileOutputStream(stagingPack)) {
+    FileOutputStream out = new FileOutputStream(stagingPack);
+    try {
       out.write(packBytes);
       out.flush();
+    } finally {
+      out.close();
+    }
+    if (assetBytesByRelativePath != null) {
+      for (Map.Entry<String, byte[]> e : assetBytesByRelativePath.entrySet()) {
+        File assetFile = new File(staging, e.getKey());
+        File parent = assetFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+          throw new IllegalStateException("asset_mkdir_failed");
+        }
+        FileOutputStream aout = new FileOutputStream(assetFile);
+        try {
+          aout.write(e.getValue());
+          aout.flush();
+        } finally {
+          aout.close();
+        }
+      }
     }
     DibayIntroPackModel.ParseResult parsed =
         DibayIntroPackModel.parseAndVerify(stagingPack, packageIntegrity);
@@ -105,6 +132,21 @@ public final class DibayIntroVerifiedStore {
     if (!packageId.equals(parsed.model.packageId)) {
       deleteRecursive(staging);
       throw new IllegalStateException("package_id_mismatch");
+    }
+    // Verify each required asset file exists and integrity matches when provided as sha256:hex
+    for (DibayIntroPackModel.Asset asset : parsed.model.assetsByMediaId.values()) {
+      File f = new File(staging, asset.relativePath);
+      if (!f.isFile()) {
+        deleteRecursive(staging);
+        throw new IllegalStateException("asset_missing:" + asset.mediaId);
+      }
+      if (asset.integrity != null && asset.integrity.startsWith("sha256:")) {
+        String hex = DibayIntroPackModel.sha256Hex(readAllBytes(f));
+        if (!asset.integrity.substring("sha256:".length()).equalsIgnoreCase(hex)) {
+          deleteRecursive(staging);
+          throw new IllegalStateException("asset_integrity:" + asset.mediaId);
+        }
+      }
     }
 
     JSONObject meta = new JSONObject();
@@ -118,7 +160,6 @@ public final class DibayIntroVerifiedStore {
     File verifiedTmp = new File(base, "verified.tmp");
     deleteRecursive(verifiedTmp);
     if (!staging.renameTo(verifiedTmp)) {
-      // Fallback copy
       copyDir(staging, verifiedTmp);
       deleteRecursive(staging);
     }
@@ -131,7 +172,6 @@ public final class DibayIntroVerifiedStore {
       throw new IllegalStateException("verified_backup_failed");
     }
     if (!verifiedTmp.renameTo(verified)) {
-      // Restore old
       if (verifiedOld.exists()) {
         verifiedOld.renameTo(verified);
       }
@@ -139,6 +179,13 @@ public final class DibayIntroVerifiedStore {
     }
     deleteRecursive(verifiedOld);
     Log.i(TAG, "atomic_commit ok packageId=" + packageId);
+  }
+
+  /** Back-compat: pack-only commit (V0). */
+  public void atomicCommitVerified(
+      byte[] packBytes, String releaseId, String packageId, String packageIntegrity)
+      throws Exception {
+    atomicCommitVerified(packBytes, null, releaseId, packageId, packageIntegrity);
   }
 
   public void quarantineVerified(String reason) {

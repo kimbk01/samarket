@@ -1,6 +1,6 @@
 import Foundation
 
-/// LIVE_MATCH_OR_NO_INTRO delivery for iOS.
+/// LIVE_MATCH_OR_NO_INTRO delivery for iOS (pack + sealed assets).
 final class DibayIntroLiveDelivery {
   struct Result {
     let canRender: Bool
@@ -35,6 +35,7 @@ final class DibayIntroLiveDelivery {
       let packageId = (live["packageId"] as? String) ?? ""
       let packageIntegrity = (live["packageIntegrity"] as? String) ?? ""
       let packUrl = (live["packRetrievalUrl"] as? String) ?? ""
+      let assetUrls = live["assetRetrievalUrls"] as? [String: String] ?? [:]
       try store.writeLivePointer(live)
       if packageId.isEmpty || packageIntegrity.isEmpty || packUrl.isEmpty {
         return .noIntro("LIVE_INCOMPLETE")
@@ -47,9 +48,27 @@ final class DibayIntroLiveDelivery {
       guard let packBytes = try httpGetData(url: packUrl, timeout: 15), !packBytes.isEmpty else {
         return .noIntro("PACK_DOWNLOAD_FAILED")
       }
+      guard let packRoot = try JSONSerialization.jsonObject(with: packBytes) as? [String: Any] else {
+        return .noIntro("PACK_NOT_OBJECT")
+      }
+      let packAssets = packRoot["assets"] as? [String: Any] ?? [:]
+      var byRel: [String: Data] = [:]
+      for (mediaId, raw) in packAssets {
+        guard let a = raw as? [String: Any] else { continue }
+        let rel = (a["relativePath"] as? String) ?? ""
+        let url = assetUrls[mediaId] ?? ""
+        if rel.isEmpty || url.isEmpty {
+          return .noIntro("ASSET_MAP_FAILED:\(mediaId)")
+        }
+        guard let bytes = try httpGetData(url: url, timeout: 30), !bytes.isEmpty else {
+          return .noIntro("ASSET_DOWNLOAD_FAILED:\(mediaId)")
+        }
+        byRel[rel] = bytes
+      }
       do {
         try store.atomicCommitVerified(
           packBytes: packBytes,
+          assetBytesByRelativePath: byRel,
           releaseId: releaseId,
           packageId: packageId,
           packageIntegrity: packageIntegrity

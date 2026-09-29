@@ -10,6 +10,8 @@ export type LiveStatus =
       packageId: string;
       packageIntegrity: string;
       packRetrievalUrl: string;
+      /** Fresh signed URLs for sealed pack assets keyed by mediaId. */
+      assetRetrievalUrls: Record<string, string>;
     };
 
 export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
@@ -38,12 +40,38 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
     throw new Error(`signed_url:${signErr?.message ?? "missing"}`);
   }
 
+  // Download pack.json to discover asset relative paths, then mint asset URLs.
+  const { data: packBlob, error: packDlErr } = await sb.storage
+    .from(pack.storage_bucket || BUCKET)
+    .download(pack.storage_path);
+  if (packDlErr || !packBlob) {
+    throw new Error(`pack_download:${packDlErr?.message ?? "missing"}`);
+  }
+  const packJson = JSON.parse(await packBlob.text()) as {
+    assets?: Record<string, { relativePath?: string }>;
+  };
+  const assetRetrievalUrls: Record<string, string> = {};
+  const packDir = pack.storage_path.replace(/\/pack\.json$/, "");
+  for (const [mediaId, asset] of Object.entries(packJson.assets ?? {})) {
+    const rel = asset?.relativePath;
+    if (!rel) continue;
+    const assetPath = `${packDir}/${rel}`;
+    const { data: assetSigned, error: assetSignErr } = await sb.storage
+      .from(pack.storage_bucket || BUCKET)
+      .createSignedUrl(assetPath, 60 * 30);
+    if (assetSignErr || !assetSigned?.signedUrl) {
+      throw new Error(`asset_signed_url:${mediaId}:${assetSignErr?.message ?? "missing"}`);
+    }
+    assetRetrievalUrls[mediaId] = assetSigned.signedUrl;
+  }
+
   return {
     kind: "LIVE",
     releaseId: data.published_revision_id,
     packageId: pack.pack_id,
     packageIntegrity: pack.manifest_integrity,
     packRetrievalUrl: signed.signedUrl,
+    assetRetrievalUrls,
   };
 }
 

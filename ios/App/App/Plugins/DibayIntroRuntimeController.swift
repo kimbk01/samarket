@@ -14,6 +14,7 @@ final class DibayIntroRuntimeController {
   private var overlay: UIView?
   private var surface: DibayIntroSceneSurface?
   private var model: DibayIntroPackModel?
+  private var mediaFiles: [String: URL] = [:]
   private var identity: [String: Any] = [:]
   private var sceneIndex = 0
   private var firstFrameEmitted = false
@@ -40,6 +41,17 @@ final class DibayIntroRuntimeController {
         "packageIntegrity": model.packageIntegrity,
         "syncReason": sync.reason,
       ]
+      var files: [String: URL] = [:]
+      for asset in model.assetsByMediaId.values {
+        let f = delivery.store.verifiedDir.appendingPathComponent(asset.relativePath)
+        guard FileManager.default.fileExists(atPath: f.path) else {
+          delivery.store.quarantineVerified(reason: "asset_missing_at_render")
+          listener?.onIntroAborted(reason: "ASSET_MISSING:\(asset.mediaId)")
+          return false
+        }
+        files[asset.mediaId] = f
+      }
+      mediaFiles = files
       self.hostView = hostView
       attachOverlay(on: hostView)
       running = true
@@ -74,6 +86,7 @@ final class DibayIntroRuntimeController {
     root.isUserInteractionEnabled = true
     let surface = DibayIntroSceneSurface(frame: root.bounds)
     surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    surface.setMediaFiles(mediaFiles)
     root.addSubview(surface)
     host.addSubview(root)
     overlay = root

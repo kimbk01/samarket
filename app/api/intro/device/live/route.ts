@@ -26,6 +26,7 @@ export async function GET() {
       packageId: live.packageId,
       packageIntegrity: live.packageIntegrity,
       packRetrievalUrl: live.packRetrievalUrl,
+      assetRetrievalUrls: live.assetRetrievalUrls,
     });
   } catch (e) {
     return NextResponse.json(

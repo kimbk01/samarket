@@ -112,8 +112,19 @@ export type IntroRuntimePackageV1 = {
   readonly packageIntegrity: string;
   readonly compositionAspect: AspectV1;
   readonly scenes: readonly SceneV1[];
-  /** Relative asset paths keyed by mediaId — empty for V0 color+text. */
-  readonly assets: Readonly<Record<string, string>>;
+  /** Assets keyed by mediaId — relative path + integrity under pack root. */
+  readonly assets: Readonly<
+    Record<
+      string,
+      {
+        readonly relativePath: string;
+        readonly integrity: string;
+        readonly width: number;
+        readonly height: number;
+        readonly format: string;
+      }
+    >
+  >;
 };
 
 export const DEFAULT_MOTION: MotionV1 = {
@@ -177,11 +188,19 @@ export function validateDocumentV0(doc: IntroDocumentV1): string | null {
     if (scene.background.type === "COLOR" && !isColorHex(scene.background.color)) {
       return "bad_bg_color";
     }
+    if (scene.background.type === "IMAGE" && !scene.background.mediaId) {
+      return "bg_image_missing_media";
+    }
     for (const el of scene.elements) {
       if (el.type === "TEXT") {
         const p = el.payload as TextPayloadV1;
         if (!p.text?.trim()) return "empty_text";
         if (!isColorHex(p.color)) return "bad_text_color";
+      }
+      if (el.type === "IMAGE" || el.type === "LOGO") {
+        const p = el.payload as ImagePayloadV1;
+        if (!p.mediaId?.trim()) return "image_missing_media";
+        if (p.fit !== "COVER" && p.fit !== "CONTAIN") return "bad_image_fit";
       }
       const f = el.frame;
       if (f.w < 0.01 || f.h < 0.01) return "frame_too_small";
@@ -191,4 +210,20 @@ export function validateDocumentV0(doc: IntroDocumentV1): string | null {
     }
   }
   return null;
+}
+
+export function collectDocumentMediaIds(doc: IntroDocumentV1): string[] {
+  const ids = new Set<string>();
+  for (const scene of doc.scenes) {
+    if (scene.background.type === "IMAGE" && scene.background.mediaId) {
+      ids.add(scene.background.mediaId);
+    }
+    for (const el of scene.elements) {
+      if (el.type === "IMAGE" || el.type === "LOGO") {
+        const p = el.payload as ImagePayloadV1;
+        if (p.mediaId) ids.add(p.mediaId);
+      }
+    }
+  }
+  return [...ids].sort();
 }

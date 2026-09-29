@@ -82,6 +82,7 @@ public final class DibayIntroLiveDelivery {
       String packageId = live.optString("packageId", "");
       String packageIntegrity = live.optString("packageIntegrity", "");
       String packUrl = live.optString("packRetrievalUrl", "");
+      JSONObject assetUrls = live.optJSONObject("assetRetrievalUrls");
       store.writeLivePointer(live);
 
       if (packageId.isEmpty() || packageIntegrity.isEmpty() || packUrl.isEmpty()) {
@@ -93,13 +94,46 @@ public final class DibayIntroLiveDelivery {
         return new Result(true, "VERIFIED_MATCH", packageId, releaseId, packageIntegrity);
       }
 
-      // Must download complete package — do not render previous.
       byte[] packBytes = httpGetBytes(packUrl, 15_000);
       if (packBytes == null || packBytes.length == 0) {
         return Result.noIntro("PACK_DOWNLOAD_FAILED");
       }
+      java.util.Map<String, byte[]> assets = new java.util.HashMap<>();
+      if (assetUrls != null) {
+        java.util.Iterator<String> keys = assetUrls.keys();
+        while (keys.hasNext()) {
+          String mediaId = keys.next();
+          String url = assetUrls.optString(mediaId, "");
+          if (url.isEmpty()) continue;
+          byte[] bytes = httpGetBytes(url, 30_000);
+          if (bytes == null || bytes.length == 0) {
+            return Result.noIntro("ASSET_DOWNLOAD_FAILED:" + mediaId);
+          }
+          // relative path resolved after pack parse — temp key by mediaId
+          assets.put("__media__" + mediaId, bytes);
+        }
+      }
       try {
-        store.atomicCommitVerified(packBytes, releaseId, packageId, packageIntegrity);
+        // Parse pack to map mediaId → relativePath
+        org.json.JSONObject packRoot =
+            new org.json.JSONObject(new String(packBytes, java.nio.charset.StandardCharsets.UTF_8));
+        org.json.JSONObject packAssets = packRoot.optJSONObject("assets");
+        java.util.Map<String, byte[]> byRel = new java.util.HashMap<>();
+        if (packAssets != null) {
+          java.util.Iterator<String> keys = packAssets.keys();
+          while (keys.hasNext()) {
+            String mediaId = keys.next();
+            org.json.JSONObject a = packAssets.optJSONObject(mediaId);
+            if (a == null) continue;
+            String rel = a.optString("relativePath", "");
+            byte[] bytes = assets.get("__media__" + mediaId);
+            if (rel.isEmpty() || bytes == null) {
+              return Result.noIntro("ASSET_MAP_FAILED:" + mediaId);
+            }
+            byRel.put(rel, bytes);
+          }
+        }
+        store.atomicCommitVerified(packBytes, byRel, releaseId, packageId, packageIntegrity);
       } catch (Exception e) {
         Log.e(TAG, "atomic_commit_failed", e);
         store.quarantineVerified("commit_failed");
