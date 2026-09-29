@@ -1,7 +1,8 @@
 /**
- * DIBAY INTRO — Phase 1 / C-R1
- * GIF runtime format contract names only.
- * NO production omggif dependency. NO processor implementation.
+ * DIBAY INTRO — Phase 1 / C-R1 / Phase 3
+ * GIF runtime format contract + B2 processing path names.
+ * Phase 3 executable processor: lib/intro/media/processor/gif-b2.ts
+ * (sharp animated decode/composite → omggif.GifWriter).
  */
 
 export const GifRuntimeFormat = {

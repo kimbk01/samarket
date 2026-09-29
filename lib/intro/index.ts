@@ -1,7 +1,8 @@
 /**
  * DIBAY INTRO — public surface.
  * Phase 1: contracts + pure utilities + fixtures.
- * Phase 2: additive DB/storage/security authority constants (no processor).
+ * Phase 2: additive DB/storage/security authority constants.
+ * Phase 3: media processor / READY authority (server-only modules under media/).
  */
 
 export * from "./contracts";
