@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sam } from "@/lib/ui/css-vars";
 import { isOperatorVisibleTitle } from "@/lib/intro/admin/operator-classification";
 import { IntroAdminTabs, useIntroAdminTab } from "@/components/admin/intro/IntroAdminTabs";
 import { IntroSystemStartPanel } from "@/components/admin/intro/IntroSystemStartPanel";
 import { IntroMediaLibraryPanel } from "@/components/admin/intro/IntroMediaLibraryPanel";
+import {
+  AdminActionButton,
+  AdminActionLink,
+} from "@/components/admin/ui/AdminActionButton";
 
 type DocRow = {
   document_id: string;
@@ -212,14 +215,13 @@ export function IntroDocumentHub() {
           </p>
         </div>
         {tab === "intros" ? (
-          <button
-            type="button"
-            className={Sam.btn.primary}
+          <AdminActionButton
+            variant="primary"
             disabled={busy}
             onClick={() => void createDoc()}
           >
             새 인트로
-          </button>
+          </AdminActionButton>
         ) : null}
       </div>
 
@@ -254,18 +256,18 @@ export function IntroDocumentHub() {
                     </p>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Link
+                    <AdminActionLink
                       href={`/admin/intro/${liveDoc.document_id}`}
-                      className={Sam.btn.primary}
+                      variant="primary"
                     >
                       편집
-                    </Link>
-                    <Link
+                    </AdminActionLink>
+                    <AdminActionLink
                       href={`/admin/intro/${liveDoc.document_id}?preview=1`}
-                      className={Sam.btn.secondary}
+                      variant="secondary"
                     >
                       미리보기
-                    </Link>
+                    </AdminActionLink>
                   </div>
                 </div>
               </div>
@@ -325,9 +327,9 @@ export function IntroDocumentHub() {
                             Scene {d.sceneCount} · {formatDuration(d.totalDurationMs)}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          className={`${Sam.btn.secondary} px-2 py-1 text-xs`}
+                        <AdminActionButton
+                          variant="neutral"
+                          className="min-h-8 px-2 text-xs"
                           onClick={() =>
                             setMenuId((cur) =>
                               cur === d.document_id ? null : d.document_id,
@@ -336,7 +338,7 @@ export function IntroDocumentHub() {
                           aria-label="관리 메뉴"
                         >
                           ⋯
-                        </button>
+                        </AdminActionButton>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {d.isLive ? (
@@ -360,18 +362,20 @@ export function IntroDocumentHub() {
                         {new Date(d.updated_at).toLocaleString()}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Link
+                        <AdminActionLink
                           href={`/admin/intro/${d.document_id}`}
-                          className={`${Sam.btn.secondary} px-2 py-1 text-xs`}
+                          variant="secondary"
+                          className="min-h-8 text-xs"
                         >
                           편집
-                        </Link>
-                        <Link
+                        </AdminActionLink>
+                        <AdminActionLink
                           href={`/admin/intro/${d.document_id}?preview=1`}
-                          className={`${Sam.btn.secondary} px-2 py-1 text-xs`}
+                          variant="secondary"
+                          className="min-h-8 text-xs"
                         >
                           미리보기
-                        </Link>
+                        </AdminActionLink>
                       </div>
                     </div>
                   </div>

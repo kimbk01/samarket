@@ -43,6 +43,7 @@ function clampFrame(f: FrameV1): FrameV1 {
 
 /**
  * Editing canvas (not playback preview). 9:16 composition with drag/resize.
+ * Geometry matches App canonical document — no preview-only hacks.
  */
 export function IntroCanvas({
   document,
@@ -151,7 +152,7 @@ export function IntroCanvas({
       <div
         ref={stageRef}
         className="relative aspect-[9/16] w-full max-w-[360px] touch-none overflow-hidden rounded-ui-rect border border-sam-border shadow-inner"
-        style={{ backgroundColor: bgColor }}
+        style={{ backgroundColor: bgColor, containerType: "size" }}
         onPointerDown={() => onSelectElement(null)}
       >
         {scene.background.type === "IMAGE" && mediaUrls[scene.background.mediaId] ? (
@@ -231,9 +232,10 @@ function ElementVisual({
 }) {
   if (el.type === "TEXT") {
     const p = el.payload as TextPayloadV1;
+    // fontSizeNorm is fraction of composition width (canonical).
     return (
       <div
-        className="flex h-full w-full items-center px-1"
+        className="flex h-full w-full items-center overflow-hidden px-1"
         style={{
           color: p.color,
           justifyContent:
@@ -243,11 +245,12 @@ function ElementVisual({
                 ? "flex-end"
                 : "center",
           fontWeight: p.weight === "bold" ? 700 : p.weight === "medium" ? 500 : 400,
-          fontSize: `calc(${p.fontSizeNorm} * 100cqh)`,
+          fontSize: `${Math.max(2, p.fontSizeNorm * 100)}cqh`,
+          lineHeight: 1.15,
           textAlign: p.align,
         }}
       >
-        <span className="line-clamp-4 break-words text-center text-[clamp(10px,4cqw,22px)]">
+        <span className="w-full break-words" style={{ textAlign: p.align }}>
           {p.text}
         </span>
       </div>
@@ -257,7 +260,7 @@ function ElementVisual({
     const p = el.payload as CtaPayloadV1;
     return (
       <div
-        className="flex h-full w-full items-center justify-center rounded-ui-rect text-sm font-semibold"
+        className="flex h-full w-full items-center justify-center rounded-ui-rect px-2 text-center text-sm font-semibold"
         style={{ backgroundColor: p.backgroundColor, color: p.textColor }}
       >
         {p.label}
@@ -268,8 +271,8 @@ function ElementVisual({
   const url = mediaUrls[p.mediaId];
   if (!url) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-black/30 text-[10px] text-white">
-        {el.type}
+      <div className="flex h-full w-full items-center justify-center border border-dashed border-white/40 bg-black/40 text-[10px] text-white">
+        {el.type === "LOGO" ? "로고 없음" : "이미지 없음"}
       </div>
     );
   }
@@ -280,7 +283,10 @@ function ElementVisual({
       src={url}
       className="h-full w-full"
       draggable={false}
-      style={{ objectFit: p.fit === "CONTAIN" ? "contain" : "cover" }}
+      style={{
+        objectFit:
+          p.fit === "CONTAIN" ? "contain" : p.fit === "COVER" ? "cover" : "fill",
+      }}
     />
   );
 }

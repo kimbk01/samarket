@@ -6,14 +6,21 @@
  * Writes:
  *  - android/.../colors_system_start.xml
  *  - android/.../ic_splash_neutral.xml fill (BACKGROUND MATCH ONLY)
+ *  - android/.../values/system_start_timing.xml (SYSTEM_START_MIN_VISIBLE_MS)
+ *  - native/system-start/build-input.json
  *  - ios LaunchScreen.storyboard backgroundColor
  *  - capacitor.config.ts SplashScreen.backgroundColor (source)
+ *  - optional logo copy from native/system-start/assets/logo.* → android drawable
  */
 import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const BUILD = path.join(ROOT, "config/system-start.build.json");
+const ASSET_DIR = path.join(ROOT, "native/system-start/assets");
+const BUILD_INPUT = path.join(ROOT, "native/system-start/build-input.json");
+
+const ALLOWED_MIN_MS = new Set([0, 300, 500, 800, 1000]);
 
 function parseHex(hex) {
   const h = String(hex || "").trim().replace(/^#/, "");
@@ -29,9 +36,41 @@ function parseHex(hex) {
   };
 }
 
+function normalizeMinVisibleMs(raw) {
+  const n = Math.round(Number(raw) || 0);
+  if (ALLOWED_MIN_MS.has(n)) return n;
+  let best = 0;
+  let bestDist = Math.abs(n - best);
+  for (const p of ALLOWED_MIN_MS) {
+    const d = Math.abs(n - p);
+    if (d < bestDist) {
+      best = p;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+function findLogoAsset() {
+  if (!fs.existsSync(ASSET_DIR)) return null;
+  for (const name of fs.readdirSync(ASSET_DIR)) {
+    if (/^logo\.(png|jpg|jpeg|webp|gif)$/i.test(name)) {
+      return path.join(ASSET_DIR, name);
+    }
+  }
+  return null;
+}
+
 function main() {
   const raw = JSON.parse(fs.readFileSync(BUILD, "utf8"));
   const color = parseHex(raw.backgroundColor);
+  const brandMarkEnabled = !!raw.brandMarkEnabled && !!raw.logoMediaId;
+  const minVisibleMs = normalizeMinVisibleMs(raw.minVisibleMs);
+  const logoFit =
+    raw.logoFit === "COVER" || raw.logoFit === "ORIGINAL" || raw.logoFit === "CONTAIN"
+      ? raw.logoFit
+      : "CONTAIN";
+
   const androidColors = path.join(
     ROOT,
     "android/app/src/main/res/values/colors_system_start.xml",
@@ -43,6 +82,20 @@ function main() {
 <!-- System Start = OS launch surface (build-bound). Match Scene1 initial BG for seamless handoff. -->
 <resources>
     <color name="dibay_system_start_background">${color.hex}</color>
+</resources>
+`,
+  );
+
+  const timingXml = path.join(
+    ROOT,
+    "android/app/src/main/res/values/system_start_timing.xml",
+  );
+  fs.writeFileSync(
+    timingXml,
+    `<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED — SYSTEM_START_MIN_VISIBLE_MS (Owner Admin). Not a hidden artificial hold. -->
+<resources>
+    <integer name="dibay_system_start_min_visible_ms">${minVisibleMs}</integer>
 </resources>
 `,
   );
@@ -70,6 +123,18 @@ function main() {
 `,
   );
 
+  const logoSrc = brandMarkEnabled ? findLogoAsset() : null;
+  const logoDest = path.join(
+    ROOT,
+    "android/app/src/main/res/drawable-hdpi/ic_dibay_splash_logo.png",
+  );
+  let logoCopied = false;
+  if (logoSrc) {
+    fs.mkdirSync(path.dirname(logoDest), { recursive: true });
+    fs.copyFileSync(logoSrc, logoDest);
+    logoCopied = true;
+  }
+
   const storyboard = path.join(
     ROOT,
     "ios/App/App/Base.lproj/LaunchScreen.storyboard",
@@ -96,14 +161,72 @@ function main() {
   );
   fs.writeFileSync(capTs, cap);
 
+  const buildInput = {
+    schemaVersion: 1,
+    kind: "SYSTEM_START",
+    updatedAt: new Date().toISOString(),
+    background: {
+      type: "solid",
+      color: color.hex,
+      imageUrl: null,
+    },
+    logo: {
+      source: brandMarkEnabled ? "admin_media" : "none",
+      mediaId: brandMarkEnabled ? raw.logoMediaId || null : null,
+      url: null,
+      fit: logoFit,
+      sizeNorm: Number(raw.logoSizeNorm) || 0.28,
+      xNorm: Number(raw.logoXNorm) || 0.5,
+      yNorm: Number(raw.logoYNorm) || 0.42,
+      assetCopied: logoCopied,
+    },
+    timing: {
+      SYSTEM_START_MIN_VISIBLE_MS: minVisibleMs,
+      handoff: "max(platform_ready, configured_min_visible)",
+    },
+    apply: {
+      mode: "APP_UPDATE_REQUIRED",
+      publish: false,
+      serviceApply: false,
+    },
+    targets: {
+      android: {
+        splashColorResource: "android/app/src/main/res/values/colors_system_start.xml",
+        timingResource: "android/app/src/main/res/values/system_start_timing.xml",
+        splashDrawableHint: "android/app/src/main/res/drawable/splash.png",
+        logoDrawableHint:
+          "android/app/src/main/res/drawable-hdpi/ic_dibay_splash_logo.png",
+      },
+      ios: {
+        launchScreenStoryboard: "ios/App/App/Base.lproj/LaunchScreen.storyboard",
+        logoImagesetHint: "ios/App/App/Assets.xcassets/DibayStartupLogo.imageset",
+        splashImagesetHint: "ios/App/App/Assets.xcassets/Splash.imageset",
+      },
+    },
+    status: {
+      adminPersisted: true,
+      buildInputGenerated: true,
+      binaryRebuildRequired: true,
+      installedPixelsProven: false,
+      note: "Build-bound. Service Apply does not update installed System Start.",
+    },
+  };
+  fs.mkdirSync(path.dirname(BUILD_INPUT), { recursive: true });
+  fs.writeFileSync(BUILD_INPUT, `${JSON.stringify(buildInput, null, 2)}\n`);
+
   console.log(
     JSON.stringify({
       ok: true,
       backgroundColor: color.hex,
+      brandMarkEnabled,
+      minVisibleMs,
+      logoCopied,
       matchScene1Appearance: !!raw.matchScene1Appearance,
       wrote: [
         "android/app/src/main/res/values/colors_system_start.xml",
+        "android/app/src/main/res/values/system_start_timing.xml",
         "android/app/src/main/res/drawable/ic_splash_neutral.xml",
+        "native/system-start/build-input.json",
         "ios/App/App/Base.lproj/LaunchScreen.storyboard",
         "capacitor.config.ts",
       ],

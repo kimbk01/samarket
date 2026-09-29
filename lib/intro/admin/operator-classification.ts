@@ -8,7 +8,10 @@ export type IntroDataClass = "OWNER" | "QA" | "SYSTEM_TEST" | "CURRENT_LIVE";
 const QA_TITLE_PATTERNS: RegExp[] = [
   /^DIBAY-13-V\d/i,
   /^DIBAY-13-V[0-9A-Z-]+/i,
+  /^DIBAY-13-FINAL/i,
   /^CUTA-BROWSER-QA/i,
+  /^CUT\s*A\b/i,
+  /\bProve\b/i,
   /^409RCV/i,
   /OWNER-MARKER/i,
   /^QA[-_]/i,

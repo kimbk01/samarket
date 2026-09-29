@@ -19,6 +19,7 @@ import {
 } from "@/lib/intro/contracts/document";
 import { IntroCanonicalPreview } from "@/components/admin/intro/IntroCanonicalPreview";
 import { IntroCanvas } from "@/components/admin/intro/IntroCanvas";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { Sam } from "@/lib/ui/css-vars";
 
 type Props = { documentId: string };
@@ -44,12 +45,12 @@ type MediaItem = {
 
 const MOTION_OPTIONS: { value: MotionTypeV1; label: string }[] = [
   { value: "NONE", label: "없음" },
-  { value: "FADE_IN", label: "Fade In" },
-  { value: "ENTER_LEFT", label: "Slide In Left" },
-  { value: "ENTER_RIGHT", label: "Slide In Right" },
-  { value: "ENTER_TOP", label: "Slide In Up" },
-  { value: "ENTER_BOTTOM", label: "Slide In Down" },
-  { value: "SCALE_IN", label: "Scale In" },
+  { value: "FADE_IN", label: "페이드" },
+  { value: "ENTER_LEFT", label: "왼쪽에서" },
+  { value: "ENTER_RIGHT", label: "오른쪽에서" },
+  { value: "ENTER_TOP", label: "위에서" },
+  { value: "ENTER_BOTTOM", label: "아래에서" },
+  { value: "SCALE_IN", label: "확대" },
 ];
 
 export function IntroStudioPage({ documentId }: Props) {
@@ -75,6 +76,7 @@ export function IntroStudioPage({ documentId }: Props) {
   const [mediaPicker, setMediaPicker] = useState<"IMAGE" | "LOGO" | "BG" | null>(
     null,
   );
+  const [sceneMenuIndex, setSceneMenuIndex] = useState<number | null>(null);
   const [pendingMediaElement, setPendingMediaElement] = useState<{
     id: string;
     type: "IMAGE" | "LOGO";
@@ -219,6 +221,7 @@ export function IntroStudioPage({ documentId }: Props) {
     });
     setSceneIndex((i) => Math.max(0, Math.min(i, (document.scenes.length - 2))));
     setSelectedElementId(null);
+    setSceneMenuIndex(null);
   }
 
   function addElement(type: "IMAGE" | "LOGO" | "TEXT" | "CTA") {
@@ -497,77 +500,66 @@ export function IntroStudioPage({ documentId }: Props) {
                 )
               }
             />
-            {authority?.isLive && authority.liveMatchesLatestRelease && authority.draftMatchesLatestRelease ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                서비스 적용됨 · 현재 초안과 동일
-              </span>
-            ) : authority?.isLive ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-600 px-2 py-0.5 text-[11px] font-semibold text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                서비스 중 · 초안과 다름 (서비스 적용 필요)
-              </span>
-            ) : null}
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+            <span className={dirty ? "font-medium text-amber-700" : "text-sam-muted"}>
+              편집 상태: {dirty ? "저장하지 않은 변경사항" : "저장됨"}
+            </span>
+            <span className="text-sam-border">·</span>
             <span
-              className={`text-xs ${
-                dirty ||
-                (authority &&
-                  !(
-                    authority.isLive &&
-                    authority.liveMatchesLatestRelease &&
+              className={
+                authority?.isLive
+                  ? authority.liveMatchesLatestRelease &&
                     authority.draftMatchesLatestRelease
-                  ))
-                  ? "font-medium text-amber-700"
+                    ? "font-medium text-emerald-700"
+                    : "font-medium text-amber-700"
                   : "text-sam-muted"
-              }`}
+              }
             >
-              {dirty
-                ? "저장하지 않은 변경사항"
-                : authority?.isLive &&
-                    authority.liveMatchesLatestRelease &&
-                    authority.draftMatchesLatestRelease
-                  ? "저장됨 · 서비스 적용됨"
-                  : authority?.draftMatchesLatestRelease
-                    ? "저장됨 · 서비스 미적용"
-                    : "저장됨"}
+              서비스 상태:{" "}
+              {authority?.isLive
+                ? authority.liveMatchesLatestRelease &&
+                  authority.draftMatchesLatestRelease
+                  ? "현재 서비스 중"
+                  : "서비스 중 · 초안과 다름"
+                : "서비스 미적용"}
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={Sam.btn.secondary}
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminActionButton
+            variant="secondary"
             disabled={Boolean(busy) || !dirty}
             title="현재 편집 내용을 초안으로 저장"
             onClick={() => void save()}
           >
             {busy === "save" ? "저장 중…" : "저장"}
-          </button>
-          <button
-            type="button"
-            className={Sam.btn.secondary}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
             disabled={Boolean(busy)}
             title="현재 편집 중인 정확한 화면 (앱과 동일 semantics)"
             onClick={() => setPreviewOpen(true)}
           >
             미리보기
-          </button>
-          <button
-            type="button"
-            className={Sam.btn.primary}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="primary"
             disabled={Boolean(busy) || dirty}
             title="저장된 초안을 서비스에 적용 (내부적으로 버전 생성 + Live 전환)"
             onClick={() => void applyService()}
           >
             {busy === "apply" ? "적용 중…" : "서비스 적용"}
-          </button>
-          <button
-            type="button"
-            className="rounded-ui-rect border border-sam-border px-2 py-1.5 text-xs text-sam-muted hover:bg-sam-app"
-            onClick={() => setHistoryOpen((v) => !v)}
-          >
-            버전 기록
-          </button>
+          </AdminActionButton>
+          <div className="relative">
+            <AdminActionButton
+              variant="neutral"
+              aria-label="더보기"
+              onClick={() => setHistoryOpen((v) => !v)}
+            >
+              ⋯
+            </AdminActionButton>
+          </div>
         </div>
       </header>
 
@@ -596,7 +588,12 @@ export function IntroStudioPage({ documentId }: Props) {
       ) : null}
       {historyOpen ? (
         <div className="border-b border-sam-border bg-sam-surface px-4 py-2 text-xs text-sam-muted">
-          <p className="font-medium text-sam-fg">버전 기록 (고급)</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium text-sam-fg">버전 기록</p>
+            <AdminActionButton variant="quiet" onClick={() => setHistoryOpen(false)}>
+              닫기
+            </AdminActionButton>
+          </div>
           <p className="mt-1">
             최신 서비스 버전:{" "}
             {authority?.latestReleaseId
@@ -624,24 +621,20 @@ export function IntroStudioPage({ documentId }: Props) {
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_300px]">
         {/* SCENES */}
         <aside className="overflow-y-auto border-r border-sam-border bg-sam-surface p-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-sam-muted">
-              Scenes
+              장면
             </h2>
-            <button
-              type="button"
-              className="text-xs text-sky-700 hover:underline"
-              onClick={() => addScene()}
-            >
-              + 장면
-            </button>
+            <AdminActionButton variant="secondary" className="min-h-8 px-2 text-xs" onClick={() => addScene()}>
+              + 장면 추가
+            </AdminActionButton>
           </div>
           <ul className="space-y-2">
             {document.scenes.map((s, i) => {
               const bg =
                 s.background.type === "COLOR" ? s.background.color : "#334155";
               return (
-                <li key={s.id}>
+                <li key={s.id} className="relative">
                   <button
                     type="button"
                     className={`w-full rounded-ui-rect border p-2 text-left ${
@@ -652,6 +645,7 @@ export function IntroStudioPage({ documentId }: Props) {
                     onClick={() => {
                       setSceneIndex(i);
                       setSelectedElementId(null);
+                      setSceneMenuIndex(null);
                     }}
                   >
                     <div
@@ -660,10 +654,10 @@ export function IntroStudioPage({ documentId }: Props) {
                     />
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-sm font-medium text-sam-fg">
-                        Scene {i + 1}
+                        장면 {i + 1}
                       </span>
                       <span className="text-[10px] text-sam-muted">
-                        {(s.durationMs / 1000).toFixed(1)}s
+                        {(s.durationMs / 1000).toFixed(1)}초
                       </span>
                     </div>
                     {s.background.type === "COLOR" ? (
@@ -676,18 +670,64 @@ export function IntroStudioPage({ documentId }: Props) {
                       </span>
                     )}
                   </button>
-                  {i === sceneIndex ? (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      <MiniBtn label="복제" onClick={() => duplicateScene(i)} />
-                      <MiniBtn label="↑" onClick={() => moveScene(i, -1)} />
-                      <MiniBtn label="↓" onClick={() => moveScene(i, 1)} />
-                      <MiniBtn
-                        label="삭제"
-                        danger
-                        onClick={() => deleteScene(i)}
-                      />
-                    </div>
-                  ) : null}
+                  <div className="absolute right-1 top-1">
+                    <AdminActionButton
+                      variant="neutral"
+                      className="min-h-7 px-2 text-xs"
+                      aria-label={`장면 ${i + 1} 메뉴`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSceneMenuIndex((cur) => (cur === i ? null : i));
+                        setSceneIndex(i);
+                      }}
+                    >
+                      ⋯
+                    </AdminActionButton>
+                    {sceneMenuIndex === i ? (
+                      <div className="absolute right-0 z-20 mt-1 w-36 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md">
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-1.5 text-left text-xs text-sam-fg hover:bg-sam-app"
+                          onClick={() => {
+                            duplicateScene(i);
+                            setSceneMenuIndex(null);
+                          }}
+                        >
+                          복제
+                        </button>
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-1.5 text-left text-xs text-sam-fg hover:bg-sam-app disabled:opacity-40"
+                          disabled={i === 0}
+                          onClick={() => {
+                            moveScene(i, -1);
+                            setSceneMenuIndex(null);
+                          }}
+                        >
+                          위로 이동
+                        </button>
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-1.5 text-left text-xs text-sam-fg hover:bg-sam-app disabled:opacity-40"
+                          disabled={i >= document.scenes.length - 1}
+                          onClick={() => {
+                            moveScene(i, 1);
+                            setSceneMenuIndex(null);
+                          }}
+                        >
+                          아래로 이동
+                        </button>
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-1.5 text-left text-xs text-red-700 hover:bg-red-50 disabled:opacity-40"
+                          disabled={document.scenes.length <= 1}
+                          onClick={() => deleteScene(i)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
@@ -697,12 +737,12 @@ export function IntroStudioPage({ documentId }: Props) {
             <div className="mt-4 rounded-ui-rect border border-emerald-400 bg-emerald-50 p-2 text-[11px] text-emerald-900">
               <div className="font-semibold">● 현재 서비스 중</div>
               <div className="mt-1">
-                Scene {document.scenes.length} ·{" "}
+                장면 {document.scenes.length} ·{" "}
                 {(
                   document.scenes.reduce((sum, s) => sum + (s.durationMs || 0), 0) /
                   1000
                 ).toFixed(1)}
-                s
+                초
               </div>
               {document.scenes.map((s, i) => (
                 <div key={s.id} className="mt-1 flex items-center gap-2">
@@ -715,7 +755,7 @@ export function IntroStudioPage({ documentId }: Props) {
                           : "#64748B",
                     }}
                   />
-                  Scene{i + 1}
+                  장면 {i + 1}
                   {s.background.type === "COLOR" ? ` ${s.background.color}` : " 이미지"}
                 </div>
               ))}
@@ -734,34 +774,18 @@ export function IntroStudioPage({ documentId }: Props) {
         {/* CANVAS */}
         <main className="overflow-y-auto p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={Sam.btn.secondary}
-              onClick={() => {
-                const t = window.prompt(
-                  "추가할 요소",
-                  "IMAGE / LOGO / TEXT / CTA",
-                );
-                const v = (t || "").trim().toUpperCase();
-                if (v === "IMAGE" || v === "LOGO" || v === "TEXT" || v === "CTA") {
-                  addElement(v);
-                }
-              }}
-            >
-              + 요소 추가
-            </button>
-            <button type="button" className={Sam.btn.secondary} onClick={() => addElement("IMAGE")}>
-              이미지
-            </button>
-            <button type="button" className={Sam.btn.secondary} onClick={() => addElement("LOGO")}>
-              로고
-            </button>
-            <button type="button" className={Sam.btn.secondary} onClick={() => addElement("TEXT")}>
-              텍스트
-            </button>
-            <button type="button" className={Sam.btn.secondary} onClick={() => addElement("CTA")}>
-              버튼
-            </button>
+            <AdminActionButton variant="secondary" onClick={() => addElement("IMAGE")}>
+              + 이미지
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" onClick={() => addElement("LOGO")}>
+              + 로고
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" onClick={() => addElement("TEXT")}>
+              + 텍스트
+            </AdminActionButton>
+            <AdminActionButton variant="secondary" onClick={() => addElement("CTA")}>
+              + 버튼
+            </AdminActionButton>
           </div>
           {scene ? (
             <IntroCanvas
@@ -780,10 +804,29 @@ export function IntroStudioPage({ documentId }: Props) {
         {/* PROPERTIES */}
         <aside className="overflow-y-auto border-l border-sam-border bg-sam-surface p-3">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-sam-muted">
-            Properties
+            속성
           </h2>
 
-          {scene ? (
+          {selected ? (
+            <div className="mb-3 rounded-ui-rect border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold text-sky-900">
+              선택됨:{" "}
+              {selected.type === "IMAGE"
+                ? "이미지"
+                : selected.type === "LOGO"
+                  ? "로고"
+                  : selected.type === "TEXT"
+                    ? "텍스트"
+                    : selected.type === "CTA"
+                      ? "버튼"
+                      : selected.type}
+            </div>
+          ) : scene ? (
+            <div className="mb-3 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-xs font-semibold text-sam-fg">
+              선택됨: 장면 {sceneIndex + 1}
+            </div>
+          ) : null}
+
+          {scene && !selected ? (
             <div className="mb-4 space-y-3 border-b border-sam-border pb-4">
               <div className="text-sm font-medium text-sam-fg">장면</div>
               <label className="block text-xs text-sam-muted">
@@ -949,28 +992,6 @@ export function IntroStudioPage({ documentId }: Props) {
   );
 }
 
-function MiniBtn({
-  label,
-  onClick,
-  danger,
-}: {
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={`rounded px-1.5 py-0.5 text-[10px] ${
-        danger ? "text-red-600 hover:bg-red-50" : "text-sam-muted hover:bg-sam-app"
-      }`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
 function TransitionEditor({
   transition,
   onChange,
@@ -979,20 +1000,19 @@ function TransitionEditor({
   onChange: (t: TransitionV1) => void;
 }) {
   const type = transition.type;
+  const options = [
+    { key: "CUT" as const, label: "없음" },
+    { key: "FADE" as const, label: "페이드" },
+    { key: "SLIDE_LEFT" as const, label: "왼쪽으로 밀기" },
+    { key: "SLIDE_RIGHT" as const, label: "오른쪽으로 밀기" },
+    { key: "SLIDE_UP" as const, label: "위로 밀기" },
+    { key: "SLIDE_DOWN" as const, label: "아래로 밀기" },
+  ];
   return (
     <div className="space-y-2">
-      <div className="text-xs text-sam-muted">장면 전환</div>
-      <div className="grid grid-cols-2 gap-1">
-        {(
-          [
-            ["CUT", "없음 / CUT"],
-            ["FADE", "FADE"],
-            ["SLIDE_LEFT", "SLIDE LEFT"],
-            ["SLIDE_RIGHT", "SLIDE RIGHT"],
-            ["SLIDE_UP", "SLIDE UP"],
-            ["SLIDE_DOWN", "SLIDE DOWN"],
-          ] as const
-        ).map(([key, label]) => {
+      <div className="text-xs font-medium text-sam-fg">장면 전환</div>
+      <div className="space-y-1" role="radiogroup" aria-label="장면 전환">
+        {options.map(({ key, label }) => {
           const active =
             (key === "CUT" && type === "CUT") ||
             (key === "FADE" && type === "FADE") ||
@@ -1009,30 +1029,35 @@ function TransitionEditor({
               type === "SLIDE" &&
               transition.direction === "DOWN");
           return (
-            <button
+            <label
               key={key}
-              type="button"
-              className={`rounded-ui-rect border px-2 py-1 text-[11px] ${
+              className={`flex cursor-pointer items-center gap-2 rounded-ui-rect border px-2 py-1.5 text-xs ${
                 active
                   ? "border-sky-500 bg-sky-50 text-sam-fg"
-                  : "border-sam-border text-sam-muted"
+                  : "border-sam-border text-sam-muted hover:bg-sam-app"
               }`}
-              onClick={() => {
-                if (key === "CUT") onChange({ type: "CUT", durationMs: 0 });
-                else if (key === "FADE")
-                  onChange({ type: "FADE", durationMs: 400 });
-                else {
-                  const direction = key.replace("SLIDE_", "") as
-                    | "LEFT"
-                    | "RIGHT"
-                    | "UP"
-                    | "DOWN";
-                  onChange({ type: "SLIDE", durationMs: 400, direction });
-                }
-              }}
             >
+              <input
+                type="radio"
+                name="scene-transition"
+                className="accent-sky-600"
+                checked={active}
+                onChange={() => {
+                  if (key === "CUT") onChange({ type: "CUT", durationMs: 0 });
+                  else if (key === "FADE")
+                    onChange({ type: "FADE", durationMs: 400 });
+                  else {
+                    const direction = key.replace("SLIDE_", "") as
+                      | "LEFT"
+                      | "RIGHT"
+                      | "UP"
+                      | "DOWN";
+                    onChange({ type: "SLIDE", durationMs: 400, direction });
+                  }
+                }}
+              />
               {label}
-            </button>
+            </label>
           );
         })}
       </div>
@@ -1090,14 +1115,20 @@ function ElementProperties({
   return (
     <div className="space-y-3 text-sm">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-sam-fg">{element.type}</span>
-        <button
-          type="button"
-          className="text-xs text-red-600 hover:underline"
-          onClick={onDelete}
-        >
+        <span className="font-medium text-sam-fg">
+          {element.type === "IMAGE"
+            ? "이미지"
+            : element.type === "LOGO"
+              ? "로고"
+              : element.type === "TEXT"
+                ? "텍스트"
+                : element.type === "CTA"
+                  ? "버튼"
+                  : element.type}
+        </span>
+        <AdminActionButton variant="danger" className="min-h-8 text-xs" onClick={onDelete}>
           요소 삭제
-        </button>
+        </AdminActionButton>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1138,7 +1169,8 @@ function ElementProperties({
       </label>
 
       <div className="space-y-1">
-        <div className="text-xs text-sam-muted">Element Motion</div>
+        <div className="text-xs font-medium text-sam-fg">요소 등장 효과</div>
+        <p className="text-[10px] text-sam-muted">장면 전환과 별개입니다.</p>
         <select
           className={Sam.input.base}
           value={element.motion.type}
@@ -1199,6 +1231,7 @@ function ElementProperties({
           onChange={onChange}
           onReplaceMedia={onReplaceMedia}
           onUpload={onUpload}
+          onDelete={onDelete}
         />
       )}
       {element.type === "TEXT" && (
@@ -1239,18 +1272,22 @@ function ImageProps({
   onChange,
   onReplaceMedia,
   onUpload,
+  onDelete,
 }: {
   element: SceneV1["elements"][number];
   mediaItems: MediaItem[];
   onChange: (el: SceneV1["elements"][number]) => void;
   onReplaceMedia: () => void;
   onUpload: (file: File) => void;
+  onDelete: () => void;
 }) {
   const p = element.payload as ImagePayloadV1;
   const media = mediaItems.find((m) => m.mediaId === p.mediaId);
   return (
     <div className="space-y-2 border-t border-sam-border pt-3">
-      <div className="text-xs font-medium text-sam-fg">이미지</div>
+      <div className="text-xs font-medium text-sam-fg">
+        {element.type === "LOGO" ? "로고" : "이미지"}
+      </div>
       {media?.previewUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -1264,10 +1301,10 @@ function ImageProps({
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={`${Sam.btn.secondary} text-xs`} onClick={onReplaceMedia}>
-          교체 / 미디어에서 선택
-        </button>
-        <label className={`${Sam.btn.secondary} cursor-pointer text-xs`}>
+        <AdminActionButton variant="secondary" className="text-xs" onClick={onReplaceMedia}>
+          교체
+        </AdminActionButton>
+        <label className="inline-flex min-h-9 cursor-pointer items-center justify-center whitespace-nowrap rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-3 py-1.5 text-[13px] font-semibold text-[var(--admin-console-fg,#1f2937)] hover:bg-[var(--admin-console-hover,#eef1f6)]">
           업로드
           <input
             type="file"
@@ -1280,23 +1317,37 @@ function ImageProps({
             }}
           />
         </label>
+        <AdminActionButton variant="danger" className="text-xs" onClick={onDelete}>
+          삭제
+        </AdminActionButton>
       </div>
-      <div className="flex gap-2">
-        {(["CONTAIN", "COVER"] as const).map((fit) => (
-          <button
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-sam-fg">맞춤 방식</div>
+        {(
+          [
+            { fit: "CONTAIN" as const, label: "화면 안에 맞춤 (Contain)" },
+            { fit: "COVER" as const, label: "화면 채우기 (Cover)" },
+          ] as const
+        ).map(({ fit, label }) => (
+          <label
             key={fit}
-            type="button"
-            className={
+            className={`flex cursor-pointer items-center gap-2 rounded-ui-rect border px-2 py-1.5 text-xs ${
               p.fit === fit
-                ? `${Sam.btn.primary} text-xs`
-                : `${Sam.btn.secondary} text-xs`
-            }
-            onClick={() =>
-              onChange({ ...element, payload: { ...p, fit } })
-            }
+                ? "border-sky-500 bg-sky-50 text-sam-fg"
+                : "border-sam-border text-sam-muted"
+            }`}
           >
-            {fit === "CONTAIN" ? "Contain" : "Cover"}
-          </button>
+            <input
+              type="radio"
+              name={`fit-${element.id}`}
+              className="accent-sky-600"
+              checked={p.fit === fit}
+              onChange={() =>
+                onChange({ ...element, payload: { ...p, fit } })
+              }
+            />
+            {label}
+          </label>
         ))}
       </div>
     </div>
@@ -1370,7 +1421,7 @@ function TextProps({
         </select>
       </div>
       <label className="block text-xs text-sam-muted">
-        크기 {(p.fontSizeNorm * 100).toFixed(1)}%
+        크기 {(p.fontSizeNorm * 100).toFixed(1)}% (캔버스 높이 기준)
         <input
           type="range"
           min={2}
@@ -1386,6 +1437,9 @@ function TextProps({
           }
         />
       </label>
+      <p className="text-[11px] text-amber-700">
+        프레임 밖으로 넘치는 글자는 Canvas에서 잘립니다. 크기·프레임을 조정하세요.
+      </p>
     </div>
   );
 }
@@ -1444,7 +1498,7 @@ function CtaProps({
         </label>
       </div>
       <label className="block text-xs text-sam-muted">
-        Action
+        동작
         <select
           className={`${Sam.input.base} mt-1`}
           value={
@@ -1472,12 +1526,12 @@ function CtaProps({
           }}
         >
           <option value="NEXT_SCENE">다음 장면</option>
-          <option value="FINISH_INTRO">Intro 종료</option>
-          <option value="DEST:community">내부 · 커뮤니티</option>
-          <option value="DEST:trade">내부 · 거래</option>
-          <option value="DEST:food">내부 · 배달</option>
-          <option value="DEST:chat">내부 · 채팅</option>
-          <option value="DEST:my">내부 · 마이</option>
+          <option value="FINISH_INTRO">인트로 종료</option>
+          <option value="DEST:community">DIBAY 내부 · 커뮤니티</option>
+          <option value="DEST:trade">DIBAY 내부 · 거래</option>
+          <option value="DEST:food">DIBAY 내부 · 배달</option>
+          <option value="DEST:chat">DIBAY 내부 · 채팅</option>
+          <option value="DEST:my">DIBAY 내부 · 마이</option>
         </select>
       </label>
     </div>

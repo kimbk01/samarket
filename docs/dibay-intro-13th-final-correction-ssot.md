@@ -29,8 +29,8 @@ canonical document · immutable release/package · native Android/iOS renderer �
 
 ## Correction axes (must close)
 
-1. **OS System Start** — platform primitive only; artificial hold = 0; NOT Scene0; Admin config is build-bound (installed vs next build); no forced Scene1 match
-2. **Admin CMS UX/SSOT** — primary actions = Save / Preview / Service Apply; Publish history = advanced only
+1. **OS System Start** — platform primitive only; NOT Scene0; Admin config is build-bound (installed vs next build); no forced Scene1 match. Owner-configurable `SYSTEM_START_MIN_VISIBLE_MS` (presets: 최소/0.3/0.5/0.8/1.0초). Handoff = max(platform readiness, configured minimum). Hidden artificial hold beyond that = FORBIDDEN. Logo/image select·upload·replace·delete + Korean fit labels + preview with image required.
+2. **Admin CMS UX/SSOT** — primary actions = Save / Preview / Service Apply via AdminActionButton hierarchy; Publish history = advanced only (⋯). Operator list hides QA titles by default.
 3. **Admin → Live → Device** — Service Apply is atomic (draft→release→package→live); device always refreshes Live when online; no store clear / reinstall for Product Intro
 
 ## Atomic Service Apply

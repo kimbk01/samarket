@@ -58,6 +58,33 @@ describe("13th final correction apply-service contract", () => {
     );
     expect(doc).toContain("14TH FULL REBUILD = NOT YET AUTHORIZED");
     expect(doc).toContain("EDIT → SAVE → PREVIEW → APPLY → APP");
-    expect(doc).toContain("artificial hold = 0");
+    expect(doc).toContain("SYSTEM_START_MIN_VISIBLE_MS");
+    expect(doc).toContain("Hidden artificial hold beyond that = FORBIDDEN");
+  });
+
+  it("System Start Admin exposes media + duration controls", () => {
+    const panel = readFileSync(
+      "components/admin/intro/IntroSystemStartPanel.tsx",
+      "utf8",
+    );
+    expect(panel).toContain("다음 앱 버전 설정 저장");
+    expect(panel).toContain("SYSTEM_START_MIN_VISIBLE_MS");
+    expect(panel).toContain("원본 비율");
+    expect(panel).toContain("화면 안에 맞춤");
+    expect(panel).toContain("화면 채우기");
+    expect(panel).toContain("logoMediaId");
+  });
+
+  it("Intro studio uses AdminActionButton CTA hierarchy", () => {
+    const src = readFileSync(
+      "components/admin/intro/IntroStudioPage.tsx",
+      "utf8",
+    );
+    expect(src).toContain("AdminActionButton");
+    expect(src).toContain('variant="primary"');
+    expect(src).toContain("+ 장면 추가");
+    expect(src).toContain("+ 이미지");
+    expect(src).toContain("요소 등장 효과");
+    expect(src).toContain("왼쪽으로 밀기");
   });
 });
