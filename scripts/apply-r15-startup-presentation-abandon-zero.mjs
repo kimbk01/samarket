@@ -1,15 +1,15 @@
 /**
- * Apply ONLY 20270408120000_r15_startup_presentation_phase1 to Production DB.
- * Does NOT run `supabase db push`. Does NOT apply other pending migrations.
+ * Apply ONLY 20270408130000_r15_startup_presentation_abandon_zero to Production DB.
+ * Demolition: drop R15 startup tables/bucket/objects. No Intro recreate.
  *
- * Usage: node scripts/apply-r15-startup-presentation-phase1.mjs
+ * Usage: node scripts/apply-r15-startup-presentation-abandon-zero.mjs
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const MIGRATION_FILE = "20270408120000_r15_startup_presentation_phase1.sql";
-const VERSION = "20270408120000";
+const MIGRATION_FILE = "20270408130000_r15_startup_presentation_abandon_zero.sql";
+const VERSION = "20270408130000";
 const EXPECTED_HOST_FRAGMENT = "ckdosyydvgzqwpbwuhon";
 
 function loadEnvLocal() {
@@ -32,17 +32,16 @@ function loadEnvLocal() {
 
 function assertApprovedSql(sql) {
   const upper = sql.toUpperCase();
-  for (const bad of ["DROP TABLE", "TRUNCATE", "DELETE FROM"]) {
-    if (upper.includes(bad)) throw new Error(`migration outside Phase 1 scope: contains ${bad}`);
+  for (const bad of ["CREATE TABLE", "CREATE POLICY", "CREATE INDEX"]) {
+    if (upper.includes(bad)) throw new Error(`abandon migration outside scope: contains ${bad}`);
   }
-  for (const bad of ["APP_INTRO", "INTRO_V2", "OPENING_SHOW", "DIBAY-INTRO", "INTRO-SHOW", "OPENING-SHOW-MEDIA"]) {
-    if (upper.includes(bad)) throw new Error(`migration reuses R14 authority: ${bad}`);
-  }
+  if (/\bR16\b/.test(sql)) throw new Error("abandon migration outside scope: contains R16");
   for (const must of [
     "r15_startup_documents",
     "r15_startup_generations",
     "r15_startup_media",
     "r15-startup-media",
+    "DROP TABLE",
   ]) {
     if (!sql.includes(must)) throw new Error(`missing required marker: ${must}`);
   }
@@ -82,7 +81,7 @@ const existing = psql(
 if (existing === VERSION) {
   console.log(JSON.stringify({ alreadyRecorded: true, version: VERSION }));
 } else {
-  console.log("[apply] running R15 startup presentation migration...");
+  console.log("[apply] running R15 abandonment zero migration...");
   psql([...connArgs, "-f", sqlPath], env);
   psql(
     [
@@ -90,7 +89,7 @@ if (existing === VERSION) {
       "-At",
       "-c",
       `INSERT INTO supabase_migrations.schema_migrations (version, name)
-       VALUES ('${VERSION}', 'r15_startup_presentation_phase1')
+       VALUES ('${VERSION}', 'r15_startup_presentation_abandon_zero')
        ON CONFLICT DO NOTHING`,
     ],
     env
@@ -103,10 +102,11 @@ const check = psql(
     "-At",
     "-c",
     `SELECT
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_documents') THEN 'DOC_OK' ELSE 'DOC_MISSING' END
-       || '|' || CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_generations') THEN 'GEN_OK' ELSE 'GEN_MISSING' END
-       || '|' || CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_media') THEN 'MEDIA_OK' ELSE 'MEDIA_MISSING' END
-       || '|' || CASE WHEN EXISTS (SELECT 1 FROM storage.buckets WHERE id='r15-startup-media') THEN 'BUCKET_OK' ELSE 'BUCKET_MISSING' END
+       CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_documents') THEN 'DOC_LIVE' ELSE 'DOC_ZERO' END
+       || '|' || CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_generations') THEN 'GEN_LIVE' ELSE 'GEN_ZERO' END
+       || '|' || CASE WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='r15_startup_media') THEN 'MEDIA_LIVE' ELSE 'MEDIA_ZERO' END
+       || '|' || CASE WHEN EXISTS (SELECT 1 FROM storage.buckets WHERE id='r15-startup-media') THEN 'BUCKET_LIVE' ELSE 'BUCKET_ZERO' END
+       || '|' || COALESCE((SELECT count(*)::text FROM storage.objects WHERE bucket_id='r15-startup-media'), '0')
        || '|' || CASE WHEN EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='${VERSION}') THEN 'MIG_RECORDED' ELSE 'MIG_MISSING' END`,
   ],
   env
@@ -114,12 +114,13 @@ const check = psql(
 
 console.log(JSON.stringify({ version: VERSION, check }, null, 2));
 if (
-  !check.includes("DOC_OK") ||
-  !check.includes("GEN_OK") ||
-  !check.includes("MEDIA_OK") ||
-  !check.includes("BUCKET_OK") ||
+  !check.includes("DOC_ZERO") ||
+  !check.includes("GEN_ZERO") ||
+  !check.includes("MEDIA_ZERO") ||
+  !check.includes("BUCKET_ZERO") ||
   !check.includes("MIG_RECORDED")
 ) {
-  process.exit(3);
+  console.error("R15 abandonment ZERO check FAILED");
+  process.exit(1);
 }
-console.log("APPLY_AND_VERIFY=PASS");
+console.log("R15 DB/STORAGE ZERO PASS");

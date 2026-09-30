@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
-import { StartupPresentationOwner } from "@/components/startup-presentation/StartupPresentationOwner";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
@@ -92,12 +91,11 @@ export default async function RootLayout({
     <html lang={initialLanguage} suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased" suppressHydrationWarning>
-        {/* R15 Product System Start owner: one document -> engine -> renderer -> generation. */}
+        {/* Authored Intro overlay = NONE. OS/native min boot then HOME. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <DibayAppDialogProvider>
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
-            <StartupPresentationOwner />
             <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />

@@ -24,6 +24,7 @@ import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
+import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalStatePurge";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -98,7 +99,12 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <AppBootContext.Provider value={boot}>{children}</AppBootContext.Provider>;
+  return (
+    <AppBootContext.Provider value={boot}>
+      <AbandonedR15LocalStatePurge />
+      {children}
+    </AppBootContext.Provider>
+  );
 }
 
 export function useAppBoot(): AppBootState {

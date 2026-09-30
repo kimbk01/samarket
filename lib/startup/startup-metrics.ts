@@ -314,7 +314,6 @@ export function markBootMetricsReactMounted(): void {
 let shellReadyMarked = false;
 let initialDestinationVisualReadyMarked = false;
 const shellReadyWaiters: Array<() => void> = [];
-const initialDestinationVisualReadyWaiters: Array<() => void> = [];
 
 function flushShellReadyWaiters(): void {
   const waiters = shellReadyWaiters.splice(0, shellReadyWaiters.length);
@@ -350,17 +349,6 @@ export function markInitialDestinationVisualReady(): void {
   if (initialDestinationVisualReadyMarked) return;
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
-  const waiters = initialDestinationVisualReadyWaiters.splice(
-    0,
-    initialDestinationVisualReadyWaiters.length
-  );
-  for (const run of waiters) {
-    try {
-      run();
-    } catch {
-      /* ignore */
-    }
-  }
   notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
 }
@@ -412,18 +400,6 @@ function notifyNativeHomePresentationReady(): void {
 
 export function isInitialDestinationVisualReady(): boolean {
   return initialDestinationVisualReadyMarked;
-}
-
-export function subscribeInitialDestinationVisualReady(run: () => void): () => void {
-  if (initialDestinationVisualReadyMarked) {
-    run();
-    return () => {};
-  }
-  initialDestinationVisualReadyWaiters.push(run);
-  return () => {
-    const idx = initialDestinationVisualReadyWaiters.indexOf(run);
-    if (idx >= 0) initialDestinationVisualReadyWaiters.splice(idx, 1);
-  };
 }
 
 /** True after ConditionalAppShell (or auth splash fallback) marked ready. */

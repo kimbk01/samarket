@@ -141,29 +141,14 @@ function MarkAppShellReadyOnce({
 function MarkInitialDestinationVisualReadyOnce({ pathname }: { pathname: string | null }) {
   useEffect(() => {
     if (!pathname) return;
-    let cancelled = false;
-    let frame1 = 0;
-    let frame2 = 0;
-    const markWhenCommitted = () => {
-      if (cancelled) return;
-      const surface = document.querySelector<HTMLElement>("[data-r15-home-ready-surface='main']");
-      const rect = surface?.getBoundingClientRect();
-      if (!surface || !rect || rect.width <= 0 || rect.height <= 0) {
-        frame1 = requestAnimationFrame(markWhenCommitted);
-        return;
-      }
-      frame1 = requestAnimationFrame(() => {
-        frame2 = requestAnimationFrame(() => {
-          if (!cancelled) markInitialDestinationVisualReady();
-        });
-      });
-    };
-    frame1 = requestAnimationFrame(markWhenCommitted);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame1);
-      cancelAnimationFrame(frame2);
-    };
+    if (typeof requestAnimationFrame !== "function") {
+      markInitialDestinationVisualReady();
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      markInitialDestinationVisualReady();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname]);
   return null;
 }
@@ -419,7 +404,6 @@ export function ConditionalAppShell({
        * BottomNav stays outside (tx=0).
        */}
       <main
-        data-r15-home-ready-surface="main"
         className={
           hubScrollColumn
             ? "flex min-h-0 min-w-0 flex-1 flex-col"
