@@ -1,0 +1,48 @@
+export const adminStartupR15Messages = {
+  ko: {
+    admin_r15_startup_apply_confirm:
+      "현재 System Start 구성을 실제 서비스에 적용하시겠습니까?\n\n적용된 구성은 검증된 generation으로 배포되며 대상 앱의 다음 eligible startup에 반영됩니다.",
+    admin_r15_startup_apply_failed: "서비스 적용에 실패했습니다.",
+    admin_r15_startup_apply_ok: "Service Apply 완료",
+    admin_r15_startup_background_color: "배경색",
+    admin_r15_startup_current_generation: "현재 generation",
+    admin_r15_startup_logo_geometry: "로고 좌표",
+    admin_r15_startup_logo_image: "로고/이미지",
+    admin_r15_startup_minimum_visible: "최소 표시 시간(ms)",
+    admin_r15_startup_preview_contract: "Fit: CONTAIN / normalized geometry 0..1",
+    admin_r15_startup_preview_same_renderer: "PREVIEW = APP RENDERER",
+    admin_r15_startup_save: "SAVE",
+    admin_r15_startup_save_confirm: "현재 System Start 설정을 저장하시겠습니까?",
+    admin_r15_startup_save_failed: "저장에 실패했습니다.",
+    admin_r15_startup_save_ok: "Draft가 저장되었습니다.",
+    admin_r15_startup_service_apply: "SERVICE APPLY",
+    admin_r15_startup_system_start: "System Start",
+    admin_r15_startup_system_start_hint:
+      "Phase 1은 배경색, 로고 이미지, 위치/크기, 최소 표시 시간만 지원합니다.",
+    admin_r15_startup_upload_failed: "이미지 업로드에 실패했습니다.",
+    admin_r15_startup_upload_ok: "로고 이미지가 업로드되었습니다.",
+  },
+  en: {
+    admin_r15_startup_apply_confirm:
+      "Apply the current System Start configuration to live service?\n\nThe applied configuration will be distributed as a verified generation and reflected on the next eligible startup.",
+    admin_r15_startup_apply_failed: "Service apply failed.",
+    admin_r15_startup_apply_ok: "Service Apply complete",
+    admin_r15_startup_background_color: "Background Color",
+    admin_r15_startup_current_generation: "Current generation",
+    admin_r15_startup_logo_geometry: "Logo geometry",
+    admin_r15_startup_logo_image: "Logo/Image",
+    admin_r15_startup_minimum_visible: "Minimum Visible Time (ms)",
+    admin_r15_startup_preview_contract: "Fit: CONTAIN / normalized geometry 0..1",
+    admin_r15_startup_preview_same_renderer: "PREVIEW = APP RENDERER",
+    admin_r15_startup_save: "SAVE",
+    admin_r15_startup_save_confirm: "Save the current System Start settings?",
+    admin_r15_startup_save_failed: "Save failed.",
+    admin_r15_startup_save_ok: "Draft saved.",
+    admin_r15_startup_service_apply: "SERVICE APPLY",
+    admin_r15_startup_system_start: "System Start",
+    admin_r15_startup_system_start_hint:
+      "Phase 1 supports only background color, logo image, geometry, and minimum visible time.",
+    admin_r15_startup_upload_failed: "Image upload failed.",
+    admin_r15_startup_upload_ok: "Logo image uploaded.",
+  },
+} as const;

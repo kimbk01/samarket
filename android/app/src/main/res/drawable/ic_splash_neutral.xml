@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   OS_REQUIRED_BOOT_PRIMITIVE — Android 12+ windowSplashScreenAnimatedIcon slot.
-  Solid app-shell WHITE only. No System Start / Intro / brand board (ZERO).
+  R15 Phase 1 static brand mark only. Product System Start semantics stay in Web.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="288dp"
@@ -9,6 +9,9 @@
     android:viewportWidth="288"
     android:viewportHeight="288">
     <path
-        android:fillColor="#FFFCFC"
-        android:pathData="M0,0h288v288h-288z" />
+        android:fillColor="@color/dibay_os_mark"
+        android:pathData="M92,84h42c38,0 62,24 62,60s-24,60 -62,60h-42zM120,111v66h14c21,0 34,-13 34,-33s-13,-33 -34,-33z" />
+    <path
+        android:fillColor="@color/dibay_os_mark"
+        android:pathData="M196,84h28v120h-28z" />
 </vector>
