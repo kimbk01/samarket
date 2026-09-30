@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  adminMemberPrivilegeFilterPlan,
+  adminMemberStoreFilterPlan,
+} from "@/lib/admin-users/admin-member-list-query";
+import {
+  memberHasOrthogonalStoreAndPrivilege,
+  resolveAdminMemberRoleBadges,
+} from "@/lib/admin-users/member-role-badges";
 
 describe("admin member list Slice 1 authority", () => {
   const listSrc = readFileSync(join(process.cwd(), "app/api/admin/users/route.ts"), "utf8");
@@ -12,10 +20,24 @@ describe("admin member list Slice 1 authority", () => {
     join(process.cwd(), "components/admin/users/AdminUserPointsSection.tsx"),
     "utf8",
   );
+  const querySrc = readFileSync(
+    join(process.cwd(), "lib/admin-users/admin-member-list-query.ts"),
+    "utf8",
+  );
 
   it("maps additive badges instead of exclusive admin>store>member overwrite", () => {
+    const overlap = resolveAdminMemberRoleBadges({
+      hasStoreOwnership: true,
+      adminMembershipRole: "admin",
+    });
+    expect(overlap).toEqual(["member", "store_owner", "admin"]);
+    expect(memberHasOrthogonalStoreAndPrivilege(overlap)).toBe(true);
+
+    // Server filter authority is two independent plans — never collapsed relation.
+    expect(adminMemberStoreFilterPlan("has_store", ["s1"]).ops[0]).toMatchObject({ type: "in" });
+    expect(adminMemberPrivilegeFilterPlan("admin", ["a1"]).ops[0]).toMatchObject({ type: "in" });
+    expect(querySrc).not.toMatch(/adminMemberRelationFilterPlan/);
     expect(listSrc).toMatch(/resolveAdminMemberRoleBadges/);
-    // R2: collapsed relation filter removed — orthogonal store + privilege plans.
     expect(listSrc).toMatch(/adminMemberPrivilegeFilterPlan/);
     expect(listSrc).toMatch(/adminMemberStoreFilterPlan/);
     expect(listSrc).not.toMatch(/adminMemberRelationFilterPlan/);

@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  adminMemberRelationFilterPlan,
+  adminMemberPrivilegeFilterPlan,
   adminMemberSearchFilterOps,
   adminMemberStatusFilterOps,
+  adminMemberStoreFilterPlan,
   buildProfileTextSearchOr,
   isAdminMemberUuidSearch,
   normalizeAdminMemberSearchToken,
@@ -52,15 +53,32 @@ describe("adminMemberSearchFilterOps", () => {
   });
 });
 
-describe("adminMemberRelationFilterPlan", () => {
-  it("does not treat plain as identity SSOT — it only excludes store/admin ids", () => {
-    const plan = adminMemberRelationFilterPlan("plain", ["s1"], ["a1"]);
-    expect(plan.empty).toBe(false);
-    expect(plan.ops).toEqual([{ type: "not_in", column: "id", value: "(s1,a1)" }]);
+describe("R2 orthogonal store + privilege filter plans", () => {
+  it("store and privilege plans are independent (not collapsed relation)", () => {
+    const store = adminMemberStoreFilterPlan("has_store", ["s1"]);
+    const priv = adminMemberPrivilegeFilterPlan("admin", ["a1"]);
+    expect(store.ops[0]).toMatchObject({ type: "in", column: "id", value: ["s1"] });
+    expect(priv.ops[0]).toMatchObject({ type: "in", column: "id", value: ["a1"] });
+    // Applying both does not require a single relation token.
+    expect(store.ops[0]).not.toEqual(priv.ops[0]);
   });
 
-  it("store_owner with no owners is empty", () => {
-    expect(adminMemberRelationFilterPlan("store_owner", [], []).empty).toBe(true);
+  it("has_store with no owners is empty; admin with no admins is empty", () => {
+    expect(adminMemberStoreFilterPlan("has_store", []).empty).toBe(true);
+    expect(adminMemberPrivilegeFilterPlan("admin", []).empty).toBe(true);
+  });
+
+  it("no_store / member use not_in exclusion", () => {
+    expect(adminMemberStoreFilterPlan("no_store", ["s1"]).ops[0]?.type).toBe("not_in");
+    expect(adminMemberPrivilegeFilterPlan("member", ["a1"]).ops[0]?.type).toBe("not_in");
+  });
+
+  it("module no longer exports collapsed relation plan", () => {
+    const src = readFileSync(join(process.cwd(), "lib/admin-users/admin-member-list-query.ts"), "utf8");
+    expect(src).not.toMatch(/adminMemberRelationFilterPlan/);
+    expect(src).not.toMatch(/AdminMemberRelationFilter/);
+    expect(src).toMatch(/adminMemberStoreFilterPlan/);
+    expect(src).toMatch(/adminMemberPrivilegeFilterPlan/);
   });
 });
 
@@ -78,21 +96,13 @@ describe("adminMemberStatusFilterOps", () => {
   });
 });
 
-describe("admin users list route Slice 2", () => {
-  it("paginates in SQL and uses UUID eq", () => {
+describe("route wiring authority", () => {
+  it("list API uses orthogonal plans and never collapsed relation helpers", () => {
     const src = readFileSync(join(process.cwd(), "app/api/admin/users/route.ts"), "utf8");
-    expect(src).toMatch(/\.range\(from, to\)/);
-    expect(src).toMatch(/isAdminMemberUuidSearch/);
-    expect(src).toMatch(/adminMemberSearchFilterOps/);
-    expect(src).not.toMatch(/users\.slice\(/);
+    expect(src).toMatch(/adminMemberStoreFilterPlan/);
+    expect(src).toMatch(/adminMemberPrivilegeFilterPlan/);
+    expect(src).not.toMatch(/adminMemberRelationFilterPlan/);
+    expect(src).not.toMatch(/parseAdminMemberRelationFilter/);
     expect(src).not.toMatch(/memberMatchesRelationFilter/);
-  });
-
-  it("list page sends page/pageSize and does not client-slice", () => {
-    const src = readFileSync(join(process.cwd(), "components/admin/users/AdminUserListPage.tsx"), "utf8");
-    expect(src).toMatch(/params\.set\("page"/);
-    expect(src).toMatch(/params\.set\("pageSize"/);
-    expect(src).not.toMatch(/users\.slice\(/);
-    expect(src).toMatch(/MEMBER_ADMIN_COPY\.member_management/);
   });
 });

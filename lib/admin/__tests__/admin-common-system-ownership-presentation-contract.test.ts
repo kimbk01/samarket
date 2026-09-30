@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  buildMemberListQueryString,
+  parseMemberListQueryState,
+} from "@/lib/admin-users/member-list-presentation";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -21,15 +25,38 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
 
   it("Member list presents SYSTEM privilege as orthogonal admin filter/column (not COMMON type tab)", () => {
     const page = read("components/admin/users/AdminUserListPage.tsx");
-    // R2: privilege is an independent axis filter (not roleFilter / Staff tab).
+    const table = read("components/admin/users/AdminUserTable.tsx");
+
+    // URL/query authority: privilege is its own axis (not roleFilter / Staff tab / 관계).
+    const qs = buildMemberListQueryString({
+      search: "",
+      status: "",
+      verify: "",
+      store: "has_store",
+      privilege: "admin",
+      origin: "",
+      page: 1,
+      pageSize: 10,
+    });
+    expect(qs).toContain("privilege=admin");
+    expect(qs).toContain("store=has_store");
+    expect(qs).not.toContain("role=");
+    expect(qs).not.toContain("relation=");
+    const parsed = parseMemberListQueryState(new URLSearchParams(qs));
+    expect(parsed.privilege).toBe("admin");
+    expect(parsed.store).toBe("has_store");
+
     expect(page).toContain("privilegeFilter");
     expect(page).toMatch(/setPrivilegeFilter|activePrivilege/);
+    expect(page).toContain("storeFilter");
     expect(page).not.toContain("roleFilter");
     expect(page).not.toContain('tab === "admin"');
     expect(page).not.toContain("admin_users_staff_page_title");
-    const table = read("components/admin/users/AdminUserTable.tsx");
+    expect(page).not.toContain("관계");
+
     expect(table).toContain("관리 권한");
     expect(table).toContain("memberListPrivilegeLabelKo");
+
     // Catalog still keeps staff ownership keys for other surfaces.
     const catalog = read("lib/i18n/catalog/admin.ts");
     expect(catalog).toContain("admin_users_staff_page_title");

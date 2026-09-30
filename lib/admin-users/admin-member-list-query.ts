@@ -268,28 +268,3 @@ export function adminMemberOriginFilterOps(
     },
   ];
 }
-
-/** @deprecated R0 deleted collapsed 관계 — kept for focused regression tests only. */
-export type AdminMemberRelationFilter = "all" | "plain" | "store_owner" | "admin";
-
-/** @deprecated Use store + privilege plans. */
-export function adminMemberRelationFilterPlan(
-  relation: AdminMemberRelationFilter | null,
-  ownerIds: readonly string[],
-  adminIds: readonly string[],
-): { empty: boolean; ops: ProfileFilterOp[] } {
-  const owners = uniqueAdminMemberIds(ownerIds);
-  const admins = uniqueAdminMemberIds(adminIds);
-  if (!relation || relation === "all") {
-    return { empty: false, ops: [] };
-  }
-  if (relation === "store_owner") {
-    return adminMemberStoreFilterPlan("has_store", owners);
-  }
-  if (relation === "admin") {
-    return adminMemberPrivilegeFilterPlan("admin", admins);
-  }
-  const excluded = uniqueAdminMemberIds([...owners, ...admins]);
-  if (excluded.length === 0) return { empty: false, ops: [] };
-  return { empty: false, ops: [{ type: "not_in", column: "id", value: postgrestInFilter(excluded) }] };
-}
