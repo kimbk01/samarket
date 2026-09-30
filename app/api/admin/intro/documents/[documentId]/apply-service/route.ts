@@ -49,7 +49,9 @@ export async function POST(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "apply_service_failed";
-    const status = (e as { status?: number }).status === 409 ? 409 : 500;
+    let status = 500;
+    if ((e as { status?: number }).status === 409) status = 409;
+    else if (msg.startsWith("apply_forbidden_content_class:")) status = 403;
     return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }

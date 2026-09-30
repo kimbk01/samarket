@@ -30,6 +30,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introFirstFrameReady = false
   private var introTimelineCompleted = false
   private var introLifecycle: IntroLifecycle = .pending
+  /// True when product Intro will not play this cold (NO_INTRO / integrity / local missing / abort pre-paint).
+  /// Ownership then stays on Layer B (or Platform A/Cap if no B) until Home readiness — not a third hold surface.
+  private var productIntroAbsent = false
   /// Layer B System Start — verified local surface before Intro.
   private var systemStartSurface: DibaySystemStartSurface?
   private var systemStartSurfaceActive = false
@@ -73,7 +76,12 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    if introSessionActive || introLifecycle == .pending || systemStartSurfaceActive {
+    // During B / Intro / Cap-until-Home: continuity color only — never cream Home chrome early.
+    if introSessionActive
+      || introLifecycle == .pending
+      || systemStartSurfaceActive
+      || (productIntroAbsent && !homePresentationReady)
+    {
       applySystemStartBackground()
     } else {
       applyStartupBackground()
@@ -142,11 +150,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       NSLog(
         "[DIBAY_Startup] system_start_sync reason=%@ canRender=%d",
         ssSync.reason, ssSync.canRender ? 1 : 0)
-      if !self.systemStartSurfaceActive, ssSync.canRender,
-         let fresh = ssDelivery.store.readVerifiedConfigOrNull()
-      {
-        DispatchQueue.main.sync {
-          self.attachSystemStartSurface(config: fresh, verifiedRoot: ssDelivery.store.verifiedDir)
+      if ssSync.canRender, let fresh = ssDelivery.store.readVerifiedConfigOrNull() {
+        let sameGeneration =
+          prior?.generationId != nil && prior?.generationId == fresh.generationId
+        if !self.systemStartSurfaceActive || !sameGeneration {
+          DispatchQueue.main.sync {
+            self.attachSystemStartSurface(config: fresh, verifiedRoot: ssDelivery.store.verifiedDir)
+          }
         }
       }
 
@@ -159,24 +169,23 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
           self.introRuntime = runtime
           self.introSessionActive = true
           self.introLifecycle = .attached
+          self.productIntroAbsent = false
           self.applyIntroHoldBackground()
           if let ss = self.systemStartSurface {
             ss.superview?.bringSubviewToFront(ss)
+          } else {
+            // No Layer B — Intro owns immediately (presentation gate open).
+            runtime.releasePresentationGate()
           }
           self.startupInfo("intro_session_active=1 source=\(source)")
         } else {
+          // NO_INTRO / integrity fail / local missing — Intro not accepted.
+          // Do NOT invent VC hold or hide WebView; B (or Cap/A) owns until Home ready.
           self.introRuntime = nil
-          self.introSessionActive = false
-          self.introLifecycle = .dismissed
           self.startupInfo(
             "intro_attach_skipped source=\(source) reason=\(sync.reason)"
           )
-          if !self.systemStartSurfaceActive {
-            // No Layer B — Cap continuation still honors build minVisibleMs.
-            self.hideCapacitorSplash()
-          } else {
-            self.maybeDismissSystemStartSurface(source: "no_product_intro")
-          }
+          self.markProductIntroAbsent(source: "attach_skipped:\(sync.reason)")
         }
         self.scheduleSystemStartHoldWatch()
       }
@@ -219,10 +228,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     guard systemStartSurfaceActive, !systemStartHoldComplete else { return }
     let elapsedMs = Date().timeIntervalSince(systemStartShownAt) * 1000.0
     let minElapsed = elapsedMs >= Double(systemStartMinVisibleMs)
-    let introGate = introFirstFrameReady || introLifecycle == .dismissed
-    if !minElapsed || !introGate {
+    // B→Intro when first meaningful frame painted; B→Home only when Intro absent AND Home ready.
+    // Never dismiss B solely because Intro decision is terminal (that exposed cream/WebView).
+    let transferToIntro = introFirstFrameReady
+    let transferToHome = productIntroAbsent && homePresentationReady
+    let nextSurfaceReady = transferToIntro || transferToHome
+    if !minElapsed || !nextSurfaceReady {
       startupInfo(
-        "system_start_hold source=\(source) minElapsed=\(minElapsed ? 1 : 0) introGate=\(introGate ? 1 : 0)"
+        "system_start_hold source=\(source) minElapsed=\(minElapsed ? 1 : 0) toIntro=\(transferToIntro ? 1 : 0) toHome=\(transferToHome ? 1 : 0) absent=\(productIntroAbsent ? 1 : 0) homeReady=\(homePresentationReady ? 1 : 0)"
       )
       return
     }
@@ -232,7 +245,41 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     systemStartHoldWorkItem = nil
     systemStartSurface?.removeFromSuperview()
     systemStartSurface = nil
-    startupInfo("system_start_surface_dismissed source=\(source)")
+    startupInfo(
+      "system_start_surface_dismissed source=\(source) next=\(transferToIntro ? "intro" : "home")"
+    )
+    // Intro scene clock starts only after Layer B is gone — Owner must see full Intro.
+    if transferToIntro {
+      introRuntime?.releasePresentationGate()
+    }
+  }
+
+  /// Product Intro will not own pixels this cold. Existing B or Cap/A keeps ownership until Home.
+  private func markProductIntroAbsent(source: String) {
+    productIntroAbsent = true
+    introSessionActive = false
+    introLifecycle = .dismissed
+    introTimelineCompleted = false
+    startupInfo("product_intro_absent source=\(source)")
+    if systemStartSurfaceActive {
+      maybeDismissSystemStartSurface(source: source)
+    } else {
+      // No Layer B: Platform Boot A / Cap continuation owns until Home readiness.
+      // Do not hide Cap early and do not paint cream — that was the board/cream first divergence.
+      startupInfo("platform_a_holds_until_home source=\(source)")
+      if homePresentationReady {
+        releasePlatformAForHome(source: source)
+      }
+    }
+  }
+
+  /// Cap/A → Home when there is no Layer B and no product Intro.
+  private func releasePlatformAForHome(source: String) {
+    guard productIntroAbsent, !systemStartSurfaceActive, homePresentationReady else { return }
+    hideCapacitorSplashNow(source: "a_to_home:\(source)")
+    applyStartupBackground()
+    startupInfo("platform_a_released_to_home source=\(source)")
+    ensureInitialRemotePathOnce()
   }
 
   private func syncSystemStartLiveInBackground(source: String) {
@@ -269,14 +316,18 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
 
   func onIntroAborted(reason: String) {
-    introSessionActive = false
-    introFirstFrameReady = false
-    introTimelineCompleted = false
-    introLifecycle = .dismissed
     startupInfo("intro_aborted reason=\(reason)")
-    maybeDismissSystemStartSurface(source: "intro_aborted")
-    if !systemStartSurfaceActive {
-      applyStartupBackground()
+    introSessionActive = false
+    if introFirstFrameReady {
+      // Intro already owned pixels — keep Intro surface until Home (runtime keeps overlay).
+      introLifecycle = .dismissed
+      introTimelineCompleted = true
+      introFirstFrameReady = true
+      tryIntroHomeHandoff(source: "intro_aborted")
+    } else {
+      // Never painted — Intro not accepted; B or Cap/A owns until Home.
+      introFirstFrameReady = false
+      markProductIntroAbsent(source: "intro_aborted:\(reason)")
     }
   }
 
@@ -349,6 +400,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private func notifyHomePresentationReady(source: String) {
     homePresentationReady = true
     startupInfo("HOME_PRESENTATION_READY source=\(source)")
+    // B→Home when Intro absent; Cap/A→Home when no B; Intro→Home when timeline done.
+    if productIntroAbsent {
+      if systemStartSurfaceActive {
+        maybeDismissSystemStartSurface(source: "home_ready")
+      } else {
+        releasePlatformAForHome(source: source)
+      }
+    }
     tryIntroHomeHandoff(source: "home_ready")
   }
 
@@ -449,10 +508,15 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     startupInfo("cap_splash_hide source=\(source)")
     invokeCapacitorSplashPluginHide()
     DispatchQueue.main.async {
-      if self.introSessionActive || self.systemStartSurfaceActive {
+      // Cream only after Home is the authorized next surface — never on early Cap hide.
+      if self.introSessionActive || self.systemStartSurfaceActive || self.introLifecycle == .pending {
         self.applyIntroHoldBackground()
-      } else {
+      } else if self.productIntroAbsent && self.homePresentationReady {
         self.applyStartupBackground()
+      } else if self.introTimelineCompleted && self.homePresentationReady {
+        self.applyStartupBackground()
+      } else {
+        self.applyIntroHoldBackground()
       }
     }
   }

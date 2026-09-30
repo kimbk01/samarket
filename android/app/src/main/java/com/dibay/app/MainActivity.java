@@ -1281,10 +1281,19 @@ public class MainActivity extends BridgeActivity {
                       public void onIntroAborted(String reason) {
                         introSessionActive = false;
                         introColdPathPending = false;
-                        introFirstFrameReady = false;
-                        introTimelineCompleted = false;
                         Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
-                        mainHandler.post(() -> maybeDismissSystemStartSurface("intro_aborted"));
+                        mainHandler.post(
+                            () -> {
+                              if (introFirstFrameReady) {
+                                // Intro painted — keep surface until Home handoff.
+                                introTimelineCompleted = true;
+                                tryIntroHomeHandoff("intro_aborted");
+                              } else {
+                                // Never painted — B/A owns until Home (productIntroAbsent).
+                                introTimelineCompleted = false;
+                                maybeDismissSystemStartSurface("intro_aborted");
+                              }
+                            });
                       }
                     });
                 boolean started = runtime.tryStartWithLiveMatchPolicy();
@@ -1307,6 +1316,10 @@ public class MainActivity extends BridgeActivity {
                   Log.i(WEBVIEW_LOG_TAG, "intro_session_active=0 reason=NO_PRODUCT_INTRO");
                   // NO_INTRO: Layer B still holds minVisibleMs, then releases to web readiness.
                   mainHandler.post(() -> maybeDismissSystemStartSurface("no_product_intro"));
+                }
+                // No Layer B this cold — Intro may own the screen immediately.
+                if (!systemStartSurfaceActive && dibayIntroRuntime != null) {
+                  dibayIntroRuntime.releasePresentationGate();
                 }
                 scheduleSystemStartHoldWatch();
               } catch (Exception e) {
@@ -1470,23 +1483,34 @@ Log.i(
   }
 
   /**
-   * Dismiss Layer B when max(minVisibleMs, Intro first frame | NO_INTRO decision) is satisfied.
+   * Dismiss Layer B only when next surface is ready:
+   * B→Intro on first meaningful frame; B→Home when Intro absent AND HOME_PRESENTATION_READY.
+   * Do NOT dismiss solely because Intro decision is terminal (exposes WebView/board early).
    */
   private void maybeDismissSystemStartSurface(String source) {
     if (!systemStartSurfaceActive || systemStartHoldComplete) return;
     long elapsed = SystemClock.elapsedRealtime() - systemStartShownElapsedMs;
     boolean minElapsed = elapsed >= systemStartMinVisibleMs;
-    boolean introGate =
-        introFirstFrameReady || (!introColdPathPending && !introSessionActive);
-    if (!minElapsed || !introGate) {
+    boolean productIntroAbsent =
+        !introColdPathPending && !introSessionActive && !introFirstFrameReady;
+    boolean transferToIntro = introFirstFrameReady;
+    boolean transferToHome = productIntroAbsent && homePresentationReady;
+    boolean nextSurfaceReady = transferToIntro || transferToHome;
+    if (!minElapsed || !nextSurfaceReady) {
       Log.i(
           WEBVIEW_LOG_TAG,
           "system_start_hold source="
               + source
               + " minElapsed="
-              + minElapsed
-              + " introGate="
-              + introGate);
+              + (minElapsed ? 1 : 0)
+              + " toIntro="
+              + (transferToIntro ? 1 : 0)
+              + " toHome="
+              + (transferToHome ? 1 : 0)
+              + " absent="
+              + (productIntroAbsent ? 1 : 0)
+              + " homeReady="
+              + (homePresentationReady ? 1 : 0));
       return;
     }
     systemStartHoldComplete = true;
@@ -1513,7 +1537,16 @@ Log.i(
       }
       dibaySystemStartSurface = null;
     }
-    Log.i(WEBVIEW_LOG_TAG, "system_start_surface_dismissed source=" + source);
+    Log.i(
+        WEBVIEW_LOG_TAG,
+        "system_start_surface_dismissed source="
+            + source
+            + " next="
+            + (transferToIntro ? "intro" : "home"));
+    // Intro scene clock starts only after Layer B is gone — Owner must see full Intro.
+    if (transferToIntro && dibayIntroRuntime != null) {
+      dibayIntroRuntime.releasePresentationGate();
+    }
   }
 
   private void syncSystemStartLiveInBackground(String source) {
@@ -1561,13 +1594,17 @@ Log.i(
     ensureInitialRemotePathOnce();
   }
 
-  /** HOME_PRESENTATION_READY from web — also drives Intro handoff when timeline done. */
+  /** HOME_PRESENTATION_READY from web — B→Home when Intro absent; Intro→Home when timeline done. */
   public static void notifyHomePresentationReady(String source) {
     homePresentationReady = true;
     Log.i(WEBVIEW_LOG_TAG, "HOME_PRESENTATION_READY source=" + (source != null ? source : "unknown"));
     MainActivity inst = activeInstance;
     if (inst != null) {
-      inst.mainHandler.post(() -> inst.tryIntroHomeHandoff("home_ready"));
+      inst.mainHandler.post(
+          () -> {
+            inst.maybeDismissSystemStartSurface("home_ready");
+            inst.tryIntroHomeHandoff("home_ready");
+          });
     }
   }
 

@@ -1,9 +1,39 @@
 import Foundation
 import UIKit
 import CommonCrypto
+import JavaScriptCore
 
 /// Parses IntroRuntimePackageV1 (13th) — scenes[].elements[] + assets
 final class DibayIntroPackModel {
+  /// ES JSON.stringify(sortKeys) — same algorithm as lib/intro/integrity.ts (Node).
+  /// Foundation JSONSerialization number literals diverge (e.g. 0.82 → 0.8199…) and
+  /// break packageIntegrity; JSCore matches the server seal without bypass.
+  private static let integrityJSContext: JSContext = {
+    let ctx = JSContext()!
+    ctx.exceptionHandler = { _, exc in
+      NSLog("[DibayIntroPack] integrity_js_error %@", exc?.toString() ?? "?")
+    }
+    ctx.evaluateScript(
+      """
+      function sortKeys(value) {
+        if (value === null || typeof value !== 'object') return value;
+        if (Array.isArray(value)) return value.map(sortKeys);
+        var out = {};
+        Object.keys(value).sort().forEach(function (k) {
+          out[k] = sortKeys(value[k]);
+        });
+        return out;
+      }
+      function canonicalizeFromRaw(raw) {
+        var root = JSON.parse(raw);
+        delete root.packageIntegrity;
+        return JSON.stringify(sortKeys(root));
+      }
+      """
+    )
+    return ctx
+  }()
+
   struct Frame {
     let x: CGFloat
     let y: CGFloat
@@ -84,12 +114,20 @@ final class DibayIntroPackModel {
     self.assetsByMediaId = assetsByMediaId
   }
 
-  enum ParseError: Error {
+  enum ParseError: Error, LocalizedError {
     case failure(String)
+    var errorDescription: String? {
+      switch self {
+      case .failure(let message): return message
+      }
+    }
   }
 
   static func parseAndVerify(packURL: URL, expectedIntegrity: String) throws -> DibayIntroPackModel {
     let data = try Data(contentsOf: packURL)
+    guard let raw = String(data: data, encoding: .utf8) else {
+      throw ParseError.failure("PACK_NOT_UTF8")
+    }
     guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
       throw ParseError.failure("PACK_NOT_OBJECT")
     }
@@ -97,13 +135,23 @@ final class DibayIntroPackModel {
     if !expectedIntegrity.isEmpty && expectedIntegrity != embedded {
       throw ParseError.failure("PACK_INTEGRITY_MISMATCH")
     }
-    var forHash = root
-    forHash.removeValue(forKey: "packageIntegrity")
-    let computed = sha256Hex(ofCanonical: forHash)
+    let computed = sha256HexOfESCanonical(packUTF8: raw)
     if computed != embedded {
       throw ParseError.failure("PACK_INTEGRITY_COMPUTE_MISMATCH")
     }
     return try parseRoot(root, packageIntegrity: embedded)
+  }
+
+  /// SHA-256 of ES-canonical JSON (sans packageIntegrity) — matches server seal.
+  static func sha256HexOfESCanonical(packUTF8 raw: String) -> String {
+    let ctx = integrityJSContext
+    ctx.setObject(raw, forKeyedSubscript: "raw" as NSString)
+    guard let canon = ctx.evaluateScript("canonicalizeFromRaw(raw)")?.toString(),
+          canon != "undefined", !canon.isEmpty
+    else {
+      return ""
+    }
+    return sha256Hex(of: Data(canon.utf8))
   }
 
   private static func parseRoot(_ root: [String: Any], packageIntegrity: String) throws -> DibayIntroPackModel {
@@ -256,15 +304,11 @@ final class DibayIntroPackModel {
     dir == "LEFT" || dir == "RIGHT" || dir == "UP" || dir == "DOWN"
   }
 
-  /// Matches lib/intro/contracts/capability-registry.ts MOTION_NORMALIZATION_MAP.
+  /// Legacy ENTER_TOP/BOTTOM only. SLIDE_* stay raw → UNSUPPORTED_MOTION (not ENTER_*).
   static func normalizeMotionType(_ raw: String) -> String {
     switch raw {
     case "ENTER_TOP": return "ENTER_UP"
     case "ENTER_BOTTOM": return "ENTER_DOWN"
-    case "SLIDE_LEFT", "SLIDE_IN_LEFT": return "ENTER_LEFT"
-    case "SLIDE_RIGHT", "SLIDE_IN_RIGHT": return "ENTER_RIGHT"
-    case "SLIDE_UP", "SLIDE_IN_UP": return "ENTER_UP"
-    case "SLIDE_DOWN", "SLIDE_IN_DOWN": return "ENTER_DOWN"
     default: return raw
     }
   }
@@ -272,6 +316,12 @@ final class DibayIntroPackModel {
   private static func isCanonicalMotionType(_ type: String) -> Bool {
     type == "NONE" || type == "FADE_IN" || type == "ENTER_LEFT" || type == "ENTER_RIGHT"
       || type == "ENTER_UP" || type == "ENTER_DOWN" || type == "SCALE_IN"
+  }
+
+  private static func jsonBool(_ value: Any?, default defaultValue: Bool) -> Bool {
+    if let b = value as? Bool { return b }
+    if let n = value as? NSNumber { return n.boolValue }
+    return defaultValue
   }
 
   private static func parseElement(_ el: [String: Any]) throws -> Element {
@@ -299,8 +349,7 @@ final class DibayIntroPackModel {
       motionStartMs = (motion["startMs"] as? NSNumber)?.intValue ?? 0
       motionDurationMs = (motion["durationMs"] as? NSNumber)?.intValue ?? 0
       if !isCanonicalMotionType(motionType) {
-        motionType = "NONE"
-        motionDurationMs = 0
+        throw ParseError.failure("UNSUPPORTED_MOTION:\(motionType)")
       }
     }
     if type == "TEXT" {
@@ -313,7 +362,7 @@ final class DibayIntroPackModel {
         type: type,
         frame: frame,
         zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
-        visible: (el["visible"] as? Bool) ?? true,
+        visible: jsonBool(el["visible"], default: true),
         opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
         text: text,
         textColor: color(fromHex: (payload["color"] as? String) ?? "#FFFFFF", fallback: .white),
@@ -353,7 +402,7 @@ final class DibayIntroPackModel {
         type: type,
         frame: frame,
         zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
-        visible: (el["visible"] as? Bool) ?? true,
+        visible: jsonBool(el["visible"], default: true),
         opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
         text: "",
         textColor: .clear,
@@ -386,7 +435,7 @@ final class DibayIntroPackModel {
       type: type,
       frame: frame,
       zIndex: (el["zIndex"] as? NSNumber)?.intValue ?? 0,
-      visible: (el["visible"] as? Bool) ?? true,
+      visible: jsonBool(el["visible"], default: true),
       opacity: CGFloat((el["opacity"] as? NSNumber)?.doubleValue ?? 1),
       text: "",
       textColor: .clear,
@@ -430,65 +479,9 @@ final class DibayIntroPackModel {
     return fallback
   }
 
-  /// Canonical JSON with sorted keys — matches lib/intro/integrity.ts
-  static func canonicalize(_ value: Any) -> String {
-    if value is NSNull { return "null" }
-    if let s = value as? String {
-      return jsonStringLiteral(s)
-    }
-    if let n = value as? NSNumber {
-      if CFGetTypeID(n) == CFBooleanGetTypeID() {
-        return n.boolValue ? "true" : "false"
-      }
-      return n.stringValue
-    }
-    if let arr = value as? [Any] {
-      let parts = arr.map { canonicalize($0) }
-      return "[" + parts.joined(separator: ",") + "]"
-    }
-    if let dict = value as? [String: Any] {
-      let keys = dict.keys.sorted()
-      let parts = keys.map { key in
-        jsonStringLiteral(key) + ":" + canonicalize(dict[key]!)
-      }
-      return "{" + parts.joined(separator: ",") + "}"
-    }
-    return "null"
-  }
-
-  private static func jsonStringLiteral(_ s: String) -> String {
-    // Match JSON.stringify — do NOT escape solidus `/` (Foundation JSONSerialization may).
-    var out = "\""
-    for ch in s.unicodeScalars {
-      switch ch {
-      case "\"": out += "\\\""
-      case "\\": out += "\\\\"
-      case "\u{8}": out += "\\b"
-      case "\u{c}": out += "\\f"
-      case "\n": out += "\\n"
-      case "\r": out += "\\r"
-      case "\t": out += "\\t"
-      default:
-        if ch.value < 0x20 {
-          out += String(format: "\\u%04x", ch.value)
-        } else {
-          out.append(Character(ch))
-        }
-      }
-    }
-    out += "\""
-    return out
-  }
-
-  static func sha256Hex(ofCanonical value: Any) -> String {
-    let canonical = canonicalize(value)
-    let bytes = Array(canonical.utf8)
-    var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-    bytes.withUnsafeBytes { ptr in
-      _ = CC_SHA256(ptr.baseAddress, CC_LONG(bytes.count), &digest)
-    }
-    return digest.map { String(format: "%02x", $0) }.joined()
-  }
+  // Canonical JSON authority = lib/intro/integrity.ts (ES JSON.stringify(sortKeys)).
+  // iOS verify path uses JavaScriptCore only (`sha256HexOfESCanonical`). Dead Foundation
+  // canonicalize / jsonNumberLiteral removed — must not be reintroduced as a second seal path.
 
   static func sha256Hex(of data: Data) -> String {
     var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))

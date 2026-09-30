@@ -67,8 +67,9 @@ const config: CapacitorConfig = {
       /** Mount sentinel only — hide = Intro first frame ∧ minVisibleMs (native). */
       launchShowDuration: 1,
       launchFadeOutDuration: 0,
+      /** Cap is not a product brand surface — solid Layer A color only (ic_splash_neutral). */
       backgroundColor: "#0A4D8C",
-      androidSplashResourceName: "splash",
+      androidSplashResourceName: "ic_splash_neutral",
     },
   },
   ...(useLegacyAndroidBridge

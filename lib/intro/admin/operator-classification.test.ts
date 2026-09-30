@@ -26,9 +26,12 @@ describe("intro operator classification (content_class authority)", () => {
     ).toBe(true);
   });
 
-  it("always shows live even if content_class is QA", () => {
+  it("does not launder Live QA into default Operator list via isLive alone", () => {
     expect(
       isOperatorVisibleContentClass("QA", { isLive: true }),
+    ).toBe(false);
+    expect(
+      isOperatorVisibleContentClass("QA", { isLive: true, includeQa: true }),
     ).toBe(true);
   });
 });

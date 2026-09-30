@@ -391,16 +391,27 @@ function patchCapacitorConfig(colorHex) {
   }
   fs.writeFileSync(capTs, cap);
 
-  const splashBlock = {
+  // iOS: Cap color continuation (no brand) bridges LaunchScreen → Layer B.
+  // Android: Cap splash OFF — AndroidX color primitive + Layer B only (no second splash).
+  const iosSplash = {
     launchAutoHide: false,
     launchShowDuration: 1,
     launchFadeOutDuration: 0,
     backgroundColor: colorHex,
-    androidSplashResourceName: "splash",
+    androidSplashResourceName: "ic_splash_neutral",
   };
-  for (const capJson of [
-    path.join(ROOT, "ios/App/App/capacitor.config.json"),
-    path.join(ROOT, "android/app/src/main/assets/capacitor.config.json"),
+  const androidSplash = {
+    launchAutoHide: true,
+    launchShowDuration: 0,
+    launchFadeOutDuration: 0,
+    backgroundColor: colorHex,
+    androidSplashResourceName: "ic_splash_neutral",
+  };
+  const iosCap = path.join(ROOT, "ios/App/App/capacitor.config.json");
+  const androidCap = path.join(ROOT, "android/app/src/main/assets/capacitor.config.json");
+  for (const [capJson, splashBlock] of [
+    [iosCap, iosSplash],
+    [androidCap, androidSplash],
   ]) {
     if (!fs.existsSync(capJson)) continue;
     const j = JSON.parse(fs.readFileSync(capJson, "utf8"));
@@ -632,8 +643,10 @@ async function main() {
     }
   }
 
-  patchAndroidSplashIcon(brandMarkEnabled && logoCopied);
-  writeLaunchScreen(color, brandMarkEnabled && logoCopied, brandSizePreset);
+  // Layer A Platform Boot Primitive = color-only. Brand logo is live Layer B only.
+  // Putting brand on OS/LaunchScreen/Cap causes Owner-visible double splash.
+  patchAndroidSplashIcon(false);
+  writeLaunchScreen(color, false, brandSizePreset);
   patchCapacitorConfig(color.hex);
 
   const materializedAt = new Date().toISOString();
@@ -692,9 +705,7 @@ async function main() {
       android: {
         splashColorResource: "android/app/src/main/res/values/colors_system_start.xml",
         timingResource: "android/app/src/main/res/values/system_start_timing.xml",
-        splashAnimatedIcon: brandMarkEnabled && logoCopied
-          ? "ic_dibay_splash_logo"
-          : "ic_splash_neutral",
+        splashAnimatedIcon: "ic_splash_neutral",
       },
       ios: {
         launchScreenStoryboard: "ios/App/App/Base.lproj/LaunchScreen.storyboard",
@@ -708,7 +719,8 @@ async function main() {
       binaryRebuildRequired: true,
       brandBytesIntegrityMatched: brandMarkEnabled ? logoBytesProven : true,
       installedPixelsProven: false,
-      note: "Build-bound. Service Apply does not update installed System Start.",
+      note:
+        "Layer A Platform Boot = color-only build stamp. Brand logo + duration = live Layer B Apply. Service Apply updates Layer B without rebuild.",
     },
   };
   fs.writeFileSync(BUILD_INPUT, `${JSON.stringify(buildInput, null, 2)}\n`);

@@ -386,8 +386,19 @@ export function normalizeDocumentV1(doc: IntroDocumentV1): IntroDocumentV1 {
         name,
         transition: tr,
         elements: scene.elements.map((el) => {
-          const motion = normalizeMotionV1(el.motion) ?? DEFAULT_MOTION;
-          return { ...el, motion };
+          const normalized = normalizeMotionV1(el.motion);
+          if (normalized) return { ...el, motion: normalized };
+          // Do not silent-NONE illegal Transition-as-motion (e.g. SLIDE_LEFT).
+          // Keep raw so validateDocumentV0 fail-closes before Live.
+          const rawType = (el.motion as { type?: unknown } | undefined)?.type;
+          if (
+            typeof rawType === "string" &&
+            rawType.length > 0 &&
+            !isMotionTypeV1(rawType)
+          ) {
+            return { ...el, motion: el.motion };
+          }
+          return { ...el, motion: DEFAULT_MOTION };
         }),
       };
     }),

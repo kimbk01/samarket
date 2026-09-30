@@ -415,8 +415,7 @@ public final class DibayIntroPackModel {
       motionStartMs = motion.optInt("startMs", 0);
       motionDurationMs = motion.optInt("durationMs", 0);
       if (!isCanonicalMotionType(motionType)) {
-        motionType = "NONE";
-        motionDurationMs = 0;
+        return new ParseResult(false, "UNSUPPORTED_MOTION:" + motionType, null);
       }
     }
     Element element;
@@ -604,7 +603,11 @@ public final class DibayIntroPackModel {
         || "DOWN".equals(dir);
   }
 
-  /** Matches lib/intro/contracts/capability-registry.ts MOTION_NORMALIZATION_MAP. */
+  /**
+   * Legacy ENTER_TOP/BOTTOM aliases only.
+   * SLIDE_* are Transition tokens — leave raw so isCanonicalMotionType rejects
+   * (UNSUPPORTED_MOTION). Never launder Transition-as-motion into ENTER_*.
+   */
   static String normalizeMotionType(String raw) {
     if (raw == null || raw.isEmpty()) {
       return "NONE";
@@ -613,18 +616,6 @@ public final class DibayIntroPackModel {
       case "ENTER_TOP":
         return "ENTER_UP";
       case "ENTER_BOTTOM":
-        return "ENTER_DOWN";
-      case "SLIDE_LEFT":
-      case "SLIDE_IN_LEFT":
-        return "ENTER_LEFT";
-      case "SLIDE_RIGHT":
-      case "SLIDE_IN_RIGHT":
-        return "ENTER_RIGHT";
-      case "SLIDE_UP":
-      case "SLIDE_IN_UP":
-        return "ENTER_UP";
-      case "SLIDE_DOWN":
-      case "SLIDE_IN_DOWN":
         return "ENTER_DOWN";
       default:
         return raw;
@@ -751,16 +742,31 @@ public final class DibayIntroPackModel {
     return sb.toString();
   }
 
+  /**
+   * ECMAScript JSON.stringify number formatting (lib/intro/integrity.ts SSOT).
+   * Integer-valued doubles (incl. org.json BigDecimal 42.0) must emit "42", not "42.0".
+   * NaN/Infinity → null (JSON.stringify).
+   */
   static String numberLiteral(Number n) {
-    if (n instanceof Double || n instanceof Float) {
-      double d = n.doubleValue();
-      if (d == Math.rint(d) && !Double.isInfinite(d)) {
-        return Long.toString((long) d);
-      }
-      // Double.toString matches JS for our authored normalized geometry.
-      return Double.toString(d);
+    if (n instanceof Long
+        || n instanceof Integer
+        || n instanceof Short
+        || n instanceof Byte) {
+      return Long.toString(n.longValue());
     }
-    return n.toString();
+    double d = n.doubleValue();
+    if (!Double.isFinite(d)) {
+      return "null";
+    }
+    // Number.MAX_SAFE_INTEGER — same integer-valued rule as JSON.stringify.
+    if (d == Math.rint(d) && Math.abs(d) <= 9007199254740991d) {
+      // Avoid "-0"
+      long asLong = (long) d;
+      if (asLong == 0L) return "0";
+      return Long.toString(asLong);
+    }
+    // Fractional / non-integer — Double.toString matches authored geometry floats.
+    return Double.toString(d);
   }
 
   public static String sha256Hex(byte[] bytes) throws Exception {

@@ -109,20 +109,12 @@ export function normalizeTransitionV1(raw: unknown): TransitionV1 | null {
 }
 
 /**
- * Normalize illegal / legacy motion tokens. Never invent Transition tokens as Motion.
- * Mapping recorded for migration audit.
+ * Legacy motion aliases only (ENTER_TOP/BOTTOM).
+ * Transition tokens (SLIDE_*) must NEVER normalize into Motion — reject before Live.
  */
 export const MOTION_NORMALIZATION_MAP: Readonly<Record<string, MotionTypeV1>> = {
   ENTER_TOP: "ENTER_UP",
   ENTER_BOTTOM: "ENTER_DOWN",
-  SLIDE_LEFT: "ENTER_LEFT",
-  SLIDE_RIGHT: "ENTER_RIGHT",
-  SLIDE_UP: "ENTER_UP",
-  SLIDE_DOWN: "ENTER_DOWN",
-  SLIDE_IN_LEFT: "ENTER_LEFT",
-  SLIDE_IN_RIGHT: "ENTER_RIGHT",
-  SLIDE_IN_UP: "ENTER_UP",
-  SLIDE_IN_DOWN: "ENTER_DOWN",
 };
 
 export function normalizeMotionV1(raw: unknown): MotionV1 | null {

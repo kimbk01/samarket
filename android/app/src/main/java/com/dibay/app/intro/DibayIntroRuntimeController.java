@@ -39,6 +39,11 @@ public final class DibayIntroRuntimeController {
   private boolean completed = false;
   private boolean aborted = false;
   private boolean running = false;
+  /**
+   * Scene duration clock stays paused while Layer B covers Intro.
+   * Prevents Intro finishing under System Start (Owner: Intro never shown).
+   */
+  private boolean presentationReleased = false;
   private final Runnable sceneTick = this::onSceneTick;
   private final Runnable firstFrameWatchdog =
       () -> {
@@ -213,7 +218,40 @@ public final class DibayIntroRuntimeController {
     sceneSurface.bindScene(scene, model.compositionW, model.compositionH);
     watchFirstFrame();
     mainHandler.removeCallbacks(sceneTick);
-    mainHandler.postDelayed(sceneTick, Math.max(100, scene.durationMs));
+    if (presentationReleased) {
+      mainHandler.postDelayed(sceneTick, Math.max(100, scene.durationMs));
+    } else {
+      Log.i(TAG, "intro_timeline_paused_until_layer_b_dismiss");
+    }
+  }
+
+  /**
+   * Call when Layer B is dismissed (or when there is no Layer B).
+   * Starts/restarts the current scene duration so Intro is fully visible.
+   */
+  public void releasePresentationGate() {
+    mainHandler.post(
+        () -> {
+          if (presentationReleased) return;
+          presentationReleased = true;
+          if (overlayRoot != null) {
+            overlayRoot.setElevation(120f);
+            overlayRoot.bringToFront();
+          }
+          if (!running || aborted || completed || model == null || sceneSurface == null) {
+            Log.i(TAG, "intro_presentation_released idle");
+            return;
+          }
+          DibayIntroPackModel.Scene scene = model.scenes.get(sceneIndex);
+          mainHandler.removeCallbacks(sceneTick);
+          mainHandler.postDelayed(sceneTick, Math.max(100, scene.durationMs));
+          Log.i(
+              TAG,
+              "intro_presentation_released sceneIndex="
+                  + sceneIndex
+                  + " durationMs="
+                  + scene.durationMs);
+        });
   }
 
   private void watchFirstFrame() {
@@ -404,8 +442,15 @@ public final class DibayIntroRuntimeController {
     running = false;
     mainHandler.removeCallbacks(sceneTick);
     mainHandler.removeCallbacks(firstFrameWatchdog);
-    mainHandler.post(this::removeOverlay);
-    if (listener != null) listener.onIntroAborted(reason);
+    // Keep painted Intro until Home handoff — removing here exposes WebView early.
+    final boolean keepVisibleUntilHome = firstFrameEmitted;
+    mainHandler.post(
+        () -> {
+          if (!keepVisibleUntilHome) {
+            removeOverlay();
+          }
+          if (listener != null) listener.onIntroAborted(reason);
+        });
   }
 
   public void removeOverlay() {

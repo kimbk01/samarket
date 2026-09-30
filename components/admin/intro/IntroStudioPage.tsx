@@ -453,6 +453,10 @@ export function IntroStudioPage({ documentId }: Props) {
   function applyMediaToSelection(mediaId: string) {
     const item = mediaItems.find((m) => m.mediaId === mediaId);
     const meta = mediaSizeFromItem(item);
+    if (!meta) {
+      setError("미디어 원본 크기(가로·세로)가 없어 배치할 수 없습니다. 다시 업로드해 주세요.");
+      return;
+    }
 
     if (pendingMediaElement) {
       const { id, type } = pendingMediaElement;
@@ -1074,6 +1078,10 @@ export function IntroStudioPage({ documentId }: Props) {
                 닫기
               </AdminActionButton>
             </div>
+            <p className="mb-2 max-w-sm rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-sam-fg">
+              Admin Preview는 기기 픽셀 PASS 권한이 아닙니다. 최종 수락은
+              Samsung / Xiaomi / iPhone 실기기 화면으로만 판정합니다.
+            </p>
             <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
               <IntroCanonicalPreview
                 document={document}
@@ -1084,8 +1092,8 @@ export function IntroStudioPage({ documentId }: Props) {
               />
             </div>
             <p className="mt-2 max-w-sm text-xs text-sam-muted">
-              Scene duration · element motion · transition · CTA 동작을 동일
-              canonical document로 재생합니다.
+              Scene duration · element motion · transition · CTA를 canonical
+              document로 재생합니다 (Preview ≠ device PASS).
             </p>
           </div>
         </div>

@@ -57,14 +57,19 @@ export function classifyIntroTitle(title: string): IntroDataClass {
   return "OWNER";
 }
 
-/** Default Operator list: OWNER only (+ isLive docs always shown). */
+/**
+ * Default Operator list: OWNER only.
+ * `isLive` must NOT launder QA/SYSTEM into the default list (C4).
+ * Live QA remains visible only when `includeQa` is explicit.
+ */
 export function isOperatorVisibleContentClass(
   contentClass: string | null | undefined,
   opts?: { includeQa?: boolean; isLive?: boolean },
 ): boolean {
-  if (opts?.isLive) return true;
   const cls = normalizeIntroContentClass(contentClass);
   if (cls === "OWNER") return true;
   if (opts?.includeQa && (cls === "QA" || cls === "SYSTEM")) return true;
+  // isLive alone is not authority to show QA/SYSTEM
+  void opts?.isLive;
   return false;
 }

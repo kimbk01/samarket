@@ -46,7 +46,7 @@ describe("intro document validation — capability SSOT", () => {
     expect(validateDocumentV0(bad)).toBe("invalid_motion:SLIDE_LEFT");
   });
 
-  it("normalizeDocument maps illegal SLIDE_LEFT motion → ENTER_LEFT", () => {
+  it("normalize keeps SLIDE_LEFT motion illegal — reject before Live (no ENTER_* launder)", () => {
     const doc = createEmptyV0Document("Normalize");
     const el = doc.scenes[0]!.elements[0]!;
     const dirty: IntroDocumentV1 = {
@@ -69,12 +69,14 @@ describe("intro document validation — capability SSOT", () => {
       ],
     };
     const clean = normalizeDocumentV1(dirty);
+    // Transition SLIDE+direction → legal SLIDE_LEFT transition.
     expect(clean.scenes[0]!.transition).toEqual({
       type: "SLIDE_LEFT",
       durationMs: 280,
     });
-    expect(clean.scenes[0]!.elements[0]!.motion.type).toBe("ENTER_LEFT");
-    expect(validateDocumentV0(clean)).toBeNull();
+    // Motion SLIDE_LEFT must NOT become ENTER_LEFT or NONE — validator fail-closes.
+    expect(clean.scenes[0]!.elements[0]!.motion.type).toBe("SLIDE_LEFT");
+    expect(validateDocumentV0(clean)).toBe("invalid_motion:SLIDE_LEFT");
   });
 
   it("accepts flat SLIDE_LEFT transition (not element motion)", () => {

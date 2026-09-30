@@ -86,8 +86,10 @@ final class DibayIntroLiveDelivery {
           packageIntegrity: packageIntegrity
         )
       } catch {
-        store.quarantineVerified(reason: "commit_failed")
-        return .noIntro("COMMIT_FAILED:\(error.localizedDescription)")
+        let detail = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        store.quarantineVerified(reason: "commit_failed:\(detail)")
+        NSLog("[DibayIntroDelivery] commit_failed detail=%@", detail)
+        return .noIntro("COMMIT_FAILED:\(detail)")
       }
       return Result(
         canRender: true, reason: "DOWNLOADED_COMMITTED",

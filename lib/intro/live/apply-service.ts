@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishIntroDocument } from "@/lib/intro/publish/service";
 import { getIntroDocument } from "@/lib/intro/document/service";
 import { getLiveStatus, setLiveRelease, type LiveStatus } from "@/lib/intro/live/service";
+import { normalizeIntroContentClass } from "@/lib/intro/admin/operator-classification";
 
 /**
  * Owner atomic action: 서비스 적용.
@@ -38,6 +39,11 @@ export async function applyIntroServiceFromDraft(
 ): Promise<ApplyServiceResult> {
   const row = await getIntroDocument(sb, args.documentId);
   if (!row) throw new Error("document_not_found");
+
+  const contentClass = normalizeIntroContentClass(row.content_class);
+  if (contentClass !== "OWNER") {
+    throw new Error(`apply_forbidden_content_class:${contentClass}`);
+  }
 
   const draftVersion = row.draft_version;
   const idempotencyKey =

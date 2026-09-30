@@ -79,10 +79,14 @@ export function IntroDocumentHub() {
     [docs, showQa],
   );
 
-  const liveDoc = docs.find((d) => d.isLive) ?? null;
+  const liveDoc =
+    docs.find(
+      (d) =>
+        d.isLive &&
+        isOperatorVisibleContentClass(d.classification, { includeQa: showQa }),
+    ) ?? null;
   const qaHiddenCount = docs.filter(
     (d) =>
-      !d.isLive &&
       !isOperatorVisibleContentClass(d.classification, { includeQa: false }),
   ).length;
 

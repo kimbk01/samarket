@@ -21,6 +21,8 @@ final class DibayIntroRuntimeController {
   private var completed = false
   private var aborted = false
   private var running = false
+  /// Scene duration pauses while Layer B covers Intro (Owner: Intro must be visible).
+  private var presentationReleased = false
   private var sceneWorkItem: DispatchWorkItem?
 
   @discardableResult
@@ -124,9 +126,37 @@ final class DibayIntroRuntimeController {
     surface.bindScene(scene, compositionW: model.compositionW, compositionH: model.compositionH)
     watchFirstFrame()
     sceneWorkItem?.cancel()
+    guard presentationReleased else {
+      NSLog("[DibayIntroRuntime] intro_timeline_paused_until_layer_b_dismiss")
+      return
+    }
     let work = DispatchWorkItem { [weak self] in self?.onSceneTick() }
     sceneWorkItem = work
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(max(100, scene.durationMs)), execute: work)
+  }
+
+  /// Call when Layer B dismisses (or when there is no Layer B).
+  func releasePresentationGate() {
+    DispatchQueue.main.async {
+      if self.presentationReleased { return }
+      self.presentationReleased = true
+      if let overlay = self.overlay {
+        overlay.superview?.bringSubviewToFront(overlay)
+      }
+      guard self.running, !self.aborted, !self.completed, let model = self.model else {
+        NSLog("[DibayIntroRuntime] intro_presentation_released idle")
+        return
+      }
+      let scene = model.scenes[self.sceneIndex]
+      self.sceneWorkItem?.cancel()
+      let work = DispatchWorkItem { [weak self] in self?.onSceneTick() }
+      self.sceneWorkItem = work
+      DispatchQueue.main.asyncAfter(
+        deadline: .now() + .milliseconds(max(100, scene.durationMs)), execute: work)
+      NSLog(
+        "[DibayIntroRuntime] intro_presentation_released sceneIndex=%d durationMs=%d",
+        self.sceneIndex, scene.durationMs)
+    }
   }
 
   private func watchFirstFrame() {
@@ -276,8 +306,15 @@ final class DibayIntroRuntimeController {
     aborted = true
     running = false
     sceneWorkItem?.cancel()
-    DispatchQueue.main.async { self.removeOverlay() }
-    listener?.onIntroAborted(reason: reason)
+    // If first meaningful frame already painted, keep Intro surface until Home handoff
+    // (StartupBridge dismissAfterHandoff). Removing here would expose WebView early.
+    let keepVisibleUntilHome = firstFrameEmitted
+    DispatchQueue.main.async {
+      if !keepVisibleUntilHome {
+        self.removeOverlay()
+      }
+      self.listener?.onIntroAborted(reason: reason)
+    }
   }
 
   func removeOverlay() {
