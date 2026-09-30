@@ -2,7 +2,7 @@
 
 Status: **Design only** — no implementation approval in this document.
 
-Prerequisite locks: **O2 Establishment**, **O3 Connected Sync**, **O4 End Ownership** (see `docs/dibay-call-o4-end-ownership-hard-lock.md`).
+Prerequisite locks: **O2 Establishment**, **O3 Connected Sync**, **O4 End Ownership** (see `docs/dibay-call-native-runtime-ssot.md`).
 
 ## 1. Goal
 

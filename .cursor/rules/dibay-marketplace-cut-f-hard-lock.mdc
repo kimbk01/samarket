@@ -17,9 +17,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT F LOCKED**
-- Production SHA: `c85f47e8e1fabd3a8d8a9027edd1ae045b16ef49`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_Ec8MmHhcSDqZf3VcSZ8BzmLc7CLD`
 - LIST / CATEGORY BROWSE PIN ≤3: **LOCKED**
 - SEARCH: **badge-only, no pin** (CUT C order preserved)
 - DETAIL CTA: **Product A 더 알리기 / MemberPostPromoteSheet**

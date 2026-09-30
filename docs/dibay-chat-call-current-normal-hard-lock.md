@@ -8,7 +8,7 @@
 Master audit (design evidence):  
 `.recovery/a3e514b-runtime-align-20260908-204646/chat-call-ssot-hard-lock-master-audit-20260909/DIBAY_CHAT_CALL_CURRENT_NORMAL_BASELINE_SSOT_HARD_LOCK_MASTER_AUDIT.md`
 
-Cursor rule: `.cursor/rules/dibay-chat-call-current-normal-hard-lock.mdc`
+Cursor rule: `.cursor/rules/dibay-call-ssot.mdc`
 
 This document is the **umbrella CURRENT NORMAL authority**. It does **not** replace detailed CUT/O2–O4/domain docs — it freezes which of them are HARD LOCK and how change is gated. Do not invent a second parallel Call SSOT.
 
@@ -63,7 +63,7 @@ Do not treat Owner PiP-return / iOS E1–E2 updates as license to edit Native.
 
 ### HARD LOCK A — Native / CallKit / PushKit / RTC
 
-**Canonical detail:** `docs/dibay-call-native-runtime-ssot.md` · `docs/dibay-call-native-runtime-hard-lock.md` · O2/O3/O4 · iOS packageClassList lock · PiP restore lock.
+**Canonical detail:** `docs/dibay-call-native-runtime-ssot.md` · `docs/dibay-call-native-runtime-ssot.md` · O2/O3/O4 · iOS packageClassList lock · PiP restore lock.
 
 Includes (non-exhaustive): Android Voice/Video Runtime, Activities/Services, FCM incoming, RingOwner, RingbackOwner, PiP, eligibility; iOS Voice/Video Runtime, CallKit, PushKit, VoIPPushRegistry, Incoming/Outgoing Coordinators, CallKitProvider, eligibility, AVAudioSession/RTC ownership; Agora Native lifecycle.
 
@@ -132,9 +132,9 @@ Shared UI/transport OK. Shared authority FAIL for room identity, message writer,
 | Doc | Role under this umbrella |
 |---|---|
 | `docs/community-messenger/call-lifecycle-ssot.md` | Lifecycle step owners (start/accept/end/cleanup) |
-| `docs/dibay-call-o2-outgoing-hard-lock.md` | Outgoing establishment |
-| `docs/dibay-call-o3-connected-ownership-hard-lock.md` | Connected ownership |
-| `docs/dibay-call-o4-end-ownership-hard-lock.md` | End / local cleanup |
+| `docs/dibay-call-native-runtime-ssot.md` | Outgoing establishment |
+| `docs/dibay-call-native-runtime-ssot.md` | Connected ownership |
+| `docs/dibay-call-native-runtime-ssot.md` | End / local cleanup |
 | `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md` | iOS Cap plugin list |
 | `docs/dibay-call-android-native-video-pip-restore-hard-lock.md` | Android PiP/surface restore |
 | `docs/dibay-call-legacy-web-shutdown-lock.md` | Android Web establishment removed |

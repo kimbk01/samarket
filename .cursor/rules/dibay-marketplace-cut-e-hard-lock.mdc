@@ -16,9 +16,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT E LOCKED**
-- Production SHA: `89a3f87929b7db3b18dbbbc1f43f2926c11caccf`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_8uz72ReurjjXvYUF1qu2pK2j7AiZ`
 - BUYER PURCHASE LIST / TAB / CTA: **REMOVED**
 - LEGACY LIST → `/community-messenger/trade-chats`: **LOCKED**
 - LEGACY DETAIL → Messenger trade room: **LOCKED**

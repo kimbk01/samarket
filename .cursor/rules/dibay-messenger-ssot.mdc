@@ -1,0 +1,41 @@
+---
+description: DIBAY Messenger page navigation + domain boundary SSOT. Product only; no historical SHA.
+alwaysApply: false
+globs:
+  - components/community-messenger/**
+  - lib/community-messenger/**
+  - app/(main)/community-messenger/**
+  - app/**/order-chat/**
+  - app/**/order-chats/**
+  - docs/dibay-messenger*
+  - docs/community-messenger*
+---
+
+# DIBAY Messenger SSOT
+
+Canonical: `docs/dibay-messenger-page-navigation-android-hard-lock.md` · `docs/dibay-messenger-domain-group-hard-lock.md` · `docs/community-messenger-mobile-room-viewport.md`.
+
+Historical SHA / dpl snapshots are TIER 4 — not execution authority.
+
+## Android page navigation (product)
+
+- Pillar: `MessengerPillarHierarchyMotionShell` · Room: `MessengerRoomSwipeBackShell`
+- FORWARD R→L · BACK L→R · cold Room shell first frame · white unowned FORBIDDEN
+- Owner ensure `/stores/owner/order-chat/[orderId]` = Route Handler **HTTP 307** only (`route.ts`)
+- Soft RSC `page.redirect()` on this path = FORBIDDEN without new forensic
+- `/stores/owner/order-chats` ≠ ensure; normal Owner shell preserved
+
+## Domain boundary
+
+User-facing chat pillars: trade · community messenger · store_order — see `lib/chat-domain/samarket-three-chat-pillars.ts`.  
+`general_direct` ≠ `group` ≠ `trade` ≠ `store_order`.
+
+## DO NOT
+
+- Reopen full Messenger page-nav forensic without Production regression or locked-consumer change
+- setTimeout / retry / ErrorBoundary mask / extra redirect or motion owner for nav ownership
+- Touch Call RTC / CallKit / PushKit / session terminal for Page Navigation reasons
+
+## Reopen
+
+Production Android regression · locked consumer change · ensure 307 authority change · Room first-frame ownership change · route/nav architecture change · Owner reopen.

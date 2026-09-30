@@ -1,3 +1,8 @@
+---
+description: Auth/session product contract — requestable; not global alwaysApply
+alwaysApply: false
+---
+
 # DIBAY Auth Session + Notification Destination HARD LOCK
 
 **HARD LOCK (2026-08-13).** Full doc: `docs/dibay-auth-session-notification-destination-hard-lock.md`.

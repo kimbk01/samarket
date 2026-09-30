@@ -1,3 +1,8 @@
+---
+description: Domain product hard-lock — requestable; historical dpl/SHA stripped where present
+alwaysApply: false
+---
+
 # DIBAY Notification Sound Silent Unlock HARD LOCK
 
 **HARD LOCK (2026-08-12).** Full doc: `docs/dibay-notification-sound-silent-unlock-hard-lock.md`.

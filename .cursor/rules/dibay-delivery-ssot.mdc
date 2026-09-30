@@ -1,0 +1,43 @@
+---
+description: DIBAY Delivery Address / Service Area SSOT — fail-closed geo/LGU. Product only; no historical SHA.
+alwaysApply: false
+globs:
+  - lib/delivery/**
+  - lib/stores/**/*delivery*
+  - lib/stores/**/*service*area*
+  - lib/location/**
+  - components/delivery/**
+  - components/stores/**/*address*
+  - app/**/delivery/**
+  - docs/dibay-delivery*
+---
+
+# DIBAY Delivery SSOT
+
+Canonical: `docs/dibay-delivery-address-service-area-final-ssot-hard-lock.md`.  
+Historical pin/LGU completion counts and SHA snapshots are TIER 4 — not execution authority.
+
+## Invariant
+
+null-geo / unresolved-LGU cannot enter **orderable** Delivery authority; canonical writers keep enforcing.
+
+## LOCKED product contracts
+
+- Store geo functional fail-closed (`missing_store_coords`)
+- `delivery_available=true` requires `stores.lat/lng`
+- Master LGU promote touch-persist when resolvable
+- V2 `missing_lgu_identity` fail-closed
+- R+10 / Owner·Admin selector parity / cart regional popup / checkout block
+- CUT1 location hook / CUT2 dual-mode evaluator
+- HOME old-location authority = NONE (distance-axis live revalidation)
+- Multi-instance stale eligibility = IMPOSSIBLE_BY_LIVE_REVALIDATION
+
+## DO NOT
+
+- Full Delivery SSOT re-audit because of pin/LGU data completion
+- Bulk geocode / bulk LGU backfill
+- Drop V2 fail-closed on regional_lgu conversion
+
+## Change gate
+
+Touch location / service-area / member LGU / HOME·Browse·Search eligibility / cart regional / checkout serviceability → regression-only on this contract. Broad reopen only on Owner PRODUCT FAIL first divergence.

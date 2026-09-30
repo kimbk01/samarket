@@ -14,7 +14,7 @@ globs:
 
 This rule overrides older DIBAY Call implementation directions.
 
-**CURRENT NORMAL HARD LOCK (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` · always-apply rule `.cursor/rules/dibay-chat-call-current-normal-hard-lock.mdc`. Native/CallKit/PushKit/RTC = HARD LOCK A — Owner approval + Native Change Gate required. Do not refactor/cleanup/unify Voice-Video under “SSOT”.
+**CURRENT NORMAL HARD LOCK (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` · always-apply rule `.cursor/rules/dibay-call-ssot.mdc`. Native/CallKit/PushKit/RTC = HARD LOCK A — Owner approval + Native Change Gate required. Do not refactor/cleanup/unify Voice-Video under “SSOT”.
 
 ## Fixed Goal
 

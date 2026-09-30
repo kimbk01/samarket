@@ -15,9 +15,7 @@ globs:
 ## Baseline
 
 - **FINAL: UI-3 LOCKED**
-- Production SHA: `320909776cf498de7208f38d438c9e0f0cde7121`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_7p1Yrses6Fyf5PcJa8irMD9NB3b5`
 - ROOT EMPTY GATE: **REMOVED**
 - COMMON VISUAL HIERARCHY: 사진 → 제목 → 가격 → 품목정보 → 설명 → 지역 → 등록
 - PRICE AUTHORITY: **PROFILE-SPECIFIC WRITER PRESERVED**

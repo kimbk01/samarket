@@ -1,10 +1,14 @@
+---
+description: Auth/session product contract — requestable; not global alwaysApply
+alwaysApply: false
+---
+
 # DIBAY Auth HARD LOCK
 
 **HARD LOCK (2026-08-05).** Full doc: `docs/auth-hard-lock.md`.
 
 ## Baseline
 
-- HEAD / Production: `0d6da8324`
 - Product code at lock: 0
 - Code First Break: NO / NOT PROVEN
 - Slice 9: AUTH MEMBER PRODUCT PASS WITH OPS LIMITATIONS / CLOSED

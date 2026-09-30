@@ -1,3 +1,8 @@
+---
+description: Domain product hard-lock — requestable; historical dpl/SHA stripped where present
+alwaysApply: false
+---
+
 # DIBAY Notification Preference Fail-Closed HARD LOCK
 
 **ACTIVE.** Full contract: `docs/dibay-notification-preference-fail-closed-hard-lock.md`  

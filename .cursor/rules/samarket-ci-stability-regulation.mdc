@@ -1,3 +1,8 @@
+---
+description: CI stability regulation — requestable; not global alwaysApply
+alwaysApply: false
+---
+
 # CI 안정성 — Vitest·SSOT 계약·번들
 
 CI(`npm run ci`) 실패를 **같은 클래스로 반복하지 않기** 위한 규칙.

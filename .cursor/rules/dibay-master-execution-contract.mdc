@@ -1,0 +1,68 @@
+---
+description: DIBAY Master Execution Contract — Owner authority, scope, verification economy, commit/push flow. TIER 1 global only.
+alwaysApply: true
+---
+
+# DIBAY MASTER EXECUTION CONTRACT
+
+TIER 1 — GLOBAL EXECUTION. No historical SHA / deployment / PASS counts / FD phase state.
+
+1. **Owner instruction is the highest project authority.** Same-message sequence and STOP win over habits and older rules.
+
+2. **No guess / no fake PASS.** Evidence missing → `NOT_PROVEN`. Historical evidence is not Current evidence.
+
+3. **Scope isolation.** Edit only the requested scope. Do not modify/add/commit unrelated dirty files. Unrelated dirty alone does **not** halt scope-safe work.
+
+4. **First divergence → root cause → minimal correct repair.** Temporary patch / symptom masking forbidden.
+
+5. **LOCKED product contracts** reopen only on a new current Production contradiction (or Owner reopen).
+
+6. **Verification economy.** Same git state: do not re-run an already-PASS identical gate. Re-run only FAIL or invalidated gates.
+
+7. **Commit / Push execution.** When Owner instructs implement + commit/push for this work, after required gates PASS complete one flow: scope-safe add → commit → required build → push. Do not invent a new approval gate mid-flow. Commit/push still require Owner to have asked for them in the instruction (or equivalent “구현하고 커밋·푸시까지”).
+
+8. **STOP only for real blockers:** hook FAIL · required test FAIL · build FAIL · merge/rebase conflict · missing credential/secret · branch protection · **push ancestry includes unrelated commits outside Owner scope** · Owner-specified STOP. Not STOP by themselves: unrelated dirty · historical NOT_PROVEN · old hard-lock docs · past SHA mismatch · desire to write another report · agent-invented extra approval.
+
+9. **Proof layers separated:** CODE · TEST · COMMIT · PUSH · DEPLOY · PRODUCTION · RUNTIME. Do not call an unproven layer PASS.
+
+10. **Do not proliferate rules.** Do not invent new global/alwaysApply rules during work. Propose to Owner if a long-lived rule is truly needed.
+
+## Owner sequence (AUDIT / REPORT)
+
+User-specified order/STOP is execution authority. “추가 승인 질문 금지” does **not** skip a user-requested AUDIT/REPORT gate.
+
+| User instruction | Agent |
+|---|---|
+| 「감사해서 보고해」 / 「먼저 확인해서 보고해」 | AUDIT → REPORT → **STOP** |
+| 「감사하고 문제 있으면 수정해」 | AUDIT → confirmed problem → FIX |
+| 「보고부터」 / 「보고만」 | REPORT (AUDIT if needed) → **STOP** |
+
+「추가 승인 질문 금지」 applies only when Owner already approved execute/commit/push. Same message with report-only + implement → report-only/order wins.
+
+## Tier map (management)
+
+| Tier | Role | alwaysApply |
+|------|------|-------------|
+| 1 Global execution | This file + Deploy + Inspection + minimal i18n | yes |
+| 2 Product SSOT | Device / Delivery / Call / Messenger / Supabase / … | **no** — glob or docs |
+| 3 Active work | Current task only | never promote to global |
+| 4 Historical | Past SHA, dpl, forensic, closed FD | never alwaysApply |
+
+## TIME-WASTE (forced)
+
+1. Finish requested scope — do not invent a new audit phase.
+2. Same git state: do not re-run PASS gates.
+3. FAIL → only failed + invalidated gates.
+4. Aborted/interrupted without code error → retry that command only.
+5. After required gates PASS on commit/push request → proceed immediately (no new bug hunt).
+6. Do not add full lint/build/test “for safety” outside required gates.
+7. No verify/test unrelated to the diff.
+8. Do not duplicate full checks already covered by git hooks.
+9. NOT_PROVEN alone does not block a commit that is not that contract’s blocker.
+10. On rule conflict, do not bias toward more work — apply the actual scope.
+11. Do not re-investigate already confirmed facts.
+12. Do not invent a follow-up improvement Phase after completion.
+
+Canonical deploy: `docs/dibay-build-deploy-hard-lock.md` · `dibay-production-deploy-authority-hard-lock.mdc`.  
+Canonical inspection: `samarket-dev-inspection-regulation.mdc`.  
+Canonical i18n: `samarket-i18n-core.mdc`.

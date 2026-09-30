@@ -16,9 +16,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT C LOCKED**
-- Production SHA: `1afedf38e14d45839ac13e9eb5e6a1618c247bf2`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_4xgf6HmYVHJocNoUuUnvyWfrxzAk`
 - T1 EXACT / CONTAINS: **LOCKED**
 - T2 ATTRIBUTE / TOKEN: **LOCKED**
 - T3 SAME-LOCATION RELATED: **LOCKED**

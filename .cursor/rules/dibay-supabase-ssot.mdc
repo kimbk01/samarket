@@ -1,0 +1,39 @@
+---
+description: DIBAY Supabase SSOT — storage/media/schema security invariants. Product only; no forensic SHA/P0 counts.
+alwaysApply: false
+globs:
+  - supabase/**
+  - lib/**/storage/**
+  - lib/media/**
+  - scripts/**/storage*
+  - scripts/verify-schema-authority*
+  - docs/dibay-supabase*.md
+  - docs/dibay-existing-live-schema*
+---
+
+# DIBAY Supabase SSOT
+
+Canonical docs: `docs/dibay-supabase-final-production-hard-lock.md` · `docs/dibay-supabase-fd6-storage-hard-lock.md` · `docs/dibay-existing-live-schema-authority-convention.md`.
+
+Historical SHA / dpl / P0-P1 forensic counts are **not** execution authority (TIER 4).
+
+## Storage / media
+
+- Persistable media refs only — `blob:` / `localhost` / `undefined` never become DB authority
+- Invalid refs must not be prefixed onto `/storage/v1/object/public/`
+- Do not invent AVIF `.feed.webp` derivatives
+- No bulk orphan delete · bucket reset · mass path rewrite · mass NULL of media refs
+- No image URL fallback that hides broken data
+- RLS/policy change only on new Storage security contradiction
+
+## Product / schema security (preserve)
+
+- Do not reopen full Supabase forensic because historical dashboard counts are non-zero
+- Speculative repair · RLS weakening · timeout/rate-limit raise to hide defects — forbidden
+- Do not convert NOT_PROVEN or FIXTURE_BLOCKED into PASS
+- Existing-live tables: MATCH → NO-OP; DRIFT/EXTRA → FAIL-FAST (no silent ALTER); MISSING → BLOCK (no auto-CREATE on recovery)
+- Authority fingerprints: `supabase/schema-authority/` · `npm run verify:schema-authority`
+
+## Reopen
+
+Only on a new current Production P0/P1 · reproduced regression · schema/security/migration authority change · Owner reopen.

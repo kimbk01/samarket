@@ -1,3 +1,8 @@
+---
+description: Domain product hard-lock — requestable; historical dpl/SHA stripped where present
+alwaysApply: false
+---
+
 # DIBAY Manner Battery HARD LOCK
 
 **HARD LOCK (2026-08-08).** Full doc: `docs/member-trust/dibay-manner-battery-ssot.md`.

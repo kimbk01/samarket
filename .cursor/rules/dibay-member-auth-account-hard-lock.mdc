@@ -1,3 +1,8 @@
+---
+description: Auth/session product contract — requestable; not global alwaysApply
+alwaysApply: false
+---
+
 # DIBAY MEMBER / AUTH ACCOUNT HARD LOCK (LOCKED)
 
 **Status:** A–F PASS · §13.2 **ACKNOWLEDGED** · §14 **HARD LOCK DECLARED** (2026-08-07) · P2 LOCKED.  

@@ -1,0 +1,30 @@
+---
+description: DIBAY Marketplace SSOT index — cut-a…i / UI locks point here. Product contracts via docs; no alwaysApply.
+alwaysApply: false
+globs:
+  - app/(main)/market/**
+  - app/(main)/post/**
+  - app/(main)/write/**
+  - components/trade/**
+  - components/write/trade/**
+  - lib/trade/**
+  - docs/dibay-marketplace*
+  - docs/trade*
+---
+
+# DIBAY Marketplace SSOT Index
+
+Product contracts live in domain docs and the cut/UI hard-lock files below.  
+Past phase progression / deploy IDs in those files are **historical** (TIER 4), not global execution.
+
+## Canonical pointers
+
+| Area | Rule / docs |
+|------|-------------|
+| Browse single contract | `dibay-marketplace-browse-single-contract.mdc` |
+| Cut A–I | `dibay-marketplace-cut-{a..i}-hard-lock.mdc` |
+| UI 3–6 | `dibay-marketplace-ui-{3..6}-*-hard-lock.mdc` |
+| Trade home list | `.cursor/rules/trade-home-list-invariants.mdc` · `docs/trade-lightweight-design.md` |
+| Trade write draft | `.cursor/rules/trade-write-draft-continuity.mdc` |
+
+When changing Marketplace: load the relevant cut/UI file for that path; do not treat cut series as a global alwaysApply phase gate.

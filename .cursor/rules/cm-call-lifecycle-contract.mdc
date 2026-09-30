@@ -1,3 +1,8 @@
+---
+description: Call lifecycle detail — requestable; Call SSOT is dibay-call-ssot.mdc
+alwaysApply: false
+---
+
 # DIBAY Call Lifecycle SSOT
 
 통화 lifecycle 수정 전 `docs/community-messenger/call-lifecycle-ssot.md` 를 먼저 읽는다.

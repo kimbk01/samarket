@@ -15,9 +15,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT H LOCKED**
-- Production SHA: `e74a5775f61d6c45e6271e43beb4efdcb5fa616b`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_2C5bCtmGtuwMiYyS1uSwoRSYpxKK`
 - HOME `/market` SILENT: **keep current order** (in-place patch only)
 - NEW LISTING CTA: **LOCKED** (`N` = unique incoming page-1 ids not on applied list; no cap)
 - CTA TAP / PTR: **apply latest page-1** (PTR does not wait for CTA)

@@ -16,9 +16,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT I LOCKED**
-- Production SHA: `023bb23a031e069afbb184f469e9060abcbd0b59`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_CJHbp1PL3WFVLmWJN9hapKtWC4fg`
 - 6 PROFILE MATRIX (WRITE/LIST/DETAIL/FILTER): **LOCKED**
 - WRITE SUBMIT CHAIN (6 + uc_buy + EX converted): **LOCKED**
 - COMPOSITION SSOT + UsedCar/rent-car widgets: **PRESERVED**

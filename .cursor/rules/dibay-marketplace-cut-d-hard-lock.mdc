@@ -17,9 +17,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT D LOCKED**
-- Production SHA: `0824300da9edc2aab60f22b3ba983948f13d8903`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_7CUwHkWKouEpL4z8x5KgF4Vwpsgg`
 - MEMBER REVIEW WRITE UI: **REMOVED (UI gate — not API/DB writer removal)**
 - REVIEW_WAIT / PENDING HUB: **REMOVED**
 - REVIEW=1 DEEP-LINK: **REMOVED**

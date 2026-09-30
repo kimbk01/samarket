@@ -17,9 +17,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT G LOCKED**
-- Production SHA: `637c42a10a0b12fdf218110d3c8dece8cb7b712b`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_7vWnF25rvFYdQh1thGuEF62yx88k`
 - HEART BOOLEAN PARITY: **LOCKED** (LIST / SEARCH / DETAIL / MY → same toggle)
 - MEMBER 관심 N / posts.favorite_count DISPLAY: **REMOVED**
 - MY HUB FAVORITE COUNT: **PRESERVED** (live favorites-row metric)

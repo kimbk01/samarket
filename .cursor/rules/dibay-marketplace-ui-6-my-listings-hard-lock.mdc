@@ -14,9 +14,7 @@ globs:
 ## Baseline
 
 - **FINAL: UI-6 LOCKED**
-- Production SHA: `5414ad87bcf3f95ba02704ace9c418ff5b226e4e`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_E5TMyXumNZzHKzpCtGS4Z99hLhp7`
 - PRIMARY: `/mypage/products` = 「내 판매물품」
 - CARD: 사진 → 가격 → 제목 → 지역 → 판매상태·시간 → 홍보(해당 시)
 - MENU: 수정 / 더 알리기 / 판매완료 / 숨김 / 삭제

@@ -1,0 +1,54 @@
+---
+description: DIBAY Device SSOT — DeviceClass, App Shell, Community single-page. Product contracts only; no historical SHA.
+alwaysApply: false
+globs:
+  - lib/device/**
+  - components/device/**
+  - components/app/**/*shell*
+  - components/app/**/*Shell*
+  - components/layout/**
+  - app/(main)/philife/**
+  - components/philife/**
+  - docs/dibay-device-fd*.md
+---
+
+# DIBAY Device SSOT
+
+Canonical docs: `docs/dibay-device-fd1-device-class-hard-lock.md` · `docs/dibay-device-fd2-window-class-hard-lock.md` · `docs/dibay-device-fd3-orientation-enforcement-hard-lock.md` · `docs/dibay-device-fd4-app-shell-navigation-hard-lock.md` · `docs/dibay-device-fd5-community-hard-lock.md`.
+
+Historical SHA / deployment / AHEAD snapshots are **not** execution authority (TIER 4).
+
+## DeviceClass (FD1)
+
+- Android PRIMARY: `smallestScreenWidthDp` `>=600` → `TABLET_ANDROID` · `<600` → `PHONE_ANDROID`
+- `screenLayout` = fallback only when sw unusable; sw wins on conflict
+- iOS: `userInterfaceIdiom` `.phone` → `PHONE_IOS` · `.pad` → `TABLET_IPAD`
+- UNKNOWN stays UNKNOWN — no fallback phone
+- DeviceClass does not follow orientation or width
+- Do not use 768 / 767 as DeviceClass or tablet identity
+- Do not change 600dp / invent model·UA·width exceptions without a new canonical-API contradiction
+
+## App Shell / Navigation (FD4)
+
+- Shell identity = FD1 DeviceClass (`resolveAppShell`)
+- Presentation mode = FD2 LayoutMode (not domain dual-pane)
+- Navigation presentation = existing main BottomNav for PHONE / TABLET / DESKTOP / UNKNOWN
+- UNKNOWN stays UNKNOWN_SAFE
+- Phone cannot promote; Tablet cannot demote; Desktop narrow stays Desktop family
+- `use-app-viewport-size` is measurement only
+- Do not use 767/768/1024/touch/UA/orientation as Device shell identity
+- Do not remount the page tree when DeviceClass or LayoutMode changes
+- Do not invent a Tablet rail or restore Desktop side nav from this lock
+
+## Community presentation (FD5)
+
+- Community is single-page: HUB, READ, WRITE, EDIT are separate routes
+- Tablet / Windows landscape use available width (`max-w-[66rem]`), not split panes
+- `TABLET_ANDROID` / wide window ≠ Community master-detail
+- URL `/philife/:postId` is the detail page, not a dual-pane selection
+- Do not compose Community `[LIST][DETAIL]` / `[LIST][WRITE]` / `[LIST][EDIT]`
+- Do not change Messenger legitimate master-detail because of Community
+
+## Reopen
+
+Only on a new current Production contradiction or Owner reopen. Do not reopen for historical NOT_PROVEN (iPad / Windows) alone.

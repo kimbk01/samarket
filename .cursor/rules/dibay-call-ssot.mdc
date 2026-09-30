@@ -1,0 +1,56 @@
+---
+description: DIBAY Call Master SSOT — Native/CallKit/RTC freeze, session writer, projection, presentation. No historical SHA.
+alwaysApply: false
+globs:
+  - android/**/IncomingCall*
+  - android/**/*Call*
+  - ios/**/*Call*
+  - lib/community-messenger/**/*call*
+  - lib/chat-domain/**/*call*
+  - components/community-messenger/**/*call*
+  - components/call/**
+  - docs/dibay-call*
+  - docs/dibay-chat-call*
+  - docs/community-messenger/call*
+---
+
+# DIBAY Call Master SSOT
+
+Canonical: `docs/dibay-chat-call-current-normal-hard-lock.md` · `docs/dibay-call-authority-lock.md` · `docs/dibay-call-native-runtime-ssot.md` · presentation docs under `docs/dibay-*-call-presentation*`.
+
+Historical baseline SHA / dpl / closed forensic matrices are **not** execution authority (TIER 4).
+
+## A — Native / CallKit / PushKit / RTC
+
+Outgoing/incoming media establishment is **Native Runtime** only (not Web CallV4Screen / JS Agora join). Web may POST session / handoff; Web establishment markers must be 0. Detail: `docs/dibay-call-native-runtime-ssot.md`.
+
+Owner 승인 없이 Android/iOS Native Call lifecycle 수정 금지.  
+금지 예: refactor · cleanup · Voice/Video 통합 · Native→Web ownership 이동 · CallKit/PushKit/RTC lifecycle 변경 without Owner gate.
+
+## B — Server session
+
+Sole writer: `updateCommunityMessengerCallSession`.  
+Owns: status / answered_at / connected_at / ended_at / ended_reason / answered_device_id.  
+Second canonical writer FORBIDDEN.
+
+## C — Projection
+
+SESSION → stub / history / notification only. Reverse FORBIDDEN.
+
+## D — Presentation
+
+DB STATUS ≠ TERMINAL REASON ≠ DISPLAY LABEL. Consume canonical reasons only.  
+ONE call moment → ONE primary presentation owner (platform Cap rules in presentation docs).
+
+## Chat domains (linked)
+
+`general_direct` ≠ `group` ≠ `trade` ≠ `store_order` — `docs/dibay-messenger-domain-group-hard-lock.md`.
+
+## Violation
+
+“구조 정리 / 중복 제거 / SSOT 개선”으로 A/B/C를 건드리면 STOP.  
+PRODUCT FAIL first divergence 없으면 NORMAL Call lifecycle 수정 금지.
+
+## Reopen
+
+New Production contradiction · locked-consumer change · Owner explicit reopen.

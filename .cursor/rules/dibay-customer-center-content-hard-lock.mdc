@@ -1,3 +1,8 @@
+---
+description: Domain product hard-lock — requestable; historical dpl/SHA stripped where present
+alwaysApply: false
+---
+
 # DIBAY Customer Center Content HARD LOCK
 
 **HARD LOCK DECLARED.** Full doc: `docs/dibay-customer-center-content-hard-lock.md`.  
@@ -11,8 +16,6 @@ Customer Communication SSOT: `docs/customer-communication/dibay-customer-communi
 ## Board Presentation baseline (2026-08-15)
 
 - **FINAL: DIBAY CUSTOMER CENTER BOARD UI HARD LOCKED**
-- HEAD / ORIGIN / PRODUCTION: `79fa129b4`
-- Deployment: `dpl_DsLtbZtGxmgvufwnt6tLzT3SCGis` · `https://samarket.vercel.app`
 - Evidence: `.qa-logs/cc-board-ui-2026-08-15T09-24-02-446Z/REPORT.json`
 - Gate: `EXPECT_GIT_SHA=<sha> node scripts/qa/customer-center-board-ui-prod-runtime.mjs`
 - Unit tests do **not** substitute for that runtime gate

@@ -1,3 +1,8 @@
+---
+description: Domain product hard-lock — requestable; historical dpl/SHA stripped where present
+alwaysApply: false
+---
+
 # DIBAY Owner Cash Charge Notify Wire HARD LOCK
 
 **ACTIVE.** Full contract: `docs/dibay-owner-cash-charge-notify-wire-hard-lock.md`  
@@ -5,7 +10,6 @@ Evidence: `.tmp/notification-cd2-cash-charge-notify/PRODUCTION_PROOF.json`
 
 ## AUTHORITY
 
-HEAD/ORIGIN/PRODUCTION `96cefb6b5637196075f02aa22fc4bb8fe92a536f` · Deployment `dpl_BxDJCARaA9pKFd1zkprRrsuFoEvB`
 
 ## LOCKED
 

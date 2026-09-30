@@ -17,9 +17,7 @@ globs:
 ## Baseline
 
 - **FINAL: UI-4 LOCKED**
-- Production SHA: `08fd8bba1b3604ab637b426966bf50fb8350095e`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_2kT6KMQGwaJvwxsBEfJUfX1Uenb1`
 - HOME / CATEGORY: 사진 → 가격 → 제목 → 지역 → ♡ → 홍보(해당 시) → ⋮
 - SEARCH: horizontal 100×100 KEEP · 사진 → 가격 → 제목 → 홍보(해당 시) → 지역 → ♡ · no ⋮
 - REMOVE: 판매중 / spec 요약 / 등록 시간

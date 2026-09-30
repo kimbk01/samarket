@@ -17,9 +17,7 @@ globs:
 ## Baseline
 
 - **FINAL: CUT B LOCKED**
-- Production SHA: `0a0958c9f63693dd185e53340b7d4229c5c67722`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_F1JByRDbb5fbCMSzkdQSdtVCHpwa`
 - SELL-SIDE LIST DEFAULT: **LOCKED**
 - EXPLICIT 삽니다 / 구직 / 페소 삽니다: **REACHABLE**
 - LEGACY NULL META: **sell-side via exclude opposite, not eq sell**

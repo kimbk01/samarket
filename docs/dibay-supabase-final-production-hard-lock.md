@@ -117,7 +117,6 @@ Required Production DB repairs = **5 applied + 1 live data**. Missing = **0**.
 
 ## CURRENT P0 / P1
 
-CURRENT P0 = **0**  
 CURRENT P1 = **0**
 
 Historical repaired P0/P1 remain documented (FD1 missing table · FD2 42703 · FD3 claim/storage · FD5 fail-open · FD6 blob). They are not current defects.
@@ -184,7 +183,7 @@ Do **not** create FD11. Do **not** restart FD1–FD10.
 | Artifact | Path |
 |---|---|
 | Document | `docs/dibay-supabase-final-production-hard-lock.md` (this file) |
-| Cursor rule | `.cursor/rules/dibay-supabase-final-production-hard-lock.mdc` |
+| Cursor rule | `.cursor/rules/dibay-supabase-ssot.mdc` |
 
 If origin push is blocked solely by unrelated DeviceClass ancestry:
 

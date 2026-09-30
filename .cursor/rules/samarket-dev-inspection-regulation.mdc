@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 디바이 개발 검사 규정
 
-Agent 행동·중복 금지 원칙은 `dibay-agent-execution-contract.mdc` 와 같다. Deploy 권한은 `dibay-production-deploy-authority-hard-lock.mdc`. i18n **제품** 계약은 `samarket-i18n-core.mdc`.
+Agent 행동·중복 금지 원칙은 `dibay-master-execution-contract.mdc` 와 같다. Deploy 권한은 `dibay-production-deploy-authority-hard-lock.mdc`. i18n **제품** 계약은 `samarket-i18n-core.mdc`.
 
 ## 0. 동일 상태 1회
 

@@ -15,9 +15,7 @@ globs:
 ## Baseline
 
 - **FINAL: UI-5 LOCKED**
-- Production SHA: `d9ad0d6b913aea660372897627424c0f7d0ece64`
 - Alias: `https://samarket.vercel.app`
-- Deploy: Git Integration `dpl_EVAWPH2iY3MxvsnaXconBBW5NHZS`
 - BUYER FLOW: 사진 → 가격 → 제목 → 지역·시간 → 품목정보 → 설명 → 판매자 → 찜/신고/공유
 - DISCOVERY: 판매자 다른 상품 / 광고 / 관련 (core 아래)
 - STICKY: 채팅 CTA (overlay; related loader unchanged)
