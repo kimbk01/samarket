@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type {
@@ -21,14 +21,23 @@ import { AdminMemberDeliveryPanel } from "@/components/admin/users/AdminMemberDe
 import { AdminMemberStorePanel } from "@/components/admin/users/AdminMemberStorePanel";
 import { AdminMemberChatPanel } from "@/components/admin/users/AdminMemberChatPanel";
 import { AdminMemberOpsPanel } from "@/components/admin/users/AdminMemberOpsPanel";
+import { AdminMemberReportsPanel } from "@/components/admin/users/AdminMemberReportsPanel";
+import { AdminMemberDangerZone } from "@/components/admin/users/AdminMemberDangerZone";
 import { AdminUserPointsSection } from "@/components/admin/users/AdminUserPointsSection";
 import { AdminUserTrustSection } from "@/components/admin/users/AdminUserTrustSection";
-import { EditAdminForm } from "@/components/admin/users/EditAdminForm";
+import {
+  MEMBER_DETAIL_BACK_LIST_KO,
+  MEMBER_DETAIL_TAB_LABEL_KO,
+  memberDetailDangerActions,
+  memberDetailListHrefFallback,
+  memberDetailShouldUseHistoryBack,
+  resolveMemberDetailActionPolicy,
+} from "@/lib/admin-users/member-detail-presentation";
+import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
   ADMIN_USERS_LITE_PAGE_BG,
 } from "@/lib/ui/admin-users-lite-styles";
-import type { MessageKey } from "@/lib/i18n/messages";
 
 const FROM_POST_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -38,35 +47,23 @@ function parseFromPostId(raw: string | null): string | null {
   return id && FROM_POST_UUID_RE.test(id) ? id : null;
 }
 
+/** Approved IA order; points/trust retained as existing operational data. */
 export const ADMIN_MEMBER_CC_TABS = [
   "overview",
   "account",
+  "store",
   "community",
   "trade",
   "delivery",
-  "store",
   "chat",
-  "points",
-  "trust",
+  "reports",
   "address",
   "ops",
+  "points",
+  "trust",
 ] as const;
 
 export type AdminMemberCcTab = (typeof ADMIN_MEMBER_CC_TABS)[number];
-
-const TAB_LABEL_KEYS: Record<AdminMemberCcTab, MessageKey> = {
-  overview: "admin_users_cc_tab_overview",
-  account: "admin_users_cc_tab_account",
-  community: "admin_users_cc_tab_community",
-  trade: "admin_users_cc_tab_trade",
-  delivery: "admin_users_cc_tab_delivery",
-  store: "admin_users_cc_tab_store",
-  chat: "admin_users_cc_tab_chat",
-  points: "admin_users_cc_tab_points",
-  trust: "admin_users_cc_tab_trust",
-  address: "admin_users_cc_tab_address",
-  ops: "admin_users_cc_tab_ops",
-};
 
 function parseCcTab(raw: string | null | undefined): AdminMemberCcTab {
   const value = String(raw ?? "").trim().toLowerCase();
@@ -91,18 +88,18 @@ export function AdminMemberControlCenter({
   onUpdated?: () => void;
 }) {
   const { t, safeT } = useI18n();
-  const { isSuperAdmin } = useAdminMe();
+  const router = useRouter();
+  const { isSuperAdmin, hasPermission, loading: meLoading, snapshot } = useAdminMe();
   const searchParams = useSearchParams();
   const fromPostId = parseFromPostId(searchParams.get("fromPost"));
   const [tab, setTab] = useState<AdminMemberCcTab>(() =>
-    parseCcTab(initialTab ?? searchParams.get("tab"))
+    parseCcTab(initialTab ?? searchParams.get("tab")),
   );
   const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(
-    () => new Set([parseCcTab(initialTab ?? searchParams.get("tab"))])
+    () => new Set([parseCcTab(initialTab ?? searchParams.get("tab"))]),
   );
-  const [editPermissions, setEditPermissions] = useState(false);
 
-  const selectTab = (next: AdminMemberCcTab) => {
+  const selectTab = useCallback((next: AdminMemberCcTab) => {
     setTab(next);
     setVisited((prev) => {
       if (prev.has(next)) return prev;
@@ -110,20 +107,70 @@ export function AdminMemberControlCenter({
       copy.add(next);
       return copy;
     });
-  };
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next === "overview") url.searchParams.delete("tab");
+      else url.searchParams.set("tab", next);
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, []);
+
+  const goBackToList = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      const ref = typeof document !== "undefined" ? document.referrer : "";
+      if (memberDetailShouldUseHistoryBack(ref) || !ref) {
+        router.back();
+        return;
+      }
+    }
+    router.push(memberDetailListHrefFallback());
+  }, [router]);
 
   const lazy = useMemo(() => visited, [visited]);
 
+  const canManageMember = isSuperAdmin || hasPermission("users");
+  const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
+  const dangerActions = useMemo(() => {
+    if (meLoading) return [];
+    const decisions = resolveMemberDetailActionPolicy({
+      moderationStatus: user.moderation_status,
+      status: user.status,
+      operator: {
+        canModerate: canManageMember,
+        canEditProfile: canManageMember,
+        canResetPassword: canManageMember,
+        canManagePrivilege: isSuperAdmin,
+        canWithdraw: canManageMember,
+        canPurge: canManageMember,
+        isSelf: Boolean(snapshot?.userId && snapshot.userId === user.id),
+        targetIsSuperAdmin: membershipRole === "super_admin",
+      },
+      hasStoreRelationship: stores.length > 0,
+      passwordResetSupported: true,
+    });
+    return memberDetailDangerActions(decisions);
+  }, [
+    meLoading,
+    user.moderation_status,
+    user.status,
+    user.id,
+    canManageMember,
+    isSuperAdmin,
+    stores.length,
+    snapshot?.userId,
+    membershipRole,
+  ]);
+
   return (
-    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 pb-6`}>
+    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 pb-6`} data-member-detail-control-center="1">
       <div className="sticky top-0 z-20 space-y-3 bg-[#f4f6f9] pb-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
             <span>{t("admin_users_lite_breadcrumb_members")}</span>
             <span className="mx-1.5 text-[#98a2b3]">›</span>
-            <Link href="/admin/users" className="hover:text-[#344054]">
-              {t("admin_users_lite_list_title")}
-            </Link>
+            <button type="button" className="hover:text-[#344054]" onClick={goBackToList}>
+              {MEMBER_DETAIL_BACK_LIST_KO}
+            </button>
             <span className="mx-1.5 text-[#98a2b3]">›</span>
             <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
           </nav>
@@ -140,9 +187,14 @@ export function AdminMemberControlCenter({
                 })}
               </Link>
             ) : null}
-            <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
+            <button
+              type="button"
+              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              onClick={goBackToList}
+              data-member-detail-back="1"
+            >
               {t("admin_users_lite_back_to_list")}
-            </Link>
+            </button>
           </div>
         </div>
         <AdminMemberMasterHeader
@@ -150,22 +202,23 @@ export function AdminMemberControlCenter({
           stores={stores}
           adminMembership={adminMembership}
           onUpdated={onUpdated}
-          onEditPermissions={isSuperAdmin && adminMembership ? () => setEditPermissions(true) : undefined}
+          onOpenAccountTab={() => selectTab("account")}
         />
         <AdminMemberAlertStrip user={user} stores={stores} />
-        <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1" data-member-detail-tabs="1">
           {ADMIN_MEMBER_CC_TABS.map((id) => (
             <button
               key={id}
               type="button"
               onClick={() => selectTab(id)}
+              data-member-tab={id}
               className={
                 tab === id
                   ? "shrink-0 rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
                   : "shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
               }
             >
-              {t(TAB_LABEL_KEYS[id])}
+              {MEMBER_DETAIL_TAB_LABEL_KO[id]}
             </button>
           ))}
         </div>
@@ -177,7 +230,7 @@ export function AdminMemberControlCenter({
             user={user}
             stores={stores}
             adminMembership={adminMembership}
-            onOpenTab={selectTab}
+            onOpenTab={(next) => selectTab(next as AdminMemberCcTab)}
           />
         </div>
       ) : null}
@@ -188,26 +241,9 @@ export function AdminMemberControlCenter({
         </div>
       ) : null}
 
-      {lazy.has("points") ? (
-        <div hidden={tab !== "points"}>
-          <AdminUserPointsSection userId={user.id} />
-        </div>
-      ) : null}
-
-      {lazy.has("trust") ? (
-        <div hidden={tab !== "trust"}>
-          <AdminUserTrustSection
-            userId={user.id}
-            initialTrustScore={user.trust_score}
-            readOnly={user.hasProfile === false}
-            onUpdated={onUpdated}
-          />
-        </div>
-      ) : null}
-
-      {lazy.has("address") ? (
-        <div hidden={tab !== "address"}>
-          <AdminMemberAddressPanel userId={user.id} />
+      {lazy.has("store") ? (
+        <div hidden={tab !== "store"}>
+          <AdminMemberStorePanel stores={stores} />
         </div>
       ) : null}
 
@@ -229,15 +265,24 @@ export function AdminMemberControlCenter({
         </div>
       ) : null}
 
-      {lazy.has("store") ? (
-        <div hidden={tab !== "store"}>
-          <AdminMemberStorePanel stores={stores} />
-        </div>
-      ) : null}
-
       {lazy.has("chat") ? (
         <div hidden={tab !== "chat"}>
           <AdminMemberChatPanel userId={user.id} />
+        </div>
+      ) : null}
+
+      {lazy.has("reports") ? (
+        <div hidden={tab !== "reports"}>
+          <AdminMemberReportsPanel
+            user={user}
+            onOpenOps={() => selectTab("ops")}
+          />
+        </div>
+      ) : null}
+
+      {lazy.has("address") ? (
+        <div hidden={tab !== "address"}>
+          <AdminMemberAddressPanel userId={user.id} />
         </div>
       ) : null}
 
@@ -252,16 +297,25 @@ export function AdminMemberControlCenter({
         </div>
       ) : null}
 
-      {editPermissions ? (
-        <EditAdminForm
-          staffId={user.id}
-          onClose={() => setEditPermissions(false)}
-          onSuccess={() => {
-            setEditPermissions(false);
-            onUpdated?.();
-          }}
-        />
+      {lazy.has("points") ? (
+        <div hidden={tab !== "points"}>
+          <AdminUserPointsSection userId={user.id} />
+        </div>
       ) : null}
+
+      {lazy.has("trust") ? (
+        <div hidden={tab !== "trust"}>
+          <AdminUserTrustSection
+            userId={user.id}
+            initialTrustScore={user.trust_score}
+            readOnly={user.hasProfile === false}
+            onUpdated={onUpdated}
+          />
+        </div>
+      ) : null}
+
+      <AdminMemberDangerZone actions={dangerActions} />
+
     </div>
   );
 }

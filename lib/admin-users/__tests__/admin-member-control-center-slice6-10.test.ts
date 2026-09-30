@@ -74,16 +74,19 @@ describe("admin member Control Center Slice 6–10", () => {
     expect(loader).not.toMatch(/from\("point_ledger"\)/);
   });
 
-  it("moderation CTAs match backend warn/suspend/ban/restore", () => {
+  it("moderation ActionPolicy matrix preserved; OpsPanel demotes destructive execution (P3)", () => {
     expect(memberModerationActionsForStatus("normal")).toEqual(["warn", "suspend", "ban"]);
     expect(memberModerationActionsForStatus("warned")).toEqual(["warn", "suspend", "ban"]);
     expect(memberModerationActionsForStatus("suspended")).toEqual(["restore", "ban"]);
     expect(memberModerationActionsForStatus("banned")).toEqual(["restore"]);
     const panel = src("components/admin/users/AdminMemberOpsPanel.tsx");
-    expect(panel).toMatch(/\/api\/admin\/users\/\$\{encodeURIComponent\(userId\)\}\/moderation/);
+    expect(panel).not.toMatch(/\/api\/admin\/users\/\$\{encodeURIComponent\(userId\)\}\/moderation/);
+    expect(panel).not.toMatch(/runModeration/);
     expect(panel).toMatch(/\/api\/admin\/member-notes/);
     expect(panel).toMatch(/알림 보내기 — 지원되지 않음/);
     expect(panel).not.toMatch(/profiles\.role/);
+    const danger = src("components/admin/users/AdminMemberDangerZone.tsx");
+    expect(danger).toMatch(/data-member-detail-danger-zone/);
   });
 
   it("community/trade/delivery/chat/ops routes are users-gated GET", () => {

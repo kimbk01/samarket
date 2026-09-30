@@ -1,24 +1,17 @@
 "use client";
 
-import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   memberInquiryAdminHref,
   memberMessengerAdminHref,
 } from "@/lib/admin-users/member-deep-links";
-import { memberModerationActionsForStatus, type MemberModerationAction } from "@/lib/admin-users/member-moderation-cta";
 import type { MemberOpsHistoryItem, MemberOpsHistoryPayload } from "@/lib/admin-users/member-ops-history";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
-
-const ACTION_LABEL: Record<MemberModerationAction, { ko: string; en: string }> = {
-  warn: { ko: "경고", en: "Warn" },
-  suspend: { ko: "정지", en: "Suspend" },
-  ban: { ko: "차단", en: "Ban" },
-  restore: { ko: "복구", en: "Restore" },
-};
+import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO, memberDetailAccountStateLabelKo } from "@/lib/admin-users/member-detail-presentation";
 
 type DeletionRequestItem = {
   id: string;
@@ -53,16 +46,12 @@ export function AdminMemberOpsPanel({
   onUpdated?: () => void;
 }) {
   const { t, safeT, language } = useI18n();
-  const { snapshot, isSuperAdmin, hasPermission } = useAdminMe();
-  const canManageMember = isSuperAdmin || hasPermission("users");
+  const { snapshot } = useAdminMe();
   const actorId = snapshot?.userId ?? "";
   const locale = language === "en" ? "en-US" : "ko-KR";
-  const actions = useMemo(() => memberModerationActionsForStatus(moderationStatus), [moderationStatus]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
-  const [modBusy, setModBusy] = useState<string | null>(null);
-  const [delBusy, setDelBusy] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [stack, setStack] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<"all" | MemberOpsHistoryItem["source"]>("all");
@@ -155,138 +144,8 @@ export function AdminMemberOpsPanel({
     }
   };
 
-  const runModeration = async (action: MemberModerationAction) => {
-    const stamp = new Date().toISOString();
-    const confirmed = await dibayConfirm({
-      title: [
-        safeT("admin_users_cc_moderation_confirm", {
-          fallbackKo: "이 조치를 실행할까요?",
-          fallbackEn: "Run this moderation action?",
-        }),
-        `action=${action}`,
-        `target=${userId}`,
-        `actor=${actorId || "—"}`,
-        `time=${stamp}`,
-      ].join("\n"),
-      confirmTone: "destructive",
-    });
-    if (!confirmed) return;
-    const reason = await dibayPrompt({
-      title: safeT("admin_users_moderation_reason_prompt", {
-        fallbackKo: "처리 사유를 입력해 주세요.",
-        fallbackEn: "Enter a reason for this action.",
-      }),
-      required: true,
-    });
-    if (!reason?.trim()) return;
-    setModBusy(action);
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/moderation`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason: reason.trim() }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
-      if (!res.ok || data.ok === false) {
-        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
-        return;
-      }
-      setCursor(null);
-      setStack([]);
-      onUpdated?.();
-    } finally {
-      setModBusy(null);
-    }
-  };
 
-  const runMemberDelete = async (mode: "withdraw" | "purge") => {
-    if (!canManageMember) return;
-    const title =
-      mode === "purge"
-        ? safeT("admin_users_purge_confirm", {
-            fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
-            fallbackEn: "Permanently delete this member? This cannot be undone.",
-          })
-        : safeT("admin_users_lite_delete_confirm", {
-            fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
-            fallbackEn: "Withdraw this member and anonymize their personal data?",
-          });
-    if (!(await dibayConfirm({ title, confirmTone: "destructive" }))) return;
-    setDelBusy(mode);
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/delete`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          reason: mode === "purge" ? "admin_permanent_delete" : "admin_withdraw",
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        blockers?: string[];
-      };
-      if (!res.ok || data.ok === false) {
-        const blockerText =
-          Array.isArray(data.blockers) && data.blockers.length > 0 ? `\n${data.blockers.join(", ")}` : "";
-        await dibayAlert({
-          title: `${data.message ?? data.error ?? t("admin_users_action_failed")}${blockerText}`,
-        });
-        return;
-      }
-      window.location.href = "/admin/users";
-    } finally {
-      setDelBusy(null);
-    }
-  };
 
-  const rejectDeletionRequest = async (requestId: string) => {
-    if (
-      !(await dibayConfirm({
-        title: safeT("admin_users_deletion_reject_confirm", {
-          fallbackKo: "이 삭제 요청을 거절하시겠습니까?",
-          fallbackEn: "Reject this deletion request?",
-        }),
-      }))
-    ) {
-      return;
-    }
-    const note = await dibayPrompt({
-      title: safeT("admin_users_deletion_reject_note", {
-        fallbackKo: "거절 사유(선택)를 입력하세요.",
-        fallbackEn: "Optional reject note.",
-      }),
-      required: false,
-    });
-    setDelBusy("reject");
-    try {
-      const res = await fetch("/api/admin/account-deletion-requests", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          action: "reject",
-          adminNote: note?.trim() || "admin_rejected",
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
-      if (!res.ok || data.ok === false) {
-        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
-        return;
-      }
-      await reloadDeletion();
-      setCursor(null);
-      setStack([]);
-      onUpdated?.();
-    } finally {
-      setDelBusy(null);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -334,7 +193,7 @@ export function AdminMemberOpsPanel({
         </p>
       </div>
 
-      <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
+      <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-ops-deletion-readonly="1">
         <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
           {safeT("admin_users_deletion_section_title", {
             fallbackKo: "삭제·탈퇴",
@@ -345,92 +204,26 @@ export function AdminMemberOpsPanel({
           <p className="text-sm text-[#667085]">{t("admin_users_detail_loading")}</p>
         ) : deletion.kind === "error" ? (
           <p className="text-sm font-semibold text-[#b42318]">{deletion.message}</p>
+        ) : deletion.open ? (
+          <div className="rounded-md border border-[#fecdca] bg-[#fef3f2] px-3 py-2 text-[13px] text-[#912018]">
+            <p className="font-semibold">
+              {safeT("admin_users_deletion_open_banner", {
+                fallbackKo: "회원 삭제 요청이 대기 중입니다.",
+                fallbackEn: "Member deletion request is pending.",
+              })}
+            </p>
+            <p className="mt-1 text-[12px]">
+              요청 시각 {deletion.open.requestedAt}
+              {deletion.open.reason ? ` · 사유 ${deletion.open.reason}` : ""}
+            </p>
+            <p className="mt-2 text-[12px]">
+              탈퇴·영구 삭제는 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」에서 정책에 따라 표시되며, 최종 실행은 이후 단계에서 닫습니다.
+            </p>
+          </div>
         ) : (
-          <>
-            {deletion.open ? (
-              <div className="rounded-md border border-[#fecdca] bg-[#fef3f2] px-3 py-2 text-[13px] text-[#912018]">
-                <p className="font-semibold">
-                  {safeT("admin_users_deletion_open_banner", {
-                    fallbackKo: "회원 삭제 요청이 대기 중입니다.",
-                    fallbackEn: "Member deletion request is pending.",
-                  })}
-                </p>
-                <p className="mt-1 font-mono text-[11px]">
-                  requestId={deletion.open.id}
-                  {" · "}
-                  status={deletion.open.status}
-                  {" · "}
-                  requestedAt={deletion.open.requestedAt}
-                </p>
-                {deletion.open.reason ? <p className="mt-1">reason: {deletion.open.reason}</p> : null}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={delBusy !== null}
-                    onClick={() => void rejectDeletionRequest(deletion.open!.id)}
-                    className="rounded-md border border-[#d0d5dd] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#344054] disabled:opacity-50"
-                  >
-                    {safeT("admin_users_deletion_reject", { fallbackKo: "요청 거절", fallbackEn: "Reject request" })}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={delBusy !== null || !canManageMember}
-                    onClick={() => void runMemberDelete("withdraw")}
-                    className="rounded-md border border-[#fecdca] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#b42318] disabled:opacity-50"
-                  >
-                    {safeT("admin_users_lite_withdraw_account", {
-                      fallbackKo: "탈퇴 처리(익명화)",
-                      fallbackEn: "Withdraw (anonymize)",
-                    })}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={delBusy !== null || !canManageMember}
-                    onClick={() => void runMemberDelete("purge")}
-                    className="rounded-md bg-[#b42318] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                  >
-                    {safeT("admin_users_purge_account", {
-                      fallbackKo: "영구 삭제",
-                      fallbackEn: "Permanent delete",
-                    })}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-[#667085]">
-                {safeT("admin_users_deletion_no_open", {
-                  fallbackKo: "대기 중인 회원 삭제 요청이 없습니다. 관리자가 직접 탈퇴·영구삭제를 실행할 수 있습니다.",
-                  fallbackEn: "No pending deletion request. Admin can still withdraw or permanently delete.",
-                })}
-              </p>
-            )}
-            {!deletion.open && canManageMember ? (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={delBusy !== null}
-                  onClick={() => void runMemberDelete("withdraw")}
-                  className="rounded-md border border-[#fecdca] px-3 py-2 text-xs font-semibold text-[#b42318] disabled:opacity-50"
-                >
-                  {safeT("admin_users_lite_withdraw_account", {
-                    fallbackKo: "탈퇴 처리(익명화)",
-                    fallbackEn: "Withdraw (anonymize)",
-                  })}
-                </button>
-                <button
-                  type="button"
-                  disabled={delBusy !== null}
-                  onClick={() => void runMemberDelete("purge")}
-                  className="rounded-md bg-[#b42318] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  {safeT("admin_users_purge_account", {
-                    fallbackKo: "영구 삭제",
-                    fallbackEn: "Permanent delete",
-                  })}
-                </button>
-              </div>
-            ) : null}
-          </>
+          <p className="text-sm text-[#667085]">
+            대기 중인 회원 삭제 요청이 없습니다. 탈퇴·영구 삭제는 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」에서 확인하세요.
+          </p>
         )}
       </div>
 
@@ -438,20 +231,12 @@ export function AdminMemberOpsPanel({
         <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
           {safeT("admin_users_cc_moderation_title", { fallbackKo: "제재", fallbackEn: "Moderation" })}
         </h3>
-        <p className="text-sm font-semibold text-[#101828]">{String(moderationStatus ?? "normal").toUpperCase()}</p>
-        <div className="flex flex-wrap gap-2">
-          {actions.map((action) => (
-            <button
-              key={action}
-              type="button"
-              disabled={modBusy !== null}
-              onClick={() => void runModeration(action)}
-              className="rounded-md border border-[#e4e7ec] px-3 py-2 text-xs font-semibold text-[#344054] disabled:opacity-50"
-            >
-              {language === "en" ? ACTION_LABEL[action].en : ACTION_LABEL[action].ko}
-            </button>
-          ))}
-        </div>
+        <p className="text-sm font-semibold text-[#101828]" data-ops-account-state="1">
+          {memberDetailAccountStateLabelKo(moderationStatus)}
+        </p>
+        <p className="text-[12px] text-[#667085]">
+          제재 실행은 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」 표시와 이후 워크플로에서 처리합니다. 이 탭은 이력 확인용입니다.
+        </p>
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>

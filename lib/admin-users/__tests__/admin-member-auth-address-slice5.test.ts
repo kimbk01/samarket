@@ -30,14 +30,16 @@ describe("admin member auth + address Slice 5", () => {
     expect(src).toMatch(/export async function PATCH/);
   });
 
-  it("master header exposes purge for users managers", () => {
+  it("master header demotes purge; Danger Zone owns destructive visibility (P3)", () => {
     const header = readFileSync(join(process.cwd(), "components/admin/users/AdminMemberMasterHeader.tsx"), "utf8");
-    expect(header).toMatch(/mode:\s*"purge"/);
-    expect(header).toMatch(/canManageMember/);
-    expect(header).not.toMatch(/confirmNickname/);
-    expect(header).not.toMatch(/admin_users_purge_confirm_nickname_prompt/);
-    expect(header).toMatch(/PromoteMemberToAdminSheet/);
-    expect(header).toMatch(/admin_users_action_promote_admin/);
+    expect(header).not.toMatch(/mode:\s*"purge"/);
+    expect(header).not.toMatch(/runPurge/);
+    expect(header).not.toMatch(/PromoteMemberToAdminSheet/);
+    expect(header).toMatch(/resolveMemberDetailActionPolicy/);
+    const danger = readFileSync(join(process.cwd(), "components/admin/users/AdminMemberDangerZone.tsx"), "utf8");
+    expect(danger).toMatch(/data-member-detail-danger-zone/);
+    expect(danger).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KO/);
+    expect(readFileSync(join(process.cwd(), "lib/admin-users/member-detail-presentation.ts"), "utf8")).toMatch(/위험 작업/);
   });
 
   it("create member form shows when requested without adminUserId gate", () => {

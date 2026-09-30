@@ -7,12 +7,9 @@ import {
   formatAdminLiteDate,
   formatAdminLiteDateTime,
   publicIdForDetailUser,
-  statusCategoryForDetailUser,
+  resolveDetailAuthProvider,
 } from "@/components/admin/users/admin-user-lite-display";
-import {
-  adminMembershipRoleFromRow,
-  resolveAdminMemberRoleBadges,
-} from "@/lib/admin-users/member-role-badges";
+import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import type { MemberOverviewAggregates, OverviewMetric } from "@/lib/admin-users/member-overview-aggregates";
 import type { MemberOpsHistoryItem } from "@/lib/admin-users/member-ops-history";
 import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
@@ -22,6 +19,17 @@ import type {
   AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import {
+  MEMBER_DETAIL_STORE_NONE_KO,
+  MEMBER_DETAIL_STORE_OPERATOR_KO,
+  memberDetailAccountStateLabelKo,
+  memberDetailPrivilegeLabelKo,
+  memberDetailSignupOriginLabelKo,
+  memberDetailStoreHref,
+  memberDetailVerificationLabelKo,
+} from "@/lib/admin-users/member-detail-presentation";
+import Link from "next/link";
 
 type OverviewJumpTab = "community" | "trade" | "delivery" | "chat" | "store";
 
@@ -138,11 +146,6 @@ export function AdminMemberOverviewPanel({
     };
   }, [user.id]);
 
-  const statusCategory = statusCategoryForDetailUser(user);
-  const roleBadges = resolveAdminMemberRoleBadges({
-    hasStoreOwnership: stores.length > 0,
-    adminMembershipRole: adminMembershipRoleFromRow(adminMembership?.role),
-  });
   const viewLabel = safeT("admin_users_overview_view", { fallbackKo: "보기", fallbackEn: "View" });
   const fmtTime = (value: string | null) => {
     if (!value) return empty;
@@ -218,7 +221,11 @@ export function AdminMemberOverviewPanel({
             />
             <ActivityLine
               label={t("admin_users_cc_tab_store")}
-              summary={`${metricNum(state.overview.store.owned)}${language === "en" ? "" : "개"}`}
+              summary={
+                stores.length === 0
+                  ? MEMBER_DETAIL_STORE_NONE_KO
+                  : `${MEMBER_DETAIL_STORE_OPERATOR_KO} ${stores.length}곳`
+              }
               onView={() => onOpenTab("store")}
               viewLabel={viewLabel}
             />
@@ -229,20 +236,42 @@ export function AdminMemberOverviewPanel({
       <Panel title={safeT("admin_users_overview_ops_status", { fallbackKo: "운영 상태", fallbackEn: "Operator status" })}>
         <dl>
           <Fact
-            label={t("admin_users_cc_overview_account")}
-            value={t(
-              statusCategory === "active"
-                ? "admin_users_lite_status_active"
-                : statusCategory === "needs_review"
-                  ? "admin_users_lite_status_needs_review"
-                  : statusCategory === "suspended"
-                    ? "admin_users_lite_status_suspended"
-                    : "admin_users_lite_status_deleted",
-            )}
+            label="계정 상태"
+            value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)}
           />
           <Fact
-            label={safeT("admin_users_col_auth", { fallbackKo: "인증", fallbackEn: "Auth" })}
-            value={`${t("admin_users_lite_label_phone_verified")} ${user.phone_verified === true ? t("admin_users_lite_verified_done") : t("admin_users_lite_verified_pending")}`}
+            label="인증"
+            value={memberDetailVerificationLabelKo(user.phone_verified)}
+          />
+          <Fact
+            label={MEMBER_ADMIN_COPY.store_ops}
+            value={
+              stores.length === 0
+                ? MEMBER_DETAIL_STORE_NONE_KO
+                : `${MEMBER_DETAIL_STORE_OPERATOR_KO} · ${stores[0]?.store_name?.trim() || "—"} (#${stores[0]?.id})`
+            }
+          />
+          {stores.length > 0 ? (
+            <div className="py-1.5 text-[13px]">
+              <Link
+                href={memberDetailStoreHref(stores[0].id)}
+                className="font-semibold text-[#2563eb]"
+                data-overview-store-cta="1"
+              >
+                매장 상세 보기
+              </Link>
+            </div>
+          ) : null}
+          <Fact
+            label={MEMBER_ADMIN_COPY.admin_privilege}
+            value={memberDetailPrivilegeLabelKo({
+              hasAdminMembership: Boolean(adminMembership),
+              isSuperAdmin: adminMembershipRoleFromRow(adminMembership?.role) === "super_admin",
+            })}
+          />
+          <Fact
+            label="가입 경로"
+            value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))}
           />
           <Fact
             label={t("admin_users_cc_tab_points")}
@@ -263,24 +292,6 @@ export function AdminMemberOverviewPanel({
                 ? `${state.overview.trust.value.percent}%`
                 : empty
             }
-          />
-          <Fact
-            label={t("admin_users_cc_moderation_title")}
-            value={String(user.moderation_status ?? "normal")}
-          />
-          <Fact
-            label={t("admin_users_lite_role_admin")}
-            value={
-              roleBadges.includes("super_admin")
-                ? t("admin_users_lite_role_super_admin")
-                : roleBadges.includes("admin")
-                  ? t("admin_users_lite_role_admin")
-                  : safeT("admin_users_ops_none", { fallbackKo: "해당 없음", fallbackEn: "N/A" })
-            }
-          />
-          <Fact
-            label={t("admin_users_cc_tab_store")}
-            value={`${stores.filter((s) => String(s.approval_status ?? "").toLowerCase() === "approved").length}`}
           />
         </dl>
         <div className="mt-3 border-t border-[#eaecf0] pt-2">

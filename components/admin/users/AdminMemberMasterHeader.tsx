@@ -1,32 +1,34 @@
 "use client";
 
-import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { adminMemberMessengerHref } from "@/lib/admin-users/admin-member-messenger-link";
 import { memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
 import {
-  memberModerationActionsForStatus,
-  type MemberModerationAction,
-} from "@/lib/admin-users/member-moderation-cta";
-import {
-  adminMembershipRoleFromRow,
-  resolveAdminMemberRoleBadges,
-  type AdminMemberRoleBadge,
-} from "@/lib/admin-users/member-role-badges";
+  MEMBER_DETAIL_ADMIN_BADGE_KO,
+  MEMBER_DETAIL_EDIT_CTA_KO,
+  MEMBER_DETAIL_PASSWORD_CTA_KO,
+  MEMBER_DETAIL_STORE_OPERATOR_KO,
+  MEMBER_DETAIL_SUPER_ADMIN_BADGE_KO,
+  MEMBER_DETAIL_SYSTEM_KEY_KO,
+  memberDetailAccountStateLabelKo,
+  memberDetailPrimaryActions,
+  memberDetailSignupOriginLabelKo,
+  memberDetailVerificationLabelKo,
+  resolveMemberDetailActionPolicy,
+} from "@/lib/admin-users/member-detail-presentation";
+import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { EditMemberForm } from "./EditMemberForm";
-import { PromoteMemberToAdminSheet } from "./PromoteMemberToAdminSheet";
 import {
   displayNameForDetailUser,
   formatAdminLiteDate,
   formatAdminLiteDateTime,
-  memberRoleBadgeClass,
   publicIdForDetailUser,
+  resolveDetailAuthProvider,
   statusBadgeClass,
   statusCategoryForDetailUser,
 } from "./admin-user-lite-display";
@@ -36,28 +38,6 @@ import type {
   AdminUserDetailPayload,
 } from "./AdminTestUserDetail";
 import { ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY } from "@/lib/ui/admin-users-lite-styles";
-
-const ROLE_BADGE_LABEL_KEYS: Record<AdminMemberRoleBadge, MessageKey> = {
-  member: "admin_users_role_badge_member",
-  store_owner: "admin_users_role_badge_store_owner",
-  admin: "admin_users_lite_role_admin",
-  super_admin: "admin_users_lite_role_super_admin",
-};
-
-const STATUS_LABEL_KEYS = {
-  active: "admin_users_lite_status_active",
-  needs_review: "admin_users_lite_status_needs_review",
-  suspended: "admin_users_lite_status_suspended",
-  blocked: "admin_users_lite_status_blocked",
-  deleted: "admin_users_lite_status_deleted",
-} as const;
-
-const MOD_LABEL: Record<MemberModerationAction, { ko: string; en: string }> = {
-  warn: { ko: "경고", en: "Warn" },
-  suspend: { ko: "정지", en: "Suspend" },
-  ban: { ko: "차단", en: "Ban" },
-  restore: { ko: "복원", en: "Restore" },
-};
 
 function toEditUser(user: AdminUserDetailPayload, display: string): AdminUser {
   return {
@@ -90,149 +70,72 @@ export function AdminMemberMasterHeader({
   stores,
   adminMembership,
   onUpdated,
-  onEditPermissions,
+  onOpenAccountTab,
 }: {
   user: AdminUserDetailPayload;
   stores: AdminPersonStoreRow[];
   adminMembership: AdminPersonMembershipRow | null;
   onUpdated?: () => void;
-  onEditPermissions?: () => void;
+  /** P4 owns password workflow; P3 only navigates to existing account tab when supported. */
+  onOpenAccountTab?: () => void;
 }) {
-  const { t, safeT, language } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
-  const { isSuperAdmin, hasPermission } = useAdminMe();
-  const canManageMember = isSuperAdmin || hasPermission("users");
+  const { isSuperAdmin, hasPermission, loading: meLoading, snapshot } = useAdminMe();
   const locale = language === "en" ? "en-US" : "ko-KR";
   const empty = t("admin_users_empty_placeholder");
   const display = displayNameForDetailUser(user);
   const publicId = publicIdForDetailUser(user);
+  const accountStateLabel = memberDetailAccountStateLabelKo(user.moderation_status, user.status);
   const statusCategory = statusCategoryForDetailUser(user);
-  const roleBadges = resolveAdminMemberRoleBadges({
-    hasStoreOwnership: stores.length > 0,
-    adminMembershipRole: adminMembershipRoleFromRow(adminMembership?.role),
-  });
-  const actions = memberModerationActionsForStatus(user.moderation_status);
+  const verificationLabel = memberDetailVerificationLabelKo(user.phone_verified);
+  const hasStore = stores.length > 0;
+  const isAdmin = Boolean(adminMembership);
+  const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
+  const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
+  const signupOrigin = memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email));
   const [showEdit, setShowEdit] = useState(false);
-  const [showManage, setShowManage] = useState(false);
-  const [showPromote, setShowPromote] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
   const phone = formatPhMobileDisplay(user.contact_phone ?? "") || user.contact_phone?.trim() || empty;
-  const isAdmin = Boolean(adminMembership);
 
-  const runModeration = useCallback(
-    async (action: MemberModerationAction) => {
-      const reason = await dibayPrompt({
-        title: safeT("admin_users_cc_moderation_confirm", {
-          fallbackKo: "이 조치를 실행할까요? 사유를 입력하세요.",
-          fallbackEn: "Run this action? Enter a reason.",
-        }),
-        required: true,
-      });
-      if (!reason?.trim()) return;
-      setBusy(true);
-      try {
-        const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/moderation`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action,
-            reason: reason.trim(),
-          }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || data.ok === false) {
-          await dibayAlert({ title: data.error ?? t("admin_users_action_failed") });
-          return;
-        }
-        onUpdated?.();
-      } finally {
-        setBusy(false);
-        setShowManage(false);
-      }
-    },
-    [onUpdated, safeT, t, user.id],
-  );
+  const canManageMember = isSuperAdmin || hasPermission("users");
+  const decisions = useMemo(() => {
+    if (meLoading) return [];
+    return resolveMemberDetailActionPolicy({
+      moderationStatus: user.moderation_status,
+      status: user.status,
+      operator: {
+        canModerate: canManageMember,
+        canEditProfile: canManageMember,
+        canResetPassword: canManageMember,
+        canManagePrivilege: isSuperAdmin,
+        canWithdraw: canManageMember,
+        canPurge: canManageMember,
+        isSelf: Boolean(snapshot?.userId && snapshot.userId === user.id),
+        targetIsSuperAdmin: membershipRole === "super_admin",
+      },
+      hasStoreRelationship: hasStore,
+      passwordResetSupported: true,
+    });
+  }, [
+    meLoading,
+    user.moderation_status,
+    user.status,
+    user.id,
+    canManageMember,
+    isSuperAdmin,
+    hasStore,
+    snapshot?.userId,
+    membershipRole,
+  ]);
 
-  const runWithdraw = useCallback(async () => {
-    if (
-      !(await dibayConfirm({
-        title: safeT("admin_users_lite_delete_confirm", {
-          fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
-          fallbackEn: "Withdraw this member and anonymize their personal data?",
-        }),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/delete`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "withdraw", reason: "admin_withdraw" }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!res.ok || !data.ok) {
-        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
-        return;
-      }
-      window.location.href = "/admin/users";
-    } finally {
-      setBusy(false);
-    }
-  }, [safeT, t, user.id]);
-
-  const runPurge = useCallback(async () => {
-    if (
-      !(await dibayConfirm({
-        title: safeT("admin_users_purge_confirm", {
-          fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
-          fallbackEn: "Permanently delete this member? This cannot be undone.",
-        }),
-        confirmTone: "destructive",
-      }))
-    ) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/delete`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "purge",
-          reason: "admin_permanent_delete",
-        }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        blockers?: string[];
-      };
-      if (!res.ok || !data.ok) {
-        const blockerText =
-          Array.isArray(data.blockers) && data.blockers.length > 0
-            ? `\n${data.blockers.join(", ")}`
-            : "";
-        await dibayAlert({
-          title: `${data.message ?? data.error ?? t("admin_users_action_failed")}${blockerText}`,
-        });
-        return;
-      }
-      window.location.href = "/admin/users";
-    } finally {
-      setBusy(false);
-    }
-  }, [safeT, t, user.id]);
+  const primary = memberDetailPrimaryActions(decisions);
+  const canEdit = Boolean(primary.editProfile?.visible && primary.editProfile.enabled);
+  const canPassword = Boolean(primary.managePassword?.visible && primary.managePassword.enabled);
 
   return (
-    <div className="rounded-lg border border-[#e4e7ec] bg-white px-4 py-3">
+    <div className="rounded-lg border border-[#e4e7ec] bg-white px-4 py-3" data-member-detail-header="1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-lg font-bold text-[#2563eb]">
@@ -241,21 +144,43 @@ export function AdminMemberMasterHeader({
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-bold text-[#101828]">{display}</h1>
-              {publicId ? <span className="text-[13px] font-medium text-[#475467]">{publicId}</span> : null}
-              <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(statusCategory)}`}>
-                {t(STATUS_LABEL_KEYS[statusCategory])}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {roleBadges.map((badge) => (
-                <span
-                  key={badge}
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${memberRoleBadgeClass(badge)}`}
-                >
-                  {t(ROLE_BADGE_LABEL_KEYS[badge])}
+              {publicId ? (
+                <span className="text-[13px] font-medium text-[#475467]" data-member-public-id="1">
+                  {publicId}
                 </span>
-              ))}
+              ) : null}
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(statusCategory === "needs_review" ? "active" : statusCategory)}`}
+                data-member-account-state="1"
+              >
+                {accountStateLabel}
+              </span>
+              <span
+                className="rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2 py-0.5 text-[11px] font-semibold text-[#344054]"
+                data-member-verification="1"
+              >
+                {verificationLabel}
+              </span>
+              {hasStore ? (
+                <span
+                  className="rounded-full border border-[#abefc6] bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-semibold text-[#067647]"
+                  data-member-store-badge="1"
+                >
+                  {MEMBER_DETAIL_STORE_OPERATOR_KO}
+                </span>
+              ) : null}
+              {isAdmin ? (
+                <span
+                  className="rounded-full border border-[#c7d7fe] bg-[#eef4ff] px-2 py-0.5 text-[11px] font-semibold text-[#3538cd]"
+                  data-member-admin-badge="1"
+                >
+                  {isSuper ? MEMBER_DETAIL_SUPER_ADMIN_BADGE_KO : MEMBER_DETAIL_ADMIN_BADGE_KO}
+                </span>
+              ) : null}
             </div>
+            <p className="text-[12px] text-[#667085]" data-member-signup-origin="1">
+              가입 경로 · {signupOrigin}
+            </p>
             <p className="text-[13px] text-[#344054]">
               {t("admin_users_lite_label_phone")} {phone}
               {" · "}
@@ -269,118 +194,63 @@ export function AdminMemberMasterHeader({
               {t("admin_users_col_last_login")} {formatAdminLiteDateTime(user.last_login_at, locale, empty)}
             </p>
             <p className="flex flex-wrap items-center gap-2 text-[11px] text-[#98a2b3]">
-              <span>UUID {user.id}</span>
               <button
                 type="button"
-                className="rounded border border-[#d0d5dd] px-1.5 py-0.5 text-[11px] font-semibold text-[#2563eb]"
-                onClick={() => {
-                  void navigator.clipboard.writeText(user.id).catch(() => {});
-                }}
+                className="rounded border border-[#d0d5dd] px-1.5 py-0.5 text-[11px] font-semibold text-[#475467]"
+                onClick={() => setShowSystemKey((v) => !v)}
               >
-                {t("admin_users_action_copy_uuid")}
+                {MEMBER_DETAIL_SYSTEM_KEY_KO}
               </button>
+              {showSystemKey ? (
+                <>
+                  <span className="font-mono">{user.id}</span>
+                  <button
+                    type="button"
+                    className="rounded border border-[#d0d5dd] px-1.5 py-0.5 text-[11px] font-semibold text-[#2563eb]"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(user.id).catch(() => {});
+                    }}
+                  >
+                    {t("admin_users_action_copy_uuid")}
+                  </button>
+                </>
+              ) : null}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <a href={memberNoteComposeHref(user.id)} className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
+        <div className="flex flex-wrap items-center gap-2" data-member-primary-actions="1">
+          {canEdit ? (
+            <button
+              type="button"
+              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              onClick={() => setShowEdit(true)}
+              data-member-cta="edit"
+            >
+              {MEMBER_DETAIL_EDIT_CTA_KO}
+            </button>
+          ) : null}
+          <a href={memberNoteComposeHref(user.id)} className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY} data-member-cta="note">
             {t("admin_users_cc_cta_send_note")}
           </a>
           <button
             type="button"
             className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
             onClick={() => router.push(adminMemberMessengerHref(user.id))}
+            data-member-cta="messenger"
           >
             {t("admin_users_cc_cta_messenger_view")}
           </button>
-          <button type="button" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY} onClick={() => setShowEdit(true)}>
-            {t("admin_users_lite_action_edit_info")}
-          </button>
-          {canManageMember ? (
-            <button
-              type="button"
-              className="rounded-md border border-[#fecdca] bg-[#fef3f2] px-3 py-1.5 text-[13px] font-semibold text-[#b42318] hover:bg-[#fee4e2]"
-              disabled={busy}
-              onClick={() => void runPurge()}
-            >
-              {safeT("admin_users_purge_account", {
-                fallbackKo: "영구 삭제",
-                fallbackEn: "Permanent delete",
-              })}
-            </button>
-          ) : null}
-          <div className="relative">
+          {canPassword ? (
             <button
               type="button"
               className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
-              disabled={busy}
-              onClick={() => setShowManage((v) => !v)}
+              onClick={() => onOpenAccountTab?.()}
+              data-member-cta="password"
+              title="계정·인증 탭에서 처리합니다"
             >
-              {t("admin_users_lite_detail_actions")} ▾
+              {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>
-            {showManage ? (
-              <div className="absolute right-0 z-30 mt-1 min-w-[160px] rounded-md border border-[#e4e7ec] bg-white py-1 text-[13px] shadow-md">
-                {actions.map((action) => (
-                  <button
-                    key={action}
-                    type="button"
-                    className={`block w-full px-3 py-1.5 text-left hover:bg-[#f9fafb] ${
-                      action === "ban" || action === "suspend" ? "text-[#b42318]" : "text-[#344054]"
-                    }`}
-                    onClick={() => void runModeration(action)}
-                  >
-                    {language === "en" ? MOD_LABEL[action].en : MOD_LABEL[action].ko}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-[#b42318] hover:bg-[#fef3f2]"
-                  onClick={() => void runWithdraw()}
-                >
-                  {safeT("admin_users_lite_withdraw_account", {
-                    fallbackKo: "탈퇴 처리(익명화)",
-                    fallbackEn: "Withdraw (anonymize)",
-                  })}
-                </button>
-                {canManageMember ? (
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-1.5 text-left font-semibold text-[#b42318] hover:bg-[#fef3f2]"
-                    onClick={() => void runPurge()}
-                  >
-                    {safeT("admin_users_purge_account", {
-                      fallbackKo: "영구 삭제",
-                      fallbackEn: "Permanent delete",
-                    })}
-                  </button>
-                ) : null}
-                {!isAdmin && isSuperAdmin ? (
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-1.5 text-left text-[#2563eb] hover:bg-[#eff6ff]"
-                    onClick={() => {
-                      setShowManage(false);
-                      setShowPromote(true);
-                    }}
-                  >
-                    {t("admin_users_action_promote_admin")}
-                  </button>
-                ) : null}
-                {isAdmin && isSuperAdmin && onEditPermissions ? (
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-                    onClick={() => {
-                      setShowManage(false);
-                      onEditPermissions();
-                    }}
-                  >
-                    {safeT("admin_users_cta_edit_permissions", { fallbackKo: "권한 관리", fallbackEn: "Edit permissions" })}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       </div>
       {showEdit ? (
@@ -389,17 +259,6 @@ export function AdminMemberMasterHeader({
           onClose={() => setShowEdit(false)}
           onSuccess={() => {
             setShowEdit(false);
-            onUpdated?.();
-          }}
-        />
-      ) : null}
-      {showPromote ? (
-        <PromoteMemberToAdminSheet
-          userId={user.id}
-          displayName={display}
-          onClose={() => setShowPromote(false)}
-          onSuccess={() => {
-            setShowPromote(false);
             onUpdated?.();
           }}
         />
