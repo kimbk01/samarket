@@ -219,7 +219,7 @@ export function MemberAdminDialog({
               disabled={pending}
               onClick={() => requestClose("x")}
               className={MEMBER_ADMIN_DIALOG_CLOSE_CLASS}
-              style={{ minWidth: closePx, minHeight: closePx, width: closePx, height: closePx }}
+              style={{ minWidth: Math.max(closePx, 48), minHeight: Math.max(closePx, 48), width: Math.max(closePx, 48), height: Math.max(closePx, 48), boxSizing: "border-box" }}
             >
               <span aria-hidden data-member-admin-dialog-close-glyph="1">
                 ×
