@@ -62,6 +62,10 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
     expect(vc).toContain(".instantiateInitialViewController()");
     expect(vc).toContain('action == "dismissSplash"');
     expect(vc).toContain("\\.isLoading");
+    // Normal success release = dismissSplash only; load end releases only when the app never started.
+    expect(vc).toContain("typeof window.next === 'object' && window.next !== null");
+    expect(vc).toContain('removeLaunchContinuation(reason: "main_load_stopped_without_app")');
+    expect(vc).not.toContain('removeLaunchContinuation(reason: "main_load_stopped")');
     for (const forbidden of [
       "asyncAfter",
       "Timer",

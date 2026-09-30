@@ -25,10 +25,13 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
    * (Info.plist UILaunchStoryboardName) instantiated on top of the WebView, so the pixels
    * users see do not change at the LaunchScreen → continuation boundary.
    *
-   * Removed immediately (no fade) on the FIRST of:
-   *  1. web `dismissSplash` (DibayBootBridge) — Community visual-ready, after the next frame;
-   *  2. the first main-document load stopping (`isLoading` → false, success or failure) —
-   *     non-regression guard: never holds longer than today's pre-R17 behaviour.
+   * Release authority (removed immediately, no fade):
+   *  - NORMAL SUCCESS: web `dismissSplash` (DibayBootBridge) ONLY — sent after
+   *    markInitialDestinationVisualReady + next frame. `isLoading` → false is NOT a success
+   *    release: Next hydrates inside startTransition, so load can finish before Community commits.
+   *  - FAILURE (non-regression only): when the first main load stops and the Next app bundle
+   *    never started (`window.next` absent: navigation failure, blank/error document, bundle
+   *    not executed), the continuation is removed so the screen is exactly what it was before R17.
    * No timer, no network/data wait, no Admin fetch, no Intro, no navigation, no animation.
    */
   private var launchContinuation: UIViewController?
@@ -148,8 +151,19 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     guard launchContinuation != nil else { return }
     if loading {
       launchContinuationSawLoading = true
-    } else if launchContinuationSawLoading {
-      removeLaunchContinuation(reason: "main_load_stopped")
+      return
+    }
+    guard launchContinuationSawLoading, let wv = webView else { return }
+    // Load stopped. If the Next app bundle is running, hydration will send dismissSplash:
+    // keep the continuation (success authority = dismissSplash). Otherwise the app never
+    // started (failure) → release so R17 adds no new stuck path.
+    wv.evaluateJavaScript("typeof window.next === 'object' && window.next !== null") { [weak self] result, _ in
+      guard let self = self, self.launchContinuation != nil else { return }
+      if (result as? Bool) == true {
+        NSLog("[DibayRootBridge] launch_continuation_await_dismissSplash (app bundle running)")
+      } else {
+        self.removeLaunchContinuation(reason: "main_load_stopped_without_app")
+      }
     }
   }
 
