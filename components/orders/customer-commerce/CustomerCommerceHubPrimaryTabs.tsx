@@ -21,7 +21,11 @@ const TAB_KEY: Record<
   gifts: "commerce_hub_tab_gifts",
 };
 
-/** Primary hub tabs — URL is source of truth (G1: path-embedded in AppStickyHeader). */
+/**
+ * Primary hub tabs — full-width 3-col tablist only.
+ * Store-owner entry is a separate compact action row (not a 4th tab cell).
+ * URL is source of truth (G1: path-embedded in AppStickyHeader).
+ */
 export function CustomerCommerceHubPrimaryTabs() {
   const { safeT } = useI18n();
   const searchParams = useSearchParams();
@@ -36,42 +40,49 @@ export function CustomerCommerceHubPrimaryTabs() {
         fallbackEn: "Orders & benefits",
       })}
     >
-      <div className="flex min-w-0 items-stretch">
-        <div className="grid min-w-0 flex-1 grid-cols-3 gap-0" role="tablist">
-          {COMMERCE_HUB_TABS.map((id) => {
-            const selected = state.tab === id;
-            const href = canonicalHubHref(id, {
-              giftTab: state.giftTab,
-              couponTab: state.couponTab,
-              from: state.from,
-            });
-            return (
-              <Link
-                key={id}
-                href={href}
-                prefetch={false}
-                role="tab"
-                aria-selected={selected}
-                data-commerce-hub-tab={id}
-                className={`relative flex min-h-[48px] min-w-0 items-center justify-center px-1.5 text-sm font-semibold sm:px-2 ${
-                  selected ? "text-signature" : "text-sam-muted"
-                }`}
-              >
-                {safeT(TAB_KEY[id], {
-                  fallbackKo:
-                    id === "orders" ? "주문 내역" : id === "coupons" ? "쿠폰" : "상품권",
-                  fallbackEn: id === "orders" ? "Orders" : id === "coupons" ? "Coupons" : "Gifts",
-                })}
-                {selected ? (
-                  <span
-                    className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-signature sm:inset-x-2"
-                    aria-hidden
-                  />
-                ) : null}
-              </Link>
-            );
-          })}
-        </div>
+      <div
+        className="grid grid-cols-3 gap-0"
+        role="tablist"
+        data-commerce-hub-tablist="1"
+      >
+        {COMMERCE_HUB_TABS.map((id) => {
+          const selected = state.tab === id;
+          const href = canonicalHubHref(id, {
+            giftTab: state.giftTab,
+            couponTab: state.couponTab,
+            from: state.from,
+          });
+          return (
+            <Link
+              key={id}
+              href={href}
+              prefetch={false}
+              role="tab"
+              aria-selected={selected}
+              data-commerce-hub-tab={id}
+              className={`relative flex min-h-[48px] min-w-0 items-center justify-center px-1.5 text-sm font-semibold sm:px-2 ${
+                selected ? "text-signature" : "text-sam-muted"
+              }`}
+            >
+              {safeT(TAB_KEY[id], {
+                fallbackKo:
+                  id === "orders" ? "주문 내역" : id === "coupons" ? "쿠폰" : "상품권",
+                fallbackEn: id === "orders" ? "Orders" : id === "coupons" ? "Coupons" : "Gifts",
+              })}
+              {selected ? (
+                <span
+                  className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-signature sm:inset-x-2"
+                  aria-hidden
+                />
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
+      <div
+        className="flex justify-end border-t border-sam-border/70 px-2 py-1.5"
+        data-commerce-hub-owner-action-row="1"
+      >
         <CommerceHubStoreOwnerEntryCta />
       </div>
     </nav>

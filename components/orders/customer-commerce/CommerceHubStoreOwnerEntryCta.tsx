@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveMypageHomeStoreOwnerEntry } from "@/lib/mypage/mypage-home-menu-config";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
@@ -15,9 +16,9 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 /**
- * Commerce hub top-chrome trailing owner CTA (Option B).
- * Presentation only — Gate/destination SSOT = resolveMypageHomeStoreOwnerEntry (same as MyPage).
- * Not a content tab; does not participate in ?tab= contract.
+ * Compact store-owner action — independent of content tab geometry.
+ * Gate/destination SSOT = resolveMypageHomeStoreOwnerEntry (same as MyPage).
+ * Not a content tab; does not participate in ?tab= or tab width distribution.
  */
 export function CommerceHubStoreOwnerEntryCta() {
   const { safeT } = useI18n();
@@ -66,14 +67,16 @@ export function CommerceHubStoreOwnerEntryCta() {
       href={ownerEntry.href}
       prefetch={false}
       title={title}
-      className="relative flex max-w-[6.75rem] shrink-0 items-center justify-center self-stretch border-l border-sam-border px-2 text-center text-[11px] font-semibold leading-tight text-signature sm:max-w-[8.5rem] sm:px-2.5 sm:text-xs"
+      aria-label={title}
+      className="inline-flex max-w-full items-center gap-0.5 truncate text-[12px] font-medium text-signature hover:underline"
       data-commerce-hub-owner-cta="1"
       data-commerce-hub-seller-cta="1"
       data-commerce-hub-seller-gate={derived.gate?.kind ?? "empty"}
       data-commerce-hub-seller-href={ownerEntry.href}
       onClick={isApproved ? prepareStoreEnterNavigation : undefined}
     >
-      <span className="line-clamp-2 break-keep">{title}</span>
+      <span className="truncate break-keep">{title}</span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
     </Link>
   );
 }

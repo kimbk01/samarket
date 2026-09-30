@@ -38,22 +38,46 @@ describe("delivery benefit acquisition boundary + activity hub", () => {
     expect(tabs).toContain("CommerceHubStoreOwnerEntryCta");
   });
 
-  it("Option B: trailing owner CTA in tab chrome; no 4th content tab; no bottom seller card", () => {
+  it("Option B visual: 3 equal tabs + independent store action (not 4th tab cell)", () => {
     const tabs = source("components/orders/customer-commerce/CustomerCommerceHubPrimaryTabs.tsx");
     const body = source("components/orders/customer-commerce/CustomerCommerceHubBody.tsx");
     const cta = source("components/orders/customer-commerce/CommerceHubStoreOwnerEntryCta.tsx");
     const nav = source("lib/delivery/customer/commerce-hub-nav.ts");
 
     expect(COMMERCE_HUB_TABS).toEqual(["orders", "coupons", "gifts"]);
+    expect(COMMERCE_HUB_TABS).toHaveLength(3);
     expect(nav).not.toMatch(/["']store["']/);
     expect(tabs).not.toMatch(/tab=store|CommerceHubTab.*store/);
+    expect(tabs).toContain('data-commerce-hub-tablist="1"');
+    expect(tabs).toContain("data-commerce-hub-tab={id}");
+    expect(tabs).toContain("grid-cols-3");
+    expect(tabs).toContain('data-commerce-hub-owner-action-row="1"');
     expect(tabs).toContain("CommerceHubStoreOwnerEntryCta");
+    // CTA must not share tab flex/width geometry (4th-tab FAIL pattern)
+    expect(tabs).not.toMatch(/flex min-w-0 items-stretch/);
+    expect(tabs).not.toMatch(/border-l border-sam-border/);
     expect(body).not.toContain("CommerceHubSellerTransitionSection");
     expect(body).not.toContain("data-commerce-hub-seller-section");
     expect(cta).toContain("resolveMypageHomeStoreOwnerEntry");
     expect(cta).toContain('data-commerce-hub-owner-cta="1"');
+    expect(cta).toContain("ChevronRight");
+    expect(cta).not.toMatch(/role=["']tab["']/);
+    expect(cta).not.toMatch(/self-stretch/);
+    expect(cta).not.toMatch(/border-l/);
     expect(cta).not.toMatch(/function resolveActivityStoreEntry/);
     expect(cta).not.toMatch(/if\s*\(\s*(storeId|firstId|sid)\s*\)/);
+  });
+
+  it("structural IA: tablist owns only content tabs; store CTA is sibling action row", () => {
+    const tabs = source("components/orders/customer-commerce/CustomerCommerceHubPrimaryTabs.tsx");
+    const tablistStart = tabs.indexOf('role="tablist"');
+    const actionRowStart = tabs.indexOf('data-commerce-hub-owner-action-row="1"');
+    expect(tablistStart).toBeGreaterThan(-1);
+    expect(actionRowStart).toBeGreaterThan(tablistStart);
+    const tablistChunk = tabs.slice(tablistStart, actionRowStart);
+    expect(tablistChunk).toContain("COMMERCE_HUB_TABS.map");
+    expect(tablistChunk).not.toContain("CommerceHubStoreOwnerEntryCta");
+    expect(tabs.slice(actionRowStart)).toContain("CommerceHubStoreOwnerEntryCta");
   });
 
   it("gift purchase CTA remains on gifts wallet only among activity/store detail", () => {
