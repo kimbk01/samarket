@@ -31,13 +31,13 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
     );
   });
 
-  it("M3–M7 selection + current-page select-all + bulk count", () => {
+  it("M3–M7 R2 list has no bulk selection surface (policy helpers remain)", () => {
+    // R2 operator console: row → Detail only; no list multi-select / bulk bar.
     const table = read("components/admin/users/AdminUserTable.tsx");
-    expect(table).toContain("useAdminManagementSelection");
     expect(table).toContain("queryScopeKey");
-    expect(table).toContain("AdminManagementSelectionCheckbox");
-    expect(table).toContain("AdminManagementBulkBar");
-    expect(table).toMatch(/현재 페이지|current page/);
+    expect(table).not.toContain("useAdminManagementSelection");
+    expect(table).not.toContain("AdminManagementSelectionCheckbox");
+    expect(table).not.toContain("AdminManagementBulkBar");
     expect(selectionHeaderState(new Set(["a"]), ["a", "b"])).toBe("some");
     expect(shouldClearSelectionOnQueryChange("p1", "p2")).toBe(true);
   });
@@ -48,9 +48,10 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
     expect(listVisibleBulkActions(MEMBER_ENTITY_ACTION_POLICY)).toEqual([]);
     expect(isBulkActionAllowed(MEMBER_ENTITY_ACTION_POLICY, "hard_delete")).toBe(false);
     const table = read("components/admin/users/AdminUserTable.tsx");
-    expect(table).toContain("MEMBER_ENTITY_ACTION_POLICY");
-    expect(table).toContain("emptyActionsHint");
+    // R2: no bulk wipe UI wired on the list table.
+    expect(table).not.toContain("MEMBER_ENTITY_ACTION_POLICY");
     expect(table).not.toMatch(/bulk-delete|bulkDelete|hardDeleteAvailable:\s*true/);
+    expect(table).not.toContain("/api/admin/users/bulk");
   });
 
   it("M10 deletion request queue remains separate from list bulk", () => {

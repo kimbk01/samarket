@@ -21,9 +21,10 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
 
   it("Member list presents SYSTEM privilege as orthogonal admin filter/column (not COMMON type tab)", () => {
     const page = read("components/admin/users/AdminUserListPage.tsx");
-    // P2 removed exclusive Staff tab; admin privilege is a filter chip + table column.
-    expect(page).toContain('roleFilter');
-    expect(page).toMatch(/roleFilter === "admin"|setRoleFilter\("admin"\)/);
+    // R2: privilege is an independent axis filter (not roleFilter / Staff tab).
+    expect(page).toContain("privilegeFilter");
+    expect(page).toMatch(/setPrivilegeFilter|activePrivilege/);
+    expect(page).not.toContain("roleFilter");
     expect(page).not.toContain('tab === "admin"');
     expect(page).not.toContain("admin_users_staff_page_title");
     const table = read("components/admin/users/AdminUserTable.tsx");

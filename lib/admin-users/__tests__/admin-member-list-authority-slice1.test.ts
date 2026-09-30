@@ -15,7 +15,10 @@ describe("admin member list Slice 1 authority", () => {
 
   it("maps additive badges instead of exclusive admin>store>member overwrite", () => {
     expect(listSrc).toMatch(/resolveAdminMemberRoleBadges/);
-    expect(listSrc).toMatch(/adminMemberRelationFilterPlan/);
+    // R2: collapsed relation filter removed — orthogonal store + privilege plans.
+    expect(listSrc).toMatch(/adminMemberPrivilegeFilterPlan/);
+    expect(listSrc).toMatch(/adminMemberStoreFilterPlan/);
+    expect(listSrc).not.toMatch(/adminMemberRelationFilterPlan/);
     expect(listSrc).not.toMatch(/if \(opts\?\.hasAdminMembership === true\)/);
     expect(listSrc).not.toMatch(/resolveAdminAccountCategory/);
   });
