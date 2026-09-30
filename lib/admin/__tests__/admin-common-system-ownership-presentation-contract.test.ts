@@ -19,11 +19,20 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
     expect(menu).toContain('"audit-logs": "admin_menu_dev_audit"');
   });
 
-  it("Staff tab surfaces SYSTEM privilege copy (not COMMON member identity)", () => {
+  it("Member list presents SYSTEM privilege as orthogonal admin filter/column (not COMMON type tab)", () => {
     const page = read("components/admin/users/AdminUserListPage.tsx");
-    expect(page).toContain("admin_users_staff_page_title");
-    expect(page).toContain("admin_users_staff_privilege_banner");
-    expect(page).toContain('tab === "admin"');
+    // P2 removed exclusive Staff tab; admin privilege is a filter chip + table column.
+    expect(page).toContain('roleFilter');
+    expect(page).toMatch(/roleFilter === "admin"|setRoleFilter\("admin"\)/);
+    expect(page).not.toContain('tab === "admin"');
+    expect(page).not.toContain("admin_users_staff_page_title");
+    const table = read("components/admin/users/AdminUserTable.tsx");
+    expect(table).toContain("관리 권한");
+    expect(table).toContain("memberListPrivilegeLabelKo");
+    // Catalog still keeps staff ownership keys for other surfaces.
+    const catalog = read("lib/i18n/catalog/admin.ts");
+    expect(catalog).toContain("admin_users_staff_page_title");
+    expect(catalog).toContain("admin_users_staff_privilege_banner");
   });
 
   it("Global audit page states audit_logs is not every Domain ledger", () => {

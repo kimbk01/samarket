@@ -16,7 +16,9 @@ describe("admin member Control Center route Slice 3", () => {
 
   it("list opens the Control Center route and does not mount the detail modal", () => {
     const src = readFileSync(join(process.cwd(), "components/admin/users/AdminUserListPage.tsx"), "utf8");
-    expect(src).toMatch(/router\.push\(`\/admin\/users\/\$\{encodeURIComponent\(id\)\}`\)/);
+    // P2: canonical detail href via memberListDetailHref (not inline template / modal).
+    expect(src).toMatch(/memberListDetailHref/);
+    expect(src).toMatch(/router\.push\(memberListDetailHref\(id\)\)/);
     expect(src).not.toMatch(/AdminUserDetailModal/);
     expect(src).not.toMatch(/params\.set\("detail"/);
   });
