@@ -1545,8 +1545,6 @@ public class MainActivity extends BridgeActivity {
     handoffCoverShown = false;
     handoffCoverRemoved = false;
     handoffPendingRemoteUrl = null;
-    compositorFirstProductFrame = false;
-    compositorSkippedNoOwnerEnvelope = false;
     homePresentationReady = false;
   }
 
