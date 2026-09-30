@@ -16,7 +16,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { OVERLAY_Z_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
   MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX,
@@ -169,9 +169,10 @@ export function MemberAdminDialog({
 
   return createPortal(
     <div
-      className={`${OverlayUi.root} dibay-overlay-root--center`}
+      className={`${OverlayUi.root} dibay-overlay-root--center ${OVERLAY_Z_CLASS.dialog}`}
       role="presentation"
       data-member-admin-dialog="1"
+      data-member-admin-dialog-z="dialog"
       data-tone={tone}
       data-size={size}
       data-pending={pending ? "1" : "0"}

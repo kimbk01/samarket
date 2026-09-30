@@ -1,3 +1,4 @@
+import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -281,3 +282,16 @@ describe("R1 Dialog behavior preservation smoke", () => {
     ).toBe("confirm_dirty");
   });
 });
+
+describe("R1 MemberAdminDialog stacking", () => {
+  it("uses overlay dialog z-index above admin shell sticky header (z-40)", async () => {
+    const src = await import("node:fs").then((fs) =>
+      fs.readFileSync("components/admin/users/MemberAdminDialog.tsx", "utf8"),
+    );
+    expect(src).toContain("OVERLAY_Z_CLASS.dialog");
+    expect(src).toContain('data-member-admin-dialog-z="dialog"');
+    // z-[1300] is MAIN_BOTTOM_NAV_SHEET_Z_CLASS — above admin shell z-40/z-45
+    expect(OVERLAY_Z_CLASS.dialog).toMatch(/z-\[/);
+  });
+});
+
