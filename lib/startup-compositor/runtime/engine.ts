@@ -9,6 +9,15 @@
 
 import { STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE } from "@/lib/startup-compositor/runtime/activation";
 import type { CompositorSurfacePhase } from "@/lib/startup-compositor/runtime/events";
+import {
+  advanceSystemStartReadiness,
+  createSystemStartPhaseState,
+  mayClaimOwnerVisible,
+  type SystemStartPhaseState,
+  type SystemStartReadiness,
+} from "@/lib/startup-compositor/system-start/phase";
+import type { SystemStartRenderModel } from "@/lib/startup-compositor/system-start/render-model";
+import { SystemStartMinVisibleGate } from "@/lib/startup-compositor/system-start/timing";
 
 export type EngineActionResult =
   | { readonly ok: true; readonly phase: CompositorSurfacePhase }
@@ -26,6 +35,10 @@ export class StartupCompositorEngine {
   private handoffComplete = false;
   private destroyed = false;
   private generationRef: string | null = null;
+  /** PHASE = SYSTEM_START bind (semantic/render only; not Owner-visible). */
+  private systemStartModel: SystemStartRenderModel | null = null;
+  private systemStartPhase: SystemStartPhaseState = createSystemStartPhaseState();
+  private minVisibleGate: SystemStartMinVisibleGate | null = null;
 
   private constructor(rootId: string) {
     this.rootId = rootId;
@@ -74,6 +87,80 @@ export class StartupCompositorEngine {
 
   getGenerationReference(): string | null {
     return this.generationRef;
+  }
+
+  /**
+   * Bind SYSTEM_START phase render model into the ONE compositor engine.
+   * Does not activate Production presentation or attach a second surface.
+   */
+  bindSystemStartRenderModel(model: SystemStartRenderModel): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    if (this.phase === "DONE") {
+      return { ok: false, reason: "late_event_after_done", phase: this.phase };
+    }
+    if (model.phase !== "SYSTEM_START" || !model.ssRenderReady) {
+      return { ok: false, reason: "system_start_model_invalid", phase: this.phase };
+    }
+    this.systemStartModel = model;
+    this.bindGenerationReference(model.generationId);
+    this.minVisibleGate = new SystemStartMinVisibleGate(model.minVisibleMs, () => Date.now());
+    let st = createSystemStartPhaseState();
+    const ir = advanceSystemStartReadiness(st, "SS_IR_READY", model.generationId);
+    if (!ir.ok) return { ok: false, reason: ir.reason, phase: this.phase };
+    st = ir.value;
+    const rr = advanceSystemStartReadiness(st, "SS_RENDER_READY", model.generationId);
+    if (!rr.ok) return { ok: false, reason: rr.reason, phase: this.phase };
+    this.systemStartPhase = rr.value;
+    return { ok: true, phase: this.phase };
+  }
+
+  getSystemStartRenderModel(): SystemStartRenderModel | null {
+    return this.systemStartModel;
+  }
+
+  getSystemStartPhaseState(): SystemStartPhaseState {
+    return this.systemStartPhase;
+  }
+
+  getMinVisibleGate(): SystemStartMinVisibleGate | null {
+    return this.minVisibleGate;
+  }
+
+  /**
+   * Test-only / future host: advance SS readiness. OWNER_VISIBLE blocked unless
+   * production active OR explicit test harness (P3 Production = false).
+   */
+  advanceSystemStartReadiness(
+    next: SystemStartReadiness,
+    opts?: { readonly testHarnessAllowOwnerVisibleSemantic?: boolean },
+  ): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    if (next === "SS_OWNER_VISIBLE") {
+      const allow = mayClaimOwnerVisible({
+        productionPresentationActive: STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE,
+        testHarnessAllowOwnerVisibleSemantic:
+          opts?.testHarnessAllowOwnerVisibleSemantic === true,
+      });
+      if (!allow) {
+        return {
+          ok: false,
+          reason: "owner_visible_forbidden_while_production_inactive",
+          phase: this.phase,
+        };
+      }
+    }
+    const r = advanceSystemStartReadiness(
+      this.systemStartPhase,
+      next,
+      this.systemStartPhase.generationId,
+    );
+    if (!r.ok) return { ok: false, reason: r.reason, phase: this.phase };
+    this.systemStartPhase = r.value;
+    return { ok: true, phase: this.phase };
   }
 
   attach(): EngineActionResult {
@@ -216,6 +303,9 @@ export class StartupCompositorEngine {
       return { ok: true, phase: "DESTROYED" };
     }
     this.attached = false;
+    this.systemStartModel = null;
+    this.systemStartPhase = createSystemStartPhaseState();
+    this.minVisibleGate = null;
     this.destroyed = true;
     this.phase = "DESTROYED";
     instances.delete(this.rootId);

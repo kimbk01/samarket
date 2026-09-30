@@ -1,6 +1,6 @@
 /**
- * REBUILD 14 — Startup Compositor shared contract authority (P1) + runtime skeleton (P2).
- * P2: engine + thin hosts structurally present; PRODUCTION presentation = inactive.
+ * REBUILD 14 — Startup Compositor (P1 contracts + P2 skeleton + P3 System Start render).
+ * PRODUCTION presentation = inactive until P7.
  */
 
 export {
@@ -121,3 +121,50 @@ export {
   StartupCompositorEngine,
   type EngineActionResult,
 } from "@/lib/startup-compositor/runtime/engine";
+
+export {
+  BRAND_SIZE_NORM,
+  brandSizeNormForPreset,
+  computeBrandNormalizedRect,
+  SYSTEM_START_COMPOSITION,
+  type NormalizedBrandRect,
+} from "@/lib/startup-compositor/system-start/brand-geometry";
+
+export {
+  resolveActiveGenerationMedia,
+  assertSameGenerationMedia,
+  type MediaAvailabilityEntry,
+  type MediaResolveResult,
+  type ResolvedMediaRef,
+} from "@/lib/startup-compositor/system-start/media";
+
+export {
+  SYSTEM_START_BACKGROUND_IMAGE_FIT,
+  type SystemStartBackgroundDraw,
+  type SystemStartBackgroundImageFit,
+  type SystemStartBrandDraw,
+  type SystemStartRenderModel,
+} from "@/lib/startup-compositor/system-start/render-model";
+
+export {
+  buildSystemStartRenderModel,
+  systemStartRenderSemanticsKey,
+  type BackgroundImageFailurePolicy,
+  type BuildSystemStartRenderInput,
+  type BuildSystemStartRenderResult,
+} from "@/lib/startup-compositor/system-start/render";
+
+export {
+  SYSTEM_START_PHASE,
+  advanceSystemStartReadiness,
+  createSystemStartPhaseState,
+  mayClaimOwnerVisible,
+  type SystemStartPhaseState,
+  type SystemStartReadiness,
+} from "@/lib/startup-compositor/system-start/phase";
+
+export {
+  SystemStartMinVisibleGate,
+  type Clock,
+  type SystemStartMinVisibleState,
+} from "@/lib/startup-compositor/system-start/timing";
