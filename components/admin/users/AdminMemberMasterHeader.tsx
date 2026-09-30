@@ -38,7 +38,11 @@ import type {
   AdminPersonStoreRow,
   AdminUserDetailPayload,
 } from "./AdminTestUserDetail";
-import { ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY } from "@/lib/ui/admin-users-lite-styles";
+import {
+  ADMIN_USERS_LITE_BTN_PRIMARY,
+  ADMIN_USERS_LITE_BTN_SECONDARY,
+  ADMIN_USERS_LITE_BTN_TERTIARY,
+} from "@/lib/ui/admin-users-lite-styles";
 
 function toEditUser(user: AdminUserDetailPayload, display: string): AdminUser {
   return {
@@ -242,30 +246,33 @@ export function AdminMemberMasterHeader({
           {canEdit ? (
             <button
               type="button"
-              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              className={ADMIN_USERS_LITE_BTN_PRIMARY}
               onClick={() => setShowEdit(true)}
               data-member-cta="edit"
+              data-member-cta-variant="primary"
             >
               {MEMBER_DETAIL_EDIT_CTA_KO}
             </button>
           ) : null}
-          <a href={memberNoteComposeHref(user.id)} className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY} data-member-cta="note">
+          <a href={memberNoteComposeHref(user.id)} className={ADMIN_USERS_LITE_BTN_TERTIARY} data-member-cta="note" data-member-cta-variant="tertiary">
             {t("admin_users_cc_cta_send_note")}
           </a>
           <button
             type="button"
-            className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+            className={ADMIN_USERS_LITE_BTN_SECONDARY}
             onClick={() => router.push(adminMemberMessengerHref(user.id))}
             data-member-cta="messenger"
+            data-member-cta-variant="secondary"
           >
             {t("admin_users_cc_cta_messenger_view")}
           </button>
           {canPassword ? (
             <button
               type="button"
-              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              className={ADMIN_USERS_LITE_BTN_SECONDARY}
               onClick={() => setShowPassword(true)}
               data-member-cta="password"
+              data-member-cta-variant="secondary"
             >
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>

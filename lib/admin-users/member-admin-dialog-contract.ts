@@ -4,6 +4,14 @@
  */
 
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import {
+  MEMBER_ADMIN_DIALOG_SIZE_BY_WORKFLOW,
+  MEMBER_ADMIN_DIALOG_SIZE_CLASS,
+  type MemberAdminDialogSize,
+} from "@/lib/admin-users/member-admin-visual-ssot";
+
+export type { MemberAdminDialogSize };
+export { MEMBER_ADMIN_DIALOG_SIZE_BY_WORKFLOW, MEMBER_ADMIN_DIALOG_SIZE_CLASS };
 
 export const MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX = 44 as const;
 
@@ -107,4 +115,29 @@ export function resolveMemberAdminAfterMutation(outcome: MemberAdminMutationOutc
 
 export function memberAdminCloseHitTargetOk(widthPx: number, heightPx: number): boolean {
   return widthPx >= MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX && heightPx >= MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX;
+}
+
+
+/** Structural close-button discoverability checks (source/runtime attributes). */
+export type MemberAdminCloseDiscoverabilityInput = {
+  hitWidthPx: number;
+  hitHeightPx: number;
+  hasAriaLabel: boolean;
+  hasVisibleGlyph: boolean;
+  disabledWhenPending: boolean;
+  topRightExpected: boolean;
+};
+
+export function resolveMemberAdminCloseDiscoverability(
+  input: MemberAdminCloseDiscoverabilityInput,
+): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (!memberAdminCloseHitTargetOk(input.hitWidthPx, input.hitHeightPx)) {
+    reasons.push("hit_target_lt_44");
+  }
+  if (!input.hasAriaLabel) reasons.push("missing_aria_label");
+  if (!input.hasVisibleGlyph) reasons.push("missing_visible_glyph");
+  if (!input.disabledWhenPending) reasons.push("pending_not_disabled");
+  if (!input.topRightExpected) reasons.push("not_top_right");
+  return { ok: reasons.length === 0, reasons };
 }

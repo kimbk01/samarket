@@ -1,0 +1,28 @@
+/**
+ * R1 Member Admin Dialog size / close discoverability.
+ * Overrides global `.dibay-overlay-dialog` max-width: 320px for member workflows only.
+ */
+
+[data-member-admin-dialog-panel="1"].member-admin-dialog--size-small {
+  max-width: min(100%, 28rem);
+}
+
+[data-member-admin-dialog-panel="1"].member-admin-dialog--size-standard {
+  max-width: min(100%, 32rem);
+}
+
+[data-member-admin-dialog-panel="1"].member-admin-dialog--size-large {
+  max-width: min(100%, 36rem);
+}
+
+.member-admin-dialog-close {
+  color: var(--sam-fg, #101828);
+  background: var(--sam-surface-muted, #f2f4f7);
+  border-color: var(--sam-border, #d0d5dd);
+}
+
+.member-admin-dialog-close span {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: 600;
+}

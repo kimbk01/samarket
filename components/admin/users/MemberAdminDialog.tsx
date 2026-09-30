@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Member Admin Dialog SSOT (P1).
- * Header(title/description/X≥44) · Body · Footer(Cancel + Primary/Danger).
+ * Member Admin Dialog SSOT (P1 behavior + R1 visual).
+ * Header(title/description/X≥44 discoverable) · Body · Footer(Cancel + Primary/Danger).
  * Dirty close / danger backdrop / pending / failure retention / success focus return.
  */
 
@@ -28,6 +28,15 @@ import {
   type MemberAdminCloseIntent,
   type MemberAdminDialogTone,
 } from "@/lib/admin-users/member-admin-dialog-contract";
+import {
+  MEMBER_ADMIN_DIALOG_BODY_CLASS,
+  MEMBER_ADMIN_DIALOG_CLOSE_CLASS,
+  MEMBER_ADMIN_DIALOG_FOOTER_CLASS,
+  MEMBER_ADMIN_DIALOG_HEADER_CLASS,
+  MEMBER_ADMIN_DIALOG_SIZE_CLASS,
+  MEMBER_ADMIN_TYPOGRAPHY_CLASS,
+  type MemberAdminDialogSize,
+} from "@/lib/admin-users/member-admin-visual-ssot";
 
 export type MemberAdminDialogProps = {
   open: boolean;
@@ -35,6 +44,8 @@ export type MemberAdminDialogProps = {
   description?: string;
   children?: ReactNode;
   tone?: MemberAdminDialogTone;
+  /** Canonical size — do not invent per-screen widths. */
+  size?: MemberAdminDialogSize;
   /** Form/body has unsaved edits. */
   dirty?: boolean;
   /** Mutation in flight — blocks close + double submit. */
@@ -56,6 +67,7 @@ export function MemberAdminDialog({
   description,
   children,
   tone = "default",
+  size = "standard",
   dirty = false,
   pending = false,
   errorText = null,
@@ -153,6 +165,7 @@ export function MemberAdminDialog({
 
   const dirtyCopy = memberAdminDirtyCloseCopy();
   const closePx = MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX;
+  const sizeClass = MEMBER_ADMIN_DIALOG_SIZE_CLASS[size];
 
   return createPortal(
     <div
@@ -160,6 +173,7 @@ export function MemberAdminDialog({
       role="presentation"
       data-member-admin-dialog="1"
       data-tone={tone}
+      data-size={size}
       data-pending={pending ? "1" : "0"}
       data-dirty={dirty ? "1" : "0"}
     >
@@ -174,24 +188,25 @@ export function MemberAdminDialog({
       ) : (
         <div className={OverlayUi.backdrop} aria-hidden data-member-admin-dialog-backdrop="blocked" />
       )}
-      <div className="relative z-[1] flex w-full max-w-full items-center justify-center">
+      <div className="relative z-[1] flex w-full max-w-full items-center justify-center px-3">
         <div
-          className={OverlayUi.dialogPanel}
+          className={`${OverlayUi.dialogPanel} ${sizeClass}`}
           data-dibay-dialog-panel="1"
           data-member-admin-dialog-panel="1"
+          data-size={size}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={description || errorText ? bodyId : undefined}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative flex items-start gap-2 pr-1">
+          <div className={MEMBER_ADMIN_DIALOG_HEADER_CLASS} data-member-admin-dialog-header="1">
             <div className="min-w-0 flex-1">
-              <h2 id={titleId} className={OverlayUi.title}>
+              <h2 id={titleId} className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.SECTION_TITLE}>
                 {title}
               </h2>
               {description ? (
-                <p id={bodyId} className={OverlayUi.body}>
+                <p id={bodyId} className={`${MEMBER_ADMIN_TYPOGRAPHY_CLASS.HELP_TEXT} mt-1`}>
                   {description}
                 </p>
               ) : null}
@@ -200,32 +215,37 @@ export function MemberAdminDialog({
               type="button"
               data-member-admin-dialog-close="1"
               aria-label="닫기"
+              title="닫기"
               disabled={pending}
               onClick={() => requestClose("x")}
-              className="inline-flex shrink-0 items-center justify-center rounded-ui-rect text-[color:var(--overlay-fg)] disabled:opacity-40"
+              className={MEMBER_ADMIN_DIALOG_CLOSE_CLASS}
               style={{ minWidth: closePx, minHeight: closePx, width: closePx, height: closePx }}
             >
-              <span aria-hidden className="text-xl leading-none">
+              <span aria-hidden data-member-admin-dialog-close-glyph="1">
                 ×
               </span>
             </button>
           </div>
 
-          <div ref={firstFieldRef} className={`${OverlayUi.dialogScroll} mt-2`} data-member-admin-dialog-body="1">
+          <div
+            ref={firstFieldRef}
+            className={`${OverlayUi.dialogScroll} ${MEMBER_ADMIN_DIALOG_BODY_CLASS}`}
+            data-member-admin-dialog-body="1"
+          >
             {children}
             {errorText ? (
               <p
                 id={errorId}
                 role="alert"
                 data-member-admin-dialog-error="1"
-                className="mt-3 text-sm text-[color:var(--overlay-danger,#E53935)]"
+                className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.ERROR_TEXT}
               >
                 {errorText}
               </p>
             ) : null}
           </div>
 
-          <div className={`${OverlayUi.actionsRow} mt-4`} data-member-admin-dialog-footer="1">
+          <div className={MEMBER_ADMIN_DIALOG_FOOTER_CLASS} data-member-admin-dialog-footer="1">
             <DibayOverlayButton
               roleTone="secondary"
               disabled={mutationUi.cancelDisabled}
@@ -257,17 +277,19 @@ export function MemberAdminDialog({
           role="presentation"
         >
           <div
-            className={OverlayUi.dialogPanel}
+            className={`${OverlayUi.dialogPanel} ${MEMBER_ADMIN_DIALOG_SIZE_CLASS.small}`}
+            data-member-admin-dialog-panel="1"
+            data-size="small"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={`${titleId}-dirty`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id={`${titleId}-dirty`} className={OverlayUi.title}>
+            <h2 id={`${titleId}-dirty`} className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.SECTION_TITLE}>
               {dirtyCopy.title}
             </h2>
-            <p className={OverlayUi.body}>{dirtyCopy.description}</p>
-            <div className={`${OverlayUi.actionsRow} mt-4`}>
+            <p className={`${MEMBER_ADMIN_TYPOGRAPHY_CLASS.HELP_TEXT} mt-2`}>{dirtyCopy.description}</p>
+            <div className={MEMBER_ADMIN_DIALOG_FOOTER_CLASS}>
               <DibayOverlayButton
                 roleTone="secondary"
                 data-member-admin-dirty-stay="1"

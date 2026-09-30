@@ -9,8 +9,10 @@ import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
-  ADMIN_USERS_LITE_BTN_OUTLINE_DANGER,
-  ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
+  ADMIN_USERS_LITE_BTN_DANGER,
+  ADMIN_USERS_LITE_BTN_PRIMARY,
+  ADMIN_USERS_LITE_BTN_SECONDARY,
+  ADMIN_USERS_LITE_BTN_TERTIARY,
   ADMIN_USERS_LITE_CARD,
   ADMIN_USERS_LITE_PAGE_BG,
 } from "@/lib/ui/admin-users-lite-styles";
@@ -438,16 +440,18 @@ export function AdminUserListPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/admin/users/deletion-requests"
-            className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+            className={ADMIN_USERS_LITE_BTN_TERTIARY}
             data-member-list-deletion-entry="1"
+            data-member-cta-variant="tertiary"
           >
             {MEMBER_LIST_DELETION_REQUESTS_KO}
             {deletionOpenCount != null && deletionOpenCount > 0 ? ` ${deletionOpenCount}` : ""}
           </Link>
           <Link
             href="/admin/users/ops-history"
-            className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+            className={ADMIN_USERS_LITE_BTN_SECONDARY}
             data-member-list-ops-entry="1"
+            data-member-cta-variant="secondary"
           >
             {MEMBER_LIST_OPS_HISTORY_KO}
           </Link>
@@ -455,8 +459,9 @@ export function AdminUserListPage() {
             <button
               type="button"
               onClick={() => setShowCreateMember(true)}
-              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              className={ADMIN_USERS_LITE_BTN_PRIMARY}
               data-member-list-register-cta="1"
+              data-member-cta-variant="primary"
             >
               + {MEMBER_ADMIN_COPY.member_register}
             </button>
@@ -466,7 +471,7 @@ export function AdminUserListPage() {
               type="button"
               onClick={handleCleanup}
               disabled={cleanupLoading}
-              className={`${ADMIN_USERS_LITE_BTN_OUTLINE_DANGER} disabled:opacity-50`}
+              className={`${ADMIN_USERS_LITE_BTN_DANGER} disabled:opacity-50`}
             >
               {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
             </button>

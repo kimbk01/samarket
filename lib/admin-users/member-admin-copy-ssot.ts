@@ -56,6 +56,7 @@ export const MEMBER_ADMIN_FORBIDDEN_OPERATOR_TERMS = [
   "ADMIN_MANUAL",
   "STORE_OWNER",
   "profiles",
+  "profiles에 반영",
   "auth.users",
   "RPC",
   "RLS",
@@ -69,6 +70,17 @@ export const MEMBER_ADMIN_FORBIDDEN_OPERATOR_TERMS = [
   "verified_user",
   "needs_review",
 ] as const;
+
+/**
+ * Placeholder operator chrome that must never be treated as final approved capability copy.
+ * R7 owns moderation execution restoration; R1 only guards against false PASS.
+ */
+export const MEMBER_ADMIN_FORBIDDEN_PLACEHOLDER_FINAL_COPY = [
+  "표시만",
+] as const;
+
+/** Collapsed Store/Admin axis — deleted by R0. Must not reappear as privilege/store authority UI. */
+export const MEMBER_ADMIN_FORBIDDEN_PRIVILEGE_AXIS_LABEL = "회원 구분" as const;
 
 export function memberAdminCopy(key: MemberAdminCopyKey): string {
   return MEMBER_ADMIN_COPY[key];
@@ -104,4 +116,14 @@ export function memberAdminLifecycleLabelKo(
     case "PURGED":
       return MEMBER_ADMIN_COPY.status_purged;
   }
+}
+
+
+export function findPlaceholderFinalCopy(text: string): string[] {
+  const hay = String(text ?? "");
+  return MEMBER_ADMIN_FORBIDDEN_PLACEHOLDER_FINAL_COPY.filter((term) => hay.includes(term));
+}
+
+export function containsForbiddenPrivilegeAxisLabel(text: string): boolean {
+  return String(text ?? "").includes(MEMBER_ADMIN_FORBIDDEN_PRIVILEGE_AXIS_LABEL);
 }

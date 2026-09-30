@@ -90,6 +90,7 @@ export function AdminMemberPasswordDialog({
     <MemberAdminDialog
       open={open}
       title={MEMBER_ADMIN_COPY.password_temp_set_title}
+      size="small"
       description={MEMBER_ADMIN_COPY.password_temp_set_body}
       dirty={dirty}
       pending={pending}

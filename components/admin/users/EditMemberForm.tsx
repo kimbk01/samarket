@@ -157,6 +157,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     <MemberAdminDialog
       open={open}
       title={MEMBER_ADMIN_COPY.member_edit_title}
+      size="standard"
       description="회원 프로필 정보를 수정합니다. 비밀번호는 포함되지 않습니다."
       dirty={dirty}
       pending={pending}
@@ -208,7 +209,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
           />
         </label>
-        <label className="block text-[13px]">
+        <label className="block text-[13px]" data-member-edit-member-type-r4-owned="1">
           <span className="mb-1 block text-[#667085]">{t("admin_users_label_member_type")}</span>
           <select
             value={memberType}

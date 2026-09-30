@@ -269,6 +269,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     <MemberAdminDialog
       open={dialogOpen}
       title={MEMBER_ADMIN_COPY.member_create_title}
+      size="large"
       description={t("admin_users_form_create_member_subtitle")}
       dirty={dirty && !submitting}
       pending={submitting}
