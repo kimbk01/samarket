@@ -9,8 +9,7 @@ DROP TABLE IF EXISTS public.os_entry_screen_config CASCADE;
 DROP POLICY IF EXISTS os_entry_media_public_read ON storage.objects;
 DROP POLICY IF EXISTS os_entry_media_admin_write ON storage.objects;
 
--- Bucket object purge is performed via Storage API apply script (not direct DELETE FROM storage.objects).
--- Drop bucket row after objects emptied by apply script; idempotent if already gone.
-DELETE FROM storage.buckets WHERE id = 'os-entry-media';
+-- Bucket object purge + bucket delete: Storage API only (apply-r16-os-entry-abandon-zero.mjs).
+-- Direct DELETE FROM storage.buckets is blocked by storage.protect_delete().
 
 COMMIT;

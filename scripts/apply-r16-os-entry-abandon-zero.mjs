@@ -70,7 +70,9 @@ async function emptyBucket(sb) {
     const { error } = await sb.storage.from(BUCKET).remove(chunk);
     if (error) throw new Error(`remove: ${error.message}`);
   }
-  console.log(JSON.stringify({ bucket: BUCKET, removedObjects: all.length }));
+  const { error: delBucketErr } = await sb.storage.deleteBucket(BUCKET);
+  if (delBucketErr) throw new Error(`deleteBucket: ${delBucketErr.message}`);
+  console.log(JSON.stringify({ bucket: BUCKET, removedObjects: all.length, bucketDeleted: true }));
 }
 
 loadEnvLocal();
