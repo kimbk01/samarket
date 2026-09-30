@@ -1,6 +1,28 @@
 import UIKit
 import AVFoundation
 
+private final class DibayIntroVideoPlayerHostView: UIView {
+  private let playerLayer: AVPlayerLayer
+
+  init(frame: CGRect, player: AVPlayer, videoGravity: AVLayerVideoGravity) {
+    playerLayer = AVPlayerLayer(player: player)
+    playerLayer.videoGravity = videoGravity
+    super.init(frame: frame)
+    clipsToBounds = true
+    layer.addSublayer(playerLayer)
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    playerLayer.frame = bounds
+  }
+}
+
 final class DibayIntroSceneSurface: UIView {
   var onCta: ((String, String?) -> Void)?
   private var scene: DibayIntroPackModel.Scene?
@@ -150,17 +172,12 @@ final class DibayIntroSceneSurface: UIView {
   }
 
   private func buildLoopingVideo(url: URL, frame: CGRect, fit: String, opacity: CGFloat) -> UIView {
-    let host = UIView(frame: frame)
-    host.clipsToBounds = true
-    host.alpha = opacity
     let item = AVPlayerItem(url: url)
     let player = AVPlayer(playerItem: item)
     player.isMuted = true
-    let playerLayer = AVPlayerLayer(player: player)
-    playerLayer.frame = host.bounds
-    playerLayer.videoGravity = fit == "COVER" ? .resizeAspectFill : .resizeAspect
-    playerLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-    host.layer.addSublayer(playerLayer)
+    let gravity: AVLayerVideoGravity = fit == "COVER" ? .resizeAspectFill : .resizeAspect
+    let host = DibayIntroVideoPlayerHostView(frame: frame, player: player, videoGravity: gravity)
+    host.alpha = opacity
     let obs = NotificationCenter.default.addObserver(
       forName: .AVPlayerItemDidPlayToEndTime,
       object: item,
