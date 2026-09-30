@@ -9,12 +9,31 @@ import WebKit
  * - FD3 app-shell orientation (DeviceClass)
  * - WebView keyboard chrome install
  * - DibayBootBridge homePresentationReady → splash dismiss path
+ * - R17-OS app-native same-visual LaunchScreen continuation (see below)
  *
  * Intro / System Start / StartupCompositor product authority = ABSENT (R15 ZERO).
  */
 class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
   private static let r15IntroZeroPurgedKey = "r15_intro_zero_purged_v1"
   private var bootBridgeInstalled = false
+
+  /**
+   * R17-OS — app-native SAME-VISUAL continuation of the TRUE iOS LaunchScreen.
+   *
+   * iOS removes the LaunchScreen when this VC's first frame appears, before the remote
+   * WKWebView document has painted. The continuation is the SAME storyboard
+   * (Info.plist UILaunchStoryboardName) instantiated on top of the WebView, so the pixels
+   * users see do not change at the LaunchScreen → continuation boundary.
+   *
+   * Removed immediately (no fade) on the FIRST of:
+   *  1. web `dismissSplash` (DibayBootBridge) — Community visual-ready, after the next frame;
+   *  2. the first main-document load stopping (`isLoading` → false, success or failure) —
+   *     non-regression guard: never holds longer than today's pre-R17 behaviour.
+   * No timer, no network/data wait, no Admin fetch, no Intro, no navigation, no animation.
+   */
+  private var launchContinuation: UIViewController?
+  private var launchContinuationLoadingObservation: NSKeyValueObservation?
+  private var launchContinuationSawLoading = false
 
   override var shouldAutorotate: Bool {
     DibayAppOrientationPolicy.shouldAutorotate(
@@ -32,6 +51,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     super.viewDidLoad()
     purgeObsoleteIntroSystemStartLocalStateOnce()
     DibayWebViewKeyboardChrome.install(on: webView)
+    // Continuation first, then the message handler: no dismiss can arrive before it exists.
+    installLaunchContinuationIfNeeded()
     installBootBridgeIfNeeded()
   }
 
@@ -97,6 +118,50 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     }
   }
 
+  private func installLaunchContinuationIfNeeded() {
+    guard launchContinuation == nil, let host = view else { return }
+    let storyboardName =
+      ((Bundle.main.object(forInfoDictionaryKey: "UILaunchStoryboardName") as? String) ?? "LaunchScreen")
+      .replacingOccurrences(of: ".storyboard", with: "")
+    guard let continuation = UIStoryboard(name: storyboardName, bundle: nil)
+      .instantiateInitialViewController()
+    else {
+      NSLog("[DibayRootBridge] launch_continuation_skipped reason=storyboard_missing")
+      return
+    }
+    continuation.view.frame = host.bounds
+    continuation.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    host.addSubview(continuation.view)
+    launchContinuation = continuation
+
+    if let wv = webView {
+      launchContinuationSawLoading = wv.isLoading
+      launchContinuationLoadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] _, change in
+        let loading = change.newValue ?? false
+        DispatchQueue.main.async { self?.onLaunchContinuationLoadingChanged(loading) }
+      }
+    }
+    NSLog("[DibayRootBridge] launch_continuation_attached")
+  }
+
+  private func onLaunchContinuationLoadingChanged(_ loading: Bool) {
+    guard launchContinuation != nil else { return }
+    if loading {
+      launchContinuationSawLoading = true
+    } else if launchContinuationSawLoading {
+      removeLaunchContinuation(reason: "main_load_stopped")
+    }
+  }
+
+  private func removeLaunchContinuation(reason: String) {
+    guard let continuation = launchContinuation else { return }
+    launchContinuation = nil
+    launchContinuationLoadingObservation?.invalidate()
+    launchContinuationLoadingObservation = nil
+    continuation.view.removeFromSuperview()
+    NSLog("[DibayRootBridge] launch_continuation_removed reason=%@", reason)
+  }
+
   private func installBootBridgeIfNeeded() {
     guard !bootBridgeInstalled, let wv = webView else { return }
     wv.configuration.userContentController.add(self, name: "DibayBootBridge")
@@ -114,6 +179,10 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       action = (dict["action"] as? String) ?? ""
     } else if let s = body as? String {
       action = s
+    }
+    if action == "dismissSplash" {
+      removeLaunchContinuation(reason: "web_dismissSplash")
+      return
     }
     if action == "homePresentationReady" || action.lowercased().contains("homepresentationready") {
       NSLog("[DibayRootBridge] homePresentationReady (no Intro/System Start authority)")

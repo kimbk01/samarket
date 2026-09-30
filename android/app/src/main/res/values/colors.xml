@@ -28,4 +28,7 @@
 
     <!-- App canvas — match web sam-bg-app / dibay-cream -->
     <color name="dibay_app_bg">#FFFCFC</color>
+
+    <!-- R17-OS — TRUE OS start visual background (build-time; fixture = canonical app icon bg, not final brand lock) -->
+    <color name="dibay_os_bg">#075740</color>
 </resources>

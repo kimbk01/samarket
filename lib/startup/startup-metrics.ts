@@ -263,6 +263,37 @@ export function tryDismissNativeSplash(reason: string): void {
         /* ignore */
       }
 
+      // R17-OS iOS — release the app-native LaunchScreen continuation
+      // (DibayRootBridgeViewController) after the current frame has been presented.
+      // Frame fence only: no timer, no network/data wait. Android uses DibayBootBridge above.
+      try {
+        const wkBootBridge = (
+          window as unknown as {
+            webkit?: {
+              messageHandlers?: {
+                DibayBootBridge?: { postMessage: (msg: unknown) => void };
+              };
+            };
+          }
+        ).webkit?.messageHandlers?.DibayBootBridge;
+        if (wkBootBridge?.postMessage) {
+          const postDismiss = () => {
+            try {
+              wkBootBridge.postMessage({ action: "dismissSplash" });
+            } catch {
+              /* ignore */
+            }
+          };
+          if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => requestAnimationFrame(postDismiss));
+          } else {
+            postDismiss();
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
       try {
         const { SplashScreen } = await import("@capacitor/splash-screen");
         await SplashScreen.hide();

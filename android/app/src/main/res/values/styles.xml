@@ -17,20 +17,21 @@
 
 
     <!--
-      OS_REQUIRED_BOOT_PRIMITIVE — Android 12+ SplashScreen only.
-      No DIBAY Intro / System Start product authority (R15 ZERO).
+      R17-OS — TRUE Android OS SplashScreen: dibaY background + centered static logo.
+      Build-time resources only. Held by MainActivity until the existing web visual fence.
+      No Intro / System Start / product start screen.
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@color/dibay_app_bg</item>
         <item name="android:windowBackground">@color/dibay_app_bg</item>
         <!-- androidx.core SplashScreen attrs -->
-        <item name="windowSplashScreenBackground">@color/dibay_app_bg</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
+        <item name="windowSplashScreenBackground">@color/dibay_os_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_os_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_os_bg</item>
         <!-- Android 12+ platform attrs (Samsung starting-window path) -->
-        <item name="android:windowSplashScreenBackground">@color/dibay_app_bg</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/dibay_os_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_os_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/dibay_os_bg</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 
