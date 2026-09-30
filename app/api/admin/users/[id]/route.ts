@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
@@ -853,6 +855,16 @@ export async function PATCH(
     await syncPhoneVerifiedServerCache(userId);
   }
 
+  if (nextPassword) {
+    const targetGuard = await assertMemberPasswordChangeAllowed(sb, {
+      targetUserId: userId,
+      actorIsSuperAdmin: gate.actor.isSuperAdmin,
+    });
+    if (!targetGuard.ok) {
+      return NextResponse.json({ ok: false, error: targetGuard.error }, { status: targetGuard.status });
+    }
+  }
+
   /** profiles 변경과 Auth 로그인 자격(이메일·비번·닉네임)을 함께 맞춤. */
   const authPatch: {
     email?: string;
@@ -881,6 +893,16 @@ export async function PATCH(
         },
         { status: 500 }
       );
+    }
+    if (nextPassword) {
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: gate.actor.userId,
+        target_type: "member",
+        target_id: userId,
+        action: "admin_password_reset",
+        after_json: { via: "users_patch" },
+      });
     }
   }
 

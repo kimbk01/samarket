@@ -75,7 +75,7 @@ export function validateAdminCreateMemberForm(
     }
   }
 
-  if (!["development_member", "operations_member", "admin"].includes(input.accountType)) {
+  if (!["development_member", "operations_member"].includes(input.accountType)) {
     errors.accountType = "admin_users_err_account_type_invalid";
   }
 

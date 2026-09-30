@@ -178,7 +178,13 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         {!canChangePassword ? (
           <p className="text-[13px] font-medium text-[#b42318]">{t("admin_users_auth_password_no_auth")}</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <form
+            className="grid gap-3 sm:grid-cols-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitPassword();
+            }}
+          >
             <label className="block text-[13px]">
               <span className="mb-1 block text-[#667085]">{t("admin_users_label_password")}</span>
               <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setPwdMsg(null); }} minLength={4} maxLength={128} disabled={pwdBusy} className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]" placeholder={t("admin_users_ph_password_min")} />
@@ -188,12 +194,12 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
               <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPwdMsg(null); }} minLength={4} maxLength={128} disabled={pwdBusy} className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]" placeholder={t("admin_users_ph_password_min")} />
             </label>
             <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
-              <DibayOverlayButton roleTone="primary" type="button" disabled={pwdBusy || !newPassword} loading={pwdBusy} onClick={() => void submitPassword()}>
+              <DibayOverlayButton roleTone="primary" type="submit" disabled={pwdBusy || !newPassword} loading={pwdBusy}>
                 {t("admin_users_auth_password_submit")}
               </DibayOverlayButton>
               {pwdMsg ? <p className={`text-[13px] font-medium ${pwdMsg.tone === "ok" ? "text-emerald-700" : "text-[#b42318]"}`}>{pwdMsg.text}</p> : null}
             </div>
-          </div>
+          </form>
         )}
       </section>
     </div>

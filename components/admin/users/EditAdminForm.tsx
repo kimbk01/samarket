@@ -31,6 +31,8 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<AdminRole>("operator");
   const [permissions, setPermissions] = useState<AdminPermissionKey[]>([]);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,12 +81,23 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
       setError(t("admin_users_err_display_name_max"));
       return;
     }
+    if (staff.role !== "master" && (newPassword || confirmPassword)) {
+      if (newPassword.length < 4) {
+        setError(t("admin_users_err_password_min"));
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError(t("admin_users_err_password_mismatch"));
+        return;
+      }
+    }
 
     setSubmitting(true);
     const result = await updateAdminStaffApi(staff.id, {
       displayName: displayName.trim(),
       role: staff.role === "master" ? undefined : role,
       permissions: staff.role === "master" ? undefined : permissions,
+      ...(staff.role !== "master" && newPassword ? { password: newPassword } : {}),
     });
     setSubmitting(false);
 
@@ -181,6 +194,38 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
                 </option>
               ))}
             </select>
+          </div>
+        ) : null}
+
+        {staff.role !== "master" ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password")}</label>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={4}
+                maxLength={128}
+                className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+                placeholder={t("admin_users_ph_password_min")}
+              />
+              <p className="mt-1 text-[11px] text-[#6F4E37]">{t("admin_users_auth_password_hint")}</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password_confirm")}</label>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={4}
+                maxLength={128}
+                className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
+                placeholder={t("admin_users_ph_password_min")}
+              />
+            </div>
           </div>
         ) : null}
 

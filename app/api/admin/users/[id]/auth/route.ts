@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-query";
+import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,6 +112,14 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
   }
 
+  const targetGuard = await assertMemberPasswordChangeAllowed(gate.sb, {
+    targetUserId: userId,
+    actorIsSuperAdmin: gate.actor.isSuperAdmin,
+  });
+  if (!targetGuard.ok) {
+    return NextResponse.json({ ok: false, error: targetGuard.error }, { status: targetGuard.status });
+  }
+
   const { data: authData, error: loadErr } = await gate.sb.auth.admin.getUserById(userId);
   if (loadErr || !authData?.user) {
     return NextResponse.json(
@@ -125,6 +135,15 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  void appendAuditLog(gate.sb, {
+    actor_type: "admin",
+    actor_id: gate.actor.userId,
+    target_type: "member",
+    target_id: userId,
+    action: "admin_password_reset",
+    after_json: { targetClass: targetGuard.targetClass, via: "auth_route" },
+  });
 
   return NextResponse.json({ ok: true });
 }

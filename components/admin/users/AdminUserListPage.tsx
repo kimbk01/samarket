@@ -64,7 +64,8 @@ export function AdminUserListPage() {
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [membersPage, setMembersPage] = useState(1);
   const [membersPageSize, setMembersPageSize] = useState(10);
-  const { isSuperAdmin } = useAdminMe();
+  const { isSuperAdmin, hasPermission } = useAdminMe();
+  const canManageUsers = isSuperAdmin || hasPermission("users");
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
@@ -484,6 +485,7 @@ export function AdminUserListPage() {
         <div className="flex flex-wrap items-center gap-2">
           {(tab === "all" || tab === "general") && (
             <>
+              {canManageUsers ? (
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
@@ -491,6 +493,7 @@ export function AdminUserListPage() {
               >
                 + {t("admin_users_manual_create")}
               </button>
+              ) : null}
               {isMaster && (
                 <button
                   type="button"

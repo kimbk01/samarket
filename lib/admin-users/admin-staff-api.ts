@@ -60,7 +60,7 @@ export async function promoteMemberToAdminApi(input: {
 
 export async function updateAdminStaffApi(
   id: string,
-  input: { displayName?: string; role?: AdminRole; permissions?: AdminPermissionKey[] }
+  input: { displayName?: string; role?: AdminRole; permissions?: AdminPermissionKey[]; password?: string }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(`/api/admin/staff/${encodeURIComponent(id)}`, {
     method: "PATCH",

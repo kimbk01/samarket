@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * 테스트 회원 정리 — role=admin 인 행만 남기고 나머지 test_users 삭제
  */
 export async function POST(_req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
   if (!supabaseEnv.ok) {

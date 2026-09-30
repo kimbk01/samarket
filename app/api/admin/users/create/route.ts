@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   adminCreateMemberAddressHasSelection,
   buildUserAddressSeedPayload,
@@ -91,8 +91,9 @@ function parseAddressPayload(raw: unknown): AdminCreateMemberAddressInput | null
  * - `signInWithPassword`·RLS·`auth.uid()` 는 자가 가입 회원과 같은 경로로 동작.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const adminGate = await requireAdminPermission("users");
+  if (!adminGate.ok) return adminGate.response;
+  const admin = { ok: true as const, userId: adminGate.actor.userId };
   const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
   if (!supabaseEnv.ok) {
     return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });

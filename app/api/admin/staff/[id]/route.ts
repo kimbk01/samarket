@@ -37,6 +37,7 @@ export async function PATCH(
     role?: AdminRole;
     permissions?: AdminPermissionKey[];
     disabled?: boolean;
+    password?: string;
   };
   try {
     body = await req.json();
@@ -109,6 +110,36 @@ export async function PATCH(
 
   if (body.permissions && !isSuperAdminRole(effectiveRole)) {
     await replaceStaffPermissions(sb, staffId, body.permissions, actor.userId);
+  }
+
+  const passwordRaw = body.password;
+  const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
+  if (hasPassword) {
+    if (isSuperAdminRole(effectiveRole)) {
+      return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
+    }
+    const pwd = String(passwordRaw);
+    if (pwd.length < 4) {
+      return NextResponse.json({ ok: false, error: "password_min" }, { status: 400 });
+    }
+    if (pwd.length > 128) {
+      return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
+    }
+    const { error: pwdErr } = await sb.auth.admin.updateUserById(staffId, { password: pwd });
+    if (pwdErr) {
+      return NextResponse.json(
+        { ok: false, error: "password_update_failed", message: pwdErr.message },
+        { status: 500 },
+      );
+    }
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: actor.userId,
+      target_type: "staff",
+      target_id: staffId,
+      action: "admin_password_reset",
+      after_json: { via: "staff_patch" },
+    });
   }
 
   void appendAuditLog(sb, {
