@@ -65,9 +65,10 @@ describe("adminMemberRelationFilterPlan", () => {
 });
 
 describe("adminMemberStatusFilterOps", () => {
-  it("does not use phone_verified_at as activity", () => {
+  it("does not use phone_verified as account-state filter", () => {
     const src = JSON.stringify(adminMemberStatusFilterOps("active"));
     expect(src).not.toContain("phone_verified_at");
+    expect(src).not.toContain("phone_verified");
   });
 
   it("suspended filter excludes blocked", () => {

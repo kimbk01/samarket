@@ -26,5 +26,4 @@ export const ADMIN_USERS_LITE_BTN_OUTLINE_DANGER = MEMBER_ADMIN_CTA_CLASS.danger
 
 export const ADMIN_USERS_LITE_BTN_DANGER = MEMBER_ADMIN_CTA_CLASS.danger;
 
-export const ADMIN_USERS_LITE_TABLE_ACTION =
-  "inline-flex items-center justify-center rounded-md border border-[#d0d5dd] bg-white px-2.5 py-1 text-xs font-semibold text-[#344054] transition hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:text-[#98a2b3]";
+export const ADMIN_USERS_LITE_TABLE_ACTION = MEMBER_ADMIN_CTA_CLASS.tertiary;

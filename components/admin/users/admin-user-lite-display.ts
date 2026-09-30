@@ -92,9 +92,9 @@ export function statusCategoryForAdminUser(user: AdminUser): AdminUserStatusCate
   if (user.moderationStatus === "blocked" || user.moderationStatus === "banned") return "blocked";
   if (user.moderationStatus === "suspended") return "suspended";
   if (user.moderationStatus === "withdrawn") return "deleted";
-  if (user.phoneVerified !== true || normalizeAdminLiteToken(user.memberStatus) === "pending") {
-    return "needs_review";
-  }
+  // Verification is an independent axis (R2 / OD-02) — do not fold into account state.
+  const memberStatus = normalizeAdminLiteToken(user.memberStatus);
+  if (memberStatus === "pending" || memberStatus === "review") return "needs_review";
   return "active";
 }
 

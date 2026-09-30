@@ -5,13 +5,17 @@ import {
   memberListSummaryChipLabelKo,
   type MemberListSummaryChipId,
 } from "@/lib/admin-users/member-list-presentation";
+import type {
+  AdminMemberPrivilegeFilter,
+  AdminMemberStoreFilter,
+} from "@/lib/admin-users/admin-member-list-query";
 import type { AdminUserStatusCategory } from "@/lib/types/admin-user";
 
 export type MemberListSummary = {
   total: number | null;
   active: number | null;
-  needsReview: number | null;
   suspended: number | null;
+  blocked: number | null;
   storeOps: number | null;
   admin: number | null;
 };
@@ -19,15 +23,16 @@ export type MemberListSummary = {
 type Props = {
   summary: MemberListSummary;
   activeStatus: AdminUserStatusCategory | "";
-  activeRole: "store_manager" | "admin" | "";
+  activeStore: AdminMemberStoreFilter | "";
+  activePrivilege: AdminMemberPrivilegeFilter | "";
   onSelect: (chip: MemberListSummaryChipId) => void;
 };
 
 const CHIPS: MemberListSummaryChipId[] = [
   "all",
   "active",
-  "needs_review",
   "suspended",
+  "blocked",
   "store_ops",
   "admin",
 ];
@@ -38,10 +43,10 @@ function countFor(chip: MemberListSummaryChipId, summary: MemberListSummary): nu
       return summary.total;
     case "active":
       return summary.active;
-    case "needs_review":
-      return summary.needsReview;
     case "suspended":
       return summary.suspended;
+    case "blocked":
+      return summary.blocked;
     case "store_ops":
       return summary.storeOps;
     case "admin":
@@ -52,19 +57,26 @@ function countFor(chip: MemberListSummaryChipId, summary: MemberListSummary): nu
 function isSelected(
   chip: MemberListSummaryChipId,
   activeStatus: AdminUserStatusCategory | "",
-  activeRole: "store_manager" | "admin" | "",
+  activeStore: AdminMemberStoreFilter | "",
+  activePrivilege: AdminMemberPrivilegeFilter | "",
 ): boolean {
-  if (chip === "all") return !activeStatus && !activeRole;
-  if (chip === "store_ops") return activeRole === "store_manager";
-  if (chip === "admin") return activeRole === "admin";
+  if (chip === "all") return !activeStatus && !activeStore && !activePrivilege;
+  if (chip === "store_ops") return activeStore === "has_store";
+  if (chip === "admin") return activePrivilege === "admin";
   return activeStatus === chip;
 }
 
-export function AdminUserListSummaryCards({ summary, activeStatus, activeRole, onSelect }: Props) {
+export function AdminUserListSummaryCards({
+  summary,
+  activeStatus,
+  activeStore,
+  activePrivilege,
+  onSelect,
+}: Props) {
   return (
     <div className="flex flex-wrap gap-2" data-member-list-summary-chips="1">
       {CHIPS.map((chip) => {
-        const selected = isSelected(chip, activeStatus, activeRole);
+        const selected = isSelected(chip, activeStatus, activeStore, activePrivilege);
         const count = countFor(chip, summary);
         const label = memberListSummaryChipLabelKo(chip);
         return (
@@ -78,6 +90,7 @@ export function AdminUserListSummaryCards({ summary, activeStatus, activeRole, o
                 : "inline-flex items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475467] hover:bg-[#f9fafb]"
             }
             aria-pressed={selected}
+            data-member-list-summary-chip={chip}
           >
             <span>{label}</span>
             <span className={selected ? "text-[#2563eb]" : "text-[#98a2b3]"}>

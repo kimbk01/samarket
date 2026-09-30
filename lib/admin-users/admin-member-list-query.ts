@@ -1,12 +1,18 @@
-/** Admin member list query helpers — Slice 2. No leading-wildcard index claim; UUID uses eq(id). */
+/** Admin member list query helpers — R2 independent filter axes. No leading-wildcard index claim; UUID uses eq(id). */
 
-import type { AdminMemberRelationFilter } from "@/lib/admin-users/member-role-badges";
 import type { AdminUserStatusCategory } from "@/lib/types/admin-user";
 
 export const ADMIN_MEMBER_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT = 200;
+
+export type AdminMemberVerifyFilter = "verified" | "unverified";
+export type AdminMemberStoreFilter = "has_store" | "no_store";
+/** OD-03: `admin` includes 최고관리자; cell badge differentiates. */
+export type AdminMemberPrivilegeFilter = "admin" | "member";
+/** R0 origin axis — UI Korean; URL uses these canonical tokens. */
+export type AdminMemberOriginFilter = "email" | "manual" | "kakao" | "other";
 
 export function isAdminMemberUuidSearch(raw: string): boolean {
   return ADMIN_MEMBER_UUID_RE.test(raw.trim());
@@ -119,6 +125,10 @@ export function adminMemberSearchFilterOps(
   ];
 }
 
+/**
+ * Account-state axis only — must NOT require phone_verified (verification is independent).
+ * BLOCKED ≠ SUSPENDED — never union blocked into suspended filter.
+ */
 export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): ProfileFilterOp[] {
   if (status === "deleted") {
     return [
@@ -128,7 +138,6 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
       },
     ];
   }
-  // BLOCKED ≠ SUSPENDED — never union blocked into suspended filter.
   if (status === "blocked") {
     return [
       { type: "is", column: "deleted_at", value: null },
@@ -150,20 +159,17 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
     ];
   }
   if (status === "needs_review") {
+    // Optional bucket: member_status review only — never phone verification.
     return [
       { type: "is", column: "deleted_at", value: null },
       { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
       {
         type: "or",
-        value: "member_status.is.null,member_status.not.in.(suspended,banned)",
-      },
-      {
-        type: "or",
-        value:
-          "phone_verified.is.null,phone_verified.eq.false,member_status.eq.pending,member_status.eq.review,phone_verification_status.eq.pending,phone_verification_status.eq.rejected",
+        value: "member_status.eq.pending,member_status.eq.review",
       },
     ];
   }
+  // active / 정상 이용 — lifecycle only
   return [
     { type: "is", column: "deleted_at", value: null },
     { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
@@ -171,14 +177,102 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
       type: "or",
       value: "member_status.is.null,member_status.not.in.(pending,review,suspended,banned)",
     },
-    { type: "eq", column: "phone_verified", value: true },
+  ];
+}
+
+/** OD-02 binary verification filter — server authoritative. */
+export function adminMemberVerificationFilterOps(
+  verify: AdminMemberVerifyFilter | null | undefined,
+): ProfileFilterOp[] {
+  if (!verify) return [];
+  if (verify === "verified") {
+    return [{ type: "eq", column: "phone_verified", value: true }];
+  }
+  return [
     {
       type: "or",
-      value: "phone_verification_status.is.null,phone_verification_status.not.in.(pending,rejected)",
+      value: "phone_verified.is.null,phone_verified.eq.false",
     },
   ];
 }
 
+export function adminMemberStoreFilterPlan(
+  store: AdminMemberStoreFilter | null | undefined,
+  ownerIds: readonly string[],
+): { empty: boolean; ops: ProfileFilterOp[] } {
+  if (!store) return { empty: false, ops: [] };
+  const owners = uniqueAdminMemberIds(ownerIds);
+  if (store === "has_store") {
+    return owners.length === 0
+      ? { empty: true, ops: [] }
+      : { empty: false, ops: [{ type: "in", column: "id", value: owners }] };
+  }
+  if (owners.length === 0) return { empty: false, ops: [] };
+  return { empty: false, ops: [{ type: "not_in", column: "id", value: postgrestInFilter(owners) }] };
+}
+
+export function adminMemberPrivilegeFilterPlan(
+  privilege: AdminMemberPrivilegeFilter | null | undefined,
+  adminIds: readonly string[],
+): { empty: boolean; ops: ProfileFilterOp[] } {
+  if (!privilege) return { empty: false, ops: [] };
+  const admins = uniqueAdminMemberIds(adminIds);
+  if (privilege === "admin") {
+    return admins.length === 0
+      ? { empty: true, ops: [] }
+      : { empty: false, ops: [{ type: "in", column: "id", value: admins }] };
+  }
+  if (admins.length === 0) return { empty: false, ops: [] };
+  return { empty: false, ops: [{ type: "not_in", column: "id", value: postgrestInFilter(admins) }] };
+}
+
+const MANUAL_PROVIDER_IN =
+  "manual,manual_admin,manual_admin_backfill,admin_manual";
+const OTHER_PROVIDER_IN = "google,apple,naver,facebook";
+
+/** Signup/origin axis — human labels in UI; tokens stay in URL/query. */
+export function adminMemberOriginFilterOps(
+  origin: AdminMemberOriginFilter | null | undefined,
+): ProfileFilterOp[] {
+  if (!origin) return [];
+  if (origin === "manual") {
+    return [
+      {
+        type: "or",
+        value: `auth_provider.in.(${MANUAL_PROVIDER_IN}),provider.in.(${MANUAL_PROVIDER_IN})`,
+      },
+    ];
+  }
+  if (origin === "kakao") {
+    return [
+      {
+        type: "or",
+        value: "auth_provider.eq.kakao,provider.eq.kakao",
+      },
+    ];
+  }
+  if (origin === "other") {
+    return [
+      {
+        type: "or",
+        value: `auth_provider.in.(${OTHER_PROVIDER_IN}),provider.in.(${OTHER_PROVIDER_IN})`,
+      },
+    ];
+  }
+  // 일반 가입 (email) — include null/empty provider as email-class signup
+  return [
+    {
+      type: "or",
+      value:
+        "auth_provider.eq.email,provider.eq.email,and(auth_provider.is.null,provider.is.null)",
+    },
+  ];
+}
+
+/** @deprecated R0 deleted collapsed 관계 — kept for focused regression tests only. */
+export type AdminMemberRelationFilter = "all" | "plain" | "store_owner" | "admin";
+
+/** @deprecated Use store + privilege plans. */
 export function adminMemberRelationFilterPlan(
   relation: AdminMemberRelationFilter | null,
   ownerIds: readonly string[],
@@ -190,14 +284,10 @@ export function adminMemberRelationFilterPlan(
     return { empty: false, ops: [] };
   }
   if (relation === "store_owner") {
-    return owners.length === 0
-      ? { empty: true, ops: [] }
-      : { empty: false, ops: [{ type: "in", column: "id", value: owners }] };
+    return adminMemberStoreFilterPlan("has_store", owners);
   }
   if (relation === "admin") {
-    return admins.length === 0
-      ? { empty: true, ops: [] }
-      : { empty: false, ops: [{ type: "in", column: "id", value: admins }] };
+    return adminMemberPrivilegeFilterPlan("admin", admins);
   }
   const excluded = uniqueAdminMemberIds([...owners, ...admins]);
   if (excluded.length === 0) return { empty: false, ops: [] };

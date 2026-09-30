@@ -102,7 +102,7 @@ describe("P2 member list — store relation", () => {
 
 describe("P2 member list — privilege and origin", () => {
   it("separates admin privilege from store", () => {
-    expect(memberListPrivilegeLabelKo(baseUser())).toBe("—");
+    expect(memberListPrivilegeLabelKo(baseUser())).toBe(MEMBER_ADMIN_COPY.privilege_member);
     expect(memberListPrivilegeLabelKo(baseUser({ hasAdminMembership: true }))).toBe(
       MEMBER_ADMIN_COPY.privilege_admin,
     );
@@ -130,7 +130,10 @@ describe("P2 member list — search and query", () => {
     const qs = buildMemberListQueryString({
       search: "cafe",
       status: "blocked",
-      role: "store_manager",
+      verify: "verified",
+      store: "has_store",
+      privilege: "admin",
+      origin: "kakao",
       page: 2,
       pageSize: 20,
     });
@@ -138,7 +141,10 @@ describe("P2 member list — search and query", () => {
     expect(parsed).toEqual({
       search: "cafe",
       status: "blocked",
-      role: "store_manager",
+      verify: "verified",
+      store: "has_store",
+      privilege: "admin",
+      origin: "kakao",
       page: 2,
       pageSize: 20,
     });
@@ -186,6 +192,7 @@ describe("P2 member list — UI contracts", () => {
 
   it("table columns and store href are operator contract", () => {
     const table = src("components/admin/users/AdminUserTable.tsx");
+    expect(table).toContain("@회원 ID");
     expect(table).toContain("계정 상태");
     expect(table).toContain("매장");
     expect(table).toContain("관리 권한");

@@ -14,20 +14,26 @@ import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@
 import type { MemberType } from "@/lib/types/admin-user";
 import {
   adminMembershipRoleFromRow,
-  parseAdminMemberRelationFilter,
   resolveAdminMemberRoleBadges,
   type AdminMemberRoleBadge,
 } from "@/lib/admin-users/member-role-badges";
 import {
   ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT,
-  adminMemberRelationFilterPlan,
+  adminMemberOriginFilterOps,
+  adminMemberPrivilegeFilterPlan,
   adminMemberSearchFilterOps,
   adminMemberStatusFilterOps,
+  adminMemberStoreFilterPlan,
+  adminMemberVerificationFilterOps,
   applyProfileFilterOps,
   isAdminMemberUuidSearch,
   normalizeAdminMemberSearchToken,
   parseAdminMemberListPage,
   uniqueAdminMemberIds,
+  type AdminMemberOriginFilter,
+  type AdminMemberPrivilegeFilter,
+  type AdminMemberStoreFilter,
+  type AdminMemberVerifyFilter,
   type ProfileFilterOp,
 } from "@/lib/admin-users/admin-member-list-query";
 import { resolveDisplayName } from "@/lib/users/user-label";
@@ -105,7 +111,6 @@ function resolveAdminStatusCategory(
 ): AdminUserStatusCategory {
   const status = normalizeRoleToken(row.status);
   const memberStatus = normalizeRoleToken(row.member_status);
-  const phoneStatus = normalizeRoleToken(row.phone_verification_status);
   if (row.deleted_at || status === "deleted" || status === "withdrawn" || status === "deactivated") {
     return "deleted";
   }
@@ -116,13 +121,8 @@ function resolveAdminStatusCategory(
   if (status === "suspended" || memberStatus === "suspended") {
     return "suspended";
   }
-  if (
-    row.phone_verified !== true ||
-    memberStatus === "pending" ||
-    memberStatus === "review" ||
-    phoneStatus === "pending" ||
-    phoneStatus === "rejected"
-  ) {
+  // Account state is independent of verification (OD-02 / R2).
+  if (memberStatus === "pending" || memberStatus === "review") {
     return "needs_review";
   }
   return "active";
@@ -138,14 +138,6 @@ function sanitizeAdminUserSearch(raw: string | null): string {
   );
 }
 
-function parseAccountCategoryFilter(raw: string | null): AdminAccountCategory | null {
-  const relation = parseAdminMemberRelationFilter(raw);
-  if (relation === "plain") return "member";
-  if (relation === "store_owner") return "store_manager";
-  if (relation === "admin") return "admin";
-  return null;
-}
-
 function parseStatusCategoryFilter(raw: string | null): AdminUserStatusCategory | null {
   const value = normalizeRoleToken(raw);
   return value === "active"
@@ -155,6 +147,26 @@ function parseStatusCategoryFilter(raw: string | null): AdminUserStatusCategory 
     || value === "deleted"
     ? value
     : null;
+}
+
+function parseVerifyFilter(raw: string | null): AdminMemberVerifyFilter | null {
+  const value = normalizeRoleToken(raw);
+  return value === "verified" || value === "unverified" ? value : null;
+}
+
+function parseStoreFilter(raw: string | null): AdminMemberStoreFilter | null {
+  const value = normalizeRoleToken(raw);
+  return value === "has_store" || value === "no_store" ? value : null;
+}
+
+function parsePrivilegeFilter(raw: string | null): AdminMemberPrivilegeFilter | null {
+  const value = normalizeRoleToken(raw);
+  return value === "admin" || value === "member" ? value : null;
+}
+
+function parseOriginFilter(raw: string | null): AdminMemberOriginFilter | null {
+  const value = normalizeRoleToken(raw);
+  return value === "email" || value === "manual" || value === "kakao" || value === "other" ? value : null;
 }
 
 function mapProfileRowToAdminUser(input: {
@@ -266,15 +278,16 @@ export async function GET(req: NextRequest) {
 
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
   const search = sanitizeAdminUserSearch(req.nextUrl.searchParams.get("search"));
-  const roleFilter = parseAccountCategoryFilter(req.nextUrl.searchParams.get("role"));
-  const relationFilter = parseAdminMemberRelationFilter(req.nextUrl.searchParams.get("role"));
   const statusFilter = parseStatusCategoryFilter(req.nextUrl.searchParams.get("status"));
+  const verifyFilter = parseVerifyFilter(req.nextUrl.searchParams.get("verify"));
+  const storeFilter = parseStoreFilter(req.nextUrl.searchParams.get("store"));
+  const privilegeFilter = parsePrivilegeFilter(req.nextUrl.searchParams.get("privilege"));
+  const originFilter = parseOriginFilter(req.nextUrl.searchParams.get("origin"));
   const { page, pageSize, from, to } = parseAdminMemberListPage(
     req.nextUrl.searchParams.get("page"),
     req.nextUrl.searchParams.get("pageSize"),
   );
   const uuidSearch = Boolean(search) && isAdminMemberUuidSearch(search);
-  const statusOps = statusFilter ? adminMemberStatusFilterOps(statusFilter) : [];
 
   const profileSelect =
     "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
@@ -337,24 +350,40 @@ export async function GET(req: NextRequest) {
     );
     const storeSearchOwnerIds = uniqueAdminMemberIds([...storeNameOwnerIds, ...storeIdOwnerIds]);
 
-    const listOps = (includeAuthLoginEmail: boolean, relation: typeof relationFilter) => {
-      const plan = adminMemberRelationFilterPlan(relation, ownerIds, adminIds);
+    const listOps = (
+      includeAuthLoginEmail: boolean,
+      opts?: {
+        store?: AdminMemberStoreFilter | null;
+        privilege?: AdminMemberPrivilegeFilter | null;
+        status?: typeof statusFilter;
+        verify?: typeof verifyFilter;
+        origin?: typeof originFilter;
+      },
+    ) => {
+      const storePlan = adminMemberStoreFilterPlan(opts?.store ?? storeFilter, ownerIds);
+      const privPlan = adminMemberPrivilegeFilterPlan(opts?.privilege ?? privilegeFilter, adminIds);
+      const status = opts?.status === undefined ? statusFilter : opts.status;
+      const verify = opts?.verify === undefined ? verifyFilter : opts.verify;
+      const origin = opts?.origin === undefined ? originFilter : opts.origin;
       return {
-        empty: plan.empty,
+        empty: storePlan.empty || privPlan.empty,
         ops: [
           ...adminMemberSearchFilterOps(search, {
             includeAuthLoginEmail,
             // UUID may be profile id OR store id — union store owners when matched.
             extraIds: storeSearchOwnerIds,
           }),
-          ...statusOps,
-          ...plan.ops,
+          ...(status ? adminMemberStatusFilterOps(status) : []),
+          ...adminMemberVerificationFilterOps(verify),
+          ...storePlan.ops,
+          ...privPlan.ops,
+          ...adminMemberOriginFilterOps(origin),
         ] as ProfileFilterOp[],
       };
     };
 
     const runPage = async (select: string, includeAuthLoginEmail: boolean) => {
-      const planned = listOps(includeAuthLoginEmail, relationFilter);
+      const planned = listOps(includeAuthLoginEmail);
       if (planned.empty) {
         return { data: [] as ProfileRow[], error: null as { message?: string } | null, count: 0 };
       }
@@ -368,8 +397,17 @@ export async function GET(req: NextRequest) {
       return query.range(from, to);
     };
 
-    const runCount = async (includeAuthLoginEmail: boolean, relation: typeof relationFilter) => {
-      const planned = listOps(includeAuthLoginEmail, relation);
+    const runCount = async (
+      includeAuthLoginEmail: boolean,
+      opts?: {
+        store?: AdminMemberStoreFilter | null;
+        privilege?: AdminMemberPrivilegeFilter | null;
+        status?: typeof statusFilter;
+        verify?: typeof verifyFilter;
+        origin?: typeof originFilter;
+      },
+    ) => {
+      const planned = listOps(includeAuthLoginEmail, opts);
       if (planned.empty) return { count: 0 as number | null, error: null as string | null };
       const resolved = await applyProfileFilterOps(
         supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -437,10 +475,10 @@ export async function GET(req: NextRequest) {
       blockedStatusCount,
     ] = await Promise.all([
       loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
-      runCount(includeAuthLoginEmail, "plain"),
-      runCount(includeAuthLoginEmail, "store_owner"),
-      runCount(includeAuthLoginEmail, "admin"),
-      runCount(includeAuthLoginEmail, "all"),
+      runCount(includeAuthLoginEmail, { store: "no_store", privilege: "member", status: null, verify: null, origin: null }),
+      runCount(includeAuthLoginEmail, { store: "has_store", privilege: null, status: null, verify: null, origin: null }),
+      runCount(includeAuthLoginEmail, { privilege: "admin", store: null, status: null, verify: null, origin: null }),
+      runCount(includeAuthLoginEmail, { store: null, privilege: null, status: null, verify: null, origin: null }),
       runStatusCount(includeAuthLoginEmail, "active"),
       runStatusCount(includeAuthLoginEmail, "needs_review"),
       runStatusCount(includeAuthLoginEmail, "suspended"),
@@ -574,8 +612,11 @@ export async function GET(req: NextRequest) {
       totalRows,
       searchApplied: Boolean(search),
       uuidSearch,
-      roleFilter,
       statusFilter,
+      verifyFilter,
+      storeFilter,
+      privilegeFilter,
+      originFilter,
       countsOk,
     });
 
@@ -587,8 +628,11 @@ export async function GET(req: NextRequest) {
         dedupedCount: pageUsers.length,
         totalProfiles: allCount.count,
         search,
-        roleFilter,
         statusFilter,
+        verifyFilter,
+        storeFilter,
+        privilegeFilter,
+        originFilter,
         page,
         pageSize,
         source: "profiles_stores_admin_membership",

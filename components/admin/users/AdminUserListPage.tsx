@@ -9,7 +9,6 @@ import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
-  ADMIN_USERS_LITE_BTN_DANGER,
   ADMIN_USERS_LITE_BTN_PRIMARY,
   ADMIN_USERS_LITE_BTN_SECONDARY,
   ADMIN_USERS_LITE_BTN_TERTIARY,
@@ -29,6 +28,12 @@ import { CreateMemberForm } from "./CreateMemberForm";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
+import type {
+  AdminMemberOriginFilter,
+  AdminMemberPrivilegeFilter,
+  AdminMemberStoreFilter,
+  AdminMemberVerifyFilter,
+} from "@/lib/admin-users/admin-member-list-query";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
   MEMBER_LIST_DELETION_REQUESTS_KO,
@@ -67,8 +72,11 @@ export function AdminUserListPage() {
 
   const [searchDraft, setSearchDraft] = useState(urlState.search);
   const [appliedSearch, setAppliedSearch] = useState(urlState.search);
-  const [roleFilter, setRoleFilter] = useState<"store_manager" | "admin" | "">(urlState.role);
   const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">(urlState.status);
+  const [verifyFilter, setVerifyFilter] = useState<AdminMemberVerifyFilter | "">(urlState.verify);
+  const [storeFilter, setStoreFilter] = useState<AdminMemberStoreFilter | "">(urlState.store);
+  const [privilegeFilter, setPrivilegeFilter] = useState<AdminMemberPrivilegeFilter | "">(urlState.privilege);
+  const [originFilter, setOriginFilter] = useState<AdminMemberOriginFilter | "">(urlState.origin);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [membersKey, setMembersKey] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -99,18 +107,33 @@ export function AdminUserListPage() {
     syncingFromUrl.current = true;
     setSearchDraft(urlState.search);
     setAppliedSearch(urlState.search);
-    setRoleFilter(urlState.role);
     setStatusFilter(urlState.status);
+    setVerifyFilter(urlState.verify);
+    setStoreFilter(urlState.store);
+    setPrivilegeFilter(urlState.privilege);
+    setOriginFilter(urlState.origin);
     setMembersPage(urlState.page);
     setMembersPageSize(urlState.pageSize);
     syncingFromUrl.current = false;
-  }, [urlState.search, urlState.role, urlState.status, urlState.page, urlState.pageSize]);
+  }, [
+    urlState.search,
+    urlState.status,
+    urlState.verify,
+    urlState.store,
+    urlState.privilege,
+    urlState.origin,
+    urlState.page,
+    urlState.pageSize,
+  ]);
 
   const pushListQuery = useCallback(
     (next: {
       search: string;
       status: AdminUserStatusCategory | "";
-      role: "store_manager" | "admin" | "";
+      verify: AdminMemberVerifyFilter | "";
+      store: AdminMemberStoreFilter | "";
+      privilege: AdminMemberPrivilegeFilter | "";
+      origin: AdminMemberOriginFilter | "";
       page: number;
       pageSize: number;
     }) => {
@@ -126,11 +149,24 @@ export function AdminUserListPage() {
     pushListQuery({
       search: appliedSearch,
       status: statusFilter,
-      role: roleFilter,
+      verify: verifyFilter,
+      store: storeFilter,
+      privilege: privilegeFilter,
+      origin: originFilter,
       page: membersPage,
       pageSize: membersPageSize,
     });
-  }, [appliedSearch, statusFilter, roleFilter, membersPage, membersPageSize, pushListQuery]);
+  }, [
+    appliedSearch,
+    statusFilter,
+    verifyFilter,
+    storeFilter,
+    privilegeFilter,
+    originFilter,
+    membersPage,
+    membersPageSize,
+    pushListQuery,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,12 +201,24 @@ export function AdminUserListPage() {
   const membersQueryParams = useMemo(() => {
     const params = new URLSearchParams();
     if (appliedSearch) params.set("search", appliedSearch);
-    if (roleFilter) params.set("role", roleFilter);
     if (statusFilter) params.set("status", statusFilter);
+    if (verifyFilter) params.set("verify", verifyFilter);
+    if (storeFilter) params.set("store", storeFilter);
+    if (privilegeFilter) params.set("privilege", privilegeFilter);
+    if (originFilter) params.set("origin", originFilter);
     params.set("page", String(membersPage));
     params.set("pageSize", String(membersPageSize));
     return params.toString();
-  }, [appliedSearch, roleFilter, statusFilter, membersPage, membersPageSize]);
+  }, [
+    appliedSearch,
+    statusFilter,
+    verifyFilter,
+    storeFilter,
+    privilegeFilter,
+    originFilter,
+    membersPage,
+    membersPageSize,
+  ]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -292,8 +340,8 @@ export function AdminUserListPage() {
     return {
       total: countsOk ? (membersFromApi?.summary?.totalProfiles ?? null) : null,
       active: countsOk ? (statusCounts?.active ?? null) : null,
-      needsReview: countsOk ? (statusCounts?.needs_review ?? null) : null,
       suspended: countsOk ? (statusCounts?.suspended ?? null) : null,
+      blocked: countsOk ? (statusCounts?.blocked ?? null) : null,
       storeOps: countsOk ? (counts?.store_manager ?? null) : null,
       admin: countsOk ? (counts?.admin ?? null) : null,
     };
@@ -302,17 +350,18 @@ export function AdminUserListPage() {
   const handleSummaryChip = useCallback((chip: MemberListSummaryChipId) => {
     if (chip === "all") {
       setStatusFilter("");
-      setRoleFilter("");
+      setStoreFilter("");
+      setPrivilegeFilter("");
       setMembersPage(1);
       return;
     }
     if (chip === "store_ops") {
-      setRoleFilter("store_manager");
+      setStoreFilter("has_store");
       setMembersPage(1);
       return;
     }
     if (chip === "admin") {
-      setRoleFilter("admin");
+      setPrivilegeFilter("admin");
       setMembersPage(1);
       return;
     }
@@ -471,7 +520,10 @@ export function AdminUserListPage() {
               type="button"
               onClick={handleCleanup}
               disabled={cleanupLoading}
-              className={`${ADMIN_USERS_LITE_BTN_DANGER} disabled:opacity-50`}
+              className={`${ADMIN_USERS_LITE_BTN_TERTIARY} order-last opacity-80 disabled:opacity-50`}
+              data-member-list-maintenance="1"
+              data-member-cta-variant="tertiary"
+              title="테스트 회원 정리 (R9 / OD-05)"
             >
               {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
             </button>
@@ -482,7 +534,8 @@ export function AdminUserListPage() {
       <AdminUserListSummaryCards
         summary={memberSummary}
         activeStatus={statusFilter}
-        activeRole={roleFilter}
+        activeStore={storeFilter}
+        activePrivilege={privilegeFilter}
         onSelect={handleSummaryChip}
       />
       <AdminUserFilterBar
@@ -495,9 +548,24 @@ export function AdminUserListPage() {
           setStatusFilter(value);
           setMembersPage(1);
         }}
-        roleFilter={roleFilter}
-        onRoleFilterChange={(value) => {
-          setRoleFilter(value);
+        verifyFilter={verifyFilter}
+        onVerifyFilterChange={(value) => {
+          setVerifyFilter(value);
+          setMembersPage(1);
+        }}
+        storeFilter={storeFilter}
+        onStoreFilterChange={(value) => {
+          setStoreFilter(value);
+          setMembersPage(1);
+        }}
+        privilegeFilter={privilegeFilter}
+        onPrivilegeFilterChange={(value) => {
+          setPrivilegeFilter(value);
+          setMembersPage(1);
+        }}
+        originFilter={originFilter}
+        onOriginFilterChange={(value) => {
+          setOriginFilter(value);
           setMembersPage(1);
         }}
         loading={membersListPending}
