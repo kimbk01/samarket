@@ -29,6 +29,33 @@ export type AdminPermissionKey =
   | "dev"         // 개발/시스템
   | "create_admin"; // 관리자 수동 생성 (최고 관리자 전용)
 
+/** Canonical permission payload keys — Live jsonb string array authority. */
+export const ADMIN_PERMISSION_KEYS = [
+  "users",
+  "users_edit_membership",
+  "regions",
+  "products",
+  "boards",
+  "post_write",
+  "comment_write",
+  "product_edit",
+  "business",
+  "jobs",
+  "real_estate",
+  "used_car",
+  "chats",
+  "reviews",
+  "reports",
+  "ads",
+  "point",
+  "settings",
+  "manage",
+  "dev",
+  "create_admin",
+] as const satisfies readonly AdminPermissionKey[];
+
+export const ADMIN_PERMISSION_KEY_SET: ReadonlySet<string> = new Set(ADMIN_PERMISSION_KEYS);
+
 export interface AdminStaff {
   id: string;
   /** 로그인 아이디(이메일 또는 username) */

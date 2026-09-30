@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalidateAuthLightSessionSnapshotCache } from "@/lib/auth/auth-light-session-snapshot-cache";
 import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import {
+  ADMIN_PERMISSION_KEY_SET,
+  type AdminPermissionKey,
+} from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
 import type { AdminRole } from "@/lib/admin-menu-config";
 
@@ -33,16 +36,80 @@ export async function loadProfileRole(
   return (data as { role?: string } | null)?.role ?? null;
 }
 
-/** Optional table — treat PostgREST missing / schema-cache miss as empty permissions. */
-function isMissingAdminStaffPermissionsTable(message: string | undefined): boolean {
+/**
+ * True only for missing TABLE — never for missing COLUMN / 42703 schema mismatch.
+ * Column errors must surface as defects, not as "no permissions" / tier-default.
+ */
+export function isMissingAdminStaffPermissionsTable(message: string | undefined): boolean {
   const m = String(message ?? "").toLowerCase();
   if (!m.includes("admin_staff_permissions")) return false;
+  // Column / undefined-column errors are NOT missing-table.
+  if (m.includes("42703") || m.includes("column") || m.includes("permission_key")) {
+    return false;
+  }
   return (
-    m.includes("does not exist") ||
     m.includes("could not find the table") ||
     m.includes("could not find table") ||
-    m.includes("schema cache")
+    (m.includes("relation") && m.includes("does not exist")) ||
+    (m.includes("schema cache") && m.includes("table"))
   );
+}
+
+/** Schema / column mismatch — must not be treated as valid empty permissions. */
+export function isAdminStaffPermissionsSchemaError(message: string | undefined): boolean {
+  const m = String(message ?? "").toLowerCase();
+  if (isMissingAdminStaffPermissionsTable(message)) return false;
+  if (m.includes("42703")) return true;
+  if (m.includes("permission_key") && (m.includes("does not exist") || m.includes("could not find"))) {
+    return true;
+  }
+  if (
+    m.includes("admin_staff_permissions") &&
+    m.includes("column") &&
+    (m.includes("does not exist") || m.includes("could not find"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Validate + normalize AdminPermissionKey[] (JSON string array).
+ * Dedupes; rejects non-array / non-string / unknown keys.
+ */
+export function normalizeAdminPermissionKeys(input: unknown): AdminPermissionKey[] {
+  if (!Array.isArray(input)) {
+    throw new Error("permissions_must_be_array");
+  }
+  const seen = new Set<string>();
+  const out: AdminPermissionKey[] = [];
+  for (const item of input) {
+    if (typeof item !== "string") {
+      throw new Error("permissions_invalid_item");
+    }
+    if (!ADMIN_PERMISSION_KEY_SET.has(item)) {
+      throw new Error(`permissions_unknown_key:${item}`);
+    }
+    if (seen.has(item)) continue;
+    seen.add(item);
+    out.push(item as AdminPermissionKey);
+  }
+  return out;
+}
+
+/** Parse Live jsonb `permissions` payload — never cast without validation. */
+export function parseAdminPermissionsPayload(raw: unknown): AdminPermissionKey[] {
+  if (raw == null) return [];
+  if (typeof raw === "string") {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("permissions_malformed_json");
+    }
+    return normalizeAdminPermissionKeys(parsed);
+  }
+  return normalizeAdminPermissionKeys(raw);
 }
 
 export async function loadStaffPermissionKeys(
@@ -51,18 +118,23 @@ export async function loadStaffPermissionKeys(
 ): Promise<AdminPermissionKey[]> {
   const { data, error } = await sb
     .from("admin_staff_permissions")
-    .select("permission_key")
-    .eq("user_id", userId);
+    .select("permissions")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (error) {
     if (isMissingAdminStaffPermissionsTable(error.message)) {
       return [];
     }
     throw new Error(error.message);
   }
-  return (data ?? []).map((r) => String((r as { permission_key: string }).permission_key)) as AdminPermissionKey[];
+  if (!data) return [];
+  return parseAdminPermissionsPayload((data as { permissions?: unknown }).permissions);
 }
 
-/** DB에 행이 없으면 admin_tier 기반 역할 기본 권한을 사용한다. */
+/**
+ * DB에 명시 권한이 없거나 VALID EMPTY ARRAY([])이면 admin_tier 기반 역할 기본 권한을 사용한다.
+ * SCHEMA ERROR 는 여기로 내려오지 않는다 (throw).
+ */
 export async function loadEffectiveStaffPermissions(
   sb: SupabaseClient,
   userId: string,
@@ -87,7 +159,7 @@ export async function loadStaffPermissionsMap(
   if (userIds.length === 0) return out;
   const { data, error } = await sb
     .from("admin_staff_permissions")
-    .select("user_id, permission_key")
+    .select("user_id, permissions")
     .in("user_id", userIds);
   if (error) {
     if (isMissingAdminStaffPermissionsTable(error.message)) {
@@ -97,10 +169,8 @@ export async function loadStaffPermissionsMap(
   }
   for (const row of data ?? []) {
     const uid = String((row as { user_id: string }).user_id);
-    const key = String((row as { permission_key: string }).permission_key) as AdminPermissionKey;
-    const list = out.get(uid) ?? [];
-    list.push(key);
-    out.set(uid, list);
+    const keys = parseAdminPermissionsPayload((row as { permissions?: unknown }).permissions);
+    out.set(uid, keys);
   }
   return out;
 }
@@ -275,19 +345,31 @@ export async function userHasRecentWarn(
   return true;
 }
 
+/**
+ * Live canonical WRITE: one user_id → one permissions jsonb string array.
+ * Empty [] is a valid persisted payload (read path still applies tier-default).
+ */
 export async function replaceStaffPermissions(
   sb: SupabaseClient,
   userId: string,
   permissions: AdminPermissionKey[],
   grantedBy: string
 ): Promise<void> {
-  await sb.from("admin_staff_permissions").delete().eq("user_id", userId);
-  if (permissions.length === 0) return;
-  await sb.from("admin_staff_permissions").insert(
-    permissions.map((permission_key) => ({
+  const normalized = normalizeAdminPermissionKeys(permissions);
+  const now = new Date().toISOString();
+  const { error } = await sb.from("admin_staff_permissions").upsert(
+    {
       user_id: userId,
-      permission_key,
-      granted_by: grantedBy,
-    }))
+      permissions: normalized,
+      updated_at: now,
+      updated_by: grantedBy,
+    },
+    { onConflict: "user_id" }
   );
+  if (error) {
+    if (isMissingAdminStaffPermissionsTable(error.message)) {
+      throw new Error(`admin_staff_permissions_missing:${error.message}`);
+    }
+    throw new Error(error.message);
+  }
 }
