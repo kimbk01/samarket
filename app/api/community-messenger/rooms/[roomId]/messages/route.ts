@@ -1,6 +1,7 @@
-import { after, NextRequest } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import {
@@ -204,6 +205,13 @@ export async function POST(
   );
   if (t5) spanT5(t5, "S2_profile_ms", profileT0);
   if (!profileGate.ok) return profileGate.response;
+  const memberWriteGate = await assertVerifiedMemberForAction(sbSend as import("@supabase/supabase-js").SupabaseClient, userId);
+  if (!memberWriteGate.ok) {
+    return NextResponse.json(
+      { ok: false, error: memberWriteGate.error, code: "member_activity_restricted" },
+      { status: memberWriteGate.status }
+    );
+  }
   const timingModT0 = performance.now();
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   if (t5) spanT5(t5, "S2_timing_mod_ms", timingModT0);

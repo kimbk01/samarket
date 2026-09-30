@@ -37,7 +37,14 @@ export interface BlockedUser {
   createdAt: string;
 }
 
-export type ModerationStatus = "normal" | "warned" | "suspended" | "banned";
+/** Admin member moderation display — blocked ≠ withdrawn (P0). banned = legacy blocked alias. */
+export type ModerationStatus =
+  | "normal"
+  | "warned"
+  | "suspended"
+  | "blocked"
+  | "withdrawn"
+  | "banned";
 
 export interface UserModerationState {
   userId: string;

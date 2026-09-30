@@ -23,7 +23,7 @@ function trimText(value: unknown): string {
 function isRecipientActive(row: ProfileStatusRow | undefined): boolean {
   const status = trimText(row?.status).toLowerCase();
   if (trimText(row?.deleted_at)) return false;
-  return status !== "suspended" && status !== "deleted" && status !== "banned" && status !== "kicked";
+  return status !== "suspended" && status !== "deleted" && status !== "blocked" && status !== "banned" && status !== "kicked";
 }
 
 async function fetchProfileStatusesFromSb(

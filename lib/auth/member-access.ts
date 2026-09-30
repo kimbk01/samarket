@@ -15,7 +15,7 @@ import {
   isDeletedStoreMember,
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
-} from "@/lib/auth/store-member-policy";
+} from "@/lib/auth/store-member-policy"
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
@@ -84,8 +84,16 @@ function normalizeProviderForDb(provider: string | null | undefined): string | n
 function normalizeMemberStatus(status: string | null | undefined): string {
   const s = typeof status === "string" ? status.trim().toLowerCase() : "";
   if (s === "active") return "verified_user";
-  if (s === "blocked") return "suspended";
-  if (s === "sns_pending" || s === "verified_user" || s === "suspended" || s === "deleted") return s;
+  // P0: BLOCKED ≠ SUSPENDED — never collapse block into suspend.
+  if (
+    s === "sns_pending" ||
+    s === "verified_user" ||
+    s === "suspended" ||
+    s === "blocked" ||
+    s === "deleted"
+  ) {
+    return s;
+  }
   return "sns_pending";
 }
 
@@ -721,8 +729,10 @@ export async function assertVerifiedMemberForAction(
   userId: string
 ): Promise<{ ok: true; state: MemberAccessState } | { ok: false; status: number; error: string; state?: MemberAccessState }> {
   const state = await loadMemberAccessState(sb, userId);
-  if (state.status === "suspended" || state.status === "deleted") {
-    return { ok: false, status: 403, error: "이 회원은 현재 활동이 제한되어 있습니다.", state };
+  const { assertMemberProductAction } = await import("@/lib/auth/member-action-policy");
+  const decision = assertMemberProductAction({ status: state.status, deleted_at: null }, "PRODUCT_WRITE");
+  if (!decision.ok) {
+    return { ok: false, status: decision.status, error: decision.messageKo, state };
   }
   if (!canUseVerifiedMemberFeatures(state)) {
     return { ok: false, status: 403, error: PHONE_VERIFICATION_REQUIRED_MESSAGE, state };

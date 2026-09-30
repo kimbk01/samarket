@@ -88,7 +88,9 @@ export function roleCategoryForAdminUser(user: AdminUser): AdminAccountCategory 
 
 export function statusCategoryForAdminUser(user: AdminUser): AdminUserStatusCategory {
   if (user.statusCategory) return user.statusCategory;
-  if (user.moderationStatus === "suspended" || user.moderationStatus === "banned") return "suspended";
+  if (user.moderationStatus === "suspended") return "suspended";
+  if (user.moderationStatus === "blocked" || user.moderationStatus === "banned") return "suspended";
+  if (user.moderationStatus === "withdrawn") return "deleted";
   if (user.phoneVerified !== true || normalizeAdminLiteToken(user.memberStatus) === "pending") {
     return "needs_review";
   }

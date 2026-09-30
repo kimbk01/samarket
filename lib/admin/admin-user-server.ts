@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { invalidateAuthLightSessionSnapshotCache } from "@/lib/auth/auth-light-session-snapshot-cache";
+import { invalidateMemberAuthCachesOnLifecycleChange } from "@/lib/auth/invalidate-member-auth-caches";
 import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import {
   ADMIN_PERMISSION_KEY_SET,
@@ -258,7 +258,8 @@ export async function invalidateAllUserSessions(
   if (error && !error.message?.includes("user_sessions")) {
     console.error("[invalidateAllUserSessions]", error.message);
   }
-  invalidateAuthLightSessionSnapshotCache(userId);
+  // P0-R2: lifecycle + all identity/session warm caches (not light snap alone).
+  invalidateMemberAuthCachesOnLifecycleChange(userId);
 }
 
 async function insertModerationEventRow(

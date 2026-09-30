@@ -288,7 +288,7 @@ async function isProfileRestricted(
 ): Promise<boolean> {
   const { data } = await (sb as any).from("profiles").select("status").eq("id", userId).maybeSingle();
   const status = trimText((data as { status?: string } | null)?.status).toLowerCase();
-  return status === "suspended" || status === "deleted";
+  return status === "suspended" || status === "deleted" || status === "blocked";
 }
 
 export async function resolveDirectInteractionGuard(

@@ -46,4 +46,15 @@ export function setAuthSessionValidateCached(userId: string, sessionFingerprint:
   }
 }
 
+export function invalidateAuthSessionValidateCache(userId?: string): void {
+  if (!userId?.trim()) {
+    cacheMap().clear();
+    return;
+  }
+  const prefix = `${userId.trim()}\0`;
+  for (const k of cacheMap().keys()) {
+    if (k.startsWith(prefix)) cacheMap().delete(k);
+  }
+}
+
 export const AUTH_SESSION_VALIDATE_CACHE_TTL_MS = TTL_MS;

@@ -1,0 +1,15 @@
+{
+  "total": 310,
+  "class_counts": {
+    "DENY": 279,
+    "ALLOW": 0,
+    "EXEMPT": 13,
+    "NON_MEMBER": 18
+  },
+  "policy_bypass_before": 256,
+  "deny_with_central_before": 23,
+  "policy_bypass_after_structural": 0,
+  "sum_check": true,
+  "historical_owner_cited_total": 284,
+  "note": "Historical 284 was sandbox-incomplete non-admin inventory. CURRENT exhaustive non-admin mutation total=310; sum matches class counts."
+}
