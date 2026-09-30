@@ -20,7 +20,7 @@ globs:
 
 재실행은 다음만: relevant code changed after PASS · previous result invalidated · previous command failed/incomplete · user explicitly requested rerun · `samarket-dev-inspection-regulation` commit/push gate.
 
-`dibay-agent-execution-contract` TIME-WASTE와 충돌 시 **재실행 금지** 쪽을 따른다.
+`dibay-master-execution-contract` TIME-WASTE와 충돌 시 **재실행 금지** 쪽을 따른다.
 
 ## 오류 (Errors)
 
