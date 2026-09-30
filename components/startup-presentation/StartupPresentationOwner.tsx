@@ -28,6 +28,21 @@ function nowMs(): number {
     : Date.now();
 }
 
+function isProductStartupPresentationPath(pathname: string | null): boolean {
+  const path = pathname?.split("?")[0] || "/";
+  if (
+    path.startsWith("/admin") ||
+    path.startsWith("/login") ||
+    path.startsWith("/signup") ||
+    path.startsWith("/account") ||
+    path.startsWith("/auth") ||
+    path.startsWith("/api")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function StartupPresentationOwner() {
   const pathname = usePathname();
   const [manifest, setManifest] = useState<GenerationManifestR15 | null>(null);
@@ -38,8 +53,10 @@ export function StartupPresentationOwner() {
   const [hidden, setHidden] = useState(false);
   const stateEnteredAtRef = useRef(nowMs());
   const visualCommitNotifiedRef = useRef(false);
+  const shouldPresent = isProductStartupPresentationPath(pathname);
 
   useEffect(() => {
+    if (!shouldPresent) return;
     let cancelled = false;
     void (async () => {
       const active = await loadActiveStartupGenerationR15();
@@ -49,7 +66,7 @@ export function StartupPresentationOwner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [shouldPresent]);
 
   useEffect(() => {
     if (isInitialDestinationVisualReady()) setHomeReady(true);
@@ -57,6 +74,7 @@ export function StartupPresentationOwner() {
   }, []);
 
   useEffect(() => {
+    if (!shouldPresent) return;
     const path = pathname?.split("?")[0] || "/";
     const isMainShellPath =
       path === "/" ||
@@ -81,7 +99,7 @@ export function StartupPresentationOwner() {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [pathname]);
+  }, [pathname, shouldPresent]);
 
   const paint = useMemo(() => projectStartupPresentationPaintR15(manifest), [manifest]);
 
@@ -143,7 +161,7 @@ export function StartupPresentationOwner() {
     return () => window.clearTimeout(timer);
   }, [hidden, homeReady, manifest, state, visibleCommittedAt]);
 
-  if (hidden || !manifest) return null;
+  if (!shouldPresent || hidden || !manifest) return null;
   return (
     <div
       className="fixed inset-0 z-[2147483000] bg-[#0B421A]"
