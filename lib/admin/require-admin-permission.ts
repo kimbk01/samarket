@@ -12,6 +12,7 @@ import {
 import type { ProfileRow } from "@/lib/profile/types";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
+  isAdminStaffPermissionsSchemaError,
   isSuperAdminRole,
   loadEffectiveStaffPermissions,
   permissionKeyAllowed,
@@ -73,12 +74,32 @@ export async function requireAdminApiActor(): Promise<
   const isSuperAdmin = isSuperAdminRole(effectiveRole);
   const adminTier =
     membership?.admin_tier ?? (profile as { admin_tier?: string | null }).admin_tier ?? null;
-  const permissions = await loadEffectiveStaffPermissions(
-    sb,
-    admin.userId,
-    effectiveRole,
-    adminTier
-  ).catch(() => [] as AdminPermissionKey[]);
+
+  let permissions: AdminPermissionKey[];
+  try {
+    permissions = await loadEffectiveStaffPermissions(
+      sb,
+      admin.userId,
+      effectiveRole,
+      adminTier
+    );
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    // SCHEMA ERROR ≠ valid empty — do not absorb into [] / tier-default.
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: isAdminStaffPermissionsSchemaError(detail)
+            ? "admin_permissions_schema_error"
+            : "admin_permissions_load_failed",
+          detail,
+        },
+        { status: 500 }
+      ),
+    };
+  }
 
   return {
     ok: true,
