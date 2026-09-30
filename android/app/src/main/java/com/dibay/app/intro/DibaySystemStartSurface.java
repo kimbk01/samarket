@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import java.io.File;
@@ -25,6 +26,7 @@ public final class DibaySystemStartSurface extends FrameLayout {
     super(context);
     setClickable(true);
     setFocusable(true);
+    setWillNotDraw(false);
   }
 
   public void bind(DibaySystemStartConfig config, File verifiedRoot) {
@@ -82,7 +84,15 @@ public final class DibaySystemStartSurface extends FrameLayout {
     removeAllViews();
     painted = false;
     if (config == null) return;
-    setBackgroundColor(config.backgroundArgb);
+    // Solid fill View — FrameLayout background alone can lose to window/splash compositing.
+    int fill = config.backgroundArgb;
+    setBackgroundColor(fill);
+    View fillView = new View(getContext());
+    fillView.setBackgroundColor(fill);
+    addView(
+        fillView,
+        new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
     DibaySystemStartConfig.FileRef bg = config.resolveBackgroundImage(verifiedRoot);
     if (bg != null) {
@@ -104,9 +114,11 @@ public final class DibaySystemStartSurface extends FrameLayout {
     if (brand != null) {
       Bitmap bmp = BitmapFactory.decodeFile(brand.file.getAbsolutePath());
       if (bmp != null) {
-        float sizeNorm = Math.max(0.05f, Math.min(1f, config.brandSizeNorm));
+        // Brand mark is width-normalized on the short axis of the composition.
+        float sizeNorm = Math.max(0.05f, Math.min(0.5f, config.brandSizeNorm));
         int brandW = Math.max(1, Math.round(VW * sizeNorm));
-        int brandH = Math.max(1, Math.round(VH * sizeNorm));
+        // Keep square mark box from width so tall green splash assets don't fill the screen.
+        int brandH = brandW;
         float cx = Math.max(0f, Math.min(1f, config.brandXNorm)) * VW;
         float cy = Math.max(0f, Math.min(1f, config.brandYNorm)) * VH;
         ImageView iv = new ImageView(getContext());
@@ -122,6 +134,15 @@ public final class DibaySystemStartSurface extends FrameLayout {
       }
     }
     painted = true;
-    Log.i(TAG, "rebuild VW=" + VW + " VH=" + VH + " children=" + getChildCount());
+    Log.i(
+        TAG,
+        "rebuild VW="
+            + VW
+            + " VH="
+            + VH
+            + " children="
+            + getChildCount()
+            + " fill=#"
+            + String.format("%06X", (0xFFFFFF & fill)));
   }
 }

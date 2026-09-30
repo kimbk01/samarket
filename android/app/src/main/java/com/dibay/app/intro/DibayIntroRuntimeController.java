@@ -137,21 +137,22 @@ public final class DibayIntroRuntimeController {
   }
 
   private void attachOverlay(Map<String, File> mediaFiles) {
-    ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
+    ViewGroup host = (ViewGroup) activity.findViewById(android.R.id.content);
+    if (host == null) {
+      host = (ViewGroup) activity.getWindow().getDecorView();
+    }
     overlayRoot = new FrameLayout(activity);
     overlayRoot.setLayoutParams(
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     overlayRoot.setClickable(true);
     overlayRoot.setFocusable(true);
-    // Hold System Start color from build resource — never legacy indigo fallback.
-    try {
-      overlayRoot.setBackgroundColor(
-          activity.getResources().getColor(com.dibay.app.R.color.dibay_system_start_background, null));
-    } catch (Exception e) {
-      overlayRoot.setBackgroundColor(
-          activity.getResources().getColor(com.dibay.app.R.color.dibay_app_bg, null));
-    }
+    // Continuity under Layer B: Scene1 pack color — NEVER build-bound SS resource.
+    // Build-bound green flash over Live Layer B is a product defect.
+    int holdColor = resolveScene1HoldColor();
+    overlayRoot.setBackgroundColor(holdColor);
+    // Stay under Layer B System Start (elevation 100) until MainActivity dismisses B.
+    overlayRoot.setElevation(40f);
     sceneSurface = new DibayIntroSceneSurface(activity);
     sceneSurface.setMediaFiles(mediaFiles);
     sceneSurface.setCtaListener(this::onCta);
@@ -159,7 +160,29 @@ public final class DibayIntroRuntimeController {
         sceneSurface,
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-    decor.addView(overlayRoot);
+    host.addView(overlayRoot);
+  }
+
+  /** Scene1 COLOR background, else verified Layer B continuity, else cream — not build stamp. */
+  private int resolveScene1HoldColor() {
+    try {
+      if (model != null && model.scenes != null && !model.scenes.isEmpty()) {
+        DibayIntroPackModel.Scene s0 = model.scenes.get(0);
+        if (s0 != null) {
+          return s0.backgroundArgb;
+        }
+      }
+    } catch (Exception ignored) {
+      /* fall through */
+    }
+    try {
+      DibaySystemStartConfig ss =
+          new DibaySystemStartVerifiedStore(activity).readVerifiedConfigOrNull();
+      if (ss != null) return ss.backgroundArgb;
+    } catch (Exception ignored) {
+      /* fall through */
+    }
+    return android.graphics.Color.parseColor("#FFFCFC");
   }
 
   private void onCta(String actionType, String destination) {

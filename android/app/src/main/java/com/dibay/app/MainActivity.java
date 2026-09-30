@@ -93,7 +93,11 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean introTimelineCompleted = false;
   private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
   /** Layer B System Start — verified local surface before Intro. */
-  private com.dibay.app.intro.DibaySystemStartSurface dibaySystemStartSurface = null;
+  private volatile com.dibay.app.intro.DibaySystemStartSurface dibaySystemStartSurface = null;
+  private volatile android.app.Dialog dibaySystemStartDialog = null;
+  private Runnable splashExitRemover = null;
+  private SplashScreen installedSplashScreen = null;
+  /** Static: SplashScreen keepOnScreenCondition reads this across threads. */
   private static volatile boolean systemStartSurfaceActive = false;
   private static volatile boolean systemStartHoldComplete = false;
   private static volatile long systemStartShownElapsedMs = 0L;
@@ -1105,6 +1109,7 @@ public class MainActivity extends BridgeActivity {
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+    installedSplashScreen = splashScreen;
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
     // Continuity: paint verified Layer B bg under OS splash so dismiss matches A→B.
@@ -1134,11 +1139,15 @@ public class MainActivity extends BridgeActivity {
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
         splashScreenViewProvider -> {
-          try {
-            splashScreenViewProvider.remove();
-          } catch (Exception ignored) {
-            /* ignore */
-          }
+          splashExitRemover =
+              () -> {
+                try {
+                  splashScreenViewProvider.remove();
+                } catch (Exception ignored) {
+                  /* ignore */
+                }
+              };
+          splashExitRemover.run();
         });
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
@@ -1197,7 +1206,8 @@ public class MainActivity extends BridgeActivity {
               try {
                 com.dibay.app.intro.DibaySystemStartLiveDelivery ssDelivery =
                     new com.dibay.app.intro.DibaySystemStartLiveDelivery(this);
-                // Prefer previous verified immediately for A→B continuity; sync Live in parallel.
+                // Prefer previous verified immediately for A→B continuity; then sync Live.
+                // After sync, ALWAYS rebind if generation/config changed — never keep stale prior.
                 com.dibay.app.intro.DibaySystemStartConfig prior =
                     ssDelivery.store().readVerifiedConfigOrNull();
                 if (prior != null) {
@@ -1211,11 +1221,27 @@ public class MainActivity extends BridgeActivity {
                         + ssSync.reason
                         + " canRender="
                         + (ssSync.canRender ? 1 : 0));
-                if (!systemStartSurfaceActive && ssSync.canRender) {
+                if (ssSync.canRender) {
                   com.dibay.app.intro.DibaySystemStartConfig fresh =
                       ssDelivery.store().readVerifiedConfigOrNull();
                   if (fresh != null) {
-                    attachSystemStartSurfaceBlocking(fresh, ssDelivery.store().verifiedDir());
+                    boolean sameGeneration =
+                        prior != null
+                            && prior.generationId != null
+                            && prior.generationId.equals(fresh.generationId);
+                    if (!systemStartSurfaceActive || !sameGeneration) {
+                      attachSystemStartSurfaceBlocking(fresh, ssDelivery.store().verifiedDir());
+                    } else {
+                      // Same generation — refresh paint/z-order in case splash dismissed over it.
+                      mainHandler.post(
+                          () -> {
+                            if (dibaySystemStartSurface != null) {
+                              dibaySystemStartSurface.bind(fresh, ssDelivery.store().verifiedDir());
+                              dibaySystemStartSurface.bringToFront();
+                              dibaySystemStartSurface.setElevation(100f);
+                            }
+                          });
+                    }
                   }
                 }
 
@@ -1271,6 +1297,7 @@ public class MainActivity extends BridgeActivity {
                   mainHandler.post(
                       () -> {
                         if (dibaySystemStartSurface != null) {
+                          dibaySystemStartSurface.setElevation(100f);
                           dibaySystemStartSurface.bringToFront();
                         }
                       });
@@ -1316,32 +1343,101 @@ public class MainActivity extends BridgeActivity {
     mainHandler.post(
         () -> {
           try {
-            if (dibaySystemStartSurface != null) {
-              android.view.ViewGroup parent =
-                  (android.view.ViewGroup) dibaySystemStartSurface.getParent();
-              if (parent != null) parent.removeView(dibaySystemStartSurface);
+            if (dibaySystemStartDialog != null) {
+              try {
+                dibaySystemStartDialog.dismiss();
+              } catch (Exception ignored) {
+                /* ignore */
+              }
+              dibaySystemStartDialog = null;
+              dibaySystemStartSurface = null;
+            } else if (dibaySystemStartSurface != null) {
+              try {
+                getWindowManager().removeView(dibaySystemStartSurface);
+              } catch (Exception e0) {
+                android.view.ViewGroup parent =
+                    (android.view.ViewGroup) dibaySystemStartSurface.getParent();
+                if (parent != null) parent.removeView(dibaySystemStartSurface);
+              }
+              dibaySystemStartSurface = null;
             }
-            android.view.ViewGroup decor =
-                (android.view.ViewGroup) getWindow().getDecorView();
+            // Release OS splash FIRST (static flag read by keepOnScreenCondition).
+            systemStartMinVisibleMs = config.minVisibleMs;
+            systemStartShownElapsedMs = SystemClock.elapsedRealtime();
+            systemStartHoldComplete = false;
+            systemStartSurfaceActive = true;
+            // Force-clear keep condition — some OEM builds poll slowly otherwise.
+            if (installedSplashScreen != null) {
+              installedSplashScreen.setKeepOnScreenCondition(() -> false);
+            }
+            if (splashExitRemover != null) {
+              try {
+                splashExitRemover.run();
+              } catch (Exception ignored) {
+                /* ignore */
+              }
+            }
+            // Fullscreen dialog overlay — above activity content + WebView surfaces.
             com.dibay.app.intro.DibaySystemStartSurface surface =
                 new com.dibay.app.intro.DibaySystemStartSurface(this);
             surface.bind(config, verifiedRoot);
-            decor.addView(
+            android.app.Dialog dlg =
+                new android.app.Dialog(
+                    this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            dlg.setCancelable(false);
+            dlg.setContentView(
                 surface,
-                new android.widget.FrameLayout.LayoutParams(
+                new android.view.ViewGroup.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            if (dlg.getWindow() != null) {
+              dlg.getWindow()
+                  .setBackgroundDrawable(
+                      new android.graphics.drawable.ColorDrawable(config.backgroundArgb));
+              dlg.getWindow()
+                  .setLayout(
+                      android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                      android.view.ViewGroup.LayoutParams.MATCH_PARENT);
+            }
+            dlg.show();
+            dibaySystemStartDialog = dlg;
             dibaySystemStartSurface = surface;
-            systemStartMinVisibleMs = config.minVisibleMs;
-            systemStartShownElapsedMs = SystemClock.elapsedRealtime();
-            systemStartSurfaceActive = true;
-            systemStartHoldComplete = false;
-            Log.i(
+            getWindow()
+                .setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(config.backgroundArgb));
+                                                // Cap SplashScreen.showOnLaunch overrides keepOnScreenCondition — force isVisible=false.
+            try {
+              com.getcapacitor.PluginHandle handle =
+                  getBridge() != null ? getBridge().getPlugin("SplashScreen") : null;
+              if (handle != null && handle.getInstance() != null) {
+                Object plugin = handle.getInstance();
+                java.lang.reflect.Field f =
+                    plugin.getClass().getDeclaredField("splashScreen");
+                f.setAccessible(true);
+                Object splash = f.get(plugin);
+                java.lang.reflect.Method hide =
+                    splash.getClass().getDeclaredMethod("hide", int.class, boolean.class);
+                hide.setAccessible(true);
+                hide.invoke(splash, 0, true);
+                Log.i(WEBVIEW_LOG_TAG, "cap_splash_hide_invoked");
+              }
+            } catch (Exception e) {
+              Log.w(WEBVIEW_LOG_TAG, "cap_splash_hide_failed", e);
+            }
+            try {
+              android.view.View content = findViewById(android.R.id.content);
+              if (content != null) content.setBackgroundColor(config.backgroundArgb);
+            } catch (Exception ignored) {
+            }
+Log.i(
                 WEBVIEW_LOG_TAG,
                 "system_start_surface_attached generationId="
                     + config.generationId
+                    + " bg="
+                    + String.format("#%06X", (0xFFFFFF & config.backgroundArgb))
                     + " minVisibleMs="
-                    + config.minVisibleMs);
+                    + config.minVisibleMs
+                    + " via=dialog");
           } catch (Exception e) {
             Log.e(WEBVIEW_LOG_TAG, "system_start_attach_failed", e);
           } finally {
@@ -1395,10 +1491,26 @@ public class MainActivity extends BridgeActivity {
     }
     systemStartHoldComplete = true;
     systemStartSurfaceActive = false;
-    if (dibaySystemStartSurface != null) {
-      android.view.ViewGroup parent =
-          (android.view.ViewGroup) dibaySystemStartSurface.getParent();
-      if (parent != null) parent.removeView(dibaySystemStartSurface);
+    if (dibaySystemStartDialog != null) {
+      try {
+        dibaySystemStartDialog.dismiss();
+      } catch (Exception ignored) {
+        /* ignore */
+      }
+      dibaySystemStartDialog = null;
+      dibaySystemStartSurface = null;
+    } else if (dibaySystemStartSurface != null) {
+      try {
+        getWindowManager().removeView(dibaySystemStartSurface);
+      } catch (Exception e1) {
+        try {
+          android.view.ViewGroup parent =
+              (android.view.ViewGroup) dibaySystemStartSurface.getParent();
+          if (parent != null) parent.removeView(dibaySystemStartSurface);
+        } catch (Exception ignored) {
+          /* ignore */
+        }
+      }
       dibaySystemStartSurface = null;
     }
     Log.i(WEBVIEW_LOG_TAG, "system_start_surface_dismissed source=" + source);

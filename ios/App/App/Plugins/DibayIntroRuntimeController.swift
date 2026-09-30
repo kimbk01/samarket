@@ -83,7 +83,7 @@ final class DibayIntroRuntimeController {
     let root = UIView(frame: host.bounds)
     root.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     // Hold System Start / Scene1 color — never expose black/white interstitial under Cap.
-    root.backgroundColor = Self.resolveHoldBackgroundColor()
+    root.backgroundColor = resolveHoldBackgroundColor()
     root.isUserInteractionEnabled = true
     let surface = DibayIntroSceneSurface(frame: root.bounds)
     surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -290,25 +290,15 @@ final class DibayIntroRuntimeController {
     removeOverlay()
   }
 
-  /// Same hold as LaunchScreen / Cap continuation — never black/white gap.
-  private static func resolveHoldBackgroundColor() -> UIColor {
-    guard let url = Bundle.main.url(forResource: "system_start_timing", withExtension: "json"),
-          let data = try? Data(contentsOf: url),
-          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let hex = obj["backgroundColor"] as? String
-    else {
-      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
+  /// Continuity under Layer B: Scene1 pack color → verified Layer B → cream.
+  /// Never prefer build-bound system_start_timing over Live Layer B.
+  private func resolveHoldBackgroundColor() -> UIColor {
+    if let s0 = model?.scenes.first {
+      return s0.backgroundColor
     }
-    var h = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-    if h.hasPrefix("#") { h.removeFirst() }
-    guard h.count == 6, let n = UInt32(h, radix: 16) else {
-      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
+    if let cfg = DibaySystemStartVerifiedStore().readVerifiedConfigOrNull() {
+      return cfg.backgroundColor
     }
-    return UIColor(
-      red: CGFloat((n >> 16) & 0xFF) / 255.0,
-      green: CGFloat((n >> 8) & 0xFF) / 255.0,
-      blue: CGFloat(n & 0xFF) / 255.0,
-      alpha: 1.0
-    )
+    return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0)
   }
 }
