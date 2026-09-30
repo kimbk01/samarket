@@ -16,6 +16,7 @@ import type {
 import {
   cryptoRandomId,
   DEFAULT_MOTION,
+  MOTION_TYPES_V1,
 } from "@/lib/intro/contracts/document";
 import { IntroCanonicalPreview } from "@/components/admin/intro/IntroCanonicalPreview";
 import { IntroCanvas } from "@/components/admin/intro/IntroCanvas";
@@ -45,15 +46,19 @@ type MediaItem = {
   height: number | null;
 };
 
-const MOTION_OPTIONS: { value: MotionTypeV1; label: string }[] = [
-  { value: "NONE", label: "없음" },
-  { value: "FADE_IN", label: "페이드" },
-  { value: "ENTER_LEFT", label: "왼쪽에서" },
-  { value: "ENTER_RIGHT", label: "오른쪽에서" },
-  { value: "ENTER_TOP", label: "위에서" },
-  { value: "ENTER_BOTTOM", label: "아래에서" },
-  { value: "SCALE_IN", label: "확대" },
-];
+const MOTION_LABELS: Record<MotionTypeV1, string> = {
+  NONE: "없음",
+  FADE_IN: "페이드",
+  ENTER_LEFT: "왼쪽에서",
+  ENTER_RIGHT: "오른쪽에서",
+  ENTER_TOP: "위에서",
+  ENTER_BOTTOM: "아래에서",
+  SCALE_IN: "확대",
+};
+
+/** Same registry as Draft/Apply/Package — no SLIDE_LEFT etc. */
+const MOTION_OPTIONS: { value: MotionTypeV1; label: string }[] =
+  MOTION_TYPES_V1.map((value) => ({ value, label: MOTION_LABELS[value] }));
 
 export function IntroStudioPage({ documentId }: Props) {
   const search = useSearchParams();

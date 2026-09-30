@@ -21,6 +21,31 @@ describe("13th final correction apply-service contract", () => {
     expect(src).toContain("setLiveRelease");
     expect(src).toContain("expectedSourceDraftVersion");
     expect(src).toContain("applyIntroServiceFromDraft");
+    expect(src).toContain("intro_apply_service_begin");
+    expect(src).toContain("NOT silently reinterpreted");
+  });
+
+  it("Production System Start Save never writes native filesystem", () => {
+    const route = readFileSync(
+      "app/api/admin/intro/system-start/route.ts",
+      "utf8",
+    );
+    expect(route).toContain("productionSaveWritesNativeFs: false");
+    expect(route).not.toContain("syncDerivedBuildInput");
+    expect(route).not.toContain("native/system-start/assets");
+    expect(route).toContain("resolveDurableLogoIntegrity");
+  });
+
+  it("iOS Cap continuation mounts (launchShowDuration≠0) and hides via plugin", () => {
+    const cap = readFileSync("ios/App/App/capacitor.config.json", "utf8");
+    const bridge = readFileSync(
+      "ios/App/App/DibayStartupBridgeViewController.swift",
+      "utf8",
+    );
+    expect(cap).toMatch(/"launchShowDuration"\s*:\s*1/);
+    expect(cap).not.toMatch(/"launchShowDuration"\s*:\s*0/);
+    expect(bridge).toContain("invokeCapacitorSplashPluginHide");
+    expect(bridge).not.toContain('Notification.Name("splashScreenHide")');
   });
 
   it("Owner studio primary actions do not require separate Publish", () => {
@@ -58,21 +83,45 @@ describe("13th final correction apply-service contract", () => {
     );
     expect(doc).toContain("14TH FULL REBUILD = NOT YET AUTHORIZED");
     expect(doc).toContain("EDIT → SAVE → PREVIEW → APPLY → APP");
+    // Native materializer key (build-bound). Admin presets live in contract.ts.
     expect(doc).toContain("SYSTEM_START_MIN_VISIBLE_MS");
     expect(doc).toContain("Hidden artificial hold beyond that = FORBIDDEN");
+    expect(doc).toContain("free fit = FORBIDDEN");
   });
 
-  it("System Start Admin exposes media + duration controls", () => {
+  it("System Start Admin locks F1/F2 capability (presets + media; no free fit)", () => {
     const panel = readFileSync(
       "components/admin/intro/IntroSystemStartPanel.tsx",
       "utf8",
     );
+    const contract = readFileSync(
+      "lib/intro/system-start/contract.ts",
+      "utf8",
+    );
+
+    // Duration authority = contract presets consumed by Admin (not free ms / not 0).
+    expect(contract).toContain("SYSTEM_START_MIN_VISIBLE_PRESETS_MS");
+    expect(contract).toContain("SYSTEM_START_MIN_VISIBLE_MS_MIN");
+    expect(contract).toContain("minVisibleMs=0 — FORBIDDEN");
+    expect(panel).toContain("SYSTEM_START_MIN_VISIBLE_PRESETS_MS");
     expect(panel).toContain("다음 앱 버전 설정 저장");
-    expect(panel).toContain("SYSTEM_START_MIN_VISIBLE_MS");
-    expect(panel).toContain("원본 비율");
-    expect(panel).toContain("화면 안에 맞춤");
-    expect(panel).toContain("화면 채우기");
-    expect(panel).toContain("logoMediaId");
+    expect(panel).toContain("마지막 빌드 스냅샷 (materialized)");
+    expect(panel).toContain("다음 앱 버전 설정 (desired)");
+    expect(panel).not.toContain("현재 설치 앱이 반영");
+
+    // Brand media identity + size presets (S/M/L) — F2.
+    expect(panel).toContain("brandAssetMediaId");
+    expect(panel).toContain("교체 · 미디어에서 선택");
+    expect(panel).toContain("BRAND_SIZE_NORM");
+    expect(panel).toContain('value: "S"');
+    expect(panel).toContain('value: "M"');
+    expect(panel).toContain('value: "L"');
+
+    // Free geometry / arbitrary fit removed by F1/F2 freeze — must not regress.
+    expect(panel).not.toContain("원본 비율");
+    expect(panel).not.toContain("화면 안에 맞춤");
+    expect(panel).not.toContain("화면 채우기");
+    expect(panel).not.toMatch(/\blogoXNorm\b|\blogoYNorm\b/);
   });
 
   it("Intro studio uses AdminActionButton CTA hierarchy", () => {

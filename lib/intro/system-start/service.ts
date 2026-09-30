@@ -3,9 +3,10 @@ import {
   type BrandSizePreset,
   type SystemStartInstalled,
   type SystemStartNextBuild,
-  normalizeBrandSizePreset,
+  coerceMinVisibleMsForRead,
   normalizeHexColor,
-  normalizeMinVisibleMs,
+  parseBrandSizePreset,
+  parseMinVisibleMs,
 } from "@/lib/intro/system-start/contract";
 import {
   getReadyRuntimeForMedia,
@@ -44,8 +45,8 @@ function rowToNext(row: Row, brandPreviewUrl: string | null): SystemStartNextBui
     backgroundColor: String(row.background_color).toUpperCase(),
     brandAssetEnabled: !!row.brand_asset_enabled,
     brandAssetMediaId: row.brand_asset_media_id,
-    brandSizePreset: normalizeBrandSizePreset(row.brand_size_preset),
-    minVisibleMs: normalizeMinVisibleMs(row.min_visible_ms),
+    brandSizePreset: parseBrandSizePreset(row.brand_size_preset) ?? "M",
+    minVisibleMs: coerceMinVisibleMsForRead(row.min_visible_ms),
     updatedAt: row.updated_at,
     brandPreviewUrl,
   };
@@ -66,8 +67,8 @@ function rowToInstalled(row: Row, brandPreviewUrl: string | null): SystemStartIn
     backgroundColor: String(row.materialized_background_color).toUpperCase(),
     brandAssetEnabled: !!row.materialized_brand_asset_enabled,
     brandAssetMediaId: row.materialized_brand_asset_media_id,
-    brandSizePreset: normalizeBrandSizePreset(row.materialized_brand_size_preset),
-    minVisibleMs: normalizeMinVisibleMs(row.materialized_min_visible_ms),
+    brandSizePreset: parseBrandSizePreset(row.materialized_brand_size_preset) ?? "M",
+    minVisibleMs: coerceMinVisibleMsForRead(row.materialized_min_visible_ms),
     materializedAt: row.materialized_at,
     brandPreviewUrl,
   };
@@ -142,14 +143,19 @@ export async function putSystemStartConfig(
     if (!runtime) throw new Error("brand_media_not_ready");
   }
 
-  const brandSizePreset = normalizeBrandSizePreset(
-    input.brandSizePreset ?? current.nextBuild.brandSizePreset,
-  );
-  const minVisibleMs = normalizeMinVisibleMs(
+  const brandSizePresetRaw =
+    input.brandSizePreset !== undefined
+      ? input.brandSizePreset
+      : current.nextBuild.brandSizePreset;
+  const brandSizePreset = parseBrandSizePreset(brandSizePresetRaw);
+  if (!brandSizePreset) throw new Error("invalid_brand_size_preset");
+
+  const minVisibleRaw =
     input.minVisibleMs !== undefined
       ? input.minVisibleMs
-      : current.nextBuild.minVisibleMs,
-  );
+      : current.nextBuild.minVisibleMs;
+  const minVisibleMs = parseMinVisibleMs(minVisibleRaw);
+  if (minVisibleMs == null) throw new Error("invalid_min_visible_ms");
 
   const nextRevision = current.nextBuild.revision + 1;
   const { error } = await sb

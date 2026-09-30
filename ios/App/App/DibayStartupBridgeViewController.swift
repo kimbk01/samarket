@@ -4,9 +4,10 @@ import WebKit
 import os.log
 
 /**
- * Product Startup (iOS) — 13TH:
- * LaunchScreen → optional VERIFIED Product Intro Scene1 → Home.
- * LIVE_MATCH_OR_NO_INTRO. No Candidate/Ready/Active.
+ * Product Startup (iOS) — ONE CORRECTION BATCH:
+ * LaunchScreen → Cap SplashScreen continuation (LaunchScreen clone) → Intro first meaningful frame → dismiss.
+ * Cap hide via SplashScreenPlugin.hide — NOT NotificationCenter (zero listeners / dead).
+ * LIVE_MATCH_OR_NO_INTRO. No new overlay / fake splash / white-cover.
  * CallKit/PushKit/Agora/RTC untouched.
  */
 class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler, DibayIntroRuntimeListener {
@@ -321,7 +322,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     capacitorSplashHidden = true
     capacitorSplashHideWorkItem = nil
     startupInfo("cap_splash_hide source=\(source)")
-    NotificationCenter.default.post(name: Notification.Name("splashScreenHide"), object: nil)
+    invokeCapacitorSplashPluginHide()
     DispatchQueue.main.async {
       if self.introSessionActive {
         self.applyIntroHoldBackground()
@@ -329,6 +330,27 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         self.applyStartupBackground()
       }
     }
+  }
+
+  /// Real Cap SplashScreen.hide — NotificationCenter "splashScreenHide" has zero listeners.
+  private func invokeCapacitorSplashPluginHide() {
+    guard let plugin = bridge?.plugin(withName: "SplashScreen") else {
+      startupInfo("cap_splash_hide_plugin_missing")
+      return
+    }
+    let call = CAPPluginCall(
+      callbackId: "dibay-system-start-hide",
+      methodName: "hide",
+      options: ["fadeOutDuration": 0],
+      success: { _, _ in },
+      error: { _, _ in }
+    )
+    let sel = NSSelectorFromString("hide:")
+    guard plugin.responds(to: sel) else {
+      startupInfo("cap_splash_hide_selector_missing")
+      return
+    }
+    _ = plugin.perform(sel, with: call)
   }
 
   private static func resolveSystemStartMinVisibleMs() -> Int {
@@ -340,6 +362,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
     let n = (obj["SYSTEM_START_MIN_VISIBLE_MS"] as? Int)
       ?? Int(obj["SYSTEM_START_MIN_VISIBLE_MS"] as? Double ?? 500)
+    // Build materializer only emits contract presets; fail-closed floor/ceiling for safety.
     if n < 500 { return 500 }
     if n > 5000 { return 5000 }
     return n

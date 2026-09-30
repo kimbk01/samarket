@@ -14,20 +14,23 @@ describe("system-start F2 media identity chain", () => {
       path.join(ROOT, "scripts/generate-system-start-build-input.mjs"),
       "utf8",
     );
-    expect(src).toContain("brand_enabled_but_logoIntegrity_missing");
+    expect(src).toContain("brand_enabled_but_logo_bytes_missing");
     expect(src).toContain("brand_integrity_mismatch");
     expect(src).toContain("logoBytesProven");
     expect(src).toContain("sha256:");
+    expect(src).toContain("BUILD_SNAPSHOT");
   });
 
-  it("admin route writes logoIntegrity into derived build input", () => {
+  it("admin route resolves durable logoIntegrity — never Production FS materialize", () => {
     const src = fs.readFileSync(
       path.join(ROOT, "app/api/admin/intro/system-start/route.ts"),
       "utf8",
     );
     expect(src).toContain("logoIntegrity");
     expect(src).toContain("runtime.integrity");
-    expect(src).toContain("logo.integrity");
+    expect(src).toContain("resolveDurableLogoIntegrity");
+    expect(src).toContain("productionSaveWritesNativeFs: false");
+    expect(src).not.toContain("native/system-start/assets");
   });
 
   it("F1 surfaces separate OS splash vs App continuation", () => {

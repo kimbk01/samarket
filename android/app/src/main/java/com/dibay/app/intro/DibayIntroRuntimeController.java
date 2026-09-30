@@ -144,7 +144,13 @@ public final class DibayIntroRuntimeController {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     overlayRoot.setClickable(true);
     overlayRoot.setFocusable(true);
-    overlayRoot.setBackgroundColor(0xFF000000);
+    // Hold System Start / Scene1 color — never black/white interstitial under splash.
+    try {
+      overlayRoot.setBackgroundColor(
+          activity.getResources().getColor(com.dibay.app.R.color.dibay_system_start_background, null));
+    } catch (Exception e) {
+      overlayRoot.setBackgroundColor(0xFF312E81);
+    }
     sceneSurface = new DibayIntroSceneSurface(activity);
     sceneSurface.setMediaFiles(mediaFiles);
     sceneSurface.setCtaListener(this::onCta);

@@ -36,8 +36,13 @@ export async function POST(req: NextRequest) {
   }
   let title = "Intro";
   try {
-    const body = (await req.json()) as { title?: string };
-    if (typeof body.title === "string" && body.title.trim()) title = body.title.trim();
+    // Canonical field = title. Boundary adapter only: accept legacy `name` → title.
+    const body = (await req.json()) as { title?: string; name?: string };
+    if (typeof body.title === "string" && body.title.trim()) {
+      title = body.title.trim();
+    } else if (typeof body.name === "string" && body.name.trim()) {
+      title = body.name.trim();
+    }
   } catch {
     /* default title */
   }

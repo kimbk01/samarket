@@ -5,8 +5,12 @@ import { getLiveStatus, setLiveRelease, type LiveStatus } from "@/lib/intro/live
 
 /**
  * Owner atomic action: 서비스 적용.
- * Internal: validate saved Draft → immutable Release → Package → Live pointer.
+ * Internal: saved Draft → canonical validation → Release → Package → Live pointer.
  * Owner must NEVER need a separate Publish step.
+ *
+ * Invalid motion/transition/CTA/media/geometry FAIL here (validateDocumentV0 inside publish).
+ * Historical invalid Live packages are NOT silently reinterpreted — Owner must correct Draft
+ * and Apply again. Normalization = explicit Owner Save of valid document only.
  */
 export type ApplyServiceResult = {
   documentId: string;
@@ -40,6 +44,19 @@ export async function applyIntroServiceFromDraft(
     args.idempotencyKey?.trim() ||
     `apply_${args.documentId}_${draftVersion}_${Date.now()}`;
 
+  // Ownership trail for DEFECT 010 — actor + draft → live phases (no silent Live mutate).
+  console.info(
+    JSON.stringify({
+      event: "intro_apply_service_begin",
+      documentId: args.documentId,
+      draftVersion,
+      userId: args.userId,
+      idempotencyKey,
+      at: new Date().toISOString(),
+    }),
+  );
+
+  // Order: saved Draft → canonical validation (inside publish) → Release → Package → Live.
   const published = await publishIntroDocument(sb, {
     documentId: args.documentId,
     userId: args.userId,
@@ -58,6 +75,19 @@ export async function applyIntroServiceFromDraft(
   if (live.releaseId !== published.releaseId) {
     throw new Error("live_release_mismatch_after_apply");
   }
+
+  console.info(
+    JSON.stringify({
+      event: "intro_apply_service_committed",
+      documentId: args.documentId,
+      draftVersion,
+      userId: args.userId,
+      releaseId: published.releaseId,
+      packageId: published.packageId,
+      packageIntegrity: published.packageIntegrity,
+      at: new Date().toISOString(),
+    }),
+  );
 
   return {
     documentId: args.documentId,

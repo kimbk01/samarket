@@ -410,7 +410,13 @@ export function IntroSystemStartPanel() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm">
-          <div className="font-medium text-sam-fg">현재 설치 앱</div>
+          <div className="font-medium text-sam-fg">
+            마지막 빌드 스냅샷 (materialized)
+          </div>
+          <p className="mt-1 text-[11px] text-sam-muted">
+            서버가 특정 사용자 기기 설치 상태를 아는 것이 아닙니다. 네이티브
+            빌드 materializer가 기록한 스냅샷만 표시합니다.
+          </p>
           {installed ? (
             <>
               <p className="mt-2 text-sam-muted">
@@ -446,7 +452,11 @@ export function IntroSystemStartPanel() {
           )}
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm">
-          <div className="font-medium text-sam-fg">다음 앱 버전</div>
+          <div className="font-medium text-sam-fg">다음 앱 버전 설정 (desired)</div>
+          <p className="mt-1 text-[11px] text-sam-muted">
+            Durable SSOT에 저장됩니다. 설치 앱 픽셀은 앱 업데이트(네이티브 빌드) 후에만
+            바뀝니다.
+          </p>
           <p className="mt-2 text-sam-muted">
             rev {draft.revision}
             {dirty ? " (미저장 변경)" : ""} · 배경{" "}
@@ -541,6 +551,9 @@ export function IntroSystemStartPanel() {
 }
 
 function normalizeNext(raw: NextBuildState): NextBuildState {
+  const presets = SYSTEM_START_MIN_VISIBLE_PRESETS_MS as readonly number[];
+  const ms = Number(raw.minVisibleMs);
+  const minVisibleMs = presets.includes(ms) ? ms : 500;
   return {
     revision: Number(raw.revision) || 1,
     backgroundColor: String(raw.backgroundColor || "#312E81").toUpperCase(),
@@ -553,10 +566,8 @@ function normalizeNext(raw: NextBuildState): NextBuildState {
       raw.brandSizePreset === "L"
         ? raw.brandSizePreset
         : "M",
-    minVisibleMs: Math.min(
-      5000,
-      Math.max(500, Number(raw.minVisibleMs) || 500),
-    ),
+    // Display coerce only — writes go through API parseMinVisibleMs (fail-closed).
+    minVisibleMs,
   };
 }
 

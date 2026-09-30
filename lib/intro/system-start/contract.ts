@@ -1,6 +1,7 @@
 /**
- * System Start durable contract (F1/F2 freeze).
+ * System Start durable contract (F1/F2 freeze + ONE CORRECTION BATCH).
  * Free x/y, arbitrary fit, full-bleed BG image, minVisibleMs=0 — FORBIDDEN.
+ * Admin minVisibleMs: fail-closed on out-of-contract values (no silent clamp).
  */
 
 export type BrandSizePreset = "S" | "M" | "L";
@@ -20,6 +21,9 @@ export const SYSTEM_START_MIN_VISIBLE_MS_MAX = 5000;
 export const SYSTEM_START_MIN_VISIBLE_PRESETS_MS = [
   500, 1000, 1500, 2000, 3000, 4000, 5000,
 ] as const;
+
+export type SystemStartMinVisibleMs =
+  (typeof SYSTEM_START_MIN_VISIBLE_PRESETS_MS)[number];
 
 export type SystemStartNextBuild = {
   revision: number;
@@ -52,12 +56,28 @@ export function normalizeHexColor(input: string): string | null {
   return `#${h}`;
 }
 
-export function normalizeBrandSizePreset(raw: unknown): BrandSizePreset {
+export function parseBrandSizePreset(raw: unknown): BrandSizePreset | null {
   if (raw === "S" || raw === "M" || raw === "L") return raw;
-  return "M";
+  return null;
 }
 
-export function normalizeMinVisibleMs(raw: unknown, fallback = 500): number {
+/** Fail-closed: only exact contract presets. */
+export function parseMinVisibleMs(raw: unknown): SystemStartMinVisibleMs | null {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n)) return null;
+  for (const p of SYSTEM_START_MIN_VISIBLE_PRESETS_MS) {
+    if (p === n) return p;
+  }
+  return null;
+}
+
+/**
+ * Read-path coerce for already-persisted rows only.
+ * Write path must use parseMinVisibleMs (fail-closed).
+ */
+export function coerceMinVisibleMsForRead(raw: unknown, fallback = 500): number {
+  const parsed = parseMinVisibleMs(raw);
+  if (parsed != null) return parsed;
   const n = Math.round(Number(raw));
   if (!Number.isFinite(n)) return fallback;
   const clamped = Math.min(
@@ -74,4 +94,14 @@ export function normalizeMinVisibleMs(raw: unknown, fallback = 500): number {
     }
   }
   return best;
+}
+
+/** @deprecated Use parseBrandSizePreset (writes) or coerce for reads. */
+export function normalizeBrandSizePreset(raw: unknown): BrandSizePreset {
+  return parseBrandSizePreset(raw) ?? "M";
+}
+
+/** @deprecated Use parseMinVisibleMs on writes; coerceMinVisibleMsForRead on reads. */
+export function normalizeMinVisibleMs(raw: unknown, fallback = 500): number {
+  return coerceMinVisibleMsForRead(raw, fallback);
 }

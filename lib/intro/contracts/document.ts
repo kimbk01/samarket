@@ -42,6 +42,31 @@ export type MotionTypeV1 =
   | "ENTER_RIGHT"
   | "SCALE_IN";
 
+/** Canonical capability registry — Admin / Draft / Preview / Release / Package / Native. */
+export const MOTION_TYPES_V1: readonly MotionTypeV1[] = [
+  "NONE",
+  "FADE_IN",
+  "ENTER_TOP",
+  "ENTER_BOTTOM",
+  "ENTER_LEFT",
+  "ENTER_RIGHT",
+  "SCALE_IN",
+] as const;
+
+const MOTION_TYPE_SET = new Set<string>(MOTION_TYPES_V1);
+
+export function isMotionTypeV1(raw: unknown): raw is MotionTypeV1 {
+  return typeof raw === "string" && MOTION_TYPE_SET.has(raw);
+}
+
+/**
+ * Invalid historical motion strings (e.g. SLIDE_LEFT) must fail-closed.
+ * Silent reinterpretation FORBIDDEN — Draft/Apply reject until Owner corrects.
+ */
+export function assertMotionTypeV1(raw: unknown): MotionTypeV1 | null {
+  return isMotionTypeV1(raw) ? raw : null;
+}
+
 export type MotionV1 = {
   readonly type: MotionTypeV1;
   readonly startMs: number;
@@ -182,6 +207,7 @@ export function isColorHex(v: unknown): v is ColorHex {
 
 export function validateDocumentV0(doc: IntroDocumentV1): string | null {
   if (doc.schemaVersion !== INTRO13_SCHEMA_VERSION) return "bad_schema";
+  if (typeof doc.title !== "string" || !doc.title.trim()) return "missing_title";
   if (!doc.scenes.length) return "no_scenes";
   for (const scene of doc.scenes) {
     if (scene.durationMs < 100) return "scene_duration";
@@ -191,7 +217,41 @@ export function validateDocumentV0(doc: IntroDocumentV1): string | null {
     if (scene.background.type === "IMAGE" && !scene.background.mediaId) {
       return "bg_image_missing_media";
     }
+    const tr = scene.transition;
+    if (!tr || typeof tr !== "object") return "bad_transition";
+    if (tr.type === "CUT") {
+      if (tr.durationMs !== 0) return "bad_transition_cut_duration";
+    } else if (tr.type === "FADE") {
+      if (!Number.isFinite(tr.durationMs) || tr.durationMs < 0) {
+        return "bad_transition_fade_duration";
+      }
+    } else if (tr.type === "SLIDE") {
+      if (!Number.isFinite(tr.durationMs) || tr.durationMs < 0) {
+        return "bad_transition_slide_duration";
+      }
+      if (
+        tr.direction !== "LEFT" &&
+        tr.direction !== "RIGHT" &&
+        tr.direction !== "UP" &&
+        tr.direction !== "DOWN"
+      ) {
+        return "bad_transition_slide_direction";
+      }
+    } else {
+      return "bad_transition_type";
+    }
     for (const el of scene.elements) {
+      if (!isMotionTypeV1(el.motion?.type)) {
+        return `invalid_motion:${String(el.motion?.type ?? "missing")}`;
+      }
+      if (
+        !Number.isFinite(el.motion.startMs) ||
+        !Number.isFinite(el.motion.durationMs) ||
+        el.motion.startMs < 0 ||
+        el.motion.durationMs < 0
+      ) {
+        return "bad_motion_timing";
+      }
       if (el.type === "TEXT") {
         const p = el.payload as TextPayloadV1;
         if (!p.text?.trim()) return "empty_text";
@@ -201,6 +261,18 @@ export function validateDocumentV0(doc: IntroDocumentV1): string | null {
         const p = el.payload as ImagePayloadV1;
         if (!p.mediaId?.trim()) return "image_missing_media";
         if (p.fit !== "COVER" && p.fit !== "CONTAIN") return "bad_image_fit";
+      }
+      if (el.type === "CTA") {
+        const p = el.payload as CtaPayloadV1;
+        if (!p.label?.trim()) return "empty_cta_label";
+        const actionType = p.action?.type;
+        if (
+          actionType !== "NEXT_SCENE" &&
+          actionType !== "FINISH_INTRO" &&
+          actionType !== "INTERNAL_DESTINATION"
+        ) {
+          return `invalid_cta_action:${String(actionType ?? "missing")}`;
+        }
       }
       const f = el.frame;
       if (f.w < 0.01 || f.h < 0.01) return "frame_too_small";
