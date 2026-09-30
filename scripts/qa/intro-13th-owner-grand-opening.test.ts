@@ -1,5 +1,8 @@
 /**
- * Owner fixture via Admin document services (same code path as Admin APIs).
+ * OBSOLETE_13TH_QA — LIVE_MUTATION_RETIRED
+ *
+ * Owner fixture via Admin document services (create/save/publish only).
+ * R14 PRECHECK-B: must not call setLiveRelease / mutate Owner Live.
  * Run: npx vitest run scripts/qa/intro-13th-owner-grand-opening.test.ts
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -11,7 +14,6 @@ import {
   saveIntroDocument,
 } from "@/lib/intro/document/service";
 import { publishIntroDocument } from "@/lib/intro/publish/service";
-import { setLiveRelease } from "@/lib/intro/live/service";
 import {
   cryptoRandomId,
   type IntroDocumentV1,
@@ -198,19 +200,16 @@ describe.skipIf(!HAS_LOCAL_ENV)("intro 13th owner grand opening fixture", () => 
         idempotencyKey: `grand-opening-${saved.document_id}-${saved.draft_version}`,
       });
 
-      const live = await setLiveRelease(sb, {
-        releaseId: published.releaseId,
-        userId: USER,
-      });
-
+      // LIVE_MUTATION_RETIRED — do not call setLiveRelease.
       const proof = {
+        classification: "OBSOLETE_13TH_QA",
+        liveMutation: "LIVE_MUTATION_RETIRED",
         title: TITLE,
         documentId: saved.document_id,
         draftVersion: saved.draft_version,
         releaseId: published.releaseId,
         packageId: published.packageId,
         packageIntegrity: published.packageIntegrity,
-        liveReleaseId: live.liveReleaseId ?? published.releaseId,
         scene1Bg: "#312E81",
         scene2Bg: "#9D174D",
         transitionScene1: "FADE",
@@ -221,11 +220,12 @@ describe.skipIf(!HAS_LOCAL_ENV)("intro 13th owner grand opening fixture", () => 
         },
         via: "admin_document_service_same_as_ui_apis",
         not: "raw_sql_insert",
+        note: "Publish only. Owner Live requires canonical Apply + OWNER content_class.",
       };
       writeFileSync(`${OUT}/OWNER_FIXTURE.json`, JSON.stringify(proof, null, 2));
       expect(saved.title).toBe(TITLE);
       expect(published.releaseId).toBeTruthy();
-      expect(live.liveReleaseId ?? published.releaseId).toBe(published.releaseId);
+      expect(published.packageId).toBeTruthy();
     },
     120_000,
   );

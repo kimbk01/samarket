@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { startupEnvelopeStoragePath } from "@/lib/intro/live/apply-intent";
+import {
+  evaluateOwnerLiveContentClass,
+  ownerLiveForbiddenError,
+} from "@/lib/intro/live/owner-live-eligibility";
 
 const BUCKET = "dibay-intro";
 
@@ -135,6 +139,13 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
   };
 }
 
+/**
+ * Canonical Owner Live mutation primitive.
+ *
+ * ANY caller (including service-role QA) must pass persisted OWNER eligibility.
+ * Caller-supplied contentClass is ignored — authority is
+ * revision → document.content_class.
+ */
 export async function setLiveRelease(
   sb: SupabaseClient,
   args: {
@@ -145,6 +156,11 @@ export async function setLiveRelease(
      * draft version — prevents applying a stale release after draft edits.
      */
     expectedSourceDraftVersion?: number;
+    /**
+     * Ignored if present. Callers cannot spoof OWNER; eligibility is derived
+     * from persisted document.content_class only.
+     */
+    contentClass?: string;
   },
 ): Promise<LiveStatus> {
   const { data: rev, error: revErr } = await sb
@@ -155,9 +171,33 @@ export async function setLiveRelease(
     .eq("published_revision_id", args.releaseId)
     .maybeSingle();
   if (revErr) throw new Error(revErr.message);
-  if (!rev || rev.publish_state !== "COMMITTED" || !rev.pack_id) {
+  if (!rev) {
+    throw new Error("release_not_found");
+  }
+  if (rev.publish_state !== "COMMITTED" || !rev.pack_id) {
     throw new Error("release_not_committed");
   }
+  if (!rev.document_id) {
+    throw ownerLiveForbiddenError("missing_document");
+  }
+
+  const { data: doc, error: docErr } = await sb
+    .from("app_intro_documents")
+    .select("document_id, content_class")
+    .eq("document_id", rev.document_id)
+    .maybeSingle();
+  if (docErr) throw new Error(docErr.message);
+  if (!doc) {
+    throw ownerLiveForbiddenError("missing_document");
+  }
+
+  // Authoritative persisted class only — ignore args.contentClass spoof.
+  void args.contentClass;
+  const eligibility = evaluateOwnerLiveContentClass(doc.content_class);
+  if (!eligibility.ok) {
+    throw ownerLiveForbiddenError(eligibility.contentClass);
+  }
+
   if (
     typeof args.expectedSourceDraftVersion === "number" &&
     rev.source_draft_version !== args.expectedSourceDraftVersion
