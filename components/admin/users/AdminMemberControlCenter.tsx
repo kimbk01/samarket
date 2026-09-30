@@ -202,7 +202,6 @@ export function AdminMemberControlCenter({
           stores={stores}
           adminMembership={adminMembership}
           onUpdated={onUpdated}
-          onOpenAccountTab={() => selectTab("account")}
         />
         <AdminMemberAlertStrip user={user} stores={stores} />
         <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1" data-member-detail-tabs="1">

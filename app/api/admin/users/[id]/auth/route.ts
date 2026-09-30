@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-query";
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
+import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,8 +53,18 @@ export async function GET(
     userId: String(identity.user_id ?? "").trim() || null,
   }));
 
+  const passwordResetSupported = resolveMemberPasswordResetSupported({
+    authUserPresent: Boolean(authUser),
+    identityProviders: identities.map((row) => row.provider),
+    profileAuthProvider: profile
+      ? ((profile as { auth_provider?: string | null }).auth_provider ?? null)
+      : null,
+    profileProvider: profile ? ((profile as { provider?: string | null }).provider ?? null) : null,
+  });
+
   return NextResponse.json({
     ok: true,
+    passwordResetSupported,
     auth: authUser
       ? {
           email: authUser.email ?? null,
@@ -128,6 +139,28 @@ export async function PATCH(
     );
   }
 
+  const identityProviders = (authData.user.identities ?? []).map((identity) =>
+    String(identity.provider ?? "").trim(),
+  );
+  const { data: profileHint } = await gate.sb
+    .from("profiles")
+    .select("auth_provider, provider")
+    .eq("id", userId)
+    .maybeSingle();
+  if (
+    !resolveMemberPasswordResetSupported({
+      authUserPresent: true,
+      identityProviders,
+      profileAuthProvider: (profileHint as { auth_provider?: string | null } | null)?.auth_provider,
+      profileProvider: (profileHint as { provider?: string | null } | null)?.provider,
+    })
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "password_reset_unsupported", message: "이 계정은 비밀번호 관리 대상이 아닙니다." },
+      { status: 400 },
+    );
+  }
+
   const { error: updateErr } = await gate.sb.auth.admin.updateUserById(userId, { password });
   if (updateErr) {
     return NextResponse.json(
@@ -141,7 +174,7 @@ export async function PATCH(
     actor_id: gate.actor.userId,
     target_type: "member",
     target_id: userId,
-    action: "admin_password_reset",
+    action: "PASSWORD_TEMP_SET",
     after_json: { targetClass: targetGuard.targetClass, via: "auth_route" },
   });
 

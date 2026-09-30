@@ -8,6 +8,7 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 export type AdminCreateMemberFormField =
   | "username"
   | "password"
+  | "passwordConfirm"
   | "nickname"
   | "name"
   | "email"
@@ -20,6 +21,7 @@ export type AdminCreateMemberFormField =
 export type AdminCreateMemberFormInput = {
   username: string;
   password: string;
+  passwordConfirm: string;
   nickname: string;
   name: string;
   email: string;
@@ -41,6 +43,8 @@ export function validateAdminCreateMemberForm(
   }
   if (!input.password || input.password.length < 4) {
     errors.password = "admin_users_err_password_min";
+  } else if (input.password !== input.passwordConfirm) {
+    errors.passwordConfirm = "admin_users_err_password_mismatch";
   }
   const nick = input.nickname.trim();
   if (!nick || nick.length > 20) {
@@ -91,6 +95,8 @@ export function mapAdminCreateMemberApiField(
       return "username";
     case "password":
       return "password";
+    case "passwordConfirm":
+      return "passwordConfirm";
     case "nickname":
       return "nickname";
     case "name":

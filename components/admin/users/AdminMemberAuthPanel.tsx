@@ -8,7 +8,6 @@ import {
   publicIdForDetailUser,
 } from "@/components/admin/users/admin-user-lite-display";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
-import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 
 type AuthPayload = {
   auth: {
@@ -52,10 +51,6 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: AuthPayload }>({
     kind: "loading",
   });
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwdBusy, setPwdBusy] = useState(false);
-  const [pwdMsg, setPwdMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const empty = t("admin_users_empty_placeholder");
   const fmt = (value: string | null | undefined) => {
     if (!value) return empty;
@@ -88,48 +83,6 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
       cancelled = true;
     };
   }, [user.id]);
-
-  const submitPassword = async () => {
-    setPwdMsg(null);
-    if (!newPassword || newPassword.length < 4) {
-      setPwdMsg({ tone: "err", text: t("admin_users_err_password_min") });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPwdMsg({ tone: "err", text: t("admin_users_err_password_mismatch") });
-      return;
-    }
-    setPwdBusy(true);
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/auth`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPassword }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        errorKey?: string;
-      };
-      if (!res.ok || data.ok === false) {
-        const text =
-          data.error === "password_min" || data.errorKey === "admin_users_err_password_min"
-            ? t("admin_users_err_password_min")
-            : data.message ?? data.error ?? t("admin_users_action_failed");
-        setPwdMsg({ tone: "err", text });
-        return;
-      }
-      setNewPassword("");
-      setConfirmPassword("");
-      setPwdMsg({ tone: "ok", text: t("admin_users_auth_password_updated") });
-    } catch {
-      setPwdMsg({ tone: "err", text: t("admin_users_error_network") });
-    } finally {
-      setPwdBusy(false);
-    }
-  };
 
   if (state.kind === "loading") {
     return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>{t("admin_users_detail_loading")}</div>;
@@ -172,35 +125,14 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label={safeT("admin_users_label_auth_last_login", { fallbackKo: "Auth 최근 로그인", fallbackEn: "Auth last sign-in" })} value={fmt(auth?.lastSignInAt)} />
         <Field label={safeT("admin_users_cc_auth_profile_provider", { fallbackKo: "프로필 provider", fallbackEn: "Profile provider" })} value={profile?.authProvider || profile?.provider || empty} />
       </Fieldset>
-      <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-3 lg:col-span-2`}>
+            <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-3 lg:col-span-2`} data-member-auth-password-note="1">
         <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">{t("admin_users_auth_password_section")}</h3>
-        <p className="text-[12px] text-[#667085]">{t("admin_users_auth_password_hint")}</p>
+        <p className="text-[13px] text-[#344054]">
+          현재 비밀번호는 확인할 수 없습니다. 새 임시 비밀번호 설정은 상단 「비밀번호 관리」에서 처리합니다.
+        </p>
         {!canChangePassword ? (
           <p className="text-[13px] font-medium text-[#b42318]">{t("admin_users_auth_password_no_auth")}</p>
-        ) : (
-          <form
-            className="grid gap-3 sm:grid-cols-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitPassword();
-            }}
-          >
-            <label className="block text-[13px]">
-              <span className="mb-1 block text-[#667085]">{t("admin_users_label_password")}</span>
-              <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setPwdMsg(null); }} minLength={4} maxLength={128} disabled={pwdBusy} className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]" placeholder={t("admin_users_ph_password_min")} />
-            </label>
-            <label className="block text-[13px]">
-              <span className="mb-1 block text-[#667085]">{t("admin_users_label_password_confirm")}</span>
-              <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPwdMsg(null); }} minLength={4} maxLength={128} disabled={pwdBusy} className="w-full rounded-md border border-[#d0d5dd] px-3 py-2 text-[#101828] disabled:bg-[#f9fafb]" placeholder={t("admin_users_ph_password_min")} />
-            </label>
-            <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
-              <DibayOverlayButton roleTone="primary" type="submit" disabled={pwdBusy || !newPassword} loading={pwdBusy}>
-                {t("admin_users_auth_password_submit")}
-              </DibayOverlayButton>
-              {pwdMsg ? <p className={`text-[13px] font-medium ${pwdMsg.tone === "ok" ? "text-emerald-700" : "text-[#b42318]"}`}>{pwdMsg.text}</p> : null}
-            </div>
-          </form>
-        )}
+        ) : null}
       </section>
     </div>
   );

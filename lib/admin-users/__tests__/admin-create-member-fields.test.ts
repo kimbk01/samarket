@@ -18,6 +18,7 @@ describe("admin-create-member-fields", () => {
       {
         username: "qa_user",
         password: "pass12",
+      passwordConfirm: "pass12",
         nickname: "닉네임",
         name: "이름",
         email: "",

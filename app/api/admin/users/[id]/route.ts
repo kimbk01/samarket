@@ -900,11 +900,23 @@ export async function PATCH(
         actor_id: gate.actor.userId,
         target_type: "member",
         target_id: userId,
-        action: "admin_password_reset",
+        action: "PASSWORD_TEMP_SET",
         after_json: { via: "users_patch" },
       });
     }
   }
+
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: gate.actor.userId,
+    target_type: "member",
+    target_id: userId,
+    action: "admin_member_profile_update",
+    after_json: {
+      fields: Object.keys(body).filter((k) => k !== "password"),
+      // never password
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

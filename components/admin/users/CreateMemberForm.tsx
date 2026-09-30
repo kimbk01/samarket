@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminManualMemberAddressBlock } from "@/components/admin/users/AdminManualMemberAddressBlock";
@@ -18,15 +17,15 @@ import {
   type AdminCreateMemberFieldErrors,
   type AdminCreateMemberFormField,
 } from "@/lib/admin-users/admin-create-member-fields";
-import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
   formatPhMobileDisplayPlus63,
   normalizePhMobileDb,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { dibayAlert, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
+import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { useRouter } from "next/navigation";
 
 const ACCOUNT_TYPE_OPTIONS: {
   value: "development_member" | "operations_member";
@@ -62,8 +61,11 @@ interface CreateMemberFormProps {
 
 export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) {
   const { t } = useI18n();
+  const router = useRouter();
+  const [dialogOpen, setDialogOpen] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [nickname, setNickname] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -74,8 +76,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [formError, setFormError] = useState<string | null>(null);
   const [addressAttempted, setAddressAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [createdLoginId, setCreatedLoginId] = useState<string | null>(null);
-  const [createdLoginEmail, setCreatedLoginEmail] = useState<string | null>(null);
 
   const clearField = (field: AdminCreateMemberFormField) => {
     setFieldErrors((prev) => {
@@ -100,19 +100,6 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
     return out;
   }, [fieldErrors, t]);
 
-  const resolvedAuthEmailPreview = useMemo(() => {
-    const custom = email.trim().toLowerCase();
-    const loginId = username.trim().toLowerCase();
-    if (!custom) {
-      if (loginId.length >= 2) {
-        return { kind: "manual" as const, value: buildManualMemberAuthEmail(loginId) };
-      }
-      return { kind: "need_email" as const, value: null as string | null };
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custom)) return { kind: "invalid_custom" as const, value: custom };
-    return { kind: "explicit" as const, value: custom };
-  }, [email, username]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -127,6 +114,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       {
         username,
         password,
+        passwordConfirm,
         nickname,
         name,
         email,
@@ -145,6 +133,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             ? t("admin_users_label_username")
             : field === "password"
               ? t("admin_users_label_password")
+              : field === "passwordConfirm"
+                ? t("admin_users_label_password_confirm")
               : field === "nickname"
                 ? t("admin_users_label_nickname")
                 : field === "name"
@@ -158,9 +148,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                         : field;
         return `· ${label}: ${t(key as MessageKey)}`;
       });
-      await dibayAlert({
-        title: [t("admin_users_err_create_failed"), ...lines].join("\n"),
-      });
+      setFormError([t("admin_users_err_create_failed"), ...lines].join("\n"));
       return;
     }
     setFieldErrors({});
@@ -253,56 +241,51 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
           setFieldErrors({ form: "admin_users_err_create_failed" });
         }
         setFormError(message);
-        await dibayAlert({ title: message });
         return;
       }
+      setPassword("");
+      setPasswordConfirm("");
       onSuccess();
-      setCreatedLoginId(id);
-      const em =
-        typeof data.user?.email === "string" && data.user.email.trim()
-          ? data.user.email.trim()
-          : resolvedAuthEmailPreview.value || email.trim();
-      setCreatedLoginEmail(em);
+      setDialogOpen(false);
+      if (id) {
+        router.push(`/admin/users/${encodeURIComponent(id)}`);
+      }
+      onClose();
+      return;
     } catch {
       const msg = t("admin_users_err_request");
       setFormError(msg);
       setFieldErrors({ form: "admin_users_err_request" });
-      await dibayAlert({ title: msg });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const dirty =
+    Boolean(username || password || passwordConfirm || nickname || name || email || contactPhoneDigits);
+
   return (
-    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="dialog">
-      <div
-        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto !p-0`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--overlay-border)] px-5 py-4">
-          <h2 className={OverlayUi.title}>{t("admin_users_form_create_member_title")}</h2>
-          <p className={`mt-1 ${OverlayUi.caption}`}>{t("admin_users_form_create_member_subtitle")}</p>
-        </div>
-        {createdLoginId ? (
-          <div className="space-y-4 p-5">
-            <p className="sam-text-body text-sam-fg">
-              {t("admin_users_created_success", { loginId: createdLoginId })}{" "}
-              <code className="rounded bg-sam-surface-muted px-1">{createdLoginEmail}</code>
-            </p>
-            <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-4`}>
-              <Link
-                href="/login"
-                className="dibay-overlay-btn dibay-overlay-btn--primary"
-              >
-                {t("admin_users_go_login")}
-              </Link>
-              <DibayOverlayButton roleTone="secondary" onClick={onClose}>
-                {t("common_close")}
-              </DibayOverlayButton>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 p-5" noValidate>
+    <MemberAdminDialog
+      open={dialogOpen}
+      title={MEMBER_ADMIN_COPY.member_create_title}
+      description={t("admin_users_form_create_member_subtitle")}
+      dirty={dirty && !submitting}
+      pending={submitting}
+      errorText={formError}
+      primaryLabel={MEMBER_ADMIN_COPY.member_register}
+      primaryDisabled={submitting}
+      onCancel={() => {
+        if (submitting) return;
+        setDialogOpen(false);
+        onClose();
+      }}
+      onPrimary={() => {
+        const form = document.getElementById("member-create-form") as HTMLFormElement | null;
+        form?.requestSubmit();
+      }}
+    >
+      <div className="max-h-[60vh] overflow-y-auto pr-1" data-member-create-dialog="1">
+        <form id="member-create-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 {t("admin_users_label_username")}
@@ -341,6 +324,24 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 placeholder={t("admin_users_ph_password_min")}
               />
               <FieldError message={resolvedFieldMessages.password} />
+            </div>
+            <div>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_password_confirm")}
+              </label>
+              <input
+                type="password"
+                value={passwordConfirm}
+                onChange={(e) => {
+                  setPasswordConfirm(e.target.value);
+                  touchField("passwordConfirm");
+                }}
+                autoComplete="new-password"
+                aria-invalid={Boolean(resolvedFieldMessages.passwordConfirm)}
+                className={fieldClass(Boolean(resolvedFieldMessages.passwordConfirm))}
+                placeholder={t("admin_users_ph_password_min")}
+              />
+              <FieldError message={resolvedFieldMessages.passwordConfirm} />
             </div>
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
@@ -396,16 +397,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               />
               <FieldError message={resolvedFieldMessages.email} />
             </div>
-            <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/60 px-3 py-2">
-              <p className="sam-text-xxs text-sam-muted">{t("admin_users_label_auth_email")}</p>
-              <code className="mt-0.5 block break-all sam-text-body-secondary text-sam-fg">
-                {resolvedAuthEmailPreview.kind === "need_email"
-                  ? "—"
-                  : resolvedAuthEmailPreview.kind === "invalid_custom"
-                    ? t("admin_users_auth_email_invalid")
-                    : resolvedAuthEmailPreview.value}
-              </code>
-            </div>
+            {/* Auth email synthesis (@manual.local) is server implementation detail — not shown. */}
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 {t("admin_users_label_contact_optional")}{" "}
@@ -468,20 +460,12 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 {formError ?? resolvedFieldMessages.form}
               </p>
             ) : null}
-            <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-4`}>
-              <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
-                {t("common_cancel")}
-              </DibayOverlayButton>
-              <DibayOverlayButton roleTone="primary" type="submit" disabled={submitting} loading={submitting}>
-                {submitting ? t("admin_users_creating") : t("admin_users_add")}
-              </DibayOverlayButton>
-            </div>
-          </form>
-        )}
+</form>
       </div>
-    </DibayOverlayRoot>
+    </MemberAdminDialog>
   );
 }
+
 
 function mapServerFieldToKey(
   field: AdminCreateMemberFormField,
@@ -497,6 +481,8 @@ function mapServerFieldToKey(
       return "admin_users_err_username_length";
     case "password":
       return "admin_users_err_password_min";
+    case "passwordConfirm":
+      return "admin_users_err_password_mismatch";
     case "nickname":
       return "admin_users_err_nickname_length";
     case "name":

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   adminCreateMemberAddressHasSelection,
   buildUserAddressSeedPayload,
@@ -372,6 +373,20 @@ export async function POST(req: NextRequest) {
       console.error("[admin/users/create] representative address seed failed", seedErr);
     }
   }
+
+  void appendAuditLog(supabase, {
+    actor_type: "admin",
+    actor_id: admin.userId,
+    target_type: "member",
+    target_id: id,
+    action: "admin_member_create",
+    after_json: {
+      username,
+      nickname,
+      accountType: accountTypeRaw,
+      // never password
+    },
+  });
 
   return NextResponse.json({
     ok: true,

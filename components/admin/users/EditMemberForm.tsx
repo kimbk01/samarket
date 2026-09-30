@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser, MemberType } from "@/lib/types/admin-user";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
+import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 
 const MEMBER_LABEL_KEYS: Record<MemberType, MessageKey> = {
   normal: "admin_users_member_type_normal_short",
@@ -45,15 +45,13 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const [phone, setPhone] = useState(user.phone ?? "");
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
   const [phoneStatus, setPhoneStatus] = useState(() => inferPhoneValue(user));
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const isReadOnly = user.hasProfile === false;
   const memberLocked =
     user.profileRole === "master" || (!isMasterUi && user.memberType === "admin");
-
   const memberOptions: MemberType[] =
     user.memberType === "admin" ? ["admin"] : ["normal", "premium"];
 
@@ -66,18 +64,35 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     setPhoneStatus(inferPhoneValue(user));
   }, [user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isReadOnly) return;
-    setError(null);
+  const dirty = useMemo(() => {
+    const nextDibayId = dibayId.trim().replace(/^@+/, "").toLowerCase();
+    const currentDibayId = (user.dibay_id ?? "").replace(/^@+/, "").toLowerCase();
+    return (
+      nickname.trim() !== user.nickname ||
+      nextDibayId !== currentDibayId ||
+      email.trim().toLowerCase() !== (user.email ?? "").trim().toLowerCase() ||
+      phone.trim() !== (user.phone ?? "").trim() ||
+      (!memberLocked && memberType !== user.memberType) ||
+      phoneStatus !== inferPhoneValue(user)
+    );
+  }, [nickname, dibayId, email, phone, memberType, phoneStatus, user, memberLocked]);
 
+  const close = () => {
+    if (pending) return;
+    setOpen(false);
+    onClose();
+  };
+
+  const submit = async () => {
+    if (isReadOnly) return;
+    setErrorText(null);
     const nextNickname = nickname.trim();
     if (!nextNickname) {
-      setError(t("admin_users_err_nickname_required"));
+      setErrorText(t("admin_users_err_nickname_required"));
       return;
     }
     if (nextNickname.length > 20) {
-      setError(t("admin_users_err_nickname_max"));
+      setErrorText(t("admin_users_err_nickname_max"));
       return;
     }
     const body: {
@@ -87,7 +102,6 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       dibayId?: string;
       email?: string;
       phone?: string;
-      password?: string;
     } = {};
     if (nextNickname !== user.nickname) body.nickname = nextNickname;
     const nextDibayId = dibayId.trim().replace(/^@+/, "").toLowerCase();
@@ -103,24 +117,12 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     if (effectiveMember !== user.memberType) body.memberType = effectiveMember;
     if (phoneStatus !== inferPhoneValue(user)) body.phoneVerificationStatus = phoneStatus;
 
-    if (newPassword || confirmPassword) {
-      if (newPassword.length < 4) {
-        setError(t("admin_users_err_password_min"));
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setError(t("admin_users_err_password_mismatch"));
-        return;
-      }
-      body.password = newPassword;
-    }
-
     if (Object.keys(body).length === 0) {
-      setError(t("admin_users_err_no_changes"));
+      setErrorText(t("admin_users_err_no_changes"));
       return;
     }
 
-    setSubmitting(true);
+    setPending(true);
     try {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
         method: "PATCH",
@@ -138,198 +140,119 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               : data.error === "invalid_email"
                 ? t("admin_users_err_invalid_email")
                 : data.message ?? data.error ?? t("admin_users_err_save_failed");
-        setError(message);
-        setSubmitting(false);
+        setErrorText(message);
         return;
       }
       onSuccess();
+      setOpen(false);
       onClose();
     } catch {
-      setError(t("admin_users_request_failed"));
+      setErrorText(t("admin_users_err_request"));
     } finally {
-      setSubmitting(false);
+      setPending(false);
     }
   };
 
   return (
-    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="dialog">
-      <form
-        onSubmit={handleSubmit}
-        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className={OverlayUi.title}>{t("admin_users_form_edit_member_title")}</h2>
-        <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-          {user.nickname}
-          {showMemberUuid ? (
-            <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername ?? user.id}</span>
-          ) : user.loginUsername ? (
-            <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername}</span>
-          ) : (
-            <>
-              <span className="ml-2 sam-text-helper text-sam-muted">{t("admin_users_id_hidden")}</span>
-              <button
-                type="button"
-                className="ml-2 sam-text-helper font-medium text-signature hover:underline"
-                onClick={() => setShowMemberUuid(true)}
-              >
-                {t("admin_users_show_uuid")}
-              </button>
-            </>
-          )}
-        </p>
-        <p className="mt-2 sam-text-helper text-amber-800">
-          {t("admin_users_edit_profiles_hint")}
-        </p>
+    <MemberAdminDialog
+      open={open}
+      title={MEMBER_ADMIN_COPY.member_edit_title}
+      description="회원 프로필 정보를 수정합니다. 비밀번호는 포함되지 않습니다."
+      dirty={dirty}
+      pending={pending}
+      errorText={errorText}
+      primaryLabel={MEMBER_ADMIN_COPY.save_changes}
+      primaryDisabled={isReadOnly || !dirty}
+      onCancel={close}
+      onPrimary={() => void submit()}
+    >
+      <div className="space-y-3" data-member-edit-dialog="1">
         {isReadOnly ? (
-          <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper text-sky-950">
-            {t("admin_users_edit_test_only_hint")}
-          </p>
+          <p className="text-[13px] text-[#b42318]">프로필이 없어 수정할 수 없습니다.</p>
         ) : null}
-
-        <div className="mt-5 space-y-4">
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_lite_label_public_id")}</span>
-            <input
-              value={dibayId}
-              onChange={(e) => setDibayId(e.target.value.replace(/^@+/, ""))}
-              maxLength={20}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-              placeholder="dai_kim"
-            />
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_email")}</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-            />
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_lite_label_phone")}</span>
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-            />
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_nickname")}</span>
-            <input
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              maxLength={20}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-              placeholder={t("admin_users_label_nickname")}
-            />
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_member_type")}</span>
-            <select
-              value={memberType}
-              onChange={(e) => setMemberType(e.target.value as MemberType)}
-              disabled={isReadOnly || memberLocked}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-            >
-              {memberOptions.map((v) => (
-                <option key={v} value={v}>
-                  {t(MEMBER_LABEL_KEYS[v])}
-                </option>
-              ))}
-            </select>
-            {user.profileRole === "master" ? (
-              <span className="mt-1 block sam-text-xxs text-amber-700">
-                {t("admin_users_edit_master_role_hint")}
-              </span>
-            ) : null}
-            {user.memberType !== "admin" ? (
-              <>
-                <span className="mt-1 block sam-text-xxs text-sam-muted">
-                  {t("admin_users_edit_member_type_hint")}
-                </span>
-                <span className="mt-1 block sam-text-xxs text-sam-muted">
-                  {t("admin_users_admin_via_staff_tab_hint")}
-                </span>
-              </>
-            ) : null}
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password")}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              minLength={4}
-              maxLength={128}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-              placeholder={t("admin_users_ph_password_min")}
-            />
-            <span className="mt-1 block sam-text-xxs text-sam-muted">
-              {t("admin_users_auth_password_hint")}
-            </span>
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password_confirm")}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              minLength={4}
-              maxLength={128}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-              placeholder={t("admin_users_ph_password_min")}
-            />
-          </label>
-
-          <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_phone_verify_status")}</span>
-            <select
-              value={phoneStatus}
-              onChange={(e) => setPhoneStatus(e.target.value)}
-              disabled={isReadOnly}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
-            >
-              {PHONE_OPTION_KEYS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {t(o.labelKey)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {error ? <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p> : null}
-
-        <div className={`${OverlayUi.actionsRow} mt-6`}>
-          <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
-            {t("common_cancel")}
-          </DibayOverlayButton>
-          <DibayOverlayButton
-            roleTone="primary"
-            type="submit"
-            disabled={submitting || isReadOnly}
-            loading={submitting}
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_label_nickname")}</span>
+          <input
+            value={nickname}
+            disabled={pending || isReadOnly}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={20}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+          />
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_lite_label_public_id")}</span>
+          <input
+            value={dibayId}
+            disabled={pending || isReadOnly}
+            onChange={(e) => setDibayId(e.target.value)}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+          />
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_label_email")}</span>
+          <input
+            type="email"
+            value={email}
+            disabled={pending || isReadOnly}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+          />
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_lite_label_phone")}</span>
+          <input
+            value={phone}
+            disabled={pending || isReadOnly}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+          />
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_label_member_type")}</span>
+          <select
+            value={memberType}
+            disabled={pending || isReadOnly || memberLocked}
+            onChange={(e) => setMemberType(e.target.value as MemberType)}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
           >
-            {submitting ? t("admin_users_saving") : t("common_save")}
-          </DibayOverlayButton>
-        </div>
-      </form>
-    </DibayOverlayRoot>
+            {memberOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {t(MEMBER_LABEL_KEYS[opt])}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{t("admin_users_label_phone_verify_status")}</span>
+          <select
+            value={phoneStatus}
+            disabled={pending || isReadOnly}
+            onChange={(e) => setPhoneStatus(e.target.value)}
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+          >
+            {PHONE_OPTION_KEYS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-[11px] text-[#98a2b3]">
+          {MEMBER_ADMIN_COPY.password_manage}은 별도 「{MEMBER_ADMIN_COPY.password_temp_set_title}」에서 처리합니다.
+        </p>
+        {showMemberUuid ? (
+          <p className="font-mono text-[11px] text-[#98a2b3]">{user.id}</p>
+        ) : (
+          <button
+            type="button"
+            className="text-[11px] font-semibold text-[#667085]"
+            onClick={() => setShowMemberUuid(true)}
+          >
+            {MEMBER_ADMIN_COPY.system_member_key}
+          </button>
+        )}
+      </div>
+    </MemberAdminDialog>
   );
 }

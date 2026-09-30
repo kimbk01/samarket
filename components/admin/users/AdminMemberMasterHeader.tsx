@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
@@ -23,6 +23,7 @@ import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { EditMemberForm } from "./EditMemberForm";
+import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import {
   displayNameForDetailUser,
   formatAdminLiteDate,
@@ -70,14 +71,11 @@ export function AdminMemberMasterHeader({
   stores,
   adminMembership,
   onUpdated,
-  onOpenAccountTab,
 }: {
   user: AdminUserDetailPayload;
   stores: AdminPersonStoreRow[];
   adminMembership: AdminPersonMembershipRow | null;
   onUpdated?: () => void;
-  /** P4 owns password workflow; P3 only navigates to existing account tab when supported. */
-  onOpenAccountTab?: () => void;
 }) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -95,8 +93,29 @@ export function AdminMemberMasterHeader({
   const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
   const signupOrigin = memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email));
   const [showEdit, setShowEdit] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/auth`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = (await res.json().catch(() => ({}))) as { passwordResetSupported?: boolean };
+        if (!cancelled) setPasswordResetSupported(data.passwordResetSupported === true);
+      } catch {
+        if (!cancelled) setPasswordResetSupported(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
   const phone = formatPhMobileDisplay(user.contact_phone ?? "") || user.contact_phone?.trim() || empty;
 
   const canManageMember = isSuperAdmin || hasPermission("users");
@@ -116,7 +135,7 @@ export function AdminMemberMasterHeader({
         targetIsSuperAdmin: membershipRole === "super_admin",
       },
       hasStoreRelationship: hasStore,
-      passwordResetSupported: true,
+      passwordResetSupported,
     });
   }, [
     meLoading,
@@ -128,6 +147,7 @@ export function AdminMemberMasterHeader({
     hasStore,
     snapshot?.userId,
     membershipRole,
+    passwordResetSupported,
   ]);
 
   const primary = memberDetailPrimaryActions(decisions);
@@ -244,9 +264,8 @@ export function AdminMemberMasterHeader({
             <button
               type="button"
               className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
-              onClick={() => onOpenAccountTab?.()}
+              onClick={() => setShowPassword(true)}
               data-member-cta="password"
-              title="계정·인증 탭에서 처리합니다"
             >
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>
@@ -263,6 +282,12 @@ export function AdminMemberMasterHeader({
           }}
         />
       ) : null}
+      <AdminMemberPasswordDialog
+        open={showPassword}
+        userId={user.id}
+        onClose={() => setShowPassword(false)}
+        onSuccess={() => onUpdated?.()}
+      />
     </div>
   );
 }
