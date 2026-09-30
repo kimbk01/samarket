@@ -343,7 +343,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       methodName: "hide",
       options: ["fadeOutDuration": 0],
       success: { _, _ in },
-      error: { _, _ in }
+      error: { _ in }
     )
     let sel = NSSelectorFromString("hide:")
     guard plugin.responds(to: sel) else {

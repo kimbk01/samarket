@@ -52,6 +52,7 @@ async function bundleMarkupModule() {
     logLevel: "silent",
     alias: {
       "@/lib": path.join(ROOT, "lib"),
+      "@/components": path.join(ROOT, "components"),
     },
   });
   return import(pathToFileURL(outfile).href);
