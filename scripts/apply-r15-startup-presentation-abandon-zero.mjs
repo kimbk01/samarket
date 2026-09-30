@@ -1,16 +1,19 @@
 /**
- * Apply ONLY 20270408130000_r15_startup_presentation_abandon_zero to Production DB.
- * Demolition: drop R15 startup tables/bucket/objects. No Intro recreate.
+ * Apply R15 abandonment ZERO to Production:
+ * 1) empty r15-startup-media via Storage API
+ * 2) drop R15 tables + bucket via SQL migration
  *
  * Usage: node scripts/apply-r15-startup-presentation-abandon-zero.mjs
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createClient } from "@supabase/supabase-js";
 
 const MIGRATION_FILE = "20270408130000_r15_startup_presentation_abandon_zero.sql";
 const VERSION = "20270408130000";
 const EXPECTED_HOST_FRAGMENT = "ckdosyydvgzqwpbwuhon";
+const BUCKET = "r15-startup-media";
 
 function loadEnvLocal() {
   try {
@@ -36,11 +39,18 @@ function assertApprovedSql(sql) {
     if (upper.includes(bad)) throw new Error(`abandon migration outside scope: contains ${bad}`);
   }
   if (/\bR16\b/.test(sql)) throw new Error("abandon migration outside scope: contains R16");
+  const sqlNoComments = sql
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n")
+    .toUpperCase();
+  if (sqlNoComments.includes("DELETE FROM STORAGE.OBJECTS")) {
+    throw new Error("direct storage.objects delete forbidden; use Storage API");
+  }
   for (const must of [
     "r15_startup_documents",
     "r15_startup_generations",
     "r15_startup_media",
-    "r15-startup-media",
     "DROP TABLE",
   ]) {
     if (!sql.includes(must)) throw new Error(`missing required marker: ${must}`);
@@ -58,16 +68,72 @@ function psql(args, env) {
   return (r.stdout || "").trim();
 }
 
+async function emptyBucket(sb) {
+  const { data: buckets, error: listBucketErr } = await sb.storage.listBuckets();
+  if (listBucketErr) throw new Error(`listBuckets: ${listBucketErr.message}`);
+  if (!(buckets || []).some((b) => b.id === BUCKET || b.name === BUCKET)) {
+    console.log(JSON.stringify({ bucket: BUCKET, status: "already_absent" }));
+    return;
+  }
+
+  async function walk(prefix) {
+    const { data, error } = await sb.storage.from(BUCKET).list(prefix, { limit: 1000 });
+    if (error) throw new Error(`storage.list(${prefix}): ${error.message}`);
+    const paths = [];
+    for (const item of data || []) {
+      const path = prefix ? `${prefix}/${item.name}` : item.name;
+      if (item.id == null) {
+        paths.push(...(await walk(path)));
+      } else {
+        paths.push(path);
+      }
+    }
+    return paths;
+  }
+
+  const all = await walk("");
+  for (let i = 0; i < all.length; i += 100) {
+    const chunk = all.slice(i, i + 100);
+    if (chunk.length === 0) continue;
+    const { error } = await sb.storage.from(BUCKET).remove(chunk);
+    if (error) throw new Error(`storage.remove: ${error.message}`);
+  }
+
+  const { error: delBucketErr } = await sb.storage.deleteBucket(BUCKET);
+  if (delBucketErr && !/not found|does not exist/i.test(delBucketErr.message)) {
+    throw new Error(`storage.deleteBucket: ${delBucketErr.message}`);
+  }
+  const { data: afterBuckets, error: afterErr } = await sb.storage.listBuckets();
+  if (afterErr) throw new Error(`listBuckets after delete: ${afterErr.message}`);
+  if ((afterBuckets || []).some((b) => b.id === BUCKET || b.name === BUCKET)) {
+    throw new Error(`bucket still present after deleteBucket: ${BUCKET}`);
+  }
+  console.log(JSON.stringify({ bucket: BUCKET, removedObjects: all.length, bucketStatus: "absent" }));
+}
+
 loadEnvLocal();
 const pass = process.env.SUPABASE_DB_PASSWORD?.trim();
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const service = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 if (!pass) {
   console.error("SUPABASE_DB_PASSWORD missing");
+  process.exit(2);
+}
+if (!url || !service) {
+  console.error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing");
+  process.exit(2);
+}
+if (!url.includes(EXPECTED_HOST_FRAGMENT) && !url.includes("supabase")) {
+  console.error("unexpected supabase url");
   process.exit(2);
 }
 
 const sqlPath = resolve(process.cwd(), "supabase/migrations", MIGRATION_FILE);
 const sql = readFileSync(sqlPath, "utf8");
 assertApprovedSql(sql);
+
+const sb = createClient(url, service, { auth: { persistSession: false } });
+await emptyBucket(sb);
 
 const host = "aws-1-ap-south-1.pooler.supabase.com";
 const user = `postgres.${EXPECTED_HOST_FRAGMENT}`;
@@ -80,6 +146,8 @@ const existing = psql(
 );
 if (existing === VERSION) {
   console.log(JSON.stringify({ alreadyRecorded: true, version: VERSION }));
+  // Re-run SQL idempotently for residual drops if prior partial apply recorded version.
+  psql([...connArgs, "-f", sqlPath], env);
 } else {
   console.log("[apply] running R15 abandonment zero migration...");
   psql([...connArgs, "-f", sqlPath], env);
@@ -118,6 +186,7 @@ if (
   !check.includes("GEN_ZERO") ||
   !check.includes("MEDIA_ZERO") ||
   !check.includes("BUCKET_ZERO") ||
+  !check.includes("|0|") ||
   !check.includes("MIG_RECORDED")
 ) {
   console.error("R15 abandonment ZERO check FAILED");
