@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { OsEntryScreen } from "@/components/os-entry/OsEntryScreen";
 import { resolveOsEntryColdConfig } from "@/lib/os-entry/local-cache";
 import { shouldRunOsEntryRuntime } from "@/lib/os-entry/runtime-platform";
@@ -54,10 +55,21 @@ export function OsEntryOwner() {
   }, [release]);
 
   useEffect(() => {
-    if (!shouldRunOsEntryRuntime()) return;
+    const native = shouldRunOsEntryRuntime();
+    if (!native) {
+      if (typeof console !== "undefined" && typeof console.info === "function") {
+        console.info("[os-entry] skip runtime (not capacitor native)");
+      }
+      return;
+    }
     const cold = resolveOsEntryColdConfig();
     minMsRef.current = cold.config.minimumVisibleMs;
     setSurface({ config: cold.config, imageSrc: cold.imageSrc });
+    if (typeof console !== "undefined" && typeof console.info === "function") {
+      console.info(
+        `[os-entry] cold surface revision=${cold.config.revision} source=${cold.source} minMs=${cold.config.minimumVisibleMs}`
+      );
+    }
     if (typeof window !== "undefined") {
       (
         window as Window & {
@@ -70,7 +82,7 @@ export function OsEntryOwner() {
           };
         }
       ).__dibayOsEntryProbe = () => ({
-        active: !releasedRef.current && surface != null,
+        active: !releasedRef.current,
         revision: cold.config.revision,
         source: cold.source,
         visibleAt: visibleAtRef.current,
@@ -102,12 +114,15 @@ export function OsEntryOwner() {
   }, []);
 
   if (!surface) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portal to body — escape tablet/landscape stacking contexts that can hide fixed overlays.
+  return createPortal(
     <OsEntryScreen
       config={surface.config}
       imageSrc={surface.imageSrc}
       onVisibleCommit={onVisibleCommit}
-    />
+    />,
+    document.body
   );
 }
