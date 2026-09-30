@@ -43,7 +43,7 @@ const config: CapacitorConfig = {
    * Never leave unset (Cap defaults to UIColor.systemBackground = white).
    * Patched by generate:system-start from durable SSOT.
    */
-  backgroundColor: "#312E81",
+  backgroundColor: "#0A4D8C",
   server: useLocalRuntime
     ? {
         // Document = capacitor-www (Local Runtime). Remote is API-only (see local-runtime markup).
@@ -67,7 +67,7 @@ const config: CapacitorConfig = {
       /** Mount sentinel only — hide = Intro first frame ∧ minVisibleMs (native). */
       launchShowDuration: 1,
       launchFadeOutDuration: 0,
-      backgroundColor: "#312E81",
+      backgroundColor: "#0A4D8C",
       androidSplashResourceName: "splash",
     },
   },

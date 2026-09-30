@@ -1,6 +1,6 @@
 {
-  "version": 10,
-  "backgroundColor": "#065740",
+  "version": 13,
+  "backgroundColor": "#0A4D8C",
   "matchScene1Appearance": false,
   "brandMarkEnabled": true,
   "logoMediaId": "03d6ff98-299a-4aaf-9389-d680a2fff690",
@@ -10,8 +10,8 @@
   "logoSizeNorm": 0.18,
   "logoXNorm": 0.5,
   "logoYNorm": 0.5,
-  "minVisibleMs": 500,
-  "buildIdentity": "ss_r10_065740_sha256:f995e5322ec_500",
+  "minVisibleMs": 2000,
+  "buildIdentity": "ss_r13_0A4D8C_sha256:f995e5322ec_2000",
   "source": "durable",
   "note": "BUILD SNAPSHOT from durable app_system_start_config. Not Admin Production FS write. minVisibleMs = App/Cap continuation only."
 }

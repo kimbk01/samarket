@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED — App/Cap CONTINUATION minVisibleMs. OS splash duration ≠ this. -->
 <resources>
-    <integer name="dibay_system_start_min_visible_ms">500</integer>
+    <integer name="dibay_system_start_min_visible_ms">2000</integer>
 </resources>

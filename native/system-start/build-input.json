@@ -1,11 +1,11 @@
 {
   "schemaVersion": 3,
   "kind": "SYSTEM_START",
-  "updatedAt": "2026-09-30T05:19:16.082Z",
-  "buildIdentity": "ss_r10_065740_sha256:f995e5322ec_500",
+  "updatedAt": "2026-09-30T07:05:12.886Z",
+  "buildIdentity": "ss_r13_0A4D8C_sha256:f995e5322ec_2000",
   "background": {
     "type": "solid",
-    "color": "#065740",
+    "color": "#0A4D8C",
     "imageUrl": null
   },
   "logo": {
@@ -22,7 +22,7 @@
     "assetCopied": true
   },
   "timing": {
-    "SYSTEM_START_MIN_VISIBLE_MS": 500,
+    "SYSTEM_START_MIN_VISIBLE_MS": 2000,
     "appliesTo": "App_Cap_continuation",
     "doesNotApplyTo": "OS_splash_duration",
     "handoff": "max(intro_first_frame_ready, configured_min_visible)"

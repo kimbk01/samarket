@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "kind": "SYSTEM_START_BUILD_SNAPSHOT",
+  "systemStartRevision": 13,
+  "background": "#0A4D8C",
+  "brandEnabled": true,
+  "brandMediaRef": "03d6ff98-299a-4aaf-9389-d680a2fff690",
+  "brandAssetIntegrity": "sha256:f995e5322ec3f273df9ac83c35299dc71e70a1d7d4863cbe6b89faaa9d2a4acc",
+  "brandSize": "S",
+  "minVisibleMs": 2000,
+  "materializedAt": "2026-09-30T07:05:12.886Z",
+  "buildIdentity": "ss_r13_0A4D8C_sha256:f995e5322ec_2000",
+  "source": "durable"
+}
