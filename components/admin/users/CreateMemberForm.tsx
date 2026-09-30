@@ -216,7 +216,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         error?: string;
         errorKey?: MessageKey;
         field?: string;
-        user?: { email?: string };
+        user?: { id?: string; email?: string };
       };
       if (!res.ok || !data.ok) {
         const mapped = mapAdminCreateMemberApiField(data.field);
@@ -247,8 +247,9 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       setPasswordConfirm("");
       onSuccess();
       setDialogOpen(false);
-      if (id) {
-        router.push(`/admin/users/${encodeURIComponent(id)}`);
+      const createdUserId = String(data.user?.id ?? "").trim();
+      if (createdUserId) {
+        router.push(`/admin/users/${encodeURIComponent(createdUserId)}`);
       }
       onClose();
       return;

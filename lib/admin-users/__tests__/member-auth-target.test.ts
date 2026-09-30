@@ -91,7 +91,7 @@ describe("password route target guard contract", () => {
     const src = readFileSync(join(process.cwd(), "app/api/admin/users/[id]/auth/route.ts"), "utf8");
     expect(src).toMatch(/assertMemberPasswordChangeAllowed/);
     expect(src).toMatch(/appendAuditLog/);
-    expect(src).toMatch(/admin_password_reset/);
+    expect(src).toMatch(/PASSWORD_TEMP_SET/);
   });
 
   it("member PATCH password branch uses shared helper", () => {

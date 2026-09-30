@@ -15,6 +15,8 @@ describe("P4 member create / edit / password workflows", () => {
     const form = src("components/admin/users/CreateMemberForm.tsx");
     expect(form).toMatch(/MemberAdminDialog/);
     expect(form).toMatch(/passwordConfirm/);
+    expect(form).toMatch(/createdUserId/);
+    expect(form).toMatch(/data\.user\?\.id/);
     expect(form).not.toMatch(/DibayOverlayRoot/);
     expect(form).not.toMatch(/admin_users_label_auth_email/);
     const errors = validateAdminCreateMemberForm(
