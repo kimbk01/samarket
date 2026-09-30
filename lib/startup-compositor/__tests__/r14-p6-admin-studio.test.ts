@@ -787,10 +787,10 @@ describe("R14-P6 Media library accept + human errors", () => {
     expect(src).toContain("dirty");
   });
 
-  it("P6-54 native hosts remain unwired (activation false)", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
+  it("P6-54 Admin SSOT retained; P7 activates production presentation", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
     expect(getStartupCompositorActivation().productionPresentationActive).toBe(
-      false,
+      true,
     );
   });
 

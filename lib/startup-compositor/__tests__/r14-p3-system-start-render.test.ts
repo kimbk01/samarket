@@ -465,26 +465,26 @@ describe("R14-P3 System Start shared render", () => {
     expect(m.ok).toBe(true);
   });
 
-  it("T50 renderer creates no presentation surface + Production inactive + hosts unwired", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
+  it("T50 shared renderer stays non-UI; P7 hosts wired; OWNER_VISIBLE allowed when active", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
     const render = readFileSync(RENDER_SRC, "utf8");
     expect(render).not.toMatch(
       /createElement|Dialog|UIViewController|Window|addView|UIWindow/,
     );
-    expect(readFileSync(MAIN_ACTIVITY, "utf8")).not.toContain(
+    expect(readFileSync(MAIN_ACTIVITY, "utf8")).toContain(
       "DibayStartupCompositorHost",
     );
     if (existsSync(IOS_ROOT_VC)) {
-      expect(readFileSync(IOS_ROOT_VC, "utf8")).not.toContain(
+      expect(readFileSync(IOS_ROOT_VC, "utf8")).toContain(
         "DibayStartupCompositorHost",
       );
     }
     const android = readFileSync(ANDROID_HOST, "utf8");
     const ios = readFileSync(IOS_HOST, "utf8");
-    expect(android).toContain("PRODUCTION_PRESENTATION_ACTIVE = false");
-    expect(ios).toContain("productionPresentationActive = false");
-    expect(android).not.toMatch(/minVisible|buildSystemStart|BRAND_SIZE/);
-    expect(ios).not.toMatch(/minVisible|buildSystemStart|BRAND_SIZE/);
+    expect(android).toContain("PRODUCTION_PRESENTATION_ACTIVE = true");
+    expect(ios).toContain("productionPresentationActive = true");
+    // Shared TS host file remains thin; session owns timing/paint on Android.
+    expect(android).not.toMatch(/buildSystemStart|BRAND_SIZE/);
 
     const eng = StartupCompositorEngine.getOrCreate("p3");
     const env = mustEnvelope(makeRaw());
@@ -498,9 +498,13 @@ describe("R14-P3 System Start shared render", () => {
     if (model.ok) {
       expect(eng.bindSystemStartRenderModel(model.value).ok).toBe(true);
       expect(eng.getSystemStartPhaseState().readiness).toBe("SS_RENDER_READY");
+      expect(eng.advanceSystemStartReadiness("SS_PAINTABLE").ok).toBe(true);
+      expect(
+        eng.advanceSystemStartReadiness("SS_FIRST_MEANINGFUL_FRAME_COMMITTED").ok,
+      ).toBe(true);
       expect(
         eng.advanceSystemStartReadiness("SS_OWNER_VISIBLE").ok,
-      ).toBe(false);
+      ).toBe(true);
     }
   });
 });

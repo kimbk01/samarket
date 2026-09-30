@@ -7,24 +7,20 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 /**
- * REBUILD 14 P2 — thin Android Startup Compositor host.
+ * REBUILD 14 P7 — Android Startup Compositor host.
  *
- * Duties ONLY: create/attach/detach one Activity-owned compositor surface;
+ * Duties: create/attach/detach one Activity-owned compositor surface;
  * forward lifecycle, first-frame, HOME_PRESENTATION_READY, yield.
+ * Session paints product frames onto {@link #surfaceOrNull()}.
  *
- * Must not own package/generation policy, timers, product/failure visuals,
- * Dialog/second Activity, Cap splash, or WebView visibility workarounds.
- *
- * PRODUCTION_PRESENTATION_ACTIVE = false — not Owner-visible; MainActivity MUST NOT
- * wire this host into presentation ownership until P7+ with valid content.
+ * Must not own package/generation policy, Cap splash, or WebView workarounds.
+ * Must not resurrect Bridge / second Activity / Dialog Intro.
  */
 public final class DibayStartupCompositorHost {
   public static final String TAG = "DibayStartupCompositor";
 
-  /**
-   * Frozen P2 activation boundary. Structural only; Production presentation = NO.
-   */
-  public static final boolean PRODUCTION_PRESENTATION_ACTIVE = false;
+  /** P7: production presentation path is active (Owner-visible when envelope present). */
+  public static final boolean PRODUCTION_PRESENTATION_ACTIVE = true;
 
   private static DibayStartupCompositorHost instance;
 
@@ -35,6 +31,8 @@ public final class DibayStartupCompositorHost {
   private boolean homeReadyForwarded;
   private boolean handoffComplete;
   private boolean destroyed;
+  private boolean firstFrameLogged;
+  private boolean ownerVisibleLogged;
 
   private DibayStartupCompositorHost(Activity activity) {
     this.activity = activity;
@@ -64,9 +62,7 @@ public final class DibayStartupCompositorHost {
   }
 
   /**
-   * Attach one transparent, non-interactive surface. Does NOT paint product content.
-   * Production callers must not invoke while PRODUCTION_PRESENTATION_ACTIVE is false
-   * if the intent is Owner-visible presentation (P2 keeps MainActivity unwired).
+   * Attach one full-screen compositor surface. Starts GONE until session paints.
    */
   public synchronized void attach() {
     if (destroyed || attached) {
@@ -79,9 +75,8 @@ public final class DibayStartupCompositorHost {
     }
     surface = new FrameLayout(activity);
     surface.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-    surface.setClickable(false);
-    surface.setFocusable(false);
-    // Invisible structural surface only (no product paint).
+    surface.setClickable(true);
+    surface.setFocusable(true);
     surface.setVisibility(View.GONE);
     surface.setTag(TAG);
     root.addView(
@@ -90,6 +85,31 @@ public final class DibayStartupCompositorHost {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     attached = true;
     Log.i(TAG, "attach ok productionPresentationActive=" + PRODUCTION_PRESENTATION_ACTIVE);
+  }
+
+  public synchronized FrameLayout surfaceOrNull() {
+    return attached && !destroyed ? surface : null;
+  }
+
+  public synchronized void setSurfaceVisible(boolean visible) {
+    if (surface == null) return;
+    surface.setVisibility(visible ? View.VISIBLE : View.GONE);
+  }
+
+  public synchronized void notifyPaintable() {
+    Log.i(TAG, "PAINTABLE");
+  }
+
+  public synchronized void notifyFirstFrameCommitted() {
+    if (firstFrameLogged) return;
+    firstFrameLogged = true;
+    Log.i(TAG, "FIRST_FRAME_COMMITTED");
+  }
+
+  public synchronized void notifyOwnerVisible() {
+    if (ownerVisibleLogged) return;
+    ownerVisibleLogged = true;
+    Log.i(TAG, "OWNER_VISIBLE");
   }
 
   public synchronized void forwardHomePresentationReady(String source) {

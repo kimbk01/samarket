@@ -627,13 +627,13 @@ describe("R14-P5 authority / adapters", () => {
     expect(row?.canonicalAuthority).toContain("registries/cta");
   });
 
-  it("P5 host unwired / Production inactive", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
+  it("P5 execution SSOT retained; P7 activates production presentation", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
     expect(getStartupCompositorActivation().productionPresentationActive).toBe(
-      false,
+      true,
     );
     expect(getStartupCompositorActivation().phase).toBe(
-      "P5_CANONICAL_EXECUTION_INTEGRATION",
+      "P7_NATIVE_LIFECYCLE_INTEGRATION",
     );
   });
 

@@ -1,28 +1,27 @@
 /**
  * REBUILD 14 — production presentation activation boundary.
  *
- * P2–P4 shared contracts are structurally present but MUST NOT become
- * Owner-visible until P7 lifecycle bind with valid content.
+ * P7 lifecycle bind: MainActivity / iOS root wire ONE DibayStartupCompositorHost.
+ * Presentation still fail-closes when no verified OWNER StartupPackageEnvelope.
  *
  * Do not invent a feature-flag maze: one frozen constant.
  */
-export const STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE = false as const;
+export const STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE = true as const;
 
 export type StartupCompositorActivation = {
   readonly productionPresentationActive: boolean;
-  readonly phase: "P5_CANONICAL_EXECUTION_INTEGRATION";
+  readonly phase: "P7_NATIVE_LIFECYCLE_INTEGRATION";
   readonly note: string;
 };
 
 export function getStartupCompositorActivation(): StartupCompositorActivation {
   return {
     productionPresentationActive: STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE,
-    phase: "P5_CANONICAL_EXECUTION_INTEGRATION",
+    phase: "P7_NATIVE_LIFECYCLE_INTEGRATION",
     note:
-      "P5 canonical geometry/motion/transition/CTA/clock execution SSOT present; " +
-      "Production presentation = NO. " +
-      "MainActivity / iOS root remain unwired until P7. " +
+      "P7 native lifecycle wired: PLATFORM BOOT → ONE compositor → SYSTEM START → " +
+      "optional INTRO → HOME. Fail-closed without OWNER StartupPackageEnvelope. " +
       "GIF/MP4 native playback = NOT_PROVEN. MP4 audio = OPEN PRODUCT DECISION. " +
-      "webSplashDismissRequested remains ZERO baseline until P7 lifecycle integration.",
+      "OS splash releases on compositor first product frame (or skip → web dismiss).",
   };
 }

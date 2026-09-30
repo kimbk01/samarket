@@ -730,8 +730,8 @@ describe("R14-P4 Intro shared render / timeline", () => {
     }).ok).toBe(false);
   });
 
-  it("engine Intro visibility ladder + Production blocks OWNER_VISIBLE", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
+  it("engine Intro visibility ladder + P7 Production allows OWNER_VISIBLE", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
     const d = doc([scene("s1", [textEl("t1")])]);
     const env = makeEnvelope({ present: true, document: d as unknown as Record<string, unknown> });
     const built = buildIntroRenderModel({
@@ -745,12 +745,7 @@ describe("R14-P4 Intro shared render / timeline", () => {
     expect(eng.advanceIntroVisibility("INTRO_RENDER_READY").ok).toBe(true);
     expect(eng.advanceIntroVisibility("INTRO_PAINTABLE").ok).toBe(true);
     expect(eng.advanceIntroVisibility("INTRO_FIRST_MEANINGFUL_FRAME_COMMITTED").ok).toBe(true);
-    expect(eng.advanceIntroVisibility("INTRO_OWNER_VISIBLE").ok).toBe(false);
-    expect(
-      eng.advanceIntroVisibility("INTRO_OWNER_VISIBLE", {
-        testHarnessAllowOwnerVisibleSemantic: true,
-      }).ok,
-    ).toBe(true);
+    expect(eng.advanceIntroVisibility("INTRO_OWNER_VISIBLE").ok).toBe(true);
     expect(eng.getIntroTimeline().snapshot().running).toBe(true);
   });
 
@@ -784,17 +779,17 @@ describe("R14-P4 Intro shared render / timeline", () => {
     }
   });
 
-  it("native hosts unwired; Production false", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
+  it("native hosts wired; Production true (P7)", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
     const main = readFileSync(MAIN_ACTIVITY, "utf8");
-    expect(main).not.toMatch(/DibayStartupCompositorHost/);
+    expect(main).toMatch(/DibayStartupCompositorHost/);
     if (existsSync(IOS_ROOT_VC)) {
       const ios = readFileSync(IOS_ROOT_VC, "utf8");
-      expect(ios).not.toMatch(/DibayStartupCompositorHost/);
+      expect(ios).toMatch(/DibayStartupCompositorHost/);
     }
     const android = readFileSync(ANDROID_HOST, "utf8");
     const iosHost = readFileSync(IOS_HOST, "utf8");
-    expect(android).toMatch(/UNWIRED|dormant|PRODUCTION_PRESENTATION_ACTIVE = false/);
-    expect(iosHost).toMatch(/UNWIRED|dormant|PRODUCTION_PRESENTATION_ACTIVE = false/);
+    expect(android).toMatch(/PRODUCTION_PRESENTATION_ACTIVE = true/);
+    expect(iosHost).toMatch(/productionPresentationActive = true/);
   });
 });

@@ -152,11 +152,10 @@ describe("R14-P2 compositor skeleton", () => {
     expect(existsSync(ANDROID_HOST)).toBe(true);
     const src = read(ANDROID_HOST);
     const code = readCode(ANDROID_HOST);
-    expect(src).toContain("PRODUCTION_PRESENTATION_ACTIVE = false");
+    expect(src).toContain("PRODUCTION_PRESENTATION_ACTIVE = true");
     for (const token of [
       "choosePackage",
       "selectGeneration",
-      "minVisible",
       "fallbackVisual",
       "StartupBridge",
       "SystemStartSurface",
@@ -171,11 +170,10 @@ describe("R14-P2 compositor skeleton", () => {
     expect(existsSync(IOS_HOST)).toBe(true);
     const src = read(IOS_HOST);
     const code = readCode(IOS_HOST);
-    expect(src).toContain("productionPresentationActive = false");
+    expect(src).toContain("productionPresentationActive = true");
     for (const token of [
       "choosePackage",
       "selectGeneration",
-      "minVisible",
       "fallbackVisual",
       "StartupBridge",
       "DibayStartupBridge",
@@ -187,26 +185,21 @@ describe("R14-P2 compositor skeleton", () => {
     expect(code).not.toMatch(/GenerationAuthority|resolveColdActive|promoteStaging/);
   });
 
-  it("T13 no host minVisible timer", () => {
+  it("T13 host has no Cap splash timer ownership", () => {
     const android = readCode(ANDROID_HOST);
     const ios = readCode(IOS_HOST);
-    expect(android.toLowerCase()).not.toContain("minvisible");
-    expect(ios.toLowerCase()).not.toContain("minvisible");
-    expect(android).not.toMatch(/Handler\(|postDelayed|Timer\(/);
-    expect(ios).not.toMatch(/Timer\.|DispatchQueue\.main\.asyncAfter|minVisible/);
+    // P7 may schedule SS minVisible / scene duration on host/session — not Cap splash timers.
+    expect(android).not.toMatch(/SplashScreen\.|showOnLaunch|CapSplash/);
+    expect(ios).not.toMatch(/SplashScreen\.|showOnLaunch|CapSplash/);
   });
 
-  it("T14 no host fallback visual policy", () => {
+  it("T14 no cream / error-board fallback policy", () => {
     const android = readCode(ANDROID_HOST);
     const ios = readCode(IOS_HOST);
     for (const bad of [
       "#FFFCFC",
       "solidHold",
       "ERROR_CONTINUITY",
-      "Color.parseColor",
-      "setBackgroundColor",
-      "UIColor(red",
-      "UIImage(named",
       "R.drawable",
       "ic_launcher",
     ]) {
@@ -217,16 +210,17 @@ describe("R14-P2 compositor skeleton", () => {
     expect(ios).not.toMatch(/fallbackVisual|createErrorBoard|creamHold/);
   });
 
-  it("T15 no Cap product splash ownership", () => {
+  it("T15 Cap splash not owned by host; P7 roots wire ONE compositor", () => {
     const android = read(ANDROID_HOST);
     const ios = read(IOS_HOST);
     expect(android).not.toMatch(/SplashScreen|CapSplash|showOnLaunch/);
     expect(ios).not.toMatch(/SplashScreen|CapSplash|showOnLaunch/);
-    // Production root must not wire host presentation
+    // P7: MainActivity / RootBridge wire the ONE host (not Cap product splash)
     const main = read(MAIN_ACTIVITY);
-    expect(main).not.toContain("DibayStartupCompositorHost");
+    expect(main).toContain("DibayStartupCompositorHost");
+    expect(main).toContain("DibayStartupCompositorSession");
     const rootVc = read(IOS_ROOT_VC);
-    expect(rootVc).not.toContain("DibayStartupCompositorHost");
+    expect(rootVc).toContain("DibayStartupCompositorHost");
   });
 
   it("T16 no WebView hide ownership workaround", () => {
@@ -269,11 +263,14 @@ describe("R14-P2 compositor skeleton", () => {
     expect(ios).not.toMatch(/IntroSurface|IntroHost|IntroViewController|IntroOverlay/);
   });
 
-  it("T20 presentation surface authority count = ONE + Production inactive", () => {
-    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(false);
-    expect(getStartupCompositorActivation().productionPresentationActive).toBe(false);
+  it("T20 presentation surface authority count = ONE + Production active (P7)", () => {
+    expect(STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE).toBe(true);
+    expect(getStartupCompositorActivation().productionPresentationActive).toBe(true);
+    expect(getStartupCompositorActivation().phase).toBe(
+      "P7_NATIVE_LIFECYCLE_INTEGRATION",
+    );
     const e = StartupCompositorEngine.getOrCreate("t20");
-    expect(e.isProductionPresentationActive()).toBe(false);
+    expect(e.isProductionPresentationActive()).toBe(true);
     e.attach();
     // one engine surface authority — no second engine
     expect(StartupCompositorEngine.instanceCountForTests()).toBe(1);
