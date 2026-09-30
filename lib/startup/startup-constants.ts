@@ -2,9 +2,6 @@
 
 export const STARTUP_SESSION_KEY = "dibay:cold-boot:session-marked";
 
-/** Single intro / shell surface DOM id. */
-export const DIBAY_STARTUP_INTRO_DOM_ID = "dibay-startup-intro";
-
 /** Local Boot document path under remote origin (Android intercept / iOS baseURL). */
 export const STARTUP_BOOT_PATH = "/__dibay-startup";
 

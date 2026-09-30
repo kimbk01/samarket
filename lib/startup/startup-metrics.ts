@@ -1,9 +1,5 @@
 "use client";
 
-import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
-
-export { DIBAY_STARTUP_INTRO_DOM_ID };
-
 /**
  * Startup end-to-end timing — `window.__dibayBootMetrics`.
  * Native Android may inject nativeStart/webviewReady/firstHtml via evaluateJavascript.
@@ -13,7 +9,7 @@ export { DIBAY_STARTUP_INTRO_DOM_ID };
  * initialDestinationVisualReady, after the initial route has a nonblank browser presentation.
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
- * Root error boundary: error_boundary (intro must not cover Error UI).
+ * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
  */
 export type DibayBootMetrics = {
@@ -170,23 +166,14 @@ let splashDismissAttempted = false;
 let appReady = false;
 const appReadyListeners = new Set<() => void>();
 
-function hideStartupIntroDom(): void {
-  if (typeof document === "undefined") return;
-  const el = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
-  if (!el) return;
-  el.setAttribute("data-ready", "1");
-  el.setAttribute("hidden", "");
-  el.setAttribute("aria-hidden", "true");
-}
-
 /**
- * Single app-ready signal — web intro hide + (via tryDismissNativeSplash) native splash.
+ * Single app-ready signal — (via tryDismissNativeSplash) native splash.
  * Idempotent: repeated calls do not re-notify.
+ * Intro product DOM ownership is gone (R15 ABSOLUTE ZERO).
  */
 export function markAppReady(reason: string): void {
   if (appReady) return;
   appReady = true;
-  hideStartupIntroDom();
   for (const listener of appReadyListeners) {
     try {
       listener();

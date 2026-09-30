@@ -93,4 +93,50 @@ END $$;
 
 DELETE FROM storage.buckets WHERE id IN ('dibay-intro', 'intro-show', 'opening-show-media');
 
+-- Strip Intro-shaped admin_settings keys / presentation payloads.
+-- KEEP: startup_config_v1 as boot authority (initialSurface only).
+-- Shared admin_settings infrastructure is NOT dropped.
+DO $$
+BEGIN
+  IF to_regclass('public.admin_settings') IS NULL THEN
+    RETURN;
+  END IF;
+
+  DELETE FROM public.admin_settings
+  WHERE key IN (
+    'cold_boot_intro_v1',
+    'product_intro_v1',
+    'system_start_v1',
+    'opening_show_v1',
+    'intro_show_v1',
+    'dibay_intro_live',
+    'app_intro_live'
+  );
+
+  UPDATE public.admin_settings
+  SET
+    value_json = jsonb_build_object(
+      'payload', jsonb_build_object(
+        'version', COALESCE(
+          NULLIF(value_json->'payload'->>'version', '')::int,
+          NULLIF(value_json->>'version', '')::int,
+          2
+        ),
+        'initialSurface', COALESCE(
+          NULLIF(value_json->'payload'->>'initialSurface', ''),
+          NULLIF(value_json->>'initialSurface', ''),
+          'community'
+        ),
+        'updatedAt', COALESCE(
+          NULLIF(value_json->'payload'->>'updatedAt', ''),
+          NULLIF(value_json->>'updatedAt', ''),
+          to_char(timezone('utc', now()), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+        )
+      ),
+      'updated_at', to_char(timezone('utc', now()), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+    ),
+    updated_at = timezone('utc', now())
+  WHERE key = 'startup_config_v1';
+END $$;
+
 COMMIT;

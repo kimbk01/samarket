@@ -1,6 +1,5 @@
 export {
   STARTUP_SESSION_KEY,
-  DIBAY_STARTUP_INTRO_DOM_ID,
   STARTUP_BOOT_PATH,
   STARTUP_HANDOFF_SESSION_KEY,
   LOCAL_RUNTIME_ENTRY_PATH,
@@ -15,6 +14,7 @@ export {
   normalizeStartupConfig,
   startupConfigEquals,
   isStartupIntroActive,
+  toNativeStartupConfigPayload,
   type StartupConfig,
 } from "@/lib/startup/startup-config";
 export {

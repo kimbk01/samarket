@@ -13,26 +13,39 @@ import {
   getStartupConfigCached,
   persistStartupConfigCache,
 } from "@/lib/startup/startup-config-client";
-import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
 
 describe("normalizeStartupConfig", () => {
   it("returns bundled defaults for null", () => {
     expect(normalizeStartupConfig(null)).toEqual(BUNDLED_STARTUP_CONFIG);
   });
 
-  it("accepts nested payload", () => {
+  it("strips Intro-shaped fields from nested payload", () => {
     const next = normalizeStartupConfig({
-      payload: { wordmark: "HELLO", enabled: false, forceDisable: true },
+      payload: {
+        wordmark: "HELLO",
+        enabled: true,
+        forceDisable: false,
+        logoUrl: "https://cdn.example/logo.png",
+        backgroundColor: "#FF0000",
+        initialSurface: "trade",
+      },
     });
-    expect(next.wordmark).toBe("HELLO");
-    expect(next.enabled).toBe(false);
-    expect(next.forceDisable).toBe(true);
+    expect(next).toEqual({
+      version: 2,
+      initialSurface: "trade",
+      updatedAt: expect.any(String),
+    });
+    expect("wordmark" in next).toBe(false);
+    expect("logoUrl" in next).toBe(false);
+    expect("backgroundColor" in next).toBe(false);
+    expect("enabled" in next).toBe(false);
     expect(isStartupIntroActive(next)).toBe(false);
   });
 
-  it("clamps invalid colors", () => {
+  it("ignores invalid presentation colors without rehydrating them", () => {
     const next = normalizeStartupConfig({ backgroundColor: "red" });
-    expect(next.backgroundColor).toBe(BUNDLED_STARTUP_CONFIG.backgroundColor);
+    expect("backgroundColor" in next).toBe(false);
+    expect(next.initialSurface).toBe(BUNDLED_STARTUP_CONFIG.initialSurface);
   });
 });
 
@@ -52,35 +65,26 @@ describe("startup config client cache", () => {
         clear: () => store.clear(),
       },
     });
-    document.body.innerHTML = `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}">
-      <img class="dibay-startup-logo" src="/a.png" />
-      <p class="dibay-startup-wordmark">DIBAY</p>
-      <p class="dibay-startup-subtitle"></p>
-      <div class="dibay-startup-spinner"></div>
-    </div>`;
+    document.body.innerHTML = `<div id="dibay-startup-root"></div>`;
   });
 
-  it("persists and reads cache", () => {
+  it("persists and reads boot-only cache", () => {
     persistStartupConfigCache({
       ...BUNDLED_STARTUP_CONFIG,
-      wordmark: "NEXT",
+      initialSurface: "trade",
       updatedAt: new Date().toISOString(),
     });
-    expect(getStartupConfigCached().wordmark).toBe("NEXT");
+    expect(getStartupConfigCached().initialSurface).toBe("trade");
+    expect("wordmark" in getStartupConfigCached()).toBe(false);
   });
 
-  it("never paints an authored Intro overlay", () => {
+  it("applyStartupConfigToDom is a no-op (no Intro DOM ownership)", () => {
     applyStartupConfigToDom({
       ...BUNDLED_STARTUP_CONFIG,
-      enabled: true,
-      forceDisable: false,
-      wordmark: "APPLIED",
-      subtitle: "hi",
-      showSpinner: false,
+      initialSurface: "food",
     });
-    const root = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
-    expect(root?.hasAttribute("hidden")).toBe(true);
-    expect(root?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("dibay-startup-intro")).toBeNull();
+    expect(document.body.innerHTML).toContain("dibay-startup-root");
   });
 
   it("normalizes initialSurface enum", () => {
@@ -89,35 +93,22 @@ describe("startup config client cache", () => {
     expect(normalizeStartupConfig({ initialSurface: "nope" }).initialSurface).toBe("community");
   });
 
-  it("accepts nested logo/background/animation and maps native payload", () => {
+  it("native payload contains only boot authority", () => {
     const next = normalizeStartupConfig({
-      logo: { source: "uploaded", url: "https://cdn.example/logo.png", widthPreset: "large", verticalPosition: "upper" },
-      background: {
-        type: "gradient",
-        color: "#FFFCFC",
-        gradientFrom: "#FFEEDD",
-        gradientTo: "#FFFCFC",
-        gradientDirection: "horizontal",
-      },
-      introAnimation: {
-        enter: "scale_in",
-        exit: "fade_out",
-        ambient: "soft_pulse",
-        enterDurationMs: 50,
-        exitDurationMs: 5000,
-      },
+      logo: { source: "uploaded", url: "https://cdn.example/logo.png" },
+      background: { type: "gradient", color: "#FFFCFC" },
+      introAnimation: { enter: "scale_in", exit: "fade_out" },
+      initialSurface: "chat",
     });
-    expect(next.logo.source).toBe("uploaded");
-    expect(next.logo.url).toBe("https://cdn.example/logo.png");
-    expect(next.background.type).toBe("gradient");
-    expect(next.background.gradientFrom).toBe("#FFEEDD");
-    expect(next.introAnimation.enter).toBe("scale_in");
-    expect(next.introAnimation.enterDurationMs).toBe(150);
-    expect(next.introAnimation.exitDurationMs).toBe(1200);
     const native = toNativeStartupConfigPayload(next);
-    expect(native.logoUrl).toBe("https://cdn.example/logo.png");
-    expect(native.enterAnimation).toBe("scale_in");
-    expect(native.backgroundType).toBe("gradient");
+    expect(native).toEqual({
+      version: 2,
+      initialSurface: "chat",
+      updatedAt: expect.any(String),
+    });
+    expect(native.logoUrl).toBeUndefined();
+    expect(native.enterAnimation).toBeUndefined();
+    expect(native.backgroundType).toBeUndefined();
     expect(isStartupIntroActive(next)).toBe(false);
   });
 });
@@ -126,7 +117,12 @@ describe("startup intro authority (R15 ZERO)", () => {
   it("never activates Intro presentation", () => {
     expect(isStartupIntroActive(BUNDLED_STARTUP_CONFIG)).toBe(false);
     expect(
-      isStartupIntroActive({ ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false })
+      isStartupIntroActive({
+        ...BUNDLED_STARTUP_CONFIG,
+        // @ts-expect-error — Intro fields must not exist on boot type
+        enabled: true,
+        forceDisable: false,
+      })
     ).toBe(false);
   });
 });

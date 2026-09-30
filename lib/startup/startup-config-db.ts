@@ -32,16 +32,7 @@ export async function loadStartupConfigFromDb(
 
   const raw = (data as { value_json?: unknown } | null)?.value_json;
   if (raw == null) {
-    // Migrate-read: fall back to legacy cold_boot_intro_v1 if present.
-    const legacy = await sb
-      .from("admin_settings")
-      .select("value_json")
-      .eq("key", "cold_boot_intro_v1")
-      .maybeSingle();
-    const legacyRaw = (legacy.data as { value_json?: unknown } | null)?.value_json;
-    if (legacyRaw != null) {
-      return { ok: true, config: normalizeStartupConfig(legacyRaw), source: "db" };
-    }
+    // cold_boot_intro_v1 and other Intro-shaped keys are NOT boot authority.
     return { ok: true, config: { ...BUNDLED_STARTUP_CONFIG }, source: "default" };
   }
   return { ok: true, config: normalizeStartupConfig(raw), source: "db" };

@@ -75,7 +75,6 @@ describe("local-runtime-markup", () => {
   it("builds document without Hybrid handoff / Cover / Intro", () => {
     const html = buildLocalRuntimeDocumentHtml({
       remoteApiOrigin: "https://samarket.vercel.app",
-      logoSrc: "data:image/png;base64,xx",
     });
     expect(html).toContain("__DIBAY_LOCAL_RUNTIME__");
     expect(html).toContain("data-local-runtime");

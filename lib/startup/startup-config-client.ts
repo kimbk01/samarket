@@ -1,3 +1,8 @@
+/**
+ * Client helpers for startup config (boot surface only).
+ * No Intro/System Start DOM presentation ownership.
+ */
+
 "use client";
 
 import {
@@ -5,7 +10,6 @@ import {
   normalizeStartupConfig,
   type StartupConfig,
 } from "@/lib/startup/startup-config";
-import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
 import {
   readStartupConfigCache,
   writeStartupConfigCache,
@@ -23,13 +27,17 @@ export function getStartupConfigCached(): StartupConfig {
   return { ...memory };
 }
 
+/** @deprecated alias — boot cache only */
+export function readCachedStartupConfig(): StartupConfig {
+  return getStartupConfigCached();
+}
+
+/**
+ * No-op: Intro product DOM was removed.
+ * Kept so call sites that refresh boot config after fetch do not break.
+ */
 export function applyStartupConfigToDom(_config: StartupConfig): void {
-  if (typeof document === "undefined") return;
-  const root = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
-  if (!root) return;
-  root.setAttribute("data-ready", "1");
-  root.setAttribute("hidden", "");
-  root.setAttribute("aria-hidden", "true");
+  /* intentional no-op — no #dibay-startup-intro ownership */
 }
 
 /**
@@ -78,4 +86,9 @@ export function persistStartupConfigCache(config: StartupConfig): void {
   void import("@/lib/startup/startup-config-native-sync").then((m) => {
     m.syncStartupConfigToNative(memory);
   });
+}
+
+/** @deprecated alias */
+export function writeCachedStartupConfig(config: StartupConfig): void {
+  persistStartupConfigCache(config);
 }

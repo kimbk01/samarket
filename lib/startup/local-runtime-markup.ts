@@ -12,9 +12,8 @@ import { BUNDLED_STARTUP_NAV, type StartupNavTabCache } from "@/lib/startup/star
 import { BUNDLED_STARTUP_CONFIG, type StartupConfig } from "@/lib/startup/startup-config";
 
 export type LocalRuntimeBuildOptions = {
+  /** Boot authority only (initialSurface). Presentation fields ignored. */
   config?: StartupConfig;
-  logoSrc?: string;
-  darkLogoSrc?: string;
   navTabs?: readonly StartupNavTabCache[];
   /** API origin only (fetch/sync) — NOT a document navigation target. */
   remoteApiOrigin?: string;
@@ -189,12 +188,13 @@ function buildLocalRuntimeScript(opts: {
  * Full Local Runtime HTML document — no Intro/System Start product surface.
  */
 export function buildLocalRuntimeDocumentHtml(opts: LocalRuntimeBuildOptions = {}): string {
-  const config = opts.config ?? BUNDLED_STARTUP_CONFIG;
+  // config kept for call-site compat; only used as boot metadata (no presentation).
+  void (opts.config ?? BUNDLED_STARTUP_CONFIG);
   const lang = opts.lang ?? "ko";
   const tabs = opts.navTabs ?? BUNDLED_STARTUP_NAV;
   const remoteApiOrigin = (opts.remoteApiOrigin ?? "").replace(/\/$/, "");
   const defaultRoute = opts.defaultRoute ?? "/";
-  const bg = escapeHtml(config.backgroundColor || "#FFFCFC");
+  const bg = "#FFFCFC";
 
   const css = buildShellCss();
   const nav = buildNavHtml(tabs, lang);
