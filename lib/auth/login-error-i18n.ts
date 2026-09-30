@@ -48,6 +48,7 @@ export function mapAuthErrorMessage(code: string, detail: string | undefined, t:
   if (code === "supabase_service_unconfigured") return t("auth_err_supabase_service_unconfigured");
   if (code === "session_missing") return t("auth_err_session_missing");
   if (code === "account_withdrawn") return t("auth_err_account_withdrawn");
+  if (code === "account_blocked") return t("auth_err_account_blocked");
   return t("auth_err_login_failed_code", { code });
 }
 

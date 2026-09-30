@@ -124,14 +124,14 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
       { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated)" },
       {
         type: "or",
-        value: "status.eq.suspended,status.eq.banned,member_status.eq.suspended,member_status.eq.banned",
+        value: "status.eq.suspended,status.eq.blocked,status.eq.banned,member_status.eq.suspended,member_status.eq.banned",
       },
     ];
   }
   if (status === "needs_review") {
     return [
       { type: "is", column: "deleted_at", value: null },
-      { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,banned)" },
+      { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
       {
         type: "or",
         value: "member_status.is.null,member_status.not.in.(suspended,banned)",
@@ -145,7 +145,7 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
   }
   return [
     { type: "is", column: "deleted_at", value: null },
-    { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,banned)" },
+    { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,suspended,blocked,banned)" },
     {
       type: "or",
       value: "member_status.is.null,member_status.not.in.(pending,review,suspended,banned)",

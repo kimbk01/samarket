@@ -9,6 +9,10 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { validateActiveSession } from "@/lib/auth/server-guards";
+import {
+  isProductWriteDeniedMemberAccount,
+  MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE,
+} from "@/lib/auth/member-account-state";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { parseModifierWireFromBody } from "@/lib/stores/product-line-options";
 import {
@@ -224,6 +228,12 @@ export async function POST(req: NextRequest) {
   }
   const session = await validateActiveSession(buyerId);
   if (!session.ok) return session.response;
+  if (isProductWriteDeniedMemberAccount(session.profile)) {
+    return NextResponse.json(
+      { ok: false, error: MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE, code: "member_activity_restricted" },
+      { status: 403 }
+    );
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

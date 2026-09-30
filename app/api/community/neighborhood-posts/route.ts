@@ -25,6 +25,10 @@ import {
 import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import {
+  isProductWriteDeniedMemberAccount,
+  MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE,
+} from "@/lib/auth/member-account-state";
+import {
   publicRegionLabelLeaksPrivateDetail,
   resolveCommunityPublicRegionLabelForUser,
 } from "@/lib/addresses/community-public-region-label";
@@ -45,6 +49,9 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
+  if (isProductWriteDeniedMemberAccount(session.profile)) {
+    return NextResponse.json({ ok: false, error: MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE, code: "member_activity_restricted" }, { status: 403 });
+  }
 
   let body: {
     locationKey?: string;

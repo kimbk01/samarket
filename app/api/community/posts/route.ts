@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireAuth, validateActiveSession } from "@/lib/auth/server-guards"
+import {
+  isProductWriteDeniedMemberAccount,
+  MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE,
+} from "@/lib/auth/member-account-state";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import {
@@ -34,6 +38,9 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
+  if (isProductWriteDeniedMemberAccount(session.profile)) {
+    return jsonError(MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE, 403, { code: "member_activity_restricted" });
+  }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

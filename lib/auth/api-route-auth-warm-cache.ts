@@ -61,3 +61,15 @@ export async function runApiRouteAuthResolveSingleFlight<T>(
 ): Promise<T> {
   return runSingleFlight(apiRouteAuthResolveFlightKey(fingerprint), fn);
 }
+
+/** Drop warm identity entries for a user (lifecycle revocation). */
+export function invalidateApiRouteAuthWarmCacheForUser(userId?: string): void {
+  if (!userId?.trim()) {
+    cacheMap().clear();
+    return;
+  }
+  const uid = userId.trim();
+  for (const [k, v] of cacheMap()) {
+    if (v.userId === uid) cacheMap().delete(k);
+  }
+}

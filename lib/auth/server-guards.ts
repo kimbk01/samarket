@@ -15,7 +15,10 @@ import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membersh
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import {
-  isDeletedStoreMember,
+  isLoginDeniedMemberAccount,
+  resolveLoginDeniedForMemberAccount,
+} from "@/lib/auth/member-account-state";
+import {
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
@@ -75,15 +78,18 @@ export async function validateActiveSession(
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
-  if (isDeletedStoreMember(profile)) {
-    return {
-      ok: false,
-      response: jsonError("탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.", 403, {
-        authenticated: false,
-        code: "account_withdrawn",
-      }),
-      profile,
-    };
+  {
+    const loginDenied = resolveLoginDeniedForMemberAccount(profile);
+    if (loginDenied) {
+      return {
+        ok: false,
+        response: jsonError(loginDenied.messageKo, 403, {
+          authenticated: false,
+          code: loginDenied.code,
+        }),
+        profile,
+      };
+    }
   }
   const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
   if (!sessionId) {
@@ -132,6 +138,64 @@ export async function validateActiveSessionLight(
 
   const snap = peekAuthLightSessionSnapshot(userId, sessionId);
   if (snap.hit) {
+    // P0-R2: identity/session warm snap must not skip member lifecycle revocation.
+    // Login-deny (blocked/withdrawn) is re-checked via lifecycle authority (invalidated on moderation).
+    const {
+      MEMBER_ACCOUNT_STATE_UNAVAILABLE,
+      isMemberLifecycleAuthorityFailClosed,
+      resolveMemberLifecycleAuthority,
+    } = await import("@/lib/auth/resolve-member-lifecycle-authority");
+    const life = await resolveMemberLifecycleAuthority(userId);
+    // P0-R3: authenticated light-snap must not treat unavailable authority as ACTIVE.
+    if (isMemberLifecycleAuthorityFailClosed(life)) {
+      breakdown.auth_cache_hit = 1;
+      breakdown.auth_same_session_hit = 1;
+      breakdown.auth_ttl_remaining_ms = Math.round(snap.ttlRemainingMs);
+      breakdown.auth_db_round_trips = 0;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      if (opts?.logBreakdown) {
+        logAuthHotPathBreakdown({
+          ...breakdown,
+          route: opts.route,
+          phase: "light_snapshot_lifecycle_unavailable",
+          auth_source: "light_snapshot",
+        });
+      }
+      return {
+        ok: false,
+        response: jsonError(MEMBER_ACCOUNT_STATE_UNAVAILABLE.messageKo, MEMBER_ACCOUNT_STATE_UNAVAILABLE.status, {
+          authenticated: false,
+          code: MEMBER_ACCOUNT_STATE_UNAVAILABLE.code,
+        }),
+        breakdown,
+      };
+    }
+    if (life.kind === "RESOLVED") {
+      const loginDenied = resolveLoginDeniedForMemberAccount(life.profile);
+      if (loginDenied) {
+        breakdown.auth_cache_hit = 1;
+        breakdown.auth_same_session_hit = 1;
+        breakdown.auth_ttl_remaining_ms = Math.round(snap.ttlRemainingMs);
+        breakdown.auth_db_round_trips = 0;
+        breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+        if (opts?.logBreakdown) {
+          logAuthHotPathBreakdown({
+            ...breakdown,
+            route: opts.route,
+            phase: "light_snapshot_lifecycle_deny",
+            auth_source: "light_snapshot",
+          });
+        }
+        return {
+          ok: false,
+          response: jsonError(loginDenied.messageKo, 403, {
+            authenticated: false,
+            code: loginDenied.code,
+          }),
+          breakdown,
+        };
+      }
+    }
     breakdown.auth_cache_hit = 1;
     breakdown.auth_same_session_hit = 1;
     breakdown.auth_ttl_remaining_ms = Math.round(snap.ttlRemainingMs);
@@ -199,21 +263,22 @@ export async function validateActiveSessionLight(
       breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
       return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
     }
-    if (
-      isDeletedStoreMember(
+    {
+      const loginDenied = resolveLoginDeniedForMemberAccount(
         profileResult.pr as { status?: string | null; deleted_at?: string | null }
-      )
-    ) {
-      breakdown.auth_db_round_trips = dbTrips;
-      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return {
-        ok: false,
-        response: jsonError("탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.", 403, {
-          authenticated: false,
-          code: "account_withdrawn",
-        }),
-        breakdown,
-      };
+      );
+      if (loginDenied) {
+        breakdown.auth_db_round_trips = dbTrips;
+        breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+        return {
+          ok: false,
+          response: jsonError(loginDenied.messageKo, 403, {
+            authenticated: false,
+            code: loginDenied.code,
+          }),
+          breakdown,
+        };
+      }
     }
     activeSessionId = String(
       (profileResult.pr as { active_session_id?: string | null }).active_session_id ?? ""
@@ -414,13 +479,15 @@ export async function syncActiveSessionForUser(
     return { sessionId: null, profile: null };
   }
 
-  if (isDeletedStoreMember(profile)) {
+  if (isLoginDeniedMemberAccount(profile)) {
+    const denied = resolveLoginDeniedForMemberAccount(profile);
+    const touchReason = denied?.code === "account_blocked" ? "blocked_member" : "withdrawn_member";
     if (tel) {
-      tel.sync_touch_reason = "withdrawn_member";
+      tel.sync_touch_reason = touchReason;
       tel.sync_profiles_update_skipped = 1;
       tel.sync_registry_sync_skipped = 1;
-      tel.sync_profile_write_skipped_reason = "withdrawn_member";
-      tel.sync_registry_write_skipped_reason = "withdrawn_member";
+      tel.sync_profile_write_skipped_reason = touchReason;
+      tel.sync_registry_write_skipped_reason = touchReason;
     }
     await clearActiveSessionCookie(response, options?.request
       ? cookieSecureFromNextRequest(options.request)

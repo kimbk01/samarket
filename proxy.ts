@@ -16,12 +16,16 @@ import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { applyOwnerPathRequestHeader } from "@/lib/business/owner-path-request-header";
+import { enforceApiMemberMutationPolicy } from "@/lib/auth/enforce-api-member-mutation-policy";
 
 /**
  * 앱 UI(HTML·RSC) — 비회원은 공개 브라우징 allowlist 만 통과, private URL 은 404.
  * 행동 버튼 로그인 유도는 `requireAuthAction`·AuthModal 이 담당한다.
  * (탭 전환·뒤로가기·PWA 백그라운드는 로그아웃이 아님; 세션 만료/명시 로그아웃 후에는 여기서 매 요청 재검증)
- * - /api/* 는 matcher 에서 제외 (각 Route Handler가 인증 처리).
+ * - /api/* mutation: P0-R3 member action-class gate (PRODUCT_WRITE / EXEMPT / NON_MEMBER).
+ *   Authenticated PRODUCT_WRITE fails closed when lifecycle authority is unavailable.
+ *   Domain business policy stays in Route Handlers — not dumped into this proxy.
+ *   Gate does not consume request body (uploads/webhooks/streams pass through).
  * - Next.js 16+: `proxy.ts` + `export function proxy` — 세션 쿠키 갱신 포함.
  *
  * 주의: `getUser()` 생략·짧은 TTL 캐시로 HTML 만 통과시키면, 토큰 만료 직후에는
@@ -110,6 +114,15 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const tProxy0 = devPerfNow();
   let proxyAuthMs = 0;
+
+  // P0-R3: API mutations — central member action-class enforcement (not HTML auth gate).
+  // Matcher includes /api/*; early return here so HTML auth path never runs for APIs.
+  if (pathname.startsWith("/api/")) {
+    const denied = await enforceApiMemberMutationPolicy(request);
+    if (denied) return denied;
+    return NextResponse.next();
+  }
+
   const shouldLogProxyPerf =
     process.env.NODE_ENV === "development" &&
     (pathname === "/mypage" ||
@@ -324,6 +337,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|icon(?:[/-]|$)|apple-icon(?:[/-]|$)|opengraph-image(?:[/-]|$)|twitter-image(?:[/-]|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff|woff2|ttf|otf|eot)$).*)",
+    // Include /api/* for P0-R3 member mutation action-class gate.
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|icon(?:[/-]|$)|apple-icon(?:[/-]|$)|opengraph-image(?:[/-]|$)|twitter-image(?:[/-]|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff|woff2|ttf|otf|eot)$).*)",
   ],
 };

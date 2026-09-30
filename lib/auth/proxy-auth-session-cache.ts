@@ -68,3 +68,15 @@ export async function runProxyAuthResolveSingleFlight<T>(
 ): Promise<T> {
   return runSingleFlight(proxyAuthResolveFlightKey(fingerprint), fn);
 }
+
+/** Drop proxy HTML identity warm entries for a user (lifecycle revocation). */
+export function invalidateProxyAuthSessionCacheForUser(userId?: string): void {
+  if (!userId?.trim()) {
+    cacheMap().clear();
+    return;
+  }
+  const uid = userId.trim();
+  for (const [k, v] of cacheMap()) {
+    if (v.userId === uid) cacheMap().delete(k);
+  }
+}
