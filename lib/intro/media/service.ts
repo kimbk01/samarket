@@ -18,9 +18,11 @@ import { processSourceBytes } from "@/lib/intro/media/processor";
 
 export type IntroMediaListItem = {
   mediaId: string;
-  mediaKind: "IMAGE" | "LOGO" | "GIF";
+  mediaKind: "IMAGE" | "LOGO" | "GIF" | "VIDEO";
   status: string;
   originalName: string;
+  /** Operator-facing name; falls back to originalName. */
+  displayName: string;
   width: number | null;
   height: number | null;
   mime: string | null;
@@ -39,6 +41,8 @@ function extForRuntimeFormat(format: string): string {
     case "GIF":
     case "CANONICAL_ANIMATED_GIF":
       return "gif";
+    case "MP4":
+      return "mp4";
     default:
       return "bin";
   }
@@ -50,7 +54,7 @@ export async function listReadyIntroMedia(
   const { data, error } = await sb
     .from("app_intro_media")
     .select(
-      "media_id, media_kind, status, original_name, mime, width, height, updated_at, current_runtime_artifact_id",
+      "media_id, media_kind, status, original_name, display_name, mime, width, height, updated_at, current_runtime_artifact_id",
     )
     .eq("status", "READY")
     .is("deleted_at", null)
@@ -74,11 +78,16 @@ export async function listReadyIntroMedia(
         previewUrl = signed?.signedUrl ?? null;
       }
     }
+    const originalName = row.original_name || "media";
+    const displayName =
+      (typeof row.display_name === "string" && row.display_name.trim()) ||
+      operatorDisplayName(originalName);
     items.push({
       mediaId: row.media_id,
       mediaKind: row.media_kind,
       status: row.status,
-      originalName: row.original_name,
+      originalName,
+      displayName,
       width: row.width,
       height: row.height,
       mime: row.mime,
@@ -87,6 +96,24 @@ export async function listReadyIntroMedia(
     });
   }
   return items;
+}
+
+function operatorDisplayName(originalName: string): string {
+  const base = originalName.replace(/\.(bin|tmp)$/i, "").trim();
+  if (/^[0-9a-f-]{36}/i.test(base)) return "업로드 이미지";
+  if (/^phase\d/i.test(base) || /^qa-/i.test(base) || /^cuta-/i.test(base)) {
+    return "테스트 미디어";
+  }
+  return base || "미디어";
+}
+
+function displayNameFromOriginal(originalName: string, mediaKind: IntroMediaListItem["mediaKind"]): string {
+  const leaf = originalName.replace(/^.*[/\\]/, "").trim();
+  if (mediaKind === "VIDEO") {
+    const withoutExt = leaf.replace(/\.[^.]+$/i, "").trim();
+    return withoutExt || leaf || "영상";
+  }
+  return operatorDisplayName(originalName);
 }
 
 /**
@@ -114,6 +141,7 @@ export async function uploadAndReadyIntroMedia(
     identified.format,
     args.asLogo ? "LOGO" : undefined,
   );
+  const uploadDisplayName = displayNameFromOriginal(args.originalName || "upload", mediaKind);
   const mediaId = randomUUID();
   const sourceGenerationId = randomUUID();
   const runtimeArtifactId = randomUUID();
@@ -125,6 +153,7 @@ export async function uploadAndReadyIntroMedia(
     media_kind: mediaKind,
     status: AppIntroMediaLifecycleState.PROCESSING,
     original_name: args.originalName || "upload",
+    display_name: uploadDisplayName,
     mime: identified.mime,
     byte_length: args.bytes.byteLength,
     width: identified.width,
@@ -243,11 +272,13 @@ export async function uploadAndReadyIntroMedia(
     .from(APP_INTRO_STORAGE_BUCKET)
     .createSignedUrl(runtimePath, 60 * 30);
 
+  const originalName = args.originalName || "upload";
   return {
     mediaId,
     mediaKind,
     status: "READY",
-    originalName: args.originalName || "upload",
+    originalName,
+    displayName: uploadDisplayName,
     width: processed.width,
     height: processed.height,
     mime: processed.mime,
@@ -325,11 +356,76 @@ export async function getReadyRuntimeForMedia(
   };
 }
 
-/** Soft-delete library asset. Does not remove Scene elements that reference it. */
+export type MediaUsageRef = {
+  documentId: string;
+  title: string;
+  sceneName: string;
+};
+
+/** Find Intro draft documents that reference this mediaId. */
+export async function findIntroMediaUsages(
+  sb: SupabaseClient,
+  mediaId: string,
+): Promise<MediaUsageRef[]> {
+  const { data, error } = await sb
+    .from("app_intro_documents")
+    .select("document_id, title, document")
+    .limit(200);
+  if (error) throw new Error(error.message);
+  const out: MediaUsageRef[] = [];
+  for (const row of data ?? []) {
+    const doc = row.document as {
+      scenes?: Array<{
+        name?: string;
+        background?: { type?: string; mediaId?: string };
+        elements?: Array<{
+          type?: string;
+          payload?: { mediaId?: string };
+        }>;
+      }>;
+    } | null;
+    if (!doc?.scenes) continue;
+    doc.scenes.forEach((scene, i) => {
+      const sceneName = (scene.name || "").trim() || `장면 ${i + 1}`;
+      if (scene.background?.type === "IMAGE" && scene.background.mediaId === mediaId) {
+        out.push({
+          documentId: row.document_id,
+          title: row.title,
+          sceneName,
+        });
+      }
+      for (const el of scene.elements ?? []) {
+        if (
+          (el.type === "IMAGE" || el.type === "LOGO" || el.type === "VIDEO") &&
+          el.payload?.mediaId === mediaId
+        ) {
+          out.push({
+            documentId: row.document_id,
+            title: row.title,
+            sceneName,
+          });
+        }
+      }
+    });
+  }
+  return out;
+}
+
+/**
+ * Soft-delete library asset.
+ * In-use assets are blocked with human-readable usage list.
+ */
 export async function softDeleteIntroMedia(
   sb: SupabaseClient,
   mediaId: string,
 ): Promise<{ deleted: true }> {
+  const usages = await findIntroMediaUsages(sb, mediaId);
+  if (usages.length > 0) {
+    const u = usages[0]!;
+    throw new Error(
+      `이 미디어는 '${u.title}' → '${u.sceneName}' 에서 사용 중입니다. 먼저 장면에서 제거해 주세요.`,
+    );
+  }
   const { data, error } = await sb
     .from("app_intro_media")
     .update({
@@ -343,4 +439,19 @@ export async function softDeleteIntroMedia(
   if (error) throw new Error(error.message);
   if (!data) throw new Error("media_not_found");
   return { deleted: true };
+}
+
+export async function renameIntroMedia(
+  sb: SupabaseClient,
+  mediaId: string,
+  displayName: string,
+): Promise<void> {
+  const name = displayName.trim();
+  if (!name) throw new Error("이름을 입력해 주세요.");
+  const { error } = await sb
+    .from("app_intro_media")
+    .update({ display_name: name, updated_at: new Date().toISOString() })
+    .eq("media_id", mediaId)
+    .is("deleted_at", null);
+  if (error) throw new Error(error.message);
 }

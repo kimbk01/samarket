@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
-  "backgroundColor": "#312E81",
+  "backgroundColor": "#065740",
   "SYSTEM_START_MIN_VISIBLE_MS": 500,
+  "buildIdentity": "ss_r10_065740_sha256:f995e5322ec_500",
   "appliesTo": "App_Cap_continuation",
   "doesNotApplyTo": "OS_LaunchScreen_duration"
 }

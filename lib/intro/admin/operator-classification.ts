@@ -1,9 +1,14 @@
 /**
- * Operator CMS — classify Intro documents for list surfaces.
- * QA fixtures stay in DB; they are hidden from the default Operator list.
+ * Operator CMS — Intro document classification for list surfaces.
+ *
+ * **Authority:** `app_intro_documents.content_class` (OWNER | QA | SYSTEM).
+ * Operator list visibility reads the column via `isOperatorVisibleContentClass`.
+ *
+ * `classifyIntroTitle` is a one-time backfill helper only (migration / repair for rows
+ * still at default OWNER with QA/SYSTEM fixture titles). Do not use it as list authority.
  */
 
-export type IntroDataClass = "OWNER" | "QA" | "SYSTEM_TEST" | "CURRENT_LIVE";
+export type IntroDataClass = "OWNER" | "QA" | "SYSTEM";
 
 const QA_TITLE_PATTERNS: RegExp[] = [
   /^DIBAY-13-V\d/i,
@@ -20,17 +25,31 @@ const QA_TITLE_PATTERNS: RegExp[] = [
   /-QA-/i,
 ];
 
-const SYSTEM_TEST_PATTERNS: RegExp[] = [
+const SYSTEM_TITLE_PATTERNS: RegExp[] = [
   /^SYSTEM[-_]/i,
   /^SYS[-_]TEST/i,
   /__FIXTURE__/i,
 ];
 
-export function classifyIntroTitle(title: string): Exclude<IntroDataClass, "CURRENT_LIVE"> {
+const INTRO_CONTENT_CLASS_SET = new Set<string>(["OWNER", "QA", "SYSTEM"]);
+
+export function normalizeIntroContentClass(
+  value: string | null | undefined,
+): IntroDataClass {
+  const v = (value ?? "").trim().toUpperCase();
+  if (INTRO_CONTENT_CLASS_SET.has(v)) return v as IntroDataClass;
+  return "OWNER";
+}
+
+/**
+ * One-time backfill helper — maps legacy fixture titles to content_class values.
+ * Not used for Operator list classification after DB backfill.
+ */
+export function classifyIntroTitle(title: string): IntroDataClass {
   const t = (title || "").trim();
   if (!t) return "OWNER";
-  for (const re of SYSTEM_TEST_PATTERNS) {
-    if (re.test(t)) return "SYSTEM_TEST";
+  for (const re of SYSTEM_TITLE_PATTERNS) {
+    if (re.test(t)) return "SYSTEM";
   }
   for (const re of QA_TITLE_PATTERNS) {
     if (re.test(t)) return "QA";
@@ -38,14 +57,14 @@ export function classifyIntroTitle(title: string): Exclude<IntroDataClass, "CURR
   return "OWNER";
 }
 
-/** Default Operator list: OWNER only (+ CURRENT_LIVE always shown). */
-export function isOperatorVisibleTitle(
-  title: string,
+/** Default Operator list: OWNER only (+ isLive docs always shown). */
+export function isOperatorVisibleContentClass(
+  contentClass: string | null | undefined,
   opts?: { includeQa?: boolean; isLive?: boolean },
 ): boolean {
   if (opts?.isLive) return true;
-  const cls = classifyIntroTitle(title);
+  const cls = normalizeIntroContentClass(contentClass);
   if (cls === "OWNER") return true;
-  if (opts?.includeQa && (cls === "QA" || cls === "SYSTEM_TEST")) return true;
+  if (opts?.includeQa && (cls === "QA" || cls === "SYSTEM")) return true;
   return false;
 }

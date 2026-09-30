@@ -6,6 +6,7 @@ import type {
   SceneV1,
   TextPayloadV1,
   ImagePayloadV1,
+  VideoPayloadV1,
   ElementV1,
   TransitionV1,
 } from "@/lib/intro/contracts/document";
@@ -130,9 +131,9 @@ function motionStyle(
   switch (type) {
     case "FADE_IN":
       return { opacity: el.opacity * t };
-    case "ENTER_TOP":
+    case "ENTER_UP":
       return { opacity: el.opacity, transform: `translateY(${-distY * (1 - t)}px)` };
-    case "ENTER_BOTTOM":
+    case "ENTER_DOWN":
       return { opacity: el.opacity, transform: `translateY(${distY * (1 - t)}px)` };
     case "ENTER_LEFT":
       return { opacity: el.opacity, transform: `translateX(${-distX * (1 - t)}px)` };
@@ -214,6 +215,35 @@ function ElementView({
           ...box,
           objectFit: p.fit === "CONTAIN" ? "contain" : "cover",
         }}
+      />
+    );
+  }
+  if (el.type === "VIDEO") {
+    const p = el.payload as VideoPayloadV1;
+    const url = mediaUrls[p.mediaId];
+    if (!url) {
+      return (
+        <div
+          className="absolute flex items-center justify-center bg-black/40 text-[10px] text-white"
+          style={box}
+        >
+          영상
+        </div>
+      );
+    }
+    return (
+      // eslint-disable-next-line jsx-a11y/media-has-caption
+      <video
+        src={url}
+        className="absolute"
+        style={{
+          ...box,
+          objectFit: p.fit === "CONTAIN" ? "contain" : "cover",
+        }}
+        muted={p.muted}
+        loop={p.loop}
+        playsInline
+        autoPlay
       />
     );
   }
@@ -386,10 +416,25 @@ export function IntroCanonicalPreview({
     if (transition.type === "FADE") {
       outgoingStyle = { opacity: 1 - transitionProgress };
       incomingStyle = { opacity: transitionProgress };
-    } else if (transition.type === "SLIDE") {
-      const dir = transition.direction;
-      const dx =
-        dir === "LEFT" ? -1 : dir === "RIGHT" ? 1 : 0;
+    } else if (
+      transition.type === "SLIDE_LEFT" ||
+      transition.type === "SLIDE_RIGHT" ||
+      transition.type === "SLIDE_UP" ||
+      transition.type === "SLIDE_DOWN" ||
+      // legacy structured shape during preview of unsaved buffers
+      (transition as { type?: string }).type === "SLIDE"
+    ) {
+      const legacyDir = (transition as { direction?: string }).direction;
+      const type = transition.type;
+      const dir =
+        type === "SLIDE_LEFT" || legacyDir === "LEFT"
+          ? "LEFT"
+          : type === "SLIDE_RIGHT" || legacyDir === "RIGHT"
+            ? "RIGHT"
+            : type === "SLIDE_UP" || legacyDir === "UP"
+              ? "UP"
+              : "DOWN";
+      const dx = dir === "LEFT" ? -1 : dir === "RIGHT" ? 1 : 0;
       const dy = dir === "UP" ? -1 : dir === "DOWN" ? 1 : 0;
       outgoingStyle = {
         transform: `translate(${dx * transitionProgress * 100}%, ${dy * transitionProgress * 100}%)`,

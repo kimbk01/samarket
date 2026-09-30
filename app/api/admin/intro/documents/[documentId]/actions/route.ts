@@ -6,7 +6,9 @@ import {
   duplicateIntroDocument,
   renameIntroDocument,
   getIntroDocument,
+  updateIntroDocumentContentClass,
 } from "@/lib/intro/document/service";
+import type { IntroDataClass } from "@/lib/intro/admin/operator-classification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +23,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  let body: { action?: string; title?: string; expectedDraftVersion?: number } = {};
+  let body: {
+    action?: string;
+    title?: string;
+    expectedDraftVersion?: number;
+    contentClass?: IntroDataClass;
+  } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -52,6 +59,24 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           typeof body.expectedDraftVersion === "number"
             ? body.expectedDraftVersion
             : current.draft_version,
+        userId: admin.userId,
+      });
+      return NextResponse.json({ ok: true as const, document });
+    }
+    if (action === "set_content_class") {
+      if (
+        body.contentClass !== "OWNER" &&
+        body.contentClass !== "QA" &&
+        body.contentClass !== "SYSTEM"
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "content_class_required" },
+          { status: 400 },
+        );
+      }
+      const document = await updateIntroDocumentContentClass(sb, {
+        documentId,
+        contentClass: body.contentClass,
         userId: admin.userId,
       });
       return NextResponse.json({ ok: true as const, document });

@@ -92,6 +92,12 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean introColdPathPending = false;
   private static volatile boolean introTimelineCompleted = false;
   private com.dibay.app.intro.DibayIntroRuntimeController dibayIntroRuntime = null;
+  /** Layer B System Start — verified local surface before Intro. */
+  private com.dibay.app.intro.DibaySystemStartSurface dibaySystemStartSurface = null;
+  private static volatile boolean systemStartSurfaceActive = false;
+  private static volatile boolean systemStartHoldComplete = false;
+  private static volatile long systemStartShownElapsedMs = 0L;
+  private static volatile int systemStartMinVisibleMs = 500;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
 
@@ -1101,10 +1107,15 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // F1: App continuation clock = max(minVisibleMs, Intro-ready | NO_INTRO web dismiss).
-    // Admin minVisibleMs applies HERE — not to OS-owned splash duration API.
+    // Continuity: paint verified Layer B bg under OS splash so dismiss matches A→B.
+    applyVerifiedSystemStartBackgroundIfPresent();
+    // Platform Boot Primitive stays shortest — when Layer B surface is active it owns
+    // Admin minVisibleMs; OS splash only waits for readiness (B attached | Intro | web).
     splashScreen.setKeepOnScreenCondition(
         () -> {
+          if (systemStartSurfaceActive) {
+            return false;
+          }
           long minMs = resolveSystemStartMinVisibleMs();
           long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
           boolean minElapsed = elapsed >= minMs;
@@ -1169,17 +1180,45 @@ public class MainActivity extends BridgeActivity {
   }
 
   /**
-   * 13th Product Intro cold path — LIVE_MATCH_OR_NO_INTRO on background thread.
-   * Verified local package → native Scene1. No Candidate/Ready/Active.
+   * Cold path: Layer B (verified local) → Product Intro.
+   * OS splash releases when Layer B attaches (or Intro/web readiness if no B).
+   * Layer B holds until max(config.minVisibleMs, Intro first frame | NO_INTRO).
+   * Live sync is bounded; incomplete download may keep previous verified for this cold.
    */
   private void tryStartDibayIntro13() {
     introColdPathPending = true;
     introFirstFrameReady = false;
     introSessionActive = false;
     introTimelineCompleted = false;
+    systemStartSurfaceActive = false;
+    systemStartHoldComplete = false;
     new Thread(
             () -> {
               try {
+                com.dibay.app.intro.DibaySystemStartLiveDelivery ssDelivery =
+                    new com.dibay.app.intro.DibaySystemStartLiveDelivery(this);
+                // Prefer previous verified immediately for A→B continuity; sync Live in parallel.
+                com.dibay.app.intro.DibaySystemStartConfig prior =
+                    ssDelivery.store().readVerifiedConfigOrNull();
+                if (prior != null) {
+                  attachSystemStartSurfaceBlocking(prior, ssDelivery.store().verifiedDir());
+                }
+                com.dibay.app.intro.DibaySystemStartLiveDelivery.Result ssSync =
+                    ssDelivery.syncLive();
+                Log.i(
+                    WEBVIEW_LOG_TAG,
+                    "system_start_sync reason="
+                        + ssSync.reason
+                        + " canRender="
+                        + (ssSync.canRender ? 1 : 0));
+                if (!systemStartSurfaceActive && ssSync.canRender) {
+                  com.dibay.app.intro.DibaySystemStartConfig fresh =
+                      ssDelivery.store().readVerifiedConfigOrNull();
+                  if (fresh != null) {
+                    attachSystemStartSurfaceBlocking(fresh, ssDelivery.store().verifiedDir());
+                  }
+                }
+
                 com.dibay.app.intro.DibayIntroRuntimeController runtime =
                     new com.dibay.app.intro.DibayIntroRuntimeController(this);
                 runtime.setListener(
@@ -1191,6 +1230,7 @@ public class MainActivity extends BridgeActivity {
                         String packId =
                             identity != null ? identity.optString("packageId", "") : "";
                         Log.i(WEBVIEW_LOG_TAG, "intro_first_frame_ready packageId=" + packId);
+                        mainHandler.post(() -> maybeDismissSystemStartSurface("intro_first_frame"));
                       }
 
                       @Override
@@ -1218,6 +1258,7 @@ public class MainActivity extends BridgeActivity {
                         introFirstFrameReady = false;
                         introTimelineCompleted = false;
                         Log.w(WEBVIEW_LOG_TAG, "intro_aborted reason=" + reason);
+                        mainHandler.post(() -> maybeDismissSystemStartSurface("intro_aborted"));
                       }
                     });
                 boolean started = runtime.tryStartWithLiveMatchPolicy();
@@ -1226,18 +1267,163 @@ public class MainActivity extends BridgeActivity {
                   introSessionActive = true;
                   introColdPathPending = false;
                   Log.i(WEBVIEW_LOG_TAG, "intro_session_active=1");
+                  // Intro attaches later on main — keep Layer B above until hold complete.
+                  mainHandler.post(
+                      () -> {
+                        if (dibaySystemStartSurface != null) {
+                          dibaySystemStartSurface.bringToFront();
+                        }
+                      });
                 } else {
                   introSessionActive = false;
                   introColdPathPending = false;
                   Log.i(WEBVIEW_LOG_TAG, "intro_session_active=0 reason=NO_PRODUCT_INTRO");
+                  // NO_INTRO: Layer B still holds minVisibleMs, then releases to web readiness.
+                  mainHandler.post(() -> maybeDismissSystemStartSurface("no_product_intro"));
                 }
+                scheduleSystemStartHoldWatch();
               } catch (Exception e) {
                 introSessionActive = false;
                 introColdPathPending = false;
                 Log.e(WEBVIEW_LOG_TAG, "intro_start_exception", e);
+                mainHandler.post(() -> maybeDismissSystemStartSurface("cold_path_exception"));
               }
             },
             "dibay-intro-13")
+        .start();
+  }
+
+  private void applyVerifiedSystemStartBackgroundIfPresent() {
+    try {
+      com.dibay.app.intro.DibaySystemStartLiveDelivery delivery =
+          new com.dibay.app.intro.DibaySystemStartLiveDelivery(this);
+      com.dibay.app.intro.DibaySystemStartConfig config =
+          delivery.store().readVerifiedConfigOrNull();
+      if (config == null) return;
+      getWindow().getDecorView().setBackgroundColor(config.backgroundArgb);
+      Log.i(
+          WEBVIEW_LOG_TAG,
+          "system_start_bg_continuity generationId=" + config.generationId);
+    } catch (Exception e) {
+      Log.w(WEBVIEW_LOG_TAG, "system_start_bg_continuity_failed", e);
+    }
+  }
+
+  private void attachSystemStartSurfaceBlocking(
+      com.dibay.app.intro.DibaySystemStartConfig config, java.io.File verifiedRoot) {
+    final Object lock = new Object();
+    final boolean[] done = {false};
+    mainHandler.post(
+        () -> {
+          try {
+            if (dibaySystemStartSurface != null) {
+              android.view.ViewGroup parent =
+                  (android.view.ViewGroup) dibaySystemStartSurface.getParent();
+              if (parent != null) parent.removeView(dibaySystemStartSurface);
+            }
+            android.view.ViewGroup decor =
+                (android.view.ViewGroup) getWindow().getDecorView();
+            com.dibay.app.intro.DibaySystemStartSurface surface =
+                new com.dibay.app.intro.DibaySystemStartSurface(this);
+            surface.bind(config, verifiedRoot);
+            decor.addView(
+                surface,
+                new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            dibaySystemStartSurface = surface;
+            systemStartMinVisibleMs = config.minVisibleMs;
+            systemStartShownElapsedMs = SystemClock.elapsedRealtime();
+            systemStartSurfaceActive = true;
+            systemStartHoldComplete = false;
+            Log.i(
+                WEBVIEW_LOG_TAG,
+                "system_start_surface_attached generationId="
+                    + config.generationId
+                    + " minVisibleMs="
+                    + config.minVisibleMs);
+          } catch (Exception e) {
+            Log.e(WEBVIEW_LOG_TAG, "system_start_attach_failed", e);
+          } finally {
+            synchronized (lock) {
+              done[0] = true;
+              lock.notifyAll();
+            }
+          }
+        });
+    synchronized (lock) {
+      try {
+        if (!done[0]) lock.wait(2_000L);
+      } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private void scheduleSystemStartHoldWatch() {
+    mainHandler.post(
+        () -> {
+          maybeDismissSystemStartSurface("hold_watch");
+          if (!systemStartHoldComplete && systemStartSurfaceActive) {
+            long elapsed = SystemClock.elapsedRealtime() - systemStartShownElapsedMs;
+            long remain = Math.max(0L, systemStartMinVisibleMs - elapsed);
+            mainHandler.postDelayed(
+                () -> maybeDismissSystemStartSurface("min_visible_elapsed"), remain + 16L);
+          }
+        });
+  }
+
+  /**
+   * Dismiss Layer B when max(minVisibleMs, Intro first frame | NO_INTRO decision) is satisfied.
+   */
+  private void maybeDismissSystemStartSurface(String source) {
+    if (!systemStartSurfaceActive || systemStartHoldComplete) return;
+    long elapsed = SystemClock.elapsedRealtime() - systemStartShownElapsedMs;
+    boolean minElapsed = elapsed >= systemStartMinVisibleMs;
+    boolean introGate =
+        introFirstFrameReady || (!introColdPathPending && !introSessionActive);
+    if (!minElapsed || !introGate) {
+      Log.i(
+          WEBVIEW_LOG_TAG,
+          "system_start_hold source="
+              + source
+              + " minElapsed="
+              + minElapsed
+              + " introGate="
+              + introGate);
+      return;
+    }
+    systemStartHoldComplete = true;
+    systemStartSurfaceActive = false;
+    if (dibaySystemStartSurface != null) {
+      android.view.ViewGroup parent =
+          (android.view.ViewGroup) dibaySystemStartSurface.getParent();
+      if (parent != null) parent.removeView(dibaySystemStartSurface);
+      dibaySystemStartSurface = null;
+    }
+    Log.i(WEBVIEW_LOG_TAG, "system_start_surface_dismissed source=" + source);
+  }
+
+  private void syncSystemStartLiveInBackground(String source) {
+    new Thread(
+            () -> {
+              try {
+                com.dibay.app.intro.DibaySystemStartLiveDelivery delivery =
+                    new com.dibay.app.intro.DibaySystemStartLiveDelivery(this);
+                com.dibay.app.intro.DibaySystemStartLiveDelivery.Result r = delivery.syncLive();
+                Log.i(
+                    WEBVIEW_LOG_TAG,
+                    "system_start_fg_sync source="
+                        + source
+                        + " reason="
+                        + r.reason
+                        + " canRender="
+                        + (r.canRender ? 1 : 0));
+              } catch (Exception e) {
+                Log.w(WEBVIEW_LOG_TAG, "system_start_fg_sync_failed source=" + source, e);
+              }
+            },
+            "dibay-ss-sync")
         .start();
   }
 
@@ -1313,6 +1499,11 @@ public class MainActivity extends BridgeActivity {
     DibayWebSafeAreaBridge.syncIfPossible(this);
     // Gate 3 Step 11 — Cap prefs must not overwrite versioned App Icon on resume.
     DibayAppIconDeliveryAdapter.applyFromCapBadgeCache(this);
+    // Layer B: sync on normal foreground so Apply → next cold has pack ready.
+    // Skip while cold path owns the sync flight.
+    if (!introColdPathPending) {
+      syncSystemStartLiveInBackground("onResume");
+    }
   }
 
   @Override

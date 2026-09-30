@@ -12,12 +12,29 @@ import type {
   SceneV1,
   TextPayloadV1,
   TransitionV1,
+  VideoPayloadV1,
 } from "@/lib/intro/contracts/document";
 import {
   cryptoRandomId,
   DEFAULT_MOTION,
+  DEFAULT_TRANSITION_FADE,
+  MOTION_OPERATOR_LABELS,
   MOTION_TYPES_V1,
+  normalizeDocumentV1,
+  TRANSITION_OPERATOR_LABELS,
+  TRANSITION_TYPES_V1,
 } from "@/lib/intro/contracts/document";
+import {
+  centerFrame,
+  containMediaFrame,
+  defaultImageInsertFrame,
+  defaultLogoInsertFrame,
+  defaultVideoInsertFrame,
+  DEFAULT_LOGO_MAX_H,
+  DEFAULT_LOGO_MAX_W,
+  DEFAULT_MEDIA_MAX_H,
+  DEFAULT_MEDIA_MAX_W,
+} from "@/lib/intro/geometry/element-layout";
 import { IntroCanonicalPreview } from "@/components/admin/intro/IntroCanonicalPreview";
 import { IntroCanvas } from "@/components/admin/intro/IntroCanvas";
 import {
@@ -46,19 +63,22 @@ type MediaItem = {
   height: number | null;
 };
 
-const MOTION_LABELS: Record<MotionTypeV1, string> = {
-  NONE: "없음",
-  FADE_IN: "페이드",
-  ENTER_LEFT: "왼쪽에서",
-  ENTER_RIGHT: "오른쪽에서",
-  ENTER_TOP: "위에서",
-  ENTER_BOTTOM: "아래에서",
-  SCALE_IN: "확대",
-};
-
 /** Same registry as Draft/Apply/Package — no SLIDE_LEFT etc. */
 const MOTION_OPTIONS: { value: MotionTypeV1; label: string }[] =
-  MOTION_TYPES_V1.map((value) => ({ value, label: MOTION_LABELS[value] }));
+  MOTION_TYPES_V1.map((value) => ({
+    value,
+    label: MOTION_OPERATOR_LABELS[value],
+  }));
+
+function displaySceneName(scene: SceneV1, index: number): string {
+  const n = (scene.name || "").trim();
+  return n || `장면 ${index + 1}`;
+}
+
+function mediaSizeFromItem(item: MediaItem | undefined) {
+  if (!item?.width || !item?.height) return null;
+  return { width: item.width, height: item.height };
+}
 
 export function IntroStudioPage({ documentId }: Props) {
   const search = useSearchParams();
@@ -80,13 +100,13 @@ export function IntroStudioPage({ documentId }: Props) {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [mediaPicker, setMediaPicker] = useState<"IMAGE" | "LOGO" | "BG" | null>(
-    null,
-  );
+  const [mediaPicker, setMediaPicker] = useState<
+    "IMAGE" | "LOGO" | "VIDEO" | "BG" | null
+  >(null);
   const [sceneMenuIndex, setSceneMenuIndex] = useState<number | null>(null);
   const [pendingMediaElement, setPendingMediaElement] = useState<{
     id: string;
-    type: "IMAGE" | "LOGO";
+    type: "IMAGE" | "LOGO" | "VIDEO";
   } | null>(null);
 
   useEffect(() => {
@@ -139,8 +159,9 @@ export function IntroStudioPage({ documentId }: Props) {
       setError(dJson.error ?? "load_failed");
       return;
     }
-    setDocument(dJson.document.document);
-    setSavedSnapshot(JSON.stringify(dJson.document.document));
+    const doc = normalizeDocumentV1(dJson.document.document);
+    setDocument(doc);
+    setSavedSnapshot(JSON.stringify(doc));
     setDraftVersion(dJson.document.draft_version);
     if (aJson.ok && aJson.authority) setAuthority(aJson.authority);
   }, [documentId]);
@@ -172,11 +193,13 @@ export function IntroStudioPage({ documentId }: Props) {
   function addScene() {
     setDocument((prev) => {
       if (!prev) return prev;
+      const n = prev.scenes.length + 1;
       const next: SceneV1 = {
         id: cryptoRandomId(),
+        name: `장면 ${n}`,
         durationMs: 3000,
         background: { type: "COLOR", color: "#1E293B" },
-        transition: { type: "FADE", durationMs: 400 },
+        transition: { ...DEFAULT_TRANSITION_FADE },
         elements: [],
       };
       return { ...prev, scenes: [...prev.scenes, next] };
@@ -192,6 +215,7 @@ export function IntroStudioPage({ documentId }: Props) {
       const copy: SceneV1 = {
         ...src,
         id: cryptoRandomId(),
+        name: `${displaySceneName(src, index)} 복사`,
         elements: src.elements.map((el) => ({ ...el, id: cryptoRandomId() })),
       };
       const scenes = [...prev.scenes];
@@ -231,8 +255,8 @@ export function IntroStudioPage({ documentId }: Props) {
     setSceneMenuIndex(null);
   }
 
-  function addElement(type: "IMAGE" | "LOGO" | "TEXT" | "CTA") {
-    if (type === "IMAGE" || type === "LOGO") {
+  function addElement(type: "IMAGE" | "LOGO" | "VIDEO" | "TEXT" | "CTA") {
+    if (type === "IMAGE" || type === "LOGO" || type === "VIDEO") {
       // Create after media pick — empty mediaId fails validateDocumentV0.
       const id = cryptoRandomId();
       setSelectedElementId(id);
@@ -325,8 +349,9 @@ export function IntroStudioPage({ documentId }: Props) {
         setError(json.error ?? "save_failed");
         return;
       }
-      setDocument(json.document.document);
-      setSavedSnapshot(JSON.stringify(json.document.document));
+      const saved = normalizeDocumentV1(json.document.document);
+      setDocument(saved);
+      setSavedSnapshot(JSON.stringify(saved));
       setDraftVersion(json.document.draft_version);
       setMessage("저장됨");
       await load();
@@ -405,7 +430,12 @@ export function IntroStudioPage({ documentId }: Props) {
         return;
       }
       await loadMedia();
-      if (selectedElementId && (mediaPicker === "IMAGE" || mediaPicker === "LOGO")) {
+      if (
+        selectedElementId &&
+        (mediaPicker === "IMAGE" ||
+          mediaPicker === "LOGO" ||
+          mediaPicker === "VIDEO")
+      ) {
         applyMediaToSelection(json.item.mediaId);
       } else if (mediaPicker === "BG") {
         updateScene((s) => ({
@@ -421,6 +451,9 @@ export function IntroStudioPage({ documentId }: Props) {
   }
 
   function applyMediaToSelection(mediaId: string) {
+    const item = mediaItems.find((m) => m.mediaId === mediaId);
+    const meta = mediaSizeFromItem(item);
+
     if (pendingMediaElement) {
       const { id, type } = pendingMediaElement;
       updateScene((s) => {
@@ -430,11 +463,30 @@ export function IntroStudioPage({ documentId }: Props) {
             ...s,
             elements: s.elements.map((el) => {
               if (el.id !== id) return el;
+              if (el.type === "VIDEO") {
+                const p = el.payload as VideoPayloadV1;
+                return { ...el, payload: { ...p, mediaId } };
+              }
               const p = el.payload as ImagePayloadV1;
               return { ...el, payload: { ...p, mediaId } };
             }),
           };
         }
+        const frame =
+          type === "LOGO"
+            ? defaultLogoInsertFrame(meta)
+            : type === "VIDEO"
+              ? defaultVideoInsertFrame(meta)
+              : defaultImageInsertFrame(meta);
+        const payload =
+          type === "VIDEO"
+            ? ({
+                mediaId,
+                fit: "CONTAIN" as const,
+                loop: true,
+                muted: true,
+              } satisfies VideoPayloadV1)
+            : ({ mediaId, fit: "CONTAIN" as const } satisfies ImagePayloadV1);
         return {
           ...s,
           elements: [
@@ -442,15 +494,12 @@ export function IntroStudioPage({ documentId }: Props) {
             {
               id,
               type,
-              frame:
-                type === "LOGO"
-                  ? { x: 0.3, y: 0.1, w: 0.4, h: 0.12 }
-                  : { x: 0.1, y: 0.2, w: 0.8, h: 0.35 },
+              frame,
               zIndex: s.elements.length + 1,
               visible: true,
               opacity: 1,
               motion: DEFAULT_MOTION,
-              payload: { mediaId, fit: "CONTAIN" as const },
+              payload,
             },
           ],
         };
@@ -462,6 +511,10 @@ export function IntroStudioPage({ documentId }: Props) {
     }
     if (!selectedElementId) return;
     updateElement(selectedElementId, (el) => {
+      if (el.type === "VIDEO") {
+        const p = el.payload as VideoPayloadV1;
+        return { ...el, payload: { ...p, mediaId } };
+      }
       if (el.type !== "IMAGE" && el.type !== "LOGO") return el;
       const p = el.payload as ImagePayloadV1;
       return { ...el, payload: { ...p, mediaId } };
@@ -641,7 +694,7 @@ export function IntroStudioPage({ documentId }: Props) {
               const bg =
                 s.background.type === "COLOR" ? s.background.color : "#334155";
               return (
-                <li key={s.id} className="relative">
+                <li key={s.id}>
                   <button
                     type="button"
                     className={`w-full rounded-ui-rect border p-2 text-left ${
@@ -661,7 +714,7 @@ export function IntroStudioPage({ documentId }: Props) {
                     />
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-sm font-medium text-sam-fg">
-                        장면 {i + 1}
+                        {displaySceneName(s, i)}
                       </span>
                       <span className="text-[10px] text-sam-muted">
                         {(s.durationMs / 1000).toFixed(1)}초
@@ -677,21 +730,42 @@ export function IntroStudioPage({ documentId }: Props) {
                       </span>
                     )}
                   </button>
-                  <div className="absolute right-1 top-1">
-                    <AdminActionButton
-                      variant="neutral"
-                      className="min-h-7 px-2 text-xs"
-                      aria-label={`장면 ${i + 1} 메뉴`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSceneMenuIndex((cur) => (cur === i ? null : i));
-                        setSceneIndex(i);
-                      }}
-                    >
-                      ⋯
-                    </AdminActionButton>
+                  {i === sceneIndex ? (
+                    <div className="mt-1 flex gap-1">
+                      <AdminActionButton
+                        variant="secondary"
+                        className="min-h-7 flex-1 px-2 text-xs"
+                        onClick={() => duplicateScene(i)}
+                      >
+                        복제
+                      </AdminActionButton>
+                      <AdminActionButton
+                        variant="danger"
+                        className="min-h-7 flex-1 px-2 text-xs"
+                        disabled={document.scenes.length <= 1}
+                        onClick={() => deleteScene(i)}
+                      >
+                        삭제
+                      </AdminActionButton>
+                    </div>
+                  ) : null}
+                  <div className="mt-1 w-full space-y-1">
+                    <div className="flex justify-end">
+                      <AdminActionButton
+                        variant="neutral"
+                        className="min-h-7 px-2 text-xs"
+                        aria-label={`${displaySceneName(s, i)} 메뉴`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSceneMenuIndex((cur) => (cur === i ? null : i));
+                          setSceneIndex(i);
+                        }}
+                      >
+                        ⋯
+                      </AdminActionButton>
+                    </div>
                     {sceneMenuIndex === i ? (
-                      <div className="absolute right-0 z-20 mt-1 w-36 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md">
+                      <div className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sm">
                         <button
                           type="button"
                           className="block w-full px-3 py-1.5 text-left text-xs text-sam-fg hover:bg-sam-app"
@@ -787,6 +861,9 @@ export function IntroStudioPage({ documentId }: Props) {
             <AdminActionButton variant="secondary" onClick={() => addElement("LOGO")}>
               + 로고
             </AdminActionButton>
+            <AdminActionButton variant="secondary" onClick={() => addElement("VIDEO")}>
+              + 비디오
+            </AdminActionButton>
             <AdminActionButton variant="secondary" onClick={() => addElement("TEXT")}>
               + 텍스트
             </AdminActionButton>
@@ -821,21 +898,34 @@ export function IntroStudioPage({ documentId }: Props) {
                 ? "이미지"
                 : selected.type === "LOGO"
                   ? "로고"
-                  : selected.type === "TEXT"
-                    ? "텍스트"
-                    : selected.type === "CTA"
-                      ? "버튼"
-                      : selected.type}
+                  : selected.type === "VIDEO"
+                    ? "비디오"
+                    : selected.type === "TEXT"
+                      ? "텍스트"
+                      : selected.type === "CTA"
+                        ? "버튼"
+                        : selected.type}
             </div>
           ) : scene ? (
             <div className="mb-3 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-xs font-semibold text-sam-fg">
-              선택됨: 장면 {sceneIndex + 1}
+              선택됨: {displaySceneName(scene, sceneIndex)}
             </div>
           ) : null}
 
           {scene && !selected ? (
             <div className="mb-4 space-y-3 border-b border-sam-border pb-4">
               <div className="text-sm font-medium text-sam-fg">장면</div>
+              <label className="block text-xs text-sam-muted">
+                장면 이름
+                <input
+                  className="sam-input mt-1 w-full"
+                  value={scene.name}
+                  onChange={(e) =>
+                    updateScene((s) => ({ ...s, name: e.target.value }))
+                  }
+                  placeholder={displaySceneName(scene, sceneIndex)}
+                />
+              </label>
               <label className="block text-xs text-sam-muted">
                 재생 시간 {durationSec}초
                 <input
@@ -903,7 +993,11 @@ export function IntroStudioPage({ documentId }: Props) {
               onDelete={() => deleteElement(selected.id)}
               onReplaceMedia={() =>
                 setMediaPicker(
-                  selected.type === "LOGO" ? "LOGO" : "IMAGE",
+                  selected.type === "LOGO"
+                    ? "LOGO"
+                    : selected.type === "VIDEO"
+                      ? "VIDEO"
+                      : "IMAGE",
                 )
               }
               onUpload={(file) =>
@@ -943,7 +1037,9 @@ export function IntroStudioPage({ documentId }: Props) {
               ? "배경 이미지 선택"
               : mediaPicker === "LOGO"
                 ? "로고 선택 / 교체"
-                : "이미지 선택 / 교체"
+                : mediaPicker === "VIDEO"
+                  ? "비디오 선택 / 교체"
+                  : "이미지 선택 / 교체"
           }
           onClose={() => {
             setMediaPicker(null);
@@ -1006,34 +1102,13 @@ function TransitionEditor({
   onChange: (t: TransitionV1) => void;
 }) {
   const type = transition.type;
-  const options = [
-    { key: "CUT" as const, label: "없음" },
-    { key: "FADE" as const, label: "페이드" },
-    { key: "SLIDE_LEFT" as const, label: "왼쪽으로 밀기" },
-    { key: "SLIDE_RIGHT" as const, label: "오른쪽으로 밀기" },
-    { key: "SLIDE_UP" as const, label: "위로 밀기" },
-    { key: "SLIDE_DOWN" as const, label: "아래로 밀기" },
-  ];
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium text-sam-fg">장면 전환</div>
       <div className="space-y-1" role="radiogroup" aria-label="장면 전환">
-        {options.map(({ key, label }) => {
-          const active =
-            (key === "CUT" && type === "CUT") ||
-            (key === "FADE" && type === "FADE") ||
-            (key === "SLIDE_LEFT" &&
-              type === "SLIDE" &&
-              transition.direction === "LEFT") ||
-            (key === "SLIDE_RIGHT" &&
-              type === "SLIDE" &&
-              transition.direction === "RIGHT") ||
-            (key === "SLIDE_UP" &&
-              type === "SLIDE" &&
-              transition.direction === "UP") ||
-            (key === "SLIDE_DOWN" &&
-              type === "SLIDE" &&
-              transition.direction === "DOWN");
+        {TRANSITION_TYPES_V1.map((key) => {
+          const active = type === key;
+          const label = TRANSITION_OPERATOR_LABELS[key];
           return (
             <label
               key={key}
@@ -1052,14 +1127,11 @@ function TransitionEditor({
                   if (key === "CUT") onChange({ type: "CUT", durationMs: 0 });
                   else if (key === "FADE")
                     onChange({ type: "FADE", durationMs: 400 });
-                  else {
-                    const direction = key.replace("SLIDE_", "") as
-                      | "LEFT"
-                      | "RIGHT"
-                      | "UP"
-                      | "DOWN";
-                    onChange({ type: "SLIDE", durationMs: 400, direction });
-                  }
+                  else
+                    onChange({
+                      type: key,
+                      durationMs: transition.durationMs || 400,
+                    });
                 }}
               />
               {label}
@@ -1126,16 +1198,28 @@ function ElementProperties({
             ? "이미지"
             : element.type === "LOGO"
               ? "로고"
-              : element.type === "TEXT"
-                ? "텍스트"
-                : element.type === "CTA"
-                  ? "버튼"
-                  : element.type}
+              : element.type === "VIDEO"
+                ? "비디오"
+                : element.type === "TEXT"
+                  ? "텍스트"
+                  : element.type === "CTA"
+                    ? "버튼"
+                    : element.type}
         </span>
         <AdminActionButton variant="danger" className="min-h-8 text-xs" onClick={onDelete}>
           요소 삭제
         </AdminActionButton>
       </div>
+
+      <AdminActionButton
+        variant="secondary"
+        className="w-full min-h-8 text-xs"
+        onClick={() =>
+          onChange({ ...element, frame: centerFrame(element.frame) })
+        }
+      >
+        가운데 맞춤
+      </AdminActionButton>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <NumField
@@ -1230,7 +1314,9 @@ function ElementProperties({
         ) : null}
       </div>
 
-      {(element.type === "IMAGE" || element.type === "LOGO") && (
+      {(element.type === "IMAGE" ||
+        element.type === "LOGO" ||
+        element.type === "VIDEO") && (
         <ImageProps
           element={element}
           mediaItems={mediaItems}
@@ -1287,20 +1373,47 @@ function ImageProps({
   onUpload: (file: File) => void;
   onDelete: () => void;
 }) {
-  const p = element.payload as ImagePayloadV1;
+  const p = element.payload as ImagePayloadV1 | VideoPayloadV1;
   const media = mediaItems.find((m) => m.mediaId === p.mediaId);
+  const meta = mediaSizeFromItem(media);
+
+  function applyOriginalAspectFrame() {
+    const maxW =
+      element.type === "LOGO" ? DEFAULT_LOGO_MAX_W : DEFAULT_MEDIA_MAX_W;
+    const maxH =
+      element.type === "LOGO" ? DEFAULT_LOGO_MAX_H : DEFAULT_MEDIA_MAX_H;
+    onChange({
+      ...element,
+      frame: containMediaFrame(meta, maxW, maxH),
+    });
+  }
+
   return (
     <div className="space-y-2 border-t border-sam-border pt-3">
       <div className="text-xs font-medium text-sam-fg">
-        {element.type === "LOGO" ? "로고" : "이미지"}
+        {element.type === "LOGO"
+          ? "로고"
+          : element.type === "VIDEO"
+            ? "비디오"
+            : "이미지"}
       </div>
       {media?.previewUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={media.previewUrl}
-          alt=""
-          className="h-20 w-full rounded-ui-rect object-contain bg-sam-app"
-        />
+        element.type === "VIDEO" ? (
+          <video
+            src={media.previewUrl}
+            muted
+            playsInline
+            loop
+            className="h-20 w-full rounded-ui-rect object-contain bg-sam-app"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={media.previewUrl}
+            alt=""
+            className="h-20 w-full rounded-ui-rect object-contain bg-sam-app"
+          />
+        )
       ) : (
         <div className="flex h-16 items-center justify-center rounded-ui-rect bg-sam-app text-xs text-sam-muted">
           미디어 없음
@@ -1308,7 +1421,19 @@ function ImageProps({
       )}
       <div className="flex flex-wrap gap-2">
         <AdminActionButton variant="secondary" className="text-xs" onClick={onReplaceMedia}>
-          교체
+          {element.type === "IMAGE"
+            ? "이미지 변경"
+            : element.type === "VIDEO"
+              ? "영상 변경"
+              : "교체"}
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          className="text-xs"
+          disabled={!meta}
+          onClick={applyOriginalAspectFrame}
+        >
+          원본 비율
         </AdminActionButton>
         <label className="inline-flex min-h-9 cursor-pointer items-center justify-center whitespace-nowrap rounded-ui-rect border border-[var(--admin-console-border,#d0d7e2)] bg-[var(--admin-console-surface,#fff)] px-3 py-1.5 text-[13px] font-semibold text-[var(--admin-console-fg,#1f2937)] hover:bg-[var(--admin-console-hover,#eef1f6)]">
           업로드

@@ -10,15 +10,16 @@ import {
   getSystemStartConfig,
   putSystemStartConfig,
 } from "@/lib/intro/system-start/service";
+import { getSystemStartLiveStatus } from "@/lib/intro/system-start/live-apply";
 import { getReadyRuntimeForMedia } from "@/lib/intro/media/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * System Start Admin API — DURABLE SSOT only.
- * Production Save MUST NOT write native filesystem (/var/task/native, config/*.json).
- * Native materialization = build-time scripts/generate-system-start-build-input.mjs.
+ * System Start Admin API — durable draft (PUT) + read (GET).
+ * Layer B Live Apply = POST …/system-start/apply.
+ * Layer A OS primitives = native build materialized stamp (installed).
  */
 
 async function resolveDurableLogoIntegrity(
@@ -51,10 +52,20 @@ export async function GET() {
     } catch {
       logoIntegrity = null;
     }
+    let live: Awaited<ReturnType<typeof getSystemStartLiveStatus>> = {
+      kind: "NO_LIVE",
+    };
+    try {
+      live = await getSystemStartLiveStatus(sb);
+    } catch {
+      live = { kind: "NO_LIVE" };
+    }
+
     return NextResponse.json({
       ok: true as const,
       nextBuild,
       installed,
+      live,
       logoIntegrity,
       /** @deprecated alias — prefer nextBuild */
       systemStart: {
@@ -69,9 +80,8 @@ export async function GET() {
       },
       minVisibleMsPresets: SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
       brandSizePresets: BRAND_SIZE_PRESETS,
-      buildBound: true,
-      appliesVia: "native_app_build_update",
-      notLiveCms: true,
+      buildBound: false,
+      appliesVia: ["live_apply", "native_app_build_update"],
       durableAuthority: "app_system_start_config",
       productionSaveWritesNativeFs: false,
     });
@@ -93,6 +103,8 @@ export async function PUT(req: Request) {
   try {
     const body = (await req.json()) as {
       backgroundColor?: string;
+      backgroundImageMediaId?: string | null;
+      clearBackgroundImage?: boolean;
       brandAssetEnabled?: boolean;
       brandMarkEnabled?: boolean;
       brandAssetMediaId?: string | null;
@@ -100,11 +112,15 @@ export async function PUT(req: Request) {
       clearBrandAsset?: boolean;
       clearLogo?: boolean;
       brandSizePreset?: BrandSizePreset;
+      brandXNorm?: number;
+      brandYNorm?: number;
       minVisibleMs?: number;
     };
 
     const saved = await putSystemStartConfig(sb, {
       backgroundColor: body.backgroundColor,
+      backgroundImageMediaId: body.backgroundImageMediaId,
+      clearBackgroundImage: body.clearBackgroundImage === true,
       brandAssetEnabled:
         body.brandAssetEnabled !== undefined
           ? body.brandAssetEnabled
@@ -115,6 +131,8 @@ export async function PUT(req: Request) {
           : body.logoMediaId,
       clearBrandAsset: body.clearBrandAsset === true || body.clearLogo === true,
       brandSizePreset: body.brandSizePreset,
+      brandXNorm: body.brandXNorm,
+      brandYNorm: body.brandYNorm,
       minVisibleMs: body.minVisibleMs,
       updatedBy: admin.userId,
     });
@@ -141,20 +159,19 @@ export async function PUT(req: Request) {
       },
       minVisibleMsPresets: SYSTEM_START_MIN_VISIBLE_PRESETS_MS,
       brandSizePresets: BRAND_SIZE_PRESETS,
-      buildBound: true,
-      requiresNativeRebuild: true,
-      derivedBuildInputSynced: false,
+      buildBound: false,
       productionSaveWritesNativeFs: false,
       logoIntegrity,
       durableAuthority: "app_system_start_config",
       message:
-        "다음 앱 버전 설정이 저장되었습니다. 앱 업데이트가 필요합니다. 서비스 적용으로 설치 앱이 바뀌지 않습니다.",
+        "저장 완료 — durable 초안이 저장되었습니다. 「적용」으로 다음 콜드 스타트(Layer B)에 반영하세요.",
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "system_start_write_failed";
     const status =
       msg === "invalid_background_color" ||
       msg === "brand_media_not_ready" ||
+      msg === "background_image_not_ready" ||
       msg === "invalid_min_visible_ms" ||
       msg === "invalid_brand_size_preset"
         ? 400

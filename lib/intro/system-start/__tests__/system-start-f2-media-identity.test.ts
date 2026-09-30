@@ -33,7 +33,7 @@ describe("system-start F2 media identity chain", () => {
     expect(src).not.toContain("native/system-start/assets");
   });
 
-  it("F1 surfaces separate OS splash vs App continuation", () => {
+  it("separates Platform Boot Primitive (A) from Layer B Admin minVisibleMs", () => {
     const gen = fs.readFileSync(
       path.join(ROOT, "scripts/generate-system-start-build-input.mjs"),
       "utf8",
@@ -44,8 +44,9 @@ describe("system-start F2 media identity chain", () => {
       path.join(ROOT, "ios/App/App/DibayStartupBridgeViewController.swift"),
       "utf8",
     );
-    expect(ios).toContain("resolveSystemStartMinVisibleMs");
-    expect(ios).toContain("cap_splash_hold_remaining_ms");
+    expect(ios).toContain("Layer B System Start");
+    expect(ios).toContain("DibaySystemStartLiveDelivery");
+    expect(ios).toContain("minVisibleMs");
     const android = fs.readFileSync(
       path.join(
         ROOT,
@@ -53,7 +54,8 @@ describe("system-start F2 media identity chain", () => {
       ),
       "utf8",
     );
-    expect(android).toContain("resolveSystemStartMinVisibleMs");
-    expect(android).toContain("App continuation clock");
+    expect(android).toContain("Layer B System Start");
+    expect(android).toContain("DibaySystemStartLiveDelivery");
+    expect(android).toContain("Platform Boot Primitive stays shortest");
   });
 });

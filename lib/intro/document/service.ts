@@ -2,12 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createEmptyV0Document,
   cryptoRandomId,
+  normalizeDocumentV1,
+  operatorMessageForDocument,
   type IntroDocumentV1,
   type SceneV1,
   validateDocumentV0,
 } from "@/lib/intro/contracts/document";
 import {
-  classifyIntroTitle,
+  normalizeIntroContentClass,
   type IntroDataClass,
 } from "@/lib/intro/admin/operator-classification";
 import { getLiveStatus } from "@/lib/intro/live/service";
@@ -15,6 +17,7 @@ import { getLiveStatus } from "@/lib/intro/live/service";
 export type IntroDocumentRow = {
   document_id: string;
   title: string;
+  content_class: IntroDataClass;
   draft_version: number;
   document: IntroDocumentV1;
   updated_at: string;
@@ -42,7 +45,7 @@ export async function listIntroDocuments(
 ): Promise<IntroDocumentRow[]> {
   const { data, error } = await sb
     .from("app_intro_documents")
-    .select("document_id, title, draft_version, document, updated_at")
+    .select("document_id, title, content_class, draft_version, document, updated_at")
     .order("updated_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(error.message);
@@ -99,9 +102,7 @@ export async function listIntroOperatorDocuments(
     );
     const isLive = Boolean(liveDocumentId && liveDocumentId === row.document_id);
     const latestReleaseId = latestByDoc.get(row.document_id) ?? null;
-    const classification: IntroDataClass = isLive
-      ? "CURRENT_LIVE"
-      : classifyIntroTitle(row.title);
+    const classification = normalizeIntroContentClass(row.content_class);
     const status: IntroOperatorListItem["status"] = isLive
       ? "LIVE"
       : latestReleaseId
@@ -129,28 +130,37 @@ export async function getIntroDocument(
 ): Promise<IntroDocumentRow | null> {
   const { data, error } = await sb
     .from("app_intro_documents")
-    .select("document_id, title, draft_version, document, updated_at")
+    .select("document_id, title, content_class, draft_version, document, updated_at")
     .eq("document_id", documentId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as IntroDocumentRow | null) ?? null;
+  if (!data) return null;
+  const row = data as IntroDocumentRow;
+  return {
+    ...row,
+    document: normalizeDocumentV1(row.document as IntroDocumentV1),
+  };
 }
 
 export async function createIntroDocument(
   sb: SupabaseClient,
-  args: { title: string; userId: string },
+  args: { title: string; userId: string; contentClass?: IntroDataClass },
 ): Promise<IntroDocumentRow> {
   const document = createEmptyV0Document(args.title.trim() || "Intro");
+  const content_class = normalizeIntroContentClass(
+    args.contentClass ?? "OWNER",
+  );
   const { data, error } = await sb
     .from("app_intro_documents")
     .insert({
       title: document.title,
+      content_class,
       draft_version: 1,
       document,
       created_by: args.userId,
       updated_by: args.userId,
     })
-    .select("document_id, title, draft_version, document, updated_at")
+    .select("document_id, title, content_class, draft_version, document, updated_at")
     .single();
   if (error) throw new Error(error.message);
   return data as IntroDocumentRow;
@@ -166,23 +176,29 @@ export async function saveIntroDocument(
     userId: string;
   },
 ): Promise<IntroDocumentRow> {
-  const err = validateDocumentV0(args.document);
-  if (err) throw new Error(`invalid_document:${err}`);
+  const title = (args.title ?? args.document.title).trim() || "Intro";
+  const document = normalizeDocumentV1({ ...args.document, title });
+  const err = validateDocumentV0(document);
+  if (err) {
+    const msg = operatorMessageForDocument(document);
+    const e = new Error(msg ?? `invalid_document:${err}`);
+    (e as Error & { code?: string }).code = `invalid_document:${err}`;
+    throw e;
+  }
 
   const nextVersion = args.expectedDraftVersion + 1;
-  const title = (args.title ?? args.document.title).trim() || "Intro";
   const { data, error } = await sb
     .from("app_intro_documents")
     .update({
       title,
-      document: { ...args.document, title },
+      document,
       draft_version: nextVersion,
       updated_by: args.userId,
       updated_at: new Date().toISOString(),
     })
     .eq("document_id", args.documentId)
     .eq("draft_version", args.expectedDraftVersion)
-    .select("document_id, title, draft_version, document, updated_at")
+    .select("document_id, title, content_class, draft_version, document, updated_at")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
@@ -218,18 +234,44 @@ export async function duplicateIntroDocument(
   const title =
     (args.title?.trim() || `${src.title} (복사)`).slice(0, 120) || "Intro (복사)";
   const document = cloneDocumentWithFreshIds(src.document, title);
+  const content_class = normalizeIntroContentClass(src.content_class);
   const { data, error } = await sb
     .from("app_intro_documents")
     .insert({
       title,
+      content_class,
       draft_version: 1,
       document,
       created_by: args.userId,
       updated_by: args.userId,
     })
-    .select("document_id, title, draft_version, document, updated_at")
+    .select("document_id, title, content_class, draft_version, document, updated_at")
     .single();
   if (error) throw new Error(error.message);
+  return data as IntroDocumentRow;
+}
+
+export async function updateIntroDocumentContentClass(
+  sb: SupabaseClient,
+  args: {
+    documentId: string;
+    contentClass: IntroDataClass;
+    userId: string;
+  },
+): Promise<IntroDocumentRow> {
+  const content_class = normalizeIntroContentClass(args.contentClass);
+  const { data, error } = await sb
+    .from("app_intro_documents")
+    .update({
+      content_class,
+      updated_by: args.userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("document_id", args.documentId)
+    .select("document_id, title, content_class, draft_version, document, updated_at")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("document_not_found");
   return data as IntroDocumentRow;
 }
 

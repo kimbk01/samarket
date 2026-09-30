@@ -35,14 +35,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   let title = "Intro";
+  let contentClass: "OWNER" | "QA" | "SYSTEM" | undefined;
   try {
     // Canonical field = title. Boundary adapter only: accept legacy `name` → title.
-    const body = (await req.json()) as { title?: string; name?: string };
+    const body = (await req.json()) as {
+      title?: string;
+      name?: string;
+      contentClass?: "OWNER" | "QA" | "SYSTEM";
+    };
     if (typeof body.title === "string" && body.title.trim()) {
       title = body.title.trim();
     } else if (typeof body.name === "string" && body.name.trim()) {
       title = body.name.trim();
     }
+    contentClass = body.contentClass;
   } catch {
     /* default title */
   }
@@ -50,6 +56,7 @@ export async function POST(req: NextRequest) {
     const document = await createIntroDocument(sb, {
       title,
       userId: admin.userId,
+      contentClass,
     });
     return NextResponse.json({ ok: true as const, document });
   } catch (e) {

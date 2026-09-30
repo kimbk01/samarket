@@ -37,6 +37,12 @@ export async function processStaticImage(
       "GIF must use B2 processor",
     );
   }
+  if (format === IdentifiedFormat.MP4) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.INVALID_STATE,
+      "MP4 must use video processor",
+    );
+  }
 
   try {
     // rotate() without args applies EXIF orientation and strips orientation tag.

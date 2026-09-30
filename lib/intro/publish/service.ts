@@ -4,6 +4,8 @@ import {
   INTRO13_RENDER_SPEC_VERSION,
   INTRO13_SCHEMA_VERSION,
   collectDocumentMediaIds,
+  normalizeDocumentV1,
+  operatorMessageForDocument,
   type IntroDocumentV1,
   type IntroRuntimePackageV1,
   validateDocumentV0,
@@ -49,9 +51,13 @@ export async function publishIntroDocument(
 ): Promise<PublishResult> {
   const row = await getIntroDocument(sb, args.documentId);
   if (!row) throw new Error("document_not_found");
-  const document = row.document as IntroDocumentV1;
+  const document = normalizeDocumentV1(row.document as IntroDocumentV1);
   const invalid = validateDocumentV0(document);
-  if (invalid) throw new Error(`invalid_document:${invalid}`);
+  if (invalid) {
+    throw new Error(
+      operatorMessageForDocument(document) ?? `invalid_document:${invalid}`,
+    );
+  }
 
   const { data: existingOp } = await sb
     .from("app_intro_publish_operations")

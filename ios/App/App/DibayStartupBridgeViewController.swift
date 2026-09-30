@@ -30,6 +30,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introFirstFrameReady = false
   private var introTimelineCompleted = false
   private var introLifecycle: IntroLifecycle = .pending
+  /// Layer B System Start — verified local surface before Intro.
+  private var systemStartSurface: DibaySystemStartSurface?
+  private var systemStartSurfaceActive = false
+  private var systemStartHoldComplete = false
+  private var systemStartShownAt = Date()
+  private var systemStartMinVisibleMs = 500
+  private var systemStartHoldWorkItem: DispatchWorkItem?
+  private var systemStartDidColdSync = false
   /// F1 App/Cap continuation clock — not OS LaunchScreen duration.
   private var splashKeepStart = Date()
   private var capacitorSplashHidden = false
@@ -57,23 +65,27 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     capacitorSplashHidden = false
     applySystemStartBackground()
     DibayWebViewKeyboardChrome.install(on: webView)
-    tryStartAuthoredIntro(source: "viewDidLoad")
-    if introSessionActive {
+    tryStartSystemStartAndIntro(source: "viewDidLoad")
+    if introSessionActive || systemStartSurfaceActive {
       applyIntroHoldBackground()
     }
   }
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    if introSessionActive || introLifecycle == .pending {
+    if introSessionActive || introLifecycle == .pending || systemStartSurfaceActive {
       applySystemStartBackground()
     } else {
       applyStartupBackground()
     }
     DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
+    // Layer B sync on normal foreground lifecycle (not only cold).
+    if systemStartDidColdSync {
+      syncSystemStartLiveInBackground(source: "viewDidAppear")
+    }
     startupInfo(
-      "startup_boot intro_session=\(introSessionActive ? 1 : 0) first_frame=\(introFirstFrameReady ? 1 : 0) lifecycle=\(introLifecycle.rawValue)"
+      "startup_boot intro_session=\(introSessionActive ? 1 : 0) first_frame=\(introFirstFrameReady ? 1 : 0) lifecycle=\(introLifecycle.rawValue) layer_b=\(systemStartSurfaceActive ? 1 : 0)"
     )
   }
 
@@ -88,9 +100,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.scrollView.isOpaque = false
   }
 
-  /// System Start / Scene1 hold — build-bound BG from system_start_timing.json (F1/F4).
+  /// System Start / Scene1 hold — verified Layer B color when present, else build-bound A.
   private func applyIntroHoldBackground() {
-    let scene1Match = Self.resolveSystemStartBackgroundColor()
+    let scene1Match = resolveContinuityBackgroundColor()
     view.backgroundColor = scene1Match
     view.window?.backgroundColor = scene1Match
     webView?.isOpaque = true
@@ -98,14 +110,46 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     webView?.scrollView.backgroundColor = scene1Match
   }
 
-  /// Pre-decision System Start surface (same as LaunchScreen / Scene1 BG).
+  /// Pre-decision System Start surface (LaunchScreen / Layer B continuity).
   private func applySystemStartBackground() {
     applyIntroHoldBackground()
   }
 
-  private func tryStartAuthoredIntro(source: String) {
+  private func resolveContinuityBackgroundColor() -> UIColor {
+    if let cfg = DibaySystemStartVerifiedStore().readVerifiedConfigOrNull() {
+      return cfg.backgroundColor
+    }
+    return Self.resolveSystemStartBackgroundColor()
+  }
+
+  /**
+   * Cold path: LaunchScreen/Cap continuation (A) → Layer B verified surface → Intro.
+   * Cap splash releases when Layer B attaches (or Intro/web if no B).
+   * Layer B holds until max(config.minVisibleMs, Intro first frame | NO_INTRO).
+   */
+  private func tryStartSystemStartAndIntro(source: String) {
     if introLifecycle != .pending { return }
     DispatchQueue.global(qos: .userInitiated).async {
+      let ssDelivery = DibaySystemStartLiveDelivery()
+      let prior = ssDelivery.store.readVerifiedConfigOrNull()
+      if let prior {
+        DispatchQueue.main.sync {
+          self.attachSystemStartSurface(config: prior, verifiedRoot: ssDelivery.store.verifiedDir)
+        }
+      }
+      let ssSync = ssDelivery.syncLive()
+      DispatchQueue.main.async { self.systemStartDidColdSync = true }
+      NSLog(
+        "[DIBAY_Startup] system_start_sync reason=%@ canRender=%d",
+        ssSync.reason, ssSync.canRender ? 1 : 0)
+      if !self.systemStartSurfaceActive, ssSync.canRender,
+         let fresh = ssDelivery.store.readVerifiedConfigOrNull()
+      {
+        DispatchQueue.main.sync {
+          self.attachSystemStartSurface(config: fresh, verifiedRoot: ssDelivery.store.verifiedDir)
+        }
+      }
+
       let runtime = DibayIntroRuntimeController()
       runtime.listener = self
       let sync = runtime.prepareVerifiedPackage()
@@ -116,6 +160,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
           self.introSessionActive = true
           self.introLifecycle = .attached
           self.applyIntroHoldBackground()
+          if let ss = self.systemStartSurface {
+            ss.superview?.bringSubviewToFront(ss)
+          }
           self.startupInfo("intro_session_active=1 source=\(source)")
         } else {
           self.introRuntime = nil
@@ -124,10 +171,76 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
           self.startupInfo(
             "intro_attach_skipped source=\(source) reason=\(sync.reason)"
           )
-          // F1: NO_INTRO / attach fail — Cap continuation still honors minVisibleMs.
-          self.hideCapacitorSplash()
+          if !self.systemStartSurfaceActive {
+            // No Layer B — Cap continuation still honors build minVisibleMs.
+            self.hideCapacitorSplash()
+          } else {
+            self.maybeDismissSystemStartSurface(source: "no_product_intro")
+          }
         }
+        self.scheduleSystemStartHoldWatch()
       }
+    }
+  }
+
+  private func attachSystemStartSurface(config: DibaySystemStartConfig, verifiedRoot: URL) {
+    systemStartSurface?.removeFromSuperview()
+    let surface = DibaySystemStartSurface(frame: view.bounds)
+    surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    surface.bind(config: config, verifiedRoot: verifiedRoot)
+    view.addSubview(surface)
+    systemStartSurface = surface
+    systemStartMinVisibleMs = config.minVisibleMs
+    systemStartShownAt = Date()
+    systemStartSurfaceActive = true
+    systemStartHoldComplete = false
+    applyIntroHoldBackground()
+    // Platform Boot Primitive / Cap continuation — release when Layer B owns the screen.
+    hideCapacitorSplashNow(source: "layer_b_attached")
+    startupInfo(
+      "system_start_surface_attached generationId=\(config.generationId) minVisibleMs=\(config.minVisibleMs)"
+    )
+  }
+
+  private func scheduleSystemStartHoldWatch() {
+    maybeDismissSystemStartSurface(source: "hold_watch")
+    guard systemStartSurfaceActive, !systemStartHoldComplete else { return }
+    let elapsedMs = Date().timeIntervalSince(systemStartShownAt) * 1000.0
+    let remain = max(0, Double(systemStartMinVisibleMs) - elapsedMs)
+    systemStartHoldWorkItem?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      self?.maybeDismissSystemStartSurface(source: "min_visible_elapsed")
+    }
+    systemStartHoldWorkItem = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + remain / 1000.0 + 0.016, execute: work)
+  }
+
+  private func maybeDismissSystemStartSurface(source: String) {
+    guard systemStartSurfaceActive, !systemStartHoldComplete else { return }
+    let elapsedMs = Date().timeIntervalSince(systemStartShownAt) * 1000.0
+    let minElapsed = elapsedMs >= Double(systemStartMinVisibleMs)
+    let introGate = introFirstFrameReady || introLifecycle == .dismissed
+    if !minElapsed || !introGate {
+      startupInfo(
+        "system_start_hold source=\(source) minElapsed=\(minElapsed ? 1 : 0) introGate=\(introGate ? 1 : 0)"
+      )
+      return
+    }
+    systemStartHoldComplete = true
+    systemStartSurfaceActive = false
+    systemStartHoldWorkItem?.cancel()
+    systemStartHoldWorkItem = nil
+    systemStartSurface?.removeFromSuperview()
+    systemStartSurface = nil
+    startupInfo("system_start_surface_dismissed source=\(source)")
+  }
+
+  private func syncSystemStartLiveInBackground(source: String) {
+    DispatchQueue.global(qos: .utility).async {
+      let r = DibaySystemStartLiveDelivery().syncLive()
+      NSLog(
+        "[DIBAY_Startup] system_start_fg_sync source=%@ reason=%@ canRender=%d",
+        source, r.reason, r.canRender ? 1 : 0)
     }
   }
 
@@ -135,7 +248,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introFirstFrameReady = true
     let packId = (identity["packageId"] as? String) ?? ""
     startupInfo("intro_first_frame_ready packageId=\(packId)")
-    hideCapacitorSplash()
+    if systemStartSurfaceActive {
+      maybeDismissSystemStartSurface(source: "intro_first_frame")
+    } else {
+      hideCapacitorSplash()
+    }
   }
 
   func onIntroCompleted(reason: String) {
@@ -157,7 +274,10 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introTimelineCompleted = false
     introLifecycle = .dismissed
     startupInfo("intro_aborted reason=\(reason)")
-    applyStartupBackground()
+    maybeDismissSystemStartSurface(source: "intro_aborted")
+    if !systemStartSurfaceActive {
+      applyStartupBackground()
+    }
   }
 
   private func tryIntroHomeHandoff(source: String) {
@@ -298,9 +418,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
   }
 
-  /// F1: Admin minVisibleMs applies to Cap continuation hide — not OS LaunchScreen duration.
+  /// Cap continuation hide. When Layer B is active it owns Admin minVisibleMs —
+  /// Cap/Launch continuation releases immediately (Platform Boot Primitive shortest).
   private func hideCapacitorSplash() {
     if capacitorSplashHidden { return }
+    if systemStartSurfaceActive {
+      hideCapacitorSplashNow(source: "layer_b_owns_min_visible")
+      return
+    }
     let minMs = Self.resolveSystemStartMinVisibleMs()
     let elapsedMs = Date().timeIntervalSince(splashKeepStart) * 1000.0
     let remaining = max(0, Double(minMs) - elapsedMs)
@@ -324,7 +449,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     startupInfo("cap_splash_hide source=\(source)")
     invokeCapacitorSplashPluginHide()
     DispatchQueue.main.async {
-      if self.introSessionActive {
+      if self.introSessionActive || self.systemStartSurfaceActive {
         self.applyIntroHoldBackground()
       } else {
         self.applyStartupBackground()
@@ -374,7 +499,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let hex = obj["backgroundColor"] as? String
     else {
-      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
     }
     return colorFromHex(hex)
   }
@@ -383,7 +508,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     var h = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     if h.hasPrefix("#") { h.removeFirst() }
     guard h.count == 6, let n = UInt32(h, radix: 16) else {
-      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
     }
     return UIColor(
       red: CGFloat((n >> 16) & 0xFF) / 255.0,

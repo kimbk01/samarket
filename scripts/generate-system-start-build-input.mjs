@@ -21,6 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const BUILD = path.join(ROOT, "config/system-start.build.json");
@@ -44,6 +45,49 @@ const ANDROID_STYLES = path.join(
 const ALLOWED_MIN_MS = new Set([500, 1000, 1500, 2000, 3000, 4000, 5000]);
 const BRAND_SIZE_NORM = { S: 0.18, M: 0.28, L: 0.4 };
 const BRAND_SIZE_PT = { S: 72, M: 112, L: 160 };
+
+/** Overwrite Cap splash bitmaps with solid System Start color (dual-authority kill). */
+function solidFillCapSplashPngs(color) {
+  const targets = [];
+  const resRoot = path.join(ROOT, "android/app/src/main/res");
+  if (fs.existsSync(resRoot)) {
+    for (const dir of fs.readdirSync(resRoot)) {
+      if (!dir.startsWith("drawable")) continue;
+      const p = path.join(resRoot, dir, "splash.png");
+      if (fs.existsSync(p)) targets.push(p);
+    }
+  }
+  const iosSplashDir = path.join(
+    ROOT,
+    "ios/App/App/Assets.xcassets/Splash.imageset",
+  );
+  if (fs.existsSync(iosSplashDir)) {
+    for (const name of fs.readdirSync(iosSplashDir)) {
+      if (!/\.png$/i.test(name)) continue;
+      targets.push(path.join(iosSplashDir, name));
+    }
+  }
+  if (targets.length === 0) return;
+  const py = `
+from PIL import Image
+import sys
+r,g,b = int(sys.argv[1],16), int(sys.argv[2],16), int(sys.argv[3],16)
+for path in sys.argv[4:]:
+  im = Image.open(path).convert("RGB")
+  Image.new("RGB", im.size, (r,g,b)).save(path, format="PNG")
+`;
+  const r = color.hex.slice(1, 3);
+  const g = color.hex.slice(3, 5);
+  const b = color.hex.slice(5, 7);
+  const res = spawnSync(
+    "python3",
+    ["-c", py, r, g, b, ...targets],
+    { encoding: "utf8" },
+  );
+  if (res.status !== 0) {
+    throw new Error(`cap_splash_solid_fill_failed: ${res.stderr || res.stdout}`);
+  }
+}
 
 function parseHex(hex) {
   const h = String(hex || "").trim().replace(/^#/, "");
@@ -347,18 +391,24 @@ function patchCapacitorConfig(colorHex) {
   }
   fs.writeFileSync(capTs, cap);
 
-  const capJson = path.join(ROOT, "ios/App/App/capacitor.config.json");
-  if (fs.existsSync(capJson)) {
+  const splashBlock = {
+    launchAutoHide: false,
+    launchShowDuration: 1,
+    launchFadeOutDuration: 0,
+    backgroundColor: colorHex,
+    androidSplashResourceName: "splash",
+  };
+  for (const capJson of [
+    path.join(ROOT, "ios/App/App/capacitor.config.json"),
+    path.join(ROOT, "android/app/src/main/assets/capacitor.config.json"),
+  ]) {
+    if (!fs.existsSync(capJson)) continue;
     const j = JSON.parse(fs.readFileSync(capJson, "utf8"));
     j.backgroundColor = colorHex;
     j.plugins = j.plugins || {};
     j.plugins.SplashScreen = {
       ...(j.plugins.SplashScreen || {}),
-      launchAutoHide: false,
-      launchShowDuration: 1,
-      launchFadeOutDuration: 0,
-      backgroundColor: colorHex,
-      androidSplashResourceName: "splash",
+      ...splashBlock,
     };
     fs.writeFileSync(capJson, `${JSON.stringify(j, null, "\t")}\n`);
   }
@@ -419,6 +469,9 @@ async function main() {
 </resources>
 `,
   );
+
+  // Cap SplashScreen androidSplashResourceName=splash — must match SSOT color (never white/stale).
+  solidFillCapSplashPngs(color);
 
   const timingXml = path.join(
     ROOT,

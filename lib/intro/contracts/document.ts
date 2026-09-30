@@ -1,7 +1,39 @@
 /**
- * DIBAY INTRO 13 — Canonical document / pack contracts (V0+).
+ * DIBAY INTRO — Canonical document / pack contracts.
  * Single semantics for Admin Preview, Android, iOS.
+ * Capability tokens: lib/intro/contracts/capability-registry.ts
  */
+
+import {
+  DEFAULT_MOTION,
+  DEFAULT_TRANSITION_CUT,
+  DEFAULT_TRANSITION_FADE,
+  isMotionTypeV1,
+  normalizeMotionV1,
+  normalizeTransitionV1,
+  type MotionTypeV1,
+  type MotionV1,
+  type TransitionV1,
+} from "@/lib/intro/contracts/capability-registry";
+
+export {
+  DEFAULT_MOTION,
+  DEFAULT_TRANSITION_CUT,
+  DEFAULT_TRANSITION_FADE,
+  MOTION_TYPES_V1,
+  MOTION_OPERATOR_LABELS,
+  TRANSITION_TYPES_V1,
+  TRANSITION_OPERATOR_LABELS,
+  isMotionTypeV1,
+  isTransitionTypeV1,
+  normalizeMotionV1,
+  normalizeTransitionV1,
+  transitionSlideAxis,
+  type MotionTypeV1,
+  type MotionV1,
+  type TransitionTypeV1,
+  type TransitionV1,
+} from "@/lib/intro/contracts/capability-registry";
 
 export const INTRO13_SCHEMA_VERSION = 1 as const;
 export const INTRO13_PROTOCOL_VERSION = 1 as const;
@@ -18,67 +50,17 @@ export type FrameV1 = {
   readonly h: number;
 };
 
-export type ColorHex = string; // #RRGGBB or #RRGGBBAA
+export type ColorHex = string;
 
 export type SceneBackgroundV1 =
   | { readonly type: "COLOR"; readonly color: ColorHex }
   | { readonly type: "IMAGE"; readonly mediaId: string; readonly fit: "COVER" | "CONTAIN" };
 
-export type TransitionV1 =
-  | { readonly type: "CUT"; readonly durationMs: 0 }
-  | { readonly type: "FADE"; readonly durationMs: number }
-  | {
-      readonly type: "SLIDE";
-      readonly durationMs: number;
-      readonly direction: "LEFT" | "RIGHT" | "UP" | "DOWN";
-    };
-
-export type MotionTypeV1 =
-  | "NONE"
-  | "FADE_IN"
-  | "ENTER_TOP"
-  | "ENTER_BOTTOM"
-  | "ENTER_LEFT"
-  | "ENTER_RIGHT"
-  | "SCALE_IN";
-
-/** Canonical capability registry — Admin / Draft / Preview / Release / Package / Native. */
-export const MOTION_TYPES_V1: readonly MotionTypeV1[] = [
-  "NONE",
-  "FADE_IN",
-  "ENTER_TOP",
-  "ENTER_BOTTOM",
-  "ENTER_LEFT",
-  "ENTER_RIGHT",
-  "SCALE_IN",
-] as const;
-
-const MOTION_TYPE_SET = new Set<string>(MOTION_TYPES_V1);
-
-export function isMotionTypeV1(raw: unknown): raw is MotionTypeV1 {
-  return typeof raw === "string" && MOTION_TYPE_SET.has(raw);
-}
-
-/**
- * Invalid historical motion strings (e.g. SLIDE_LEFT) must fail-closed.
- * Silent reinterpretation FORBIDDEN — Draft/Apply reject until Owner corrects.
- */
-export function assertMotionTypeV1(raw: unknown): MotionTypeV1 | null {
-  return isMotionTypeV1(raw) ? raw : null;
-}
-
-export type MotionV1 = {
-  readonly type: MotionTypeV1;
-  readonly startMs: number;
-  readonly durationMs: number;
-};
-
-export type ElementTypeV1 = "IMAGE" | "LOGO" | "TEXT" | "CTA";
+export type ElementTypeV1 = "IMAGE" | "LOGO" | "TEXT" | "CTA" | "VIDEO";
 
 export type TextPayloadV1 = {
   readonly text: string;
   readonly color: ColorHex;
-  /** Font size as fraction of composition height. */
   readonly fontSizeNorm: number;
   readonly align: "left" | "center" | "right";
   readonly weight: "regular" | "medium" | "bold";
@@ -87,6 +69,13 @@ export type TextPayloadV1 = {
 export type ImagePayloadV1 = {
   readonly mediaId: string;
   readonly fit: "COVER" | "CONTAIN";
+};
+
+export type VideoPayloadV1 = {
+  readonly mediaId: string;
+  readonly fit: "COVER" | "CONTAIN";
+  readonly loop: boolean;
+  readonly muted: boolean;
 };
 
 export type CtaPayloadV1 = {
@@ -110,11 +99,17 @@ export type ElementV1 = {
   readonly visible: boolean;
   readonly opacity: number;
   readonly motion: MotionV1;
-  readonly payload: TextPayloadV1 | ImagePayloadV1 | CtaPayloadV1;
+  readonly payload:
+    | TextPayloadV1
+    | ImagePayloadV1
+    | CtaPayloadV1
+    | VideoPayloadV1;
 };
 
 export type SceneV1 = {
   readonly id: string;
+  /** Operator-visible name; empty falls back to "장면 N". */
+  readonly name: string;
   readonly durationMs: number;
   readonly background: SceneBackgroundV1;
   readonly transition: TransitionV1;
@@ -137,7 +132,6 @@ export type IntroRuntimePackageV1 = {
   readonly packageIntegrity: string;
   readonly compositionAspect: AspectV1;
   readonly scenes: readonly SceneV1[];
-  /** Assets keyed by mediaId — relative path + integrity under pack root. */
   readonly assets: Readonly<
     Record<
       string,
@@ -152,12 +146,6 @@ export type IntroRuntimePackageV1 = {
   >;
 };
 
-export const DEFAULT_MOTION: MotionV1 = {
-  type: "NONE",
-  startMs: 0,
-  durationMs: 0,
-};
-
 export function createEmptyV0Document(title = "Intro"): IntroDocumentV1 {
   const sceneId = cryptoRandomId();
   const textId = cryptoRandomId();
@@ -168,9 +156,10 @@ export function createEmptyV0Document(title = "Intro"): IntroDocumentV1 {
     scenes: [
       {
         id: sceneId,
+        name: "오프닝",
         durationMs: 2500,
-        background: { type: "COLOR", color: "#4F46E5" },
-        transition: { type: "CUT", durationMs: 0 },
+        background: { type: "COLOR", color: "#0B3D91" },
+        transition: DEFAULT_TRANSITION_CUT,
         elements: [
           {
             id: textId,
@@ -205,83 +194,204 @@ export function isColorHex(v: unknown): v is ColorHex {
   return typeof v === "string" && /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v);
 }
 
-export function validateDocumentV0(doc: IntroDocumentV1): string | null {
-  if (doc.schemaVersion !== INTRO13_SCHEMA_VERSION) return "bad_schema";
-  if (typeof doc.title !== "string" || !doc.title.trim()) return "missing_title";
-  if (!doc.scenes.length) return "no_scenes";
-  for (const scene of doc.scenes) {
-    if (scene.durationMs < 100) return "scene_duration";
+export type DocumentIssue = {
+  code: string;
+  sceneIndex?: number;
+  elementId?: string;
+  /** Operator-facing Korean. */
+  messageKo: string;
+};
+
+function sceneLabel(scene: SceneV1, index: number): string {
+  const n = (scene.name || "").trim();
+  return n || `장면 ${index + 1}`;
+}
+
+/** Structured validation — prefer over raw string for Admin UX. */
+export function validateDocumentIssues(doc: IntroDocumentV1): DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  if (doc.schemaVersion !== INTRO13_SCHEMA_VERSION) {
+    issues.push({ code: "bad_schema", messageKo: "문서 형식이 올바르지 않습니다." });
+    return issues;
+  }
+  if (typeof doc.title !== "string" || !doc.title.trim()) {
+    issues.push({ code: "missing_title", messageKo: "인트로 이름을 입력해 주세요." });
+  }
+  if (!doc.scenes.length) {
+    issues.push({ code: "no_scenes", messageKo: "장면이 하나 이상 필요합니다." });
+    return issues;
+  }
+  doc.scenes.forEach((scene, sceneIndex) => {
+    const label = sceneLabel(scene, sceneIndex);
+    if (scene.durationMs < 100) {
+      issues.push({
+        code: "scene_duration",
+        sceneIndex,
+        messageKo: `'${label}' 장면의 재생 시간을 확인해 주세요.`,
+      });
+    }
     if (scene.background.type === "COLOR" && !isColorHex(scene.background.color)) {
-      return "bad_bg_color";
+      issues.push({
+        code: "bad_bg_color",
+        sceneIndex,
+        messageKo: `'${label}' 장면의 배경색을 확인해 주세요.`,
+      });
     }
     if (scene.background.type === "IMAGE" && !scene.background.mediaId) {
-      return "bg_image_missing_media";
+      issues.push({
+        code: "bg_image_missing_media",
+        sceneIndex,
+        messageKo: `'${label}' 장면의 배경 이미지를 선택해 주세요.`,
+      });
     }
-    const tr = scene.transition;
-    if (!tr || typeof tr !== "object") return "bad_transition";
-    if (tr.type === "CUT") {
-      if (tr.durationMs !== 0) return "bad_transition_cut_duration";
-    } else if (tr.type === "FADE") {
-      if (!Number.isFinite(tr.durationMs) || tr.durationMs < 0) {
-        return "bad_transition_fade_duration";
-      }
-    } else if (tr.type === "SLIDE") {
-      if (!Number.isFinite(tr.durationMs) || tr.durationMs < 0) {
-        return "bad_transition_slide_duration";
-      }
-      if (
-        tr.direction !== "LEFT" &&
-        tr.direction !== "RIGHT" &&
-        tr.direction !== "UP" &&
-        tr.direction !== "DOWN"
-      ) {
-        return "bad_transition_slide_direction";
-      }
-    } else {
-      return "bad_transition_type";
+    const tr = normalizeTransitionV1(scene.transition);
+    if (!tr) {
+      issues.push({
+        code: "bad_transition",
+        sceneIndex,
+        messageKo: `'${label}' 장면의 전환 효과를 확인해 주세요.`,
+      });
     }
     for (const el of scene.elements) {
       if (!isMotionTypeV1(el.motion?.type)) {
-        return `invalid_motion:${String(el.motion?.type ?? "missing")}`;
-      }
-      if (
+        issues.push({
+          code: `invalid_motion:${String(el.motion?.type ?? "missing")}`,
+          sceneIndex,
+          elementId: el.id,
+          messageKo: `'${label}' 장면의 요소 등장 효과를 확인해 주세요.`,
+        });
+      } else if (
         !Number.isFinite(el.motion.startMs) ||
         !Number.isFinite(el.motion.durationMs) ||
         el.motion.startMs < 0 ||
         el.motion.durationMs < 0
       ) {
-        return "bad_motion_timing";
+        issues.push({
+          code: "bad_motion_timing",
+          sceneIndex,
+          elementId: el.id,
+          messageKo: `'${label}' 장면의 요소 등장 시간 설정을 확인해 주세요.`,
+        });
       }
       if (el.type === "TEXT") {
         const p = el.payload as TextPayloadV1;
-        if (!p.text?.trim()) return "empty_text";
-        if (!isColorHex(p.color)) return "bad_text_color";
+        if (!p.text?.trim()) {
+          issues.push({
+            code: "empty_text",
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 텍스트 내용을 입력해 주세요.`,
+          });
+        }
+        if (!isColorHex(p.color)) {
+          issues.push({
+            code: "bad_text_color",
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 텍스트 색상을 확인해 주세요.`,
+          });
+        }
       }
-      if (el.type === "IMAGE" || el.type === "LOGO") {
-        const p = el.payload as ImagePayloadV1;
-        if (!p.mediaId?.trim()) return "image_missing_media";
-        if (p.fit !== "COVER" && p.fit !== "CONTAIN") return "bad_image_fit";
+      if (el.type === "IMAGE" || el.type === "LOGO" || el.type === "VIDEO") {
+        const p = el.payload as ImagePayloadV1 | VideoPayloadV1;
+        if (!p.mediaId?.trim()) {
+          issues.push({
+            code: "image_missing_media",
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 미디어를 선택해 주세요.`,
+          });
+        }
+        if (p.fit !== "COVER" && p.fit !== "CONTAIN") {
+          issues.push({
+            code: "bad_image_fit",
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 맞춤 방식을 확인해 주세요.`,
+          });
+        }
       }
       if (el.type === "CTA") {
         const p = el.payload as CtaPayloadV1;
-        if (!p.label?.trim()) return "empty_cta_label";
+        if (!p.label?.trim()) {
+          issues.push({
+            code: "empty_cta_label",
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 버튼 문구를 입력해 주세요.`,
+          });
+        }
         const actionType = p.action?.type;
         if (
           actionType !== "NEXT_SCENE" &&
           actionType !== "FINISH_INTRO" &&
           actionType !== "INTERNAL_DESTINATION"
         ) {
-          return `invalid_cta_action:${String(actionType ?? "missing")}`;
+          issues.push({
+            code: `invalid_cta_action:${String(actionType ?? "missing")}`,
+            sceneIndex,
+            elementId: el.id,
+            messageKo: `'${label}' 장면의 버튼 동작을 확인해 주세요.`,
+          });
         }
       }
       const f = el.frame;
-      if (f.w < 0.01 || f.h < 0.01) return "frame_too_small";
+      if (f.w < 0.01 || f.h < 0.01) {
+        issues.push({
+          code: "frame_too_small",
+          sceneIndex,
+          elementId: el.id,
+          messageKo: `'${label}' 장면의 요소 크기를 확인해 주세요.`,
+        });
+      }
       if (f.x < 0 || f.y < 0 || f.x + f.w > 1.001 || f.y + f.h > 1.001) {
-        return "frame_out_of_bounds";
+        issues.push({
+          code: "frame_out_of_bounds",
+          sceneIndex,
+          elementId: el.id,
+          messageKo: `'${label}' 장면의 요소 위치를 확인해 주세요.`,
+        });
       }
     }
-  }
-  return null;
+  });
+  return issues;
+}
+
+/** Legacy string validator — first issue code (tests / throw paths). */
+export function validateDocumentV0(doc: IntroDocumentV1): string | null {
+  const issues = validateDocumentIssues(doc);
+  return issues[0]?.code ?? null;
+}
+
+export function operatorMessageForDocument(doc: IntroDocumentV1): string | null {
+  return validateDocumentIssues(doc)[0]?.messageKo ?? null;
+}
+
+/**
+ * Normalize legacy transition/motion/name shapes before validate/save/package.
+ * Records MOTION_NORMALIZATION_MAP applications; never invents illegal tokens.
+ */
+export function normalizeDocumentV1(doc: IntroDocumentV1): IntroDocumentV1 {
+  return {
+    ...doc,
+    scenes: doc.scenes.map((scene, i) => {
+      const tr =
+        normalizeTransitionV1(scene.transition) ?? DEFAULT_TRANSITION_CUT;
+      const name =
+        typeof (scene as SceneV1).name === "string" && (scene as SceneV1).name.trim()
+          ? (scene as SceneV1).name.trim()
+          : `장면 ${i + 1}`;
+      return {
+        ...scene,
+        name,
+        transition: tr,
+        elements: scene.elements.map((el) => {
+          const motion = normalizeMotionV1(el.motion) ?? DEFAULT_MOTION;
+          return { ...el, motion };
+        }),
+      };
+    }),
+  };
 }
 
 export function collectDocumentMediaIds(doc: IntroDocumentV1): string[] {
@@ -291,11 +401,14 @@ export function collectDocumentMediaIds(doc: IntroDocumentV1): string[] {
       ids.add(scene.background.mediaId);
     }
     for (const el of scene.elements) {
-      if (el.type === "IMAGE" || el.type === "LOGO") {
-        const p = el.payload as ImagePayloadV1;
+      if (el.type === "IMAGE" || el.type === "LOGO" || el.type === "VIDEO") {
+        const p = el.payload as ImagePayloadV1 | VideoPayloadV1;
         if (p.mediaId) ids.add(p.mediaId);
       }
     }
   }
   return [...ids].sort();
 }
+
+/** Re-export MotionType for older imports. */
+export type { MotionTypeV1 as MotionTypeV1Export };

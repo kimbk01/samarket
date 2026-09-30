@@ -1,30 +1,31 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "kind": "SYSTEM_START",
-  "updatedAt": "2026-09-29T22:57:02.729Z",
+  "updatedAt": "2026-09-30T05:19:16.082Z",
+  "buildIdentity": "ss_r10_065740_sha256:f995e5322ec_500",
   "background": {
     "type": "solid",
-    "color": "#312E81",
+    "color": "#065740",
     "imageUrl": null
   },
   "logo": {
-    "source": "none",
-    "mediaId": null,
-    "integrity": null,
-    "bytesProven": false,
+    "source": "durable_media",
+    "mediaId": "03d6ff98-299a-4aaf-9389-d680a2fff690",
+    "integrity": "sha256:f995e5322ec3f273df9ac83c35299dc71e70a1d7d4863cbe6b89faaa9d2a4acc",
+    "bytesProven": true,
     "url": null,
     "fit": "CONTAIN",
-    "sizeNorm": 0.28,
-    "brandSizePreset": "M",
+    "sizeNorm": 0.18,
+    "brandSizePreset": "S",
     "xNorm": 0.5,
     "yNorm": 0.5,
-    "assetCopied": false
+    "assetCopied": true
   },
   "timing": {
     "SYSTEM_START_MIN_VISIBLE_MS": 500,
     "appliesTo": "App_Cap_continuation",
     "doesNotApplyTo": "OS_splash_duration",
-    "handoff": "max(platform_ready, configured_min_visible)"
+    "handoff": "max(intro_first_frame_ready, configured_min_visible)"
   },
   "apply": {
     "mode": "APP_UPDATE_REQUIRED",
@@ -35,8 +36,7 @@
     "android": {
       "splashColorResource": "android/app/src/main/res/values/colors_system_start.xml",
       "timingResource": "android/app/src/main/res/values/system_start_timing.xml",
-      "splashAnimatedIcon": "ic_splash_neutral",
-      "logoDrawableHint": "android/app/src/main/res/drawable-hdpi/ic_dibay_splash_logo.png"
+      "splashAnimatedIcon": "ic_dibay_splash_logo"
     },
     "ios": {
       "launchScreenStoryboard": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
@@ -45,11 +45,11 @@
     }
   },
   "status": {
-    "adminPersisted": true,
+    "durableSource": "durable",
     "buildInputGenerated": true,
     "binaryRebuildRequired": true,
     "brandBytesIntegrityMatched": true,
     "installedPixelsProven": false,
-    "note": "Build-bound. Service Apply does not update installed System Start. Pixel PASS requires installed binary Owner observation."
+    "note": "Build-bound. Service Apply does not update installed System Start."
   }
 }

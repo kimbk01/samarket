@@ -166,8 +166,8 @@ final class DibayIntroRuntimeController {
       runCrossfadeTo(next, durationMs: max(100, current.transitionDurationMs))
       return
     }
-    if current.transitionType == "SLIDE" {
-      runSlideTo(next, durationMs: max(100, current.transitionDurationMs))
+    if let axis = current.slideDirection {
+      runSlideTo(next, durationMs: max(100, current.transitionDurationMs), direction: axis)
       return
     }
     showScene(next)
@@ -208,25 +208,45 @@ final class DibayIntroRuntimeController {
   }
 
   /** Outgoing + incoming simultaneous slide (no black interstitial). */
-  private func runSlideTo(_ nextIndex: Int, durationMs: Int) {
+  private func runSlideTo(_ nextIndex: Int, durationMs: Int, direction: String) {
     guard let model, let overlay else {
       abort("SLIDE_NO_SURFACE")
       return
     }
     let nextScene = model.scenes[nextIndex]
     let width = overlay.bounds.width
+    let height = overlay.bounds.height
+    let axis = direction
+    var outTx: CGFloat = 0
+    var outTy: CGFloat = 0
+    var inStartTx: CGFloat = 0
+    var inStartTy: CGFloat = 0
+    switch axis {
+    case "RIGHT":
+      outTx = width
+      inStartTx = -width
+    case "UP":
+      outTy = -height
+      inStartTy = height
+    case "DOWN":
+      outTy = height
+      inStartTy = -height
+    default:
+      outTx = -width
+      inStartTx = width
+    }
     let incoming = DibayIntroSceneSurface(frame: overlay.bounds)
     incoming.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     incoming.setMediaFiles(mediaFiles)
     incoming.onCta = { [weak self] action, dest in
       self?.onCta(actionType: action, destination: dest)
     }
-    incoming.transform = CGAffineTransform(translationX: width, y: 0)
+    incoming.transform = CGAffineTransform(translationX: inStartTx, y: inStartTy)
     overlay.addSubview(incoming)
     incoming.bindScene(nextScene, compositionW: model.compositionW, compositionH: model.compositionH)
     let outgoing = surface
     UIView.animate(withDuration: Double(durationMs) / 1000.0, animations: {
-      outgoing?.transform = CGAffineTransform(translationX: -width, y: 0)
+      outgoing?.transform = CGAffineTransform(translationX: outTx, y: outTy)
       incoming.transform = .identity
     }, completion: { [weak self] _ in
       guard let self, !self.aborted, !self.completed else { return }
@@ -277,12 +297,12 @@ final class DibayIntroRuntimeController {
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let hex = obj["backgroundColor"] as? String
     else {
-      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
     }
     var h = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     if h.hasPrefix("#") { h.removeFirst() }
     guard h.count == 6, let n = UInt32(h, radix: 16) else {
-      return UIColor(red: 0x31 / 255.0, green: 0x2E / 255.0, blue: 0x81 / 255.0, alpha: 1.0)
+      return UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // cream fail-closed — never legacy indigo
     }
     return UIColor(
       red: CGFloat((n >> 16) & 0xFF) / 255.0,

@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 
 final class DibayIntroSceneSurface: UIView {
   var onCta: ((String, String?) -> Void)?
@@ -7,16 +8,27 @@ final class DibayIntroSceneSurface: UIView {
   private var compositionH: CGFloat = 16
   private var mediaFiles: [String: URL] = [:]
   private(set) var painted = false
+  private var needsRebuild = true
+  private var lastLayoutSize: CGSize = .zero
+  private var players: [AVPlayer] = []
+  private var loopObservers: [NSObjectProtocol] = []
+
+  deinit {
+    teardownPlayers()
+  }
 
   func setMediaFiles(_ files: [String: URL]) {
     mediaFiles = files
   }
 
   func bindScene(_ scene: DibayIntroPackModel.Scene, compositionW: CGFloat, compositionH: CGFloat) {
+    teardownPlayers()
     self.scene = scene
     self.compositionW = compositionW
     self.compositionH = compositionH
     painted = false
+    needsRebuild = true
+    lastLayoutSize = .zero
     subviews.forEach { $0.removeFromSuperview() }
     backgroundColor = scene.backgroundColor
     setNeedsLayout()
@@ -24,11 +36,30 @@ final class DibayIntroSceneSurface: UIView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    rebuild()
+    if needsRebuild || bounds.size != lastLayoutSize {
+      lastLayoutSize = bounds.size
+      needsRebuild = false
+      rebuild()
+    }
+  }
+
+  private func teardownPlayers() {
+    for obs in loopObservers {
+      NotificationCenter.default.removeObserver(obs)
+    }
+    loopObservers.removeAll()
+    for p in players {
+      p.pause()
+    }
+    players.removeAll()
+    layer.sublayers?.forEach { sub in
+      if sub is AVPlayerLayer { sub.removeFromSuperlayer() }
+    }
   }
 
   private func rebuild() {
     guard let scene, bounds.width > 0, bounds.height > 0 else { return }
+    teardownPlayers()
     subviews.forEach { $0.removeFromSuperview() }
     backgroundColor = scene.backgroundColor
     if let mediaId = scene.backgroundMediaId, !mediaId.isEmpty,
@@ -87,6 +118,16 @@ final class DibayIntroSceneSurface: UIView {
         iv.clipsToBounds = true
         iv.alpha = el.opacity
         view = iv
+      } else if el.type == "VIDEO" {
+        guard let mediaId = el.mediaId, let url = mediaFiles[mediaId] else {
+          NSLog("[DibayIntroScene] video_missing mediaId=%@", el.mediaId ?? "")
+          continue
+        }
+        if url.pathExtension.lowercased() != "mp4" {
+          NSLog("[DibayIntroScene] video_not_mp4 mediaId=%@ ext=%@", mediaId, url.pathExtension)
+          continue
+        }
+        view = buildLoopingVideo(url: url, frame: frame, fit: el.fit ?? "CONTAIN", opacity: el.opacity)
       } else if el.type == "CTA" {
         let btn = UIButton(frame: frame)
         btn.setTitle(el.ctaLabel, for: .normal)
@@ -108,24 +149,51 @@ final class DibayIntroSceneSurface: UIView {
     painted = true
   }
 
+  private func buildLoopingVideo(url: URL, frame: CGRect, fit: String, opacity: CGFloat) -> UIView {
+    let host = UIView(frame: frame)
+    host.clipsToBounds = true
+    host.alpha = opacity
+    let item = AVPlayerItem(url: url)
+    let player = AVPlayer(playerItem: item)
+    player.isMuted = true
+    let playerLayer = AVPlayerLayer(player: player)
+    playerLayer.frame = host.bounds
+    playerLayer.videoGravity = fit == "COVER" ? .resizeAspectFill : .resizeAspect
+    playerLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+    host.layer.addSublayer(playerLayer)
+    let obs = NotificationCenter.default.addObserver(
+      forName: .AVPlayerItemDidPlayToEndTime,
+      object: item,
+      queue: .main
+    ) { [weak player] _ in
+      player?.seek(to: .zero)
+      player?.play()
+    }
+    loopObservers.append(obs)
+    players.append(player)
+    player.play()
+    return host
+  }
+
   private func applyMotion(_ view: UIView, el: DibayIntroPackModel.Element, region: DibayIntroFitGeometry.ContentRegion) {
-    guard el.motionType != "NONE", el.motionDurationMs > 0 else { return }
+    let motionType = DibayIntroPackModel.normalizeMotionType(el.motionType)
+    guard motionType != "NONE", el.motionDurationMs > 0 else { return }
     let start = Double(max(0, el.motionStartMs)) / 1000.0
     let dur = Double(max(1, el.motionDurationMs)) / 1000.0
     let distX = region.RW * 0.25
     let distY = region.RH * 0.25
-    switch el.motionType {
+    switch motionType {
     case "FADE_IN":
       view.alpha = 0
       UIView.animate(withDuration: dur, delay: start, options: [.curveEaseOut]) {
         view.alpha = el.opacity
       }
-    case "ENTER_TOP":
+    case "ENTER_UP", "ENTER_TOP":
       view.transform = CGAffineTransform(translationX: 0, y: -distY)
       UIView.animate(withDuration: dur, delay: start, options: [.curveEaseOut]) {
         view.transform = .identity
       }
-    case "ENTER_BOTTOM":
+    case "ENTER_DOWN", "ENTER_BOTTOM":
       view.transform = CGAffineTransform(translationX: 0, y: distY)
       UIView.animate(withDuration: dur, delay: start, options: [.curveEaseOut]) {
         view.transform = .identity

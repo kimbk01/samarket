@@ -157,8 +157,11 @@ public final class DibayIntroPackModel {
     public final int backgroundArgb;
     public final String backgroundMediaId;
     public final String backgroundFit;
+    /** Flat SSOT: CUT, FADE, SLIDE_LEFT, SLIDE_RIGHT, SLIDE_UP, SLIDE_DOWN. */
     public final String transitionType;
     public final int transitionDurationMs;
+    /** LEFT, RIGHT, UP, DOWN when transition is SLIDE_*; otherwise null. */
+    public final String slideDirection;
     public final List<Element> elements;
 
     public Scene(
@@ -169,6 +172,7 @@ public final class DibayIntroPackModel {
         String backgroundFit,
         String transitionType,
         int transitionDurationMs,
+        String slideDirection,
         List<Element> elements) {
       this.id = id;
       this.durationMs = durationMs;
@@ -177,6 +181,7 @@ public final class DibayIntroPackModel {
       this.backgroundFit = backgroundFit;
       this.transitionType = transitionType;
       this.transitionDurationMs = transitionDurationMs;
+      this.slideDirection = slideDirection;
       this.elements = elements;
     }
   }
@@ -338,15 +343,13 @@ public final class DibayIntroPackModel {
       }
     }
     JSONObject tr = s.optJSONObject("transition");
-    String trType = "CUT";
-    int trMs = 0;
-    if (tr != null) {
-      trType = tr.optString("type", "CUT");
-      trMs = tr.optInt("durationMs", 0);
-      if (!"CUT".equals(trType) && !"FADE".equals(trType) && !"SLIDE".equals(trType)) {
-        return new ParseResult(false, "UNSUPPORTED_TRANSITION:" + trType, null);
-      }
+    TransitionFields trFields = parseTransitionFields(tr);
+    if (trFields.error != null) {
+      return new ParseResult(false, trFields.error, null);
     }
+    String trType = trFields.type;
+    int trMs = trFields.durationMs;
+    String slideDirection = trFields.slideDirection;
     List<Element> elements = new ArrayList<>();
     JSONArray elArr = s.optJSONArray("elements");
     if (elArr != null) {
@@ -366,6 +369,7 @@ public final class DibayIntroPackModel {
             bgFit,
             trType,
             trMs,
+            slideDirection,
             Collections.unmodifiableList(elements));
     DibayIntroPackModel stub =
         new DibayIntroPackModel(
@@ -384,6 +388,7 @@ public final class DibayIntroPackModel {
     if (!"TEXT".equals(type)
         && !"IMAGE".equals(type)
         && !"LOGO".equals(type)
+        && !"VIDEO".equals(type)
         && !"CTA".equals(type)) {
       return new ParseResult(false, "UNSUPPORTED_ELEMENT:" + type, null);
     }
@@ -406,9 +411,13 @@ public final class DibayIntroPackModel {
     int motionStartMs = 0;
     int motionDurationMs = 0;
     if (motion != null) {
-      motionType = motion.optString("type", "NONE");
+      motionType = normalizeMotionType(motion.optString("type", "NONE"));
       motionStartMs = motion.optInt("startMs", 0);
       motionDurationMs = motion.optInt("durationMs", 0);
+      if (!isCanonicalMotionType(motionType)) {
+        motionType = "NONE";
+        motionDurationMs = 0;
+      }
     }
     Element element;
     if ("TEXT".equals(type)) {
@@ -482,13 +491,18 @@ public final class DibayIntroPackModel {
               motionStartMs,
               motionDurationMs);
     } else {
+      // IMAGE / LOGO / VIDEO — same mediaId + fit payload.
       String mediaId = payload.optString("mediaId", "");
       if (mediaId.isEmpty()) {
-        return new ParseResult(false, "IMAGE_MISSING_MEDIA", null);
+        return new ParseResult(
+            false,
+            "VIDEO".equals(type) ? "VIDEO_MISSING_MEDIA" : "IMAGE_MISSING_MEDIA",
+            null);
       }
       String fit = payload.optString("fit", "CONTAIN");
       if (!"CONTAIN".equals(fit) && !"COVER".equals(fit)) {
-        return new ParseResult(false, "BAD_IMAGE_FIT", null);
+        return new ParseResult(
+            false, "VIDEO".equals(type) ? "BAD_VIDEO_FIT" : "BAD_IMAGE_FIT", null);
       }
       element =
           new Element(
@@ -523,12 +537,108 @@ public final class DibayIntroPackModel {
             null,
             "CUT",
             0,
+            null,
             Collections.singletonList(element));
     return new ParseResult(
         true,
         null,
         new DibayIntroPackModel(
             "", "", "", 9, 16, Collections.singletonList(scene), Collections.emptyMap()));
+  }
+
+  private static final class TransitionFields {
+    String type = "CUT";
+    int durationMs = 0;
+    String slideDirection = null;
+    String error = null;
+  }
+
+  /** Flat TransitionV1 + legacy { type: SLIDE, direction }. */
+  private static TransitionFields parseTransitionFields(JSONObject tr) {
+    TransitionFields out = new TransitionFields();
+    if (tr == null) {
+      return out;
+    }
+    String rawType = tr.optString("type", "CUT");
+    int durationMs = tr.optInt("durationMs", 0);
+    if ("SLIDE".equals(rawType)) {
+      String dir = tr.optString("direction", "DOWN");
+      if (!isSlideAxis(dir)) {
+        out.error = "UNSUPPORTED_TRANSITION_DIRECTION:" + dir;
+        return out;
+      }
+      out.type = "SLIDE_" + dir;
+      out.slideDirection = dir;
+      out.durationMs = durationMs;
+      return out;
+    }
+    if ("CUT".equals(rawType)) {
+      out.type = "CUT";
+      out.durationMs = 0;
+      return out;
+    }
+    if ("FADE".equals(rawType)) {
+      out.type = "FADE";
+      out.durationMs = durationMs;
+      return out;
+    }
+    if (rawType.startsWith("SLIDE_")) {
+      String axis = rawType.substring("SLIDE_".length());
+      if (!isSlideAxis(axis)) {
+        out.error = "UNSUPPORTED_TRANSITION:" + rawType;
+        return out;
+      }
+      out.type = rawType;
+      out.slideDirection = axis;
+      out.durationMs = durationMs;
+      return out;
+    }
+    out.error = "UNSUPPORTED_TRANSITION:" + rawType;
+    return out;
+  }
+
+  private static boolean isSlideAxis(String dir) {
+    return "LEFT".equals(dir)
+        || "RIGHT".equals(dir)
+        || "UP".equals(dir)
+        || "DOWN".equals(dir);
+  }
+
+  /** Matches lib/intro/contracts/capability-registry.ts MOTION_NORMALIZATION_MAP. */
+  static String normalizeMotionType(String raw) {
+    if (raw == null || raw.isEmpty()) {
+      return "NONE";
+    }
+    switch (raw) {
+      case "ENTER_TOP":
+        return "ENTER_UP";
+      case "ENTER_BOTTOM":
+        return "ENTER_DOWN";
+      case "SLIDE_LEFT":
+      case "SLIDE_IN_LEFT":
+        return "ENTER_LEFT";
+      case "SLIDE_RIGHT":
+      case "SLIDE_IN_RIGHT":
+        return "ENTER_RIGHT";
+      case "SLIDE_UP":
+      case "SLIDE_IN_UP":
+        return "ENTER_UP";
+      case "SLIDE_DOWN":
+      case "SLIDE_IN_DOWN":
+        return "ENTER_DOWN";
+      default:
+        return raw;
+    }
+  }
+
+  private static boolean isCanonicalMotionType(String type) {
+    return "NONE".equals(type)
+        || "FADE_IN".equals(type)
+        || "ENTER_LEFT".equals(type)
+        || "ENTER_RIGHT".equals(type)
+        || "ENTER_UP".equals(type)
+        || "ENTER_DOWN".equals(type)
+        || "SCALE_IN".equals(type);
   }
 
   static int parseColorHex(String hex, int fallback) {

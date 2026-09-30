@@ -144,12 +144,13 @@ public final class DibayIntroRuntimeController {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     overlayRoot.setClickable(true);
     overlayRoot.setFocusable(true);
-    // Hold System Start / Scene1 color — never black/white interstitial under splash.
+    // Hold System Start color from build resource — never legacy indigo fallback.
     try {
       overlayRoot.setBackgroundColor(
           activity.getResources().getColor(com.dibay.app.R.color.dibay_system_start_background, null));
     } catch (Exception e) {
-      overlayRoot.setBackgroundColor(0xFF312E81);
+      overlayRoot.setBackgroundColor(
+          activity.getResources().getColor(com.dibay.app.R.color.dibay_app_bg, null));
     }
     sceneSurface = new DibayIntroSceneSurface(activity);
     sceneSurface.setMediaFiles(mediaFiles);
@@ -240,8 +241,8 @@ public final class DibayIntroRuntimeController {
       runCrossfadeTo(next, Math.max(100, current.transitionDurationMs));
       return;
     }
-    if ("SLIDE".equals(current.transitionType)) {
-      runSlideTo(next, Math.max(100, current.transitionDurationMs));
+    if (current.slideDirection != null) {
+      runSlideTo(next, Math.max(100, current.transitionDurationMs), current.slideDirection);
       return;
     }
     showScene(next);
@@ -288,7 +289,7 @@ public final class DibayIntroRuntimeController {
 
 
   /** Outgoing + incoming simultaneous slide (no black interstitial). */
-  private void runSlideTo(int nextIndex, int durationMs) {
+  private void runSlideTo(int nextIndex, int durationMs, String direction) {
     if (model == null || sceneSurface == null || overlayRoot == null) {
       abort("SLIDE_NO_SURFACE");
       return;
@@ -298,17 +299,49 @@ public final class DibayIntroRuntimeController {
     incoming.setMediaFiles(mediaFilesSnapshot());
     incoming.setCtaListener(this::onCta);
     int width = overlayRoot.getWidth();
+    int height = overlayRoot.getHeight();
+    float outTx = 0f;
+    float outTy = 0f;
+    float inStartTx = 0f;
+    float inStartTy = 0f;
+    String axis = direction != null ? direction : "LEFT";
+    switch (axis) {
+      case "RIGHT":
+        outTx = width;
+        inStartTx = -width;
+        break;
+      case "UP":
+        outTy = -height;
+        inStartTy = height;
+        break;
+      case "DOWN":
+        outTy = height;
+        inStartTy = -height;
+        break;
+      case "LEFT":
+      default:
+        outTx = -width;
+        inStartTx = width;
+        break;
+    }
     FrameLayout.LayoutParams lp =
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-    incoming.setTranslationX(width);
+    incoming.setTranslationX(inStartTx);
+    incoming.setTranslationY(inStartTy);
     overlayRoot.addView(incoming, lp);
     incoming.bindScene(nextScene, model.compositionW, model.compositionH);
     final DibayIntroSceneSurface outgoing = sceneSurface;
-    outgoing.animate().translationX(-width).setDuration(durationMs).start();
+    outgoing
+        .animate()
+        .translationX(outTx)
+        .translationY(outTy)
+        .setDuration(durationMs)
+        .start();
     incoming
         .animate()
         .translationX(0f)
+        .translationY(0f)
         .setDuration(durationMs)
         .withEndAction(
             () -> {

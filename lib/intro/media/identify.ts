@@ -1,11 +1,18 @@
 import sharp from "sharp";
+import { ffprobeVideoDimensions } from "./ffprobe-optional";
 import { MediaFailureCategory, MediaPipelineError } from "./failure";
+import {
+  mp4HasMoovBox,
+  parseMp4VideoDimensions,
+  sniffIsoBmffMp4,
+} from "./mp4-dimensions";
 
 export const IdentifiedFormat = {
   JPEG: "JPEG",
   PNG: "PNG",
   WEBP: "WEBP",
   GIF: "GIF",
+  MP4: "MP4",
 } as const;
 export type IdentifiedFormat =
   (typeof IdentifiedFormat)[keyof typeof IdentifiedFormat];
@@ -44,6 +51,9 @@ function sniffMagic(bytes: Buffer): IdentifiedFormat | null {
     const sig = bytes.toString("ascii", 0, 6);
     if (sig === "GIF87a" || sig === "GIF89a") return IdentifiedFormat.GIF;
   }
+  if (sniffIsoBmffMp4(bytes)) {
+    return IdentifiedFormat.MP4;
+  }
   return null;
 }
 
@@ -57,7 +67,43 @@ function mimeFor(format: IdentifiedFormat): string {
       return "image/webp";
     case IdentifiedFormat.GIF:
       return "image/gif";
+    case IdentifiedFormat.MP4:
+      return "video/mp4";
   }
+}
+
+async function identifyMp4Bytes(bytes: Buffer): Promise<IdentifiedSource> {
+  if (!sniffIsoBmffMp4(bytes)) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.UNSUPPORTED_FORMAT,
+      "Not a recognized MP4 container",
+    );
+  }
+  if (!mp4HasMoovBox(bytes)) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.MALFORMED_SOURCE,
+      "MP4 missing moov metadata (undecodable)",
+    );
+  }
+
+  const probed = ffprobeVideoDimensions(bytes);
+  const parsed = probed ?? parseMp4VideoDimensions(bytes);
+  if (!parsed || parsed.width <= 0 || parsed.height <= 0) {
+    throw new MediaPipelineError(
+      MediaFailureCategory.MALFORMED_SOURCE,
+      "MP4 video dimensions could not be determined (install ffprobe or use a standard MP4)",
+    );
+  }
+
+  return {
+    format: IdentifiedFormat.MP4,
+    mime: mimeFor(IdentifiedFormat.MP4),
+    width: parsed.width,
+    height: parsed.height,
+    pages: 1,
+    hasAlpha: false,
+    animated: false,
+  };
 }
 
 /**
@@ -77,6 +123,10 @@ export async function identifySourceBytes(bytes: Buffer): Promise<IdentifiedSour
       MediaFailureCategory.UNSUPPORTED_FORMAT,
       "Unsupported or unrecognized image format",
     );
+  }
+
+  if (magic === IdentifiedFormat.MP4) {
+    return identifyMp4Bytes(bytes);
   }
 
   let meta: sharp.Metadata;
@@ -141,8 +191,9 @@ export async function identifySourceBytes(bytes: Buffer): Promise<IdentifiedSour
 export function mediaKindForFormat(
   format: IdentifiedFormat,
   requested?: "IMAGE" | "LOGO" | "GIF",
-): "IMAGE" | "LOGO" | "GIF" {
+): "IMAGE" | "LOGO" | "GIF" | "VIDEO" {
   if (format === IdentifiedFormat.GIF) return "GIF";
+  if (format === IdentifiedFormat.MP4) return "VIDEO";
   if (requested === "LOGO") return "LOGO";
   return "IMAGE";
 }

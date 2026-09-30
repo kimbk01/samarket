@@ -23,9 +23,11 @@
       DO NOT: treat Publish / Service Apply as System Start apply.
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <!-- Single SSOT color — do not point android:background at Cap splash.png (white / stale). -->
+        <item name="android:background">@color/dibay_system_start_background</item>
+        <item name="android:windowBackground">@color/dibay_system_start_background</item>
         <item name="windowSplashScreenBackground">@color/dibay_system_start_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_dibay_splash_logo</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/dibay_system_start_background</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>

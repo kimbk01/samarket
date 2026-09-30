@@ -1,14 +1,17 @@
 {
-  "version": 1,
-  "backgroundColor": "#312E81",
+  "version": 10,
+  "backgroundColor": "#065740",
   "matchScene1Appearance": false,
-  "brandMarkEnabled": false,
-  "logoMediaId": null,
-  "brandSizePreset": "M",
+  "brandMarkEnabled": true,
+  "logoMediaId": "03d6ff98-299a-4aaf-9389-d680a2fff690",
+  "logoIntegrity": "sha256:f995e5322ec3f273df9ac83c35299dc71e70a1d7d4863cbe6b89faaa9d2a4acc",
+  "brandSizePreset": "S",
   "logoFit": "CONTAIN",
-  "logoSizeNorm": 0.28,
+  "logoSizeNorm": 0.18,
   "logoXNorm": 0.5,
   "logoYNorm": 0.5,
   "minVisibleMs": 500,
-  "note": "DERIVED from app_system_start_config. Not durable authority. minVisibleMs = App/Cap continuation only (F1). logoIntegrity required when brand enabled (F2)."
+  "buildIdentity": "ss_r10_065740_sha256:f995e5322ec_500",
+  "source": "durable",
+  "note": "BUILD SNAPSHOT from durable app_system_start_config. Not Admin Production FS write. minVisibleMs = App/Cap continuation only."
 }

@@ -5,6 +5,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Typeface;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -12,12 +14,14 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.VideoView;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-/** Native Scene surface — COLOR background + TEXT/IMAGE/LOGO/CTA + element motion. */
+/** Native Scene surface — COLOR background + TEXT/IMAGE/LOGO/VIDEO/CTA + element motion. */
 public final class DibayIntroSceneSurface extends FrameLayout {
   public interface CtaListener {
     void onCta(String actionType, String destination);
@@ -167,6 +171,18 @@ public final class DibayIntroSceneSurface extends FrameLayout {
         }
         iv.setAlpha(Math.max(0f, Math.min(1f, el.opacity)));
         child = iv;
+      } else if ("VIDEO".equals(el.type)) {
+        File file = mediaFiles.get(el.mediaId);
+        if (file == null || !file.isFile()) {
+          Log.w("DibayIntroScene", "video_missing mediaId=" + el.mediaId);
+          continue;
+        }
+        String name = file.getName().toLowerCase(Locale.US);
+        if (!name.endsWith(".mp4")) {
+          Log.w("DibayIntroScene", "video_not_mp4 mediaId=" + el.mediaId + " file=" + name);
+          continue;
+        }
+        child = buildLoopingVideo(file, el.fit, el.opacity, Math.round(rect.width), Math.round(rect.height));
       } else if ("CTA".equals(el.type)) {
         TextView btn = new TextView(getContext());
         btn.setText(el.ctaLabel);
@@ -198,9 +214,53 @@ public final class DibayIntroSceneSurface extends FrameLayout {
     }
   }
 
+  private View buildLoopingVideo(File file, String fit, float opacity, int boxW, int boxH) {
+    FrameLayout box = new FrameLayout(getContext());
+    box.setClipChildren(true);
+    box.setAlpha(Math.max(0f, Math.min(1f, opacity)));
+    VideoView video = new VideoView(getContext());
+    final String fitMode = "COVER".equals(fit) ? "COVER" : "CONTAIN";
+    video.setOnPreparedListener(
+        mp -> {
+          try {
+            mp.setLooping(true);
+            mp.setVolume(0f, 0f);
+            int vw = mp.getVideoWidth();
+            int vh = mp.getVideoHeight();
+            if (vw > 0 && vh > 0 && boxW > 0 && boxH > 0) {
+              float scaleX = (float) boxW / vw;
+              float scaleY = (float) boxH / vh;
+              float scale = "COVER".equals(fitMode) ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+              int drawW = Math.max(1, Math.round(vw * scale));
+              int drawH = Math.max(1, Math.round(vh * scale));
+              FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams(drawW, drawH);
+              vlp.gravity = Gravity.CENTER;
+              video.setLayoutParams(vlp);
+            }
+            video.start();
+          } catch (Exception e) {
+            Log.w("DibayIntroScene", "video_prepare_failed", e);
+          }
+        });
+    video.setOnErrorListener(
+        (MediaPlayer mp, int what, int extra) -> {
+          Log.w("DibayIntroScene", "video_error what=" + what + " extra=" + extra);
+          return true;
+        });
+    video.setVideoURI(Uri.fromFile(file));
+    FrameLayout.LayoutParams seed =
+        new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+    seed.gravity = Gravity.CENTER;
+    box.addView(video, seed);
+    return box;
+  }
+
   private void applyMotion(
       View view, DibayIntroPackModel.Element el, DibayIntroFitGeometry.ContentRegion region) {
-    String type = el.motionType != null ? el.motionType : "NONE";
+    String type =
+        DibayIntroPackModel.normalizeMotionType(
+            el.motionType != null ? el.motionType : "NONE");
     if ("NONE".equals(type) || el.motionDurationMs <= 0) return;
     long start = Math.max(0, el.motionStartMs);
     long dur = Math.max(1, el.motionDurationMs);
@@ -215,10 +275,12 @@ public final class DibayIntroSceneSurface extends FrameLayout {
         a.start();
         break;
       }
+      case "ENTER_UP":
       case "ENTER_TOP":
         view.setTranslationY(-distY);
         view.animate().translationY(0).setStartDelay(start).setDuration(dur).start();
         break;
+      case "ENTER_DOWN":
       case "ENTER_BOTTOM":
         view.setTranslationY(distY);
         view.animate().translationY(0).setStartDelay(start).setDuration(dur).start();

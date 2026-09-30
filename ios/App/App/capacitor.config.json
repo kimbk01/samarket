@@ -2,7 +2,7 @@
 	"appId": "com.dibay.app",
 	"appName": "DIBAY",
 	"webDir": "capacitor-www",
-	"backgroundColor": "#312E81",
+	"backgroundColor": "#065740",
 	"server": {
 		"url": "https://samarket.vercel.app",
 		"cleartext": false
@@ -12,7 +12,7 @@
 			"launchAutoHide": false,
 			"launchShowDuration": 1,
 			"launchFadeOutDuration": 0,
-			"backgroundColor": "#312E81",
+			"backgroundColor": "#065740",
 			"androidSplashResourceName": "splash"
 		}
 	},

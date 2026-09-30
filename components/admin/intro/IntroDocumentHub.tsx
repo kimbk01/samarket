@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isOperatorVisibleTitle } from "@/lib/intro/admin/operator-classification";
+import { isOperatorVisibleContentClass } from "@/lib/intro/admin/operator-classification";
 import { IntroAdminTabs, useIntroAdminTab } from "@/components/admin/intro/IntroAdminTabs";
 import { IntroSystemStartPanel } from "@/components/admin/intro/IntroSystemStartPanel";
 import { IntroMediaLibraryPanel } from "@/components/admin/intro/IntroMediaLibraryPanel";
@@ -71,14 +71,19 @@ export function IntroDocumentHub() {
   const visible = useMemo(
     () =>
       docs.filter((d) =>
-        isOperatorVisibleTitle(d.title, { includeQa: showQa, isLive: d.isLive }),
+        isOperatorVisibleContentClass(d.classification, {
+          includeQa: showQa,
+          isLive: d.isLive,
+        }),
       ),
     [docs, showQa],
   );
 
   const liveDoc = docs.find((d) => d.isLive) ?? null;
   const qaHiddenCount = docs.filter(
-    (d) => !d.isLive && !isOperatorVisibleTitle(d.title, { includeQa: false }),
+    (d) =>
+      !d.isLive &&
+      !isOperatorVisibleContentClass(d.classification, { includeQa: false }),
   ).length;
 
   async function createDoc() {
@@ -352,7 +357,7 @@ export function IntroDocumentHub() {
                           </span>
                         )}
                         {d.classification === "QA" ||
-                        d.classification === "SYSTEM_TEST" ? (
+                        d.classification === "SYSTEM" ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">
                             {d.classification}
                           </span>

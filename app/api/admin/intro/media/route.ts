@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import {
   listReadyIntroMedia,
+  renameIntroMedia,
   softDeleteIntroMedia,
   uploadAndReadyIntroMedia,
 } from "@/lib/intro/media/service";
@@ -42,6 +43,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "missing_file" }, { status: 400 });
     }
     const asLogo = form.get("asLogo") === "1" || form.get("asLogo") === "true";
+    const contentType = (file.type || "").toLowerCase();
+    if (
+      contentType &&
+      !contentType.startsWith("image/") &&
+      contentType !== "video/mp4"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "unsupported_content_type" },
+        { status: 400 },
+      );
+    }
     const bytes = Buffer.from(await file.arrayBuffer());
     const item = await uploadAndReadyIntroMedia(sb, {
       bytes,
@@ -53,6 +65,30 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "upload_failed" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+  try {
+    const body = (await req.json()) as { mediaId?: string; displayName?: string };
+    const mediaId = typeof body.mediaId === "string" ? body.mediaId.trim() : "";
+    const displayName = typeof body.displayName === "string" ? body.displayName : "";
+    if (!mediaId) {
+      return NextResponse.json({ ok: false, error: "mediaId_required" }, { status: 400 });
+    }
+    await renameIntroMedia(sb, mediaId, displayName);
+    return NextResponse.json({ ok: true as const });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : "rename_failed" },
       { status: 500 },
     );
   }

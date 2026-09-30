@@ -8,7 +8,7 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
-        <!-- GENERATED System Start LaunchScreen — BG + optional brand asset (F2). Duration OS-owned. -->
+        <!-- GENERATED System Start LaunchScreen — BG + optional brand (build materializer). -->
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
@@ -16,7 +16,20 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <viewLayoutGuide key="safeArea" id="safe-area"/>
-                        <color key="backgroundColor" red="0.19215686274509805" green="0.1803921568627451" blue="0.5058823529411764" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <subviews>
+                        <imageView opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="DibayStartupLogo" translatesAutoresizingMaskIntoConstraints="NO" id="brand-logo-iv">
+                            <rect key="frame" x="171" y="412" width="72" height="72"/>
+                            <constraints>
+                                <constraint firstAttribute="width" constant="72" id="brand-w"/>
+                                <constraint firstAttribute="height" constant="72" id="brand-h"/>
+                            </constraints>
+                        </imageView>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="brand-logo-iv" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="brand-cx"/>
+                            <constraint firstItem="brand-logo-iv" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="brand-cy"/>
+                        </constraints>
+                        <color key="backgroundColor" red="0.023529411764705882" green="0.3411764705882353" blue="0.25098039215686274" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
@@ -24,5 +37,5 @@
             <point key="canvasLocation" x="53" y="375"/>
         </scene>
     </scenes>
-    
+    <resources><image name="DibayStartupLogo" width="72" height="72"/></resources>
 </document>

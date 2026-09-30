@@ -28,9 +28,15 @@ export type SystemStartMinVisibleMs =
 export type SystemStartNextBuild = {
   revision: number;
   backgroundColor: string;
+  /** Layer B — optional full-bleed / cover background image (live Apply). */
+  backgroundImageMediaId: string | null;
+  backgroundImagePreviewUrl: string | null;
   brandAssetEnabled: boolean;
   brandAssetMediaId: string | null;
   brandSizePreset: BrandSizePreset;
+  /** Normalized brand center (0..1). */
+  brandXNorm: number;
+  brandYNorm: number;
   minVisibleMs: number;
   updatedAt: string;
   brandPreviewUrl: string | null;
@@ -39,9 +45,13 @@ export type SystemStartNextBuild = {
 export type SystemStartInstalled = {
   revision: number;
   backgroundColor: string;
+  backgroundImageMediaId: string | null;
+  backgroundImagePreviewUrl: string | null;
   brandAssetEnabled: boolean;
   brandAssetMediaId: string | null;
   brandSizePreset: BrandSizePreset;
+  brandXNorm: number;
+  brandYNorm: number;
   minVisibleMs: number;
   materializedAt: string;
   brandPreviewUrl: string | null;

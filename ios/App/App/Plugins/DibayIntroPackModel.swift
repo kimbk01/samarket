@@ -50,8 +50,11 @@ final class DibayIntroPackModel {
     let backgroundColor: UIColor
     let backgroundMediaId: String?
     let backgroundFit: String?
+    /// Flat SSOT: CUT, FADE, SLIDE_LEFT, SLIDE_RIGHT, SLIDE_UP, SLIDE_DOWN.
     let transitionType: String
     let transitionDurationMs: Int
+    /// LEFT, RIGHT, UP, DOWN when transition is SLIDE_*; otherwise nil.
+    let slideDirection: String?
     let elements: [Element]
   }
 
@@ -174,15 +177,13 @@ final class DibayIntroPackModel {
         throw ParseError.failure("UNSUPPORTED_BACKGROUND:\(type)")
       }
     }
-    var trType = "CUT"
-    var trMs = 0
-    if let tr = s["transition"] as? [String: Any] {
-      trType = (tr["type"] as? String) ?? "CUT"
-      trMs = (tr["durationMs"] as? NSNumber)?.intValue ?? 0
-      if trType != "CUT" && trType != "FADE" && trType != "SLIDE" {
-        throw ParseError.failure("UNSUPPORTED_TRANSITION:\(trType)")
-      }
+    let trFields = parseTransitionFields(s["transition"])
+    if let err = trFields.error {
+      throw ParseError.failure(err)
     }
+    let trType = trFields.type
+    let trMs = trFields.durationMs
+    let slideDirection = trFields.slideDirection
     var elements: [Element] = []
     if let elArr = s["elements"] as? [[String: Any]] {
       for el in elArr {
@@ -198,13 +199,84 @@ final class DibayIntroPackModel {
       backgroundFit: bgFit,
       transitionType: trType,
       transitionDurationMs: trMs,
+      slideDirection: slideDirection,
       elements: elements
     )
   }
 
+  private struct TransitionFields {
+    var type: String = "CUT"
+    var durationMs: Int = 0
+    var slideDirection: String? = nil
+    var error: String? = nil
+  }
+
+  private static func parseTransitionFields(_ raw: Any?) -> TransitionFields {
+    var out = TransitionFields()
+    guard let tr = raw as? [String: Any] else { return out }
+    let rawType = (tr["type"] as? String) ?? "CUT"
+    let durationMs = (tr["durationMs"] as? NSNumber)?.intValue ?? 0
+    if rawType == "SLIDE" {
+      let dir = (tr["direction"] as? String) ?? "DOWN"
+      guard isSlideAxis(dir) else {
+        out.error = "UNSUPPORTED_TRANSITION_DIRECTION:\(dir)"
+        return out
+      }
+      out.type = "SLIDE_\(dir)"
+      out.slideDirection = dir
+      out.durationMs = durationMs
+      return out
+    }
+    if rawType == "CUT" {
+      out.type = "CUT"
+      out.durationMs = 0
+      return out
+    }
+    if rawType == "FADE" {
+      out.type = "FADE"
+      out.durationMs = durationMs
+      return out
+    }
+    if rawType.hasPrefix("SLIDE_") {
+      let axis = String(rawType.dropFirst("SLIDE_".count))
+      guard isSlideAxis(axis) else {
+        out.error = "UNSUPPORTED_TRANSITION:\(rawType)"
+        return out
+      }
+      out.type = rawType
+      out.slideDirection = axis
+      out.durationMs = durationMs
+      return out
+    }
+    out.error = "UNSUPPORTED_TRANSITION:\(rawType)"
+    return out
+  }
+
+  private static func isSlideAxis(_ dir: String) -> Bool {
+    dir == "LEFT" || dir == "RIGHT" || dir == "UP" || dir == "DOWN"
+  }
+
+  /// Matches lib/intro/contracts/capability-registry.ts MOTION_NORMALIZATION_MAP.
+  static func normalizeMotionType(_ raw: String) -> String {
+    switch raw {
+    case "ENTER_TOP": return "ENTER_UP"
+    case "ENTER_BOTTOM": return "ENTER_DOWN"
+    case "SLIDE_LEFT", "SLIDE_IN_LEFT": return "ENTER_LEFT"
+    case "SLIDE_RIGHT", "SLIDE_IN_RIGHT": return "ENTER_RIGHT"
+    case "SLIDE_UP", "SLIDE_IN_UP": return "ENTER_UP"
+    case "SLIDE_DOWN", "SLIDE_IN_DOWN": return "ENTER_DOWN"
+    default: return raw
+    }
+  }
+
+  private static func isCanonicalMotionType(_ type: String) -> Bool {
+    type == "NONE" || type == "FADE_IN" || type == "ENTER_LEFT" || type == "ENTER_RIGHT"
+      || type == "ENTER_UP" || type == "ENTER_DOWN" || type == "SCALE_IN"
+  }
+
   private static func parseElement(_ el: [String: Any]) throws -> Element {
     let type = (el["type"] as? String) ?? ""
-    guard type == "TEXT" || type == "IMAGE" || type == "LOGO" || type == "CTA" else {
+    guard type == "TEXT" || type == "IMAGE" || type == "LOGO" || type == "VIDEO" || type == "CTA" else {
       throw ParseError.failure("UNSUPPORTED_ELEMENT:\(type)")
     }
     guard let frameJson = el["frame"] as? [String: Any] else {
@@ -223,9 +295,13 @@ final class DibayIntroPackModel {
     var motionStartMs = 0
     var motionDurationMs = 0
     if let motion = el["motion"] as? [String: Any] {
-      motionType = (motion["type"] as? String) ?? "NONE"
+      motionType = normalizeMotionType((motion["type"] as? String) ?? "NONE")
       motionStartMs = (motion["startMs"] as? NSNumber)?.intValue ?? 0
       motionDurationMs = (motion["durationMs"] as? NSNumber)?.intValue ?? 0
+      if !isCanonicalMotionType(motionType) {
+        motionType = "NONE"
+        motionDurationMs = 0
+      }
     }
     if type == "TEXT" {
       let text = (payload["text"] as? String) ?? ""
@@ -296,11 +372,14 @@ final class DibayIntroPackModel {
         motionDurationMs: motionDurationMs
       )
     }
+    // IMAGE / LOGO / VIDEO — same mediaId + fit payload.
     let mediaId = (payload["mediaId"] as? String) ?? ""
-    if mediaId.isEmpty { throw ParseError.failure("IMAGE_MISSING_MEDIA") }
+    if mediaId.isEmpty {
+      throw ParseError.failure(type == "VIDEO" ? "VIDEO_MISSING_MEDIA" : "IMAGE_MISSING_MEDIA")
+    }
     let fit = (payload["fit"] as? String) ?? "CONTAIN"
     if fit != "CONTAIN" && fit != "COVER" {
-      throw ParseError.failure("BAD_IMAGE_FIT")
+      throw ParseError.failure(type == "VIDEO" ? "BAD_VIDEO_FIT" : "BAD_IMAGE_FIT")
     }
     return Element(
       id: (el["id"] as? String) ?? "",

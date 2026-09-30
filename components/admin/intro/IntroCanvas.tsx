@@ -5,6 +5,7 @@ import type {
   ElementV1,
   FrameV1,
   ImagePayloadV1,
+  VideoPayloadV1,
   IntroDocumentV1,
   SceneV1,
   TextPayloadV1,
@@ -267,6 +268,33 @@ function ElementVisual({
       </div>
     );
   }
+  if (el.type === "VIDEO") {
+    const p = el.payload as VideoPayloadV1;
+    const url = mediaUrls[p.mediaId];
+    if (!url) {
+      return (
+        <div className="flex h-full w-full items-center justify-center border border-dashed border-white/40 bg-black/40 text-[10px] text-white">
+          영상 없음
+        </div>
+      );
+    }
+    return (
+      // eslint-disable-next-line jsx-a11y/media-has-caption
+      <video
+        src={url}
+        className="h-full w-full"
+        draggable={false}
+        style={{
+          objectFit: p.fit === "CONTAIN" ? "contain" : "cover",
+        }}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
   const p = el.payload as ImagePayloadV1;
   const url = mediaUrls[p.mediaId];
   if (!url) {
