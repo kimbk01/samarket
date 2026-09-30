@@ -101,7 +101,9 @@ export async function enforceApiMemberMutationPolicy(
   }
   if (!userId) return null;
 
-  const authority = await resolveMemberLifecycleAuthority(userId);
+  // Always re-read DB — process-local lifecycle cache is not cross-isolate coherent
+  // after admin moderation (FIRST DIVERGENCE: stale ACTIVE allowed PATCH /api/me/profile).
+  const authority = await resolveMemberLifecycleAuthority(userId, { bypassCache: true });
 
   // P0-R3 Owner contract: no fail-open when lifecycle cannot be established.
   if (isMemberLifecycleAuthorityFailClosed(authority)) {

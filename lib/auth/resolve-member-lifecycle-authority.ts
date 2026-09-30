@@ -64,23 +64,35 @@ export function isMemberLifecycleAuthorityFailClosed(
   return result.lifecycle === "unknown";
 }
 
+export type ResolveMemberLifecycleAuthorityOptions = {
+  /**
+   * PRODUCT_WRITE enforcement must not trust process-local lifecycle cache.
+   * Moderation invalidation runs on the admin isolate only — other isolates may
+   * still hold a stale ACTIVE row for up to TTL after block/suspend.
+   */
+  bypassCache?: boolean;
+};
+
 export async function resolveMemberLifecycleAuthority(
-  userId: string
+  userId: string,
+  options?: ResolveMemberLifecycleAuthorityOptions
 ): Promise<MemberLifecycleAuthorityResult> {
   const uid = userId.trim();
   if (!uid) {
     return { kind: "AUTHORITY_UNAVAILABLE", reason: "empty_user_id" };
   }
 
-  const cached = peekMemberLifecycleAuthority(uid);
-  if (cached.hit) {
-    const lifecycle = resolveMemberAccountLifecycle(cached.profile);
-    return {
-      kind: "RESOLVED",
-      profile: cached.profile,
-      lifecycle,
-      source: "cache",
-    };
+  if (!options?.bypassCache) {
+    const cached = peekMemberLifecycleAuthority(uid);
+    if (cached.hit) {
+      const lifecycle = resolveMemberAccountLifecycle(cached.profile);
+      return {
+        kind: "RESOLVED",
+        profile: cached.profile,
+        lifecycle,
+        source: "cache",
+      };
+    }
   }
 
   const sb = tryCreateSupabaseServiceClient() ?? (await createSupabaseRouteHandlerClient());

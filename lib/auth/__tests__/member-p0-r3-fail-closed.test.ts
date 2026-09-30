@@ -119,6 +119,72 @@ describe("P0-R3 resolver result contract", () => {
     expect(assertMemberProductAction(BLOCKED, "PRODUCT_WRITE").ok).toBe(false);
     expect(assertMemberProductAction(WITHDRAWN, "PRODUCT_WRITE").ok).toBe(false);
   });
+
+  it("bypassCache skips stale ACTIVE process-local cache (cross-isolate moderation)", async () => {
+    const uid = "stale-active-cache-user";
+    invalidateMemberLifecycleAuthority(uid);
+    setMemberLifecycleAuthority(uid, ACTIVE);
+    expect(peekMemberLifecycleAuthority(uid).hit).toBe(true);
+
+    // Without a DB client in unit context, bypassCache still must not return cache hit.
+    const result = await resolveMemberLifecycleAuthority(uid, { bypassCache: true });
+    // Either DB path (unavailable/not found) or anything except cached ACTIVE.
+    if (result.kind === "RESOLVED") {
+      expect(result.source).toBe("db");
+    } else {
+      expect(["PROFILE_NOT_FOUND", "AUTHORITY_UNAVAILABLE"]).toContain(result.kind);
+    }
+    // Default path still sees warm ACTIVE when cache not bypassed.
+    const cached = await resolveMemberLifecycleAuthority(uid);
+    expect(cached.kind).toBe("RESOLVED");
+    if (cached.kind === "RESOLVED") {
+      expect(cached.source).toBe("cache");
+      expect(cached.lifecycle).toBe("active");
+    }
+    invalidateMemberLifecycleAuthority(uid);
+  });
+});
+
+describe("P0-R4 enforce uses bypassCache", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("PRODUCT_WRITE gate calls resolveMemberLifecycleAuthority with bypassCache:true", async () => {
+    const spy = vi.fn(
+      async (): Promise<MemberLifecycleAuthorityResult> => ({
+        kind: "RESOLVED",
+        profile: BLOCKED,
+        lifecycle: "blocked",
+        source: "db",
+      })
+    );
+    vi.doMock("@/lib/auth/resolve-member-lifecycle-authority", async () => {
+      const actual = await vi.importActual<
+        typeof import("@/lib/auth/resolve-member-lifecycle-authority")
+      >("@/lib/auth/resolve-member-lifecycle-authority");
+      return {
+        ...actual,
+        resolveMemberLifecycleAuthority: spy,
+      };
+    });
+    vi.doMock("@/lib/auth/proxy-auth-session-cache", () => ({
+      peekProxyAuthSessionCache: () => "user-bypass-cache-1",
+      proxyAuthCookieFingerprint: () => "fp",
+      setProxyAuthSessionCache: () => {},
+    }));
+
+    const { enforceApiMemberMutationPolicy: enforce } = await import(
+      "@/lib/auth/enforce-api-member-mutation-policy"
+    );
+    const req = new NextRequest("http://localhost/api/me/profile", { method: "PATCH" });
+    const res = await enforce(req);
+    expect(spy).toHaveBeenCalledWith("user-bypass-cache-1", { bypassCache: true });
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(403);
+    const body = await res!.json();
+    expect(body.code).toBe("account_blocked");
+  });
 });
 
 describe("P0-R3 fail-closed enforce gate", () => {
