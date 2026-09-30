@@ -105,6 +105,11 @@ export class IntroCtaActionGate {
     return this.stagedDestination;
   }
 
+  /** Terminal Intro CTA lifecycle — late CTA after DONE is ignored. */
+  isDone(): boolean {
+    return this.completionIntent;
+  }
+
   /**
    * @param actionToken Stable idempotency key (e.g. elementId + intent + sceneIndex).
    */
@@ -113,6 +118,11 @@ export class IntroCtaActionGate {
     actionToken: string,
   ): CtaDispatchResult {
     if (this.lastActionToken === actionToken) {
+      return { ok: true, intent, applied: false };
+    }
+
+    // Late CTA after DONE: deterministic no-op (no second handoff / scene advance).
+    if (this.completionIntent) {
       return { ok: true, intent, applied: false };
     }
 

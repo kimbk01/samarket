@@ -10,18 +10,19 @@ export const STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE = false as const;
 
 export type StartupCompositorActivation = {
   readonly productionPresentationActive: boolean;
-  readonly phase: "P4_INTRO_SHARED_RENDER_TIMELINE";
+  readonly phase: "P5_CANONICAL_EXECUTION_INTEGRATION";
   readonly note: string;
 };
 
 export function getStartupCompositorActivation(): StartupCompositorActivation {
   return {
     productionPresentationActive: STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE,
-    phase: "P4_INTRO_SHARED_RENDER_TIMELINE",
+    phase: "P5_CANONICAL_EXECUTION_INTEGRATION",
     note:
-      "Intro shared semantic/render/timeline contract present; Production presentation = NO. " +
+      "P5 canonical geometry/motion/transition/CTA/clock execution SSOT present; " +
+      "Production presentation = NO. " +
       "MainActivity / iOS root remain unwired until P7. " +
-      "GIF/MP4 native playback = NOT_PROVEN. " +
+      "GIF/MP4 native playback = NOT_PROVEN. MP4 audio = OPEN PRODUCT DECISION. " +
       "webSplashDismissRequested remains ZERO baseline until P7 lifecycle integration.",
   };
 }

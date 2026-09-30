@@ -1,6 +1,6 @@
 /**
  * REBUILD 14 — Startup Compositor
- * (P1 contracts + P2 skeleton + P3 System Start + P4 Intro shared render/timeline).
+ * (P1–P4 + P5 canonical geometry/motion/transition/CTA/clock execution).
  * PRODUCTION presentation = inactive until P7.
  */
 
@@ -267,3 +267,42 @@ export {
   type BuildIntroRenderInput,
   type BuildIntroRenderResult,
 } from "@/lib/startup-compositor/intro/render";
+
+export {
+  CANONICAL_COMPOSITION_ASPECT,
+  applyExplicitCenter,
+  explicitCenterFrame,
+  fitIntrinsicIntoMaxBox,
+  fitMediaDrawInFrame,
+  coverMediaFrame,
+  projectCompositionRegion,
+  projectFrameToPixels,
+  CANONICAL_AUTHORITY_ROWS,
+  MOTION_ENTER_DISTANCE_NORM,
+  MOTION_ENTER_DISTANCE_CLASSIFICATION,
+  MOTION_SCALE_IN_INITIAL,
+  MOTION_SCALE_IN_CLASSIFICATION,
+  MOTION_EASING,
+  MOTION_EASING_CLASSIFICATION,
+  clampUnit,
+  motionLocalProgress,
+  evaluateMotionProgress,
+  evaluateMotionAtSceneElapsed,
+  TRANSITION_DURATION_MODE,
+  TRANSITION_DURATION_MODE_CLASSIFICATION,
+  TRANSITION_SLIDE_DISTANCE_NORM,
+  evaluateTransitionProgress,
+  evaluateTransitionAtElapsed,
+  CTA_DESTINATION_TABLE,
+  resolveCtaDestination,
+  listCtaDestinationKeys,
+  PREVIEW_SEMANTIC_MODULE_ID,
+  NATIVE_SEMANTIC_MODULE_ID,
+  createPreviewSemanticApi,
+  createNativeAdapterContract,
+  type FitMode,
+  type MediaDrawFit,
+  type SemanticMotionState,
+  type SemanticTransitionState,
+  type AuthorityRow,
+} from "@/lib/startup-compositor/execution/authority";
