@@ -108,7 +108,7 @@ describe("P3 member detail control center contract", () => {
   it("demotes destructive CTAs out of MasterHeader primary actions", () => {
     const header = src("components/admin/users/AdminMemberMasterHeader.tsx");
     expect(header).toMatch(/resolveMemberDetailActionPolicy/);
-    expect(header).toMatch(/memberDetailAccountStateLabelKo/);
+    expect(header).toMatch(/resolveMemberDetailHeaderBadges|memberDetailAccountStateLabelKo/);
     expect(header).not.toMatch(/runPurge/);
     expect(header).not.toMatch(/runWithdraw/);
     expect(header).not.toMatch(/runModeration/);

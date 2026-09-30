@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type {
@@ -33,6 +33,11 @@ import {
   memberDetailShouldUseHistoryBack,
   resolveMemberDetailActionPolicy,
 } from "@/lib/admin-users/member-detail-presentation";
+import {
+  MEMBER_DETAIL_TAB_ORDER,
+  parseMemberDetailTab,
+  type MemberDetailCcTabId,
+} from "@/lib/admin-users/member-detail-control-center-ia";
 import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
@@ -48,28 +53,12 @@ function parseFromPostId(raw: string | null): string | null {
 }
 
 /** Approved IA order; points/trust retained as existing operational data. */
-export const ADMIN_MEMBER_CC_TABS = [
-  "overview",
-  "account",
-  "store",
-  "community",
-  "trade",
-  "delivery",
-  "chat",
-  "reports",
-  "address",
-  "ops",
-  "points",
-  "trust",
-] as const;
+export const ADMIN_MEMBER_CC_TABS = MEMBER_DETAIL_TAB_ORDER;
 
-export type AdminMemberCcTab = (typeof ADMIN_MEMBER_CC_TABS)[number];
+export type AdminMemberCcTab = MemberDetailCcTabId;
 
 function parseCcTab(raw: string | null | undefined): AdminMemberCcTab {
-  const value = String(raw ?? "").trim().toLowerCase();
-  return ADMIN_MEMBER_CC_TABS.includes(value as AdminMemberCcTab)
-    ? (value as AdminMemberCcTab)
-    : "overview";
+  return parseMemberDetailTab(raw);
 }
 
 export function AdminMemberControlCenter({
@@ -89,31 +78,40 @@ export function AdminMemberControlCenter({
 }) {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const { isSuperAdmin, hasPermission, loading: meLoading, snapshot } = useAdminMe();
   const searchParams = useSearchParams();
   const fromPostId = parseFromPostId(searchParams.get("fromPost"));
-  const [tab, setTab] = useState<AdminMemberCcTab>(() =>
-    parseCcTab(initialTab ?? searchParams.get("tab")),
-  );
+  const tab = parseCcTab(initialTab ?? searchParams.get("tab"));
   const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(
     () => new Set([parseCcTab(initialTab ?? searchParams.get("tab"))]),
   );
 
-  const selectTab = useCallback((next: AdminMemberCcTab) => {
-    setTab(next);
+  const selectTab = useCallback(
+    (next: AdminMemberCcTab) => {
+      setVisited((prev) => {
+        if (prev.has(next)) return prev;
+        const copy = new Set(prev);
+        copy.add(next);
+        return copy;
+      });
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "overview") params.delete("tab");
+      else params.set("tab", next);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  useEffect(() => {
     setVisited((prev) => {
-      if (prev.has(next)) return prev;
+      if (prev.has(tab)) return prev;
       const copy = new Set(prev);
-      copy.add(next);
+      copy.add(tab);
       return copy;
     });
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (next === "overview") url.searchParams.delete("tab");
-      else url.searchParams.set("tab", next);
-      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    }
-  }, []);
+  }, [tab]);
 
   const goBackToList = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -202,6 +200,7 @@ export function AdminMemberControlCenter({
           stores={stores}
           adminMembership={adminMembership}
           onUpdated={onUpdated}
+          onOpenTab={(next) => selectTab(next)}
         />
         <AdminMemberAlertStrip user={user} stores={stores} />
         <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1" data-member-detail-tabs="1">

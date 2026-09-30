@@ -5,20 +5,23 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { adminMemberMessengerHref } from "@/lib/admin-users/admin-member-messenger-link";
-import { memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
 import {
-  MEMBER_DETAIL_ADMIN_BADGE_KO,
   MEMBER_DETAIL_EDIT_CTA_KO,
   MEMBER_DETAIL_PASSWORD_CTA_KO,
-  MEMBER_DETAIL_STORE_OPERATOR_KO,
-  MEMBER_DETAIL_SUPER_ADMIN_BADGE_KO,
   MEMBER_DETAIL_SYSTEM_KEY_KO,
-  memberDetailAccountStateLabelKo,
   memberDetailPrimaryActions,
   memberDetailSignupOriginLabelKo,
-  memberDetailVerificationLabelKo,
+  memberDetailStoreHref,
   resolveMemberDetailActionPolicy,
 } from "@/lib/admin-users/member-detail-presentation";
+import {
+  memberAdminBadgeClassName,
+  memberDetailContactEmail,
+  memberDetailLoginIdLabel,
+  memberDetailNicknameIfDistinct,
+  resolveMemberDetailHeaderBadges,
+} from "@/lib/admin-users/member-detail-control-center-ia";
+import { memberAdminCtaClass, MEMBER_ADMIN_TYPOGRAPHY_CLASS } from "@/lib/admin-users/member-admin-visual-ssot";
 import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
@@ -30,19 +33,12 @@ import {
   formatAdminLiteDateTime,
   publicIdForDetailUser,
   resolveDetailAuthProvider,
-  statusBadgeClass,
-  statusCategoryForDetailUser,
 } from "./admin-user-lite-display";
 import type {
   AdminPersonMembershipRow,
   AdminPersonStoreRow,
   AdminUserDetailPayload,
 } from "./AdminTestUserDetail";
-import {
-  ADMIN_USERS_LITE_BTN_PRIMARY,
-  ADMIN_USERS_LITE_BTN_SECONDARY,
-  ADMIN_USERS_LITE_BTN_TERTIARY,
-} from "@/lib/ui/admin-users-lite-styles";
 
 function toEditUser(user: AdminUserDetailPayload, display: string): AdminUser {
   return {
@@ -75,11 +71,13 @@ export function AdminMemberMasterHeader({
   stores,
   adminMembership,
   onUpdated,
+  onOpenTab,
 }: {
   user: AdminUserDetailPayload;
   stores: AdminPersonStoreRow[];
   adminMembership: AdminPersonMembershipRow | null;
   onUpdated?: () => void;
+  onOpenTab?: (tab: "account" | "overview" | "store") => void;
 }) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -88,10 +86,11 @@ export function AdminMemberMasterHeader({
   const empty = t("admin_users_empty_placeholder");
   const display = displayNameForDetailUser(user);
   const publicId = publicIdForDetailUser(user);
-  const accountStateLabel = memberDetailAccountStateLabelKo(user.moderation_status, user.status);
-  const statusCategory = statusCategoryForDetailUser(user);
-  const verificationLabel = memberDetailVerificationLabelKo(user.phone_verified);
+  const nicknameSecondary = memberDetailNicknameIfDistinct(display, user.nickname);
+  const contactEmail = memberDetailContactEmail(user.email);
+  const loginId = memberDetailLoginIdLabel(user.username);
   const hasStore = stores.length > 0;
+  const primaryStore = stores[0] ?? null;
   const isAdmin = Boolean(adminMembership);
   const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
   const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
@@ -101,6 +100,15 @@ export function AdminMemberMasterHeader({
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
+
+  const badges = resolveMemberDetailHeaderBadges({
+    moderationStatus: user.moderation_status,
+    status: user.status,
+    phoneVerified: user.phone_verified,
+    hasStore,
+    hasAdminMembership: isAdmin,
+    isSuperAdmin: isSuper,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -159,68 +167,70 @@ export function AdminMemberMasterHeader({
   const canPassword = Boolean(primary.managePassword?.visible && primary.managePassword.enabled);
 
   return (
-    <div className="rounded-lg border border-[#e4e7ec] bg-white px-4 py-3" data-member-detail-header="1">
+    <div className="rounded-lg border border-sam-border bg-sam-surface px-4 py-3" data-member-detail-header="1">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-lg font-bold text-[#2563eb]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--sam-brand-soft,#eff6ff)] text-lg font-bold text-[color:var(--sam-brand,#2563eb)]">
             {display.slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-bold text-[#101828]">{display}</h1>
-              {publicId ? (
-                <span className="text-[13px] font-medium text-[#475467]" data-member-public-id="1">
-                  {publicId}
-                </span>
-              ) : null}
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(statusCategory === "needs_review" ? "active" : statusCategory)}`}
-                data-member-account-state="1"
-              >
-                {accountStateLabel}
-              </span>
-              <span
-                className="rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2 py-0.5 text-[11px] font-semibold text-[#344054]"
-                data-member-verification="1"
-              >
-                {verificationLabel}
-              </span>
-              {hasStore ? (
+            <h1 className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.MEMBER_PRIMARY_NAME} data-member-display-name="1">
+              {display}
+            </h1>
+            {nicknameSecondary ? (
+              <p className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.MEMBER_SECONDARY_NAME} data-member-nickname="1">
+                {nicknameSecondary}
+              </p>
+            ) : null}
+            {publicId ? (
+              <p className={MEMBER_ADMIN_TYPOGRAPHY_CLASS.MEMBER_IDENTIFIER} data-member-public-id="1">
+                {publicId}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-member-orthogonal-badges="1">
+              {badges.map((badge) => (
                 <span
-                  className="rounded-full border border-[#abefc6] bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-semibold text-[#067647]"
-                  data-member-store-badge="1"
+                  key={`${badge.axis}-${badge.key}`}
+                  className={memberAdminBadgeClassName(badge.tone)}
+                  data-member-badge-axis={badge.axis}
+                  data-member-account-state={badge.axis === "account" ? "1" : undefined}
+                  data-member-verification={badge.axis === "verify" ? "1" : undefined}
+                  data-member-store-badge={badge.axis === "store" ? "1" : undefined}
+                  data-member-admin-badge={badge.axis === "privilege" ? "1" : undefined}
                 >
-                  {MEMBER_DETAIL_STORE_OPERATOR_KO}
+                  {badge.labelKo}
                 </span>
-              ) : null}
-              {isAdmin ? (
-                <span
-                  className="rounded-full border border-[#c7d7fe] bg-[#eef4ff] px-2 py-0.5 text-[11px] font-semibold text-[#3538cd]"
-                  data-member-admin-badge="1"
-                >
-                  {isSuper ? MEMBER_DETAIL_SUPER_ADMIN_BADGE_KO : MEMBER_DETAIL_ADMIN_BADGE_KO}
-                </span>
-              ) : null}
+              ))}
             </div>
-            <p className="text-[12px] text-[#667085]" data-member-signup-origin="1">
+            <p className="text-xs text-sam-muted" data-member-signup-origin="1">
               가입 경로 · {signupOrigin}
             </p>
-            <p className="text-[13px] text-[#344054]">
+            <p className="text-sm text-sam-fg">
               {t("admin_users_lite_label_phone")} {phone}
-              {" · "}
-              {t("admin_users_label_email")} {user.email?.trim() || t("admin_users_lite_no_email")}
+              {contactEmail ? (
+                <>
+                  {" · "}
+                  연락 이메일 {contactEmail}
+                </>
+              ) : null}
+              {loginId ? (
+                <>
+                  {" · "}
+                  로그인 ID {loginId}
+                </>
+              ) : null}
             </p>
-            <p className="text-[13px] text-[#344054]">
+            <p className="text-sm text-sam-fg">
               {t("admin_users_col_region")} {user.region_name?.trim() || empty}
               {" · "}
               {t("admin_users_col_joined")} {formatAdminLiteDate(user.created_at, locale, empty)}
               {" · "}
               {t("admin_users_col_last_login")} {formatAdminLiteDateTime(user.last_login_at, locale, empty)}
             </p>
-            <p className="flex flex-wrap items-center gap-2 text-[11px] text-[#98a2b3]">
+            <p className="flex flex-wrap items-center gap-2 text-xs text-sam-muted">
               <button
                 type="button"
-                className="rounded border border-[#d0d5dd] px-1.5 py-0.5 text-[11px] font-semibold text-[#475467]"
+                className="rounded-ui-rect border border-sam-border px-1.5 py-0.5 text-xs font-medium text-sam-fg"
                 onClick={() => setShowSystemKey((v) => !v)}
               >
                 {MEMBER_DETAIL_SYSTEM_KEY_KO}
@@ -230,7 +240,7 @@ export function AdminMemberMasterHeader({
                   <span className="font-mono">{user.id}</span>
                   <button
                     type="button"
-                    className="rounded border border-[#d0d5dd] px-1.5 py-0.5 text-[11px] font-semibold text-[#2563eb]"
+                    className="rounded-ui-rect border border-sam-border px-1.5 py-0.5 text-xs font-medium text-[color:var(--sam-brand,#2563eb)]"
                     onClick={() => {
                       void navigator.clipboard.writeText(user.id).catch(() => {});
                     }}
@@ -246,37 +256,68 @@ export function AdminMemberMasterHeader({
           {canEdit ? (
             <button
               type="button"
-              className={ADMIN_USERS_LITE_BTN_PRIMARY}
+              className={memberAdminCtaClass("primary")}
               onClick={() => setShowEdit(true)}
               data-member-cta="edit"
               data-member-cta-variant="primary"
+              data-member-cta-cap="CAP-PROFILE-EDIT"
             >
               {MEMBER_DETAIL_EDIT_CTA_KO}
             </button>
           ) : null}
-          <a href={memberNoteComposeHref(user.id)} className={ADMIN_USERS_LITE_BTN_TERTIARY} data-member-cta="note" data-member-cta-variant="tertiary">
-            {t("admin_users_cc_cta_send_note")}
-          </a>
           <button
             type="button"
-            className={ADMIN_USERS_LITE_BTN_SECONDARY}
+            className={memberAdminCtaClass("secondary")}
             onClick={() => router.push(adminMemberMessengerHref(user.id))}
             data-member-cta="messenger"
             data-member-cta-variant="secondary"
+            data-member-cta-cap="CAP-MSG-MESSENGER"
           >
             {t("admin_users_cc_cta_messenger_view")}
           </button>
           {canPassword ? (
             <button
               type="button"
-              className={ADMIN_USERS_LITE_BTN_SECONDARY}
+              className={memberAdminCtaClass("secondary")}
               onClick={() => setShowPassword(true)}
               data-member-cta="password"
               data-member-cta-variant="secondary"
+              data-member-cta-cap="CAP-PASSWORD"
             >
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>
           ) : null}
+          <button
+            type="button"
+            className={memberAdminCtaClass("tertiary")}
+            onClick={() => onOpenTab?.("account")}
+            data-member-cta="account_tab"
+            data-member-cta-variant="tertiary"
+            data-member-cta-cap="CAP-VERIFY-VIEW"
+          >
+            인증 관리
+          </button>
+          {primaryStore ? (
+            <a
+              href={memberDetailStoreHref(primaryStore.id)}
+              className={memberAdminCtaClass("tertiary")}
+              data-member-cta="store_detail"
+              data-member-cta-variant="tertiary"
+              data-member-cta-cap="CAP-STORE-VIEW"
+            >
+              매장 상세
+            </a>
+          ) : null}
+          <button
+            type="button"
+            className={memberAdminCtaClass("tertiary")}
+            onClick={() => onOpenTab?.("overview")}
+            data-member-cta="privilege_view"
+            data-member-cta-variant="tertiary"
+            data-member-cta-cap="CAP-PRIV-VIEW"
+          >
+            관리 권한
+          </button>
         </div>
       </div>
       {showEdit ? (

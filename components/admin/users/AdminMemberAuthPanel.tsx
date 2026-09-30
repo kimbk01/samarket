@@ -6,8 +6,15 @@ import type { AdminUserDetailPayload } from "@/components/admin/users/AdminTestU
 import {
   displayNameForDetailUser,
   publicIdForDetailUser,
+  resolveDetailAuthProvider,
 } from "@/components/admin/users/admin-user-lite-display";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { memberDetailContactEmail, memberDetailLoginIdLabel } from "@/lib/admin-users/member-detail-control-center-ia";
+import {
+  memberDetailAccountStateLabelKo,
+  memberDetailSignupOriginLabelKo,
+  memberDetailVerificationLabelKo,
+} from "@/lib/admin-users/member-detail-presentation";
 
 type AuthPayload = {
   auth: {
@@ -109,7 +116,19 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_contact", { fallbackKo: "연락처", fallbackEn: "Contact" })}>
         <Field label={t("admin_users_lite_label_phone")} value={profile?.phone || user.contact_phone || empty} />
-        <Field label={t("admin_users_label_email")} value={auth?.email || profile?.email || user.email || empty} />
+        <Field
+          label="연락 이메일"
+          value={
+            memberDetailContactEmail(profile?.email) ||
+            memberDetailContactEmail(auth?.email) ||
+            memberDetailContactEmail(user.email) ||
+            empty
+          }
+        />
+        <Field label="로그인 ID" value={memberDetailLoginIdLabel(user.username) || empty} />
+        <Field label="계정 상태" value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)} />
+        <Field label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
+        <Field label="가입 경로" value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))} />
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_verify", { fallbackKo: "인증", fallbackEn: "Verification" })}>
         <Field

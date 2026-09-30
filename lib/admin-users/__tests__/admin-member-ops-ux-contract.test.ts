@@ -94,7 +94,7 @@ describe("admin member ops UX identity contract", () => {
     expect(cc).toMatch(/AdminMemberOverviewPanel/);
     const overview = src("components/admin/users/AdminMemberOverviewPanel.tsx");
     expect(overview).toMatch(/lg:grid-cols-3/);
-    expect(overview).toMatch(/admin_users_overview_master/);
+    expect(overview).toMatch(/MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO\.basic|admin_users_overview_master|회원 기본 정보/);
     expect(overview).not.toMatch(/lg:grid-cols-2/);
     const metric = src("components/admin/users/AdminMemberMetricGrid.tsx");
     expect(metric).not.toMatch(/lg:grid-cols-4/);

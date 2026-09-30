@@ -29,6 +29,12 @@ import {
   memberDetailStoreHref,
   memberDetailVerificationLabelKo,
 } from "@/lib/admin-users/member-detail-presentation";
+import {
+  MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO,
+  memberDetailContactEmail,
+  memberDetailLoginIdLabel,
+  memberDetailNicknameIfDistinct,
+} from "@/lib/admin-users/member-detail-control-center-ia";
 import Link from "next/link";
 
 type OverviewJumpTab = "community" | "trade" | "delivery" | "chat" | "store";
@@ -152,6 +158,11 @@ export function AdminMemberOverviewPanel({
     return formatAdminLiteDateTime(value, locale, empty);
   };
 
+  const displayName = displayNameForDetailUser(user);
+  const nicknameDistinct = memberDetailNicknameIfDistinct(displayName, user.nickname);
+  const contactEmail = memberDetailContactEmail(user.email);
+  const loginId = memberDetailLoginIdLabel(user.username);
+
   const chatSummary = (overview: MemberOverviewAggregates) => {
     const domains: ChatDomain[] = ["general_direct", "group", "trade", "store_order"];
     const labels = {
@@ -166,25 +177,25 @@ export function AdminMemberOverviewPanel({
   };
 
   return (
-    <div className="grid gap-3 lg:grid-cols-3">
-      <Panel title={safeT("admin_users_overview_master", { fallbackKo: "회원 정보", fallbackEn: "Member" })}>
+    <div className="grid gap-3 lg:grid-cols-3" data-member-overview-hierarchy="1">
+      <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.basic}>
         <dl>
-          <Fact label={safeT("admin_users_col_member_id", { fallbackKo: "회원 ID", fallbackEn: "Member ID" })} value={publicIdForDetailUser(user) || empty} />
-          <Fact label={safeT("admin_users_label_display_name", { fallbackKo: "표시 이름", fallbackEn: "Display name" })} value={displayNameForDetailUser(user)} />
-          <Fact label={safeT("admin_users_label_nickname", { fallbackKo: "닉네임", fallbackEn: "Nickname" })} value={user.nickname?.trim() || empty} />
-          <Fact label={safeT("admin_users_label_login_alias", { fallbackKo: "로그인 별칭", fallbackEn: "Login alias" })} value={user.username?.trim() || empty} />
+          <Fact label="표시 이름" value={displayName} />
+          {nicknameDistinct ? <Fact label="닉네임" value={nicknameDistinct} /> : null}
+          <Fact label="@회원 ID" value={publicIdForDetailUser(user) || empty} />
+          <Fact label="로그인 ID" value={loginId || empty} />
           <Fact label={t("admin_users_lite_label_phone")} value={user.contact_phone?.trim() || empty} />
-          <Fact label={t("admin_users_label_email")} value={user.email?.trim() || empty} />
+          {contactEmail ? <Fact label="연락 이메일" value={contactEmail} /> : null}
           <Fact label={t("admin_users_col_region")} value={user.region_name?.trim() || empty} />
           <Fact label={t("admin_users_col_joined")} value={formatAdminLiteDate(user.created_at, locale, empty)} />
           <Fact
-            label={safeT("admin_users_label_app_last_login", { fallbackKo: "앱 최근 로그인", fallbackEn: "App last login" })}
+            label={safeT("admin_users_label_app_last_login", { fallbackKo: "최근 로그인", fallbackEn: "Last login" })}
             value={formatAdminLiteDateTime(user.last_login_at, locale, empty)}
           />
         </dl>
       </Panel>
 
-      <Panel title={safeT("admin_users_overview_activity", { fallbackKo: "활동", fallbackEn: "Activity" })}>
+      <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.recent_activity}>
         {state.kind === "loading" ? (
           <p className="py-6 text-center text-[13px] text-[#667085]">{t("admin_users_detail_loading")}</p>
         ) : null}
@@ -233,71 +244,79 @@ export function AdminMemberOverviewPanel({
         ) : null}
       </Panel>
 
-      <Panel title={safeT("admin_users_overview_ops_status", { fallbackKo: "운영 상태", fallbackEn: "Operator status" })}>
-        <dl>
-          <Fact
-            label="계정 상태"
-            value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)}
-          />
-          <Fact
-            label="인증"
-            value={memberDetailVerificationLabelKo(user.phone_verified)}
-          />
-          <Fact
-            label={MEMBER_ADMIN_COPY.store_ops}
-            value={
-              stores.length === 0
-                ? MEMBER_DETAIL_STORE_NONE_KO
-                : `${MEMBER_DETAIL_STORE_OPERATOR_KO} · ${stores[0]?.store_name?.trim() || "—"} (#${stores[0]?.id})`
-            }
-          />
-          {stores.length > 0 ? (
-            <div className="py-1.5 text-[13px]">
-              <Link
-                href={memberDetailStoreHref(stores[0].id)}
-                className="font-semibold text-[#2563eb]"
-                data-overview-store-cta="1"
-              >
-                매장 상세 보기
-              </Link>
-            </div>
-          ) : null}
-          <Fact
-            label={MEMBER_ADMIN_COPY.admin_privilege}
-            value={memberDetailPrivilegeLabelKo({
-              hasAdminMembership: Boolean(adminMembership),
-              isSuperAdmin: adminMembershipRoleFromRow(adminMembership?.role) === "super_admin",
-            })}
-          />
-          <Fact
-            label="가입 경로"
-            value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))}
-          />
-          <Fact
-            label={t("admin_users_cc_tab_points")}
-            value={
-              state.kind === "ok"
-                ? "unavailable" in state.overview.points && state.overview.points.unavailable
-                  ? t("admin_users_cc_metric_unavailable")
-                  : state.overview.points.ok
-                    ? `${Number(state.overview.points.value).toLocaleString(locale)} P`
-                    : t("admin_users_cc_metric_error")
-                : empty
-            }
-          />
-          <Fact
-            label={t("admin_users_cc_overview_manner")}
-            value={
-              state.kind === "ok" && state.overview.trust.ok
-                ? `${state.overview.trust.value.percent}%`
-                : empty
-            }
-          />
-        </dl>
-        <div className="mt-3 border-t border-[#eaecf0] pt-2">
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[#667085]">
-            {safeT("admin_users_overview_recent_ops", { fallbackKo: "최근 운영조치", fallbackEn: "Recent ops" })}
-          </p>
+      <div className="space-y-3">
+        <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.account_auth}>
+          <dl>
+            <Fact
+              label="계정 상태"
+              value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)}
+            />
+            <Fact
+              label="인증"
+              value={memberDetailVerificationLabelKo(user.phone_verified)}
+            />
+            <Fact
+              label="가입 경로"
+              value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))}
+            />
+          </dl>
+        </Panel>
+        <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.store}>
+          <dl>
+            <Fact
+              label="매장"
+              value={
+                stores.length === 0
+                  ? MEMBER_DETAIL_STORE_NONE_KO
+                  : `${stores[0]?.store_name?.trim() || "—"} (#${stores[0]?.id})`
+              }
+            />
+            {stores.length > 0 ? (
+              <div className="py-1.5 text-[13px]">
+                <Link
+                  href={memberDetailStoreHref(stores[0].id)}
+                  className="font-semibold text-[#2563eb]"
+                  data-overview-store-cta="1"
+                  data-member-cta-cap="CAP-STORE-VIEW"
+                >
+                  매장 상세 보기
+                </Link>
+              </div>
+            ) : null}
+          </dl>
+        </Panel>
+        <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.privilege}>
+          <dl>
+            <Fact
+              label={MEMBER_ADMIN_COPY.admin_privilege}
+              value={memberDetailPrivilegeLabelKo({
+                hasAdminMembership: Boolean(adminMembership),
+                isSuperAdmin: adminMembershipRoleFromRow(adminMembership?.role) === "super_admin",
+              })}
+            />
+            <Fact
+              label={t("admin_users_cc_tab_points")}
+              value={
+                state.kind === "ok"
+                  ? "unavailable" in state.overview.points && state.overview.points.unavailable
+                    ? t("admin_users_cc_metric_unavailable")
+                    : state.overview.points.ok
+                      ? `${Number(state.overview.points.value).toLocaleString(locale)} P`
+                      : t("admin_users_cc_metric_error")
+                  : empty
+              }
+            />
+            <Fact
+              label={t("admin_users_cc_overview_manner")}
+              value={
+                state.kind === "ok" && state.overview.trust.ok
+                  ? `${state.overview.trust.value.percent}%`
+                  : empty
+              }
+            />
+          </dl>
+        </Panel>
+        <Panel title={MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.recent_ops}>
           {ops.length === 0 ? (
             <p className="text-[13px] text-[#667085]">{safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}</p>
           ) : (
@@ -312,8 +331,8 @@ export function AdminMemberOverviewPanel({
               ))}
             </ul>
           )}
-        </div>
-      </Panel>
+        </Panel>
+      </div>
     </div>
   );
 }

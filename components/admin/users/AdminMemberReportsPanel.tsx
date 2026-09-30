@@ -37,7 +37,10 @@ export function AdminMemberReportsPanel({
           </div>
         </dl>
         <p className="text-[12px] text-[#667085]">
-          이용 정지·이용 차단·탈퇴·영구 삭제는 하단 「위험 작업」에서 표시되며, 최종 실행 워크플로는 별도 단계에서 닫습니다.
+          이용 정지·이용 차단·탈퇴·영구 삭제는 하단 「위험 작업」자격으로 구분되며, 최종 실행은 제재 워크플로에서 처리합니다.
+        </p>
+        <p className="text-[12px] text-[#667085]" data-member-cap="CAP-MSG-SUPPORT" data-member-cap-phase="R8">
+          쪽지/지원 보내기는 지원 메시지 워크플로에서 복원합니다. 레거시 쪽지 작성기는 사용하지 않습니다.
         </p>
         <button
           type="button"
