@@ -7,6 +7,19 @@
  * Does NOT choose package, bootstrap, timers, or invent fallback visuals.
  */
 
+import { IntroCtaActionGate, type IntroCtaIntent } from "@/lib/startup-compositor/intro/cta";
+import {
+  evaluateIntroToHomeHandoff,
+  evaluateSsToHomeWhenIntroAbsent,
+  evaluateSsToIntroHandoff,
+  HandoffOnceGate,
+} from "@/lib/startup-compositor/intro/handoff";
+import {
+  canAdvanceIntroVisibility,
+  type IntroVisibilityStep,
+} from "@/lib/startup-compositor/intro/phase";
+import type { IntroPhaseModel, IntroRenderModel } from "@/lib/startup-compositor/intro/render-model";
+import { IntroTimelineClock } from "@/lib/startup-compositor/intro/timeline";
 import { STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE } from "@/lib/startup-compositor/runtime/activation";
 import type { CompositorSurfacePhase } from "@/lib/startup-compositor/runtime/events";
 import {
@@ -39,6 +52,14 @@ export class StartupCompositorEngine {
   private systemStartModel: SystemStartRenderModel | null = null;
   private systemStartPhase: SystemStartPhaseState = createSystemStartPhaseState();
   private minVisibleGate: SystemStartMinVisibleGate | null = null;
+  /** PHASE = INTRO bind (same compositor lifetime; not a second surface). */
+  private introModel: IntroPhaseModel | null = null;
+  private introVisibility: IntroVisibilityStep = "INTRO_IR_READY";
+  private introTimeline = new IntroTimelineClock();
+  private introCta = new IntroCtaActionGate();
+  private introHandoffGate = new HandoffOnceGate();
+  private introCompleteIntent = false;
+  private retainingLastIntroFrame = false;
 
   private constructor(rootId: string) {
     this.rootId = rootId;
@@ -126,6 +147,204 @@ export class StartupCompositorEngine {
 
   getMinVisibleGate(): SystemStartMinVisibleGate | null {
     return this.minVisibleGate;
+  }
+
+  /**
+   * Bind INTRO phase model into the SAME compositor engine.
+   * Does not attach an independent Intro presentation host.
+   */
+  bindIntroPhaseModel(model: IntroPhaseModel): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    if (this.phase === "DONE") {
+      return { ok: false, reason: "late_event_after_done", phase: this.phase };
+    }
+    this.introModel = model;
+    this.introTimeline.reset();
+    this.introHandoffGate.reset();
+    this.introCompleteIntent = false;
+    this.retainingLastIntroFrame = false;
+    if (model.kind === "INTRO_ABSENT") {
+      this.introVisibility = "INTRO_IR_READY";
+      this.introCta.bind(0, 0);
+      return { ok: true, phase: this.phase };
+    }
+    this.introVisibility = model.visibility;
+    this.introTimeline.setVisibility(model.visibility);
+    this.introCta.bind(model.scenes.length, model.activeSceneIndex);
+    return { ok: true, phase: this.phase };
+  }
+
+  getIntroPhaseModel(): IntroPhaseModel | null {
+    return this.introModel;
+  }
+
+  getIntroVisibility(): IntroVisibilityStep {
+    return this.introVisibility;
+  }
+
+  getIntroTimeline(): IntroTimelineClock {
+    return this.introTimeline;
+  }
+
+  getIntroCtaGate(): IntroCtaActionGate {
+    return this.introCta;
+  }
+
+  isRetainingLastIntroFrame(): boolean {
+    return this.retainingLastIntroFrame;
+  }
+
+  hasIntroCompleteIntent(): boolean {
+    return this.introCompleteIntent || this.introCta.hasCompletionIntent();
+  }
+
+  /**
+   * Advance Intro visibility ladder. OWNER_VISIBLE starts timeline once.
+   * Production inactive → OWNER_VISIBLE requires test harness flag (same as SS).
+   */
+  advanceIntroVisibility(
+    next: IntroVisibilityStep,
+    opts?: { readonly testHarnessAllowOwnerVisibleSemantic?: boolean },
+  ): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    if (!this.introModel || this.introModel.kind !== "INTRO_PHASE") {
+      return { ok: false, reason: "intro_not_bound", phase: this.phase };
+    }
+    if (next === this.introVisibility) {
+      if (next === "INTRO_OWNER_VISIBLE") {
+        this.introTimeline.markOwnerVisible(); // duplicate = no restart
+      }
+      return { ok: true, phase: this.phase };
+    }
+    if (!canAdvanceIntroVisibility(this.introVisibility, next)) {
+      // allow jump to OWNER_VISIBLE from FRAME_COMMITTED only via consecutive steps
+      return { ok: false, reason: "intro_visibility_skip", phase: this.phase };
+    }
+    if (next === "INTRO_OWNER_VISIBLE" || next === "INTRO_TIMELINE_RUNNING") {
+      const allow =
+        STARTUP_COMPOSITOR_PRODUCTION_PRESENTATION_ACTIVE ||
+        opts?.testHarnessAllowOwnerVisibleSemantic === true;
+      if (!allow) {
+        return {
+          ok: false,
+          reason: "owner_visible_forbidden_while_production_inactive",
+          phase: this.phase,
+        };
+      }
+    }
+    this.introVisibility = next;
+    this.introTimeline.setVisibility(next);
+    if (this.introModel.kind === "INTRO_PHASE") {
+      const updated: IntroRenderModel = {
+        ...this.introModel,
+        visibility: next,
+      };
+      this.introModel = updated;
+    }
+    if (next === "INTRO_OWNER_VISIBLE") {
+      this.introTimeline.markOwnerVisible();
+    }
+    return { ok: true, phase: this.phase };
+  }
+
+  dispatchIntroCta(
+    intent: IntroCtaIntent,
+    actionToken: string,
+  ): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    const r = this.introCta.dispatch(intent, actionToken);
+    if (!r.ok) {
+      return { ok: false, reason: r.reason, phase: this.phase };
+    }
+    if (r.applied && r.intent.kind === "NEXT" && this.introModel?.kind === "INTRO_PHASE") {
+      this.introModel = {
+        ...this.introModel,
+        activeSceneIndex: r.intent.sceneIndex,
+      };
+      this.introTimeline.setSceneIndex(r.intent.sceneIndex);
+    }
+    if (
+      r.applied &&
+      (r.intent.kind === "FINISH" || r.intent.kind === "INTERNAL_DESTINATION")
+    ) {
+      this.introCompleteIntent = true;
+      this.evaluateIntroCompletionHandoff();
+    }
+    return { ok: true, phase: this.phase };
+  }
+
+  /**
+   * Semantic SS→Intro guard (same compositor). Does not paint.
+   */
+  trySsToIntroTransition(args: {
+    readonly systemStartMinVisibleElapsed: boolean;
+    readonly introScene1Paintable: boolean;
+  }): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    const present = this.introModel?.kind === "INTRO_PHASE";
+    const guard = evaluateSsToIntroHandoff({
+      systemStartMinVisibleElapsed: args.systemStartMinVisibleElapsed,
+      introScene1Paintable: args.introScene1Paintable,
+      introPresent: present,
+    });
+    if (!guard.allowed) {
+      return { ok: false, reason: guard.reason, phase: this.phase };
+    }
+    return { ok: true, phase: this.phase };
+  }
+
+  private evaluateIntroCompletionHandoff(): void {
+    const homeReady = this.homeReadyIngested || this.phase === "HOME_READY";
+    const r = evaluateIntroToHomeHandoff({
+      introCompleteIntent: this.hasIntroCompleteIntent(),
+      homePresentationReady: homeReady,
+    });
+    if (r.action === "KEEP_LAST_INTRO_FRAME") {
+      this.retainingLastIntroFrame = true;
+      return;
+    }
+    if (r.action === "HANDOFF") {
+      this.retainingLastIntroFrame = false;
+      if (this.introHandoffGate.tryFire()) {
+        this.requestHandoff();
+      }
+    }
+  }
+
+  /**
+   * Intro-absent path after SS minVisible + Home ready.
+   */
+  trySsToHomeWhenIntroAbsent(args: {
+    readonly systemStartMinVisibleElapsed: boolean;
+  }): EngineActionResult {
+    if (this.destroyed) {
+      return { ok: false, reason: "destroyed", phase: this.phase };
+    }
+    const present = this.introModel?.kind === "INTRO_PHASE";
+    const r = evaluateSsToHomeWhenIntroAbsent({
+      introPresent: present,
+      systemStartMinVisibleElapsed: args.systemStartMinVisibleElapsed,
+      homePresentationReady: this.homeReadyIngested || this.phase === "HOME_READY",
+    });
+    if (r.action === "HANDOFF") {
+      if (this.introHandoffGate.tryFire()) {
+        return this.requestHandoff();
+      }
+      return { ok: true, phase: this.phase };
+    }
+    if (r.action === "KEEP_LAST_INTRO_FRAME") {
+      this.retainingLastIntroFrame = true;
+      return { ok: false, reason: r.reason, phase: this.phase };
+    }
+    return { ok: false, reason: r.reason, phase: this.phase };
   }
 
   /**
@@ -223,6 +442,9 @@ export class StartupCompositorEngine {
     ) {
       this.phase = "HOME_READY";
     }
+    if (this.hasIntroCompleteIntent()) {
+      this.evaluateIntroCompletionHandoff();
+    }
     return { ok: true, phase: this.phase };
   }
 
@@ -285,6 +507,7 @@ export class StartupCompositorEngine {
     if (this.phase === "DONE") {
       return { ok: false, reason: "late_event_after_done", phase: this.phase };
     }
+    this.introTimeline.resumeFromForeground();
     return { ok: true, phase: this.phase };
   }
 
@@ -295,6 +518,7 @@ export class StartupCompositorEngine {
     if (this.phase === "DONE") {
       return { ok: false, reason: "late_event_after_done", phase: this.phase };
     }
+    this.introTimeline.setBackgrounded(true);
     return { ok: true, phase: this.phase };
   }
 
@@ -306,6 +530,11 @@ export class StartupCompositorEngine {
     this.systemStartModel = null;
     this.systemStartPhase = createSystemStartPhaseState();
     this.minVisibleGate = null;
+    this.introModel = null;
+    this.introTimeline.reset();
+    this.introHandoffGate.reset();
+    this.introCompleteIntent = false;
+    this.retainingLastIntroFrame = false;
     this.destroyed = true;
     this.phase = "DESTROYED";
     instances.delete(this.rootId);

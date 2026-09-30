@@ -1,5 +1,6 @@
 /**
- * REBUILD 14 — Startup Compositor (P1 contracts + P2 skeleton + P3 System Start render).
+ * REBUILD 14 — Startup Compositor
+ * (P1 contracts + P2 skeleton + P3 System Start + P4 Intro shared render/timeline).
  * PRODUCTION presentation = inactive until P7.
  */
 
@@ -168,3 +169,101 @@ export {
   type Clock,
   type SystemStartMinVisibleState,
 } from "@/lib/startup-compositor/system-start/timing";
+
+export {
+  INTRO_MEDIA_FORMATS,
+  INTRO_MEDIA_FORMAT_CONTRACTS,
+  SCENE_BACKGROUND_GIF_SUPPORTED,
+  SCENE_BACKGROUND_VIDEO_SUPPORTED,
+  SCENE_BACKGROUND_KINDS,
+  isIntroMediaFormat,
+  normalizeIntroMediaFormat,
+  type IntroMediaFormat,
+  type MediaFormatContract,
+  type SceneBackgroundKind,
+} from "@/lib/startup-compositor/intro/media-formats";
+
+export {
+  createScene,
+  renameScene,
+  duplicateScene,
+  reorderScenes,
+  deleteScene,
+  assertUniqueSceneIds,
+  type SceneOpsResult,
+} from "@/lib/startup-compositor/intro/document-ops";
+
+export {
+  replaceElementMedia,
+  type ReplaceMediaResult,
+} from "@/lib/startup-compositor/intro/replace";
+
+export {
+  DEFAULT_ELEMENT_FIT,
+  centerNormalizedFrame,
+  isNormalizedFrameInRange,
+  containMediaFrame,
+  centerFrame,
+  defaultImageInsertFrame,
+  defaultLogoInsertFrame,
+} from "@/lib/startup-compositor/intro/geometry";
+
+export {
+  INTRO_VISIBILITY_LADDER,
+  INTRO_OWNER_VISIBLE_DEVICE_PROVEN,
+  canAdvanceIntroVisibility,
+  introVisibilityRank,
+  type IntroVisibilityStep,
+} from "@/lib/startup-compositor/intro/phase";
+
+export {
+  INTRO_TIMELINE_POLICY,
+  IntroTimelineClock,
+  type IntroTimelinePolicy,
+  type IntroTimelineState,
+} from "@/lib/startup-compositor/intro/timeline";
+
+export {
+  IntroCtaActionGate,
+  mapDocumentCtaAction,
+  rejectRawUrlDestination,
+  CTA_INTERNAL_DESTINATION_REGISTRY,
+  type IntroCtaIntent,
+  type IntroCtaActionKind,
+  type CtaDispatchResult,
+} from "@/lib/startup-compositor/intro/cta";
+
+export {
+  evaluateSsToIntroHandoff,
+  evaluateIntroToHomeHandoff,
+  evaluateSsToHomeWhenIntroAbsent,
+  HandoffOnceGate,
+} from "@/lib/startup-compositor/intro/handoff";
+
+export {
+  policyForInvalidIntroBeforeVisibility,
+  policyForBadScene1,
+  policyForLaterSceneFailure,
+  policyForMissingRequiredMedia,
+  INTRO_FAILURE_FORBIDDEN_SURFACES,
+  INTRO_MEDIA_FALLBACK_FORBIDDEN,
+} from "@/lib/startup-compositor/intro/failure";
+
+export {
+  documentToIntroRenderModel,
+  introRenderModelHasEditorChrome,
+  type IntroRenderModel,
+  type IntroAbsentModel,
+  type IntroPhaseModel,
+  type IntroSceneRenderNode,
+  type IntroElementRenderNode,
+} from "@/lib/startup-compositor/intro/render-model";
+
+export {
+  buildIntroRenderModel,
+  parseIntroDocument,
+  isElementTypeSupported,
+  INTRO_READINESS_POLICY,
+  type BuildIntroRenderInput,
+  type BuildIntroRenderResult,
+} from "@/lib/startup-compositor/intro/render";
