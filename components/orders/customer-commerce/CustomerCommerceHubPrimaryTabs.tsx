@@ -10,6 +10,7 @@ import {
   type CommerceHubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { CommerceHubStoreOwnerEntryCta } from "./CommerceHubStoreOwnerEntryCta";
 
 const TAB_KEY: Record<
   CommerceHubTab,
@@ -30,46 +31,48 @@ export function CustomerCommerceHubPrimaryTabs() {
     <nav
       className={`${APP_MAIN_HEADER_INNER_CLASS} border-b border-sam-border bg-sam-surface/95`}
       data-commerce-hub-primary-tabs="1"
-      role="tablist"
       aria-label={safeT("commerce_hub_title", {
         fallbackKo: "주문·혜택",
         fallbackEn: "Orders & benefits",
       })}
     >
-      <div className="grid min-w-0 grid-cols-3 gap-0">
-        {COMMERCE_HUB_TABS.map((id) => {
-          const selected = state.tab === id;
-          const href = canonicalHubHref(id, {
-            giftTab: state.giftTab,
-            couponTab: state.couponTab,
-            from: state.from,
-          });
-          return (
-            <Link
-              key={id}
-              href={href}
-              prefetch={false}
-              role="tab"
-              aria-selected={selected}
-              data-commerce-hub-tab={id}
-              className={`relative flex min-h-[48px] min-w-0 items-center justify-center px-2 text-sm font-semibold ${
-                selected ? "text-signature" : "text-sam-muted"
-              }`}
-            >
-              {safeT(TAB_KEY[id], {
-                fallbackKo:
-                  id === "orders" ? "주문 내역" : id === "coupons" ? "쿠폰" : "상품권",
-                fallbackEn: id === "orders" ? "Orders" : id === "coupons" ? "Coupons" : "Gifts",
-              })}
-              {selected ? (
-                <span
-                  className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-signature"
-                  aria-hidden
-                />
-              ) : null}
-            </Link>
-          );
-        })}
+      <div className="flex min-w-0 items-stretch">
+        <div className="grid min-w-0 flex-1 grid-cols-3 gap-0" role="tablist">
+          {COMMERCE_HUB_TABS.map((id) => {
+            const selected = state.tab === id;
+            const href = canonicalHubHref(id, {
+              giftTab: state.giftTab,
+              couponTab: state.couponTab,
+              from: state.from,
+            });
+            return (
+              <Link
+                key={id}
+                href={href}
+                prefetch={false}
+                role="tab"
+                aria-selected={selected}
+                data-commerce-hub-tab={id}
+                className={`relative flex min-h-[48px] min-w-0 items-center justify-center px-1.5 text-sm font-semibold sm:px-2 ${
+                  selected ? "text-signature" : "text-sam-muted"
+                }`}
+              >
+                {safeT(TAB_KEY[id], {
+                  fallbackKo:
+                    id === "orders" ? "주문 내역" : id === "coupons" ? "쿠폰" : "상품권",
+                  fallbackEn: id === "orders" ? "Orders" : id === "coupons" ? "Coupons" : "Gifts",
+                })}
+                {selected ? (
+                  <span
+                    className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-signature sm:inset-x-2"
+                    aria-hidden
+                  />
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+        <CommerceHubStoreOwnerEntryCta />
       </div>
     </nav>
   );

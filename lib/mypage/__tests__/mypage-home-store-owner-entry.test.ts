@@ -61,6 +61,21 @@ describe("resolveMypageHomeStoreOwnerEntry", () => {
     expect(showStoreBusinessApplyLink(gate)).toBe(false);
   });
 
+  it("PENDING + storeId EXISTS → progress hub without storeId query (binary storeId gate FORBIDDEN)", () => {
+    const pendingStoreId = "11111111-2222-4333-8444-555555555555";
+    const gate = getOwnerStoreGateState([{ id: pendingStoreId, approval_status: "pending" }]);
+    expect(gate.kind).toBe("pending");
+    // Pass the real pending row id — must NOT promote to approved enter or apply.
+    const entry = resolveMypageHomeStoreOwnerEntry(gate, pendingStoreId);
+    expect(entry.titleKey).toBe("mypage_comp_menu_store_approval_progress_title");
+    expect(entry.href).toBe(OwnerRoutes.hub());
+    expect(entry.href.includes("storeId=")).toBe(false);
+    expect(entry.href.includes("/apply")).toBe(false);
+    expect(entry.href).not.toBe(OwnerRoutes.hub(pendingStoreId));
+    expect(entry.href).not.toBe(OwnerRoutes.apply());
+    expect(showStoreBusinessApplyLink(gate)).toBe(false);
+  });
+
   it("empty gate still allows apply link (R1)", () => {
     expect(showStoreBusinessApplyLink({ kind: "empty" })).toBe(true);
   });

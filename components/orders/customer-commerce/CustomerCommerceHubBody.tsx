@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { parseCommerceHubState } from "@/lib/delivery/customer/commerce-hub-nav";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { BuyerDeliveryOrdersBody } from "./BuyerDeliveryOrdersBody";
-import { CommerceHubSellerTransitionSection } from "./CommerceHubSellerTransitionSection";
 import { CustomerCouponWalletBody } from "./CustomerCouponWalletBody";
 import { CustomerGiftWalletBody } from "./CustomerGiftWalletBody";
 
@@ -15,7 +14,7 @@ function HubPanelFallback() {
   );
 }
 
-/** Hub body — single tab IA (no overview duplicate cards) + seller transition. */
+/** Hub body — single tab IA (no overview duplicate cards). Owner CTA lives in top chrome. */
 export function CustomerCommerceHubBody() {
   const searchParams = useSearchParams();
   const state = parseCommerceHubState(searchParams);
@@ -43,7 +42,6 @@ export function CustomerCommerceHubBody() {
           <CustomerGiftWalletBody giftTab={state.giftTab} from={state.from} refresh={refresh} />
         </Suspense>
       ) : null}
-      <CommerceHubSellerTransitionSection />
     </div>
   );
 }
