@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- GENERATED — icon slot fill = System Start BG when brand OFF. -->
+<!--
+  OS_REQUIRED_BOOT_PRIMITIVE — Android 12+ windowSplashScreenAnimatedIcon slot.
+  Solid app-shell WHITE only. No System Start / Intro / brand board (ZERO).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="288dp"
     android:height="288dp"
     android:viewportWidth="288"
     android:viewportHeight="288">
     <path
-        android:fillColor="#0A4D8C"
+        android:fillColor="#FFFCFC"
         android:pathData="M0,0h288v288h-288z" />
 </vector>

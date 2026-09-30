@@ -23,9 +23,14 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@color/dibay_app_bg</item>
         <item name="android:windowBackground">@color/dibay_app_bg</item>
+        <!-- androidx.core SplashScreen attrs -->
         <item name="windowSplashScreenBackground">@color/dibay_app_bg</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
+        <!-- Android 12+ platform attrs (Samsung starting-window path) -->
+        <item name="android:windowSplashScreenBackground">@color/dibay_app_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 
