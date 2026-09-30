@@ -4,6 +4,7 @@
  * on a single giant `as const` object (tsconfig.app / tsconfig.test composite).
  */
 import { adminMessages } from "./catalog/admin";
+import { adminOsEntryMessages } from "./catalog/admin-os-entry";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
@@ -153,6 +154,7 @@ export type MessageKey =
   | KeyOf<typeof platformPopupOwnerMessages.ko>
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminMessages.ko>
+  | KeyOf<typeof adminOsEntryMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
   | KeyOf<typeof koJson>;
 
@@ -229,6 +231,7 @@ type EnMessageKey =
   | KeyOf<typeof platformPopupOwnerMessages.en>
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminMessages.en>
+  | KeyOf<typeof adminOsEntryMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
   | KeyOf<typeof enJson>;
 

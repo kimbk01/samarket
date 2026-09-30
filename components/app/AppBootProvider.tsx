@@ -25,6 +25,8 @@ import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-clien
 import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
 import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalStatePurge";
+import { OsEntryOwner } from "@/components/os-entry/OsEntryOwner";
+import { OsEntryWarmSyncHost } from "@/components/os-entry/OsEntryWarmSyncHost";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -102,6 +104,8 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
   return (
     <AppBootContext.Provider value={boot}>
       <AbandonedR15LocalStatePurge />
+      <OsEntryOwner />
+      <OsEntryWarmSyncHost />
       {children}
     </AppBootContext.Provider>
   );
