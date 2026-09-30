@@ -164,7 +164,7 @@ export function IntroMediaLibraryPanel() {
           이미지/영상 업로드
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,.mp4"
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
             disabled={busy}
             onChange={(e) => {
@@ -178,7 +178,7 @@ export function IntroMediaLibraryPanel() {
           로고 업로드
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
             disabled={busy}
             onChange={(e) => {

@@ -1,16 +1,25 @@
 "use client";
 
+/**
+ * REBUILD 14 P6 — Admin Preview UI renderer.
+ *
+ * Semantic authority: createPreviewSemanticApi() (P5 execution).
+ * This file maps semantic output → browser DOM/CSS only.
+ * No independent PreviewGeometry / PreviewMotion / PreviewTransition product rules.
+ */
+
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type {
   IntroDocumentV1,
   SceneV1,
   TextPayloadV1,
   ImagePayloadV1,
-  VideoPayloadV1,
   ElementV1,
   TransitionV1,
 } from "@/lib/intro/contracts/document";
-import { fitContentRegion, mapFrame } from "@/lib/intro/geometry/fit";
+import { createPreviewSemanticApi } from "@/lib/startup-compositor";
+import { PREVIEW_SOURCE } from "@/lib/startup-compositor/admin/preview";
+import { mapFrame } from "@/lib/intro/geometry/fit";
 
 type Props = {
   document: IntroDocumentV1;
@@ -21,6 +30,8 @@ type Props = {
   mediaUrls?: Record<string, string>;
   /** When true, play full multi-scene timeline with motion + transitions. */
   playTimeline?: boolean;
+  /** Explicit preview source label — always working document at P6. */
+  previewSource?: typeof PREVIEW_SOURCE;
 };
 
 type Phase =
@@ -33,6 +44,8 @@ type Phase =
       transition: TransitionV1;
     }
   | { kind: "done"; index: number };
+
+const semanticApi = createPreviewSemanticApi();
 
 function SceneLayer({
   scene,
@@ -54,14 +67,8 @@ function SceneLayer({
   style?: CSSProperties;
 }) {
   const region = useMemo(
-    () =>
-      fitContentRegion(
-        viewportW,
-        viewportH,
-        document.compositionAspect.w,
-        document.compositionAspect.h,
-      ),
-    [viewportW, viewportH, document.compositionAspect.w, document.compositionAspect.h],
+    () => semanticApi.projectCompositionRegion(viewportW, viewportH),
+    [viewportW, viewportH],
   );
 
   const bgColor =
@@ -73,6 +80,7 @@ function SceneLayer({
   return (
     <div
       data-intro13-preview-layer="1"
+      data-preview-semantic-module={semanticApi.moduleId}
       className="absolute inset-0 overflow-hidden"
       style={{ background: bgColor, ...style }}
     >
@@ -114,39 +122,27 @@ function SceneLayer({
   );
 }
 
-function motionStyle(
+/** DOM mapping of P5 SemanticMotionState — not an independent motion engine. */
+function motionStyleFromSemantic(
   el: ElementV1,
   region: { RW: number; RH: number },
   elapsedMs: number,
 ): CSSProperties {
-  const type = el.motion?.type ?? "NONE";
-  const start = Math.max(0, el.motion?.startMs ?? 0);
-  const dur = Math.max(1, el.motion?.durationMs ?? 1);
-  if (type === "NONE" || (el.motion?.durationMs ?? 0) <= 0) {
+  const motion = el.motion ?? { type: "NONE" as const, startMs: 0, durationMs: 0 };
+  const evaluated = semanticApi.evaluateMotionAtSceneElapsed(motion, elapsedMs);
+  if (!evaluated.ok) {
     return { opacity: el.opacity };
   }
-  const t = Math.min(1, Math.max(0, (elapsedMs - start) / dur));
-  const distX = region.RW * 0.25;
-  const distY = region.RH * 0.25;
-  switch (type) {
-    case "FADE_IN":
-      return { opacity: el.opacity * t };
-    case "ENTER_UP":
-      return { opacity: el.opacity, transform: `translateY(${-distY * (1 - t)}px)` };
-    case "ENTER_DOWN":
-      return { opacity: el.opacity, transform: `translateY(${distY * (1 - t)}px)` };
-    case "ENTER_LEFT":
-      return { opacity: el.opacity, transform: `translateX(${-distX * (1 - t)}px)` };
-    case "ENTER_RIGHT":
-      return { opacity: el.opacity, transform: `translateX(${distX * (1 - t)}px)` };
-    case "SCALE_IN":
-      return {
-        opacity: el.opacity,
-        transform: `scale(${0.7 + 0.3 * t})`,
-      };
-    default:
-      return { opacity: el.opacity };
-  }
+  const m = evaluated.value;
+  const tx = m.translateXNorm * region.RW * (el.frame.w || 1);
+  const ty = m.translateYNorm * region.RH * (el.frame.h || 1);
+  const transforms: string[] = [];
+  if (tx !== 0 || ty !== 0) transforms.push(`translate(${tx}px, ${ty}px)`);
+  if (m.scale !== 1) transforms.push(`scale(${m.scale})`);
+  return {
+    opacity: el.opacity * m.opacity,
+    transform: transforms.length ? transforms.join(" ") : undefined,
+  };
 }
 
 function ElementView({
@@ -166,7 +162,7 @@ function ElementView({
     top: rect.top - region.OY,
     width: rect.width,
     height: rect.height,
-    ...motionStyle(el, region, elapsedMs),
+    ...motionStyleFromSemantic(el, region, elapsedMs),
   };
 
   if (el.type === "TEXT") {
@@ -175,6 +171,7 @@ function ElementView({
     return (
       <div
         className="absolute flex items-center overflow-hidden"
+        data-editor-chrome="0"
         style={{
           ...box,
           color: p.color,
@@ -219,7 +216,9 @@ function ElementView({
     );
   }
   if (el.type === "VIDEO") {
-    const p = el.payload as VideoPayloadV1;
+    // P6: VIDEO/MP4 not Admin-exposed for authoring when Preview cannot
+    // drive shared-timeline playback. Keep non-authoritative muted placeholder.
+    const p = el.payload as ImagePayloadV1 & { muted?: boolean; loop?: boolean };
     const url = mediaUrls[p.mediaId];
     if (!url) {
       return (
@@ -240,10 +239,12 @@ function ElementView({
           ...box,
           objectFit: p.fit === "CONTAIN" ? "contain" : "cover",
         }}
-        muted={p.muted}
-        loop={p.loop}
+        muted
+        loop={Boolean(p.loop)}
         playsInline
-        autoPlay
+        // Not semantic clock authority — audio never authored as product contract.
+        data-mp4-audio-decision="OPEN"
+        data-mp4-preview-authority="non_authoritative"
       />
     );
   }
@@ -265,8 +266,28 @@ function ElementView({
   return null;
 }
 
+function transitionLayerStyle(
+  transition: TransitionV1,
+  elapsedMs: number,
+  role: "outgoing" | "incoming",
+  region: { RW: number; RH: number },
+): CSSProperties {
+  const evaluated = semanticApi.evaluateTransitionAtElapsed(transition, elapsedMs);
+  if (!evaluated.ok) return { opacity: role === "incoming" ? 1 : 0 };
+  const t = evaluated.value;
+  const opacity = role === "outgoing" ? t.outgoingOpacity : t.incomingOpacity;
+  const txNorm =
+    role === "outgoing" ? t.outgoingTranslateXNorm : t.incomingTranslateXNorm;
+  const tyNorm =
+    role === "outgoing" ? t.outgoingTranslateYNorm : t.incomingTranslateYNorm;
+  return {
+    opacity,
+    transform: `translate(${txNorm * region.RW}px, ${tyNorm * region.RH}px)`,
+  };
+}
+
 /**
- * Canonical preview — same FIT + frame mapping as Android/iOS.
+ * Canonical preview — P5 createPreviewSemanticApi + DOM projection.
  * Optional full timeline: scene durations, CUT/FADE/SLIDE, element motion.
  */
 export function IntroCanonicalPreview({
@@ -276,6 +297,7 @@ export function IntroCanonicalPreview({
   viewportH = 480,
   mediaUrls = {},
   playTimeline = false,
+  previewSource = PREVIEW_SOURCE,
 }: Props) {
   const [now, setNow] = useState(() => performance.now());
   const [phase, setPhase] = useState<Phase>(() => ({
@@ -335,14 +357,17 @@ export function IntroCanonicalPreview({
     }
 
     if (phase.kind === "transition") {
-      const dur = Math.max(1, phase.transition.durationMs);
-      const t = (now - phase.startedAt) / dur;
-      if (t < 1) return;
+      const evaluated = semanticApi.evaluateTransitionAtElapsed(
+        phase.transition,
+        now - phase.startedAt,
+      );
+      if (!evaluated.ok || !evaluated.value.complete) return;
       setPhase({ kind: "scene", index: phase.to, startedAt: performance.now() });
     }
   }, [playTimeline, phase, now, document.scenes]);
 
   const staticScene: SceneV1 | undefined = document.scenes[sceneIndex];
+  const region = semanticApi.projectCompositionRegion(viewportW, viewportH);
 
   if (!playTimeline) {
     if (!staticScene) {
@@ -358,6 +383,9 @@ export function IntroCanonicalPreview({
     return (
       <div
         data-intro13-preview="1"
+        data-preview-source={previewSource}
+        data-preview-semantic-module={semanticApi.moduleId}
+        data-preview-mutates-live="0"
         className="relative overflow-hidden"
         style={{ width: viewportW, height: viewportH }}
       >
@@ -368,113 +396,65 @@ export function IntroCanonicalPreview({
           viewportH={viewportH}
           mediaUrls={mediaUrls}
           sceneStartedAt={null}
-          now={0}
+          now={now}
         />
       </div>
     );
   }
 
-  if (document.scenes.length === 0) {
-    return (
-      <div
-        className="flex items-center justify-center bg-black text-sm text-white"
-        style={{ width: viewportW, height: viewportH }}
-      >
-        장면 없음
-      </div>
-    );
-  }
-
-  let fromIdx = 0;
-  let toIdx = 0;
-  let transitionProgress = 0;
-  let transition: TransitionV1 | null = null;
-  let sceneStartedAt: number | null = null;
-
-  if (phase.kind === "scene" || phase.kind === "done") {
-    fromIdx = phase.index;
-    toIdx = phase.index;
-    sceneStartedAt = phase.kind === "scene" ? phase.startedAt : null;
-  } else {
-    fromIdx = phase.from;
-    toIdx = phase.to;
-    transition = phase.transition;
-    transitionProgress = Math.min(
-      1,
-      Math.max(0, (now - phase.startedAt) / Math.max(1, phase.transition.durationMs)),
-    );
-    sceneStartedAt = phase.startedAt;
-  }
-
-  const fromScene = document.scenes[fromIdx]!;
-  const toScene = document.scenes[toIdx]!;
-
-  let outgoingStyle: CSSProperties = {};
-  let incomingStyle: CSSProperties = { display: "none" };
-
-  if (transition && fromIdx !== toIdx) {
-    if (transition.type === "FADE") {
-      outgoingStyle = { opacity: 1 - transitionProgress };
-      incomingStyle = { opacity: transitionProgress };
-    } else if (
-      transition.type === "SLIDE_LEFT" ||
-      transition.type === "SLIDE_RIGHT" ||
-      transition.type === "SLIDE_UP" ||
-      transition.type === "SLIDE_DOWN" ||
-      // legacy structured shape during preview of unsaved buffers
-      (transition as { type?: string }).type === "SLIDE"
-    ) {
-      const legacyDir = (transition as { direction?: string }).direction;
-      const type = transition.type;
-      const dir =
-        type === "SLIDE_LEFT" || legacyDir === "LEFT"
-          ? "LEFT"
-          : type === "SLIDE_RIGHT" || legacyDir === "RIGHT"
-            ? "RIGHT"
-            : type === "SLIDE_UP" || legacyDir === "UP"
-              ? "UP"
-              : "DOWN";
-      const dx = dir === "LEFT" ? -1 : dir === "RIGHT" ? 1 : 0;
-      const dy = dir === "UP" ? -1 : dir === "DOWN" ? 1 : 0;
-      outgoingStyle = {
-        transform: `translate(${dx * transitionProgress * 100}%, ${dy * transitionProgress * 100}%)`,
-      };
-      incomingStyle = {
-        transform: `translate(${-dx * (1 - transitionProgress) * 100}%, ${-dy * (1 - transitionProgress) * 100}%)`,
-      };
-    } else {
-      outgoingStyle = { display: "none" };
-      incomingStyle = {};
-    }
-  }
+  const sceneA =
+    phase.kind === "scene" || phase.kind === "done"
+      ? document.scenes[phase.index]
+      : document.scenes[phase.from];
+  const sceneB =
+    phase.kind === "transition" ? document.scenes[phase.to] : undefined;
 
   return (
     <div
       data-intro13-preview="1"
-      data-intro13-timeline="1"
+      data-preview-source={previewSource}
+      data-preview-semantic-module={semanticApi.moduleId}
+      data-preview-mutates-live="0"
+      data-transition-duration-mode={semanticApi.TRANSITION_DURATION_MODE}
       className="relative overflow-hidden"
       style={{ width: viewportW, height: viewportH }}
     >
-      <SceneLayer
-        scene={fromScene}
-        document={document}
-        viewportW={viewportW}
-        viewportH={viewportH}
-        mediaUrls={mediaUrls}
-        sceneStartedAt={transition ? null : sceneStartedAt}
-        now={now}
-        style={outgoingStyle}
-      />
-      {transition && fromIdx !== toIdx ? (
+      {sceneA ? (
         <SceneLayer
-          scene={toScene}
+          scene={sceneA}
           document={document}
           viewportW={viewportW}
           viewportH={viewportH}
           mediaUrls={mediaUrls}
-          sceneStartedAt={sceneStartedAt}
+          sceneStartedAt={phase.kind === "scene" ? phase.startedAt : null}
           now={now}
-          style={incomingStyle}
+          style={
+            phase.kind === "transition"
+              ? transitionLayerStyle(
+                  phase.transition,
+                  now - phase.startedAt,
+                  "outgoing",
+                  region,
+                )
+              : undefined
+          }
+        />
+      ) : null}
+      {phase.kind === "transition" && sceneB ? (
+        <SceneLayer
+          scene={sceneB}
+          document={document}
+          viewportW={viewportW}
+          viewportH={viewportH}
+          mediaUrls={mediaUrls}
+          sceneStartedAt={null}
+          now={now}
+          style={transitionLayerStyle(
+            phase.transition,
+            now - phase.startedAt,
+            "incoming",
+            region,
+          )}
         />
       ) : null}
     </div>

@@ -25,10 +25,6 @@ import {
   TRANSITION_TYPES_V1,
 } from "@/lib/intro/contracts/document";
 import {
-  centerFrame,
-  containMediaFrame,
-  defaultImageInsertFrame,
-  defaultLogoInsertFrame,
   defaultVideoInsertFrame,
   DEFAULT_LOGO_MAX_H,
   DEFAULT_LOGO_MAX_W,
@@ -41,6 +37,11 @@ import {
   AdminActionButton,
   AdminActionLabel,
 } from "@/components/admin/ui/AdminActionButton";
+import { PREVIEW_SOURCE } from "@/lib/startup-compositor/admin/preview";
+import {
+  centerElementFrame,
+  insertImageElementFrame,
+} from "@/lib/startup-compositor/admin/scene-ops";
 
 type Props = { documentId: string };
 
@@ -100,6 +101,10 @@ export function IntroStudioPage({ documentId }: Props) {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** Projection viewport only — one authored 9:16 document. */
+  const [previewViewport, setPreviewViewport] = useState<
+    "phone" | "tablet" | "ipad"
+  >("phone");
   const [mediaPicker, setMediaPicker] = useState<
     "IMAGE" | "LOGO" | "VIDEO" | "BG" | null
   >(null);
@@ -346,7 +351,10 @@ export function IntroStudioPage({ documentId }: Props) {
         error?: string;
       };
       if (!json.ok || !json.document) {
-        setError(json.error ?? "save_failed");
+        const { humanizeAuthoringError } = await import(
+          "@/lib/startup-compositor/admin/human-errors"
+        );
+        setError(humanizeAuthoringError(json.error ?? "save_failed"));
         return;
       }
       const saved = normalizeDocumentV1(json.document.document);
@@ -367,9 +375,13 @@ export function IntroStudioPage({ documentId }: Props) {
    */
   async function applyService() {
     if (dirty) {
-      setError("먼저 저장하세요");
+      setError("저장되지 않은 변경이 있습니다. 먼저 저장해 주세요.");
       return;
     }
+    const confirmed = window.confirm(
+      "저장한 Intro/System Start를 이후 기기 전달용 서비스 버전으로 적용합니다.\n\n계속할까요?",
+    );
+    if (!confirmed) return;
     setBusy("apply");
     setError(null);
     setMessage(null);
@@ -393,7 +405,10 @@ export function IntroStudioPage({ documentId }: Props) {
         error?: string;
       };
       if (!json.ok || !json.releaseId || !json.packageId) {
-        setError(json.error ?? "apply_failed");
+        const { humanizeAuthoringError } = await import(
+          "@/lib/startup-compositor/admin/human-errors"
+        );
+        setError(humanizeAuthoringError(json.error ?? "apply_failed"));
         return;
       }
       setLastApply({
@@ -477,11 +492,13 @@ export function IntroStudioPage({ documentId }: Props) {
           };
         }
         const frame =
-          type === "LOGO"
-            ? defaultLogoInsertFrame(meta)
-            : type === "VIDEO"
-              ? defaultVideoInsertFrame(meta)
-              : defaultImageInsertFrame(meta);
+          type === "VIDEO"
+            ? defaultVideoInsertFrame(meta)
+            : insertImageElementFrame({
+                intrinsic: meta,
+                maxW: type === "LOGO" ? DEFAULT_LOGO_MAX_W : DEFAULT_MEDIA_MAX_W,
+                maxH: type === "LOGO" ? DEFAULT_LOGO_MAX_H : DEFAULT_MEDIA_MAX_H,
+              });
         const payload =
           type === "VIDEO"
             ? ({
@@ -865,9 +882,7 @@ export function IntroStudioPage({ documentId }: Props) {
             <AdminActionButton variant="secondary" onClick={() => addElement("LOGO")}>
               + 로고
             </AdminActionButton>
-            <AdminActionButton variant="secondary" onClick={() => addElement("VIDEO")}>
-              + 비디오
-            </AdminActionButton>
+            {/* P6: MP4/GIF authoring not exposed — Preview shared-timeline capability false; MP4 AUDIO OPEN */}
             <AdminActionButton variant="secondary" onClick={() => addElement("TEXT")}>
               + 텍스트
             </AdminActionButton>
@@ -1079,21 +1094,62 @@ export function IntroStudioPage({ documentId }: Props) {
               </AdminActionButton>
             </div>
             <p className="mb-2 max-w-sm rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-sam-fg">
-              Admin Preview는 기기 픽셀 PASS 권한이 아닙니다. 최종 수락은
-              Samsung / Xiaomi / iPhone 실기기 화면으로만 판정합니다.
+              Admin Preview는 동일 semantic authority를 소비합니다. 기기 픽셀
+              동일성(P9) · Android/iOS cold-start는 아직 NOT_PROVEN입니다.
             </p>
+            <div
+              className="mb-3 flex flex-wrap gap-2"
+              role="radiogroup"
+              aria-label="미리보기 화면 크기"
+            >
+              {(
+                [
+                  { id: "phone" as const, label: "Phone", w: 320, h: 568 },
+                  { id: "tablet" as const, label: "Tablet", w: 720, h: 405 },
+                  { id: "ipad" as const, label: "iPad", w: 768, h: 1024 },
+                ] as const
+              ).map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={previewViewport === v.id}
+                  className={`rounded-ui-rect border px-3 py-1.5 text-xs ${
+                    previewViewport === v.id
+                      ? "border-sky-500 bg-sky-50 text-sam-fg"
+                      : "border-sam-border text-sam-muted"
+                  }`}
+                  onClick={() => setPreviewViewport(v.id)}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
             <div className="inline-block rounded-ui-rect border border-sam-border bg-black p-2">
               <IntroCanonicalPreview
                 document={document}
                 mediaUrls={mediaUrls}
                 playTimeline
-                viewportW={320}
-                viewportH={568}
+                previewSource={PREVIEW_SOURCE}
+                viewportW={
+                  previewViewport === "phone"
+                    ? 320
+                    : previewViewport === "tablet"
+                      ? 720
+                      : 768
+                }
+                viewportH={
+                  previewViewport === "phone"
+                    ? 568
+                    : previewViewport === "tablet"
+                      ? 405
+                      : 1024
+                }
               />
             </div>
             <p className="mt-2 max-w-sm text-xs text-sam-muted">
-              Scene duration · element motion · transition · CTA를 canonical
-              document로 재생합니다 (Preview ≠ device PASS).
+              투영(viewport)만 바뀝니다. Phone/Tablet/iPad 별도 문서를 만들지
+              않습니다. Preview ≠ device PASS.
             </p>
           </div>
         </div>
@@ -1223,7 +1279,7 @@ function ElementProperties({
         variant="secondary"
         className="w-full min-h-8 text-xs"
         onClick={() =>
-          onChange({ ...element, frame: centerFrame(element.frame) })
+          onChange({ ...element, frame: centerElementFrame(element.frame) })
         }
       >
         가운데 맞춤
@@ -1392,7 +1448,7 @@ function ImageProps({
       element.type === "LOGO" ? DEFAULT_LOGO_MAX_H : DEFAULT_MEDIA_MAX_H;
     onChange({
       ...element,
-      frame: containMediaFrame(meta, maxW, maxH),
+      frame: insertImageElementFrame({ intrinsic: meta, maxW, maxH }),
     });
   }
 

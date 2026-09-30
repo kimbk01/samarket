@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { applyIntroServiceFromDraft } from "@/lib/intro/live/apply-service";
+import { humanizeAuthoringError } from "@/lib/startup-compositor/admin/human-errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +53,13 @@ export async function POST(
     let status = 500;
     if ((e as { status?: number }).status === 409) status = 409;
     else if (msg.startsWith("apply_forbidden_content_class:")) status = 403;
-    return NextResponse.json({ ok: false, error: msg }, { status });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: humanizeAuthoringError(msg),
+        reason: msg,
+      },
+      { status },
+    );
   }
 }

@@ -3,15 +3,30 @@ import { publishIntroDocument } from "@/lib/intro/publish/service";
 import { getIntroDocument } from "@/lib/intro/document/service";
 import { getLiveStatus, setLiveRelease, type LiveStatus } from "@/lib/intro/live/service";
 import { normalizeIntroContentClass } from "@/lib/intro/admin/operator-classification";
+import { getSystemStartConfig } from "@/lib/intro/system-start/service";
+import {
+  applyServiceFromSavedDraft,
+  authoringContentFingerprint,
+  type StartupAuthoringDocument,
+} from "@/lib/startup-compositor";
+import {
+  getProcessDraftStore,
+  getProcessLiveRepository,
+} from "@/lib/startup-compositor/admin/process-live-singleton";
+import { STARTUP_AUTHORING_SCHEMA_VERSION } from "@/lib/startup-compositor/admin/authoring-document";
+import {
+  parseSystemStartIR,
+  type SystemStartIR,
+} from "@/lib/startup-compositor/system-start-ir";
 
 /**
  * Owner atomic action: 서비스 적용.
  * Internal: saved Draft → canonical validation → Release → Package → Live pointer.
  * Owner must NEVER need a separate Publish step.
  *
- * Invalid motion/transition/CTA/media/geometry FAIL here (validateDocumentV0 inside publish).
- * Historical invalid Live packages are NOT silently reinterpreted — Owner must correct Draft
- * and Apply again. Normalization = explicit Owner Save of valid document only.
+ * P6: also seals ONE StartupPackageEnvelope (systemStart + intro) and promotes
+ * ONE Owner Live generation via generation-authority. Historical app_intro_live
+ * write remains for transitional device API (hosts still UNWIRED).
  */
 export type ApplyServiceResult = {
   documentId: string;
@@ -20,13 +35,42 @@ export type ApplyServiceResult = {
   packageId: string;
   packageIntegrity: string;
   live: LiveStatus;
+  startupEnvelopeIntegrity: string;
+  startupGenerationId: string;
   phases: {
     draftValidated: true;
     releaseCreated: true;
     packageVerified: true;
     liveApplied: true;
+    startupEnvelopeSealed: true;
   };
 };
+
+function toSystemStartIR(next: {
+  backgroundColor: string;
+  backgroundImageMediaId: string | null;
+  brandAssetEnabled: boolean;
+  brandAssetMediaId: string | null;
+  brandSizePreset: SystemStartIR["brandSizePreset"];
+  brandXNorm: number;
+  brandYNorm: number;
+  minVisibleMs: number;
+}): SystemStartIR {
+  const parsed = parseSystemStartIR({
+    backgroundColor: next.backgroundColor,
+    backgroundImageMediaId: next.backgroundImageMediaId,
+    brandAssetEnabled: next.brandAssetEnabled,
+    brandAssetMediaId: next.brandAssetMediaId,
+    brandSizePreset: next.brandSizePreset,
+    brandXNorm: next.brandXNorm,
+    brandYNorm: next.brandYNorm,
+    minVisibleMs: next.minVisibleMs,
+  });
+  if (!parsed.ok) {
+    throw new Error(`system_start_ir_invalid:${parsed.reason}`);
+  }
+  return parsed.value;
+}
 
 export async function applyIntroServiceFromDraft(
   sb: SupabaseClient,
@@ -82,6 +126,39 @@ export async function applyIntroServiceFromDraft(
     throw new Error("live_release_mismatch_after_apply");
   }
 
+  // P6 ONE StartupPackageEnvelope + ONE generation pointer (Admin pipeline).
+  const ss = await getSystemStartConfig(sb);
+  const authoringBase: Omit<StartupAuthoringDocument, "savedFingerprint"> = {
+    schemaVersion: STARTUP_AUTHORING_SCHEMA_VERSION,
+    documentId: args.documentId,
+    title: row.title || "Startup",
+    contentClass: "OWNER",
+    draftVersion,
+    systemStart: toSystemStartIR(ss.nextBuild),
+    intro: row.document,
+    introEnabled: true,
+  };
+  const savedDoc: StartupAuthoringDocument = {
+    ...authoringBase,
+    savedFingerprint: authoringContentFingerprint({
+      ...authoringBase,
+      savedFingerprint: "",
+    }),
+  };
+  const draftStore = getProcessDraftStore();
+  draftStore.put(savedDoc);
+  const envelopeApply = applyServiceFromSavedDraft(
+    draftStore,
+    getProcessLiveRepository(),
+    {
+      documentId: args.documentId,
+      idempotencyKey: `envelope_${idempotencyKey}`,
+    },
+  );
+  if (!envelopeApply.ok) {
+    throw new Error(`startup_envelope_apply_failed:${envelopeApply.reason}`);
+  }
+
   console.info(
     JSON.stringify({
       event: "intro_apply_service_committed",
@@ -91,6 +168,8 @@ export async function applyIntroServiceFromDraft(
       releaseId: published.releaseId,
       packageId: published.packageId,
       packageIntegrity: published.packageIntegrity,
+      startupGenerationId: envelopeApply.liveGenerationId,
+      startupEnvelopeIntegrity: envelopeApply.envelope.integrity,
       at: new Date().toISOString(),
     }),
   );
@@ -102,11 +181,14 @@ export async function applyIntroServiceFromDraft(
     packageId: published.packageId,
     packageIntegrity: published.packageIntegrity,
     live,
+    startupEnvelopeIntegrity: envelopeApply.envelope.integrity,
+    startupGenerationId: envelopeApply.liveGenerationId,
     phases: {
       draftValidated: true,
       releaseCreated: true,
       packageVerified: true,
       liveApplied: true,
+      startupEnvelopeSealed: true,
     },
   };
 }
