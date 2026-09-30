@@ -39,11 +39,10 @@ const config: CapacitorConfig = {
   appName: "DIBAY",
   webDir: "capacitor-www",
   /**
-   * WKWebView root background — MUST match System Start / Scene1.
-   * Never leave unset (Cap defaults to UIColor.systemBackground = white).
-   * Patched by generate:system-start from durable SSOT.
+   * WKWebView root background — app shell bg only (OS_REQUIRED_BOOT_PRIMITIVE).
+   * No Intro / System Start product authority (R15 ZERO).
    */
-  backgroundColor: "#0A4D8C",
+  backgroundColor: "#FFFCFC",
   server: useLocalRuntime
     ? {
         // Document = capacitor-www (Local Runtime). Remote is API-only (see local-runtime markup).
@@ -57,18 +56,13 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       /**
-       * System Start continuation (iOS Cap SplashScreen clones LaunchScreen).
-       * launchShowDuration MUST be non-zero so showOnLaunch mounts the overlay.
-       * Value is a mount sentinel — NOT a hide timer.
-       * Hide lifetime = Intro first meaningful frame AND minVisibleMs (native).
-       * launchAutoHide=false — no Cap timer auto-dismiss.
+       * Cap SplashScreen = framework bootstrap only.
+       * No DIBAY Intro / System Start product authority (R15 ZERO).
        */
-      launchAutoHide: false,
-      /** Mount sentinel only — hide = Intro first frame ∧ minVisibleMs (native). */
-      launchShowDuration: 1,
+      launchAutoHide: true,
+      launchShowDuration: 0,
       launchFadeOutDuration: 0,
-      /** Cap is not a product brand surface — solid Layer A color only (ic_splash_neutral). */
-      backgroundColor: "#0A4D8C",
+      backgroundColor: "#FFFCFC",
       androidSplashResourceName: "ic_splash_neutral",
     },
   },

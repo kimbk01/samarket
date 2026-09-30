@@ -2,19 +2,14 @@
  * Option A Local Runtime — self-contained document (no location.replace).
  * Built into capacitor-www/local-runtime/ and optionally capacitor-www/index.html.
  *
- * @see docs/dibay-local-runtime-startup-rearchitecture.md
- *
- * CONTRACT:
- * - Authored Intro overlay = NONE.
+ * CONTRACT (R15 ZERO):
+ * - Authored Intro / System Start overlay = NONE.
  * - Single AppShell + BottomNav silhouette until full router lands.
  * - Remote = API origin fetch only — never main-frame navigation to remote HTML.
- * - DO NOT: location.replace · window.location = remote · iframe app body · Cover normal flow.
  */
 
 import { BUNDLED_STARTUP_NAV, type StartupNavTabCache } from "@/lib/startup/startup-cache";
 import { BUNDLED_STARTUP_CONFIG, type StartupConfig } from "@/lib/startup/startup-config";
-import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
-import { buildStartupShellCss } from "@/lib/startup/startup-shell-markup";
 
 export type LocalRuntimeBuildOptions = {
   config?: StartupConfig;
@@ -60,8 +55,24 @@ function tabLabel(tab: StartupNavTabCache, lang: "ko" | "en"): string {
   return tab.label;
 }
 
-function buildIntroHtml(_config: StartupConfig, _logoSrc: string): string {
-  return `<div id="${DIBAY_STARTUP_INTRO_DOM_ID}" data-dibay-startup-intro="1" data-local-runtime-intro="1" hidden aria-hidden="true"></div>`;
+function buildShellCss(): string {
+  return `
+:root{--sam-bg-app:#FFFCFC;--sam-fg:#0B421A;--sam-muted:#5C6B63;--sam-border:#E6EBE8;--sam-surface:#FFFFFF;--sam-primary:#0B421A;--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
+html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(--sam-fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+#dibay-startup-header{flex:0 0 auto;padding:calc(12px + var(--safe-top)) 16px 12px;border-bottom:1px solid var(--sam-border);background:var(--sam-surface);display:flex;align-items:center;gap:10px;min-height:52px}
+#dibay-startup-header .title{font-size:17px;font-weight:700;letter-spacing:-0.01em}
+#dibay-startup-header .user{margin-left:auto;font-size:13px;color:var(--sam-muted);max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dibay-startup-body{flex:1 1 auto;position:relative;min-height:0;background:var(--sam-bg-app)}
+#dibay-startup-body .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--sam-muted);font-size:14px;padding:24px;text-align:center}
+#dibay-startup-nav{flex:0 0 auto;display:flex;align-items:stretch;justify-content:space-around;gap:2px;padding:6px 4px calc(6px + var(--safe-bottom));border-top:1px solid var(--sam-border);background:var(--sam-surface);min-height:calc(56px + var(--safe-bottom))}
+#dibay-startup-nav button{appearance:none;border:0;background:transparent;color:var(--sam-muted);flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;font-size:10px;font-weight:600;cursor:pointer}
+#dibay-startup-nav button[aria-current="page"]{color:var(--sam-primary)}
+#dibay-startup-nav button svg{display:block}
+@media (prefers-color-scheme: dark){
+  :root{--sam-bg-app:#12161d;--sam-fg:#E8EFE9;--sam-muted:#9AA89F;--sam-border:#2A3230;--sam-surface:#1A1F24;--sam-primary:#8FCB9B}
+}
+`.trim();
 }
 
 function buildNavHtml(tabs: readonly StartupNavTabCache[], lang: "ko" | "en"): string {
@@ -75,7 +86,7 @@ function buildNavHtml(tabs: readonly StartupNavTabCache[], lang: "ko" | "en"): s
     .join("");
 }
 
-/** Inline runtime script — state machine + no remote document navigation. */
+/** Inline runtime script — no Intro/System Start product surface. */
 function buildLocalRuntimeScript(opts: {
   remoteApiOrigin: string;
   defaultRoute: string;
@@ -87,8 +98,8 @@ function buildLocalRuntimeScript(opts: {
   "use strict";
   window.__DIBAY_LOCAL_RUNTIME__ = true;
   window.__DIBAY_REMOTE_API_ORIGIN__ = ${apiOrigin};
-  var STATES = ["NATIVE_LAUNCH","LOCAL_RUNTIME_LOADING","LOCAL_RUNTIME_PAINTED","INTRO_VISIBLE","LOCAL_SHELL_READY","REMOTE_DATA_CONNECTING","APP_READY","INTRO_REMOVED"];
-  var FORBIDDEN = {REMOTE_DOCUMENT_LOADING:1,SECOND_INTRO:1,HANDOFF_COVER_AS_NORMAL_FLOW:1,BLANK:1,BLACK:1};
+  var STATES = ["NATIVE_LAUNCH","LOCAL_RUNTIME_LOADING","LOCAL_RUNTIME_PAINTED","LOCAL_SHELL_READY","REMOTE_DATA_CONNECTING","APP_READY"];
+  var FORBIDDEN = {REMOTE_DOCUMENT_LOADING:1,SECOND_INTRO:1,HANDOFF_COVER_AS_NORMAL_FLOW:1,BLANK:1,BLACK:1,INTRO_VISIBLE:1};
   var idx = {};
   for (var i=0;i<STATES.length;i++) idx[STATES[i]] = i;
   var state = "NATIVE_LAUNCH";
@@ -109,13 +120,6 @@ function buildLocalRuntimeScript(opts: {
     emit(state);
     return true;
   }
-  function hideIntro(){
-    var el = document.getElementById(${JSON.stringify(DIBAY_STARTUP_INTRO_DOM_ID)});
-    if (!el) return;
-    el.setAttribute("hidden","");
-    el.setAttribute("aria-hidden","true");
-    el.setAttribute("data-ready","1");
-  }
   function dismissNativeSplash(){
     try{
       if (window.DibayBootBridge && typeof window.DibayBootBridge.dismissSplash === "function") {
@@ -132,13 +136,11 @@ function buildLocalRuntimeScript(opts: {
     var origin = window.__DIBAY_REMOTE_API_ORIGIN__ || "";
     if (!origin) return;
     try{
-      // Connectivity probe only — must never navigate the main frame.
       fetch(origin + "/api/app/startup-config", { method: "GET", credentials: "omit", cache: "no-store" })
         .then(function(){})
         .catch(function(){});
     }catch(e){}
   }
-  // Hard ban: no remote document replace / assign on this runtime.
   try{
     if (typeof location !== "undefined" && location.replace) {
       var _replace = location.replace.bind(location);
@@ -156,14 +158,10 @@ function buildLocalRuntimeScript(opts: {
   transition("LOCAL_RUNTIME_LOADING");
   paintShell();
   transition("LOCAL_RUNTIME_PAINTED");
-  transition("INTRO_VISIBLE");
   transition("LOCAL_SHELL_READY");
   transition("REMOTE_DATA_CONNECTING");
   beginRemoteData();
-  // App Ready: local root + shell painted + no fatal error (do not wait for probe).
   transition("APP_READY");
-  hideIntro();
-  transition("INTRO_REMOVED");
 
   document.addEventListener("click", function(ev){
     var t = ev.target;
@@ -188,21 +186,29 @@ function buildLocalRuntimeScript(opts: {
 }
 
 /**
- * Full Local Runtime HTML document — no location.replace, no Cover handoff.
+ * Full Local Runtime HTML document — no Intro/System Start product surface.
  */
 export function buildLocalRuntimeDocumentHtml(opts: LocalRuntimeBuildOptions = {}): string {
   const config = opts.config ?? BUNDLED_STARTUP_CONFIG;
   const lang = opts.lang ?? "ko";
   const tabs = opts.navTabs ?? BUNDLED_STARTUP_NAV;
-  const logoSrc = opts.logoSrc ?? config.logoUrl;
   const remoteApiOrigin = (opts.remoteApiOrigin ?? "").replace(/\/$/, "");
   const defaultRoute = opts.defaultRoute ?? "/";
   const bg = escapeHtml(config.backgroundColor || "#FFFCFC");
 
-  const css = buildStartupShellCss();
-  const intro = buildIntroHtml(config, logoSrc);
+  const css = buildShellCss();
   const nav = buildNavHtml(tabs, lang);
-  const firstLabel = escapeHtml(tabLabel(tabs[0] ?? { id: "community", href: "/philife", label: "Community", labelKo: "커뮤니티" }, lang));
+  const firstLabel = escapeHtml(
+    tabLabel(
+      tabs[0] ?? {
+        id: "community",
+        href: "/philife",
+        label: "Community",
+        labelKo: "커뮤니티",
+      },
+      lang
+    )
+  );
   const script = buildLocalRuntimeScript({ remoteApiOrigin, defaultRoute });
 
   return `<!DOCTYPE html>
@@ -229,7 +235,6 @@ html,body{background:${bg}}
   </main>
   <nav id="dibay-startup-nav" aria-label="Main">${nav}</nav>
 </div>
-${intro}
 <script>${script}</script>
 </body>
 </html>`;

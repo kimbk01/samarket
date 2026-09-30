@@ -57,6 +57,10 @@ public class MainActivity extends BridgeActivity {
   private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
+  /** R15 ZERO — one-time removal of obsolete Intro / System Start local stores. */
+  private static final String R15_PURGE_PREFS = "dibay_r15_intro_zero";
+  private static final String R15_INTRO_ZERO_PURGED_V1 = "r15_intro_zero_purged_v1";
+  private static final String R15_PURGE_LOG_TAG = "DIBAY_R15_PURGE";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
   public static final String PENDING_PATH_KEY = "pending_path";
   public static final String PENDING_NOTIFICATION_ID_KEY = "pending_notification_id";
@@ -85,10 +89,6 @@ public class MainActivity extends BridgeActivity {
   private static volatile String splashDismissSource = "none";
   /** Meaningful Home presentation ready — not shellReady / dismissSplash alias. */
   private static volatile boolean homePresentationReady = false;
-  /** R14-P7: compositor owns cold presentation until first product frame or skip. */
-  private static volatile boolean compositorFirstProductFrame = false;
-  private static volatile boolean compositorSkippedNoOwnerEnvelope = false;
-  private DibayStartupCompositorSession startupCompositorSession = null;
   private Runnable splashExitRemover = null;
   private SplashScreen installedSplashScreen = null;
   /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
@@ -1101,23 +1101,9 @@ public class MainActivity extends BridgeActivity {
     installedSplashScreen = splashScreen;
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    // R14-P7: OS splash → compositor first product frame (or skip → web dismiss).
-    splashScreen.setKeepOnScreenCondition(
-        () -> {
-          if (compositorSkippedNoOwnerEnvelope) {
-            return !webSplashDismissRequested;
-          }
-          if (DibayStartupCompositorHost.PRODUCTION_PRESENTATION_ACTIVE
-              && !compositorFirstProductFrame) {
-            return true;
-          }
-          if (compositorFirstProductFrame) {
-            return false;
-          }
-          return !webSplashDismissRequested;
-        });
-
-    startStartupCompositorSession();
+    purgeObsoleteIntroSystemStartLocalStateOnce();
+    // OS splash until web dismissSplash / homePresentationReady — no Intro/System Start product.
+    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
 
     // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
     splashScreen.setOnExitAnimationListener(
@@ -1170,49 +1156,11 @@ public class MainActivity extends BridgeActivity {
     DibayWebSafeAreaBridge.attach(this);
   }
 
-  /** HOME_PRESENTATION_READY from web — R14-P7 forwards into ONE compositor session. */
+  /** HOME_PRESENTATION_READY from web — boot handoff only (no Intro/System Start authority). */
   public static void notifyHomePresentationReady(String source) {
     homePresentationReady = true;
     Log.i(WEBVIEW_LOG_TAG, "HOME_PRESENTATION_READY source=" + (source != null ? source : "unknown"));
-    MainActivity inst = activeInstance;
-    if (inst != null && inst.startupCompositorSession != null) {
-      inst.startupCompositorSession.onHomePresentationReady(
-          source != null ? source : "unknown");
-    }
   }
-
-  private void startStartupCompositorSession() {
-    if (!DibayStartupCompositorHost.PRODUCTION_PRESENTATION_ACTIVE) {
-      compositorSkippedNoOwnerEnvelope = true;
-      return;
-    }
-    startupCompositorSession = new DibayStartupCompositorSession(this);
-    startupCompositorSession.setListener(
-        new DibayStartupCompositorSession.Listener() {
-          @Override
-          public void onFirstProductFrame() {
-            compositorFirstProductFrame = true;
-            Log.i(WEBVIEW_LOG_TAG, "startup_compositor_first_product_frame");
-          }
-
-          @Override
-          public void onSkipped(String reason) {
-            compositorSkippedNoOwnerEnvelope = true;
-            Log.i(
-                WEBVIEW_LOG_TAG,
-                "startup_compositor_skipped reason=" + (reason != null ? reason : "unknown"));
-          }
-
-          @Override
-          public void onHandoffComplete() {
-            Log.i(WEBVIEW_LOG_TAG, "startup_compositor_handoff_complete");
-            // Ensure splash is released if still held; Home is revealed under yielded surface.
-            requestWebSplashDismiss("startup_compositor_handoff");
-          }
-        });
-    startupCompositorSession.startCold();
-  }
-
 
   @Override
   public void onConfigurationChanged(android.content.res.Configuration newConfig) {
@@ -1253,9 +1201,6 @@ public class MainActivity extends BridgeActivity {
     DibayWebSafeAreaBridge.syncIfPossible(this);
     // Gate 3 Step 11 — Cap prefs must not overwrite versioned App Icon on resume.
     DibayAppIconDeliveryAdapter.applyFromCapBadgeCache(this);
-    if (startupCompositorSession != null) {
-      startupCompositorSession.onForeground();
-    }
   }
 
   @Override
@@ -1265,9 +1210,6 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onStop() {
-    if (startupCompositorSession != null) {
-      startupCompositorSession.onBackground();
-    }
     appVisible = false;
     if (activeInstance == this) activeInstance = null;
     String callId = DibayActiveCallSessionManager.getActiveCallId();
@@ -3192,6 +3134,53 @@ public class MainActivity extends BridgeActivity {
       default:
         return null;
     }
+  }
+
+  /**
+   * R15 ZERO — delete legacy cold-start package dirs under filesDir once.
+   * Paths: dibay-intro-13, dibay-intro, dibay-startup-envelope, dibay-system-start, opening-pack.
+   */
+  private void purgeObsoleteIntroSystemStartLocalStateOnce() {
+    SharedPreferences prefs = getSharedPreferences(R15_PURGE_PREFS, MODE_PRIVATE);
+    if (prefs.getBoolean(R15_INTRO_ZERO_PURGED_V1, false)) {
+      return;
+    }
+    java.io.File filesDir = getFilesDir();
+    String[] relativeDirs = {
+      "dibay-intro-13",
+      "dibay-intro",
+      "dibay-startup-envelope",
+      "dibay-system-start",
+      "opening-pack"
+    };
+    for (String rel : relativeDirs) {
+      purgeObsoleteDirQuiet(new java.io.File(filesDir, rel), rel);
+    }
+    prefs.edit().putBoolean(R15_INTRO_ZERO_PURGED_V1, true).apply();
+  }
+
+  private void purgeObsoleteDirQuiet(java.io.File dir, String label) {
+    if (dir == null || !dir.exists()) {
+      return;
+    }
+    try {
+      deleteFileTreeQuiet(dir);
+      Log.i(R15_PURGE_LOG_TAG, "purged label=" + label + " path=" + dir.getAbsolutePath());
+    } catch (Exception e) {
+      Log.w(R15_PURGE_LOG_TAG, "purge_failed label=" + label + " path=" + dir.getAbsolutePath(), e);
+    }
+  }
+
+  private static void deleteFileTreeQuiet(java.io.File file) {
+    if (file.isDirectory()) {
+      java.io.File[] children = file.listFiles();
+      if (children != null) {
+        for (java.io.File child : children) {
+          deleteFileTreeQuiet(child);
+        }
+      }
+    }
+    file.delete();
   }
 
 }

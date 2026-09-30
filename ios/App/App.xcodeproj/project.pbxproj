@@ -12,7 +12,6 @@
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
-		C7SCMP022FED79650016851F /* DibayStartupCompositorHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7SCMP012FED79650016851F /* DibayStartupCompositorHost.swift */; };
 		C7ROOT022FED79650016851F /* DibayRootBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ROOT012FED79650016851F /* DibayRootBridgeViewController.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
@@ -20,10 +19,6 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A6DDD7AA2E1E4F6FA98297C1 /* (null) in Resources */ = {isa = PBXBuildFile; };
 		A8EE2F3F5E3040B184409076 /* (null) in Resources */ = {isa = PBXBuildFile; };
-		C713F0022FED79650016851F /* DibayIntroFitGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C713F0012FED79650016851F /* DibayIntroFitGeometry.swift */; };
-		C713F0042FED79650016851F /* DibayIntroPackModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C713F0032FED79650016851F /* DibayIntroPackModel.swift */; };
-		C713F0062FED79650016851F /* DibayIntroVerifiedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C713F0052FED79650016851F /* DibayIntroVerifiedStore.swift */; };
-		C713F0082FED79650016851F /* DibayIntroLiveDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C713F0072FED79650016851F /* DibayIntroLiveDelivery.swift */; };
 		C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */; };
 		C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */; };
 		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
@@ -71,9 +66,6 @@
 		C7PUSH0322FED79650016851F /* IncomingCallCallerIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */; };
 		C7RING0022FED79650016851F /* NativeOutgoingRingbackOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */; };
 		C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */ = {isa = PBXBuildFile; fileRef = C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */; };
-		C7SSB0022FED79650016851F /* DibaySystemStartVerifiedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7SSB0012FED79650016851F /* DibaySystemStartVerifiedStore.swift */; };
-		C7SSB0042FED79650016851F /* DibaySystemStartLiveDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7SSB0032FED79650016851F /* DibaySystemStartLiveDelivery.swift */; };
-		C7SST0022FED79650016851F /* system_start_timing.json in Resources */ = {isa = PBXBuildFile; fileRef = C7SST0012FED79650016851F /* system_start_timing.json */; };
 		C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */; };
 		C7VID0122FED79650016851F /* NativeVideoCallOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */; };
 		C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0212FED79650016851F /* NativeVideoCallLog.swift */; };
@@ -128,10 +120,6 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
-		C713F0012FED79650016851F /* DibayIntroFitGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroFitGeometry.swift; sourceTree = "<group>"; };
-		C713F0032FED79650016851F /* DibayIntroPackModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroPackModel.swift; sourceTree = "<group>"; };
-		C713F0052FED79650016851F /* DibayIntroVerifiedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroVerifiedStore.swift; sourceTree = "<group>"; };
-		C713F0072FED79650016851F /* DibayIntroLiveDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayIntroLiveDelivery.swift; sourceTree = "<group>"; };
 		C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppleAuthPlugin.swift; sourceTree = "<group>"; };
 		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayActiveCallSessionManager.swift; sourceTree = "<group>"; };
@@ -148,6 +136,7 @@
 		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
 		C7KAK0202AAA248700AAC8A2 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = release.xcconfig; path = ../release.xcconfig; sourceTree = SOURCE_ROOT; };
 		C7KBD0012FED79650016851F /* DibayWebViewKeyboardChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayWebViewKeyboardChrome.swift; sourceTree = "<group>"; };
+		C7ROOT012FED79650016851F /* DibayRootBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayRootBridgeViewController.swift; sourceTree = "<group>"; };
 		C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayMemberEventEligibilityStore.swift; sourceTree = "<group>"; };
 		C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoiceMicrophonePermission.swift; sourceTree = "<group>"; };
 		C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessengerPhotoLibraryPlugin.swift; sourceTree = "<group>"; };
@@ -180,9 +169,6 @@
 		C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallCallerIdentity.swift; sourceTree = "<group>"; };
 		C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutgoingRingbackOwner.swift; sourceTree = "<group>"; };
 		C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CallKitSilentRingtone.caf; sourceTree = "<group>"; };
-		C7SSB0012FED79650016851F /* DibaySystemStartVerifiedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibaySystemStartVerifiedStore.swift; sourceTree = "<group>"; };
-		C7SSB0032FED79650016851F /* DibaySystemStartLiveDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibaySystemStartLiveDelivery.swift; sourceTree = "<group>"; };
-		C7SST0012FED79650016851F /* system_start_timing.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = system_start_timing.json; sourceTree = "<group>"; };
 		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
 		C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallOwner.swift; sourceTree = "<group>"; };
 		C7VID0212FED79650016851F /* NativeVideoCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallLog.swift; sourceTree = "<group>"; };
@@ -246,10 +232,8 @@
 			isa = PBXGroup;
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
-				C7SST0012FED79650016851F /* system_start_timing.json */,
 				C7B5J0012FED79650016851F /* dibay-call-lane.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
-				C7SCMP012FED79650016851F /* DibayStartupCompositorHost.swift */,
 				C7ROOT012FED79650016851F /* DibayRootBridgeViewController.swift */,
 				C7KBD0012FED79650016851F /* DibayWebViewKeyboardChrome.swift */,
 				C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */,
@@ -287,12 +271,6 @@
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
-				C713F0012FED79650016851F /* DibayIntroFitGeometry.swift */,
-				C713F0032FED79650016851F /* DibayIntroPackModel.swift */,
-				C713F0052FED79650016851F /* DibayIntroVerifiedStore.swift */,
-				C713F0072FED79650016851F /* DibayIntroLiveDelivery.swift */,
-				C7SSB0012FED79650016851F /* DibaySystemStartVerifiedStore.swift */,
-				C7SSB0032FED79650016851F /* DibaySystemStartLiveDelivery.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
 			);
@@ -472,7 +450,6 @@
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
-				C7SST0022FED79650016851F /* system_start_timing.json in Resources */,
 				C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */,
 				C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
@@ -499,7 +476,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
-				C7SCMP022FED79650016851F /* DibayStartupCompositorHost.swift in Sources */,
 				C7ROOT022FED79650016851F /* DibayRootBridgeViewController.swift in Sources */,
 				C7KBD0022FED79650016851F /* DibayWebViewKeyboardChrome.swift in Sources */,
 				C7PUSH0322FED79650016851F /* IncomingCallCallerIdentity.swift in Sources */,
@@ -556,12 +532,6 @@
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
-				C713F0022FED79650016851F /* DibayIntroFitGeometry.swift in Sources */,
-				C713F0042FED79650016851F /* DibayIntroPackModel.swift in Sources */,
-				C713F0062FED79650016851F /* DibayIntroVerifiedStore.swift in Sources */,
-				C713F0082FED79650016851F /* DibayIntroLiveDelivery.swift in Sources */,
-				C7SSB0022FED79650016851F /* DibaySystemStartVerifiedStore.swift in Sources */,
-				C7SSB0042FED79650016851F /* DibaySystemStartLiveDelivery.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
 			);

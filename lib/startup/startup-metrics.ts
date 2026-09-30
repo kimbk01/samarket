@@ -368,7 +368,7 @@ export function markInitialDestinationVisualReady(): void {
 
 /**
  * Notify native Intro runtime that Home is presentation-ready.
- * Consumer: Android MainActivity / iOS DibayStartupBridge — last-frame hold release.
+ * Consumer: Android MainActivity DibayBootBridge (REBUILD 14 ZERO: no iOS StartupBridge).
  */
 function notifyNativeHomePresentationReady(): void {
   if (typeof window === "undefined") return;

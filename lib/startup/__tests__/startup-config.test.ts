@@ -14,7 +14,6 @@ import {
   persistStartupConfigCache,
 } from "@/lib/startup/startup-config-client";
 import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
-import { buildStartupBootDocumentHtml, buildStartupIntroMarkup } from "@/lib/startup/startup-shell-markup";
 
 describe("normalizeStartupConfig", () => {
   it("returns bundled defaults for null", () => {
@@ -123,40 +122,11 @@ describe("startup config client cache", () => {
   });
 });
 
-describe("startup-shell-markup", () => {
-  it("builds self-contained boot document with single location.replace and handoff cover", () => {
-    const html = buildStartupBootDocumentHtml({
-      logoSrc: "data:image/png;base64,AAA",
-      remoteOrigin: "https://samarket.vercel.app",
-    });
-    expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("dibay-startup-nav");
-    expect(html).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
-    expect(html).toContain("location.replace");
-    expect(html.match(/location\.replace/g)?.length).toBe(1);
-    expect(html).toContain("beginHandoffCover");
-    expect(html).toContain("hideIntroShowShell");
-    expect(html).toContain("requestAnimationFrame");
-    expect(html).not.toContain("src=\"http");
-  });
-
-  it("keeps web intro markup stub even when legacy enabled flags are set (Web Intro = 0)", () => {
-    const frag = buildStartupIntroMarkup({
-      logoSrc: "/images/brand/x.png",
-      config: { ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false },
-    });
-    expect(frag).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
-    expect(frag).toContain("hidden");
-    expect(frag).not.toContain("/images/brand/x.png");
-    expect(isStartupIntroActive({ ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false })).toBe(
-      false
-    );
-  });
-
-  it("builds hidden intro stub when web intro disabled (product default)", () => {
-    const frag = buildStartupIntroMarkup({ logoSrc: "/images/brand/x.png" });
-    expect(frag).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
-    expect(frag).toContain("hidden");
-    expect(frag).not.toContain("/images/brand/x.png");
+describe("startup intro authority (R15 ZERO)", () => {
+  it("never activates Intro presentation", () => {
+    expect(isStartupIntroActive(BUNDLED_STARTUP_CONFIG)).toBe(false);
+    expect(
+      isStartupIntroActive({ ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false })
+    ).toBe(false);
   });
 });

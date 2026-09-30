@@ -41,7 +41,7 @@ describe("local-runtime-state", () => {
   });
 
   it("rejects forbidden and rewind", () => {
-    expect(transitionLocalRuntimeState("INTRO_VISIBLE", "BLANK").ok).toBe(false);
+    expect(transitionLocalRuntimeState("LOCAL_SHELL_READY", "BLANK").ok).toBe(false);
     expect(transitionLocalRuntimeState("APP_READY", "INTRO_VISIBLE").ok).toBe(false);
   });
 
@@ -55,26 +55,24 @@ describe("local-runtime-state", () => {
     ).toBe(true);
   });
 
-  it("state machine reaches INTRO_REMOVED", () => {
+  it("state machine reaches APP_READY without Intro states", () => {
     const sm = new LocalRuntimeStateMachine();
     const path = [
       "LOCAL_RUNTIME_LOADING",
       "LOCAL_RUNTIME_PAINTED",
-      "INTRO_VISIBLE",
       "LOCAL_SHELL_READY",
       "REMOTE_DATA_CONNECTING",
       "APP_READY",
-      "INTRO_REMOVED",
     ] as const;
     for (const s of path) {
       expect(sm.transition(s).ok).toBe(true);
     }
-    expect(sm.getState()).toBe("INTRO_REMOVED");
+    expect(sm.getState()).toBe("APP_READY");
   });
 });
 
 describe("local-runtime-markup", () => {
-  it("builds document without Hybrid handoff / Cover", () => {
+  it("builds document without Hybrid handoff / Cover / Intro", () => {
     const html = buildLocalRuntimeDocumentHtml({
       remoteApiOrigin: "https://samarket.vercel.app",
       logoSrc: "data:image/png;base64,xx",
@@ -84,6 +82,8 @@ describe("local-runtime-markup", () => {
     expect(html).toContain("dibay-startup-nav");
     expect(html).not.toContain("beginHandoffCover");
     expect(html).not.toContain("__dibay-startup");
+    expect(html).not.toContain("dibay-startup-intro");
+    expect(html).not.toMatch(/STATES\s*=\s*\[[^\]]*INTRO_VISIBLE/);
     expect(html).not.toMatch(/location\.replace\s*\(\s*url\s*\)/);
   });
 });

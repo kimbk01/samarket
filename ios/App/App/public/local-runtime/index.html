@@ -9,7 +9,6 @@
 <style>:root{--sam-bg-app:#FFFCFC;--sam-fg:#0B421A;--sam-muted:#5C6B63;--sam-border:#E6EBE8;--sam-surface:#FFFFFF;--sam-primary:#0B421A;--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px)}
 html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(--sam-fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
-#dibay-startup-root{min-height:100%;display:flex;flex-direction:column;background:var(--sam-bg-app)}
 #dibay-startup-header{flex:0 0 auto;padding:calc(12px + var(--safe-top)) 16px 12px;border-bottom:1px solid var(--sam-border);background:var(--sam-surface);display:flex;align-items:center;gap:10px;min-height:52px}
 #dibay-startup-header .title{font-size:17px;font-weight:700;letter-spacing:-0.01em}
 #dibay-startup-header .user{margin-left:auto;font-size:13px;color:var(--sam-muted);max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -19,17 +18,8 @@ html,body{margin:0;padding:0;height:100%;background:var(--sam-bg-app);color:var(
 #dibay-startup-nav button{appearance:none;border:0;background:transparent;color:var(--sam-muted);flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;font-size:10px;font-weight:600;cursor:pointer}
 #dibay-startup-nav button[aria-current="page"]{color:var(--sam-primary)}
 #dibay-startup-nav button svg{display:block}
-#dibay-startup-intro{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#FFFCFC;pointer-events:none}
-#dibay-startup-intro[hidden]{display:none!important}
-.dibay-startup-logo{width:72px;height:72px;object-fit:contain}
-.dibay-startup-wordmark{margin:0;font-size:15px;font-weight:700;letter-spacing:0.08em;color:#0B421A}
-.dibay-startup-subtitle{display:none;margin:0;font-size:13px;font-weight:500;letter-spacing:0.02em;color:#0B421A;opacity:0.72;max-width:80vw;text-align:center}
-.dibay-startup-spinner{width:22px;height:22px;border-radius:9999px;border:2px solid rgba(11,66,26,0.22);border-top-color:#0B421A;animation:dibay-spin 0.8s linear infinite}
-@keyframes dibay-spin{to{transform:rotate(360deg)}}
 @media (prefers-color-scheme: dark){
-  :root{--sam-bg-app:#12161d;--sam-fg:#F2F5F3;--sam-muted:#A7B2AB;--sam-border:#2A323C;--sam-surface:#1A2028;--sam-primary:#8FCB9B}
-  .dibay-startup-wordmark,.dibay-startup-subtitle{color:#8FCB9B}
-  .dibay-startup-spinner{border-color:rgba(143,203,155,0.28);border-top-color:#8FCB9B}
+  :root{--sam-bg-app:#12161d;--sam-fg:#E8EFE9;--sam-muted:#9AA89F;--sam-border:#2A3230;--sam-surface:#1A1F24;--sam-primary:#8FCB9B}
 }
 #dibay-local-runtime-root{min-height:100%;display:flex;flex-direction:column;background:var(--sam-bg-app)}
 html,body{background:#FFFCFC}
@@ -46,13 +36,12 @@ html,body{background:#FFFCFC}
   </main>
   <nav id="dibay-startup-nav" aria-label="Main"><button type="button" data-href="/philife" aria-current="page"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>커뮤니티</span></button><button type="button" data-href="/market"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span>거래</span></button><button type="button" data-href="/stores"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/><path d="M2 4h20"/></svg><span>배달</span></button><button type="button" data-href="/community-messenger?section=chats&amp;inbox=unread"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span>채팅</span></button><button type="button" data-href="/mypage"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>마이</span></button></nav>
 </div>
-<div id="dibay-startup-intro" data-dibay-startup-intro="1" data-local-runtime-intro="1" hidden aria-hidden="true"></div>
 <script>(function(){
   "use strict";
   window.__DIBAY_LOCAL_RUNTIME__ = true;
   window.__DIBAY_REMOTE_API_ORIGIN__ = "https://samarket.vercel.app";
-  var STATES = ["NATIVE_LAUNCH","LOCAL_RUNTIME_LOADING","LOCAL_RUNTIME_PAINTED","INTRO_VISIBLE","LOCAL_SHELL_READY","REMOTE_DATA_CONNECTING","APP_READY","INTRO_REMOVED"];
-  var FORBIDDEN = {REMOTE_DOCUMENT_LOADING:1,SECOND_INTRO:1,HANDOFF_COVER_AS_NORMAL_FLOW:1,BLANK:1,BLACK:1};
+  var STATES = ["NATIVE_LAUNCH","LOCAL_RUNTIME_LOADING","LOCAL_RUNTIME_PAINTED","LOCAL_SHELL_READY","REMOTE_DATA_CONNECTING","APP_READY"];
+  var FORBIDDEN = {REMOTE_DOCUMENT_LOADING:1,SECOND_INTRO:1,HANDOFF_COVER_AS_NORMAL_FLOW:1,BLANK:1,BLACK:1,INTRO_VISIBLE:1};
   var idx = {};
   for (var i=0;i<STATES.length;i++) idx[STATES[i]] = i;
   var state = "NATIVE_LAUNCH";
@@ -73,13 +62,6 @@ html,body{background:#FFFCFC}
     emit(state);
     return true;
   }
-  function hideIntro(){
-    var el = document.getElementById("dibay-startup-intro");
-    if (!el) return;
-    el.setAttribute("hidden","");
-    el.setAttribute("aria-hidden","true");
-    el.setAttribute("data-ready","1");
-  }
   function dismissNativeSplash(){
     try{
       if (window.DibayBootBridge && typeof window.DibayBootBridge.dismissSplash === "function") {
@@ -96,13 +78,11 @@ html,body{background:#FFFCFC}
     var origin = window.__DIBAY_REMOTE_API_ORIGIN__ || "";
     if (!origin) return;
     try{
-      // Connectivity probe only — must never navigate the main frame.
       fetch(origin + "/api/app/startup-config", { method: "GET", credentials: "omit", cache: "no-store" })
         .then(function(){})
         .catch(function(){});
     }catch(e){}
   }
-  // Hard ban: no remote document replace / assign on this runtime.
   try{
     if (typeof location !== "undefined" && location.replace) {
       var _replace = location.replace.bind(location);
@@ -120,14 +100,10 @@ html,body{background:#FFFCFC}
   transition("LOCAL_RUNTIME_LOADING");
   paintShell();
   transition("LOCAL_RUNTIME_PAINTED");
-  transition("INTRO_VISIBLE");
   transition("LOCAL_SHELL_READY");
   transition("REMOTE_DATA_CONNECTING");
   beginRemoteData();
-  // App Ready: local root + shell painted + no fatal error (do not wait for probe).
   transition("APP_READY");
-  hideIntro();
-  transition("INTRO_REMOVED");
 
   document.addEventListener("click", function(ev){
     var t = ev.target;

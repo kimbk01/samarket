@@ -12,26 +12,58 @@ import {
   normalizeInitialAppSurface,
   type InitialAppSurface,
 } from "@/lib/startup/initial-app-surface";
-import {
-  STARTUP_AMBIENT_ANIMATIONS,
-  STARTUP_BG_IMAGE_FITS,
-  STARTUP_BG_TYPES,
-  STARTUP_ENTER_ANIMATIONS,
-  STARTUP_EXIT_ANIMATIONS,
-  STARTUP_LOGO_VERTICAL,
-  STARTUP_LOGO_WIDTH_PRESETS,
-  STARTUP_SPINNER_STYLES,
-  clampStartupAnimDurationMs,
-  pickEnum,
-  type StartupAmbientAnimation,
-  type StartupBgImageFit,
-  type StartupBgType,
-  type StartupEnterAnimation,
-  type StartupExitAnimation,
-  type StartupLogoVertical,
-  type StartupLogoWidthPreset,
-  type StartupSpinnerStyle,
-} from "@/lib/startup/startup-intro-visual";
+/** Dead-field enums only — no Intro/System Start paint authority (R15 ZERO). */
+const STARTUP_LOGO_WIDTH_PRESETS = ["small", "medium", "large", "custom"] as const;
+type StartupLogoWidthPreset = (typeof STARTUP_LOGO_WIDTH_PRESETS)[number];
+const STARTUP_LOGO_VERTICAL = ["upper", "center", "lower"] as const;
+type StartupLogoVertical = (typeof STARTUP_LOGO_VERTICAL)[number];
+const STARTUP_BG_TYPES = ["solid", "gradient", "image"] as const;
+type StartupBgType = (typeof STARTUP_BG_TYPES)[number];
+const STARTUP_BG_IMAGE_FITS = ["cover", "contain", "center"] as const;
+type StartupBgImageFit = (typeof STARTUP_BG_IMAGE_FITS)[number];
+const STARTUP_ENTER_ANIMATIONS = [
+  "none",
+  "fade_in",
+  "scale_in",
+  "fade_scale_in",
+  "slide_up",
+  "slide_down",
+] as const;
+type StartupEnterAnimation = (typeof STARTUP_ENTER_ANIMATIONS)[number];
+const STARTUP_EXIT_ANIMATIONS = [
+  "none",
+  "fade_out",
+  "scale_out",
+  "fade_scale_out",
+  "slide_up",
+] as const;
+type StartupExitAnimation = (typeof STARTUP_EXIT_ANIMATIONS)[number];
+const STARTUP_AMBIENT_ANIMATIONS = ["none", "soft_pulse", "breathing", "spinner"] as const;
+type StartupAmbientAnimation = (typeof STARTUP_AMBIENT_ANIMATIONS)[number];
+const STARTUP_SPINNER_STYLES = ["ring", "dots", "bar"] as const;
+type StartupSpinnerStyle = (typeof STARTUP_SPINNER_STYLES)[number];
+
+function clampStartupAnimDurationMs(value: unknown, fallback: number): number {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value)
+        : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(1200, Math.max(150, Math.trunc(n)));
+}
+
+function pickEnum<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T
+): T {
+  if (typeof value === "string" && (allowed as readonly string[]).includes(value)) {
+    return value as T;
+  }
+  return fallback;
+}
 
 export const STARTUP_CONFIG_SETTINGS_KEY = "startup_config_v1" as const;
 export const STARTUP_CONFIG_LOCAL_STORAGE_KEY = "dibay:startup:config";

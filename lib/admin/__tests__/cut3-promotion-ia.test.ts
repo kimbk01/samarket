@@ -35,20 +35,19 @@ function read(rel: string): string {
 }
 
 describe("CUT3 Promotion IA navigation", () => {
-  it("exposes promotion workspace with intro + 5 children + home", () => {
+  it("exposes promotion workspace with home + 5 children (intro burned R15 ZERO)", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
     expect(keys).toEqual([
       "promotion-home",
-      "promotion-intro",
       "promotion-events",
       "promotion-popup",
       "promotion-banners",
       "promotion-notifications",
       "promotion-owner-requests",
     ]);
-    expect(keys).toContain("promotion-intro");
+    expect(keys).not.toContain("promotion-intro");
     const publicAds = filterMenuForPublicSidebar(
       findAdminMenuByKey(adminMenu, "ads")?.children ?? []
     ).map((c) => c.key);

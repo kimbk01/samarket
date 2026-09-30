@@ -1,13 +1,11 @@
 /**
  * DIBAY Local Runtime Startup — shared state machine (Android / iOS identical).
  *
- * @see docs/dibay-local-runtime-startup-rearchitecture.md §4
- *
- * CONTRACT:
+ * CONTRACT (R15 ZERO):
  * - One-way transitions only.
- * - Duplicate events are idempotent (no rewind, no double side-effects).
+ * - No Intro / System Start product states.
  * - Forbidden as normal path: REMOTE_DOCUMENT_LOADING, SECOND_INTRO,
- *   HANDOFF_COVER_AS_NORMAL_FLOW, BLANK, BLACK.
+ *   HANDOFF_COVER_AS_NORMAL_FLOW, BLANK, BLACK, INTRO_VISIBLE, INTRO_REMOVED.
  * - No fixed-timeout transitions.
  */
 
@@ -15,11 +13,9 @@ export const LOCAL_RUNTIME_STATES = [
   "NATIVE_LAUNCH",
   "LOCAL_RUNTIME_LOADING",
   "LOCAL_RUNTIME_PAINTED",
-  "INTRO_VISIBLE",
   "LOCAL_SHELL_READY",
   "REMOTE_DATA_CONNECTING",
   "APP_READY",
-  "INTRO_REMOVED",
 ] as const;
 
 export type LocalRuntimeState = (typeof LOCAL_RUNTIME_STATES)[number];
@@ -31,6 +27,8 @@ export const LOCAL_RUNTIME_FORBIDDEN_STATES = [
   "HANDOFF_COVER_AS_NORMAL_FLOW",
   "BLANK",
   "BLACK",
+  "INTRO_VISIBLE",
+  "INTRO_REMOVED",
 ] as const;
 
 export type LocalRuntimeForbiddenState = (typeof LOCAL_RUNTIME_FORBIDDEN_STATES)[number];
@@ -39,35 +37,39 @@ const STATE_INDEX: Record<LocalRuntimeState, number> = {
   NATIVE_LAUNCH: 0,
   LOCAL_RUNTIME_LOADING: 1,
   LOCAL_RUNTIME_PAINTED: 2,
-  INTRO_VISIBLE: 3,
-  LOCAL_SHELL_READY: 4,
-  REMOTE_DATA_CONNECTING: 5,
-  APP_READY: 6,
-  INTRO_REMOVED: 7,
+  LOCAL_SHELL_READY: 3,
+  REMOTE_DATA_CONNECTING: 4,
+  APP_READY: 5,
 };
 
 /** Allowed next states (forward only, including self for idempotent re-entry). */
 const ALLOWED_NEXT: Record<LocalRuntimeState, ReadonlySet<LocalRuntimeState>> = {
   NATIVE_LAUNCH: new Set(["NATIVE_LAUNCH", "LOCAL_RUNTIME_LOADING"]),
   LOCAL_RUNTIME_LOADING: new Set(["LOCAL_RUNTIME_LOADING", "LOCAL_RUNTIME_PAINTED"]),
-  LOCAL_RUNTIME_PAINTED: new Set(["LOCAL_RUNTIME_PAINTED", "INTRO_VISIBLE"]),
-  INTRO_VISIBLE: new Set(["INTRO_VISIBLE", "LOCAL_SHELL_READY"]),
+  LOCAL_RUNTIME_PAINTED: new Set(["LOCAL_RUNTIME_PAINTED", "LOCAL_SHELL_READY"]),
   LOCAL_SHELL_READY: new Set(["LOCAL_SHELL_READY", "REMOTE_DATA_CONNECTING"]),
   REMOTE_DATA_CONNECTING: new Set(["REMOTE_DATA_CONNECTING", "APP_READY"]),
-  APP_READY: new Set(["APP_READY", "INTRO_REMOVED"]),
-  INTRO_REMOVED: new Set(["INTRO_REMOVED"]),
+  APP_READY: new Set(["APP_READY"]),
 };
 
 export type LocalRuntimeTransitionResult =
   | { ok: true; from: LocalRuntimeState; to: LocalRuntimeState; advanced: boolean }
-  | { ok: false; from: LocalRuntimeState; attempted: string; reason: "forbidden" | "rewind" | "unknown" };
+  | {
+      ok: false;
+      from: LocalRuntimeState;
+      attempted: string;
+      reason: "forbidden" | "rewind" | "unknown";
+    };
 
 export function isLocalRuntimeState(value: unknown): value is LocalRuntimeState {
   return typeof value === "string" && (LOCAL_RUNTIME_STATES as readonly string[]).includes(value);
 }
 
 export function isLocalRuntimeForbiddenState(value: unknown): value is LocalRuntimeForbiddenState {
-  return typeof value === "string" && (LOCAL_RUNTIME_FORBIDDEN_STATES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (LOCAL_RUNTIME_FORBIDDEN_STATES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -136,7 +138,7 @@ export class LocalRuntimeStateMachine {
     if (this.state === "REMOTE_DATA_CONNECTING") {
       return this.transition("APP_READY");
     }
-    if (this.state === "APP_READY" || this.state === "INTRO_REMOVED") {
+    if (this.state === "APP_READY") {
       return { ok: true, from: this.state, to: this.state, advanced: false };
     }
     return { ok: false, from: this.state, attempted: "APP_READY", reason: "rewind" };

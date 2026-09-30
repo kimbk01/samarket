@@ -35,7 +35,7 @@ const required = [
   "app/api/app/startup-config/route.ts",
   "app/api/admin/startup-config/route.ts",
   "app/admin/settings/startup-config/page.tsx",
-  "ios/App/App/DibayStartupBridgeViewController.swift",
+  "ios/App/App/DibayRootBridgeViewController.swift",
   "android/app/src/main/res/values/styles.xml",
   "ios/App/App/Base.lproj/LaunchScreen.storyboard",
 ];
@@ -44,17 +44,25 @@ for (const rel of required) {
 }
 ok("required OS/startup files present");
 
-// Product Intro shell must be gone
+// Product Intro / System Start / compositor must be gone (R15 ZERO)
 for (const rel of [
   "android/app/src/main/assets/dibay-startup.html",
   "ios/App/App/public/dibay-startup.html",
   "capacitor-www/dibay-startup.html",
   "lib/intro",
+  "lib/startup-compositor",
+  "lib/startup/startup-intro-visual.ts",
+  "lib/startup/startup-shell-markup.ts",
   "components/admin/intro",
   "app/admin/intro",
   "app/api/admin/intro",
   "app/api/intro",
   "android/app/src/main/java/com/dibay/app/intro",
+  "android/app/src/main/java/com/dibay/app/DibayStartupCompositorHost.java",
+  "android/app/src/main/java/com/dibay/app/DibayStartupCompositorSession.java",
+  "ios/App/App/DibayStartupCompositorHost.swift",
+  "native/system-start",
+  "config/system-start.build.json",
 ]) {
   if (exists(rel)) fail(`product intro path must be absent: ${rel}`);
 }
@@ -67,7 +75,9 @@ if (!styles.includes("Theme.SplashScreen") && !styles.includes("AppTheme.NoActio
 ok("Android OS Splash theme present");
 
 const launch = read("ios/App/App/Base.lproj/LaunchScreen.storyboard");
-if (!launch.includes("Launch")) fail("iOS LaunchScreen required");
+if (!launch.includes('launchScreen="YES"') && !/LaunchScreen/i.test(launch)) {
+  fail("iOS LaunchScreen required");
+}
 ok("iOS LaunchScreen present");
 
 const capConfig = read("capacitor.config.ts");
@@ -86,16 +96,16 @@ if (!main.includes("beginHandoffCover") || !main.includes("endHandoffCover")) {
 }
 if (/SPLASH_MAX_KEEP_MS/.test(main)) fail("MainActivity must not use timed splash keep");
 if (!/webSplashDismissRequested/.test(main)) fail("MainActivity must use webSplashDismissRequested");
-if (/com\.dibay\.app\.intro|DibayIntro|tryStartDibayIntro|introSessionActive/.test(main)) {
-  fail("MainActivity must not reference Product Intro");
+if (/com\.dibay\.app\.intro|DibayIntro|tryStartDibayIntro|introSessionActive|DibayStartupCompositor/.test(main)) {
+  fail("MainActivity must not reference Product Intro / StartupCompositor");
 }
 ok("Android OS splash boot; Product Intro absent");
 
-const iosVc = read("ios/App/App/DibayStartupBridgeViewController.swift");
-if (/DibayIntro|tryStartAuthoredIntro|introSessionActive|ACTIVE Pack/.test(iosVc)) {
-  fail("iOS startup VC must not reference Product Intro");
+const iosVc = read("ios/App/App/DibayRootBridgeViewController.swift");
+if (/DibayIntro|tryStartAuthoredIntro|introSessionActive|ACTIVE Pack|DibayStartupCompositor/.test(iosVc)) {
+  fail("iOS RootBridge must not reference Product Intro / StartupCompositor");
 }
-ok("iOS startup VC Product Intro absent");
+ok("iOS RootBridge Product Intro absent");
 
 const metrics = read("lib/startup/startup-metrics.ts");
 if (!metrics.includes("markBootMetricsShellReady")) fail("startup-metrics missing shellReady");

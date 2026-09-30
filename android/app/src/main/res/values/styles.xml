@@ -17,18 +17,15 @@
 
 
     <!--
-      Platform Boot Primitive (Layer A) — OS-required, shortest practical.
-      Color-only: brand logo lives on live Layer B System Start only.
-      DO NOT put Admin brand on windowSplashScreenAnimatedIcon (causes double splash).
+      OS_REQUIRED_BOOT_PRIMITIVE — Android 12+ SplashScreen only.
+      No DIBAY Intro / System Start product authority (R15 ZERO).
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <!-- Single SSOT color — do not point android:background at Cap splash.png (white / stale). -->
-        <item name="android:background">@color/dibay_system_start_background</item>
-        <item name="android:windowBackground">@color/dibay_system_start_background</item>
-        <item name="windowSplashScreenBackground">@color/dibay_system_start_background</item>
-        <!-- Neutral fill matching BG — no brand remount before Layer B. -->
+        <item name="android:background">@color/dibay_app_bg</item>
+        <item name="android:windowBackground">@color/dibay_app_bg</item>
+        <item name="windowSplashScreenBackground">@color/dibay_app_bg</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_neutral</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_system_start_background</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/dibay_app_bg</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 

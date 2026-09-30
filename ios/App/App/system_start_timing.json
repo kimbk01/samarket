@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "backgroundColor": "#0A4D8C",
-  "SYSTEM_START_MIN_VISIBLE_MS": 2000,
-  "buildIdentity": "ss_r13_0A4D8C_sha256:f995e5322ec_2000",
-  "appliesTo": "App_Cap_continuation",
-  "doesNotApplyTo": "OS_LaunchScreen_duration"
-}

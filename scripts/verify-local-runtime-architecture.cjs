@@ -27,15 +27,20 @@ for (const s of [
   "NATIVE_LAUNCH",
   "LOCAL_RUNTIME_LOADING",
   "LOCAL_RUNTIME_PAINTED",
-  "INTRO_VISIBLE",
   "LOCAL_SHELL_READY",
   "REMOTE_DATA_CONNECTING",
   "APP_READY",
-  "INTRO_REMOVED",
 ]) {
-  if (!state.includes(s)) fail(`state machine missing ${s}`);
+  if (!state.includes(`"${s}"`)) fail(`state machine missing ${s}`);
 }
 if (!state.includes("REMOTE_DOCUMENT_LOADING")) fail("must list forbidden REMOTE_DOCUMENT_LOADING");
+if (!state.includes("INTRO_VISIBLE")) fail("must forbid INTRO_VISIBLE (R15 ZERO)");
+// Product Intro states must not be active machine members (only in FORBIDDEN list)
+const statesBlock = state.match(/export const LOCAL_RUNTIME_STATES = \[([\s\S]*?)\];/);
+if (!statesBlock) fail("LOCAL_RUNTIME_STATES block missing");
+if (statesBlock[1].includes("INTRO_VISIBLE") || statesBlock[1].includes("INTRO_REMOVED")) {
+  fail("INTRO_* must not be active LOCAL_RUNTIME_STATES members");
+}
 ok("state machine SSOT");
 
 const flag = read("lib/startup/local-runtime-flag.ts");
@@ -48,6 +53,12 @@ const markup = read("lib/startup/local-runtime-markup.ts");
 if (markup.includes("beginHandoffCover")) fail("local-runtime-markup must not use Cover handoff");
 if (markup.includes("__dibay-startup")) fail("local-runtime-markup must not use Hybrid boot path");
 if (!markup.includes("__DIBAY_LOCAL_RUNTIME__")) fail("local-runtime-markup must set local flag");
+if (markup.includes("dibay-startup-intro") || markup.includes("data-local-runtime-intro")) {
+  fail("local-runtime-markup must not include Intro product surface");
+}
+if (/STATES\s*=\s*\[[^\]]*INTRO_VISIBLE/.test(markup)) {
+  fail("local-runtime-markup must not advance through INTRO_VISIBLE");
+}
 ok("local-runtime-markup contract");
 
 const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
