@@ -3,12 +3,9 @@
  * Does NOT mutate OS Splash / LaunchScreen binaries.
  */
 
-import { randomUUID, createHash } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { APP_INTRO_STORAGE_BUCKET } from "@/lib/intro/db/authority";
-import { getReadyRuntimeForMedia } from "@/lib/intro/media/service";
-import { getSystemStartConfig } from "@/lib/intro/system-start/service";
-import { BRAND_SIZE_NORM } from "@/lib/intro/system-start/contract";
 
 export type SystemStartLiveConfig = {
   schemaVersion: 1;
@@ -111,101 +108,15 @@ export async function getSystemStartLiveStatus(
   };
 }
 
+/**
+ * R14-P6 FINAL: shadow writer removed.
+ * Product route returns 409; this lower-level entry must not mutate Live.
+ */
 export async function applySystemStartLive(
-  sb: SupabaseClient,
-  args: { userId: string },
+  _sb: SupabaseClient,
+  _args: { userId: string },
 ): Promise<SystemStartLiveStatus> {
-  const { nextBuild } = await getSystemStartConfig(sb);
-  const generationId = randomUUID();
-  const assets: SystemStartLiveConfig["assets"] = {};
-
-  const mediaIds = new Set<string>();
-  if (nextBuild.brandAssetEnabled && nextBuild.brandAssetMediaId) {
-    mediaIds.add(nextBuild.brandAssetMediaId);
-  }
-  const bgImageId = nextBuild.backgroundImageMediaId;
-  if (bgImageId) mediaIds.add(bgImageId);
-
-  for (const mediaId of mediaIds) {
-    const runtime = await getReadyRuntimeForMedia(sb, mediaId);
-    if (!runtime) throw new Error(`media_not_ready:${mediaId}`);
-    const rel = `media/${mediaId}.${runtime.ext}`;
-    const sealedPath = `authority/v1/system-start/sealed/${generationId}/${rel}`;
-    const { error: upErr } = await sb.storage
-      .from(APP_INTRO_STORAGE_BUCKET)
-      .upload(sealedPath, runtime.bytes, {
-        contentType: runtime.mime || "application/octet-stream",
-        upsert: true,
-      });
-    if (upErr) throw new Error(`ss_seal_upload:${upErr.message}`);
-    assets[mediaId] = {
-      relativePath: rel,
-      integrity: runtime.integrity,
-      width: runtime.width,
-      height: runtime.height,
-      format: runtime.format,
-    };
-  }
-
-  const config: SystemStartLiveConfig = {
-    schemaVersion: 1,
-    generationId,
-    revision: nextBuild.revision,
-    backgroundColor: nextBuild.backgroundColor,
-    backgroundImageMediaId: bgImageId ?? null,
-    brandAssetEnabled: nextBuild.brandAssetEnabled,
-    brandAssetMediaId: nextBuild.brandAssetMediaId,
-    brandSizePreset: nextBuild.brandSizePreset,
-    brandSizeNorm: BRAND_SIZE_NORM[nextBuild.brandSizePreset],
-    brandXNorm: nextBuild.brandXNorm,
-    brandYNorm: nextBuild.brandYNorm,
-    minVisibleMs: nextBuild.minVisibleMs,
-    assets,
-  };
-
-  const configBytes = Buffer.from(JSON.stringify(config), "utf8");
-  const packageIntegrity = sha256Hex(configBytes);
-  const storagePath = `authority/v1/system-start/packs/${generationId}/config.json`;
-  const { error: packErr } = await sb.storage
-    .from(APP_INTRO_STORAGE_BUCKET)
-    .upload(storagePath, configBytes, {
-      contentType: "application/json",
-      upsert: true,
-    });
-  if (packErr) throw new Error(`ss_pack_upload:${packErr.message}`);
-
-  const { error: liveErr } = await sb.from("app_system_start_live").upsert(
-    {
-      singleton: true,
-      live_kind: "COMMITTED_LIVE",
-      generation_id: generationId,
-      source_revision: nextBuild.revision,
-      config,
-      package_integrity: packageIntegrity,
-      storage_bucket: APP_INTRO_STORAGE_BUCKET,
-      storage_path: storagePath,
-      set_live_at: new Date().toISOString(),
-      set_live_by: args.userId,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "singleton" },
-  );
-  if (liveErr) throw new Error(liveErr.message);
-
-  // Stamp materialized projection so next native build (Layer A) matches Live B appearance.
-  const { error: stampErr } = await sb
-    .from("app_system_start_config")
-    .update({
-      materialized_revision: nextBuild.revision,
-      materialized_background_color: nextBuild.backgroundColor,
-      materialized_brand_asset_enabled: nextBuild.brandAssetEnabled,
-      materialized_brand_asset_media_id: nextBuild.brandAssetMediaId,
-      materialized_brand_size_preset: nextBuild.brandSizePreset,
-      materialized_min_visible_ms: nextBuild.minVisibleMs,
-      materialized_at: new Date().toISOString(),
-    })
-    .eq("id", 1);
-  if (stampErr) throw new Error(stampErr.message);
-
-  return getSystemStartLiveStatus(sb);
+  throw Object.assign(new Error("system_start_separate_apply_retired"), {
+    status: 409,
+  });
 }

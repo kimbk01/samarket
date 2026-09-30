@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { startupEnvelopeStoragePath } from "@/lib/intro/live/apply-intent";
 
 const BUCKET = "dibay-intro";
+
+export type LivePackageAuthority =
+  | "StartupPackageEnvelope"
+  | "IntroRuntimePackageV1_LEGACY";
 
 export type LiveStatus =
   | { kind: "NO_LIVE" }
@@ -9,7 +14,19 @@ export type LiveStatus =
       releaseId: string;
       packageId: string;
       packageIntegrity: string;
+      /**
+       * Canonical runtime package authority for P7/native.
+       * When StartupPackageEnvelope is present it is the only active package shape.
+       */
+      packageAuthority: LivePackageAuthority;
+      /** Signed URL for StartupPackageEnvelope when stored (canonical). */
+      envelopeRetrievalUrl: string | null;
+      /**
+       * LEGACY_COMPAT Intro-shaped pack.json — sealed asset layout / transitional
+       * retrieval only. Must not be treated as an alternate package authority.
+       */
       packRetrievalUrl: string;
+      legacyIntroPackClassification: "LEGACY_COMPAT";
       /** Fresh signed URLs for sealed pack assets keyed by mediaId. */
       assetRetrievalUrls: Record<string, string>;
     };
@@ -70,10 +87,38 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
   }
   const packJson = JSON.parse(await packBlob.text()) as {
     assets?: Record<string, unknown>;
+    schemaVersion?: number;
   };
   for (const mediaId of Object.keys(packJson.assets ?? {})) {
     if (!assetRetrievalUrls[mediaId]) {
       throw new Error(`asset_url_missing_for_pack_asset:${mediaId}`);
+    }
+  }
+
+  // Canonical package = StartupPackageEnvelope when present on storage.
+  const envelopePath = startupEnvelopeStoragePath(pack.pack_id);
+  const { data: envelopeSigned } = await sb.storage
+    .from(pack.storage_bucket || BUCKET)
+    .createSignedUrl(envelopePath, 60 * 30);
+  let packageAuthority: LivePackageAuthority = "IntroRuntimePackageV1_LEGACY";
+  let envelopeRetrievalUrl: string | null = null;
+  if (envelopeSigned?.signedUrl) {
+    const { data: envBlob } = await sb.storage
+      .from(pack.storage_bucket || BUCKET)
+      .download(envelopePath);
+    if (envBlob) {
+      try {
+        const envJson = JSON.parse(await envBlob.text()) as {
+          schemaVersion?: number;
+          integrity?: string;
+        };
+        if (envJson.schemaVersion === 14 && typeof envJson.integrity === "string") {
+          packageAuthority = "StartupPackageEnvelope";
+          envelopeRetrievalUrl = envelopeSigned.signedUrl;
+        }
+      } catch {
+        /* keep legacy until next Apply stores envelope */
+      }
     }
   }
 
@@ -82,7 +127,10 @@ export async function getLiveStatus(sb: SupabaseClient): Promise<LiveStatus> {
     releaseId: data.published_revision_id,
     packageId: pack.pack_id,
     packageIntegrity: pack.manifest_integrity,
+    packageAuthority,
+    envelopeRetrievalUrl,
     packRetrievalUrl: signed.signedUrl,
+    legacyIntroPackClassification: "LEGACY_COMPAT",
     assetRetrievalUrls,
   };
 }

@@ -25,7 +25,10 @@ export async function GET() {
       releaseId: live.releaseId,
       packageId: live.packageId,
       packageIntegrity: live.packageIntegrity,
+      packageAuthority: live.packageAuthority,
+      envelopeRetrievalUrl: live.envelopeRetrievalUrl,
       packRetrievalUrl: live.packRetrievalUrl,
+      legacyIntroPackClassification: live.legacyIntroPackClassification,
       assetRetrievalUrls: live.assetRetrievalUrls,
     });
   } catch (e) {

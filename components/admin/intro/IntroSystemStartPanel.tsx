@@ -190,35 +190,11 @@ export function IntroSystemStartPanel() {
   }
 
   async function applyLive() {
-    if (dirty) {
-      setErr("미저장 변경이 있습니다. 먼저 저장한 뒤 적용하세요.");
-      return;
-    }
-    setBusy(true);
+    // R14-P6: separate System Start Live Apply retired — Studio Service Apply only.
     setMsg(null);
-    setErr(null);
-    try {
-      const res = await fetch("/api/admin/intro/system-start/apply", {
-        method: "POST",
-      });
-      const json = (await res.json()) as {
-        ok: boolean;
-        live?: unknown;
-        message?: string;
-        error?: string;
-      };
-      if (!json.ok) {
-        setErr(json.error ?? "apply_failed");
-        return;
-      }
-      if (saved) setLive(parseLive(json.live, saved));
-      setMsg(
-        json.message ??
-          "적용 완료 — 다음 앱 실행(콜드 스타트)부터 새 시스템 시작 화면이 표시됩니다.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    setErr(
+      "시스템 시작 화면만 따로 서비스 적용할 수 없습니다. 인트로 Studio에서 저장한 뒤 「서비스 적용」으로 System Start와 Intro를 함께 적용하세요.",
+    );
   }
 
   async function uploadMedia(file: File, target: PickerTarget) {
@@ -593,16 +569,18 @@ export function IntroSystemStartPanel() {
             </AdminActionButton>
             <AdminActionButton
               variant="primary"
-              disabled={busy || dirty}
+              disabled
               onClick={() => void applyLive()}
               data-system-start-apply="1"
+              title="Studio 「서비스 적용」만 사용"
             >
-              {busy ? "적용 중…" : "적용"}
+              적용 (Studio에서)
             </AdminActionButton>
           </div>
           <p className="text-xs text-sam-muted">
-            저장 = durable 초안. 적용 = Layer B Live — 다음 콜드 스타트부터
-            표시됩니다. 미저장 변경이 있으면 적용할 수 없습니다.
+            저장 = durable 초안. 서비스 적용은 인트로 Studio의 「서비스 적용」만
+            사용합니다 (System Start + Intro 단일 envelope). 이 탭의 단독 적용은
+            종료되었습니다.
           </p>
         </div>
       </div>

@@ -43,6 +43,11 @@ import {
   TRANSITION_TYPES_V1,
 } from "@/lib/startup-compositor";
 import { __resetServiceApplyStateForTests } from "@/lib/startup-compositor/admin/service-apply";
+import {
+  logicalApplyIntentKey,
+  startupEnvelopeStoragePath,
+  legacyIntroPackStoragePath,
+} from "@/lib/intro/live/apply-intent";
 import { PREVIEW_SOURCE } from "@/lib/startup-compositor/admin/preview";
 import type { StartupAuthoringDocument } from "@/lib/startup-compositor/admin/authoring-document";
 import type { IntroDocumentV1 } from "@/lib/intro/contracts/document";
@@ -91,6 +96,11 @@ describe("R14-P6 Admin authority", () => {
     expect(src).not.toContain('from "@/lib/intro/geometry/element-layout"');
     expect(src).not.toContain("function PreviewGeometry");
     expect(src).not.toContain("function PreviewMotion");
+    // Client must not import barrel (pulls integrity → node:crypto → Webpack UnhandledSchemeError).
+    expect(src).not.toContain('from "@/lib/startup-compositor"');
+    expect(src).toContain(
+      'from "@/lib/startup-compositor/execution/adapters"',
+    );
   });
 
   it("P6-03 Preview uses createPreviewSemanticApi", () => {
@@ -792,5 +802,101 @@ describe("R14-P6 Media library accept + human errors", () => {
     expect(src).toContain("applyServiceFromSavedDraft");
     expect(src).toContain("StartupPackageEnvelope");
     expect(src).toContain("contentClass: \"OWNER\"");
+  });
+
+  it("P6-56 separate System Start Apply is retired", () => {
+    const route = readFileSync(
+      join(process.cwd(), "app/api/admin/intro/system-start/apply/route.ts"),
+      "utf8",
+    );
+    expect(route).toContain("system_start_separate_apply_retired");
+    expect(route).not.toContain("applySystemStartLive");
+    const panel = readFileSync(
+      join(process.cwd(), "components/admin/intro/IntroSystemStartPanel.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain("Studio에서");
+    expect(panel).toContain("단독 적용은");
+  });
+
+  it("P6-57 logical Apply intent ignores client Date.now uniqueness", () => {
+    const a = logicalApplyIntentKey("doc1", 3);
+    const b = logicalApplyIntentKey("doc1", 3);
+    const c = logicalApplyIntentKey("doc1", 4);
+    expect(a).toBe(b);
+    expect(a).toBe("apply_doc1_v3");
+    expect(c).not.toBe(a);
+    const studio = readFileSync(
+      join(process.cwd(), "components/admin/intro/IntroStudioPage.tsx"),
+      "utf8",
+    );
+    expect(studio).toContain("`apply_${documentId}_v${draftVersion}`");
+    expect(studio).not.toMatch(/idempotencyKey:[\s\S]*Date\.now\(\)/);
+    const applySrc = readFileSync(
+      join(process.cwd(), "lib/intro/live/apply-service.ts"),
+      "utf8",
+    );
+    expect(applySrc).toContain("logicalApplyIntentKey");
+    expect(applySrc).toContain("persistStartupEnvelope");
+    expect(applySrc).toContain("startupEnvelopeStoragePath");
+  });
+
+  it("P6-58 package storage authority is StartupPackageEnvelope path", () => {
+    expect(startupEnvelopeStoragePath("pkg1")).toBe(
+      "authority/v1/packs/pkg1/startup-envelope.json",
+    );
+    expect(legacyIntroPackStoragePath("pkg1")).toBe(
+      "authority/v1/packs/pkg1/pack.json",
+    );
+    const liveSrc = readFileSync(
+      join(process.cwd(), "lib/intro/live/service.ts"),
+      "utf8",
+    );
+    expect(liveSrc).toContain("packageAuthority");
+    expect(liveSrc).toContain('"StartupPackageEnvelope"');
+    expect(liveSrc).toContain('legacyIntroPackClassification: "LEGACY_COMPAT"');
+  });
+
+  it("P6-59 product Live shadow writers retired", () => {
+    const liveSet = readFileSync(
+      join(process.cwd(), "app/api/admin/intro/live/set/route.ts"),
+      "utf8",
+    );
+    expect(liveSet).toContain("live_set_retired");
+    expect(liveSet).not.toContain("setLiveRelease");
+    const publish = readFileSync(
+      join(
+        process.cwd(),
+        "app/api/admin/intro/documents/[documentId]/publish/route.ts",
+      ),
+      "utf8",
+    );
+    expect(publish).toContain("standalone_publish_retired");
+    expect(publish).not.toMatch(/import\s*\{[^}]*publishIntroDocument/);
+    expect(publish).not.toContain("await publishIntroDocument");
+    const ssApply = readFileSync(
+      join(process.cwd(), "lib/intro/system-start/live-apply.ts"),
+      "utf8",
+    );
+    expect(ssApply).toContain("system_start_separate_apply_retired");
+    // applySystemStartLive must throw; no Live mutation upsert remains in module.
+    expect(ssApply).toMatch(
+      /export async function applySystemStartLive[\s\S]*?throw Object\.assign/,
+    );
+    expect(ssApply).not.toContain(".upsert(");
+  });
+
+  it("P6-60 durable same-intent Apply reuses stored StartupPackageEnvelope", () => {
+    const applySrc = readFileSync(
+      join(process.cwd(), "lib/intro/live/apply-service.ts"),
+      "utf8",
+    );
+    expect(applySrc).toContain("readStoredStartupEnvelope");
+    expect(applySrc).toContain("durableReplay");
+    expect(applySrc).toContain("alreadyLiveSameRelease");
+    // Must not re-seal a divergent envelope when durable authority exists.
+    expect(applySrc).toContain(
+      "never re-seal a divergent process envelope",
+    );
   });
 });

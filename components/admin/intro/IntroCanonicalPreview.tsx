@@ -17,7 +17,8 @@ import type {
   ElementV1,
   TransitionV1,
 } from "@/lib/intro/contracts/document";
-import { createPreviewSemanticApi } from "@/lib/startup-compositor";
+// Client-safe leaf import — barrel `@/lib/startup-compositor` pulls integrity → node:crypto.
+import { createPreviewSemanticApi } from "@/lib/startup-compositor/execution/adapters";
 import { PREVIEW_SOURCE } from "@/lib/startup-compositor/admin/preview";
 import { mapFrame } from "@/lib/intro/geometry/fit";
 

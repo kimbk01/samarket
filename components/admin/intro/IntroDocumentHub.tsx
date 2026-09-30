@@ -174,7 +174,8 @@ export function IntroDocumentHub() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idempotencyKey: `hub_apply_${id}_${Date.now()}`,
+          // Server derives logical intent from saved draftVersion; key is correlation only.
+          idempotencyKey: `hub_apply_${id}`,
         }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string };

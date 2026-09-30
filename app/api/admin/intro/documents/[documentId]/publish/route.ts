@@ -1,41 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
-import { publishIntroDocument } from "@/lib/intro/publish/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ documentId: string }> };
-
-export async function POST(req: NextRequest, ctx: Ctx) {
+/**
+ * R14-P6 FINAL: standalone Publish is retired as a product Live path.
+ * Release + Package + Live promotion happen only via Service Apply.
+ * `publishIntroDocument` remains an internal step of apply-service only.
+ */
+export async function POST() {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
-  const { documentId } = await ctx.params;
-  const sb = resolveServiceSupabaseForApi();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-  let idempotencyKey = `pub_${Date.now()}`;
-  try {
-    const body = (await req.json()) as { idempotencyKey?: string };
-    if (typeof body.idempotencyKey === "string" && body.idempotencyKey.trim()) {
-      idempotencyKey = body.idempotencyKey.trim();
-    }
-  } catch {
-    /* default key */
-  }
-  try {
-    const published = await publishIntroDocument(sb, {
-      documentId,
-      userId: admin.userId,
-      idempotencyKey,
-    });
-    return NextResponse.json({ ok: true as const, ...published });
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "publish_failed" },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: false as const,
+      error: "standalone_publish_retired",
+      message:
+        "별도 Publish는 더 이상 사용할 수 없습니다. Studio에서 저장한 뒤 「서비스 적용」으로 Release와 Live를 함께 적용하세요.",
+    },
+    { status: 409 },
+  );
 }

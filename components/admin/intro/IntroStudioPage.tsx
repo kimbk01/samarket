@@ -393,7 +393,9 @@ export function IntroStudioPage({ documentId }: Props) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            idempotencyKey: `apply_${documentId}_${draftVersion}_${Date.now()}`,
+            // Logical intent = document + saved draftVersion (server also enforces).
+            // Do NOT append Date.now() — that would mint a new Release per click.
+            idempotencyKey: `apply_${documentId}_v${draftVersion}`,
           }),
         },
       );
