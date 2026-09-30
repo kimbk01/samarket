@@ -89,7 +89,7 @@ describe("FD3 native authority sharing", () => {
   });
 
   it("iOS root VC and plugin consume the shared classifier", () => {
-    const vc = src("ios/App/App/DibayStartupBridgeViewController.swift");
+    const vc = src("ios/App/App/DibayRootBridgeViewController.swift");
     const plugin = src("ios/App/App/Plugins/DibayDeviceClassPlugin.swift");
     const classifier = src("ios/App/App/Plugins/DibayDeviceClassClassifier.swift");
     expect(classifier).toContain(".phone");
@@ -97,6 +97,10 @@ describe("FD3 native authority sharing", () => {
     expect(plugin).toContain("DibayDeviceClassClassifier.classify()");
     expect(vc).toContain("DibayAppOrientationPolicy.supportedInterfaceOrientations");
     expect(vc).toContain("DibayDeviceClassClassifier.classify()");
+    // REBUILD 14 ZERO: root VC must not own product Intro/System Start presentation.
+    expect(vc).not.toContain("DibayIntroRuntime");
+    expect(vc).not.toContain("DibaySystemStartSurface");
+    expect(vc).not.toContain("presentationReleased");
   });
 
   it("PWA manifest is not a phone portrait SSOT", () => {
