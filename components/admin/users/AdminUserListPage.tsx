@@ -2,15 +2,12 @@
 
 import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
-import { fetchAdminStaffList } from "@/lib/admin-users/admin-staff-api";
-import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { useAdminMe } from "@/hooks/useAdminMe";
-import type { AdminStaff } from "@/lib/types/admin-staff";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_DANGER,
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
@@ -26,16 +23,24 @@ import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
 import { AdminUserListSummaryCards } from "./AdminUserListSummaryCards";
 import { AdminUserTable } from "./AdminUserTable";
-import { CreateAdminForm } from "./CreateAdminForm";
-import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
-import { EditMemberForm } from "./EditMemberForm";
-import { AdminDeletionRequestsQueue } from "./AdminDeletionRequestsQueue";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
-
-type Tab = "all" | "general" | "store" | "admin";
+import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import {
+  MEMBER_LIST_DELETION_REQUESTS_KO,
+  MEMBER_LIST_EMPTY_KO,
+  MEMBER_LIST_ERROR_KO,
+  MEMBER_LIST_OPS_HISTORY_KO,
+  MEMBER_LIST_PAGE_DESCRIPTION_KO,
+  MEMBER_LIST_SEARCH_EMPTY_KO,
+  buildMemberListQueryString,
+  memberListDetailHref,
+  parseMemberListQueryState,
+  type MemberListSummaryChipId,
+} from "@/lib/admin-users/member-list-presentation";
+import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 
 type AdminUsersListResult = {
   users: AdminUser[];
@@ -44,26 +49,30 @@ type AdminUsersListResult = {
     totalProfiles: number | null;
     countsOk: boolean;
     accountCategoryCounts: Record<AdminAccountCategory, number | null>;
+    statusCategoryCounts: Partial<Record<AdminUserStatusCategory, number | null>>;
   };
 };
 
 export function AdminUserListPage() {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("all");
-  const [searchDraft, setSearchDraft] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("");
-  const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">("");
-  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlState = useMemo(
+    () => parseMemberListQueryState(new URLSearchParams(searchParams?.toString() ?? "")),
+    [searchParams],
+  );
+
+  const [searchDraft, setSearchDraft] = useState(urlState.search);
+  const [appliedSearch, setAppliedSearch] = useState(urlState.search);
+  const [roleFilter, setRoleFilter] = useState<"store_manager" | "admin" | "">(urlState.role);
+  const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">(urlState.status);
   const [showCreateMember, setShowCreateMember] = useState(false);
-  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
-  const [editingMember, setEditingMember] = useState<AdminUser | null>(null);
-  const [staffKey, setStaffKey] = useState(0);
   const [membersKey, setMembersKey] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
-  const [membersPage, setMembersPage] = useState(1);
-  const [membersPageSize, setMembersPageSize] = useState(10);
+  const [membersPage, setMembersPage] = useState(urlState.page);
+  const [membersPageSize, setMembersPageSize] = useState(urlState.pageSize);
+  const [deletionOpenCount, setDeletionOpenCount] = useState<number | null>(null);
   const { isSuperAdmin, hasPermission } = useAdminMe();
   const canManageUsers = isSuperAdmin || hasPermission("users");
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -71,9 +80,8 @@ export function AdminUserListPage() {
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
   const [tableClientWidth, setTableClientWidth] = useState(0);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const syncingFromUrl = useRef(false);
 
-  // 클라이언트 캐시(`getCurrentUser()`)는 첫 렌더에서 비어 있고, `SupabaseAuthSync` 가 한 프레임 뒤에 채운다.
-  // 동기 1회 읽기 + `TEST_AUTH_CHANGED_EVENT` 구독으로 하이드레이션 후 다시 그리게 한다.
   const [adminUserId, setAdminUserId] = useState<string>(() => getCurrentUser()?.id ?? "");
   useEffect(() => {
     const onAuthChanged = () => {
@@ -85,18 +93,69 @@ export function AdminUserListPage() {
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
+  useEffect(() => {
+    syncingFromUrl.current = true;
+    setSearchDraft(urlState.search);
+    setAppliedSearch(urlState.search);
+    setRoleFilter(urlState.role);
+    setStatusFilter(urlState.status);
+    setMembersPage(urlState.page);
+    setMembersPageSize(urlState.pageSize);
+    syncingFromUrl.current = false;
+  }, [urlState.search, urlState.role, urlState.status, urlState.page, urlState.pageSize]);
+
+  const pushListQuery = useCallback(
+    (next: {
+      search: string;
+      status: AdminUserStatusCategory | "";
+      role: "store_manager" | "admin" | "";
+      page: number;
+      pageSize: number;
+    }) => {
+      const qs = buildMemberListQueryString(next);
+      const href = qs ? `${pathname}?${qs}` : pathname;
+      router.replace(href, { scroll: false });
+    },
+    [pathname, router],
+  );
+
+  useEffect(() => {
+    if (syncingFromUrl.current) return;
+    pushListQuery({
+      search: appliedSearch,
+      status: statusFilter,
+      role: roleFilter,
+      page: membersPage,
+      pageSize: membersPageSize,
+    });
+  }, [appliedSearch, statusFilter, roleFilter, membersPage, membersPageSize, pushListQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/account-deletion-requests?status=open&limit=30", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = (await res.json().catch(() => ({}))) as { items?: unknown[] };
+        if (!cancelled && res.ok) {
+          setDeletionOpenCount(Array.isArray(data.items) ? data.items.length : 0);
+        }
+      } catch {
+        if (!cancelled) setDeletionOpenCount(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [membersKey]);
+
   const handleViewDetail = useCallback(
     (user: AdminUser) => {
       const id = user.id.trim();
       if (!id) return;
-      router.push(`/admin/users/${encodeURIComponent(id)}`);
-    },
-    [router],
-  );
-
-  const handleSendMessage = useCallback(
-    (user: AdminUser) => {
-      router.push(memberNoteComposeHref(user.id));
+      router.push(memberListDetailHref(id));
     },
     [router],
   );
@@ -115,6 +174,13 @@ export function AdminUserListPage() {
     setAppliedSearch(searchDraft.trim());
     setMembersPage(1);
   }, [searchDraft]);
+
+  const clearSearch = useCallback(() => {
+    setSearchDraft("");
+    setAppliedSearch("");
+    setMembersPage(1);
+  }, []);
+
   const membersQueryKey = `admin:users:list:${membersKey}:${membersQueryParams}`;
 
   const {
@@ -143,6 +209,7 @@ export function AdminUserListPage() {
             totalProfiles?: number | null;
             countsOk?: boolean;
             accountCategoryCounts?: Partial<Record<AdminAccountCategory, number | null>>;
+            statusCategoryCounts?: Partial<Record<AdminUserStatusCategory, number | null>>;
           };
           error?: string;
           code?: string;
@@ -157,6 +224,7 @@ export function AdminUserListPage() {
         }
         const users = data.users ?? [];
         const counts = data.summary?.accountCategoryCounts ?? {};
+        const statusCounts = data.summary?.statusCategoryCounts ?? {};
         const countsOk = data.summary?.countsOk !== false;
         return {
           users,
@@ -168,6 +236,13 @@ export function AdminUserListPage() {
               member: countsOk ? (counts.member ?? null) : null,
               store_manager: countsOk ? (counts.store_manager ?? null) : null,
               admin: countsOk ? (counts.admin ?? null) : null,
+            },
+            statusCategoryCounts: {
+              active: countsOk ? (statusCounts.active ?? null) : null,
+              needs_review: countsOk ? (statusCounts.needs_review ?? null) : null,
+              suspended: countsOk ? (statusCounts.suspended ?? null) : null,
+              blocked: countsOk ? (statusCounts.blocked ?? null) : null,
+              deleted: countsOk ? (statusCounts.deleted ?? null) : null,
             },
           },
         };
@@ -186,40 +261,13 @@ export function AdminUserListPage() {
       }
       return code;
     },
-    [t]
+    [t],
   );
-
-  const {
-    data: staffFromQuery,
-    error: staffErrorCode,
-  } = useAdminQuery<AdminStaff[]>({
-    queryKey: `admin:staff:list:${staffKey}`,
-    enabled: tab === "admin",
-    ttlMs: ADMIN_QUERY_TTL_MS,
-    fetcher: async () => {
-      try {
-        return await fetchAdminStaffList();
-      } catch {
-        throw new Error("admin_users_error_network");
-      }
-    },
-  });
-
-  const staffList = staffFromQuery ?? [];
 
   const membersError = useMemo(
     () => resolveAdminUsersQueryError(membersErrorCode),
-    [membersErrorCode, resolveAdminUsersQueryError]
+    [membersErrorCode, resolveAdminUsersQueryError],
   );
-
-  const staffError = useMemo(
-    () => resolveAdminUsersQueryError(staffErrorCode),
-    [staffErrorCode, resolveAdminUsersQueryError]
-  );
-
-  useEffect(() => {
-    setMembersPage(1);
-  }, [appliedSearch, roleFilter, statusFilter, membersKey]);
 
   useEffect(() => {
     const total = membersFromApi?.summary?.totalRows;
@@ -228,68 +276,49 @@ export function AdminUserListPage() {
     if (membersPage > maxPage) setMembersPage(maxPage);
   }, [membersFromApi?.summary?.totalRows, membersPage, membersPageSize]);
 
-  const handleRoleFilterChange = useCallback((value: AdminAccountCategory | "") => {
-    setRoleFilter(value);
-    setMembersPage(1);
-  }, []);
-
-  const handleStatusFilterChange = useCallback((value: AdminUserStatusCategory | "") => {
-    setStatusFilter(value);
-    setMembersPage(1);
-  }, []);
-
-  const handleMembersPageSizeChange = useCallback((size: number) => {
-    setMembersPageSize(size);
-    setMembersPage(1);
-  }, []);
-
   useEffect(() => {
     void fetchAdminMeSnapshot();
   }, []);
 
   const users = useMemo(() => membersFromApi?.users ?? [], [membersFromApi]);
-  const membersListPending =
-    membersLoading || (membersRefreshing && users.length === 0);
+  const membersListPending = membersLoading || (membersRefreshing && users.length === 0);
   const filteredTotal = membersFromApi?.summary?.totalRows ?? 0;
   const memberSummary = useMemo(() => {
     const counts = membersFromApi?.summary?.accountCategoryCounts;
+    const statusCounts = membersFromApi?.summary?.statusCategoryCounts;
     const countsOk = membersFromApi?.summary?.countsOk !== false;
     return {
       total: countsOk ? (membersFromApi?.summary?.totalProfiles ?? null) : null,
-      member: countsOk ? (counts?.member ?? null) : null,
-      storeManager: countsOk ? (counts?.store_manager ?? null) : null,
+      active: countsOk ? (statusCounts?.active ?? null) : null,
+      needsReview: countsOk ? (statusCounts?.needs_review ?? null) : null,
+      suspended: countsOk ? (statusCounts?.suspended ?? null) : null,
+      storeOps: countsOk ? (counts?.store_manager ?? null) : null,
       admin: countsOk ? (counts?.admin ?? null) : null,
     };
   }, [membersFromApi]);
 
-  const isMaster = isSuperAdmin;
-  const handleTabChange = useCallback((next: Tab) => {
-    setTab(next);
-    setRoleFilter(
-      next === "general" ? "member" : next === "store" ? "store_manager" : next === "admin" ? "admin" : "",
-    );
+  const handleSummaryChip = useCallback((chip: MemberListSummaryChipId) => {
+    if (chip === "all") {
+      setStatusFilter("");
+      setRoleFilter("");
+      setMembersPage(1);
+      return;
+    }
+    if (chip === "store_ops") {
+      setRoleFilter("store_manager");
+      setMembersPage(1);
+      return;
+    }
+    if (chip === "admin") {
+      setRoleFilter("admin");
+      setMembersPage(1);
+      return;
+    }
+    setStatusFilter(chip);
     setMembersPage(1);
   }, []);
-  const tabTitleKey: MessageKey =
-    tab === "all"
-      ? "admin_users_tab_all"
-      : tab === "general"
-        ? "admin_users_tab_general"
-        : tab === "store"
-          ? "admin_users_tab_store"
-          : "admin_users_tab_staff";
 
-  const pageHeadingKey: MessageKey =
-    tab === "admin" ? "admin_users_staff_page_title" : "admin_users_lite_breadcrumb_members";
-  const breadcrumbRootKey: MessageKey =
-    tab === "admin" ? "admin_users_staff_page_title" : "admin_users_lite_breadcrumb_members";
-
-  const staffByUserId = useMemo(() => {
-    const map = new Map<string, AdminStaff>();
-    for (const row of staffList) map.set(row.id, row);
-    return map;
-  }, [staffList]);
-
+  const isMaster = isSuperAdmin;
   const showMembersTable = !membersError && !membersListPending && users.length > 0;
   const showTableScrollChrome = showMembersTable;
 
@@ -338,24 +367,14 @@ export function AdminUserListPage() {
     measureTableScroll();
     const el = tableScrollRef.current;
     if (!el) return;
-
     const ro = new ResizeObserver(() => measureTableScroll());
     ro.observe(el);
     window.addEventListener("resize", measureTableScroll);
-
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", measureTableScroll);
     };
-  }, [
-    measureTableScroll,
-    showTableScrollChrome,
-    tab,
-    users.length,
-    staffList.length,
-    membersLoading,
-    membersError,
-  ]);
+  }, [measureTableScroll, showTableScrollChrome, users.length, membersLoading, membersError]);
 
   const showBottomFixedScroll = showTableScrollChrome && tableScrollWidth > tableClientWidth + 2;
 
@@ -367,18 +386,10 @@ export function AdminUserListPage() {
     if (tableEl && bottomEl) bottomEl.scrollLeft = tableEl.scrollLeft;
   }, [showBottomFixedScroll, measureTableScroll, tableScrollWidth]);
 
-  const refreshStaff = useCallback(() => {
-    invalidateAdminQueryCache("admin:staff:list:");
-    setStaffKey((k) => k + 1);
-  }, []);
   const refreshMembers = useCallback(() => {
     invalidateAdminFetchCache("admin:users");
     invalidateAdminQueryCache("admin:users:list:");
     setMembersKey((k) => k + 1);
-  }, []);
-
-  const handleEditMember = useCallback((u: AdminUser) => {
-    setEditingMember(u);
   }, []);
 
   const handleCleanup = useCallback(async () => {
@@ -404,11 +415,8 @@ export function AdminUserListPage() {
     }
   }, [adminUserId, refreshMembers, t]);
 
-  const queryScopeKey = [
-    tab,
-    membersQueryParams,
-    String(membersKey),
-  ].join("|");
+  const queryScopeKey = [membersQueryParams, String(membersKey)].join("|");
+  const emptyMessage = appliedSearch ? MEMBER_LIST_SEARCH_EMPTY_KO : MEMBER_LIST_EMPTY_KO;
 
   return (
     <AdminManagementSurfaceRoot
@@ -417,145 +425,111 @@ export function AdminUserListPage() {
       className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}
     >
       <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
-        <span>{t(breadcrumbRootKey)}</span>
-        <span className="mx-1.5 text-[#98a2b3]">›</span>
-        <span className="text-[#344054]">{t(tabTitleKey)}</span>
+        <span>{MEMBER_ADMIN_COPY.member_management}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-[#101828]">{t(pageHeadingKey)}</h1>
-          {tab === "admin" ? (
-            <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-[#667085]">
-              {safeT("admin_users_staff_privilege_banner", {
-                fallbackKo:
-                  "SYSTEM privilege · admin_memberships 스태프입니다. COMMON 회원(profiles) 신원과 다릅니다. 계정 제재는 MCC에서 회원 대상으로 처리합니다.",
-                fallbackEn:
-                  "SYSTEM privilege · admin_memberships staff. Not COMMON member (profiles) identity. Account sanctions stay on MCC against members.",
-              })}
-            </p>
-          ) : null}
-          <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleTabChange("all")}
-              className={
-                tab === "all"
-                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-              }
-            >
-              {t("admin_users_tab_all")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange("general")}
-              className={
-                tab === "general"
-                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-              }
-            >
-              {t("admin_users_tab_general")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange("store")}
-              className={
-                tab === "store"
-                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-              }
-            >
-              {t("admin_users_tab_store")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange("admin")}
-              className={
-                tab === "admin"
-                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-              }
-            >
-              {t("admin_users_tab_staff")}
-            </button>
-          </div>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-[#101828]">{MEMBER_ADMIN_COPY.member_management}</h1>
+          <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
+            {MEMBER_LIST_PAGE_DESCRIPTION_KO}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(tab === "all" || tab === "general") && (
-            <>
-              {canManageUsers ? (
-              <button
-                type="button"
-                onClick={() => setShowCreateMember(true)}
-                className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
-              >
-                + {t("admin_users_manual_create")}
-              </button>
-              ) : null}
-              {isMaster && (
-                <button
-                  type="button"
-                  onClick={handleCleanup}
-                  disabled={cleanupLoading}
-                  className={`${ADMIN_USERS_LITE_BTN_OUTLINE_DANGER} disabled:opacity-50`}
-                >
-                  {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
-                </button>
-              )}
-            </>
-          )}
-          {tab === "admin" && isMaster && (
+          <Link
+            href="/admin/users/deletion-requests"
+            className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+            data-member-list-deletion-entry="1"
+          >
+            {MEMBER_LIST_DELETION_REQUESTS_KO}
+            {deletionOpenCount != null && deletionOpenCount > 0 ? ` ${deletionOpenCount}` : ""}
+          </Link>
+          <Link
+            href="/admin/users/ops-history"
+            className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+            data-member-list-ops-entry="1"
+          >
+            {MEMBER_LIST_OPS_HISTORY_KO}
+          </Link>
+          {canManageUsers ? (
             <button
               type="button"
-              onClick={() => setShowCreateAdmin(true)}
+              onClick={() => setShowCreateMember(true)}
               className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              data-member-list-register-cta="1"
             >
-              + {t("admin_users_create_admin")}
+              + {MEMBER_ADMIN_COPY.member_register}
             </button>
-          )}
+          ) : null}
+          {isMaster ? (
+            <button
+              type="button"
+              onClick={handleCleanup}
+              disabled={cleanupLoading}
+              className={`${ADMIN_USERS_LITE_BTN_OUTLINE_DANGER} disabled:opacity-50`}
+            >
+              {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {tab === "admin" && staffError ? (
-        <p className="text-[12px] text-[#b42318]">{staffError}</p>
-      ) : null}
-      {(tab === "all" || tab === "general") ? (
-        <div data-admin-member-deletion-request-queue="1">
-          <AdminDeletionRequestsQueue />
-        </div>
-      ) : null}
-      <AdminUserListSummaryCards summary={memberSummary} />
+      <AdminUserListSummaryCards
+        summary={memberSummary}
+        activeStatus={statusFilter}
+        activeRole={roleFilter}
+        onSelect={handleSummaryChip}
+      />
       <AdminUserFilterBar
         searchDraft={searchDraft}
         onSearchDraftChange={setSearchDraft}
         onSearchSubmit={applySearch}
-        roleFilter={roleFilter}
-        onRoleFilterChange={handleRoleFilterChange}
-        hideRoleFilter
+        onSearchClear={clearSearch}
         statusFilter={statusFilter}
-        onStatusFilterChange={handleStatusFilterChange}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value);
+          setMembersPage(1);
+        }}
+        roleFilter={roleFilter}
+        onRoleFilterChange={(value) => {
+          setRoleFilter(value);
+          setMembersPage(1);
+        }}
+        loading={membersListPending}
       />
       {membersError ? (
-        <div className="rounded-lg border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318]">
-          <p className="font-bold">{t("admin_users_list_error_title")}</p>
+        <div
+          className="rounded-lg border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318]"
+          data-member-list-state="error"
+        >
+          <p className="font-bold">{MEMBER_LIST_ERROR_KO}</p>
           <p className="mt-1">{membersError}</p>
           <button
             type="button"
             onClick={refreshMembers}
             className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
           >
-            {t("admin_users_retry")}
+            다시 시도
           </button>
         </div>
       ) : membersListPending ? (
-        <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
-          {t("admin_users_loading_list")}
+        <div
+          className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}
+          data-member-list-state="loading"
+          aria-busy="true"
+        >
+          <div className="h-4 w-1/3 animate-pulse rounded bg-[#eaecf0]" />
+          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
+          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
+          <div className="h-10 animate-pulse rounded bg-[#f2f4f7]" />
+          <p className="text-center text-sm font-semibold text-[#667085]">목록을 불러오는 중…</p>
         </div>
       ) : users.length === 0 ? (
-        <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
-          {tab === "admin" ? t("admin_users_staff_empty") : t("admin_users_empty_filtered")}
+        <div
+          className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}
+          data-member-list-state={appliedSearch ? "search_empty" : "empty"}
+        >
+          {emptyMessage}
         </div>
       ) : (
         <AdminUserTable
@@ -566,14 +540,11 @@ export function AdminUserListPage() {
           page={membersPage}
           pageSize={membersPageSize}
           onPageChange={setMembersPage}
-          onPageSizeChange={handleMembersPageSizeChange}
+          onPageSizeChange={(size) => {
+            setMembersPageSize(size);
+            setMembersPage(1);
+          }}
           onViewDetail={handleViewDetail}
-          onEditMember={handleEditMember}
-          onSendMessage={handleSendMessage}
-          onEditPermissions={isMaster ? setEditingStaffId : undefined}
-          variant={tab === "store" ? "store" : tab === "admin" ? "admin" : "all"}
-          staffByUserId={staffByUserId}
-          isMaster={isMaster}
           onHorizontalScroll={onTableHorizontalScroll}
         />
       )}
@@ -588,31 +559,8 @@ export function AdminUserListPage() {
       />
 
       {showCreateMember ? (
-        <CreateMemberForm
-          onClose={() => setShowCreateMember(false)}
-          onSuccess={refreshMembers}
-        />
+        <CreateMemberForm onClose={() => setShowCreateMember(false)} onSuccess={refreshMembers} />
       ) : null}
-      {showCreateAdmin && (
-        <CreateAdminForm
-          onClose={() => setShowCreateAdmin(false)}
-          onSuccess={refreshStaff}
-        />
-      )}
-      {editingStaffId && (
-        <EditAdminForm
-          staffId={editingStaffId}
-          onClose={() => setEditingStaffId(null)}
-          onSuccess={refreshStaff}
-        />
-      )}
-      {editingMember && (
-        <EditMemberForm
-          user={editingMember}
-          onClose={() => setEditingMember(null)}
-          onSuccess={refreshMembers}
-        />
-      )}
     </AdminManagementSurfaceRoot>
   );
 }

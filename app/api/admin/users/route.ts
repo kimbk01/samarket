@@ -109,12 +109,11 @@ function resolveAdminStatusCategory(
   if (row.deleted_at || status === "deleted" || status === "withdrawn" || status === "deactivated") {
     return "deleted";
   }
-  if (
-    status === "suspended" ||
-    status === "banned" ||
-    memberStatus === "suspended" ||
-    memberStatus === "banned"
-  ) {
+  // BLOCKED ≠ SUSPENDED — blocked/banned never map to suspended category.
+  if (status === "blocked" || status === "banned") {
+    return "blocked";
+  }
+  if (status === "suspended" || memberStatus === "suspended") {
     return "suspended";
   }
   if (
@@ -149,7 +148,11 @@ function parseAccountCategoryFilter(raw: string | null): AdminAccountCategory | 
 
 function parseStatusCategoryFilter(raw: string | null): AdminUserStatusCategory | null {
   const value = normalizeRoleToken(raw);
-  return value === "active" || value === "needs_review" || value === "suspended" || value === "deleted"
+  return value === "active"
+    || value === "needs_review"
+    || value === "suspended"
+    || value === "blocked"
+    || value === "deleted"
     ? value
     : null;
 }
@@ -288,7 +291,7 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    const [storeOwnerResult, adminIdResult, storeNameResult] = await Promise.all([
+    const [storeOwnerResult, adminIdResult, storeNameResult, storeIdResult] = await Promise.all([
       supabase.from("stores").select("owner_user_id"),
       supabase.from("admin_memberships").select("user_id").eq("status", "active"),
       search && !uuidSearch
@@ -297,6 +300,13 @@ export async function GET(req: NextRequest) {
             .select("owner_user_id")
             .ilike("store_name", `%${search}%`)
             .limit(ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT)
+        : Promise.resolve({ data: [] as Array<{ owner_user_id?: string }>, error: null }),
+      search
+        ? supabase
+            .from("stores")
+            .select("owner_user_id")
+            .eq("id", search)
+            .limit(5)
         : Promise.resolve({ data: [] as Array<{ owner_user_id?: string }>, error: null }),
     ]);
 
@@ -322,6 +332,10 @@ export async function GET(req: NextRequest) {
     const storeNameOwnerIds = uniqueAdminMemberIds(
       (storeNameResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
     );
+    const storeIdOwnerIds = uniqueAdminMemberIds(
+      (storeIdResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
+    );
+    const storeSearchOwnerIds = uniqueAdminMemberIds([...storeNameOwnerIds, ...storeIdOwnerIds]);
 
     const listOps = (includeAuthLoginEmail: boolean, relation: typeof relationFilter) => {
       const plan = adminMemberRelationFilterPlan(relation, ownerIds, adminIds);
@@ -330,7 +344,8 @@ export async function GET(req: NextRequest) {
         ops: [
           ...adminMemberSearchFilterOps(search, {
             includeAuthLoginEmail,
-            extraIds: uuidSearch ? [] : storeNameOwnerIds,
+            // UUID may be profile id OR store id — union store owners when matched.
+            extraIds: storeSearchOwnerIds,
           }),
           ...statusOps,
           ...plan.ops,
@@ -390,12 +405,46 @@ export async function GET(req: NextRequest) {
 
     const profileRows = (rows ?? []) as ProfileRow[];
     const profileIds = profileRows.map((row) => row.id).filter(Boolean);
-    const [warnedUserIds, plainCount, storeOwnerCount, adminRelationCount, allCount] = await Promise.all([
+
+    const runStatusCount = async (
+      includeAuthLoginEmail: boolean,
+      status: NonNullable<typeof statusFilter>,
+    ) => {
+      const ops = [
+        ...adminMemberSearchFilterOps(search, {
+          includeAuthLoginEmail,
+          extraIds: storeSearchOwnerIds,
+        }),
+        ...adminMemberStatusFilterOps(status),
+      ] as ProfileFilterOp[];
+      const resolved = await applyProfileFilterOps(
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        ops,
+      );
+      const { count, error } = await resolved;
+      return { count: count as number | null, error: error?.message ?? null };
+    };
+
+    const [
+      warnedUserIds,
+      plainCount,
+      storeOwnerCount,
+      adminRelationCount,
+      allCount,
+      activeStatusCount,
+      needsReviewStatusCount,
+      suspendedStatusCount,
+      blockedStatusCount,
+    ] = await Promise.all([
       loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
       runCount(includeAuthLoginEmail, "plain"),
       runCount(includeAuthLoginEmail, "store_owner"),
       runCount(includeAuthLoginEmail, "admin"),
       runCount(includeAuthLoginEmail, "all"),
+      runStatusCount(includeAuthLoginEmail, "active"),
+      runStatusCount(includeAuthLoginEmail, "needs_review"),
+      runStatusCount(includeAuthLoginEmail, "suspended"),
+      runStatusCount(includeAuthLoginEmail, "blocked"),
     ]);
 
     const storeAgg = new Map<
@@ -493,11 +542,22 @@ export async function GET(req: NextRequest) {
       plainCount.error == null
       && storeOwnerCount.error == null
       && adminRelationCount.error == null
-      && allCount.error == null;
+      && allCount.error == null
+      && activeStatusCount.error == null
+      && needsReviewStatusCount.error == null
+      && suspendedStatusCount.error == null
+      && blockedStatusCount.error == null;
     const accountCategoryCounts: Record<AdminAccountCategory, number | null> = {
       member: countsOk ? plainCount.count : null,
       store_manager: countsOk ? storeOwnerCount.count : null,
       admin: countsOk ? adminRelationCount.count : null,
+    };
+    const statusCategoryCounts: Record<AdminUserStatusCategory, number | null> = {
+      active: countsOk ? activeStatusCount.count : null,
+      needs_review: countsOk ? needsReviewStatusCount.count : null,
+      suspended: countsOk ? suspendedStatusCount.count : null,
+      blocked: countsOk ? blockedStatusCount.count : null,
+      deleted: null,
     };
     const totalRows = count ?? pageUsers.length;
     const providerCounts = pageUsers.reduce<Record<string, number>>((acc, u) => {
@@ -539,6 +599,7 @@ export async function GET(req: NextRequest) {
         withoutProfile: pageUsers.filter((u) => u.hasProfile === false).length,
         providerCounts,
         accountCategoryCounts,
+        statusCategoryCounts,
       },
     });
   } catch (err: unknown) {

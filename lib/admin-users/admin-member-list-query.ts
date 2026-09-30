@@ -98,8 +98,18 @@ export function adminMemberSearchFilterOps(
   opts?: { includeAuthLoginEmail?: boolean; extraIds?: string[] },
 ): ProfileFilterOp[] {
   if (!search) return [];
+  const extra = uniqueAdminMemberIds(opts?.extraIds ?? []);
   if (isAdminMemberUuidSearch(search)) {
-    return [{ type: "eq", column: "id", value: search }];
+    // Profile id match, optionally union store-owner ids when search equals a store id.
+    if (extra.length === 0) {
+      return [{ type: "eq", column: "id", value: search }];
+    }
+    return [
+      {
+        type: "or",
+        value: `id.eq.${search},id.in.(${extra.join(",")})`,
+      },
+    ];
   }
   return [
     {
@@ -118,13 +128,24 @@ export function adminMemberStatusFilterOps(status: AdminUserStatusCategory): Pro
       },
     ];
   }
-  if (status === "suspended") {
+  // BLOCKED ≠ SUSPENDED — never union blocked into suspended filter.
+  if (status === "blocked") {
     return [
       { type: "is", column: "deleted_at", value: null },
       { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated)" },
       {
         type: "or",
-        value: "status.eq.suspended,status.eq.blocked,status.eq.banned,member_status.eq.suspended,member_status.eq.banned",
+        value: "status.eq.blocked,status.eq.banned",
+      },
+    ];
+  }
+  if (status === "suspended") {
+    return [
+      { type: "is", column: "deleted_at", value: null },
+      { type: "not_in", column: "status", value: "(deleted,withdrawn,deactivated,blocked,banned)" },
+      {
+        type: "or",
+        value: "status.eq.suspended,member_status.eq.suspended",
       },
     ];
   }

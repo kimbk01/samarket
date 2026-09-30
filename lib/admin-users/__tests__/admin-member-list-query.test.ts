@@ -69,6 +69,12 @@ describe("adminMemberStatusFilterOps", () => {
     const src = JSON.stringify(adminMemberStatusFilterOps("active"));
     expect(src).not.toContain("phone_verified_at");
   });
+
+  it("suspended filter excludes blocked", () => {
+    const src = JSON.stringify(adminMemberStatusFilterOps("suspended"));
+    expect(src).toContain("status.eq.suspended");
+    expect(src).not.toContain("status.eq.blocked");
+  });
 });
 
 describe("admin users list route Slice 2", () => {
@@ -86,6 +92,6 @@ describe("admin users list route Slice 2", () => {
     expect(src).toMatch(/params\.set\("page"/);
     expect(src).toMatch(/params\.set\("pageSize"/);
     expect(src).not.toMatch(/users\.slice\(/);
-    expect(src).toMatch(/admin_users_tab_all/);
+    expect(src).toMatch(/MEMBER_ADMIN_COPY\.member_management/);
   });
 });

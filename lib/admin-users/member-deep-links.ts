@@ -1,5 +1,7 @@
 /** Existing Admin surfaces only — no new engines. */
 
+import { resolveAdminStoreApplicationHref } from "@/lib/admin/admin-ops-deeplink";
+
 export function memberCommunityPostsAdminHref(userId: string): string {
   return `/admin/community/posts?userId=${encodeURIComponent(userId)}`;
 }
@@ -47,6 +49,11 @@ export function memberStoreOrdersByStoreHref(storeId: string): string {
 export function memberStoresAdminHref(query?: string): string {
   const q = String(query ?? "").trim();
   return q ? `/admin/stores?q=${encodeURIComponent(q)}` : "/admin/stores";
+}
+
+/** Canonical Admin Store Detail — Member list + detail must share this resolver. */
+export function memberBusinessDetailHref(storeId: string): string {
+  return resolveAdminStoreApplicationHref(storeId);
 }
 
 export function memberStorePublicHref(slug: string): string {

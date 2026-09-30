@@ -88,8 +88,9 @@ export function roleCategoryForAdminUser(user: AdminUser): AdminAccountCategory 
 
 export function statusCategoryForAdminUser(user: AdminUser): AdminUserStatusCategory {
   if (user.statusCategory) return user.statusCategory;
+  // BLOCKED ≠ SUSPENDED — never collapse blocked into suspended for list display.
+  if (user.moderationStatus === "blocked" || user.moderationStatus === "banned") return "blocked";
   if (user.moderationStatus === "suspended") return "suspended";
-  if (user.moderationStatus === "blocked" || user.moderationStatus === "banned") return "suspended";
   if (user.moderationStatus === "withdrawn") return "deleted";
   if (user.phoneVerified !== true || normalizeAdminLiteToken(user.memberStatus) === "pending") {
     return "needs_review";
@@ -104,14 +105,10 @@ export function statusCategoryForDetailUser(user: DetailUserLike): AdminUserStat
   const moderation = normalizeAdminLiteToken(user.moderation_status);
 
   if (status === "deleted" || status === "withdrawn" || status === "deactivated") return "deleted";
-  if (
-    status === "suspended" ||
-    status === "banned" ||
-    memberStatus === "suspended" ||
-    memberStatus === "banned" ||
-    moderation === "suspended" ||
-    moderation === "banned"
-  ) {
+  if (status === "blocked" || status === "banned" || moderation === "blocked" || moderation === "banned") {
+    return "blocked";
+  }
+  if (status === "suspended" || memberStatus === "suspended" || moderation === "suspended") {
     return "suspended";
   }
   if (
@@ -156,6 +153,7 @@ export function statusBadgeClass(status: AdminUserStatusCategory): string {
   if (status === "active") return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
   if (status === "needs_review") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
   if (status === "suspended") return "border-[#fecdca] bg-[#fef3f2] text-[#b42318]";
+  if (status === "blocked") return "border-[#f04438] bg-[#fef3f2] text-[#912018]";
   return "border-[#e4e7ec] bg-[#f9fafb] text-[#475467]";
 }
 

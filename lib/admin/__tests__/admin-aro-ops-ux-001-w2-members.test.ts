@@ -55,8 +55,12 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
 
   it("M10 deletion request queue remains separate from list bulk", () => {
     const page = read("components/admin/users/AdminUserListPage.tsx");
-    expect(page).toContain("data-admin-member-deletion-request-queue");
-    expect(page).toContain("AdminDeletionRequestsQueue");
+    expect(page).toContain("/admin/users/deletion-requests");
+    expect(page).toContain("data-member-list-deletion-entry");
+    expect(page).not.toContain("<AdminDeletionRequestsQueue");
+    const deletionPage = read("app/admin/users/deletion-requests/page.tsx");
+    expect(deletionPage).toContain("AdminDeletionRequestsQueue");
+    expect(deletionPage).toContain('data-admin-member-deletion-request-queue="1"');
     const queue = read("components/admin/users/AdminDeletionRequestsQueue.tsx");
     expect(queue).toContain("/api/admin/account-deletion-requests");
     expect(queue).not.toContain("AdminManagementBulkBar");
@@ -64,7 +68,7 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
 
   it("M11–M13 CTA terminology + semantic columns; no arbitrary 1100 min-width", () => {
     const table = read("components/admin/users/AdminUserTable.tsx");
-    expect(table).toContain('terminologyDisplay("DETAIL"');
+    expect(table).toContain("MEMBER_LIST_DETAIL_ACTION_KO");
     expect(table).toContain("managementColumnStyle");
     expect(table).toContain("computeTableMinWidthPx");
     expect(table).not.toContain("min-w-[1100px]");
@@ -83,9 +87,10 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
 
   it("M15 loading/empty/error remain distinct", () => {
     const page = read("components/admin/users/AdminUserListPage.tsx");
-    expect(page).toContain("admin_users_loading_list");
-    expect(page).toContain("admin_users_empty_filtered");
-    expect(page).toContain("admin_users_list_error_title");
+    expect(page).toContain('data-member-list-state="loading"');
+    expect(page).toContain('data-member-list-state="error"');
+    expect(page).toContain('data-member-list-state={appliedSearch ? "search_empty" : "empty"}');
+    expect(page).toContain("MEMBER_LIST_ERROR_KO");
   });
 
   it("M16 tablet geometry helper still valid; frequency entry for members", () => {

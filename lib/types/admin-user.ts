@@ -9,7 +9,13 @@ export type MemberType = "normal" | "premium" | "admin";
 /** List tab/query compat only — not Person identity SSOT. */
 export type AdminAccountCategory = "member" | "store_manager" | "admin";
 export type { AdminMemberRoleBadge };
-export type AdminUserStatusCategory = "active" | "needs_review" | "suspended" | "deleted";
+/** List/filter status categories — BLOCKED is distinct from SUSPENDED (HARD FORBIDDEN to merge). */
+export type AdminUserStatusCategory =
+  | "active"
+  | "needs_review"
+  | "suspended"
+  | "blocked"
+  | "deleted";
 export type AdminAuthProvider =
   | "google"
   | "kakao"

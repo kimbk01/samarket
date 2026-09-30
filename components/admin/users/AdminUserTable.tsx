@@ -1,32 +1,28 @@
 "use client";
 
-import { forwardRef, memo, useCallback, useEffect, useId, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { forwardRef, memo, useCallback } from "react";
+import Link from "next/link";
+import { adminMemberNicknameSecondary } from "@/lib/admin-users/admin-member-identity";
 import {
-  adminMemberNicknameSecondary,
-  authEvidenceBadges,
-} from "@/lib/admin-users/admin-member-identity";
-import {
-  memberStoresAdminHref,
-  memberStorePublicHref,
-} from "@/lib/admin-users/member-deep-links";
-import { getPermissionLabel } from "@/lib/admin-users/admin-permissions";
+  MEMBER_LIST_DETAIL_ACTION_KO,
+  MEMBER_LIST_STORE_NONE_KO,
+  memberListAccountStateLabelKo,
+  memberListPrivilegeLabelKo,
+  memberListSignupOriginLabelKo,
+  memberListStoreCellLabel,
+} from "@/lib/admin-users/member-list-presentation";
+import { authEvidenceBadges } from "@/lib/admin-users/admin-member-identity";
 import { ADMIN_USERS_LITE_TABLE_ACTION } from "@/lib/ui/admin-users-lite-styles";
-import type { AdminStaff } from "@/lib/types/admin-staff";
 import { AdminUserListPagination } from "./AdminUserListPagination";
 import {
   displayNameForAdminUser,
   formatAdminLiteDate,
   formatAdminLiteDateTime,
-  memberRoleBadgeClass,
   publicIdForAdminUser,
-  roleBadgesForAdminUser,
   statusBadgeClass,
   statusCategoryForAdminUser,
 } from "./admin-user-lite-display";
-import type { AdminMemberRoleBadge, AdminUser } from "@/lib/types/admin-user";
-import type { MessageKey } from "@/lib/i18n/messages";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { AdminUser } from "@/lib/types/admin-user";
 import {
   AdminManagementBulkBar,
   AdminManagementSelectionCheckbox,
@@ -37,15 +33,11 @@ import {
   computeTableMinWidthPx,
   managementColumnStyle,
   MEMBER_ENTITY_ACTION_POLICY,
-  terminologyDisplay,
   type ManagementColumnKind,
 } from "@/lib/admin/management";
 
-export type AdminUserTableVariant = "all" | "store" | "admin";
-
 interface AdminUserTableProps {
   users: AdminUser[];
-  /** Clears selection when search/filter/page/sort/tab changes (W1 contract). */
   queryScopeKey: string;
   totalItems: number;
   page: number;
@@ -53,217 +45,62 @@ interface AdminUserTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onViewDetail: (user: AdminUser) => void;
-  onEditMember: (user: AdminUser) => void;
-  onSendMessage: (user: AdminUser) => void;
-  onEditPermissions?: (userId: string) => void;
-  variant: AdminUserTableVariant;
-  staffByUserId?: Map<string, AdminStaff>;
-  isMaster?: boolean;
   onHorizontalScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
-const ROLE_BADGE_LABEL_KEYS: Record<AdminMemberRoleBadge, MessageKey> = {
-  member: "admin_users_role_badge_member",
-  store_owner: "admin_users_role_badge_store_owner",
-  admin: "admin_users_lite_role_admin",
-  super_admin: "admin_users_lite_role_super_admin",
-};
-
-const STATUS_LABEL_KEYS = {
-  active: "admin_users_lite_status_active",
-  needs_review: "admin_users_lite_status_needs_review",
-  suspended: "admin_users_lite_status_suspended",
-  deleted: "admin_users_lite_status_deleted",
+const EVIDENCE_LABELS = {
+  email: "이메일",
+  phone: "전화",
+  kakao: "카카오",
+  google: "Google",
+  apple: "Apple",
 } as const;
-
-const EVIDENCE_LABEL_KEYS = {
-  email: "admin_users_lite_email_verified",
-  phone: "admin_users_lite_label_phone_verified",
-  kakao: "admin_user_provider_kakao",
-  google: "admin_user_provider_google",
-  apple: "admin_user_provider_apple",
-} as const;
-
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
-
-function RoleBadges({ user }: { user: AdminUser }) {
-  const { t } = useI18n();
-  const badges = roleBadgesForAdminUser(user);
-  return (
-    <span className="inline-flex flex-wrap gap-1">
-      {badges.map((badge) => (
-        <span
-          key={badge}
-          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${memberRoleBadgeClass(badge)}`}
-        >
-          {t(ROLE_BADGE_LABEL_KEYS[badge])}
-        </span>
-      ))}
-    </span>
-  );
-}
 
 function stopRowNav(e: React.SyntheticEvent) {
   e.stopPropagation();
 }
 
-function RowMenu({
-  user,
-  onEditMember,
-  onSendMessage,
-  onEditPermissions,
-  isMaster,
-}: {
-  user: AdminUser;
-  onEditMember: (user: AdminUser) => void;
-  onSendMessage: (user: AdminUser) => void;
-  onEditPermissions?: (userId: string) => void;
-  isMaster?: boolean;
-}) {
-  const { t, safeT } = useI18n();
-  const [open, setOpen] = useState(false);
-  const menuId = useId();
-  const stores = user.storeRelation?.stores ?? [];
-  const storeSlug = stores.find((s) => s.slug)?.slug ?? "";
-  const isAdmin = Boolean(user.hasAdminMembership || user.isSuperAdmin);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (ev: MouseEvent) => {
-      const target = ev.target as HTMLElement | null;
-      if (target?.closest(`[data-row-menu="${menuId}"]`)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [menuId, open]);
-
-  return (
-    <div className="relative" data-row-menu={menuId} onClick={stopRowNav} onKeyDown={stopRowNav}>
-      <button
-        type="button"
-        className={ADMIN_USERS_LITE_TABLE_ACTION}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        ⋯
-      </button>
-      {open ? (
-        <div className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-md border border-[#e4e7ec] bg-white py-1 text-[13px] shadow-md">
-          <button
-            type="button"
-            className="block w-full px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-            onClick={() => {
-              onSendMessage(user);
-              setOpen(false);
-            }}
-          >
-            {t("admin_users_cc_cta_send_note")}
-          </button>
-          <button
-            type="button"
-            className="block w-full px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-            onClick={() => {
-              onEditMember(user);
-              setOpen(false);
-            }}
-          >
-            {t("admin_users_lite_action_edit_info")}
-          </button>
-          <a
-            href={`/admin/users/${encodeURIComponent(user.id)}`}
-            className="block px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-          >
-            {safeT("admin_users_cta_moderation", { fallbackKo: "제재 관리", fallbackEn: "Moderation" })}
-          </a>
-          {isAdmin && isMaster && onEditPermissions ? (
-            <button
-              type="button"
-              className="block w-full px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-              onClick={() => {
-                onEditPermissions(user.id);
-                setOpen(false);
-              }}
-            >
-              {safeT("admin_users_cta_edit_permissions", { fallbackKo: "권한 관리", fallbackEn: "Edit permissions" })}
-            </button>
-          ) : null}
-          {storeSlug ? (
-            <a
-              href={memberStorePublicHref(storeSlug)}
-              className="block px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-            >
-              {safeT("admin_users_cta_store_public", { fallbackKo: "매장 보기", fallbackEn: "View store" })}
-            </a>
-          ) : stores[0]?.name ? (
-            <a
-              href={memberStoresAdminHref(stores[0]?.name)}
-              className="block px-3 py-1.5 text-left text-[#344054] hover:bg-[#f9fafb]"
-            >
-              {safeT("admin_users_cta_store_public", { fallbackKo: "매장 보기", fallbackEn: "View store" })}
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 const AdminUserTableRow = memo(function AdminUserTableRow({
   user,
   onViewDetail,
-  onEditMember,
-  onSendMessage,
-  onEditPermissions,
-  variant,
-  staff,
-  isMaster,
   selected,
   onToggleSelected,
 }: {
   user: AdminUser;
   onViewDetail: (user: AdminUser) => void;
-  onEditMember: (user: AdminUser) => void;
-  onSendMessage: (user: AdminUser) => void;
-  onEditPermissions?: (userId: string) => void;
-  variant: AdminUserTableVariant;
-  staff?: AdminStaff;
-  isMaster?: boolean;
   selected: boolean;
   onToggleSelected: () => void;
 }) {
-  const { t, safeT, language } = useI18n();
-  const emptyCell = t("admin_users_empty_placeholder");
-  const dateLocale = dateLocaleTag(language);
+  const emptyCell = "—";
   const publicId = publicIdForAdminUser(user);
   const display = displayNameForAdminUser(user);
   const nick = adminMemberNicknameSecondary(display, user.nickname);
   const status = statusCategoryForAdminUser(user);
+  const statusLabel = memberListAccountStateLabelKo(user);
   const handleViewDetail = useCallback(() => onViewDetail(user), [onViewDetail, user]);
   const initial = display.trim().slice(0, 1).toUpperCase() || "?";
-  const stores = user.storeRelation?.stores ?? [];
-  const primaryStore = stores[0];
+  const storeCell = memberListStoreCellLabel(user);
+  const privilege = memberListPrivilegeLabelKo(user);
+  const origin = memberListSignupOriginLabelKo(user.authProvider);
   const evidence = authEvidenceBadges(user);
-  const permSummary = staff
-    ? staff.permissions.slice(0, 4).map(getPermissionLabel).join(", ")
-    : emptyCell;
+  const copyId = publicId || user.id;
 
   return (
     <tr
       className="cursor-pointer border-b border-[#eaecf0] bg-white text-[13px] hover:bg-[#f8fafc]"
       onClick={handleViewDetail}
+      data-member-list-row="1"
+      data-member-status={status}
     >
-            <td className="px-3 py-2" style={managementColumnStyle("SELECTION")} onClick={stopRowNav}>
+      <td className="px-3 py-2" style={managementColumnStyle("SELECTION")} onClick={stopRowNav}>
         <AdminManagementSelectionCheckbox
           role="row"
           checked={selected}
           onToggle={onToggleSelected}
-          aria-label={`${display} select`}
+          aria-label={`${display} 선택`}
         />
       </td>
-<td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
+      <td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-xs font-bold text-[#2563eb]">
             {initial}
@@ -274,116 +111,63 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           </div>
         </div>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 font-medium text-[#344054]">{publicId || emptyCell}</td>
-      {variant === "admin" ? (
-        <td className="px-3 py-2 text-[#475467]">{user.email?.trim() || t("admin_users_lite_no_email")}</td>
-      ) : (
-        <td className="px-3 py-2 text-[#475467]">
-          <p>{user.phone?.trim() || emptyCell}</p>
-          <p className="text-[11px] text-[#667085]">{user.email?.trim() || t("admin_users_lite_no_email")}</p>
-        </td>
-      )}
-      {variant !== "admin" ? (
-        <td className="whitespace-nowrap px-3 py-2 text-[#475467]">{user.location?.trim() || emptyCell}</td>
-      ) : null}
-      {variant === "store" ? (
-        <>
-          <td className="px-3 py-2">
-            <p className="font-medium text-[#101828]">{primaryStore?.name || emptyCell}</p>
-            <p className="text-[11px] text-[#667085]">{primaryStore?.slug ? `@${primaryStore.slug}` : emptyCell}</p>
-          </td>
-          <td className="whitespace-nowrap px-3 py-2">
-            <span className="inline-flex rounded-full border border-[#e4e7ec] bg-[#f9fafb] px-2 py-0.5 text-[11px] font-semibold text-[#344054]">
-              {primaryStore?.approvalStatus || emptyCell}
-            </span>
-          </td>
-        </>
-      ) : null}
-      {variant === "all" ? (
-        <>
-          <td className="whitespace-nowrap px-3 py-2">
-            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(status)}`}>
-              {t(STATUS_LABEL_KEYS[status])}
-            </span>
-          </td>
-          <td className="px-3 py-2">
-            <span className="inline-flex flex-wrap gap-1">
-              {evidence.map((badge) => (
-                <span
-                  key={badge}
-                  className="inline-flex rounded border border-[#e4e7ec] bg-[#f9fafb] px-1.5 py-0.5 text-[10px] font-semibold text-[#344054]"
-                >
-                  {t(EVIDENCE_LABEL_KEYS[badge])}
-                </span>
-              ))}
-              {evidence.length === 0 ? emptyCell : null}
-            </span>
-          </td>
-          <td className="px-3 py-2">
-            <RoleBadges user={user} />
-          </td>
-        </>
-      ) : null}
-      {variant === "admin" ? (
-        <>
-          <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
-            {formatAdminLiteDateTime(user.lastSignInAt, dateLocale, emptyCell)}
-          </td>
-          <td className="whitespace-nowrap px-3 py-2 text-[#344054]">
-            {staff?.role
-              ? t(
-                  staff.role === "master"
-                    ? "admin_users_role_master"
-                    : staff.role === "manager"
-                      ? "admin_users_role_manager"
-                      : "admin_users_role_operator",
-                )
-              : user.isSuperAdmin
-                ? t("admin_users_lite_role_super_admin")
-                : t("admin_users_lite_role_admin")}
-          </td>
-          <td className="whitespace-nowrap px-3 py-2">
-            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(status)}`}>
-              {t(STATUS_LABEL_KEYS[status])}
-            </span>
-          </td>
-          <td className="max-w-[220px] px-3 py-2 text-[12px] text-[#667085]">
-            <span className="line-clamp-2">{permSummary || emptyCell}</span>
-          </td>
-        </>
-      ) : (
-        <>
-          <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
-            {formatAdminLiteDate(user.joinedAt, dateLocale, emptyCell)}
-          </td>
-          <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
-            {formatAdminLiteDateTime(user.lastSignInAt, dateLocale, emptyCell)}
-          </td>
-        </>
-      )}
-      <td className="whitespace-nowrap px-3 py-2" onClick={stopRowNav}>
-        <div className="flex items-center gap-1">
-          <button type="button" className={ADMIN_USERS_LITE_TABLE_ACTION} onClick={handleViewDetail}>
-            {terminologyDisplay("DETAIL", language)}
-          </button>
-          {variant === "admin" && isMaster && onEditPermissions ? (
-            <button
-              type="button"
-              className={ADMIN_USERS_LITE_TABLE_ACTION}
-              onClick={() => onEditPermissions(user.id)}
+      <td className="whitespace-nowrap px-3 py-2 font-medium text-[#344054]" onClick={stopRowNav}>
+        <button
+          type="button"
+          className="rounded px-1 text-left hover:bg-[#f2f4f7]"
+          title="회원 ID 복사"
+          onClick={() => {
+            const value = copyId.startsWith("@") ? copyId.slice(1) : copyId;
+            void navigator.clipboard?.writeText(value).catch(() => {});
+          }}
+        >
+          {publicId || emptyCell}
+        </button>
+      </td>
+      <td className="px-3 py-2 text-[#475467]">
+        <p>{user.phone?.trim() || emptyCell}</p>
+        <p className="text-[11px] text-[#667085]">{user.email?.trim() || emptyCell}</p>
+      </td>
+      <td className="whitespace-nowrap px-3 py-2">
+        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(status)}`}>
+          {statusLabel}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="inline-flex flex-wrap gap-1">
+          {evidence.map((badge) => (
+            <span
+              key={badge}
+              className="inline-flex rounded border border-[#e4e7ec] bg-[#f9fafb] px-1.5 py-0.5 text-[10px] font-semibold text-[#344054]"
             >
-              {safeT("admin_users_cta_edit_permissions", { fallbackKo: "권한 편집", fallbackEn: "Edit permissions" })}
-            </button>
-          ) : (
-            <RowMenu
-              user={user}
-              onEditMember={onEditMember}
-              onSendMessage={onSendMessage}
-              onEditPermissions={onEditPermissions}
-              isMaster={isMaster}
-            />
-          )}
-        </div>
+              {EVIDENCE_LABELS[badge]}
+            </span>
+          ))}
+          {evidence.length === 0 ? emptyCell : null}
+        </span>
+      </td>
+      <td className="min-w-[140px] px-3 py-2" onClick={stopRowNav}>
+        {storeCell.kind === "none" ? (
+          <span className="text-[#98a2b3]">{MEMBER_LIST_STORE_NONE_KO}</span>
+        ) : (
+          <Link href={storeCell.href!} className="block hover:underline" onClick={stopRowNav}>
+            <p className="font-medium text-[#101828]">{storeCell.name}</p>
+            <p className="text-[11px] text-[#667085]">#{storeCell.storeId}</p>
+          </Link>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-[#344054]">{privilege}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-[#344054]">{origin}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
+        {formatAdminLiteDateTime(user.lastSignInAt, "ko-KR", emptyCell)}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
+        {formatAdminLiteDate(user.joinedAt, "ko-KR", emptyCell)}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2" onClick={stopRowNav}>
+        <button type="button" className={ADMIN_USERS_LITE_TABLE_ACTION} onClick={handleViewDetail}>
+          {MEMBER_LIST_DETAIL_ACTION_KO}
+        </button>
       </td>
     </tr>
   );
@@ -401,17 +185,10 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
     onPageChange,
     onPageSizeChange,
     onViewDetail,
-    onEditMember,
-    onSendMessage,
-    onEditPermissions,
-    variant,
-    staffByUserId,
-    isMaster,
     onHorizontalScroll,
   },
   ref,
 ) {
-  const { t, safeT, language } = useI18n();
   const policy = MEMBER_ENTITY_ACTION_POLICY;
   const selectableIds = users.map((u) => u.id);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
@@ -420,20 +197,16 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
     "TITLE",
     "IDENTITY",
     "METADATA",
-    "METADATA",
     "STATUS",
+    "METADATA",
+    "METADATA",
     "METADATA",
     "METADATA",
     "DATE",
     "DATE",
     "ACTIONS",
   ] as ManagementColumnKind[]);
-  const selectedLabel =
-    language === "en"
-      ? `${selection.selectedCount} selected (current page)`
-      : `현재 페이지 ${selection.selectedCount}개 선택`;
-  const selectAllLabel =
-    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
+
   return (
     <AdminManagementTableViewport
       viewportRef={ref}
@@ -443,13 +216,9 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
       <AdminManagementBulkBar
         selectedCount={selection.selectedCount}
         policy={policy}
-        selectedLabel={selectedLabel}
+        selectedLabel={`현재 페이지 ${selection.selectedCount}개 선택`}
         actions={[]}
-        emptyActionsHint={
-          language === "en"
-            ? "No list bulk delete — use deletion-request queue or member detail"
-            : "목록 bulk 삭제 없음 · 탈퇴 요청 대기 또는 회원 상세에서 처리"
-        }
+        emptyActionsHint="목록 bulk 삭제 없음 · 삭제 요청 또는 회원 상세에서 처리"
       />
       <table
         className="w-full border-collapse text-[13px]"
@@ -463,58 +232,22 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
                 role="header"
                 state={selection.headerState}
                 onToggle={selection.toggleAll}
-                aria-label={selectAllLabel}
+                aria-label="현재 페이지 전체 선택"
               />
             </th>
             <th className="px-3 py-2" style={managementColumnStyle("TITLE")}>
-              {variant === "admin"
-                ? safeT("admin_users_col_staff_person", {
-                    fallbackKo: "스태프",
-                    fallbackEn: "Staff",
-                  })
-                : t("admin_users_lite_col_member")}
+              회원
             </th>
-            <th className="px-3 py-2">
-              {variant === "admin"
-                ? safeT("admin_users_col_staff_user_id", {
-                    fallbackKo: "스태프 사용자 ID",
-                    fallbackEn: "Staff user ID",
-                  })
-                : safeT("admin_users_col_member_id", { fallbackKo: "회원 ID", fallbackEn: "Member ID" })}
-            </th>
-            {variant === "admin" ? (
-              <th className="px-3 py-2">{t("admin_users_col_email")}</th>
-            ) : (
-              <th className="px-3 py-2">{safeT("admin_users_col_contact", { fallbackKo: "연락처", fallbackEn: "Contact" })}</th>
-            )}
-            {variant !== "admin" ? <th className="px-3 py-2">{t("admin_users_col_region")}</th> : null}
-            {variant === "store" ? (
-              <>
-                <th className="px-3 py-2">{t("admin_users_store_col_store_name")}</th>
-                <th className="px-3 py-2">{t("admin_users_store_col_store_status")}</th>
-              </>
-            ) : null}
-            {variant === "all" ? (
-              <>
-                <th className="px-3 py-2">{t("admin_users_col_member_status")}</th>
-                <th className="px-3 py-2">{safeT("admin_users_col_auth", { fallbackKo: "인증", fallbackEn: "Auth" })}</th>
-                <th className="px-3 py-2">{safeT("admin_users_col_relation", { fallbackKo: "관계", fallbackEn: "Relations" })}</th>
-              </>
-            ) : null}
-            {variant === "admin" ? (
-              <>
-                <th className="px-3 py-2">{t("admin_users_col_last_login")}</th>
-                <th className="px-3 py-2">{safeT("admin_users_col_admin_role", { fallbackKo: "Admin Role", fallbackEn: "Admin Role" })}</th>
-                <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
-                <th className="px-3 py-2">{safeT("admin_users_col_perm_summary", { fallbackKo: "권한 요약", fallbackEn: "Permissions" })}</th>
-              </>
-            ) : (
-              <>
-                <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
-                <th className="px-3 py-2">{t("admin_users_col_last_login")}</th>
-              </>
-            )}
-            <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
+            <th className="px-3 py-2">회원 ID</th>
+            <th className="px-3 py-2">연락처</th>
+            <th className="px-3 py-2">계정 상태</th>
+            <th className="px-3 py-2">인증</th>
+            <th className="px-3 py-2">매장</th>
+            <th className="px-3 py-2">관리 권한</th>
+            <th className="px-3 py-2">가입 방식</th>
+            <th className="px-3 py-2">최근 로그인</th>
+            <th className="px-3 py-2">가입일</th>
+            <th className="px-3 py-2">작업</th>
           </tr>
         </thead>
         <tbody>
@@ -523,12 +256,6 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
               key={u.id}
               user={u}
               onViewDetail={onViewDetail}
-              onEditMember={onEditMember}
-              onSendMessage={onSendMessage}
-              onEditPermissions={onEditPermissions}
-              variant={variant}
-              staff={staffByUserId?.get(u.id)}
-              isMaster={isMaster}
               selected={selection.isSelected(u.id)}
               onToggleSelected={() => selection.toggleRow(u.id)}
             />

@@ -48,6 +48,7 @@ const STATUS_LABEL_KEYS = {
   active: "admin_users_lite_status_active",
   needs_review: "admin_users_lite_status_needs_review",
   suspended: "admin_users_lite_status_suspended",
+  blocked: "admin_users_lite_status_blocked",
   deleted: "admin_users_lite_status_deleted",
 } as const;
 

@@ -73,16 +73,18 @@ describe("admin member ops UX identity contract", () => {
     expect(panel).not.toMatch(/store_staff/);
   });
 
-  it("admin tab is person list plus permission editor, not Staff table as the page", () => {
+  it("P2 member list is operator console with detail-only row action", () => {
     const listPage = src("components/admin/users/AdminUserListPage.tsx");
-    expect(listPage).toMatch(/variant=\{tab === "store" \? "store" : tab === "admin" \? "admin" : "all"\}/);
-    expect(listPage).toMatch(/onEditPermissions/);
+    expect(listPage).toMatch(/MEMBER_ADMIN_COPY\.member_management/);
     expect(listPage).not.toMatch(/<AdminStaffTable/);
+    expect(listPage).not.toMatch(/onEditPermissions/);
     const table = src("components/admin/users/AdminUserTable.tsx");
     expect(table).toMatch(/publicIdForAdminUser/);
     expect(table).toMatch(/onClick=\{handleViewDetail\}/);
+    expect(table).toMatch(/memberListStoreCellLabel/);
     expect(table).not.toMatch(/roleRowClass/);
     expect(table).not.toMatch(/loginIdentifier/);
+    expect(table).not.toMatch(/RowMenu/);
   });
 
   it("detail shell is master record + 3-col overview, not metric card wall", () => {

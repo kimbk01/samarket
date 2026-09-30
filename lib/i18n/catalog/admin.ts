@@ -1519,6 +1519,7 @@ export const adminMessages = {
     admin_users_lite_status_active: "정상",
     admin_users_lite_status_needs_review: "확인 필요",
     admin_users_lite_status_suspended: "정지",
+    admin_users_lite_status_blocked: "이용 차단",
     admin_users_lite_status_deleted: "탈퇴/삭제됨",
     admin_users_lite_action_notify: "알림",
     admin_users_lite_action_message: "메시지",
@@ -4541,6 +4542,7 @@ export const adminMessages = {
     admin_users_lite_status_active: "Active",
     admin_users_lite_status_needs_review: "Needs review",
     admin_users_lite_status_suspended: "Suspended",
+    admin_users_lite_status_blocked: "Blocked",
     admin_users_lite_status_deleted: "Deleted/withdrawn",
     admin_users_lite_action_notify: "Notify",
     admin_users_lite_action_message: "Message",
@@ -6053,3 +6055,4 @@ export const adminMessages = {
   },
   
 } as const;
+
