@@ -10,7 +10,8 @@ const campaign: PlatformPopupAdminListItem = {
   approvalStatus: "approved",
   priority: 100,
   startAt: "2026-09-01T00:00:00.000Z",
-  endAt: "2026-09-30T00:00:00.000Z",
+  // Far-future end — must not depend on "today" or CI calendar day.
+  endAt: "2027-12-31T00:00:00.000Z",
   timezone: "Asia/Manila",
   suppressionMode: "CLOSE",
   suppressionDurationSeconds: null,

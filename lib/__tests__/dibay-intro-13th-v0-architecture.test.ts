@@ -41,10 +41,11 @@ describe("13th intro V0 architecture", () => {
     });
   }
 
-  it("V0 factory has owner marker + indigo bg", () => {
+  it("V0 factory has owner marker + brand navy bg", () => {
     const doc = createEmptyV0Document();
     expect(validateDocumentV0(doc)).toBeNull();
-    expect(doc.scenes[0]?.background).toEqual({ type: "COLOR", color: "#4F46E5" });
+    // Owner brand navy (not legacy indigo #4F46E5).
+    expect(doc.scenes[0]?.background).toEqual({ type: "COLOR", color: "#0B3D91" });
     const text = doc.scenes[0]?.elements.find((e) => e.type === "TEXT");
     expect((text?.payload as { text: string }).text).toBe("DIBAY");
   });

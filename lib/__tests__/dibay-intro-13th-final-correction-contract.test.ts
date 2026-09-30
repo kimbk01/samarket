@@ -104,9 +104,10 @@ describe("13th final correction apply-service contract", () => {
     expect(contract).toContain("SYSTEM_START_MIN_VISIBLE_MS_MIN");
     expect(contract).toContain("minVisibleMs=0 — FORBIDDEN");
     expect(panel).toContain("SYSTEM_START_MIN_VISIBLE_PRESETS_MS");
-    expect(panel).toContain("다음 앱 버전 설정 저장");
-    expect(panel).toContain("마지막 빌드 스냅샷 (materialized)");
-    expect(panel).toContain("다음 앱 버전 설정 (desired)");
+    // Layer B durable draft + Apply (not legacy "다음 앱 버전 설정 저장" copy).
+    expect(panel).toContain("durable desired config");
+    expect(panel).toContain("Layer A — materialized (OS)");
+    expect(panel).toContain("Layer B Live");
     expect(panel).not.toContain("현재 설치 앱이 반영");
 
     // Brand media identity + size presets (S/M/L) — F2.
@@ -134,6 +135,8 @@ describe("13th final correction apply-service contract", () => {
     expect(src).toContain("+ 장면 추가");
     expect(src).toContain("+ 이미지");
     expect(src).toContain("요소 등장 효과");
-    expect(src).toContain("왼쪽으로 밀기");
+    // Transition operator label from capability-registry (not hardcoded "왼쪽으로 밀기").
+    expect(src).toContain("TRANSITION_OPERATOR_LABELS");
+    expect(src).toContain("MOTION_OPERATOR_LABELS");
   });
 });

@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const RUNNER = join(
-  process.cwd(),
-  ".tmp/intro-final-reconstruction/qa/run-scenario-qa.mjs",
-);
+const RUNNER = join(process.cwd(), "scripts/qa/intro-run-scenario-qa.mjs");
 
 describe("C7 QA runner false-PASS prevention", () => {
   it("runner exists with single setScenario writer + counts from results", () => {
