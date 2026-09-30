@@ -4,8 +4,13 @@
 
 BEGIN;
 
-DROP POLICY IF EXISTS r15_startup_generations_public_current_select
-  ON public.r15_startup_generations;
+DO $$
+BEGIN
+  IF to_regclass('public.r15_startup_generations') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS r15_startup_generations_public_current_select ON public.r15_startup_generations';
+  END IF;
+END $$;
+
 DROP POLICY IF EXISTS r15_startup_media_admin_select
   ON storage.objects;
 

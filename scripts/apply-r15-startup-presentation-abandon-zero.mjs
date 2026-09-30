@@ -146,8 +146,6 @@ const existing = psql(
 );
 if (existing === VERSION) {
   console.log(JSON.stringify({ alreadyRecorded: true, version: VERSION }));
-  // Re-run SQL idempotently for residual drops if prior partial apply recorded version.
-  psql([...connArgs, "-f", sqlPath], env);
 } else {
   console.log("[apply] running R15 abandonment zero migration...");
   psql([...connArgs, "-f", sqlPath], env);
