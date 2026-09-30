@@ -1,0 +1,658 @@
+{
+  "cut": "CUT_G_TABLET_LANDSCAPE_RUNTIME_CLOSE",
+  "sha": "6f155d33e",
+  "origin": "http://127.0.0.1:3000",
+  "productionClaimForbidden": true,
+  "viewportAuthority": {
+    "token": "--sam-bp-lg-min",
+    "source": "app/design-tokens.css",
+    "tabletLandscape": {
+      "width": 1024,
+      "height": 768,
+      "label": "lg-min landscape (--sam-bp-lg-min)"
+    },
+    "note": "Landscape at design-token lg floor (1024×768). Not Production PASS."
+  },
+  "auth": {
+    "email": "aaaa@manual.local",
+    "role": "admin_session"
+  },
+  "browser": "chromium playwright",
+  "emulation": "Playwright viewport emulation (not physical iPad)",
+  "zoom": 1,
+  "ids": {
+    "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "campaignId": "4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f",
+    "supportId": null,
+    "pointChargeId": null
+  },
+  "routes": {
+    "T1_SHELL_ACTION_CENTER": {
+      "path": "/admin",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": true,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T2_FINANCE": {
+      "path": "/admin/finance",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/finance"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T3_POINT_QUEUE": {
+      "path": "/admin/point-charges",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/point-charges"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T4_CASH_QUEUE": {
+      "path": "/admin/delivery-ads/cash-charges",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/delivery-ads/cash-charges"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T5_ADS_HUB": {
+      "path": "/admin/delivery-ads?view=actionable",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/delivery-ads?view=actionable"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T6_ADS_DETAIL": {
+      "path": "/admin/delivery-ads/4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/delivery-ads/4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T7_PLACEMENT_MAP": {
+      "path": "/admin/delivery-ads/inventory?focus=STORES_HOME_HERO#placement-map",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/delivery-ads/inventory?focus=STORES_HOME_HERO#placement-map"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": true,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T8_HOME_CONFIG": {
+      "path": "/admin/stores-home-shelves",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/stores-home-shelves"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": true,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T9_CATEGORY_CONFIG": {
+      "path": "/admin/stores-category-policy",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/stores-category-policy?primary=restaurant"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": true
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T10_SUPPORT_INBOX": {
+      "path": "/admin/support",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/support"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T11_SUPPORT_DETAIL": {
+      "result": "BLOCKED",
+      "reason": "no_safe_entity_id"
+    },
+    "T12_PARTNER": {
+      "path": "/admin/delivery-ads/partner",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/delivery-ads/partner"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": true,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": true,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    },
+    "T13_STORE_HUB": {
+      "path": "/admin/business/19085860-52d2-4183-b033-e71fcb58bcec",
+      "nav": {
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3000/admin/business/19085860-52d2-4183-b033-e71fcb58bcec"
+      },
+      "geometry": {
+        "clientWidth": 1024,
+        "scrollWidth": 1024,
+        "pageOverflowX": false,
+        "sidebarMainOverlap": false,
+        "anyCtaVisible": false,
+        "main": {
+          "top": 90,
+          "left": 256,
+          "right": 1024,
+          "bottom": 768,
+          "width": 768,
+          "height": 678
+        },
+        "sidebar": {
+          "top": 57,
+          "left": 0,
+          "right": 256,
+          "bottom": 768,
+          "width": 256,
+          "height": 711
+        },
+        "firstOverflow": null,
+        "markers": {
+          "actionCenter": false,
+          "placementMap": false,
+          "partner": false,
+          "homeCms": false,
+          "categoryCms": false
+        }
+      },
+      "result": "PASS",
+      "fails": []
+    }
+  },
+  "deepLinks": {
+    "HOME_TO_MAP": {
+      "url": "http://127.0.0.1:3000/admin/delivery-ads/inventory?focus=STORES_HOME_FEED#placement-map",
+      "focus": "STORES_HOME_FEED",
+      "expectedFocus": "STORES_HOME_FEED",
+      "result": "PASS",
+      "geo": {
+        "result": "PASS",
+        "fails": []
+      }
+    },
+    "CATEGORY_TO_MAP": {
+      "url": "http://127.0.0.1:3000/admin/delivery-ads/inventory?focus=STORES_CATEGORY_FEED#placement-map",
+      "focus": "STORES_CATEGORY_FEED",
+      "expectedFocus": "STORES_CATEGORY_FEED",
+      "result": "PASS"
+    },
+    "ADS_TO_MAP": {
+      "result": "BLOCKED",
+      "reason": "cta_missing_or_not_banner"
+    }
+  },
+  "navMemory": {
+    "ADS": {
+      "before": "http://127.0.0.1:3000/admin/delivery-ads?view=actionable",
+      "after": "http://127.0.0.1:3000/admin/delivery-ads?view=actionable",
+      "result": "PASS",
+      "note": "browser back preserves history; query memory checked if present"
+    },
+    "FINANCE": {
+      "after": "http://127.0.0.1:3000/admin/finance",
+      "result": "PASS"
+    },
+    "SUPPORT": {
+      "after": "http://127.0.0.1:3000/admin/support?filter=WAITING_ADMIN",
+      "result": "PASS"
+    }
+  },
+  "modal": {
+    "trigger": {
+      "opened": false
+    },
+    "popover": {
+      "present": false
+    },
+    "result": "PARTIAL"
+  },
+  "desktopRegression": {
+    "_admin": {
+      "path": "/admin",
+      "result": "PASS",
+      "fails": [],
+      "overflow": false
+    },
+    "_admin_finance": {
+      "path": "/admin/finance",
+      "result": "PASS",
+      "fails": [],
+      "overflow": false
+    },
+    "_admin_delivery_ads_inventory_placement_map": {
+      "path": "/admin/delivery-ads/inventory#placement-map",
+      "result": "PASS",
+      "fails": [],
+      "overflow": false
+    },
+    "_admin_support": {
+      "path": "/admin/support",
+      "result": "PASS",
+      "fails": [],
+      "overflow": false
+    },
+    "_admin_stores_home_shelves": {
+      "path": "/admin/stores-home-shelves",
+      "result": "PASS",
+      "fails": [],
+      "overflow": false
+    }
+  },
+  "tests": {
+    "T1": "PASS",
+    "T2": "PASS",
+    "T3": "PASS",
+    "T4": "PASS",
+    "T5": "PASS",
+    "T6": "PASS",
+    "T7": "PASS",
+    "T8": "PASS",
+    "T9": "PASS",
+    "T10": "PASS",
+    "T11": "BLOCKED",
+    "T12": "PASS",
+    "T13": "PASS",
+    "T14": "PARTIAL",
+    "T15": "PARTIAL",
+    "T16": "PASS",
+    "T17": "PASS",
+    "T18": "PASS",
+    "T19": "BLOCKED",
+    "T20": "PASS",
+    "T21": "PASS",
+    "T22": "PASS",
+    "T23": "PASS",
+    "T24": "PASS",
+    "T25": "PASS"
+  },
+  "firstDivergence": null,
+  "carry": {
+    "FINANCE_PRODUCTION_E2E": "NOT_PROVEN",
+    "COIN_SALE_RECOGNITION": "NOT_PROVEN",
+    "ADS_MUTATION_LIVE": "PARTIAL",
+    "RESUME_END_LIVE": "NOT_PROVEN",
+    "POPUP_PRODUCTION": "NOT_PROVEN",
+    "SUPPORT_MUTATION_LIVE": "NOT_PROVEN",
+    "PARTNER_LIVE": "NOT_PROVEN",
+    "PREVIEW_LIVE_CREATIVE_PARITY": "PARTIAL",
+    "CUT_F_P1_PLACEMENT_MAP_ACTIVE_ELIGIBILITY": "DEFERRED_TO_CUT_I"
+  },
+  "final": {
+    "GLOBAL_TABLET_SHELL": "PASS",
+    "ACTION_CENTER": "PASS",
+    "FINANCE": "PASS",
+    "ADS": "PASS",
+    "PLACEMENT_MAP": "PASS",
+    "HOME_CATEGORY": "PASS",
+    "SUPPORT": "PASS",
+    "PARTNER": "PASS",
+    "STORE_HUB": "PASS",
+    "NAVIGATION_MEMORY": "PASS",
+    "DEEP_LINK": "PASS",
+    "DESKTOP_REGRESSION": "PASS",
+    "TABLET_ADMIN": "PARTIAL",
+    "CUT_G": "PARTIAL",
+    "note": "Not Production PASS. Local/dev runtime geometry only."
+  },
+  "placementMapInteract": {
+    "markerClicked": true,
+    "markerId": "STORES_HOME_FEED",
+    "detailText": "Delivery Home · Top heroSTORES_HOME_HEROAdProduct: bannerRatio: 39:16Ratio owner: lib/stores/advertising/delivery-ad-inv",
+    "mapWidth": 736,
+    "detailWidth": 318,
+    "readable": true
+  }
+}
