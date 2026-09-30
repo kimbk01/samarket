@@ -173,4 +173,16 @@ describe("os-entry intro separation", () => {
       expect(src).not.toMatch(/\breload\s*\(/);
     }
   });
+
+  it("OsEntryOwner arms timer only after appReady (splash dismiss)", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "components/os-entry/OsEntryOwner.tsx"),
+      "utf8"
+    );
+    expect(src).toMatch(/getAppReadySnapshot/);
+    expect(src).toMatch(/subscribeAppReady/);
+    expect(src).toMatch(/armReleaseTimer/);
+  });
 });
