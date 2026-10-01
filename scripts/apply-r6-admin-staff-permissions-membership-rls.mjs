@@ -66,7 +66,8 @@ function assertApprovedSql(sql) {
   ]) {
     if (!sql.includes(must)) throw new Error(`missing required marker: ${must}`);
   }
-  if (/p\.is_admin\s*=\s*true/i.test(sql) || /profiles\.is_admin/i.test(sql)) {
+  const body = sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  if (/p\.is_admin\s*=\s*true/i.test(body) || /profiles\.is_admin/i.test(body)) {
     throw new Error("must not authorize via profiles.is_admin");
   }
 }
