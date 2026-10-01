@@ -141,7 +141,10 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
    */
   const exit = useCallback(
     (reason: "cta" | "complete" | "skip" | "background" | "error", target?: string) => {
-      if (latched.current) return;
+      if (latched.current) {
+        console.info(`[dibay-launch-intro] exit_ignored reason=${reason}`);
+        return;
+      }
       latched.current = true;
       if (timer.current != null) window.clearTimeout(timer.current);
       console.info(`[dibay-launch-intro] exit reason=${reason}${target ? ` target=${target}` : ""}`);
@@ -165,6 +168,10 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     },
     [router]
   );
+  useEffect(() => {
+    console.info(`[dibay-launch-intro] phase=${phase}`);
+  }, [phase]);
+
   const exitRef = useRef(exit);
   useLayoutEffect(() => {
     exitRef.current = exit;
@@ -181,7 +188,11 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       }
       markLaunchEpochShown(snapshot.epoch);
       // Scene duration is Admin content; it starts only after the OS release.
-      timer.current = window.setTimeout(() => exitRef.current("complete"), scene.durationMs);
+      timer.current = window.setTimeout(() => {
+        console.info("[dibay-launch-intro] complete_timer_fired");
+        exitRef.current("complete");
+      }, scene.durationMs);
+      console.info(`[dibay-launch-intro] released_os timer=${scene.durationMs}`);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per SHOWING
