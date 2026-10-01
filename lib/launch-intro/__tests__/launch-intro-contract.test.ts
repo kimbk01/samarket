@@ -424,6 +424,17 @@ describe("P7 device target (DeviceClass read-only, PREPARING)", () => {
   });
 });
 
+describe("landscape never crops (tablet / rotated)", () => {
+  it("cover switches to contain + blurred side fill only in a landscape scene container; portrait unchanged", () => {
+    const css = src("components/launch-intro/LaunchIntroMotionStyles.tsx");
+    expect(css).toMatch(/\.lim-cover \{ object-fit: cover \}/);
+    expect(css).toMatch(/@container lim-scene \(orientation: landscape\) \{\s*\.lim-cover \{ object-fit: contain \}\s*\.lim-ls-backdrop \{ display: block \}/);
+    const view = src("components/launch-intro/LaunchIntroSceneView.tsx");
+    expect(view).toContain('containerName: "lim-scene"');
+    expect(view).toContain('className="lim-ls-backdrop"');
+  });
+});
+
 describe("OS release ownership (single destination owner)", () => {
   it("INTRO claim, one switch back, release notifies once", () => {
     expect(getLaunchOsReleaseOwner()).toBe("community");

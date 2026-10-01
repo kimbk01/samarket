@@ -94,6 +94,10 @@ function Img({
 /**
  * Image, GIF, or MP4 with its poster, in one box. Video: muted + playsInline + autoplay + loop, no
  * controls, never needs audio permission or a gesture. On error the poster stays (no timer, no retry).
+ *
+ * fit "cover" = a fixed box (`style` gives its size/position). In portrait it fills the box (crop);
+ * in landscape the CSS in LaunchIntroMotionStyles switches it to contain and shows a blurred copy of
+ * the same picture behind it, so nothing is cut. fit "contain" never crops and is unchanged.
  */
 function FittedMedia({
   media,
@@ -109,8 +113,13 @@ function FittedMedia({
   const [failed, setFailed] = useState(false);
   const poster = resolveImage(media.asset.sha256);
   const videoSrc = media.video ? resolveImage(media.video.sha256) : null;
-  if (media.video && videoSrc && playVideo && !failed) {
-    return (
+  const cover = media.fit === "cover";
+  const fill: CSSProperties = cover ? { width: "100%", height: "100%" } : style;
+  const fitClass = cover ? "lim-cover" : undefined;
+  const fitStyle: CSSProperties = cover ? {} : { objectFit: media.fit };
+
+  const main =
+    media.video && videoSrc && playVideo && !failed ? (
       <video
         src={videoSrc}
         poster={poster ?? undefined}
@@ -130,11 +139,39 @@ function FittedMedia({
           }
         }}
         onError={() => setFailed(true)}
-        style={{ display: "block", objectFit: media.fit, objectPosition: "center", ...style }}
+        className={fitClass}
+        style={{ display: "block", objectPosition: "center", ...fitStyle, ...fill }}
       />
-    );
-  }
-  return poster ? <Img src={poster} fit={media.fit} style={style} /> : null;
+    ) : poster ? (
+      // eslint-disable-next-line @next/next/no-img-element -- local verified blob / signed preview URL
+      <img src={poster} alt="" draggable={false} className={fitClass} style={{ display: "block", objectPosition: "center", ...fitStyle, ...fill }} />
+    ) : null;
+
+  if (!cover) return main;
+  return (
+    <div style={{ position: style.position === "absolute" ? "absolute" : "relative", overflow: "hidden", ...style }}>
+      {poster ? (
+        // eslint-disable-next-line @next/next/no-img-element -- same verified source, blurred side fill
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="lim-ls-backdrop"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "blur(28px) brightness(0.85)",
+            transform: "scale(1.15)",
+          }}
+        />
+      ) : null}
+      <div style={{ position: "absolute", inset: 0 }}>{main}</div>
+    </div>
+  );
 }
 
 export function LaunchIntroSceneView({
@@ -253,6 +290,7 @@ export function LaunchIntroSceneView({
         overflow: "hidden",
         backgroundColor: scene.background.color,
         containerType: "size",
+        containerName: "lim-scene",
         fontFamily: "inherit",
         userSelect: "none",
       }}

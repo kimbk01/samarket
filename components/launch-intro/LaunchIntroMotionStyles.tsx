@@ -19,6 +19,14 @@ const CSS = `
 .lim-float { animation: lim-float 3.2s ease-in-out infinite }
 .lim-tr-fade { animation: lim-fade ${LAUNCH_INTRO_TRANSITION_MS}ms ease-out both }
 .lim-tr-slide { animation: lim-tr-slide ${LAUNCH_INTRO_TRANSITION_MS}ms cubic-bezier(.2,.8,.2,1) both }
+/* Landscape (tablet / rotated): a "cover" picture is never cropped. It shows whole (contain) and the
+   empty sides are filled with the same picture, blurred. Portrait keeps the exact cover look. */
+.lim-cover { object-fit: cover }
+.lim-ls-backdrop { display: none }
+@container lim-scene (orientation: landscape) {
+  .lim-cover { object-fit: contain }
+  .lim-ls-backdrop { display: block }
+}
 @media (prefers-reduced-motion: reduce) {
   .lim-enter-fade, .lim-enter-slide-up, .lim-enter-scale, .lim-float { animation: none !important }
   .lim-tr-slide { animation: lim-fade 200ms ease-out both }
