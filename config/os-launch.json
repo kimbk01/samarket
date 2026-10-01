@@ -1,0 +1,19 @@
+{
+  "$comment": "R17-OS build-time source for the TRUE OS start visual. Edited via Admin > 시작 화면 > OS 시작 화면 (pending) and applied with `npm run os-launch:pull` before a native build. Apps never read this at runtime.",
+  "version": 1,
+  "backgroundColor": "#075740",
+  "logo": {
+    "source": "public/images/brand/dibay-logo-mark.png",
+    "width": 716,
+    "height": 681,
+    "sha256": "2c6fec222d1c27236f43060f6567dc61912a8ef2f351ab5503a7633b681c1eed"
+  },
+  "android": {
+    "logoCanvasPx": 960,
+    "logoWidthRatio": 0.44
+  },
+  "ios": {
+    "logoWidthPt": 106
+  },
+  "appliedFromAdmin": null
+}

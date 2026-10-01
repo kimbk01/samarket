@@ -22,7 +22,8 @@
     "lib/community-messenger/bootstrap-lite-performance-lock.baseline.json",
     "lib/community-messenger/cm-client-first-paint-baseline.json",
     "lib/community-messenger/mark-read-performance-lock.baseline.json",
-    "data/trade-national-lgu/lgu-display-by-id.json"
+    "data/trade-national-lgu/lgu-display-by-id.json",
+    "config/os-launch.json"
   ],
   "exclude": [
     "node_modules",
