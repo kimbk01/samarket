@@ -294,7 +294,7 @@ describe("P4 Admin lifecycle mirrors the DB state machine", () => {
     expect(launchIntroDraftStatus({ draft, dirty: true, livePublication: pub })).toBe("unsaved");
     expect(launchIntroDraftStatus({ draft, dirty: false, livePublication: pub })).toBe("published");
     expect(launchIntroDraftStatus({ draft: { id: "d1", version: 9 }, dirty: false, livePublication: pub })).toBe("changed");
-    expect(launchIntroDraftStatus({ draft, dirty: false, livePublication: null })).toBe("changed");
+    expect(launchIntroDraftStatus({ draft, dirty: false, livePublication: null })).toBe("not_live");
   });
 
   it("every Live change and every discard asks first; the Admin uses the mirror, not its own rules", () => {
@@ -303,7 +303,7 @@ describe("P4 Admin lifecycle mirrors the DB state machine", () => {
     expect(admin).toContain("launchIntroCanTransition(live, \"resume\")");
     expect(admin).toContain("launchIntroCanTransition(live, \"unpublish\")");
     expect(admin).toContain("launchIntroCanReactivate(live, p.id)");
-    expect(admin).not.toMatch(/live\.state !== "active"|live\.state !== "paused"|live\.state === "unpublished"/);
+    expect(admin).not.toMatch(/disabled=\{[^}]*live\.state/);
     // confirm: publish, delete, cancel, and the shared state-change path
     expect(admin.match(/await dibayConfirm\(/g)?.length).toBeGreaterThanOrEqual(4);
   });

@@ -490,9 +490,12 @@ export function LaunchIntroAdminPage() {
   const setState = async (action: LaunchIntroLifecycleAction, publicationId?: string) => {
     const copy = LIFECYCLE_COPY[action];
     const pub = publicationId ? snap?.publications.find((p) => p.id === publicationId) : null;
+    // Reactivate while nothing is live: there is no current Intro to take down.
+    const desc =
+      action === "reactivate" && snap?.live.state === "unpublished" ? "admin_launch_intro_reactivate_confirm_desc_none" : copy.desc;
     const ok = await dibayConfirm({
       title: t(copy.title),
-      description: t(copy.desc, { id: pub ? pub.id.slice(0, 8) : "", date: pub ? fmtDate(pub.created_at) : "" }),
+      description: t(desc, { id: pub ? pub.id.slice(0, 8) : "", date: pub ? fmtDate(pub.created_at) : "" }),
       confirmLabel: t(copy.label),
       confirmTone: action === "unpublish" ? "destructive" : "primary",
     });
@@ -521,7 +524,9 @@ export function LaunchIntroAdminPage() {
         ? t("admin_launch_intro_status_draft_unsaved")
         : draftStatus === "published"
           ? t("admin_launch_intro_status_draft_published", { v: snap?.draft?.version ?? 0 })
-          : t("admin_launch_intro_status_draft_changed", { v: snap?.draft?.version ?? 0 });
+          : draftStatus === "not_live"
+            ? t("admin_launch_intro_status_draft_not_live", { v: snap?.draft?.version ?? 0 })
+            : t("admin_launch_intro_status_draft_changed", { v: snap?.draft?.version ?? 0 });
   const isLast = sel === sceneCount - 1;
   const ctaType = scene?.cta?.action.type ?? "none";
 

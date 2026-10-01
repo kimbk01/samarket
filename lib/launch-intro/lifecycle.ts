@@ -31,7 +31,8 @@ export type LaunchIntroDraftStatus =
   | "none" // no draft row
   | "unsaved" // local edits not saved yet
   | "published" // saved draft = the Live publication's source version
-  | "changed"; // saved, but differs from what is Live (or nothing is Live)
+  | "changed" // saved, but differs from the Live publication
+  | "not_live"; // saved, and devices have no Intro right now (unpublished)
 
 export function launchIntroDraftStatus(input: {
   draft: { id: string; version: number } | null;
@@ -41,6 +42,7 @@ export function launchIntroDraftStatus(input: {
   if (!input.draft) return "none";
   if (input.dirty) return "unsaved";
   const p = input.livePublication;
-  if (p && p.source_draft_id === input.draft.id && p.source_draft_version === input.draft.version) return "published";
+  if (!p) return "not_live";
+  if (p.source_draft_id === input.draft.id && p.source_draft_version === input.draft.version) return "published";
   return "changed";
 }
