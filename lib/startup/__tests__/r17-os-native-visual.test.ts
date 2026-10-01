@@ -5,7 +5,8 @@
  * IOS:     TRUE LaunchScreen → app-native SAME storyboard continuation → Community
  * WEB:     Community (no splash)
  */
-import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -47,13 +48,20 @@ describe("R17-OS Android TRUE OS splash resources", () => {
 });
 
 describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
-  it("LaunchScreen carries the OS background and the OsLaunchLogo image", () => {
+  it("LaunchScreen carries the OS background and a content-addressed launch logo image", () => {
     const sb = src("ios/App/App/Base.lproj/LaunchScreen.storyboard");
-    expect(sb).toContain('image="OsLaunchLogo"');
     expect(sb).toContain('red="0.027450980392156862" green="0.3411764705882353" blue="0.25098039215686274"');
-    expect(
-      existsSync(resolve(process.cwd(), "ios/App/App/Assets.xcassets/OsLaunchLogo.imageset/Contents.json"))
-    ).toBe(true);
+    // iOS caches launch images by NAME: a logo change must change the name, or the system
+    // LaunchScreen keeps drawing the old logo while the continuation draws the new one.
+    const cfg = JSON.parse(src("config/os-launch.json"));
+    const key = createHash("sha256").update(`${cfg.logo.sha256}:${cfg.ios.logoWidthPt}`).digest("hex").slice(0, 10);
+    const name = `OsLaunchLogo-${key}`;
+    expect(sb).toContain(`image="${name}"`);
+    expect(sb).toContain(`<image name="${name}"`);
+    expect(sb).not.toContain('image="OsLaunchLogo"');
+    const assets = resolve(process.cwd(), "ios/App/App/Assets.xcassets");
+    expect(existsSync(resolve(assets, `${name}.imageset/Contents.json`))).toBe(true);
+    expect(readdirSync(assets).filter((n) => n.startsWith("OsLaunchLogo"))).toEqual([`${name}.imageset`]);
   });
 
   it("continuation instantiates the SAME launch storyboard and has no product semantics", () => {

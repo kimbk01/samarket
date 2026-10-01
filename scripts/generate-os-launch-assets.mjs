@@ -9,12 +9,18 @@
  * Writes ONLY:
  *   android/app/src/main/res/values/colors.xml          (dibay_os_bg value)
  *   android/app/src/main/res/drawable-nodpi/ic_os_logo.png
- *   ios/App/App/Base.lproj/LaunchScreen.storyboard      (background color, OsLaunchLogo size)
- *   ios/App/App/Assets.xcassets/OsLaunchLogo.imageset/*
+ *   ios/App/App/Base.lproj/LaunchScreen.storyboard      (background color, logo image name + size)
+ *   ios/App/App/Assets.xcassets/OsLaunchLogo-<key>.imageset/*  (stale OsLaunchLogo*.imageset removed)
  *   config/os-launch.json, public/images/os-launch/logo.png   (--pull only)
  *
  * Build-time only. Apps never read Admin values at runtime.
  * --check : verify the committed resources match config (no writes, exit 1 on drift).
+ *
+ * iOS launch image name is CONTENT-ADDRESSED (OsLaunchLogo-<key>, key = hash of logo sha256 + pt size).
+ * iOS keeps launch-screen images in its own cache keyed by image name and does not reliably
+ * refresh them when an app update ships a different PNG under the same name: the system
+ * LaunchScreen then draws the OLD logo while the app-native continuation draws the NEW one
+ * (two visibly different start screens). A new logo => a new name => no stale cache hit.
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -26,7 +32,8 @@ const CONFIG = path.join(ROOT, "config", "os-launch.json");
 const COLORS_XML = path.join(ROOT, "android/app/src/main/res/values/colors.xml");
 const ANDROID_LOGO = path.join(ROOT, "android/app/src/main/res/drawable-nodpi/ic_os_logo.png");
 const STORYBOARD = path.join(ROOT, "ios/App/App/Base.lproj/LaunchScreen.storyboard");
-const IOS_IMAGESET = path.join(ROOT, "ios/App/App/Assets.xcassets/OsLaunchLogo.imageset");
+const IOS_ASSETS = path.join(ROOT, "ios/App/App/Assets.xcassets");
+const IOS_IMAGE_PREFIX = "OsLaunchLogo";
 const PULLED_LOGO = "public/images/os-launch/logo.png";
 
 const args = new Set(process.argv.slice(2));
@@ -91,6 +98,12 @@ async function pullFromAdmin(config) {
   return next;
 }
 
+/** Content-addressed iOS launch image name: changes whenever the logo bytes or its pt size change. */
+function iosLaunchImageName(logoSha256, pt) {
+  const key = createHash("sha256").update(`${logoSha256}:${pt}`).digest("hex").slice(0, 10);
+  return `${IOS_IMAGE_PREFIX}-${key}`;
+}
+
 function writeOrCheck(file, content, drift) {
   const exists = fs.existsSync(file);
   const same = exists && Buffer.compare(fs.readFileSync(file), Buffer.from(content)) === 0;
@@ -146,14 +159,26 @@ async function main() {
     .toBuffer();
   if (!CHECK) writeOrCheck(ANDROID_LOGO, androidLogo, drift);
 
-  // ── iOS: 1x/2x/3x logo + storyboard color and logo constraints.
+  // ── iOS: 1x/2x/3x logo (content-addressed imageset) + storyboard color and logo constraints.
   const pt = config.ios.logoWidthPt;
   const ptH = Math.round(pt * aspect);
+  const imageName = iosLaunchImageName(config.logo.sha256, pt);
+  const IOS_IMAGESET = path.join(IOS_ASSETS, `${imageName}.imageset`);
+  for (const name of fs.readdirSync(IOS_ASSETS)) {
+    if (!name.startsWith(IOS_IMAGE_PREFIX) || !name.endsWith(".imageset")) continue;
+    if (name === `${imageName}.imageset`) continue;
+    if (CHECK) drift.push(`stale ${path.relative(ROOT, path.join(IOS_ASSETS, name))}`);
+    else {
+      fs.rmSync(path.join(IOS_ASSETS, name), { recursive: true, force: true });
+      console.log(`[os-launch] removed stale ${name}`);
+    }
+  }
   const images = [];
   for (const s of [1, 2, 3]) {
     const name = `os-launch-logo@${s}x.png`;
     const png = await sharp(logoBuf).resize(pt * s, Math.round(pt * s * aspect), { fit: "fill" }).png().toBuffer();
     if (!CHECK) writeOrCheck(path.join(IOS_IMAGESET, name), png, drift);
+    else if (!fs.existsSync(path.join(IOS_IMAGESET, name))) drift.push(path.relative(ROOT, path.join(IOS_IMAGESET, name)));
     images.push({ idiom: "universal", filename: name, scale: `${s}x` });
   }
   writeOrCheck(
@@ -174,7 +199,14 @@ async function main() {
     /(<rect key="frame" x=")[0-9.]+(" y=")[0-9.]+(" width=")[0-9.]+(" height=")[0-9.]+("\/>\s*<constraints>\s*<constraint firstAttribute="width" constant="[0-9.]+" id="OsL-wd-001")/,
     `$1${(414 - pt) / 2}$2${(896 - ptH) / 2}$3${pt}$4${ptH}$5`
   );
-  sb = sb.replace(/<image name="OsLaunchLogo" width="[0-9.]+" height="[0-9.]+"\/>/, `<image name="OsLaunchLogo" width="${pt}" height="${ptH}"/>`);
+  sb = sb.replace(/(<imageView [^>]*image=")OsLaunchLogo[^"]*(")/, `$1${imageName}$2`);
+  sb = sb.replace(
+    /<image name="OsLaunchLogo[^"]*" width="[0-9.]+" height="[0-9.]+"\/>/,
+    `<image name="${imageName}" width="${pt}" height="${ptH}"/>`
+  );
+  if (!sb.includes(`image="${imageName}"`) || !sb.includes(`<image name="${imageName}"`)) {
+    throw new Error("LaunchScreen.storyboard: OsLaunchLogo image reference not found");
+  }
   writeOrCheck(STORYBOARD, sb, drift);
 
   if (CHECK) {
