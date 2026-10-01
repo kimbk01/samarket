@@ -99,6 +99,7 @@ function LoginPageContent() {
   );
   const {
     pendingOAuthProvider,
+    visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError,
     startOAuthProvider,
@@ -485,6 +486,7 @@ function LoginPageContent() {
             providers={providers}
             disabled={loading}
             pendingOAuthProvider={pendingOAuthProvider}
+            signingInOAuthProvider={visiblePendingOAuthProvider}
             emptyText={
               providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
             }

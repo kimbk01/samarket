@@ -65,6 +65,22 @@ describe("LoginProviderButtons pending OAuth UI", () => {
     expect(html).not.toContain("Signing in…");
   });
 
+  it("native Kakao soft-lock keeps CTA label and skips spinner while mutex is held", () => {
+    const html = renderToStaticMarkup(
+      <LoginProviderButtons
+        providers={[googleProvider, kakaoProvider]}
+        pendingOAuthProvider="kakao"
+        signingInOAuthProvider={null}
+        onSelectProvider={() => undefined}
+      />,
+    );
+    expect(html).toContain("Continue with Kakao");
+    expect(html).not.toContain("Signing in…");
+    expect(html).not.toContain('aria-busy="true"');
+    // Soft-lock must not set the disabled attribute (disabled:opacity would flash D1).
+    expect(html).not.toMatch(/\sdisabled(=|\s|>)/);
+  });
+
   it("internal entry is a labeled secondary CTA when showEmailEntry", () => {
     const html = renderToStaticMarkup(
       <LoginProviderButtons

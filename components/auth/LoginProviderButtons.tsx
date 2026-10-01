@@ -16,8 +16,17 @@ import {
 type Props = {
   providers: AuthProviderPublic[];
   disabled?: boolean;
-  /** OAuth launch 진행 중인 provider — 해당 버튼만 "이동 중…" + spinner */
+  /**
+   * Auth mutex — any non-null value blocks additional OAuth starts.
+   * Visual spinner uses `signingInOAuthProvider` (may be null while mutex is held).
+   */
   pendingOAuthProvider?: OAuthProvider | null;
+  /**
+   * Provider currently shown as spinner / "로그인 중…".
+   * When null while `pendingOAuthProvider` is set, CTA appearance stays stable (native Kakao D1).
+   * Defaults to `pendingOAuthProvider` for backward compatibility.
+   */
+  signingInOAuthProvider?: OAuthProvider | null;
   emptyText?: string;
   showEmailEntry?: boolean;
   onEmailLoginClick?: () => void;
@@ -105,6 +114,7 @@ export function LoginProviderButtons({
   providers,
   disabled = false,
   pendingOAuthProvider = null,
+  signingInOAuthProvider,
   emptyText,
   showEmailEntry = false,
   onEmailLoginClick,
@@ -137,6 +147,11 @@ export function LoginProviderButtons({
   const showInternalDivider = showEmailEntry && (primary.length > 0 || showSecondaryOAuth);
   const redirectingLabel = t("auth_oauth_signing_in_label");
   const oauthInFlight = pendingOAuthProvider != null;
+  const presentationProvider =
+    signingInOAuthProvider === undefined ? pendingOAuthProvider : signingInOAuthProvider;
+  /** Mutex without spinner/disabled opacity — keep login surface visually stable. */
+  const softLockOnly = oauthInFlight && presentationProvider == null;
+  const disableForPending = oauthInFlight && !softLockOnly;
   const internalEntryLabel = t("auth_login_internal_entry");
 
   if (visibleProviders.length === 0 && !showEmailEntry) {
@@ -148,13 +163,13 @@ export function LoginProviderButtons({
       {primary.length > 0 ? (
         <div className="space-y-2.5">
           {primary.map((row) => {
-            const isPending = pendingOAuthProvider === row.provider;
+            const isSigningIn = presentationProvider === row.provider;
             return (
               <PrimaryProviderButton
                 key={row.provider}
                 provider={row.provider}
-                disabled={disabled || oauthInFlight}
-                showRedirecting={isPending}
+                disabled={disabled || disableForPending}
+                showRedirecting={isSigningIn}
                 redirectingLabel={redirectingLabel}
                 label={t(getOAuthLoginContinueLabelKey(row.provider))}
                 onSelectProvider={onSelectProvider}
@@ -175,23 +190,23 @@ export function LoginProviderButtons({
       {showSecondaryOAuth ? (
         <div className="flex items-center justify-center gap-4">
           {secondary.map((row) => {
-            const isPending = pendingOAuthProvider === row.provider;
+            const isSigningIn = presentationProvider === row.provider;
             return (
               <button
                 key={row.provider}
                 type="button"
                 data-provider={row.provider}
-                disabled={disabled || oauthInFlight}
-                aria-busy={isPending}
+                disabled={disabled || disableForPending}
+                aria-busy={isSigningIn}
                 onClick={handleProviderClick}
                 aria-label={
-                  isPending
+                  isSigningIn
                     ? redirectingLabel
                     : t(getOAuthLoginContinueLabelKey(row.provider))
                 }
                 className={`${OAUTH_LOGIN_SECONDARY_CIRCLE_BASE} bg-[#1877F2]`}
               >
-                {isPending ? (
+                {isSigningIn ? (
                   <OAuthRedirectSpinner className="text-white" />
                 ) : (
                   <OAuthLoginProviderIcon provider={row.provider} size="secondary" />
@@ -215,7 +230,7 @@ export function LoginProviderButtons({
           type="button"
           data-auth-surface="internal"
           data-testid="auth-internal-login-entry"
-          disabled={disabled || oauthInFlight}
+          disabled={disabled || disableForPending}
           onClick={onEmailLoginClick}
           aria-label={t("auth_login_email_dev_aria")}
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-center text-[13px] font-medium text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg disabled:opacity-50"

@@ -93,6 +93,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const {
     pendingOAuthProvider,
+    visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError,
     startOAuthProvider,
@@ -275,6 +276,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
               providers={providers}
               disabled={loading}
               pendingOAuthProvider={pendingOAuthProvider}
+              signingInOAuthProvider={visiblePendingOAuthProvider}
               emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
               showEmailEntry={passwordEnabled && !showEmailLogin}
               onEmailLoginClick={() => setShowEmailLogin(true)}

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   dispatchOAuthPendingClear,
   getOAuthPendingSnapshotForTests,
+  getOAuthSuppressVisiblePendingForTests,
   OAUTH_PENDING_CLEAR_EVENT,
   OAUTH_PENDING_TIMEOUT_MS,
   resolveOAuthPendingAfterClear,
@@ -42,8 +43,17 @@ describe("useOAuthLogin pending helpers", () => {
   it("shares one pending provider store", () => {
     setOAuthPendingForTests("google");
     expect(getOAuthPendingSnapshotForTests()).toBe("google");
+    expect(getOAuthSuppressVisiblePendingForTests()).toBe(false);
     setOAuthPendingForTests(null);
     expect(getOAuthPendingSnapshotForTests()).toBeNull();
+  });
+
+  it("can hold Kakao mutex while suppressing visible signing-in presentation", () => {
+    setOAuthPendingForTests("kakao", { suppressVisiblePresentation: true });
+    expect(getOAuthPendingSnapshotForTests()).toBe("kakao");
+    expect(getOAuthSuppressVisiblePendingForTests()).toBe(true);
+    setOAuthPendingForTests(null);
+    expect(getOAuthSuppressVisiblePendingForTests()).toBe(false);
   });
 
   it("defines inline OAuth status values for login-screen hints", () => {

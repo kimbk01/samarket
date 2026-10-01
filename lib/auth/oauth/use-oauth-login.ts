@@ -3,7 +3,9 @@
 /**
  * CONTRACT — OAuth login UX (배민·당근 스타일 인라인)
  * - 전체화면 OAuth 로그인 패널·패널 exit 애니메이션 금지
- * - pendingOAuthProvider = 버튼 로딩만, oauthInlineStatus = 1줄 안내
+ * - pendingOAuthProvider = auth mutex (double-submit)
+ * - visiblePendingOAuthProvider = 버튼 spinner / "로그인 중…" 만 (native Kakao는 null)
+ * - oauthInlineStatus = 1줄 안내 (native Kakao pre-auth는 idle 유지)
  * - email conflict 시 generic 에러 문구 중복 표시 금지 (isNativeProviderEmailConflictError)
  */
 
@@ -34,6 +36,11 @@ import {
   shouldWaitCapacitorBridgeBeforeOAuthRouting,
 } from "@/lib/auth/oauth/oauth-provider-routing.client";
 import {
+  resolveVisibleOAuthPendingProvider,
+  shouldSuppressOAuthPreAuthPresentation,
+  shouldSuppressOAuthPreAuthPresentationForRouting,
+} from "@/lib/auth/oauth/oauth-pre-auth-presentation";
+import {
   isNativeProviderCancelError,
   isNativeProviderEmailConflictError,
   resolveNativeProviderLoginErrorCode,
@@ -63,6 +70,8 @@ export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
 export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_return";
 
 let sharedPendingProvider: OAuthProvider | null = null;
+/** When true, mutex is held but CTA must not paint spinner / signing-in label. */
+let sharedSuppressVisiblePending = false;
 const pendingSubscribers = new Set<() => void>();
 
 export type OAuthAuthSuccessInput = FinishClientAuthLoginTermsHandoff & {
@@ -105,18 +114,37 @@ function getPendingServerSnapshot(): OAuthProvider | null {
   return null;
 }
 
-function setSharedPending(provider: OAuthProvider | null): void {
-  if (sharedPendingProvider === provider) return;
+function setSharedPending(
+  provider: OAuthProvider | null,
+  options?: { suppressVisiblePresentation?: boolean },
+): void {
+  const nextSuppress =
+    provider == null ? false : Boolean(options?.suppressVisiblePresentation);
+  if (sharedPendingProvider === provider && sharedSuppressVisiblePending === nextSuppress) {
+    return;
+  }
   sharedPendingProvider = provider;
+  sharedSuppressVisiblePending = nextSuppress;
   emitPendingChange();
+}
+
+function getSuppressVisiblePendingSnapshot(): boolean {
+  return sharedSuppressVisiblePending;
 }
 
 export function getOAuthPendingSnapshotForTests(): OAuthProvider | null {
   return getPendingSnapshot();
 }
 
-export function setOAuthPendingForTests(provider: OAuthProvider | null): void {
-  setSharedPending(provider);
+export function getOAuthSuppressVisiblePendingForTests(): boolean {
+  return getSuppressVisiblePendingSnapshot();
+}
+
+export function setOAuthPendingForTests(
+  provider: OAuthProvider | null,
+  options?: { suppressVisiblePresentation?: boolean },
+): void {
+  setSharedPending(provider, options);
 }
 
 function logAppleLoginPressed(): void {
@@ -235,8 +263,18 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     getPendingSnapshot,
     getPendingServerSnapshot,
   );
+  const suppressVisiblePending = useSyncExternalStore(
+    subscribePending,
+    getSuppressVisiblePendingSnapshot,
+    () => false,
+  );
+  const visiblePendingOAuthProvider = resolveVisibleOAuthPendingProvider(
+    pendingOAuthProvider,
+    suppressVisiblePending,
+  );
   const mountedRef = useRef(false);
   const pendingProviderRef = useRef<OAuthProvider | null>(pendingOAuthProvider);
+  const suppressVisiblePendingRef = useRef(suppressVisiblePending);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -249,6 +287,10 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     pendingProviderRef.current = pendingOAuthProvider;
   }, [pendingOAuthProvider]);
 
+  useEffect(() => {
+    suppressVisiblePendingRef.current = suppressVisiblePending;
+  }, [suppressVisiblePending]);
+
   const resetInlineState = useCallback(() => {
     setOauthInlineStatus("idle");
   }, []);
@@ -256,6 +298,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   const clearPending = useCallback(() => {
     endOAuthFlow();
     pendingProviderRef.current = null;
+    suppressVisiblePendingRef.current = false;
     setSharedPending(null);
     resetInlineState();
   }, [resetInlineState]);
@@ -283,6 +326,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         event instanceof CustomEvent ? String(event.detail?.reason ?? "manual") : "manual";
       const nextProvider = resolveOAuthPendingAfterClear(pendingProviderRef.current, reason);
       pendingProviderRef.current = nextProvider;
+      suppressVisiblePendingRef.current = false;
       setSharedPending(nextProvider);
       if (!nextProvider) {
         resetInlineState();
@@ -368,12 +412,18 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       if (pendingProviderRef.current) return;
       if (!isOAuthLoginStartSupported(provider)) return;
 
+      const suppressVisiblePresentation = shouldSuppressOAuthPreAuthPresentation(provider);
+
       flushSync(() => {
         ensureCapacitorNativeMarkerOnBoot();
         if (mountedRef.current) setError(null);
         pendingProviderRef.current = provider;
-        setSharedPending(provider);
-        setOauthInlineStatus("preparing");
+        suppressVisiblePendingRef.current = suppressVisiblePresentation;
+        setSharedPending(provider, { suppressVisiblePresentation });
+        // Native Kakao: keep oauthInlineStatus idle — no "preparing" / signing-in hint paint.
+        if (!suppressVisiblePresentation) {
+          setOauthInlineStatus("preparing");
+        }
       });
 
       const runProviderStart = async () => {
@@ -399,7 +449,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (shouldWaitCapacitorBridgeBeforeOAuthRouting(provider)) {
-          setOauthInlineStatus("preparing");
+          if (!suppressVisiblePendingRef.current) {
+            setOauthInlineStatus("preparing");
+          }
           await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
           ensureCapacitorNativeMarkerOnBoot();
         }
@@ -410,6 +462,19 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
         const routingSnapshot = resolveOAuthProviderRoutingSnapshot(provider);
         const { shellPlatform, routing, appleWebOAuthFallbackReason } = routingSnapshot;
+
+        // If prediction missed (rare): align suppress flag with resolved native Kakao routing.
+        const resolvedSuppress = shouldSuppressOAuthPreAuthPresentationForRouting(
+          provider,
+          routing.action,
+        );
+        if (resolvedSuppress !== suppressVisiblePendingRef.current) {
+          suppressVisiblePendingRef.current = resolvedSuppress;
+          setSharedPending(provider, { suppressVisiblePresentation: resolvedSuppress });
+          if (resolvedSuppress) {
+            setOauthInlineStatus("idle");
+          }
+        }
 
         markAuthLifecycleStage("routing_decision_completed", {
           shellPlatform,
@@ -436,7 +501,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (routing.action === "native_provider_login") {
-          setOauthInlineStatus("opening");
+          if (!suppressVisiblePendingRef.current) {
+            setOauthInlineStatus("opening");
+          }
           markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
           try {
             const result = await startNativeProviderLogin({ provider, next });
@@ -528,6 +595,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
   return {
     pendingOAuthProvider,
+    visiblePendingOAuthProvider,
     oauthInlineStatus,
     oauthError: error,
     startOAuthProvider,
