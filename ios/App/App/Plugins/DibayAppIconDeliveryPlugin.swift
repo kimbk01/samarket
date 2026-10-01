@@ -6,7 +6,7 @@ import os.log
  * Capacitor bridge for iOS Delivery Adapter v1.
  * JS passes projected appIconTotal only — no Kernel recalculation.
  *
- * CAPBridgedPlugin — must stay in packageClassList (see patch-ios-capacitor-package-class-list.mjs).
+ * CAPBridgedPlugin — registered natively in DibayRootBridgeViewController.makeAppTargetPlugins().
  */
 @objc(DibayAppIconDeliveryPlugin)
 public class DibayAppIconDeliveryPlugin: CAPPlugin, CAPBridgedPlugin {

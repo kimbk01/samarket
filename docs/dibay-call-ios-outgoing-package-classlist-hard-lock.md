@@ -4,8 +4,10 @@ Status: **HARD LOCK** (2026-07-28)
 
 ## Lock Statement
 
-iOS Native **outgoing call** establishment requires Capacitor Bridge registration of
-Call App-target plugins in `ios/App/App/capacitor.config.json` → `packageClassList`.
+iOS Native **outgoing call** establishment requires Capacitor Bridge registration of the
+Call App-target plugins. Since 2026-10-01 they are registered **natively** in
+`DibayRootBridgeViewController.makeAppTargetPlugins()` (`docs/ios-capacitor-app-target-package-classlist.md`);
+`ios/App/App/capacitor.config.json` → `packageClassList` is CLI-generated and must not list them.
 
 Without `NativeCallServicePlugin`, JS cannot load `NativeCallService` →
 `startNativeOutgoingEstablishment` / `caller_outgoing_start` never runs.
@@ -23,36 +25,34 @@ is documented elsewhere and must not be embedded here.
 | Symptom | `Error loading plugin NativeCallService`; POST `/calls` OK; `caller_outgoing_start` = 0 |
 | Restore commit | `a8cc203ec` (`fix(ios): restore App-target plugins in packageClassList`) |
 | Evidence | `.qa-logs/ios-ab-e785-4056/post-restore-verify/JUDGMENT-LOCK.md` |
+| Recurrence | 2026-10-01 plain `cap sync` on the Mac → same loss (+ Auth/Device). Root fix: native registration |
 
-## Locked required `packageClassList` entries (Call outgoing)
+## Locked required native registrations (Call outgoing)
 
-Must always include (order may vary; presence is required):
+`makeAppTargetPlugins()` must always register:
 
 - `NativeCallServicePlugin` — outgoing handoff SSOT
 - `DibayVoipCallPlugin`
 - `DibayCallPipPlugin`
 
-Source export: `IOS_CALL_OUTGOING_PACKAGE_CLASSES` in
-`scripts/patch-ios-capacitor-package-class-list.mjs`.
+Source export: `IOS_CALL_OUTGOING_PLUGIN_CLASSES` in `scripts/ios-app-target-plugins.mjs`.
 
-Full App-target merge list (Call + Auth + Delivery):
+Full App-target list (Call + Auth + Delivery + Device):
 `docs/ios-capacitor-app-target-package-classlist.md`.
 
 ## Sync contract (DO NOT bypass)
 
 | Allowed | Forbidden |
 |---|---|
-| `npm run cap:sync:ios` (runs `npx cap sync ios` **then** patch) | Bare `npx cap sync ios` without patch (drops App-target plugins) |
-| `npm run cap:sync:vercel` / `cap:sync:vercel:ios` (must call patch) | Committing `capacitor.config.json` with only node_modules plugins |
-| Startup / Local Runtime docs-only commits | Touching `packageClassList` in docs/chore commits |
+| Any `cap sync` / `cap copy` / `cap update` (the CLI-generated `packageClassList` is correct as is) | Adding Call plugins back into `packageClassList` (double load) |
+| `npm run cap:sync:ios` / `cap:sync:vercel:ios` (verify registration) | Registering Call plugins anywhere other than `makeAppTargetPlugins()` |
 
 ## Code Touch Boundary
 
 Without explicit user approval, do **not**:
 
-- Remove any Call locked plugin from `ios/App/App/capacitor.config.json` `packageClassList`
-- Remove or weaken `scripts/patch-ios-capacitor-package-class-list.mjs`
-- Change `package.json` `cap:sync:ios` to drop the post-sync patch
+- Remove any Call locked plugin from `DibayRootBridgeViewController.makeAppTargetPlugins()`
+- Remove or weaken `scripts/ios-app-target-plugins.mjs` / its verification
 - Treat JS-only / Vercel web redeploy as a fix for this failure mode (native rebuild + reinstall required after list restore)
 - Embed Auth launcher (`NativeOAuthLauncherPlugin`) ownership in this Call HARD LOCK
 
@@ -64,13 +64,13 @@ npm run verify:ios-call-package-classlist-contract
 
 Device check after restore build:
 
-- Embedded `App.app/capacitor.config.json` includes `NativeCallServicePlugin`
+- Xcode console: `[DibayRootBridge] app_target_plugins_registered count=9`
 - Cap console has **no** `Error loading plugin NativeCallService`
 - Outgoing dial reaches native `caller_outgoing_start` (or platform alias)
 
 ## Related
 
-- Common App-target merge: `docs/ios-capacitor-app-target-package-classlist.md`
+- Common App-target registration: `docs/ios-capacitor-app-target-package-classlist.md`
 - Auth iOS OAuth launcher: `docs/auth-ios-native-oauth-launcher-contract.md`
 - O2 Android outgoing ownership: `docs/dibay-call-o2-outgoing-hard-lock.md`
 - Native Runtime SSOT: `.cursor/rules/dibay-call-native-runtime-ssot.mdc`

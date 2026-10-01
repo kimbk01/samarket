@@ -251,21 +251,23 @@ describe("FD1 native registration", () => {
   });
 
   it("adds iOS plugin to App-target list, not Call subset", () => {
-    const patch = readFileSync(
-      path.join(process.cwd(), "scripts/patch-ios-capacitor-package-class-list.mjs"),
-      "utf8",
-    );
-    expect(patch).toContain("IOS_DEVICE_PACKAGE_CLASSES");
-    expect(patch).toContain('"DibayDeviceClassPlugin"');
-    const callBlock = patch.slice(
-      patch.indexOf("IOS_CALL_OUTGOING_PACKAGE_CLASSES"),
-      patch.indexOf("IOS_AUTH_PACKAGE_CLASSES"),
+    const list = readFileSync(path.join(process.cwd(), "scripts/ios-app-target-plugins.mjs"), "utf8");
+    expect(list).toContain("IOS_DEVICE_PLUGIN_CLASSES");
+    expect(list).toContain('"DibayDeviceClassPlugin"');
+    const callBlock = list.slice(
+      list.indexOf("IOS_CALL_OUTGOING_PLUGIN_CLASSES"),
+      list.indexOf("IOS_AUTH_PLUGIN_CLASSES"),
     );
     expect(callBlock).not.toContain("DibayDeviceClassPlugin");
+    const rootBridge = readFileSync(
+      path.join(process.cwd(), "ios/App/App/DibayRootBridgeViewController.swift"),
+      "utf8",
+    );
+    expect(rootBridge).toContain("DibayDeviceClassPlugin(),");
     const config = JSON.parse(
       readFileSync(path.join(process.cwd(), "ios/App/App/capacitor.config.json"), "utf8"),
     ) as { packageClassList: string[] };
-    expect(config.packageClassList).toContain("DibayDeviceClassPlugin");
+    expect(config.packageClassList).not.toContain("DibayDeviceClassPlugin");
     const pbx = readFileSync(path.join(process.cwd(), "ios/App/App.xcodeproj/project.pbxproj"), "utf8");
     expect(pbx).toContain("DibayDeviceClassPlugin.swift");
   });

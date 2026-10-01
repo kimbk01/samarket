@@ -30,10 +30,10 @@ web_oauth_start
 |---|---|
 | Swift plugin | `ios/App/App/Plugins/NativeOAuthLauncherPlugin.swift` |
 | Xcode Sources | `ios/App/App.xcodeproj/project.pbxproj` |
-| packageClassList | `NativeOAuthLauncherPlugin` in `ios/App/App/capacitor.config.json` |
-| Merge SSOT | `IOS_AUTH_PACKAGE_CLASSES` in `scripts/patch-ios-capacitor-package-class-list.mjs` |
+| Native registration | `NativeOAuthLauncherPlugin()` in `DibayRootBridgeViewController.makeAppTargetPlugins()` (not in `packageClassList`) |
+| List SSOT | `IOS_AUTH_PLUGIN_CLASSES` in `scripts/ios-app-target-plugins.mjs` |
 
-Common merge authority: `docs/ios-capacitor-app-target-package-classlist.md`.
+Common registration authority: `docs/ios-capacitor-app-target-package-classlist.md`.
 **Call HARD LOCK docs must not own this plugin.**
 
 ## Launcher responsibilities
@@ -68,4 +68,4 @@ npm run verify:ios-native-oauth-launcher-contract
 ## Related
 
 - Call outgoing HARD LOCK (separate): `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md`
-- Common packageClassList merge: `docs/ios-capacitor-app-target-package-classlist.md`
+- Common App-target registration: `docs/ios-capacitor-app-target-package-classlist.md`

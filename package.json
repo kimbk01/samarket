@@ -267,7 +267,7 @@
     "cap:add:android": "npx cap add android",
     "cap:sync:android": "npx cap sync android",
     "cap:open:android": "npx cap open android",
-    "cap:sync:ios": "npx cap sync ios && node scripts/patch-ios-capacitor-package-class-list.mjs",
+    "cap:sync:ios": "npx cap sync ios && node scripts/ios-app-target-plugins.mjs",
     "cap:open:ios": "npx cap open ios",
     "generate:app-build-fingerprint": "node scripts/generate-app-build-fingerprint.mjs",
     "generate:dibay-brand": "node scripts/generate-dibay-icons.mjs",

@@ -1,22 +1,22 @@
 ---
-description: HARD LOCK — iOS Cap packageClassList Call outgoing plugins only
+description: HARD LOCK — iOS Call outgoing plugins registered natively (not packageClassList)
 alwaysApply: false
 globs:
   - ios/**
-  - scripts/patch-ios-capacitor-package-class-list.mjs
+  - scripts/ios-app-target-plugins.mjs
   - scripts/**/*ios*call*package*
   - scripts/**/*package-classlist*
 ---
 
-# iOS Outgoing packageClassList HARD LOCK
+# iOS Outgoing plugin registration HARD LOCK
 
-**HARD LOCK (2026-07-28).** Full doc: `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md`.
+**HARD LOCK (2026-07-28, registration model 2026-10-01).** Full doc: `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md`.
 
 ## Why
 
-`npx cap sync ios` overwrites `ios/App/App/capacitor.config.json` `packageClassList` with node_modules plugins only. Dropping `NativeCallServicePlugin` breaks **iOS outgoing** (`Error loading plugin NativeCallService`) while **incoming** CallKit/VoIP can still work.
+The Capacitor CLI regenerates `ios/App/App/capacitor.config.json` `packageClassList` from node_modules on every `cap copy` / `cap update` / `cap sync`. App-target plugins listed there were lost (`95e8100bc`, again 2026-10-01) → `Error loading plugin NativeCallService` breaks **iOS outgoing** while **incoming** CallKit/VoIP can still work.
 
-Regression: `95e8100bc`. Restore: `a8cc203ec`.
+Since 2026-10-01 App-target plugins are registered natively: `DibayRootBridgeViewController.makeAppTargetPlugins()` → `bridge.registerPluginInstance` in `capacitorDidLoad()`.
 
 ## Required (Call outgoing only)
 
@@ -24,23 +24,21 @@ Regression: `95e8100bc`. Restore: `a8cc203ec`.
 - `DibayVoipCallPlugin`
 - `DibayCallPipPlugin`
 
-Merge SSOT (full App-target list including Auth/Delivery): `scripts/patch-ios-capacitor-package-class-list.mjs`.
-Call subset export: `IOS_CALL_OUTGOING_PACKAGE_CLASSES`.
+Single list (full App-target list including Auth/Delivery/Device): `scripts/ios-app-target-plugins.mjs`.
+Call subset export: `IOS_CALL_OUTGOING_PLUGIN_CLASSES`.
 
 Auth launcher registration is **not** owned by this rule — see `docs/auth-ios-native-oauth-launcher-contract.md`.
 
 ## DO NOT (without explicit user approval)
 
-- Remove the Call plugins above from `packageClassList`
-- Run bare `npx cap sync ios` and commit without running the patch
-- Change `cap:sync:ios` to omit the patch step
+- Remove the Call plugins above from `makeAppTargetPlugins()`
+- Add them back into `packageClassList` (double load) or rewrite that file after the CLI
 - “Fix” outgoing by web/Vercel-only redeploy when the plugin is missing from the installed App.app
 - Embed `NativeOAuthLauncherPlugin` / Auth registration into this Call HARD LOCK
 
-## After every iOS sync
+## Verify
 
 ```bash
-npm run cap:sync:ios
-# or: npx cap sync ios && node scripts/patch-ios-capacitor-package-class-list.mjs
 npm run verify:ios-call-package-classlist-contract
+node scripts/ios-app-target-plugins.mjs
 ```

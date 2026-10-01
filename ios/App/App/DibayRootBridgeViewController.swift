@@ -59,12 +59,63 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   static let launchEpoch = UUID().uuidString
 
   /**
-   * Installs `window.__DIBAY_LAUNCH_EPOCH__` at document start, before any application JS.
    * capacitorDidLoad() runs inside loadView(), before viewDidLoad() → loadWebView() issues the
-   * first navigation, so the very first document already has it.
+   * first navigation: App-target plugins are registered and the launch epoch user script is
+   * installed before the very first document runs.
    */
   override func capacitorDidLoad() {
     super.capacitorDidLoad()
+    registerAppTargetPlugins()
+    installLaunchEpoch()
+  }
+
+  /**
+   * App-target Capacitor plugins (Swift classes compiled into this App target, not npm packages).
+   *
+   * Single registration authority on iOS — same model as Android `MainActivity.registerPlugin`.
+   * The Capacitor CLI rebuilds `capacitor.config.json` → `packageClassList` from node_modules on
+   * every `cap copy` / `cap update` / `cap sync` and never lists App-target classes, so relying on
+   * that list shipped builds without these plugins whenever a plain `cap sync` ran
+   * (2026-10-01: Google/Kakao OAuth → `oauth_launcher_unavailable`). Registration here does not
+   * depend on that generated file. `packageClassList` must NOT contain these classes
+   * (`registerPluginInstance` would load a second instance).
+   *
+   * Runs inside loadView() (capacitorDidLoad) before viewDidLoad() → loadWebView(), so every
+   * plugin is registered and exported before the first document runs.
+   * Registration only: plugin behavior is unchanged.
+   */
+  static func makeAppTargetPlugins() -> [CAPPlugin] {
+    [
+      // Call (outgoing / VoIP / PiP)
+      NativeCallServicePlugin(),
+      DibayVoipCallPlugin(),
+      DibayCallPipPlugin(),
+      // Auth (Apple / Kakao native, Google + Kakao web OAuth launcher)
+      NativeAppleAuthPlugin(),
+      NativeKakaoAuthPlugin(),
+      NativeOAuthLauncherPlugin(),
+      // Delivery / media
+      DibayAppIconDeliveryPlugin(),
+      MessengerPhotoLibraryPlugin(),
+      // Device identity
+      DibayDeviceClassPlugin(),
+    ]
+  }
+
+  private func registerAppTargetPlugins() {
+    guard let bridge else {
+      NSLog("[DibayRootBridge] app_target_plugins_not_registered reason=no_bridge")
+      return
+    }
+    let plugins = Self.makeAppTargetPlugins()
+    for plugin in plugins {
+      bridge.registerPluginInstance(plugin)
+    }
+    NSLog("[DibayRootBridge] app_target_plugins_registered count=%d", plugins.count)
+  }
+
+  /** Installs `window.__DIBAY_LAUNCH_EPOCH__` at document start, before any application JS. */
+  private func installLaunchEpoch() {
     guard let controller = webView?.configuration.userContentController else {
       NSLog("[DibayRootBridge] launch_epoch_not_installed reason=no_webview")
       return

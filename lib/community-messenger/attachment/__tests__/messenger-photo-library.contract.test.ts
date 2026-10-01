@@ -65,7 +65,7 @@ describe("MessengerPhotoLibrary native bridge contract", () => {
     expect(plugin).not.toContain("EXTRA_SIZE_LIMIT");
   });
 
-  it("keeps iOS plugin, Info.plist usage strings, and packageClassList patch wired", () => {
+  it("keeps iOS plugin, Info.plist usage strings, and native App-target registration wired", () => {
     const iosPlugin = read("ios/App/App/Plugins/MessengerPhotoLibraryPlugin.swift");
     expect(iosPlugin).toContain('jsName = "MessengerPhotoLibrary"');
     expect(iosPlugin).toContain('if state == "denied" || state == "prompt"');
@@ -76,11 +76,14 @@ describe("MessengerPhotoLibrary native bridge contract", () => {
     expect(info).toContain("NSPhotoLibraryUsageDescription");
     expect(info).toContain("NSPhotoLibraryAddUsageDescription");
 
-    const patchScript = read("scripts/patch-ios-capacitor-package-class-list.mjs");
-    expect(patchScript).toContain('"MessengerPhotoLibraryPlugin"');
+    const pluginList = read("scripts/ios-app-target-plugins.mjs");
+    expect(pluginList).toContain('"MessengerPhotoLibraryPlugin"');
+
+    const rootBridge = read("ios/App/App/DibayRootBridgeViewController.swift");
+    expect(rootBridge).toContain("MessengerPhotoLibraryPlugin(),");
 
     const capConfig = read("ios/App/App/capacitor.config.json");
-    expect(capConfig).toContain('"MessengerPhotoLibraryPlugin"');
+    expect(capConfig).not.toContain('"MessengerPhotoLibraryPlugin"');
   });
 
   it("adds permission hint in both community messenger catalogs", () => {

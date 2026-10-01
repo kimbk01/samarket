@@ -9,9 +9,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  IOS_AUTH_PACKAGE_CLASSES,
-  IOS_APP_TARGET_PACKAGE_CLASSES,
-} from "./patch-ios-capacitor-package-class-list.mjs";
+  IOS_AUTH_PLUGIN_CLASSES,
+  IOS_APP_TARGET_PLUGIN_CLASSES,
+  checkIosAppTargetPluginRegistration,
+} from "./ios-app-target-plugins.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -36,14 +37,14 @@ if (!exists(authDoc)) {
 
 const commonDoc = "docs/ios-capacitor-app-target-package-classlist.md";
 if (!exists(commonDoc)) {
-  failures.push(`missing ${commonDoc} — common packageClassList merge authority`);
+  failures.push(`missing ${commonDoc} — iOS App-target plugin registration contract`);
 }
 
-if (!IOS_AUTH_PACKAGE_CLASSES.includes("NativeOAuthLauncherPlugin")) {
-  failures.push("IOS_AUTH_PACKAGE_CLASSES must include NativeOAuthLauncherPlugin");
+if (!IOS_AUTH_PLUGIN_CLASSES.includes("NativeOAuthLauncherPlugin")) {
+  failures.push("IOS_AUTH_PLUGIN_CLASSES must include NativeOAuthLauncherPlugin");
 }
-if (!IOS_APP_TARGET_PACKAGE_CLASSES.includes("NativeOAuthLauncherPlugin")) {
-  failures.push("IOS_APP_TARGET_PACKAGE_CLASSES must include NativeOAuthLauncherPlugin");
+if (!IOS_APP_TARGET_PLUGIN_CLASSES.includes("NativeOAuthLauncherPlugin")) {
+  failures.push("IOS_APP_TARGET_PLUGIN_CLASSES must include NativeOAuthLauncherPlugin");
 }
 
 const callDoc = read("docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md");
@@ -119,11 +120,7 @@ if (!pbx.includes("NativeOAuthLauncherPlugin.swift in Sources")) {
   failures.push("project.pbxproj must compile NativeOAuthLauncherPlugin.swift in App target");
 }
 
-const capConfig = JSON.parse(read("ios/App/App/capacitor.config.json"));
-const classList = Array.isArray(capConfig.packageClassList) ? capConfig.packageClassList : [];
-if (!classList.includes("NativeOAuthLauncherPlugin")) {
-  failures.push("ios/App/App/capacitor.config.json packageClassList missing NativeOAuthLauncherPlugin");
-}
+failures.push(...checkIosAppTargetPluginRegistration(["NativeOAuthLauncherPlugin"]).failures);
 
 const openNativeTab = read("lib/auth/oauth/open-native-oauth-tab.ts");
 if (!openNativeTab.includes("as_web_authentication_session")) {

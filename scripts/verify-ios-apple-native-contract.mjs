@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkIosAppTargetPluginRegistration } from "./ios-app-target-plugins.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -76,19 +77,15 @@ try {
   if (!String(parsed.server?.url ?? "").includes("samarket.vercel.app")) {
     failures.push("ios capacitor.config.json server.url must point to samarket.vercel.app");
   }
-  const requiredIosPlugins = [
+  // App-target plugins are registered natively, never via the CLI-generated packageClassList.
+  const { failures: registrationFailures } = checkIosAppTargetPluginRegistration([
     "NativeCallServicePlugin",
     "DibayVoipCallPlugin",
     "DibayCallPipPlugin",
     "NativeAppleAuthPlugin",
     "NativeKakaoAuthPlugin",
-  ];
-  const classList = Array.isArray(parsed.packageClassList) ? parsed.packageClassList : [];
-  for (const cls of requiredIosPlugins) {
-    if (!classList.includes(cls)) {
-      failures.push(`ios capacitor.config.json packageClassList must include ${cls} (run patch-ios-capacitor-package-class-list after cap sync)`);
-    }
-  }
+  ]);
+  failures.push(...registrationFailures);
 } catch {
   failures.push("ios/App/App/capacitor.config.json must be valid JSON");
 }

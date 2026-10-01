@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { patchIosCapacitorPackageClassList } from "./patch-ios-capacitor-package-class-list.mjs";
+import { checkIosAppTargetPluginRegistration } from "./ios-app-target-plugins.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -117,11 +117,12 @@ for (const platform of targets) {
     process.exit(result.status ?? 1);
   }
   if (platform === "ios") {
-    const patch = patchIosCapacitorPackageClassList();
-    if (patch.changed) {
-      console.log(
-        `[capacitor-vercel] patched ios packageClassList (${patch.before.length} -> ${patch.after.length})`,
-      );
+    // App-target plugins are registered natively (DibayRootBridgeViewController); the CLI-generated
+    // packageClassList must not list them. Verify only — nothing is rewritten after the CLI.
+    const { failures } = checkIosAppTargetPluginRegistration();
+    if (failures.length > 0) {
+      for (const f of failures) console.error(`[capacitor-vercel] ${f}`);
+      process.exit(1);
     }
   }
 }

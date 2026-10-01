@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 /**
- * HARD LOCK gate: iOS Call outgoing packageClassList subset only.
+ * HARD LOCK gate: iOS Call outgoing plugin registration subset only.
  * Does not own Auth/Delivery plugin registration.
  *
- * Full App-target merge list: scripts/patch-ios-capacitor-package-class-list.mjs
+ * App-target plugins are registered natively (DibayRootBridgeViewController.makeAppTargetPlugins)
+ * and must not appear in the CLI-generated packageClassList. Single list: scripts/ios-app-target-plugins.mjs
  * @see docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md
  * @see docs/ios-capacitor-app-target-package-classlist.md
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { IOS_CALL_OUTGOING_PACKAGE_CLASSES } from "./patch-ios-capacitor-package-class-list.mjs";
+import {
+  IOS_CALL_OUTGOING_PLUGIN_CLASSES,
+  checkIosAppTargetPluginRegistration,
+} from "./ios-app-target-plugins.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -19,37 +23,23 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
 }
 
-const configPath = "ios/App/App/capacitor.config.json";
-let classList = [];
-try {
-  const parsed = JSON.parse(read(configPath));
-  classList = Array.isArray(parsed.packageClassList) ? parsed.packageClassList : [];
-} catch (err) {
-  failures.push(`${configPath} must be valid JSON (${err instanceof Error ? err.message : String(err)})`);
-}
-
-for (const cls of IOS_CALL_OUTGOING_PACKAGE_CLASSES) {
-  if (!classList.includes(cls)) {
-    failures.push(
-      `${configPath} packageClassList missing Call plugin ${cls} (run node scripts/patch-ios-capacitor-package-class-list.mjs)`,
-    );
-  }
-}
+const { failures: registrationFailures, classList } = checkIosAppTargetPluginRegistration(
+  IOS_CALL_OUTGOING_PLUGIN_CLASSES,
+);
+failures.push(...registrationFailures);
 
 const pkg = JSON.parse(read("package.json"));
 const capSyncIos = String(pkg.scripts?.["cap:sync:ios"] ?? "");
 if (!capSyncIos.includes("cap sync ios")) {
   failures.push('package.json scripts["cap:sync:ios"] must run "cap sync ios"');
 }
-if (!capSyncIos.includes("patch-ios-capacitor-package-class-list")) {
-  failures.push(
-    'package.json scripts["cap:sync:ios"] must run patch-ios-capacitor-package-class-list after sync',
-  );
+if (/patch-ios-capacitor-package-class-list/.test(JSON.stringify(pkg.scripts ?? {}))) {
+  failures.push("package.json must not rewrite packageClassList after cap sync (App-target plugins register natively)");
 }
 
 const syncVercel = read("scripts/sync-capacitor-vercel.mjs");
-if (!syncVercel.includes("patchIosCapacitorPackageClassList")) {
-  failures.push("scripts/sync-capacitor-vercel.mjs must call patchIosCapacitorPackageClassList for iOS");
+if (!syncVercel.includes("checkIosAppTargetPluginRegistration")) {
+  failures.push("scripts/sync-capacitor-vercel.mjs must verify iOS App-target plugin registration");
 }
 
 const lockDoc = "docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md";
@@ -87,6 +77,6 @@ if (failures.length > 0) {
 
 console.log("verify:ios-call-package-classlist-contract PASS");
 console.log(
-  `  Call outgoing required (${IOS_CALL_OUTGOING_PACKAGE_CLASSES.length}): ${IOS_CALL_OUTGOING_PACKAGE_CLASSES.join(", ")}`,
+  `  Call outgoing required (${IOS_CALL_OUTGOING_PLUGIN_CLASSES.length}): ${IOS_CALL_OUTGOING_PLUGIN_CLASSES.join(", ")}`,
 );
-console.log(`  packageClassList (${classList.length}): ${classList.join(", ")}`);
+console.log(`  registered natively; CLI packageClassList (${classList.length}): ${classList.join(", ")}`);

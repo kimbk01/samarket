@@ -22,15 +22,6 @@
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
-		"BadgePlugin",
-		"NativeCallServicePlugin",
-		"DibayVoipCallPlugin",
-		"DibayCallPipPlugin",
-		"NativeAppleAuthPlugin",
-		"NativeKakaoAuthPlugin",
-		"NativeOAuthLauncherPlugin",
-		"DibayAppIconDeliveryPlugin",
-		"MessengerPhotoLibraryPlugin",
-		"DibayDeviceClassPlugin"
+		"BadgePlugin"
 	]
 }
