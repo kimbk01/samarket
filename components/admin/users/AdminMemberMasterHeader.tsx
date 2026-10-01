@@ -26,7 +26,10 @@ import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { EditMemberForm } from "./EditMemberForm";
+import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
+import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
+import { AdminMemberVerificationDialog } from "./AdminMemberVerificationDialog";
 import {
   displayNameForDetailUser,
   formatAdminLiteDate,
@@ -97,6 +100,8 @@ export function AdminMemberMasterHeader({
   const signupOrigin = memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email));
   const [showEdit, setShowEdit] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDibayId, setShowDibayId] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
@@ -287,15 +292,27 @@ export function AdminMemberMasterHeader({
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>
           ) : null}
+          {canEdit ? (
+            <button
+              type="button"
+              className={memberAdminCtaClass("tertiary")}
+              onClick={() => setShowDibayId(true)}
+              data-member-cta="dibay_id"
+              data-member-cta-variant="tertiary"
+              data-member-cta-cap="CAP-DIBAY-ID"
+            >
+              {MEMBER_ADMIN_COPY.dibay_id_change}
+            </button>
+          ) : null}
           <button
             type="button"
             className={memberAdminCtaClass("tertiary")}
-            onClick={() => onOpenTab?.("account")}
+            onClick={() => setShowVerify(true)}
             data-member-cta="account_tab"
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-VERIFY-VIEW"
           >
-            인증 관리
+            {MEMBER_ADMIN_COPY.verify_manage}
           </button>
           {primaryStore ? (
             <a
@@ -334,6 +351,23 @@ export function AdminMemberMasterHeader({
         open={showPassword}
         userId={user.id}
         onClose={() => setShowPassword(false)}
+        onSuccess={() => onUpdated?.()}
+      />
+      <AdminMemberDibayIdDialog
+        open={showDibayId}
+        userId={user.id}
+        currentDibayId={user.dibay_id}
+        onClose={() => setShowDibayId(false)}
+        onSuccess={() => onUpdated?.()}
+      />
+      <AdminMemberVerificationDialog
+        open={showVerify}
+        userId={user.id}
+        publicId={user.dibay_id}
+        phone={user.contact_phone}
+        phoneVerified={user.phone_verified === true}
+        verificationStatus={user.phone_verification_status}
+        onClose={() => setShowVerify(false)}
         onSuccess={() => onUpdated?.()}
       />
     </div>

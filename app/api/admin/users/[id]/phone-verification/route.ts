@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -47,6 +48,15 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: error.message || "update_failed" }, { status: 500 });
   }
   await syncPhoneVerifiedServerCache(userId);
+
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: gate.actor.userId,
+    target_type: "member",
+    target_id: userId,
+    action: action === "reset" ? "admin_member_phone_verify_reset" : "admin_member_phone_verify_approve",
+    after_json: { action },
+  });
 
   return NextResponse.json({ ok: true, action });
 }

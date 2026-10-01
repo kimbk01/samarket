@@ -685,7 +685,23 @@ export async function PATCH(
   const hasEmail = emailRaw !== undefined && emailRaw !== null;
   const passwordRaw = body.password;
   const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
-  if (!hasMember && !hasPhone && !hasNickname && !hasDibayId && !hasPhoneNumber && !hasEmail && !hasPassword) {
+
+  // R4: memberType / phoneVerificationStatus are not profile-edit mutations.
+  // Privilege → R6; verification approve/reset → /phone-verification (S15).
+  if (hasMember) {
+    return NextResponse.json(
+      { ok: false, error: "member_type_not_via_profile_edit" },
+      { status: 400 },
+    );
+  }
+  if (hasPhone) {
+    return NextResponse.json(
+      { ok: false, error: "phone_verification_via_s15" },
+      { status: 400 },
+    );
+  }
+
+  if (!hasNickname && !hasDibayId && !hasPhoneNumber && !hasEmail && !hasPassword) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
@@ -768,7 +784,7 @@ export async function PATCH(
 
   const { data: initialProfile, error: profileError } = await sb
     .from("profiles")
-    .select("id")
+    .select("id, dibay_id")
     .eq("id", userId)
     .maybeSingle();
 
@@ -906,6 +922,24 @@ export async function PATCH(
     }
   }
 
+  const changedFields = Object.keys(body).filter((k) => k !== "password");
+  if (nextDibayId !== undefined) {
+    const beforeId =
+      initialProfile && typeof (initialProfile as { dibay_id?: string | null }).dibay_id === "string"
+        ? String((initialProfile as { dibay_id?: string | null }).dibay_id)
+        : null;
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: gate.actor.userId,
+      target_type: "member",
+      target_id: userId,
+      action: "admin_member_dibay_id_change",
+      after_json: {
+        before: beforeId,
+        after: nextDibayId,
+      },
+    });
+  }
   void appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: gate.actor.userId,
@@ -913,7 +947,7 @@ export async function PATCH(
     target_id: userId,
     action: "admin_member_profile_update",
     after_json: {
-      fields: Object.keys(body).filter((k) => k !== "password"),
+      fields: changedFields,
       // never password
     },
   });

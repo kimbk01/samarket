@@ -130,6 +130,7 @@ export type MemberDetailVisibleCtaKey =
   | "edit"
   | "messenger"
   | "password"
+  | "dibay_id"
   | "account_tab"
   | "store_detail"
   | "privilege_view"
@@ -163,7 +164,16 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
     capId: "CAP-PROFILE-EDIT",
     currentState: "YES",
     targetPhase: "R4",
-    handlerOrRoute: "EditMemberForm (P4 preserve; body redesign R4)",
+    handlerOrRoute: "EditMemberForm S13 profile-only (nickname/email/phone)",
+    executableInR3: true,
+  },
+  {
+    ctaKey: "dibay_id",
+    ctaKo: "@회원 ID 변경",
+    capId: "CAP-DIBAY-ID",
+    currentState: "YES",
+    targetPhase: "R4",
+    handlerOrRoute: "AdminMemberDibayIdDialog S14 → PATCH dibayId",
     executableInR3: true,
   },
   {
@@ -190,7 +200,7 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
     capId: "CAP-VERIFY-VIEW",
     currentState: "YES",
     targetPhase: "R4",
-    handlerOrRoute: "tab=account presentation (mutation R4)",
+    handlerOrRoute: "AdminMemberVerificationDialog S15 (+ CAP-VERIFY-APPROVE/RESET)",
     executableInR3: true,
   },
   {
