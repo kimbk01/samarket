@@ -82,7 +82,9 @@ describe("admin member Control Center Slice 6–10", () => {
     const panel = src("components/admin/users/AdminMemberOpsPanel.tsx");
     expect(panel).not.toMatch(/\/api\/admin\/users\/\$\{encodeURIComponent\(userId\)\}\/moderation/);
     expect(panel).not.toMatch(/runModeration/);
-    expect(panel).toMatch(/\/api\/admin\/member-notes/);
+    // R3: CAP-MSG-SUPPORT is DEAD — Ops must not call legacy member-notes (410).
+    expect(panel).not.toMatch(/\/api\/admin\/member-notes/);
+    expect(panel).toMatch(/MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO/);
     expect(panel).toMatch(/알림 보내기 — 지원되지 않음/);
     expect(panel).not.toMatch(/profiles\.role/);
     const danger = src("components/admin/users/AdminMemberDangerZone.tsx");
