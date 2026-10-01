@@ -103,6 +103,20 @@ const ENTER_LABEL = {
   scale: "admin_launch_intro_enter_scale",
 } as const satisfies Record<LaunchIntroScene["motion"]["enter"], string>;
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+/**
+ * Explicit button styles for this page (Tailwind utilities with the sam-* tokens). Every button has a
+ * visible fill/border, a hover tone, a pressed state (shrinks + darkens) and a clearly faded disabled state.
+ */
+const BTN_BASE =
+  "inline-flex min-h-[40px] select-none items-center justify-center gap-1.5 rounded-ui-rect border px-4 py-2 text-[14px] font-semibold shadow-sm transition duration-100 active:scale-95 active:shadow-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:active:scale-100";
+const B = {
+  primary: `${BTN_BASE} border-sam-primary bg-sam-primary text-sam-on-primary hover:bg-sam-primary-hover active:bg-sam-primary-active`,
+  secondary: `${BTN_BASE} border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted active:bg-sam-primary-soft`,
+  outlinePrimary: `${BTN_BASE} border-sam-primary bg-sam-surface text-sam-primary hover:bg-sam-primary-soft active:bg-sam-primary-soft`,
+  danger: `${BTN_BASE} border-sam-danger bg-sam-danger text-white hover:brightness-110 active:brightness-90`,
+  cancel: `${BTN_BASE} border-sam-border bg-sam-surface-muted text-sam-muted hover:text-sam-fg active:bg-sam-surface`,
+  sm: "!min-h-[32px] !px-3 !py-1 !text-[13px]",
+} as const;
 const FREQUENCY_LABEL = {
   every_launch: "admin_launch_intro_frequency_every_launch",
   once_per_publication: "admin_launch_intro_frequency_once_per_publication",
@@ -336,6 +350,20 @@ export function LaunchIntroAdminPage() {
   const [device, setDevice] = useState<PreviewDevice>("phone");
   const [landscape, setLandscape] = useState(false);
   const [playing, setPlaying] = useState(false);
+  /** Two separate screens: Live status + history, and the Intro editor. Kept in ?view= so reload stays. */
+  const [view, setViewState] = useState<"status" | "edit">("status");
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v === "edit" || v === "status") setViewState(v);
+  }, []);
+  const setView = (v: "status" | "edit") => {
+    setViewState(v);
+    setPlaying(false);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", v);
+    window.history.replaceState(null, "", url);
+    window.scrollTo({ top: 0 });
+  };
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   /** Publish schedule (P5), Manila wall time; empty = no limit. */
@@ -456,13 +484,40 @@ export function LaunchIntroAdminPage() {
     [scenes[sel], scenes[to]] = [scenes[to], scenes[sel]];
     setScenes(scenes, to);
   };
-  const removeScene = () => {
+  const removeScene = async () => {
     if (!doc || sceneCount <= 1) return;
+    const ok = await dibayConfirm({
+      title: t("admin_launch_intro_scene_remove_confirm", { n: String(sel + 1) }),
+      description: t("admin_launch_intro_edit_needs_save"),
+      confirmLabel: t("admin_launch_intro_scene_remove"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
     setScenes(doc.scenes.filter((_, i) => i !== sel), Math.max(0, sel - 1));
+  };
+  /** Removing a picture asks first (the change still needs Save). */
+  const confirmRemoveImage = async (apply: () => void) => {
+    const ok = await dibayConfirm({
+      title: t("admin_launch_intro_remove_image_confirm"),
+      description: t("admin_launch_intro_edit_needs_save"),
+      confirmLabel: t("admin_launch_intro_remove_image"),
+      confirmTone: "destructive",
+    });
+    if (ok) apply();
   };
 
   /** SAVE = Draft only. Devices never see a save; the popup says so and offers to publish now. */
-  const save = async (document: LaunchIntroDocument | null) => {
+  const save = async (document: LaunchIntroDocument | null, creating = false) => {
+    const go = await dibayConfirm(
+      creating
+        ? { title: t("admin_launch_intro_create_confirm"), confirmLabel: t("admin_launch_intro_create") }
+        : {
+            title: t("admin_launch_intro_save_confirm"),
+            description: t("admin_launch_intro_save_confirm_desc"),
+            confirmLabel: t("admin_launch_intro_save"),
+          }
+    );
+    if (!go) return;
     const saved = await call(
       "/api/admin/launch-intro",
       {
@@ -655,12 +710,6 @@ export function LaunchIntroAdminPage() {
 
   return (
     <div className="lia-root space-y-4">
-      {/* Clear pressed / hover feedback for every button on this page (scoped; global tokens untouched). */}
-      <style>{`
-        .lia-root .sam-btn{transition:transform 90ms ease,filter 120ms ease,background-color 150ms ease}
-        .lia-root .sam-btn:not(:disabled):hover{filter:brightness(0.95)}
-        .lia-root .sam-btn:not(:disabled):active{transform:scale(0.95);filter:brightness(0.88)}
-      `}</style>
       {busy ? (
         <div
           role="status"
@@ -674,8 +723,31 @@ export function LaunchIntroAdminPage() {
         <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5">{t("admin_launch_intro_propagation_note")}</p>
       </AdminCard>
 
+      <div role="tablist" className="flex gap-0 border-b-2 border-sam-border" data-launch-intro-tabs="">
+        {(
+          [
+            { key: "status", label: "admin_launch_intro_tab_status" },
+            { key: "edit", label: "admin_launch_intro_tab_edit" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.key}
+            onClick={() => setView(tab.key)}
+            className={`-mb-0.5 min-h-[48px] border-b-4 px-6 text-[15px] font-bold transition active:scale-95 ${
+              view === tab.key ? "border-sam-primary text-sam-primary" : "border-transparent text-sam-muted hover:text-sam-fg"
+            }`}
+          >
+            {t(tab.label)}
+            {tab.key === "edit" && dirty ? <span className="ml-1.5 rounded-full bg-sam-warning px-1.5 text-[11px] text-white">●</span> : null}
+          </button>
+        ))}
+      </div>
 
-      {live ? (
+
+      {view === "status" && live ? (
         <AdminCard title={t("admin_launch_intro_live_title")}>
           <div className="space-y-3 px-4 py-4 sm:px-5" data-launch-intro-status-board="">
             <div className="flex flex-wrap items-center gap-2">
@@ -721,16 +793,40 @@ export function LaunchIntroAdminPage() {
                 {fmtDate(live.updated_at)} · {t("admin_launch_intro_revision")} {live.revision}
               </dd>
             </dl>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="sam-btn sam-btn--outline" disabled={busy || !launchIntroCanTransition(live, "pause")} onClick={() => void setState("pause")}>
-                {t("admin_launch_intro_pause")}
-              </button>
-              <button type="button" className="sam-btn sam-btn--primary" disabled={busy || !launchIntroCanTransition(live, "resume")} onClick={() => void setState("resume")}>
-                {t("admin_launch_intro_resume")}
-              </button>
-              <button type="button" className="sam-btn sam-btn--danger" disabled={busy || !launchIntroCanTransition(live, "unpublish")} onClick={() => void setState("unpublish")}>
-                {t("admin_launch_intro_unpublish")}
-              </button>
+            {/* Live state switch: the CURRENT state is the filled segment; the others are the actions. */}
+            <div className="space-y-1.5">
+              <p className="sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_switch_title")}</p>
+              <div role="group" className="inline-flex flex-wrap overflow-hidden rounded-ui-rect border-2 border-sam-border" data-launch-intro-state-switch="">
+                {(
+                  [
+                    { key: "active", label: "admin_launch_intro_state_active", action: "resume", on: "bg-sam-success text-white" },
+                    { key: "paused", label: "admin_launch_intro_pause", action: "pause", on: "bg-sam-warning text-white" },
+                    { key: "unpublished", label: "admin_launch_intro_unpublish", action: "unpublish", on: "bg-sam-fg text-sam-surface" },
+                  ] as const
+                ).map((seg) => {
+                  const current = live.state === seg.key;
+                  const can = !current && launchIntroCanTransition(live, seg.action);
+                  return (
+                    <button
+                      key={seg.key}
+                      type="button"
+                      aria-pressed={current}
+                      disabled={busy || (!current && !can)}
+                      onClick={current ? undefined : () => void setState(seg.action)}
+                      className={`min-h-[44px] min-w-[112px] border-r-2 border-sam-border px-4 py-2 text-[14px] font-bold transition duration-100 last:border-r-0 ${
+                        current
+                          ? `${seg.on} cursor-default`
+                          : "bg-sam-surface text-sam-fg hover:bg-sam-surface-muted active:scale-95 active:bg-sam-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                      }`}
+                    >
+                      {current ? `✓ ${t(seg.label)}` : t(seg.label)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="sam-text-body-secondary text-sam-muted">
+                {live.state === "unpublished" ? t("admin_launch_intro_switch_hint_unpublished") : t("admin_launch_intro_switch_hint")}
+              </p>
             </div>
             <div>
               <p className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_history_title")}</p>
@@ -758,7 +854,7 @@ export function LaunchIntroAdminPage() {
                           ) : null}
                         </span>
                         {launchIntroCanReactivate(live, p.id) ? (
-                          <button type="button" className="sam-btn sam-btn--outline-primary sam-btn--sm" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
+                          <button type="button" className={`${B.outlinePrimary} ${B.sm}`} disabled={busy} onClick={() => void setState("reactivate", p.id)}>
                             {t("admin_launch_intro_reactivate")}
                           </button>
                         ) : null}
@@ -774,11 +870,22 @@ export function LaunchIntroAdminPage() {
         </AdminCard>
       ) : null}
 
+      {view === "edit" && live ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body">
+          <span className="font-medium text-sam-fg">{t("admin_launch_intro_status_devices")}:</span>
+          <span className="text-sam-fg">{devicesLine}</span>
+          <button type="button" className={`${B.secondary} ${B.sm}`} onClick={() => setView("status")}>
+            {t("admin_launch_intro_tab_status")}
+          </button>
+        </div>
+      ) : null}
+
+      {view === "edit" ? (
       <AdminCard title={t("admin_launch_intro_draft_title")}>
         {!snap ? null : !doc || !scene ? (
           <div className="space-y-3 px-4 py-4 sm:px-5">
             <p className="sam-text-body text-sam-muted">{t("admin_launch_intro_no_draft")}</p>
-            <button type="button" className="sam-btn sam-btn--primary" disabled={busy} onClick={() => void save(emptyLaunchIntroDocument())}>
+            <button type="button" className={B.primary} disabled={busy} onClick={() => void save(emptyLaunchIntroDocument(), true)}>
               {t("admin_launch_intro_create")}
             </button>
           </div>
@@ -806,23 +913,23 @@ export function LaunchIntroAdminPage() {
                   </li>
                 ))}
               </ol>
-              <button type="button" className="sam-btn sam-btn--secondary w-full" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={addScene}>
+              <button type="button" className={`${B.secondary} w-full`} disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={addScene}>
                 {t("admin_launch_intro_scene_add")}
               </button>
               {sceneCount >= LAUNCH_INTRO_MAX_SCENES ? (
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_scene_max", { n: String(LAUNCH_INTRO_MAX_SCENES) })}</p>
               ) : null}
               <div className="flex flex-wrap gap-1">
-                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sel === 0} onClick={() => moveScene(-1)}>
+                <button type="button" className={B.secondary} disabled={busy || sel === 0} onClick={() => moveScene(-1)}>
                   {t("admin_launch_intro_scene_up")}
                 </button>
-                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || isLast} onClick={() => moveScene(1)}>
+                <button type="button" className={B.secondary} disabled={busy || isLast} onClick={() => moveScene(1)}>
                   {t("admin_launch_intro_scene_down")}
                 </button>
-                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={duplicateScene}>
+                <button type="button" className={B.secondary} disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={duplicateScene}>
                   {t("admin_launch_intro_scene_duplicate")}
                 </button>
-                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sceneCount <= 1} onClick={removeScene}>
+                <button type="button" className={B.secondary} disabled={busy || sceneCount <= 1} onClick={() => void removeScene()}>
                   {t("admin_launch_intro_scene_remove")}
                 </button>
               </div>
@@ -894,13 +1001,13 @@ export function LaunchIntroAdminPage() {
                   <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_logo_layout_note")}</p>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "media" })}>
+                  <button type="button" className={B.secondary} disabled={busy} onClick={() => pickImage({ kind: "media" })}>
                     {t("admin_launch_intro_upload")}
                   </button>
                   {scene.media ? (
                     <>
                       <FitSelect value={scene.media.fit} onChange={(fit) => patchScene({ media: { ...scene.media!, fit } })} />
-                      <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ media: null })}>
+                      <button type="button" className={B.secondary} disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ media: null }))}>
                         {t("admin_launch_intro_remove_image")}
                       </button>
                     </>
@@ -911,11 +1018,11 @@ export function LaunchIntroAdminPage() {
               <div>
                 <span className={label}>{t("admin_launch_intro_logo")}</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "logo" })}>
+                  <button type="button" className={B.secondary} disabled={busy} onClick={() => pickImage({ kind: "logo" })}>
                     {t("admin_launch_intro_upload")}
                   </button>
                   {scene.logo ? (
-                    <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ logo: null })}>
+                    <button type="button" className={B.secondary} disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ logo: null }))}>
                       {t("admin_launch_intro_remove_image")}
                     </button>
                   ) : null}
@@ -925,7 +1032,7 @@ export function LaunchIntroAdminPage() {
               <div>
                 <span className={label}>{t("admin_launch_intro_background_image")}</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "background" })}>
+                  <button type="button" className={B.secondary} disabled={busy} onClick={() => pickImage({ kind: "background" })}>
                     {t("admin_launch_intro_upload")}
                   </button>
                   {scene.background.media ? (
@@ -934,7 +1041,7 @@ export function LaunchIntroAdminPage() {
                         value={scene.background.media.fit}
                         onChange={(fit) => patchScene({ background: { ...scene.background, media: { ...scene.background.media!, fit } } })}
                       />
-                      <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ background: { ...scene.background, media: null } })}>
+                      <button type="button" className={B.secondary} disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ background: { ...scene.background, media: null } }))}>
                         {t("admin_launch_intro_remove_image")}
                       </button>
                     </>
@@ -952,7 +1059,7 @@ export function LaunchIntroAdminPage() {
                     return (
                       <div key={slot} className="flex flex-wrap items-center gap-2">
                         <span className="w-24 sam-text-body-secondary text-sam-muted">{t(SLOT_LABEL[slot])}</span>
-                        <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || full} onClick={() => pickImage({ kind: "decoration", slot })}>
+                        <button type="button" className={B.secondary} disabled={busy || full} onClick={() => pickImage({ kind: "decoration", slot })}>
                           {t("admin_launch_intro_upload")}
                         </button>
                         {deco ? (
@@ -967,7 +1074,7 @@ export function LaunchIntroAdminPage() {
                               <option value="S">{t("admin_launch_intro_text_size")} S</option>
                               <option value="M">{t("admin_launch_intro_text_size")} M</option>
                             </select>
-                            <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ decorations: scene.decorations.filter((d) => d.slot !== slot) })}>
+                            <button type="button" className={B.secondary} disabled={busy} onClick={() => void confirmRemoveImage(() => patchScene({ decorations: scene.decorations.filter((d) => d.slot !== slot) }))}>
                               {t("admin_launch_intro_remove_image")}
                             </button>
                           </>
@@ -1163,12 +1270,12 @@ export function LaunchIntroAdminPage() {
 
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="sam-btn sam-btn--outline-primary" disabled={busy || !dirty} onClick={() => void save(doc)}>
+                <button type="button" className={B.outlinePrimary} disabled={busy || !dirty} onClick={() => void save(doc)}>
                   {t("admin_launch_intro_save")}
                 </button>
                 <button
                   type="button"
-                  className="sam-btn sam-btn--cancel"
+                  className={B.cancel}
                   disabled={busy || !dirty}
                   onClick={async () => {
                     const ok = await dibayConfirm({
@@ -1184,12 +1291,12 @@ export function LaunchIntroAdminPage() {
                 >
                   {t("admin_launch_intro_cancel")}
                 </button>
-                <button type="button" className="sam-btn sam-btn--primary" disabled={busy || dirty || !snap.draft} onClick={() => void publish()}>
+                <button type="button" className={B.primary} disabled={busy || dirty || !snap.draft} onClick={() => void publish()}>
                   {t("admin_launch_intro_publish")}
                 </button>
                 <button
                   type="button"
-                  className="sam-btn sam-btn--danger"
+                  className={B.danger}
                   disabled={busy || !snap.draft}
                   onClick={async () => {
                     const ok = await dibayConfirm({ title: t("admin_launch_intro_delete_confirm"), confirmTone: "destructive", confirmLabel: t("admin_launch_intro_delete") });
@@ -1210,7 +1317,7 @@ export function LaunchIntroAdminPage() {
                   <button
                     key={d}
                     type="button"
-                    className={`sam-btn ${device === d ? "sam-btn--primary" : "sam-btn--secondary"}`}
+                    className={device === d ? B.primary : B.secondary}
                     onClick={() => setDevice(d)}
                   >
                     {t(`admin_launch_intro_preview_${d}` as const)}
@@ -1219,10 +1326,10 @@ export function LaunchIntroAdminPage() {
               </div>
               {PREVIEW_DEVICES[device].rotatable ? (
                 <div className="flex justify-center gap-1">
-                  <button type="button" className={`sam-btn ${!landscape ? "sam-btn--primary" : "sam-btn--secondary"}`} onClick={() => setLandscape(false)}>
+                  <button type="button" className={!landscape ? B.primary : B.secondary} onClick={() => setLandscape(false)}>
                     {t("admin_launch_intro_preview_portrait")}
                   </button>
-                  <button type="button" className={`sam-btn ${landscape ? "sam-btn--primary" : "sam-btn--secondary"}`} onClick={() => setLandscape(true)}>
+                  <button type="button" className={landscape ? B.primary : B.secondary} onClick={() => setLandscape(true)}>
                     {t("admin_launch_intro_preview_landscape")}
                   </button>
                 </div>
@@ -1240,13 +1347,13 @@ export function LaunchIntroAdminPage() {
               />
               <div className="flex justify-center">
                 {playing ? (
-                  <button type="button" className="sam-btn sam-btn--secondary" onClick={() => setPlaying(false)}>
+                  <button type="button" className={B.secondary} onClick={() => setPlaying(false)}>
                     {t("admin_launch_intro_preview_stop")}
                   </button>
                 ) : (
                   <button
                     type="button"
-                    className="sam-btn sam-btn--secondary"
+                    className={B.secondary}
                     onClick={() => {
                       setPreviewNotice(null);
                       setPreviewIndex(0);
@@ -1266,6 +1373,7 @@ export function LaunchIntroAdminPage() {
           </div>
         )}
       </AdminCard>
+      ) : null}
     </div>
   );
 }
