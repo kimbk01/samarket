@@ -72,8 +72,9 @@ export async function requireAdminApiActor(): Promise<
     };
   }
   const isSuperAdmin = isSuperAdminRole(effectiveRole);
-  const adminTier =
-    membership?.admin_tier ?? (profile as { admin_tier?: string | null }).admin_tier ?? null;
+  // R6-A2: tier authority = admin_memberships.admin_tier only (no profile-column fallback).
+  // NULL tier → loadEffectiveStaffPermissions / adminTierToUiRole canonical default (operator).
+  const adminTier = membership?.admin_tier ?? null;
 
   let permissions: AdminPermissionKey[];
   try {

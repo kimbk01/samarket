@@ -226,12 +226,14 @@ describe("admin privilege dual-write cutover", () => {
     expect(staff).not.toMatch(/role:\s*"admin",\s*\n\s*is_admin:\s*true/);
   });
 
-  it("source: staff DELETE soft-delete does not reset privilege mirror columns", () => {
+  it("source: staff DELETE revokes privilege only (no profile soft-delete / mirror reset)", () => {
     const staffId = readFileSync(
       join(process.cwd(), "app/api/admin/staff/[id]/route.ts"),
       "utf8"
     );
-    expect(staffId).toMatch(/status:\s*"deleted"/);
+    expect(staffId).toContain("revokeActiveAdminMembership");
+    expect(staffId).toContain("lifecycle_unchanged");
+    expect(staffId).not.toMatch(/status:\s*"deleted"/);
     expect(staffId).not.toMatch(/role:\s*"user"/);
     expect(staffId).not.toMatch(/is_admin:\s*false/);
     expect(staffId).not.toMatch(/admin_tier:\s*null/);

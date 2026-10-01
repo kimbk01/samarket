@@ -86,6 +86,12 @@ export async function PATCH(
     });
   }
   if (body.disabled === true) {
+    if (staffId === actor.userId) {
+      return NextResponse.json({ ok: false, error: "self_mutation_forbidden" }, { status: 403 });
+    }
+    if (isSuperAdminRole(effectiveRole)) {
+      return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
+    }
     const revoked = await revokeActiveAdminMembership(sb, {
       userId: staffId,
       revokedBy: actor.userId,
@@ -94,12 +100,22 @@ export async function PATCH(
     if (!revoked.ok && revoked.error !== "not_admin") {
       return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
     }
-    patch.status = "deleted";
-    patch.deleted_at = new Date().toISOString();
-  } else if (body.disabled === false) {
-    patch.status = "verified_user";
-    patch.deleted_at = null;
+    // R6-B: privilege revoke only — do not withdraw the member profile.
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: actor.userId,
+      target_type: "staff",
+      target_id: staffId,
+      action: "revoke_admin_privilege",
+      after_json: {
+        membership_revoked: revoked.ok,
+        axis: "staff_privilege",
+        lifecycle_unchanged: true,
+        via: "staff_patch_disabled",
+      },
+    });
   }
+  // disabled=false does not re-grant membership or mutate profile lifecycle.
 
   if (Object.keys(patch).length > 0) {
     const { error: updateErr } = await sb.from("profiles").update(patch).eq("id", staffId);
@@ -158,6 +174,11 @@ export async function PATCH(
   return NextResponse.json({ ok: true, permissions });
 }
 
+/**
+ * R6-B: REMOVE PLATFORM STAFF PRIVILEGE (not member account withdrawal).
+ * Revokes active admin_memberships (+ clears admin_staff_permissions via revoke helper).
+ * Preserves profiles.status / deleted_at / auth.users / member-owned data.
+ */
 export async function DELETE(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -172,6 +193,10 @@ export async function DELETE(
   }
 
   const { sb, actor } = gate;
+  if (staffId === actor.userId) {
+    return NextResponse.json({ ok: false, error: "self_mutation_forbidden" }, { status: 403 });
+  }
+
   const { data: profile } = await sb.from("profiles").select("id, role").eq("id", staffId).maybeSingle();
   if (!profile) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -184,29 +209,31 @@ export async function DELETE(
   const revoked = await revokeActiveAdminMembership(sb, {
     userId: staffId,
     revokedBy: actor.userId,
-    reason: "staff_deleted",
+    reason: "staff_privilege_removed",
   });
   if (!revoked.ok && revoked.error === "last_super_admin") {
     return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
   }
-
-  const now = new Date().toISOString();
-  await sb
-    .from("profiles")
-    .update({
-      status: "deleted",
-      deleted_at: now,
-    })
-    .eq("id", staffId);
+  if (!revoked.ok && revoked.error === "not_admin") {
+    return NextResponse.json({ ok: false, error: "not_staff" }, { status: 400 });
+  }
+  if (!revoked.ok) {
+    return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
+  }
 
   void appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: actor.userId,
     target_type: "staff",
     target_id: staffId,
-    action: "disable_staff",
-    after_json: { membership_revoked: revoked.ok },
+    action: "revoke_admin_privilege",
+    after_json: {
+      membership_revoked: true,
+      axis: "staff_privilege",
+      lifecycle_unchanged: true,
+      via: "staff_delete",
+    },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, privilege: "member" });
 }
