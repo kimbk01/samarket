@@ -10,7 +10,7 @@
  * (DEFERRED MOUNT, contract §10). It resolves exactly once: on Intro exit or INTRO → COMMUNITY.
  */
 import { readLaunchIntroIndex, type LaunchIntroCachedPublication } from "@/lib/launch-intro/cache";
-import { readLaunchEpoch, readShownLaunchEpoch } from "@/lib/launch-intro/launch-epoch";
+import { LAUNCH_INTRO_DOCUMENT_ID, readLaunchEpoch, readShownLaunchEpoch } from "@/lib/launch-intro/launch-epoch";
 import {
   claimLaunchOsReleaseForIntro,
   handLaunchOsReleaseToCommunity,
@@ -65,7 +65,9 @@ export function getLaunchDestination(): LaunchDestinationDecision {
   if (!decision) {
     decision = decide();
     try {
-      console.info(`[dibay-launch-intro] destination=${decision.destination} reason=${decision.reason}`);
+      console.info(
+        `[dibay-launch-intro] destination=${decision.destination} reason=${decision.reason} epoch=${readLaunchEpoch() ?? "none"} doc=${LAUNCH_INTRO_DOCUMENT_ID}`
+      );
     } catch {
       /* ignore */
     }
