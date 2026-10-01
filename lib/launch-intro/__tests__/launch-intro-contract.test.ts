@@ -18,6 +18,7 @@ import {
   toPublicationDocument,
   validateLaunchIntroDocument,
 } from "../document";
+import { launchIntroCanReactivate, launchIntroCanTransition, launchIntroDraftStatus } from "../lifecycle";
 import {
   claimLaunchOsReleaseForIntro,
   getLaunchOsReleaseOwner,
@@ -261,6 +262,50 @@ describe("launch intro document", () => {
     expect(normalizeLaunchIntroHex("red")).toBeNull();
     expect(sniffLaunchIntroImage(pngHeader(640, 480))).toEqual({ mime: "image/png", width: 640, height: 480 });
     expect(sniffLaunchIntroImage(new Uint8Array([1, 2, 3]))).toBeNull();
+  });
+});
+
+describe("P4 Admin lifecycle mirrors the DB state machine", () => {
+  it("buttons enable exactly the transitions launch_intro_set_state accepts", () => {
+    const states = ["active", "paused", "unpublished"] as const;
+    const expected = { pause: ["active"], resume: ["paused"], unpublish: ["active", "paused"] } as const;
+    for (const action of ["pause", "resume", "unpublish"] as const) {
+      for (const state of states) {
+        const live = { state, publication_id: state === "unpublished" ? null : "p1" };
+        expect(launchIntroCanTransition(live, action)).toBe((expected[action] as readonly string[]).includes(state));
+      }
+    }
+    // The SQL authority says the same (pause ← active, resume ← paused, unpublish ← not unpublished).
+    const sql = src("supabase/migrations/20270411120000_launch_intro_first_slice.sql");
+    expect(sql).toMatch(/p_action = 'pause' then\s+if v_live.state <> 'active' then raise/);
+    expect(sql).toMatch(/p_action = 'resume' then\s+if v_live.state <> 'paused' then raise/);
+    expect(sql).toMatch(/p_action = 'unpublish' then\s+if v_live.state = 'unpublished' then raise/);
+
+    expect(launchIntroCanReactivate({ state: "active", publication_id: "p1" }, "p1")).toBe(false);
+    expect(launchIntroCanReactivate({ state: "paused", publication_id: "p1" }, "p1")).toBe(false);
+    expect(launchIntroCanReactivate({ state: "active", publication_id: "p1" }, "p0")).toBe(true);
+    expect(launchIntroCanReactivate({ state: "unpublished", publication_id: null }, "p1")).toBe(true);
+  });
+
+  it("status board: draft vs what devices get", () => {
+    const draft = { id: "d1", version: 8 };
+    const pub = { source_draft_id: "d1", source_draft_version: 8 };
+    expect(launchIntroDraftStatus({ draft: null, dirty: false, livePublication: pub })).toBe("none");
+    expect(launchIntroDraftStatus({ draft, dirty: true, livePublication: pub })).toBe("unsaved");
+    expect(launchIntroDraftStatus({ draft, dirty: false, livePublication: pub })).toBe("published");
+    expect(launchIntroDraftStatus({ draft: { id: "d1", version: 9 }, dirty: false, livePublication: pub })).toBe("changed");
+    expect(launchIntroDraftStatus({ draft, dirty: false, livePublication: null })).toBe("changed");
+  });
+
+  it("every Live change and every discard asks first; the Admin uses the mirror, not its own rules", () => {
+    const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
+    expect(admin).toContain("launchIntroCanTransition(live, \"pause\")");
+    expect(admin).toContain("launchIntroCanTransition(live, \"resume\")");
+    expect(admin).toContain("launchIntroCanTransition(live, \"unpublish\")");
+    expect(admin).toContain("launchIntroCanReactivate(live, p.id)");
+    expect(admin).not.toMatch(/live\.state !== "active"|live\.state !== "paused"|live\.state === "unpublished"/);
+    // confirm: publish, delete, cancel, and the shared state-change path
+    expect(admin.match(/await dibayConfirm\(/g)?.length).toBeGreaterThanOrEqual(4);
   });
 });
 

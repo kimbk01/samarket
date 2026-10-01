@@ -41,13 +41,25 @@ import {
   type LaunchIntroSceneText,
   type LaunchIntroTextStyle,
 } from "@/lib/launch-intro/document";
+import {
+  launchIntroCanReactivate,
+  launchIntroCanTransition,
+  launchIntroDraftStatus,
+  type LaunchIntroLifecycleAction,
+} from "@/lib/launch-intro/lifecycle";
 
 type Snapshot = {
   ok: true;
   draft: { id: string; document: LaunchIntroDocument; version: number; updated_at: string } | null;
   draftImageUrls: Record<string, string>;
   live: { publication_id: string | null; state: LaunchIntroLiveState; revision: number; updated_at: string };
-  publications: Array<{ id: string; created_at: string; source_draft_version: number | null; document: LaunchIntroDocument }>;
+  publications: Array<{
+    id: string;
+    created_at: string;
+    source_draft_id: string | null;
+    source_draft_version: number | null;
+    document: LaunchIntroDocument;
+  }>;
   publicAssetBase: string;
 };
 type ApiError = { ok: false; error?: string };
@@ -80,6 +92,33 @@ const ENTER_LABEL = {
   scale: "admin_launch_intro_enter_scale",
 } as const satisfies Record<LaunchIntroScene["motion"]["enter"], string>;
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+/** Confirm + result copy per Live transition (every state change asks first, then says what happens on devices). */
+const LIFECYCLE_COPY = {
+  pause: {
+    title: "admin_launch_intro_pause_confirm",
+    desc: "admin_launch_intro_pause_confirm_desc",
+    label: "admin_launch_intro_pause",
+    done: "admin_launch_intro_pause_done",
+  },
+  resume: {
+    title: "admin_launch_intro_resume_confirm",
+    desc: "admin_launch_intro_resume_confirm_desc",
+    label: "admin_launch_intro_resume",
+    done: "admin_launch_intro_resume_done",
+  },
+  unpublish: {
+    title: "admin_launch_intro_unpublish_confirm",
+    desc: "admin_launch_intro_unpublish_confirm_desc",
+    label: "admin_launch_intro_unpublish",
+    done: "admin_launch_intro_unpublish_done",
+  },
+  reactivate: {
+    title: "admin_launch_intro_reactivate_confirm",
+    desc: "admin_launch_intro_reactivate_confirm_desc",
+    label: "admin_launch_intro_reactivate",
+    done: "admin_launch_intro_reactivate_done",
+  },
+} as const satisfies Record<LaunchIntroLifecycleAction, Record<"title" | "desc" | "label" | "done", string>>;
 const PREVIEW_MAX_W = 300;
 const PREVIEW_MAX_H = 560;
 
@@ -443,24 +482,46 @@ export function LaunchIntroAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ draftId: snap.draft.id, version: snap.draft.version }),
       },
-      t("admin_launch_intro_done")
+      t("admin_launch_intro_publish_done")
     );
   };
 
-  const setState = (action: "pause" | "resume" | "unpublish" | "reactivate", publicationId?: string) =>
-    call(
+  const fmtDate = (iso: string) => new Date(iso).toLocaleString();
+  const setState = async (action: LaunchIntroLifecycleAction, publicationId?: string) => {
+    const copy = LIFECYCLE_COPY[action];
+    const pub = publicationId ? snap?.publications.find((p) => p.id === publicationId) : null;
+    const ok = await dibayConfirm({
+      title: t(copy.title),
+      description: t(copy.desc, { id: pub ? pub.id.slice(0, 8) : "", date: pub ? fmtDate(pub.created_at) : "" }),
+      confirmLabel: t(copy.label),
+      confirmTone: action === "unpublish" ? "destructive" : "primary",
+    });
+    if (!ok) return;
+    await call(
       "/api/admin/launch-intro/state",
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, publicationId }) },
-      t("admin_launch_intro_done")
+      t(copy.done)
     );
+  };
 
   const live = snap?.live;
-  const stateLabel =
-    live?.state === "active"
-      ? t("admin_launch_intro_state_active")
-      : live?.state === "paused"
-        ? t("admin_launch_intro_state_paused")
-        : t("admin_launch_intro_state_unpublished");
+  const livePublication = live?.publication_id ? (snap?.publications.find((p) => p.id === live.publication_id) ?? null) : null;
+  const draftStatus = launchIntroDraftStatus({ draft: snap?.draft ?? null, dirty, livePublication });
+  const devicesLine = !live
+    ? ""
+    : live.state === "active" && livePublication
+      ? t("admin_launch_intro_status_devices_active", { id: livePublication.id.slice(0, 8), date: fmtDate(livePublication.created_at) })
+      : live.state === "paused" && livePublication
+        ? t("admin_launch_intro_status_devices_paused", { id: livePublication.id.slice(0, 8) })
+        : t("admin_launch_intro_status_devices_unpublished");
+  const draftLine =
+    draftStatus === "none"
+      ? t("admin_launch_intro_status_draft_none")
+      : draftStatus === "unsaved"
+        ? t("admin_launch_intro_status_draft_unsaved")
+        : draftStatus === "published"
+          ? t("admin_launch_intro_status_draft_published", { v: snap?.draft?.version ?? 0 })
+          : t("admin_launch_intro_status_draft_changed", { v: snap?.draft?.version ?? 0 });
   const isLast = sel === sceneCount - 1;
   const ctaType = scene?.cta?.action.type ?? "none";
 
@@ -479,43 +540,58 @@ export function LaunchIntroAdminPage() {
 
       {live ? (
         <AdminCard title={t("admin_launch_intro_live_title")}>
-          <div className="space-y-3 px-4 py-4 sm:px-5">
-            <p className="sam-text-body text-sam-fg">
-              <span className="font-semibold">{stateLabel}</span>
-              <span className="text-sam-muted">
-                {" "}
-                · {t("admin_launch_intro_revision")} {live.revision}
-                {live.publication_id ? ` · ${t("admin_launch_intro_publication")} ${live.publication_id.slice(0, 8)}` : ""}
-              </span>
-            </p>
+          <div className="space-y-3 px-4 py-4 sm:px-5" data-launch-intro-status-board="">
+            <dl className="grid gap-x-4 gap-y-2 sam-text-body sm:grid-cols-[max-content_1fr]">
+              <dt className="font-medium text-sam-fg">{t("admin_launch_intro_status_devices")}</dt>
+              <dd className="text-sam-fg" data-launch-intro-live-state={live.state}>
+                {devicesLine}
+              </dd>
+              <dt className="font-medium text-sam-fg">{t("admin_launch_intro_status_draft")}</dt>
+              <dd className={draftStatus === "unsaved" || draftStatus === "changed" ? "text-sam-warning" : "text-sam-fg"} data-launch-intro-draft-status={draftStatus}>
+                {draftLine}
+              </dd>
+              <dt className="font-medium text-sam-muted">{t("admin_launch_intro_status_last_change")}</dt>
+              <dd className="text-sam-muted">
+                {fmtDate(live.updated_at)} · {t("admin_launch_intro_revision")} {live.revision}
+              </dd>
+            </dl>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || live.state !== "active"} onClick={() => void setState("pause")}>
+              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "pause")} onClick={() => void setState("pause")}>
                 {t("admin_launch_intro_pause")}
               </button>
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || live.state !== "paused"} onClick={() => void setState("resume")}>
+              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "resume")} onClick={() => void setState("resume")}>
                 {t("admin_launch_intro_resume")}
               </button>
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || live.state === "unpublished"} onClick={() => void setState("unpublish")}>
+              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "unpublish")} onClick={() => void setState("unpublish")}>
                 {t("admin_launch_intro_unpublish")}
               </button>
             </div>
             <div>
               <p className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_history_title")}</p>
               {snap?.publications.length ? (
-                <ul className="space-y-1">
-                  {snap.publications.map((p) => (
-                    <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 sam-text-body-secondary text-sam-muted">
-                      <span className="font-mono">
-                        {p.id.slice(0, 8)} · {new Date(p.created_at).toLocaleString()}
-                        {p.id === live.publication_id ? " · LIVE" : ""}
-                      </span>
-                      {p.id !== live.publication_id ? (
-                        <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
-                          {t("admin_launch_intro_reactivate")}
-                        </button>
-                      ) : null}
-                    </li>
-                  ))}
+                <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border">
+                  {snap.publications.map((p) => {
+                    const isLive = p.id === live.publication_id;
+                    return (
+                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sam-text-body-secondary text-sam-muted" data-launch-intro-publication={p.id}>
+                        <span>
+                          <span className="font-mono text-sam-fg">{p.id.slice(0, 8)}</span> · {fmtDate(p.created_at)} ·{" "}
+                          {t("admin_launch_intro_history_scenes", { n: p.document.scenes.length })}
+                          {p.source_draft_version != null ? ` · Draft v${p.source_draft_version}` : ""}
+                          {isLive ? (
+                            <span className="ml-2 rounded-full bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
+                              {live.state === "paused" ? t("admin_launch_intro_history_badge_paused") : t("admin_launch_intro_history_badge_live")}
+                            </span>
+                          ) : null}
+                        </span>
+                        {launchIntroCanReactivate(live, p.id) ? (
+                          <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
+                            {t("admin_launch_intro_reactivate")}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_history_empty")}</p>
@@ -865,7 +941,13 @@ export function LaunchIntroAdminPage() {
                   type="button"
                   className="sam-btn sam-btn--secondary"
                   disabled={busy || !dirty}
-                  onClick={() => {
+                  onClick={async () => {
+                    const ok = await dibayConfirm({
+                      title: t("admin_launch_intro_cancel_confirm"),
+                      confirmLabel: t("admin_launch_intro_cancel_confirm_label"),
+                      confirmTone: "destructive",
+                    });
+                    if (!ok) return;
                     setPlaying(false);
                     setDoc(snap.draft?.document ?? null);
                   }}
@@ -882,7 +964,7 @@ export function LaunchIntroAdminPage() {
                   onClick={async () => {
                     const ok = await dibayConfirm({ title: t("admin_launch_intro_delete_confirm"), confirmTone: "destructive", confirmLabel: t("admin_launch_intro_delete") });
                     if (!ok) return;
-                    void call(`/api/admin/launch-intro?id=${snap.draft!.id}`, { method: "DELETE" }, t("admin_launch_intro_done"));
+                    void call(`/api/admin/launch-intro?id=${snap.draft!.id}`, { method: "DELETE" }, t("admin_launch_intro_delete_done"));
                   }}
                 >
                   {t("admin_launch_intro_delete")}
