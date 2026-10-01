@@ -145,9 +145,13 @@ export type LaunchIntroAsset = {
   path: string;
 };
 
-/** Eligibility: native app, every_launch. startAt/endAt reserved for the schedule phase. */
+/** How often one device shows a publication (P6). every_launch = once per native launch epoch. */
+export type LaunchIntroFrequency = "every_launch" | "once_per_publication" | "once_per_day";
+export const LAUNCH_INTRO_FREQUENCIES: readonly LaunchIntroFrequency[] = ["every_launch", "once_per_publication", "once_per_day"];
+
+/** Eligibility of one immutable publication: frequency (P6) + optional schedule window (P5). */
 export type LaunchIntroEligibility = {
-  frequency: "every_launch";
+  frequency: LaunchIntroFrequency;
   startAt?: string | null;
   endAt?: string | null;
 };

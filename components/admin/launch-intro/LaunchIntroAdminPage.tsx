@@ -27,6 +27,7 @@ import {
   newLaunchIntroSceneId,
   normalizeLaunchIntroHex,
   LAUNCH_INTRO_DECORATION_SLOTS,
+  LAUNCH_INTRO_FREQUENCIES,
   LAUNCH_INTRO_ENTER_MOTIONS,
   LAUNCH_INTRO_LAYOUTS,
   LAUNCH_INTRO_MAX_DECORATIONS,
@@ -35,6 +36,7 @@ import {
   type LaunchIntroDocument,
   type LaunchIntroEligibility,
   type LaunchIntroFit,
+  type LaunchIntroFrequency,
   type LaunchIntroImageRef,
   type LaunchIntroVideoRef,
   type LaunchIntroLiveState,
@@ -100,6 +102,11 @@ const ENTER_LABEL = {
   scale: "admin_launch_intro_enter_scale",
 } as const satisfies Record<LaunchIntroScene["motion"]["enter"], string>;
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const FREQUENCY_LABEL = {
+  every_launch: "admin_launch_intro_frequency_every_launch",
+  once_per_publication: "admin_launch_intro_frequency_once_per_publication",
+  once_per_day: "admin_launch_intro_frequency_once_per_day",
+} as const satisfies Record<LaunchIntroFrequency, string>;
 /** Confirm + result copy per Live transition (every state change asks first, then says what happens on devices). */
 const LIFECYCLE_COPY = {
   pause: {
@@ -327,7 +334,11 @@ export function LaunchIntroAdminPage() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   /** Publish schedule (P5), Manila wall time; empty = no limit. */
-  const [schedule, setSchedule] = useState({ startLocal: "", endLocal: "" });
+  const [schedule, setSchedule] = useState<{ startLocal: string; endLocal: string; frequency: LaunchIntroFrequency }>({
+    startLocal: "",
+    endLocal: "",
+    frequency: "every_launch",
+  });
   /** Clock for schedule labels, refreshed with every server snapshot (no timers). */
   const [now, setNow] = useState(() => Date.now());
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -488,7 +499,7 @@ export function LaunchIntroAdminPage() {
       setMessage(t("admin_launch_intro_schedule_err_invalid"));
       return;
     }
-    const checked = validateLaunchIntroEligibility({ startAt, endAt }, Date.now());
+    const checked = validateLaunchIntroEligibility({ frequency: schedule.frequency, startAt, endAt }, Date.now());
     if (!checked.ok) {
       setMessage(
         checked.error === "schedule_end_before_start"
@@ -504,6 +515,7 @@ export function LaunchIntroAdminPage() {
       title: t("admin_launch_intro_publish_confirm"),
       description: [
         t("admin_launch_intro_publish_confirm_desc"),
+        t(FREQUENCY_LABEL[e.frequency]) + ".",
         e.startAt || e.endAt
           ? t("admin_launch_intro_schedule_summary", {
               start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
@@ -531,7 +543,11 @@ export function LaunchIntroAdminPage() {
     const pub = publicationId ? snap?.publications.find((p) => p.id === publicationId) : null;
     // Reactivate while nothing is live: there is no current Intro to take down.
     const desc =
-      action === "reactivate" && snap?.live.state === "unpublished" ? "admin_launch_intro_reactivate_confirm_desc_none" : copy.desc;
+      action === "reactivate" && pub && launchIntroScheduleState(pub.eligibility, Date.now()) === "ended"
+        ? "admin_launch_intro_reactivate_confirm_desc_ended"
+        : action === "reactivate" && snap?.live.state === "unpublished"
+          ? "admin_launch_intro_reactivate_confirm_desc_none"
+          : copy.desc;
     const ok = await dibayConfirm({
       title: t(copy.title),
       description: t(desc, { id: pub ? pub.id.slice(0, 8) : "", date: pub ? fmtDate(pub.created_at) : "" }),
@@ -551,12 +567,17 @@ export function LaunchIntroAdminPage() {
   const draftStatus = launchIntroDraftStatus({ draft: snap?.draft ?? null, dirty, livePublication });
   const liveSchedule = livePublication ? launchIntroScheduleState(livePublication.eligibility, now) : "always";
   const scheduleText = (e: LaunchIntroEligibility | null) =>
-    e?.startAt || e?.endAt
-      ? t("admin_launch_intro_schedule_window", {
-          start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
-          end: e.endAt ? formatManila(e.endAt, undefined) : t("admin_launch_intro_schedule_no_end"),
-        })
-      : "";
+    [
+      e?.frequency && e.frequency !== "every_launch" ? t(FREQUENCY_LABEL[e.frequency]) : "",
+      e?.startAt || e?.endAt
+        ? t("admin_launch_intro_schedule_window", {
+            start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
+            end: e.endAt ? formatManila(e.endAt, undefined) : t("admin_launch_intro_schedule_no_end"),
+          })
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
   const devicesLine = !live
     ? ""
     : live.state === "active" && livePublication && liveSchedule === "scheduled"
@@ -998,7 +1019,7 @@ export function LaunchIntroAdminPage() {
               </label>
 
               <fieldset className="space-y-2 rounded-ui-rect border border-sam-border p-3" data-launch-intro-schedule="">
-                <legend className="px-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_schedule_title")}</legend>
+                <legend className="px-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_publish_settings_title")}</legend>
                 <div className="flex flex-wrap gap-3">
                   <label className="space-y-1">
                     <span className="block sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_schedule_start")}</span>
@@ -1019,7 +1040,23 @@ export function LaunchIntroAdminPage() {
                     />
                   </label>
                 </div>
+                <label className="block space-y-1">
+                  <span className="block sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_frequency")}</span>
+                  <select
+                    className={`${field} w-auto`}
+                    value={schedule.frequency}
+                    onChange={(e) => setSchedule((s) => ({ ...s, frequency: e.target.value as LaunchIntroFrequency }))}
+                    data-launch-intro-frequency=""
+                  >
+                    {LAUNCH_INTRO_FREQUENCIES.map((f) => (
+                      <option key={f} value={f}>
+                        {t(FREQUENCY_LABEL[f])}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_schedule_hint")}</p>
+                <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_frequency_hint")}</p>
               </fieldset>
 
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}

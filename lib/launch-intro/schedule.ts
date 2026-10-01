@@ -9,7 +9,7 @@
  * uses the same clock). Stored as ISO-8601 instants. Devices judge with their own clock in
  * `startup-destination` (`now < startAt` → not yet, `now >= endAt` → ended) — same rule as here.
  */
-import type { LaunchIntroEligibility } from "@/lib/launch-intro/document";
+import { LAUNCH_INTRO_FREQUENCIES, type LaunchIntroEligibility, type LaunchIntroFrequency } from "@/lib/launch-intro/document";
 
 export const LAUNCH_INTRO_SCHEDULE_TZ = "Asia/Manila";
 const MANILA_OFFSET = "+08:00";
@@ -48,7 +48,8 @@ export function validateLaunchIntroEligibility(
   if (raw == null) return { ok: true, eligibility: { frequency: "every_launch" } };
   if (typeof raw !== "object") return { ok: false, error: "eligibility_invalid" };
   const o = raw as Record<string, unknown>;
-  if (o.frequency !== undefined && o.frequency !== "every_launch") return { ok: false, error: "frequency_invalid" };
+  const frequency = (o.frequency ?? "every_launch") as LaunchIntroFrequency;
+  if (!LAUNCH_INTRO_FREQUENCIES.includes(frequency)) return { ok: false, error: "frequency_invalid" };
   const iso = (v: unknown): string | null | undefined => {
     if (v == null || v === "") return null;
     if (typeof v !== "string") return undefined;
@@ -61,7 +62,7 @@ export function validateLaunchIntroEligibility(
   if (endAt === undefined) return { ok: false, error: "schedule_end_invalid" };
   if (startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)) return { ok: false, error: "schedule_end_before_start" };
   if (endAt && Date.parse(endAt) <= nowMs) return { ok: false, error: "schedule_already_ended" };
-  const eligibility: LaunchIntroEligibility = { frequency: "every_launch" };
+  const eligibility: LaunchIntroEligibility = { frequency };
   if (startAt) eligibility.startAt = startAt;
   if (endAt) eligibility.endAt = endAt;
   return { ok: true, eligibility };

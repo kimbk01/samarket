@@ -10,6 +10,7 @@
  * (DEFERRED MOUNT, contract §10). It resolves exactly once: on Intro exit or INTRO → COMMUNITY.
  */
 import { readLaunchIntroIndex, type LaunchIntroCachedPublication } from "@/lib/launch-intro/cache";
+import { launchIntroFrequencyAllows, readLaunchIntroSeen } from "@/lib/launch-intro/frequency";
 import { LAUNCH_INTRO_DOCUMENT_ID, readLaunchEpoch, readShownLaunchEpoch } from "@/lib/launch-intro/launch-epoch";
 import {
   claimLaunchOsReleaseForIntro,
@@ -33,11 +34,17 @@ let deferral: { promise: Promise<void>; resolve: () => void; done: boolean } | n
 
 function eligibleNow(pub: LaunchIntroCachedPublication): boolean {
   const e = pub.eligibility ?? { frequency: "every_launch" };
-  if (e.frequency !== "every_launch") return false;
   const now = Date.now();
   if (e.startAt && Number.isFinite(Date.parse(e.startAt)) && now < Date.parse(e.startAt)) return false;
   if (e.endAt && Number.isFinite(Date.parse(e.endAt)) && now >= Date.parse(e.endAt)) return false;
   return true;
+}
+
+/** P6: once_per_publication / once_per_day consumption (separate record, not the epoch). Unknown → not shown. */
+function frequencyAllows(pub: LaunchIntroCachedPublication): boolean {
+  const f = pub.eligibility?.frequency ?? "every_launch";
+  if (f !== "every_launch" && f !== "once_per_publication" && f !== "once_per_day") return false;
+  return launchIntroFrequencyAllows(f, pub.id, Date.now(), f === "every_launch" ? {} : readLaunchIntroSeen());
 }
 
 function decide(): LaunchDestinationDecision {
@@ -51,6 +58,7 @@ function decide(): LaunchDestinationDecision {
   if (!index) return community("no_index");
   if (index.state !== "active" || !index.publication) return community(`state_${index.state}`);
   if (!eligibleNow(index.publication)) return community("not_eligible");
+  if (!frequencyAllows(index.publication)) return community(`frequency_${index.publication.eligibility?.frequency}`);
   if (!claimLaunchOsReleaseForIntro()) return community("os_already_released");
   return {
     destination: "intro",

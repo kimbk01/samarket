@@ -20,6 +20,7 @@ import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
 import { launchIntroDocumentImageRefs, launchIntroDocumentVideoRefs } from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
+import { recordLaunchIntroShown } from "@/lib/launch-intro/frequency";
 import { markLaunchEpochShown } from "@/lib/launch-intro/launch-epoch";
 import {
   abortLaunchIntroToCommunity,
@@ -225,6 +226,10 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         return;
       }
       markLaunchEpochShown(snapshot.epoch);
+      // P6 consumption = this first frame (same instant as the epoch mark).
+      if (snapshot.publication.eligibility?.frequency && snapshot.publication.eligibility.frequency !== "every_launch") {
+        recordLaunchIntroShown(snapshot.publication.id, Date.now());
+      }
       setReleased(true);
       console.info(`[dibay-launch-intro] released_os scenes=${doc.scenes.length} timer=${doc.scenes[0].durationMs}`);
     });

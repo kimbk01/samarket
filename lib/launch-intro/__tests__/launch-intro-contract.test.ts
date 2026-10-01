@@ -18,6 +18,7 @@ import {
   toPublicationDocument,
   validateLaunchIntroDocument,
 } from "../document";
+import { launchIntroFrequencyAllows, manilaDayOf } from "../frequency";
 import {
   isoToManilaLocal,
   launchIntroScheduleState,
@@ -335,6 +336,7 @@ describe("P5 schedule (single Live, Manila time)", () => {
     expect(validateLaunchIntroEligibility({ endAt: "2026-10-01T11:00:00Z" }, now)).toEqual({ ok: false, error: "schedule_already_ended" });
     expect(validateLaunchIntroEligibility({ startAt: "soon" }, now)).toEqual({ ok: false, error: "schedule_start_invalid" });
     expect(validateLaunchIntroEligibility({ frequency: "hourly" }, now)).toEqual({ ok: false, error: "frequency_invalid" });
+    expect(validateLaunchIntroEligibility({ frequency: "once_per_publication" }, now)).toEqual({ ok: true, eligibility: { frequency: "once_per_publication" } });
   });
 
   it("window state matches the device rule (now < start → not yet, now >= end → ended)", () => {
@@ -357,6 +359,35 @@ describe("P5 schedule (single Live, Manila time)", () => {
     expect(server).toContain("validateLaunchIntroEligibility(input.eligibility, Date.now())");
     expect(server).toContain("p_eligibility: elig.eligibility");
     expect(server).toMatch(/sameLaunchIntroEligibility\([\s\S]*saveLaunchIntroDraft\(/);
+  });
+});
+
+describe("P6 frequency (separate consumption record, Manila day)", () => {
+  it("Manila calendar day rolls over at 16:00 UTC", () => {
+    expect(manilaDayOf(Date.parse("2026-10-01T15:59:59Z"))).toBe("2026-10-01");
+    expect(manilaDayOf(Date.parse("2026-10-01T16:00:00Z"))).toBe("2026-10-02");
+  });
+
+  it("every_launch ignores the record; once_per_publication once; once_per_day once per Manila day, per publication", () => {
+    const t0 = Date.parse("2026-10-01T04:00:00Z"); // 12:00 Manila
+    const seen = { pubA: { at: new Date(t0).toISOString(), day: manilaDayOf(t0) } };
+    expect(launchIntroFrequencyAllows("every_launch", "pubA", t0, seen)).toBe(true);
+    expect(launchIntroFrequencyAllows("once_per_publication", "pubA", t0, seen)).toBe(false);
+    expect(launchIntroFrequencyAllows("once_per_publication", "pubB", t0, seen)).toBe(true);
+    expect(launchIntroFrequencyAllows("once_per_day", "pubA", Date.parse("2026-10-01T15:59:00Z"), seen)).toBe(false);
+    expect(launchIntroFrequencyAllows("once_per_day", "pubA", Date.parse("2026-10-01T16:00:00Z"), seen)).toBe(true);
+    expect(launchIntroFrequencyAllows("once_per_day", "pubB", t0, seen)).toBe(true);
+  });
+
+  it("decision reads the record; consumption is the first frame (with the epoch mark), not a timestamp TTL", () => {
+    const dest = src("lib/launch-intro/startup-destination.ts");
+    expect(dest).toContain("launchIntroFrequencyAllows(f, pub.id, Date.now()");
+    expect(dest).toMatch(/not_eligible[\s\S]*frequencyAllows\(index\.publication\)[\s\S]*claimLaunchOsReleaseForIntro/);
+    const root = src("components/launch-intro/LaunchIntroRoot.tsx");
+    expect(root).toMatch(/markLaunchEpochShown\(snapshot\.epoch\);[\s\S]{0,300}recordLaunchIntroShown\(snapshot\.publication\.id, Date\.now\(\)\)/);
+    // every_launch authority stays the epoch (regression)
+    expect(dest).toContain('if (readShownLaunchEpoch() === epoch) return community("shown_this_epoch")');
+    expect(validateLaunchIntroEligibility({ frequency: "once_per_day" }, 0)).toEqual({ ok: true, eligibility: { frequency: "once_per_day" } });
   });
 });
 
