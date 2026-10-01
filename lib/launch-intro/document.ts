@@ -63,12 +63,45 @@ export type LaunchIntroSceneText = {
 /** route = leave the Intro to an internal path (exit latch). next = go to the next scene (no exit). */
 export type LaunchIntroCtaAction = { type: "route"; path: string } | { type: "next" };
 
+/**
+ * Safe compositions (P2). The renderer owns the geometry; Admin only picks one.
+ * stack = visual, then text, centered (first slice look) · fullbleed = visual fills the scene, text
+ * at the bottom over a soft shade · logo = logo first, large, then text.
+ */
+export const LAUNCH_INTRO_LAYOUTS = ["stack", "fullbleed", "logo"] as const;
+export type LaunchIntroLayout = (typeof LAUNCH_INTRO_LAYOUTS)[number];
+/** contain = whole image, aspect kept, never cut (default) · cover = fills its box, edges cropped (explicit). */
+export const LAUNCH_INTRO_FITS = ["contain", "cover"] as const;
+export type LaunchIntroFit = (typeof LAUNCH_INTRO_FITS)[number];
+export const LAUNCH_INTRO_ENTER_MOTIONS = ["none", "fade", "slide-up", "scale"] as const;
+export type LaunchIntroEnterMotion = (typeof LAUNCH_INTRO_ENTER_MOTIONS)[number];
+export const LAUNCH_INTRO_TRANSITIONS = ["none", "fade", "slide"] as const;
+export type LaunchIntroTransition = (typeof LAUNCH_INTRO_TRANSITIONS)[number];
+export const LAUNCH_INTRO_DECORATION_SLOTS = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+export type LaunchIntroDecorationSlot = (typeof LAUNCH_INTRO_DECORATION_SLOTS)[number];
+export const LAUNCH_INTRO_DECORATION_SIZES = ["S", "M"] as const;
+export type LaunchIntroDecorationSize = (typeof LAUNCH_INTRO_DECORATION_SIZES)[number];
+export const LAUNCH_INTRO_MAX_DECORATIONS = 3;
+
+export type LaunchIntroDecoration = {
+  asset: LaunchIntroImageRef;
+  slot: LaunchIntroDecorationSlot;
+  size: LaunchIntroDecorationSize;
+};
+
 export type LaunchIntroScene = {
   id: string;
-  background: { color: string };
-  media: { asset: LaunchIntroImageRef; fit: "contain" } | null;
+  layout: LaunchIntroLayout;
+  background: { color: string; media: { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null };
+  media: { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null;
+  logo: { asset: LaunchIntroImageRef } | null;
+  decorations: LaunchIntroDecoration[];
   text: LaunchIntroSceneText | null;
   cta: { label: string; action: LaunchIntroCtaAction } | null;
+  /** enter = how the scene's parts appear; float = gentle idle motion of the main visual. */
+  motion: { enter: LaunchIntroEnterMotion; float: boolean };
+  /** How this scene replaces the previous one (ignored for the first scene). */
+  transition: LaunchIntroTransition;
   durationMs: number;
 };
 
@@ -151,10 +184,15 @@ export function newLaunchIntroSceneId(existing: readonly string[]): string {
 export function emptyLaunchIntroScene(id: string): LaunchIntroScene {
   return {
     id,
-    background: { color: LAUNCH_INTRO_DEFAULT_BACKGROUND },
+    layout: "stack",
+    background: { color: LAUNCH_INTRO_DEFAULT_BACKGROUND, media: null },
     media: null,
+    logo: null,
+    decorations: [],
     text: null,
     cta: null,
+    motion: { enter: "fade", float: false },
+    transition: "fade",
     durationMs: LAUNCH_INTRO_DURATION_DEFAULT_MS,
   };
 }
@@ -230,6 +268,20 @@ function validateImage(raw: unknown, mode: "draft" | "publication"): LaunchIntro
   return ref;
 }
 
+function validateFittedImage(
+  raw: unknown,
+  mode: "draft" | "publication",
+  field: string
+): { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null | string {
+  if (raw == null) return null;
+  const m = raw as { asset?: unknown; fit?: unknown };
+  const fit = m.fit as LaunchIntroFit;
+  if (!LAUNCH_INTRO_FITS.includes(fit)) return `${field}_fit_invalid`;
+  const asset = validateImage(m.asset, mode);
+  if (typeof asset === "string") return asset;
+  return asset ? { asset, fit } : null;
+}
+
 function validateTextStyle(raw: unknown, max: number, field: string): LaunchIntroTextStyle | string | null {
   if (raw == null) return null;
   if (typeof raw !== "object") return `${field}_invalid`;
@@ -278,18 +330,56 @@ export function validateLaunchIntroDocument(
     if (ids.has(id)) return { ok: false, error: "scene_id_duplicate" };
     ids.add(id);
 
-    const bg = (sc.background ?? {}) as { color?: unknown };
+    // P2 fields are optional on read; absent = the P1 look (stack, no motion, no transition).
+    const layout = (sc.layout ?? "stack") as LaunchIntroLayout;
+    if (!LAUNCH_INTRO_LAYOUTS.includes(layout)) return { ok: false, error: "layout_invalid" };
+
+    const bg = (sc.background ?? {}) as { color?: unknown; media?: unknown };
     const color = normalizeLaunchIntroHex(bg.color);
     if (!color) return { ok: false, error: "background_invalid" };
+    const bgMedia = validateFittedImage(bg.media, mode, "background_media");
+    if (typeof bgMedia === "string") return { ok: false, error: bgMedia };
 
-    let media: LaunchIntroScene["media"] = null;
-    if (sc.media != null) {
-      const m = sc.media as { asset?: unknown; fit?: unknown };
-      if (m.fit !== "contain") return { ok: false, error: "media_fit_invalid" };
-      const asset = validateImage(m.asset, mode);
+    const media = validateFittedImage(sc.media, mode, "media");
+    if (typeof media === "string") return { ok: false, error: media };
+
+    let logo: LaunchIntroScene["logo"] = null;
+    if (sc.logo != null) {
+      const asset = validateImage((sc.logo as { asset?: unknown }).asset, mode);
       if (typeof asset === "string") return { ok: false, error: asset };
-      media = asset ? { asset, fit: "contain" } : null;
+      logo = asset ? { asset } : null;
     }
+    if (layout === "logo" && !logo) return { ok: false, error: "layout_logo_requires_logo" };
+
+    const decorations: LaunchIntroDecoration[] = [];
+    if (sc.decorations != null) {
+      if (!Array.isArray(sc.decorations) || sc.decorations.length > LAUNCH_INTRO_MAX_DECORATIONS) {
+        return { ok: false, error: "decorations_invalid" };
+      }
+      const slots = new Set<string>();
+      for (const rawDeco of sc.decorations) {
+        const d = (rawDeco ?? {}) as { asset?: unknown; slot?: unknown; size?: unknown };
+        const asset = validateImage(d.asset, mode);
+        if (typeof asset === "string") return { ok: false, error: asset };
+        if (!asset) return { ok: false, error: "decoration_asset_missing" };
+        const slot = d.slot as LaunchIntroDecorationSlot;
+        if (!LAUNCH_INTRO_DECORATION_SLOTS.includes(slot) || slots.has(slot)) {
+          return { ok: false, error: "decoration_slot_invalid" };
+        }
+        slots.add(slot);
+        const size = d.size as LaunchIntroDecorationSize;
+        if (!LAUNCH_INTRO_DECORATION_SIZES.includes(size)) return { ok: false, error: "decoration_size_invalid" };
+        decorations.push({ asset, slot, size });
+      }
+    }
+
+    const rawMotion = (sc.motion ?? { enter: "none", float: false }) as { enter?: unknown; float?: unknown };
+    const enter = rawMotion.enter as LaunchIntroEnterMotion;
+    if (!LAUNCH_INTRO_ENTER_MOTIONS.includes(enter) || typeof rawMotion.float !== "boolean") {
+      return { ok: false, error: "motion_invalid" };
+    }
+    const transition = (sc.transition ?? "none") as LaunchIntroTransition;
+    if (!LAUNCH_INTRO_TRANSITIONS.includes(transition)) return { ok: false, error: "transition_invalid" };
 
     let text: LaunchIntroScene["text"] = null;
     if (sc.text != null) {
@@ -333,8 +423,20 @@ export function validateLaunchIntroDocument(
       return { ok: false, error: "duration_invalid" };
     }
 
-    if (mode === "publication" && !media && !text) return { ok: false, error: "scene_empty" };
-    scenes.push({ id, background: { color }, media, text, cta, durationMs });
+    if (mode === "publication" && !media && !text && !logo && !bgMedia) return { ok: false, error: "scene_empty" };
+    scenes.push({
+      id,
+      layout,
+      background: { color, media: bgMedia },
+      media,
+      logo,
+      decorations,
+      text,
+      cta,
+      motion: { enter, float: rawMotion.float },
+      transition,
+      durationMs,
+    });
   }
   return { ok: true, document: { schemaVersion: LAUNCH_INTRO_SCHEMA_VERSION, settings, scenes } };
 }
@@ -342,8 +444,17 @@ export function validateLaunchIntroDocument(
 /** Every image reference in the document, in scene order (draft paths included when present). */
 export function launchIntroDocumentImageRefs(doc: LaunchIntroDocument): LaunchIntroImageRef[] {
   const refs: LaunchIntroImageRef[] = [];
-  for (const s of doc.scenes) if (s.media) refs.push(s.media.asset);
+  for (const s of doc.scenes) {
+    if (s.background.media) refs.push(s.background.media.asset);
+    if (s.media) refs.push(s.media.asset);
+    if (s.logo) refs.push(s.logo.asset);
+    for (const d of s.decorations) refs.push(d.asset);
+  }
   return refs;
+}
+
+function stripDraftPath(ref: LaunchIntroImageRef): LaunchIntroImageRef {
+  return { sha256: ref.sha256, mime: ref.mime, bytes: ref.bytes, width: ref.width, height: ref.height };
 }
 
 /** Draft → publication document: strips draft-only storage paths. */
@@ -353,18 +464,13 @@ export function toPublicationDocument(draft: LaunchIntroDocument): LaunchIntroDo
     settings: { skip: { enabled: draft.settings.skip.enabled } },
     scenes: draft.scenes.map((s) => ({
       ...s,
-      media: s.media
-        ? {
-            fit: s.media.fit,
-            asset: {
-              sha256: s.media.asset.sha256,
-              mime: s.media.asset.mime,
-              bytes: s.media.asset.bytes,
-              width: s.media.asset.width,
-              height: s.media.asset.height,
-            },
-          }
-        : null,
+      background: {
+        color: s.background.color,
+        media: s.background.media ? { fit: s.background.media.fit, asset: stripDraftPath(s.background.media.asset) } : null,
+      },
+      media: s.media ? { fit: s.media.fit, asset: stripDraftPath(s.media.asset) } : null,
+      logo: s.logo ? { asset: stripDraftPath(s.logo.asset) } : null,
+      decorations: s.decorations.map((d) => ({ ...d, asset: stripDraftPath(d.asset) })),
     })),
   };
 }

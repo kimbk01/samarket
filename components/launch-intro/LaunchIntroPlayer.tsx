@@ -10,9 +10,12 @@
  *   One timer per shown scene; it is cleared whenever the scene changes or `running` goes false.
  * - CTA `next` → next scene (no exit). CTA `route` → `onRoute(path)` (device: the exit latch).
  * - Last scene elapsed → `onComplete()`.
+ * - Scene change: the new scene enters with its `transition` preset over the previous one; the
+ *   previous scene is dropped on the new layer's animationend (no timer).
  * No data fetching, navigation, OS release or persistence here.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { LaunchIntroMotionStyles } from "@/components/launch-intro/LaunchIntroMotionStyles";
 import { LaunchIntroSceneView } from "@/components/launch-intro/LaunchIntroSceneView";
 import type { LaunchIntroDocument } from "@/lib/launch-intro/document";
 
@@ -49,6 +52,14 @@ export function LaunchIntroPlayer({
   const index = Math.min(Math.max(sceneIndex, 0), count - 1);
   const scene = document.scenes[index];
 
+  // Previous scene kept underneath while the new one transitions in (derived state on index change).
+  const [shown, setShown] = useState(index);
+  const [prev, setPrev] = useState<number | null>(null);
+  if (shown !== index) {
+    setShown(index);
+    setPrev(index > 0 && scene.transition !== "none" ? shown : null);
+  }
+
   // Latest callbacks without restarting the scene timer on every parent render.
   const cb = useRef({ onSceneIndexChange, onComplete });
   useEffect(() => {
@@ -76,16 +87,40 @@ export function LaunchIntroPlayer({
         }
       : undefined;
 
+  const layer = (i: number, extra?: { className?: string; onAnimationEnd?: () => void; interactiveLayer: boolean }) => {
+    const sc = document.scenes[Math.min(i, count - 1)];
+    return (
+      <div
+        key={sc.id}
+        className={extra?.className}
+        onAnimationEnd={(e) => {
+          if (e.target === e.currentTarget) extra?.onAnimationEnd?.();
+        }}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <LaunchIntroSceneView
+          scene={sc}
+          resolveImage={resolveImage}
+          skipLabel={skipLabel}
+          showSkip={document.settings.skip.enabled}
+          animateEnter={i > 0}
+          onCta={extra?.interactiveLayer ? onCta : undefined}
+          onSkip={extra?.interactiveLayer && interactive ? onSkip : undefined}
+          safeArea={safeArea}
+        />
+      </div>
+    );
+  };
+
   return (
-    <LaunchIntroSceneView
-      key={scene.id}
-      scene={scene}
-      imageSrc={scene.media ? resolveImage(scene.media.asset.sha256) : null}
-      skipLabel={skipLabel}
-      showSkip={document.settings.skip.enabled}
-      onCta={onCta}
-      onSkip={interactive ? onSkip : undefined}
-      safeArea={safeArea}
-    />
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      <LaunchIntroMotionStyles />
+      {prev != null && prev !== index ? layer(prev, { interactiveLayer: false }) : null}
+      {layer(index, {
+        interactiveLayer: true,
+        className: prev != null && prev !== index ? `lim-tr-${scene.transition}` : undefined,
+        onAnimationEnd: () => setPrev(null),
+      })}
+    </div>
   );
 }

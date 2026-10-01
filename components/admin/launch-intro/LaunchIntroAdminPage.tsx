@@ -26,7 +26,14 @@ import {
   emptyLaunchIntroScene,
   newLaunchIntroSceneId,
   normalizeLaunchIntroHex,
+  LAUNCH_INTRO_DECORATION_SLOTS,
+  LAUNCH_INTRO_ENTER_MOTIONS,
+  LAUNCH_INTRO_LAYOUTS,
+  LAUNCH_INTRO_MAX_DECORATIONS,
+  LAUNCH_INTRO_TRANSITIONS,
+  type LaunchIntroDecorationSlot,
   type LaunchIntroDocument,
+  type LaunchIntroFit,
   type LaunchIntroImageRef,
   type LaunchIntroLiveState,
   type LaunchIntroScene,
@@ -43,6 +50,11 @@ type Snapshot = {
   publicAssetBase: string;
 };
 type ApiError = { ok: false; error?: string };
+type UploadTarget =
+  | { kind: "media" }
+  | { kind: "background" }
+  | { kind: "logo" }
+  | { kind: "decoration"; slot: LaunchIntroDecorationSlot };
 
 const field = "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
 const label = "mb-1 block sam-text-body font-medium text-sam-fg";
@@ -54,6 +66,18 @@ const PREVIEW_DEVICES = {
   ipad: { w: 820, h: 1180, rotatable: true },
 } as const;
 type PreviewDevice = keyof typeof PREVIEW_DEVICES;
+const SLOT_LABEL = {
+  "top-left": "admin_launch_intro_slot_top_left",
+  "top-right": "admin_launch_intro_slot_top_right",
+  "bottom-left": "admin_launch_intro_slot_bottom_left",
+  "bottom-right": "admin_launch_intro_slot_bottom_right",
+} as const satisfies Record<LaunchIntroDecorationSlot, string>;
+const ENTER_LABEL = {
+  none: "admin_launch_intro_enter_none",
+  fade: "admin_launch_intro_enter_fade",
+  "slide-up": "admin_launch_intro_enter_slide_up",
+  scale: "admin_launch_intro_enter_scale",
+} as const satisfies Record<LaunchIntroScene["motion"]["enter"], string>;
 const PREVIEW_MAX_W = 300;
 const PREVIEW_MAX_H = 560;
 
@@ -61,6 +85,16 @@ function defaultTextStyle(kind: "headline" | "supporting", value: string): Launc
   return kind === "headline"
     ? { value, size: "L", weight: "bold", color: "#FFFFFF" }
     : { value, size: "M", weight: "regular", color: "#FFFFFF" };
+}
+
+function FitSelect({ value, onChange }: { value: LaunchIntroFit; onChange: (fit: LaunchIntroFit) => void }) {
+  const { t } = useI18n();
+  return (
+    <select className={`${field} w-auto`} value={value} onChange={(e) => onChange(e.target.value as LaunchIntroFit)}>
+      <option value="contain">{t("admin_launch_intro_fit_contain")}</option>
+      <option value="cover">{t("admin_launch_intro_fit_cover")}</option>
+    </select>
+  );
 }
 
 function TextStyleEditor({
@@ -175,6 +209,8 @@ export function LaunchIntroAdminPage() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  /** Where the next uploaded image goes (one hidden file input for every image slot). */
+  const uploadTarget = useRef<UploadTarget>({ kind: "media" });
 
   const apply = useCallback((json: Snapshot) => {
     setSnap(json);
@@ -225,9 +261,12 @@ export function LaunchIntroAdminPage() {
     setDoc({ ...doc, scenes });
     setSelected(nextSelected);
   };
-  const patchScene = (patch: Partial<LaunchIntroScene>) => {
-    if (!doc || !scene) return;
-    setDoc({ ...doc, scenes: doc.scenes.map((s, i) => (i === sel ? { ...s, ...patch } : s)) });
+  const patchSceneAt = (index: number, fn: (s: LaunchIntroScene) => LaunchIntroScene) =>
+    setDoc((d) => (d ? { ...d, scenes: d.scenes.map((s, i) => (i === index ? fn(s) : s)) } : d));
+  const patchScene = (patch: Partial<LaunchIntroScene>) => patchSceneAt(sel, (s) => ({ ...s, ...patch }));
+  const pickImage = (target: UploadTarget) => {
+    uploadTarget.current = target;
+    fileRef.current?.click();
   };
   const patchText = (patch: Partial<LaunchIntroSceneText>) => {
     if (!scene) return;
@@ -239,7 +278,7 @@ export function LaunchIntroAdminPage() {
     if (!doc || sceneCount >= LAUNCH_INTRO_MAX_SCENES) return;
     const id = newLaunchIntroSceneId(doc.scenes.map((s) => s.id));
     const base = emptyLaunchIntroScene(id);
-    base.background = { ...(scene?.background ?? base.background) };
+    base.background = { color: scene?.background.color ?? base.background.color, media: null };
     setScenes([...doc.scenes, base], sceneCount);
   };
   const duplicateScene = () => {
@@ -274,6 +313,8 @@ export function LaunchIntroAdminPage() {
     );
 
   const upload = async (file: File) => {
+    const target = uploadTarget.current;
+    const index = sel;
     setBusy(true);
     setMessage(null);
     try {
@@ -286,7 +327,14 @@ export function LaunchIntroAdminPage() {
         return;
       }
       if (json.url) setImageUrls((prev) => ({ ...prev, [json.image.sha256]: json.url! }));
-      patchScene({ media: { asset: json.image, fit: "contain" } });
+      const asset = json.image;
+      patchSceneAt(index, (s) => {
+        if (target.kind === "media") return { ...s, media: { asset, fit: s.media?.fit ?? "contain" } };
+        if (target.kind === "background") return { ...s, background: { ...s.background, media: { asset, fit: s.background.media?.fit ?? "cover" } } };
+        if (target.kind === "logo") return { ...s, logo: { asset } };
+        const rest = s.decorations.filter((d) => d.slot !== target.slot);
+        return { ...s, decorations: [...rest, { asset, slot: target.slot, size: "M" }] };
+      });
     } catch {
       setMessage(t("admin_launch_intro_error", { error: "network" }));
     } finally {
@@ -418,7 +466,7 @@ export function LaunchIntroAdminPage() {
                     >
                       {t("admin_launch_intro_scene_n", { n: String(i + 1) })}
                       <span className="block truncate sam-text-body-secondary text-sam-muted">
-                        {s.text?.headline?.value ?? s.text?.supporting?.value ?? (s.media ? "🖼" : "—")}
+                        {s.text?.headline?.value ?? s.text?.supporting?.value ?? (s.media || s.logo ? "🖼" : "—")}
                       </span>
                     </button>
                   </li>
@@ -464,7 +512,7 @@ export function LaunchIntroAdminPage() {
                     type="color"
                     className="h-10 w-12 shrink-0 cursor-pointer rounded-ui-rect border border-sam-border"
                     value={scene.background.color}
-                    onChange={(e) => patchScene({ background: { color: e.target.value.toUpperCase() } })}
+                    onChange={(e) => patchScene({ background: { ...scene.background, color: e.target.value.toUpperCase() } })}
                   />
                   <input
                     className={`${field} font-mono`}
@@ -474,35 +522,162 @@ export function LaunchIntroAdminPage() {
                     onFocus={(e) => e.currentTarget.select()}
                     onBlur={(e) => {
                       const hex = normalizeLaunchIntroHex(e.target.value);
-                      if (hex) patchScene({ background: { color: hex } });
+                      if (hex) patchScene({ background: { ...scene.background, color: hex } });
                     }}
                   />
                 </div>
               </label>
 
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void upload(f);
+                }}
+              />
+
+              <label className="block">
+                <span className={label}>{t("admin_launch_intro_layout")}</span>
+                <select className={`${field} w-auto`} value={scene.layout} onChange={(e) => patchScene({ layout: e.target.value as LaunchIntroScene["layout"] })}>
+                  {LAUNCH_INTRO_LAYOUTS.map((l) => (
+                    <option key={l} value={l}>
+                      {t(`admin_launch_intro_layout_${l}` as const)}
+                    </option>
+                  ))}
+                </select>
+                {scene.layout === "logo" && !scene.logo ? (
+                  <p className="mt-1 sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_layout_logo_needs_logo")}</p>
+                ) : null}
+              </label>
+
               <div>
                 <span className={label}>{t("admin_launch_intro_image")}</span>
                 <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_hint")}</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void upload(f);
-                  }}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
+                {scene.layout === "logo" ? (
+                  <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_logo_layout_note")}</p>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "media" })}>
                     {t("admin_launch_intro_upload")}
                   </button>
                   {scene.media ? (
-                    <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ media: null })}>
+                    <>
+                      <FitSelect value={scene.media.fit} onChange={(fit) => patchScene({ media: { ...scene.media!, fit } })} />
+                      <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ media: null })}>
+                        {t("admin_launch_intro_remove_image")}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <span className={label}>{t("admin_launch_intro_logo")}</span>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "logo" })}>
+                    {t("admin_launch_intro_upload")}
+                  </button>
+                  {scene.logo ? (
+                    <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ logo: null })}>
                       {t("admin_launch_intro_remove_image")}
                     </button>
                   ) : null}
                 </div>
+              </div>
+
+              <div>
+                <span className={label}>{t("admin_launch_intro_background_image")}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => pickImage({ kind: "background" })}>
+                    {t("admin_launch_intro_upload")}
+                  </button>
+                  {scene.background.media ? (
+                    <>
+                      <FitSelect
+                        value={scene.background.media.fit}
+                        onChange={(fit) => patchScene({ background: { ...scene.background, media: { ...scene.background.media!, fit } } })}
+                      />
+                      <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ background: { ...scene.background, media: null } })}>
+                        {t("admin_launch_intro_remove_image")}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <span className={label}>{t("admin_launch_intro_decorations")}</span>
+                <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_decorations_hint", { n: String(LAUNCH_INTRO_MAX_DECORATIONS) })}</p>
+                <div className="space-y-2">
+                  {LAUNCH_INTRO_DECORATION_SLOTS.map((slot) => {
+                    const deco = scene.decorations.find((d) => d.slot === slot);
+                    const full = !deco && scene.decorations.length >= LAUNCH_INTRO_MAX_DECORATIONS;
+                    return (
+                      <div key={slot} className="flex flex-wrap items-center gap-2">
+                        <span className="w-24 sam-text-body-secondary text-sam-muted">{t(SLOT_LABEL[slot])}</span>
+                        <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || full} onClick={() => pickImage({ kind: "decoration", slot })}>
+                          {t("admin_launch_intro_upload")}
+                        </button>
+                        {deco ? (
+                          <>
+                            <select
+                              className={`${field} w-auto`}
+                              value={deco.size}
+                              onChange={(e) =>
+                                patchScene({ decorations: scene.decorations.map((d) => (d.slot === slot ? { ...d, size: e.target.value as "S" | "M" } : d)) })
+                              }
+                            >
+                              <option value="S">{t("admin_launch_intro_text_size")} S</option>
+                              <option value="M">{t("admin_launch_intro_text_size")} M</option>
+                            </select>
+                            <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ decorations: scene.decorations.filter((d) => d.slot !== slot) })}>
+                              {t("admin_launch_intro_remove_image")}
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className={label}>{t("admin_launch_intro_motion")}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className={`${field} w-auto`}
+                    aria-label={t("admin_launch_intro_motion_enter")}
+                    value={scene.motion.enter}
+                    onChange={(e) => patchScene({ motion: { ...scene.motion, enter: e.target.value as LaunchIntroScene["motion"]["enter"] } })}
+                  >
+                    {LAUNCH_INTRO_ENTER_MOTIONS.map((m) => (
+                      <option key={m} value={m}>
+                        {t("admin_launch_intro_motion_enter")}: {t(ENTER_LABEL[m])}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-2 sam-text-body text-sam-fg">
+                    <input type="checkbox" checked={scene.motion.float} onChange={(e) => patchScene({ motion: { ...scene.motion, float: e.target.checked } })} />
+                    {t("admin_launch_intro_motion_float")}
+                  </label>
+                </div>
+                <select
+                  className={`${field} w-auto`}
+                  aria-label={t("admin_launch_intro_transition")}
+                  disabled={sel === 0}
+                  value={scene.transition}
+                  onChange={(e) => patchScene({ transition: e.target.value as LaunchIntroScene["transition"] })}
+                >
+                  {LAUNCH_INTRO_TRANSITIONS.map((tr) => (
+                    <option key={tr} value={tr}>
+                      {t("admin_launch_intro_transition")}: {t(`admin_launch_intro_transition_${tr}` as const)}
+                    </option>
+                  ))}
+                </select>
+                {sel === 0 ? <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_first_scene_motion_note")}</p> : null}
               </div>
 
               <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_text_hint")}</p>

@@ -92,14 +92,59 @@ describe("launch intro document", () => {
       scenes: [
         {
           id: "scene-1",
-          background: { color: "#075740" },
+          layout: "stack",
+          background: { color: "#075740", media: null },
           media: { asset: { sha256: SHA, mime: "image/png", bytes: 1000, width: 400, height: 300 }, fit: "contain" },
+          logo: null,
+          decorations: [],
           text: { headline: { value: "dibaY", size: "L", weight: "bold", color: "#FFFFFF" }, supporting: null, align: "center" },
           cta: { label: "Go", action: { type: "route", path: "/stores" } },
+          motion: { enter: "none", float: false },
+          transition: "none",
           durationMs: 4000,
         },
       ],
     });
+  });
+
+  it("P2 compositions: preset layouts only, logo layout needs a logo, explicit cover, unique decoration slots", () => {
+    const base = emptyLaunchIntroDocument();
+    const scene = base.scenes[0];
+    const img = (sha: string) => ({ sha256: sha, mime: "image/png", bytes: 10, width: 64, height: 64 });
+    const text = { headline: textStyle("Hi"), supporting: null, align: "center" as const };
+    const pub = (sc: Record<string, unknown>) => validateLaunchIntroDocument({ ...base, scenes: [{ ...scene, text, ...sc }] }, "publication");
+    expect(pub({ layout: "canvas" })).toEqual({ ok: false, error: "layout_invalid" });
+    expect(pub({ layout: "logo" })).toEqual({ ok: false, error: "layout_logo_requires_logo" });
+    expect(pub({ layout: "logo", logo: { asset: img(SHA) } }).ok).toBe(true);
+    expect(pub({ media: { asset: img(SHA), fit: "stretch" } })).toEqual({ ok: false, error: "media_fit_invalid" });
+    expect(pub({ media: { asset: img(SHA), fit: "cover" } }).ok).toBe(true);
+    const deco = (slot: string) => ({ asset: img(SHA), slot, size: "M" });
+    expect(pub({ decorations: [deco("top-left"), deco("top-left")] })).toEqual({ ok: false, error: "decoration_slot_invalid" });
+    expect(pub({ decorations: [deco("top-left"), deco("top-right"), deco("bottom-left"), deco("bottom-right")] })).toEqual({ ok: false, error: "decorations_invalid" });
+    expect(pub({ motion: { enter: "spin", float: false } })).toEqual({ ok: false, error: "motion_invalid" });
+    expect(pub({ transition: "zoom" })).toEqual({ ok: false, error: "transition_invalid" });
+
+    const shaB = "b".repeat(64);
+    const shaC = "c".repeat(64);
+    const draftImg = (sha: string) => ({ ...img(sha), draftPath: "draft/00000000-0000-0000-0000-000000000000.png" });
+    const draft = {
+      ...base,
+      scenes: [
+        {
+          ...scene,
+          text,
+          background: { color: "#075740", media: { asset: draftImg(shaB), fit: "cover" } },
+          logo: { asset: draftImg(shaC) },
+          decorations: [{ asset: draftImg(SHA), slot: "top-left", size: "S" }],
+        },
+      ],
+    };
+    const v = validateLaunchIntroDocument(draft, "draft");
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    const p = toPublicationDocument(v.document);
+    expect(JSON.stringify(p)).not.toContain("draftPath");
+    expect(launchIntroDocumentAssets(p).map((a) => a.sha256).sort()).toEqual([SHA, shaB, shaC].sort());
   });
 
   it("internal path rule", () => {
@@ -188,7 +233,11 @@ describe("launch intro static contract", () => {
     const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
     expect(admin).toContain("<LaunchIntroPlayer");
     expect(admin).not.toMatch(/from "@\/lib\/device\//);
+    const motion = src("components/launch-intro/LaunchIntroMotionStyles.tsx");
+    expect(motion).toContain("prefers-reduced-motion");
+    expect(src("components/launch-intro/LaunchIntroSceneView.tsx")).not.toMatch(/setTimeout|setInterval/);
     const player = src("components/launch-intro/LaunchIntroPlayer.tsx");
+    expect(player).toContain("animateEnter={i > 0}");
     expect(player).toContain("if (!running) return;");
     expect(player).toContain('if (cta.action.type === "next")');
     expect(player).not.toMatch(/useRouter|next\/navigation|releaseOsForLaunchIntro|localStorage/);
