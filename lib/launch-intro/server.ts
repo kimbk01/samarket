@@ -16,6 +16,8 @@ import {
   launchIntroDocumentAllRefs,
   LAUNCH_INTRO_VIDEO_MAX_BYTES,
   inspectLaunchIntroAsset,
+  LAUNCH_INTRO_TOTAL_MAX_MS,
+  launchIntroTotalDurationMs,
   toPublicationDocument,
   validateLaunchIntroDocument,
   type LaunchIntroAsset,
@@ -326,6 +328,9 @@ export async function publishLaunchIntroDraft(
   const pubDoc = toPublicationDocument(asDraft.document);
   const asPub = validateLaunchIntroDocument(pubDoc, "publication");
   if (!asPub.ok) return { ok: false, error: asPub.error, status: 400 };
+  if (launchIntroTotalDurationMs(asPub.document) > LAUNCH_INTRO_TOTAL_MAX_MS) {
+    return { ok: false, error: "total_duration_too_long", status: 400 };
+  }
 
   for (const img of launchIntroDocumentAllRefs(asDraft.document)) {
     if (!img.draftPath) continue;

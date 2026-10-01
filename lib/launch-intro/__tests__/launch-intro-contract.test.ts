@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   emptyLaunchIntroDocument,
   inspectLaunchIntroAsset,
+  LAUNCH_INTRO_TOTAL_MAX_MS,
+  launchIntroTotalDurationMs,
   isLaunchIntroInternalPath,
   LAUNCH_INTRO_VIDEO_MAX_BYTES,
   launchIntroDocumentVideoRefs,
@@ -421,6 +423,23 @@ describe("P7 device target (DeviceClass read-only, PREPARING)", () => {
     expect(root.indexOf("resolveDibayDeviceClass()")).toBeLessThan(root.indexOf("launchIntroDocumentImageRefs(doc)) {"));
     expect(src("lib/launch-intro/startup-destination.ts")).not.toContain("DeviceClass");
     expect(src("lib/launch-intro/target.ts")).toMatch(/import type \{ DibayDeviceClass \}/);
+  });
+});
+
+describe("Intro total time limit (Owner: max 5s)", () => {
+  it("total = sum of scenes; publish authority rejects > 5s; reading old publications is not blocked", () => {
+    expect(LAUNCH_INTRO_TOTAL_MAX_MS).toBe(5000);
+    expect(launchIntroTotalDurationMs({ scenes: [{ durationMs: 3000 }, { durationMs: 3000 }, { durationMs: 4000 }] })).toBe(10000);
+    const server = src("lib/launch-intro/server.ts");
+    expect(server).toMatch(/launchIntroTotalDurationMs\(asPub\.document\) > LAUNCH_INTRO_TOTAL_MAX_MS[\s\S]{0,120}total_duration_too_long/);
+    // a 10s (already published) document still validates for reading
+    const base = emptyLaunchIntroDocument();
+    const text = { headline: { value: "Hi", size: "L" as const, weight: "bold" as const, color: "#ffffff" }, supporting: null, align: "center" as const };
+    const long = { ...base, scenes: [{ ...base.scenes[0], text, durationMs: 10000 }] };
+    expect(validateLaunchIntroDocument(long, "publication").ok).toBe(true);
+    const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
+    expect(admin).toContain('frequency: "once_per_day"');
+    expect(admin).toContain("data-launch-intro-total");
   });
 });
 

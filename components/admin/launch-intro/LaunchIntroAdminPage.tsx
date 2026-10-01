@@ -16,8 +16,9 @@ import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay/DibayApp
 import {
   LAUNCH_INTRO_CTA_LABEL_MAX,
   LAUNCH_INTRO_CTA_PATH_MAX,
-  LAUNCH_INTRO_DURATION_MAX_MS,
   LAUNCH_INTRO_DURATION_MIN_MS,
+  LAUNCH_INTRO_TOTAL_MAX_MS,
+  launchIntroTotalDurationMs,
   LAUNCH_INTRO_HEADLINE_MAX,
   LAUNCH_INTRO_MAX_SCENES,
   LAUNCH_INTRO_SUPPORTING_MAX,
@@ -375,7 +376,7 @@ export function LaunchIntroAdminPage() {
   }>({
     startLocal: "",
     endLocal: "",
-    frequency: "every_launch",
+    frequency: "once_per_day",
     target: "all",
   });
   /** Clock for schedule labels, refreshed with every server snapshot (no timers). */
@@ -583,6 +584,18 @@ export function LaunchIntroAdminPage() {
   const publish = async (draftOverride?: { id: string; version: number }) => {
     const draft = draftOverride ?? snap?.draft;
     if (!draft) return;
+    const draftDoc = draftOverride ? null : snap?.draft?.document;
+    const checkDoc = draftDoc ?? doc;
+    if (checkDoc && launchIntroTotalDurationMs(checkDoc) > LAUNCH_INTRO_TOTAL_MAX_MS) {
+      await dibayAlert({
+        title: t("admin_launch_intro_total_too_long_title"),
+        description: t("admin_launch_intro_total_too_long", {
+          total: (launchIntroTotalDurationMs(checkDoc) / 1000).toFixed(1),
+          max: String(LAUNCH_INTRO_TOTAL_MAX_MS / 1000),
+        }),
+      });
+      return;
+    }
     const startAt = manilaLocalToIso(schedule.startLocal);
     const endAt = manilaLocalToIso(schedule.endLocal);
     if (startAt === undefined || endAt === undefined) {
@@ -705,6 +718,8 @@ export function LaunchIntroAdminPage() {
           : draftStatus === "not_live"
             ? t("admin_launch_intro_status_draft_not_live", { v: snap?.draft?.version ?? 0 })
             : t("admin_launch_intro_status_draft_changed", { v: snap?.draft?.version ?? 0 });
+  const totalMs = doc ? launchIntroTotalDurationMs(doc) : 0;
+  const tooLong = totalMs > LAUNCH_INTRO_TOTAL_MAX_MS;
   const isLast = sel === sceneCount - 1;
   const ctaType = scene?.cta?.action.type ?? "none";
 
@@ -1198,7 +1213,7 @@ export function LaunchIntroAdminPage() {
                 <input
                   type="number"
                   min={LAUNCH_INTRO_DURATION_MIN_MS / 1000}
-                  max={LAUNCH_INTRO_DURATION_MAX_MS / 1000}
+                  max={LAUNCH_INTRO_TOTAL_MAX_MS / 1000}
                   step={0.5}
                   className={`${field} w-32`}
                   value={scene.durationMs / 1000}
@@ -1206,7 +1221,7 @@ export function LaunchIntroAdminPage() {
                     const sec = Number(e.target.value);
                     if (Number.isFinite(sec)) {
                       const ms = Math.round(sec * 1000);
-                      patchScene({ durationMs: Math.min(LAUNCH_INTRO_DURATION_MAX_MS, Math.max(LAUNCH_INTRO_DURATION_MIN_MS, ms)) });
+                      patchScene({ durationMs: Math.min(LAUNCH_INTRO_TOTAL_MAX_MS, Math.max(LAUNCH_INTRO_DURATION_MIN_MS, ms)) });
                     }
                   }}
                 />
@@ -1268,6 +1283,20 @@ export function LaunchIntroAdminPage() {
                 <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_frequency_hint")}</p>
               </fieldset>
 
+              <div
+                className={`rounded-ui-rect border-2 px-4 py-3 ${tooLong ? "border-sam-danger bg-sam-danger-soft" : "border-sam-success bg-sam-success-soft"}`}
+                data-launch-intro-total={totalMs}
+              >
+                <p className={`text-[16px] font-bold ${tooLong ? "text-sam-danger" : "text-sam-success"}`}>
+                  {t("admin_launch_intro_total_line", {
+                    total: (totalMs / 1000).toFixed(1),
+                    max: String(LAUNCH_INTRO_TOTAL_MAX_MS / 1000),
+                  })}
+                </p>
+                <p className="sam-text-body-secondary text-sam-fg">
+                  {tooLong ? t("admin_launch_intro_total_over_hint") : t("admin_launch_intro_total_hint")}
+                </p>
+              </div>
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={B.outlinePrimary} disabled={busy || !dirty} onClick={() => void save(doc)}>

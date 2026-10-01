@@ -20,6 +20,16 @@ export const LAUNCH_INTRO_IMAGE_MIN_EDGE = 64;
 export const LAUNCH_INTRO_IMAGE_MAX_EDGE = 4096;
 export const LAUNCH_INTRO_DURATION_MIN_MS = 1000;
 export const LAUNCH_INTRO_DURATION_MAX_MS = 10000;
+/**
+ * Owner decision (2026-10-02): the whole Intro (all scenes) is at most 5 seconds, so app start never
+ * tires the user. Enforced at PUBLISH (server authority) and shown in Admin. Not applied when reading
+ * already-published (immutable) documents, so older publications still load.
+ */
+export const LAUNCH_INTRO_TOTAL_MAX_MS = 5000;
+
+export function launchIntroTotalDurationMs(doc: { scenes: Array<{ durationMs: number }> }): number {
+  return doc.scenes.reduce((sum, s) => sum + s.durationMs, 0);
+}
 export const LAUNCH_INTRO_DURATION_DEFAULT_MS = 3000;
 /** Headline keeps the v1 text limit so every v1 document upgrades losslessly. Short copy is recommended in Admin. */
 export const LAUNCH_INTRO_HEADLINE_MAX = 80;
