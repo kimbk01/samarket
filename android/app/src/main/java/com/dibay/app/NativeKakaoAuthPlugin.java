@@ -8,15 +8,22 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.kakao.sdk.auth.model.OAuthToken;
+import com.kakao.sdk.auth.model.Prompt;
 import com.kakao.sdk.common.model.ClientError;
 import com.kakao.sdk.common.model.ClientErrorCause;
 import com.kakao.sdk.user.UserApiClient;
+import java.util.Collections;
+import java.util.List;
 import kotlin.Unit;
 import kotlin.jvm.functions.Function2;
 
 /**
- * Kakao Native Login — 카카오톡 앱 우선, talk 실패(취소 제외) 시 카카오 계정(SDK WebView).
- * Chrome / Custom Tab / 외부 브라우저 OAuth 금지.
+ * Kakao Native Login — ONE CTA → Kakao Account authentication with Prompt.LOGIN.
+ *
+ * Talk-first was removed: automatic loginWithKakaoTalk selected the Talk-bound account
+ * with no meaningful user choice (Owner FAIL). SDK 2.20.1 has no loginWithKakao().
+ *
+ * Canonical: loginWithKakaoAccount(prompts = [Prompt.LOGIN]).
  */
 @CapacitorPlugin(name = "NativeKakaoAuth")
 public class NativeKakaoAuthPlugin extends Plugin {
@@ -152,41 +159,17 @@ public class NativeKakaoAuthPlugin extends Plugin {
     }
 
     pendingCall = call;
-
-    if (UserApiClient.getInstance().isKakaoTalkLoginAvailable(activity)) {
-      startKakaoTalkLogin(activity);
-    } else {
-      startKakaoAccountLogin(activity);
-    }
+    startKakaoAccountLoginWithPromptLogin(activity);
   }
 
-  /** 카카오 공식 샘플: talk 실패(취소 제외) 시 account 로그인으로 자동 전환 */
-  private void startKakaoTalkLogin(Activity activity) {
-    logEvent("kakao_native_talk_login");
-    UserApiClient.getInstance().loginWithKakaoTalk(activity, (token, error) -> {
-      if (pendingCall == null) {
-        return Unit.INSTANCE;
-      }
-      if (error != null && !isUserCancelled(error)) {
-        logEvent("kakao_native_talk_fallback_account");
-        startKakaoAccountLogin(activity);
-        return Unit.INSTANCE;
-      }
-      return loginCallback.invoke(token, error);
-    });
-  }
-
-  private void startKakaoAccountLogin(Activity activity) {
-    if (pendingCall == null) {
-      return;
-    }
-    Activity active = activity != null ? activity : getActivity();
-    if (active == null) {
-      rejectPendingCall("kakao_native_unavailable", "Activity not found");
-      return;
-    }
-    logEvent("kakao_native_account_login");
-    UserApiClient.getInstance().loginWithKakaoAccount(active, loginCallback);
+  /**
+   * Canonical ONE-CTA dispatch (SDK 2.20.1): Kakao Account + Prompt.LOGIN.
+   * Does not call loginWithKakaoTalk — avoids silent Talk-bound account selection.
+   */
+  private void startKakaoAccountLoginWithPromptLogin(Activity activity) {
+    logEvent("kakao_native_account_login_prompt_login");
+    List<Prompt> prompts = Collections.singletonList(Prompt.LOGIN);
+    UserApiClient.getInstance().loginWithKakaoAccount(activity, prompts, loginCallback);
   }
 
   @PluginMethod

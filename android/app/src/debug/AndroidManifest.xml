@@ -10,5 +10,18 @@
                 <action android:name="com.dibay.DEBUG_CALL_CANCELED" />
             </intent-filter>
         </receiver>
+
+        <!-- Isolated Kakao SDK M1–M4 probe — debug APK only; not Product login authority. -->
+        <activity
+            android:name=".KakaoSdkMethodProbeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/AppTheme"
+            android:label="Kakao SDK Probe QA">
+            <intent-filter>
+                <action android:name="com.dibay.KAKAO_SDK_METHOD_PROBE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
