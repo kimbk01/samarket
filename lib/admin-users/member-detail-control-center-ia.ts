@@ -60,6 +60,8 @@ export const MEMBER_DETAIL_OVERVIEW_SECTION_ORDER = [
   "recent_ops",
 ] as const;
 
+export type MemberDetailOverviewSectionId = (typeof MEMBER_DETAIL_OVERVIEW_SECTION_ORDER)[number];
+
 export const MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO = {
   basic: "회원 기본 정보",
   account_auth: "계정 / 인증",
@@ -67,7 +69,18 @@ export const MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO = {
   privilege: "관리 권한",
   recent_activity: "최근 활동",
   recent_ops: "최근 운영 조치",
-} as const;
+} as const satisfies Record<MemberDetailOverviewSectionId, string>;
+
+/** Render plan for Overview — single authority; UI must map this order into the DOM. */
+export function memberDetailOverviewSectionRenderPlan(): ReadonlyArray<{
+  id: MemberDetailOverviewSectionId;
+  labelKo: string;
+}> {
+  return MEMBER_DETAIL_OVERVIEW_SECTION_ORDER.map((id) => ({
+    id,
+    labelKo: MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO[id],
+  }));
+}
 
 export type MemberDetailDangerConsequenceGroup = "restriction" | "identity_end";
 

@@ -21,6 +21,7 @@ import {
   memberDetailCtaCapabilityMapAccountsForCatalog,
   memberDetailLoginIdLabel,
   memberDetailNicknameIfDistinct,
+  memberDetailOverviewSectionRenderPlan,
   parseMemberDetailTab,
   resolveMemberDetailHeaderBadges,
 } from "@/lib/admin-users/member-detail-control-center-ia";
@@ -179,9 +180,30 @@ describe("R3 Member Detail Control Center IA", () => {
       "recent_ops",
     ]);
     expect(MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO.basic).toBe("회원 기본 정보");
+    // Render plan is the only order authority — must equal SSOT, not a second list.
+    expect(memberDetailOverviewSectionRenderPlan().map((s) => s.id)).toEqual([
+      ...MEMBER_DETAIL_OVERVIEW_SECTION_ORDER,
+    ]);
+    expect(memberDetailOverviewSectionRenderPlan().map((s) => s.labelKo)).toEqual([
+      "회원 기본 정보",
+      "계정 / 인증",
+      "매장",
+      "관리 권한",
+      "최근 활동",
+      "최근 운영 조치",
+    ]);
     const overview = src("components/admin/users/AdminMemberOverviewPanel.tsx");
     expect(overview).toMatch(/data-member-overview-hierarchy/);
-    expect(overview).toMatch(/MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO\.basic/);
+    expect(overview).toMatch(/data-member-overview-section=\{sectionId\}/);
+    // Must consume canonical plan — forbids independent hardcoded Panel order drift.
+    expect(overview).toMatch(/memberDetailOverviewSectionRenderPlan\(\)\.map/);
+    expect(overview).not.toMatch(/MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO\.recent_activity/);
+    expect(overview).not.toMatch(/MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO\.account_auth/);
+    // Section body keys must appear in SSOT order (Record insertion order in source).
+    const bodyKeyOrder = [...overview.matchAll(/^\s+(basic|account_auth|store|privilege|recent_activity|recent_ops):\s*\(/gm)].map(
+      (m) => m[1],
+    );
+    expect(bodyKeyOrder).toEqual([...MEMBER_DETAIL_OVERVIEW_SECTION_ORDER]);
     expect(overview).toMatch(/memberDetailContactEmail/);
     expect(overview).toMatch(/로그인 ID/);
     expect(findForbiddenOperatorTerms(overview)).toEqual([]);

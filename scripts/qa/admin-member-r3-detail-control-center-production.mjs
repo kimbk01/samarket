@@ -313,15 +313,37 @@ async function main() {
     tabsIncludePointsTrust: probe.tabs.includes("points") && probe.tabs.includes("trust"),
     dangerDeferredCopy: probe.deferredDanger,
     supportDeferredNotExecutable: probe.deferredSupport && !probe.noteCopy,
-    overviewHierarchy: true, // overview may be unmounted while on ops; structural presence checked via tabs/nav only when available
+    overviewHierarchy: false,
+    overviewSectionOrder: false,
     destructiveMutation: false,
   };
 
-  // Re-open overview for hierarchy proof
+  let reportOverviewOrder = [];
+  let reportExpectedOverviewOrder = [];
+  // Re-open overview for hierarchy proof — MUST record rendered section sequence
   await page.locator('[data-member-tab="overview"]').click();
   await page.waitForTimeout(600);
-  const overviewOk = await page.locator("[data-member-overview-hierarchy='1']").count();
-  checks.overviewHierarchy = overviewOk > 0;
+  const overviewOrder = await page.evaluate(() => {
+    const root = document.querySelector("[data-member-overview-hierarchy='1']");
+    if (!root) return [];
+    return [...root.querySelectorAll("[data-member-overview-section]")].map((el) =>
+      el.getAttribute("data-member-overview-section"),
+    );
+  });
+  const expectedOverviewOrder = [
+    "basic",
+    "account_auth",
+    "store",
+    "privilege",
+    "recent_activity",
+    "recent_ops",
+  ];
+  checks.overviewHierarchy = overviewOrder.length > 0;
+  checks.overviewSectionOrder =
+    overviewOrder.length === expectedOverviewOrder.length &&
+    overviewOrder.every((id, i) => id === expectedOverviewOrder[i]);
+  reportOverviewOrder = overviewOrder;
+  reportExpectedOverviewOrder = expectedOverviewOrder;
 
   const failed = Object.entries(checks)
     .filter(([k, v]) => k !== "destructiveMutation" && !v)
@@ -341,9 +363,11 @@ async function main() {
     productionClaimForbidden: false,
     probe,
     checks,
+    overviewSectionOrder: reportOverviewOrder,
+    expectedOverviewSectionOrder: reportExpectedOverviewOrder,
     failed,
     result: failed.length === 0 ? "PASS" : "FAIL",
-    note: "Non-destructive Production runtime for R3 Detail IA. Does not authorize R4.",
+    note: "Non-destructive Production runtime for R3 Detail IA. Proves Overview DOM section order. Does not authorize R4.",
   };
 
   writeFileSync(reportPath, JSON.stringify(report, null, 2));
