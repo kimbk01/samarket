@@ -286,6 +286,8 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   // App Config
   "settings-general": "admin_menu_settings_general",
   "settings-startup-config": "admin_menu_settings_startup_config",
+  "settings-startup": "admin_menu_settings_startup_group",
+  "settings-os-start": "admin_menu_settings_os_start",
   "settings-auth": "admin_menu_settings_auth",
   "settings-notifications": "admin_menu_settings_notifications",
   "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
@@ -1222,6 +1224,18 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/settings/startup-config",
             status: "done",
+          },
+          {
+            key: "settings-startup",
+            title: "",
+            children: [
+              {
+                key: "settings-os-start",
+                title: "",
+                path: "/admin/settings/os-start",
+                status: "done",
+              },
+            ],
           },
           { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
           {
