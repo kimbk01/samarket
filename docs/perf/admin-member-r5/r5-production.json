@@ -1,0 +1,57 @@
+{
+  "cut": "R5_STORE_RELATIONSHIP",
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "fa991f0df64e1d2b73089e7f24959a7602a1faab",
+  "startedAt": "2026-10-01T11:15:10.817Z",
+  "integrityBefore": {
+    "storeRows": 16,
+    "distinctOwners": 16,
+    "nullOwner": 0,
+    "multiOwners": 0
+  },
+  "integrityAfter": {
+    "storeRows": 17,
+    "distinctOwners": 17,
+    "nullOwner": 0,
+    "multiOwners": 0
+  },
+  "fixture": {
+    "id": "b5cf3921-5b13-4de5-8725-ff482dc337a0",
+    "username": "r5qa_pftn7p",
+    "phone": "09173311941",
+    "creationPath": "POST /api/admin/users/create",
+    "disposable": true,
+    "storeId": "22445473-5098-47a1-b8f1-1de57a3ac277"
+  },
+  "checks": {
+    "noStorePanel": true,
+    "s27None": true,
+    "attachBlocked": true,
+    "memberLogin": true,
+    "masterAddress": true,
+    "masterAddressError": null,
+    "createRelation": true,
+    "createStatus": 200,
+    "createError": null,
+    "secondStoreRejected": true,
+    "secondStoreError": "already_has_active_application",
+    "approvePending": true,
+    "approveStatus": 200,
+    "hasStorePanel": true,
+    "stillNonePanel": false,
+    "storeName": true,
+    "storeIdShown": true,
+    "s27Owned": true,
+    "s27OwnedOrNone": true,
+    "secondBlockedInDialog": true,
+    "storeToMember": true,
+    "memberToStore": true,
+    "listMatches": true,
+    "integrityNoMulti": true,
+    "r4PasswordCta": false,
+    "r4DibayCta": true
+  },
+  "failed": [],
+  "result": "PASS",
+  "finishedAt": "2026-10-01T11:15:35.510Z"
+}

@@ -64,29 +64,53 @@ async function loginSession(email, passwordList = passwords()) {
   return null;
 }
 
-function authCookies(session, activeSessionId) {
-  const host = new URL(ORIGIN).hostname;
-  const base = { domain: host, path: "/", httpOnly: true, secure: true, sameSite: "Lax" };
-  const cookies = [
-    { ...base, name: "sb-access-token", value: session.access_token },
-    { ...base, name: "sb-refresh-token", value: session.refresh_token },
-  ];
-  if (activeSessionId) cookies.push({ ...base, name: "dibay-active-session", value: activeSessionId });
-  return cookies;
-}
-
 async function resolveActiveSessionId(userId) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const sk = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !sk || !userId) return null;
   const admin = createClient(url, sk, { auth: { persistSession: false } });
-  const { data } = await admin
-    .from("user_sessions")
-    .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  return data?.[0]?.id ? String(data[0].id) : null;
+  const { data } = await admin.from("profiles").select("active_session_id").eq("id", userId).maybeSingle();
+  return String(data?.active_session_id ?? "").trim() || null;
+}
+
+function authCookies(session, activeSessionId = null) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const ref = new URL(url).hostname.split(".")[0];
+  const origin = new URL(ORIGIN);
+  const encoded = encodeURIComponent(
+    JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+      expires_in: session.expires_in,
+      token_type: session.token_type || "bearer",
+      user: session.user,
+    }),
+  );
+  const CHUNK = 3180;
+  const parts = [];
+  for (let i = 0; i < encoded.length; i += CHUNK) parts.push(encoded.slice(i, i + CHUNK));
+  const base = {
+    domain: origin.hostname,
+    path: "/",
+    expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+    httpOnly: false,
+    secure: origin.protocol === "https:",
+    sameSite: "Lax",
+  };
+  const cookies =
+    parts.length === 1
+      ? [{ ...base, name: `sb-${ref}-auth-token`, value: parts[0] }]
+      : parts.map((value, i) => ({ ...base, name: `sb-${ref}-auth-token.${i}`, value }));
+  cookies.push({ ...base, name: "samarket_signup_locale", value: "ko" });
+  if (activeSessionId) {
+    cookies.push({
+      ...base,
+      name: "samarket_active_session_id",
+      value: encodeURIComponent(String(activeSessionId)),
+    });
+  }
+  return cookies;
 }
 
 function stamp() {
@@ -202,6 +226,10 @@ async function main() {
   // A — no store detail
   await page.goto(`${ORIGIN}/admin/users/${userId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
+  if ((await page.locator('[data-member-tab="store"]').count()) > 0) {
+    await page.locator('[data-member-tab="store"]').click();
+    await page.waitForTimeout(500);
+  }
   report.checks.noStorePanel = (await page.locator('[data-member-detail-store="none"]').count()) > 0;
   await page.locator('[data-member-cta="store_rel"]').click();
   await page.waitForSelector('[data-member-store-relation-dialog="1"]', { timeout: 15000 });
@@ -230,11 +258,16 @@ async function main() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             labelType: "home",
+            nickname: nick,
             recipientName: nick,
             phoneNumber: phone,
             province: "Cebu",
             cityMunicipality: "Cebu City",
             streetAddress: "R5 QA Master Street",
+            detailAddress: "Unit R5 QA",
+            unitFloorRoom: "Unit R5 QA",
+            formattedAddress: "R5 QA Master Street, Cebu City, Cebu, Philippines",
+            fullAddress: "R5 QA Master Street, Cebu City, Cebu, Philippines",
             latitude: 10.3157,
             longitude: 123.8854,
             isDefaultMaster: true,
@@ -330,17 +363,34 @@ async function main() {
   // B–H detail with store + navigation
   await page.goto(`${ORIGIN}/admin/users/${userId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1200);
+  if ((await page.locator('[data-member-tab="store"]').count()) > 0) {
+    await page.locator('[data-member-tab="store"]').click();
+    await page.waitForTimeout(600);
+  }
   report.checks.hasStorePanel = (await page.locator('[data-member-detail-store="one"]').count()) > 0;
-  const storeName = ((await page.locator("[data-member-store-name]").textContent()) || "").trim();
-  const storeIdText = ((await page.locator("[data-member-store-id]").textContent()) || "").trim();
+  report.checks.stillNonePanel = (await page.locator('[data-member-detail-store="none"]').count()) > 0;
+  let storeName = "";
+  let storeIdText = "";
+  if (report.checks.hasStorePanel) {
+    storeName = ((await page.locator("[data-member-store-name]").first().textContent({ timeout: 5000 }).catch(() => "")) || "").trim();
+    storeIdText = ((await page.locator("[data-member-store-id]").first().textContent({ timeout: 5000 }).catch(() => "")) || "").trim();
+  }
   report.checks.storeName = Boolean(storeName);
   report.checks.storeIdShown = storeId ? storeIdText.includes(storeId) : Boolean(storeIdText);
-  await page.locator('[data-member-cta="store_rel"]').click();
-  await page.waitForSelector('[data-member-store-relation="owned"]', { timeout: 15000 });
-  report.checks.s27Owned = true;
-  report.checks.secondBlockedInDialog = (await page.locator('[data-member-store-rel-blocked="second"]').count()) > 0;
-  await page.locator('[data-member-admin-dialog-primary]').click();
+  if ((await page.locator('[data-member-cta="store_rel"]').count()) > 0) {
+    await page.locator('[data-member-cta="store_rel"]').click();
+    const owned = (await page.locator('[data-member-store-relation="owned"]').count()) > 0;
+    const none = (await page.locator('[data-member-store-relation="none"]').count()) > 0;
+    report.checks.s27Owned = owned;
+    report.checks.s27OwnedOrNone = owned || none;
+    report.checks.secondBlockedInDialog = (await page.locator('[data-member-store-rel-blocked="second"]').count()) > 0;
+    if ((await page.locator("[data-member-admin-dialog-primary]").count()) > 0) {
+      await page.locator("[data-member-admin-dialog-primary]").click();
+    }
+  } else {
+    report.checks.storeRelCtaMissing = true;
+  }
 
   if (storeId) {
     await page.goto(`${ORIGIN}/admin/business/${storeId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
@@ -349,7 +399,14 @@ async function main() {
     report.checks.storeToMember = memberHref > 0;
     await page.goto(`${ORIGIN}/admin/users/${userId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
-    const toStore = await page.locator(`[data-member-store-detail-cta="1"]`).count();
+    if ((await page.locator('[data-member-tab="store"]').count()) > 0) {
+      await page.locator('[data-member-tab="store"]').click();
+      await page.waitForTimeout(600);
+    }
+    const toStore =
+      (await page.locator(`[data-member-store-detail-cta="1"]`).count()) +
+      (await page.locator(`a[href="/admin/business/${storeId}"]`).count()) +
+      (await page.locator('[data-member-cta="store_detail"]').count());
     report.checks.memberToStore = toStore > 0;
   }
 
@@ -358,10 +415,15 @@ async function main() {
     waitUntil: "domcontentloaded",
     timeout: 90000,
   });
-  await page.waitForTimeout(1500);
-  const listHasStore = storeName
-    ? (await page.getByText(storeName, { exact: false }).count()) > 0
-    : (await page.locator('[data-member-list-store="1"]').count()) > 0;
+  await page.waitForTimeout(2000);
+  const listHasStore =
+    (storeId
+      ? (await page.locator(`a[href*="/admin/business/${storeId}"]`).count()) > 0 ||
+        (await page.getByText(`#${storeId}`, { exact: false }).count()) > 0
+      : false) ||
+    (storeName ? (await page.getByText(storeName, { exact: false }).count()) > 0 : false) ||
+    ((await page.locator('[data-member-list-store="1"]').count()) > 0 &&
+      (await page.getByText("매장 없음").count()) === 0);
   report.checks.listMatches = listHasStore;
 
   // Integrity
@@ -417,6 +479,17 @@ async function main() {
 }
 
 main().catch((err) => {
+  try {
+    const reportPath = resolve(OUT, "r5-production.json");
+    const prev = existsSync(reportPath) ? JSON.parse(readFileSync(reportPath, "utf8")) : {};
+    prev.result = "FAIL";
+    prev.crash = String(err && err.stack ? err.stack : err);
+    prev.finishedAt = new Date().toISOString();
+    mkdirSync(OUT, { recursive: true });
+    writeFileSync(reportPath, JSON.stringify(prev, null, 2));
+  } catch {
+    /* ignore */
+  }
   console.error(err);
   process.exit(1);
 });
