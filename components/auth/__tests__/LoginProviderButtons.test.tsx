@@ -174,6 +174,8 @@ describe("LoginProviderButtons Kakao provider group structure", () => {
     expect(group).toContain("sam-btn");
     expect(group).toContain("sam-btn--outline");
     expect(group).toContain("min-h-11");
+    expect(group).toContain("border-sam-border");
+    expect(group).toContain("bg-sam-surface");
     expect(group).not.toMatch(/auth-kakao-other-account[^>]*text-sam-muted/);
   });
 });

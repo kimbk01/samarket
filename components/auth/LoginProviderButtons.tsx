@@ -34,9 +34,9 @@ type Props = {
 
 const OAUTH_LOGIN_PRIMARY_PROVIDERS = new Set<OAuthProvider>(["kakao", "naver", "apple", "google"]);
 
-/** Kakao secondary — outline action, not muted caption, not yellow primary. */
+/** Kakao secondary — bordered outline action (sam-btn--outline alone has 0px border-width). */
 const KAKAO_OTHER_ACCOUNT_BUTTON_CLASS =
-  `${Sam.btn.outlineCombo} ${Sam.btn.block} min-h-11 w-full touch-manipulation px-4 py-3 text-[14px] font-semibold text-sam-fg`.trim();
+  `${Sam.btn.outlineCombo} ${Sam.btn.block} min-h-11 w-full touch-manipulation border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-semibold text-sam-fg`.trim();
 
 function isPrimaryProvider(provider: OAuthProvider): boolean {
   return OAUTH_LOGIN_PRIMARY_PROVIDERS.has(provider);
