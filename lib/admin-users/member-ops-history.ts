@@ -61,6 +61,7 @@ const ACTION_LABEL_KO: Record<string, string> = {
   "my.account.leave_request": "회원 삭제 요청",
   "admin.account_deletion.reject": "삭제 요청 거절",
   promote_to_admin: "관리자 권한 부여",
+  revoke_admin_privilege: "관리자 권한 해제",
   create_admin: "관리자 계정 생성",
   warn: "경고",
   suspend: "정지",

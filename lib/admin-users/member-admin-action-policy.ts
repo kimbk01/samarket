@@ -43,6 +43,11 @@ export type MemberAdminOperatorAuthorization = {
   isSelf: boolean;
   /** Target holds highest privilege — moderation forbidden. */
   targetIsSuperAdmin?: boolean;
+  /**
+   * R6: target privilege presentation for promote/revoke ActionPolicy.
+   * Defaults: super_admin when targetIsSuperAdmin, else member.
+   */
+  targetPrivilege?: "member" | "admin" | "super_admin";
 };
 
 export type MemberAdminActionContext = {
@@ -81,13 +86,19 @@ const LABELS: Record<MemberAdminActionId, string> = {
 
 function decision(
   id: MemberAdminActionId,
-  opts: { visible: boolean; enabled: boolean; tone?: MemberAdminActionTone; disabledReasonKo?: string },
+  opts: {
+    visible: boolean;
+    enabled: boolean;
+    tone?: MemberAdminActionTone;
+    disabledReasonKo?: string;
+    labelKo?: string;
+  },
 ): MemberAdminActionDecision {
   return {
     id,
     visible: opts.visible,
     enabled: opts.visible && opts.enabled,
-    labelKo: LABELS[id],
+    labelKo: opts.labelKo ?? LABELS[id],
     tone: opts.tone ?? (id === "block" || id === "withdraw" || id === "purge" ? "danger" : "default"),
     disabledReasonKo: opts.enabled ? undefined : opts.disabledReasonKo,
   };
@@ -167,12 +178,31 @@ export function resolveMemberAdminActionPolicy(
       visible: hasStoreRelationship && !terminal,
       enabled: hasStoreRelationship && !terminal,
     }),
-    decision("manage_privilege", {
-      visible: !terminal && operator.canManagePrivilege,
-      enabled: operator.canManagePrivilege && !operator.isSelf,
-      disabledReasonKo: operator.isSelf ? "본인 권한은 이 화면에서 변경할 수 없습니다" : undefined,
-      tone: "default",
-    }),
+    (() => {
+      const targetPrivilege =
+        operator.targetPrivilege ??
+        (operator.targetIsSuperAdmin ? "super_admin" : "member");
+      const privilegeEnabled =
+        operator.canManagePrivilege &&
+        !operator.isSelf &&
+        targetPrivilege !== "super_admin";
+      const privilegeLabel =
+        targetPrivilege === "admin" ? "관리자 권한 해제" : "관리자 권한 부여";
+      const privilegeDisabledReason = !operator.canManagePrivilege
+        ? "권한이 없습니다"
+        : operator.isSelf
+          ? "자신의 권한은 변경할 수 없습니다"
+          : targetPrivilege === "super_admin"
+            ? "권한을 변경할 수 없습니다"
+            : undefined;
+      return decision("manage_privilege", {
+        visible: !terminal && operator.canManagePrivilege,
+        enabled: privilegeEnabled,
+        labelKo: targetPrivilege === "super_admin" ? LABELS.manage_privilege : privilegeLabel,
+        disabledReasonKo: privilegeDisabledReason,
+        tone: targetPrivilege === "admin" ? "danger" : "default",
+      });
+    })(),
     decision("ops_history", {
       visible: true,
       enabled: true,

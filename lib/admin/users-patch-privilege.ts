@@ -1,7 +1,8 @@
 /**
  * Users PATCH member-classification writer.
  * CONTRACT: this surface never creates, updates, or revokes Admin authority.
- * Admin relationship changes belong exclusively to the Staff API.
+ * Admin privilege changes belong exclusively to `/api/admin/users/[id]/privilege` (R6)
+ * or the Staff promote path — never memberType / profile edit.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

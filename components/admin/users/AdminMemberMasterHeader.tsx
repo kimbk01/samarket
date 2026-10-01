@@ -30,6 +30,11 @@ import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
 import { AdminMemberStoreRelationDialog } from "./AdminMemberStoreRelationDialog";
+import { AdminMemberPrivilegeDialog } from "./AdminMemberPrivilegeDialog";
+import {
+  memberPrivilegePresentationFromMembership,
+  type MemberPrivilegeMutationOp,
+} from "@/lib/admin-users/member-admin-privilege-ssot";
 import { MEMBER_STORE_RELATION_COPY, resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
 import { AdminMemberVerificationDialog } from "./AdminMemberVerificationDialog";
 import {
@@ -106,6 +111,7 @@ export function AdminMemberMasterHeader({
   const [showDibayId, setShowDibayId] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
   const [showStoreRel, setShowStoreRel] = useState(false);
+  const [showPrivilege, setShowPrivilege] = useState(false);
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
@@ -154,6 +160,10 @@ export function AdminMemberMasterHeader({
         canPurge: canManageMember,
         isSelf: Boolean(snapshot?.userId && snapshot.userId === user.id),
         targetIsSuperAdmin: membershipRole === "super_admin",
+        targetPrivilege: memberPrivilegePresentationFromMembership({
+          hasActiveAdminMembership: isAdmin,
+          role: membershipRole,
+        }),
       },
       hasStoreRelationship: hasStore,
       passwordResetSupported,
@@ -174,6 +184,18 @@ export function AdminMemberMasterHeader({
   const primary = memberDetailPrimaryActions(decisions);
   const canEdit = Boolean(primary.editProfile?.visible && primary.editProfile.enabled);
   const canPassword = Boolean(primary.managePassword?.visible && primary.managePassword.enabled);
+  const privilegeDecision = primary.managePrivilege;
+  const canPrivilegeMutate = Boolean(privilegeDecision?.visible && privilegeDecision.enabled);
+  const privilegePresentation = memberPrivilegePresentationFromMembership({
+    hasActiveAdminMembership: isAdmin,
+    role: membershipRole,
+  });
+  const privilegeOp: MemberPrivilegeMutationOp | null =
+    privilegePresentation === "admin"
+      ? "revoke"
+      : privilegePresentation === "member"
+        ? "promote"
+        : null;
 
   return (
     <div className="rounded-lg border border-sam-border bg-sam-surface px-4 py-3" data-member-detail-header="1">
@@ -339,6 +361,18 @@ export function AdminMemberMasterHeader({
           >
             {MEMBER_STORE_RELATION_COPY.manage_cta}
           </button>
+          {canPrivilegeMutate && privilegeOp && privilegeDecision ? (
+            <button
+              type="button"
+              className={memberAdminCtaClass(privilegeOp === "revoke" ? "secondary" : "tertiary")}
+              onClick={() => setShowPrivilege(true)}
+              data-member-cta={privilegeOp === "revoke" ? "privilege_revoke" : "privilege_promote"}
+              data-member-cta-variant={privilegeOp === "revoke" ? "secondary" : "tertiary"}
+              data-member-cta-cap={privilegeOp === "revoke" ? "CAP-PRIV-REVOKE" : "CAP-PRIV-PROMOTE"}
+            >
+              {privilegeDecision.labelKo}
+            </button>
+          ) : null}
           <button
             type="button"
             className={memberAdminCtaClass("tertiary")}
@@ -389,6 +423,18 @@ export function AdminMemberMasterHeader({
         stores={stores}
         onClose={() => setShowStoreRel(false)}
       />
+      {privilegeOp ? (
+        <AdminMemberPrivilegeDialog
+          open={showPrivilege}
+          op={privilegeOp}
+          userId={user.id}
+          displayName={display}
+          publicId={publicId}
+          currentPrivilege={privilegePresentation}
+          onClose={() => setShowPrivilege(false)}
+          onSuccess={() => onUpdated?.()}
+        />
+      ) : null}
     </div>
   );
 }

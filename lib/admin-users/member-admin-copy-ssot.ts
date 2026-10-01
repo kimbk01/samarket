@@ -69,6 +69,10 @@ export const MEMBER_ADMIN_COPY = {
   verify_no_phone_for_approve: "인증 승인 전에 전화번호를 먼저 저장해 주세요.",
   store_relation_manage: "관계 관리",
   store_relation_title: "매장 운영 관계",
+  privilege_promote: "관리자 권한 부여",
+  privilege_revoke: "관리자 권한 해제",
+  privilege_cannot_change: "권한을 변경할 수 없습니다",
+  privilege_cannot_change_self: "자신의 권한은 변경할 수 없습니다",
 } as const;
 
 export type MemberAdminCopyKey = keyof typeof MEMBER_ADMIN_COPY;
