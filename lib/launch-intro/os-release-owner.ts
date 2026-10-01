@@ -65,3 +65,28 @@ export function onLaunchOsReleased(run: () => void): () => void {
     releasedListeners.delete(run);
   };
 }
+
+/**
+ * Destination shell frame notes (contract §10/§11 handoff): the app shell reports each painted
+ * initial-destination frame (MarkInitialDestinationVisualReadyOnce → rAF), with the pathname it
+ * painted. The Intro overlay stays on top until the destination it exits to has painted, so the
+ * exit never reveals an empty document. Pure signal, no timers.
+ */
+const shellFrameListeners = new Set<(pathname: string) => void>();
+
+export function noteDestinationShellFrame(pathname: string): void {
+  for (const listener of [...shellFrameListeners]) {
+    try {
+      listener(pathname);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function onDestinationShellFrame(run: (pathname: string) => void): () => void {
+  shellFrameListeners.add(run);
+  return () => {
+    shellFrameListeners.delete(run);
+  };
+}

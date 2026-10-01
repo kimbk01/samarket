@@ -14,7 +14,7 @@
  */
 import { Component, Suspense, use, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroSceneView } from "@/components/launch-intro/LaunchIntroSceneView";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
@@ -27,6 +27,7 @@ import {
   releaseLaunchIntroDeferral,
   type LaunchIntroSnapshot,
 } from "@/lib/launch-intro/startup-destination";
+import { onDestinationShellFrame } from "@/lib/launch-intro/os-release-owner";
 import { releaseOsForLaunchIntro } from "@/lib/startup/startup-metrics";
 
 function DeferredRouteTree({ children }: { children: ReactNode }) {
@@ -78,11 +79,9 @@ type Phase = "preparing" | "showing" | "exiting" | "done";
 function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
   const { t } = useI18n();
   const router = useRouter();
-  const pathname = usePathname();
   const scene = snapshot.publication.document.scenes[0];
   const [phase, setPhase] = useState<Phase>("preparing");
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [exitTarget, setExitTarget] = useState<string | null>(null);
   const latched = useRef(false);
   const timer = useRef<number | null>(null);
 
@@ -133,33 +132,43 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     };
   }, [scene, snapshot]);
 
+  const handoffOff = useRef<(() => void) | null>(null);
+
+  /**
+   * Exit latch: the first exit event wins. complete / skip / CTA hand off to the destination:
+   * the overlay stays until the destination shell has painted the target path
+   * (onDestinationShellFrame), so the exit never reveals an empty document.
+   */
   const exit = useCallback(
     (reason: "cta" | "complete" | "skip" | "background" | "error", target?: string) => {
       if (latched.current) return;
       latched.current = true;
       if (timer.current != null) window.clearTimeout(timer.current);
       console.info(`[dibay-launch-intro] exit reason=${reason}${target ? ` target=${target}` : ""}`);
-      if (target) {
-        const targetPath = target.split(/[?#]/)[0] || "/";
-        router.replace(target);
+      if (reason === "background" || reason === "error") {
         releaseLaunchIntroDeferral();
-        if (targetPath === (pathname ?? "/")) setPhase("done");
-        else {
-          setExitTarget(targetPath);
-          setPhase("exiting");
-        }
+        setPhase("done");
         return;
       }
+      // CTA: wait for the exact target route; complete / skip: the first destination frame
+      // (the app may apply its own initial surface after mount).
+      const targetPath = target ? target.split(/[?#]/)[0] || "/" : null;
+      handoffOff.current = onDestinationShellFrame((painted) => {
+        if (targetPath && painted !== targetPath) return;
+        handoffOff.current?.();
+        handoffOff.current = null;
+        setPhase("done");
+      });
+      setPhase("exiting");
+      if (target) router.replace(target);
       releaseLaunchIntroDeferral();
-      setPhase("done");
     },
-    [pathname, router]
+    [router]
   );
-
-  // CTA exit completes when the router has committed the target route.
-  useEffect(() => {
-    if (phase === "exiting" && exitTarget && pathname === exitTarget) setPhase("done");
-  }, [exitTarget, pathname, phase]);
+  const exitRef = useRef(exit);
+  useLayoutEffect(() => {
+    exitRef.current = exit;
+  }, [exit]);
 
   // SHOWING: first meaningful frame painted → next frame → release the OS (INTRO owner only).
   useLayoutEffect(() => {
@@ -172,19 +181,29 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       }
       markLaunchEpochShown(snapshot.epoch);
       // Scene duration is Admin content; it starts only after the OS release.
-      timer.current = window.setTimeout(() => exit("complete"), scene.durationMs);
+      timer.current = window.setTimeout(() => exitRef.current("complete"), scene.durationMs);
     });
     return () => cancelAnimationFrame(raf);
-  }, [phase, scene, snapshot.epoch, exit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per SHOWING
+  }, [phase]);
 
   useEffect(() => {
-    if (phase !== "showing") return;
+    if (phase !== "showing" && phase !== "exiting") return;
     const onVis = () => {
-      if (document.visibilityState === "hidden") exit("background");
+      if (document.visibilityState !== "hidden") return;
+      if (phase === "exiting") setPhase("done");
+      else exitRef.current("background");
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [phase, exit]);
+  }, [phase]);
+
+  useEffect(
+    () => () => {
+      handoffOff.current?.();
+    },
+    []
+  );
 
   useEffect(
     () => () => {
@@ -199,6 +218,9 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
   return (
     <div
       data-launch-intro-overlay=""
+      data-launch-intro-phase={phase}
+      // While handing off, a tap reveals the destination immediately (user-driven escape, no timer).
+      onClick={phase === "exiting" ? () => setPhase("done") : undefined}
       style={{ position: "fixed", inset: 0, zIndex: 2147483000, background: scene.background }}
     >
       <IntroErrorBoundary onError={() => exit("error")}>

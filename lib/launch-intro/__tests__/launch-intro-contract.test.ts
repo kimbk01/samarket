@@ -134,6 +134,8 @@ describe("launch intro static contract", () => {
     const root = src("components/launch-intro/LaunchIntroRoot.tsx");
     expect(root).toContain("<Suspense fallback={null}>");
     expect(root).toContain("if (pending) use(pending);");
+    // Exit hands off: the overlay stays until the destination shell has painted.
+    expect(root).toContain("onDestinationShellFrame(");
   });
 
   it("every_launch authority is the native epoch, not sessionStorage / timestamps", () => {

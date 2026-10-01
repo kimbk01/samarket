@@ -13,7 +13,11 @@
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
  */
 
-import { getLaunchOsReleaseOwner, noteLaunchOsReleased } from "@/lib/launch-intro/os-release-owner";
+import {
+  getLaunchOsReleaseOwner,
+  noteDestinationShellFrame,
+  noteLaunchOsReleased,
+} from "@/lib/launch-intro/os-release-owner";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -381,6 +385,8 @@ export function markBootMetricsShellReady(): void {
  * React mounted, or DOM ready.
  */
 export function markInitialDestinationVisualReady(): void {
+  // Every painted destination frame is reported (Intro exit handoff waits for it); OS release below stays once.
+  if (typeof window !== "undefined") noteDestinationShellFrame(window.location.pathname);
   if (initialDestinationVisualReadyMarked) return;
   // Intro contract §9: when the launch destination is INTRO, Community's initial-destination
   // signal does not own the OS release (Community is normally not even mounted then — DEFERRED MOUNT).
