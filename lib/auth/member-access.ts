@@ -7,6 +7,7 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-legacy";
+import { isForbiddenSocialProviderUserId } from "@/lib/auth/provider-identity/profile-identity-metadata-contract";
 import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
@@ -244,12 +245,17 @@ export async function ensurePendingAuthProfileRow(
   const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
   const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
   const dbProvider = normalizeProviderForDb(seed.authProvider) ?? "email";
+  const providerUserId =
+    pickTrimmed(seed.providerUserIdCandidate) &&
+    !isForbiddenSocialProviderUserId(seed.providerUserIdCandidate, user.id)
+      ? pickTrimmed(seed.providerUserIdCandidate)
+      : null;
   const nowIso = new Date().toISOString();
 
   const { data: existing } = await sb
     .from("profiles")
     .select(
-      "id,email,auth_login_email,provider,auth_provider,dibay_id_locked,onboarding_completed_at,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,nickname,display_name,avatar_url"
+      "id,email,auth_login_email,provider,auth_provider,provider_user_id,dibay_id_locked,onboarding_completed_at,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,nickname,display_name,avatar_url"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -259,8 +265,23 @@ export async function ensurePendingAuthProfileRow(
     const row = existing as Record<string, unknown>;
     if (!pickTrimmed(row.email as string) && authLoginEmail) patch.email = authLoginEmail;
     if (!pickTrimmed(row.auth_login_email as string) && authLoginEmail) patch.auth_login_email = authLoginEmail;
-    if (!pickTrimmed(row.provider as string)) patch.provider = dbProvider;
-    if (!pickTrimmed(row.auth_provider as string)) patch.auth_provider = dbProvider;
+    const existingProvider = pickTrimmed(row.provider as string);
+    const existingAuthProvider = pickTrimmed(row.auth_provider as string);
+    const existingPuid = pickTrimmed(row.provider_user_id as string);
+    /** Social SSOT mirror: never leave/force email when Kakao/Google/Apple subject is known. */
+    if (dbProvider !== "email") {
+      if (!existingProvider || existingProvider === "email") patch.provider = dbProvider;
+      if (!existingAuthProvider || existingAuthProvider === "email") patch.auth_provider = dbProvider;
+      if (
+        providerUserId &&
+        (!existingPuid || isForbiddenSocialProviderUserId(existingPuid, user.id))
+      ) {
+        patch.provider_user_id = providerUserId;
+      }
+    } else {
+      if (!existingProvider) patch.provider = dbProvider;
+      if (!existingAuthProvider) patch.auth_provider = dbProvider;
+    }
     const oauthNicknamePatch = buildOAuthNicknamePatch(
       {
         onboarding_completed_at: pickTrimmed(row.onboarding_completed_at as string),
@@ -317,6 +338,7 @@ export async function ensurePendingAuthProfileRow(
     avatar_url: oauthAvatar,
     provider: dbProvider,
     auth_provider: dbProvider,
+    ...(providerUserId ? { provider_user_id: providerUserId } : {}),
     dibay_id: null,
     dibay_id_locked: false,
     username: null,

@@ -25,6 +25,7 @@ describe("native profile seed equivalence for ensureAuthProfileForLogin", () => 
     };
     const explicit = {
       authProvider: "google",
+      providerUserIdCandidate: verified.googleUserId,
       nicknameCandidate: verified.name ?? null,
       avatarCandidate: verified.picture ?? null,
       emailInternal: verified.emailVerified ? verified.email.trim().toLowerCase() : null,
@@ -55,6 +56,7 @@ describe("native profile seed equivalence for ensureAuthProfileForLogin", () => 
     };
     const explicit = {
       authProvider: "kakao",
+      providerUserIdCandidate: verified.kakaoUserId,
       nicknameCandidate: verified.nickname ?? null,
       avatarCandidate: verified.profileImageUrl ?? null,
       emailInternal: verified.hasEmailFromProfile ? (verified.email ?? null)?.toLowerCase() ?? null : null,
@@ -85,6 +87,7 @@ describe("native profile seed equivalence for ensureAuthProfileForLogin", () => 
     };
     const explicit = {
       authProvider: "apple",
+      providerUserIdCandidate: verified.sub,
       nicknameCandidate: null,
       avatarCandidate: null,
       emailInternal: verified.email.toLowerCase(),
@@ -111,6 +114,7 @@ describe("native profile seed equivalence for ensureAuthProfileForLogin", () => 
     };
     const explicit = {
       authProvider: "apple",
+      providerUserIdCandidate: verified.sub,
       nicknameCandidate: null,
       avatarCandidate: null,
       emailInternal: null,

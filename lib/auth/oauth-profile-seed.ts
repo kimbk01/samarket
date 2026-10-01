@@ -1,9 +1,15 @@
 import type { User } from "@supabase/supabase-js";
 import { normalizeStoreAuthProvider } from "@/lib/auth/store-member-policy";
-import { isDibaySyntheticAuthEmail } from "@/lib/auth/synthetic-auth-email";
+import {
+  inferAuthProviderFromSyntheticEmail,
+  inferProviderUserIdFromSyntheticAuthEmail,
+  isDibaySyntheticAuthEmail,
+} from "@/lib/auth/synthetic-auth-email";
 
 export type OAuthProfileSeed = {
   authProvider: string;
+  /** Social subject (Kakao User.id / Google sub / …) when known — never auth.users.id. */
+  providerUserIdCandidate: string | null;
   nicknameCandidate: string | null;
   avatarCandidate: string | null;
   emailInternal: string | null;
@@ -28,6 +34,40 @@ function readIdentityDataValue(user: User, keys: string[]): string | null {
   return null;
 }
 
+function resolveProviderUserIdCandidate(user: User, provider: string): string | null {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  if (provider === "kakao") {
+    return (
+      pickStr(meta.kakao_id) ??
+      pickStr(meta.provider_user_id) ??
+      readIdentityDataValue(user, ["sub", "id", "provider_id"]) ??
+      inferProviderUserIdFromSyntheticAuthEmail(user.email)
+    );
+  }
+  if (provider === "google") {
+    return (
+      pickStr(meta.google_id) ??
+      pickStr(meta.sub) ??
+      pickStr(meta.provider_user_id) ??
+      readIdentityDataValue(user, ["sub", "provider_id"]) ??
+      inferProviderUserIdFromSyntheticAuthEmail(user.email)
+    );
+  }
+  if (provider === "apple") {
+    return (
+      pickStr(meta.sub) ??
+      pickStr(meta.provider_user_id) ??
+      readIdentityDataValue(user, ["sub"]) ??
+      inferProviderUserIdFromSyntheticAuthEmail(user.email)
+    );
+  }
+  return (
+    pickStr(meta.provider_user_id) ??
+    readIdentityDataValue(user, ["sub", "id", "provider_id"]) ??
+    inferProviderUserIdFromSyntheticAuthEmail(user.email)
+  );
+}
+
 function resolveProvider(user: User): string {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const fromMeta = pickStr(meta.provider) ?? pickStr(meta.auth_provider);
@@ -36,8 +76,9 @@ function resolveProvider(user: User): string {
   const fromIdentity = identities.length
     ? pickStr((identities[0] as { provider?: unknown }).provider)
     : null;
+  const fromSynthetic = inferAuthProviderFromSyntheticEmail(user.email);
   return (
-    normalizeStoreAuthProvider(fromMeta ?? fromApp ?? fromIdentity) ?? "email"
+    normalizeStoreAuthProvider(fromMeta ?? fromApp ?? fromIdentity ?? fromSynthetic) ?? "email"
   );
 }
 
@@ -97,8 +138,13 @@ function resolveEmailInternal(user: User, provider: string): string | null {
 /** Google / Kakao / Apple — provider별 메타만 정규화, 온보딩 플로우는 공통 */
 export function extractOAuthProfileSeed(user: User): OAuthProfileSeed {
   const authProvider = resolveProvider(user);
+  const providerUserIdCandidate = resolveProviderUserIdCandidate(user, authProvider);
   return {
     authProvider,
+    providerUserIdCandidate:
+      providerUserIdCandidate && providerUserIdCandidate !== user.id
+        ? providerUserIdCandidate
+        : null,
     nicknameCandidate: resolveNicknameCandidate(user, authProvider),
     avatarCandidate: resolveAvatarCandidate(user, authProvider),
     emailInternal: resolveEmailInternal(user, authProvider),

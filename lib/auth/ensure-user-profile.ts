@@ -6,6 +6,11 @@ import {
 import type { ProfileRow } from "@/lib/profile/types";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
+import { isForbiddenSocialProviderUserId } from "@/lib/auth/provider-identity/profile-identity-metadata-contract";
+import {
+  inferAuthProviderFromSyntheticEmail,
+  inferProviderUserIdFromSyntheticAuthEmail,
+} from "@/lib/auth/synthetic-auth-email";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 /**
@@ -163,11 +168,37 @@ function readIdentityFromUser(user: User): IdentityHit {
           pickStr((data as Record<string, unknown>).id)
         : null;
     const providerUserId = pickStr(providerId) ?? subFromData;
-    if (providerUserId) return { provider, providerUserId };
+    if (providerUserId && !isForbiddenSocialProviderUserId(providerUserId, user.id)) {
+      return { provider, providerUserId };
+    }
   }
+
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const syntheticProvider = inferAuthProviderFromSyntheticEmail(user.email);
+  const fromMeta =
+    pickStr(meta.provider)?.toLowerCase() ??
+    pickStr(user.app_metadata?.provider)?.toLowerCase() ??
+    syntheticProvider;
+  const fromMetaPuid =
+    pickStr(meta.kakao_id) ??
+    pickStr(meta.google_id) ??
+    pickStr(meta.sub) ??
+    pickStr(meta.provider_user_id) ??
+    inferProviderUserIdFromSyntheticAuthEmail(user.email);
+
+  if (
+    fromMeta &&
+    SUPPORTED_PROVIDERS.has(fromMeta) &&
+    fromMetaPuid &&
+    !isForbiddenSocialProviderUserId(fromMetaPuid, user.id)
+  ) {
+    return { provider: fromMeta, providerUserId: fromMetaPuid };
+  }
+
   const fallbackProvider =
     pickStr(user.app_metadata?.provider)?.toLowerCase() ??
-    pickStr((user.user_metadata as Record<string, unknown> | null | undefined)?.provider)?.toLowerCase() ??
+    pickStr(meta.provider)?.toLowerCase() ??
+    syntheticProvider ??
     null;
   return { provider: fallbackProvider, providerUserId: null };
 }
@@ -221,6 +252,7 @@ async function persistProviderIdentityIfMissing(
   opts?: { existingProfileRow?: ProfileRow | null; metrics?: EnsureUserProfileMetrics }
 ): Promise<void> {
   if (!identity.provider || !identity.providerUserId) return;
+  if (isForbiddenSocialProviderUserId(identity.providerUserId, userId)) return;
   const row = opts?.existingProfileRow;
   const metrics = opts?.metrics;
   const np = identity.provider.toLowerCase();

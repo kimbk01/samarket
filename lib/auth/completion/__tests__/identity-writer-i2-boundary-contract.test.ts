@@ -79,7 +79,13 @@ describe("Slice 7-4 Identity Writer I2 boundary", () => {
         expect(body, `${rel} must not patch ${key}`).not.toMatch(new RegExp(`${key}\\s*:`));
       }
       expect(body).toMatch(/provider_user_id/);
-      expect(body).toMatch(/\.then\(\(\)\s*=>\s*undefined,\s*\(\)\s*=>\s*undefined\)/);
+      if (rel === KAKAO) {
+        // Kakao identity metadata must not silently swallow write failures (SSOT hygiene).
+        expect(body).not.toMatch(/\.then\(\(\)\s*=>\s*undefined,\s*\(\)\s*=>\s*undefined\)/);
+        expect(body).toMatch(/if \(error\)/);
+      } else {
+        expect(body).toMatch(/\.then\(\(\)\s*=>\s*undefined,\s*\(\)\s*=>\s*undefined\)/);
+      }
     }
 
     const naver = readSrc(NAVER);

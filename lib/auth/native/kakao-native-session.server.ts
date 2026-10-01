@@ -106,6 +106,7 @@ async function upsertKakaoAuthUser(
       email: authEmail,
       email_confirm: true,
       user_metadata: metadata,
+      app_metadata: { provider: "kakao", providers: ["kakao"] },
     });
     if (updateError) {
       return {
@@ -123,6 +124,7 @@ async function upsertKakaoAuthUser(
     password,
     email_confirm: true,
     user_metadata: metadata,
+    app_metadata: { provider: "kakao", providers: ["kakao"] },
   });
   if (createError || !created.user) {
     const recovered = await findAuthUserByEmail(adminSb, authEmail);
@@ -157,7 +159,10 @@ async function persistKakaoProfileIdentity(
   if (verified.email && verified.hasEmailFromProfile) {
     patch.auth_login_email = verified.email;
   }
-  await adminSb.from("profiles").update(patch).eq("id", userId).then(() => undefined, () => undefined);
+  const { error } = await adminSb.from("profiles").update(patch).eq("id", userId);
+  if (error) {
+    throw new Error(error.message || "Failed to persist Kakao profile identity metadata");
+  }
 }
 
 function syntheticUserForEnsure(userId: string, verified: KakaoVerifiedIdentity): User {
@@ -278,7 +283,16 @@ export async function establishKakaoNativeSession(
     }
   }
 
-  await persistKakaoProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+  try {
+    await persistKakaoProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+  } catch (err) {
+    return {
+      ok: false,
+      errorCode: "profile_identity_persist_failed",
+      message: err instanceof Error ? err.message : "Failed to persist Kakao profile identity",
+      status: 500,
+    };
+  }
 
   try {
     await ensureProviderAuthIdentityRow(ctx.adminSb, signedUser.id, candidate);
