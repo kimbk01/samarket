@@ -219,10 +219,11 @@ describe("R3 Member Detail Control Center IA", () => {
 
   it("store panel keeps name + #id + business detail link", () => {
     const store = src("components/admin/users/AdminMemberStorePanel.tsx");
-    expect(store).toMatch(/#\{store\.id\}/);
-    expect(store).toMatch(/매장 상세 보기/);
+    expect(store).toMatch(/#\{canonical\.id\}|#\{store\.id\}/);
+    expect(store).toMatch(/MEMBER_STORE_RELATION_COPY\.view_store|매장 상세 보기/);
     expect(store).toMatch(/MEMBER_DETAIL_STORE_NONE_KO|매장 없음/);
     expect(store).toMatch(/memberDetailStoreHref/);
+    expect(store).toContain("resolveCanonicalMemberStore");
   });
 
   it("back navigation preserves list history contract", () => {

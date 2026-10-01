@@ -67,6 +67,8 @@ export const MEMBER_ADMIN_COPY = {
   verify_reset_confirm_body: "전화 인증이 미완료 상태로 돌아가며, 다시 인증이 필요합니다.",
   verify_save_phone: "전화번호 저장",
   verify_no_phone_for_approve: "인증 승인 전에 전화번호를 먼저 저장해 주세요.",
+  store_relation_manage: "관계 관리",
+  store_relation_title: "매장 운영 관계",
 } as const;
 
 export type MemberAdminCopyKey = keyof typeof MEMBER_ADMIN_COPY;

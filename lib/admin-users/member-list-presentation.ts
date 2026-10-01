@@ -15,6 +15,7 @@ import type {
   AdminMemberVerifyFilter,
 } from "@/lib/admin-users/admin-member-list-query";
 import type { AdminAuthProvider, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
+import { resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
 
 export type MemberListLifecycleState =
   | "ACTIVE"
@@ -65,13 +66,9 @@ export function memberListPrimaryStore(user: Pick<AdminUser, "storeRelation">): 
   id: string;
   name: string;
 } | null {
-  const stores = user.storeRelation?.stores ?? [];
-  for (const store of stores) {
-    const id = String(store.id ?? "").trim();
-    const name = String(store.name ?? "").trim();
-    if (id) return { id, name: name || `#${id.slice(0, 8)}` };
-  }
-  return null;
+  const canonical = resolveCanonicalMemberStore(user.storeRelation?.stores ?? []);
+  if (!canonical) return null;
+  return { id: canonical.id, name: canonical.name };
 }
 
 export function memberListStoreCellLabel(user: Pick<AdminUser, "storeRelation">): {

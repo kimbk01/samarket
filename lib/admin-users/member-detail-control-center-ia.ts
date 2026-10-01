@@ -133,6 +133,7 @@ export type MemberDetailVisibleCtaKey =
   | "dibay_id"
   | "account_tab"
   | "store_detail"
+  | "store_rel"
   | "privilege_view"
   | "ops_history"
   | "danger_suspend"
@@ -207,9 +208,18 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
     ctaKey: "store_detail",
     ctaKo: "매장 상세",
     capId: "CAP-STORE-VIEW",
-    currentState: "PARTIAL",
+    currentState: "YES",
     targetPhase: "R5",
     handlerOrRoute: "/admin/business/[storeId]",
+    executableInR3: true,
+  },
+  {
+    ctaKey: "store_rel",
+    ctaKo: "관계 관리",
+    capId: "CAP-STORE-REL",
+    currentState: "YES",
+    targetPhase: "R5",
+    handlerOrRoute: "AdminMemberStoreRelationDialog S27 (1:1; no attach/transfer)",
     executableInR3: true,
   },
   {

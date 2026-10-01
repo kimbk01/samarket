@@ -39,7 +39,7 @@ export const MEMBER_ADMIN_SCREEN_CATALOG = [
   { id: "S24", nameEn: "Permanent Delete", summaryKo: "danger confirm + typed id", dialogSize: "standard" },
   { id: "S25", nameEn: "Communication", summaryKo: "Support compose bridge" },
   { id: "S26", nameEn: "Deletion Request", summaryKo: "queue + process" },
-  { id: "S27", nameEn: "Store Relation Management", summaryKo: "OD-04 gated" },
+  { id: "S27", nameEn: "Store Relation Management", summaryKo: "1계정=1매장 운영 관계 (신청·승인 권위)" },
   { id: "S28", nameEn: "Test Member Maintenance", summaryKo: "OD-05 gated" },
 ] as const satisfies readonly MemberAdminScreenRow[];
 

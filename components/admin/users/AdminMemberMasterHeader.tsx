@@ -29,6 +29,8 @@ import { EditMemberForm } from "./EditMemberForm";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
+import { AdminMemberStoreRelationDialog } from "./AdminMemberStoreRelationDialog";
+import { MEMBER_STORE_RELATION_COPY, resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
 import { AdminMemberVerificationDialog } from "./AdminMemberVerificationDialog";
 import {
   displayNameForDetailUser,
@@ -92,8 +94,9 @@ export function AdminMemberMasterHeader({
   const nicknameSecondary = memberDetailNicknameIfDistinct(display, user.nickname);
   const contactEmail = memberDetailContactEmail(user.email);
   const loginId = memberDetailLoginIdLabel(user.username);
-  const hasStore = stores.length > 0;
-  const primaryStore = stores[0] ?? null;
+  const canonicalStore = resolveCanonicalMemberStore(stores);
+  const hasStore = Boolean(canonicalStore);
+  const primaryStore = canonicalStore;
   const isAdmin = Boolean(adminMembership);
   const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
   const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
@@ -102,6 +105,7 @@ export function AdminMemberMasterHeader({
   const [showPassword, setShowPassword] = useState(false);
   const [showDibayId, setShowDibayId] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
+  const [showStoreRel, setShowStoreRel] = useState(false);
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
@@ -328,6 +332,16 @@ export function AdminMemberMasterHeader({
           <button
             type="button"
             className={memberAdminCtaClass("tertiary")}
+            onClick={() => setShowStoreRel(true)}
+            data-member-cta="store_rel"
+            data-member-cta-variant="tertiary"
+            data-member-cta-cap="CAP-STORE-REL"
+          >
+            {MEMBER_STORE_RELATION_COPY.manage_cta}
+          </button>
+          <button
+            type="button"
+            className={memberAdminCtaClass("tertiary")}
             onClick={() => onOpenTab?.("overview")}
             data-member-cta="privilege_view"
             data-member-cta-variant="tertiary"
@@ -369,6 +383,11 @@ export function AdminMemberMasterHeader({
         verificationStatus={user.phone_verification_status}
         onClose={() => setShowVerify(false)}
         onSuccess={() => onUpdated?.()}
+      />
+      <AdminMemberStoreRelationDialog
+        open={showStoreRel}
+        stores={stores}
+        onClose={() => setShowStoreRel(false)}
       />
     </div>
   );

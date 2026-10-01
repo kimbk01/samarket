@@ -29,6 +29,7 @@ import {
   memberDetailStoreHref,
   memberDetailVerificationLabelKo,
 } from "@/lib/admin-users/member-detail-presentation";
+import { MEMBER_STORE_RELATION_COPY, resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
 import {
   memberDetailContactEmail,
   memberDetailLoginIdLabel,
@@ -218,30 +219,33 @@ export function AdminMemberOverviewPanel({
         />
       </dl>
     ),
-    store: (
+    store: (() => {
+      const canonical = resolveCanonicalMemberStore(stores);
+      return (
       <dl>
         <Fact
           label="매장"
           value={
-            stores.length === 0
+            !canonical
               ? MEMBER_DETAIL_STORE_NONE_KO
-              : `${stores[0]?.store_name?.trim() || "—"} (#${stores[0]?.id})`
+              : `${canonical.name} (#${canonical.id})`
           }
         />
-        {stores.length > 0 ? (
+        {canonical ? (
           <div className="py-1.5 text-[13px]">
             <Link
-              href={memberDetailStoreHref(stores[0].id)}
+              href={memberDetailStoreHref(canonical.id)}
               className="font-semibold text-[#2563eb]"
               data-overview-store-cta="1"
               data-member-cta-cap="CAP-STORE-VIEW"
             >
-              매장 상세 보기
+              {MEMBER_STORE_RELATION_COPY.view_store}
             </Link>
           </div>
         ) : null}
       </dl>
-    ),
+      );
+    })(),
     privilege: (
       <dl>
         <Fact
@@ -312,9 +316,12 @@ export function AdminMemberOverviewPanel({
             <ActivityLine
               label={t("admin_users_cc_tab_store")}
               summary={
-                stores.length === 0
-                  ? MEMBER_DETAIL_STORE_NONE_KO
-                  : `${MEMBER_DETAIL_STORE_OPERATOR_KO} ${stores.length}곳`
+                (() => {
+                  const canonical = resolveCanonicalMemberStore(stores);
+                  return !canonical
+                    ? MEMBER_DETAIL_STORE_NONE_KO
+                    : `${MEMBER_STORE_RELATION_COPY.relationship_operator} · ${canonical.name}`;
+                })()
               }
               onView={() => onOpenTab("store")}
               viewLabel={viewLabel}
