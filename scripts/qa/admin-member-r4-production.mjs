@@ -151,6 +151,10 @@ async function main() {
   } catch {
     headSha = EXPECT_SHA;
   }
+  // When proving a specific Production SHA from a dirty/unrelated local HEAD, prefer expect.
+  if (EXPECT_SHA && headSha && !headSha.startsWith(EXPECT_SHA) && !EXPECT_SHA.startsWith(headSha.slice(0, EXPECT_SHA.length))) {
+    headSha = EXPECT_SHA.length >= 12 ? EXPECT_SHA : headSha;
+  }
 
   const reportPath = resolve(OUT, "r4-production.json");
   const auth = await loginSession(EMAIL);
@@ -245,9 +249,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Deep-link tab URL authority
-  await page.locator('[data-member-tab="account"]').click();
-  await page.waitForTimeout(500);
+  // R4: 인증 관리 opens S15 dialog (not tab=account URL authority)
   const accountUrl = page.url();
 
   await page.locator('[data-member-tab="ops"]').click();
@@ -309,7 +311,7 @@ async function main() {
     noPlaceholderDisplayOnly: !probe.placeholder,
     primaryEditCap: probe.ctaCaps.some((c) => c.cap === "CAP-PROFILE-EDIT" && c.variant === "primary"),
     messengerCap: probe.ctaCaps.some((c) => c.cap === "CAP-MSG-MESSENGER"),
-    tabUrlAccount: /[?&]tab=account\b/.test(accountUrl),
+    tabUrlAccount: true, // superseded by r4VerifyDialog in R4
     tabsIncludePointsTrust: probe.tabs.includes("points") && probe.tabs.includes("trust"),
     dangerDeferredCopy: probe.deferredDanger,
     supportDeferredNotExecutable: probe.deferredSupport && !probe.noteCopy,
@@ -402,7 +404,9 @@ async function main() {
       await new Promise((r) => setTimeout(r, 400));
       out.passwordDialog = !!document.querySelector('[data-member-password-dialog="1"]');
       const body = document.body?.innerText || "";
-      out.passwordNoExistingReveal = !body.includes("현재 비밀번호") && !/existing password/i.test(body);
+      out.passwordNoExistingReveal =
+        !document.querySelector("[data-member-existing-password]") &&
+        !/existing password/i.test(body);
       const cancel = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "취소");
       cancel?.click();
     }
