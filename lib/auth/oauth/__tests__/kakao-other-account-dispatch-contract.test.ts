@@ -41,12 +41,15 @@ describe("kakao other-account native dispatch contract", () => {
     expect(provider).toContain("normalizeKakaoLoginIntent(input.kakaoIntent)");
   });
 
-  it("Login UI exposes other-account CTA and wires intent", () => {
+  it("Login UI exposes other-account CTA inside Kakao provider group", () => {
     const ui = read("components/auth/LoginProviderButtons.tsx");
-    expect(ui).toContain('data-kakao-intent="other_account"');
+    expect(ui).toContain('data-auth-provider-group="kakao"');
+    expect(ui).toContain('data-testid="auth-kakao-provider-group"');
     expect(ui).toContain('data-testid="auth-kakao-other-account"');
+    expect(ui).toContain('data-kakao-intent="other_account"');
     expect(ui).toContain('kakaoIntent: "other_account"');
     expect(ui).toContain("auth_provider_kakao_other_account");
+    expect(ui).toContain("KakaoProviderGroup");
   });
 
   it("useOAuthLogin forwards kakaoIntent into native provider login", () => {
