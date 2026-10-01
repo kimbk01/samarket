@@ -12,7 +12,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
-import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import {
   LAUNCH_INTRO_CTA_LABEL_MAX,
   LAUNCH_INTRO_CTA_PATH_MAX,
@@ -333,7 +333,6 @@ export function LaunchIntroAdminPage() {
   const [selected, setSelected] = useState(0);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [device, setDevice] = useState<PreviewDevice>("phone");
   const [landscape, setLandscape] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -364,22 +363,33 @@ export function LaunchIntroAdminPage() {
     setImageUrls((prev) => ({ ...prev, ...json.draftImageUrls }));
   }, []);
 
+  /**
+   * One request path. Success → snapshot applied + a result popup (title + what happens on devices);
+   * failure → an error popup. `okTitle` empty = silent (initial load, or the caller shows its own).
+   */
   const call = useCallback(
-    async (url: string, init: RequestInit, okMessage: string) => {
+    async (url: string, init: RequestInit, okTitle: string, okDescription?: string): Promise<Snapshot | null> => {
       setBusy(true);
-      setMessage(null);
+      let failure: string | null = null;
+      let result: Snapshot | null = null;
       try {
         const res = await fetch(url, { credentials: "same-origin", ...init });
         const json = (await res.json()) as Snapshot | ApiError;
         if (json.ok) {
           apply(json);
-          setMessage(okMessage);
-        } else setMessage(t("admin_launch_intro_error", { error: json.error ?? String(res.status) }));
+          result = json;
+        } else failure = json.error ?? String(res.status);
       } catch {
-        setMessage(t("admin_launch_intro_error", { error: "network" }));
+        failure = "network";
       } finally {
         setBusy(false);
       }
+      if (failure) {
+        await dibayAlert({ title: t("admin_launch_intro_failed"), description: t("admin_launch_intro_error", { error: failure }) });
+      } else if (okTitle) {
+        await dibayAlert({ title: okTitle, description: okDescription });
+      }
+      return result;
     },
     [apply, t]
   );
@@ -451,22 +461,31 @@ export function LaunchIntroAdminPage() {
     setScenes(doc.scenes.filter((_, i) => i !== sel), Math.max(0, sel - 1));
   };
 
-  const save = (document: LaunchIntroDocument | null) =>
-    call(
+  /** SAVE = Draft only. Devices never see a save; the popup says so and offers to publish now. */
+  const save = async (document: LaunchIntroDocument | null) => {
+    const saved = await call(
       "/api/admin/launch-intro",
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: snap?.draft?.id ?? null, version: snap?.draft?.version ?? null, document }),
       },
-      t("admin_launch_intro_saved")
+      ""
     );
+    if (!saved?.draft) return;
+    const publishNow = await dibayConfirm({
+      title: t("admin_launch_intro_saved"),
+      description: t("admin_launch_intro_saved_not_live"),
+      confirmLabel: t("admin_launch_intro_publish_now"),
+      cancelLabel: t("admin_launch_intro_later"),
+    });
+    if (publishNow) await publish(saved.draft);
+  };
 
   const upload = async (file: File) => {
     const target = uploadTarget.current;
     const index = sel;
     setBusy(true);
-    setMessage(null);
     try {
       const isVideo = file.type === "video/mp4";
       if (isVideo && target.kind !== "media" && target.kind !== "background") throw new UploadError("video_not_allowed_here");
@@ -496,19 +515,23 @@ export function LaunchIntroAdminPage() {
         return { ...s, decorations: [...rest, { asset, slot: target.slot, size: "M" }] };
       });
     } catch (err) {
-      setMessage(t("admin_launch_intro_error", { error: err instanceof UploadError ? err.message : "network" }));
+      void dibayAlert({
+        title: t("admin_launch_intro_failed"),
+        description: t("admin_launch_intro_error", { error: err instanceof UploadError ? err.message : "network" }),
+      });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
-  const publish = async () => {
-    if (!snap?.draft) return;
+  const publish = async (draftOverride?: { id: string; version: number }) => {
+    const draft = draftOverride ?? snap?.draft;
+    if (!draft) return;
     const startAt = manilaLocalToIso(schedule.startLocal);
     const endAt = manilaLocalToIso(schedule.endLocal);
     if (startAt === undefined || endAt === undefined) {
-      setMessage(t("admin_launch_intro_schedule_err_invalid"));
+      await dibayAlert({ title: t("admin_launch_intro_schedule_err_invalid") });
       return;
     }
     const checked = validateLaunchIntroEligibility(
@@ -516,13 +539,14 @@ export function LaunchIntroAdminPage() {
       Date.now()
     );
     if (!checked.ok) {
-      setMessage(
-        checked.error === "schedule_end_before_start"
-          ? t("admin_launch_intro_schedule_err_end_before_start")
-          : checked.error === "schedule_already_ended"
-            ? t("admin_launch_intro_schedule_err_already_ended")
-            : t("admin_launch_intro_schedule_err_invalid")
-      );
+      await dibayAlert({
+        title:
+          checked.error === "schedule_end_before_start"
+            ? t("admin_launch_intro_schedule_err_end_before_start")
+            : checked.error === "schedule_already_ended"
+              ? t("admin_launch_intro_schedule_err_already_ended")
+              : t("admin_launch_intro_schedule_err_invalid"),
+      });
       return;
     }
     const e = checked.eligibility;
@@ -547,9 +571,10 @@ export function LaunchIntroAdminPage() {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draftId: snap.draft.id, version: snap.draft.version, eligibility: e }),
+        body: JSON.stringify({ draftId: draft.id, version: draft.version, eligibility: e }),
       },
-      t("admin_launch_intro_publish_done")
+      t("admin_launch_intro_publish_done"),
+      t("admin_launch_intro_device_timing")
     );
   };
 
@@ -574,7 +599,8 @@ export function LaunchIntroAdminPage() {
     await call(
       "/api/admin/launch-intro/state",
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, publicationId }) },
-      t(copy.done)
+      t(copy.done),
+      t("admin_launch_intro_device_timing")
     );
   };
 
@@ -628,21 +654,59 @@ export function LaunchIntroAdminPage() {
   const ctaType = scene?.cta?.action.type ?? "none";
 
   return (
-    <div className="space-y-4">
+    <div className="lia-root space-y-4">
+      {/* Clear pressed / hover feedback for every button on this page (scoped; global tokens untouched). */}
+      <style>{`
+        .lia-root .sam-btn{transition:transform 90ms ease,filter 120ms ease,background-color 150ms ease}
+        .lia-root .sam-btn:not(:disabled):hover{filter:brightness(0.95)}
+        .lia-root .sam-btn:not(:disabled):active{transform:scale(0.95);filter:brightness(0.88)}
+      `}</style>
+      {busy ? (
+        <div
+          role="status"
+          className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full bg-sam-fg px-4 py-2 sam-text-body-secondary text-sam-surface shadow-lg"
+        >
+          {t("admin_launch_intro_working")}
+        </div>
+      ) : null}
       <AdminPageHeader title={t("admin_launch_intro_title")} description={t("admin_launch_intro_desc")} />
       <AdminCard>
         <p className="px-4 py-3.5 sam-text-body text-sam-fg sm:px-5">{t("admin_launch_intro_propagation_note")}</p>
       </AdminCard>
 
-      {message ? (
-        <p className="sam-text-body text-sam-fg" role="status">
-          {message}
-        </p>
-      ) : null}
 
       {live ? (
         <AdminCard title={t("admin_launch_intro_live_title")}>
           <div className="space-y-3 px-4 py-4 sm:px-5" data-launch-intro-status-board="">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 sam-text-body font-semibold ${
+                  live.state === "active" && (liveSchedule === "running" || liveSchedule === "always")
+                    ? "bg-sam-success-soft text-sam-success"
+                    : live.state === "active" && liveSchedule === "scheduled"
+                      ? "bg-sam-primary-soft text-sam-primary"
+                      : live.state === "paused"
+                        ? "bg-sam-warning-soft text-sam-warning"
+                        : "bg-sam-surface-muted text-sam-muted"
+                }`}
+                data-launch-intro-state-pill=""
+              >
+                {live.state === "active"
+                  ? liveSchedule === "scheduled"
+                    ? t("admin_launch_intro_pill_scheduled")
+                    : liveSchedule === "ended"
+                      ? t("admin_launch_intro_pill_ended")
+                      : t("admin_launch_intro_state_active")
+                  : live.state === "paused"
+                    ? t("admin_launch_intro_state_paused")
+                    : t("admin_launch_intro_state_unpublished")}
+              </span>
+              {draftStatus === "changed" || draftStatus === "unsaved" ? (
+                <span className="rounded-full bg-sam-warning-soft px-3 py-1 sam-text-body-secondary font-medium text-sam-warning">
+                  {t("admin_launch_intro_pill_not_published")}
+                </span>
+              ) : null}
+            </div>
             <dl className="grid gap-x-4 gap-y-2 sam-text-body sm:grid-cols-[max-content_1fr]">
               <dt className="font-medium text-sam-fg">{t("admin_launch_intro_status_devices")}</dt>
               <dd className="text-sam-fg" data-launch-intro-live-state={live.state} data-launch-intro-schedule-state={liveSchedule}>
@@ -658,13 +722,13 @@ export function LaunchIntroAdminPage() {
               </dd>
             </dl>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "pause")} onClick={() => void setState("pause")}>
+              <button type="button" className="sam-btn sam-btn--outline" disabled={busy || !launchIntroCanTransition(live, "pause")} onClick={() => void setState("pause")}>
                 {t("admin_launch_intro_pause")}
               </button>
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "resume")} onClick={() => void setState("resume")}>
+              <button type="button" className="sam-btn sam-btn--primary" disabled={busy || !launchIntroCanTransition(live, "resume")} onClick={() => void setState("resume")}>
                 {t("admin_launch_intro_resume")}
               </button>
-              <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !launchIntroCanTransition(live, "unpublish")} onClick={() => void setState("unpublish")}>
+              <button type="button" className="sam-btn sam-btn--danger" disabled={busy || !launchIntroCanTransition(live, "unpublish")} onClick={() => void setState("unpublish")}>
                 {t("admin_launch_intro_unpublish")}
               </button>
             </div>
@@ -675,20 +739,26 @@ export function LaunchIntroAdminPage() {
                   {snap.publications.map((p) => {
                     const isLive = p.id === live.publication_id;
                     return (
-                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sam-text-body-secondary text-sam-muted" data-launch-intro-publication={p.id}>
+                      <li
+                        key={p.id}
+                        className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 sam-text-body-secondary ${
+                          isLive ? "border-l-4 border-sam-primary bg-sam-primary-soft text-sam-fg" : "text-sam-muted"
+                        }`}
+                        data-launch-intro-publication={p.id}
+                      >
                         <span>
                           <span className="font-mono text-sam-fg">{p.id.slice(0, 8)}</span> · {fmtDate(p.created_at)} ·{" "}
                           {t("admin_launch_intro_history_scenes", { n: p.document.scenes.length })}
                           {p.source_draft_version != null ? ` · Draft v${p.source_draft_version}` : ""}
                           {scheduleText(p.eligibility) ? ` · ${scheduleText(p.eligibility)}` : ""}
                           {isLive ? (
-                            <span className="ml-2 rounded-full bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
+                            <span className="ml-2 rounded-full bg-sam-primary px-2 py-0.5 font-semibold text-sam-on-primary">
                               {live.state === "paused" ? t("admin_launch_intro_history_badge_paused") : t("admin_launch_intro_history_badge_live")}
                             </span>
                           ) : null}
                         </span>
                         {launchIntroCanReactivate(live, p.id) ? (
-                          <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
+                          <button type="button" className="sam-btn sam-btn--outline-primary sam-btn--sm" disabled={busy} onClick={() => void setState("reactivate", p.id)}>
                             {t("admin_launch_intro_reactivate")}
                           </button>
                         ) : null}
@@ -1093,12 +1163,12 @@ export function LaunchIntroAdminPage() {
 
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="sam-btn sam-btn--primary" disabled={busy || !dirty} onClick={() => void save(doc)}>
+                <button type="button" className="sam-btn sam-btn--outline-primary" disabled={busy || !dirty} onClick={() => void save(doc)}>
                   {t("admin_launch_intro_save")}
                 </button>
                 <button
                   type="button"
-                  className="sam-btn sam-btn--secondary"
+                  className="sam-btn sam-btn--cancel"
                   disabled={busy || !dirty}
                   onClick={async () => {
                     const ok = await dibayConfirm({
@@ -1109,6 +1179,7 @@ export function LaunchIntroAdminPage() {
                     if (!ok) return;
                     setPlaying(false);
                     setDoc(snap.draft?.document ?? null);
+                    await dibayAlert({ title: t("admin_launch_intro_cancel_done") });
                   }}
                 >
                   {t("admin_launch_intro_cancel")}
@@ -1118,7 +1189,7 @@ export function LaunchIntroAdminPage() {
                 </button>
                 <button
                   type="button"
-                  className="sam-btn sam-btn--secondary"
+                  className="sam-btn sam-btn--danger"
                   disabled={busy || !snap.draft}
                   onClick={async () => {
                     const ok = await dibayConfirm({ title: t("admin_launch_intro_delete_confirm"), confirmTone: "destructive", confirmLabel: t("admin_launch_intro_delete") });
