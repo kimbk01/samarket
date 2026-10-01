@@ -33,6 +33,7 @@ import {
   LAUNCH_INTRO_TRANSITIONS,
   type LaunchIntroDecorationSlot,
   type LaunchIntroDocument,
+  type LaunchIntroEligibility,
   type LaunchIntroFit,
   type LaunchIntroImageRef,
   type LaunchIntroVideoRef,
@@ -47,6 +48,12 @@ import {
   launchIntroDraftStatus,
   type LaunchIntroLifecycleAction,
 } from "@/lib/launch-intro/lifecycle";
+import {
+  formatManila,
+  launchIntroScheduleState,
+  manilaLocalToIso,
+  validateLaunchIntroEligibility,
+} from "@/lib/launch-intro/schedule";
 
 type Snapshot = {
   ok: true;
@@ -59,6 +66,7 @@ type Snapshot = {
     source_draft_id: string | null;
     source_draft_version: number | null;
     document: LaunchIntroDocument;
+    eligibility: LaunchIntroEligibility | null;
   }>;
   publicAssetBase: string;
 };
@@ -318,12 +326,17 @@ export function LaunchIntroAdminPage() {
   const [playing, setPlaying] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
+  /** Publish schedule (P5), Manila wall time; empty = no limit. */
+  const [schedule, setSchedule] = useState({ startLocal: "", endLocal: "" });
+  /** Clock for schedule labels, refreshed with every server snapshot (no timers). */
+  const [now, setNow] = useState(() => Date.now());
   const fileRef = useRef<HTMLInputElement | null>(null);
   /** Where the next uploaded image goes (one hidden file input for every image slot). */
   const uploadTarget = useRef<UploadTarget>({ kind: "media" });
 
   const apply = useCallback((json: Snapshot) => {
     setSnap(json);
+    setNow(Date.now());
     setDoc(json.draft?.document ?? null);
     setImageUrls((prev) => ({ ...prev, ...json.draftImageUrls }));
   }, []);
@@ -469,9 +482,35 @@ export function LaunchIntroAdminPage() {
 
   const publish = async () => {
     if (!snap?.draft) return;
+    const startAt = manilaLocalToIso(schedule.startLocal);
+    const endAt = manilaLocalToIso(schedule.endLocal);
+    if (startAt === undefined || endAt === undefined) {
+      setMessage(t("admin_launch_intro_schedule_err_invalid"));
+      return;
+    }
+    const checked = validateLaunchIntroEligibility({ startAt, endAt }, Date.now());
+    if (!checked.ok) {
+      setMessage(
+        checked.error === "schedule_end_before_start"
+          ? t("admin_launch_intro_schedule_err_end_before_start")
+          : checked.error === "schedule_already_ended"
+            ? t("admin_launch_intro_schedule_err_already_ended")
+            : t("admin_launch_intro_schedule_err_invalid")
+      );
+      return;
+    }
+    const e = checked.eligibility;
     const ok = await dibayConfirm({
       title: t("admin_launch_intro_publish_confirm"),
-      description: t("admin_launch_intro_publish_confirm_desc"),
+      description: [
+        t("admin_launch_intro_publish_confirm_desc"),
+        e.startAt || e.endAt
+          ? t("admin_launch_intro_schedule_summary", {
+              start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
+              end: e.endAt ? formatManila(e.endAt, undefined) : t("admin_launch_intro_schedule_no_end"),
+            })
+          : t("admin_launch_intro_schedule_always"),
+      ].join(" "),
       confirmLabel: t("admin_launch_intro_publish"),
     });
     if (!ok) return;
@@ -480,7 +519,7 @@ export function LaunchIntroAdminPage() {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draftId: snap.draft.id, version: snap.draft.version }),
+        body: JSON.stringify({ draftId: snap.draft.id, version: snap.draft.version, eligibility: e }),
       },
       t("admin_launch_intro_publish_done")
     );
@@ -510,10 +549,30 @@ export function LaunchIntroAdminPage() {
   const live = snap?.live;
   const livePublication = live?.publication_id ? (snap?.publications.find((p) => p.id === live.publication_id) ?? null) : null;
   const draftStatus = launchIntroDraftStatus({ draft: snap?.draft ?? null, dirty, livePublication });
+  const liveSchedule = livePublication ? launchIntroScheduleState(livePublication.eligibility, now) : "always";
+  const scheduleText = (e: LaunchIntroEligibility | null) =>
+    e?.startAt || e?.endAt
+      ? t("admin_launch_intro_schedule_window", {
+          start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
+          end: e.endAt ? formatManila(e.endAt, undefined) : t("admin_launch_intro_schedule_no_end"),
+        })
+      : "";
   const devicesLine = !live
     ? ""
+    : live.state === "active" && livePublication && liveSchedule === "scheduled"
+      ? t("admin_launch_intro_status_devices_scheduled", {
+          id: livePublication.id.slice(0, 8),
+          start: formatManila(livePublication.eligibility!.startAt!, undefined),
+        })
+    : live.state === "active" && livePublication && liveSchedule === "ended"
+      ? t("admin_launch_intro_status_devices_ended", {
+          id: livePublication.id.slice(0, 8),
+          end: formatManila(livePublication.eligibility!.endAt!, undefined),
+        })
     : live.state === "active" && livePublication
-      ? t("admin_launch_intro_status_devices_active", { id: livePublication.id.slice(0, 8), date: fmtDate(livePublication.created_at) })
+      ? `${t("admin_launch_intro_status_devices_active", { id: livePublication.id.slice(0, 8), date: fmtDate(livePublication.created_at) })}${
+          scheduleText(livePublication.eligibility) ? ` · ${scheduleText(livePublication.eligibility)}` : ""
+        }`
       : live.state === "paused" && livePublication
         ? t("admin_launch_intro_status_devices_paused", { id: livePublication.id.slice(0, 8) })
         : t("admin_launch_intro_status_devices_unpublished");
@@ -548,7 +607,7 @@ export function LaunchIntroAdminPage() {
           <div className="space-y-3 px-4 py-4 sm:px-5" data-launch-intro-status-board="">
             <dl className="grid gap-x-4 gap-y-2 sam-text-body sm:grid-cols-[max-content_1fr]">
               <dt className="font-medium text-sam-fg">{t("admin_launch_intro_status_devices")}</dt>
-              <dd className="text-sam-fg" data-launch-intro-live-state={live.state}>
+              <dd className="text-sam-fg" data-launch-intro-live-state={live.state} data-launch-intro-schedule-state={liveSchedule}>
                 {devicesLine}
               </dd>
               <dt className="font-medium text-sam-fg">{t("admin_launch_intro_status_draft")}</dt>
@@ -583,6 +642,7 @@ export function LaunchIntroAdminPage() {
                           <span className="font-mono text-sam-fg">{p.id.slice(0, 8)}</span> · {fmtDate(p.created_at)} ·{" "}
                           {t("admin_launch_intro_history_scenes", { n: p.document.scenes.length })}
                           {p.source_draft_version != null ? ` · Draft v${p.source_draft_version}` : ""}
+                          {scheduleText(p.eligibility) ? ` · ${scheduleText(p.eligibility)}` : ""}
                           {isLive ? (
                             <span className="ml-2 rounded-full bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
                               {live.state === "paused" ? t("admin_launch_intro_history_badge_paused") : t("admin_launch_intro_history_badge_live")}
@@ -936,6 +996,31 @@ export function LaunchIntroAdminPage() {
                   }}
                 />
               </label>
+
+              <fieldset className="space-y-2 rounded-ui-rect border border-sam-border p-3" data-launch-intro-schedule="">
+                <legend className="px-1 sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_schedule_title")}</legend>
+                <div className="flex flex-wrap gap-3">
+                  <label className="space-y-1">
+                    <span className="block sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_schedule_start")}</span>
+                    <input
+                      type="datetime-local"
+                      className={`${field} w-auto`}
+                      value={schedule.startLocal}
+                      onChange={(e) => setSchedule((s) => ({ ...s, startLocal: e.target.value }))}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_schedule_end")}</span>
+                    <input
+                      type="datetime-local"
+                      className={`${field} w-auto`}
+                      value={schedule.endLocal}
+                      onChange={(e) => setSchedule((s) => ({ ...s, endLocal: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_schedule_hint")}</p>
+              </fieldset>
 
               {dirty ? <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_unsaved")}</p> : null}
               <div className="flex flex-wrap gap-2">

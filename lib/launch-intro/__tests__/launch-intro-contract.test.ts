@@ -18,6 +18,13 @@ import {
   toPublicationDocument,
   validateLaunchIntroDocument,
 } from "../document";
+import {
+  isoToManilaLocal,
+  launchIntroScheduleState,
+  manilaLocalToIso,
+  sameLaunchIntroEligibility,
+  validateLaunchIntroEligibility,
+} from "../schedule";
 import { launchIntroCanReactivate, launchIntroCanTransition, launchIntroDraftStatus } from "../lifecycle";
 import {
   claimLaunchOsReleaseForIntro,
@@ -306,6 +313,50 @@ describe("P4 Admin lifecycle mirrors the DB state machine", () => {
     expect(admin).not.toMatch(/disabled=\{[^}]*live\.state/);
     // confirm: publish, delete, cancel, and the shared state-change path
     expect(admin.match(/await dibayConfirm\(/g)?.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("P5 schedule (single Live, Manila time)", () => {
+  it("Manila wall time is UTC+08:00 both ways", () => {
+    expect(manilaLocalToIso("2026-10-02T19:00")).toBe("2026-10-02T11:00:00.000Z");
+    expect(manilaLocalToIso("")).toBeNull();
+    expect(manilaLocalToIso("2026-10-02 19:00")).toBe(undefined);
+    expect(isoToManilaLocal("2026-10-02T11:00:00.000Z")).toBe("2026-10-02T19:00");
+  });
+
+  it("one validator: optional bounds, end after start, end in the future", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    expect(validateLaunchIntroEligibility(null, now)).toEqual({ ok: true, eligibility: { frequency: "every_launch" } });
+    expect(validateLaunchIntroEligibility({ startAt: "2026-10-02T00:00:00Z", endAt: "2026-10-03T00:00:00Z" }, now)).toEqual({
+      ok: true,
+      eligibility: { frequency: "every_launch", startAt: "2026-10-02T00:00:00.000Z", endAt: "2026-10-03T00:00:00.000Z" },
+    });
+    expect(validateLaunchIntroEligibility({ startAt: "2026-10-03T00:00:00Z", endAt: "2026-10-02T00:00:00Z" }, now)).toEqual({ ok: false, error: "schedule_end_before_start" });
+    expect(validateLaunchIntroEligibility({ endAt: "2026-10-01T11:00:00Z" }, now)).toEqual({ ok: false, error: "schedule_already_ended" });
+    expect(validateLaunchIntroEligibility({ startAt: "soon" }, now)).toEqual({ ok: false, error: "schedule_start_invalid" });
+    expect(validateLaunchIntroEligibility({ frequency: "hourly" }, now)).toEqual({ ok: false, error: "frequency_invalid" });
+  });
+
+  it("window state matches the device rule (now < start → not yet, now >= end → ended)", () => {
+    const e = { frequency: "every_launch" as const, startAt: "2026-10-02T00:00:00.000Z", endAt: "2026-10-03T00:00:00.000Z" };
+    expect(launchIntroScheduleState(null, 0)).toBe("always");
+    expect(launchIntroScheduleState(e, Date.parse(e.startAt) - 1)).toBe("scheduled");
+    expect(launchIntroScheduleState(e, Date.parse(e.startAt))).toBe("running");
+    expect(launchIntroScheduleState(e, Date.parse(e.endAt) - 1)).toBe("running");
+    expect(launchIntroScheduleState(e, Date.parse(e.endAt))).toBe("ended");
+    const device = src("lib/launch-intro/startup-destination.ts");
+    expect(device).toContain("now < Date.parse(e.startAt)) return false");
+    expect(device).toContain("now >= Date.parse(e.endAt)) return false");
+  });
+
+  it("same version + different schedule never reuses the old immutable publication", () => {
+    expect(sameLaunchIntroEligibility({ frequency: "every_launch" }, { frequency: "every_launch" })).toBe(true);
+    expect(sameLaunchIntroEligibility({ frequency: "every_launch", endAt: "2026-10-03T00:00:00Z" }, { frequency: "every_launch", endAt: "2026-10-03T00:00:00.000Z" })).toBe(true);
+    expect(sameLaunchIntroEligibility({ frequency: "every_launch" }, { frequency: "every_launch", startAt: "2026-10-02T00:00:00.000Z" })).toBe(false);
+    const server = src("lib/launch-intro/server.ts");
+    expect(server).toContain("validateLaunchIntroEligibility(input.eligibility, Date.now())");
+    expect(server).toContain("p_eligibility: elig.eligibility");
+    expect(server).toMatch(/sameLaunchIntroEligibility\([\s\S]*saveLaunchIntroDraft\(/);
   });
 });
 

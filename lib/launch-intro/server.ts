@@ -5,11 +5,11 @@
 import "server-only";
 import { createHash, randomUUID } from "crypto";
 import type { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { sameLaunchIntroEligibility, validateLaunchIntroEligibility } from "@/lib/launch-intro/schedule";
 import {
   LAUNCH_INTRO_DRAFT_BUCKET,
   LAUNCH_INTRO_IMAGE_MAX_BYTES,
   LAUNCH_INTRO_PUBLIC_BUCKET,
-  LAUNCH_INTRO_SLICE_ELIGIBILITY,
   launchIntroAssetExtension,
   launchIntroPublicAssetPath,
   launchIntroDocumentAssets,
@@ -290,13 +290,36 @@ export async function signLaunchIntroDraftImage(sb: Sb, draftPath: string): Prom
  */
 export async function publishLaunchIntroDraft(
   sb: Sb,
-  input: { draftId: string; expectedVersion: number; actor: string | null }
+  input: { draftId: string; expectedVersion: number; eligibility: unknown; actor: string | null }
 ): Promise<Result<{ live: LaunchIntroLiveRow & { publication_id: string } }>> {
+  const elig = validateLaunchIntroEligibility(input.eligibility, Date.now());
+  if (!elig.ok) return { ok: false, error: elig.error, status: 400 };
   const loaded = await loadLaunchIntroDraft(sb, input.draftId);
   if (!loaded.ok) return loaded;
-  const draft = loaded.draft;
+  let draft = loaded.draft;
   if (!draft) return { ok: false, error: "draft_not_found", status: 404 };
   if (draft.version !== input.expectedVersion) return { ok: false, error: "version_conflict", status: 409 };
+
+  // A publication is immutable and unique per (draft, version). Publishing the same version again
+  // with a DIFFERENT schedule must not silently reuse the old publication: the draft is re-saved
+  // (version + 1, same document) so the new schedule gets its own immutable publication.
+  const existing = await sb
+    .from("launch_intro_publications")
+    .select("eligibility")
+    .eq("source_draft_id", draft.id)
+    .eq("source_draft_version", draft.version)
+    .maybeSingle();
+  if (existing.error) return { ok: false, error: existing.error.message };
+  if (existing.data && !sameLaunchIntroEligibility(existing.data.eligibility as LaunchIntroEligibility, elig.eligibility)) {
+    const resaved = await saveLaunchIntroDraft(sb, {
+      id: draft.id,
+      expectedVersion: draft.version,
+      document: draft.document,
+      actor: input.actor,
+    });
+    if (!resaved.ok) return resaved;
+    draft = resaved.draft;
+  }
 
   const asDraft = validateLaunchIntroDocument(draft.document, "draft");
   if (!asDraft.ok) return { ok: false, error: asDraft.error, status: 400 };
@@ -330,7 +353,7 @@ export async function publishLaunchIntroDraft(
     p_draft_version: draft.version,
     p_document: asPub.document,
     p_assets: launchIntroDocumentAssets(asPub.document),
-    p_eligibility: LAUNCH_INTRO_SLICE_ELIGIBILITY,
+    p_eligibility: elig.eligibility,
     p_actor: input.actor,
   });
   if (error) return { ok: false, error: error.message };
