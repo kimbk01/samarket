@@ -109,6 +109,10 @@ export function groupMemberDetailDangerActions(
 /** Operator-facing deferred execution status — never "표시만". */
 export const MEMBER_DETAIL_DANGER_EXECUTION_DEFERRED_KO = "제재 워크플로에서 실행";
 
+/** Operator-facing deferred Support/쪽지 — CAP-MSG-SUPPORT DEAD until R8. */
+export const MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO =
+  "Support 워크플로에서 제공 (R8)";
+
 export type MemberDetailVisibleCtaKey =
   | "edit"
   | "messenger"
@@ -209,7 +213,7 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
     capId: "CAP-MSG-SUPPORT",
     currentState: "DEAD",
     targetPhase: "R8",
-    handlerOrRoute: "NOT rendered as CTA (legacy 410; R8 Support)",
+    handlerOrRoute: "NOT rendered as CTA (legacy 410; Ops deferred copy; R8 Support)",
     executableInR3: false,
   },
   {

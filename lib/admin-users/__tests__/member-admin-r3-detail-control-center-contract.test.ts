@@ -12,6 +12,7 @@ import { memberAdminBlockedDistinctFromSuspended } from "@/lib/admin-users/membe
 import {
   MEMBER_DETAIL_CTA_CAPABILITY_MAP,
   MEMBER_DETAIL_DANGER_EXECUTION_DEFERRED_KO,
+  MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO,
   MEMBER_DETAIL_OVERVIEW_SECTION_LABEL_KO,
   MEMBER_DETAIL_OVERVIEW_SECTION_ORDER,
   MEMBER_DETAIL_TAB_ORDER,
@@ -235,6 +236,21 @@ describe("R3 Member Detail Control Center IA", () => {
     expect(cc).not.toContain("표시만");
     expect(cc).not.toContain("profiles에 반영");
     expect(cc).not.toContain("auth.users");
+  });
+
+
+  it("Ops contact: CAP-MSG-SUPPORT not rendered as executable note CTA", () => {
+    const ops = src("components/admin/users/AdminMemberOpsPanel.tsx");
+    expect(ops).not.toContain("쪽지 보내기");
+    expect(ops).not.toContain('admin_users_cc_cta_send_note');
+    expect(ops).not.toContain("/api/admin/member-notes");
+    expect(ops).not.toContain("memberInquiryAdminHref");
+    expect(ops).toMatch(/MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO/);
+    expect(MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO).toBe("Support 워크플로에서 제공 (R8)");
+    expect(ops).toMatch(/data-member-support-deferred/);
+    expect(ops).toMatch(/CAP-MSG-MESSENGER/);
+    expect(findPlaceholderFinalCopy(ops)).toEqual([]);
+    expect(ops).not.toContain("표시만");
   });
 
   it("R2 list contract file still free of 표시만", () => {
