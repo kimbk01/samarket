@@ -48,17 +48,23 @@ class IntroErrorBoundary extends Component<{ onError: () => void; children: Reac
   }
 }
 
-/** Launch intent = a specific destination was requested by native (contract §8) → no Intro. */
+/**
+ * Launch intent = a specific destination was requested by native (contract §8) → no Intro.
+ * Read-only native calls, invoked directly on the plugin proxy (never resolved/awaited as a value:
+ * Capacitor plugin proxies trap `then`, which would leave an awaiting promise unsettled).
+ */
 async function hasLaunchIntent(): Promise<string | null> {
+  const { registerPlugin } = await import("@capacitor/core");
   try {
-    const { readNativePersistedPendingPushRoute } = await import("@/lib/push/native/push-route-native-bridge");
-    if (await readNativePersistedPendingPushRoute()) return "push_route";
+    const incoming = registerPlugin<{ getPendingPushRoute: () => Promise<{ path?: string }> }>("NativeIncomingCall");
+    const pending = await incoming.getPendingPushRoute();
+    if (typeof pending?.path === "string" && pending.path.trim().startsWith("/")) return "push_route";
   } catch {
-    /* ignore */
+    /* not implemented / unavailable → no push intent */
   }
   try {
-    const { App } = await import("@capacitor/app");
-    const launch = await App.getLaunchUrl();
+    const app = registerPlugin<{ getLaunchUrl: () => Promise<{ url?: string } | undefined> }>("App");
+    const launch = await app.getLaunchUrl();
     const url = launch?.url ?? "";
     if (url && !/^https:\/\/[^/]+\/?$/.test(url)) return "launch_url";
   } catch {
