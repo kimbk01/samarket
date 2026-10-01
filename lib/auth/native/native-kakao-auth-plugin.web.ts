@@ -1,8 +1,11 @@
 import { WebPlugin } from "@capacitor/core";
-import type { NativeKakaoAuthPlugin } from "@/lib/auth/native/native-kakao-auth-plugin";
+import type {
+  NativeKakaoAuthPlugin,
+  NativeKakaoSignInOptions,
+} from "@/lib/auth/native/native-kakao-auth-plugin";
 
 export class NativeKakaoAuthWeb extends WebPlugin implements NativeKakaoAuthPlugin {
-  async signIn(): Promise<never> {
+  async signIn(_options?: NativeKakaoSignInOptions): Promise<never> {
     throw { code: "kakao_native_unavailable", message: "Native Kakao login requires Android/iOS app shell" };
   }
 

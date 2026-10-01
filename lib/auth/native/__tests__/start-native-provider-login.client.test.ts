@@ -42,10 +42,20 @@ describe("start-native-provider-login.client", () => {
     vi.clearAllMocks();
   });
 
-  it("routes kakao to startNativeKakaoLogin", async () => {
+  it("routes kakao to startNativeKakaoLogin with normal intent by default", async () => {
     const { startNativeProviderLogin } = await import("@/lib/auth/native/start-native-provider-login.client");
     await startNativeProviderLogin({ provider: "kakao", next: "/market" });
-    expect(startNativeKakaoLogin).toHaveBeenCalledWith({ next: "/market" });
+    expect(startNativeKakaoLogin).toHaveBeenCalledWith({ next: "/market", intent: "normal" });
+  });
+
+  it("routes kakao other_account intent without collapsing to normal", async () => {
+    const { startNativeProviderLogin } = await import("@/lib/auth/native/start-native-provider-login.client");
+    await startNativeProviderLogin({
+      provider: "kakao",
+      next: "/mypage",
+      kakaoIntent: "other_account",
+    });
+    expect(startNativeKakaoLogin).toHaveBeenCalledWith({ next: "/mypage", intent: "other_account" });
   });
 
   it("routes apple to startNativeAppleLogin", async () => {

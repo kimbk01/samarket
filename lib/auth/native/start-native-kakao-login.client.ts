@@ -17,6 +17,11 @@ import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-ident
 import { buildNativeAuthCompletionHandoff, type NativeAuthCompletionHandoff } from "@/lib/auth/completion/build-native-auth-completion-handoff.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeKakaoLoginAvailable } from "@/lib/platform/capacitor-native";
+import {
+  type KakaoLoginIntent,
+  kakaoLoginIntentLogPayload,
+  normalizeKakaoLoginIntent,
+} from "@/lib/auth/oauth/kakao-login-intent";
 
 export type NativeKakaoExchangeResponse = NativeExchangeResponse;
 
@@ -44,13 +49,19 @@ function buildNativeKakaoLoginHandoff(
 /**
  * Android/iOS Capacitor — Kakao SDK via NativeKakaoAuth plugin.
  * Web: caller must use Web OAuth (`startOAuthLogin`).
+ *
+ * `intent=other_account` → Account + Prompt.LOGIN only (never Talk-first).
  */
 export async function startNativeKakaoLogin(input?: {
   next?: string | null;
+  intent?: KakaoLoginIntent;
 }): Promise<NativeKakaoLoginHandoff> {
   if (!isNativeKakaoLoginAvailable()) {
     throw new NativeKakaoAuthError("kakao_native_unavailable");
   }
+
+  const intent = normalizeKakaoLoginIntent(input?.intent);
+  const intentLog = kakaoLoginIntentLogPayload(intent);
 
   const flow = tryBeginOAuthFlow("kakao");
   if (!flow.ok) {
@@ -60,11 +71,16 @@ export async function startNativeKakaoLogin(input?: {
   }
 
   try {
-    logOAuthNativeEvent("kakao_native_started", { next: input?.next ?? null });
-    const signInResult = await invokeNativeKakaoSignIn();
+    logOAuthNativeEvent(
+      intent === "other_account" ? "kakao_login_intent_other_account" : "kakao_login_intent_normal",
+      intentLog,
+    );
+    logOAuthNativeEvent("kakao_native_started", { next: input?.next ?? null, ...intentLog });
+    const signInResult = await invokeNativeKakaoSignIn({ intent });
     logOAuthNativeEvent("kakao_native_success", {
       hasAccessToken: Boolean(signInResult.accessToken),
       hasUserId: Boolean(signInResult.userId),
+      ...intentLog,
     });
 
     const exchangeBody = buildNativeKakaoExchangeRequest(signInResult);
@@ -78,12 +94,14 @@ export async function startNativeKakaoLogin(input?: {
       signupComplete: exchange.signupComplete ?? null,
       needsTermsAgreement: exchange.needsTermsAgreement ?? null,
       redirectTo: exchange.redirectTo ?? null,
+      ...intentLog,
     });
     endOAuthFlow("kakao");
     clearStoredLoginRequiredDetail();
     return buildNativeKakaoLoginHandoff(exchange);
   } catch (error) {
     if (error instanceof NativeKakaoAuthError && error.code === "user_cancelled") {
+      logOAuthNativeEvent("kakao_native_cancel", intentLog);
       releaseOAuthFlowOnUserCancel();
       throw error;
     }

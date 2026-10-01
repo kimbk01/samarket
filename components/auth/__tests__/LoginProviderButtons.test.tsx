@@ -9,6 +9,7 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
       if (key === "auth_oauth_signing_in_label") return "Signing in…";
       if (key === "auth_provider_continue_google") return "Continue with Google";
       if (key === "auth_provider_continue_kakao") return "Continue with Kakao";
+      if (key === "auth_provider_kakao_other_account") return "Sign in with another Kakao account";
       if (key === "auth_login_divider_id_password") return "Or internal / operations login";
       if (key === "auth_login_internal_entry") return "Internal / operations login";
       if (key === "auth_login_email_dev_aria") return "Internal / operations account sign-in";
@@ -63,6 +64,20 @@ describe("LoginProviderButtons pending OAuth UI", () => {
     );
     expect(html).toContain("Continue with Google");
     expect(html).not.toContain("Signing in…");
+  });
+
+  it("renders Kakao other-account CTA when kakao is enabled", () => {
+    const html = renderToStaticMarkup(
+      <LoginProviderButtons
+        providers={[kakaoProvider]}
+        pendingOAuthProvider={null}
+        onSelectProvider={() => undefined}
+      />,
+    );
+    expect(html).toContain('data-testid="auth-kakao-other-account"');
+    expect(html).toContain('data-kakao-intent="other_account"');
+    expect(html).toContain("Sign in with another Kakao account");
+    expect(html).toContain('data-kakao-intent="normal"');
   });
 
   it("internal entry is a labeled secondary CTA when showEmailEntry", () => {

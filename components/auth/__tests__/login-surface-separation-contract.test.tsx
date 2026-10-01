@@ -12,6 +12,7 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
       if (key === "auth_oauth_signing_in_label") return "Signing in…";
       if (key === "auth_provider_continue_google") return "Continue with Google";
       if (key === "auth_provider_continue_kakao") return "Continue with Kakao";
+      if (key === "auth_provider_kakao_other_account") return "Sign in with another Kakao account";
       if (key === "auth_login_divider_other_account") return "Continue with another account";
       if (key === "auth_login_divider_id_password") return "Or internal / operations login";
       if (key === "auth_login_internal_entry") return "Internal / operations login";
