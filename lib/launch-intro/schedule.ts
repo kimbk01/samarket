@@ -50,6 +50,8 @@ export function validateLaunchIntroEligibility(
   const o = raw as Record<string, unknown>;
   const frequency = (o.frequency ?? "every_launch") as LaunchIntroFrequency;
   if (!LAUNCH_INTRO_FREQUENCIES.includes(frequency)) return { ok: false, error: "frequency_invalid" };
+  const target = o.target ?? "all";
+  if (target !== "all" && target !== "phone" && target !== "tablet") return { ok: false, error: "target_invalid" };
   const iso = (v: unknown): string | null | undefined => {
     if (v == null || v === "") return null;
     if (typeof v !== "string") return undefined;
@@ -63,6 +65,7 @@ export function validateLaunchIntroEligibility(
   if (startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)) return { ok: false, error: "schedule_end_before_start" };
   if (endAt && Date.parse(endAt) <= nowMs) return { ok: false, error: "schedule_already_ended" };
   const eligibility: LaunchIntroEligibility = { frequency };
+  if (target !== "all") eligibility.target = target;
   if (startAt) eligibility.startAt = startAt;
   if (endAt) eligibility.endAt = endAt;
   return { ok: true, eligibility };
@@ -72,12 +75,13 @@ export function validateLaunchIntroEligibility(
 export function sameLaunchIntroEligibility(a: LaunchIntroEligibility | null | undefined, b: LaunchIntroEligibility): boolean {
   const norm = (e: LaunchIntroEligibility | null | undefined) => ({
     frequency: e?.frequency ?? "every_launch",
+    target: e?.target ?? "all",
     startAt: e?.startAt ? new Date(e.startAt).toISOString() : null,
     endAt: e?.endAt ? new Date(e.endAt).toISOString() : null,
   });
   const x = norm(a);
   const y = norm(b);
-  return x.frequency === y.frequency && x.startAt === y.startAt && x.endAt === y.endAt;
+  return x.frequency === y.frequency && x.target === y.target && x.startAt === y.startAt && x.endAt === y.endAt;
 }
 
 export type LaunchIntroScheduleState = "always" | "scheduled" | "running" | "ended";

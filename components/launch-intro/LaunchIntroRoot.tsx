@@ -20,7 +20,9 @@ import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
 import { launchIntroDocumentImageRefs, launchIntroDocumentVideoRefs } from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
+import { resolveDibayDeviceClass } from "@/lib/device/dibay-device-class";
 import { recordLaunchIntroShown } from "@/lib/launch-intro/frequency";
+import { launchIntroTargetMatches } from "@/lib/launch-intro/target";
 import { markLaunchEpochShown } from "@/lib/launch-intro/launch-epoch";
 import {
   abortLaunchIntroToCommunity,
@@ -101,6 +103,18 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         abortLaunchIntroToCommunity(intent);
         setPhase("done");
         return;
+      }
+      // P7 device target: read the DeviceClass SSOT (read-only) only when the publication targets
+      // phones or tablets. Not a match (or UNKNOWN) → COMMUNITY before the OS release, like an intent.
+      const target = snapshot.publication.eligibility?.target;
+      if (target) {
+        const dc = await resolveDibayDeviceClass();
+        if (cancelled) return;
+        if (!launchIntroTargetMatches(target, dc.deviceClass)) {
+          abortLaunchIntroToCommunity(`target_${target}_device_${dc.deviceClass}`);
+          setPhase("done");
+          return;
+        }
       }
       const srcs: Record<string, string> = {};
       for (const ref of launchIntroDocumentImageRefs(doc)) {

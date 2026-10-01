@@ -19,6 +19,7 @@ import {
   validateLaunchIntroDocument,
 } from "../document";
 import { launchIntroFrequencyAllows, manilaDayOf } from "../frequency";
+import { launchIntroTargetMatches } from "../target";
 import {
   isoToManilaLocal,
   launchIntroScheduleState,
@@ -388,6 +389,36 @@ describe("P6 frequency (separate consumption record, Manila day)", () => {
     // every_launch authority stays the epoch (regression)
     expect(dest).toContain('if (readShownLaunchEpoch() === epoch) return community("shown_this_epoch")');
     expect(validateLaunchIntroEligibility({ frequency: "once_per_day" }, 0)).toEqual({ ok: true, eligibility: { frequency: "once_per_day" } });
+  });
+});
+
+describe("P7 device target (DeviceClass read-only, PREPARING)", () => {
+  it("phone / tablet / all; UNKNOWN and desktop never match a specific target", () => {
+    for (const dc of ["PHONE_ANDROID", "PHONE_IOS"] as const) {
+      expect(launchIntroTargetMatches("phone", dc)).toBe(true);
+      expect(launchIntroTargetMatches("tablet", dc)).toBe(false);
+    }
+    for (const dc of ["TABLET_ANDROID", "TABLET_IPAD"] as const) {
+      expect(launchIntroTargetMatches("tablet", dc)).toBe(true);
+      expect(launchIntroTargetMatches("phone", dc)).toBe(false);
+    }
+    for (const dc of ["UNKNOWN", "WEB_DESKTOP", "DESKTOP_WINDOWS"] as const) {
+      expect(launchIntroTargetMatches("phone", dc)).toBe(false);
+      expect(launchIntroTargetMatches("tablet", dc)).toBe(false);
+      expect(launchIntroTargetMatches("all", dc)).toBe(true);
+    }
+    expect(validateLaunchIntroEligibility({ target: "phone" }, 0)).toEqual({ ok: true, eligibility: { frequency: "every_launch", target: "phone" } });
+    expect(validateLaunchIntroEligibility({ target: "all" }, 0)).toEqual({ ok: true, eligibility: { frequency: "every_launch" } });
+    expect(validateLaunchIntroEligibility({ target: "watch" }, 0)).toEqual({ ok: false, error: "target_invalid" });
+    expect(sameLaunchIntroEligibility({ frequency: "every_launch" }, { frequency: "every_launch", target: "phone" })).toBe(false);
+  });
+
+  it("target is judged in PREPARING (before the OS release), never in the sync decision, and only when set", () => {
+    const root = src("components/launch-intro/LaunchIntroRoot.tsx");
+    expect(root).toMatch(/const target = snapshot\.publication\.eligibility\?\.target;\s+if \(target\) \{\s+const dc = await resolveDibayDeviceClass\(\);/);
+    expect(root.indexOf("resolveDibayDeviceClass()")).toBeLessThan(root.indexOf("launchIntroDocumentImageRefs(doc)) {"));
+    expect(src("lib/launch-intro/startup-destination.ts")).not.toContain("DeviceClass");
+    expect(src("lib/launch-intro/target.ts")).toMatch(/import type \{ DibayDeviceClass \}/);
   });
 });
 

@@ -152,6 +152,8 @@ export const LAUNCH_INTRO_FREQUENCIES: readonly LaunchIntroFrequency[] = ["every
 /** Eligibility of one immutable publication: frequency (P6) + optional schedule window (P5). */
 export type LaunchIntroEligibility = {
   frequency: LaunchIntroFrequency;
+  /** P7: absent = all devices. */
+  target?: "phone" | "tablet";
   startAt?: string | null;
   endAt?: string | null;
 };

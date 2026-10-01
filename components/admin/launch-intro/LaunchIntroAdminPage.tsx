@@ -50,6 +50,7 @@ import {
   launchIntroDraftStatus,
   type LaunchIntroLifecycleAction,
 } from "@/lib/launch-intro/lifecycle";
+import { LAUNCH_INTRO_TARGETS, type LaunchIntroTarget } from "@/lib/launch-intro/target";
 import {
   formatManila,
   launchIntroScheduleState,
@@ -107,6 +108,11 @@ const FREQUENCY_LABEL = {
   once_per_publication: "admin_launch_intro_frequency_once_per_publication",
   once_per_day: "admin_launch_intro_frequency_once_per_day",
 } as const satisfies Record<LaunchIntroFrequency, string>;
+const TARGET_LABEL = {
+  all: "admin_launch_intro_target_all",
+  phone: "admin_launch_intro_target_phone",
+  tablet: "admin_launch_intro_target_tablet",
+} as const satisfies Record<LaunchIntroTarget, string>;
 /** Confirm + result copy per Live transition (every state change asks first, then says what happens on devices). */
 const LIFECYCLE_COPY = {
   pause: {
@@ -334,10 +340,16 @@ export function LaunchIntroAdminPage() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   /** Publish schedule (P5), Manila wall time; empty = no limit. */
-  const [schedule, setSchedule] = useState<{ startLocal: string; endLocal: string; frequency: LaunchIntroFrequency }>({
+  const [schedule, setSchedule] = useState<{
+    startLocal: string;
+    endLocal: string;
+    frequency: LaunchIntroFrequency;
+    target: LaunchIntroTarget;
+  }>({
     startLocal: "",
     endLocal: "",
     frequency: "every_launch",
+    target: "all",
   });
   /** Clock for schedule labels, refreshed with every server snapshot (no timers). */
   const [now, setNow] = useState(() => Date.now());
@@ -499,7 +511,10 @@ export function LaunchIntroAdminPage() {
       setMessage(t("admin_launch_intro_schedule_err_invalid"));
       return;
     }
-    const checked = validateLaunchIntroEligibility({ frequency: schedule.frequency, startAt, endAt }, Date.now());
+    const checked = validateLaunchIntroEligibility(
+      { frequency: schedule.frequency, target: schedule.target, startAt, endAt },
+      Date.now()
+    );
     if (!checked.ok) {
       setMessage(
         checked.error === "schedule_end_before_start"
@@ -516,6 +531,7 @@ export function LaunchIntroAdminPage() {
       description: [
         t("admin_launch_intro_publish_confirm_desc"),
         t(FREQUENCY_LABEL[e.frequency]) + ".",
+        t(TARGET_LABEL[e.target ?? "all"]) + ".",
         e.startAt || e.endAt
           ? t("admin_launch_intro_schedule_summary", {
               start: e.startAt ? formatManila(e.startAt, undefined) : t("admin_launch_intro_schedule_now"),
@@ -568,6 +584,7 @@ export function LaunchIntroAdminPage() {
   const liveSchedule = livePublication ? launchIntroScheduleState(livePublication.eligibility, now) : "always";
   const scheduleText = (e: LaunchIntroEligibility | null) =>
     [
+      e?.target ? t(TARGET_LABEL[e.target]) : "",
       e?.frequency && e.frequency !== "every_launch" ? t(FREQUENCY_LABEL[e.frequency]) : "",
       e?.startAt || e?.endAt
         ? t("admin_launch_intro_schedule_window", {
@@ -1051,6 +1068,21 @@ export function LaunchIntroAdminPage() {
                     {LAUNCH_INTRO_FREQUENCIES.map((f) => (
                       <option key={f} value={f}>
                         {t(FREQUENCY_LABEL[f])}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="block sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_target")}</span>
+                  <select
+                    className={`${field} w-auto`}
+                    value={schedule.target}
+                    onChange={(e) => setSchedule((s) => ({ ...s, target: e.target.value as LaunchIntroTarget }))}
+                    data-launch-intro-target=""
+                  >
+                    {LAUNCH_INTRO_TARGETS.map((x) => (
+                      <option key={x} value={x}>
+                        {t(TARGET_LABEL[x])}
                       </option>
                     ))}
                   </select>
