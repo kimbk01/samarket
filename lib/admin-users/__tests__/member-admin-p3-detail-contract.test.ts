@@ -51,7 +51,7 @@ describe("P3 member detail control center contract", () => {
     expect(memberDetailStoreHref("42")).toBe("/admin/business/42");
     const storePanel = src("components/admin/users/AdminMemberStorePanel.tsx");
     expect(storePanel).toMatch(/memberDetailStoreHref/);
-    expect(storePanel).toMatch(/매장 상세 보기/);
+    expect(storePanel).toMatch(/MEMBER_STORE_RELATION_COPY\.view_store|매장 상세 보기/);
     expect(storePanel).toMatch(/MEMBER_DETAIL_STORE_NONE_KO|매장 없음/);
     expect(storePanel).not.toMatch(/\/admin\/stores\?q=/);
   });
