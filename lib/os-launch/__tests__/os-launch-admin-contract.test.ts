@@ -70,10 +70,11 @@ describe("R17-OS admin contract", () => {
 });
 
 describe("R17-OS admin boundaries", () => {
-  it("menu: Startup group holds OS start screen only (Intro is separate, not yet built)", () => {
+  it("menu: Startup group under Promotion holds OS start screen only (Intro separate, not yet built)", () => {
     const menu = src("components/admin/admin-menu.ts");
     expect(menu).toContain('key: "settings-startup"');
-    expect(menu).toContain('path: "/admin/settings/os-start"');
+    expect(menu).toContain('path: "/admin/platform-promotion/os-start"');
+    expect(menu).not.toContain('path: "/admin/settings/os-start"');
     expect(menu).not.toContain("/admin/settings/intro");
   });
 

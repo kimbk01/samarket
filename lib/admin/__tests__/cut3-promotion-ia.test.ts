@@ -35,7 +35,7 @@ function read(rel: string): string {
 }
 
 describe("CUT3 Promotion IA navigation", () => {
-  it("exposes promotion workspace with home + 5 children (intro burned R15 ZERO)", () => {
+  it("exposes promotion workspace with home + 5 children + Startup group (intro burned R15 ZERO)", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
@@ -46,8 +46,13 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion-banners",
       "promotion-notifications",
       "promotion-owner-requests",
+      "settings-startup",
     ]);
     expect(keys).not.toContain("promotion-intro");
+    // R17-OS: Startup group holds the build-time OS start screen only.
+    expect(
+      (findAdminMenuByKey(adminMenu, "settings-startup")?.children ?? []).map((c) => c.key)
+    ).toEqual(["settings-os-start"]);
     const publicAds = filterMenuForPublicSidebar(
       findAdminMenuByKey(adminMenu, "ads")?.children ?? []
     ).map((c) => c.key);
@@ -67,6 +72,9 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion"
     );
     expect(resolveActiveWorkspace("/admin/platform-event-owner-requests", "master").id).toBe(
+      "promotion"
+    );
+    expect(resolveActiveWorkspace("/admin/platform-promotion/os-start", "master").id).toBe(
       "promotion"
     );
     expect(resolveActiveWorkspace("/admin/advertising", "master").id).toBe("ads");

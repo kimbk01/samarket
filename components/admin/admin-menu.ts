@@ -1067,6 +1067,18 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
+        key: "settings-startup",
+        title: "",
+        children: [
+          {
+            key: "settings-os-start",
+            title: "",
+            path: "/admin/platform-promotion/os-start",
+            status: "done",
+          },
+        ],
+      },
+      {
         key: "promotion-owner-requests",
         title: "",
         path: "/admin/platform-event-owner-requests",
@@ -1224,18 +1236,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/settings/startup-config",
             status: "done",
-          },
-          {
-            key: "settings-startup",
-            title: "",
-            children: [
-              {
-                key: "settings-os-start",
-                title: "",
-                path: "/admin/settings/os-start",
-                status: "done",
-              },
-            ],
           },
           { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
           {

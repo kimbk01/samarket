@@ -1,5 +1,6 @@
-import { OsLaunchAdminPage } from "@/components/admin/settings/OsLaunchAdminPage";
+import { redirect } from "next/navigation";
 
-export default function AdminOsStartPage() {
-  return <OsLaunchAdminPage />;
+/** Moved to Promotion workspace — keep old links working. */
+export default function AdminOsStartLegacyRedirect() {
+  redirect("/admin/platform-promotion/os-start");
 }
