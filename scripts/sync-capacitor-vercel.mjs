@@ -76,15 +76,19 @@ process.env.CAPACITOR_SERVER_URL = serverUrl;
 
 console.log(`[capacitor-vercel] server.url=${serverUrl}`);
 
-console.log(`[capacitor-vercel] build Local Boot Shell HTML`);
+// WP-0: the Local Boot Shell builder script was removed under R15 ZERO (verify-startup-architecture).
+// The native build now stamps a fresh source fingerprint into the Android assets on every sync.
+console.log(`[capacitor-vercel] generate build fingerprint + Local Runtime`);
 {
-  const build = spawnSync("node", ["scripts/build-startup-shell.mjs", `--origin=${serverUrl}`], {
+  const fingerprintArgs = ["scripts/generate-app-build-fingerprint.mjs", "--android-only"];
+  if (includeIos) fingerprintArgs.push("--ios-plist");
+  const fingerprint = spawnSync("node", fingerprintArgs, {
     cwd: ROOT,
     stdio: "inherit",
     env: process.env,
   });
-  if (build.status !== 0) {
-    process.exit(build.status ?? 1);
+  if (fingerprint.status !== 0) {
+    process.exit(fingerprint.status ?? 1);
   }
   const buildLocal = spawnSync("node", ["scripts/build-local-runtime.mjs", `--origin=${serverUrl}`], {
     cwd: ROOT,

@@ -68,6 +68,14 @@ for (const rel of [
 }
 ok("product intro trees absent");
 
+// WP-0: build scripts must not call the removed Local Boot Shell builder.
+for (const rel of ["scripts/sync-capacitor-vercel.mjs", "scripts/build-apk-vercel.mjs"]) {
+  if (exists(rel) && read(rel).includes("build-startup-shell")) {
+    fail(`${rel} references removed scripts/build-startup-shell.mjs`);
+  }
+}
+ok("native build scripts do not reference build-startup-shell");
+
 const styles = read("android/app/src/main/res/values/styles.xml");
 if (!styles.includes("Theme.SplashScreen") && !styles.includes("AppTheme.NoActionBarLaunch")) {
   fail("Android Theme.SplashScreen / NoActionBarLaunch required");
