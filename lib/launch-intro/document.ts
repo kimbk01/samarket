@@ -30,7 +30,8 @@ export const LAUNCH_INTRO_TOTAL_MAX_MS = 5000;
 export function launchIntroTotalDurationMs(doc: { scenes: Array<{ durationMs: number }> }): number {
   return doc.scenes.reduce((sum, s) => sum + s.durationMs, 0);
 }
-export const LAUNCH_INTRO_DURATION_DEFAULT_MS = 3000;
+/** New scenes start short (Owner: minimum by default; Admin lengthens when needed). */
+export const LAUNCH_INTRO_DURATION_DEFAULT_MS = 1500;
 /** Headline keeps the v1 text limit so every v1 document upgrades losslessly. Short copy is recommended in Admin. */
 export const LAUNCH_INTRO_HEADLINE_MAX = 80;
 export const LAUNCH_INTRO_SUPPORTING_MAX = 120;
