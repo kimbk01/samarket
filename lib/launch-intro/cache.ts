@@ -12,7 +12,7 @@ import type {
   LaunchIntroEligibility,
   LaunchIntroLiveState,
 } from "@/lib/launch-intro/document";
-import { LAUNCH_INTRO_SCHEMA_VERSION } from "@/lib/launch-intro/document";
+import { validateLaunchIntroDocument } from "@/lib/launch-intro/document";
 
 export const LAUNCH_INTRO_INDEX_KEY = "dibay:launch-intro:index";
 export const LAUNCH_INTRO_CACHE_NAME = "dibay-launch-intro-v1";
@@ -34,22 +34,23 @@ export type LaunchIntroIndex = {
   promotedAt: string;
 };
 
-function isIndex(v: unknown): v is LaunchIntroIndex {
-  if (!v || typeof v !== "object") return false;
+/**
+ * Structural check + document normalization. Cached documents may be schema v1 (promoted before the
+ * v2 runtime) or v2; both normalize through the one validator. Anything else is not a candidate.
+ */
+function parseIndex(v: unknown): LaunchIntroIndex | null {
+  if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  if (o.schema !== INDEX_SCHEMA) return false;
-  if (typeof o.revision !== "number" || !Number.isFinite(o.revision)) return false;
-  if (o.state !== "active" && o.state !== "paused" && o.state !== "unpublished") return false;
-  if (o.publication == null) return true;
+  if (o.schema !== INDEX_SCHEMA) return null;
+  if (typeof o.revision !== "number" || !Number.isFinite(o.revision)) return null;
+  if (o.state !== "active" && o.state !== "paused" && o.state !== "unpublished") return null;
+  const index = o as unknown as LaunchIntroIndex;
+  if (o.publication == null) return { ...index, publication: null };
   const p = o.publication as Record<string, unknown>;
-  const doc = p.document as Record<string, unknown> | undefined;
-  return (
-    typeof p.id === "string" &&
-    Array.isArray(p.assets) &&
-    !!doc &&
-    doc.schemaVersion === LAUNCH_INTRO_SCHEMA_VERSION &&
-    Array.isArray(doc.scenes)
-  );
+  if (typeof p.id !== "string" || !Array.isArray(p.assets)) return null;
+  const doc = validateLaunchIntroDocument(p.document, "publication");
+  if (!doc.ok) return null;
+  return { ...index, publication: { ...(p as unknown as LaunchIntroCachedPublication), document: doc.document } };
 }
 
 /** Sync read. Corrupt / unknown schema → index removed, null (next discovery repairs). */
@@ -62,8 +63,8 @@ export function readLaunchIntroIndex(): LaunchIntroIndex | null {
   }
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (isIndex(parsed)) return parsed;
+    const parsed = parseIndex(JSON.parse(raw) as unknown);
+    if (parsed) return parsed;
   } catch {
     /* fall through */
   }

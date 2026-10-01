@@ -1,22 +1,37 @@
 "use client";
 
 /**
- * DIBAY Intro — Admin (contract §1, §3, §6, §7). SAVE = DRAFT, PUBLISH = immutable publication +
- * Live pointer. Pause / Resume / Unpublish / Reactivate follow the live state machine.
- * Preview uses the SAME renderer as the app (LaunchIntroSceneView).
+ * DIBAY Intro — Admin (contract §1, §3, §6, §7; expansion P1). SAVE = DRAFT, PUBLISH = immutable
+ * publication + Live pointer. Pause / Resume / Unpublish / Reactivate follow the live state machine.
+ * Editor: scene list + per-scene form. Preview renders the SAME document through the SAME Player as
+ * the app, inside fixed device-sized boxes (Phone / Android Tablet / iPad). The box is only a size:
+ * no DeviceClass decision is made here.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { LaunchIntroSceneView } from "@/components/launch-intro/LaunchIntroSceneView";
+import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
+import { dibayConfirm } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import {
+  LAUNCH_INTRO_CTA_LABEL_MAX,
+  LAUNCH_INTRO_CTA_PATH_MAX,
+  LAUNCH_INTRO_DURATION_MAX_MS,
+  LAUNCH_INTRO_DURATION_MIN_MS,
+  LAUNCH_INTRO_HEADLINE_MAX,
+  LAUNCH_INTRO_MAX_SCENES,
+  LAUNCH_INTRO_SUPPORTING_MAX,
+  LAUNCH_INTRO_TEXT_SIZES,
   emptyLaunchIntroDocument,
+  emptyLaunchIntroScene,
+  newLaunchIntroSceneId,
   normalizeLaunchIntroHex,
   type LaunchIntroDocument,
   type LaunchIntroImageRef,
   type LaunchIntroLiveState,
   type LaunchIntroScene,
+  type LaunchIntroSceneText,
+  type LaunchIntroTextStyle,
 } from "@/lib/launch-intro/document";
 
 type Snapshot = {
@@ -30,11 +45,118 @@ type Snapshot = {
 type ApiError = { ok: false; error?: string };
 
 const field = "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg";
+const label = "mb-1 block sam-text-body font-medium text-sam-fg";
 
-function PhonePreview({ scene, imageSrc, skipLabel }: { scene: LaunchIntroScene; imageSrc: string | null; skipLabel: string }) {
+/** Preview boxes in CSS px (portrait). The Player lays out in container units, so the scaled box = the device. */
+const PREVIEW_DEVICES = {
+  phone: { w: 390, h: 844, rotatable: false },
+  android_tablet: { w: 800, h: 1280, rotatable: true },
+  ipad: { w: 820, h: 1180, rotatable: true },
+} as const;
+type PreviewDevice = keyof typeof PREVIEW_DEVICES;
+const PREVIEW_MAX_W = 300;
+const PREVIEW_MAX_H = 560;
+
+function defaultTextStyle(kind: "headline" | "supporting", value: string): LaunchIntroTextStyle {
+  return kind === "headline"
+    ? { value, size: "L", weight: "bold", color: "#FFFFFF" }
+    : { value, size: "M", weight: "regular", color: "#FFFFFF" };
+}
+
+function TextStyleEditor({
+  title,
+  kind,
+  style,
+  max,
+  onChange,
+}: {
+  title: string;
+  kind: "headline" | "supporting";
+  style: LaunchIntroTextStyle | null;
+  max: number;
+  onChange: (next: LaunchIntroTextStyle | null) => void;
+}) {
+  const { t } = useI18n();
+  const cur = style ?? defaultTextStyle(kind, "");
+  const set = (patch: Partial<LaunchIntroTextStyle>) => {
+    const next = { ...cur, ...patch };
+    onChange(next.value ? next : null);
+  };
   return (
-    <div className="mx-auto aspect-[9/19.5] w-[200px] overflow-hidden rounded-[24px] border border-sam-border">
-      <LaunchIntroSceneView scene={scene} imageSrc={imageSrc} skipLabel={skipLabel} />
+    <div className="space-y-2">
+      <span className={label}>
+        {title} <span className="sam-text-body-secondary text-sam-muted">({cur.value.length}/{max})</span>
+      </span>
+      <textarea className={field} rows={kind === "headline" ? 2 : 3} maxLength={max} value={cur.value} onChange={(e) => set({ value: e.target.value })} />
+      <div className="flex flex-wrap items-center gap-2">
+        <select className={`${field} w-auto`} aria-label={t("admin_launch_intro_text_size")} value={cur.size} onChange={(e) => set({ size: e.target.value as LaunchIntroTextStyle["size"] })}>
+          {LAUNCH_INTRO_TEXT_SIZES.map((sz) => (
+            <option key={sz} value={sz}>
+              {t("admin_launch_intro_text_size")} {sz}
+            </option>
+          ))}
+        </select>
+        <select className={`${field} w-auto`} aria-label={t("admin_launch_intro_text_weight")} value={cur.weight} onChange={(e) => set({ weight: e.target.value as LaunchIntroTextStyle["weight"] })}>
+          <option value="regular">{t("admin_launch_intro_weight_regular")}</option>
+          <option value="bold">{t("admin_launch_intro_weight_bold")}</option>
+        </select>
+        <input type="color" aria-label={t("admin_launch_intro_text_color")} className="h-10 w-12 cursor-pointer rounded-ui-rect border border-sam-border" value={cur.color} onChange={(e) => set({ color: e.target.value.toUpperCase() })} />
+      </div>
+    </div>
+  );
+}
+
+function DevicePreview({
+  doc,
+  sceneIndex,
+  playing,
+  imageUrls,
+  device,
+  landscape,
+  onSceneIndexChange,
+  onStop,
+  onNotice,
+}: {
+  doc: LaunchIntroDocument;
+  sceneIndex: number;
+  playing: boolean;
+  imageUrls: Record<string, string>;
+  device: PreviewDevice;
+  landscape: boolean;
+  onSceneIndexChange: (i: number) => void;
+  onStop: () => void;
+  onNotice: (text: string) => void;
+}) {
+  const { t } = useI18n();
+  const spec = PREVIEW_DEVICES[device];
+  const w = landscape && spec.rotatable ? spec.h : spec.w;
+  const h = landscape && spec.rotatable ? spec.w : spec.h;
+  const scale = Math.min(PREVIEW_MAX_W / w, PREVIEW_MAX_H / h);
+  return (
+    <div className="mx-auto overflow-hidden rounded-[20px] border border-sam-border" style={{ width: w * scale, height: h * scale }}>
+      <div style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        <LaunchIntroPlayer
+          document={doc}
+          resolveImage={(sha) => imageUrls[sha] ?? null}
+          skipLabel={t("launch_intro_skip")}
+          running={playing}
+          sceneIndex={sceneIndex}
+          onSceneIndexChange={onSceneIndexChange}
+          onComplete={() => {
+            onStop();
+            onNotice(t("admin_launch_intro_preview_ended"));
+          }}
+          onRoute={(path) => {
+            onStop();
+            onNotice(t("admin_launch_intro_preview_route", { path }));
+          }}
+          onSkip={() => {
+            onStop();
+            onNotice(t("admin_launch_intro_preview_ended"));
+          }}
+          interactive={playing}
+        />
+      </div>
     </div>
   );
 }
@@ -43,9 +165,15 @@ export function LaunchIntroAdminPage() {
   const { t } = useI18n();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [doc, setDoc] = useState<LaunchIntroDocument | null>(null);
+  const [selected, setSelected] = useState(0);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [device, setDevice] = useState<PreviewDevice>("phone");
+  const [landscape, setLandscape] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const apply = useCallback((json: Snapshot) => {
@@ -78,15 +206,60 @@ export function LaunchIntroAdminPage() {
     void call("/api/admin/launch-intro", { method: "GET" }, "");
   }, [call]);
 
-  const scene = doc?.scenes[0] ?? null;
+  const sceneCount = doc?.scenes.length ?? 0;
+  const sel = Math.min(selected, Math.max(sceneCount - 1, 0));
+  const scene = doc?.scenes[sel] ?? null;
   const dirty = useMemo(
     () => !!snap?.draft && JSON.stringify(doc) !== JSON.stringify(snap.draft.document),
     [doc, snap]
   );
 
+  // The static preview follows the selected scene; playback runs the whole document from scene 1.
+  useEffect(() => {
+    if (!playing) setPreviewIndex(sel);
+  }, [sel, playing]);
+
+  const setScenes = (scenes: LaunchIntroScene[], nextSelected: number) => {
+    if (!doc) return;
+    setPlaying(false);
+    setDoc({ ...doc, scenes });
+    setSelected(nextSelected);
+  };
   const patchScene = (patch: Partial<LaunchIntroScene>) => {
     if (!doc || !scene) return;
-    setDoc({ ...doc, scenes: [{ ...scene, ...patch }] });
+    setDoc({ ...doc, scenes: doc.scenes.map((s, i) => (i === sel ? { ...s, ...patch } : s)) });
+  };
+  const patchText = (patch: Partial<LaunchIntroSceneText>) => {
+    if (!scene) return;
+    const cur: LaunchIntroSceneText = scene.text ?? { headline: null, supporting: null, align: "center" };
+    const next = { ...cur, ...patch };
+    patchScene({ text: next.headline || next.supporting ? next : null });
+  };
+  const addScene = () => {
+    if (!doc || sceneCount >= LAUNCH_INTRO_MAX_SCENES) return;
+    const id = newLaunchIntroSceneId(doc.scenes.map((s) => s.id));
+    const base = emptyLaunchIntroScene(id);
+    base.background = { ...(scene?.background ?? base.background) };
+    setScenes([...doc.scenes, base], sceneCount);
+  };
+  const duplicateScene = () => {
+    if (!doc || !scene || sceneCount >= LAUNCH_INTRO_MAX_SCENES) return;
+    const copy: LaunchIntroScene = { ...structuredClone(scene), id: newLaunchIntroSceneId(doc.scenes.map((s) => s.id)) };
+    const scenes = [...doc.scenes];
+    scenes.splice(sel + 1, 0, copy);
+    setScenes(scenes, sel + 1);
+  };
+  const moveScene = (dir: -1 | 1) => {
+    if (!doc) return;
+    const to = sel + dir;
+    if (to < 0 || to >= sceneCount) return;
+    const scenes = [...doc.scenes];
+    [scenes[sel], scenes[to]] = [scenes[to], scenes[sel]];
+    setScenes(scenes, to);
+  };
+  const removeScene = () => {
+    if (!doc || sceneCount <= 1) return;
+    setScenes(doc.scenes.filter((_, i) => i !== sel), Math.max(0, sel - 1));
   };
 
   const save = (document: LaunchIntroDocument | null) =>
@@ -113,13 +286,32 @@ export function LaunchIntroAdminPage() {
         return;
       }
       if (json.url) setImageUrls((prev) => ({ ...prev, [json.image.sha256]: json.url! }));
-      patchScene({ image: json.image });
+      patchScene({ media: { asset: json.image, fit: "contain" } });
     } catch {
       setMessage(t("admin_launch_intro_error", { error: "network" }));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  };
+
+  const publish = async () => {
+    if (!snap?.draft) return;
+    const ok = await dibayConfirm({
+      title: t("admin_launch_intro_publish_confirm"),
+      description: t("admin_launch_intro_publish_confirm_desc"),
+      confirmLabel: t("admin_launch_intro_publish"),
+    });
+    if (!ok) return;
+    await call(
+      "/api/admin/launch-intro/publish",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draftId: snap.draft.id, version: snap.draft.version }),
+      },
+      t("admin_launch_intro_done")
+    );
   };
 
   const setState = (action: "pause" | "resume" | "unpublish" | "reactivate", publicationId?: string) =>
@@ -136,6 +328,8 @@ export function LaunchIntroAdminPage() {
       : live?.state === "paused"
         ? t("admin_launch_intro_state_paused")
         : t("admin_launch_intro_state_unpublished");
+  const isLast = sel === sceneCount - 1;
+  const ctaType = scene?.cta?.action.type ?? "none";
 
   return (
     <div className="space-y-4">
@@ -207,33 +401,87 @@ export function LaunchIntroAdminPage() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-5 px-4 py-4 sm:px-5 md:grid-cols-[1fr_auto]">
+          <div className="grid gap-5 px-4 py-4 sm:px-5 lg:grid-cols-[180px_1fr_auto]">
+            {/* Scene list */}
+            <div className="space-y-2">
+              <p className={label}>{t("admin_launch_intro_scenes")}</p>
+              <ol className="space-y-1">
+                {doc.scenes.map((s, i) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlaying(false);
+                        setSelected(i);
+                      }}
+                      className={`w-full rounded-ui-rect border px-3 py-2 text-left sam-text-body ${i === sel ? "border-sam-primary-border bg-sam-primary-soft font-semibold text-sam-fg" : "border-sam-border text-sam-fg"}`}
+                    >
+                      {t("admin_launch_intro_scene_n", { n: String(i + 1) })}
+                      <span className="block truncate sam-text-body-secondary text-sam-muted">
+                        {s.text?.headline?.value ?? s.text?.supporting?.value ?? (s.media ? "🖼" : "—")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <button type="button" className="sam-btn sam-btn--secondary w-full" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={addScene}>
+                {t("admin_launch_intro_scene_add")}
+              </button>
+              {sceneCount >= LAUNCH_INTRO_MAX_SCENES ? (
+                <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_scene_max", { n: String(LAUNCH_INTRO_MAX_SCENES) })}</p>
+              ) : null}
+              <div className="flex flex-wrap gap-1">
+                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sel === 0} onClick={() => moveScene(-1)}>
+                  {t("admin_launch_intro_scene_up")}
+                </button>
+                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || isLast} onClick={() => moveScene(1)}>
+                  {t("admin_launch_intro_scene_down")}
+                </button>
+                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sceneCount >= LAUNCH_INTRO_MAX_SCENES} onClick={duplicateScene}>
+                  {t("admin_launch_intro_scene_duplicate")}
+                </button>
+                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || sceneCount <= 1} onClick={removeScene}>
+                  {t("admin_launch_intro_scene_remove")}
+                </button>
+              </div>
+              <label className="flex items-center gap-2 pt-2 sam-text-body text-sam-fg">
+                <input
+                  type="checkbox"
+                  checked={doc.settings.skip.enabled}
+                  onChange={(e) => setDoc({ ...doc, settings: { skip: { enabled: e.target.checked } } })}
+                />
+                {t("admin_launch_intro_skip_enabled")}
+              </label>
+            </div>
+
+            {/* Selected scene */}
             <div className="space-y-4">
+              <p className="sam-text-body font-semibold text-sam-fg">{t("admin_launch_intro_scene_n", { n: String(sel + 1) })}</p>
               <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_background")}</span>
+                <span className={label}>{t("admin_launch_intro_background")}</span>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     className="h-10 w-12 shrink-0 cursor-pointer rounded-ui-rect border border-sam-border"
-                    value={scene.background}
-                    onChange={(e) => patchScene({ background: e.target.value.toUpperCase() })}
+                    value={scene.background.color}
+                    onChange={(e) => patchScene({ background: { color: e.target.value.toUpperCase() } })}
                   />
                   <input
                     className={`${field} font-mono`}
-                    defaultValue={scene.background}
-                    key={scene.background}
+                    defaultValue={scene.background.color}
+                    key={`${scene.id}-${scene.background.color}`}
                     maxLength={7}
                     onFocus={(e) => e.currentTarget.select()}
                     onBlur={(e) => {
                       const hex = normalizeLaunchIntroHex(e.target.value);
-                      if (hex) patchScene({ background: hex });
+                      if (hex) patchScene({ background: { color: hex } });
                     }}
                   />
                 </div>
               </label>
 
               <div>
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_image")}</span>
+                <span className={label}>{t("admin_launch_intro_image")}</span>
                 <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_hint")}</p>
                 <input
                   ref={fileRef}
@@ -249,67 +497,101 @@ export function LaunchIntroAdminPage() {
                   <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
                     {t("admin_launch_intro_upload")}
                   </button>
-                  {scene.image ? (
-                    <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ image: null })}>
+                  {scene.media ? (
+                    <button type="button" className="sam-btn sam-btn--secondary" disabled={busy} onClick={() => patchScene({ media: null })}>
                       {t("admin_launch_intro_remove_image")}
                     </button>
                   ) : null}
                 </div>
               </div>
 
+              <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_text_hint")}</p>
+              <TextStyleEditor
+                key={`${scene.id}-h`}
+                title={t("admin_launch_intro_headline")}
+                kind="headline"
+                style={scene.text?.headline ?? null}
+                max={LAUNCH_INTRO_HEADLINE_MAX}
+                onChange={(headline) => patchText({ headline })}
+              />
+              <TextStyleEditor
+                key={`${scene.id}-s`}
+                title={t("admin_launch_intro_supporting")}
+                kind="supporting"
+                style={scene.text?.supporting ?? null}
+                max={LAUNCH_INTRO_SUPPORTING_MAX}
+                onChange={(supporting) => patchText({ supporting })}
+              />
               <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_text")}</span>
-                <input
-                  className={field}
-                  maxLength={80}
-                  value={scene.text?.value ?? ""}
-                  onChange={(e) =>
-                    patchScene({ text: { value: e.target.value, color: scene.text?.color ?? "#FFFFFF" } })
-                  }
-                />
+                <span className={label}>{t("admin_launch_intro_align")}</span>
+                <select className={`${field} w-auto`} value={scene.text?.align ?? "center"} onChange={(e) => patchText({ align: e.target.value as LaunchIntroSceneText["align"] })}>
+                  <option value="center">{t("admin_launch_intro_align_center")}</option>
+                  <option value="left">{t("admin_launch_intro_align_left")}</option>
+                </select>
               </label>
+
+              <div className="space-y-2">
+                <span className={label}>{t("admin_launch_intro_cta_action")}</span>
+                <select
+                  className={`${field} w-auto`}
+                  value={ctaType}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const lbl = scene.cta?.label ?? "";
+                    if (v === "none") patchScene({ cta: null });
+                    else if (v === "next") patchScene({ cta: { label: lbl, action: { type: "next" } } });
+                    else patchScene({ cta: { label: lbl, action: { type: "route", path: scene.cta?.action.type === "route" ? scene.cta.action.path : "/" } } });
+                  }}
+                >
+                  <option value="none">{t("admin_launch_intro_cta_none")}</option>
+                  <option value="route">{t("admin_launch_intro_cta_route")}</option>
+                  <option value="next" disabled={isLast}>
+                    {t("admin_launch_intro_cta_next")}
+                  </option>
+                </select>
+                {ctaType === "next" && isLast ? (
+                  <p className="sam-text-body-secondary text-sam-warning">{t("admin_launch_intro_cta_next_last")}</p>
+                ) : null}
+                {scene.cta ? (
+                  <label className="block">
+                    <span className={label}>{t("admin_launch_intro_cta_label")}</span>
+                    <input
+                      className={field}
+                      maxLength={LAUNCH_INTRO_CTA_LABEL_MAX}
+                      value={scene.cta.label}
+                      onChange={(e) => patchScene({ cta: { ...scene.cta!, label: e.target.value } })}
+                    />
+                  </label>
+                ) : null}
+                {scene.cta?.action.type === "route" ? (
+                  <label className="block">
+                    <span className={label}>{t("admin_launch_intro_cta_path")}</span>
+                    <input
+                      className={`${field} font-mono`}
+                      maxLength={LAUNCH_INTRO_CTA_PATH_MAX}
+                      placeholder="/"
+                      value={scene.cta.action.path}
+                      onChange={(e) => patchScene({ cta: { label: scene.cta!.label, action: { type: "route", path: e.target.value } } })}
+                    />
+                  </label>
+                ) : null}
+              </div>
+
               <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_text_color")}</span>
-                <input
-                  type="color"
-                  className="h-10 w-12 cursor-pointer rounded-ui-rect border border-sam-border"
-                  value={scene.text?.color ?? "#FFFFFF"}
-                  onChange={(e) =>
-                    patchScene({ text: { value: scene.text?.value ?? "", color: e.target.value.toUpperCase() } })
-                  }
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_cta_label")}</span>
-                <input
-                  className={field}
-                  maxLength={24}
-                  value={scene.cta?.label ?? ""}
-                  onChange={(e) => patchScene({ cta: { label: e.target.value, path: scene.cta?.path ?? "" } })}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_cta_path")}</span>
-                <input
-                  className={`${field} font-mono`}
-                  maxLength={200}
-                  placeholder="/"
-                  value={scene.cta?.path ?? ""}
-                  onChange={(e) => patchScene({ cta: { label: scene.cta?.label ?? "", path: e.target.value } })}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block sam-text-body font-medium text-sam-fg">{t("admin_launch_intro_duration")}</span>
+                <span className={label}>{t("admin_launch_intro_duration")}</span>
                 <input
                   type="number"
-                  min={1}
-                  max={10}
+                  min={LAUNCH_INTRO_DURATION_MIN_MS / 1000}
+                  max={LAUNCH_INTRO_DURATION_MAX_MS / 1000}
                   step={0.5}
-                  className={field}
+                  className={`${field} w-32`}
                   value={scene.durationMs / 1000}
                   onChange={(e) => {
                     const sec = Number(e.target.value);
-                    if (Number.isFinite(sec)) patchScene({ durationMs: Math.round(Math.min(10, Math.max(1, sec)) * 1000) });
+                    if (Number.isFinite(sec)) {
+                      const ms = Math.round(sec * 1000);
+                      patchScene({ durationMs: Math.min(LAUNCH_INTRO_DURATION_MAX_MS, Math.max(LAUNCH_INTRO_DURATION_MIN_MS, ms)) });
+                    }
                   }}
                 />
               </label>
@@ -319,33 +601,27 @@ export function LaunchIntroAdminPage() {
                 <button type="button" className="sam-btn sam-btn--primary" disabled={busy || !dirty} onClick={() => void save(doc)}>
                   {t("admin_launch_intro_save")}
                 </button>
-                <button type="button" className="sam-btn sam-btn--secondary" disabled={busy || !dirty} onClick={() => setDoc(snap.draft?.document ?? null)}>
-                  {t("admin_launch_intro_cancel")}
-                </button>
                 <button
                   type="button"
-                  className="sam-btn sam-btn--primary"
-                  disabled={busy || dirty || !snap.draft}
-                  onClick={() =>
-                    void call(
-                      "/api/admin/launch-intro/publish",
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ draftId: snap.draft!.id, version: snap.draft!.version }),
-                      },
-                      t("admin_launch_intro_done")
-                    )
-                  }
+                  className="sam-btn sam-btn--secondary"
+                  disabled={busy || !dirty}
+                  onClick={() => {
+                    setPlaying(false);
+                    setDoc(snap.draft?.document ?? null);
+                  }}
                 >
+                  {t("admin_launch_intro_cancel")}
+                </button>
+                <button type="button" className="sam-btn sam-btn--primary" disabled={busy || dirty || !snap.draft} onClick={() => void publish()}>
                   {t("admin_launch_intro_publish")}
                 </button>
                 <button
                   type="button"
                   className="sam-btn sam-btn--secondary"
                   disabled={busy || !snap.draft}
-                  onClick={() => {
-                    if (!window.confirm(t("admin_launch_intro_delete_confirm"))) return;
+                  onClick={async () => {
+                    const ok = await dibayConfirm({ title: t("admin_launch_intro_delete_confirm"), confirmTone: "destructive", confirmLabel: t("admin_launch_intro_delete") });
+                    if (!ok) return;
                     void call(`/api/admin/launch-intro?id=${snap.draft!.id}`, { method: "DELETE" }, t("admin_launch_intro_done"));
                   }}
                 >
@@ -353,13 +629,67 @@ export function LaunchIntroAdminPage() {
                 </button>
               </div>
             </div>
-            <div>
-              <p className="mb-2 text-center sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_preview")}</p>
-              <PhonePreview
-                scene={scene}
-                imageSrc={scene.image ? imageUrls[scene.image.sha256] ?? null : null}
-                skipLabel={t("launch_intro_skip")}
+
+            {/* Preview: same document, same Player as the app */}
+            <div className="space-y-2">
+              <p className="text-center sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_preview")}</p>
+              <div className="flex flex-wrap justify-center gap-1">
+                {(Object.keys(PREVIEW_DEVICES) as PreviewDevice[]).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`sam-btn ${device === d ? "sam-btn--primary" : "sam-btn--secondary"}`}
+                    onClick={() => setDevice(d)}
+                  >
+                    {t(`admin_launch_intro_preview_${d}` as const)}
+                  </button>
+                ))}
+              </div>
+              {PREVIEW_DEVICES[device].rotatable ? (
+                <div className="flex justify-center gap-1">
+                  <button type="button" className={`sam-btn ${!landscape ? "sam-btn--primary" : "sam-btn--secondary"}`} onClick={() => setLandscape(false)}>
+                    {t("admin_launch_intro_preview_portrait")}
+                  </button>
+                  <button type="button" className={`sam-btn ${landscape ? "sam-btn--primary" : "sam-btn--secondary"}`} onClick={() => setLandscape(true)}>
+                    {t("admin_launch_intro_preview_landscape")}
+                  </button>
+                </div>
+              ) : null}
+              <DevicePreview
+                doc={doc}
+                sceneIndex={playing ? previewIndex : sel}
+                playing={playing}
+                imageUrls={imageUrls}
+                device={device}
+                landscape={landscape}
+                onSceneIndexChange={setPreviewIndex}
+                onStop={() => setPlaying(false)}
+                onNotice={setPreviewNotice}
               />
+              <div className="flex justify-center">
+                {playing ? (
+                  <button type="button" className="sam-btn sam-btn--secondary" onClick={() => setPlaying(false)}>
+                    {t("admin_launch_intro_preview_stop")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="sam-btn sam-btn--secondary"
+                    onClick={() => {
+                      setPreviewNotice(null);
+                      setPreviewIndex(0);
+                      setPlaying(true);
+                    }}
+                  >
+                    {t("admin_launch_intro_preview_play")}
+                  </button>
+                )}
+              </div>
+              {playing ? (
+                <p className="text-center sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_scene_n", { n: String(previewIndex + 1) })}</p>
+              ) : previewNotice ? (
+                <p className="max-w-[300px] text-center sam-text-body-secondary text-sam-muted">{previewNotice}</p>
+              ) : null}
             </div>
           </div>
         )}

@@ -16,8 +16,9 @@ import { Component, Suspense, use, useCallback, useEffect, useLayoutEffect, useR
 import type { ErrorInfo, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { LaunchIntroSceneView } from "@/components/launch-intro/LaunchIntroSceneView";
+import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
+import { launchIntroDocumentImageRefs } from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
 import { markLaunchEpochShown } from "@/lib/launch-intro/launch-epoch";
 import {
@@ -79,15 +80,19 @@ type Phase = "preparing" | "showing" | "exiting" | "done";
 function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
   const { t } = useI18n();
   const router = useRouter();
-  const scene = snapshot.publication.document.scenes[0];
+  const doc = snapshot.publication.document;
   const [phase, setPhase] = useState<Phase>("preparing");
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [imageSrcs, setImageSrcs] = useState<Record<string, string>>({});
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [released, setReleased] = useState(false);
   const latched = useRef(false);
-  const timer = useRef<number | null>(null);
 
-  // PREPARING: launch intent + local verified asset + decode. Local only, no network.
+  // PREPARING: launch intent + every scene image from the verified local cache, decoded before the
+  // first frame (scene changes never wait on media). Local only, no network.
   useEffect(() => {
     let cancelled = false;
+    let committed = false;
+    const created: string[] = [];
     void (async () => {
       const intent = await hasLaunchIntent();
       if (cancelled) return;
@@ -96,12 +101,12 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         setPhase("done");
         return;
       }
-      let src: string | null = null;
-      const asset = scene?.image
-        ? snapshot.publication.assets.find((a) => a.sha256 === scene.image!.sha256)
-        : null;
-      if (scene?.image) {
-        src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
+      const srcs: Record<string, string> = {};
+      for (const ref of launchIntroDocumentImageRefs(doc)) {
+        if (srcs[ref.sha256]) continue;
+        const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
+        const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
+        if (src) created.push(src);
         if (!src) {
           invalidateLaunchIntroIndex();
           if (!cancelled) {
@@ -122,22 +127,35 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
           }
           return;
         }
+        srcs[ref.sha256] = src;
+        if (cancelled) return;
       }
       if (cancelled) return;
-      setImageSrc(src);
+      committed = true;
+      setImageSrcs(srcs);
       setPhase("showing");
     })();
     return () => {
       cancelled = true;
+      // Object URLs handed to state are revoked by the imageSrcs cleanup; the rest here.
+      if (!committed) for (const src of created) URL.revokeObjectURL(src);
     };
-  }, [scene, snapshot]);
+  }, [doc, snapshot]);
+
+  useEffect(
+    () => () => {
+      for (const src of Object.values(imageSrcs)) URL.revokeObjectURL(src);
+    },
+    [imageSrcs]
+  );
 
   const handoffOff = useRef<(() => void) | null>(null);
 
   /**
-   * Exit latch: the first exit event wins. complete / skip / CTA hand off to the destination:
+   * Exit latch: the first exit event wins. complete / skip / CTA route hand off to the destination:
    * the overlay stays until the destination shell has painted the target path
-   * (onDestinationShellFrame), so the exit never reveals an empty document.
+   * (onDestinationShellFrame), so the exit never reveals an empty document. The scene timer stops
+   * because the Player only runs while SHOWING.
    */
   const exit = useCallback(
     (reason: "cta" | "complete" | "skip" | "background" | "error", target?: string) => {
@@ -146,7 +164,6 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         return;
       }
       latched.current = true;
-      if (timer.current != null) window.clearTimeout(timer.current);
       console.info(`[dibay-launch-intro] exit reason=${reason}${target ? ` target=${target}` : ""}`);
       if (reason === "background" || reason === "error") {
         releaseLaunchIntroDeferral();
@@ -178,6 +195,7 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
   }, [exit]);
 
   // SHOWING: first meaningful frame painted → next frame → release the OS (INTRO owner only).
+  // The scene timeline starts only after the OS release (scene durations are Admin content).
   useLayoutEffect(() => {
     if (phase !== "showing") return;
     const raf = requestAnimationFrame(() => {
@@ -187,12 +205,8 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         return;
       }
       markLaunchEpochShown(snapshot.epoch);
-      // Scene duration is Admin content; it starts only after the OS release.
-      timer.current = window.setTimeout(() => {
-        console.info("[dibay-launch-intro] complete_timer_fired");
-        exitRef.current("complete");
-      }, scene.durationMs);
-      console.info(`[dibay-launch-intro] released_os timer=${scene.durationMs}`);
+      setReleased(true);
+      console.info(`[dibay-launch-intro] released_os scenes=${doc.scenes.length} timer=${doc.scenes[0].durationMs}`);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per SHOWING
@@ -216,15 +230,20 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     []
   );
 
-  useEffect(
-    () => () => {
-      if (timer.current != null) window.clearTimeout(timer.current);
-      if (imageSrc) URL.revokeObjectURL(imageSrc);
-    },
-    [imageSrc]
-  );
+  const onSceneIndexChange = useCallback((index: number) => {
+    console.info(`[dibay-launch-intro] scene=${index}`);
+    setSceneIndex(index);
+  }, []);
+  const onComplete = useCallback(() => {
+    console.info("[dibay-launch-intro] complete_timer_fired");
+    exitRef.current("complete");
+  }, []);
+  const onRoute = useCallback((path: string) => exitRef.current("cta", path), []);
+  const onSkip = useCallback(() => exitRef.current("skip"), []);
+  const resolveImage = useCallback((sha: string) => imageSrcs[sha] ?? null, [imageSrcs]);
 
-  if (!scene || phase === "done" || phase === "preparing") return null;
+  if (phase === "done" || phase === "preparing") return null;
+  const scene = doc.scenes[Math.min(sceneIndex, doc.scenes.length - 1)];
 
   return (
     <div
@@ -232,16 +251,21 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       data-launch-intro-phase={phase}
       // While handing off, a tap reveals the destination immediately (user-driven escape, no timer).
       onClick={phase === "exiting" ? () => setPhase("done") : undefined}
-      style={{ position: "fixed", inset: 0, zIndex: 2147483000, background: scene.background }}
+      style={{ position: "fixed", inset: 0, zIndex: 2147483000, background: scene.background.color }}
     >
       <IntroErrorBoundary onError={() => exit("error")}>
-        <LaunchIntroSceneView
-          scene={scene}
-          imageSrc={imageSrc}
+        <LaunchIntroPlayer
+          document={doc}
+          resolveImage={resolveImage}
           skipLabel={t("launch_intro_skip")}
+          running={phase === "showing" && released}
+          sceneIndex={sceneIndex}
+          onSceneIndexChange={onSceneIndexChange}
+          onComplete={onComplete}
+          onRoute={onRoute}
+          onSkip={onSkip}
+          interactive={phase === "showing"}
           safeArea
-          onCta={scene.cta ? () => exit("cta", scene.cta!.path) : undefined}
-          onSkip={() => exit("skip")}
         />
       </IntroErrorBoundary>
     </div>

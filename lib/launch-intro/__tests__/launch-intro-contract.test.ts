@@ -34,30 +34,71 @@ function pngHeader(w: number, h: number): Uint8Array {
 }
 
 describe("launch intro document", () => {
+  const textStyle = (value: string) => ({ value, size: "L" as const, weight: "bold" as const, color: "#ffffff" });
+
   it("accepts the empty draft and rejects it as a publication", () => {
     const doc = emptyLaunchIntroDocument();
+    expect(doc.schemaVersion).toBe(2);
     expect(validateLaunchIntroDocument(doc, "draft").ok).toBe(true);
     expect(validateLaunchIntroDocument(doc, "publication")).toEqual({ ok: false, error: "scene_empty" });
   });
 
-  it("enforces one scene, internal CTA paths, durations and colors", () => {
+  it("multi-scene: count limits, unique ids, internal route paths, next not on the last scene", () => {
     const base = emptyLaunchIntroDocument();
     const scene = base.scenes[0];
-    const withText = { ...base, scenes: [{ ...scene, text: { value: "Hello", color: "#ffffff" } }] };
-    const ok = validateLaunchIntroDocument(withText, "publication");
+    const withText = { ...scene, text: { headline: textStyle("Hello"), supporting: null, align: "center" as const } };
+    const ok = validateLaunchIntroDocument({ ...base, scenes: [withText] }, "publication");
     expect(ok.ok).toBe(true);
-    if (ok.ok) expect(ok.document.scenes[0].text?.color).toBe("#FFFFFF");
-    expect(validateLaunchIntroDocument({ ...base, scenes: [scene, scene] }, "draft")).toEqual({
-      ok: false,
-      error: "scenes_count_invalid",
-    });
-    const badCta = { ...base, scenes: [{ ...scene, cta: { label: "Go", path: "https://evil.example" } }] };
-    expect(validateLaunchIntroDocument(badCta, "draft")).toEqual({ ok: false, error: "cta_path_invalid" });
-    const badDuration = { ...base, scenes: [{ ...scene, durationMs: 50 }] };
-    expect(validateLaunchIntroDocument(badDuration, "draft")).toEqual({ ok: false, error: "duration_invalid" });
-    expect(validateLaunchIntroDocument({ ...base, schemaVersion: 2 }, "draft")).toEqual({
-      ok: false,
-      error: "schema_version_unknown",
+    if (ok.ok) expect(ok.document.scenes[0].text?.headline?.color).toBe("#FFFFFF");
+
+    const nine = Array.from({ length: 9 }, (_, i) => ({ ...scene, id: `scene-${i + 1}` }));
+    expect(validateLaunchIntroDocument({ ...base, scenes: nine }, "draft")).toEqual({ ok: false, error: "scenes_count_invalid" });
+    expect(validateLaunchIntroDocument({ ...base, scenes: [] }, "draft")).toEqual({ ok: false, error: "scenes_count_invalid" });
+    expect(validateLaunchIntroDocument({ ...base, scenes: [scene, scene] }, "draft")).toEqual({ ok: false, error: "scene_id_duplicate" });
+
+    const route = (path: string) => ({ ...scene, cta: { label: "Go", action: { type: "route", path } } });
+    expect(validateLaunchIntroDocument({ ...base, scenes: [route("https://evil.example")] }, "draft")).toEqual({ ok: false, error: "cta_path_invalid" });
+    expect(validateLaunchIntroDocument({ ...base, scenes: [route("/stores")] }, "draft").ok).toBe(true);
+
+    const next = { ...scene, cta: { label: "Next", action: { type: "next" } } };
+    expect(validateLaunchIntroDocument({ ...base, scenes: [next] }, "draft")).toEqual({ ok: false, error: "cta_next_on_last_scene" });
+    expect(validateLaunchIntroDocument({ ...base, scenes: [next, { ...scene, id: "scene-2" }] }, "draft").ok).toBe(true);
+
+    expect(validateLaunchIntroDocument({ ...base, scenes: [{ ...scene, durationMs: 50 }] }, "draft")).toEqual({ ok: false, error: "duration_invalid" });
+    expect(validateLaunchIntroDocument({ ...base, settings: {} }, "draft")).toEqual({ ok: false, error: "settings_invalid" });
+    expect(validateLaunchIntroDocument({ ...base, schemaVersion: 3 }, "draft")).toEqual({ ok: false, error: "schema_version_unknown" });
+  });
+
+  it("v1 (first slice) documents upgrade losslessly: text → headline L bold, image → media, path → route, Skip on", () => {
+    const v1 = {
+      schemaVersion: 1,
+      scenes: [
+        {
+          id: "scene-1",
+          background: "#075740",
+          image: { sha256: SHA, mime: "image/png", bytes: 1000, width: 400, height: 300 },
+          text: { value: "dibaY", color: "#ffffff" },
+          cta: { label: "Go", path: "/stores" },
+          durationMs: 4000,
+        },
+      ],
+    };
+    const v = validateLaunchIntroDocument(v1, "publication");
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.document).toEqual({
+      schemaVersion: 2,
+      settings: { skip: { enabled: true } },
+      scenes: [
+        {
+          id: "scene-1",
+          background: { color: "#075740" },
+          media: { asset: { sha256: SHA, mime: "image/png", bytes: 1000, width: 400, height: 300 }, fit: "contain" },
+          text: { headline: { value: "dibaY", size: "L", weight: "bold", color: "#FFFFFF" }, supporting: null, align: "center" },
+          cta: { label: "Go", action: { type: "route", path: "/stores" } },
+          durationMs: 4000,
+        },
+      ],
     });
   });
 
@@ -69,7 +110,7 @@ describe("launch intro document", () => {
     }
   });
 
-  it("publication strips draft paths and manifests content-addressed assets", () => {
+  it("publication strips draft paths and manifests content-addressed assets once", () => {
     const base = emptyLaunchIntroDocument();
     const image = {
       sha256: SHA,
@@ -79,10 +120,11 @@ describe("launch intro document", () => {
       height: 300,
       draftPath: "draft/00000000-0000-0000-0000-000000000000.png",
     };
-    const draft = { ...base, scenes: [{ ...base.scenes[0], image }] };
+    const s1 = { ...base.scenes[0], media: { asset: image, fit: "contain" as const } };
+    const draft = { ...base, scenes: [s1, { ...s1, id: "scene-2" }] };
     expect(validateLaunchIntroDocument(draft, "draft").ok).toBe(true);
     const pub = toPublicationDocument(draft);
-    expect("draftPath" in (pub.scenes[0].image ?? {})).toBe(false);
+    expect("draftPath" in (pub.scenes[0].media?.asset ?? {})).toBe(false);
     expect(validateLaunchIntroDocument(pub, "publication").ok).toBe(true);
     expect(launchIntroDocumentAssets(pub)).toEqual([
       { sha256: SHA, mime: "image/png", bytes: 1000, path: `pub/${SHA}.png` },
@@ -136,6 +178,20 @@ describe("launch intro static contract", () => {
     expect(root).toContain("if (pending) use(pending);");
     // Exit hands off: the overlay stays until the destination shell has painted.
     expect(root).toContain("onDestinationShellFrame(");
+  });
+
+  it("one timeline: device overlay and Admin preview render through LaunchIntroPlayer; it runs only after the OS release", () => {
+    const root = src("components/launch-intro/LaunchIntroRoot.tsx");
+    expect(root).toContain("<LaunchIntroPlayer");
+    expect(root).toContain('running={phase === "showing" && released}');
+    expect(root).toContain('onRoute = useCallback((path: string) => exitRef.current("cta", path)');
+    const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
+    expect(admin).toContain("<LaunchIntroPlayer");
+    expect(admin).not.toMatch(/from "@\/lib\/device\//);
+    const player = src("components/launch-intro/LaunchIntroPlayer.tsx");
+    expect(player).toContain("if (!running) return;");
+    expect(player).toContain('if (cta.action.type === "next")');
+    expect(player).not.toMatch(/useRouter|next\/navigation|releaseOsForLaunchIntro|localStorage/);
   });
 
   it("every_launch authority is the native epoch, not sessionStorage / timestamps", () => {

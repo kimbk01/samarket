@@ -14,6 +14,7 @@ import {
   LAUNCH_INTRO_SLICE_ELIGIBILITY,
   launchIntroAssetExtension,
   launchIntroDocumentAssets,
+  launchIntroDocumentImageRefs,
   sniffLaunchIntroImage,
   toPublicationDocument,
   validateLaunchIntroDocument,
@@ -53,6 +54,18 @@ export type LaunchIntroLiveRow = {
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string; status?: number };
 
+/**
+ * Stored documents may be schema v1 (first slice) or v2. Every server reader returns v2 through the
+ * one validator; immutable rows are never rewritten. Invalid stored data is surfaced, not repaired.
+ */
+function normalizeStored<T extends { document: unknown }>(
+  row: T,
+  mode: "draft" | "publication"
+): (Omit<T, "document"> & { document: LaunchIntroDocument }) | null {
+  const v = validateLaunchIntroDocument(row.document, mode);
+  return v.ok ? { ...row, document: v.document } : null;
+}
+
 export async function loadLaunchIntroLive(sb: Sb): Promise<Result<{ live: LaunchIntroLiveRow }>> {
   const { data, error } = await sb
     .from("launch_intro_live")
@@ -75,7 +88,10 @@ export async function loadLaunchIntroPublication(
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  return { ok: true, publication: (data as LaunchIntroPublicationRow | null) ?? null };
+  if (!data) return { ok: true, publication: null };
+  const pub = normalizeStored(data as LaunchIntroPublicationRow, "publication");
+  if (!pub) return { ok: false, error: "publication_document_invalid" };
+  return { ok: true, publication: pub };
 }
 
 export async function listLaunchIntroPublications(
@@ -88,7 +104,13 @@ export async function listLaunchIntroPublications(
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, publications: (data as LaunchIntroPublicationRow[]) ?? [] };
+  const publications: LaunchIntroPublicationRow[] = [];
+  for (const row of (data as LaunchIntroPublicationRow[]) ?? []) {
+    const pub = normalizeStored(row, "publication");
+    if (!pub) return { ok: false, error: "publication_document_invalid" };
+    publications.push(pub);
+  }
+  return { ok: true, publications };
 }
 
 export function launchIntroPublicAssetUrl(sb: Sb, path: string): string {
@@ -127,7 +149,10 @@ export async function loadLatestLaunchIntroDraft(sb: Sb): Promise<Result<{ draft
     .limit(1)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  return { ok: true, draft: (data as LaunchIntroDraftRow | null) ?? null };
+  if (!data) return { ok: true, draft: null };
+  const draft = normalizeStored(data as LaunchIntroDraftRow, "draft");
+  if (!draft) return { ok: false, error: "draft_document_invalid" };
+  return { ok: true, draft };
 }
 
 export async function loadLaunchIntroDraft(sb: Sb, id: string): Promise<Result<{ draft: LaunchIntroDraftRow | null }>> {
@@ -137,7 +162,10 @@ export async function loadLaunchIntroDraft(sb: Sb, id: string): Promise<Result<{
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  return { ok: true, draft: (data as LaunchIntroDraftRow | null) ?? null };
+  if (!data) return { ok: true, draft: null };
+  const draft = normalizeStored(data as LaunchIntroDraftRow, "draft");
+  if (!draft) return { ok: false, error: "draft_document_invalid" };
+  return { ok: true, draft };
 }
 
 /** Create (no id) or save with optimistic concurrency (expectedVersion must match). */
@@ -180,8 +208,8 @@ export async function deleteLaunchIntroDraft(sb: Sb, id: string): Promise<Result
   const loaded = await loadLaunchIntroDraft(sb, id);
   if (!loaded.ok) return loaded;
   if (!loaded.draft) return { ok: false, error: "draft_not_found", status: 404 };
-  const paths = loaded.draft.document.scenes
-    .map((s) => s.image?.draftPath)
+  const paths = launchIntroDocumentImageRefs(loaded.draft.document)
+    .map((ref) => ref.draftPath)
     .filter((p): p is string => typeof p === "string");
   const { error } = await sb.from("launch_intro_drafts").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -240,9 +268,8 @@ export async function publishLaunchIntroDraft(
   const asPub = validateLaunchIntroDocument(pubDoc, "publication");
   if (!asPub.ok) return { ok: false, error: asPub.error, status: 400 };
 
-  for (const scene of asDraft.document.scenes) {
-    const img = scene.image;
-    if (!img?.draftPath) continue;
+  for (const img of launchIntroDocumentImageRefs(asDraft.document)) {
+    if (!img.draftPath) continue;
     const dl = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).download(img.draftPath);
     if (dl.error || !dl.data) return { ok: false, error: "draft_image_missing" };
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
