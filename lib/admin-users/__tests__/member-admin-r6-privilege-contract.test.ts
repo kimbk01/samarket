@@ -20,6 +20,7 @@ import {
   executeMemberPrivilegePromote,
   executeMemberPrivilegeRevoke,
 } from "@/lib/admin-users/member-admin-privilege-mutation";
+import { isSuperAdminFromSnapshot } from "@/lib/admin-auth/admin-me-context";
 import * as adminMembership from "@/lib/admin/admin-membership";
 import * as adminUserServer from "@/lib/admin/admin-user-server";
 import * as appendAudit from "@/lib/audit/append-audit-log";
@@ -254,6 +255,36 @@ describe("R6 Admin Privilege — UI / dialog / CAP wiring", () => {
     expect(storePanel).not.toMatch(/CAP-PRIV-PROMOTE|executeMemberPrivilege|mutateMemberPrivilege/);
   });
 });
+
+
+  it("client super-admin detection follows membership role, not uiRole master", () => {
+    expect(
+      isSuperAdminFromSnapshot({
+        userId: "u1",
+        role: "admin",
+        uiRole: "master",
+        adminTier: "manager",
+        permissions: [],
+        loginId: "aaaa",
+        displayName: "aaaa",
+      }),
+    ).toBe(false);
+    expect(
+      isSuperAdminFromSnapshot({
+        userId: "u2",
+        role: "super_admin",
+        uiRole: "operator",
+        adminTier: null,
+        permissions: [],
+        loginId: "super",
+        displayName: "super",
+      }),
+    ).toBe(true);
+    const meRoute = src("app/api/admin/me/route.ts");
+    expect(meRoute).toContain("loadActiveAdminMembership");
+    expect(meRoute).toMatch(/actor\.isSuperAdmin\s*\?\s*"master"/);
+    expect(meRoute).not.toMatch(/adminTierToUiRole\(adminTier, profileRole\)/);
+  });
 
 describe("R6 Admin Privilege — server mutation guards", () => {
   beforeEach(() => {

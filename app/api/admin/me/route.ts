@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
+import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { adminTierToUiRole, loadEffectiveStaffPermissions } from "@/lib/admin/admin-user-server";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
@@ -12,13 +13,16 @@ export async function GET() {
   if (!gate.ok) return gate.response;
 
   const { actor, sb } = gate;
-  const profileRole = actor.profile.role ?? "admin";
-  const adminTier = (actor.profile as { admin_tier?: string | null }).admin_tier ?? null;
-  const uiRole: AdminRole = adminTierToUiRole(adminTier, profileRole);
+  const membership = await loadActiveAdminMembership(sb, actor.userId).catch(() => null);
+  const membershipTier = membership?.admin_tier ?? null;
+  // uiRole must not be elevated by stale profiles.role mirrors (R6 privilege axis).
+  const uiRole: AdminRole = actor.isSuperAdmin
+    ? "master"
+    : adminTierToUiRole(membershipTier, actor.role);
   const permissions: AdminPermissionKey[] =
     actor.permissions.length > 0
       ? actor.permissions
-      : await loadEffectiveStaffPermissions(sb, actor.userId, profileRole, adminTier);
+      : await loadEffectiveStaffPermissions(sb, actor.userId, actor.role, membershipTier);
 
   const loginId =
     String(actor.profile.username ?? "").trim() ||
@@ -30,7 +34,7 @@ export async function GET() {
     userId: actor.userId,
     role: actor.isSuperAdmin ? "super_admin" : "admin",
     uiRole,
-    adminTier,
+    adminTier: membershipTier,
     permissions,
     loginId,
     displayName: String(actor.profile.nickname ?? actor.profile.display_name ?? loginId),

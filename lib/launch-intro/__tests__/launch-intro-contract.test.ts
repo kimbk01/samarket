@@ -253,7 +253,7 @@ describe("launch intro document", () => {
       height: 300,
       draftPath: "draft/00000000-0000-0000-0000-000000000000.png",
     };
-    const s1 = { ...base.scenes[0], media: { asset: image, fit: "contain" as const } };
+    const s1 = { ...base.scenes[0], media: { asset: image, fit: "contain" as const, video: null } };
     const draft = { ...base, scenes: [s1, { ...s1, id: "scene-2" }] };
     expect(validateLaunchIntroDocument(draft, "draft").ok).toBe(true);
     const pub = toPublicationDocument(draft);

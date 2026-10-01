@@ -93,5 +93,7 @@ export async function fetchAdminMeSnapshot(options?: {
 }
 
 export function isSuperAdminFromSnapshot(snapshot: AdminMeSnapshot | null): boolean {
-  return snapshot?.role === "super_admin" || snapshot?.uiRole === "master";
+  // Canonical highest privilege = /api/admin/me.role from active admin_memberships.
+  // uiRole "master" is a staff tier label and must NOT authorize super-admin mutations.
+  return snapshot?.role === "super_admin";
 }

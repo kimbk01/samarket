@@ -34,7 +34,8 @@ export const getCurrentAdminStaff = getStaff;
 export function canAccessPermission(key: AdminPermissionKey): boolean {
   const apiMe = peekAdminMeSnapshot();
   if (apiMe) {
-    if (apiMe.role === "super_admin" || apiMe.uiRole === "master") return true;
+    // Highest privilege bypass follows membership-derived /me.role only (not uiRole tier).
+    if (apiMe.role === "super_admin") return true;
     if (apiMe.permissions.includes(key)) return true;
     if (key === "users_edit_membership" && apiMe.permissions.includes("users")) return true;
     return false;

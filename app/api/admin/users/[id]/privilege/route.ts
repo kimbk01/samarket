@@ -47,37 +47,45 @@ export async function POST(
   const op = String(body.op ?? "").trim().toLowerCase();
   const { sb, actor } = gate;
 
-  if (op === "promote") {
-    const result = await executeMemberPrivilegePromote(sb, {
-      actor: { userId: actor.userId },
-      targetUserId,
-    });
-    if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+  try {
+    if (op === "promote") {
+      const result = await executeMemberPrivilegePromote(sb, {
+        actor: { userId: actor.userId },
+        targetUserId,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+      }
+      return NextResponse.json({
+        ok: true,
+        op: result.op,
+        before: result.before,
+        after: result.after,
+      });
     }
-    return NextResponse.json({
-      ok: true,
-      op: result.op,
-      before: result.before,
-      after: result.after,
-    });
-  }
 
-  if (op === "revoke") {
-    const result = await executeMemberPrivilegeRevoke(sb, {
-      actor: { userId: actor.userId },
-      targetUserId,
-      reason: body.reason,
-    });
-    if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+    if (op === "revoke") {
+      const result = await executeMemberPrivilegeRevoke(sb, {
+        actor: { userId: actor.userId },
+        targetUserId,
+        reason: body.reason,
+      });
+      if (!result.ok) {
+        return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+      }
+      return NextResponse.json({
+        ok: true,
+        op: result.op,
+        before: result.before,
+        after: result.after,
+      });
     }
-    return NextResponse.json({
-      ok: true,
-      op: result.op,
-      before: result.before,
-      after: result.after,
-    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { ok: false, error: "privilege_mutation_failed", detail: detail.slice(0, 300) },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: false, error: "invalid_op" }, { status: 400 });

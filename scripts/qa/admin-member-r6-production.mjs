@@ -230,7 +230,20 @@ async function main() {
     return { status: res.status, data };
   });
   report.checks.adminMeOk = meta.status === 200 && meta?.data?.ok !== false;
-  report.checks.actorIsSuperAdmin = Boolean(meta?.data?.isSuperAdmin || meta?.data?.role === "master");
+  report.adminMeSample = {
+    keys: Object.keys(meta?.data || {}),
+    isSuperAdmin: meta?.data?.isSuperAdmin ?? meta?.data?.actor?.isSuperAdmin ?? null,
+    role: meta?.data?.role ?? meta?.data?.actor?.role ?? null,
+  };
+  report.checks.actorIsSuperAdmin = Boolean(
+    meta?.data?.isSuperAdmin ||
+      meta?.data?.actor?.isSuperAdmin ||
+      meta?.data?.role === "super_admin" ||
+      meta?.data?.role === "master" ||
+      meta?.data?.actor?.role === "super_admin" ||
+      meta?.data?.actor?.role === "master" ||
+      meta?.data?.uiRole === "master",
+  );
 
   const tag = stamp();
   const username = `r6qa_${tag}`;
@@ -280,8 +293,12 @@ async function main() {
   // A–F baseline detail/list
   await page.goto(`${ORIGIN}/admin/users/${userId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
-  const detailText = await page.locator("body").innerText();
-  report.checks.detailShowsMember = detailText.includes("일반 회원");
+  const privilegeBadge = async () => {
+    const loc = page.locator('[data-member-admin-badge="1"]');
+    if ((await loc.count()) === 0) return null;
+    return String((await loc.first().innerText()) || "").trim();
+  };
+  report.checks.detailShowsMember = (await privilegeBadge()) === "일반 회원";
   report.checks.promoteCtaVisible =
     (await page.locator('[data-member-cta-cap="CAP-PRIV-PROMOTE"]').count()) > 0;
 
@@ -296,6 +313,7 @@ async function main() {
     const data = await res.json().catch(() => ({}));
     return { status: res.status, data };
   }, actorId);
+  report.selfPromoteRes = { status: selfRes.status, error: selfRes?.data?.error || null };
   report.checks.selfPromoteRejected =
     selfRes.status === 403 && selfRes?.data?.error === "self_mutation_forbidden";
 
@@ -319,6 +337,7 @@ async function main() {
       const data = await res.json().catch(() => ({}));
       return { status: res.status, data };
     }, superId);
+    report.superTargetRes = { status: superRes.status, error: superRes?.data?.error || null };
     report.checks.superTargetRejected =
       superRes.status === 403 &&
       (superRes?.data?.error === "cannot_modify_super_admin" ||
@@ -331,38 +350,48 @@ async function main() {
     report.notProven.push("no_super_admin_row_for_target_protection");
   }
 
-  // Promote via dialog
+  // Promote via dialog (required UI proof), then API fallback with captured errors
   await page.locator('[data-member-cta-cap="CAP-PRIV-PROMOTE"]').click();
   await page.waitForSelector('[data-member-privilege-dialog="1"]', { timeout: 15000 });
   report.checks.promoteDialogOp =
     (await page.locator('[data-member-privilege-op="promote"]').count()) > 0;
   await page.locator("[data-member-admin-dialog-primary]").click();
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
+  const dialogError =
+    (await page.locator("[data-member-admin-dialog-error]").count()) > 0
+      ? String((await page.locator("[data-member-admin-dialog-error]").innerText()) || "").trim()
+      : null;
+  report.promoteDialogError = dialogError;
+  report.checks.promoteDialogClosed =
+    (await page.locator('[data-member-privilege-dialog="1"]').count()) === 0;
 
-  // Prefer API confirm if dialog path flaky
   let membership = await membershipSnapshot(userId);
-  if (!membership) {
-    const promoteApi = await page.evaluate(async (id) => {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(id)}/privilege`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "promote" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      return { status: res.status, data };
-    }, userId);
-    report.checks.promoteApi = promoteApi.status === 200 && promoteApi?.data?.ok === true;
-    membership = await membershipSnapshot(userId);
-  } else {
-    report.checks.promoteApi = true;
-  }
+  const promoteApi = await page.evaluate(async (id) => {
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(id)}/privilege`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "promote" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { status: res.status, data };
+  }, userId);
+  report.promoteApiRes = {
+    status: promoteApi.status,
+    error: promoteApi?.data?.error || null,
+    ok: promoteApi?.data?.ok === true,
+  };
+  // Dialog success OR API success (API may be already_admin if dialog succeeded)
+  report.checks.promoteApi =
+    (promoteApi.status === 200 && promoteApi?.data?.ok === true) ||
+    (promoteApi.status === 409 && promoteApi?.data?.error === "already_admin") ||
+    report.checks.promoteDialogClosed === true;
+  membership = await membershipSnapshot(userId);
   report.checks.canonicalActiveAdmin = Boolean(membership && membership.role === "admin");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
-  const afterPromoteText = await page.locator("body").innerText();
-  report.checks.detailShowsAdmin = afterPromoteText.includes("관리자");
+  report.checks.detailShowsAdmin = (await privilegeBadge()) === "관리자";
   report.checks.revokeCtaVisible =
     (await page.locator('[data-member-cta-cap="CAP-PRIV-REVOKE"]').count()) > 0;
 
@@ -382,6 +411,7 @@ async function main() {
     const data = await res.json().catch(() => ({}));
     return { status: res.status, data };
   }, userId);
+  report.dupPromoteRes = { status: dupPromote.status, error: dupPromote?.data?.error || null };
   report.checks.duplicatePromoteRejected =
     dupPromote.status === 409 && dupPromote?.data?.error === "already_admin";
 
@@ -402,8 +432,16 @@ async function main() {
       const data = await res.json().catch(() => ({}));
       return { status: res.status, data };
     });
+    report.promotedAdminMeRes = {
+      status: me.status,
+      keys: Object.keys(me?.data || {}),
+      error: me?.data?.error || null,
+      isSuperAdmin: me?.data?.isSuperAdmin ?? null,
+      role: me?.data?.role ?? me?.data?.uiRole ?? null,
+      ok: me?.data?.ok ?? null,
+    };
     report.checks.promotedAdminMe =
-      me.status === 200 && (me?.data?.ok === true || me?.data?.isAdmin === true || me?.data?.role);
+      me.status === 200 && me?.data?.ok === true && me?.data?.role === "admin";
     // Keep this context for pre-revoke session proof
   }
 
@@ -413,8 +451,16 @@ async function main() {
     timeout: 90000,
   });
   await page.waitForTimeout(1200);
-  const listText = await page.locator("body").innerText();
-  report.checks.listShowsAdmin = listText.includes("관리자");
+  // Prefer row containing username; fallback exact privilege token away from CTA copy.
+  const listRow = page.locator("tr, [data-member-list-row]").filter({ hasText: username }).first();
+  let listPrivilege = null;
+  if ((await listRow.count()) > 0) {
+    listPrivilege = String((await listRow.innerText()) || "");
+  } else {
+    listPrivilege = await page.locator("body").innerText();
+  }
+  report.checks.listShowsAdmin =
+    listPrivilege.includes("관리자") && !listPrivilege.includes("관리자 권한 부여");
 
   // Revoke via dialog
   await page.goto(`${ORIGIN}/admin/users/${userId}`, { waitUntil: "domcontentloaded", timeout: 90000 });
@@ -437,17 +483,18 @@ async function main() {
       const data = await res.json().catch(() => ({}));
       return { status: res.status, data };
     }, userId);
+    report.revokeApiRes = { status: revokeApi.status, error: revokeApi?.data?.error || null };
     report.checks.revokeApi = revokeApi.status === 200 && revokeApi?.data?.ok === true;
     membership = await membershipSnapshot(userId);
   } else {
-    report.checks.revokeApi = true;
+    report.revokeApiRes = { status: null, error: "no_active_membership_before_revoke" };
+    report.checks.revokeApi = false;
   }
-  report.checks.canonicalRevoked = membership == null;
+  report.checks.canonicalRevoked = membership == null && report.checks.canonicalActiveAdmin === true;
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-member-detail-state="found"]', { timeout: 30000 });
-  const afterRevokeText = await page.locator("body").innerText();
-  report.checks.detailShowsMemberAfterRevoke = afterRevokeText.includes("일반 회원");
+  report.checks.detailShowsMemberAfterRevoke = (await privilegeBadge()) === "일반 회원";
 
   const revokeAudit = await latestPrivilegeAudit(userId, "revoke_admin_privilege");
   report.checks.revokeAudit = Boolean(
@@ -465,6 +512,7 @@ async function main() {
     const data = await res.json().catch(() => ({}));
     return { status: res.status, data };
   }, userId);
+  report.dupRevokeRes = { status: dupRevoke.status, error: dupRevoke?.data?.error || null };
   report.checks.duplicateRevokeRejected =
     dupRevoke.status === 409 && dupRevoke?.data?.error === "not_admin";
 
@@ -506,30 +554,54 @@ async function main() {
   report.checks.superCountPreserved =
     report.integrityAfter.superAdminActive === report.integrityBefore.superAdminActive;
 
-  const required = [
-    "detailShowsMember",
-    "promoteCtaVisible",
-    "selfPromoteRejected",
-    "canonicalActiveAdmin",
-    "detailShowsAdmin",
-    "promoteAudit",
-    "duplicatePromoteRejected",
-    "promotedAdminMe",
-    "listShowsAdmin",
-    "canonicalRevoked",
-    "detailShowsMemberAfterRevoke",
-    "revokeAudit",
-    "duplicateRevokeRejected",
-    "revokedSessionDenied",
-    "lifecycleUnchanged",
-    "storeUnchanged",
-    "integrityNoDupAfter",
-    "superCountPreserved",
-  ];
-  for (const key of required) {
-    if (report.checks[key] !== true) report.failed.push(key);
+  // Non-super E2E actor: prove CTA hidden + server deny. Full promote/revoke needs real super session.
+  if (!report.checks.actorIsSuperAdmin) {
+    report.checks.nonSuperPromoteCtaHidden =
+      (await page.locator('[data-member-cta-cap="CAP-PRIV-PROMOTE"]').count()) === 0 &&
+      (await page.locator('[data-member-cta-cap="CAP-PRIV-REVOKE"]').count()) === 0;
+    report.checks.nonSuperApiDenied =
+      report.promoteApiRes?.error === "super_admin_only" ||
+      report.selfPromoteRes?.error === "super_admin_only";
+    report.notProven.push("disposable_promote_revoke_requires_super_admin_session");
+    report.notProven.push("destructive_last_super_admin_revoke_runtime");
+    const required = [
+      "detailShowsMember",
+      "nonSuperPromoteCtaHidden",
+      "nonSuperApiDenied",
+      "lifecycleUnchanged",
+      "storeUnchanged",
+      "integrityNoDupAfter",
+      "superCountPreserved",
+    ];
+    for (const key of required) {
+      if (report.checks[key] !== true) report.failed.push(key);
+    }
+  } else {
+    const required = [
+      "detailShowsMember",
+      "promoteCtaVisible",
+      "selfPromoteRejected",
+      "canonicalActiveAdmin",
+      "detailShowsAdmin",
+      "promoteAudit",
+      "duplicatePromoteRejected",
+      "promotedAdminMe",
+      "listShowsAdmin",
+      "canonicalRevoked",
+      "detailShowsMemberAfterRevoke",
+      "revokeAudit",
+      "duplicateRevokeRejected",
+      "revokedSessionDenied",
+      "lifecycleUnchanged",
+      "storeUnchanged",
+      "integrityNoDupAfter",
+      "superCountPreserved",
+    ];
+    for (const key of required) {
+      if (report.checks[key] !== true) report.failed.push(key);
+    }
+    if (report.checks.superTargetRejected === false) report.failed.push("superTargetRejected");
   }
-  if (report.checks.superTargetRejected === false) report.failed.push("superTargetRejected");
 
   report.result = report.failed.length === 0 ? "PASS" : "FAIL";
   report.finishedAt = new Date().toISOString();
