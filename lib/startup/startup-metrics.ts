@@ -12,6 +12,9 @@
  * Root error boundary: error_boundary.
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
  */
+
+import { getLaunchOsReleaseOwner, noteLaunchOsReleased } from "@/lib/launch-intro/os-release-owner";
+
 export type DibayBootMetrics = {
   nativeStart: number | null;
   webviewReady: number | null;
@@ -218,6 +221,7 @@ function logSplashDismiss(reason: string, ok: boolean, detail?: string): void {
 export function tryDismissNativeSplash(reason: string): void {
   if (splashDismissAttempted) return;
   splashDismissAttempted = true;
+  noteLaunchOsReleased();
   setMetric("splashDismissReason", reason);
   markAppReady(reason);
   // Unblock deferred cold-start network even when auth_shell_fallback skipped markBootMetricsShellReady.
@@ -378,10 +382,28 @@ export function markBootMetricsShellReady(): void {
  */
 export function markInitialDestinationVisualReady(): void {
   if (initialDestinationVisualReadyMarked) return;
+  // Intro contract §9: when the launch destination is INTRO, Community's initial-destination
+  // signal does not own the OS release (Community is normally not even mounted then — DEFERRED MOUNT).
+  if (getLaunchOsReleaseOwner() !== "community") return;
   initialDestinationVisualReadyMarked = true;
   setMetric("initialDestinationVisualReady", nowMs());
   notifyNativeHomePresentationReady();
   tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+/**
+ * Intro contract §9 — the INTRO destination's first meaningful painted frame releases the OS.
+ * Same native path as the Community release (homePresentationReady + dismissSplash), once.
+ * Only the current owner can release; returns false when INTRO does not own the release.
+ */
+export function releaseOsForLaunchIntro(): boolean {
+  if (getLaunchOsReleaseOwner() !== "intro") return false;
+  if (initialDestinationVisualReadyMarked) return false;
+  initialDestinationVisualReadyMarked = true;
+  setMetric("initialDestinationVisualReady", nowMs());
+  notifyNativeHomePresentationReady();
+  tryDismissNativeSplash("launchIntroFirstFrame");
+  return true;
 }
 
 /**

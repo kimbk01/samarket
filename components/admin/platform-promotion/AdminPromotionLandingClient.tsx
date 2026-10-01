@@ -52,6 +52,14 @@ const ENTRIES = [
     descEn: "Set the background color and logo the OS shows first when the app opens. Applies from the next app build.",
   },
   {
+    key: "settings-intro",
+    href: "/admin/platform-promotion/intro",
+    ko: "Intro",
+    en: "Intro",
+    descKo: "앱을 새로 켤 때 OS 시작 화면 다음에 한 번 보여주는 화면을 만들고 게시합니다.",
+    descEn: "Create and publish the screen shown once after the OS start screen on app launch.",
+  },
+  {
     key: "promotion-owner-requests",
     href: "/admin/platform-event-owner-requests",
     ko: "오너 요청",

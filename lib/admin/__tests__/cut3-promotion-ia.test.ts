@@ -50,10 +50,10 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion-owner-requests",
     ]);
     expect(keys).not.toContain("promotion-intro");
-    // R17-OS: Startup group holds the build-time OS start screen only.
+    // Startup group: build-time OS start screen + runtime launch Intro (separate systems).
     expect(
       (findAdminMenuByKey(adminMenu, "settings-startup")?.children ?? []).map((c) => c.key)
-    ).toEqual(["settings-os-start"]);
+    ).toEqual(["settings-os-start", "settings-intro"]);
     const publicAds = filterMenuForPublicSidebar(
       findAdminMenuByKey(adminMenu, "ads")?.children ?? []
     ).map((c) => c.key);

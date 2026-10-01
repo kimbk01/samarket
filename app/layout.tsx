@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
+import { LaunchIntroRoot } from "@/components/launch-intro/LaunchIntroRoot";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
@@ -91,12 +92,12 @@ export default async function RootLayout({
     <html lang={initialLanguage} suppressHydrationWarning>
       <head />
       <body className="font-sans antialiased" suppressHydrationWarning>
-        {/* Authored Intro overlay = NONE. OS/native min boot then HOME. */}
+        {/* Launch Intro (native, cached publication only): LaunchIntroRoot defers the route tree
+            while the Intro owns the launch (DEFERRED MOUNT). Web / no launch epoch → HOME as before. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <DibayAppDialogProvider>
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
-            <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
@@ -104,7 +105,10 @@ export default async function RootLayout({
             <CallIncomingChromeRoot />
             <NotificationSoundLeaderBootstrap />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
-            {children}
+            <LaunchIntroRoot>
+              <InitialSurfaceBootstrap />
+              {children}
+            </LaunchIntroRoot>
           </AppBootProvider>
           </DibayAppDialogProvider>
         </AppLanguageProvider>

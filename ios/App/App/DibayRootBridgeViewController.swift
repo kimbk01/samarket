@@ -50,6 +50,33 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     )
   }
 
+  /**
+   * INTRO every_launch identity — one UUID per native app process. Static: survives WKWebView
+   * document reload and web-content-process recreation (Capacitor reloads the same WKWebView,
+   * whose user scripts persist); a new app process gets a new value.
+   * Identity only: no Intro renderer / cache / navigation / timer / business logic here.
+   */
+  static let launchEpoch = UUID().uuidString
+
+  /**
+   * Installs `window.__DIBAY_LAUNCH_EPOCH__` at document start, before any application JS.
+   * capacitorDidLoad() runs inside loadView(), before viewDidLoad() → loadWebView() issues the
+   * first navigation, so the very first document already has it.
+   */
+  override func capacitorDidLoad() {
+    super.capacitorDidLoad()
+    guard let controller = webView?.configuration.userContentController else {
+      NSLog("[DibayRootBridge] launch_epoch_not_installed reason=no_webview")
+      return
+    }
+    let source =
+      "Object.defineProperty(window,'__DIBAY_LAUNCH_EPOCH__',{value:'\(Self.launchEpoch)',writable:false,enumerable:false,configurable:false});"
+    controller.addUserScript(
+      WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    )
+    NSLog("[DibayRootBridge] launch_epoch_installed epoch=%@", Self.launchEpoch)
+  }
+
   override func viewDidLoad() {
     super.viewDidLoad()
     purgeObsoleteIntroSystemStartLocalStateOnce()

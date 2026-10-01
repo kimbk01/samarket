@@ -40,11 +40,55 @@ import com.dibay.app.nativevoice.NativeVoiceCallOwner;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+import java.util.Collections;
+import java.util.UUID;
 import java.security.MessageDigest;
 import java.util.concurrent.CountDownLatch;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
+  /**
+   * INTRO every_launch identity — one UUID per native process (static: survives Activity
+   * recreation, WebView reload and document reload; a new process gets a new value).
+   * Identity only: no Intro renderer / cache / navigation / timer / business logic here.
+   */
+  static final String LAUNCH_EPOCH = UUID.randomUUID().toString();
+
+  /**
+   * Installs {@code window.__DIBAY_LAUNCH_EPOCH__} as a document-start script, before any
+   * application JS of every document of the app origin. Runs from plugin load(), i.e. inside
+   * the Bridge constructor before loadWebView() issues the first navigation.
+   * Unsupported WebView (no DOCUMENT_START_SCRIPT) → no epoch → web Intro bypass (fail-safe).
+   */
+  @CapacitorPlugin(name = "DibayLaunchEpoch")
+  public static class LaunchEpochPlugin extends Plugin {
+    @Override
+    public void load() {
+      Bridge bridge = getBridge();
+      WebView webView = bridge != null ? bridge.getWebView() : null;
+      if (webView == null || !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        Log.w("DibayLaunchEpoch", "launch_epoch_not_installed reason=unsupported");
+        return;
+      }
+      try {
+        String origin =
+            Uri.parse(bridge.getAppUrl()).buildUpon().path(null).fragment(null).clearQuery().build().toString();
+        String js =
+            "Object.defineProperty(window,'__DIBAY_LAUNCH_EPOCH__',{value:'"
+                + LAUNCH_EPOCH
+                + "',writable:false,enumerable:false,configurable:false});";
+        WebViewCompat.addDocumentStartJavaScript(webView, js, Collections.singleton(origin));
+        Log.i("DibayLaunchEpoch", "launch_epoch_installed epoch=" + LAUNCH_EPOCH + " origin=" + origin);
+      } catch (Exception e) {
+        Log.w("DibayLaunchEpoch", "launch_epoch_not_installed reason=" + e.getClass().getSimpleName());
+      }
+    }
+  }
+
   private static final String TAG = "DIBAY_OAuth";
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
@@ -1094,6 +1138,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
+    registerPlugin(LaunchEpochPlugin.class);
     // FD3: one native app-shell orientation request, before WebView first frame.
     // Consumes FD1 classifier. TABLET_ANDROID / UNKNOWN must not receive a request.
     DibayAppOrientationPolicy.applyToAppShell(this);
