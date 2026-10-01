@@ -44,6 +44,14 @@ const ENTRIES = [
     descEn: "Manage Push delivery and in-app notification inbox.",
   },
   {
+    key: "settings-os-start",
+    href: "/admin/platform-promotion/os-start",
+    ko: "OS 시작 화면",
+    en: "OS start screen",
+    descKo: "앱을 켤 때 OS가 처음 보여주는 배경색과 로고를 설정합니다. 다음 앱 빌드부터 적용됩니다.",
+    descEn: "Set the background color and logo the OS shows first when the app opens. Applies from the next app build.",
+  },
+  {
     key: "promotion-owner-requests",
     href: "/admin/platform-event-owner-requests",
     ko: "오너 요청",
