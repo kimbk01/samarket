@@ -39,14 +39,15 @@ describe("CUT3 Promotion IA navigation", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
+    // Menu SSOT (admin-menu.ts): Startup group sits after notifications, before owner-requests.
     expect(keys).toEqual([
       "promotion-home",
       "promotion-events",
       "promotion-popup",
       "promotion-banners",
       "promotion-notifications",
-      "promotion-owner-requests",
       "settings-startup",
+      "promotion-owner-requests",
     ]);
     expect(keys).not.toContain("promotion-intro");
     // R17-OS: Startup group holds the build-time OS start screen only.
