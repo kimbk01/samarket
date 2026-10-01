@@ -16,7 +16,6 @@ import { shouldAutoRestoreLoginSessionOnMount } from "@/lib/auth/login-session-a
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import type { OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
-import type { KakaoLoginIntent } from "@/lib/auth/oauth/kakao-login-intent";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import type { StoredAuthProvider } from "@/lib/auth/provider-identity/types";
@@ -100,7 +99,6 @@ function LoginPageContent() {
   );
   const {
     pendingOAuthProvider,
-    pendingKakaoIntent,
     oauthInlineStatus,
     oauthError,
     startOAuthProvider,
@@ -468,11 +466,8 @@ function LoginPageContent() {
     }
   };
 
-  const handleOAuthLogin = (
-    provider: OAuthProvider,
-    options?: { kakaoIntent?: KakaoLoginIntent },
-  ) => {
-    void startOAuthProvider(provider, options);
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    void startOAuthProvider(provider);
   };
 
   const displayError = error || oauthError || "";
@@ -490,13 +485,12 @@ function LoginPageContent() {
             providers={providers}
             disabled={loading}
             pendingOAuthProvider={pendingOAuthProvider}
-            pendingKakaoIntent={pendingKakaoIntent}
             emptyText={
               providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
             }
             showEmailEntry={passwordEnabled && !showEmailLogin}
             onEmailLoginClick={() => setShowEmailLogin(true)}
-            onSelectProvider={(provider, options) => void handleOAuthLogin(provider, options)}
+            onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
           <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
         </div>

@@ -5,7 +5,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { sortAuthProviders } from "@/lib/auth/auth-providers";
 import { isOAuthLoginStartSupported } from "@/lib/auth/oauth/start-oauth-login";
-import type { KakaoLoginIntent } from "@/lib/auth/oauth/kakao-login-intent";
 import {
   getOAuthLoginContinueLabelKey,
   getOAuthLoginPrimaryStyle,
@@ -13,30 +12,19 @@ import {
   OAUTH_LOGIN_SECONDARY_CIRCLE_BASE,
   OAuthLoginProviderIcon,
 } from "@/components/auth/OAuthLoginProviderVisuals";
-import { Sam } from "@/lib/ui/css-vars";
-
-export type LoginProviderSelectOptions = {
-  kakaoIntent?: KakaoLoginIntent;
-};
 
 type Props = {
   providers: AuthProviderPublic[];
   disabled?: boolean;
   /** OAuth launch 진행 중인 provider — 해당 버튼만 "이동 중…" + spinner */
   pendingOAuthProvider?: OAuthProvider | null;
-  /** Kakao in-flight intent — other-account CTA loading state */
-  pendingKakaoIntent?: KakaoLoginIntent | null;
   emptyText?: string;
   showEmailEntry?: boolean;
   onEmailLoginClick?: () => void;
-  onSelectProvider: (provider: OAuthProvider, options?: LoginProviderSelectOptions) => void;
+  onSelectProvider: (provider: OAuthProvider) => void;
 };
 
 const OAUTH_LOGIN_PRIMARY_PROVIDERS = new Set<OAuthProvider>(["kakao", "naver", "apple", "google"]);
-
-/** Kakao secondary — bordered outline action (sam-btn--outline alone has 0px border-width). */
-const KAKAO_OTHER_ACCOUNT_BUTTON_CLASS =
-  `${Sam.btn.outlineCombo} ${Sam.btn.block} min-h-11 w-full touch-manipulation border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-semibold text-sam-fg`.trim();
 
 function isPrimaryProvider(provider: OAuthProvider): boolean {
   return OAUTH_LOGIN_PRIMARY_PROVIDERS.has(provider);
@@ -80,7 +68,7 @@ function PrimaryProviderButton({
   showRedirecting: boolean;
   redirectingLabel: string;
   label: string;
-  onSelectProvider: (provider: OAuthProvider, options?: LoginProviderSelectOptions) => void;
+  onSelectProvider: (provider: OAuthProvider) => void;
 }) {
   const style = getOAuthLoginPrimaryStyle(provider);
   const buttonClassName = style?.buttonClassName ?? "border border-sam-border bg-sam-surface";
@@ -88,15 +76,13 @@ function PrimaryProviderButton({
 
   const handleClick = useCallback(() => {
     if (disabled) return;
-    onSelectProvider(provider, provider === "kakao" ? { kakaoIntent: "normal" } : undefined);
+    onSelectProvider(provider);
   }, [disabled, onSelectProvider, provider]);
 
   return (
     <button
       type="button"
       data-provider={provider}
-      data-kakao-intent={provider === "kakao" ? "normal" : undefined}
-      data-testid={provider === "kakao" ? "auth-kakao-normal" : undefined}
       disabled={disabled}
       aria-busy={showRedirecting}
       onClick={handleClick}
@@ -115,74 +101,10 @@ function PrimaryProviderButton({
   );
 }
 
-function KakaoProviderGroup({
-  disabled,
-  oauthInFlight,
-  kakaoNormalPending,
-  kakaoOtherPending,
-  redirectingLabel,
-  primaryLabel,
-  otherAccountLabel,
-  onSelectProvider,
-}: {
-  disabled: boolean;
-  oauthInFlight: boolean;
-  kakaoNormalPending: boolean;
-  kakaoOtherPending: boolean;
-  redirectingLabel: string;
-  primaryLabel: string;
-  otherAccountLabel: string;
-  onSelectProvider: (provider: OAuthProvider, options?: LoginProviderSelectOptions) => void;
-}) {
-  const handleOtherAccount = useCallback(() => {
-    if (disabled || oauthInFlight) return;
-    onSelectProvider("kakao", { kakaoIntent: "other_account" });
-  }, [disabled, oauthInFlight, onSelectProvider]);
-
-  return (
-    <div
-      className="space-y-2"
-      data-auth-provider-group="kakao"
-      data-testid="auth-kakao-provider-group"
-      role="group"
-      aria-label={primaryLabel}
-    >
-      <PrimaryProviderButton
-        provider="kakao"
-        disabled={disabled || oauthInFlight}
-        showRedirecting={kakaoNormalPending}
-        redirectingLabel={redirectingLabel}
-        label={primaryLabel}
-        onSelectProvider={onSelectProvider}
-      />
-      <button
-        type="button"
-        data-provider="kakao"
-        data-kakao-intent="other_account"
-        data-testid="auth-kakao-other-account"
-        disabled={disabled || oauthInFlight}
-        aria-busy={kakaoOtherPending}
-        onClick={handleOtherAccount}
-        className={KAKAO_OTHER_ACCOUNT_BUTTON_CLASS}
-      >
-        {kakaoOtherPending ? (
-          <span className="inline-flex items-center justify-center gap-2">
-            <OAuthRedirectSpinner className="text-sam-fg" />
-            {redirectingLabel}
-          </span>
-        ) : (
-          otherAccountLabel
-        )}
-      </button>
-    </div>
-  );
-}
-
 export function LoginProviderButtons({
   providers,
   disabled = false,
   pendingOAuthProvider = null,
-  pendingKakaoIntent = null,
   emptyText,
   showEmailEntry = false,
   onEmailLoginClick,
@@ -199,17 +121,12 @@ export function LoginProviderButtons({
     [visibleProviders],
   );
 
-  const kakaoEnabled = useMemo(
-    () => visibleProviders.some((row) => row.provider === "kakao"),
-    [visibleProviders],
-  );
-
   const handleProviderClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       if (pendingOAuthProvider) return;
       const raw = e.currentTarget.dataset.provider?.trim() ?? "";
       if (raw === "google" || raw === "kakao" || raw === "naver" || raw === "apple") {
-        onSelectProvider(raw, raw === "kakao" ? { kakaoIntent: "normal" } : undefined);
+        onSelectProvider(raw);
       }
     },
     [onSelectProvider, pendingOAuthProvider],
@@ -217,14 +134,10 @@ export function LoginProviderButtons({
 
   const showSecondaryOAuth = secondary.length > 0;
   const showOtherAccountDivider = primary.length > 0 && showSecondaryOAuth;
-  const showInternalDivider = showEmailEntry && (primary.length > 0 || showSecondaryOAuth || kakaoEnabled);
+  const showInternalDivider = showEmailEntry && (primary.length > 0 || showSecondaryOAuth);
   const redirectingLabel = t("auth_oauth_signing_in_label");
   const oauthInFlight = pendingOAuthProvider != null;
   const internalEntryLabel = t("auth_login_internal_entry");
-  const kakaoOtherPending =
-    pendingOAuthProvider === "kakao" && pendingKakaoIntent === "other_account";
-  const kakaoNormalPending =
-    pendingOAuthProvider === "kakao" && pendingKakaoIntent !== "other_account";
 
   if (visibleProviders.length === 0 && !showEmailEntry) {
     return emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null;
@@ -235,21 +148,6 @@ export function LoginProviderButtons({
       {primary.length > 0 ? (
         <div className="space-y-2.5">
           {primary.map((row) => {
-            if (row.provider === "kakao") {
-              return (
-                <KakaoProviderGroup
-                  key="kakao"
-                  disabled={disabled}
-                  oauthInFlight={oauthInFlight}
-                  kakaoNormalPending={kakaoNormalPending}
-                  kakaoOtherPending={kakaoOtherPending}
-                  redirectingLabel={redirectingLabel}
-                  primaryLabel={t(getOAuthLoginContinueLabelKey("kakao"))}
-                  otherAccountLabel={t("auth_provider_kakao_other_account")}
-                  onSelectProvider={onSelectProvider}
-                />
-              );
-            }
             const isPending = pendingOAuthProvider === row.provider;
             return (
               <PrimaryProviderButton

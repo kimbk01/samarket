@@ -28,11 +28,6 @@ import {
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { startNativeProviderLogin } from "@/lib/auth/native/start-native-provider-login.client";
 import {
-  type KakaoLoginIntent,
-  kakaoLoginIntentLogPayload,
-  normalizeKakaoLoginIntent,
-} from "@/lib/auth/oauth/kakao-login-intent";
-import {
   isNativeAppOAuthShell,
   resolveOAuthProviderRoutingSnapshot,
   shouldBlockAppleWebOAuthSafetyNet,
@@ -68,7 +63,6 @@ export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
 export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_return";
 
 let sharedPendingProvider: OAuthProvider | null = null;
-let sharedPendingKakaoIntent: KakaoLoginIntent | null = null;
 const pendingSubscribers = new Set<() => void>();
 
 export type OAuthAuthSuccessInput = FinishClientAuthLoginTermsHandoff & {
@@ -111,22 +105,9 @@ function getPendingServerSnapshot(): OAuthProvider | null {
   return null;
 }
 
-function getPendingKakaoIntentSnapshot(): KakaoLoginIntent | null {
-  return sharedPendingKakaoIntent;
-}
-
-function getPendingKakaoIntentServerSnapshot(): KakaoLoginIntent | null {
-  return null;
-}
-
-function setSharedPending(
-  provider: OAuthProvider | null,
-  kakaoIntent: KakaoLoginIntent | null = null,
-): void {
-  const nextIntent = provider === "kakao" ? kakaoIntent : null;
-  if (sharedPendingProvider === provider && sharedPendingKakaoIntent === nextIntent) return;
+function setSharedPending(provider: OAuthProvider | null): void {
+  if (sharedPendingProvider === provider) return;
   sharedPendingProvider = provider;
-  sharedPendingKakaoIntent = nextIntent;
   emitPendingChange();
 }
 
@@ -254,11 +235,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     getPendingSnapshot,
     getPendingServerSnapshot,
   );
-  const pendingKakaoIntent = useSyncExternalStore(
-    subscribePending,
-    getPendingKakaoIntentSnapshot,
-    getPendingKakaoIntentServerSnapshot,
-  );
   const mountedRef = useRef(false);
   const pendingProviderRef = useRef<OAuthProvider | null>(pendingOAuthProvider);
 
@@ -280,7 +256,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   const clearPending = useCallback(() => {
     endOAuthFlow();
     pendingProviderRef.current = null;
-    setSharedPending(null, null);
+    setSharedPending(null);
     resetInlineState();
   }, [resetInlineState]);
 
@@ -307,7 +283,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         event instanceof CustomEvent ? String(event.detail?.reason ?? "manual") : "manual";
       const nextProvider = resolveOAuthPendingAfterClear(pendingProviderRef.current, reason);
       pendingProviderRef.current = nextProvider;
-      setSharedPending(nextProvider, null);
+      setSharedPending(nextProvider);
       if (!nextProvider) {
         resetInlineState();
       }
@@ -388,35 +364,21 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   );
 
   const startOAuthProvider = useCallback(
-    (provider: OAuthProvider, options?: { kakaoIntent?: KakaoLoginIntent }) => {
+    (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
       if (!isOAuthLoginStartSupported(provider)) return;
-
-      const kakaoIntent =
-        provider === "kakao" ? normalizeKakaoLoginIntent(options?.kakaoIntent) : undefined;
 
       flushSync(() => {
         ensureCapacitorNativeMarkerOnBoot();
         if (mountedRef.current) setError(null);
         pendingProviderRef.current = provider;
-        setSharedPending(provider, kakaoIntent ?? null);
+        setSharedPending(provider);
         setOauthInlineStatus("preparing");
       });
 
       const runProviderStart = async () => {
         beginAuthLifecycleFlow({ provider, flowKind: "oauth_login" });
-        markAuthLifecycleStage("login_button_tapped", {
-          route: typeof window !== "undefined" ? window.location.pathname : null,
-          ...(kakaoIntent ? kakaoLoginIntentLogPayload(kakaoIntent) : {}),
-        });
-        if (kakaoIntent) {
-          logOAuthNativeEvent(
-            kakaoIntent === "other_account"
-              ? "kakao_login_intent_other_account"
-              : "kakao_login_intent_normal",
-            kakaoLoginIntentLogPayload(kakaoIntent),
-          );
-        }
+        markAuthLifecycleStage("login_button_tapped", { route: typeof window !== "undefined" ? window.location.pathname : null });
 
         if (isNaverProvider(provider)) {
           const flow = tryBeginOAuthFlow(provider);
@@ -475,16 +437,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
         if (routing.action === "native_provider_login") {
           setOauthInlineStatus("opening");
-          markAuthLifecycleStage("provider_launch_requested", {
-            via: "native_provider_login",
-            ...(kakaoIntent ? kakaoLoginIntentLogPayload(kakaoIntent) : {}),
-          });
+          markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
           try {
-            const result = await startNativeProviderLogin({
-              provider,
-              next,
-              kakaoIntent,
-            });
+            const result = await startNativeProviderLogin({ provider, next });
             await completeAuthSuccess(result);
           } catch (err) {
             await handleOAuthStartFailure(err);
@@ -573,7 +528,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
   return {
     pendingOAuthProvider,
-    pendingKakaoIntent,
     oauthInlineStatus,
     oauthError: error,
     startOAuthProvider,

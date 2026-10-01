@@ -15,16 +15,10 @@ import {
   isNativeGoogleLoginAvailable,
   isNativeKakaoLoginAvailable,
 } from "@/lib/platform/capacitor-native";
-import {
-  type KakaoLoginIntent,
-  normalizeKakaoLoginIntent,
-} from "@/lib/auth/oauth/kakao-login-intent";
 
 export type StartNativeProviderLoginInput = {
   provider: OAuthProvider | NativeExchangeProvider;
   next?: string | null;
-  /** Kakao only — normal Talk convenience vs other_account Account+Prompt.LOGIN */
-  kakaoIntent?: KakaoLoginIntent;
 };
 
 export class NativeProviderLoginError extends Error {
@@ -87,10 +81,7 @@ export async function startNativeProviderLogin(
   }
 
   if (provider === "kakao") {
-    return startNativeKakaoLogin({
-      next: input.next ?? null,
-      intent: normalizeKakaoLoginIntent(input.kakaoIntent),
-    });
+    return startNativeKakaoLogin({ next: input.next ?? null });
   }
 
   if (provider === "google") {

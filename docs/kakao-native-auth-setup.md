@@ -47,19 +47,6 @@ keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -
 
 `logoutCurrentDevice` → `NativeKakaoAuth.signOut()` → `wipeClientSessionState`
 
-SDK `logout` only clears the app Kakao token. It does **not** log out of KakaoTalk or Kakao Account browser sessions.
-
-## Login intents (product)
-
-| Intent | CTA | Android native |
-|--------|-----|----------------|
-| `normal` | 카카오톡으로 계속하기 | Talk-first → Account fallback (no Prompt) |
-| `other_account` | 다른 카카오 계정으로 로그인 | **Account only** + `Prompt.LOGIN` — **never** Talk-first |
-
-Web / iOS Capacitor use Supabase OAuth `prompt=login` for both intents (same user-facing CTAs).
-
-SSOT: `lib/auth/oauth/kakao-login-intent.ts`
-
 ## 검증
 
 ```bash

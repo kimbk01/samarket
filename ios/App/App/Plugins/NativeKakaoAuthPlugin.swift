@@ -126,15 +126,7 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   @objc func signIn(_ call: CAPPluginCall) {
-    let intentRaw = call.getString("intent") ?? "normal"
-    let intent = intentRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    if intent == "other-account" || intent == "reauth" {
-      intent = "other_account"
-    }
-    if intent != "other_account" {
-      intent = "normal"
-    }
-    logEvent("kakao_native_started intent=\(intent)")
+    logEvent("kakao_native_started")
 
     if pendingCall != nil {
       call.reject("kakao_native_in_flight", "Another Kakao sign-in is already in progress")
@@ -155,15 +147,6 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     pendingCall = call
-
-    if intent == "other_account" {
-      // NEVER Talk-first for other_account — product contract mirrors Android.
-      logEvent("kakao_native_account_login prompt=LOGIN")
-      UserApi.shared.loginWithKakaoAccount(prompts: [.Login]) { token, error in
-        self.handleToken(token, error: error)
-      }
-      return
-    }
 
     if UserApi.isKakaoTalkLoginAvailable() {
       logEvent("kakao_native_talk_login")

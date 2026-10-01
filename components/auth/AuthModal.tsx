@@ -7,7 +7,6 @@ import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import type { KakaoLoginIntent } from "@/lib/auth/oauth/kakao-login-intent";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -94,7 +93,6 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const {
     pendingOAuthProvider,
-    pendingKakaoIntent,
     oauthInlineStatus,
     oauthError,
     startOAuthProvider,
@@ -243,8 +241,8 @@ export function AuthModal({ open, detail, onClose }: Props) {
   );
 
   const handleOAuthLogin = useCallback(
-    (provider: OAuthProvider, options?: { kakaoIntent?: KakaoLoginIntent }) => {
-      void startOAuthProvider(provider, options);
+    (provider: OAuthProvider) => {
+      void startOAuthProvider(provider);
     },
     [startOAuthProvider],
   );
@@ -277,11 +275,10 @@ export function AuthModal({ open, detail, onClose }: Props) {
               providers={providers}
               disabled={loading}
               pendingOAuthProvider={pendingOAuthProvider}
-              pendingKakaoIntent={pendingKakaoIntent}
               emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
               showEmailEntry={passwordEnabled && !showEmailLogin}
               onEmailLoginClick={() => setShowEmailLogin(true)}
-              onSelectProvider={(provider, options) => void handleOAuthLogin(provider, options)}
+              onSelectProvider={(provider) => void handleOAuthLogin(provider)}
             />
             <OAuthInlineLoginHint status={oauthInlineStatus} />
             {!showEmailLogin && displayError ? (
