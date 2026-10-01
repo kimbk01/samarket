@@ -12,10 +12,11 @@
  * sources (signed draft URLs in Admin, verified cache object URLs at runtime).
  * No data fetching, timers or navigation here.
  */
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type {
   LaunchIntroDecorationSlot,
   LaunchIntroFit,
+  LaunchIntroFittedMedia,
   LaunchIntroImageRef,
   LaunchIntroScene,
   LaunchIntroTextSize,
@@ -33,6 +34,11 @@ export type LaunchIntroSceneViewProps = {
    * so its parts are visible at once (float still applies).
    */
   animateEnter: boolean;
+  /**
+   * Videos play only while true (device: after the OS release; Admin: while playing). Until then,
+   * and if playback fails, the poster image is what is shown — same pixels, same box.
+   */
+  playVideo: boolean;
   /** Runtime / interactive preview only; a static preview leaves these undefined. */
   onCta?: () => void;
   onSkip?: () => void;
@@ -85,12 +91,59 @@ function Img({
   );
 }
 
+/**
+ * Image, GIF, or MP4 with its poster, in one box. Video: muted + playsInline + autoplay + loop, no
+ * controls, never needs audio permission or a gesture. On error the poster stays (no timer, no retry).
+ */
+function FittedMedia({
+  media,
+  resolveImage,
+  playVideo,
+  style,
+}: {
+  media: LaunchIntroFittedMedia;
+  resolveImage: (sha256: string) => string | null;
+  playVideo: boolean;
+  style: CSSProperties;
+}) {
+  const [failed, setFailed] = useState(false);
+  const poster = resolveImage(media.asset.sha256);
+  const videoSrc = media.video ? resolveImage(media.video.sha256) : null;
+  if (media.video && videoSrc && playVideo && !failed) {
+    return (
+      <video
+        src={videoSrc}
+        poster={poster ?? undefined}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        controls={false}
+        data-launch-intro-video={media.video.sha256.slice(0, 8)}
+        ref={(el) => {
+          // React does not reflect `muted` as an attribute; iOS autoplay requires the muted state.
+          if (el) {
+            el.muted = true;
+            el.defaultMuted = true;
+          }
+        }}
+        onError={() => setFailed(true)}
+        style={{ display: "block", objectFit: media.fit, objectPosition: "center", ...style }}
+      />
+    );
+  }
+  return poster ? <Img src={poster} fit={media.fit} style={style} /> : null;
+}
+
 export function LaunchIntroSceneView({
   scene,
   resolveImage,
   skipLabel,
   showSkip,
   animateEnter,
+  playVideo,
   onCta,
   onSkip,
   safeArea = false,
@@ -125,9 +178,10 @@ export function LaunchIntroSceneView({
   const stackMedia =
     scene.media && mediaSrc
       ? floating(
-          <Img
-            src={mediaSrc}
-            fit={scene.media.fit}
+          <FittedMedia
+            media={scene.media}
+            resolveImage={resolveImage}
+            playVideo={playVideo}
             style={
               scene.media.fit === "cover"
                 ? { width: "76cqw", height: "48cqh" }
@@ -143,7 +197,7 @@ export function LaunchIntroSceneView({
     content = (
       <>
         {scene.media && mediaSrc
-          ? part(STAGGER.visual, floating(<Img src={mediaSrc} fit={scene.media.fit} style={{ width: "100cqw", height: "100cqh" }} />), {
+          ? part(STAGGER.visual, floating(<FittedMedia media={scene.media} resolveImage={resolveImage} playVideo={playVideo} style={{ width: "100cqw", height: "100cqh" }} />), {
               position: "absolute",
               inset: 0,
             })
@@ -204,7 +258,12 @@ export function LaunchIntroSceneView({
       }}
     >
       {scene.background.media && bgSrc ? (
-        <Img src={bgSrc} fit={scene.background.media.fit} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        <FittedMedia
+          media={scene.background.media}
+          resolveImage={resolveImage}
+          playVideo={playVideo}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        />
       ) : null}
 
       {scene.decorations.map((d) => {

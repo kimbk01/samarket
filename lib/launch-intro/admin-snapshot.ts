@@ -6,7 +6,7 @@ import {
   signLaunchIntroDraftImage,
   type Sb,
 } from "@/lib/launch-intro/server";
-import { LAUNCH_INTRO_PUBLIC_BUCKET, launchIntroDocumentImageRefs } from "@/lib/launch-intro/document";
+import { LAUNCH_INTRO_PUBLIC_BUCKET, launchIntroDocumentAllRefs } from "@/lib/launch-intro/document";
 
 /** Admin snapshot: working draft (+ signed preview URLs), Live, publication history. */
 export async function launchIntroAdminSnapshot(sb: Sb) {
@@ -19,7 +19,7 @@ export async function launchIntroAdminSnapshot(sb: Sb) {
   if (!liveRes.ok) return liveRes;
   if (!pubsRes.ok) return pubsRes;
   const draftImageUrls: Record<string, string> = {};
-  for (const ref of draftRes.draft ? launchIntroDocumentImageRefs(draftRes.draft.document) : []) {
+  for (const ref of draftRes.draft ? launchIntroDocumentAllRefs(draftRes.draft.document) : []) {
     if (ref.draftPath && !draftImageUrls[ref.sha256]) {
       const url = await signLaunchIntroDraftImage(sb, ref.draftPath);
       if (url) draftImageUrls[ref.sha256] = url;

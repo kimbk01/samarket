@@ -13,6 +13,9 @@ export const LAUNCH_INTRO_SCHEMA_VERSION = 2 as const;
 export const LAUNCH_INTRO_SCHEMA_VERSION_V1 = 1 as const;
 export const LAUNCH_INTRO_MAX_SCENES = 8;
 export const LAUNCH_INTRO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Owner decision (P3): each MP4 in a publication ≤ 5MB (mobile data). Enforced by upload, validator, publish. */
+export const LAUNCH_INTRO_VIDEO_MAX_BYTES = 5 * 1024 * 1024;
+export const LAUNCH_INTRO_VIDEO_MAX_DURATION_MS = 30_000;
 export const LAUNCH_INTRO_IMAGE_MIN_EDGE = 64;
 export const LAUNCH_INTRO_IMAGE_MAX_EDGE = 4096;
 export const LAUNCH_INTRO_DURATION_MIN_MS = 1000;
@@ -28,7 +31,10 @@ export const LAUNCH_INTRO_DEFAULT_BACKGROUND = "#075740";
 export const LAUNCH_INTRO_PUBLIC_BUCKET = "launch-intro-assets";
 export const LAUNCH_INTRO_DRAFT_BUCKET = "launch-intro-drafts";
 
-export type LaunchIntroImageMime = "image/png" | "image/jpeg" | "image/webp";
+/** Still or animated images. GIF animates as soon as it is shown; its first frame is what decode() proves. */
+export type LaunchIntroImageMime = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+export type LaunchIntroVideoMime = "video/mp4";
+export type LaunchIntroAssetMime = LaunchIntroImageMime | LaunchIntroVideoMime;
 
 export type LaunchIntroImageRef = {
   sha256: string;
@@ -39,6 +45,24 @@ export type LaunchIntroImageRef = {
   /** Draft only: private storage object path. Never present in a publication. */
   draftPath?: string;
 };
+
+/** MP4 (H.264). Only ever used together with a poster image, which is the first meaningful frame. */
+export type LaunchIntroVideoRef = {
+  sha256: string;
+  mime: LaunchIntroVideoMime;
+  bytes: number;
+  /** Display size (rotation applied). The poster must have the same aspect ratio. */
+  width: number;
+  height: number;
+  durationMs: number;
+  draftPath?: string;
+};
+
+/**
+ * A visual slot (main media / background). `asset` is the image shown first — for a video it is the
+ * poster: decoded before the OS release, shown until the video plays, and kept if it never does.
+ */
+export type LaunchIntroFittedMedia = { asset: LaunchIntroImageRef; fit: LaunchIntroFit; video: LaunchIntroVideoRef | null };
 
 export const LAUNCH_INTRO_TEXT_SIZES = ["S", "M", "L", "XL"] as const;
 export type LaunchIntroTextSize = (typeof LAUNCH_INTRO_TEXT_SIZES)[number];
@@ -92,8 +116,8 @@ export type LaunchIntroDecoration = {
 export type LaunchIntroScene = {
   id: string;
   layout: LaunchIntroLayout;
-  background: { color: string; media: { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null };
-  media: { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null;
+  background: { color: string; media: LaunchIntroFittedMedia | null };
+  media: LaunchIntroFittedMedia | null;
   logo: { asset: LaunchIntroImageRef } | null;
   decorations: LaunchIntroDecoration[];
   text: LaunchIntroSceneText | null;
@@ -116,7 +140,7 @@ export type LaunchIntroDocument = {
 /** Publication asset manifest entry (content-addressed, immutable). */
 export type LaunchIntroAsset = {
   sha256: string;
-  mime: LaunchIntroImageMime;
+  mime: LaunchIntroAssetMime;
   bytes: number;
   path: string;
 };
@@ -147,7 +171,8 @@ export type LaunchIntroLivePayload = {
 
 const HEX_RE = /^#[0-9A-F]{6}$/;
 const SHA_RE = /^[0-9a-f]{64}$/;
-const MIMES: readonly LaunchIntroImageMime[] = ["image/png", "image/jpeg", "image/webp"];
+const MIMES: readonly LaunchIntroImageMime[] = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const DRAFT_PATH_RE = /^draft\/[0-9a-f-]{36}\.(png|jpg|webp|gif|mp4)$/;
 
 export function normalizeLaunchIntroHex(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -167,11 +192,22 @@ export function isLaunchIntroInternalPath(value: unknown): value is string {
   return true;
 }
 
-export function launchIntroAssetExtension(mime: LaunchIntroImageMime): string {
-  return mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpg" : "webp";
+export function launchIntroAssetExtension(mime: LaunchIntroAssetMime): string {
+  switch (mime) {
+    case "image/png":
+      return "png";
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+    case "video/mp4":
+      return "mp4";
+  }
 }
 
-export function launchIntroPublicAssetPath(sha256: string, mime: LaunchIntroImageMime): string {
+export function launchIntroPublicAssetPath(sha256: string, mime: LaunchIntroAssetMime): string {
   return `pub/${sha256}.${launchIntroAssetExtension(mime)}`;
 }
 
@@ -260,7 +296,7 @@ function validateImage(raw: unknown, mode: "draft" | "publication"): LaunchIntro
   }
   const ref: LaunchIntroImageRef = { sha256: sha, mime, bytes, width, height };
   if (mode === "draft") {
-    if (typeof o.draftPath !== "string" || !/^draft\/[0-9a-f-]{36}\.(png|jpg|webp)$/.test(o.draftPath)) {
+    if (typeof o.draftPath !== "string" || !DRAFT_PATH_RE.test(o.draftPath)) {
       return "image_draft_path_invalid";
     }
     ref.draftPath = o.draftPath;
@@ -268,18 +304,59 @@ function validateImage(raw: unknown, mode: "draft" | "publication"): LaunchIntro
   return ref;
 }
 
+function validateVideo(raw: unknown, mode: "draft" | "publication"): LaunchIntroVideoRef | string | null {
+  if (raw == null) return null;
+  if (typeof raw !== "object") return "video_invalid";
+  const o = raw as Record<string, unknown>;
+  const sha = typeof o.sha256 === "string" ? o.sha256 : "";
+  const bytes = Number(o.bytes);
+  const width = Number(o.width);
+  const height = Number(o.height);
+  const durationMs = Number(o.durationMs);
+  if (!SHA_RE.test(sha)) return "video_sha_invalid";
+  if (o.mime !== "video/mp4") return "video_mime_invalid";
+  if (!Number.isInteger(bytes) || bytes <= 0 || bytes > LAUNCH_INTRO_VIDEO_MAX_BYTES) return "video_too_big";
+  for (const edge of [width, height]) {
+    if (!Number.isInteger(edge) || edge < LAUNCH_INTRO_IMAGE_MIN_EDGE || edge > LAUNCH_INTRO_IMAGE_MAX_EDGE) {
+      return "video_size_invalid";
+    }
+  }
+  if (!Number.isInteger(durationMs) || durationMs <= 0 || durationMs > LAUNCH_INTRO_VIDEO_MAX_DURATION_MS) {
+    return "video_duration_invalid";
+  }
+  const ref: LaunchIntroVideoRef = { sha256: sha, mime: "video/mp4", bytes, width, height, durationMs };
+  if (mode === "draft") {
+    if (typeof o.draftPath !== "string" || !DRAFT_PATH_RE.test(o.draftPath) || !o.draftPath.endsWith(".mp4")) {
+      return "video_draft_path_invalid";
+    }
+    ref.draftPath = o.draftPath;
+  }
+  return ref;
+}
+
+/** Poster and video must share the aspect ratio (≤1%), so the poster → video swap never jumps or distorts. */
+export function launchIntroPosterMatchesVideo(poster: { width: number; height: number }, video: { width: number; height: number }): boolean {
+  const a = poster.width / poster.height;
+  const b = video.width / video.height;
+  return Math.abs(a - b) / b <= 0.01;
+}
+
 function validateFittedImage(
   raw: unknown,
   mode: "draft" | "publication",
   field: string
-): { asset: LaunchIntroImageRef; fit: LaunchIntroFit } | null | string {
+): LaunchIntroFittedMedia | null | string {
   if (raw == null) return null;
-  const m = raw as { asset?: unknown; fit?: unknown };
+  const m = raw as { asset?: unknown; fit?: unknown; video?: unknown };
   const fit = m.fit as LaunchIntroFit;
   if (!LAUNCH_INTRO_FITS.includes(fit)) return `${field}_fit_invalid`;
   const asset = validateImage(m.asset, mode);
   if (typeof asset === "string") return asset;
-  return asset ? { asset, fit } : null;
+  const video = validateVideo(m.video, mode);
+  if (typeof video === "string") return video;
+  if (video && !asset) return "video_poster_required";
+  if (video && asset && !launchIntroPosterMatchesVideo(asset, video)) return "video_poster_aspect_mismatch";
+  return asset ? { asset, fit, video } : null;
 }
 
 function validateTextStyle(raw: unknown, max: number, field: string): LaunchIntroTextStyle | string | null {
@@ -441,7 +518,22 @@ export function validateLaunchIntroDocument(
   return { ok: true, document: { schemaVersion: LAUNCH_INTRO_SCHEMA_VERSION, settings, scenes } };
 }
 
-/** Every image reference in the document, in scene order (draft paths included when present). */
+/** Every video reference (scene order). */
+export function launchIntroDocumentVideoRefs(doc: LaunchIntroDocument): LaunchIntroVideoRef[] {
+  const refs: LaunchIntroVideoRef[] = [];
+  for (const s of doc.scenes) {
+    if (s.background.media?.video) refs.push(s.background.media.video);
+    if (s.media?.video) refs.push(s.media.video);
+  }
+  return refs;
+}
+
+/** Every stored object the document needs (images, posters, videos): publish copy, manifest, signing, delete. */
+export function launchIntroDocumentAllRefs(doc: LaunchIntroDocument): Array<LaunchIntroImageRef | LaunchIntroVideoRef> {
+  return [...launchIntroDocumentImageRefs(doc), ...launchIntroDocumentVideoRefs(doc)];
+}
+
+/** Every image reference (images + video posters), in scene order. These are decoded before the first frame. */
 export function launchIntroDocumentImageRefs(doc: LaunchIntroDocument): LaunchIntroImageRef[] {
   const refs: LaunchIntroImageRef[] = [];
   for (const s of doc.scenes) {
@@ -457,6 +549,16 @@ function stripDraftPath(ref: LaunchIntroImageRef): LaunchIntroImageRef {
   return { sha256: ref.sha256, mime: ref.mime, bytes: ref.bytes, width: ref.width, height: ref.height };
 }
 
+function stripFitted(m: LaunchIntroFittedMedia | null): LaunchIntroFittedMedia | null {
+  if (!m) return null;
+  const v = m.video;
+  return {
+    fit: m.fit,
+    asset: stripDraftPath(m.asset),
+    video: v ? { sha256: v.sha256, mime: v.mime, bytes: v.bytes, width: v.width, height: v.height, durationMs: v.durationMs } : null,
+  };
+}
+
 /** Draft → publication document: strips draft-only storage paths. */
 export function toPublicationDocument(draft: LaunchIntroDocument): LaunchIntroDocument {
   return {
@@ -466,9 +568,9 @@ export function toPublicationDocument(draft: LaunchIntroDocument): LaunchIntroDo
       ...s,
       background: {
         color: s.background.color,
-        media: s.background.media ? { fit: s.background.media.fit, asset: stripDraftPath(s.background.media.asset) } : null,
+        media: stripFitted(s.background.media),
       },
-      media: s.media ? { fit: s.media.fit, asset: stripDraftPath(s.media.asset) } : null,
+      media: stripFitted(s.media),
       logo: s.logo ? { asset: stripDraftPath(s.logo.asset) } : null,
       decorations: s.decorations.map((d) => ({ ...d, asset: stripDraftPath(d.asset) })),
     })),
@@ -477,7 +579,7 @@ export function toPublicationDocument(draft: LaunchIntroDocument): LaunchIntroDo
 
 export function launchIntroDocumentAssets(doc: LaunchIntroDocument): LaunchIntroAsset[] {
   const seen = new Map<string, LaunchIntroAsset>();
-  for (const ref of launchIntroDocumentImageRefs(doc)) {
+  for (const ref of launchIntroDocumentAllRefs(doc)) {
     if (!seen.has(ref.sha256)) {
       seen.set(ref.sha256, {
         sha256: ref.sha256,
@@ -498,6 +600,13 @@ export function sniffLaunchIntroImage(
   const u16be = (o: number) => (bytes[o] << 8) | bytes[o + 1];
   const u16le = (o: number) => bytes[o] | (bytes[o + 1] << 8);
   const u24le = (o: number) => bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16);
+  if (
+    bytes.length >= 10 &&
+    bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61
+  ) {
+    return { mime: "image/gif", width: u16le(6), height: u16le(8) };
+  }
   if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
     return { mime: "image/png", width: u32(16), height: u32(20) };
   }
@@ -530,4 +639,107 @@ export function sniffLaunchIntroImage(
     }
   }
   return null;
+}
+
+/**
+ * MP4 sniff (ISO BMFF box walk, no decoding): ftyp + moov → video track (hdlr 'vide') tkhd size with
+ * rotation applied, mvhd duration, first sample entry codec. Only H.264 ('avc1'/'avc3') is accepted
+ * so Android WebView and iOS WKWebView both play it.
+ */
+export function sniffLaunchIntroVideo(
+  bytes: Uint8Array
+): { mime: LaunchIntroVideoMime; width: number; height: number; durationMs: number; codec: string } | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const type = (o: number) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+  type Box = { type: string; start: number; end: number };
+  const boxes = (from: number, to: number): Box[] => {
+    const out: Box[] = [];
+    let o = from;
+    while (o + 8 <= to) {
+      let size = view.getUint32(o);
+      let header = 8;
+      if (size === 1) {
+        if (o + 16 > to) break;
+        const hi = view.getUint32(o + 8);
+        const lo = view.getUint32(o + 12);
+        size = hi * 2 ** 32 + lo;
+        header = 16;
+      } else if (size === 0) {
+        size = to - o;
+      }
+      if (size < header || o + size > to) break;
+      out.push({ type: type(o + 4), start: o + header, end: o + size });
+      o += size;
+    }
+    return out;
+  };
+  const child = (b: Box, t: string, skip = 0) => boxes(b.start + skip, b.end).find((x) => x.type === t) ?? null;
+
+  const top = boxes(0, bytes.length);
+  if (top[0]?.type !== "ftyp") return null;
+  const moov = top.find((b) => b.type === "moov");
+  if (!moov) return null;
+  const mvhd = child(moov, "mvhd");
+  if (!mvhd) return null;
+  const mv1 = bytes[mvhd.start] === 1;
+  const timescale = view.getUint32(mvhd.start + (mv1 ? 20 : 12));
+  const duration = mv1
+    ? view.getUint32(mvhd.start + 24) * 2 ** 32 + view.getUint32(mvhd.start + 28)
+    : view.getUint32(mvhd.start + 16);
+  if (!timescale) return null;
+
+  for (const trak of boxes(moov.start, moov.end).filter((b) => b.type === "trak")) {
+    const mdia = child(trak, "mdia");
+    const hdlr = mdia ? child(mdia, "hdlr") : null;
+    if (!hdlr || type(hdlr.start + 8) !== "vide") continue;
+    const tkhd = child(trak, "tkhd");
+    if (!tkhd) return null;
+    const tk1 = bytes[tkhd.start] === 1;
+    const matrixAt = tkhd.start + (tk1 ? 52 : 40);
+    const a = view.getInt32(matrixAt);
+    const b = view.getInt32(matrixAt + 4);
+    let width = view.getUint32(tkhd.end - 8) >>> 16;
+    let height = view.getUint32(tkhd.end - 4) >>> 16;
+    if (a === 0 && Math.abs(b) === 0x10000) [width, height] = [height, width];
+    const minf = mdia ? child(mdia, "minf") : null;
+    const stbl = minf ? child(minf, "stbl") : null;
+    const stsd = stbl ? child(stbl, "stsd") : null;
+    const codec = stsd && stsd.start + 16 <= stsd.end ? type(stsd.start + 12) : "";
+    if (codec !== "avc1" && codec !== "avc3") return null;
+    if (!width || !height) return null;
+    return { mime: "video/mp4", width, height, durationMs: Math.round((duration / timescale) * 1000), codec };
+  }
+  return null;
+}
+
+/**
+ * The ONE asset authority (upload finalize + publish): what the bytes are, and whether they are allowed.
+ * Images: PNG / JPEG / WebP / GIF ≤ 5MB. Video: MP4 (H.264) ≤ 5MB (Owner decision P3), ≤ 30s.
+ */
+export function inspectLaunchIntroAsset(
+  bytes: Uint8Array
+):
+  | { ok: true; kind: "image"; mime: LaunchIntroImageRef["mime"]; width: number; height: number }
+  | { ok: true; kind: "video"; mime: "video/mp4"; width: number; height: number; durationMs: number }
+  | { ok: false; error: string } {
+  if (bytes.length === 0) return { ok: false, error: "empty" };
+  const image = sniffLaunchIntroImage(bytes);
+  if (image) {
+    if (bytes.length > LAUNCH_INTRO_IMAGE_MAX_BYTES) return { ok: false, error: "too_big_bytes" };
+    for (const edge of [image.width, image.height]) {
+      if (edge < LAUNCH_INTRO_IMAGE_MIN_EDGE) return { ok: false, error: "too_small" };
+      if (edge > LAUNCH_INTRO_IMAGE_MAX_EDGE) return { ok: false, error: "too_big_dimensions" };
+    }
+    return { ok: true, kind: "image", ...image };
+  }
+  const video = sniffLaunchIntroVideo(bytes);
+  if (video) {
+    if (bytes.length > LAUNCH_INTRO_VIDEO_MAX_BYTES) return { ok: false, error: "video_too_big" };
+    if (video.durationMs <= 0 || video.durationMs > LAUNCH_INTRO_VIDEO_MAX_DURATION_MS) return { ok: false, error: "video_duration_invalid" };
+    for (const edge of [video.width, video.height]) {
+      if (edge < LAUNCH_INTRO_IMAGE_MIN_EDGE || edge > LAUNCH_INTRO_IMAGE_MAX_EDGE) return { ok: false, error: "video_size_invalid" };
+    }
+    return { ok: true, kind: "video", mime: "video/mp4", width: video.width, height: video.height, durationMs: video.durationMs };
+  }
+  return { ok: false, error: "unsupported_media" };
 }

@@ -8,20 +8,22 @@ import type { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   LAUNCH_INTRO_DRAFT_BUCKET,
   LAUNCH_INTRO_IMAGE_MAX_BYTES,
-  LAUNCH_INTRO_IMAGE_MAX_EDGE,
-  LAUNCH_INTRO_IMAGE_MIN_EDGE,
   LAUNCH_INTRO_PUBLIC_BUCKET,
   LAUNCH_INTRO_SLICE_ELIGIBILITY,
   launchIntroAssetExtension,
+  launchIntroPublicAssetPath,
   launchIntroDocumentAssets,
-  launchIntroDocumentImageRefs,
-  sniffLaunchIntroImage,
+  launchIntroDocumentAllRefs,
+  LAUNCH_INTRO_VIDEO_MAX_BYTES,
+  inspectLaunchIntroAsset,
   toPublicationDocument,
   validateLaunchIntroDocument,
   type LaunchIntroAsset,
   type LaunchIntroDocument,
   type LaunchIntroEligibility,
+  type LaunchIntroAssetMime,
   type LaunchIntroImageRef,
+  type LaunchIntroVideoRef,
   type LaunchIntroLivePayload,
   type LaunchIntroLiveState,
 } from "@/lib/launch-intro/document";
@@ -208,7 +210,7 @@ export async function deleteLaunchIntroDraft(sb: Sb, id: string): Promise<Result
   const loaded = await loadLaunchIntroDraft(sb, id);
   if (!loaded.ok) return loaded;
   if (!loaded.draft) return { ok: false, error: "draft_not_found", status: 404 };
-  const paths = launchIntroDocumentImageRefs(loaded.draft.document)
+  const paths = launchIntroDocumentAllRefs(loaded.draft.document)
     .map((ref) => ref.draftPath)
     .filter((p): p is string => typeof p === "string");
   const { error } = await sb.from("launch_intro_drafts").delete().eq("id", id);
@@ -217,28 +219,62 @@ export async function deleteLaunchIntroDraft(sb: Sb, id: string): Promise<Result
   return { ok: true };
 }
 
-/** Private draft image upload. Returns the image reference to put into the draft document. */
-export async function uploadLaunchIntroDraftImage(
+
+const UPLOAD_MIMES: readonly LaunchIntroAssetMime[] = ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4"];
+
+/**
+ * Step 1 of a draft upload: a signed, single-object upload URL in the private draft bucket.
+ * The browser uploads straight to storage (no 4.5MB function body limit); nothing is trusted yet.
+ */
+export async function createLaunchIntroDraftUpload(
   sb: Sb,
-  bytes: Uint8Array
-): Promise<Result<{ image: LaunchIntroImageRef }>> {
-  if (bytes.length === 0) return { ok: false, error: "empty", status: 400 };
-  if (bytes.length > LAUNCH_INTRO_IMAGE_MAX_BYTES) return { ok: false, error: "too_big_bytes", status: 400 };
-  const info = sniffLaunchIntroImage(bytes);
-  if (!info) return { ok: false, error: "unsupported_image", status: 400 };
-  for (const edge of [info.width, info.height]) {
-    if (edge < LAUNCH_INTRO_IMAGE_MIN_EDGE) return { ok: false, error: "too_small", status: 400 };
-    if (edge > LAUNCH_INTRO_IMAGE_MAX_EDGE) return { ok: false, error: "too_big_dimensions", status: 400 };
+  input: { mime: unknown; bytes: unknown }
+): Promise<Result<{ path: string; signedUrl: string }>> {
+  const mime = input.mime as LaunchIntroAssetMime;
+  if (!UPLOAD_MIMES.includes(mime)) return { ok: false, error: "unsupported_media", status: 400 };
+  const bytes = Number(input.bytes);
+  const max = mime === "video/mp4" ? LAUNCH_INTRO_VIDEO_MAX_BYTES : LAUNCH_INTRO_IMAGE_MAX_BYTES;
+  if (!Number.isInteger(bytes) || bytes <= 0) return { ok: false, error: "empty", status: 400 };
+  if (bytes > max) return { ok: false, error: mime === "video/mp4" ? "video_too_big" : "too_big_bytes", status: 400 };
+  const path = `draft/${randomUUID()}.${launchIntroAssetExtension(mime)}`;
+  const { data, error } = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).createSignedUploadUrl(path);
+  if (error || !data?.signedUrl) return { ok: false, error: error?.message ?? "upload_url_failed" };
+  return { ok: true, path, signedUrl: data.signedUrl };
+}
+
+/**
+ * Step 2: the server reads back what was actually stored, inspects it with the asset authority and
+ * returns the reference. Anything not allowed (type, size, codec, length) is deleted, not referenced.
+ */
+export async function finalizeLaunchIntroDraftUpload(
+  sb: Sb,
+  path: unknown
+): Promise<Result<{ ref: LaunchIntroImageRef | LaunchIntroVideoRef; kind: "image" | "video" }>> {
+  if (typeof path !== "string" || !/^draft\/[0-9a-f-]{36}\.(png|jpg|webp|gif|mp4)$/.test(path)) {
+    return { ok: false, error: "path_invalid", status: 400 };
   }
+  const dl = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).download(path);
+  if (dl.error || !dl.data) return { ok: false, error: "upload_missing", status: 400 };
+  const bytes = new Uint8Array(await dl.data.arrayBuffer());
+  const info = inspectLaunchIntroAsset(bytes);
+  const reject = async (error: string) => {
+    await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).remove([path]);
+    return { ok: false as const, error, status: 400 };
+  };
+  if (!info.ok) return reject(info.error);
+  if (!path.endsWith(`.${launchIntroAssetExtension(info.mime)}`)) return reject("extension_mismatch");
   const sha256 = createHash("sha256").update(bytes).digest("hex");
-  const draftPath = `draft/${randomUUID()}.${launchIntroAssetExtension(info.mime)}`;
-  const { error } = await sb.storage
-    .from(LAUNCH_INTRO_DRAFT_BUCKET)
-    .upload(draftPath, bytes, { contentType: info.mime, upsert: false });
-  if (error) return { ok: false, error: error.message };
+  if (info.kind === "video") {
+    return {
+      ok: true,
+      kind: "video",
+      ref: { sha256, mime: "video/mp4", bytes: bytes.length, width: info.width, height: info.height, durationMs: info.durationMs, draftPath: path },
+    };
+  }
   return {
     ok: true,
-    image: { sha256, mime: info.mime, bytes: bytes.length, width: info.width, height: info.height, draftPath },
+    kind: "image",
+    ref: { sha256, mime: info.mime, bytes: bytes.length, width: info.width, height: info.height, draftPath: path },
   };
 }
 
@@ -268,14 +304,17 @@ export async function publishLaunchIntroDraft(
   const asPub = validateLaunchIntroDocument(pubDoc, "publication");
   if (!asPub.ok) return { ok: false, error: asPub.error, status: 400 };
 
-  for (const img of launchIntroDocumentImageRefs(asDraft.document)) {
+  for (const img of launchIntroDocumentAllRefs(asDraft.document)) {
     if (!img.draftPath) continue;
     const dl = await sb.storage.from(LAUNCH_INTRO_DRAFT_BUCKET).download(img.draftPath);
     if (dl.error || !dl.data) return { ok: false, error: "draft_image_missing" };
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     const sha = createHash("sha256").update(bytes).digest("hex");
     if (sha !== img.sha256 || bytes.length !== img.bytes) return { ok: false, error: "draft_image_sha_mismatch" };
-    const pubPath = `pub/${img.sha256}.${launchIntroAssetExtension(img.mime)}`;
+    // Publish authority re-derives what the bytes are; the document's claims are never trusted alone.
+    const checked = inspectLaunchIntroAsset(bytes);
+    if (!checked.ok || checked.mime !== img.mime) return { ok: false, error: `asset_rejected: ${checked.ok ? "mime_mismatch" : checked.error}` };
+    const pubPath = launchIntroPublicAssetPath(img.sha256, img.mime);
     const up = await sb.storage.from(LAUNCH_INTRO_PUBLIC_BUCKET).upload(pubPath, bytes, {
       contentType: img.mime,
       cacheControl: "31536000",

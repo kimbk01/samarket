@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
-import { launchIntroDocumentImageRefs } from "@/lib/launch-intro/document";
+import { launchIntroDocumentImageRefs, launchIntroDocumentVideoRefs } from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
 import { markLaunchEpochShown } from "@/lib/launch-intro/launch-epoch";
 import {
@@ -129,6 +129,26 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         }
         srcs[ref.sha256] = src;
         if (cancelled) return;
+      }
+      // Videos: verified local object URLs only. Never decoded or awaited here — the poster above is
+      // the first meaningful frame; playback starts after the OS release and may fail without effect.
+      for (const ref of launchIntroDocumentVideoRefs(doc)) {
+        if (srcs[ref.sha256]) continue;
+        const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
+        const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
+        if (cancelled) {
+          if (src) URL.revokeObjectURL(src);
+          return;
+        }
+        if (!src) {
+          // Incomplete cache = not a valid snapshot (promotion is all-or-nothing): same as a missing image.
+          invalidateLaunchIntroIndex();
+          abortLaunchIntroToCommunity("asset_missing");
+          setPhase("done");
+          return;
+        }
+        created.push(src);
+        srcs[ref.sha256] = src;
       }
       if (cancelled) return;
       committed = true;

@@ -35,6 +35,7 @@ import {
   type LaunchIntroDocument,
   type LaunchIntroFit,
   type LaunchIntroImageRef,
+  type LaunchIntroVideoRef,
   type LaunchIntroLiveState,
   type LaunchIntroScene,
   type LaunchIntroSceneText,
@@ -78,6 +79,7 @@ const ENTER_LABEL = {
   "slide-up": "admin_launch_intro_enter_slide_up",
   scale: "admin_launch_intro_enter_scale",
 } as const satisfies Record<LaunchIntroScene["motion"]["enter"], string>;
+const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
 const PREVIEW_MAX_W = 300;
 const PREVIEW_MAX_H = 560;
 
@@ -85,6 +87,75 @@ function defaultTextStyle(kind: "headline" | "supporting", value: string): Launc
   return kind === "headline"
     ? { value, size: "L", weight: "bold", color: "#FFFFFF" }
     : { value, size: "M", weight: "regular", color: "#FFFFFF" };
+}
+
+class UploadError extends Error {}
+
+/** Two-step draft upload: signed URL → direct PUT to storage → server inspection (the authority). */
+async function uploadLaunchIntroAsset(
+  file: Blob & { type: string }
+): Promise<{ kind: "image" | "video"; ref: LaunchIntroImageRef | LaunchIntroVideoRef; url: string | null }> {
+  const post = async (body: unknown) => {
+    const res = await fetch("/api/admin/launch-intro/upload", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = (await res.json()) as Record<string, unknown> & { ok: boolean; error?: string };
+    if (!json.ok) throw new UploadError(json.error ?? String(res.status));
+    return json;
+  };
+  const start = (await post({ action: "start", mime: file.type, bytes: file.size })) as unknown as { path: string; signedUrl: string };
+  const put = await fetch(start.signedUrl, {
+    method: "PUT",
+    headers: { "content-type": file.type, "x-upsert": "false", "cache-control": "max-age=3600" },
+    body: file,
+  });
+  if (!put.ok) throw new UploadError(`storage_${put.status}`);
+  const done = (await post({ action: "finish", path: start.path })) as unknown as {
+    kind: "image" | "video";
+    ref: LaunchIntroImageRef | LaunchIntroVideoRef;
+    url: string | null;
+  };
+  return done;
+}
+
+/** First frame of a local MP4 → JPEG at the video's display size (event-driven, no timers). */
+function extractVideoPoster(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    const fail = () => {
+      URL.revokeObjectURL(url);
+      reject(new UploadError("poster_failed"));
+    };
+    video.onerror = fail;
+    video.onloadeddata = () => {
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const g = canvas.getContext("2d");
+        if (!g || !canvas.width || !canvas.height) return fail();
+        g.drawImage(video, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) return reject(new UploadError("poster_failed"));
+            resolve(new File([blob], "poster.jpg", { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.9
+        );
+      };
+      video.currentTime = 0;
+    };
+    video.src = url;
+  });
 }
 
 function FitSelect({ value, onChange }: { value: LaunchIntroFit; onChange: (fit: LaunchIntroFit) => void }) {
@@ -266,6 +337,10 @@ export function LaunchIntroAdminPage() {
   const patchScene = (patch: Partial<LaunchIntroScene>) => patchSceneAt(sel, (s) => ({ ...s, ...patch }));
   const pickImage = (target: UploadTarget) => {
     uploadTarget.current = target;
+    if (fileRef.current) {
+      fileRef.current.accept =
+        target.kind === "media" || target.kind === "background" ? `${IMAGE_ACCEPT},video/mp4` : IMAGE_ACCEPT;
+    }
     fileRef.current?.click();
   };
   const patchText = (patch: Partial<LaunchIntroSceneText>) => {
@@ -318,25 +393,35 @@ export function LaunchIntroAdminPage() {
     setBusy(true);
     setMessage(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/admin/launch-intro/image", { method: "POST", credentials: "same-origin", body: form });
-      const json = (await res.json()) as { ok: true; image: LaunchIntroImageRef; url: string | null } | ApiError;
-      if (!json.ok) {
-        setMessage(t("admin_launch_intro_error", { error: json.error ?? String(res.status) }));
-        return;
+      const isVideo = file.type === "video/mp4";
+      if (isVideo && target.kind !== "media" && target.kind !== "background") throw new UploadError("video_not_allowed_here");
+      let video: LaunchIntroVideoRef | null = null;
+      let asset: LaunchIntroImageRef;
+      if (isVideo) {
+        const v = await uploadLaunchIntroAsset(file);
+        if (v.kind !== "video") throw new UploadError("unsupported_media");
+        video = v.ref as LaunchIntroVideoRef;
+        // Poster = the video's first frame at its display size (same aspect ratio by construction).
+        const poster = await uploadLaunchIntroAsset(await extractVideoPoster(file));
+        if (poster.kind !== "image") throw new UploadError("poster_failed");
+        asset = poster.ref as LaunchIntroImageRef;
+        setImageUrls((prev) => ({ ...prev, ...(v.url ? { [v.ref.sha256]: v.url } : {}), ...(poster.url ? { [poster.ref.sha256]: poster.url } : {}) }));
+      } else {
+        const img = await uploadLaunchIntroAsset(file);
+        if (img.kind !== "image") throw new UploadError("unsupported_media");
+        asset = img.ref as LaunchIntroImageRef;
+        if (img.url) setImageUrls((prev) => ({ ...prev, [img.ref.sha256]: img.url! }));
       }
-      if (json.url) setImageUrls((prev) => ({ ...prev, [json.image.sha256]: json.url! }));
-      const asset = json.image;
       patchSceneAt(index, (s) => {
-        if (target.kind === "media") return { ...s, media: { asset, fit: s.media?.fit ?? "contain" } };
-        if (target.kind === "background") return { ...s, background: { ...s.background, media: { asset, fit: s.background.media?.fit ?? "cover" } } };
+        if (target.kind === "media") return { ...s, media: { asset, fit: s.media?.fit ?? "contain", video } };
+        if (target.kind === "background")
+          return { ...s, background: { ...s.background, media: { asset, fit: s.background.media?.fit ?? "cover", video } } };
         if (target.kind === "logo") return { ...s, logo: { asset } };
         const rest = s.decorations.filter((d) => d.slot !== target.slot);
         return { ...s, decorations: [...rest, { asset, slot: target.slot, size: "M" }] };
       });
-    } catch {
-      setMessage(t("admin_launch_intro_error", { error: "network" }));
+    } catch (err) {
+      setMessage(t("admin_launch_intro_error", { error: err instanceof UploadError ? err.message : "network" }));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -531,7 +616,7 @@ export function LaunchIntroAdminPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept={IMAGE_ACCEPT}
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

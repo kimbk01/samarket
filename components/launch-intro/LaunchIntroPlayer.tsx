@@ -104,6 +104,7 @@ export function LaunchIntroPlayer({
           skipLabel={skipLabel}
           showSkip={document.settings.skip.enabled}
           animateEnter={i > 0}
+          playVideo={running}
           onCta={extra?.interactiveLayer ? onCta : undefined}
           onSkip={extra?.interactiveLayer && interactive ? onSkip : undefined}
           safeArea={safeArea}

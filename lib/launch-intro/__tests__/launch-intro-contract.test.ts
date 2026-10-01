@@ -7,10 +7,14 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   emptyLaunchIntroDocument,
+  inspectLaunchIntroAsset,
   isLaunchIntroInternalPath,
+  LAUNCH_INTRO_VIDEO_MAX_BYTES,
+  launchIntroDocumentVideoRefs,
   launchIntroDocumentAssets,
   normalizeLaunchIntroHex,
   sniffLaunchIntroImage,
+  sniffLaunchIntroVideo,
   toPublicationDocument,
   validateLaunchIntroDocument,
 } from "../document";
@@ -31,6 +35,49 @@ function pngHeader(w: number, h: number): Uint8Array {
   b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 0);
   b.set([w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255, h >>> 24, (h >>> 16) & 255, (h >>> 8) & 255, h & 255], 16);
   return b;
+}
+
+/** Minimal ISO BMFF: ftyp + moov(mvhd, trak(tkhd, mdia(hdlr, minf(stbl(stsd))))) — structure only. */
+function box(type: string, ...parts: Uint8Array[]): Uint8Array {
+  const len = 8 + parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(len);
+  new DataView(out.buffer).setUint32(0, len);
+  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+  let o = 8;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+function u32s(...v: number[]): Uint8Array {
+  const b = new Uint8Array(v.length * 4);
+  v.forEach((x, i) => new DataView(b.buffer).setUint32(i * 4, x >>> 0));
+  return b;
+}
+function mp4(opts: { w: number; h: number; ms: number; codec?: string; rotate90?: boolean; pad?: number }): Uint8Array {
+  const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
+  // mvhd v0: version/flags, ctime, mtime, timescale, duration, …
+  const mvhd = box("mvhd", u32s(0, 0, 0, 1000, opts.ms), new Uint8Array(80));
+  // tkhd v0: version/flags, ctime, mtime, trackId, reserved, duration, reserved×2, layer/alt, vol/res, matrix(9), w, h
+  const matrix = opts.rotate90 ? [0, 0x10000, 0, -0x10000, 0, 0, 0, 0, 0x40000000] : [0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000];
+  const tkhd = box("tkhd", u32s(0, 0, 0, 1, 0, opts.ms, 0, 0, 0, 0, ...matrix, opts.w << 16, opts.h << 16));
+  const hdlr = box("hdlr", u32s(0, 0), ascii("vide"), new Uint8Array(12));
+  const stsd = box("stsd", u32s(0, 1), box(opts.codec ?? "avc1", new Uint8Array(78)));
+  const trak = box("trak", tkhd, box("mdia", hdlr, box("minf", box("stbl", stsd))));
+  const parts = [box("ftyp", ascii("isom"), u32s(0x200), ascii("isomavc1")), box("moov", mvhd, trak)];
+  if (opts.pad) parts.push(box("mdat", new Uint8Array(opts.pad)));
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+function gifHeader(w: number, h: number): Uint8Array {
+  return Uint8Array.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, w & 255, w >> 8, h & 255, h >> 8, 0, 0, 0]);
 }
 
 describe("launch intro document", () => {
@@ -94,7 +141,7 @@ describe("launch intro document", () => {
           id: "scene-1",
           layout: "stack",
           background: { color: "#075740", media: null },
-          media: { asset: { sha256: SHA, mime: "image/png", bytes: 1000, width: 400, height: 300 }, fit: "contain" },
+          media: { asset: { sha256: SHA, mime: "image/png", bytes: 1000, width: 400, height: 300 }, fit: "contain", video: null },
           logo: null,
           decorations: [],
           text: { headline: { value: "dibaY", size: "L", weight: "bold", color: "#FFFFFF" }, supporting: null, align: "center" },
@@ -145,6 +192,39 @@ describe("launch intro document", () => {
     const p = toPublicationDocument(v.document);
     expect(JSON.stringify(p)).not.toContain("draftPath");
     expect(launchIntroDocumentAssets(p).map((a) => a.sha256).sort()).toEqual([SHA, shaB, shaC].sort());
+  });
+
+  it("P3 GIF + MP4: poster required and same aspect, ≤5MB / ≤30s, H.264 only, server authority on bytes", () => {
+    expect(sniffLaunchIntroImage(gifHeader(320, 200))).toEqual({ mime: "image/gif", width: 320, height: 200 });
+    expect(sniffLaunchIntroVideo(mp4({ w: 640, h: 360, ms: 4000 }))).toMatchObject({ mime: "video/mp4", width: 640, height: 360, durationMs: 4000, codec: "avc1" });
+    expect(sniffLaunchIntroVideo(mp4({ w: 640, h: 360, ms: 4000, rotate90: true }))).toMatchObject({ width: 360, height: 640 });
+    expect(sniffLaunchIntroVideo(mp4({ w: 640, h: 360, ms: 4000, codec: "hvc1" }))).toBeNull();
+
+    // Server authority (finalize + publish): the bytes decide, not the Admin UI.
+    expect(inspectLaunchIntroAsset(mp4({ w: 640, h: 360, ms: 4000 }))).toMatchObject({ ok: true, kind: "video" });
+    expect(inspectLaunchIntroAsset(mp4({ w: 640, h: 360, ms: 4000, pad: LAUNCH_INTRO_VIDEO_MAX_BYTES }))).toEqual({ ok: false, error: "video_too_big" });
+    expect(inspectLaunchIntroAsset(mp4({ w: 640, h: 360, ms: 30_001 }))).toEqual({ ok: false, error: "video_duration_invalid" });
+    expect(inspectLaunchIntroAsset(mp4({ w: 640, h: 360, ms: 4000, codec: "hvc1" }))).toEqual({ ok: false, error: "unsupported_media" });
+    expect(inspectLaunchIntroAsset(gifHeader(320, 200))).toMatchObject({ ok: true, kind: "image", mime: "image/gif" });
+
+    const base = emptyLaunchIntroDocument();
+    const scene = base.scenes[0];
+    const text = { headline: textStyle("Hi"), supporting: null, align: "center" as const };
+    const poster = (w: number, h: number) => ({ sha256: SHA, mime: "image/jpeg", bytes: 10, width: w, height: h });
+    const video = (extra: Record<string, unknown> = {}) => ({ sha256: "d".repeat(64), mime: "video/mp4", bytes: 1000, width: 640, height: 360, durationMs: 4000, ...extra });
+    const pub = (media: unknown) => validateLaunchIntroDocument({ ...base, scenes: [{ ...scene, text, media }] }, "publication");
+    expect(pub({ asset: poster(1280, 720), fit: "contain", video: video() }).ok).toBe(true);
+    expect(pub({ asset: null, fit: "contain", video: video() })).toEqual({ ok: false, error: "video_poster_required" });
+    expect(pub({ asset: poster(720, 720), fit: "contain", video: video() })).toEqual({ ok: false, error: "video_poster_aspect_mismatch" });
+    expect(pub({ asset: poster(1280, 720), fit: "contain", video: video({ bytes: LAUNCH_INTRO_VIDEO_MAX_BYTES + 1 }) })).toEqual({ ok: false, error: "video_too_big" });
+    expect(pub({ asset: poster(1280, 720), fit: "contain", video: video({ durationMs: 30_001 }) })).toEqual({ ok: false, error: "video_duration_invalid" });
+    expect(pub({ asset: poster(1280, 720), fit: "contain", video: video({ mime: "video/webm" }) })).toEqual({ ok: false, error: "video_mime_invalid" });
+
+    const v = pub({ asset: poster(1280, 720), fit: "cover", video: video() });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(launchIntroDocumentVideoRefs(v.document).map((r) => r.sha256)).toEqual(["d".repeat(64)]);
+    expect(launchIntroDocumentAssets(v.document).map((a) => a.path).sort()).toEqual([`pub/${SHA}.jpg`, `pub/${"d".repeat(64)}.mp4`].sort());
   });
 
   it("internal path rule", () => {
@@ -241,6 +321,20 @@ describe("launch intro static contract", () => {
     expect(player).toContain("if (!running) return;");
     expect(player).toContain('if (cta.action.type === "next")');
     expect(player).not.toMatch(/useRouter|next\/navigation|releaseOsForLaunchIntro|localStorage/);
+  });
+
+  it("P3 video renders only after the OS release, muted + inline, poster first, failure keeps the poster", () => {
+    const view = src("components/launch-intro/LaunchIntroSceneView.tsx");
+    for (const attr of ["autoPlay", "muted", "playsInline", "el.muted = true", "onError={() => setFailed(true)}"]) expect(view).toContain(attr);
+    expect(view).toMatch(/media\.video && videoSrc && playVideo && !failed/);
+    expect(src("components/launch-intro/LaunchIntroPlayer.tsx")).toContain("playVideo={running}");
+    const root = src("components/launch-intro/LaunchIntroRoot.tsx");
+    expect(root).toContain("launchIntroDocumentVideoRefs");
+    expect(root).toContain('running={phase === "showing" && released}');
+    const route = src("app/api/admin/launch-intro/upload/route.ts");
+    expect(route).toContain("finalizeLaunchIntroDraftUpload");
+    const server = src("lib/launch-intro/server.ts");
+    expect(server.match(/inspectLaunchIntroAsset\(/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("every_launch authority is the native epoch, not sessionStorage / timestamps", () => {
