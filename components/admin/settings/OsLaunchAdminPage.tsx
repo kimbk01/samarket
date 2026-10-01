@@ -16,7 +16,12 @@ import { normalizeOsLaunchHex } from "@/lib/os-launch/contract";
 
 type Snapshot = {
   ok: true;
-  build: { backgroundColor: string; logoUrl: string | null; logo: { sha256: string } };
+  build: {
+    backgroundColor: string;
+    logoUrl: string | null;
+    logo: { sha256: string };
+    appliedFromAdmin: { updatedAt: string; sha256: string | null } | null;
+  };
   pending: {
     backgroundColor: string;
     logo: { sha256: string } | null;
@@ -164,12 +169,29 @@ export function OsLaunchAdminPage() {
           <AdminCard title={t("admin_os_launch_current_title")}>
             <div className="space-y-3 px-4 py-4 sm:px-5">
               <StartPreview color={snap.build.backgroundColor} logoUrl={snap.build.logoUrl} />
-              <dl className="sam-text-body text-sam-fg">
+              <dl className="space-y-1 sam-text-body text-sam-fg">
                 <div className="flex justify-between gap-2">
                   <dt className="text-sam-muted">{t("admin_os_launch_background")}</dt>
                   <dd className="font-mono">{snap.build.backgroundColor}</dd>
                 </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{t("admin_os_launch_snapshot_logo")}</dt>
+                  <dd className="font-mono">{snap.build.logo.sha256.slice(0, 12)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{t("admin_os_launch_snapshot_source")}</dt>
+                  <dd>
+                    {snap.build.appliedFromAdmin
+                      ? new Date(snap.build.appliedFromAdmin.updatedAt).toLocaleString()
+                      : t("admin_os_launch_snapshot_source_repo")}
+                  </dd>
+                </div>
               </dl>
+              <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                <p className="sam-text-body font-medium text-sam-fg">{t("admin_os_launch_deployed_title")}</p>
+                <p className="sam-text-body-secondary text-sam-muted">Android · {t("admin_os_launch_deployed_unknown")}</p>
+                <p className="sam-text-body-secondary text-sam-muted">iOS · {t("admin_os_launch_deployed_unknown")}</p>
+              </div>
             </div>
           </AdminCard>
 
@@ -203,6 +225,7 @@ export function OsLaunchAdminPage() {
                     className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono sam-text-body text-sam-fg"
                     value={color}
                     maxLength={7}
+                    onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => setColor(e.target.value)}
                   />
                   <button

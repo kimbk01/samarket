@@ -9,6 +9,7 @@ import {
 import {
   getOsLaunchBuildConfig,
   loadOsLaunchPending,
+  removeOsLaunchLogo,
   saveOsLaunchPending,
   signOsLaunchLogoUrl,
 } from "@/lib/os-launch/server";
@@ -62,11 +63,16 @@ export async function PUT(req: NextRequest) {
   const color = normalizeOsLaunchHex(body.backgroundColor);
   if (!color) return NextResponse.json({ ok: false, error: "invalid_color" }, { status: 400 });
 
+  const resetLogo = body.resetLogo === true;
+  const before = resetLogo ? await loadOsLaunchPending(sb) : null;
   const saved = await saveOsLaunchPending(
     sb,
-    { backgroundColor: color, ...(body.resetLogo === true ? { logo: null } : {}) },
+    { backgroundColor: color, ...(resetLogo ? { logo: null } : {}) },
     admin.userId
   );
   if (!saved.ok) return NextResponse.json({ ok: false, error: saved.error }, { status: 500 });
+  // Reset → the old pending logo object is no longer referenced; remove it from private storage.
+  const oldPath = before?.ok ? before.pending?.logo?.source : undefined;
+  if (oldPath) await removeOsLaunchLogo(sb, oldPath);
   return NextResponse.json(await snapshot(sb, saved.pending));
 }

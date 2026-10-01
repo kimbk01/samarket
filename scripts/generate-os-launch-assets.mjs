@@ -170,6 +170,10 @@ async function main() {
   );
   sb = sb.replace(/(<constraint firstAttribute="width" constant=")[0-9.]+(" id="OsL-wd-001"\/>)/, `$1${pt}$2`);
   sb = sb.replace(/(<constraint firstAttribute="height" constant=")[0-9.]+(" id="OsL-ht-001"\/>)/, `$1${ptH}$2`);
+  sb = sb.replace(
+    /(<rect key="frame" x=")[0-9.]+(" y=")[0-9.]+(" width=")[0-9.]+(" height=")[0-9.]+("\/>\s*<constraints>\s*<constraint firstAttribute="width" constant="[0-9.]+" id="OsL-wd-001")/,
+    `$1${(414 - pt) / 2}$2${(896 - ptH) / 2}$3${pt}$4${ptH}$5`
+  );
   sb = sb.replace(/<image name="OsLaunchLogo" width="[0-9.]+" height="[0-9.]+"\/>/, `<image name="OsLaunchLogo" width="${pt}" height="${ptH}"/>`);
   writeOrCheck(STORYBOARD, sb, drift);
 
