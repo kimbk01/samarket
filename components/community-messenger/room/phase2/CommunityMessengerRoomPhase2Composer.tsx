@@ -379,11 +379,16 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     : tradeOnlyBlocked
       ? tradeBlockedMessage || safeT("cm_ui_cannot_send_message", { fallbackKo: "메시지를 보낼 수 없습니다", fallbackEn: "You cannot send messages" })
       : vm.roomUnavailable
-        ? vm.snapshot.room.isReadonly
-          ? safeT("cm_ui_read_only_room", { fallbackKo: "읽기 전용 방입니다", fallbackEn: "This room is read-only" })
-          : vm.snapshot.room.roomStatus === "blocked"
-            ? safeT("cm_ui_blocked_room", { fallbackKo: "차단된 방입니다", fallbackEn: "This room is blocked" })
-            : safeT("cm_ui_archived_room", { fallbackKo: "보관된 방입니다", fallbackEn: "This room is archived" })
+        ? vm.storeOrderClosed
+          ? safeT("nav_messenger_store_order_chat_closed", {
+              fallbackKo: "완료되거나 취소된 주문에서는 새 메시지를 보낼 수 없습니다.",
+              fallbackEn: "You cannot send new messages in a completed or cancelled order chat.",
+            })
+          : vm.snapshot.room.isReadonly
+            ? safeT("cm_ui_read_only_room", { fallbackKo: "읽기 전용 방입니다", fallbackEn: "This room is read-only" })
+            : vm.snapshot.room.roomStatus === "blocked"
+              ? safeT("cm_ui_blocked_room", { fallbackKo: "차단된 방입니다", fallbackEn: "This room is blocked" })
+              : safeT("cm_ui_archived_room", { fallbackKo: "보관된 방입니다", fallbackEn: "This room is archived" })
         : vm.snapshot.clientShellPlaceholder
           ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
           : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });

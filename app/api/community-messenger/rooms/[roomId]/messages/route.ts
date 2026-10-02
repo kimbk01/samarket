@@ -223,9 +223,12 @@ export async function POST(
   const content = String(body.content ?? "");
   const clientMessageId = String(body.clientMessageId ?? "").trim();
   const replyToMessageId = String(body.replyToMessageId ?? "").trim();
+  // CHAT-04: 내용 앞 24자 기반 dedupe 키를 제거(앞부분 같은 다른 메시지가 사라지던 문제).
+  // clientMessageId 가 있으면 그것으로 dedupe, 없으면 요청마다 고유 키 → 합쳐지지 않음.
+  // (clientMessageId 중복은 DB UNIQUE 인덱스가 근본 차단.)
   const key = clientMessageId
     ? `community-messenger:send:${userId}:${canonicalRoomId}:${clientMessageId}`
-    : `community-messenger:send:${userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
+    : `community-messenger:send:${userId}:${canonicalRoomId}:nocid:${Date.now()}:${Math.random().toString(36).slice(2, 11)}`;
   const now = Date.now();
   pruneByAtMaxAgeAndMaxSize(sendDedupe, now, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
   const cached = sendDedupe.get(key);

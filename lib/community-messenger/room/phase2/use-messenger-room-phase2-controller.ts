@@ -381,6 +381,7 @@ export function useMessengerRoomPhase2Controller() {
   const callPanel = call.panel;
   const {
     roomUnavailable,
+    storeOrderClosed,
     isGroupRoom,
     roomSummaryHoldsOnlyTradeOrDeliveryMeta,
     tradeProductChatIdForDock,
@@ -524,6 +525,7 @@ export function useMessengerRoomPhase2Controller() {
     snapshot,
     roomMembersDisplay,
     roomUnavailable,
+    storeOrderClosed,
     message,
     busy,
     pendingMessageIdRef,
