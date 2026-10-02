@@ -311,6 +311,10 @@ import {
   resetMessengerImageMetaDiagnosticsCounts,
 } from "@/lib/community-messenger/messenger-image-message-map";
 import {
+  collectMessengerMediaStoragePaths,
+  purgeMessengerMediaStoragePaths,
+} from "@/lib/community-messenger/messenger-media-purge";
+import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
@@ -17357,14 +17361,13 @@ export async function deleteCommunityMessengerVoiceMessage(input: {
         : {}
     ) as Record<string, unknown>;
     const content = trimText((msg as { content?: string }).content);
-    let storagePath = trimText(metadata.storagePath as string);
-    if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(content) ?? "";
-    if (storagePath) {
-      await (sb as any).storage.from("post-images").remove([storagePath]);
-    }
+    // WP-5/IMG-01: 삭제 전 경로 수집 → DB 삭제 성공 후 purge (storage-before-DB 순서 수정).
+    const mediaPaths = collectMessengerMediaStoragePaths({ metadata, content });
 
     const { error: delErr } = await (sb as any).from("community_messenger_messages").delete().eq("id", messageId);
     if (delErr) return { ok: false, error: "delete_failed" };
+
+    await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
 
     await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
     return { ok: true };
@@ -17509,16 +17512,12 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
 
   if (trimText(msgRow.deleted_for_everyone_at)) return { ok: true };
 
-  const mt = trimText(msgRow.message_type);
-  const metadata = (msgRow.metadata ?? {}) as Record<string, unknown>;
-  if (mt === "voice") {
-    const contentV = trimText(msgRow.content);
-    let storagePath = trimText(metadata.storagePath as string);
-    if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(contentV) ?? "";
-    if (storagePath) {
-      await (sb as any).storage.from("post-images").remove([storagePath]);
-    }
-  }
+  // WP-5/IMG-01: voice 만 지우고 image/file 은 스토리지에 남기던 문제 + storage-before-DB 순서 수정.
+  // 메시지 행의 metadata/content 에서 모든 미디어 경로를 DB 갱신 전에 수집한다(갱신 시 metadata 가 {} 로 비워짐).
+  const mediaPaths = collectMessengerMediaStoragePaths({
+    metadata: (msgRow.metadata ?? {}) as Record<string, unknown>,
+    content: trimText(msgRow.content),
+  });
 
   const { error: upErr } = await (sb as any)
     .from("community_messenger_messages")
@@ -17531,7 +17530,31 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
     .eq("room_id", roomId);
   if (upErr) return { ok: false, error: "delete_failed" };
 
+  // DB 갱신 성공 후 스토리지 purge(실패는 로그만 — 삭제 자체는 DB 상 완료).
+  await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
+
   await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
+
+  // WP-5/NEW-25: 삭제 사실을 상대에게 알려 화면/목록/스냅샷을 갱신(서버 전용 bump).
+  try {
+    const { publishMessengerRoomBumpAfterMutation } = await import(
+      "@/lib/community-messenger/server/publish-messenger-room-bump"
+    );
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: roomId,
+      canonicalRoomId: roomId,
+      fromUserId: userId,
+      messageId,
+      messageCreatedAt: nowIso(),
+    });
+  } catch (err) {
+    console.error("[messenger-delete] bump_publish_failed", {
+      messageId,
+      roomId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return { ok: true };
 }
 
