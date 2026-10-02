@@ -175,8 +175,12 @@ async function finalizeOutgoingMissedTimeout(
   identity: CallV4Identity | null,
 ): Promise<void> {
   const sid = callId.trim();
+  // CALL-04: the PEER (callee) correctly gets "missed". But the caller's own in-app notice must
+  // NOT be the callee-oriented "missed" — classify the caller-side terminal as "no_answer", which
+  // the existing notice contract routes to NONE (silent). This separates caller no-answer from
+  // callee missed-call using existing terminal-reason authority (no new event/enum/notice).
   notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
-  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined);
+  await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined);
   logCallV4("missed_timeout_finalize_done", { callId: sid, source });
 }
 
@@ -1100,7 +1104,12 @@ export async function callV4Accept(
     });
     await leaveCallV4Agora(sid);
     useCallV4Store.getState().setPhase("failed");
-    await finalizeCallV4Terminal(sid, "failed", router);
+    // NEW-11(web): media permission denied on the callee side. Tell the server via the existing
+    // reject authority so the caller's session goes terminal (no orphan ringing), and finalize
+    // with a permission reason so the callee sees the permission notice (not a generic failure).
+    // Existing authority only: callV4PatchReject + existing terminal-reason → notice classifier.
+    await callV4PatchReject(sid).catch(() => {});
+    await finalizeCallV4Terminal(sid, "failed_permission", router);
     return;
   }
   logCallV4("call_v4_accept_media_preflight_done", {
@@ -1311,12 +1320,18 @@ export async function callV4HandleMissedTimeout(
       return;
     }
     if (nativeOutgoingShell) {
-      logCallV4("missed_patch_failed_force_finalize", {
+      // CALL-02: the missed PATCH failed AND the post-failure refetch above did not confirm a
+      // terminal (or active) server status. Server authority comes first — do NOT notify the peer
+      // "missed" without server confirmation. Finalize locally only via the existing finalize
+      // (no peer notify); "no_answer" routes to a silent caller notice via the existing contract.
+      // No new retry/timer/state: the single existing refetch is the reconciliation authority.
+      logCallV4("missed_patch_failed_local_finalize_no_peer_notify", {
         callId: sid,
         source,
         error: patched.error ?? null,
       });
-      await finalizeOutgoingMissedTimeout(sid, source, router, identity);
+      releaseCallV4MissedPatchClaim(sid);
+      await finalizeCallV4Terminal(sid, "no_answer", router ?? readCallV4ExitRouter() ?? undefined);
       return;
     }
     releaseCallV4MissedPatchClaim(sid);
