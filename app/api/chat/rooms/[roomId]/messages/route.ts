@@ -163,6 +163,7 @@ export async function POST(
   const imageList = normalizeIncomingImageUrlList({
     imageUrl: body.imageUrl,
     imageUrls: body.imageUrls,
+    ownerUid: userId,
   });
   if (!roomId) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
