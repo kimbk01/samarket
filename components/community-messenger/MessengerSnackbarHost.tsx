@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { useMessengerSnackbarStore } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  useMessengerSnackbarStore,
+  flushPendingMessengerSnackbar,
+} from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import {
   shouldSuppressCallOverlayToasts,
@@ -33,10 +36,18 @@ export function MessengerSnackbarHost() {
   const dismiss = useMessengerSnackbarStore((s) => s.dismiss);
 
   useEffect(() => {
-    if (suppress) dismiss();
-  }, [suppress, dismiss]);
+    if (suppress) {
+      // NEW-13: 억제 시작 시 일반 알림만 닫고, 오류는 유지한다.
+      if (current && current.variant !== "error") dismiss();
+    } else {
+      // NEW-13: 통화 오버레이 종료 → 보관된 일반 알림 재생.
+      flushPendingMessengerSnackbar();
+    }
+  }, [suppress, dismiss, current]);
 
-  if (suppress || !current) return null;
+  if (!current) return null;
+  // NEW-13: 통화 dock·PiP 중에도 오류는 항상 표시(일반 알림만 숨김).
+  if (suppress && current.variant !== "error") return null;
 
   const surface =
     current.variant === "error"
