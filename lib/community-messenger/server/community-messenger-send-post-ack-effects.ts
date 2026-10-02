@@ -29,6 +29,8 @@ import type { NotificationDecision } from "@/lib/notifications/engine/notificati
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { dispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { markChatPushHandoffFastPathSent } from "@/lib/notifications/chat-notification-push-handoff";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
 
@@ -224,7 +226,14 @@ export async function runCommunityMessengerSendDeferredPostAckEffects(
 
   const pushT0 = performance.now();
   for (const item of deferred.deferredPushes) {
-    await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(() => {});
+    // NEW-24/NOTI-08: fast-path 전송. 성공(sent/noop)이면 handoff 를 닫아 cron 재전송 대상에서 제외.
+    // 실패(retryable/permanent)면 pending 유지 → grace 후 1분 cron 이 복구한다.
+    const outcome = await dispatchNotificationEvent(sb, item.row, { appState: item.appState }).catch(
+      () => "retryable" as const
+    );
+    if (outcome === "sent" || outcome === "noop") {
+      await markChatPushHandoffFastPathSent(sb as unknown as SupabaseClient, item.row.id).catch(() => {});
+    }
   }
   if (t5) {
     const { spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
