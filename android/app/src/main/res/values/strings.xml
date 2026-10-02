@@ -49,6 +49,7 @@
     <string name="dibay_call_notice_missed">부재중 알림</string>
     <string name="dibay_call_notice_reconnecting">다시 연결하는 중…</string>
     <string name="dibay_call_notice_network_warning">네트워크 상태를 확인해 주세요.</string>
+    <string name="dibay_call_notice_mic_mute_failed">음소거를 적용하지 못했습니다.</string>
     <string name="dibay_call_notice_permission_required">마이크 권한이 필요합니다</string>
 
     <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>

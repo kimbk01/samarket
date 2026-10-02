@@ -925,9 +925,27 @@ public final class NativeVideoCallRuntime {
 
   private static void fail(Context context, String callId, String reason) {
     NativeVideoCallLog.warn("error_terminal", callId, "reason=" + safe(reason));
-    Session session = SESSIONS.get(callId);
+    if (context == null || callId == null) {
+      cleanup(context, callId, "failed");
+      return;
+    }
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    boolean alreadyTerminal =
+        session != null
+            && (session.state == State.ENDING
+                || session.state == State.ENDED);
     if (session != null) setState(context, session, State.FAILED);
-    cleanup(context, callId, "failed");
+    // WP-3 NEW-29: propagate a native startup/engine failure to the server so the peer is not left
+    // ringing / connected (orphan). Canonical terminal writer; terminalPatch + cleanup are idempotent
+    // (SESSIONS.remove + DibayCallConsumedStore), so this never double-cancels.
+    if (session != null && !alreadyTerminal) {
+      String action = session.initiator ? "end" : "reject";
+      NativeVideoCallLog.info("fail_terminal_propagate", sid, "action=" + action + " reason=" + safe(reason));
+      terminalPatch(context, sid, action);
+      return;
+    }
+    cleanup(context, sid, "failed");
   }
 
   private static boolean shouldStartForegroundVisibleActivity(Context context) {

@@ -34,7 +34,8 @@ public final class NativeCallInAppNoticeOverlay {
     MISSED,
     RECONNECTING,
     NETWORK_WARNING,
-    PERMISSION_REQUIRED
+    PERMISSION_REQUIRED,
+    MIC_MUTE_FAILED
   }
 
   private static final int BANNER_HEIGHT_DP = 72;
@@ -245,6 +246,7 @@ public final class NativeCallInAppNoticeOverlay {
       case PERMISSION_REQUIRED:
         return DANGER;
       case NETWORK_WARNING:
+      case MIC_MUTE_FAILED:
         return WARN_BG;
       case PEER_BUSY:
       case PEER_DECLINED:
@@ -301,6 +303,9 @@ public final class NativeCallInAppNoticeOverlay {
         break;
       case NETWORK_WARNING:
         res = R.string.dibay_call_notice_network_warning;
+        break;
+      case MIC_MUTE_FAILED:
+        res = R.string.dibay_call_notice_mic_mute_failed;
         break;
       case PERMISSION_REQUIRED:
         res = R.string.dibay_call_notice_permission_required;

@@ -150,13 +150,8 @@
             android:name=".nativevideo.NativeVideoCallActionReceiver"
             android:exported="false" />
 
-        <receiver
-            android:name=".nativevideo.NativeVideoCallOutgoingEntry"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.dibay.app.nativevideo.START_CALLER_JOIN" />
-            </intent-filter>
-        </receiver>
+        <!-- WP-3 AND-01: removed exported, permissionless NativeVideoCallOutgoingEntry receiver.
+             No in-app sender existed; outgoing calls go through NativeCallServicePlugin only. -->
 
         <service
             android:name=".call.CallForegroundService"

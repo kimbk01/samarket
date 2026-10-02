@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioManager.OnCommunicationDeviceChangedListener;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,6 +23,9 @@ public class DibayCallAudioRoutePlugin extends Plugin {
   private AudioManager audioManager;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private AudioDeviceCallback deviceCallback;
+  /** WP-3 LEAK-02: held so it can be unregistered in handleOnDestroy (was an unretained lambda). */
+  private OnCommunicationDeviceChangedListener commDeviceListener;
+  private boolean routeCallbacksRegistered = false;
   private boolean savedAudioState = false;
   private int savedMode = AudioManager.MODE_NORMAL;
   private boolean savedSpeakerphoneOn = false;
@@ -59,7 +63,7 @@ public class DibayCallAudioRoutePlugin extends Plugin {
   }
 
   private void registerRouteCallbacks() {
-    if (audioManager == null) return;
+    if (audioManager == null || routeCallbacksRegistered) return;
     deviceCallback =
         new AudioDeviceCallback() {
           @Override
@@ -76,9 +80,35 @@ public class DibayCallAudioRoutePlugin extends Plugin {
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Executor executor = command -> mainHandler.post(command);
-      audioManager.addOnCommunicationDeviceChangedListener(
-          executor, device -> notifyRouteChanged("communication_device_changed"));
+      commDeviceListener = device -> notifyRouteChanged("communication_device_changed");
+      audioManager.addOnCommunicationDeviceChangedListener(executor, commDeviceListener);
     }
+    routeCallbacksRegistered = true;
+  }
+
+  /** WP-3 LEAK-02: release both audio-route callbacks when the plugin/bridge is torn down. */
+  @Override
+  protected void handleOnDestroy() {
+    if (audioManager != null) {
+      if (deviceCallback != null) {
+        try {
+          audioManager.unregisterAudioDeviceCallback(deviceCallback);
+        } catch (RuntimeException ignored) {
+          // Already unregistered.
+        }
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && commDeviceListener != null) {
+        try {
+          audioManager.removeOnCommunicationDeviceChangedListener(commDeviceListener);
+        } catch (RuntimeException ignored) {
+          // Already removed.
+        }
+      }
+    }
+    deviceCallback = null;
+    commDeviceListener = null;
+    routeCallbacksRegistered = false;
+    super.handleOnDestroy();
   }
 
   private void notifyRouteChanged(String reason) {

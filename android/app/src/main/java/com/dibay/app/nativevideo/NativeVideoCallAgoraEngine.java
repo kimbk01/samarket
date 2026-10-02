@@ -62,7 +62,10 @@ public final class NativeVideoCallAgoraEngine {
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final Set<Integer> REMOTE_SETUP_UIDS = ConcurrentHashMap.newKeySet();
   private static final Set<Integer> PENDING_REMOTE_UIDS = ConcurrentHashMap.newKeySet();
+  private static final String LANE = "video";
   private static RtcEngine engine;
+  /** {@link com.dibay.app.nativecall.NativeAgoraEngineLifecycle} epoch of {@link #engine}. */
+  private static long engineEpoch = -1L;
   private static String activeCallId;
   private static Listener listener;
   private static NetworkQualityObserver networkQualityObserver;
@@ -130,8 +133,12 @@ public final class NativeVideoCallAgoraEngine {
               try {
                 awaitPendingChannelLeave(sid);
                 Context app = context.getApplicationContext();
-                RtcEngine rtc = ensureEngine(app, token.appId);
+                RtcEngine rtc = ensureEngine(app, token.appId, sid);
+                if (rtc == null) return;
                 rtc.enableAudio();
+                // WP-3: engine is reused across calls/lanes — every call starts with the mic unmuted.
+                int unmute = rtc.muteLocalAudioStream(false);
+                NativeVideoCallLog.info("native_video_mic_mute_reset", sid, "result=" + unmute);
                 rtc.enableVideo();
                 rtc.setDefaultAudioRoutetoSpeakerphone(true);
                 NativeVideoCallLog.info("audio_route_applied", sid, "speaker=true");
@@ -195,6 +202,10 @@ public final class NativeVideoCallAgoraEngine {
                 options.publishCameraTrack = true;
                 if (callerJoin) {
                   NativeVideoCallLog.info("local_camera_publish_success", sid);
+                }
+                if (com.dibay.app.nativecall.NativeCallDebugHooks.shouldForceJoinFailure(app)) {
+                  fail(sid, "forced_test_join_failure");
+                  return;
                 }
                 int result =
                     rtc.joinChannelWithUserAccount(
@@ -430,11 +441,22 @@ public final class NativeVideoCallAgoraEngine {
    * @return true when a zombie engine was released
    */
   public static boolean releaseZombieEngine(String reason) {
-    RtcEngine engineToDestroy;
-    CountDownLatch latch;
     synchronized (LOCK) {
       if (engine == null) return false;
       if (activeCallId != null && !activeCallId.isEmpty()) return false;
+    }
+    // WP-3 NEW-29: release through the process-wide lifecycle (RtcEngine.destroy() is global).
+    long token = com.dibay.app.nativecall.NativeAgoraEngineLifecycle.beginRelease(LANE, reason);
+    if (token == com.dibay.app.nativecall.NativeAgoraEngineLifecycle.RELEASE_REFUSED_OWNED) {
+      return false;
+    }
+    RtcEngine engineToDestroy;
+    CountDownLatch latch = null;
+    synchronized (LOCK) {
+      if (engine == null || (activeCallId != null && !activeCallId.isEmpty())) {
+        if (token > 0) com.dibay.app.nativecall.NativeAgoraEngineLifecycle.completeRelease(token, LANE);
+        return false;
+      }
       listener = null;
       renderContext = null;
       REMOTE_SETUP_UIDS.clear();
@@ -444,10 +466,17 @@ public final class NativeVideoCallAgoraEngine {
       localReattachInFlightCallId = null;
       engineToDestroy = engine;
       engine = null;
-      latch = new CountDownLatch(1);
-      pendingChannelLeave = latch;
+      engineEpoch = -1L;
+      if (token > 0) {
+        latch = new CountDownLatch(1);
+        pendingChannelLeave = latch;
+      }
     }
-    scheduleDestroyEngine(engineToDestroy, "zombie", latch);
+    if (token > 0) {
+      scheduleDestroyEngine(engineToDestroy, "zombie", latch, token);
+    } else {
+      NativeVideoCallLog.info("engine_ref_dropped_release_in_progress", "zombie", "reason=" + reason);
+    }
     return true;
   }
 
@@ -491,6 +520,9 @@ public final class NativeVideoCallAgoraEngine {
                 + " destroy=false");
       }
       scheduleLeaveChannel(engineToLeave, sid, latch);
+    }
+    if (sid != null) {
+      com.dibay.app.nativecall.NativeAgoraEngineLifecycle.releaseOwnership(LANE, sid);
     }
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
@@ -565,7 +597,7 @@ public final class NativeVideoCallAgoraEngine {
   }
 
   private static void scheduleDestroyEngine(
-      RtcEngine engineToDestroy, String sid, CountDownLatch latch) {
+      RtcEngine engineToDestroy, String sid, CountDownLatch latch, long releaseToken) {
     new Thread(
             () -> {
               try {
@@ -599,7 +631,9 @@ public final class NativeVideoCallAgoraEngine {
                   NativeVideoCallLog.info(
                       "before_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
                 }
-                RtcEngine.destroy();
+                if (com.dibay.app.nativecall.NativeAgoraEngineLifecycle.mayDestroy(releaseToken)) {
+                  RtcEngine.destroy();
+                }
                 if (sid != null) {
                   NativeVideoCallLog.info(
                       "after_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
@@ -610,6 +644,7 @@ public final class NativeVideoCallAgoraEngine {
                       "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
                 }
               } finally {
+                com.dibay.app.nativecall.NativeAgoraEngineLifecycle.completeRelease(releaseToken, LANE);
                 if (latch != null) {
                   latch.countDown();
                   synchronized (LOCK) {
@@ -624,16 +659,35 @@ public final class NativeVideoCallAgoraEngine {
         .start();
   }
 
-  private static RtcEngine ensureEngine(Context context, String appId) throws Exception {
-    awaitPendingChannelLeave(activeCallId != null ? activeCallId : "ensure");
+  /**
+   * WP-3 NEW-29: waits (join worker thread) until any in-progress engine release on either lane has
+   * completed, then takes ownership. Returns null when the call stopped being the occupant while
+   * waiting (ownership is handed back).
+   */
+  private static RtcEngine ensureEngine(Context context, String appId, String sid) throws Exception {
+    awaitPendingChannelLeave(sid);
+    long epoch = com.dibay.app.nativecall.NativeAgoraEngineLifecycle.awaitReleaseAndAcquire(LANE, sid);
     synchronized (LOCK) {
-      if (engine != null) return engine;
+      if (activeCallId == null || !activeCallId.equals(sid)) {
+        NativeVideoCallLog.info(
+            "engine_acquire_abandoned", sid, "reason=occupant_changed occupant=" + activeCallId);
+        com.dibay.app.nativecall.NativeAgoraEngineLifecycle.releaseOwnership(LANE, sid);
+        return null;
+      }
+      if (engine != null && engineEpoch == epoch) return engine;
+      if (engine != null) {
+        NativeVideoCallLog.info(
+            "engine_stale_epoch_dropped", sid, "engineEpoch=" + engineEpoch + " epoch=" + epoch);
+        engine = null;
+      }
       RtcEngineConfig config = new RtcEngineConfig();
       config.mContext = context;
       config.mAppId = appId;
       config.mEventHandler = EVENT_HANDLER;
       engine = RtcEngine.create(config);
+      engineEpoch = epoch;
       engine.setChannelProfile(Constants.CHANNEL_PROFILE_COMMUNICATION);
+      NativeVideoCallLog.info("engine_created", sid, "epoch=" + epoch);
       return engine;
     }
   }
