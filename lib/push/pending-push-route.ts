@@ -2,6 +2,11 @@
 
 export const PENDING_PUSH_ROUTE_STORAGE_KEY = "dibay_pending_push_route";
 export const PENDING_PUSH_ROUTE_TTL_MS = 60_000;
+/**
+ * NOTI-07: 로그아웃 상태에서 알림 탭 → 목적지 보관 후 로그인 대기. 로그인에 시간이
+ * 걸리므로 60초 대신 더 긴 보관(제안 5분, Owner 조정 가능).
+ */
+export const PENDING_PUSH_ROUTE_LOGIN_TTL_MS = 5 * 60_000;
 
 /**
  * Canonical pending only — never store title/body/full FCM payload.
@@ -16,6 +21,8 @@ export type PendingPushRoute = {
   /** Optional resolve metadata (not product copy). */
   source?: string | null;
   fallbackReason?: string | null;
+  /** NOTI-07: 알림 수신자 id — 로그인 후 같은 계정일 때만 이동(다른 계정이면 버림). */
+  recipientUserId?: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,17 +44,22 @@ export function readPendingPushRoute(now = Date.now()): PendingPushRoute | null 
       return null;
     }
     const at = typeof parsed.at === "number" && Number.isFinite(parsed.at) ? parsed.at : 0;
-    if (at > 0 && now - at > PENDING_PUSH_ROUTE_TTL_MS) {
+    const source = typeof parsed.source === "string" ? parsed.source : null;
+    // NOTI-07: 로그인 대기(auth_required_login)는 더 긴 보관 시간을 적용.
+    const applicableTtl =
+      source === "auth_required_login" ? PENDING_PUSH_ROUTE_LOGIN_TTL_MS : PENDING_PUSH_ROUTE_TTL_MS;
+    if (at > 0 && now - at > applicableTtl) {
       clearPendingPushRoute();
       return null;
     }
     const notificationId =
       typeof parsed.notificationId === "string" ? parsed.notificationId : null;
-    const source = typeof parsed.source === "string" ? parsed.source : null;
     const fallbackReason =
       typeof parsed.fallbackReason === "string" ? parsed.fallbackReason : null;
     const kind = parsed.kind === "support_modal" ? "support_modal" : null;
     const caseId = typeof parsed.caseId === "string" ? parsed.caseId.trim() : null;
+    const recipientUserId =
+      typeof parsed.recipientUserId === "string" ? parsed.recipientUserId.trim() || null : null;
     return {
       path,
       kind,
@@ -56,6 +68,7 @@ export function readPendingPushRoute(now = Date.now()): PendingPushRoute | null 
       at: at || now,
       source,
       fallbackReason,
+      recipientUserId,
     };
   } catch {
     return null;
@@ -82,6 +95,7 @@ export function writePendingPushRoute(route: PendingPushRoute): void {
       notificationId: route.notificationId ?? null,
       source: route.source ?? null,
       fallbackReason: route.fallbackReason ?? null,
+      recipientUserId: route.recipientUserId?.trim() || null,
     };
     if (!safe.path.startsWith("/")) return;
     sessionStorage.setItem(PENDING_PUSH_ROUTE_STORAGE_KEY, JSON.stringify(safe));
