@@ -9,6 +9,7 @@ import {
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type {
   CommunityMessengerMessage,
@@ -230,6 +231,8 @@ export function useMessengerRoomVoiceRecording({
         const form = new FormData();
         const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
         form.append("file", fileForUpload);
+        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
+        form.append("clientMessageId", createCommunityMessengerClientMessageId());
         form.append("durationSeconds", String(uploadDurationSeconds));
         if (waveformPeaks.length > 0) {
           form.append("waveformPeaks", JSON.stringify(waveformPeaks));

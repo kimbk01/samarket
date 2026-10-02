@@ -1306,6 +1306,8 @@ export function useMessengerRoomPhase2Controller() {
       try {
         const form = new FormData();
         for (const f of list) form.append("files", f);
+        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
+        form.append("clientMessageId", createCommunityMessengerClientMessageId());
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/images`, {
           method: "POST",
@@ -1426,6 +1428,8 @@ export function useMessengerRoomPhase2Controller() {
       try {
         const form = new FormData();
         form.append("file", file);
+        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
+        form.append("clientMessageId", createCommunityMessengerClientMessageId());
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/files`, {
           method: "POST",
