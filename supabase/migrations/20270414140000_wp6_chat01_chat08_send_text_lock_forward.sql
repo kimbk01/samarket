@@ -301,6 +301,48 @@ BEGIN
     'recipient_user_ids', coalesce(v_recipients, '[]'::jsonb),
     'room_direct_key', to_jsonb(v_room.direct_key)
   );
+EXCEPTION
+  WHEN unique_violation THEN
+    -- CHAT-04: 동시 2중 제출 경쟁 → 먼저 커밋된 행을 deduped 성공으로 반환.
+    IF v_trim_client IS NOT NULL THEN
+      SELECT * INTO v_msg
+      FROM public.community_messenger_messages m
+      WHERE m.room_id = p_room_id
+        AND m.sender_id = p_sender_id
+        AND m.metadata->>'client_message_id' = v_trim_client
+      ORDER BY m.created_at DESC
+      LIMIT 1;
+      IF FOUND THEN
+        IF v_is_group THEN
+          SELECT coalesce(
+            to_jsonb(coalesce(array_agg(user_id::text ORDER BY user_id), array[]::text[])),
+            '[]'::jsonb
+          )
+            INTO v_recipients
+          FROM public.community_messenger_participants
+          WHERE room_id = p_room_id
+            AND user_id <> p_sender_id
+            AND left_at IS NULL
+            AND NOT COALESCE(public.cm_group_is_user_banned(p_room_id, user_id), false);
+        ELSE
+          SELECT coalesce(
+            to_jsonb(coalesce(array_agg(user_id::text ORDER BY user_id), array[]::text[])),
+            '[]'::jsonb
+          )
+            INTO v_recipients
+          FROM public.community_messenger_participants
+          WHERE room_id = p_room_id AND user_id <> p_sender_id;
+        END IF;
+        RETURN jsonb_build_object(
+          'ok', true,
+          'deduped', true,
+          'message', to_jsonb(v_msg),
+          'recipient_user_ids', coalesce(v_recipients, '[]'::jsonb),
+          'room_direct_key', to_jsonb(v_room.direct_key)
+        );
+      END IF;
+    END IF;
+    RETURN jsonb_build_object('ok', false, 'error', 'unique_violation');
 END;
 $function$;
 
