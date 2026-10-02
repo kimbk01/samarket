@@ -1226,7 +1226,15 @@ async function notifyRoomBoundMissedCallBestEffort(
       callerDisplayName: callerDisplayName || null,
       chatDomain: "general_direct",
     }),
-  ).catch(() => {});
+  ).catch((err) => {
+    // NOTI-01: 과거엔 실패를 .catch(()=>{}) 로 삼켜 부재중 알림 누락이 추적 불가였다.
+    // 이제 오류를 기록한다(소급 발송은 하지 않음 — 과거 누락분은 재전송 대상 아님).
+    console.error("[missed-call-notification] create_dispatch_failed", {
+      callSessionId: decision.callSessionId,
+      recipientUserId: decision.recipientUserId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 }
 
 function auditEventTypeForAction(

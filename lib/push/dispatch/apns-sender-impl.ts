@@ -133,7 +133,21 @@ function apnsHttp2PostOnce(input: ApnsHttp2RequestInput): Promise<ApnsPostOnceRe
         });
         return;
       }
-      const badToken = status === 410 || status === 400;
+      // NOTI-03: 410(Unregistered)은 항상 무효 토큰. 400 은 reason 이 토큰 무효 사유일 때만.
+      // (BadDeviceToken / Unregistered / DeviceTokenNotForTopic) — 400 전체를 무효 토큰으로
+      // 보면 BadTopic·PayloadTooLarge 등으로 유효 토큰이 꺼진다.
+      let apnsReason = "";
+      try {
+        apnsReason = String((JSON.parse(responseBody || "{}") as { reason?: string }).reason ?? "");
+      } catch {
+        /* non-JSON body */
+      }
+      const tokenInvalidReasons = new Set([
+        "BadDeviceToken",
+        "Unregistered",
+        "DeviceTokenNotForTopic",
+      ]);
+      const badToken = status === 410 || (status === 400 && tokenInvalidReasons.has(apnsReason));
       finish({
         status: "failed",
         responseReceived: true,
@@ -142,6 +156,7 @@ function apnsHttp2PostOnce(input: ApnsHttp2RequestInput): Promise<ApnsPostOnceRe
         provider_response: {
           provider: input.channel === "voip" ? "voip_apns" : "apns",
           http_status: status,
+          apns_reason: apnsReason || null,
           bad_device_token: badToken,
         },
       });

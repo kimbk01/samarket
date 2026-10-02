@@ -476,12 +476,31 @@ export async function dispatchPushForUser(
     }
   }
 
+  // NOTI-05: ok:true 는 "함수가 완료됨"일 뿐 전달 성공이 아니다. audits 로 실제 결과를 분류한다.
+  const sentCount = audits.filter((a) => a.status === "sent").length;
+  const failedAudits = audits.filter((a) => a.status === "failed");
+  const allFailedPermanent =
+    failedAudits.length > 0 &&
+    failedAudits.every(
+      (a) =>
+        (a.provider_response as { bad_device_token?: boolean; gone?: boolean } | null)
+          ?.bad_device_token === true ||
+        (a.provider_response as { bad_device_token?: boolean; gone?: boolean } | null)?.gone === true
+    );
+  let outcome: "sent" | "noop" | "retryable" | "permanent";
+  if (targets.length === 0) outcome = "noop";
+  else if (sentCount > 0) outcome = "sent";
+  else if (failedAudits.length === 0) outcome = "noop"; // skipped 만 존재
+  else if (allFailedPermanent) outcome = "permanent";
+  else outcome = "retryable";
+
   console.info("[dispatchPushForUser] done", {
     ...logCtx,
     targets_found: targets.length,
     deliveries: audits.length,
     statuses: audits.map((d) => d.status),
+    outcome,
   });
 
-  return { ok: true, targets_found: targets.length, deliveries: audits };
+  return { ok: true, outcome, targets_found: targets.length, deliveries: audits };
 }

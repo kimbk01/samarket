@@ -125,6 +125,8 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
   callKind: "voice" | "video";
   callerDisplayName?: string | null;
   chatDomain?: string | null;
+  /** NOTI-01: 세션의 정규 domain_identity_key("<domain>:..."). 없으면 둘 다 null 로 둔다. */
+  domainIdentityKey?: string | null;
 }): CreateNotificationEventInput {
   const href = buildExactMissedCallRoomHref({
     roomId: input.roomId,
@@ -132,6 +134,18 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
   });
   const kindLabel = input.callKind === "video" ? "영상 통화" : "음성 통화";
   const caller = trimText(input.callerDisplayName) || "상대방";
+  // NOTI-01: notification_events_domain_identity_pair_check 는
+  //   (chat_domain IS NULL AND domain_identity_key IS NULL)
+  //   OR (chat_domain NOT NULL AND domain_identity_key ~~ chat_domain || ':%')
+  // 를 요구한다. 과거 코드는 chat_domain='general_direct' + domain_identity_key=<raw roomId>
+  // 를 넣어 제약 위반 → insert 실패 → .catch 로 삼켜져 부재중 알림이 0건이 됐다.
+  // missed_call 은 message 타입이 아니므로 둘 다 null 이어도 제약을 통과한다.
+  // 정규 키("<domain>:...")가 있을 때만 쌍으로 설정, 아니면 둘 다 null.
+  const pairDomain = trimText(input.chatDomain);
+  const pairKey = trimText(input.domainIdentityKey);
+  const hasValidPair = Boolean(pairDomain) && Boolean(pairKey) && pairKey.startsWith(`${pairDomain}:`);
+  const chatDomainColumn = hasValidPair ? pairDomain : null;
+  const domainIdentityKeyColumn = hasValidPair ? pairKey : null;
   return {
     userId: input.recipientUserId,
     type: "missed_call",
@@ -157,8 +171,8 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
       callerName: caller,
       chatDomain: input.chatDomain ?? "general_direct",
     },
-    chatDomain: input.chatDomain ?? "general_direct",
-    domainIdentityKey: input.roomId,
+    chatDomain: chatDomainColumn,
+    domainIdentityKey: domainIdentityKeyColumn,
   };
 }
 

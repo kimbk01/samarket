@@ -154,7 +154,31 @@ export async function processClaimedCommercePushHandoff(
   if (!claimToken) return "terminal";
 
   try {
-    await dispatchNotificationEvent(sb, row, { appState: "background" });
+    // NOTI-05: dispatch 가 항상 성공처럼 보이던 문제 수정 — 실제 전달 결과로 handoff 상태를 정합한다.
+    const outcome = await dispatchNotificationEvent(sb, row, { appState: "background" });
+    if (outcome === "permanent") {
+      await markCommercePushHandoffResult(sb, {
+        eventId: row.id,
+        claimToken,
+        ok: false,
+        attempts,
+        error: "push_permanent_failure",
+        permanent: true,
+      });
+      return "terminal";
+    }
+    if (outcome === "retryable") {
+      await markCommercePushHandoffResult(sb, {
+        eventId: row.id,
+        claimToken,
+        ok: false,
+        attempts,
+        error: "push_retryable_failure",
+        permanent: false,
+      });
+      return attempts >= COMMERCE_PUSH_HANDOFF_MAX_ATTEMPTS ? "terminal" : "retryable";
+    }
+    // sent | noop(대상 없음/정책 skip) → handoff 는 완료 처리
     await markCommercePushHandoffResult(sb, {
       eventId: row.id,
       claimToken,
