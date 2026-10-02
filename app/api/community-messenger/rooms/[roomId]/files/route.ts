@@ -6,6 +6,9 @@ import { sendCommunityMessengerFileMessage } from "@/lib/community-messenger/ser
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { validateMessengerFileUpload } from "@/lib/community-messenger/upload/validate-messenger-file-upload";
+import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +42,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  // CHAT-02: 업로드 전에 공통 송신 가드(참여→방상태→차단→거래→주문종료). 고아 업로드 예방.
+  const sendGuard = await assertMessengerRoomSendAllowed({
+    supabase: sb,
+    userId: auth.userId,
+    roomId: canonicalRoomId,
+  });
+  if (!sendGuard.ok) {
+    return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();
@@ -56,12 +69,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   const safeName = (file.name || "file").replace(/[^\w.\-() ]+/g, "_").trim() || "file";
   const ext = safeName.includes(".") ? safeName.split(".").pop()!.toLowerCase() : "bin";
-  const mimeType = (file.type || "application/octet-stream").toLowerCase().trim();
-  const path = `${auth.userId}/community/messenger-file/${canonicalRoomId}/${randomUUID()}.${ext}`;
+  const browserMime = (file.type || "application/octet-stream").toLowerCase().trim();
   const buf = Buffer.from(await file.arrayBuffer());
 
+  // NEW-07: 확장자·MIME·파일 서명이 모두 허용 타입과 일치해야 하며, 저장 contentType 은
+  // 브라우저 값이 아닌 정규 안전 타입으로 고정한다(html·svg·js·apk 등 차단, 폴리글랏 방어).
+  const validated = validateMessengerFileUpload(buf, ext, browserMime);
+  if (!validated.ok) {
+    return NextResponse.json({ ok: false, error: validated.error }, { status: 415 });
+  }
+  const mimeType = validated.canonicalContentType;
+  const path = `${auth.userId}/community/messenger-file/${canonicalRoomId}/${randomUUID()}.${validated.ext}`;
+
   const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
-    contentType: mimeType,
+    contentType: validated.canonicalContentType,
     upsert: false,
   });
   if (upErr) {
@@ -81,6 +102,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     mimeType,
     fileSizeBytes: file.size,
   });
+
+  if (!result.ok) {
+    // IMG-02: 전송 거절 → 올린 파일 고아 정리.
+    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    return NextResponse.json(result, { status: 400 });
+  }
 
   if (result.ok) {
     await publishMessengerRoomBumpAfterMutation({

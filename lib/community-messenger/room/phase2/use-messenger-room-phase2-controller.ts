@@ -905,6 +905,8 @@ export function useMessengerRoomPhase2Controller() {
     ): Promise<boolean> => {
       const trimmed = content.trim();
       if (!trimmed || !snapshot) return false;
+      // CHAT-03: 예외(네트워크/비행기 모드) 정리를 위해 낙관적 말풍선 id 를 try 밖으로 보관.
+      let optimisticTempId: string | null = null;
       try {
       const clientMessageId = createCommunityMessengerClientMessageId();
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
@@ -914,6 +916,7 @@ export function useMessengerRoomPhase2Controller() {
         realtime_payload_message_id: "",
       });
       const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      optimisticTempId = tempId;
       const rid = (replyToMessageId ?? "").trim();
       const replySnap =
         rid && replySourceMessage && replySourceMessage.id === rid ? buildReplyPreviewSnapshot(replySourceMessage) : null;
@@ -1012,6 +1015,16 @@ export function useMessengerRoomPhase2Controller() {
       });
       forgetRoomBootstrapClientFlightsAfterMutation();
       return true;
+      } catch {
+        // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거,
+        // 입력 복원, 오류 스낵바. (서버에 저장 안 됨 → 재전송 시 1행, 중복 없음.)
+        if (optimisticTempId) {
+          const stuckId = optimisticTempId;
+          setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));
+        }
+        if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+        showMessengerSnackbar(getRoomActionErrorMessage("message_send_failed"), { variant: "error" });
+        return false;
       } finally {
         scheduleMessengerComposerFocusRetain(composerTextareaRef);
       }

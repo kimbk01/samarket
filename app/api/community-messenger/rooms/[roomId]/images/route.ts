@@ -8,6 +8,8 @@ import type { CommunityMessengerImageSendItem } from "@/lib/community-messenger/
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,29 +73,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     }
   }
 
+  // CHAT-02: 업로드 전에 공통 송신 가드(참여→방상태→차단→거래→주문종료). 고아 업로드도 예방.
+  const sendGuard = await assertMessengerRoomSendAllowed({
+    supabase: sb,
+    userId: auth.userId,
+    roomId: canonicalRoomId,
+  });
+  if (!sendGuard.ok) {
+    return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
+  }
+
   const bucket = sb.storage.from("post-images");
   const baseDir = `${auth.userId}/community/messenger-image/${canonicalRoomId}`;
   const uploaded: CommunityMessengerImageSendItem[] = [];
+  // IMG-02: 올린 저장소 경로를 모아 두었다가 실패·거절 시 purge 로 고아 정리.
+  const uploadedStoragePaths: string[] = [];
 
   for (const file of allFiles) {
     const mimeType = (file.type || "").toLowerCase().trim();
     const buf = Buffer.from(await file.arrayBuffer());
     const variants = await buildMessengerImageVariantBuffers({ buf, mimeType });
+    if (variants.kind === "rejected") {
+      // SEC-09: sharp 가 원본을 소독하지 못함 → raw 저장 금지, 거부.
+      return NextResponse.json({ ok: false, error: "unsupported_image" }, { status: 400 });
+    }
     const id = randomUUID();
+    // SEC-09: 저장 형식·확장자는 소독된 원본의 정규 content-type 을 따른다.
+    const outMime = variants.kind === "triple" ? variants.originalContentType : variants.originalMime;
     const origExt =
-      mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : mimeType === "image/gif" ? "gif" : "jpg";
+      outMime === "image/png" ? "png" : outMime === "image/webp" ? "webp" : outMime === "image/gif" ? "gif" : "jpg";
     const originalPath = `${baseDir}/${id}.${origExt}`;
 
     const uploadBinary = async (path: string, body: Buffer, contentType: string) => {
       const { error } = await bucket.upload(path, body, { contentType, upsert: false });
       if (error) throw new Error(error.message ?? "upload_failed");
+      uploadedStoragePaths.push(path);
     };
 
     try {
       if (variants.kind === "triple") {
         const thumbPath = `${baseDir}/${id}.thumb.webp`;
         const previewPath = `${baseDir}/${id}.preview.webp`;
-        await uploadBinary(originalPath, variants.original, mimeType);
+        await uploadBinary(originalPath, variants.original, variants.originalContentType);
         await uploadBinary(thumbPath, variants.thumb, "image/webp");
         await uploadBinary(previewPath, variants.preview, "image/webp");
         const {
@@ -110,7 +131,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
           previewPublicUrl,
           originalPublicUrl,
           originalStoragePath: originalPath,
-          originalMimeType: mimeType,
+          originalMimeType: variants.originalContentType,
         });
       } else {
         await uploadBinary(originalPath, variants.original, variants.originalMime);
@@ -126,6 +147,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
         });
       }
     } catch (e) {
+      // IMG-02: 업로드 중간 실패 → 지금까지 올린 파일 고아 정리.
+      await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
       return NextResponse.json(
         { ok: false, error: e instanceof Error ? e.message : "upload_failed" },
         { status: 500 }
@@ -138,6 +161,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     roomId: canonicalRoomId,
     items: uploaded,
   });
+
+  if (!result.ok) {
+    // IMG-02: 전송 거절 → 올린 파일 고아 정리.
+    await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
+    return NextResponse.json(result, { status: 400 });
+  }
 
   if (result.ok) {
     const bumpArgs = {

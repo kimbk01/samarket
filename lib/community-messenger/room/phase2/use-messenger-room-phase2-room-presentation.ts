@@ -16,6 +16,7 @@ import {
   type CommunityMessengerMessage,
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { getLatestCallStubForSession } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -64,7 +65,12 @@ export function useMessengerRoomPhase2RoomPresentation({
     !isGeneralFriendDirect &&
     Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);
   const roomGloballyBlocked = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
-  const roomUnavailable = roomGloballyBlocked || tradeSendBlocked;
+  // CHAT-01: 완료/취소된 주문 채팅은 입력·첨부·음성 비활성화(기존 roomUnavailable 권위에 합산).
+  // 배너 문구는 컴포저 컴포넌트가 동일 authority 로 inline 계산한다(새 VM 필드 없음).
+  const roomUnavailable =
+    roomGloballyBlocked ||
+    tradeSendBlocked ||
+    isTerminalStoreOrderStatus(snapshot?.room.contextMeta?.orderStatus);
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
   const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(

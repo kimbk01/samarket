@@ -15,6 +15,7 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 export { invalidateHubStoreOrderUnreadMemory };
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import {
   buildMessengerContextInputFromStoreOrderSnapshot,
@@ -356,15 +357,30 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
       })
       .eq("id", updateSummaryId)
       .eq("room_id", ensured.roomId);
-    await sb
-      .from("community_messenger_rooms")
-      .update({
-        last_message: content.slice(0, 200),
-        last_message_type: "system",
-        last_message_at: createdAt,
-        updated_at: createdAt,
-      })
-      .eq("id", ensured.roomId);
+    // CHAT-06: 주문 요약 갱신은 새 메시지가 아니다. last_message_at 을 now 로 덮어
+    // 방을 목록 맨 위로 올리지 않고, 실제 최신 메시지로 방 미리보기를 재계산한다.
+    const { data: latestRow } = await sb
+      .from("community_messenger_messages")
+      .select("content, message_type, metadata, created_at")
+      .eq("room_id", ensured.roomId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const recomputed = latestRow
+      ? listPreviewFromMessengerMessageRow(latestRow as Record<string, unknown>)
+      : null;
+    if (recomputed) {
+      await sb
+        .from("community_messenger_rooms")
+        .update({
+          last_message: recomputed.lastMessage.slice(0, 200),
+          last_message_type: recomputed.lastMessageType,
+          last_message_at: recomputed.lastMessageAt,
+          updated_at: nowIso(),
+        })
+        .eq("id", ensured.roomId);
+    }
     // CONTRACT — summary refresh (UPDATE only): room/message sync; no notification_targets bump.
     // Re-bump Prevention A: ensure-chat reentry must not re-UPSERT buyer_order via system bump.
     // DO NOT: publishStoreOrderMessengerSystemMessageBump on this branch.
