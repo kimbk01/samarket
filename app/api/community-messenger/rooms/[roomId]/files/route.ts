@@ -8,6 +8,7 @@ import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { validateMessengerFileUpload } from "@/lib/community-messenger/upload/validate-messenger-file-upload";
 import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
+import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,6 +102,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     mimeType,
     fileSizeBytes: file.size,
   });
+
+  if (!result.ok) {
+    // IMG-02: 전송 거절 → 올린 파일 고아 정리.
+    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    return NextResponse.json(result, { status: 400 });
+  }
 
   if (result.ok) {
     await publishMessengerRoomBumpAfterMutation({
