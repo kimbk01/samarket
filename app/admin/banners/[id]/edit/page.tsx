@@ -1,10 +1,11 @@
-import { AdminBannerEditPage } from "@/components/admin/banners/AdminBannerEditPage";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function AdminBannerEditRoute({ params }: PageProps) {
+/** Residual path — canonical MyPage CMS edit is /admin/my/banners/[id]/edit. */
+export default async function AdminBannerEditRedirect({ params }: PageProps) {
   const { id } = await params;
-  return <AdminBannerEditPage bannerId={id} />;
+  redirect(`/admin/my/banners/${encodeURIComponent(id)}/edit`);
 }

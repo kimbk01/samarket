@@ -15,12 +15,12 @@ import {
   hasStoreTermsConsent,
   isDeletedStoreMember,
   normalizeStoreAuthProvider,
-  STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy"
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
+import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 
 export type MemberAccessState = {
   userId: string;
@@ -51,8 +51,8 @@ export type MemberAccessState = {
   hasRequiredConsent?: boolean;
 };
 
-export const PHONE_VERIFICATION_REQUIRED_MESSAGE =
-  STORE_PHONE_GATE_MESSAGE;
+/** Re-export for server/shared callers — clients must import from member-access-constants. */
+export { PHONE_VERIFICATION_REQUIRED_MESSAGE };
 
 function normalizeProvider(provider: string | null | undefined): string | null {
   return normalizeStoreAuthProvider(provider);

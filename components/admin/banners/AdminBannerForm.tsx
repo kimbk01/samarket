@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
-import { getBannerPlacements } from "@/lib/admin-banners/banner-placements";
-import {
-  ADMIN_BANNER_PLACEMENT_KEYS,
-  ADMIN_BANNER_STATUS_KEYS,
-} from "./admin-banner-i18n";
+import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
+
+/** MyPage CMS only — runtime consumer is MyTopBanner (placement not selected in UI). */
+const MYPAGE_BANNER_PLACEMENT: BannerPlacement = "mypage_top";
 
 export interface AdminBannerFormValues {
   title: string;
@@ -29,7 +28,7 @@ const DEFAULT_VALUES: AdminBannerFormValues = {
   imageUrl: "",
   mobileImageUrl: "",
   targetUrl: "",
-  placement: "home_top",
+  placement: MYPAGE_BANNER_PLACEMENT,
   priority: 0,
   startAt: "",
   endAt: "",
@@ -57,10 +56,8 @@ export function AdminBannerForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(values);
+    onSubmit({ ...values, placement: MYPAGE_BANNER_PLACEMENT });
   };
-
-  const placements = getBannerPlacements();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -127,30 +124,6 @@ export function AdminBannerForm({
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="https://..."
         />
-      </div>
-      <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          {t("admin_banners_field_placement")}
-        </label>
-        <select
-          value={values.placement}
-          onChange={(e) =>
-            setValues((v) => ({
-              ...v,
-              placement: e.target.value as BannerPlacement,
-            }))
-          }
-          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-        >
-          {placements.map((p) => (
-            <option key={p.key} value={p.key}>
-              {t("admin_banners_placement_max_count", {
-                label: t(ADMIN_BANNER_PLACEMENT_KEYS[p.key]),
-                max: p.maxVisibleCount,
-              })}
-            </option>
-          ))}
-        </select>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">

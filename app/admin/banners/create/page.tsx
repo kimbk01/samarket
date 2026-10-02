@@ -1,5 +1,6 @@
-import { AdminBannerCreatePage } from "@/components/admin/banners/AdminBannerCreatePage";
+import { redirect } from "next/navigation";
 
-export default function AdminBannerCreateRoute() {
-  return <AdminBannerCreatePage />;
+/** Residual path — canonical MyPage CMS create is /admin/my/banners/create. */
+export default function AdminBannerCreateRedirect() {
+  redirect("/admin/my/banners/create");
 }

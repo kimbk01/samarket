@@ -66,7 +66,8 @@ export async function insertAdminBanner(
       image_url: input.imageUrl ?? "",
       mobile_image_url: input.mobileImageUrl ?? "",
       link_url: input.targetUrl ?? "",
-      placement: input.placement ?? "home_top",
+      // MyPage CMS only — FORCE canonical placement (schema DEFAULT home_top left unchanged).
+      placement: "mypage_top",
       status: input.status ?? "draft",
       priority: input.priority ?? 0,
       sort_order: input.priority ?? 0,
@@ -95,7 +96,8 @@ export async function updateAdminBanner(
   if (patch.imageUrl != null) payload.image_url = patch.imageUrl;
   if (patch.mobileImageUrl != null) payload.mobile_image_url = patch.mobileImageUrl;
   if (patch.targetUrl != null) payload.link_url = patch.targetUrl;
-  if (patch.placement != null) payload.placement = patch.placement;
+  // MyPage CMS only — FORCE canonical placement on every update write.
+  payload.placement = "mypage_top";
   if (patch.status != null) {
     payload.status = patch.status;
     payload.is_active = patch.status === "active";

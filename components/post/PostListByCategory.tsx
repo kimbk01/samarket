@@ -69,12 +69,14 @@ import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPu
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import {
   feedAdSlotSeed,
   planFeedAdSlots,
   shouldInjectFeedAdAtContentIndex,
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -799,6 +801,33 @@ export function PostListByCategory({
       ),
     [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
   );
+  /** Feed Banner pool — one fetch per surface (slot selection is local). Community FIX-8 parity. */
+  const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const qs = new URLSearchParams({
+      domain: "trade",
+      placement: "TRADE_CATEGORY",
+      pool: "1",
+      categoryId,
+    });
+    const key = `feed-ad-pool:${qs.toString()}`;
+    void runSingleFlight(key, async () => {
+      const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
+        credentials: "include",
+      });
+      return (await r.json()) as { campaigns?: FeedAdCampaignView[] };
+    })
+      .then((j) => {
+        if (!cancelled) setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedAdPool([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId]);
   const skinKey = category?.icon_key ?? undefined;
   const categorySlug = category?.slug ?? null;
   const fieldComposition = category?.settings?.field_composition ?? null;
@@ -913,6 +942,7 @@ export function PostListByCategory({
                   surfaceKey={tradeCategorySurfaceKey}
                   feedSessionId={tradeCategoryAdSessionId}
                   slotOrdinal={tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                  campaignPool={feedAdPool ?? []}
                 />
               ) : null}
             </Fragment>

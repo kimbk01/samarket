@@ -1,7 +1,7 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";

@@ -39,7 +39,7 @@ export function AdminBannerCreatePage() {
         await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
         return;
       }
-      router.push(`/admin/banners/${j.banner.id}`);
+      router.push("/admin/my/banners");
     } finally {
       setSaving(false);
     }
@@ -47,7 +47,7 @@ export function AdminBannerCreatePage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_banners_page_create" backHref="/admin/banners" />
+      <AdminPageHeader titleKey="admin_banners_page_create" backHref="/admin/my/banners" />
       <AdminCard titleKey="admin_banners_card_info">
         <AdminBannerForm
           initial={null}

@@ -93,7 +93,7 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
         await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
         return;
       }
-      router.push(`/admin/banners/${bannerId}`);
+      router.push("/admin/my/banners");
     } finally {
       setSaving(false);
     }
@@ -101,7 +101,7 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_banners_page_edit" backHref={`/admin/banners/${bannerId}`} />
+      <AdminPageHeader titleKey="admin_banners_page_edit" backHref="/admin/my/banners" />
       <AdminCard titleKey="admin_banners_card_info">
         <AdminBannerForm
           initial={initial}

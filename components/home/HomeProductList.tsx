@@ -69,12 +69,14 @@ import {
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
+import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import {
   feedAdSlotSeed,
   planFeedAdSlots,
   shouldInjectFeedAdAtContentIndex,
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
 import {
   clearTradeListPresentationSession,
@@ -742,6 +744,32 @@ export function HomeProductList({
       ),
     [visiblePosts.length, tradeHomeAdSessionId]
   );
+  /** Feed Banner pool — one fetch per surface (slot selection is local). Community FIX-8 parity. */
+  const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const qs = new URLSearchParams({
+      domain: "trade",
+      placement: "TRADE_HOME",
+      pool: "1",
+    });
+    const key = `feed-ad-pool:${qs.toString()}`;
+    void runSingleFlight(key, async () => {
+      const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
+        credentials: "include",
+      });
+      return (await r.json()) as { campaigns?: FeedAdCampaignView[] };
+    })
+      .then((j) => {
+        if (!cancelled) setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedAdPool([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /**
    * CUT H: silent fetch must not apply incoming order (auto unshift).
@@ -1114,6 +1142,7 @@ export function HomeProductList({
                   surfaceKey="trade:home"
                   feedSessionId={tradeHomeAdSessionId}
                   slotOrdinal={tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                  campaignPool={feedAdPool ?? []}
                 />
               ) : null}
             </Fragment>
