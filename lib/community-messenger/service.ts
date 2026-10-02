@@ -18961,14 +18961,28 @@ export async function updateCommunityMessengerCallSession(input: {
       connectedAtAuthority: true,
     });
   };
-  const terminalLogStatus = (mapped: CommunityMessengerCallSession): CommunityMessengerCallStatus =>
-    mapped.status === "ended"
-      ? "ended"
-      : mapped.status === "rejected"
-        ? "rejected"
-        : mapped.status === "cancelled"
-          ? "cancelled"
-          : "missed";
+  // NEW-19: 종료 4종(ended/rejected/cancelled/missed)이 아니면 missed 로 둔갑시키지 않는다.
+  // 알 수 없는(비종료) 상태면 null 을 반환해 호출부가 기록을 쓰지 않고 오류만 남긴다.
+  const terminalLogStatus = (
+    mapped: CommunityMessengerCallSession
+  ): CommunityMessengerCallStatus | null => {
+    switch (mapped.status) {
+      case "ended":
+        return "ended";
+      case "rejected":
+        return "rejected";
+      case "cancelled":
+        return "cancelled";
+      case "missed":
+        return "missed";
+      default:
+        console.error("[terminalLogStatus] non-terminal status — skip call log write", {
+          sessionId,
+          status: mapped.status,
+        });
+        return null;
+    }
+  };
   const resolveTerminalStubActorUserId = (
     session: CallSessionRow | DevCallSession,
     mapped: CommunityMessengerCallSession
@@ -19044,12 +19058,15 @@ export async function updateCommunityMessengerCallSession(input: {
         ? trimText(session.ended_at ?? "")
         : trimText(session.endedAt ?? "")) ||
       nowIso();
+    // NEW-19: 비종료 상태면 스텁을 쓰지 않는다(둔갑 기록 방지).
+    const stubStatus = terminalLogStatus(mapped);
+    if (stubStatus === null) return;
     await appendCommunityMessengerCallStubMessage({
       userId: actorUserId,
       roomId,
       sessionId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
-      status: terminalLogStatus(mapped),
+      status: stubStatus,
       createdAt: stubCreatedAt,
       listActivityAt,
       replaceExisting: mapped.sessionMode === "direct",
@@ -19067,6 +19084,8 @@ export async function updateCommunityMessengerCallSession(input: {
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
     const status = terminalLogStatus(mapped);
+    // NEW-19: 비종료 상태면 call_log 를 쓰지 않는다(unknown→missed 둔갑 방지).
+    if (status === null) return;
     const sessionStartedAt =
       "started_at" in session
         ? trimText(session.started_at ?? "")
@@ -19331,10 +19350,6 @@ export async function updateCommunityMessengerCallSession(input: {
           ) {
             return { ok: false, error: "bad_action" };
           }
-          await (sb as any)
-            .from("community_messenger_call_session_participants")
-            .update({ participation_status: "left", left_at: now })
-            .eq("session_id", sessionId);
           const groupCancelReason =
             endedReasonForSessionDelta("cancel", "cancelled", input.clientEndedReason, {
               actorUserId: input.userId,
@@ -19342,6 +19357,7 @@ export async function updateCommunityMessengerCallSession(input: {
               recipientUserId: session.recipient_user_id,
               answeredAt: session.answered_at,
             }) ?? "canceled";
+          // CALL-01: 상태 CAS — 이미 종료된 세션을 덮어쓰지 않는다(ringing 일 때만 취소 성립).
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
             .update({
@@ -19351,9 +19367,15 @@ export async function updateCommunityMessengerCallSession(input: {
               ended_reason: groupCancelReason,
             })
             .eq("id", sessionId)
+            .eq("status", "ringing")
             .select(callSessionSelect)
             .single();
           if (updated) {
+            // CALL-01: 참여자 left 갱신은 CAS 성공 뒤로 옮긴다(진 경합이 상태를 오염시키지 않게).
+            await (sb as any)
+              .from("community_messenger_call_session_participants")
+              .update({ participation_status: "left", left_at: now })
+              .eq("session_id", sessionId);
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
             invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
             await finalizeLog(session, mapped);
@@ -19372,6 +19394,18 @@ export async function updateCommunityMessengerCallSession(input: {
             });
             return { ok: true, session: mapped };
           }
+          // CALL-01: CAS 패배(이미 종료) → 기존 종료 세션을 멱등 성공으로 반환.
+          const { data: existingCancelled } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .select(callSessionSelect)
+            .eq("id", sessionId)
+            .single();
+          if (existingCancelled) {
+            return {
+              ok: true,
+              session: await mapCallSession(input.userId, existingCancelled as CallSessionRow),
+            };
+          }
           return { ok: false, error: "call_session_update_failed" };
         }
 
@@ -19383,11 +19417,6 @@ export async function updateCommunityMessengerCallSession(input: {
             .filter((p) => p.participation_status === "joined" || p.participation_status === "invited")
             .map((p) => trimText(p.user_id ?? ""))
             .filter((id) => id.length > 0);
-          await (sb as any)
-            .from("community_messenger_call_session_participants")
-            .update({ participation_status: "left", left_at: now })
-            .eq("session_id", sessionId)
-            .in("participation_status", ["joined", "invited"]);
           const groupEndReason =
             endedReasonForSessionDelta("end", "ended", input.clientEndedReason, {
               actorUserId: input.userId,
@@ -19395,6 +19424,7 @@ export async function updateCommunityMessengerCallSession(input: {
               recipientUserId: session.recipient_user_id,
               answeredAt: session.answered_at ?? (session.status === "active" ? now : null),
             }) ?? "ended";
+          // CALL-01: 상태 CAS — active/ringing 일 때만 종료 성립(이미 종료 세션 덮어쓰기 방지).
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
             .update({
@@ -19404,9 +19434,30 @@ export async function updateCommunityMessengerCallSession(input: {
               ended_reason: groupEndReason,
             })
             .eq("id", sessionId)
+            .in("status", ["active", "ringing"])
             .select(callSessionSelect)
             .single();
-          if (!updated) return { ok: false, error: "call_session_update_failed" };
+          if (!updated) {
+            // CALL-01: CAS 패배(이미 종료) → 기존 종료 세션을 멱등 성공으로 반환.
+            const { data: existingEnded } = await (sb as any)
+              .from("community_messenger_call_sessions")
+              .select(callSessionSelect)
+              .eq("id", sessionId)
+              .single();
+            if (existingEnded) {
+              return {
+                ok: true,
+                session: await mapCallSession(input.userId, existingEnded as CallSessionRow),
+              };
+            }
+            return { ok: false, error: "call_session_update_failed" };
+          }
+          // CALL-01: 참여자 left 갱신은 CAS 성공 뒤로 옮긴다.
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "left", left_at: now })
+            .eq("session_id", sessionId)
+            .in("participation_status", ["joined", "invited"]);
           const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
           invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
           await publishGroupCallHangupSignalsBestEffort(
