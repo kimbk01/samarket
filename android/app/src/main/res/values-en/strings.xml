@@ -9,5 +9,6 @@
     <string name="dibay_call_notice_missed">Missed call</string>
     <string name="dibay_call_notice_reconnecting">Reconnecting…</string>
     <string name="dibay_call_notice_network_warning">Check your network connection.</string>
+    <string name="dibay_call_notice_mic_mute_failed">Could not change mute.</string>
     <string name="dibay_call_notice_permission_required">Microphone access required</string>
 </resources>

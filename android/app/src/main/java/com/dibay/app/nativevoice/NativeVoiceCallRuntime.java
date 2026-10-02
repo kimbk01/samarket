@@ -38,6 +38,8 @@ public final class NativeVoiceCallRuntime {
     public final String mediaType;
     public final boolean initiator;
     public volatile State state;
+    /** WP-3 NEW-28: mute lives on the session (survives Activity recreation), engine is source of truth. */
+    public volatile boolean micMuted;
 
     Session(
         String callId,
@@ -939,9 +941,23 @@ public final class NativeVoiceCallRuntime {
 
   private static void fail(Context context, String callId, String reason) {
     NativeVoiceCallLog.warn("error_terminal", callId, "reason=" + safe(reason));
-    Session session = SESSIONS.get(callId);
+    if (context == null || callId == null) {
+      cleanup(context, callId, "failed");
+      return;
+    }
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
     if (session != null) setState(context, session, State.FAILED);
-    cleanup(context, callId, "failed");
+    // WP-3 NEW-29: a native startup/engine failure must tell the server so the peer does not stay
+    // ringing / connected (orphan). Reuse the canonical terminal writer (idempotent via TerminalOnce):
+    // the initiator cancels the ringing session (end), the callee rejects.
+    if (session != null && !NativeVoiceCallTerminalOnce.isClaimed(sid)) {
+      String action = session.initiator ? "end" : "reject";
+      NativeVoiceCallLog.info("fail_terminal_propagate", sid, "action=" + action + " reason=" + safe(reason));
+      terminalPatch(context, sid, action);
+      return;
+    }
+    cleanup(context, sid, "failed");
   }
 
   private static boolean shouldStartForegroundVisibleActivity(Context context) {

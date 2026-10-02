@@ -1,6 +1,7 @@
 package com.dibay.app.nativevoice;
 
 import android.content.Context;
+import com.dibay.app.nativecall.NativeAgoraEngineLifecycle;
 import io.agora.rtc2.ChannelMediaOptions;
 import io.agora.rtc2.Constants;
 import io.agora.rtc2.IRtcEngineEventHandler;
@@ -22,7 +23,10 @@ public final class NativeVoiceCallAgoraEngine {
   }
 
   private static final Object LOCK = new Object();
+  private static final String LANE = "voice";
   private static RtcEngine engine;
+  /** {@link NativeAgoraEngineLifecycle} epoch in which {@link #engine} was created. */
+  private static long engineEpoch = -1L;
   private static String activeCallId;
   private static Listener listener;
   private static boolean callerJoinActive;
@@ -72,8 +76,12 @@ public final class NativeVoiceCallAgoraEngine {
             () -> {
               try {
                 NativeVoiceCallAgoraEngine.awaitPendingChannelLeave(sid);
-                RtcEngine rtc = ensureEngine(context.getApplicationContext(), token.appId);
+                RtcEngine rtc = ensureEngine(context.getApplicationContext(), token.appId, sid);
+                if (rtc == null) return;
                 rtc.enableAudio();
+                // WP-3 NEW-28: engine is reused across calls — every call starts unmuted.
+                int unmute = rtc.muteLocalAudioStream(false);
+                NativeVoiceCallLog.info("native_voice_mic_mute_reset", sid, "result=" + unmute);
                 rtc.disableVideo();
                 rtc.setDefaultAudioRoutetoSpeakerphone(false);
                 NativeVoiceCallLog.info("audio_route_applied", sid, "speaker=false");
@@ -87,6 +95,10 @@ public final class NativeVoiceCallAgoraEngine {
                 options.publishCameraTrack = false;
                 if (caller) {
                   NativeVoiceCallLog.info("local_audio_publish_success", sid);
+                }
+                if (com.dibay.app.nativecall.NativeCallDebugHooks.shouldForceJoinFailure(context)) {
+                  fail(sid, "forced_test_join_failure");
+                  return;
                 }
                 int result =
                     rtc.joinChannelWithUserAccount(
@@ -110,6 +122,30 @@ public final class NativeVoiceCallAgoraEngine {
       engine.setEnableSpeakerphone(enabled);
       NativeVoiceCallLog.info("speaker_toggle", activeCallId, "enabled=" + enabled);
       NativeVoiceCallLog.info("audio_route_applied", activeCallId, "speaker=" + enabled);
+    }
+  }
+
+  /**
+   * WP-3 NEW-28: real microphone mute for the current occupant call.
+   *
+   * @return true only when Agora accepted the change (result 0); callers update UI state only then.
+   */
+  public static boolean setMicMuted(String callId, boolean muted) {
+    synchronized (LOCK) {
+      if (engine == null
+          || activeCallId == null
+          || callId == null
+          || !activeCallId.equals(callId.trim())) {
+        NativeVoiceCallLog.warn(
+            "native_voice_mic_mute_rejected",
+            callId != null ? callId : "unknown",
+            "muted=" + muted + " reason=not_occupant occupant=" + activeCallId);
+        return false;
+      }
+      int result = engine.muteLocalAudioStream(muted);
+      NativeVoiceCallLog.info(
+          "native_voice_mic_mute_applied", activeCallId, "muted=" + muted + " result=" + result);
+      return result == 0;
     }
   }
 
@@ -173,6 +209,9 @@ public final class NativeVoiceCallAgoraEngine {
       }
       scheduleLeaveChannel(engineToLeave, sid, latch);
     }
+    if (sid != null) {
+      NativeAgoraEngineLifecycle.releaseOwnership(LANE, sid);
+    }
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
     }
@@ -188,19 +227,39 @@ public final class NativeVoiceCallAgoraEngine {
    * @return true when a zombie engine was released
    */
   public static boolean releaseZombieEngine(String reason) {
-    RtcEngine engineToDestroy;
-    CountDownLatch latch;
     synchronized (LOCK) {
       if (engine == null) return false;
       if (activeCallId != null && !activeCallId.isEmpty()) return false;
+    }
+    // WP-3 NEW-29: the release goes through the process-wide lifecycle so it can never overlap a
+    // new owner's create/join on either lane (RtcEngine.destroy() is process-global).
+    long token = NativeAgoraEngineLifecycle.beginRelease(LANE, reason);
+    if (token == NativeAgoraEngineLifecycle.RELEASE_REFUSED_OWNED) {
+      return false;
+    }
+    RtcEngine engineToDestroy;
+    CountDownLatch latch = null;
+    synchronized (LOCK) {
+      if (engine == null || (activeCallId != null && !activeCallId.isEmpty())) {
+        if (token > 0) NativeAgoraEngineLifecycle.completeRelease(token, LANE);
+        return false;
+      }
       listener = null;
       remoteUid = 0;
       engineToDestroy = engine;
       engine = null;
-      latch = new CountDownLatch(1);
-      pendingChannelLeave = latch;
+      engineEpoch = -1L;
+      if (token > 0) {
+        latch = new CountDownLatch(1);
+        pendingChannelLeave = latch;
+      }
     }
-    scheduleDestroyEngine(engineToDestroy, "zombie", latch);
+    if (token > 0) {
+      scheduleDestroyEngine(engineToDestroy, "zombie", latch, token);
+    } else {
+      // Another lane is already releasing the shared native engine: only drop our reference.
+      NativeVoiceCallLog.info("engine_ref_dropped_release_in_progress", "zombie", "reason=" + reason);
+    }
     return true;
   }
 
@@ -253,7 +312,7 @@ public final class NativeVoiceCallAgoraEngine {
   }
 
   private static void scheduleDestroyEngine(
-      RtcEngine engineToDestroy, String sid, CountDownLatch latch) {
+      RtcEngine engineToDestroy, String sid, CountDownLatch latch, long releaseToken) {
     new Thread(
             () -> {
               try {
@@ -268,7 +327,9 @@ public final class NativeVoiceCallAgoraEngine {
                   NativeVoiceCallLog.info(
                       "before_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
                 }
-                RtcEngine.destroy();
+                if (NativeAgoraEngineLifecycle.mayDestroy(releaseToken)) {
+                  RtcEngine.destroy();
+                }
                 if (sid != null) {
                   NativeVoiceCallLog.info(
                       "after_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
@@ -279,6 +340,7 @@ public final class NativeVoiceCallAgoraEngine {
                       "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
                 }
               } finally {
+                NativeAgoraEngineLifecycle.completeRelease(releaseToken, LANE);
                 if (latch != null) {
                   latch.countDown();
                   synchronized (LOCK) {
@@ -293,16 +355,35 @@ public final class NativeVoiceCallAgoraEngine {
         .start();
   }
 
-  private static RtcEngine ensureEngine(Context context, String appId) throws Exception {
-    awaitPendingChannelLeave(activeCallId != null ? activeCallId : "ensure");
+  /**
+   * WP-3 NEW-29: waits (join worker thread) until any in-progress engine release on either lane has
+   * completed, then takes ownership. Returns null when the call stopped being the occupant while
+   * waiting (ownership is handed back).
+   */
+  private static RtcEngine ensureEngine(Context context, String appId, String sid) throws Exception {
+    awaitPendingChannelLeave(sid);
+    long epoch = NativeAgoraEngineLifecycle.awaitReleaseAndAcquire(LANE, sid);
     synchronized (LOCK) {
-      if (engine != null) return engine;
+      if (activeCallId == null || !activeCallId.equals(sid)) {
+        NativeVoiceCallLog.info(
+            "engine_acquire_abandoned", sid, "reason=occupant_changed occupant=" + activeCallId);
+        NativeAgoraEngineLifecycle.releaseOwnership(LANE, sid);
+        return null;
+      }
+      if (engine != null && engineEpoch == epoch) return engine;
+      if (engine != null) {
+        NativeVoiceCallLog.info(
+            "engine_stale_epoch_dropped", sid, "engineEpoch=" + engineEpoch + " epoch=" + epoch);
+        engine = null;
+      }
       RtcEngineConfig config = new RtcEngineConfig();
       config.mContext = context;
       config.mAppId = appId;
       config.mEventHandler = EVENT_HANDLER;
       engine = RtcEngine.create(config);
+      engineEpoch = epoch;
       engine.setChannelProfile(Constants.CHANNEL_PROFILE_COMMUNICATION);
+      NativeVoiceCallLog.info("engine_created", sid, "epoch=" + epoch);
       return engine;
     }
   }

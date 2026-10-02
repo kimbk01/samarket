@@ -77,6 +77,8 @@ public class NativeVoiceCallActivity extends Activity {
   private boolean acceptStarted = false;
   private boolean acceptMediaPromptIssued = false;
   private String pendingAcceptSource;
+  /** WP-3 NEW-11: accept source parked while the user is in app Settings granting the mic. */
+  private String pendingSettingsAcceptSource;
   private NativeVoiceCallRuntime.State currentState = NativeVoiceCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -268,6 +270,24 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   @Override
+  protected void onResume() {
+    super.onResume();
+    // WP-3 NEW-11: user returned from app Settings — resume accept if the mic is now granted and
+    // the call is still ringing.
+    String parked = pendingSettingsAcceptSource;
+    if (parked == null) return;
+    pendingSettingsAcceptSource = null;
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        != PackageManager.PERMISSION_GRANTED) {
+      return;
+    }
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    if (session == null || session.state != NativeVoiceCallRuntime.State.RINGING) return;
+    NativeVoiceCallLog.info("accept_resumed_after_settings", callId, "source=" + parked);
+    resumeAccept(parked);
+  }
+
+  @Override
   public void onUserLeaveHint() {
     super.onUserLeaveHint();
     minimizeConnectedCall("user_leave");
@@ -357,7 +377,17 @@ public class NativeVoiceCallActivity extends Activity {
     pendingAcceptSource = null;
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
         != PackageManager.PERMISSION_GRANTED) {
-      if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+      // WP-3 NEW-11: do not fail/reject silently. Keep the call ringing and tell the user.
+      boolean permanentlyDenied =
+          !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO);
+      NativeVoiceCallLog.info(
+          "accept_permission_denied", callId, "kind=" + (permanentlyDenied ? "permanent" : "retryable"));
+      if (noticeOverlay != null) {
+        noticeOverlay.show(NativeCallInAppNoticeOverlay.Event.PERMISSION_REQUIRED);
+      }
+      if (permanentlyDenied) {
+        // Remember the accept source so onResume can resume once the user grants in Settings.
+        pendingSettingsAcceptSource = source;
         openAcceptAppSettings();
       }
       return;
@@ -524,19 +554,30 @@ public class NativeVoiceCallActivity extends Activity {
     muteButton.setOnClickListener(
         v -> {
           if (!micChromeEnabled) return;
-          micMutedChrome = !micMutedChrome;
+          // WP-3 NEW-28: apply real Agora mute first; only reflect UI/session on success.
+          NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+          if (session == null) return;
+          boolean next = !session.micMuted;
+          if (!NativeVoiceCallAgoraEngine.setMicMuted(callId, next)) {
+            if (noticeOverlay != null) {
+              noticeOverlay.show(NativeCallInAppNoticeOverlay.Event.MIC_MUTE_FAILED);
+            }
+            return;
+          }
+          session.micMuted = next;
+          micMutedChrome = next;
           if (muteLabel != null) {
             muteLabel.setText(
                 getString(
-                    micMutedChrome ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
+                    next ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
           }
           updateControlChrome();
         });
-    videoButton.setOnClickListener(
-        v -> {
-          videoActiveChrome = !videoActiveChrome;
-          updateControlChrome();
-        });
+    // WP-3 NEW-27: voice→video upgrade is unwired (dead control). Hidden until WP-10 authority.
+    if (videoButton != null) {
+      View videoControl = (View) videoButton.getParent();
+      (videoControl != null ? videoControl : videoButton).setVisibility(View.GONE);
+    }
   }
 
   private void onEndTapped() {
@@ -587,6 +628,8 @@ public class NativeVoiceCallActivity extends Activity {
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     NativeVoiceCallUiPresenter.Model model = NativeVoiceCallUiPresenter.build(this, session, state);
     micChromeEnabled = model.micChromeEnabled;
+    // WP-3 NEW-28: restore mute chrome from the session so Activity recreation keeps the real state.
+    if (session != null) micMutedChrome = session.micMuted;
     peerNameView.setText(model.peerName);
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);
@@ -617,8 +660,14 @@ public class NativeVoiceCallActivity extends Activity {
     applyMediaDisk(muteButton, micActive, !micChromeEnabled, false);
     muteButton.setImageResource(micActive ? R.drawable.ic_call_mic_on : R.drawable.ic_call_mic_off);
     muteButton.setEnabled(micChromeEnabled);
-    if (muteLabel != null && !micChromeEnabled) {
-      muteLabel.setText(getString(R.string.dibay_call_control_mute));
+    if (muteLabel != null) {
+      muteLabel.setText(
+          getString(
+              !micChromeEnabled
+                  ? R.string.dibay_call_control_mute
+                  : (micMutedChrome
+                      ? R.string.dibay_call_control_unmute
+                      : R.string.dibay_call_control_mute)));
     }
 
     applyMediaDisk(endButton, false, false, true);
