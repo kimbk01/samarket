@@ -48,7 +48,7 @@ function isSafeTextStart(b: Buffer): boolean {
   const head = b.subarray(0, Math.min(b.length, 512));
   if (head.includes(0x00)) return false;
   // reject leading markup/script signatures (BOM-tolerant)
-  let s = head.toString("utf8").replace(/^﻿/, "").trimStart().toLowerCase();
+  const s = head.toString("utf8").replace(/^﻿/, "").trimStart().toLowerCase();
   if (
     s.startsWith("<!doctype") ||
     s.startsWith("<html") ||
