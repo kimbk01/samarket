@@ -260,6 +260,7 @@ import {
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   CALL_ANSWERED_ELSEWHERE_ERROR,
   evaluateAcceptDeviceClaim,
@@ -19873,12 +19874,15 @@ export async function updateCommunityMessengerCallSession(input: {
         ) {
           const calleeId = trimText(updated.recipient_user_id ?? "");
           if (calleeId) {
-            void sendWebPushForCommunityMessengerCallAnsweredElsewhere({
-              recipientUserId: calleeId,
-              sessionId: updated.id,
-              answeredDeviceId:
-                normalizeAnswerClaimDeviceId(updated.answered_device_id) ?? requestDeviceId,
-            }).catch(() => {});
+            // WP-8: 서버리스 teardown 전에 전송 완료 보장(이미 시작된 프로미스 유지).
+            keepAliveAfterResponse(
+              sendWebPushForCommunityMessengerCallAnsweredElsewhere({
+                recipientUserId: calleeId,
+                sessionId: updated.id,
+                answeredDeviceId:
+                  normalizeAnswerClaimDeviceId(updated.answered_device_id) ?? requestDeviceId,
+              }).catch(() => {})
+            );
           }
         }
         if (isTerminalCallSessionStatus(next.nextStatus)) {
@@ -19887,16 +19891,18 @@ export async function updateCommunityMessengerCallSession(input: {
             : updated.initiator_user_id;
           void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
           if (next.nextStatus !== "missed" && peerUserId) {
-            void sendWebPushForCommunityMessengerCallTerminal({
-              recipientUserId: peerUserId,
-              sessionId: updated.id,
-              status:
-                next.nextStatus === "rejected"
-                  ? "rejected"
-                  : next.nextStatus === "ended"
-                    ? "ended"
-                    : "cancelled",
-            }).catch(() => {});
+            keepAliveAfterResponse(
+              sendWebPushForCommunityMessengerCallTerminal({
+                recipientUserId: peerUserId,
+                sessionId: updated.id,
+                status:
+                  next.nextStatus === "rejected"
+                    ? "rejected"
+                    : next.nextStatus === "ended"
+                      ? "ended"
+                      : "cancelled",
+              }).catch(() => {})
+            );
           }
           // Reject/cancel: also dismiss other callee devices (account-level reject / cancel-all).
           if (
@@ -19905,11 +19911,13 @@ export async function updateCommunityMessengerCallSession(input: {
           ) {
             const calleeId = trimText(updated.recipient_user_id ?? "");
             if (calleeId && !messengerUserIdsEqual(calleeId, peerUserId ?? "")) {
-              void sendWebPushForCommunityMessengerCallTerminal({
-                recipientUserId: calleeId,
-                sessionId: updated.id,
-                status: next.nextStatus === "rejected" ? "rejected" : "cancelled",
-              }).catch(() => {});
+              keepAliveAfterResponse(
+                sendWebPushForCommunityMessengerCallTerminal({
+                  recipientUserId: calleeId,
+                  sessionId: updated.id,
+                  status: next.nextStatus === "rejected" ? "rejected" : "cancelled",
+                }).catch(() => {})
+              );
             }
           }
         }
