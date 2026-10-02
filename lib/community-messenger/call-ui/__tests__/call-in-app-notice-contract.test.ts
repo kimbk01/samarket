@@ -28,6 +28,24 @@ describe("call in-app notice contract", () => {
     expect(mapTerminalReasonToCallInAppNoticeEvent("failed")).toBe("call_failed");
   });
 
+  it("NEW-11(web): media-permission-denied reason maps to permission_required (not generic call_failed)", () => {
+    // Callee media-permission denial finalizes with "failed_permission"; existing classifier must
+    // route it to the permission notice so the callee sees the permission banner.
+    expect(classifyCallTerminalReason("failed_permission")).toBe("PERMISSION_REQUIRED");
+    expect(mapTerminalReasonToCallInAppNoticeEvent("failed_permission")).toBe("permission_required");
+  });
+
+  it("CALL-04/CALL-02: caller no_answer classifies to NONE → silent, distinct from callee 'missed'", () => {
+    // Caller-side no-answer / unconfirmed-missed finalizes with "no_answer": existing classifier
+    // routes it to NONE (silent) so the caller never sees the callee-oriented "missed" notice.
+    expect(classifyCallTerminalReason("no_answer")).toBe("NONE");
+    expect(noticeEventForCallTerminalClass("NONE")).toBeNull();
+    expect(mapTerminalReasonToCallInAppNoticeEvent("no_answer")).toBeNull();
+    // The callee-side "missed" semantics stay unchanged and separate.
+    expect(classifyCallTerminalReason("missed")).toBe("MISSED");
+    expect(mapTerminalReasonToCallInAppNoticeEvent("missed")).toBe("missed");
+  });
+
   it("terminal replaces reconnecting", () => {
     const reconnecting = getCallInAppNoticeSpec("reconnecting");
     const peerBusy = getCallInAppNoticeSpec("peer_busy");
