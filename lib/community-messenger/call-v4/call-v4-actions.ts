@@ -499,7 +499,8 @@ function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV
   if (normalized === "ended") return "ended";
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   if (normalized === "failed" || normalized === "failed_or_stale") return "failed";
-  return "rejected";
+  // NEW-11: 알 수 없는 종료를 "거절"로 오표시하지 않는다 — 중립적으로 "종료"로 처리.
+  return "ended";
 }
 
 function readCurrentCallV4RouteCallId(): string | null {
@@ -1099,8 +1100,12 @@ export async function callV4Accept(
       camera: mediaPerm.state.camera,
     });
     await leaveCallV4Agora(sid);
+    // NEW-11: 권한 거부를 로컬 "시작 실패"로 끝내지 않는다. 서버에 reject 를 보내 발신자 링잉을
+    // 멈추고(기존 callV4PatchReject authority), 수신자에겐 마이크 권한 안내를 띄운다
+    // (finalize reason "failed_permission" → 기존 PERMISSION_REQUIRED notice). 새 state 없음.
+    await callV4PatchReject(sid).catch(() => {});
     useCallV4Store.getState().setPhase("failed");
-    await finalizeCallV4Terminal(sid, "failed", router);
+    await finalizeCallV4Terminal(sid, "failed_permission", router);
     return;
   }
   logCallV4("call_v4_accept_media_preflight_done", {
