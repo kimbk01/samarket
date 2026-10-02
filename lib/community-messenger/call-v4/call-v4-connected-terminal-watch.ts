@@ -14,8 +14,9 @@ const CONNECTED_TERMINAL_POLL_MS = 1_000;
 const TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed", "failed"]);
 const WATCH_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let watchedCallId: string | null = null;
+let watchInFlight = false;
 let terminalHandler:
   | ((callId: string, status: string, source: "agora" | "realtime" | "poll") => Promise<void> | void)
   | null = null;
@@ -83,19 +84,39 @@ export function startCallV4ConnectedTerminalWatch(callId: string): void {
   stopCallV4ConnectedTerminalWatch();
   watchedCallId = sid;
   logCallV4("remote_terminal_watch_start", { callId: sid });
-  pollTimer = setInterval(() => {
-    void confirmRemoteTerminalStatus(sid, "poll");
-  }, CONNECTED_TERMINAL_POLL_MS);
+
+  // COST-01: setInterval → 단일 in-flight setTimeout 체인(겹침 방지) + 화면 보일 때만 폴링. 주기(1s) 유지.
+  const scheduleNext = () => {
+    if (watchedCallId !== sid) return;
+    pollTimer = setTimeout(() => {
+      pollTimer = null;
+      void tick().finally(scheduleNext);
+    }, CONNECTED_TERMINAL_POLL_MS);
+  };
+  const tick = async () => {
+    if (watchedCallId !== sid || watchInFlight) return;
+    if (typeof document !== "undefined" && document.hidden) return;
+    watchInFlight = true;
+    try {
+      await confirmRemoteTerminalStatus(sid, "poll");
+    } catch {
+      /* COST-01: 타임아웃/네트워크 실패 — 다음 폴에서 재시도. */
+    } finally {
+      watchInFlight = false;
+    }
+  };
+  void tick().finally(scheduleNext);
 }
 
 export function stopCallV4ConnectedTerminalWatch(callId?: string): void {
   const sid = callId?.trim() ?? "";
   if (sid && watchedCallId && watchedCallId !== sid) return;
   if (pollTimer) {
-    clearInterval(pollTimer);
+    clearTimeout(pollTimer);
     pollTimer = null;
   }
   watchedCallId = null;
+  watchInFlight = false;
 }
 
 export function triggerCallV4RemoteTerminalCheckFromAgora(callId: string, uid?: string | number | null): void {

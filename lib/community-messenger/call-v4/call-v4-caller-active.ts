@@ -26,15 +26,17 @@ const CALLER_TERMINAL_STATUSES = new Set([
   "failed",
 ]);
 
-let callerActivePollTimer: ReturnType<typeof setInterval> | null = null;
+let callerActivePollTimer: ReturnType<typeof setTimeout> | null = null;
 let callerActivePollCallId: string | null = null;
+let callerActivePollInFlight = false;
 
 export function stopCallV4CallerActivePoll(): void {
   if (callerActivePollTimer) {
-    clearInterval(callerActivePollTimer);
+    clearTimeout(callerActivePollTimer);
     callerActivePollTimer = null;
   }
   callerActivePollCallId = null;
+  callerActivePollInFlight = false;
 }
 
 function isCallerPollOutgoingPhase(phase: CallV4Phase): boolean {
@@ -112,34 +114,48 @@ export function startCallV4CallerActivePoll(callId: string): () => void {
   stopCallV4CallerActivePoll();
   callerActivePollCallId = sid;
 
-  const tick = () => {
-    void (async () => {
-      const phase = readCallV4Phase();
-      const identity = readCallV4Identity();
+  // COST-01: setInterval → 단일 in-flight setTimeout 체인(겹침 방지) + 화면 보일 때만 폴링
+  // + fetch 타임아웃(call-v4-api). 주기 값(500ms)은 그대로.
+  const scheduleNext = () => {
+    if (callerActivePollCallId !== sid) return;
+    callerActivePollTimer = setTimeout(() => {
+      callerActivePollTimer = null;
+      void tick().finally(scheduleNext);
+    }, CALLER_ACTIVE_POLL_MS);
+  };
 
-      if (!isCallerPollOutgoingPhase(phase) || identity?.callId !== sid || identity.direction !== "outgoing") {
-        return;
-      }
+  const tick = async () => {
+    if (callerActivePollCallId !== sid || callerActivePollInFlight) return;
+    if (typeof document !== "undefined" && document.hidden) return;
 
-      if (await isNativeEstablishmentOwned(sid)) {
-        logCallV4("web_agora_establishment_quarantined", { callId: sid, source: "caller_poll" });
-        stopCallV4CallerActivePoll();
-        return;
-      }
+    const phase = readCallV4Phase();
+    const identity = readCallV4Identity();
+    if (!isCallerPollOutgoingPhase(phase) || identity?.callId !== sid || identity.direction !== "outgoing") {
+      return;
+    }
+    if (await isNativeEstablishmentOwned(sid)) {
+      logCallV4("web_agora_establishment_quarantined", { callId: sid, source: "caller_poll" });
+      stopCallV4CallerActivePoll();
+      return;
+    }
 
+    callerActivePollInFlight = true;
+    try {
       const fetchResult = await callV4FetchSessionForCallerPoll(sid);
       logCallV4("caller_poll_status", {
         callId: sid,
         status: fetchResult.session?.status ?? null,
         phase,
       });
-
       await handleCallerPollFetchResult(sid, fetchResult);
-    })();
+    } catch {
+      // COST-01: 타임아웃/네트워크 실패 — 다음 폴에서 재시도.
+    } finally {
+      callerActivePollInFlight = false;
+    }
   };
 
-  callerActivePollTimer = setInterval(tick, CALLER_ACTIVE_POLL_MS);
-  void tick();
+  void tick().finally(scheduleNext);
 
   return stopCallV4CallerActivePoll;
 }

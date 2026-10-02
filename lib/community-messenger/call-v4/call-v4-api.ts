@@ -11,6 +11,9 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession, CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
+/** COST-01: 통화 상태 폴링 fetch 타임아웃(폴 주기보다 길어 매달림만 끊는다). */
+export const CALL_V4_POLL_FETCH_TIMEOUT_MS = 4000;
+
 export type CallV4MediaType = "audio" | "video";
 
 export function callV4MediaTypeFromKind(kind: CommunityMessengerCallKind): CallV4MediaType {
@@ -79,6 +82,8 @@ export async function callV4FetchSessionForCallerPoll(
         Pragma: "no-cache",
         "Cache-Control": "no-cache",
       },
+      // COST-01: 폴링 fetch 가 무한정 매달려 다음 폴을 막지 않도록 타임아웃.
+      signal: AbortSignal.timeout(CALL_V4_POLL_FETCH_TIMEOUT_MS),
     }
   );
   if (res.status === 404) {

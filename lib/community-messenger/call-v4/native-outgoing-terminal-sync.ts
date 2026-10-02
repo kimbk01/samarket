@@ -23,10 +23,11 @@ const TERMINAL_SESSION_STATUSES = new Set([
 ]);
 
 type SyncMeta = {
-  timerId: ReturnType<typeof setInterval>;
+  timerId: ReturnType<typeof setTimeout> | null;
   callId: string;
   router?: CallV4Router;
   finalizeInFlight: boolean;
+  pollInFlight: boolean;
 };
 
 let activeSync: SyncMeta | null = null;
@@ -98,22 +99,37 @@ export function startNativeOutgoingTerminalSync(callId: string, router?: CallV4R
     callId: sid,
     router,
     finalizeInFlight: false,
-    timerId: setInterval(() => {
-      void tickOutgoingTerminalSync(meta).catch((error: unknown) => {
-        logCallV4("outgoing_terminal_sync_tick_failed", {
-          callId: sid,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        if (activeSync === meta) {
-          meta.finalizeInFlight = false;
-        }
-      });
-    }, OUTGOING_TERMINAL_SYNC_POLL_MS),
+    pollInFlight: false,
+    timerId: null,
   };
-
   activeSync = meta;
   logCallV4("outgoing_terminal_sync_start", { callId: sid });
-  void tickOutgoingTerminalSync(meta);
+
+  // COST-01: setInterval → 단일 in-flight setTimeout 체인(겹침 방지) + 화면 보일 때만 폴링. 주기(500ms) 유지.
+  const scheduleNext = () => {
+    if (activeSync !== meta) return;
+    meta.timerId = setTimeout(() => {
+      meta.timerId = null;
+      void runTick().finally(scheduleNext);
+    }, OUTGOING_TERMINAL_SYNC_POLL_MS);
+  };
+  const runTick = async () => {
+    if (activeSync !== meta || meta.pollInFlight) return;
+    if (typeof document !== "undefined" && document.hidden) return;
+    meta.pollInFlight = true;
+    try {
+      await tickOutgoingTerminalSync(meta);
+    } catch (error: unknown) {
+      logCallV4("outgoing_terminal_sync_tick_failed", {
+        callId: sid,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (activeSync === meta) meta.finalizeInFlight = false;
+    } finally {
+      meta.pollInFlight = false;
+    }
+  };
+  void runTick().finally(scheduleNext);
 
   return () => stopNativeOutgoingTerminalSync(sid);
 }
@@ -122,7 +138,7 @@ export function stopNativeOutgoingTerminalSync(callId?: string): void {
   if (!activeSync) return;
   const target = callId?.trim();
   if (target && activeSync.callId !== target) return;
-  clearInterval(activeSync.timerId);
+  if (activeSync.timerId) clearTimeout(activeSync.timerId);
   logCallV4("outgoing_terminal_sync_stop", { callId: activeSync.callId });
   activeSync = null;
 }
