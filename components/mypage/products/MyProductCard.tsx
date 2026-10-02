@@ -27,6 +27,8 @@ interface MyProductCardProps {
   product: Product;
   isPromoted?: boolean;
   tradeRows?: SalesHistoryRow[];
+  /** When sales/inquiry fetch failed — do not show “no buyer chats”. */
+  buyerChatsLoadFailed?: boolean;
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
   onDelete: (productId: string) => void;
   onPromotionChanged?: () => void;
@@ -36,6 +38,7 @@ export function MyProductCard({
   product,
   isPromoted = false,
   tradeRows = [],
+  buyerChatsLoadFailed = false,
   onStatusChange,
   onDelete,
   onPromotionChanged,
@@ -49,7 +52,7 @@ export function MyProductCard({
   const isHidden = product.status === "hidden" || product.status === "blinded";
   const isLiveForSale = publicStatus === "active" && !isHidden;
   const canPromote = isLiveForSale && product.status === "active";
-  const showBuyerChatEmptyHint = isLiveForSale;
+  const showBuyerChatEmptyHint = isLiveForSale && !buyerChatsLoadFailed;
   const detailHref = `/post/${product.id}`;
   const statusLabel = isHidden
     ? t("mypage_comp_product_status_hidden")
@@ -151,7 +154,11 @@ export function MyProductCard({
         </div>
       ) : null}
 
-      <ListingBuyerChatsBlock tradeRows={tradeRows} showEmptyHint={showBuyerChatEmptyHint} />
+      <ListingBuyerChatsBlock
+        tradeRows={tradeRows}
+        showEmptyHint={showBuyerChatEmptyHint}
+        loadFailed={buyerChatsLoadFailed && isLiveForSale}
+      />
 
       <MemberPostPromoteSheet
         postId={product.id}

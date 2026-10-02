@@ -8,14 +8,20 @@ type ListingBuyerChatsBlockProps = {
   tradeRows: SalesHistoryRow[];
   /** Active for-sale listing with zero buyer threads — show empty hint. */
   showEmptyHint: boolean;
+  /** Sales/inquiry fetch failed — never pretend there are no buyer chats. */
+  loadFailed?: boolean;
 };
 
 /** Post-centric buyer chat threads under a seller listing card. */
-export function ListingBuyerChatsBlock({ tradeRows, showEmptyHint }: ListingBuyerChatsBlockProps) {
+export function ListingBuyerChatsBlock({
+  tradeRows,
+  showEmptyHint,
+  loadFailed = false,
+}: ListingBuyerChatsBlockProps) {
   const { safeT } = useI18n();
   const hasRows = tradeRows.length > 0;
 
-  if (!hasRows && !showEmptyHint) return null;
+  if (!hasRows && !showEmptyHint && !loadFailed) return null;
 
   const sectionLabel = safeT("marketplace_seller_listing_buyer_section", {
     fallbackKo: "구매자 문의",
@@ -33,7 +39,15 @@ export function ListingBuyerChatsBlock({ tradeRows, showEmptyHint }: ListingBuye
       {tradeRows.map((row) => (
         <SellerTradeRow key={row.chatId || `${row.postId}-${row.buyerId}`} row={row} />
       ))}
-      {!hasRows && showEmptyHint ? (
+      {!hasRows && loadFailed ? (
+        <p className="px-3 py-2.5 sam-text-helper text-sam-muted">
+          {safeT("marketplace_seller_listing_buyer_chats_load_failed", {
+            fallbackKo: "구매자 문의를 불러오지 못했어요",
+            fallbackEn: "Could not load buyer messages",
+          })}
+        </p>
+      ) : null}
+      {!hasRows && !loadFailed && showEmptyHint ? (
         <p className="px-3 py-2.5 sam-text-helper text-sam-muted">
           {safeT("marketplace_seller_listing_no_buyer_chats", {
             fallbackKo: "아직 구매자 문의가 없어요",

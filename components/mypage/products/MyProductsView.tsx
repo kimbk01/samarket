@@ -52,6 +52,7 @@ export function MyProductsView({
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [salesRows, setSalesRows] = useState<SalesHistoryRow[]>([]);
+  const [salesLoadFailed, setSalesLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const tradesByPostId = useMemo(() => groupSalesRowsByPostId(salesRows), [salesRows]);
@@ -89,12 +90,19 @@ export function MyProductsView({
 
   const loadListing = useCallback(
     async (uid: string) => {
-      const [list, ids, salesList] = await Promise.all([
+      const [list, ids, salesResult] = await Promise.all([
         fetchMyPosts(uid),
         fetchPromotedTargetIds(uid),
-        fetchTradeHistorySalesBySession().catch(() => []),
+        fetchTradeHistorySalesBySession()
+          .then((rows) => ({ ok: true as const, rows: rows as SalesHistoryRow[] }))
+          .catch(() => ({ ok: false as const, rows: [] as SalesHistoryRow[] })),
       ]);
-      return { list, ids, salesRows: salesList as SalesHistoryRow[] };
+      return {
+        list,
+        ids,
+        salesRows: salesResult.rows,
+        salesOk: salesResult.ok,
+      };
     },
     [fetchMyPosts, fetchPromotedTargetIds]
   );
@@ -104,17 +112,19 @@ export function MyProductsView({
       setRawProducts([]);
       setPromotedTargetIds(new Set());
       setSalesRows([]);
+      setSalesLoadFailed(false);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     loadListing(currentUserId)
-      .then(({ list, ids, salesRows: nextSalesRows }) => {
+      .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
         if (!cancelled) {
           setRawProducts(list);
           setPromotedTargetIds(ids);
           setSalesRows(nextSalesRows);
+          setSalesLoadFailed(!salesOk);
         }
       })
       .catch(() => {
@@ -122,6 +132,7 @@ export function MyProductsView({
           setRawProducts([]);
           setPromotedTargetIds(new Set());
           setSalesRows([]);
+          setSalesLoadFailed(true);
         }
       })
       .finally(() => {
@@ -136,12 +147,15 @@ export function MyProductsView({
     if (!currentUserId) return;
     const run = () => {
       loadListing(currentUserId)
-        .then(({ list, ids, salesRows: nextSalesRows }) => {
+        .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
           setRawProducts(list);
           setPromotedTargetIds(ids);
           setSalesRows(nextSalesRows);
+          setSalesLoadFailed(!salesOk);
         })
-        .catch(() => {});
+        .catch(() => {
+          setSalesLoadFailed(true);
+        });
     };
     const onVis = () => {
       if (document.visibilityState === "visible") run();
@@ -157,12 +171,15 @@ export function MyProductsView({
   const refetchPostsSilent = useCallback(() => {
     if (!currentUserId) return;
     void loadListing(currentUserId)
-      .then(({ list, ids, salesRows: nextSalesRows }) => {
+      .then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
         setRawProducts(list);
         setPromotedTargetIds(ids);
         setSalesRows(nextSalesRows);
+        setSalesLoadFailed(!salesOk);
       })
-      .catch(() => {});
+      .catch(() => {
+        setSalesLoadFailed(true);
+      });
   }, [currentUserId, loadListing]);
 
   useRefetchOnPageShowRestore(refetchPostsSilent, { enableVisibilityRefetch: false });
@@ -172,12 +189,14 @@ export function MyProductsView({
       setRawProducts([]);
       setPromotedTargetIds(new Set());
       setSalesRows([]);
+      setSalesLoadFailed(false);
       return;
     }
-    void loadListing(currentUserId).then(({ list, ids, salesRows: nextSalesRows }) => {
+    void loadListing(currentUserId).then(({ list, ids, salesRows: nextSalesRows, salesOk }) => {
       setRawProducts(list);
       setPromotedTargetIds(ids);
       setSalesRows(nextSalesRows);
+      setSalesLoadFailed(!salesOk);
     });
   }, [currentUserId, loadListing]);
 
@@ -373,6 +392,7 @@ export function MyProductsView({
                 product={product}
                 isPromoted={promotedTargetIds.has(product.id)}
                 tradeRows={tradesByPostId.get(product.id) ?? []}
+                buyerChatsLoadFailed={salesLoadFailed}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onPromotionChanged={refresh}
