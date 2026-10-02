@@ -1326,12 +1326,34 @@ export async function callV4HandleMissedTimeout(
       return;
     }
     if (nativeOutgoingShell) {
-      logCallV4("missed_patch_failed_force_finalize", {
-        callId: sid,
-        source,
-        error: patched.error ?? null,
-      });
-      await finalizeOutgoingMissedTimeout(sid, source, router, identity);
+      // CALL-02: missed PATCH 실패 시 즉시 양쪽을 닫지 않는다. 기존 action authority 안에서
+      // missed 를 최대 2회 재시도 → 그래도 서버 종료가 확인되지 않으면 기존 cancel action 을
+      // 시도한다. 상대(callee)에게는 서버 종료가 확인된 경우에만 알린다(새 retry state/timer 없음).
+      let confirmedMissed = false;
+      for (let attempt = 0; attempt < 2 && !confirmedMissed; attempt++) {
+        const retry = await callV4PatchMissed(sid);
+        const s = await callV4FetchSession(sid);
+        if (retry.ok || (s && isCallV4TerminalSessionStatus(s.status))) confirmedMissed = true;
+      }
+      if (confirmedMissed) {
+        logCallV4("missed_patch_confirmed_after_retry", { callId: sid, source });
+        await finalizeOutgoingMissedTimeout(sid, source, router, identity);
+        return;
+      }
+      // 2회 재시도로도 서버 종료 미확인 → 기존 cancel action 시도.
+      const cancelPatch = await callV4PatchCancel(sid);
+      const afterCancel = await callV4FetchSession(sid);
+      const cancelTerminal = Boolean(afterCancel && isCallV4TerminalSessionStatus(afterCancel.status));
+      if (cancelPatch.ok || cancelTerminal) {
+        // 서버 종료 확인 → 상대에게 알린다.
+        notifyCallV4PeerTerminalBestEffort(sid, identity, cancelTerminal ? afterCancel!.status : "cancelled");
+        logCallV4("missed_patch_cancel_confirmed", { callId: sid, source });
+      } else {
+        // 서버 종료 미확인 → 상대에게 알리지 않고 로컬만 정리.
+        logCallV4("missed_patch_cancel_unconfirmed_local_only", { callId: sid, source, error: patched.error ?? null });
+      }
+      // 발신자 화면은 정리하되 "부재중" transient notice 는 억제(CALL-04 와 동일).
+      await finalizeCallV4Terminal(sid, "cancelled", router, { suppressNotice: true });
       return;
     }
     releaseCallV4MissedPatchClaim(sid);
