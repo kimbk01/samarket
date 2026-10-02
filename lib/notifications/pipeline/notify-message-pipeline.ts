@@ -27,6 +27,10 @@ import {
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import {
+  isChatPushManagedEventType,
+  markChatPushHandoffPending,
+} from "@/lib/notifications/chat-notification-push-handoff";
 import type { NotificationRuntimeAppState } from "@/lib/notifications/policy/notification-policy-profiles";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
@@ -340,6 +344,11 @@ export async function notifyMessagePipeline(
 
     if (created.pushDeferred) {
       deferredPushes.push({ row: created.row, appState });
+      // NEW-24/NOTI-08: 채팅 푸시도 durable 복구 대상으로 표시 → after() 가 죽어도 1분 cron 이 복구.
+      // (managed 타입이 아니면 no-op. grace 뒤에만 cron 이 주워가므로 즉시 fast-path 전송과 충돌 없음.)
+      if (isChatPushManagedEventType(eventType)) {
+        await markChatPushHandoffPending(sb as unknown as SupabaseClient, created.row.id).catch(() => {});
+      }
     }
 
     logNotifyMessage("create_done", { roomId, recipientUserId, eventId: created.row.id });
