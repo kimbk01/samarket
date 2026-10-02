@@ -4149,12 +4149,23 @@ async function fetchCallLogRowsOnly(
   let rows: Array<CallRow | DevCall> = [];
   const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
   if (sb) {
+    // NEW-08 (LOCK-04): 이 사용자가 숨긴 call_log 는 목록에서 제외(상대 가시성은 보존).
+    const { data: hideRows } = await (sb as any)
+      .from("community_messenger_call_log_user_hides")
+      .select("call_log_id")
+      .eq("user_id", userId);
+    const hiddenCallLogIds = ((hideRows ?? []) as Array<{ call_log_id?: string | null }>)
+      .map((r) => trimText(r.call_log_id ?? ""))
+      .filter(Boolean);
     let query = (sb as any)
       .from("community_messenger_call_logs")
       .select(
         "id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at"
       )
       .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`);
+    if (hiddenCallLogIds.length) {
+      query = query.not("id", "in", `(${hiddenCallLogIds.join(",")})`);
+    }
     if (cursor) {
       const ts = quotePostgrestLiteral(cursor.startedAt);
       const idLit = quotePostgrestLiteral(cursor.id);
@@ -4567,17 +4578,25 @@ export async function deleteCommunityMessengerCallLog(
   callLogId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const id = callLogId.trim();
+  const uid = userId.trim();
   if (!id) return { ok: false, error: "missing_call_log_id" };
+  if (!uid) return { ok: false, error: "missing_user" };
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
-  const { data, error } = await (sb as any)
+  // NEW-08 (LOCK-04) DELETE_FOR_ME: 공유 call_log 를 물리 삭제하지 않는다. 요청자가 이 통화의
+  // 참여자(caller/peer)일 때만 그 사용자의 목록에서 숨긴다. 원본·상대 가시성은 보존된다.
+  const { data: logRow, error: findErr } = await (sb as any)
     .from("community_messenger_call_logs")
-    .delete()
+    .select("id")
     .eq("id", id)
-    .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`)
-    .select("id");
-  if (error) return { ok: false, error: String(error.message ?? "delete_failed") };
-  if (!Array.isArray(data) || data.length < 1) return { ok: false, error: "not_found" };
+    .or(`caller_user_id.eq.${uid},peer_user_id.eq.${uid}`)
+    .maybeSingle();
+  if (findErr) return { ok: false, error: String(findErr.message ?? "delete_failed") };
+  if (!logRow) return { ok: false, error: "not_found" };
+  const { error: hideErr } = await (sb as any)
+    .from("community_messenger_call_log_user_hides")
+    .upsert({ user_id: uid, call_log_id: id }, { onConflict: "user_id,call_log_id" });
+  if (hideErr) return { ok: false, error: String(hideErr.message ?? "delete_failed") };
   return { ok: true };
 }
 
