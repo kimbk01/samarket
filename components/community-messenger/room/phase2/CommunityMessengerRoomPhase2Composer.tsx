@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { resolveTradeBlockedProductDetailPostId } from "@/lib/community-messenger/room/phase2/trade-blocked-product-detail-cta";
@@ -374,12 +375,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     ]
   );
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
+  // CHAT-01: 완료/취소된 주문 채팅 배너 — 기존 authority(contextMeta.orderStatus)로 inline 판정(새 VM 필드 없음).
+  const storeOrderClosed = isTerminalStoreOrderStatus(vm.snapshot.room.contextMeta?.orderStatus);
   const composerPlaceholder = isDeliveryRoom
     ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
     : tradeOnlyBlocked
       ? tradeBlockedMessage || safeT("cm_ui_cannot_send_message", { fallbackKo: "메시지를 보낼 수 없습니다", fallbackEn: "You cannot send messages" })
       : vm.roomUnavailable
-        ? vm.storeOrderClosed
+        ? storeOrderClosed
           ? safeT("nav_messenger_store_order_chat_closed", {
               fallbackKo: "완료되거나 취소된 주문에서는 새 메시지를 보낼 수 없습니다.",
               fallbackEn: "You cannot send new messages in a completed or cancelled order chat.",

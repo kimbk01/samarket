@@ -10,6 +10,7 @@ import {
   subscribeMessengerRoomComposerPhase2BridgeReady,
 } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import { recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
 
 const VOICE_IDLE: Pick<
   MessengerRoomPhase2ComposerViewModel,
@@ -84,7 +85,9 @@ export function useMessengerRoomComposerEarly({
     const tradeSendBlocked = Boolean(
       snapshot.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false
     );
-    return !communityMessengerRoomIsGloballyUsable(snapshot.room) || tradeSendBlocked;
+    // CHAT-01: 완료/취소된 주문 채팅도 전송 불가(기존 authority 에 합산, 새 필드 없음).
+    const storeOrderClosed = isTerminalStoreOrderStatus(snapshot.room.contextMeta?.orderStatus);
+    return !communityMessengerRoomIsGloballyUsable(snapshot.room) || tradeSendBlocked || storeOrderClosed;
   }, [snapshot]);
 
   const sendMessage = useCallback(
