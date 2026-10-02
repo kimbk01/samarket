@@ -8,6 +8,7 @@ export type MessengerRoomPhase2ComposerViewModel = Pick<
   | "snapshot"
   | "message"
   | "roomUnavailable"
+  | "storeOrderClosed"
   | "busy"
   | "sendMessage"
   | "setActiveSheet"
