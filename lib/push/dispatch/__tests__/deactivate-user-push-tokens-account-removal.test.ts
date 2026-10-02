@@ -6,16 +6,18 @@ import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatc
  * Verifies both token tables are flipped is_active=false by user_id (non-destructive,
  * policy-independent) using existing deactivation authority.
  */
-function mockSvc(result: { data: unknown; error: unknown } = { data: null, error: null }) {
-  const chain: {
-    eq: ReturnType<typeof vi.fn>;
-    then: (resolve: (v: typeof result) => unknown) => unknown;
-  } = {
-    eq: vi.fn(() => chain),
-    then: (resolve) => resolve(result),
-  };
-  const update = vi.fn(() => chain);
-  const from = vi.fn(() => ({ update }));
+type MockResult = { data: unknown; error: unknown };
+type Chain = {
+  eq: ReturnType<typeof vi.fn>;
+  then: (resolve: (v: MockResult) => unknown) => unknown;
+};
+
+function mockSvc(result: MockResult = { data: null, error: null }) {
+  const chain = {} as Chain;
+  chain.eq = vi.fn((_column: string, _value?: unknown) => chain);
+  chain.then = (resolve) => resolve(result);
+  const update = vi.fn((_patch: Record<string, unknown>) => chain);
+  const from = vi.fn((_table: string) => ({ update }));
   return { from, update, chain };
 }
 
@@ -32,11 +34,10 @@ describe("deactivateAllUserPushTokensForAccountRemoval (NEW-09)", () => {
     const res = await deactivateAllUserPushTokensForAccountRemoval(svc as never, "user-1");
     expect(res.ok).toBe(true);
     expect(res.errors).toEqual([]);
-    const tables = svc.from.mock.calls.map((c) => c[0]);
-    expect(tables).toEqual(expect.arrayContaining(["user_devices", "web_push_subscriptions"]));
+    expect(svc.from).toHaveBeenCalledWith("user_devices");
+    expect(svc.from).toHaveBeenCalledWith("web_push_subscriptions");
     expect(svc.update).toHaveBeenCalledWith(expect.objectContaining({ is_active: false }));
-    const eqKeys = svc.chain.eq.mock.calls.map((c) => c[0]);
-    expect(eqKeys).toContain("user_id");
+    expect(svc.chain.eq).toHaveBeenCalledWith("user_id", "user-1");
   });
 
   it("records (does not throw) a web_push_subscriptions error", async () => {
