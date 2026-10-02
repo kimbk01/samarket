@@ -87,14 +87,14 @@ function prewarmPhilifeGlobalFeedVariant(
 }
 
 /**
- * Community home prewarm — Home + recommended (globalFeed). Region not required.
+ * Community home prewarm — Home + latest (globalFeed; matches default feedSort).
  * `@param region` retained for call-site compatibility; unused for home authority.
  */
 export function prewarmBottomNavPhilifeTab(_region?: UserRegion | null): void {
   void _region;
   const viewerSig = philifeFeedViewerSig();
   warmPhilifeNeighborhoodTopicOptions();
-  prewarmPhilifeGlobalFeedVariant(viewerSig, "", "recommended");
+  prewarmPhilifeGlobalFeedVariant(viewerSig, "", "latest");
   const saved = readCommunityHubState();
   if (saved?.category) {
     prewarmPhilifeGlobalFeedVariant(viewerSig, saved.category, "latest");
