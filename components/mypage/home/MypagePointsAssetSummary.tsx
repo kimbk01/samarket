@@ -23,7 +23,7 @@ import {
  */
 export function MypagePointsAssetSummary() {
   const { safeT } = useI18n();
-  const { balance, loading } = useUserPointBalance();
+  const { balance, loading, error } = useUserPointBalance();
 
   return (
     <section className={MYPAGE_HOME_CARD_CLASS} data-testid="mypage-points-asset-summary">
@@ -47,6 +47,13 @@ export function MypagePointsAssetSummary() {
         </span>
         {loading ? (
           <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>…</span>
+        ) : error ? (
+          <span className={`shrink-0 ${MYPAGE_HOME_META_TEXT_CLASS}`}>
+            {safeT("mypage_points_balance_load_failed", {
+              fallbackKo: "불러오기 실패",
+              fallbackEn: "Failed to load",
+            })}
+          </span>
         ) : (
           <CurrencyAmount
             currency="point"

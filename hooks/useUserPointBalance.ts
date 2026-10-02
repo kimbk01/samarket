@@ -12,14 +12,18 @@ type PointsBalanceJson = { balance?: number };
  * Concurrent callers (Strict Mode remount, multiple hook instances) joining the
  * same Response would race on body stream — second `res.json()` fails → UI stuck at 0
  * while a later `/api/me/points` probe still shows the real balance.
+ *
+ * MYPAGE-03: fetch failure must not be presented as balance 0 — use `error`.
  */
 export function useUserPointBalance(_userId?: string | null): {
   balance: number;
   loading: boolean;
+  error: boolean;
   refresh: () => Promise<void>;
 } {
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -32,8 +36,9 @@ export function useUserPointBalance(_userId?: string | null): {
         return (await res.json()) as PointsBalanceJson;
       });
       setBalance(Math.max(0, Number(j.balance ?? 0)));
+      setError(false);
     } catch {
-      setBalance(0);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -43,5 +48,5 @@ export function useUserPointBalance(_userId?: string | null): {
     void refresh();
   }, [refresh]);
 
-  return { balance, loading, refresh };
+  return { balance, loading, error, refresh };
 }
