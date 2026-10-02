@@ -9,6 +9,7 @@
  * - process-local Map as secondary same-instance guard
  * - APNs 를 무기한 await 하지 않음 (budget 후 응답; in-flight work 는 완료까지 유지)
  */
+import { after } from "next/server";
 import { tryClaimIncomingCallPushDispatch } from "@/lib/community-messenger/incoming-call-push-claim";
 import {
   sendIncomingCallPushBestEffort,
@@ -214,8 +215,17 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
       budget_ms: DISPATCH_BUDGET_MS,
       waited_ms: Date.now() - startedAt,
     });
-    /** Keep `work` alive until settled so APNs can finish after HTTP returns. */
-    void work;
+    // WP-8: 예산 경과 후 HTTP 는 즉시 반환하되, 이미 임계경로에서 시작된 APNs/FCM
+    // 전송이 서버리스 teardown 에 끊기지 않도록 Next after() 로 인스턴스 수명을
+    // 전송 settle 까지 연장한다. (과거 `void work` 는 응답 후 인스턴스가 얼면
+    // HTTP/2 스트림이 취소돼 "pending stream has been canceled" 로 통화 푸시가
+    // 소실됐다. 전송 "시작"은 이미 임계경로에서 됐으므로 after() 지연 금지 계약을
+    // 위반하지 않는다 — after() 는 완료 보장만 한다.) 요청 스코프 밖이면 fallback.
+    try {
+      after(() => work);
+    } catch {
+      void work;
+    }
   }
 
   return {
