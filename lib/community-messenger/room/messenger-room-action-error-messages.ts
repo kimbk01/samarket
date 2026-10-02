@@ -86,6 +86,14 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_trade_chat_locked");
     case "trade_flow_not_chatting":
       return t("nav_messenger_trade_flow_not_chatting");
+    // NEW-12: 서버가 코드 그대로 반환 → 매퍼가 정확한 문구로 변환.
+    case "trade_seller_closed":
+      return t("nav_messenger_trade_seller_closed");
+    case "trade_sender_left":
+      return t("nav_messenger_trade_viewer_left");
+    // CHAT-01: 완료/취소 주문 채팅 전송 차단 문구.
+    case "store_order_chat_closed":
+      return t("nav_messenger_store_order_chat_closed");
     case "peer_not_found":
       return t("nav_messenger_peer_not_found");
     case "forbidden":

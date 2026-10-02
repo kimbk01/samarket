@@ -84,10 +84,6 @@ import {
   cmMgmtOwnerTransferContent,
   cmMgmtPermissionsContent,
   cmStoreOrderHeadline,
-  cmTradeFlowMessageBlockedCopy,
-  cmTradeSellerClosedCopy,
-  cmTradeSenderLeftCopy,
-  cmTradeChatModeLockedCopy,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichCommerceChatRoomLifecycleForList } from "@/lib/community-messenger/commerce-chat-room-lifecycle-enrich";
@@ -16086,21 +16082,8 @@ async function trySendCommunityMessengerTextAtomic(
   const payload = rpcRaw as Record<string, unknown>;
   if (payload.ok !== true) {
     const err = typeof payload.error === "string" ? payload.error : "message_send_failed";
-    if (err === "trade_seller_closed") {
-      return { ok: false, error: cmTradeSellerClosedCopy() };
-    }
-    if (err === "trade_sender_left") {
-      return { ok: false, error: cmTradeSenderLeftCopy() };
-    }
-    if (err === "trade_chat_mode_locked" || err === "trade_flow_not_chatting") {
-      return {
-        ok: false,
-        error:
-          err === "trade_chat_mode_locked"
-            ? cmTradeChatModeLockedCopy()
-            : cmTradeFlowMessageBlockedCopy(),
-      };
-    }
+    // NEW-12: 거래/주문 오류 코드를 문장으로 덮지 않고 코드 그대로 반환 →
+    // 클라이언트 getMessengerRoomActionErrorMessage 매퍼가 정확한 문구로 변환한다.
     return { ok: false, error: err };
   }
   const msgRow = payload.message;
