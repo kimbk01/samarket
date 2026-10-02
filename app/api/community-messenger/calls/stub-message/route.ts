@@ -79,6 +79,10 @@ export async function POST(req: NextRequest) {
       .map((r) => trimText(r.user_id))
       .filter(Boolean)
   );
+  // SEC-05: 발신자는 세션 본인만. body.senderId 로 같은 방의 다른 멤버를 사칭할 수 없다.
+  if (senderId !== auth.userId) {
+    return NextResponse.json({ ok: false, error: "forbidden_sender" }, { status: 403 });
+  }
   if (!memberIds.has(senderId)) {
     return NextResponse.json({ ok: false, error: "bad_sender" }, { status: 400 });
   }

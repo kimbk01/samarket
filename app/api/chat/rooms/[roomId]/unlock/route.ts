@@ -3,7 +3,7 @@
  * Body: { adminId? }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -20,22 +20,15 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
   const { roomId } = await params;
-  let body: { adminId?: string };
-  try {
-    body = await req.json().catch(() => ({}));
-  } catch {
-    body = {};
-  }
-  const adminId = typeof body.adminId === "string" ? body.adminId.trim() : "";
-  if (!roomId || !adminId) {
-    return NextResponse.json({ ok: false, error: "roomId, adminId 필요" }, { status: 400 });
+  // SEC-03: 세션 기반 관리자 인증. body.adminId 는 신뢰하지 않는다.
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+  const adminId = admin.userId;
+  if (!roomId) {
+    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
   }
 
   const sbAny = sb;
-  const isAdmin = await hasActiveAdminMembershipOrLegacyRole(sbAny as never, adminId).catch(() => false);
-  if (!isAdmin) {
-    return NextResponse.json({ ok: false, error: "관리자만 잠금 해제할 수 있습니다." }, { status: 403 });
-  }
 
   const now = new Date().toISOString();
   await sbAny

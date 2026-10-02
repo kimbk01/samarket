@@ -55,6 +55,7 @@ export async function POST(
   const imageList = normalizeIncomingImageUrlList({
     imageUrl: body.imageUrl,
     imageUrls: body.imageUrls,
+    ownerUid: userId,
   });
   if (messageType === "image") {
     if (imageList.length === 0) {

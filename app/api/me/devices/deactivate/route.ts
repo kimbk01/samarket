@@ -73,11 +73,35 @@ export async function POST(req: NextRequest) {
   }
 
   if (scope === "device_all_users" && deviceId) {
-    await svc
-      .from("user_devices")
-      .update({ is_active: false, updated_at: now })
-      .eq("device_id", deviceId)
-      .eq("environment", environment);
+    // SEC-07: 다른 계정 행까지 끄는 것은 "계정 전환"용이다. 이 물리 기기의 소유 증명
+    // (device_id + 현재 push_token 바인딩 존재)이 있을 때만 전체 계정 행을 비활성화한다.
+    // 증명이 없으면 호출자 본인 행만 비활성화한다 (임의 device_id 로 타 계정 푸시 차단 금지).
+    let deviceOwnershipProven = false;
+    if (pushToken) {
+      const { data: ownRow } = await svc
+        .from("user_devices")
+        .select("id")
+        .eq("device_id", deviceId)
+        .eq("push_token", pushToken)
+        .eq("environment", environment)
+        .limit(1)
+        .maybeSingle();
+      deviceOwnershipProven = Boolean(ownRow);
+    }
+    if (deviceOwnershipProven) {
+      await svc
+        .from("user_devices")
+        .update({ is_active: false, updated_at: now })
+        .eq("device_id", deviceId)
+        .eq("environment", environment);
+    } else {
+      await svc
+        .from("user_devices")
+        .update({ is_active: false, updated_at: now })
+        .eq("user_id", userId)
+        .eq("device_id", deviceId)
+        .eq("environment", environment);
+    }
   } else if (pushToken && pushProvider) {
     await svc
       .from("user_devices")
