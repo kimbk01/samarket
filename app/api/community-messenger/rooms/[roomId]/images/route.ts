@@ -160,6 +160,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     userId: auth.userId,
     roomId: canonicalRoomId,
     items: uploaded,
+    // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
+    clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
   });
 
   if (!result.ok) {

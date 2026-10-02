@@ -16619,8 +16619,11 @@ export async function sendCommunityMessengerImageMessage(input: {
   userId: string;
   roomId: string;
   items: CommunityMessengerImageSendItem[];
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  /** CHAT-05: 업로드 멱등 — 동일 clientMessageId 재전송은 UNIQUE 인덱스로 1행 보장. */
+  clientMessageId?: string | null;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
   const roomId = trimText(input.roomId);
+  const cmUploadCid = trimText(input.clientMessageId) || null;
   const items = (input.items ?? [])
     .map((it) => ({
       chatPublicUrl: trimText(it.chatPublicUrl),
@@ -16689,7 +16692,11 @@ export async function sendCommunityMessengerImageMessage(input: {
       content: first.chatPublicUrl,
       metadata,
       createdAt,
-      idempotencyKey: `cm_append_image:${input.userId}:${roomId}:${first.chatPublicUrl}:${createdAt}`,
+      clientMessageId: cmUploadCid,
+      // CHAT-05: clientMessageId 가 있으면 안정 키(재전송 동일) — 없으면 기존 동작 유지.
+      idempotencyKey: cmUploadCid
+        ? `cm_append_image:${input.userId}:${roomId}:cid:${cmUploadCid}`
+        : `cm_append_image:${input.userId}:${roomId}:${first.chatPublicUrl}:${createdAt}`,
     });
     if (!appended.ok) {
       console.error("[room_unread_v1] image_append", {
@@ -16710,6 +16717,7 @@ export async function sendCommunityMessengerImageMessage(input: {
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
+      deduped: appended.deduped,
       message: communityMessengerBuiltImageClientMessage(
         items,
         appended.createdAt,
@@ -17130,8 +17138,11 @@ export async function sendCommunityMessengerFileMessage(input: {
   fileName: string;
   mimeType?: string;
   fileSizeBytes?: number;
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  /** CHAT-05: 업로드 멱등 — 동일 clientMessageId 재전송은 UNIQUE 인덱스로 1행 보장. */
+  clientMessageId?: string | null;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
   const roomId = trimText(input.roomId);
+  const cmUploadCid = trimText(input.clientMessageId) || null;
   const filePublicUrl = trimText(input.filePublicUrl);
   const storagePath = trimText(input.storagePath);
   const fileName = trimText(input.fileName);
@@ -17186,7 +17197,10 @@ export async function sendCommunityMessengerFileMessage(input: {
       content: filePublicUrl,
       metadata,
       createdAt,
-      idempotencyKey: `cm_file:${input.userId}:${roomId}:${filePublicUrl}:${createdAt}`,
+      clientMessageId: cmUploadCid,
+      idempotencyKey: cmUploadCid
+        ? `cm_file:${input.userId}:${roomId}:cid:${cmUploadCid}`
+        : `cm_file:${input.userId}:${roomId}:${filePublicUrl}:${createdAt}`,
     });
     if (!appended.ok) {
       console.error("[room_unread_v1] file_append", {
@@ -17207,6 +17221,7 @@ export async function sendCommunityMessengerFileMessage(input: {
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
+      deduped: appended.deduped,
       message: {
         id: appended.messageId,
         roomId,
@@ -17865,8 +17880,11 @@ export async function sendCommunityMessengerVoiceMessage(input: {
   durationSeconds: number;
   mimeType: string;
   waveformPeaks?: number[] | null;
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  /** CHAT-05: 업로드 멱등 — 동일 clientMessageId 재전송은 UNIQUE 인덱스로 1행 보장. */
+  clientMessageId?: string | null;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string; deduped?: boolean }> {
   const roomId = trimText(input.roomId);
+  const cmUploadCid = trimText(input.clientMessageId) || null;
   const audioPublicUrl = trimText(input.audioPublicUrl);
   const storagePath = trimText(input.storagePath);
   if (!roomId || !audioPublicUrl || !storagePath) return { ok: false, error: "content_required" };
@@ -17923,7 +17941,10 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       content: audioPublicUrl,
       metadata,
       createdAt,
-      idempotencyKey: `cm_voice:${input.userId}:${roomId}:${audioPublicUrl}:${createdAt}`,
+      clientMessageId: cmUploadCid,
+      idempotencyKey: cmUploadCid
+        ? `cm_voice:${input.userId}:${roomId}:cid:${cmUploadCid}`
+        : `cm_voice:${input.userId}:${roomId}:${audioPublicUrl}:${createdAt}`,
     });
     if (!appended.ok) {
       console.error("[room_unread_v1] voice_append", {
@@ -17944,6 +17965,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
+      deduped: appended.deduped,
       message: {
         id: appended.messageId,
         roomId,
