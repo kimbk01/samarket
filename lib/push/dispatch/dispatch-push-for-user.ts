@@ -471,9 +471,10 @@ export async function dispatchPushForUser(
     if (shouldDeactivateTarget(result, target)) {
       const reason = result.provider_response?.gone === true ? "gone" : "failed";
       await deactivateFailedPushTarget(svc, target, reason);
-    } else if (result.status === "failed" && target.source === "web_push_subscriptions") {
-      await deactivateFailedPushTarget(svc, target, "failed");
     }
+    // WP-7 PUSH: 과거엔 web_push 가 어떤 실패든(일시적 500/네트워크/VAPID설정) 구독을
+    // 비활성화해 건강한 구독이 영구 소실됐다. 진짜 종료(404/410=gone, subscription_gone)만
+    // shouldDeactivateTarget 이 처리하고, 일시적 실패는 비활성화하지 않는다.
   }
 
   // NOTI-05: ok:true 는 "함수가 완료됨"일 뿐 전달 성공이 아니다. audits 로 실제 결과를 분류한다.
