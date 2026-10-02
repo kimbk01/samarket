@@ -155,7 +155,13 @@ export async function GET(req: NextRequest) {
         wipeSupabaseAuthCookies(req, response);
         loginUrl.searchParams.set("auth_error", providerPolicy.errorCode);
         // Reconciliation copy is safe (no PII). Other conflicts keep short detail for login mapper.
-        if (providerPolicy.errorCode !== "provider_account_reconciliation_required") {
+        const omitDetail =
+          providerPolicy.errorCode === "provider_account_reconciliation_required"
+          || providerPolicy.errorCode === "provider_account_link_required"
+          || providerPolicy.errorCode === "account_suspended"
+          || providerPolicy.errorCode === "account_blocked"
+          || providerPolicy.errorCode === "account_withdrawn";
+        if (!omitDetail) {
           loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
         }
         loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);

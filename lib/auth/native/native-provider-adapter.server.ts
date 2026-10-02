@@ -107,7 +107,10 @@ function toVerifiedAppleIdentity(
     provider: "apple",
     providerUserId: verified.sub,
     email: verified.email,
-    emailVerified: verified.email ? !verified.isPrivateRelayEmail : undefined,
+    emailVerified:
+      verified.email && !verified.isPrivateRelayEmail && verified.emailVerified === true
+        ? true
+        : false,
     rawClaims: {
       appleVerified: verified,
       userIdentifier: userIdentifier ?? null,
@@ -189,7 +192,8 @@ function toVerifiedKakaoIdentity(verified: KakaoVerifiedIdentity): VerifiedNativ
     provider: "kakao",
     providerUserId: verified.kakaoUserId,
     email: verified.email,
-    emailVerified: verified.hasEmailFromProfile ? Boolean(verified.email) : undefined,
+    // Kakao profile email presence is not a trusted verified signal for Package D.
+    emailVerified: false,
     displayName: verified.nickname,
     avatarUrl: verified.profileImageUrl,
     rawClaims: { kakaoVerified: verified },

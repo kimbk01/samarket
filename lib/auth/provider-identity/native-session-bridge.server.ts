@@ -6,6 +6,10 @@ import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log"
 import { isApplePrivateRelayEmail } from "@/lib/auth/provider-identity/email-policy";
 import { createConflictStashToken } from "@/lib/auth/provider-identity/link-token.server";
 import {
+  PROVIDER_ACCOUNT_LINK_REQUIRED,
+  PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/password-member-lookup.server";
+import {
   buildProviderEmailConflictPayload,
   resolveProviderLogin,
 } from "@/lib/auth/provider-identity/resolve-provider-login.server";
@@ -61,7 +65,8 @@ export function buildKakaoProviderCandidate(verified: KakaoVerifiedIdentity): Pr
     provider: "kakao",
     providerUserId: verified.kakaoUserId,
     email,
-    emailVerified: Boolean(email),
+    // Kakao profile email presence is not a server-trusted verified signal for Package D.
+    emailVerified: false,
     emailIsPrivateRelay: false,
     rawProfile: {
       id: verified.kakaoUserId,
@@ -90,11 +95,13 @@ export function buildAppleProviderCandidate(
     provider: "apple",
     providerUserId: verified.sub,
     email,
-    emailVerified: Boolean(email),
+    // Only when Apple JWT proves email_verified; otherwise Package D skips.
+    emailVerified: Boolean(email) && verified.emailVerified === true,
     emailIsPrivateRelay: relay,
     rawProfile: {
       sub: verified.sub,
       email,
+      email_verified: verified.emailVerified === true,
       is_private_relay: relay,
       user_identifier: userIdentifier ?? null,
     },
@@ -126,6 +133,24 @@ export async function resolveNativeProviderSessionPrelude(
         ...resolved.conflict,
         stashToken,
       },
+    };
+  }
+
+  if (resolved.status === "account_link_required") {
+    return {
+      ok: false,
+      errorCode: PROVIDER_ACCOUNT_LINK_REQUIRED,
+      message: PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
+      status: 409,
+    };
+  }
+
+  if (resolved.status === "lifecycle_denied") {
+    return {
+      ok: false,
+      errorCode: resolved.errorCode,
+      message: resolved.message,
+      status: 403,
     };
   }
 

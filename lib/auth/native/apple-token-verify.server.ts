@@ -10,6 +10,8 @@ import { getAppleJwtVerifyKey, jwtVerify } from "@/lib/auth/native/apple-jwks.se
 export type AppleVerifiedIdentityToken = {
   sub: string;
   email: string | null;
+  /** True only when Apple JWT proves email_verified; absent/ambiguous → false. */
+  emailVerified: boolean;
   isPrivateRelayEmail: boolean;
   aud: string;
 };
@@ -103,6 +105,11 @@ function readEmail(payload: JWTPayload): string | null {
   return email || null;
 }
 
+function readEmailVerified(payload: JWTPayload): boolean {
+  const value = (payload as { email_verified?: unknown }).email_verified;
+  return value === true || value === "true";
+}
+
 function isJwtStructureMalformed(token: string): boolean {
   const parts = token.split(".");
   return parts.length !== 3 || parts.some((part) => !part.trim());
@@ -151,6 +158,7 @@ export async function verifyAppleIdentityToken(input: {
     return {
       sub,
       email,
+      emailVerified: readEmailVerified(payload),
       isPrivateRelayEmail: isApplePrivateRelayEmail(email),
       aud,
     };

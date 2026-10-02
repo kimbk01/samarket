@@ -66,8 +66,12 @@ export const authUiMessages = {
       "탈퇴 처리된 계정입니다. 같은 소셜 계정으로 다시 이용하려면 관리자에게 문의하거나 새로 가입해 주세요.",
     auth_err_account_blocked:
       "이용이 차단된 계정입니다. 관리자 차단 해제 후 다시 로그인해 주세요.",
+    auth_err_account_suspended:
+      "이 회원은 현재 활동이 제한되어 있습니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
     auth_err_provider_account_reconciliation_required:
       "이 로그인 계정은 기존 dibaY 계정과 연결 상태를 확인해야 합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
+    auth_err_provider_account_link_required:
+      "이 로그인 방법은 기존 계정 연결 확인이 필요합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
     auth_err_provider_account_conflict:
       "이 로그인 계정은 다른 dibaY 회원에 연결되어 있습니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.",
     auth_err_login_failed_code: "로그인 처리 실패({code}). 다시 시도해 주세요.",
@@ -304,8 +308,12 @@ export const authUiMessages = {
       "This account was withdrawn. To use the same social account again, contact support or sign up again.",
     auth_err_account_blocked:
       "This account is blocked. Sign in again after an administrator unblocks it.",
+    auth_err_account_suspended:
+      "This member’s activity is currently restricted. Try another sign-in method or contact support.",
     auth_err_provider_account_reconciliation_required:
       "This sign-in method needs verification against an existing dibaY account. Try another sign-in method or contact support.",
+    auth_err_provider_account_link_required:
+      "This sign-in method needs confirmation against an existing account. Try another sign-in method or contact support.",
     auth_err_provider_account_conflict:
       "This sign-in method is linked to a different dibaY member. Try another sign-in method or contact support.",
     auth_err_login_failed_code: "Sign-in failed ({code}). Please try again.",

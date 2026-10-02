@@ -38,12 +38,25 @@ export type ResolveProviderLoginResult =
   | { status: "new" }
   | { status: "email_conflict"; conflict: ProviderEmailConflictDetail }
   | {
+      status: "account_link_required";
+      reason: "verified_social_email_matches_password_member";
+      provider: LinkableAuthProvider;
+      /** Server-internal only — never put raw UUID into client URLs. */
+      candidateUserId: string;
+    }
+  | {
+      status: "lifecycle_denied";
+      errorCode: "account_suspended" | "account_blocked" | "account_withdrawn";
+      message: string;
+    }
+  | {
       status: "provider_user_id_conflict";
       message: string;
       conflictReason:
         | "POLICY_DATA_INCONSISTENT"
         | "EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED"
-        | "SAME_PROVIDER_SUBJECT_DIFFERENT_USER";
+        | "SAME_PROVIDER_SUBJECT_DIFFERENT_USER"
+        | "AMBIGUOUS_ACCOUNT_CONFLICT";
     };
 
 export type ProviderLinkStartResult =

@@ -1,6 +1,10 @@
 import type { User } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isApplePrivateRelayEmail, normalizeProviderEmail } from "@/lib/auth/provider-identity/email-policy";
+import {
+  isApplePrivateRelayEmail,
+  normalizeProviderEmail,
+  readProviderEmailVerifiedSignal,
+} from "@/lib/auth/provider-identity/email-policy";
 import { createConflictStashToken } from "@/lib/auth/provider-identity/link-token.server";
 import { ensureProviderAuthIdentityRow } from "@/lib/auth/provider-identity/native-session-bridge.server";
 import {
@@ -8,6 +12,10 @@ import {
   PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
   PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
 } from "@/lib/auth/provider-identity/oauth-rebind-safety.server";
+import {
+  PROVIDER_ACCOUNT_LINK_REQUIRED,
+  PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/password-member-lookup.server";
 import { resolveProviderLogin } from "@/lib/auth/provider-identity/resolve-provider-login.server";
 import type { LinkableAuthProvider, ProviderIdentityCandidate } from "@/lib/auth/provider-identity/types";
 import { isLinkableAuthProvider } from "@/lib/auth/provider-identity/provider-display";
@@ -22,6 +30,11 @@ export {
   PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
   PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
 } from "@/lib/auth/provider-identity/oauth-rebind-safety.server";
+
+export {
+  PROVIDER_ACCOUNT_LINK_REQUIRED,
+  PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/password-member-lookup.server";
 
 function pickStr(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -55,18 +68,24 @@ export function buildOAuthUserProviderCandidate(user: User): ProviderIdentityCan
 
   if (!providerUserId) return null;
 
-  const email = normalizeProviderEmail(user.email);
+  const emailFromIdentity = normalizeProviderEmail(
+    typeof identityData.email === "string" ? identityData.email : null,
+  );
+  const email = emailFromIdentity ?? normalizeProviderEmail(user.email);
   const relay = isApplePrivateRelayEmail(email);
+  // Fail-safe: only identity_data.email_verified (or string "true") counts for Package D.
+  const emailVerified = !relay && readProviderEmailVerifiedSignal(identityData.email_verified);
 
   return {
     provider,
     providerUserId,
     email: relay ? null : email,
-    emailVerified: Boolean(email),
+    emailVerified,
     emailIsPrivateRelay: relay,
     rawProfile: {
       sub: providerUserId,
       email,
+      email_verified: emailVerified,
       identity_provider: provider,
       source: "web_oauth_callback",
     },
@@ -86,7 +105,11 @@ export type WebOAuthProviderPolicyResult =
       errorCode:
         | "provider_email_conflict"
         | "provider_account_conflict"
-        | typeof PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED;
+        | typeof PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED
+        | typeof PROVIDER_ACCOUNT_LINK_REQUIRED
+        | "account_suspended"
+        | "account_blocked"
+        | "account_withdrawn";
       message: string;
       diag: WebOAuthPolicyDiag;
       conflict?: {
@@ -188,6 +211,42 @@ export async function enforceWebOAuthProviderPolicy(
         existingProviders: resolved.conflict.existingProviders,
         stashToken,
       },
+    };
+  }
+
+  if (resolved.status === "account_link_required") {
+    diag.policyResult = "reject";
+    diag.conflictReason = "VERIFIED_SOCIAL_EMAIL_MATCHES_PASSWORD_MEMBER";
+    diag.rejectionBranch = "resolve.account_link_required";
+    diag.existingAuthUserFound = true;
+    diag.existingProviderIdentityFound = false;
+    diag.sameNormalizedEmailMatch = true;
+    diag.sameProviderSubjectMatch = false;
+    diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(resolved.candidateUserId);
+    diag.existingProfileFound = await authUserHasProductProfile(sb, resolved.candidateUserId);
+    diag.autoLinkAllowed = false;
+    logWebOAuthProviderPolicyDiag(diag);
+    return {
+      ok: false,
+      errorCode: PROVIDER_ACCOUNT_LINK_REQUIRED,
+      message: PROVIDER_ACCOUNT_LINK_REQUIRED_MESSAGE,
+      diag,
+    };
+  }
+
+  if (resolved.status === "lifecycle_denied") {
+    diag.policyResult = "reject";
+    diag.conflictReason = "PASSWORD_MEMBER_LIFECYCLE_DENY";
+    diag.rejectionBranch = `resolve.lifecycle_denied.${resolved.errorCode}`;
+    diag.existingAuthUserFound = true;
+    diag.sameNormalizedEmailMatch = true;
+    diag.autoLinkAllowed = false;
+    logWebOAuthProviderPolicyDiag(diag);
+    return {
+      ok: false,
+      errorCode: resolved.errorCode,
+      message: resolved.message,
+      diag,
     };
   }
 
