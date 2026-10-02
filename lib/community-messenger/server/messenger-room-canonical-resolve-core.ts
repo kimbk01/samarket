@@ -92,6 +92,7 @@ export async function resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdo
       .select("room_id")
       .eq("room_id", id)
       .eq("user_id", userId)
+      .is("left_at", null) // SEC-06: 떠난 멤버(left_at set)는 멤버로 재해석하지 않는다. 재입장 시 left_at=null 로 복원됨.
       .maybeSingle(),
     (sb as any).from("community_messenger_rooms").select("id, room_type").eq("id", id).maybeSingle(),
   ]);
@@ -168,6 +169,7 @@ export async function resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdo
       .select("room_id")
       .eq("room_id", bridgedMessengerId)
       .eq("user_id", userId)
+      .is("left_at", null) // SEC-06: 떠난 멤버는 멤버로 재해석하지 않는다.
       .maybeSingle();
     if (p2?.room_id) {
       const tStore0 = performance.now();
