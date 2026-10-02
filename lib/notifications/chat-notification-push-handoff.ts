@@ -31,16 +31,27 @@ export const CHAT_PUSH_MANAGED_EVENT_TYPES = [
   "missed_call",
 ] as const;
 
-/** fast-path(after()) 가 못 보낸 푸시를 cron 이 주워가기 전까지의 유예(초과분만 복구). */
-const CHAT_PUSH_HANDOFF_FASTPATH_GRACE_MS = 90_000;
+/**
+ * 승인 설계값: "60초 넘게 pending 인 행을 다시 보낸다" → fast-path 가 못 보낸 행을 cron 이
+ * 주워가기 전까지의 유예(= next_at 오프셋). 임의값이 아니라 설계에 명시된 60초다.
+ */
+const CHAT_PUSH_HANDOFF_FASTPATH_GRACE_MS = 60_000;
 
 /**
- * NOTI-08 POLICY_REQUIRED — 생성 후 이 시간이 지난 일반 채팅 푸시는 보내지 않는다.
- * 설계 제안값 10분. Owner 가 조정할 수 있는 정책값이다(코드 상수는 기본값일 뿐).
+ * NOTI-08 POLICY_REQUIRED — 일반 채팅 푸시의 "시간 만료" 값은 Owner 가 정하는 정책값이다
+ * (설계: "값은 Owner 결정, 제안 10분"). 제품 기본값을 코드에 고정하지 않는다.
+ * env `CHAT_PUSH_HANDOFF_EXPIRY_MINUTES` 가 설정된 경우에만 시간 만료를 적용하고,
+ * 미설정(기본)이면 시간 만료 없이 기존 commerce 와 동일한 attempts 기반 종료
+ * (COMMERCE_PUSH_HANDOFF_MAX_ATTEMPTS, 기존 SSOT)만 사용한다.
  */
-export const CHAT_PUSH_HANDOFF_EXPIRY_MS = 10 * 60_000;
+function chatPushExpiryMsFromPolicyOrNull(): number | null {
+  const raw = process.env.CHAT_PUSH_HANDOFF_EXPIRY_MINUTES?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) * 60_000 : null;
+}
 
-/** 통화 푸시의 오래된 pending 은 1시간 뒤 실패 처리(재전송 없음). */
+/** 승인 설계값: 통화 푸시의 오래된 pending 은 1시간 뒤 실패 처리(재전송 없음). */
 const CHAT_PUSH_CALL_STALE_FAIL_MS = 60 * 60_000;
 
 const CHAT_CALL_TYPES = new Set<string>(["missed_call", "incoming_call_signal"]);
@@ -129,18 +140,19 @@ export async function processClaimedChatPushHandoff(
   const attempts = Math.max(1, Math.floor(Number(row.push_handoff_attempts) || 1));
   if (!claimToken) return "terminal";
 
-  // 만료: 통화 1h, 일반 채팅 10분(POLICY) 초과면 보내지 않고 정리(terminal).
+  // 만료: 통화 1h(설계 확정). 일반 채팅은 Owner 가 정한 정책(env)이 있을 때만 적용 —
+  // 미설정이면 시간 만료 없이 attempts 기반 종료(기존 SSOT)로 넘어간다.
   const createdMs = Date.parse(String(row.created_at ?? "")) || 0;
   const ageMs = createdMs > 0 ? Date.now() - createdMs : 0;
   const isCall = CHAT_CALL_TYPES.has(String(row.type));
-  const expiryMs = isCall ? CHAT_PUSH_CALL_STALE_FAIL_MS : CHAT_PUSH_HANDOFF_EXPIRY_MS;
-  if (ageMs > expiryMs) {
+  const expiryMs = isCall ? CHAT_PUSH_CALL_STALE_FAIL_MS : chatPushExpiryMsFromPolicyOrNull();
+  if (expiryMs != null && ageMs > expiryMs) {
     await markCommercePushHandoffResult(sb, {
       eventId: row.id,
       claimToken,
       ok: false,
       attempts,
-      error: isCall ? "call_push_stale_1h" : "chat_push_expired_10m",
+      error: isCall ? "call_push_stale_1h" : "chat_push_expired_policy",
       permanent: true,
     });
     return "expired";

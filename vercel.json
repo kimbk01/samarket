@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/cron/notification-push-handoff",
-      "schedule": "*/2 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
