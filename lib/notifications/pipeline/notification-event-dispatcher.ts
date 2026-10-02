@@ -12,6 +12,7 @@ import {
   type NotificationRuntimeAppState,
 } from "@/lib/notifications/policy/notification-policy-profiles";
 import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
+import type { DispatchPushOutcome } from "@/lib/push/dispatch/push-payload-types";
 
 export type CreateAndDispatchNotificationEventInput = CreateNotificationEventInput & {
   appState?: NotificationRuntimeAppState;
@@ -42,7 +43,7 @@ export async function dispatchNotificationEvent(
   sb: SupabaseClient<any>,
   row: NotificationEventRow,
   opts?: { appState?: NotificationRuntimeAppState }
-): Promise<void> {
+): Promise<DispatchPushOutcome> {
   const category = row.category as NotificationEventCategory;
   const profile = resolveNotificationPolicyProfile(category);
   const appState = opts?.appState ?? "background";
@@ -52,9 +53,10 @@ export async function dispatchNotificationEvent(
       eventId: row.id,
       skipped: "policy_profile_foreground_only",
     });
-    return;
+    return "noop";
   }
-  await dispatchNotificationPushIfAllowed(sb, row, {
+  // NOTI-05: 실제 전달 결과(outcome)를 반환한다. commerce handoff 가 이 값으로 상태를 정합한다.
+  return await dispatchNotificationPushIfAllowed(sb, row, {
     callPushKind: row.type === "missed_call" ? "missed_call" : undefined,
   });
 }

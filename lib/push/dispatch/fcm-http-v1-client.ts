@@ -129,9 +129,12 @@ export async function sendFcmHttpV1Message(input: FcmHttpV1SendInput): Promise<F
   }
 
   const lower = `${code} ${errorMessage}`.toLowerCase();
+  // NOTI-03: 무효 토큰은 FCM errorCode(UNREGISTERED/NOT_FOUND) 또는 토큰-특정 메시지로만 판정한다.
+  // INVALID_ARGUMENT 는 잘못된 페이로드 등 토큰과 무관한 원인도 포함하므로 blanket 으로
+  // 무효 토큰 처리하지 않는다(유효 토큰 비활성 방지). 토큰 형식 오류는 아래 메시지 검사로 잡힌다.
   const invalidToken =
+    code === "UNREGISTERED" ||
     code === "NOT_FOUND" ||
-    code === "INVALID_ARGUMENT" ||
     lower.includes("registration-token-not-registered") ||
     lower.includes("not a valid fcm registration token") ||
     lower.includes("invalid registration");

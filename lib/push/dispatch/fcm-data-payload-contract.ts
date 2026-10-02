@@ -312,7 +312,10 @@ export function buildFcmDataFields(
         if (callerId) fields.callerId = callerId;
         if (callerName) fields.callerName = callerName;
         if (missedAt) fields.missedAt = missedAt;
-        fields.tag = `samarket-missed-call-${sessionId}`;
+        // NOTI-02: 단말 로컬 부재중 타이머는 tag `missed:<callId>` 를 쓰고 callId==sessionId 이므로,
+        // 서버 FCM tag 도 `missed:<sessionId>` 로 맞추면 두 경로가 같은 notify(tag.hashCode())로
+        // 합쳐져 부재중 알림이 1건으로 교체된다(기존 APK 포함). 웹 푸시 tag 는 별도 유지.
+        fields.tag = `missed:${sessionId}`;
       }
       break;
     }

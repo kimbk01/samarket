@@ -61,11 +61,16 @@ export type DispatchDeliveryAudit = {
   provider_response?: Record<string, unknown> | null;
 };
 
+/** NOTI-05: 배달 집계 결과 분류. handoff 상태 정합에 사용. */
+export type DispatchPushOutcome = "sent" | "noop" | "retryable" | "permanent";
+
 export type DispatchPushResult = {
   ok: boolean;
   targets_found: number;
   deliveries: DispatchDeliveryAudit[];
   skipped_reason?: string;
+  /** NOTI-05: ok 는 "함수가 돌았다"일 뿐 전달 성공이 아니다. 실제 전달 결과는 outcome 으로 분류한다. */
+  outcome?: DispatchPushOutcome;
 };
 
 export type SendPushResult = {

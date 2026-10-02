@@ -10,6 +10,7 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
+import type { DispatchPushOutcome } from "@/lib/push/dispatch/push-payload-types";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
@@ -119,18 +120,18 @@ export async function dispatchNotificationPushIfAllowed(
   sb: SupabaseClient<any>,
   row: NotificationEventRow,
   opts?: { callPushKind?: "missed_call" }
-): Promise<void> {
+): Promise<DispatchPushOutcome> {
   if (row.push_suppressed_reason) {
     logNotifyMessage("push_dispatch_done", {
       userId: row.user_id,
       eventId: row.id,
       skipped: row.push_suppressed_reason,
     });
-    return;
+    return "noop";
   }
   if (shouldSkipPushForEventDedupe(row.id)) {
     logNotifyMessage("push_dispatch_done", { userId: row.user_id, eventId: row.id, skipped: "dedupe" });
-    return;
+    return "noop";
   }
 
   logNotifyMessage("push_dispatch_start", { userId: row.user_id, eventId: row.id });
@@ -143,8 +144,9 @@ export async function dispatchNotificationPushIfAllowed(
   });
   const out = buildPushPayload(row, memberAppIconTotal);
 
+  let dispatchResult;
   if (opts?.callPushKind === "missed_call") {
-    await dispatchPushForUser(out, {
+    dispatchResult = await dispatchPushForUser(out, {
       event_type: row.type,
       target_type: "call_session",
       target_id: row.call_session_id ?? undefined,
@@ -153,7 +155,7 @@ export async function dispatchNotificationPushIfAllowed(
       notification_event_id: row.id,
     });
   } else {
-    await dispatchPushForUser(out, {
+    dispatchResult = await dispatchPushForUser(out, {
       event_type: row.type,
       badge_count: memberAppIconTotal,
       notification_event_id: row.id,
@@ -165,6 +167,8 @@ export async function dispatchNotificationPushIfAllowed(
     eventId: row.id,
     badgeCount: memberAppIconTotal,
   });
+  // NOTI-05: 실제 전달 결과를 호출자(commerce handoff 등)로 전달한다.
+  return dispatchResult.outcome ?? "noop";
 }
 
 export type { NotificationEventType };
