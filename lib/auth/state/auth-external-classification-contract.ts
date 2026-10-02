@@ -41,6 +41,7 @@ export const AUTH_PRODUCT_FAILURE_CODE_EXAMPLES = [
   "empty_destination",
   "profile_ensure_failed",
   "provider_account_conflict",
+  "provider_account_reconciliation_required",
 ] as const;
 
 /**

@@ -49,6 +49,10 @@ export function mapAuthErrorMessage(code: string, detail: string | undefined, t:
   if (code === "session_missing") return t("auth_err_session_missing");
   if (code === "account_withdrawn") return t("auth_err_account_withdrawn");
   if (code === "account_blocked") return t("auth_err_account_blocked");
+  if (code === "provider_account_reconciliation_required") {
+    return t("auth_err_provider_account_reconciliation_required");
+  }
+  if (code === "provider_account_conflict") return t("auth_err_provider_account_conflict");
   return t("auth_err_login_failed_code", { code });
 }
 

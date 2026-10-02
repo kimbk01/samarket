@@ -185,7 +185,36 @@ describe("enforceWebOAuthProviderPolicy", () => {
     expect(result.diag.callbackAttemptId).toBe("woc-test-email");
   });
 
-  it("allows rebind when SSOT identity owner ≠ session (FALSE CONFLICT)", async () => {
+  it("allows rebind when SSOT identity owner ≠ session and session has NO profile (CASE B)", async () => {
+    const sb = mockSb({
+      identities: [
+        {
+          id: "id-1",
+          user_id: "user-existing",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+          email: "same@gmail.com",
+          email_is_private_relay: false,
+        },
+      ],
+      profiles: [{ id: "user-existing" }],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleOAuthUser(), {
+      callbackAttemptId: "woc-test-subject",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rebindToUserId).toBe("user-existing");
+    expect(result.diag.conflictReason).toBe("SAME_PROVIDER_SUBJECT_DIFFERENT_USER");
+    expect(result.diag.rejectionBranch).toBe(
+      "existing.user_auth_identities.user_id_mismatch.rebind",
+    );
+    expect(result.diag.policyResult).toBe("allow");
+    expect(result.diag.autoLinkAllowed).toBe(false);
+    expect(result.diag.orphanAuthUserDetected).toBe(true);
+  });
+
+  it("requires reconciliation when SSOT owner ≠ session and session has profile (CASE C / R7-3)", async () => {
     const sb = mockSb({
       identities: [
         {
@@ -200,17 +229,17 @@ describe("enforceWebOAuthProviderPolicy", () => {
       profiles: [{ id: "user-existing" }, { id: "session-user-new" }],
     });
     const result = await enforceWebOAuthProviderPolicy(sb, googleOAuthUser(), {
-      callbackAttemptId: "woc-test-subject",
+      callbackAttemptId: "woc-test-established",
     });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.rebindToUserId).toBe("user-existing");
-    expect(result.diag.conflictReason).toBe("SAME_PROVIDER_SUBJECT_DIFFERENT_USER");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorCode).toBe("provider_account_reconciliation_required");
+    expect(result.diag.conflictReason).toBe("ESTABLISHED_MEMBER_REBIND_FORBIDDEN");
     expect(result.diag.rejectionBranch).toBe(
-      "existing.user_auth_identities.user_id_mismatch.rebind",
+      "existing.user_auth_identities.user_id_mismatch.established_member_reconciliation",
     );
-    expect(result.diag.policyResult).toBe("allow");
-    expect(result.diag.autoLinkAllowed).toBe(false);
+    expect(result.diag.policyResult).toBe("reject");
+    expect(result.diag.orphanAuthUserDetected).toBe(false);
   });
 
   it("still rejects profiles_fallback owner mismatch (no email merge / no weak rebind)", async () => {

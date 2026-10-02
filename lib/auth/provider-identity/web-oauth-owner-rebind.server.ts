@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 import { buildGoogleSupabasePassword } from "@/lib/auth/native/google-native-session.server";
+import {
+  authUserHasProductProfile,
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/oauth-rebind-safety.server";
 import type { ProviderIdentityCandidate } from "@/lib/auth/provider-identity/types";
 import { hashPrefixForAuthDiag } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
 
@@ -18,7 +23,7 @@ export type WebOAuthOwnerRebindResult =
     }
   | {
       ok: false;
-      errorCode: "oauth_rebind_failed";
+      errorCode: "oauth_rebind_failed" | typeof PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED;
       message: string;
       temporaryUserId: string;
       ownerUserId: string;
@@ -172,6 +177,28 @@ async function runWebOAuthOwnerRebind(input: {
       ownerUser: input.temporaryUser,
       temporaryUserId,
       disposeMode: "skipped",
+    };
+  }
+
+  // R7-3 defense-in-depth — never mutate Auth when "temporary" already has a Product profile.
+  const temporaryHasProfile = await authUserHasProductProfile(input.adminSb, temporaryUserId);
+  if (temporaryHasProfile) {
+    logRebind({
+      event: "rebind_aborted_established_member",
+      callbackAttemptId: input.callbackAttemptId,
+      provider: input.candidate.provider,
+      subjectHashPrefix: hashPrefixForAuthDiag(input.candidate.providerUserId),
+      temporaryUserIdHashPrefix: hashPrefixForAuthDiag(temporaryUserId),
+      ownerUserIdHashPrefix: hashPrefixForAuthDiag(ownerUserId),
+      profileExists: true,
+      reconciliation_required: true,
+    });
+    return {
+      ok: false,
+      errorCode: PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
+      message: PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
+      temporaryUserId,
+      ownerUserId,
     };
   }
 

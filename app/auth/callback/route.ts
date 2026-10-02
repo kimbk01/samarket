@@ -145,9 +145,19 @@ export async function GET(req: NextRequest) {
         callbackAttemptId,
       });
       if (!providerPolicy.ok) {
-        await supabase.auth.signOut();
+        // Package B — never leave callback authenticated as wrong / conflicting principal.
+        wipeSupabaseAuthCookies(req, response);
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch {
+          /* ignore */
+        }
+        wipeSupabaseAuthCookies(req, response);
         loginUrl.searchParams.set("auth_error", providerPolicy.errorCode);
-        loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
+        // Reconciliation copy is safe (no PII). Other conflicts keep short detail for login mapper.
+        if (providerPolicy.errorCode !== "provider_account_reconciliation_required") {
+          loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
+        }
         loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);
         if (providerPolicy.diag.conflictReason) {
           loginUrl.searchParams.set("auth_conflict_reason", providerPolicy.diag.conflictReason);
@@ -189,8 +199,17 @@ export async function GET(req: NextRequest) {
           wipeAuthCookies: () => wipeSupabaseAuthCookies(req, response),
         });
         if (!rebind.ok) {
+          wipeSupabaseAuthCookies(req, response);
+          try {
+            await supabase.auth.signOut({ scope: "local" });
+          } catch {
+            /* ignore */
+          }
+          wipeSupabaseAuthCookies(req, response);
           loginUrl.searchParams.set("auth_error", rebind.errorCode);
-          loginUrl.searchParams.set("auth_error_detail", rebind.message.slice(0, 300));
+          if (rebind.errorCode !== "provider_account_reconciliation_required") {
+            loginUrl.searchParams.set("auth_error_detail", rebind.message.slice(0, 300));
+          }
           loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);
           response = NextResponse.redirect(loginUrl);
           return response;

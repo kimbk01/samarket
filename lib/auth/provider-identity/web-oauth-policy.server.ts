@@ -3,6 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isApplePrivateRelayEmail, normalizeProviderEmail } from "@/lib/auth/provider-identity/email-policy";
 import { createConflictStashToken } from "@/lib/auth/provider-identity/link-token.server";
 import { ensureProviderAuthIdentityRow } from "@/lib/auth/provider-identity/native-session-bridge.server";
+import {
+  authUserHasProductProfile,
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/oauth-rebind-safety.server";
 import { resolveProviderLogin } from "@/lib/auth/provider-identity/resolve-provider-login.server";
 import type { LinkableAuthProvider, ProviderIdentityCandidate } from "@/lib/auth/provider-identity/types";
 import { isLinkableAuthProvider } from "@/lib/auth/provider-identity/provider-display";
@@ -12,6 +17,11 @@ import {
   newWebOAuthCallbackAttemptId,
   type WebOAuthPolicyDiag,
 } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
+
+export {
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
+  PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
+} from "@/lib/auth/provider-identity/oauth-rebind-safety.server";
 
 function pickStr(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -73,7 +83,10 @@ export type WebOAuthProviderPolicyResult =
     }
   | {
       ok: false;
-      errorCode: "provider_email_conflict" | "provider_account_conflict";
+      errorCode:
+        | "provider_email_conflict"
+        | "provider_account_conflict"
+        | typeof PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED;
       message: string;
       diag: WebOAuthPolicyDiag;
       conflict?: {
@@ -83,12 +96,6 @@ export type WebOAuthProviderPolicyResult =
         stashToken: string;
       };
     };
-
-async function profileExistsForUser(sb: SupabaseClient, userId: string): Promise<boolean> {
-  const { data, error } = await sb.from("profiles").select("id").eq("id", userId).maybeSingle();
-  if (error) return false;
-  return Boolean(data?.id);
-}
 
 function baseDiag(input: {
   callbackAttemptId: string;
@@ -145,7 +152,7 @@ export async function enforceWebOAuthProviderPolicy(
     return { ok: true, candidate: null, diag };
   }
 
-  const sessionHasProfile = await profileExistsForUser(sb, user.id);
+  const sessionHasProfile = await authUserHasProductProfile(sb, user.id);
   diag.orphanAuthUserDetected = !sessionHasProfile;
 
   const resolved = await resolveProviderLogin(sb, candidate);
@@ -168,7 +175,7 @@ export async function enforceWebOAuthProviderPolicy(
     diag.conflictingProviderTypes = resolved.conflict.existingProviders.map(String);
     diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(resolved.conflict.existingUserId);
     diag.pendingConflictRecordFound = Boolean(stashToken);
-    diag.existingProfileFound = await profileExistsForUser(sb, resolved.conflict.existingUserId);
+    diag.existingProfileFound = await authUserHasProductProfile(sb, resolved.conflict.existingUserId);
     logWebOAuthProviderPolicyDiag(diag);
     return {
       ok: false,
@@ -202,12 +209,28 @@ export async function enforceWebOAuthProviderPolicy(
   diag.existingProviderIdentityFound = resolved.via === "user_auth_identities";
   diag.sameProviderSubjectMatch = true;
   diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(resolved.userId);
-  diag.existingProfileFound = await profileExistsForUser(sb, resolved.userId);
+  diag.existingProfileFound = await authUserHasProductProfile(sb, resolved.userId);
   diag.orphanProfileDetected = diag.existingProfileFound && !diag.existingProviderIdentityFound
     && resolved.via === "profiles_fallback";
 
   if (resolved.userId !== user.id) {
-    // SSOT owner wins over Supabase-created parallel session user (FALSE CONFLICT rebind).
+    // R7-3: established/session profile-bearing principals must never enter destructive rebind.
+    if (resolved.via === "user_auth_identities" && sessionHasProfile) {
+      diag.policyResult = "reject";
+      diag.conflictReason = "ESTABLISHED_MEMBER_REBIND_FORBIDDEN";
+      diag.rejectionBranch =
+        "existing.user_auth_identities.user_id_mismatch.established_member_reconciliation";
+      diag.autoLinkAllowed = false;
+      logWebOAuthProviderPolicyDiag(diag);
+      return {
+        ok: false,
+        errorCode: PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
+        message: PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED_MESSAGE,
+        diag,
+      };
+    }
+
+    // CASE B — profile-less OAuth principal may rebind to SSOT owner (FALSE CONFLICT).
     if (resolved.via === "user_auth_identities") {
       diag.policyResult = "allow";
       diag.conflictReason = "SAME_PROVIDER_SUBJECT_DIFFERENT_USER";

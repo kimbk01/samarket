@@ -22,6 +22,40 @@ function makeUser(id: string, email: string): User {
   } as User;
 }
 
+function mockAdminSb(opts: {
+  profileIds: string[];
+  getUserById: ReturnType<typeof vi.fn>;
+  updateUserById: ReturnType<typeof vi.fn>;
+  generateLink: ReturnType<typeof vi.fn>;
+}) {
+  return {
+    auth: {
+      admin: {
+        getUserById: opts.getUserById,
+        generateLink: opts.generateLink,
+        updateUserById: opts.updateUserById,
+      },
+    },
+    from: vi.fn((table: string) => {
+      const state: Record<string, unknown> = {};
+      const builder = {
+        select: vi.fn(() => builder),
+        eq: vi.fn((col: string, val: unknown) => {
+          state[col] = val;
+          return builder;
+        }),
+        maybeSingle: vi.fn(async () => {
+          if (table !== "profiles") return { data: null, error: null };
+          const id = String(state.id ?? "");
+          const hit = opts.profileIds.includes(id);
+          return { data: hit ? { id } : null, error: null };
+        }),
+      };
+      return builder;
+    }),
+  } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
 describe("wipeSupabaseAuthCookies", () => {
   it("expires chunked auth-token cookies", () => {
     const req = new NextRequest("https://samarket.vercel.app/auth/callback", {
@@ -44,7 +78,7 @@ describe("rebindWebOAuthSessionToOwner", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  it("wipes auth cookies then password-signs owner (no magiclink)", async () => {
+  it("T16: profile-less temporary user — existing rebind behavior preserved", async () => {
     const wipeAuthCookies = vi.fn(() => 3);
     const signOut = vi.fn(async () => ({ error: null }));
     const verifyOtp = vi.fn();
@@ -59,9 +93,12 @@ describe("rebindWebOAuthSessionToOwner", () => {
     }));
     const updateUserById = vi.fn(async () => ({ data: { user: null }, error: null }));
 
-    const adminSb = {
-      auth: { admin: { getUserById, generateLink, updateUserById } },
-    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+    const adminSb = mockAdminSb({
+      profileIds: ["owner-1"],
+      getUserById,
+      updateUserById,
+      generateLink,
+    });
     const routeSb = {
       auth: { signOut, verifyOtp, signInWithPassword },
     } as unknown as import("@supabase/supabase-js").SupabaseClient;
@@ -87,9 +124,53 @@ describe("rebindWebOAuthSessionToOwner", () => {
     expect(wipeAuthCookies.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(generateLink).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
+    expect(updateUserById).toHaveBeenCalled();
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "owner@example.com",
       password: "Gg#test-password!",
     });
+  });
+
+  it("T15: defense-in-depth rejects profile-bearing temporaryUser before destructive ops", async () => {
+    const wipeAuthCookies = vi.fn(() => 3);
+    const signOut = vi.fn(async () => ({ error: null }));
+    const signInWithPassword = vi.fn();
+    const getUserById = vi.fn();
+    const updateUserById = vi.fn();
+    const generateLink = vi.fn();
+
+    const adminSb = mockAdminSb({
+      profileIds: ["established-v", "owner-u"],
+      getUserById,
+      updateUserById,
+      generateLink,
+    });
+    const routeSb = {
+      auth: { signOut, signInWithPassword },
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    const result = await rebindWebOAuthSessionToOwner({
+      adminSb,
+      routeSb,
+      temporaryUser: makeUser("established-v", "v@example.com"),
+      ownerUserId: "owner-u",
+      candidate: {
+        provider: "google",
+        providerUserId: "gid-split",
+        email: "v@example.com",
+        emailVerified: true,
+      },
+      callbackAttemptId: "woc-rebind-defense",
+      wipeAuthCookies,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorCode).toBe("provider_account_reconciliation_required");
+    expect(wipeAuthCookies).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(getUserById).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 });
