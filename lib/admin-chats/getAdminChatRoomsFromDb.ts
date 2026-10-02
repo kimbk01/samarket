@@ -17,7 +17,10 @@ const DB_ROOM_STATUS_TO_UI: Record<string, RoomStatus> = {
  */
 export async function getAdminChatRoomsFromDb(): Promise<AdminChatRoom[]> {
   const supabase = getSupabaseClient();
-  if (!supabase) return [];
+  /** ADMIN-07 — client/query failure must reject; true empty returns []. */
+  if (!supabase) {
+    throw new Error("admin_chat_db_client_unavailable");
+  }
 
   const sb = supabase as any;
 
@@ -36,7 +39,14 @@ export async function getAdminChatRoomsFromDb(): Promise<AdminChatRoom[]> {
     `)
     .order("last_message_at", { ascending: false, nullsFirst: false });
 
-  if (error || !rooms?.length) return [];
+  if (error) {
+    throw new Error(
+      typeof error?.message === "string" && error.message.trim()
+        ? error.message
+        : "admin_chat_db_query_failed"
+    );
+  }
+  if (!rooms?.length) return [];
 
   const postIds = [...new Set(rooms.map((r: { post_id: string }) => r.post_id))];
   const roomIds = rooms.map((r: { id: string }) => r.id);

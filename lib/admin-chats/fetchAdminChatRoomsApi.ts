@@ -11,7 +11,10 @@ export async function fetchAdminChatRoomsApi(): Promise<AdminChatRoom[]> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  if (!res.ok) return [];
+  /** ADMIN-07 — HTTP non-2xx must reject; 2xx + empty resolves []. */
+  if (!res.ok) {
+    throw new Error(`admin_chat_rooms_api_http_${res.status}`);
+  }
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
@@ -37,7 +40,10 @@ export async function fetchAdminChatRoomsListApi(
     cache: "no-store",
     headers: { "Cache-Control": "no-store" },
   });
-  if (!res.ok) return [];
+  /** ADMIN-07 — HTTP non-2xx must reject; 2xx + empty resolves []. */
+  if (!res.ok) {
+    throw new Error(`admin_chat_rooms_list_api_http_${res.status}`);
+  }
   const data = await res.json().catch(() => null);
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
   return rooms.map(
