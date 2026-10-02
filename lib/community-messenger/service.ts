@@ -18091,6 +18091,10 @@ export async function createCommunityMessengerCallLog(input: {
     terminalActorUserId: stubActorUserId,
     resolvedEvent: projection.resolvedEvent,
   };
+  // NEW-18/26: 종료 시각·응답 시각·종료 사유를 실제로 저장한다(기존엔 payload 에서 누락됨).
+  const endedAtIso = trimText(input.endedAt ?? "") || null;
+  const answeredAtIso = trimText(input.answeredAt ?? "") || null;
+  const endedReasonValue = trimText(input.endedReason ?? "") || null;
   const payload = {
     session_id: sessionId,
     room_id: roomId,
@@ -18100,6 +18104,9 @@ export async function createCommunityMessengerCallLog(input: {
     status: input.status,
     duration_seconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     started_at: startedAt,
+    ended_at: endedAtIso,
+    answered_at: answeredAtIso,
+    ended_reason: endedReasonValue,
   };
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -18110,6 +18117,15 @@ export async function createCommunityMessengerCallLog(input: {
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
+      // NEW-18/26: 중복 경로에서도 종료 필드를 채운다 — 단 ended_at 이 아직 비어있는 행만
+      // 채워서(fill-only) 이미 기록된 종료값을 덮어쓰지 않는다.
+      if (endedAtIso) {
+        await (sb as any)
+          .from("community_messenger_call_logs")
+          .update({ ended_at: endedAtIso, answered_at: answeredAtIso, ended_reason: endedReasonValue })
+          .eq("session_id", sessionId)
+          .is("ended_at", null);
+      }
       await appendCommunityMessengerCallStubMessage({
         ...stubInput,
         replaceExisting: input.replaceExistingStub ?? true,
