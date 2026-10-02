@@ -175,8 +175,13 @@ async function finalizeOutgoingMissedTimeout(
   identity: CallV4Identity | null,
 ): Promise<void> {
   const sid = callId.trim();
+  // 상대(callee) 는 기존대로 missed 로 통지한다 — 변경 없음.
   notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
-  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined);
+  // CALL-04: 발신자에게 잘못 뜨던 "부재중" transient notice 만 억제한다. terminal reason 은
+  // "missed" 그대로 유지(call-log·call-history "응답 없음" semantics 불변).
+  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined, {
+    suppressNotice: true,
+  });
   logCallV4("missed_timeout_finalize_done", { callId: sid, source });
 }
 
@@ -420,7 +425,10 @@ const finalizedCallV4Ids = new Set<string>();
 async function finalizeCallV4Terminal(
   callId: string,
   reason: CallV4TerminalPhase | string,
-  router?: CallV4Router
+  router?: CallV4Router,
+  // CALL-04: 발신자 무응답처럼 transient notice 만 억제해야 하는 최소 분기(기본 미억제).
+  // terminal reason·call-log·상대 missed·notice contract 는 그대로 둔다.
+  opts?: { suppressNotice?: boolean },
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
@@ -445,6 +453,8 @@ async function finalizeCallV4Terminal(
   // Transient Call notice — skip when Native Activity/VC owns visible establishment (they render notice).
   void (async () => {
     try {
+      // CALL-04: 발신자 무응답은 로컬 transient notice 만 억제(상대 missed·call-log·종료음은 유지).
+      if (opts?.suppressNotice) return;
       const nativeOwned = await isNativeEstablishmentOwned(sid);
       if (nativeOwned) return;
       const { showCallInAppNoticeFromTerminalReason } = await import(
