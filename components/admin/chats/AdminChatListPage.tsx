@@ -149,6 +149,8 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [rooms, setRooms] = useState<AdminChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
+  /** ADMIN-07 — fetch failure must not render as “no chats”. */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [listHiddenIds, setListHiddenIds] = useState<Set<string>>(() => new Set());
   const [actionBusy, setActionBusy] = useState(false);
@@ -164,29 +166,51 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadFailed(false);
+
+    const settleRooms = async (
+      p: Promise<AdminChatRoom[]>
+    ): Promise<{ ok: boolean; rows: AdminChatRoom[] }> => {
+      try {
+        return { ok: true, rows: await p };
+      } catch {
+        return { ok: false, rows: [] };
+      }
+    };
 
     const load = async () => {
       let fromProductChats: AdminChatRoom[] = [];
       let fromChatRooms: AdminChatRoom[] = [];
+      let anySourceOk = false;
+      const hollowMode = mode === "business" || mode === "community" || mode === "group";
 
       if (mode === "trade") {
-        [fromProductChats, fromChatRooms] = await Promise.all([
-          fetchAdminChatRoomsApi().catch(() => []),
-          fetchAdminChatRoomsListApi({ roomType: "item_trade" }).catch(() => []),
+        const [a, b] = await Promise.all([
+          settleRooms(fetchAdminChatRoomsApi()),
+          settleRooms(fetchAdminChatRoomsListApi({ roomType: "item_trade" })),
         ]);
+        fromProductChats = a.rows;
+        fromChatRooms = b.rows;
+        anySourceOk = a.ok || b.ok;
       } else if (mode === "reported") {
-        [fromProductChats, fromChatRooms] = await Promise.all([
-          fetchAdminChatRoomsApi().catch(() => []),
-          fetchAdminChatRoomsListApi({ hasReport: true }).catch(() => []),
+        const [a, b] = await Promise.all([
+          settleRooms(fetchAdminChatRoomsApi()),
+          settleRooms(fetchAdminChatRoomsListApi({ hasReport: true })),
         ]);
-        fromProductChats = fromProductChats.filter((r) => (r.reportCount ?? 0) > 0);
-      } else if (mode === "business" || mode === "community" || mode === "group") {
+        fromProductChats = a.rows.filter((r) => (r.reportCount ?? 0) > 0);
+        fromChatRooms = b.rows;
+        anySourceOk = a.ok || b.ok;
+      } else if (hollowMode) {
         fromChatRooms = [];
+        anySourceOk = true;
       } else {
-        [fromProductChats, fromChatRooms] = await Promise.all([
-          fetchAdminChatRoomsApi().catch(() => []),
-          fetchAdminChatRoomsListApi().catch(() => []),
+        const [a, b] = await Promise.all([
+          settleRooms(fetchAdminChatRoomsApi()),
+          settleRooms(fetchAdminChatRoomsListApi()),
         ]);
+        fromProductChats = a.rows;
+        fromChatRooms = b.rows;
+        anySourceOk = a.ok || b.ok;
       }
 
       const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)];
@@ -206,20 +230,26 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       if (cancelled) return;
       if (merged.length > 0) {
         setRooms(merged);
+        setLoadFailed(false);
         return;
       }
       if (mode === "all" || mode === "trade") {
-        const fromDb = await getAdminChatRoomsFromDb().catch(() => []);
+        const db = await settleRooms(getAdminChatRoomsFromDb());
         if (cancelled) return;
-        const list = mode === "trade" ? fromDb.filter((r) => r.roomType === "item_trade") : fromDb;
+        const list = mode === "trade" ? db.rows.filter((r) => r.roomType === "item_trade") : db.rows;
         setRooms(list.length > 0 ? list : []);
+        setLoadFailed(!anySourceOk && !db.ok && list.length === 0);
       } else {
         setRooms([]);
+        setLoadFailed(!anySourceOk);
       }
     };
 
     load().catch(() => {
-      if (!cancelled) setRooms([]);
+      if (!cancelled) {
+        setRooms([]);
+        setLoadFailed(true);
+      }
     })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -416,25 +446,30 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const focusedRoom = deepLinkActive ? visibleFiltered[0] ?? null : null;
 
   const emptyCopy =
-    rooms.length === 0
-      ? mode === "trade"
-        ? t("admin_chat_empty_trade")
-        : mode === "reported"
-          ? t("admin_chat_empty_reported")
-          : mode === "business" || mode === "community" || mode === "group"
-            ? safeT("admin_chat_hollow_empty", {
-                fallbackKo: "HOLLOW — Admin 목록 미연결 (데이터 없음이 아님).",
-                fallbackEn: "HOLLOW — Admin list not wired (not a proven empty dataset).",
-              })
-            : t("admin_chat_empty_all")
-      : deepLinkActive && deepLinkedFiltered.length === 0
-        ? safeT("admin_trade_deep_link_no_match", {
-            fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
-            fallbackEn: "No trade in this list matches the deep link.",
-          })
-        : filtered.length === 0
-          ? t("admin_chat_empty_filtered")
-          : t("admin_chat_empty_hidden_only");
+    loadFailed && rooms.length === 0
+      ? safeT("admin_chat_domain_list_error", {
+          fallbackKo: "목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+          fallbackEn: "Could not load the list. Please try again.",
+        })
+      : rooms.length === 0
+        ? mode === "trade"
+          ? t("admin_chat_empty_trade")
+          : mode === "reported"
+            ? t("admin_chat_empty_reported")
+            : mode === "business" || mode === "community" || mode === "group"
+              ? safeT("admin_chat_hollow_empty", {
+                  fallbackKo: "HOLLOW — Admin 목록 미연결 (데이터 없음이 아님).",
+                  fallbackEn: "HOLLOW — Admin list not wired (not a proven empty dataset).",
+                })
+              : t("admin_chat_empty_all")
+        : deepLinkActive && deepLinkedFiltered.length === 0
+          ? safeT("admin_trade_deep_link_no_match", {
+              fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
+              fallbackEn: "No trade in this list matches the deep link.",
+            })
+          : filtered.length === 0
+            ? t("admin_chat_empty_filtered")
+            : t("admin_chat_empty_hidden_only");
 
   const isHollowMessengerMode =
     mode === "business" || mode === "community" || mode === "group";
