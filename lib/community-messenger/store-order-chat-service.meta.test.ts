@@ -78,11 +78,28 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
     const messagesTable = {
       select: () => ({
         eq: () => ({
+          // 멱등 존재 확인: .eq().filter().filter().limit().maybeSingle()
           eq: () => ({
             filter: () => ({
               filter: () => ({
                 limit: () => ({
                   maybeSingle: async () => ({ data: { id: "msg-1" }, error: null }),
+                }),
+              }),
+            }),
+          }),
+          // CHAT-06 최신 메시지 재계산: .is("deleted_at", null).order().limit().maybeSingle()
+          is: () => ({
+            order: () => ({
+              limit: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    content: "최신 메시지",
+                    message_type: "text",
+                    metadata: null,
+                    created_at: "2026-05-20T01:00:00.000Z",
+                  },
+                  error: null,
                 }),
               }),
             }),
