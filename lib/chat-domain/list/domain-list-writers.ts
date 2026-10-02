@@ -82,9 +82,14 @@ export function applyDomainListProjection(
   }
 }
 
-/** @internal vitest */
-export function __resetDomainListProjectionsForTest(): void {
+/** Auth epoch (logout / account switch wipe) — clear prior-user domain list snapshots. */
+export function clearDomainListProjectionsForAuthEpoch(): void {
   for (const k of Object.keys(lastByDomain) as ChatDomain[]) {
     delete lastByDomain[k];
   }
+}
+
+/** @internal vitest */
+export function __resetDomainListProjectionsForTest(): void {
+  clearDomainListProjectionsForAuthEpoch();
 }

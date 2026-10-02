@@ -391,7 +391,12 @@ export function peekMessengerRoomUnreadFact(roomId: string): MessengerRoomUnread
   return facts.get(rid) ?? null;
 }
 
+/** Auth epoch (logout / account switch wipe) — clear prior-user room unread facts. */
+export function clearMessengerRoomUnreadFactsForAuthEpoch(): void {
+  facts.clear();
+}
+
 /** Vitest only */
 export function __resetMessengerRoomUnreadAuthorityForTest(): void {
-  facts.clear();
+  clearMessengerRoomUnreadFactsForAuthEpoch();
 }

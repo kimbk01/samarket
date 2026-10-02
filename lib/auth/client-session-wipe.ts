@@ -45,6 +45,8 @@ import { resetMessengerUIStore } from "@/lib/community-messenger/stores/useMesse
 import { resetMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { resetMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { resetMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import { clearMessengerRoomUnreadFactsForAuthEpoch } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
+import { clearDomainListProjectionsForAuthEpoch } from "@/lib/chat-domain/list/domain-list-writers";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
 import { invalidatePhilifeNeighborhoodTopicOptionsCache } from "@/lib/philife/fetch-neighborhood-topic-options-client";
@@ -146,6 +148,9 @@ function resetInMemoryClientStores(): void {
   resetMessengerPresenceStore();
   resetMessengerTypingStore();
   resetMessengerRoomReaderStateStore();
+  /** CHAT-04 — prior-user unread recount inputs must not survive SPA account switch. */
+  clearMessengerRoomUnreadFactsForAuthEpoch();
+  clearDomainListProjectionsForAuthEpoch();
   clearAllRoomSnapshotCaches();
   clearTradeChatRoomClientCache();
   clearCommerceCartStorage();
