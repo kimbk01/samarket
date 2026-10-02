@@ -261,6 +261,7 @@ import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-co
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
+import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
 import {
   CALL_ANSWERED_ELSEWHERE_ERROR,
   evaluateAcceptDeviceClaim,
@@ -16788,6 +16789,9 @@ export async function sendCommunityMessengerStickerMessage(input: {
 
   const sb = getSupabaseOrNull();
   if (sb) {
+    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료).
+    const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb as any, userId: input.userId, roomId });
+    if (!sendGuard.ok) return { ok: false, error: sendGuard.error };
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
@@ -16971,6 +16975,9 @@ export async function sendCommunityPostShareMessage(input: {
 
   const sb = getSupabaseOrNull();
   if (sb) {
+    // CHAT-02: 공통 송신 가드(참여→방상태→차단→거래→주문종료).
+    const sendGuard = await assertMessengerRoomSendAllowed({ supabase: sb as any, userId: input.userId, roomId });
+    if (!sendGuard.ok) return { ok: false, error: sendGuard.error };
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
