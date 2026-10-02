@@ -231,28 +231,45 @@ export function PushRouteListener() {
       if (phase !== "authenticated") return;
       const pending = readPendingPushRoute();
       if (!pending?.path) return;
-      console.info("[push-route] auth_resolved_replay", {
-        path: pending.path,
-        phase,
-        kind: pending.kind ?? null,
-        caseId: pending.caseId ?? null,
-      });
-      if (pending.kind === "support_modal" && pending.caseId) {
-        const delivered = deliverSupportOpen({
-          caseId: pending.caseId,
-          notificationId: pending.notificationId,
-          source: "push",
-        });
-        if (delivered.ok) {
-          markNotificationConsumed(pending.notificationId ?? undefined);
-          clearPendingPushRoute();
-          void clearNativePersistedPendingPushRoute();
+      void (async () => {
+        // NOTI-07: 보관된 알림의 수신자와 로그인한 계정이 다르면 이동하지 않고 버린다(네비 전에 게이트).
+        if (pending.recipientUserId) {
+          try {
+            const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
+            const bound = (getBoundAuthUserId() ?? "").trim();
+            if (bound && bound !== pending.recipientUserId) {
+              console.info("[push-route] logout_replay_account_mismatch", { path: pending.path });
+              clearPendingPushRoute();
+              void clearNativePersistedPendingPushRoute();
+              return;
+            }
+          } catch {
+            /* identity 확인 실패 시: 안전하게 이동 보류하지 않고 기존 동작 유지 */
+          }
         }
-        return;
-      }
-      navigateRef.current?.(pending.path, pending.notificationId ?? undefined, undefined, {
-        skipNotificationDedupe: true,
-      });
+        console.info("[push-route] auth_resolved_replay", {
+          path: pending.path,
+          phase,
+          kind: pending.kind ?? null,
+          caseId: pending.caseId ?? null,
+        });
+        if (pending.kind === "support_modal" && pending.caseId) {
+          const delivered = deliverSupportOpen({
+            caseId: pending.caseId,
+            notificationId: pending.notificationId,
+            source: "push",
+          });
+          if (delivered.ok) {
+            markNotificationConsumed(pending.notificationId ?? undefined);
+            clearPendingPushRoute();
+            void clearNativePersistedPendingPushRoute();
+          }
+          return;
+        }
+        navigateRef.current?.(pending.path, pending.notificationId ?? undefined, undefined, {
+          skipNotificationDedupe: true,
+        });
+      })();
     });
   }, []);
 
@@ -589,12 +606,34 @@ export function PushRouteListener() {
              * not DROP — otherwise cold-start APNS tap falls through to inbox fallback UX.
              */
             if (!isRecoveringPhase(phase)) {
+              const payloadRecipientUserId = resolvePushPayloadRecipientUserId(data);
               const decision = canPresentAuthenticatedNotification({
                 memberEventEligible: phase === "authenticated",
                 boundUserId: getBoundAuthUserId(),
-                payloadRecipientUserId: resolvePushPayloadRecipientUserId(data),
+                payloadRecipientUserId,
               });
               if (!decision.ok) {
+                // NOTI-07: 로그아웃 상태(바운드 사용자 없음)면 목적지+수신자 보관 후 로그인 시트.
+                // 같은 계정 로그인 시 그 방으로 이동, 다른 계정이면 replay 단계에서 버린다.
+                // 이미 다른 계정이 바운드된 mismatch 는 그대로 드롭(보관 안 함).
+                const isLoggedOut =
+                  decision.reason === "bound_user_missing" || decision.reason === "member_event_ineligible";
+                if (isLoggedOut) {
+                  writePendingPushRoute({
+                    path,
+                    notificationId: notificationId ?? null,
+                    at: Date.now(),
+                    source: "auth_required_login",
+                    fallbackReason: decision.reason,
+                    recipientUserId: payloadRecipientUserId ?? null,
+                  });
+                  openLoginRequiredSheet({ actionType: "messenger_open", next: path });
+                  console.info("[push-route] logout_tap_saved_for_login", {
+                    path,
+                    notificationId: notificationId ?? null,
+                  });
+                  return;
+                }
                 console.info("[push-route] notification_tap_dropped", {
                   reason: decision.reason,
                   phase,

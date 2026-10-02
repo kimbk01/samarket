@@ -12617,7 +12617,9 @@ export async function upsertCommunityMessengerPresenceSnapshot(
           app_visibility: "background",
         }
       : (() => {
-          const lastPingAt = trimText(input.lastPingAt) || now;
+          // NEW-22: 서버가 클라이언트 시각을 그대로 믿지 않고 수신 시각(now)으로 저장한다.
+          // (오래된 클라 lastPingAt 이 남아 푸시가 억제되고 자동 읽음 처리되던 문제 방지.)
+          const lastPingAt = now;
           const lastActivityAt = trimText(input.lastActivityAt) || lastPingAt;
           const v = trimText(input.appVisibility).toLowerCase();
           const appVisibility =

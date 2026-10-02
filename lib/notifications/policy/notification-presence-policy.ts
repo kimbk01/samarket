@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const ACTIVE_ROOM_STALE_MS = 30_000;
+// NEW-22: 신선도 기준을 30초 → 하트비트(12s) + 3s 유예 = 15초로 축소.
+// 오래된 presence 로 푸시가 억제되고 자동 읽음 되던 창을 줄인다.
+const ACTIVE_ROOM_STALE_MS = 15_000;
 
 export type RecipientPresenceSnapshot = {
   appVisibility: string | null;

@@ -159,12 +159,16 @@ function postPresenceHeartbeatHttp() {
     activeRoomId: currentDocumentVisible() ? activeRoomIdFromPathname() : null,
   } as const;
   const bodyObj = payload as unknown as Record<string, unknown>;
+  // NEW-22: 백그라운드 전환 신호는 페이지 freeze/hide 에도 살아남도록 keepalive 로 보낸다
+  // (realtime 채널이 끊겨 있어도 서버 last_ping_at/background 가 갱신됨).
+  const terminalBody = isTerminalPresencePostBody(bodyObj);
   const postOnce = () =>
     fetch("/api/community-messenger/presence", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      ...(terminalBody ? { keepalive: true } : {}),
     }).then(async (res) => {
       if (res.ok) return true;
       const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
