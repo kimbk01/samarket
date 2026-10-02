@@ -10,6 +10,7 @@ import {
   type AdminUserDeleteMode,
 } from "@/lib/admin/admin-user-deletion";
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
+import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatch/deactivate-failed-token";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
@@ -127,6 +128,12 @@ export async function POST(
 
   await invalidateAllUserSessions(sb, userId, "account_deleted");
 
+  // WP-13 NEW-09: a withdrawn/purged account's push tokens must stop receiving pushes. Deactivate
+  // the user's own token rows (is_active=false) — policy-independent (no retention period / FK
+  // CASCADE decision). Best-effort: the account removal already succeeded above, so a token
+  // deactivation error is recorded but never rolls it back.
+  const pushTokenDeactivation = await deactivateAllUserPushTokensForAccountRemoval(sb, userId);
+
   await sb
     .from("account_deletion_requests")
     .update({
@@ -152,6 +159,8 @@ export async function POST(
       reason,
       at: now,
       actorId: actor.userId,
+      pushTokensDeactivated: pushTokenDeactivation.ok,
+      pushTokenDeactivationErrors: pushTokenDeactivation.errors,
     },
   });
 

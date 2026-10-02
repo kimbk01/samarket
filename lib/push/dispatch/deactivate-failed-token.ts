@@ -47,4 +47,33 @@ export async function deactivateAllUserDevicesForLogout(
   await q;
 }
 
+/**
+ * WP-13 NEW-09: on member withdrawal/purge, deactivate ALL of the user's push tokens so a removed
+ * account's devices stop receiving pushes. Non-destructive (is_active=false), and independent of
+ * retention period / FK CASCADE policy — it flips only the user's own token rows. Reuses the
+ * existing user_devices deactivation authority and mirrors it for web_push_subscriptions.
+ * Best-effort: callers run this after the account removal already succeeded; errors are returned,
+ * not thrown, so token-cleanup failure never rolls back the deletion.
+ */
+export async function deactivateAllUserPushTokensForAccountRemoval(
+  svc: SupabaseClient,
+  userId: string
+): Promise<{ ok: boolean; errors: string[] }> {
+  const uid = userId.trim();
+  if (!uid) return { ok: false, errors: ["invalid_user_id"] };
+  const now = new Date().toISOString();
+  const errors: string[] = [];
+  try {
+    await deactivateAllUserDevicesForLogout(svc, uid);
+  } catch (error) {
+    errors.push(`user_devices:${error instanceof Error ? error.message : String(error)}`);
+  }
+  const wp = await svc
+    .from("web_push_subscriptions")
+    .update({ is_active: false, updated_at: now })
+    .eq("user_id", uid);
+  if (wp.error) errors.push(`web_push_subscriptions:${wp.error.message}`);
+  return { ok: errors.length === 0, errors };
+}
+
 export type { PushTargetSource };
