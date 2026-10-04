@@ -128,7 +128,33 @@ export async function PATCH(
     actorIsSuperAdmin: gate.actor.isSuperAdmin,
   });
   if (!targetGuard.ok) {
-    return NextResponse.json({ ok: false, error: targetGuard.error }, { status: targetGuard.status });
+    void appendAuditLog(gate.sb, {
+      actor_type: "admin",
+      actor_id: gate.actor.userId,
+      target_type: "member",
+      target_id: userId,
+      action: "PASSWORD_TEMP_SET_DENIED",
+      after_json: {
+        error: targetGuard.error,
+        status: targetGuard.status,
+        detail: "detail" in targetGuard ? targetGuard.detail ?? null : null,
+        targetClass: "targetClass" in targetGuard ? targetGuard.targetClass ?? null : null,
+        via: "auth_route",
+      },
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: targetGuard.error,
+        message:
+          targetGuard.error === "membership_lookup_failed"
+            ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+            : targetGuard.error === "membership_unavailable"
+              ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+              : undefined,
+      },
+      { status: targetGuard.status },
+    );
   }
 
   const { data: authData, error: loadErr } = await gate.sb.auth.admin.getUserById(userId);

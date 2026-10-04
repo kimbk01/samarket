@@ -165,15 +165,27 @@ export function resolveMemberAdminActionPolicy(
           ? "차단된 회원은 정보 수정을 할 수 없습니다"
           : undefined,
     }),
-    decision("manage_password", {
-      visible: !terminal && passwordResetSupported,
-      enabled: operator.canResetPassword && passwordResetSupported && lifecycle !== "BLOCKED",
-      disabledReasonKo: !operator.canResetPassword
-        ? "권한이 없습니다"
-        : lifecycle === "BLOCKED"
-          ? "차단된 회원은 비밀번호 관리를 할 수 없습니다"
-          : undefined,
-    }),
+    // Member S16 only for general members. Admin/SA targets use staff EditAdminForm (G9), not this CTA.
+    (() => {
+      const targetPrivilege =
+        operator.targetPrivilege ??
+        (operator.targetIsSuperAdmin ? "super_admin" : "member");
+      const memberPathOk = targetPrivilege === "member";
+      const pwVisible = !terminal && passwordResetSupported && memberPathOk;
+      const pwEnabled =
+        pwVisible && operator.canResetPassword && lifecycle !== "BLOCKED";
+      return decision("manage_password", {
+        visible: pwVisible,
+        enabled: pwEnabled,
+        disabledReasonKo: !memberPathOk
+          ? "관리자 계정 비밀번호는 관리자 설정에서 변경합니다"
+          : !operator.canResetPassword
+            ? "권한이 없습니다"
+            : lifecycle === "BLOCKED"
+              ? "차단된 회원은 비밀번호 관리를 할 수 없습니다"
+              : undefined,
+      });
+    })(),
     decision("manage_store", {
       visible: hasStoreRelationship && !terminal,
       enabled: hasStoreRelationship && !terminal,
