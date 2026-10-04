@@ -146,6 +146,11 @@ function ContextChips({ context }: { context: SupportContext }) {
   );
 }
 
+type SupportNewInquiryOrigin = {
+  audience: "MEMBER" | "OWNER";
+  ownerStoreId: string | null;
+};
+
 function SupportActiveConversation({
   caseId,
   titleId,
@@ -160,7 +165,8 @@ function SupportActiveConversation({
   title: string;
   closeLabel: string;
   onClose: () => void;
-  onRequestNewInquiry: () => void;
+  /** DEF-11 — pass the loaded case identity so a new inquiry keeps its audience/store. */
+  onRequestNewInquiry: (fromCase: SupportNewInquiryOrigin | null) => void;
   onDismissibleChange: (dismissible: boolean) => void;
 }) {
   const { safeT } = useI18n();
@@ -461,7 +467,16 @@ function SupportActiveConversation({
             <DibayOverlayButton
               roleTone="primary"
               className="w-full !min-h-11"
-              onClick={onRequestNewInquiry}
+              onClick={() =>
+                onRequestNewInquiry(
+                  supportCase
+                    ? {
+                        audience: supportCase.audience,
+                        ownerStoreId: supportCase.owner_store_id,
+                      }
+                    : null
+                )
+              }
             >
               {safeT("support_new_inquiry_cta", {
                 fallbackKo: "새 문의하기",
@@ -722,10 +737,15 @@ export function SupportModalHost() {
     [openingCase]
   );
 
-  const handleNewInquiry = useCallback(() => {
+  const handleNewInquiry = useCallback((fromCase: SupportNewInquiryOrigin | null) => {
     const prev = getSupportModalState().context;
-    const audience = prev?.audience === "OWNER" ? "OWNER" : "MEMBER";
-    const storeId = prev?.storeId;
+    // DEF-11: opened by caseId (push / history) → context is null; fall back to the
+    // loaded case's audience/store instead of defaulting an Owner to MEMBER.
+    const audience =
+      (prev?.audience ?? fromCase?.audience) === "OWNER" ? "OWNER" : "MEMBER";
+    const storeId =
+      prev?.storeId ??
+      (audience === "OWNER" ? fromCase?.ownerStoreId ?? undefined : undefined);
     resetSupportModalToStart(
       buildGenericSupportTriageContext({
         audience,
