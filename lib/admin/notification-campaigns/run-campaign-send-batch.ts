@@ -8,10 +8,7 @@ import {
   recordCampaignDelivery,
   refreshOccurrenceMetrics,
 } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
-import {
-  getCampaignOccurrence,
-  resolveFinalOccurrenceStatus,
-} from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
+import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import type { AdminNotificationCampaignOccurrenceRow, CampaignContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
 import { fetchCampaignProfileScanSlice } from "@/lib/admin/notification-campaigns/campaign-target-scan";
@@ -183,13 +180,39 @@ export async function runNotificationCampaignSendBatch(
     }
     scannedRaw = (pending ?? []).map((r) => String((r as { user_id: string }).user_id)).filter(Boolean);
   } else {
-    scannedRaw = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE);
+    // U1-B: a failed scan is an error, never "no more targets".
+    try {
+      scannedRaw = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE, {
+        throwOnError: true,
+      });
+    } catch {
+      return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: false, error: "target_scan_failed" };
+    }
     if (scannedRaw.length === 0) {
-      await refreshOccurrenceMetrics(svc, occurrenceId);
+      await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: true });
       return { ok: true, processed: 0, sent: 0, skipped: 0, failed: 0, done: true };
     }
     nextOffset += scannedRaw.length;
   }
+
+  // U1-B: per-user idempotency for scan re-runs (lease expiry / killed process). Users already
+  // recorded for THIS occurrence in admin_notification_campaign_targets are not sent again.
+  // selected_users needs no extra query: it only ever reads `pending` rows.
+  const alreadyProcessed = new Set<string>();
+  if (campaign.target_type !== "selected_users" && scannedRaw.length) {
+    const { data: doneRows, error: doneErr } = await svc
+      .from("admin_notification_campaign_targets")
+      .select("user_id")
+      .eq("campaign_id", campaign.id)
+      .eq("occurrence_id", occurrenceId)
+      .in("status", ["sent", "skipped", "failed"])
+      .in("user_id", scannedRaw);
+    if (doneErr) {
+      return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: false, error: "targets_query_failed" };
+    }
+    for (const r of doneRows ?? []) alreadyProcessed.add(String((r as { user_id: string }).user_id));
+  }
+  const dedupeScope = String(occurrence.trigger_type ?? "") === "recurring" ? "occurrence" : "campaign";
 
   const maps = await loadCampaignSettingsMaps(svc, scannedRaw);
 
@@ -198,6 +221,7 @@ export async function runNotificationCampaignSendBatch(
   let failed = 0;
 
   for (const userId of scannedRaw) {
+    if (alreadyProcessed.has(userId)) continue;
     const eligibility = evaluateCampaignUserEligibility(campaign.type, userId, maps);
     if (!eligibility.eligible) {
       skipped += 1;
@@ -224,7 +248,10 @@ export async function runNotificationCampaignSendBatch(
       continue;
     }
 
-    const result = await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps);
+    const result =
+      dedupeScope === "occurrence"
+        ? await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps, { dedupeScope })
+        : await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps);
     if (result.sent) sent += 1;
     else if (result.skipped) skipped += 1;
     else if (result.failed) failed += 1;
@@ -234,32 +261,41 @@ export async function runNotificationCampaignSendBatch(
 
   let done = false;
   if (campaign.target_type === "selected_users") {
-    const { count } = await svc
+    const { count, error: countErr } = await svc
       .from("admin_notification_campaign_targets")
       .select("id", { count: "exact", head: true })
       .eq("occurrence_id", occurrenceId)
       .eq("status", "pending");
+    // U1-B: count failure must not be read as "done".
+    if (countErr) {
+      return { ok: false, processed: scannedRaw.length, sent, skipped, failed, done: false, error: "targets_query_failed" };
+    }
     done = (count ?? 0) === 0;
   } else {
-    const peek = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, 1);
+    let peek: string[] = [];
+    try {
+      peek = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, 1, { throwOnError: true });
+    } catch {
+      // progress so far is persisted below via offset; next run resumes
+      await svc
+        .from("admin_notification_campaign_occurrences")
+        .update({ send_progress_offset: nextOffset, updated_at: now })
+        .eq("id", occurrenceId);
+      return { ok: false, processed: scannedRaw.length, sent, skipped, failed, done: false, error: "target_scan_failed" };
+    }
     done = peek.length === 0;
   }
 
+  // U1: terminal status is decided only by refreshOccurrenceMetrics (failure-aware + campaign sync).
   await svc
     .from("admin_notification_campaign_occurrences")
     .update({
       send_progress_offset: nextOffset,
       updated_at: now,
-      ...(done
-        ? {
-            status: resolveFinalOccurrenceStatus(0, sent, 0, sent),
-            completed_at: now,
-          }
-        : {}),
     })
     .eq("id", occurrenceId);
 
-  await refreshOccurrenceMetrics(svc, occurrenceId);
+  await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: done });
 
   return { ok: true, processed, sent, skipped, failed, done };
 }
@@ -281,6 +317,15 @@ export async function runNotificationCampaignTestSend(
     occurrence.content_snapshot as Parameters<typeof campaignRowFromContentSnapshot>[1]
   );
 
+  // U1/EVENT-13: test occurrence enters `sending` so the shared terminal path can close it.
+  if (occurrence.status === "queued") {
+    const startedAt = new Date().toISOString();
+    await svc
+      .from("admin_notification_campaign_occurrences")
+      .update({ status: "sending", started_at: occurrence.started_at ?? startedAt, updated_at: startedAt })
+      .eq("id", occurrenceId);
+  }
+
   const maps = await loadCampaignSettingsMaps(svc, userIds);
   let sent = 0;
   let skipped = 0;
@@ -296,6 +341,6 @@ export async function runNotificationCampaignTestSend(
     else if (result.failed) failed += 1;
   }
 
-  await refreshOccurrenceMetrics(svc, occurrenceId);
+  await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: true });
   return { ok: true, sent, skipped, failed };
 }

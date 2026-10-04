@@ -59,6 +59,7 @@ export async function drainNotificationCampaignSendBatches(
   skipped: number;
   failed: number;
   error?: string;
+  slowestBatchMs?: number;
 }> {
   const { getCampaignOccurrence } = await import(
     "@/lib/admin/notification-campaigns/campaign-occurrence-service"
@@ -171,9 +172,14 @@ export async function drainNotificationCampaignSendBatches(
   let skipped = 0;
   let failed = 0;
   let done = false;
+  let slowestBatchMs = 0;
 
-  while (batches < maxBatches && Date.now() - started < maxWallMs) {
+  // U1-B: never start a batch that is not expected to finish inside the wall budget
+  // (a batch killed by the platform timeout loses its offset and re-runs).
+  while (batches < maxBatches && (batches === 0 || Date.now() - started + slowestBatchMs <= maxWallMs)) {
+    const batchStarted = Date.now();
     const result = await runNotificationCampaignSendBatch(svc, occurrenceId);
+    slowestBatchMs = Math.max(slowestBatchMs, Date.now() - batchStarted);
     batches += 1;
     if (!result.ok) {
       await svc
@@ -200,7 +206,56 @@ export async function drainNotificationCampaignSendBatches(
     if (done) break;
   }
 
-  return { ok: true, done, batches, sent, skipped, failed };
+  return { ok: true, done, batches, sent, skipped, failed, slowestBatchMs };
+}
+
+/** Transient batch errors that a later continuation may succeed on. */
+export const CAMPAIGN_CONTINUABLE_ERRORS = new Set(["target_scan_failed", "targets_query_failed"]);
+
+/**
+ * U1-B: hand an unfinished occurrence back to the scheduled dispatcher (existing cron + claim RPC).
+ * Only the holder of `claimToken` can release; `scheduled_for` keeps its value or becomes now.
+ */
+export async function releaseOccurrenceForContinuation(
+  svc: SupabaseClient,
+  occurrenceId: string,
+  claimToken: string,
+  lastError?: string | null
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const { data: occ } = await svc
+    .from("admin_notification_campaign_occurrences")
+    .select("scheduled_for")
+    .eq("id", occurrenceId)
+    .maybeSingle();
+  const { data, error } = await svc
+    .from("admin_notification_campaign_occurrences")
+    .update({
+      status: "queued",
+      scheduled_for: (occ as { scheduled_for?: string | null } | null)?.scheduled_for ?? now,
+      send_claim_token: null,
+      send_claimed_at: null,
+      send_lease_expires_at: null,
+      ...(lastError ? { last_error: lastError } : {}),
+      updated_at: now,
+    })
+    .eq("id", occurrenceId)
+    .eq("status", "sending")
+    .eq("send_claim_token", claimToken)
+    .select("id");
+  return !error && Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * U1-B: an immediate occurrence claimed by a manual send gets a due time so that, if the
+ * request dies, the existing lease reclaim + scheduled cron resume it instead of stranding it.
+ */
+export async function stampOccurrenceDueForRecovery(svc: SupabaseClient, occurrenceId: string): Promise<void> {
+  await svc
+    .from("admin_notification_campaign_occurrences")
+    .update({ scheduled_for: new Date().toISOString() })
+    .eq("id", occurrenceId)
+    .is("scheduled_for", null);
 }
 
 export async function scheduleNextRecurringOccurrence(
@@ -293,6 +348,25 @@ export async function scheduleNextRecurringOccurrence(
     idempotencyKey: `recurring:${campaignId}:${seq}`,
     campaign: snapshot,
   });
+
+  // Only a freshly created (queued) occurrence re-arms targets; an existing row returned by the
+  // idempotent RPC must not touch target state.
+  if (ensured.ok && ensured.occurrence.status === "queued" && String(row.target_type) === "selected_users") {
+    // U1-B: recurring selected-users occurrences reuse the campaign's existing target rows
+    // (one row per campaign+user) — only rows still bound to an earlier occurrence are re-armed.
+    await svc
+      .from("admin_notification_campaign_targets")
+      .update({
+        occurrence_id: ensured.occurrence.id,
+        status: "pending",
+        failure_reason: null,
+        skip_reason: null,
+        notification_event_id: null,
+        sent_at: null,
+      })
+      .eq("campaign_id", campaignId)
+      .neq("occurrence_id", ensured.occurrence.id);
+  }
 
   return ensured.ok ? ensured.occurrence : null;
 }
