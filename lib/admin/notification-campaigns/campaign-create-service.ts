@@ -4,6 +4,7 @@ import { buildCampaignContentSnapshot } from "@/lib/admin/notification-campaigns
 import {
   audiencePreviewToSnapshot,
   ensureCampaignOccurrence,
+  getNextOccurrenceSequenceNumber,
   newOccurrenceIdempotencyKey,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import type { CampaignSendMode } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
@@ -246,11 +247,131 @@ export async function resolveLatestQueuedOccurrenceId(
   return data?.id ? String(data.id) : null;
 }
 
+type OccurrenceSendCandidate = {
+  id?: unknown;
+  campaign_id?: unknown;
+  trigger_type?: unknown;
+  scheduled_for?: unknown;
+};
+
+/**
+ * EVENT-12 / EVENT-09: manual SEND never claims a test occurrence or a scheduled/recurring
+ * occurrence that is not yet due (the cron owns those).
+ */
+export function isManualSendableOccurrence(row: OccurrenceSendCandidate, nowMs = Date.now()): boolean {
+  if (String(row.trigger_type ?? "").trim() === "test") return false;
+  const scheduledFor = typeof row.scheduled_for === "string" ? Date.parse(row.scheduled_for) : NaN;
+  if (Number.isFinite(scheduledFor) && scheduledFor > nowMs) return false;
+  return true;
+}
+
 export async function resolveActiveOccurrenceForSend(
   svc: SupabaseClient,
   campaignId: string,
   occurrenceId?: string | null
 ): Promise<string | null> {
-  if (occurrenceId?.trim()) return occurrenceId.trim();
-  return resolveLatestQueuedOccurrenceId(svc, campaignId);
+  const select = "id, campaign_id, trigger_type, scheduled_for";
+  const explicit = occurrenceId?.trim();
+  if (explicit) {
+    const { data } = await svc
+      .from("admin_notification_campaign_occurrences")
+      .select(select)
+      .eq("id", explicit)
+      .maybeSingle();
+    const row = data as OccurrenceSendCandidate | null;
+    if (!row || String(row.campaign_id ?? "") !== campaignId) return null;
+    return isManualSendableOccurrence(row) ? explicit : null;
+  }
+  const { data } = await svc
+    .from("admin_notification_campaign_occurrences")
+    .select(select)
+    .eq("campaign_id", campaignId)
+    .in("status", ["queued", "failed"])
+    .order("sequence_number", { ascending: false })
+    .limit(20);
+  const nowMs = Date.now();
+  const row = ((data ?? []) as OccurrenceSendCandidate[]).find((r) =>
+    isManualSendableOccurrence(r, nowMs)
+  );
+  return row?.id ? String(row.id) : null;
 }
+
+/**
+ * EVENT-01: a draft campaign (incl. Event Push drafts) has no occurrence until it is sent.
+ * Creates one immediate occurrence from the campaign's CURRENT content (same snapshot builder
+ * as create). Sent/scheduled/active campaigns are never re-opened here.
+ */
+export async function ensureDraftCampaignSendOccurrence(
+  svc: SupabaseClient,
+  input: { campaignId: string; adminUserId: string; idempotencyKey: string }
+): Promise<{ ok: true; occurrenceId: string } | { ok: false; error: string; status: number }> {
+  const { data: camp, error } = await svc
+    .from("admin_notification_campaigns")
+    .select(
+      "id, status, title, body, type, channel, target_type, segment_region_code, deeplink_url, web_url, push_image_url, in_app_image_url, target_payload"
+    )
+    .eq("id", input.campaignId)
+    .maybeSingle();
+  if (error) return { ok: false, error: "campaign_lookup_failed", status: 503 };
+  const row = camp as Record<string, unknown> | null;
+  if (!row || String(row.status ?? "") !== "draft") {
+    return { ok: false, error: "occurrence_not_found", status: 404 };
+  }
+  if (String(row.channel ?? "") === "test_only") {
+    // test_only campaigns are sent only through the test-send endpoint.
+    return { ok: false, error: "test_only_use_test_send_endpoint", status: 409 };
+  }
+  if (String(row.target_type ?? "") === "selected_users") {
+    // Draft rows do not persist selected targets — sending would reach nobody / the wrong set.
+    return { ok: false, error: "draft_selected_users_targets_missing", status: 409 };
+  }
+  // A campaign keeps status `draft` while its first real occurrence is sending (and legacy rows
+  // stayed `draft` after sending). Any existing non-test occurrence means this campaign was
+  // already sent or is being sent — never open a second real occurrence (double send).
+  const { data: realOcc, error: realOccErr } = await svc
+    .from("admin_notification_campaign_occurrences")
+    .select("id")
+    .eq("campaign_id", input.campaignId)
+    .neq("trigger_type", "test")
+    .limit(1);
+  if (realOccErr) return { ok: false, error: "occurrence_lookup_failed", status: 503 };
+  if (Array.isArray(realOcc) && realOcc.length > 0) {
+    return { ok: false, error: "occurrence_already_exists", status: 409 };
+  }
+  const str = (v: unknown) => (typeof v === "string" ? v : null);
+  const campaign = {
+    title: String(row.title ?? ""),
+    body: String(row.body ?? ""),
+    type: String(row.type ?? ""),
+    channel: String(row.channel ?? ""),
+    target_type: String(row.target_type ?? ""),
+    deeplink_url: str(row.deeplink_url),
+    web_url: str(row.web_url),
+    push_image_url: str(row.push_image_url),
+    in_app_image_url: str(row.in_app_image_url),
+    target_payload:
+      row.target_payload && typeof row.target_payload === "object" && !Array.isArray(row.target_payload)
+        ? (row.target_payload as Record<string, unknown>)
+        : {},
+  };
+  const preview = await previewCampaignAudience(svc, {
+    type: campaign.type as CreateCampaignInput["type"],
+    target_type: campaign.target_type,
+    channel: campaign.channel as CampaignChannel,
+    segment_region_code: str(row.segment_region_code),
+  });
+  const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, input.campaignId);
+  const ensured = await ensureCampaignOccurrence(svc, {
+    campaignId: input.campaignId,
+    sequenceNumber,
+    triggerType: "immediate",
+    scheduledFor: null,
+    idempotencyKey: `draft-send:${input.idempotencyKey}`.slice(0, 160),
+    triggeredBy: input.adminUserId,
+    campaign: campaign as Parameters<typeof ensureCampaignOccurrence>[1]["campaign"],
+    audienceSnapshot: audiencePreviewToSnapshot(preview, new Date().toISOString()),
+  });
+  if (!ensured.ok) return { ok: false, error: ensured.error, status: 500 };
+  return { ok: true, occurrenceId: ensured.occurrence.id };
+}
+

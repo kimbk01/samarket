@@ -15,6 +15,7 @@ import {
 import { normalizeNativePushTapData } from "@/lib/push/normalize-native-push-tap-data";
 import {
   clearPendingPushRoute,
+  isPendingPushRouteAccountMismatch,
   readPendingPushRoute,
   writePendingPushRoute,
 } from "@/lib/push/pending-push-route";
@@ -220,7 +221,7 @@ export function PushRouteListener() {
         rawPath: string,
         notificationId?: string,
         transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
-        opts?: { skipNotificationDedupe?: boolean }
+        opts?: { skipNotificationDedupe?: boolean; recipientUserId?: string | null }
       ) => void)
     | null
   >(null);
@@ -236,8 +237,7 @@ export function PushRouteListener() {
         if (pending.recipientUserId) {
           try {
             const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
-            const bound = (getBoundAuthUserId() ?? "").trim();
-            if (bound && bound !== pending.recipientUserId) {
+            if (isPendingPushRouteAccountMismatch(pending, getBoundAuthUserId())) {
               console.info("[push-route] logout_replay_account_mismatch", { path: pending.path });
               clearPendingPushRoute();
               void clearNativePersistedPendingPushRoute();
@@ -268,6 +268,7 @@ export function PushRouteListener() {
         }
         navigateRef.current?.(pending.path, pending.notificationId ?? undefined, undefined, {
           skipNotificationDedupe: true,
+          recipientUserId: pending.recipientUserId ?? null,
         });
       })();
     });
@@ -280,7 +281,7 @@ export function PushRouteListener() {
       rawPath: string,
       notificationId?: string,
       transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
-      opts?: { skipNotificationDedupe?: boolean }
+      opts?: { skipNotificationDedupe?: boolean; recipientUserId?: string | null }
     ) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
@@ -308,6 +309,8 @@ export function PushRouteListener() {
 
       const authGate = resolvePushAuthGate(sessionPhaseRef.current, path);
       const supportCaseIdForHold = parseSupportCaseIdFromPushPath(path);
+      // CTA-05: held routes carry the notification's recipient so replay can reject another account.
+      const holdRecipientUserId = opts?.recipientUserId?.trim() || null;
       if (authGate === "hold") {
         writePendingPushRoute({
           path,
@@ -317,6 +320,7 @@ export function PushRouteListener() {
           at: Date.now(),
           source: "auth_resolution_hold",
           fallbackReason: sessionPhaseRef.current,
+          recipientUserId: holdRecipientUserId,
         });
         console.info("[push-route] auth_resolution_hold", {
           path,
@@ -334,6 +338,7 @@ export function PushRouteListener() {
           at: Date.now(),
           source: "auth_required_login",
           fallbackReason: sessionPhaseRef.current,
+          recipientUserId: holdRecipientUserId,
         });
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });
         return;
@@ -496,6 +501,16 @@ export function PushRouteListener() {
 
     const consumePendingRoutes = async () => {
       const sessionPending = readPendingPushRoute();
+      if (sessionPending?.recipientUserId) {
+        // CTA-05: same account gate as the auth-transition replay.
+        const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
+        if (isPendingPushRouteAccountMismatch(sessionPending, getBoundAuthUserId())) {
+          console.info("[push-route] pending_replay_account_mismatch", { path: sessionPending.path });
+          clearPendingPushRoute();
+          void clearNativePersistedPendingPushRoute();
+          return;
+        }
+      }
       if (sessionPending) {
         console.info("[push-route] pending_route_replayed", {
           path: sessionPending.path,
@@ -503,6 +518,7 @@ export function PushRouteListener() {
         });
         navigate(sessionPending.path, sessionPending.notificationId ?? undefined, undefined, {
           skipNotificationDedupe: true,
+          recipientUserId: sessionPending.recipientUserId ?? null,
         });
         return;
       }
@@ -650,11 +666,16 @@ export function PushRouteListener() {
               via: "capacitor_push_action",
               phase,
             });
-            navigate(path, notificationId, {
-              recipientScope: data.recipientScope,
-              pipeline: data.pipeline,
-              type: data.type ?? data.eventType,
-            });
+            navigate(
+              path,
+              notificationId,
+              {
+                recipientScope: data.recipientScope,
+                pipeline: data.pipeline,
+                type: data.type ?? data.eventType,
+              },
+              { recipientUserId: resolvePushPayloadRecipientUserId(data) }
+            );
           })();
         });
         removePushTap = () => {

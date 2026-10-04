@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { resolveActiveOccurrenceForSend } from "@/lib/admin/notification-campaigns/campaign-create-service";
+import {
+  ensureDraftCampaignSendOccurrence,
+  resolveActiveOccurrenceForSend,
+} from "@/lib/admin/notification-campaigns/campaign-create-service";
 import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import {
   CAMPAIGN_CONTINUABLE_ERRORS,
@@ -10,7 +13,10 @@ import {
   releaseOccurrenceForContinuation,
   stampOccurrenceDueForRecovery,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
-import { evaluateOfficialCampaignSendEligibility } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import {
+  evaluateOfficialCampaignSendEligibility,
+  type CustomerCenterContentSendRow,
+} from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -67,18 +73,35 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
       if (!data) return null;
       const row = data as { status?: string | null; starts_at?: string | null; ends_at?: string | null };
       return { status: row.status, startsAt: row.starts_at, endsAt: row.ends_at };
+    },
+    async (contentId) => {
+      const { data, error } = await svc
+        .from("app_notices")
+        .select("is_active, starts_at, ends_at, archived_at, deleted_at")
+        .eq("id", contentId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as CustomerCenterContentSendRow | null) ?? null;
     }
   );
   if (!sourceEligibility.ok) {
-    const eventErrors = new Set([
+    if (sourceEligibility.error === "content_source_lookup_failed") {
+      return NextResponse.json(
+        { ok: false, error: "content_source_lookup_failed" },
+        { status: 503 }
+      );
+    }
+    const sourceErrors = new Set([
       "event_source_missing",
       "event_source_unpublished",
       "event_source_unavailable",
+      "content_source_missing",
+      "content_source_unavailable",
     ]);
     return NextResponse.json(
       {
         ok: false,
-        error: eventErrors.has(sourceEligibility.error)
+        error: sourceErrors.has(sourceEligibility.error)
           ? sourceEligibility.error
           : "campaign_source_required",
         message:
@@ -88,7 +111,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
               ? "Platform Event source was not found."
               : sourceEligibility.error === "event_source_unavailable"
                 ? "Platform Event is not currently available as a Push destination."
-                : "Official notice/system/marketing campaigns require content bind or approved landing. Legacy unbound campaigns cannot be sent.",
+                : sourceEligibility.error === "content_source_missing"
+                  ? "Bound notice content was not found."
+                  : sourceEligibility.error === "content_source_unavailable"
+                    ? "Bound notice content must be published (active, in period, not archived/deleted) before it can be sent."
+                    : "Official notice/system/marketing campaigns require content bind or approved landing. Legacy unbound campaigns cannot be sent.",
       },
       { status: 400 }
     );
@@ -102,11 +129,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     body = {};
   }
 
-  const occurrenceId = await resolveActiveOccurrenceForSend(
-    svc,
-    id,
-    typeof body.occurrence_id === "string" ? body.occurrence_id : null
-  );
+  const requestedOccurrenceId = typeof body.occurrence_id === "string" ? body.occurrence_id : null;
+  let occurrenceId = await resolveActiveOccurrenceForSend(svc, id, requestedOccurrenceId);
+  if (!occurrenceId && !requestedOccurrenceId?.trim()) {
+    // EVENT-01: draft campaigns get their first occurrence at send time (current content).
+    const draft = await ensureDraftCampaignSendOccurrence(svc, {
+      campaignId: id,
+      adminUserId: admin.userId,
+      idempotencyKey: readIdempotencyKey(req, body.idempotency_key) ?? `${id}:${admin.userId}`,
+    });
+    if (!draft.ok) {
+      return NextResponse.json({ ok: false, error: draft.error }, { status: draft.status });
+    }
+    occurrenceId = draft.occurrenceId;
+  }
   if (!occurrenceId) {
     return NextResponse.json({ ok: false, error: "occurrence_not_found" }, { status: 404 });
   }

@@ -111,3 +111,17 @@ export function consumePendingPushRoute(now = Date.now()): PendingPushRoute | nu
   clearPendingPushRoute();
   return pending;
 }
+
+/**
+ * CTA-05: a held route recorded for one account must never replay into another.
+ * Discard only on a proven mismatch (recorded recipient vs currently bound user);
+ * routes without a recorded recipient keep the existing replay behavior.
+ */
+export function isPendingPushRouteAccountMismatch(
+  pending: Pick<PendingPushRoute, "recipientUserId"> | null | undefined,
+  boundUserId: string | null | undefined
+): boolean {
+  const recipient = (pending?.recipientUserId ?? "").trim();
+  const bound = (boundUserId ?? "").trim();
+  return Boolean(recipient && bound && recipient !== bound);
+}

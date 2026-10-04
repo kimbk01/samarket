@@ -5,6 +5,7 @@ import {
   claimOccurrenceSend,
   type ClaimOccurrenceSendResult,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
+import type { CustomerCenterContentSendRow } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { randomUUID } from "node:crypto";
 
 export function newCampaignSendClaimToken(): string {
@@ -129,8 +130,29 @@ export async function drainNotificationCampaignSendBatches(
         ends_at?: string | null;
       };
       return { status: row.status, startsAt: row.starts_at, endsAt: row.ends_at };
+    },
+    async (contentId) => {
+      const { data, error } = await svc
+        .from("app_notices")
+        .select("is_active, starts_at, ends_at, archived_at, deleted_at")
+        .eq("id", contentId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as CustomerCenterContentSendRow | null) ?? null;
     }
   );
+  if (!sourceEligibility.ok && CAMPAIGN_CONTINUABLE_ERRORS.has(sourceEligibility.error)) {
+    // Transient lookup failure — leave the occurrence for the caller to release (no terminal write).
+    return {
+      ok: false,
+      done: false,
+      batches: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      error: sourceEligibility.error,
+    };
+  }
   if (!sourceEligibility.ok) {
     const now = new Date().toISOString();
     const err = sourceEligibility.error;
@@ -210,7 +232,11 @@ export async function drainNotificationCampaignSendBatches(
 }
 
 /** Transient batch errors that a later continuation may succeed on. */
-export const CAMPAIGN_CONTINUABLE_ERRORS = new Set(["target_scan_failed", "targets_query_failed"]);
+export const CAMPAIGN_CONTINUABLE_ERRORS = new Set<string>([
+  "target_scan_failed",
+  "targets_query_failed",
+  "content_source_lookup_failed",
+]);
 
 /**
  * U1-B: hand an unfinished occurrence back to the scheduled dispatcher (existing cron + claim RPC).

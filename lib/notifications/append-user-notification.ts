@@ -133,6 +133,11 @@ export async function appendUserNotification(
     dedupe_key?: string | null;
     /** store_order_events.id — 알림·원장 1:1 (마이그레이션 미적용 시 재시도에서 생략) */
     store_order_event_id?: string | null;
+    /**
+     * Message-domain identity (e.g. `groupRoomIdentity(roomId)`) — required by the DB for
+     * message types such as `group_message`. Omitted → unchanged legacy behavior.
+     */
+    room_identity?: { roomId: string; chatDomain: string; domainIdentityKey: string } | null;
   }
 ): Promise<boolean> {
   const uid = row.user_id.trim();
@@ -185,6 +190,13 @@ export async function appendUserNotification(
         },
         unread: true,
         appState: "background",
+        ...(row.room_identity
+          ? {
+              roomId: row.room_identity.roomId,
+              chatDomain: row.room_identity.chatDomain,
+              domainIdentityKey: row.room_identity.domainIdentityKey,
+            }
+          : {}),
       },
       commerceDurablePush ? { deferPush: true } : undefined
     );

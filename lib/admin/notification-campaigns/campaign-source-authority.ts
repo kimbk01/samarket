@@ -17,7 +17,10 @@ import {
 } from "@/lib/notifications/policy/notification-internal-route";
 import { isBareNotificationsCenterHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer-center-campaign-bind";
-import { isCustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import {
+  isCustomerCenterContentPublishedNow,
+  isCustomerCenterContentType,
+} from "@/lib/notices/customer-center-content";
 import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
 import {
   isPlatformEventPubliclyAvailable,
@@ -47,7 +50,10 @@ export type CampaignSourceAuthorityError =
   | "invalid_content_bind"
   | "event_source_missing"
   | "event_source_unpublished"
-  | "event_source_unavailable";
+  | "event_source_unavailable"
+  | "content_source_missing"
+  | "content_source_unavailable"
+  | "content_source_lookup_failed";
 
 export type CampaignSourceAuthorityOk = {
   ok: true;
@@ -334,9 +340,28 @@ export type PlatformEventSendLookup = (
   eventId: string
 ) => Promise<PlatformEventPublicationInput | null>;
 
+export type CustomerCenterContentSendRow = {
+  is_active?: boolean | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  archived_at?: string | null;
+  deleted_at?: string | null;
+};
+
+const CONTENT_ID_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Returns null when the row does not exist; throws on lookup (DB) failure. */
+export type CustomerCenterContentSendLookup = (
+  contentId: string
+) => Promise<CustomerCenterContentSendRow | null>;
+
 /**
  * SEND/test-send eligibility — same SSOT as create, plus live Event publication
  * when the campaign is Event-sourced. Does not dispatch.
+ *
+ * `lookupContent` (real send / scheduled drain only — test-send omits it so
+ * unpublished content can still be previewed): content-bound campaigns require
+ * the bound `app_notices` row to be published now (`isCustomerCenterContentPublishedNow`).
  */
 export async function evaluateOfficialCampaignSendEligibility(
   row: {
@@ -346,7 +371,8 @@ export async function evaluateOfficialCampaignSendEligibility(
     web_url?: string | null;
     target_url?: string | null;
   },
-  lookupEvent: PlatformEventSendLookup
+  lookupEvent: PlatformEventSendLookup,
+  lookupContent?: CustomerCenterContentSendLookup
 ): Promise<CampaignSourceAuthorityResult> {
   const typ = trimStr(row.type).toLowerCase();
   const structural = validateOfficialCampaignSource({
@@ -357,6 +383,25 @@ export async function evaluateOfficialCampaignSendEligibility(
     target_url: row.target_url,
   });
   if (!structural.ok) return structural;
+  if (structural.mode === "content_bound" && lookupContent) {
+    const contentId = trimStr(structural.content_id);
+    // app_notices.id is uuid: a malformed id can never resolve, so it is permanent
+    // (not a transient lookup failure that the cron would retry forever).
+    if (!contentId || !CONTENT_ID_UUID_RE.test(contentId)) {
+      return { ok: false, error: "content_source_missing" };
+    }
+    let content: CustomerCenterContentSendRow | null;
+    try {
+      content = await lookupContent(contentId);
+    } catch {
+      return { ok: false, error: "content_source_lookup_failed" };
+    }
+    if (!content) return { ok: false, error: "content_source_missing" };
+    if (!isCustomerCenterContentPublishedNow(content)) {
+      return { ok: false, error: "content_source_unavailable" };
+    }
+    return structural;
+  }
   if (structural.mode !== "platform_event") return structural;
   const eventId = trimStr(structural.content_id);
   if (!eventId) return { ok: false, error: "event_source_missing" };

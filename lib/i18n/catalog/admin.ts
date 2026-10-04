@@ -703,6 +703,7 @@ export const adminMessages = {
     admin_platform_events_push_title: "푸시 제목",
     admin_platform_events_push_body: "푸시 본문",
     admin_platform_events_push_send_now: "Push 보내기",
+    admin_platform_events_push_save_first: "변경 내용을 먼저 저장해야 Push를 보낼 수 있습니다.",
     admin_platform_events_push_preview_note:
       "미리보기만 · 저장해도 발송되지 않습니다.",
     admin_platform_events_bell_title: "알림함 제목",
@@ -3727,6 +3728,7 @@ export const adminMessages = {
     admin_platform_events_push_title: "Push title",
     admin_platform_events_push_body: "Push body",
     admin_platform_events_push_send_now: "Send Push",
+    admin_platform_events_push_save_first: "Save your changes before sending Push.",
     admin_platform_events_push_preview_note: "Visual only · Save does not dispatch.",
     admin_platform_events_bell_title: "Inbox title",
     admin_platform_events_bell_body: "Inbox body",
