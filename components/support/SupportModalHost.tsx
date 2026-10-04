@@ -49,7 +49,15 @@ function sameSupportMessages(
   for (let i = 0; i < prev.length; i += 1) {
     const a = prev[i];
     const b = next[i];
-    if (!a || !b || a.id !== b.id || a.body !== b.body || a.created_at !== b.created_at) {
+    if (
+      !a ||
+      !b ||
+      a.id !== b.id ||
+      a.body !== b.body ||
+      a.created_at !== b.created_at ||
+      (a.deleted_at ?? null) !== (b.deleted_at ?? null) ||
+      (a.edited_at ?? null) !== (b.edited_at ?? null)
+    ) {
       return false;
     }
   }
@@ -453,13 +461,25 @@ function SupportActiveConversation({
                       })}
                     </p>
                   ) : null}
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  {m.deleted_at ? (
+                    <p className="italic opacity-70" data-support-msg-deleted="1">
+                      {safeT("support_message_deleted", {
+                        fallbackKo: "삭제된 메시지입니다.",
+                        fallbackEn: "This message was deleted.",
+                      })}
+                    </p>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  )}
                   <p
                     className={`mt-1 text-[11px] ${
                       mine ? "text-white/80" : "text-[var(--overlay-text-secondary)]"
                     }`}
                   >
                     {new Date(m.created_at).toLocaleString()}
+                    {m.edited_at && !m.deleted_at
+                      ? ` · ${safeT("support_message_edited", { fallbackKo: "수정됨", fallbackEn: "edited" })}`
+                      : ""}
                   </p>
                 </div>
               </div>

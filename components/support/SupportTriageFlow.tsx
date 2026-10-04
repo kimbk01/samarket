@@ -167,12 +167,8 @@ export function SupportTriageFlow({
   ]);
 
   const statusLine = (() => {
-    if (state.step === "START_CATEGORY") {
-      return safeT("support_enter_greeting", {
-        fallbackKo: "무엇을 도와드릴까요?",
-        fallbackEn: "How can we help?",
-      });
-    }
+    // START: the sheet header already shows the greeting — no second/third copy here.
+    if (state.step === "START_CATEGORY") return null;
     if (state.category) {
       const cat = labelForCategory(safeT, state.category);
       if (state.issueType) {
@@ -239,12 +235,6 @@ export function SupportTriageFlow({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {state.step === "START_CATEGORY" ? (
           <div className="grid gap-2" data-support-triage-categories="1">
-            <p className={OverlayUi.body}>
-              {safeT("support_enter_greeting", {
-                fallbackKo: "무엇을 도와드릴까요?",
-                fallbackEn: "How can we help?",
-              })}
-            </p>
             {categories.map((c) => (
               <TriageListButton
                 key={c.id}

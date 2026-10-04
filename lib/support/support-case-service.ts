@@ -13,7 +13,11 @@ import {
   type SupportCaseStatus,
   type SupportCasePriority,
   type AdminSupportListFilter,
+  ADMIN_SUPPORT_TABS,
+  ADMIN_SUPPORT_TAB_STATUSES,
+  type AdminSupportTab,
 } from "@/lib/support/support-case-types";
+import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
 
 export type { AdminSupportListFilter } from "@/lib/support/support-case-types";
 import {
@@ -508,7 +512,88 @@ export async function listSupportMessages(
     if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
     return { ok: false, error: error.message };
   }
-  return { ok: true, messages: (data ?? []) as SupportMessageRow[] };
+  const rows = (data ?? []) as SupportMessageRow[];
+  if (input.includeInternal) return { ok: true, messages: rows };
+  // Customer view: a deleted admin message keeps its slot but never its text.
+  return {
+    ok: true,
+    messages: rows.map((m) => (m.deleted_at ? { ...m, body: "" } : m)),
+  };
+}
+
+/**
+ * Console redesign — admin edits/deletes ONLY their own message (soft; audit in case events).
+ * Bumps the case `updated_at` so open customer sheets (support_cases UPDATE subscription)
+ * reload and show the edited / deleted state.
+ */
+async function loadOwnAdminMessage(
+  sb: SupabaseClient,
+  input: { adminUserId: string; caseId: string; messageId: string }
+): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
+  const { data, error } = await sb
+    .from("support_messages")
+    .select("*")
+    .eq("id", input.messageId)
+    .eq("case_id", input.caseId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  const m = data as SupportMessageRow | null;
+  if (!m) return { ok: false, error: "not_found" };
+  if (m.sender_type !== "ADMIN" || m.sender_admin_id !== input.adminUserId) {
+    return { ok: false, error: "not_own_message" };
+  }
+  if (m.deleted_at) return { ok: false, error: "message_deleted" };
+  return { ok: true, message: m };
+}
+
+export async function adminEditSupportMessage(
+  sb: SupabaseClient,
+  input: { adminUserId: string; caseId: string; messageId: string; body: string }
+): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
+  const body = input.body.trim();
+  if (!body) return { ok: false, error: "empty_body" };
+  const own = await loadOwnAdminMessage(sb, input);
+  if (!own.ok) return own;
+  const previousBody = own.message.body;
+  if (previousBody === body) return { ok: true, message: own.message };
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("support_messages")
+    .update({ body, edited_at: now })
+    .eq("id", input.messageId)
+    .select("*")
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? "edit_failed" };
+  await recordCaseEvent(sb, {
+    caseId: input.caseId,
+    eventType: "message_edited",
+    actorUserId: input.adminUserId,
+    payload: { message_id: input.messageId, previous_body: previousBody },
+  });
+  await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
+  return { ok: true, message: data as SupportMessageRow };
+}
+
+export async function adminDeleteSupportMessage(
+  sb: SupabaseClient,
+  input: { adminUserId: string; caseId: string; messageId: string }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const own = await loadOwnAdminMessage(sb, input);
+  if (!own.ok) return own;
+  const now = new Date().toISOString();
+  const { error } = await sb
+    .from("support_messages")
+    .update({ deleted_at: now })
+    .eq("id", input.messageId);
+  if (error) return { ok: false, error: error.message };
+  await recordCaseEvent(sb, {
+    caseId: input.caseId,
+    eventType: "message_deleted",
+    actorUserId: input.adminUserId,
+    payload: { message_id: input.messageId },
+  });
+  await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
+  return { ok: true };
 }
 
 export async function appendSupportMessage(
@@ -602,43 +687,85 @@ export async function postRequesterSupportMessage(
 }
 
 
+export type AdminSupportListQuery = {
+  /** Legacy single filter (deep links / older clients). Ignored when `tab` is set. */
+  filter?: AdminSupportListFilter;
+  /** Console status tab (ADMIN_SUPPORT_TABS). */
+  tab?: AdminSupportTab;
+  audience?: "MEMBER" | "OWNER" | null;
+  /** SUPPORT_CATEGORY_GROUPS id. */
+  group?: string | null;
+  assignee?: "ME" | "UNASSIGNED" | null;
+  adminUserId?: string | null;
+  /** Only cases whose last message is 24h+ old. */
+  stale?: boolean;
+  search?: string;
+  limit?: number;
+};
+
+/** Strip characters that would break a PostgREST `or()` expression. */
+function sanitizeSearchToken(raw: string): string {
+  return raw.replace(/[,()*%\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+}
+
 export async function listSupportCasesForAdmin(
   sb: SupabaseClient,
-  input: { filter?: AdminSupportListFilter; search?: string; limit?: number }
+  input: AdminSupportListQuery
 ): Promise<{ ok: true; cases: SupportCaseRow[] } | { ok: false; error: string }> {
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
-  const actionableOldestFirst =
-    input.filter === "ACTIONABLE" || input.filter === "WAITING_ADMIN" || input.filter === "UNASSIGNED";
+  const tab = input.tab ?? null;
+  const actionableOldestFirst = tab
+    ? tab === "ACTIONABLE"
+    : input.filter === "ACTIONABLE" || input.filter === "WAITING_ADMIN" || input.filter === "UNASSIGNED";
   let query = sb
     .from("support_cases")
     .select("*")
     .order("last_message_at", { ascending: actionableOldestFirst })
     .limit(limit);
 
-  switch (input.filter) {
-    case "MEMBER":
-      query = query.eq("audience", "MEMBER");
-      break;
-    case "OWNER":
-      query = query.eq("audience", "OWNER");
-      break;
-    case "UNASSIGNED":
-      query = query.is("assigned_admin_id", null).in("status", ["OPEN", "WAITING_ADMIN", "WAITING_USER"]);
-      break;
-    case "WAITING_ADMIN":
-      query = query.eq("status", "WAITING_ADMIN");
-      break;
-    case "ACTIONABLE":
-      query = query.in("status", ["OPEN", "WAITING_ADMIN"]);
-      break;
-    case "WAITING_USER":
-      query = query.eq("status", "WAITING_USER");
-      break;
-    case "RESOLVED":
-      query = query.eq("status", "RESOLVED");
-      break;
-    default:
-      break;
+  if (tab) {
+    const statuses = ADMIN_SUPPORT_TAB_STATUSES[tab];
+    if (statuses) query = query.in("status", [...statuses]);
+  } else {
+    switch (input.filter) {
+      case "MEMBER":
+        query = query.eq("audience", "MEMBER");
+        break;
+      case "OWNER":
+        query = query.eq("audience", "OWNER");
+        break;
+      case "UNASSIGNED":
+        query = query.is("assigned_admin_id", null).in("status", ["OPEN", "WAITING_ADMIN", "WAITING_USER"]);
+        break;
+      case "WAITING_ADMIN":
+        query = query.eq("status", "WAITING_ADMIN");
+        break;
+      case "ACTIONABLE":
+        query = query.in("status", ["OPEN", "WAITING_ADMIN"]);
+        break;
+      case "WAITING_USER":
+        query = query.eq("status", "WAITING_USER");
+        break;
+      case "RESOLVED":
+        query = query.eq("status", "RESOLVED");
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (input.audience === "MEMBER" || input.audience === "OWNER") {
+    query = query.eq("audience", input.audience);
+  }
+  const group = getSupportCategoryGroup(input.group);
+  if (group) query = query.in("category", [...group.categories]);
+  if (input.assignee === "UNASSIGNED") {
+    query = query.is("assigned_admin_id", null);
+  } else if (input.assignee === "ME" && input.adminUserId) {
+    query = query.eq("assigned_admin_id", input.adminUserId);
+  }
+  if (input.stale) {
+    query = query.lt("last_message_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
   }
 
   const search = (input.search ?? "").trim();
@@ -651,7 +778,25 @@ export async function listSupportCasesForAdmin(
     } else if (/^SC-\d+$/i.test(search)) {
       query = query.ilike("public_case_no", search);
     } else {
-      query = query.ilike("subject", `%${search}%`);
+      // Console redesign — customer name / email / store name / first words.
+      const token = sanitizeSearchToken(search);
+      if (token) {
+        const like = `%${token}%`;
+        const [{ data: people }, { data: stores }] = await Promise.all([
+          sb
+            .from("profiles")
+            .select("id")
+            .or(`display_name.ilike.${like},nickname.ilike.${like},email.ilike.${like}`)
+            .limit(50),
+          sb.from("stores").select("id").ilike("store_name", like).limit(50),
+        ]);
+        const personIds = ((people ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+        const storeIds = ((stores ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean);
+        const ors = [`initial_summary.ilike.${like}`, `subject.ilike.${like}`];
+        if (personIds.length) ors.push(`requester_user_id.in.(${personIds.join(",")})`);
+        if (storeIds.length) ors.push(`owner_store_id.in.(${storeIds.join(",")})`);
+        query = query.or(ors.join(","));
+      }
     }
   }
 
@@ -661,6 +806,23 @@ export async function listSupportCasesForAdmin(
     return { ok: false, error: error.message };
   }
   return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+}
+
+/** Console tab badges — global per-status counts (independent of secondary filters). */
+export async function countSupportCasesByTab(
+  sb: SupabaseClient
+): Promise<Record<AdminSupportTab, number> | null> {
+  const results = await Promise.all(
+    ADMIN_SUPPORT_TABS.map(async (tab) => {
+      const statuses = ADMIN_SUPPORT_TAB_STATUSES[tab];
+      let q = sb.from("support_cases").select("id", { count: "exact", head: true });
+      if (statuses) q = q.in("status", [...statuses]);
+      const { count, error } = await q;
+      return [tab, error ? null : (count ?? 0)] as const;
+    })
+  );
+  if (results.some(([, n]) => n == null)) return null;
+  return Object.fromEntries(results) as Record<AdminSupportTab, number>;
 }
 
 /** DEF-09 — Admin queue display fields (read-only; never written to support_cases). */
@@ -804,13 +966,18 @@ export async function adminUpdateSupportCaseStatus(
   if (gate.case.status === input.status) {
     return { ok: true, case: gate.case };
   }
+  // Console redesign — 보관 only from 종료; 보관 해제 = back to 종료 (silent, keeps resolved_at).
+  if (input.status === "ARCHIVED" && gate.case.status !== "RESOLVED") {
+    return { ok: false, error: "not_closed" };
+  }
+  const unarchive = gate.case.status === "ARCHIVED" && input.status === "RESOLVED";
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     status: input.status,
     updated_at: now,
   };
-  if (input.status === "RESOLVED") {
+  if (input.status === "RESOLVED" && !unarchive) {
     patch.resolved_at = now;
     await sb
       .from("support_sessions")
@@ -820,6 +987,9 @@ export async function adminUpdateSupportCaseStatus(
   }
   if (input.status === "ARCHIVED") {
     patch.archived_at = now;
+  }
+  if (unarchive) {
+    patch.archived_at = null;
   }
 
   const { data, error } = await sb
@@ -844,7 +1014,7 @@ export async function adminUpdateSupportCaseStatus(
     payload: { status: input.status },
   });
 
-  if (input.status === "RESOLVED") {
+  if (input.status === "RESOLVED" && !unarchive) {
     await notifySupportEvent(sb, {
       userId: gate.case.requester_user_id,
       type: "support_case_resolved",
