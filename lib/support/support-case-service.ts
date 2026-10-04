@@ -789,6 +789,11 @@ export async function adminUpdateSupportCaseStatus(
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
+  // DEF-15: same-status transition is a no-op (no write, no event, no notification) —
+  // same idempotency contract as mark-read.
+  if (gate.case.status === input.status) {
+    return { ok: true, case: gate.case };
+  }
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
