@@ -11,7 +11,10 @@ import {
   type SupportMessageRow,
   type SupportCaseStatus,
   type SupportCasePriority,
+  type AdminSupportListFilter,
 } from "@/lib/support/support-case-types";
+
+export type { AdminSupportListFilter } from "@/lib/support/support-case-types";
 import {
   assertSupportReferenceAuthority,
   normalizeSupportContextForCase,
@@ -588,16 +591,6 @@ export async function postRequesterSupportMessage(
   return res;
 }
 
-export type AdminSupportListFilter =
-  | "ALL"
-  | "MEMBER"
-  | "OWNER"
-  | "UNASSIGNED"
-  | "WAITING_ADMIN"
-  | "WAITING_USER"
-  | "RESOLVED"
-  /** ARO-OPS-UX-002-B6 — OPEN | WAITING_ADMIN (actionable admin work). */
-  | "ACTIONABLE";
 
 export async function listSupportCasesForAdmin(
   sb: SupabaseClient,

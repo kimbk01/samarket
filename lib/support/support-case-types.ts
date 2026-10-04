@@ -12,6 +12,27 @@ export const SUPPORT_CASE_STATUSES = [
 
 export type SupportCaseStatus = (typeof SUPPORT_CASE_STATUSES)[number];
 
+/**
+ * Admin Support queue filter SSOT — UI chips and `/api/admin/support/cases` whitelist
+ * both read this list (DEF-03: route whitelist drifted from UI and dropped ACTIONABLE).
+ */
+export const ADMIN_SUPPORT_LIST_FILTERS = [
+  "ALL",
+  "ACTIONABLE",
+  "MEMBER",
+  "OWNER",
+  "UNASSIGNED",
+  "WAITING_ADMIN",
+  "WAITING_USER",
+  "RESOLVED",
+] as const;
+
+export type AdminSupportListFilter = (typeof ADMIN_SUPPORT_LIST_FILTERS)[number];
+
+export function isAdminSupportListFilter(value: string): value is AdminSupportListFilter {
+  return (ADMIN_SUPPORT_LIST_FILTERS as readonly string[]).includes(value);
+}
+
 export const SUPPORT_CASE_PRIORITIES = ["NORMAL", "HIGH", "URGENT"] as const;
 export type SupportCasePriority = (typeof SUPPORT_CASE_PRIORITIES)[number];
 

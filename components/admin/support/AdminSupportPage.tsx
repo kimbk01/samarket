@@ -7,26 +7,31 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type {
-  SupportCasePriority,
-  SupportCaseRow,
-  SupportMessageRow,
+import {
+  ADMIN_SUPPORT_LIST_FILTERS,
+  type AdminSupportListFilter,
+  type SupportCasePriority,
+  type SupportCaseRow,
+  type SupportMessageRow,
 } from "@/lib/support/support-case-types";
-import type { AdminSupportListFilter } from "@/lib/support/support-case-service";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
 import { AdminSupportControlPlane } from "@/components/admin/support/AdminSupportControlPlane";
 
-const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] = [
-  { id: "ALL", labelKo: "전체", labelEn: "All" },
-  { id: "ACTIONABLE", labelKo: "답변 필요", labelEn: "Actionable" },
-  { id: "MEMBER", labelKo: "회원", labelEn: "Member" },
-  { id: "OWNER", labelKo: "매장 Owner", labelEn: "Owner" },
-  { id: "UNASSIGNED", labelKo: "미배정", labelEn: "Unassigned" },
-  { id: "WAITING_ADMIN", labelKo: "답변 대기", labelEn: "Waiting admin" },
-  { id: "WAITING_USER", labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
-  { id: "RESOLVED", labelKo: "종료", labelEn: "Resolved" },
-];
+/** DEF-03: chips are derived from ADMIN_SUPPORT_LIST_FILTERS (same list the API whitelists). */
+const FILTER_LABELS: Record<AdminSupportListFilter, { labelKo: string; labelEn: string }> = {
+  ALL: { labelKo: "전체", labelEn: "All" },
+  ACTIONABLE: { labelKo: "답변 필요", labelEn: "Actionable" },
+  MEMBER: { labelKo: "회원", labelEn: "Member" },
+  OWNER: { labelKo: "매장 Owner", labelEn: "Owner" },
+  UNASSIGNED: { labelKo: "미배정", labelEn: "Unassigned" },
+  WAITING_ADMIN: { labelKo: "답변 대기", labelEn: "Waiting admin" },
+  WAITING_USER: { labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
+  RESOLVED: { labelKo: "종료", labelEn: "Resolved" },
+};
+
+const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] =
+  ADMIN_SUPPORT_LIST_FILTERS.map((id) => ({ id, ...FILTER_LABELS[id] }));
 
 const PRIORITIES: { id: SupportCasePriority; labelKo: string; labelEn: string }[] = [
   { id: "NORMAL", labelKo: "일반", labelEn: "Normal" },
