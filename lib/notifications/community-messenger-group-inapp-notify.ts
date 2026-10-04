@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
@@ -41,5 +42,10 @@ export async function notifyCommunityMessengerGroupInviteReceived(
       inviter_user_id: trimText(args.inviterUserId),
       inviter_label: inviterLabel,
     },
+    // Classified as group_message → DB requires the group domain identity (same as group message rows).
+    room_identity: (() => {
+      const identity = groupRoomIdentity(roomId);
+      return { roomId, chatDomain: identity.domain, domainIdentityKey: identity.identityKey };
+    })(),
   });
 }
