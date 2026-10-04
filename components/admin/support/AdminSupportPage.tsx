@@ -268,6 +268,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     return `${who} · ${role}`;
   };
 
+  const activeClosed =
+    activeCase?.status === "RESOLVED" || activeCase?.status === "ARCHIVED";
+
   const lastPublicPreview = (caseId: string) => {
     if (activeId === caseId) {
       const last = [...messages].reverse().find((m) => m.message_type === "PUBLIC");
@@ -458,18 +461,31 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       {statusLabel(activeCase.status, ko)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm"
-                    data-admin-support-resolve="1"
-                    onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
-                  >
-                    {safeT("admin_support_resolve", {
-                      fallbackKo: "상담 종료",
-                      fallbackEn: "End consultation",
-                    })}
-                  </button>
+                  {activeClosed ? (
+                    // DEF-02: closed cases return to active only via the existing reopen action.
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                      data-admin-support-reopen="1"
+                      onClick={() => void patchCase({ action: "reopen" })}
+                    >
+                      {ko ? "재오픈" : "Reopen"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                      data-admin-support-resolve="1"
+                      onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
+                    >
+                      {safeT("admin_support_resolve", {
+                        fallbackKo: "상담 종료",
+                        fallbackEn: "End consultation",
+                      })}
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -622,9 +638,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         fallbackEn: "Reply",
                       })}
                     />
+                    {activeClosed ? (
+                      <p className="text-xs text-sam-muted" data-admin-support-reply-closed="1">
+                        {ko
+                          ? "종료된 문의입니다. 답변하려면 먼저 재오픈하세요."
+                          : "This case is closed. Reopen it to reply."}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
-                      disabled={busy || !reply.trim()}
+                      disabled={busy || !reply.trim() || activeClosed}
                       className="min-h-9 rounded-ui-rect bg-sam-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
                       onClick={async () => {
                         const ok = await patchCase({ action: "reply", body: reply });

@@ -740,6 +740,14 @@ export async function adminReplySupportCase(
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
+  // DEF-02: a closed case returns to an active state only via reopenSupportCase
+  // (reopened event + session + notification). Internal notes do not change state.
+  if (
+    !input.internalNote &&
+    (gate.case.status === "RESOLVED" || gate.case.status === "ARCHIVED")
+  ) {
+    return { ok: false, error: "case_closed" };
+  }
 
   const res = await appendSupportMessage(sb, {
     caseId: input.caseId,
