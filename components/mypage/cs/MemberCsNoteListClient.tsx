@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -50,7 +50,14 @@ const KIND_META: Record<
   },
 };
 
-/** A2-1: legacy list = read-only archive (no compose). */
+/**
+ * A2-1: legacy list = read-only archive (no compose).
+ * Phase 3 B4: the member page shows BOTH legacy datasets as two sections — 「이전 1:1 문의」
+ * (member-started) and 「이전 관리자 쪽지」 (admin-started) — same names as the Owner archive tab.
+ * `/mypage/inquiries` and `/mypage/inbox` render the same page (inbox scrolls to its section),
+ * so admin-sent notes are reachable from the Customer Center hub again.
+ * Owner Care embeds (`listBasePath`) keep their single-kind list.
+ */
 export function MemberCsNoteListClient({
   kind,
   listBasePath,
@@ -61,18 +68,13 @@ export function MemberCsNoteListClient({
   listBasePath?: string;
   hideChrome?: boolean;
 }) {
-  const { t, language, safeT } = useI18n();
+  const { safeT } = useI18n();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? (listBasePath ? "owner-care" : null);
   const storeId = searchParams.get("storeId");
   const backHref = resolveCustomerCenterBackHref(from, "/mypage", storeId);
   const meta = KIND_META[kind];
-  const listHref = listBasePath?.trim() || meta.listHref;
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [archiveId, setArchiveId] = useState<string | null>(null);
+  const sections: MemberAdminNoteKind[] = listBasePath ? [kind] : ["inquiry", "inbox"];
 
   const title = safeT(meta.titleKey, {
     fallbackKo: "이전 문의 기록",
@@ -84,6 +86,55 @@ export function MemberCsNoteListClient({
     fallbackEn:
       "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
   });
+
+  return (
+    <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
+      {hideChrome ? null : (
+        <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
+      )}
+      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
+          {sections.map((k) => (
+            <MemberCsNoteSection
+              key={k}
+              kind={k}
+              listHref={(sections.length === 1 && listBasePath?.trim()) || KIND_META[k].listHref}
+              from={from}
+              showTitle={sections.length > 1}
+              scrollIntoView={sections.length > 1 && k === kind && k === "inbox"}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SECTION_TITLE: Record<MemberAdminNoteKind, { key: MessageKey; ko: string; en: string }> = {
+  inquiry: { key: "biz_care_tab_1on1", ko: "이전 1:1 문의", en: "Previous 1:1 inquiries" },
+  inbox: { key: "biz_care_tab_admin_messages", ko: "이전 관리자 쪽지", en: "Previous admin messages" },
+};
+
+function MemberCsNoteSection({
+  kind,
+  listHref,
+  from,
+  showTitle,
+  scrollIntoView,
+}: {
+  kind: MemberAdminNoteKind;
+  listHref: string;
+  from: string | null;
+  showTitle: boolean;
+  scrollIntoView: boolean;
+}) {
+  const { t, language, safeT } = useI18n();
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,7 +149,8 @@ export function MemberCsNoteListClient({
         error?: string;
       };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? t("common_content_unavailable"));
+        // B2 — never print an API error code to customers.
+        setError(t("common_content_unavailable"));
         setThreads([]);
         return;
       }
@@ -115,6 +167,10 @@ export function MemberCsNoteListClient({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (scrollIntoView && !loading) sectionRef.current?.scrollIntoView({ block: "start" });
+  }, [scrollIntoView, loading]);
+
   const archive = async (threadId: string) => {
     if (busy) return;
     setBusy(true);
@@ -127,7 +183,7 @@ export function MemberCsNoteListClient({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setError(j.error ?? t("common_content_unavailable"));
+        setError(t("common_content_unavailable"));
         return;
       }
       setArchiveId(null);
@@ -137,87 +193,84 @@ export function MemberCsNoteListClient({
     }
   };
 
+  const statusText = (status: string) =>
+    status === "open"
+      ? safeT("mypage_cs_status_awaiting", { fallbackKo: "답변 대기", fallbackEn: "Awaiting reply" })
+      : status === "answered"
+        ? safeT("mypage_cs_status_answered", { fallbackKo: "답변 완료", fallbackEn: "Answered" })
+        : status === "closed"
+          ? safeT("mypage_cs_status_closed", { fallbackKo: "종료", fallbackEn: "Closed" })
+          : safeT("support_status_unknown", { fallbackKo: "확인 필요", fallbackEn: "Unknown" });
+
   return (
-    <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
-      {hideChrome ? null : (
-        <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
-      )}
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
-          {error ? <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p> : null}
-          {loading ? (
-            <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
-          ) : threads.length === 0 ? (
-            <p className={CC_NOTE_CLASS}>
-              {safeT("mypage_cs_notes_empty", {
-                fallbackKo: "내역이 없습니다",
-                fallbackEn: "No messages yet",
-              })}
-            </p>
-          ) : (
-            <ul className={CC_CARD_CLASS}>
-              {threads.map((th, index) => (
-                <li
-                  key={th.id}
-                  className={`flex items-stretch gap-2 px-3 py-2 ${
-                    index === 0 ? "" : "border-t border-[rgba(14,92,58,0.08)]"
-                  }`}
-                >
-                  <Link
-                    href={withCustomerCenterFrom(
-                      `${listHref}/${encodeURIComponent(th.id)}`,
-                      from,
+    <section
+      ref={sectionRef}
+      id={`cs-notes-${kind}`}
+      className="flex flex-col gap-2"
+      data-member-cs-note-section={kind}
+    >
+      {showTitle ? (
+        <h2 className={CC_HEADER_CLASS}>
+          {safeT(SECTION_TITLE[kind].key, {
+            fallbackKo: SECTION_TITLE[kind].ko,
+            fallbackEn: SECTION_TITLE[kind].en,
+          })}
+        </h2>
+      ) : null}
+      {error ? <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p> : null}
+      {loading ? (
+        <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
+      ) : threads.length === 0 ? (
+        <p className={CC_NOTE_CLASS}>
+          {safeT("mypage_cs_notes_empty", {
+            fallbackKo: "내역이 없습니다",
+            fallbackEn: "No messages yet",
+          })}
+        </p>
+      ) : (
+        <ul className={CC_CARD_CLASS}>
+          {threads.map((th, index) => (
+            <li
+              key={th.id}
+              className={`flex items-stretch gap-2 px-3 py-2 ${
+                index === 0 ? "" : "border-t border-[rgba(14,92,58,0.08)]"
+              }`}
+            >
+              <Link
+                href={withCustomerCenterFrom(`${listHref}/${encodeURIComponent(th.id)}`, from)}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-2"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate ${CC_HEADER_CLASS}`}>{th.subject}</span>
+                  <span className={`mt-0.5 block ${CC_NOTE_CLASS}`}>
+                    {new Date(th.last_message_at).toLocaleString(
+                      language === "ko" ? "ko-KR" : "en-US",
                     )}
-                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-2"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className={`block truncate ${CC_HEADER_CLASS}`}>{th.subject}</span>
-                      <span className={`mt-0.5 block ${CC_NOTE_CLASS}`}>
-                        {new Date(th.last_message_at).toLocaleString(
-                          language === "ko" ? "ko-KR" : "en-US",
-                        )}
-                        {" · "}
-                        {th.status === "open"
-                          ? safeT("mypage_cs_status_awaiting", {
-                              fallbackKo: "답변 대기",
-                              fallbackEn: "Awaiting reply",
-                            })
-                          : th.status === "answered"
-                            ? safeT("mypage_cs_status_answered", {
-                                fallbackKo: "답변 완료",
-                                fallbackEn: "Answered",
-                              })
-                            : th.status === "closed"
-                              ? safeT("mypage_cs_status_closed", {
-                                  fallbackKo: "종료",
-                                  fallbackEn: "Closed",
-                                })
-                              : th.status}
-                      </span>
-                    </span>
-                    {th.member_unread_count > 0 ? (
-                      <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-[#F57F76] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        {th.member_unread_count > 99 ? "99+" : th.member_unread_count}
-                      </span>
-                    ) : null}
-                  </Link>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setArchiveId(th.id)}
-                    className="min-h-11 shrink-0 rounded-xl border border-[rgba(14,92,58,0.14)] px-2.5 text-[11px] text-[#8F9D95] disabled:opacity-50"
-                  >
-                    {safeT("mypage_cs_archive", {
-                      fallbackKo: "보관",
-                      fallbackEn: "Archive",
-                    })}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+                    {" · "}
+                    {statusText(th.status)}
+                  </span>
+                </span>
+                {th.member_unread_count > 0 ? (
+                  <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-[#F57F76] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {th.member_unread_count > 99 ? "99+" : th.member_unread_count}
+                  </span>
+                ) : null}
+              </Link>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setArchiveId(th.id)}
+                className="min-h-11 shrink-0 rounded-xl border border-[rgba(14,92,58,0.14)] px-2.5 text-[11px] text-[#8F9D95] disabled:opacity-50"
+              >
+                {safeT("mypage_cs_archive", {
+                  fallbackKo: "보관",
+                  fallbackEn: "Archive",
+                })}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <MobileConfirmBottomSheet
         open={!!archiveId}
@@ -239,6 +292,6 @@ export function MemberCsNoteListClient({
           if (archiveId) void archive(archiveId);
         }}
       />
-    </div>
+    </section>
   );
 }

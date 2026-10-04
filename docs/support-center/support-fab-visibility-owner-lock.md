@@ -7,7 +7,7 @@ Support FAB is **not** a global customer-center button. Each screen must explici
 | Layer | Module |
 |-------|--------|
 | Context types | `lib/support/support-context.ts` |
-| Entry | `lib/support/open-support-center.ts` → `openSupportCenter(context)` |
+| Entry | `lib/support/open-support-center.ts` → `navigateToSupportCenter(context)` (→ `deliverSupportOpen`, opens the Support sheet) |
 | Page opt-in | `components/support/SupportContextProvider.tsx` |
 | Global host | `components/support/SupportFabHost.tsx` |
 | Route registry (CUT 1) | `lib/support/support-fab-route-registry.ts` |
@@ -17,7 +17,7 @@ Support FAB is **not** a global customer-center button. Each screen must explici
 1. **`enabled !== true` → SupportFabHost renders nothing** (unmount, not CSS hide).
 2. **No `resolveSupportContextFromPathname()`** or prefix tables (`/mypage/* → ON`).
 3. **Role alone does not enable FAB** — store owner on `/mypage` stays OFF unless the page sets context.
-4. **`openSupportCenter(ctx)`** is the only FAB entry; do not open `/mypage/inquiries` directly from the FAB.
+4. **`navigateToSupportCenter(ctx)`** is the only FAB entry (`SupportFab.tsx`); do not open `/mypage/inquiries` directly from the FAB. (`openSupportCenter` remains only as the disabled-context guard used by the contract test.)
 
 ## MEMBER — enabled candidates (CUT 1)
 

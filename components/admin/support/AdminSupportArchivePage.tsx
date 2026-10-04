@@ -21,7 +21,85 @@ type PlatformRow = {
   status: string;
   created_at: string;
   store_id?: string | null;
+  content?: string | null;
+  answer?: string | null;
+  answered_at?: string | null;
 };
+
+type NoteMessage = {
+  id: string;
+  sender_role: "member" | "admin";
+  body: string;
+  created_at: string;
+};
+
+/** B8 — legacy status/role wording (archive rows never print raw enums). */
+function legacyStatusLabel(status: string, ko: boolean): string {
+  switch (String(status ?? "").trim()) {
+    case "open":
+      return ko ? "답변 대기" : "Awaiting reply";
+    case "answered":
+      return ko ? "답변 완료" : "Answered";
+    case "closed":
+      return ko ? "종료" : "Closed";
+    default:
+      return ko ? "확인 필요" : "Unknown";
+  }
+}
+
+function startedByLabel(startedBy: string | undefined, ko: boolean): string {
+  if (startedBy === "admin") return ko ? "관리자 발신" : "Admin-started";
+  if (startedBy === "member") return ko ? "회원·사장님 문의" : "Member-started";
+  return "—";
+}
+
+/** B8 — read-only thread body, loaded on expand via the existing admin GET. */
+function ArchiveNoteThread({ threadId, ko, locale }: { threadId: string; ko: boolean; locale: string }) {
+  const [messages, setMessages] = useState<NoteMessage[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/member-notes/${encodeURIComponent(threadId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; messages?: NoteMessage[] };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) setFailed(true);
+        else setMessages(Array.isArray(json.messages) ? json.messages : []);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId]);
+  if (failed) {
+    return <p className="mt-2 text-xs text-red-600">{ko ? "대화를 불러오지 못했습니다" : "Could not load"}</p>;
+  }
+  if (!messages) return <p className="mt-2 text-xs text-sam-muted">…</p>;
+  return (
+    <div className="mt-2 space-y-2" data-admin-archive-thread={threadId}>
+      {messages.map((m) => (
+        <div
+          key={m.id}
+          className={`rounded-ui-rect px-3 py-2 text-sm ${
+            m.sender_role === "admin" ? "bg-sam-primary/10" : "bg-sam-surface-muted"
+          }`}
+        >
+          <p className="text-xs text-sam-muted">
+            {m.sender_role === "admin" ? (ko ? "관리자" : "Admin") : ko ? "회원·사장님" : "Member"} ·{" "}
+            {new Date(m.created_at).toLocaleString(locale)}
+          </p>
+          <p className="whitespace-pre-wrap">{m.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * A2-2 legacy Care + platform inbox — read-only archive (no reply/compose).
@@ -34,6 +112,8 @@ export function AdminSupportArchivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const locale = language === "ko" ? "ko-KR" : "en-US";
+  const ko = language !== "en";
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,11 +209,19 @@ export function AdminSupportArchivePage() {
           ) : (
             notes.map((n) => (
               <li key={n.id} className="px-3 py-3">
-                <p className="text-sm font-medium">{n.subject}</p>
-                <p className="text-xs text-sam-muted">
-                  {n.started_by ?? "—"} · {n.status} ·{" "}
-                  {n.last_message_at ? new Date(n.last_message_at).toLocaleString(locale) : ""}
-                </p>
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  aria-expanded={openId === n.id}
+                  onClick={() => setOpenId((cur) => (cur === n.id ? null : n.id))}
+                >
+                  <p className="text-sm font-medium">{n.subject}</p>
+                  <p className="text-xs text-sam-muted">
+                    {startedByLabel(n.started_by, ko)} · {legacyStatusLabel(n.status, ko)} ·{" "}
+                    {n.last_message_at ? new Date(n.last_message_at).toLocaleString(locale) : ""}
+                  </p>
+                </button>
+                {openId === n.id ? <ArchiveNoteThread threadId={n.id} ko={ko} locale={locale} /> : null}
               </li>
             ))
           )}
@@ -145,12 +233,31 @@ export function AdminSupportArchivePage() {
           ) : (
             platform.map((r) => (
               <li key={r.id} className="px-3 py-3">
-                <p className="text-sm font-medium">{r.subject}</p>
-                <p className="text-xs text-sam-muted">
-                  {r.status}
-                  {r.store_id ? ` · Store ${r.store_id.slice(0, 8)}…` : ""} ·{" "}
-                  {r.created_at ? new Date(r.created_at).toLocaleString(locale) : ""}
-                </p>
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  aria-expanded={openId === r.id}
+                  onClick={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
+                >
+                  <p className="text-sm font-medium">{r.subject}</p>
+                  <p className="text-xs text-sam-muted">
+                    {legacyStatusLabel(r.status, ko)}
+                    {r.store_id ? ` · ${ko ? "매장" : "Store"} ${r.store_id.slice(0, 8)}…` : ""} ·{" "}
+                    {r.created_at ? new Date(r.created_at).toLocaleString(locale) : ""}
+                  </p>
+                </button>
+                {openId === r.id ? (
+                  <div className="mt-2 space-y-2" data-admin-archive-platform={r.id}>
+                    <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-sm">
+                      {r.content || "—"}
+                    </p>
+                    {r.answer ? (
+                      <p className="whitespace-pre-wrap rounded-ui-rect bg-sam-primary/10 px-3 py-2 text-sm">
+                        {r.answer}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             ))
           )}

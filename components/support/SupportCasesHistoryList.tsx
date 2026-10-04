@@ -9,6 +9,7 @@ import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { supportErrorLabel } from "@/lib/support/support-display-labels";
 
 export function SupportCasesHistoryList({
   audience,
@@ -77,7 +78,7 @@ export function SupportCasesHistoryList({
   if (error) {
     return (
       <div className="px-4 py-6">
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-600">{supportErrorLabel(safeT, error)}</p>
         <button type="button" className="mt-2 text-sm underline" onClick={() => void load()}>
           {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
         </button>
@@ -122,7 +123,8 @@ export function SupportCasesHistoryList({
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-[14px] font-semibold text-sam-fg">
                 <span className="min-w-0 truncate">
-                  {c.public_case_no || c.subject || c.id.slice(0, 8)}
+                  {/* Never `subject` — it is an internal "CATEGORY · surface" token (B5). */}
+                  {c.public_case_no || categoryLabel}
                 </span>
                 {unread > 0 ? (
                   <span

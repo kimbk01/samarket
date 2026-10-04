@@ -54,7 +54,8 @@ function toRow(c: SupportCaseRow): SupportActionRow {
     requesterType: c.audience,
     requesterUserId: c.requester_user_id,
     storeId,
-    subject: c.subject || c.initial_summary || c.public_case_no,
+    // B1 — customer-visible words first; `subject` is an internal "CATEGORY · surface" token.
+    subject: c.initial_summary || c.public_case_no,
     category: c.category,
     issueType: c.issue_type,
     referenceType: c.reference_type,

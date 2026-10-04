@@ -16,6 +16,8 @@ export function adaptNotificationEventInsertToLegacyRow(
     push_kind: mapped.push_kind ?? null,
     meta: mapped.meta ?? null,
     link_url: mapped.link_url,
+    // Support D1 in-app notice preview (admin reply text). Not used by sound/popup gates.
+    body: mapped.body ?? null,
     ref_id: mapped.ref_id ?? null,
     domain: mapped.domain ?? null,
     muted_snapshot: row.muted_snapshot ?? null,

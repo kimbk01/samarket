@@ -27,6 +27,7 @@ import {
   supportTriageReducer,
   type SupportTriageState,
 } from "@/lib/support/support-triage-model";
+import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 
 function labelForCategory(
   safeT: (key: MessageKey, opts: { fallbackKo: string; fallbackEn: string }) => string,
@@ -275,7 +276,7 @@ export function SupportTriageFlow({
                       fallbackEn: "Related item",
                     })}
                     {": "}
-                    {state.referenceType}
+                    {supportReferenceLabel(safeT, state.referenceType)}
                     {state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
                   </div>
                 ) : null}
@@ -370,7 +371,9 @@ export function SupportTriageFlow({
               </>
             ) : null}
             {guidanceError ? (
-              <p className={`${OverlayUi.caption} text-red-600`}>{guidanceError}</p>
+              <p className={`${OverlayUi.caption} text-red-600`}>
+                {supportErrorLabel(safeT, guidanceError)}
+              </p>
             ) : null}
           </div>
         ) : null}
@@ -417,7 +420,9 @@ export function SupportTriageFlow({
           data-support-triage-handoff-cta="1"
         >
           {startError ? (
-            <p className={`${OverlayUi.caption} text-red-600`}>{startError}</p>
+            <p className={`${OverlayUi.caption} text-red-600`}>
+              {supportErrorLabel(safeT, startError)}
+            </p>
           ) : null}
           <DibayOverlayButton
             roleTone="primary"
@@ -478,7 +483,7 @@ function HandoffSummaryBody({
             })}
             {": "}
             <span className="text-[var(--overlay-text)]">
-              {state.referenceType}
+              {supportReferenceLabel(safeT, state.referenceType)}
               {state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
             </span>
           </div>

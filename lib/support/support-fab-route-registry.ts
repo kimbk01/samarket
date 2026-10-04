@@ -16,6 +16,9 @@ export const SUPPORT_FAB_ENABLED_ROUTE_FILES = [
   "app/(main)/stores/owner/ads/[campaignId]/page.tsx",
   "app/(main)/stores/owner/ads/new/banner/page.tsx",
   "app/(main)/stores/owner/ads/new/store-sponsored/page.tsx",
+  // B10 — already wired (OwnerStoreSupportShell); registry lagged behind the pages.
+  "app/(main)/stores/owner/ads/new/platform-popup/page.tsx",
+  "app/(main)/stores/owner/ads/popup/[requestId]/page.tsx",
   "app/(main)/stores/owner/products/[productId]/edit/page.tsx",
   "app/(main)/stores/owner/coupons/page.tsx",
   "app/(main)/stores/owner/gift-certificates/page.tsx",

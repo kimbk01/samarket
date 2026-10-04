@@ -37,6 +37,7 @@ import {
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
+import { supportErrorLabel } from "@/lib/support/support-display-labels";
 
 const HISTORY_KEY = "dibaySupportModal";
 
@@ -403,7 +404,7 @@ function SupportActiveConversation({
                   fallbackKo: "이 문의를 열 수 없습니다.",
                   fallbackEn: "This support case is unavailable.",
                 })
-              : error}
+              : supportErrorLabel(safeT, error)}
           {error !== "forbidden" ? (
             <DibayOverlayButton
               roleTone="secondary"
@@ -507,7 +508,9 @@ function SupportActiveConversation({
               </p>
             ) : null}
             {error ? (
-              <p className={`${OverlayUi.caption} !mb-0 text-red-600`}>{error}</p>
+              <p className={`${OverlayUi.caption} !mb-0 text-red-600`}>
+                {supportErrorLabel(safeT, error)}
+              </p>
             ) : null}
             <div className="flex items-end gap-2">
               <textarea

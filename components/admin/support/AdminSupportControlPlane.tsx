@@ -18,7 +18,8 @@ import type {
   SupportActionRow,
   SupportControlPlaneModel,
 } from "@/lib/admin/support-control-plane/types";
-import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { supportAdminStatusLabel, supportAudienceLabel } from "@/lib/support/support-status-label";
+import { supportCategoryLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 
 function Unavail({ ko }: { ko: boolean }) {
   return <AdminUnavailableChip ko={ko} />;
@@ -49,6 +50,7 @@ function ActionCard({
   ko: boolean;
   onOpen?: (caseId: string) => void;
 }) {
+  const { safeT } = useI18n();
   return (
     <div
       className="flex min-h-[9rem] flex-col justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
@@ -59,16 +61,18 @@ function ActionCard({
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <AdminToneBadge tone={item.requesterType === "OWNER" ? "progress" : "neutral"}>
-            {item.requesterType === "OWNER" ? (ko ? "Owner" : "Owner") : ko ? "회원" : "Member"}
+            {supportAudienceLabel(item.requesterType, ko)}
           </AdminToneBadge>
           <span className="sam-text-helper text-sam-muted">{item.publicCaseNo}</span>
-          <span className="sam-text-helper text-sam-muted">{item.category}</span>
+          <span className="sam-text-helper text-sam-muted">
+            {supportCategoryLabel(safeT, item.category)}
+          </span>
           <AdminToneBadge tone="waiting">{ko ? item.ageLabelKo : item.ageLabelEn}</AdminToneBadge>
         </div>
         <p className="text-[15px] font-semibold text-sam-fg">{item.subject}</p>
         <p className="sam-text-helper text-sam-muted">
-          {adminOperatorLabel(item.status, ko)}
-          {item.referenceType ? ` · ${adminOperatorLabel(item.referenceType, ko)}` : ""}
+          {supportAdminStatusLabel(item.status, ko)}
+          {item.referenceType ? ` · ${supportReferenceLabel(safeT, item.referenceType)}` : ""}
           {!item.assignedAdminId ? (ko ? " · 미배정" : " · Unassigned") : ""}
         </p>
       </div>

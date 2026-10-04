@@ -40,7 +40,6 @@ export function SupportCenterEnterClient() {
             fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
             fallbackEn: "Could not load inquiry context. Please try again.",
           })}
-          {error !== "missing_context" ? ` (${error})` : ""}
         </p>
       ) : (
         <p className="text-sm text-sam-muted">
