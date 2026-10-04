@@ -8,7 +8,8 @@ export async function fetchCampaignProfileScanSlice(
   svc: SupabaseClient,
   campaign: Pick<AdminNotificationCampaignRow, "target_type" | "segment_region_code">,
   offset: number,
-  limit: number
+  limit: number,
+  opts?: { throwOnError?: boolean }
 ): Promise<string[]> {
   const tt = campaign.target_type;
 
@@ -25,6 +26,7 @@ export async function fetchCampaignProfileScanSlice(
       .range(offset, offset + limit - 1);
     if (error) {
       console.error("[campaign scan marketing_opt_in]", error.message);
+      if (opts?.throwOnError) throw new Error(`target_scan_failed:${error.message}`);
       return [];
     }
     return (data ?? []).map((r) => String((r as { user_id: string }).user_id)).filter(Boolean);
@@ -61,6 +63,7 @@ export async function fetchCampaignProfileScanSlice(
   const { data, error } = await q;
   if (error) {
     console.error("[campaign scan profiles]", error.message);
+    if (opts?.throwOnError) throw new Error(`target_scan_failed:${error.message}`);
     return [];
   }
   return (data ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean);

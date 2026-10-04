@@ -51,7 +51,15 @@ export async function recordCampaignDelivery(
 }
 
 /** Channel-separated occurrence metrics — NOT combined push+in_app sent_count. */
-export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId: string): Promise<void> {
+/**
+ * `opts.terminal` (U1-B): the batch runner's "no targets remain" decision. When provided it is the
+ * only completion signal; legacy callers without it keep the previous pending-targets rule.
+ */
+export async function refreshOccurrenceMetrics(
+  svc: SupabaseClient,
+  occurrenceId: string,
+  opts?: { terminal?: boolean }
+): Promise<void> {
   const { data: rows, error } = await svc
     .from("notification_campaign_deliveries")
     .select("channel, status")
@@ -108,7 +116,7 @@ export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId
 
   const { data: occ } = await svc
     .from("admin_notification_campaign_occurrences")
-    .select("campaign_id, status")
+    .select("campaign_id, status, trigger_type")
     .eq("id", occurrenceId)
     .maybeSingle();
 
@@ -123,7 +131,9 @@ export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId
     .eq("occurrence_id", occurrenceId)
     .eq("status", "pending");
 
-  const isDone = (pendingTargets ?? 0) === 0 && currentStatus === "sending";
+  const isDone =
+    currentStatus === "sending" &&
+    (typeof opts?.terminal === "boolean" ? opts.terminal : (pendingTargets ?? 0) === 0);
 
   if (isDone) {
     const finalStatus = resolveFinalOccurrenceStatus(pushFailed, pushSent, inAppFailed, inAppSent);
@@ -136,7 +146,9 @@ export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId
       })
       .eq("id", occurrenceId);
 
-    if (campaignId) {
+    // U1: test occurrences never change campaign status/aggregates.
+    const isTestOccurrence = String((occ as { trigger_type?: string }).trigger_type ?? "") === "test";
+    if (campaignId && !isTestOccurrence) {
       await syncCampaignAggregateFromOccurrences(svc, campaignId, {
         status: finalStatus,
         push_sent: pushSent,
@@ -167,6 +179,14 @@ async function syncCampaignAggregateFromOccurrences(
     .limit(1)
     .maybeSingle();
 
+  const { data: campRow } = await svc
+    .from("admin_notification_campaigns")
+    .select("send_mode")
+    .eq("id", campaignId)
+    .maybeSingle();
+  // U1: recurring campaigns keep their lifecycle status (active/paused/ended) — scheduler depends on it.
+  const isRecurring = String((campRow as { send_mode?: string } | null)?.send_mode ?? "") === "recurring";
+
   await svc
     .from("admin_notification_campaigns")
     .update({
@@ -174,7 +194,7 @@ async function syncCampaignAggregateFromOccurrences(
       skipped_count: latest.push_skipped,
       failed_count: latest.push_failed,
       target_count: (occRow as { target_member_count?: number } | null)?.target_member_count ?? 0,
-      status: mapOccurrenceStatusToLegacyCampaignStatus(latest.status),
+      ...(isRecurring ? {} : { status: mapOccurrenceStatusToLegacyCampaignStatus(latest.status) }),
       sent_at: latest.completed_at,
       updated_at: new Date().toISOString(),
     })

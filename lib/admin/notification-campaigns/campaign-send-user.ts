@@ -69,7 +69,7 @@ export async function sendCampaignToUser(
   occurrenceId: string,
   userId: string,
   maps: SettingsMaps,
-  opts?: { forceChannel?: CampaignChannel; skipDuplicateCheck?: boolean }
+  opts?: { forceChannel?: CampaignChannel; skipDuplicateCheck?: boolean; dedupeScope?: "campaign" | "occurrence" }
 ): Promise<CampaignUserSendResult> {
   const channel = opts?.forceChannel ?? campaign.channel;
   const presentation = buildAdminCampaignNotificationPresentation({
@@ -128,6 +128,13 @@ export async function sendCampaignToUser(
   let anyPushSent = false;
   let lastSkipReason: CampaignSkipReason | string | null = null;
 
+  // U1-B: recurring occurrences are deduped per occurrence; other modes keep the existing key.
+  const inAppDedupeKey = opts?.skipDuplicateCheck
+    ? `admin_campaign:${campaign.id}:${userId}:${Date.now()}`
+    : opts?.dedupeScope === "occurrence"
+      ? `admin_campaign:${campaign.id}:${occurrenceId}:${userId}`
+      : `admin_campaign:${campaign.id}:${userId}`;
+
   if (campaignNeedsInApp(channel)) {
     const created = await createNotificationEvent(svc, {
       userId,
@@ -135,9 +142,7 @@ export async function sendCampaignToUser(
       category,
       title: presentation.title,
       body: presentation.body,
-      dedupeKey: opts?.skipDuplicateCheck
-        ? `admin_campaign:${campaign.id}:${userId}:${Date.now()}`
-        : `admin_campaign:${campaign.id}:${userId}`,
+      dedupeKey: inAppDedupeKey,
       displayPayload: {
         ...presentation.displayPayload,
         imageUrl: inAppImageUrl,
@@ -149,6 +154,15 @@ export async function sendCampaignToUser(
     if (!created.ok) {
       if (created.duplicate) {
         lastSkipReason = "duplicate_campaign_user";
+        // U1-B: reuse the existing event id so push delivery dedupe (notification_event_id, device_id)
+        // blocks re-sending to devices already attempted.
+        const { data: existingEvent } = await svc
+          .from("notification_events")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("dedupe_key", inAppDedupeKey)
+          .maybeSingle();
+        notificationEventId = existingEvent?.id ? String((existingEvent as { id: string }).id) : null;
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
           occurrenceId,
