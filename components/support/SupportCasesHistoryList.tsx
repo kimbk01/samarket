@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
+import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
+import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function SupportCasesHistoryList({
@@ -83,7 +86,19 @@ export function SupportCasesHistoryList({
 
   return (
     <ul className="divide-y divide-sam-border" data-support-cases-history="1">
-      {cases.map((c) => (
+      {cases.map((c) => {
+        // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
+        const statusMeta = supportCaseStatusLabelMeta(c.status);
+        const statusLabel = safeT(statusMeta.key, {
+          fallbackKo: statusMeta.fallbackKo,
+          fallbackEn: statusMeta.fallbackEn,
+        });
+        const categoryDef = getSupportCategoryDefinition(c.category);
+        const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey, {
+          fallbackKo: "문의",
+          fallbackEn: "Inquiry",
+        });
+        return (
         <li key={c.id}>
           <button
             type="button"
@@ -97,12 +112,9 @@ export function SupportCasesHistoryList({
                 {c.public_case_no || c.subject || c.id.slice(0, 8)}
               </p>
               <p className={`${OverlayUi.caption} !mb-0 mt-0.5`}>
-                {c.category}
-                {c.audience === "OWNER" && c.owner_store_id
-                  ? ` · Store ${c.owner_store_id.slice(0, 8)}…`
-                  : ""}
+                {categoryLabel}
                 {" · "}
-                {c.status}
+                {statusLabel}
               </p>
               <p className={`${OverlayUi.caption} !mb-0`}>
                 {c.last_message_at
@@ -112,7 +124,8 @@ export function SupportCasesHistoryList({
             </div>
           </button>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

@@ -32,6 +32,7 @@ import {
   subscribeSupportModalState,
   type SupportModalState,
 } from "@/lib/support/support-modal-controller";
+import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
 
@@ -58,27 +59,6 @@ function mergeSupportMessage(
 ): SupportMessageRow[] {
   if (prev.some((m) => m.id === message.id)) return prev;
   return [...prev, message];
-}
-
-function statusLabelMeta(status: SupportCaseRow["status"] | null): {
-  key: "support_status_active" | "support_status_resolved" | "support_status_waiting_admin";
-  fallbackKo: string;
-  fallbackEn: string;
-} {
-  if (!status) {
-    return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
-  }
-  if (status === "RESOLVED" || status === "ARCHIVED") {
-    return { key: "support_status_resolved", fallbackKo: "상담 종료", fallbackEn: "Closed" };
-  }
-  if (status === "WAITING_ADMIN" || status === "OPEN") {
-    return {
-      key: "support_status_waiting_admin",
-      fallbackKo: "답변 대기",
-      fallbackEn: "Awaiting reply",
-    };
-  }
-  return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
 }
 
 function SupportSheetChrome({
@@ -370,7 +350,7 @@ function SupportActiveConversation({
 
   const closed =
     supportCase?.status === "RESOLVED" || supportCase?.status === "ARCHIVED";
-  const statusMeta = statusLabelMeta(supportCase?.status ?? null);
+  const statusMeta = supportCaseStatusLabelMeta(supportCase?.status ?? null);
   const statusLabel = safeT(statusMeta.key, {
     fallbackKo: statusMeta.fallbackKo,
     fallbackEn: statusMeta.fallbackEn,
