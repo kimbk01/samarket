@@ -47,7 +47,7 @@ Phase 3 의 U1 제안("종결 판정을 `done` 하나로 통일")은 **철회**�
 
 변경하지 않는 것: 종결 조건 자체(`pending 0 && sending`), `done` 계산, claim/lease RPC, cron, `/send`, `sendCampaignToUser`, push/notification 생성, DB 스키마.
 
-(전체 diff: 작업 기록 보관 — 승인 시 그대로 적용)
+(전체 diff: 문서 말미 부록 A — 승인 시 그대로 적용)
 
 ## 5. IMPACT MATRIX
 
@@ -87,3 +87,107 @@ Phase 3 의 U1 제안("종결 판정을 `done` 하나로 통일")은 **철회**�
 6. 격리 검증은 mock DB 기반 — 실제 Supabase 쿼리 체인 동작은 Production QA 검증 전까지 **NOT_PROVEN**.
 
 **STOP — U1-A 승인 시 위 EXACT CHANGE 만 구현.** U1-B 는 별도 설계·승인 대상.
+
+## 부록 A — 제안 diff (미적용)
+
+```diff
+diff --git a/lib/admin/notification-campaigns/campaign-delivery-recorder.ts b/lib/admin/notification-campaigns/campaign-delivery-recorder.ts
+index 77dec92a..8e883f1a 100644
+--- a/lib/admin/notification-campaigns/campaign-delivery-recorder.ts
++++ b/lib/admin/notification-campaigns/campaign-delivery-recorder.ts
+@@ -108,7 +108,7 @@ export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId
+ 
+   const { data: occ } = await svc
+     .from("admin_notification_campaign_occurrences")
+-    .select("campaign_id, status")
++    .select("campaign_id, status, trigger_type")
+     .eq("id", occurrenceId)
+     .maybeSingle();
+ 
+@@ -136,7 +136,9 @@ export async function refreshOccurrenceMetrics(svc: SupabaseClient, occurrenceId
+       })
+       .eq("id", occurrenceId);
+ 
+-    if (campaignId) {
++    // U1: test occurrences never change campaign status/aggregates.
++    const isTestOccurrence = String((occ as { trigger_type?: string }).trigger_type ?? "") === "test";
++    if (campaignId && !isTestOccurrence) {
+       await syncCampaignAggregateFromOccurrences(svc, campaignId, {
+         status: finalStatus,
+         push_sent: pushSent,
+@@ -167,6 +169,14 @@ async function syncCampaignAggregateFromOccurrences(
+     .limit(1)
+     .maybeSingle();
+ 
++  const { data: campRow } = await svc
++    .from("admin_notification_campaigns")
++    .select("send_mode")
++    .eq("id", campaignId)
++    .maybeSingle();
++  // U1: recurring campaigns keep their lifecycle status (active/paused/ended) — scheduler depends on it.
++  const isRecurring = String((campRow as { send_mode?: string } | null)?.send_mode ?? "") === "recurring";
++
+   await svc
+     .from("admin_notification_campaigns")
+     .update({
+@@ -174,7 +184,7 @@ async function syncCampaignAggregateFromOccurrences(
+       skipped_count: latest.push_skipped,
+       failed_count: latest.push_failed,
+       target_count: (occRow as { target_member_count?: number } | null)?.target_member_count ?? 0,
+-      status: mapOccurrenceStatusToLegacyCampaignStatus(latest.status),
++      ...(isRecurring ? {} : { status: mapOccurrenceStatusToLegacyCampaignStatus(latest.status) }),
+       sent_at: latest.completed_at,
+       updated_at: new Date().toISOString(),
+     })
+diff --git a/lib/admin/notification-campaigns/run-campaign-send-batch.ts b/lib/admin/notification-campaigns/run-campaign-send-batch.ts
+index e11f46ec..93eb07de 100644
+--- a/lib/admin/notification-campaigns/run-campaign-send-batch.ts
++++ b/lib/admin/notification-campaigns/run-campaign-send-batch.ts
+@@ -8,10 +8,7 @@ import {
+   recordCampaignDelivery,
+   refreshOccurrenceMetrics,
+ } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
+-import {
+-  getCampaignOccurrence,
+-  resolveFinalOccurrenceStatus,
+-} from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
++import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
+ import type { AdminNotificationCampaignOccurrenceRow, CampaignContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
+ import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
+ import { fetchCampaignProfileScanSlice } from "@/lib/admin/notification-campaigns/campaign-target-scan";
+@@ -245,17 +242,12 @@ export async function runNotificationCampaignSendBatch(
+     done = peek.length === 0;
+   }
+ 
++  // U1: terminal status is decided only by refreshOccurrenceMetrics (failure-aware + campaign sync).
+   await svc
+     .from("admin_notification_campaign_occurrences")
+     .update({
+       send_progress_offset: nextOffset,
+       updated_at: now,
+-      ...(done
+-        ? {
+-            status: resolveFinalOccurrenceStatus(0, sent, 0, sent),
+-            completed_at: now,
+-          }
+-        : {}),
+     })
+     .eq("id", occurrenceId);
+ 
+@@ -281,6 +273,15 @@ export async function runNotificationCampaignTestSend(
+     occurrence.content_snapshot as Parameters<typeof campaignRowFromContentSnapshot>[1]
+   );
+ 
++  // U1/EVENT-13: test occurrence enters `sending` so the shared terminal path can close it.
++  if (occurrence.status === "queued") {
++    const startedAt = new Date().toISOString();
++    await svc
++      .from("admin_notification_campaign_occurrences")
++      .update({ status: "sending", started_at: occurrence.started_at ?? startedAt, updated_at: startedAt })
++      .eq("id", occurrenceId);
++  }
++
+   const maps = await loadCampaignSettingsMaps(svc, userIds);
+   let sent = 0;
+   let skipped = 0;
+```
