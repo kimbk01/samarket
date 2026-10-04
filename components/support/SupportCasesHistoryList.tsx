@@ -6,6 +6,7 @@ import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
+import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -54,6 +55,16 @@ export function SupportCasesHistoryList({
     void load();
   }, [load]);
 
+  // DEF-16: re-read after the Support sheet closes so status / unread reflect the visit.
+  useEffect(() => {
+    let wasOpen = getSupportModalState().phase === "open";
+    return subscribeSupportModalState(() => {
+      const isOpen = getSupportModalState().phase === "open";
+      if (wasOpen && !isOpen) void load();
+      wasOpen = isOpen;
+    });
+  }, [load]);
+
   const locale = language === "ko" ? "ko-KR" : "en-US";
 
   if (loading) {
@@ -98,6 +109,7 @@ export function SupportCasesHistoryList({
           fallbackKo: "문의",
           fallbackEn: "Inquiry",
         });
+        const unread = Number(c.requester_unread_count) || 0;
         return (
         <li key={c.id}>
           <button
@@ -108,8 +120,18 @@ export function SupportCasesHistoryList({
             }}
           >
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-semibold text-sam-fg">
-                {c.public_case_no || c.subject || c.id.slice(0, 8)}
+              <p className="flex items-center gap-2 text-[14px] font-semibold text-sam-fg">
+                <span className="min-w-0 truncate">
+                  {c.public_case_no || c.subject || c.id.slice(0, 8)}
+                </span>
+                {unread > 0 ? (
+                  <span
+                    className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sam-primary px-1.5 text-[11px] font-semibold text-white"
+                    data-support-history-unread={unread}
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                ) : null}
               </p>
               <p className={`${OverlayUi.caption} !mb-0 mt-0.5`}>
                 {categoryLabel}
