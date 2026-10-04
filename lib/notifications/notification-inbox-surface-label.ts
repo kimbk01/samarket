@@ -74,6 +74,10 @@ export function resolveInboxSurfaceBadge(
   row: InboxSurfaceRowInput,
   language: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string {
+  // Support Center replies/closures carry the support case route — badge them 「고객센터」, not 「공지」.
+  if (row.link_url && toPathname(row.link_url).startsWith("/support/cases/")) {
+    return notifySafeT(language, "notif_surface_support");
+  }
   const fromPresentation =
     row.bell_presentation_type != null
       ? surfaceFromBellPresentation(row.bell_presentation_type, language)

@@ -599,4 +599,23 @@ describe("support audit phase 1 — regression lock", () => {
       (await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: msgId })).ok
     ).toBe(false);
   });
+
+  it("Console: reply edit/delete keeps the customer's notification preview in step", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "원문" });
+    if (!r.ok) throw new Error(r.error);
+    db.notification_events.push({
+      id: "ne-1",
+      user_id: U,
+      type: "support_admin_replied",
+      dedupe_key: `support_admin_replied:${r.message.id}`,
+      body: "원문",
+    });
+    await adminEditSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id, body: "수정본" });
+    expect(db.notification_events[0].body).toBe("수정본");
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id });
+    expect(db.notification_events[0].body).toBe("삭제된 메시지입니다.");
+  });
 });

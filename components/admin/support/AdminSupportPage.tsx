@@ -493,7 +493,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       >
         {/* LEFT — queue (own scroll) */}
         <div
-          className="flex min-h-[20rem] flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface lg:min-h-0"
+          className={`${activeId ? "hidden lg:flex" : "flex"} min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
           data-admin-support-queue="1"
         >
           <div className="shrink-0 border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
@@ -580,7 +580,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
         {/* CENTER — conversation (header / own-scroll timeline / pinned composer) */}
         <div
-          className="flex min-h-[28rem] flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface lg:min-h-0"
+          className={`${activeId ? "flex" : "hidden lg:flex"} min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
           data-admin-support-center="1"
         >
           {!activeId ? (
@@ -597,6 +597,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             <>
               <div className="shrink-0 space-y-2 border-b border-sam-border px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Narrow screens: list ⇄ conversation (no stacked page scroll). */}
+                  <button
+                    type="button"
+                    className="rounded border border-sam-border px-2 py-0.5 text-xs lg:hidden"
+                    data-admin-support-back="1"
+                    onClick={() => setActiveId(null)}
+                  >
+                    ← {ko ? "목록" : "List"}
+                  </button>
                   <h2 className="text-base font-bold text-sam-fg">{activeCase.public_case_no}</h2>
                   <span className={`rounded border px-1.5 text-[11px] ${statusTone(activeCase.status)}`}>
                     {supportAdminStatusLabel(activeCase.status, ko)}
@@ -722,11 +731,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               </div>
 
               <div ref={timelineRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-sam-app/40 px-4 py-3">
-                {activeCase.initial_summary ? (
-                  <p className="mx-auto max-w-[85%] rounded-ui-rect border border-dashed border-sam-border px-3 py-2 text-center text-xs text-sam-muted">
-                    {ko ? "처음 문의 내용" : "First message"}: {activeCase.initial_summary}
-                  </p>
-                ) : null}
                 {messages.map((m) => {
                   const internal = m.message_type === "INTERNAL_NOTE";
                   const system = m.sender_type === "SYSTEM";
@@ -912,9 +916,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         {/* RIGHT — inquiry info (toggle) */}
         {showInfo && activeCase ? (
           <aside
-            className="flex min-h-0 flex-col overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm"
+            className="fixed inset-y-0 right-0 z-40 flex w-[300px] max-w-[85vw] flex-col overflow-y-auto border-l border-sam-border bg-sam-surface p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-auto lg:max-w-none lg:rounded-ui-rect lg:border lg:shadow-none"
             data-admin-support-context="1"
           >
+            <button
+              type="button"
+              className="mb-2 self-end text-xs text-sam-muted underline lg:hidden"
+              onClick={() => setShowInfo(false)}
+            >
+              {ko ? "닫기" : "Close"}
+            </button>
             <section>
               <h3 className="text-xs font-semibold text-sam-muted">{ko ? "고객" : "Customer"}</h3>
               <p className="mt-1 font-medium">{whoName(activeCase)}</p>

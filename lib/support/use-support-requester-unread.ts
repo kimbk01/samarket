@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import {
   getSupportModalState,
   subscribeSupportModalState,
@@ -22,6 +23,21 @@ export function useSupportRequesterUnread(input: {
   const { audience, storeId, enabled = true } = input;
   const [count, setCount] = useState(0);
   const [tick, setTick] = useState(0);
+
+  // A new support notification (admin reply / close) arrives via the Realtime bridge event.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let t: number | null = null;
+    const onUpdated = () => {
+      if (t != null) window.clearTimeout(t);
+      t = window.setTimeout(() => setTick((n) => n + 1), 500);
+    };
+    window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    return () => {
+      if (t != null) window.clearTimeout(t);
+      window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     let wasOpen = getSupportModalState().phase === "open";

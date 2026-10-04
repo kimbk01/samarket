@@ -197,3 +197,20 @@ describe("D1 in-app notice", () => {
     expect(host).not.toContain("community-messenger");
   });
 });
+
+describe("Console measured fixes (production QA 2026-10-05)", () => {
+  it("narrow screens switch list ⇄ conversation; info is a drawer; no duplicate first-message box", () => {
+    const page = read("components/admin/support/AdminSupportPage.tsx");
+    expect(page).toContain('${activeId ? "hidden lg:flex" : "flex"}');
+    expect(page).toContain('${activeId ? "flex" : "hidden lg:flex"}');
+    expect(page).toContain("data-admin-support-back");
+    expect(page).not.toContain("처음 문의 내용");
+  });
+
+  it("support notifications are badged 고객센터 and hub unread refreshes on new notifications", () => {
+    expect(read("lib/notifications/notification-inbox-surface-label.ts")).toContain("notif_surface_support");
+    expect((supportUiMessages.ko as Record<string, string>).notif_surface_support).toBe("고객센터");
+    expect(read("lib/support/use-support-requester-unread.ts")).toContain("KASAMA_NOTIFICATIONS_UPDATED");
+  });
+});
+

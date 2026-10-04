@@ -546,6 +546,21 @@ async function loadOwnAdminMessage(
   return { ok: true, message: m };
 }
 
+/** Bell/inbox row of `support_admin_replied` for one message (dedupe key is per message id). */
+async function syncReplyNotificationBody(
+  sb: SupabaseClient,
+  messageId: string,
+  body: string
+): Promise<void> {
+  const { error } = await sb
+    .from("notification_events")
+    .update({ body: body.slice(0, 500) })
+    .eq("dedupe_key", `support_admin_replied:${messageId}`);
+  if (error) {
+    console.warn("[support] reply_notification_sync_failed", { messageId, error: error.message });
+  }
+}
+
 export async function adminEditSupportMessage(
   sb: SupabaseClient,
   input: { adminUserId: string; caseId: string; messageId: string; body: string }
@@ -570,6 +585,8 @@ export async function adminEditSupportMessage(
     actorUserId: input.adminUserId,
     payload: { message_id: input.messageId, previous_body: previousBody },
   });
+  // The customer's bell row previews the reply text — keep it in step with the edit.
+  await syncReplyNotificationBody(sb, input.messageId, body);
   await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
   return { ok: true, message: data as SupportMessageRow };
 }
@@ -592,6 +609,8 @@ export async function adminDeleteSupportMessage(
     actorUserId: input.adminUserId,
     payload: { message_id: input.messageId },
   });
+  // Never leave the deleted text visible in the customer's notification list.
+  await syncReplyNotificationBody(sb, input.messageId, "삭제된 메시지입니다.");
   await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
   return { ok: true };
 }
