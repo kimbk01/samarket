@@ -514,7 +514,13 @@ export async function markMemberANotificationsAllRead(
 ): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
   const uid = userId.trim();
   const markEvents = opts?.markEvents ?? markCanonicalMemberANotificationEventsRead;
-  const eventUpdated = await markEvents(sb, uid);
+  let eventUpdated: number;
+  try {
+    eventUpdated = await markEvents(sb, uid);
+  } catch {
+    // NOTIF-04: a failed mark-all must not be reported as success.
+    return { ok: false, error: "mark_all_failed" };
+  }
   invalidateNotificationUnreadCountCache(uid);
   invalidateNotificationBadgeCache(uid);
   return aggregateMemberAMarkAllUpdated(0, eventUpdated);
@@ -550,7 +556,7 @@ export async function markCanonicalMemberANotificationEventsRead(
     .eq("user_id", uid)
     .in("id", idsToMark)
     .select("id");
-  if (uErr) return 0;
+  if (uErr) throw new Error(`notification_events_mark_all_failed: ${uErr.message}`);
   const count = updated?.length ?? 0;
 
   const idSet = new Set(idsToMark);

@@ -27,6 +27,7 @@ import {
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 import {
   fetchNotificationEventsForInbox,
+  NotificationInboxLoadError,
 } from "@/lib/notifications/inbox-events-merge";
 import { loadMemberNotificationAUnreadCount } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
 import {
@@ -398,7 +399,16 @@ export async function GET(req: NextRequest) {
     ownerStoreId: ownerStoreId || undefined,
   };
 
-  const eventRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts);
+  let eventRows: Awaited<ReturnType<typeof fetchNotificationEventsForInbox>>;
+  try {
+    eventRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts);
+  } catch (e) {
+    if (e instanceof NotificationInboxLoadError) {
+      // NOTIF-01: honest failure; consumers render ERROR (not EMPTY) and keep prior rows.
+      return NextResponse.json({ ok: false, error: "load_failed" }, { status: 503 });
+    }
+    throw e;
+  }
 
   let notifications = eventRows;
   if (explicitPage) {
