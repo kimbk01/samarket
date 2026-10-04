@@ -45,7 +45,9 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
 
   it("preserves Support ≠ Messenger and reply≠resolve contracts", () => {
     const svc = read("lib/support/support-case-service.ts");
-    expect(svc).toContain('patch.status = "WAITING_USER"');
+    // Phase 2 (DEF-05): reply→WAITING_USER now lives in the atomic support_append_message RPC.
+    expect(svc).toContain('sb.rpc("support_append_message"');
+    expect(read("supabase/migrations/20270415120000_support_audit_phase2_atomic_append.sql")).toContain("SET status = 'WAITING_USER'");
     expect(svc).toContain("adminReplySupportCase");
     expect(svc).toContain("adminUpdateSupportCaseStatus");
     expect(svc).toContain("closeAfter");

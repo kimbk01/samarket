@@ -55,7 +55,8 @@ describe("support identity / case SSOT contract", () => {
 
   it("support messages sender_type set server-side", () => {
     const svc = readRepo("lib/support/support-case-service.ts");
-    expect(svc).toContain('sender_type: senderType');
+    // Phase 2 (DEF-05): sender_type is passed to the atomic RPC, still derived server-side.
+    expect(svc).toContain("p_sender_type: senderType");
     expect(svc).not.toMatch(/sender_type.*req\.body/);
   });
 
