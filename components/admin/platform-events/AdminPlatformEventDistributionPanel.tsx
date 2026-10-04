@@ -152,6 +152,10 @@ export function AdminPlatformEventDistributionPanel({
     Partial<Record<"popup" | "banner" | "push" | "bell", string>>
   >({});
   const [pushTitle, setPushTitle] = useState("");
+  /** EVENT-02: last saved Push config — "Push 보내기" is disabled while edits are unsaved. */
+  const [savedPush, setSavedPush] = useState<{ enabled: boolean; title: string; body: string } | null>(
+    null
+  );
   const [pushBody, setPushBody] = useState("");
   const [bellTitle, setBellTitle] = useState("");
   const [bellBody, setBellBody] = useState("");
@@ -291,6 +295,8 @@ export function AdminPlatformEventDistributionPanel({
       let nextPopupStatus: string | null = null;
       let nextPushRef: string | null = null;
       let nextBellRef: string | null = null;
+      let nextSavedPushTitle = "";
+      let nextSavedPushBody = "";
       for (const row of json.rows ?? []) {
         const cfg = row.config ?? {};
         const ch = row.channel as "popup" | "banner" | "push" | "bell";
@@ -300,6 +306,8 @@ export function AdminPlatformEventDistributionPanel({
         if (row.channel === "push") {
           setPushTitle(String(cfg.title ?? ""));
           setPushBody(String(cfg.body ?? ""));
+          nextSavedPushTitle = String(cfg.title ?? "");
+          nextSavedPushBody = String(cfg.body ?? "");
           nextPushRef = row.channelRefId ? String(row.channelRefId) : null;
         }
         if (row.channel === "bell") {
@@ -328,6 +336,11 @@ export function AdminPlatformEventDistributionPanel({
       setPopupChannelRefId(nextPopupRef);
       setPopupDistStatus(nextPopupStatus);
       setPushChannelRefId(nextPushRef);
+      setSavedPush({
+        enabled: Boolean(json.toggles?.push),
+        title: nextSavedPushTitle,
+        body: nextSavedPushBody,
+      });
       setBellChannelRefId(nextBellRef);
       setChannelStatuses(nextStatuses);
     } catch {
@@ -478,6 +491,12 @@ export function AdminPlatformEventDistributionPanel({
     load,
     safeT,
   ]);
+
+  const pushHasUnsavedChanges =
+    savedPush == null ||
+    savedPush.enabled !== toggles.push ||
+    savedPush.title !== pushTitle ||
+    savedPush.body !== pushBody;
 
   const requestPushSend = useCallback(async () => {
     setError(null);
@@ -1031,7 +1050,7 @@ export function AdminPlatformEventDistributionPanel({
             </div>
             <AdminActionButton
               variant="danger"
-              disabled={saving}
+              disabled={saving || pushHasUnsavedChanges}
               onClick={() => void requestPushSend()}
               data-admin-push-send="1"
             >
@@ -1040,6 +1059,14 @@ export function AdminPlatformEventDistributionPanel({
                 fallbackEn: "Send Push",
               })}
             </AdminActionButton>
+            {pushHasUnsavedChanges ? (
+              <p className="text-xs text-sam-muted" data-admin-push-unsaved="1">
+                {safeT("admin_platform_events_push_save_first", {
+                  fallbackKo: "변경 내용을 먼저 저장해야 Push를 보낼 수 있습니다.",
+                  fallbackEn: "Save your changes before sending Push.",
+                })}
+              </p>
+            ) : null}
           </div>
         ) : (
           <p className="ml-6 text-xs text-sam-muted" data-admin-push-off="1">
