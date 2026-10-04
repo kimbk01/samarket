@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolvePlatformEventAvailability } from "@/lib/platform-events/publication";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import { normalizeEventBannerPresentation } from "@/lib/platform-promotion-distribution/banner-presentation";
 import { mapPromotionDistributionDbRow } from "@/lib/platform-promotion-distribution/map-row";
@@ -51,5 +52,28 @@ export async function loadActiveEventHeroBanners(
       href: buildPlatformEventDetailPath(eventId),
     });
   }
-  return out;
+  if (out.length === 0) return out;
+
+  // Same publication SSOT as Event Detail / send eligibility: only active (published, in period) Events.
+  const eventIds = [...new Set(out.map((item) => item.eventId))];
+  const { data: events, error: eventsError } = await sb
+    .from("platform_events")
+    .select("id, status, starts_at, ends_at")
+    .in("id", eventIds);
+  if (eventsError) throw new Error(eventsError.message);
+  const activeEventIds = new Set<string>();
+  for (const ev of (events ?? []) as {
+    id: string;
+    status?: string | null;
+    starts_at?: string | null;
+    ends_at?: string | null;
+  }[]) {
+    const availability = resolvePlatformEventAvailability({
+      status: ev.status,
+      startsAt: ev.starts_at,
+      endsAt: ev.ends_at,
+    });
+    if (availability === "active") activeEventIds.add(String(ev.id));
+  }
+  return out.filter((item) => activeEventIds.has(item.eventId));
 }
