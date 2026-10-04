@@ -11,6 +11,10 @@ import type { CampaignSendMode } from "@/lib/admin/notification-campaigns/campai
 import { computeNextRecurrenceScheduledFor } from "@/lib/admin/notification-campaigns/campaign-recurrence";
 import type { CampaignChannel } from "@/lib/admin/notification-campaigns/campaign-types";
 import { ensureCampaignTargetsForSelectedUsers } from "@/lib/admin/notification-campaigns/run-campaign-send-batch";
+import {
+  normalizeSelectedUserIds,
+  readSelectedUserIdsFromPayload,
+} from "@/lib/admin/notification-campaigns/selected-user-ids";
 
 export type CreateCampaignInput = {
   title: string;
@@ -42,31 +46,6 @@ export type CreateCampaignInput = {
 function readCreateRequestId(existing: string | null | undefined): string | null {
   const v = existing?.trim();
   return v ? v.slice(0, 128) : null;
-}
-
-/** DEF-03: selected_users draft/send reads persisted IDs from target_payload.selected_user_ids. */
-export function readSelectedUserIdsFromPayload(payload: unknown): string[] {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
-  const raw = (payload as Record<string, unknown>).selected_user_ids;
-  if (!Array.isArray(raw)) return [];
-  return [
-    ...new Set(
-      raw
-        .map((x) => String(x ?? "").trim())
-        .filter((id) => id.length > 0)
-    ),
-  ].slice(0, 5000);
-}
-
-export function normalizeSelectedUserIds(ids: string[] | undefined | null): string[] {
-  if (!Array.isArray(ids)) return [];
-  return [
-    ...new Set(
-      ids
-        .map((x) => String(x ?? "").trim())
-        .filter((id) => id.length > 0)
-    ),
-  ].slice(0, 5000);
 }
 
 export async function findCampaignByCreateRequestId(

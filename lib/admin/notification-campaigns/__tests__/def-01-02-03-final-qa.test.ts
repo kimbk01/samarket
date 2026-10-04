@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   normalizeSelectedUserIds,
   readSelectedUserIdsFromPayload,
-} from "@/lib/admin/notification-campaigns/campaign-create-service";
+} from "@/lib/admin/notification-campaigns/selected-user-ids";
 import { resolveCampaignSentCountAggregate } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 
 const sendCampaignToUser = vi.fn();

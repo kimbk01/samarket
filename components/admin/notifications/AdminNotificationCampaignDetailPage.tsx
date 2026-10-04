@@ -12,7 +12,7 @@ import {
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
 import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
-import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/campaign-create-service";
+import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import {
   BOARD_LABEL,
   parseCustomerCenterContentType,
