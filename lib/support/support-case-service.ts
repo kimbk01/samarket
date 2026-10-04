@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
@@ -403,18 +404,8 @@ export async function openSupportCaseFromContext(
     },
   });
 
-  await notifySupportEvent(sb, {
-    userId: input.userId,
-    type: "support_case_created",
-    title: `문의 ${publicCaseNo}`,
-    body: subject,
-    caseId: created.id,
-    publicCaseNo,
-    audience: norm.audience,
-    storeId: norm.ownerStoreId ?? null,
-    dedupeKey: `support_case_created:${created.id}`,
-    actorUserId: input.userId,
-  });
+  // Phase 3 A5 — no self-notification on case creation (legacy parity: the requester is
+  // looking at the conversation already). Admins learn via support_messages Realtime (A1).
 
   return {
     ok: true,
@@ -858,7 +849,8 @@ export async function adminUpdateSupportCaseStatus(
       userId: gate.case.requester_user_id,
       type: "support_case_resolved",
       title: `문의 ${gate.case.public_case_no} 종료`,
-      body: gate.case.subject,
+      // Phase 3 A5 — fixed copy; `subject` is an internal "CATEGORY · surface" token.
+      body: "상담이 종료되었습니다.",
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,
@@ -896,20 +888,7 @@ export async function adminAssignSupportCase(
     payload: { assigned_admin_id: input.assigneeAdminId },
   });
 
-  if (input.assigneeAdminId) {
-    await notifySupportEvent(sb, {
-      userId: gate.case.requester_user_id,
-      type: "support_case_assigned",
-      title: `문의 ${gate.case.public_case_no}`,
-      body: "담당자가 배정되었습니다.",
-      caseId: gate.case.id,
-      publicCaseNo: gate.case.public_case_no,
-      audience: gate.case.audience,
-      storeId: gate.case.owner_store_id,
-      dedupeKey: `support_case_assigned:${gate.case.id}:${input.assigneeAdminId}`,
-      actorUserId: input.adminUserId,
-    });
-  }
+  // Phase 3 A5 / Owner decision D2 — assignment is internal; no customer notification.
 
   return { ok: true, case: data as SupportCaseRow };
 }
@@ -980,18 +959,21 @@ export async function reopenSupportCase(
     payload: {},
   });
 
-  await notifySupportEvent(sb, {
-    userId: gate.case.requester_user_id,
-    type: "support_case_reopened",
-    title: `문의 ${gate.case.public_case_no} 재오픈`,
-    body: gate.case.subject,
-    caseId: gate.case.id,
-    publicCaseNo: gate.case.public_case_no,
-    audience: gate.case.audience,
-    storeId: gate.case.owner_store_id,
-    dedupeKey: `support_case_reopened:${gate.case.id}:${now}`,
-    actorUserId: input.userId,
-  });
+  // Phase 3 A5 — notify only when someone else (admin) reopened it; never self-notify.
+  if (input.userId !== gate.case.requester_user_id) {
+    await notifySupportEvent(sb, {
+      userId: gate.case.requester_user_id,
+      type: "support_case_reopened",
+      title: `문의 ${gate.case.public_case_no} 재오픈`,
+      body: "상담이 다시 열렸습니다.",
+      caseId: gate.case.id,
+      publicCaseNo: gate.case.public_case_no,
+      audience: gate.case.audience,
+      storeId: gate.case.owner_store_id,
+      dedupeKey: `support_case_reopened:${gate.case.id}:${now}`,
+      actorUserId: input.userId,
+    });
+  }
 
   return { ok: true, case: data as SupportCaseRow };
 }
@@ -1017,6 +999,38 @@ export async function markSupportCaseReadForRequester(
     .eq("id", input.caseId);
   if (error) return { ok: false, error: error.message };
   return { ok: true, wrote: true };
+}
+
+/**
+ * Phase 3 A3 — bell/app-icon read sync. Opening a case marks this viewer's unread
+ * `support_*` notification_events for the same case read (same write shape as the legacy
+ * `markMemberAdminNoteNotificationsRead`). Separate from the case-counter mark-read above:
+ * touches only notification_events, so no support_cases UPDATE → Realtime self-loop.
+ */
+export async function markSupportCaseNotificationsRead(
+  sb: SupabaseClient,
+  input: { userId: string; caseId: string }
+): Promise<number> {
+  const uid = input.userId.trim();
+  const caseId = input.caseId.trim();
+  if (!uid || !caseId) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .eq("unread", true)
+    .is("read_at", null)
+    .like("type", "support_%")
+    .eq("display_payload->>supportCaseId", caseId)
+    .select("id");
+  if (error) {
+    console.warn("[support] notification_read_sync_failed", { caseId, error: error.message });
+    return 0;
+  }
+  const count = data?.length ?? 0;
+  if (count > 0) invalidateNotificationBadgeCache(uid);
+  return count;
 }
 
 /**

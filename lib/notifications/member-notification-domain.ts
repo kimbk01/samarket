@@ -65,9 +65,11 @@ export function classifyMemberNotificationDomain(
   const event = norm(row.event_type) || norm(row.type);
 
   // Inquiry / direct message are Customer Center threads — never system/notice campaign domains.
+  // Phase 3 A2 — Support Center (support_*) = same Customer Center thread rule as legacy inquiry.
   if (
     event === "inquiry_answered" ||
     event === "inbox_message_received" ||
+    event.startsWith("support_") ||
     hasAny(tokens, ["inquiry_answered", "inbox_message_received", "member_admin_note"])
   ) {
     return null;

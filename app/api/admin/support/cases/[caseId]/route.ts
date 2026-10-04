@@ -10,6 +10,7 @@ import {
   enrichSupportCasesForAdminDisplay,
   getSupportCaseForAdmin,
   listSupportMessages,
+  markSupportCaseNotificationsRead,
   markSupportCaseReadForAdmin,
   reopenSupportCase,
 } from "@/lib/support/support-case-service";
@@ -40,6 +41,9 @@ export async function GET(
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
   await markSupportCaseReadForAdmin(sb, caseId);
+  // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
+  const viewer = await requireAuthenticatedUserId();
+  if (viewer.ok) await markSupportCaseNotificationsRead(sb, { userId: viewer.userId, caseId });
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.
   const [displayCase] = await enrichSupportCasesForAdminDisplay(sb, [gate.case]);

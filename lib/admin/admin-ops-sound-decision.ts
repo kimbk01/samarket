@@ -51,15 +51,17 @@ export function shouldPlayAdminOpsSound(input: {
   const oldStatus = rowStatus(input.oldRow);
   const newStatus = rowStatus(input.newRow);
 
+  // Phase 3 A1 — Support awareness source is the customer's PUBLIC message, not the case row.
+  // support_cases UPDATE old row is PK-only under Realtime, so status transitions are unjudgeable.
+  if (table === "support_cases") return false;
+  if (table === "support_messages") {
+    if (eventType !== "INSERT") return false;
+    const sender = String(input.newRow?.sender_type ?? "").trim();
+    const messageType = String(input.newRow?.message_type ?? "").trim();
+    return (sender === "MEMBER" || sender === "OWNER") && messageType === "PUBLIC";
+  }
+
   if (eventType === "UPDATE") {
-    if (table === "support_cases") {
-      const was =
-        oldStatus === "OPEN" || oldStatus === "WAITING_ADMIN";
-      const now =
-        newStatus === "OPEN" || newStatus === "WAITING_ADMIN";
-      // Reopen / customer reply → admin must act again
-      return !was && now;
-    }
     if (table === "stores") {
       const wasActionable = isAdminActionableStoreApproval(oldStatus);
       const nowActionable = isAdminActionableStoreApproval(newStatus);
@@ -85,9 +87,6 @@ export function shouldPlayAdminOpsSound(input: {
 
   if (eventType !== "INSERT") return false;
 
-  if (table === "support_cases") {
-    return newStatus === "OPEN" || newStatus === "WAITING_ADMIN" || !newStatus;
-  }
   if (table === "stores") {
     return isAdminActionableStoreApproval(newStatus);
   }

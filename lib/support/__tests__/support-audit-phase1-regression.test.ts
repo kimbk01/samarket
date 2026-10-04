@@ -8,12 +8,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const notifyCalls: { type: string; userId: string; dedupeKey: string }[] = [];
+const notifyCalls: { type: string; userId: string; dedupeKey: string; body?: string }[] = [];
 
 vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
   createAndDispatchNotificationEvent: vi.fn(
-    async (_sb: unknown, input: { type: string; userId: string; dedupeKey: string }) => {
-      notifyCalls.push({ type: input.type, userId: input.userId, dedupeKey: input.dedupeKey });
+    async (
+      _sb: unknown,
+      input: { type: string; userId: string; dedupeKey: string; body?: string }
+    ) => {
+      notifyCalls.push({
+        type: input.type,
+        userId: input.userId,
+        dedupeKey: input.dedupeKey,
+        body: input.body,
+      });
       return { ok: true, row: { id: "n" } };
     }
   ),
@@ -24,10 +32,12 @@ vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
 }));
 
 import {
+  adminAssignSupportCase,
   adminReplySupportCase,
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
   listSupportCasesForAdmin,
+  markSupportCaseNotificationsRead,
   openSupportCaseFromContext,
   reopenSupportCase,
 } from "@/lib/support/support-case-service";
@@ -48,6 +58,7 @@ function makeDb(seed: Record<string, Row[]> = {}) {
     support_sessions: [],
     support_case_events: [],
     support_guidance_entries: [],
+    notification_events: [],
     profiles: [],
     stores: [],
     ...seed,
@@ -121,7 +132,18 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         return b;
       },
       eq: (c: string, v: unknown) => {
-        st.filters.push((r) => r[c] === v);
+        const [col, path] = c.split("->>");
+        st.filters.push((r) =>
+          path ? (r[col] as Record<string, unknown> | null)?.[path] === v : r[c] === v
+        );
+        return b;
+      },
+      like: (c: string, pattern: string) => {
+        // Only trailing-% prefix patterns are used by the services under test.
+        const prefix = pattern.endsWith("%") ? pattern.slice(0, -1) : pattern;
+        st.filters.push((r) =>
+          pattern.endsWith("%") ? String(r[c] ?? "").startsWith(prefix) : String(r[c] ?? "") === prefix
+        );
         return b;
       },
       is: (c: string, v: unknown) => {
@@ -409,5 +431,55 @@ describe("support audit phase 1 — regression lock", () => {
     const bodies = db.support_messages.map((m) => m.body);
     expect(bodies).toContain("same-1");
     expect(bodies).toContain("same-2");
+  });
+
+  it("Phase 3 A5: recipients — no self/assign notifications, fixed bodies, admin-only reopen notice", async () => {
+    const { sb } = makeDb();
+    notifyCalls.length = 0;
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    expect(notifyCalls.map((n) => n.type)).not.toContain("support_case_created");
+
+    await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: ADMIN });
+    expect(notifyCalls.map((n) => n.type)).not.toContain("support_case_assigned");
+
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    const resolved = notifyCalls.find((n) => n.type === "support_case_resolved");
+    expect(resolved?.userId).toBe(U);
+    expect(resolved?.body).toBe("상담이 종료되었습니다.");
+
+    notifyCalls.length = 0;
+    const byAdmin = await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    expect(byAdmin.ok).toBe(true);
+    const reopened = notifyCalls.filter((n) => n.type === "support_case_reopened");
+    expect(reopened).toHaveLength(1);
+    expect(reopened[0].userId).toBe(U);
+    expect(reopened[0].body).toBe("상담이 다시 열렸습니다.");
+
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    notifyCalls.length = 0;
+    const bySelf = await reopenSupportCase(sb, { userId: U, caseId: a.case.id });
+    expect(bySelf.ok).toBe(true);
+    expect(notifyCalls.filter((n) => n.type === "support_case_reopened")).toHaveLength(0);
+    // No notification body may carry the internal "CATEGORY · surface" subject token.
+    for (const n of notifyCalls) expect(n.body ?? "").not.toMatch(/ · mypage_/);
+  });
+
+  it("Phase 3 A3: opening a case clears only that viewer's unread support rows for that case", async () => {
+    const OTHER_CASE = "33333333-3333-4333-8333-333333333333";
+    const { db, sb } = makeDb({
+      notification_events: [
+        { id: "n1", user_id: U, type: "support_admin_replied", unread: true, read_at: null, display_payload: { supportCaseId: "C1" } },
+        { id: "n2", user_id: U, type: "support_case_resolved", unread: true, read_at: null, display_payload: { supportCaseId: "C1" } },
+        { id: "n3", user_id: U, type: "support_admin_replied", unread: true, read_at: null, display_payload: { supportCaseId: OTHER_CASE } },
+        { id: "n4", user_id: ADMIN, type: "support_customer_replied", unread: true, read_at: null, display_payload: { supportCaseId: "C1" } },
+        { id: "n5", user_id: U, type: "order_status", unread: true, read_at: null, display_payload: { supportCaseId: "C1" } },
+      ],
+    });
+    const n = await markSupportCaseNotificationsRead(sb, { userId: U, caseId: "C1" });
+    expect(n).toBe(2);
+    const unreadIds = db.notification_events.filter((r) => r.unread === true).map((r) => r.id);
+    expect(unreadIds.sort()).toEqual(["n3", "n4", "n5"]);
+    expect(await markSupportCaseNotificationsRead(sb, { userId: U, caseId: "C1" })).toBe(0);
   });
 });
