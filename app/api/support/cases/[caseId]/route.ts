@@ -4,6 +4,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import {
   getSupportCaseForUser,
   listSupportMessages,
+  markSupportCaseNotificationsRead,
   markSupportCaseReadForRequester,
   postRequesterSupportMessage,
   reopenSupportCase,
@@ -33,7 +34,17 @@ export async function GET(
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
   await markSupportCaseReadForRequester(sb, { userId: auth.userId, caseId });
-  return NextResponse.json({ ok: true, case: gate.case, messages: messages.messages });
+  // Phase 3 A3 — reading the case also clears its bell rows for this requester.
+  const notificationsRead = await markSupportCaseNotificationsRead(sb, {
+    userId: auth.userId,
+    caseId,
+  });
+  return NextResponse.json({
+    ok: true,
+    case: gate.case,
+    messages: messages.messages,
+    notificationsRead,
+  });
 }
 
 export async function POST(

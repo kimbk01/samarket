@@ -77,6 +77,9 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: row.created_at,
     meta: {
+      // Phase 3 A4 — support pushes carry their canonical event type so the preference gate
+      // resolves the registry row (support_* → notice) instead of safe_fallback (order).
+      ...(row.type.startsWith("support_") ? { event_type: row.type } : {}),
       kind: legacyKind || (communityPushType ? "community_comment" : row.type),
       category: row.category,
       room_id: roomId,

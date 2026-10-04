@@ -243,6 +243,10 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   if (type === "inquiry_answered" || type === "inbox_message_received") {
     return "admin_notice";
   }
+  // Phase 3 A2 — Support Center events present like legacy inquiry (was "unsupported" → excluded).
+  if (type.startsWith("support_")) {
+    return "admin_notice";
+  }
   // Phase 5 Slice 2 — Campaign notice/system; presentation via campaignType (legacy admin_notice dual-read kept).
   if (type === "notice_published") {
     const campaignType = trimText(payload?.campaignType).toLowerCase();

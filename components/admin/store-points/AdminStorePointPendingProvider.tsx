@@ -53,6 +53,7 @@ import {
   resolveAdminTradeReportHref,
 } from "@/lib/admin/admin-ops-deeplink";
 import { shouldPlayAdminOpsSound } from "@/lib/admin/admin-ops-sound-decision";
+import { supportAudienceLabel } from "@/lib/support/support-status-label";
 import {
   allowAdminOpsSoundAfterPreference,
   preferencesFromAdminOpsStorageRow,
@@ -186,7 +187,7 @@ export function useAdminStorePointPendingCount(): Ctx {
 export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
 
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
   const [cashChargePendingCount, setCashChargePendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
@@ -282,6 +283,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     },
     [adminOpsPreferences]
   );
+
+  const dismissAwarenessToast = useCallback(() => {
+    if (awarenessToastTimeoutRef.current) window.clearTimeout(awarenessToastTimeoutRef.current);
+    awarenessToastTimeoutRef.current = null;
+    setAwarenessToast(null);
+  }, []);
 
   const showAwarenessToast = useCallback((toast: AwarenessToast) => {
     setAwarenessToast(toast);
@@ -514,36 +521,58 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
   );
 
-  const markSupportCaseAlert = useCallback(
-    (caseId: string, meta?: { publicCaseNo?: string | null; audience?: string | null; subject?: string | null }) => {
-      const id = String(caseId ?? "").trim();
-      if (!id) return;
-      const audience = String(meta?.audience ?? "").toUpperCase() === "OWNER" ? "Owner" : "Member";
-      const caseNo = String(meta?.publicCaseNo ?? "").trim();
-      const subject = String(meta?.subject ?? "").trim().slice(0, 40);
-      const label = [
-        safeT("admin_support_case_toast_title", {
-          fallbackKo: "고객지원 문의",
-          fallbackEn: "Support inquiry",
-        }),
-        audience,
-        caseNo || null,
-        subject || null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      showAwarenessToast({
-        kind: "support_case",
-        requestId: id,
-        label,
-        href: `/admin/support/${encodeURIComponent(id)}`,
-      });
+  /**
+   * Phase 3 A1 — Support awareness = one toast + one sound per customer PUBLIC message
+   * (new case seed included). Trigger is `support_messages` INSERT, never `support_cases`
+   * UPDATE (Realtime old row carries only the PK → status "was/now" cannot be judged, so
+   * admin-side assign/priority/read/notes used to fire false toasts).
+   */
+  const markSupportMessageAlert = useCallback(
+    (message: { id: string; caseId: string; body: string | null }) => {
+      const messageId = String(message.id ?? "").trim();
+      const caseId = String(message.caseId ?? "").trim();
+      if (!messageId || !caseId) return;
+      const ko = language !== "en";
+      const preview = String(message.body ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+      void (async () => {
+        let caseNo = "";
+        let audience: string | null = null;
+        const sb = getSupabaseClient();
+        if (sb) {
+          // Read-only lookup (admin RLS select). Never the admin detail GET — that marks read.
+          const { data } = await sb
+            .from("support_cases")
+            .select("public_case_no, audience")
+            .eq("id", caseId)
+            .maybeSingle();
+          const row = data as { public_case_no?: string | null; audience?: string | null } | null;
+          caseNo = String(row?.public_case_no ?? "").trim();
+          audience = row?.audience ?? null;
+        }
+        const label = [
+          safeT("admin_support_case_toast_title", {
+            fallbackKo: "고객지원 문의",
+            fallbackEn: "Support inquiry",
+          }),
+          audience ? supportAudienceLabel(audience, ko) : null,
+          caseNo || null,
+          preview || null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        showAwarenessToast({
+          kind: "support_case",
+          requestId: caseId,
+          label,
+          href: `/admin/support/${encodeURIComponent(caseId)}`,
+        });
+      })();
       ingestAdminOpsSoundIfPrefAllowed({
-        sourceTable: "support_cases",
-        rowId: id,
+        sourceTable: "support_messages",
+        rowId: messageId,
       });
     },
-    [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
+    [language, safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
   );
 
   const seedPendingChargeRowsSilent = useCallback(async () => {
@@ -1213,23 +1242,25 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "support_cases" },
+          { event: "INSERT", schema: "public", table: "support_messages" },
           (payload) => {
             const row = rowAsRecord(payload.new);
             const id = String(row?.id ?? "").trim();
+            const caseId = String(row?.case_id ?? "").trim();
             if (
               id &&
+              caseId &&
               shouldPlayAdminOpsSound({
                 eventType: "INSERT",
-                sourceTable: "support_cases",
+                sourceTable: "support_messages",
                 newRow: row,
                 oldRow: null,
               })
             ) {
-              markSupportCaseAlert(id, {
-                publicCaseNo: typeof row?.public_case_no === "string" ? row.public_case_no : null,
-                audience: typeof row?.audience === "string" ? row.audience : null,
-                subject: typeof row?.subject === "string" ? row.subject : null,
+              markSupportMessageAlert({
+                id,
+                caseId,
+                body: typeof row?.body === "string" ? row.body : null,
               });
             }
             scheduleRefresh();
@@ -1237,28 +1268,15 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
+          { event: "INSERT", schema: "public", table: "support_cases" },
+          // Count refresh only — awareness comes from support_messages (A1).
+          () => scheduleRefresh()
+        )
+        .on(
+          "postgres_changes",
           { event: "UPDATE", schema: "public", table: "support_cases" },
-          (payload) => {
-            const newRow = rowAsRecord(payload.new);
-            const oldRow = rowAsRecord(payload.old);
-            const id = String(newRow?.id ?? oldRow?.id ?? "").trim();
-            if (
-              id &&
-              shouldPlayAdminOpsSound({
-                eventType: "UPDATE",
-                sourceTable: "support_cases",
-                newRow,
-                oldRow,
-              })
-            ) {
-              markSupportCaseAlert(id, {
-                publicCaseNo: typeof newRow?.public_case_no === "string" ? newRow.public_case_no : null,
-                audience: typeof newRow?.audience === "string" ? newRow.audience : null,
-                subject: typeof newRow?.subject === "string" ? newRow.subject : null,
-              });
-            }
-            scheduleRefresh();
-          }
+          // Count refresh only — UPDATE old row is PK-only, never a toast/sound source.
+          () => scheduleRefresh()
         )
         .on(
           "postgres_changes",
@@ -1325,6 +1343,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     markCommunityReportAlert,
     markStoreReportAlert,
     markStoreApplicationAlert,
+    markSupportMessageAlert,
     maybeIngestAdminOpsSound,
     ingestAdminOpsSoundIfPrefAllowed,
   ]);
@@ -1389,9 +1408,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   return (
     <AdminStorePointPendingContext.Provider value={value}>
       {awarenessToast ? (
+        <div className="fixed bottom-4 right-4 z-[60] flex max-w-sm items-start gap-2 rounded-ui-rect border border-sam-primary/40 bg-sam-surface px-4 py-3 text-sm font-medium text-sam-fg shadow-lg">
         <Link
           href={awarenessToast.href}
-          className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-ui-rect border border-sam-primary/40 bg-sam-surface px-4 py-3 text-sm font-medium text-sam-fg shadow-lg"
+          onClick={dismissAwarenessToast}
+          className="min-w-0 flex-1"
           role="status"
           data-testid={
             awarenessToast.kind === "member_point_charge"
@@ -1418,12 +1439,27 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         >
           <span className="block">{awarenessToast.label}</span>
           <span className="mt-1 block sam-text-helper text-sam-primary underline">
-            {safeT("admin_ops_awareness_toast_open", {
-              fallbackKo: "신청 상세 보기",
-              fallbackEn: "Open request",
-            })}
+            {awarenessToast.kind === "support_case"
+              ? safeT("admin_support_toast_open", {
+                  fallbackKo: "문의 열기",
+                  fallbackEn: "Open inquiry",
+                })
+              : safeT("admin_ops_awareness_toast_open", {
+                  fallbackKo: "신청 상세 보기",
+                  fallbackEn: "Open request",
+                })}
           </span>
         </Link>
+        <button
+          type="button"
+          onClick={dismissAwarenessToast}
+          className="shrink-0 rounded-full px-1 text-sam-muted hover:text-sam-fg"
+          aria-label={safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
+          data-testid="admin-awareness-toast-close"
+        >
+          ×
+        </button>
+        </div>
       ) : null}
       {children}
     </AdminStorePointPendingContext.Provider>

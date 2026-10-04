@@ -1,5 +1,7 @@
 "use client";
 
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import {
   useCallback,
   useEffect,
@@ -203,6 +205,7 @@ function SupportActiveConversation({
           case?: SupportCaseRow;
           messages?: SupportMessageRow[];
           error?: string;
+          notificationsRead?: number;
         };
         if (!res.ok || !json.ok || !json.case) {
           setError(
@@ -220,6 +223,11 @@ function SupportActiveConversation({
           return;
         }
         setSupportCase(json.case);
+        // Phase 3 A3 — server cleared this case's bell rows → let badge owners refetch.
+        if (Number(json.notificationsRead ?? 0) > 0 && typeof window !== "undefined") {
+          window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+          resyncBadgesAfterNotificationEventsRead("notification_opened");
+        }
         const nextMessages = json.messages ?? [];
         setMessages((prev) =>
           silent && sameSupportMessages(prev, nextMessages) ? prev : nextMessages

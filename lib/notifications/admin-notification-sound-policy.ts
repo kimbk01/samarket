@@ -22,6 +22,8 @@ const ACTIONABLE_TABLES = new Set([
   "member_admin_note_threads",
   "platform_admin_inquiries",
   "store_orders",
+  // Phase 3 A1 — customer PUBLIC message (new case seed + follow-ups); see admin-ops-sound-decision.
+  "support_messages",
 ]);
 
 export function classifyAdminSoundSource(sourceTable: string): AdminSoundClass {
