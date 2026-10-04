@@ -7,6 +7,7 @@ import {
   adminReplySupportCase,
   adminSetSupportCasePriority,
   adminUpdateSupportCaseStatus,
+  enrichSupportCasesForAdminDisplay,
   getSupportCaseForAdmin,
   listSupportMessages,
   markSupportCaseReadForAdmin,
@@ -39,7 +40,10 @@ export async function GET(
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
   await markSupportCaseReadForAdmin(sb, caseId);
-  return NextResponse.json({ ok: true, case: gate.case, messages: messages.messages });
+  // DEF-09: detail carries the same display-only identity fields as the queue, so the
+  // header keeps the member name when the case is not in the current filtered list.
+  const [displayCase] = await enrichSupportCasesForAdminDisplay(sb, [gate.case]);
+  return NextResponse.json({ ok: true, case: displayCase ?? gate.case, messages: messages.messages });
 }
 
 export async function PATCH(
