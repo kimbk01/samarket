@@ -300,7 +300,11 @@ export async function runNotificationCampaignSendBatch(
   return { ok: true, processed, sent, skipped, failed, done };
 }
 
-/** Test send to explicit user IDs (uses push_and_in_app behavior regardless of stored channel). */
+/**
+ * Test send to explicit user IDs.
+ * DEF-01: honor the campaign's stored channel. Only `test_only` forces push+in-app
+ * (normal send skips that channel entirely).
+ */
 export async function runNotificationCampaignTestSend(
   svc: SupabaseClient,
   campaignId: string,
@@ -331,9 +335,12 @@ export async function runNotificationCampaignTestSend(
   let skipped = 0;
   let failed = 0;
 
+  const forceChannel =
+    campaign.channel === "test_only" ? ("push_and_in_app" as const) : undefined;
+
   for (const userId of userIds) {
     const result = await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps, {
-      forceChannel: "push_and_in_app",
+      ...(forceChannel ? { forceChannel } : {}),
       skipDuplicateCheck: true,
     });
     if (result.sent) sent += 1;

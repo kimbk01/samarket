@@ -12,6 +12,7 @@ import {
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
 import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
+import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/campaign-create-service";
 import {
   BOARD_LABEL,
   parseCustomerCenterContentType,
@@ -252,12 +253,13 @@ export function AdminNotificationCampaignDetailPage() {
     }
   };
 
-  // EVENT-01/02: draft campaigns (incl. Event Push drafts) send from here — preview → confirm → send.
+  // EVENT-01/02 + DEF-03: draft send allowed for selected_users when selected_user_ids were persisted.
+  const draftSelectedUserIds = readSelectedUserIdsFromPayload(camp?.target_payload);
   const canSendDraft =
     String(camp?.status ?? "") === "draft" &&
     !isSending &&
-    String(camp?.target_type ?? "") !== "selected_users" &&
     String(camp?.channel ?? "") !== "test_only" &&
+    (String(camp?.target_type ?? "") !== "selected_users" || draftSelectedUserIds.length > 0) &&
     // Same guard as the server: a draft that already has a real occurrence was sent / is sending.
     !occurrences.some((o) => o.trigger_type !== "test");
 
@@ -275,6 +277,8 @@ export function AdminNotificationCampaignDetailPage() {
           channel: camp.channel,
           target_type: camp.target_type,
           segment_region_code: camp.segment_region_code ?? null,
+          target_user_ids:
+            String(camp.target_type ?? "") === "selected_users" ? draftSelectedUserIds : undefined,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -501,7 +505,18 @@ export function AdminNotificationCampaignDetailPage() {
               <p>
                 <span className="text-sam-muted">{t("admin_notif_label_target")}</span>{" "}
                 {notifTargetLabel(t, String(camp.target_type ?? ""))}
+                {String(camp.target_type ?? "") === "selected_users" ? (
+                  <span className="text-sam-muted">
+                    {" "}
+                    ({draftSelectedUserIds.length || Number(camp.target_count ?? 0)})
+                  </span>
+                ) : null}
               </p>
+              {String(camp.target_type ?? "") === "selected_users" && draftSelectedUserIds.length ? (
+                <p className="sm:col-span-2 break-all text-xs text-sam-muted">
+                  {draftSelectedUserIds.join(", ")}
+                </p>
+              ) : null}
               <p>
                 <span className="text-sam-muted">{t("admin_notif_label_send_mode")}</span>{" "}
                 {sendModeLabel(t, String(camp.send_mode ?? "immediate"))}

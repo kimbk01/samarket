@@ -44,6 +44,31 @@ function readCreateRequestId(existing: string | null | undefined): string | null
   return v ? v.slice(0, 128) : null;
 }
 
+/** DEF-03: selected_users draft/send reads persisted IDs from target_payload.selected_user_ids. */
+export function readSelectedUserIdsFromPayload(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const raw = (payload as Record<string, unknown>).selected_user_ids;
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw
+        .map((x) => String(x ?? "").trim())
+        .filter((id) => id.length > 0)
+    ),
+  ].slice(0, 5000);
+}
+
+export function normalizeSelectedUserIds(ids: string[] | undefined | null): string[] {
+  if (!Array.isArray(ids)) return [];
+  return [
+    ...new Set(
+      ids
+        .map((x) => String(x ?? "").trim())
+        .filter((id) => id.length > 0)
+    ),
+  ].slice(0, 5000);
+}
+
 export async function findCampaignByCreateRequestId(
   svc: SupabaseClient,
   createRequestId: string
@@ -100,6 +125,19 @@ export async function createAdminNotificationCampaign(
         ? "active"
         : "draft";
 
+  // DEF-03: persist selected_users on draft (and non-draft) so re-entry/send keep the same set.
+  const selectedUserIds =
+    input.target_type === "selected_users" ? normalizeSelectedUserIds(input.target_user_ids) : [];
+  const targetPayload: Record<string, unknown> = {
+    ...(input.target_payload && typeof input.target_payload === "object" && !Array.isArray(input.target_payload)
+      ? input.target_payload
+      : {}),
+  };
+  if (input.target_type === "selected_users") {
+    if (selectedUserIds.length) targetPayload.selected_user_ids = selectedUserIds;
+    else delete targetPayload.selected_user_ids;
+  }
+
   const insertRow = {
     title: input.title,
     body: input.body,
@@ -131,7 +169,8 @@ export async function createAdminNotificationCampaign(
     send_progress_offset: 0,
     priority: "normal",
     visibility_policy: "default",
-    target_payload: input.target_payload,
+    target_payload: targetPayload,
+    ...(selectedUserIds.length ? { target_count: selectedUserIds.length } : {}),
     updated_at: new Date().toISOString(),
   };
 
@@ -164,7 +203,7 @@ export async function createAdminNotificationCampaign(
     web_url: input.web_url,
     push_image_url: input.push_image_url,
     in_app_image_url: input.in_app_image_url,
-    target_payload: input.target_payload,
+    target_payload: targetPayload,
   });
 
   let occurrenceId: string | null = null;
@@ -175,7 +214,7 @@ export async function createAdminNotificationCampaign(
       target_type: input.target_type,
       channel: input.channel,
       segment_region_code: input.segment_region_code,
-      target_user_ids: input.target_user_ids,
+      target_user_ids: selectedUserIds.length ? selectedUserIds : input.target_user_ids,
     });
     const audienceSnapshot = audiencePreviewToSnapshot(preview, new Date().toISOString());
     const seq = 1;
@@ -219,13 +258,8 @@ export async function createAdminNotificationCampaign(
     }
     occurrenceId = ensured.occurrence.id;
 
-    if (input.target_type === "selected_users" && input.target_user_ids?.length && occurrenceId) {
-      await ensureCampaignTargetsForSelectedUsers(
-        svc,
-        campaignId,
-        occurrenceId,
-        input.target_user_ids.slice(0, 5000)
-      );
+    if (input.target_type === "selected_users" && selectedUserIds.length && occurrenceId) {
+      await ensureCampaignTargetsForSelectedUsers(svc, campaignId, occurrenceId, selectedUserIds);
     }
   }
 
@@ -321,8 +355,9 @@ export async function ensureDraftCampaignSendOccurrence(
     // test_only campaigns are sent only through the test-send endpoint.
     return { ok: false, error: "test_only_use_test_send_endpoint", status: 409 };
   }
-  if (String(row.target_type ?? "") === "selected_users") {
-    // Draft rows do not persist selected targets — sending would reach nobody / the wrong set.
+  const selectedUserIds = readSelectedUserIdsFromPayload(row.target_payload);
+  if (String(row.target_type ?? "") === "selected_users" && selectedUserIds.length === 0) {
+    // DEF-03: only reject when persisted selected_user_ids are missing.
     return { ok: false, error: "draft_selected_users_targets_missing", status: 409 };
   }
   // A campaign keeps status `draft` while its first real occurrence is sending (and legacy rows
@@ -359,6 +394,7 @@ export async function ensureDraftCampaignSendOccurrence(
     target_type: campaign.target_type,
     channel: campaign.channel as CampaignChannel,
     segment_region_code: str(row.segment_region_code),
+    target_user_ids: selectedUserIds.length ? selectedUserIds : undefined,
   });
   const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, input.campaignId);
   const ensured = await ensureCampaignOccurrence(svc, {
@@ -372,6 +408,14 @@ export async function ensureDraftCampaignSendOccurrence(
     audienceSnapshot: audiencePreviewToSnapshot(preview, new Date().toISOString()),
   });
   if (!ensured.ok) return { ok: false, error: ensured.error, status: 500 };
+  if (campaign.target_type === "selected_users" && selectedUserIds.length) {
+    await ensureCampaignTargetsForSelectedUsers(
+      svc,
+      input.campaignId,
+      ensured.occurrence.id,
+      selectedUserIds
+    );
+  }
   return { ok: true, occurrenceId: ensured.occurrence.id };
 }
 
