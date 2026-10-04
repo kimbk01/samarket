@@ -353,6 +353,7 @@ import {
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import {
   memberDisplayLabelFromRow,
   type MemberIdentityProfileFields,
@@ -12582,7 +12583,8 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
 }
 
 
-function notifyCommunityMessengerMessageRecipients(
+/** Exported for the NOTIF-03 contract test only. */
+export function notifyCommunityMessengerMessageRecipients(
   sb: SupabaseLike,
   args: {
     roomId: string;
@@ -12594,15 +12596,35 @@ function notifyCommunityMessengerMessageRecipients(
     hasMention?: boolean;
   }
 ): void {
-  void notifyMessagePipeline(sb, {
-    roomId: args.roomId,
-    messageId: args.messageId,
-    senderUserId: args.senderUserId,
-    preview: args.preview,
-    recipientUserIds: args.recipientUserIds,
-    directKey: args.directKey,
-    hasMention: args.hasMention,
-  }).catch(() => {});
+  void (async () => {
+    // NOTIF-03: same classification authority as the text path (stored chat_domain first,
+    // legacy room_type/direct_key fallback) so non-text messages get the room's event type.
+    let directKey = args.directKey ?? null;
+    let roomKind: ReturnType<typeof resolveNotificationMessageRoomKind> | undefined;
+    const { data: roomRow, error: roomErr } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("chat_domain, room_type, direct_key")
+      .eq("id", args.roomId)
+      .maybeSingle();
+    if (!roomErr && roomRow) {
+      if (!trimText(directKey)) directKey = trimText(roomRow.direct_key) || null;
+      roomKind = resolveNotificationMessageRoomKind({
+        chatDomain: typeof roomRow.chat_domain === "string" ? roomRow.chat_domain : null,
+        roomType: typeof roomRow.room_type === "string" ? roomRow.room_type : null,
+        directKey,
+      });
+    }
+    await notifyMessagePipeline(sb, {
+      roomId: args.roomId,
+      messageId: args.messageId,
+      senderUserId: args.senderUserId,
+      preview: args.preview,
+      recipientUserIds: args.recipientUserIds,
+      directKey,
+      hasMention: args.hasMention,
+      ...(roomKind ? { roomKind } : {}),
+    });
+  })().catch(() => {});
 }
 
 export async function upsertCommunityMessengerPresenceSnapshot(
