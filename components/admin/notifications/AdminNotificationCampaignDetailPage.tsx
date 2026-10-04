@@ -11,10 +11,16 @@ import {
   notifTargetLabel,
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
+import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
 import {
   BOARD_LABEL,
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
+
+function newSendIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 type CampaignSummary = {
   occurrence_id?: string;
@@ -106,6 +112,10 @@ export function AdminNotificationCampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [sendConfirm, setSendConfirm] = useState<{
+    audience: CampaignAudiencePreview;
+    idempotencyKey: string;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -236,6 +246,69 @@ export function AdminNotificationCampaignDetailPage() {
         setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
         return;
       }
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // EVENT-01/02: draft campaigns (incl. Event Push drafts) send from here — preview → confirm → send.
+  const canSendDraft =
+    String(camp?.status ?? "") === "draft" &&
+    !isSending &&
+    String(camp?.target_type ?? "") !== "selected_users";
+
+  const openSendConfirm = async () => {
+    if (busy || !camp) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/notification-campaigns/audience-preview", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: camp.type,
+          channel: camp.channel,
+          target_type: camp.target_type,
+          segment_region_code: camp.segment_region_code ?? null,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        audience?: CampaignAudiencePreview;
+        error?: string;
+      };
+      if (!res.ok || !j.ok || !j.audience) {
+        setErr(typeof j.error === "string" ? j.error : t("admin_notif_err_save"));
+        return;
+      }
+      setSendConfirm({ audience: j.audience, idempotencyKey: newSendIdempotencyKey() });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmSend = async () => {
+    if (busy || !sendConfirm) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/admin/notification-campaigns/${id}/send`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": sendConfirm.idempotencyKey,
+        },
+        body: JSON.stringify({ idempotency_key: sendConfirm.idempotencyKey }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j?.ok) {
+        setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
+        return;
+      }
+      setSendConfirm(null);
       await refresh();
     } finally {
       setBusy(false);
@@ -449,6 +522,59 @@ export function AdminNotificationCampaignDetailPage() {
           </section>
 
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
+
+          {canSendDraft ? (
+            <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+              {!sendConfirm ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void openSendConfirm()}
+                  className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
+                </button>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium text-sam-fg">
+                    {safeT("admin_notif_send_confirm_title", {
+                      fallbackKo: "아래 내용으로 발송합니다. 발송 후에는 취소할 수 없습니다.",
+                      fallbackEn: "This will be sent as shown. It cannot be undone after sending.",
+                    })}
+                  </p>
+                  <div className="rounded-ui-rect bg-sam-app px-3 py-2">
+                    <p className="break-words font-semibold text-sam-fg">{String(camp.title ?? "")}</p>
+                    <p className="whitespace-pre-wrap break-words text-sam-muted">{String(camp.body ?? "")}</p>
+                  </div>
+                  <p className="text-xs text-sam-muted">
+                    {t("admin_notif_detail_target_count")}: {sendConfirm.audience.totalUsers} ·{" "}
+                    {t("admin_notif_audience_push_users", { count: sendConfirm.audience.pushEligibleUsers })}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void confirmSend()}
+                      className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {safeT("admin_notif_btn_send_confirm", {
+                        fallbackKo: "확인 후 발송",
+                        fallbackEn: "Confirm and send",
+                      })}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setSendConfirm(null)}
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm"
+                    >
+                      {t("common_cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : null}
 
           {isSending ? (
             <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">

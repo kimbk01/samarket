@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminNotificationCampaign } from "@/lib/admin/notification-campaigns/campaign-create-service";
+import { updateUnsentDraftCampaignContent } from "@/lib/admin/notification-campaigns/campaign-draft-content";
 import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import {
@@ -291,10 +292,23 @@ async function materializePush(
     save_as_draft: true,
   });
   if (!created.ok) return { ok: false, error: created.error };
+  if (!created.replay) return { ok: true, channelRefId: created.campaignId, action: "created" };
+  // Replay: refresh the unsent draft with the saved content; sent campaigns are not changed.
+  const refreshed = await updateUnsentDraftCampaignContent(sb, created.campaignId, input.adminUserId, {
+    title: plan.title,
+    body: plan.body,
+    target_type: plan.targetType,
+    channel: "push_only",
+    deeplink_url: plan.deeplinkUrl,
+    web_url: plan.deeplinkUrl,
+    push_image_url: plan.imageUrl,
+    in_app_image_url: null,
+    target_payload: { platform_event_id: input.eventId },
+  });
   return {
     ok: true,
     channelRefId: created.campaignId,
-    action: created.replay || existingRef ? "updated" : "created",
+    action: refreshed.updated ? "updated" : "noop",
   };
 }
 
@@ -338,10 +352,23 @@ async function materializeBell(
     save_as_draft: true,
   });
   if (!created.ok) return { ok: false, error: created.error };
+  if (!created.replay) return { ok: true, channelRefId: created.campaignId, action: "created" };
+  // Replay: refresh the unsent draft with the saved content; sent campaigns are not changed.
+  const refreshed = await updateUnsentDraftCampaignContent(sb, created.campaignId, input.adminUserId, {
+    title: plan.title,
+    body: plan.body,
+    target_type: plan.targetType,
+    channel: "in_app_only",
+    deeplink_url: plan.deeplinkUrl,
+    web_url: plan.deeplinkUrl,
+    push_image_url: null,
+    in_app_image_url: plan.imageUrl,
+    target_payload: { platform_event_id: input.eventId },
+  });
   return {
     ok: true,
     channelRefId: created.campaignId,
-    action: created.replay || existingRef ? "updated" : "created",
+    action: refreshed.updated ? "updated" : "noop",
   };
 }
 

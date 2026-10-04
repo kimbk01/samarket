@@ -34,6 +34,9 @@ export const adminPointsNotificationsMessages = {
     admin_notif_content_id_required_hint:
       "notice/system/marketing 캠페인은 고객센터 콘텐츠를 연결하세요(알림 발송 CTA). 순수 transport 예외는 별도 증명 전 금지.",
     admin_notif_section_linked_content: "A. 연결 원본",
+    admin_notif_btn_send_draft: "발송하기",
+    admin_notif_send_confirm_title: "아래 내용으로 발송합니다. 발송 후에는 취소할 수 없습니다.",
+    admin_notif_btn_send_confirm: "확인 후 발송",
     admin_notif_section_delivery_copy: "B. 알림 문구",
     admin_notif_section_delivery_images: "C. 알림 이미지",
     admin_notif_section_send_policy: "D. 발송 정책",
@@ -484,6 +487,9 @@ export const adminPointsNotificationsMessages = {
     admin_notif_content_id_required_hint:
       "Link Customer Center content for notice/system/marketing (via Send notification CTA). Pure-transport exception needs proven callers.",
     admin_notif_section_linked_content: "A. Linked original",
+    admin_notif_btn_send_draft: "Send",
+    admin_notif_send_confirm_title: "This will be sent as shown. It cannot be undone after sending.",
+    admin_notif_btn_send_confirm: "Confirm and send",
     admin_notif_section_delivery_copy: "B. Delivery copy",
     admin_notif_section_delivery_images: "C. Delivery images",
     admin_notif_section_send_policy: "D. Send policy",

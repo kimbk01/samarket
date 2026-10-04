@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { resolveActiveOccurrenceForSend } from "@/lib/admin/notification-campaigns/campaign-create-service";
+import {
+  ensureDraftCampaignSendOccurrence,
+  resolveActiveOccurrenceForSend,
+} from "@/lib/admin/notification-campaigns/campaign-create-service";
 import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import {
   CAMPAIGN_CONTINUABLE_ERRORS,
@@ -126,11 +129,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     body = {};
   }
 
-  const occurrenceId = await resolveActiveOccurrenceForSend(
-    svc,
-    id,
-    typeof body.occurrence_id === "string" ? body.occurrence_id : null
-  );
+  const requestedOccurrenceId = typeof body.occurrence_id === "string" ? body.occurrence_id : null;
+  let occurrenceId = await resolveActiveOccurrenceForSend(svc, id, requestedOccurrenceId);
+  if (!occurrenceId && !requestedOccurrenceId?.trim()) {
+    // EVENT-01: draft campaigns get their first occurrence at send time (current content).
+    const draft = await ensureDraftCampaignSendOccurrence(svc, {
+      campaignId: id,
+      adminUserId: admin.userId,
+      idempotencyKey: readIdempotencyKey(req, body.idempotency_key) ?? `${id}:${admin.userId}`,
+    });
+    if (!draft.ok) {
+      return NextResponse.json({ ok: false, error: draft.error }, { status: draft.status });
+    }
+    occurrenceId = draft.occurrenceId;
+  }
   if (!occurrenceId) {
     return NextResponse.json({ ok: false, error: "occurrence_not_found" }, { status: 404 });
   }
