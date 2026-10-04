@@ -33,10 +33,13 @@ vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
 
 import {
   adminAssignSupportCase,
+  adminDeleteSupportMessage,
+  adminEditSupportMessage,
   adminReplySupportCase,
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
   listSupportCasesForAdmin,
+  listSupportMessages,
   markSupportCaseNotificationsRead,
   openSupportCaseFromContext,
   reopenSupportCase,
@@ -144,6 +147,10 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         st.filters.push((r) =>
           pattern.endsWith("%") ? String(r[c] ?? "").startsWith(prefix) : String(r[c] ?? "") === prefix
         );
+        return b;
+      },
+      lt: (c: string, v: unknown) => {
+        st.filters.push((r) => String(r[c] ?? "") < String(v));
         return b;
       },
       is: (c: string, v: unknown) => {
@@ -326,7 +333,9 @@ describe("support audit phase 1 — regression lock", () => {
     const ui = readFileSync(join(process.cwd(), "components/admin/support/AdminSupportPage.tsx"), "utf8");
     expect(route).toContain("isAdminSupportListFilter(filterRaw)");
     expect(route).not.toMatch(/new Set<AdminSupportListFilter>/);
-    expect(ui).toContain("ADMIN_SUPPORT_LIST_FILTERS.map");
+    // Console redesign: tabs render from ADMIN_SUPPORT_TABS; the API whitelists the same list.
+    expect(ui).toContain("ADMIN_SUPPORT_TABS.map");
+    expect(route).toContain("isAdminSupportTab(tabRaw)");
     const { db, sb } = makeDb();
     for (const status of ["OPEN", "WAITING_ADMIN", "WAITING_USER", "RESOLVED", "ARCHIVED"]) {
       db.support_cases.push({ id: randomUUID(), status, audience: "MEMBER", last_message_at: "2026-10-01" });
@@ -481,5 +490,113 @@ describe("support audit phase 1 — regression lock", () => {
     const unreadIds = db.notification_events.filter((r) => r.unread === true).map((r) => r.id);
     expect(unreadIds.sort()).toEqual(["n3", "n4", "n5"]);
     expect(await markSupportCaseNotificationsRead(sb, { userId: U, caseId: "C1" })).toBe(0);
+  });
+
+  it("Console: status tabs + category group + assignee + 24h filters", async () => {
+    const old = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    const now = new Date().toISOString();
+    const row = (id: string, status: string, category: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      public_case_no: id,
+      audience: "MEMBER",
+      requester_user_id: U,
+      owner_store_id: null,
+      category,
+      status,
+      priority: "NORMAL",
+      assigned_admin_id: null,
+      last_message_at: now,
+      ...extra,
+    });
+    const { sb } = makeDb({
+      support_cases: [
+        row("A1", "OPEN", "CASH_COIN", { last_message_at: old }),
+        row("A2", "WAITING_ADMIN", "ORDER", { assigned_admin_id: ADMIN }),
+        row("W1", "WAITING_USER", "SETTLEMENT"),
+        row("R1", "RESOLVED", "CASH_COIN"),
+        row("X1", "ARCHIVED", "OTHER"),
+      ],
+    });
+    const ids = async (q: Parameters<typeof listSupportCasesForAdmin>[1]) => {
+      const r = await listSupportCasesForAdmin(sb, q);
+      if (!r.ok) throw new Error(r.error);
+      return r.cases.map((c) => c.id).sort();
+    };
+    expect(await ids({ tab: "ACTIONABLE" })).toEqual(["A1", "A2"]);
+    expect(await ids({ tab: "WAITING_USER" })).toEqual(["W1"]);
+    expect(await ids({ tab: "RESOLVED" })).toEqual(["R1"]);
+    expect(await ids({ tab: "ARCHIVED" })).toEqual(["X1"]);
+    expect(await ids({ tab: "ALL" })).toHaveLength(5);
+    expect(await ids({ tab: "ALL", group: "FINANCE" })).toEqual(["A1", "R1", "W1"]);
+    expect(await ids({ tab: "ACTIONABLE", assignee: "ME", adminUserId: ADMIN })).toEqual(["A2"]);
+    expect(await ids({ tab: "ACTIONABLE", assignee: "UNASSIGNED" })).toEqual(["A1"]);
+    expect(await ids({ tab: "ACTIONABLE", stale: true })).toEqual(["A1"]);
+    // Legacy ?filter= links keep their old meaning when no tab is sent.
+    expect(await ids({ filter: "ACTIONABLE" })).toEqual(["A1", "A2"]);
+  });
+
+  it("Console: 보관 only from 종료; 보관 해제 is silent and keeps resolved_at", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const early = await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "ARCHIVED" });
+    expect(early).toEqual({ ok: false, error: "not_closed" });
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    const resolvedAt = db.support_cases[0].resolved_at;
+    expect(resolvedAt).toBeTruthy();
+    const arch = await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "ARCHIVED" });
+    expect(arch.ok).toBe(true);
+    expect(db.support_cases[0].status).toBe("ARCHIVED");
+    notifyCalls.length = 0;
+    const un = await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    expect(un.ok).toBe(true);
+    expect(db.support_cases[0].status).toBe("RESOLVED");
+    expect(db.support_cases[0].resolved_at).toBe(resolvedAt);
+    expect(db.support_cases[0].archived_at).toBeNull();
+    expect(notifyCalls).toHaveLength(0);
+  });
+
+  it("Console: admin edits/deletes only own message; customer sees it masked; audited", async () => {
+    const OTHER_ADMIN = "44444444-4444-4444-8444-444444444444";
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "첫 답변" });
+    if (!r.ok) throw new Error(r.error);
+    const msgId = r.message.id;
+
+    expect(
+      await adminEditSupportMessage(sb, { adminUserId: OTHER_ADMIN, caseId: a.case.id, messageId: msgId, body: "x" })
+    ).toEqual({ ok: false, error: "not_own_message" });
+
+    const ed = await adminEditSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: msgId, body: "고친 답변" });
+    expect(ed.ok).toBe(true);
+    const m = db.support_messages.find((x) => x.id === msgId)!;
+    expect(m.body).toBe("고친 답변");
+    expect(m.edited_at).toBeTruthy();
+    const editEvent = db.support_case_events.find((e) => e.event_type === "message_edited");
+    expect((editEvent?.payload as { previous_body?: string })?.previous_body).toBe("첫 답변");
+
+    // Customer message can never be edited by an admin.
+    const customerMsg = db.support_messages.find((x) => x.sender_type === "MEMBER")!;
+    expect(
+      (await adminEditSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: String(customerMsg.id), body: "x" })).ok
+    ).toBe(false);
+
+    const del = await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: msgId });
+    expect(del.ok).toBe(true);
+    expect(m.deleted_at).toBeTruthy();
+    expect(m.body).toBe("고친 답변"); // kept for audit
+    const customerView = await listSupportMessages(sb, { caseId: a.case.id });
+    if (!customerView.ok) throw new Error(customerView.error);
+    const masked = customerView.messages.find((x) => x.id === msgId)!;
+    expect(masked.body).toBe("");
+    expect(masked.deleted_at).toBeTruthy();
+    const adminView = await listSupportMessages(sb, { caseId: a.case.id, includeInternal: true });
+    if (!adminView.ok) throw new Error(adminView.error);
+    expect(adminView.messages.find((x) => x.id === msgId)!.body).toBe("고친 답변");
+    expect(
+      (await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: msgId })).ok
+    ).toBe(false);
   });
 });

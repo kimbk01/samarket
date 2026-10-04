@@ -4,6 +4,8 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   adminAssignSupportCase,
+  adminDeleteSupportMessage,
+  adminEditSupportMessage,
   adminReplySupportCase,
   adminSetSupportCasePriority,
   adminUpdateSupportCaseStatus,
@@ -73,6 +75,7 @@ export async function PATCH(
     assigneeAdminId?: string | null;
     internalNote?: boolean;
     closeAfter?: boolean;
+    messageId?: string;
   };
 
   if (body.action === "reply") {
@@ -135,6 +138,41 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
     return NextResponse.json({ ok: true, case: res.case });
+  }
+
+  // Console redesign — case management: 보관 / 보관 해제 (status ARCHIVED ↔ RESOLVED).
+  if (body.action === "archive" || body.action === "unarchive") {
+    const res = await adminUpdateSupportCaseStatus(sb, {
+      adminUserId: auth.userId,
+      caseId,
+      status: body.action === "archive" ? "ARCHIVED" : "RESOLVED",
+    });
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, case: res.case });
+  }
+
+  // Console redesign — admin edits / deletes own message (soft, audited).
+  if (body.action === "edit_message" || body.action === "delete_message") {
+    const messageId = String(body.messageId ?? "").trim();
+    if (!messageId) {
+      return NextResponse.json({ ok: false, error: "invalid_message" }, { status: 400 });
+    }
+    const res =
+      body.action === "edit_message"
+        ? await adminEditSupportMessage(sb, {
+            adminUserId: auth.userId,
+            caseId,
+            messageId,
+            body: String(body.body ?? ""),
+          })
+        : await adminDeleteSupportMessage(sb, { adminUserId: auth.userId, caseId, messageId });
+    if (!res.ok) {
+      const status = res.error === "not_own_message" ? 403 : res.error === "not_found" ? 404 : 400;
+      return NextResponse.json({ ok: false, error: res.error }, { status });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });

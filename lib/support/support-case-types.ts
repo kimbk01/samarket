@@ -33,6 +33,54 @@ export function isAdminSupportListFilter(value: string): value is AdminSupportLi
   return (ADMIN_SUPPORT_LIST_FILTERS as readonly string[]).includes(value);
 }
 
+/**
+ * Admin console status tabs SSOT (console redesign). Each tab = one status set; secondary
+ * filters (audience / category group / assignee / 24h+) narrow inside a tab.
+ */
+export const ADMIN_SUPPORT_TABS = ["ACTIONABLE", "WAITING_USER", "RESOLVED", "ARCHIVED", "ALL"] as const;
+export type AdminSupportTab = (typeof ADMIN_SUPPORT_TABS)[number];
+
+export const ADMIN_SUPPORT_TAB_STATUSES: Record<AdminSupportTab, readonly SupportCaseStatus[] | null> = {
+  ACTIONABLE: ["OPEN", "WAITING_ADMIN"],
+  WAITING_USER: ["WAITING_USER"],
+  RESOLVED: ["RESOLVED"],
+  ARCHIVED: ["ARCHIVED"],
+  ALL: null,
+};
+
+export function isAdminSupportTab(value: string): value is AdminSupportTab {
+  return (ADMIN_SUPPORT_TABS as readonly string[]).includes(value);
+}
+
+/** Legacy `?filter=` deep links (dashboard tiles, Action Center) → tab + secondary filter. */
+export function adminSupportTabFromLegacyFilter(filter: string | null | undefined): {
+  tab: AdminSupportTab;
+  audience: "MEMBER" | "OWNER" | null;
+  assignee: "UNASSIGNED" | null;
+} {
+  switch (String(filter ?? "").trim().toUpperCase()) {
+    case "ACTIONABLE":
+    case "WAITING_ADMIN":
+      return { tab: "ACTIONABLE", audience: null, assignee: null };
+    case "WAITING_USER":
+      return { tab: "WAITING_USER", audience: null, assignee: null };
+    case "RESOLVED":
+      return { tab: "RESOLVED", audience: null, assignee: null };
+    case "ARCHIVED":
+      return { tab: "ARCHIVED", audience: null, assignee: null };
+    case "MEMBER":
+      return { tab: "ACTIONABLE", audience: "MEMBER", assignee: null };
+    case "OWNER":
+      return { tab: "ACTIONABLE", audience: "OWNER", assignee: null };
+    case "UNASSIGNED":
+      return { tab: "ACTIONABLE", audience: null, assignee: "UNASSIGNED" };
+    case "ALL":
+      return { tab: "ALL", audience: null, assignee: null };
+    default:
+      return { tab: "ACTIONABLE", audience: null, assignee: null };
+  }
+}
+
 export const SUPPORT_CASE_PRIORITIES = ["NORMAL", "HIGH", "URGENT"] as const;
 export type SupportCasePriority = (typeof SUPPORT_CASE_PRIORITIES)[number];
 
@@ -87,6 +135,10 @@ export type SupportMessageRow = {
   message_type: SupportMessageType;
   body: string;
   created_at: string;
+  /** Admin edited own message (null/absent = never edited). */
+  edited_at?: string | null;
+  /** Admin deleted own message — customer API returns body "" with this set. */
+  deleted_at?: string | null;
 };
 
 export type SupportSessionRow = {

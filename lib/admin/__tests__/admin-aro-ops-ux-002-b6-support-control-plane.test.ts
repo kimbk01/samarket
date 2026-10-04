@@ -37,8 +37,11 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
 
   it("mounts on canonical /admin/support (no support-v2)", () => {
     const page = read("components/admin/support/AdminSupportPage.tsx");
-    expect(page).toContain("AdminSupportControlPlane");
-    expect(page.indexOf("<AdminSupportControlPlane")).toBeLessThan(page.indexOf("<AdminPageHeader"));
+    // Console redesign (Owner-approved 2026-10-05): the duplicated control-plane card sections
+    // are no longer mounted on the console — status tabs with counts replace them.
+    expect(page).not.toContain("<AdminSupportControlPlane");
+    expect(page).toContain("ADMIN_SUPPORT_TABS");
+    expect(page).toContain("data-admin-support-tab");
     expect(page).toContain("ACTIONABLE");
     expect(page).toContain("waitingAgeLabel");
     expect(existsSync(resolve(process.cwd(), "app/admin/support-v2"))).toBe(false);
