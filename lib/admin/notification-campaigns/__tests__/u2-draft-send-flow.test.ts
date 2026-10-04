@@ -40,6 +40,7 @@ function fakeSvc(handlers: {
   const calls: Array<{ table: string; op: string; args: unknown[] }> = [];
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {};
+    let awaitedLimit1 = false;
     const rec = (op: string) => (...args: unknown[]) => {
       calls.push({ table, op, args });
       return chain;
@@ -50,9 +51,8 @@ function fakeSvc(handlers: {
       if (table === "admin_notification_campaign_occurrences" && args[0] === 20) {
         return Promise.resolve({ data: handlers.occList ?? [], error: null });
       }
-      if (table === "admin_notification_campaign_occurrences" && args[0] === 1) {
-        return Promise.resolve({ data: handlers.realOccList ?? [], error: handlers.realOccError ?? null });
-      }
+      // `.limit(1)` that is awaited directly (no maybeSingle) = existing real occurrence probe.
+      if (table === "admin_notification_campaign_occurrences" && args[0] === 1) awaitedLimit1 = true;
       return chain;
     };
     chain.maybeSingle = async () => {
@@ -65,7 +65,11 @@ function fakeSvc(handlers: {
       return { data: handlers.occSingle ?? null, error: null };
     };
     chain.then = (resolve: (v: unknown) => void) =>
-      resolve(handlers.updateResult ?? { data: [], error: null });
+      resolve(
+        awaitedLimit1
+          ? { data: handlers.realOccList ?? [], error: handlers.realOccError ?? null }
+          : (handlers.updateResult ?? { data: [], error: null })
+      );
     return chain;
   });
   const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => ({
