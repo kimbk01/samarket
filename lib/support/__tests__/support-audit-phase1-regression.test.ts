@@ -37,6 +37,7 @@ import {
 } from "@/lib/support/support-case-types";
 import { loadSupportControlPlane } from "@/lib/admin/support-control-plane/load-support-control-plane";
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
+import type { SupportContext } from "@/lib/support/support-context";
 
 type Row = Record<string, unknown>;
 
@@ -160,9 +161,9 @@ function makeDb(seed: Record<string, Row[]> = {}) {
 
 const U = "11111111-1111-4111-8111-111111111111";
 const ADMIN = "22222222-2222-4222-8222-222222222222";
-const ctx = () => ({
-  enabled: true as const,
-  audience: "MEMBER" as const,
+const ctx = (): SupportContext => ({
+  enabled: true,
+  audience: "MEMBER",
   category: "ORDER",
   sourceSurface: "mypage_customer_center",
 });
