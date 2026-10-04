@@ -144,10 +144,13 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       },
       maybeSingle: async () => {
         const r = exec();
+        if (r.error) return { data: null, error: r.error };
         return { data: r.data[0] ?? null, error: null };
       },
       single: async () => {
         const r = exec();
+        // PostgREST surfaces the insert error (e.g. 23505) unchanged through .single().
+        if (r.error) return { data: null, error: r.error };
         return r.data[0]
           ? { data: r.data[0], error: null }
           : { data: null, error: { message: "no rows" } };
