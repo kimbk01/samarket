@@ -86,16 +86,36 @@ export async function loadSupportControlPlane(
 ): Promise<SupportControlPlaneModel> {
   const sectionErrors: string[] = [];
 
-  const { data, error } = await sb
-    .from("support_cases")
-    .select("*")
-    .order("last_message_at", { ascending: true })
-    .limit(120);
+  // DEF-04: active cases are read by status (never starved by old closed rows);
+  // recent rows (any status) are read separately for the recent/resolved panels.
+  const [activeRes, recentRes] = await Promise.all([
+    sb
+      .from("support_cases")
+      .select("*")
+      .in("status", ["OPEN", "WAITING_ADMIN", "WAITING_USER"])
+      .order("last_message_at", { ascending: true })
+      .limit(500),
+    sb
+      .from("support_cases")
+      .select("*")
+      .order("last_message_at", { ascending: false })
+      .limit(120),
+  ]);
+  const error = activeRes.error ?? recentRes.error;
 
   const unavailable = !!error && !isMissing(error);
   if (error && !isMissing(error)) sectionErrors.push(`support_cases:${error.message}`);
 
-  const rows = unavailable || isMissing(error) ? [] : ((data ?? []) as SupportCaseRow[]);
+  const byId = new Map<string, SupportCaseRow>();
+  if (!(unavailable || isMissing(error))) {
+    for (const r of [
+      ...((activeRes.data ?? []) as SupportCaseRow[]),
+      ...((recentRes.data ?? []) as SupportCaseRow[]),
+    ]) {
+      byId.set(r.id, r);
+    }
+  }
+  const rows = [...byId.values()];
   const mapped = rows.map(toRow);
 
   const actionable = mapped
