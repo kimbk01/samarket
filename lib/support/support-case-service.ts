@@ -21,7 +21,6 @@ import {
 } from "@/lib/support/support-reference-authority";
 import { validateSupportCategoryForOpen } from "@/lib/support/support-category-registry";
 import { assertSupportGuidanceForCaseOpen } from "@/lib/support/support-guidance-service";
-import { shouldStampFirstAdminResponseAt } from "@/lib/support/support-first-admin-response";
 import { assertSupportGenericHubCategoryPolicy } from "@/lib/support/support-generic-hub-policy";
 import type { SupportGuidanceOutcome } from "@/lib/support/support-guidance-authority";
 
@@ -233,31 +232,29 @@ export async function openSupportCaseFromContext(
     input.guidanceRevision == null ? null : Number(input.guidanceRevision);
   const guidanceOutcome = input.guidanceOutcome?.trim() || null;
 
-  let existingQuery = sb
-    .from("support_cases")
-    .select("*")
-    .eq("requester_user_id", input.userId)
-    .eq("audience", norm.audience)
-    .eq("category", cat.category)
-    .in("status", Array.from(ACTIVE_SUPPORT_CASE_STATUSES));
+  // Dedupe key = uq_support_cases_one_active_per_key (DEF-14). Built fresh per read.
+  const findActiveCase = () => {
+    let q = sb
+      .from("support_cases")
+      .select("*")
+      .eq("requester_user_id", input.userId)
+      .eq("audience", norm.audience)
+      .eq("category", cat.category)
+      .in("status", Array.from(ACTIVE_SUPPORT_CASE_STATUSES));
+    if (norm.audience === "OWNER") {
+      q = q.eq("owner_store_id", norm.ownerStoreId!);
+    } else {
+      q = q.is("owner_store_id", null);
+    }
+    if (norm.referenceType && norm.referenceId) {
+      q = q.eq("reference_type", norm.referenceType).eq("reference_id", norm.referenceId);
+    } else {
+      q = q.is("reference_type", null).is("reference_id", null);
+    }
+    return q.order("last_message_at", { ascending: false }).limit(1).maybeSingle();
+  };
 
-  if (norm.audience === "OWNER") {
-    existingQuery = existingQuery.eq("owner_store_id", norm.ownerStoreId!);
-  } else {
-    existingQuery = existingQuery.is("owner_store_id", null);
-  }
-  if (norm.referenceType && norm.referenceId) {
-    existingQuery = existingQuery
-      .eq("reference_type", norm.referenceType)
-      .eq("reference_id", norm.referenceId);
-  } else {
-    existingQuery = existingQuery.is("reference_type", null).is("reference_id", null);
-  }
-
-  const { data: existing, error: existingErr } = await existingQuery
-    .order("last_message_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: existing, error: existingErr } = await findActiveCase();
 
   if (existingErr) {
     if (isMissingSupportTable(existingErr.message ?? "")) {
@@ -266,7 +263,14 @@ export async function openSupportCaseFromContext(
     return { ok: false, error: existingErr.message };
   }
 
-  if (existing) {
+  // DEF-01/DEF-14: one path for "an active case already exists" — used by the dedupe
+  // query and by the unique-index race (23505) on insert.
+  const continueActiveCase = async (
+    existing: SupportCaseRow
+  ): Promise<
+    | { ok: true; case: SupportCaseRow; sessionId: string; created: boolean }
+    | { ok: false; error: string }
+  > => {
     const session = await ensureOpenSupportSession(sb, {
       caseId: existing.id,
       requesterUserId: input.userId,
@@ -275,7 +279,7 @@ export async function openSupportCaseFromContext(
     // DEF-01: dedupe reuses the active case, but the customer's newly typed text must be
     // kept — append it through the canonical requester write path (→ WAITING_ADMIN).
     const followUpText = (initialSummary ?? input.initialBody ?? "").trim();
-    let reusedCase = existing as SupportCaseRow;
+    let reusedCase = existing;
     if (followUpText) {
       const appended = await postRequesterSupportMessage(sb, {
         userId: input.userId,
@@ -295,7 +299,9 @@ export async function openSupportCaseFromContext(
       sessionId: session.sessionId,
       created: false,
     };
-  }
+  };
+
+  if (existing) return continueActiveCase(existing as SupportCaseRow);
 
   const now = new Date().toISOString();
   const publicCaseNo = await allocatePublicCaseNo(sb);
@@ -333,6 +339,11 @@ export async function openSupportCaseFromContext(
   if (createErr || !created) {
     if (isMissingSupportTable(createErr?.message ?? "")) {
       return { ok: false, error: "missing_table" };
+    }
+    // DEF-14: a concurrent open won the unique active-key index — continue that case.
+    if ((createErr as { code?: string } | null)?.code === "23505") {
+      const { data: raced } = await findActiveCase();
+      if (raced) return continueActiveCase(raced as SupportCaseRow);
     }
     return { ok: false, error: createErr?.message ?? "create_failed" };
   }
@@ -533,70 +544,27 @@ export async function appendSupportMessage(
     senderType = "MEMBER";
   }
 
-  const { data: message, error } = await sb
-    .from("support_messages")
-    .insert({
-      case_id: input.caseId,
-      sender_type: senderType,
-      sender_user_id: input.senderUserId ?? null,
-      sender_admin_id: input.senderAdminId ?? null,
-      message_type: input.messageType,
-      body,
-    })
-    .select("*")
-    .single();
+  // DEF-05 (Phase 2): message insert + case status/unread/first-response update run in ONE
+  // DB transaction (support_append_message). Transition rules are unchanged:
+  // ADMIN PUBLIC → WAITING_USER (+requester unread, first response stamped once);
+  // MEMBER/OWNER (non-seed) → WAITING_ADMIN (+admin unread); otherwise last_message_at only.
+  const { data: message, error } = await sb.rpc("support_append_message", {
+    p_case_id: input.caseId,
+    p_sender_type: senderType, // derived server-side above, never from the request body
+    p_sender_user_id: input.senderUserId ?? null,
+    p_sender_admin_id: input.senderAdminId ?? null,
+    p_message_type: input.messageType,
+    p_body: body,
+    p_system_seed: input.systemSeed === true,
+  });
 
   if (error || !message) {
-    return { ok: false, error: error?.message ?? "insert_failed" };
-  }
-
-  const now = new Date().toISOString();
-  const { data: caseRow } = await sb
-    .from("support_cases")
-    .select("*")
-    .eq("id", input.caseId)
-    .maybeSingle();
-
-  if (caseRow) {
-    const patch: Record<string, unknown> = {
-      last_message_at: now,
-      updated_at: now,
-    };
-    if (senderType === "ADMIN" && input.messageType === "PUBLIC") {
-      patch.status = "WAITING_USER";
-      patch.requester_unread_count = Number(caseRow.requester_unread_count ?? 0) + 1;
-      if (
-        shouldStampFirstAdminResponseAt({
-          existingFirstAdminResponseAt: caseRow.first_admin_response_at,
-          senderType,
-          messageType: input.messageType,
-        })
-      ) {
-        patch.first_admin_response_at = now;
-      }
-    } else if ((senderType === "MEMBER" || senderType === "OWNER") && !input.systemSeed) {
-      patch.status = "WAITING_ADMIN";
-      patch.admin_unread_count = Number(caseRow.admin_unread_count ?? 0) + 1;
-    }
-    const { error: caseUpdateErr } = await sb
-      .from("support_cases")
-      .update(patch)
-      .eq("id", input.caseId);
-    if (caseUpdateErr) {
-      // DEF-05 (Phase 1 observability only): message saved but case state not advanced.
-      // Atomic message+state write is Phase 2 (DB change, separate approval).
-      console.error("[support] case_state_update_failed", {
-        caseId: input.caseId,
-        senderType,
-        error: caseUpdateErr.message,
-      });
-    }
-  } else {
-    console.error("[support] case_state_update_failed", {
+    console.error("[support] append_message_failed", {
       caseId: input.caseId,
       senderType,
-      error: "case_row_missing_after_message_insert",
+      error: error?.message ?? "insert_failed",
     });
+    return { ok: false, error: error?.message ?? "insert_failed" };
   }
 
   return { ok: true, message: message as SupportMessageRow };
@@ -869,7 +837,14 @@ export async function adminUpdateSupportCaseStatus(
     .eq("id", input.caseId)
     .select("*")
     .single();
-  if (error || !data) return { ok: false, error: error?.message ?? "update_failed" };
+  if (error || !data) {
+    // DEF-14: moving a closed case back to active collides with another active case on the
+    // same key (customer already opened a new one) — surface a stable code.
+    if ((error as { code?: string } | null)?.code === "23505") {
+      return { ok: false, error: "active_case_exists" };
+    }
+    return { ok: false, error: error?.message ?? "update_failed" };
+  }
 
   await recordCaseEvent(sb, {
     caseId: input.caseId,
@@ -986,7 +961,12 @@ export async function reopenSupportCase(
     .eq("id", input.caseId)
     .select("*")
     .single();
-  if (error || !data) return { ok: false, error: error?.message ?? "reopen_failed" };
+  if (error || !data) {
+    if ((error as { code?: string } | null)?.code === "23505") {
+      return { ok: false, error: "active_case_exists" };
+    }
+    return { ok: false, error: error?.message ?? "reopen_failed" };
+  }
 
   await ensureOpenSupportSession(sb, {
     caseId: input.caseId,

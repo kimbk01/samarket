@@ -314,8 +314,14 @@ describe("PHASE 3-A support semantic authority", () => {
         messageType: "PUBLIC",
       })
     ).toBe(false);
-    const svc = readSrc("lib/support/support-case-service.ts");
-    expect(svc).toContain("shouldStampFirstAdminResponseAt");
+    // Phase 2 (DEF-05): the stamp is applied inside support_append_message, ADMIN+PUBLIC branch only.
+    const mig = readSrc("supabase/migrations/20270415120000_support_audit_phase2_atomic_append.sql");
+    const adminBranch = mig.slice(
+      mig.indexOf("IF p_sender_type = 'ADMIN' AND p_message_type = 'PUBLIC'"),
+      mig.indexOf("ELSIF p_sender_type IN ('MEMBER', 'OWNER')")
+    );
+    expect(adminBranch).toContain("first_admin_response_at = COALESCE(first_admin_response_at, v_now)");
+    expect(mig.slice(mig.indexOf("ELSIF p_sender_type IN"))).not.toContain("first_admin_response_at");
   });
 
   it("T14 internal note does not set first response", () => {

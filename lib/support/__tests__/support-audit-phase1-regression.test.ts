@@ -74,6 +74,15 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       return rows;
     };
     const exec = () => {
+      if (st.op === "insert" && table === "support_cases") {
+        // Emulates uq_support_cases_one_active_per_key (Phase 2, DEF-14).
+        const rows = Array.isArray(st.rows) ? st.rows : [st.rows as Row];
+        for (const r of rows) {
+          if (activeKeyTaken(r)) {
+            return { data: [] as Row[], error: { message: "duplicate key", code: "23505" } };
+          }
+        }
+      }
       if (st.op === "insert") {
         const ins = (Array.isArray(st.rows) ? st.rows : [st.rows as Row]).map((r) => {
           const base: Row = { id: randomUUID(), created_at: now() };
@@ -148,15 +157,62 @@ function makeDb(seed: Record<string, Row[]> = {}) {
     };
     return b;
   }
+  const ACTIVE = ["OPEN", "WAITING_ADMIN", "WAITING_USER"];
+  const keyOf = (r: Row) =>
+    [r.requester_user_id, r.audience, r.category, r.owner_store_id ?? "", r.reference_type ?? "", r.reference_id ?? ""].join("|");
+  function activeKeyTaken(r: Row) {
+    const status = (r.status as string) ?? "OPEN";
+    if (!ACTIVE.includes(status)) return false;
+    return db.support_cases.some((c) => ACTIVE.includes(c.status as string) && keyOf(c) === keyOf(r));
+  }
+  // Emulates support_append_message (Phase 2, DEF-05) — same SQL branch rules.
+  function appendRpc(a: Record<string, unknown>) {
+    const c = db.support_cases.find((x) => x.id === a.p_case_id);
+    if (!c) return { data: null, error: { message: "support_case_not_found" } };
+    const msg: Row = {
+      id: randomUUID(),
+      created_at: now(),
+      case_id: a.p_case_id,
+      sender_type: a.p_sender_type,
+      sender_user_id: a.p_sender_user_id,
+      sender_admin_id: a.p_sender_admin_id,
+      message_type: a.p_message_type,
+      body: a.p_body,
+    };
+    db.support_messages.push(msg);
+    const t = now();
+    if (a.p_sender_type === "ADMIN" && a.p_message_type === "PUBLIC") {
+      Object.assign(c, {
+        status: "WAITING_USER",
+        requester_unread_count: Number(c.requester_unread_count ?? 0) + 1,
+        first_admin_response_at: c.first_admin_response_at ?? t,
+        last_message_at: t,
+        updated_at: t,
+      });
+    } else if ((a.p_sender_type === "MEMBER" || a.p_sender_type === "OWNER") && !a.p_system_seed) {
+      Object.assign(c, {
+        status: "WAITING_ADMIN",
+        admin_unread_count: Number(c.admin_unread_count ?? 0) + 1,
+        last_message_at: t,
+        updated_at: t,
+      });
+    } else {
+      Object.assign(c, { last_message_at: t, updated_at: t });
+    }
+    return { data: msg, error: null };
+  }
   let seq = 100000;
+  const rpcCalls: string[] = [];
   const sb = {
     from: (t: string) => builder(t),
-    rpc: async (name: string) =>
-      name === "allocate_support_public_case_no"
-        ? { data: `SC-${++seq}`, error: null }
-        : { data: null, error: { message: `no rpc ${name}` } },
+    rpc: async (name: string, args: Record<string, unknown> = {}) => {
+      rpcCalls.push(name);
+      if (name === "allocate_support_public_case_no") return { data: `SC-${++seq}`, error: null };
+      if (name === "support_append_message") return appendRpc(args);
+      return { data: null, error: { message: `no rpc ${name}` } };
+    },
   };
-  return { db, sb: sb as never };
+  return { db, sb: sb as never, rpcCalls };
 }
 
 const U = "11111111-1111-4111-8111-111111111111";
@@ -320,5 +376,35 @@ describe("support audit phase 1 — regression lock", () => {
     expect(detail).toContain("enrichSupportCasesForAdminDisplay(sb, [gate.case])");
     const flow = readFileSync(join(process.cwd(), "components/support/SupportTriageFlow.tsx"), "utf8");
     expect(flow).toContain("initialBody: summary,");
+  });
+
+  it("Phase 2 DEF-05: messages and case state are written through one atomic RPC", async () => {
+    const { db, sb, rpcCalls } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const reply = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "r1" });
+    expect(reply.ok).toBe(true);
+    expect(rpcCalls.filter((n) => n === "support_append_message")).toHaveLength(2);
+    expect(db.support_cases[0].status).toBe("WAITING_USER");
+    expect(db.support_cases[0].requester_unread_count).toBe(1);
+    expect(db.support_cases[0].first_admin_response_at).toBeTruthy();
+    const svc = readFileSync(join(process.cwd(), "lib/support/support-case-service.ts"), "utf8");
+    const append = svc.slice(svc.indexOf("export async function appendSupportMessage"), svc.indexOf("export async function postRequesterSupportMessage"));
+    expect(append).not.toContain('.from("support_messages")');
+    expect(append).not.toContain('.from("support_cases")');
+  });
+
+  it("Phase 2 DEF-14: concurrent opens with the same key end in one active case", async () => {
+    const { db, sb } = makeDb();
+    const [x, y] = await Promise.all([
+      openStructured(sb, "ORDER_STATUS", "same-1"),
+      openStructured(sb, "ORDER_STATUS", "same-2"),
+    ]);
+    expect(x.ok && y.ok).toBe(true);
+    const active = db.support_cases.filter((c) => ["OPEN", "WAITING_ADMIN", "WAITING_USER"].includes(c.status as string));
+    expect(active).toHaveLength(1);
+    const bodies = db.support_messages.map((m) => m.body);
+    expect(bodies).toContain("same-1");
+    expect(bodies).toContain("same-2");
   });
 });
