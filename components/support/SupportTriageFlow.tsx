@@ -22,7 +22,6 @@ import {
   type SupportGuidanceEntryRow,
 } from "@/lib/support/support-guidance-authority";
 import {
-  buildShortTriageSeed,
   buildTriageOpenContext,
   initSupportTriageFromContext,
   supportTriageReducer,
@@ -201,7 +200,10 @@ export function SupportTriageFlow({
       guidanceRevision: state.guidance?.revision,
       guidanceOutcome: state.guidanceOutcome ?? undefined,
       explicitOtherSelection: state.explicitOtherSelection || undefined,
-      initialBody: buildShortTriageSeed(state.category, state.issueType),
+      // DEF-19/DEF-08: the first (seed) message is the customer's own words, not the raw
+      // "문의 접수 · CATEGORY · ISSUE" code string. Seed semantics (OPEN, no admin unread)
+      // are unchanged server-side.
+      initialBody: summary,
     });
   };
 
