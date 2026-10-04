@@ -256,7 +256,10 @@ export function AdminNotificationCampaignDetailPage() {
   const canSendDraft =
     String(camp?.status ?? "") === "draft" &&
     !isSending &&
-    String(camp?.target_type ?? "") !== "selected_users";
+    String(camp?.target_type ?? "") !== "selected_users" &&
+    String(camp?.channel ?? "") !== "test_only" &&
+    // Same guard as the server: a draft that already has a real occurrence was sent / is sending.
+    !occurrences.some((o) => o.trigger_type !== "test");
 
   const openSendConfirm = async () => {
     if (busy || !camp) return;

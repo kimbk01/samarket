@@ -348,6 +348,8 @@ export type CustomerCenterContentSendRow = {
   deleted_at?: string | null;
 };
 
+const CONTENT_ID_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Returns null when the row does not exist; throws on lookup (DB) failure. */
 export type CustomerCenterContentSendLookup = (
   contentId: string
@@ -383,7 +385,11 @@ export async function evaluateOfficialCampaignSendEligibility(
   if (!structural.ok) return structural;
   if (structural.mode === "content_bound" && lookupContent) {
     const contentId = trimStr(structural.content_id);
-    if (!contentId) return { ok: false, error: "content_source_missing" };
+    // app_notices.id is uuid: a malformed id can never resolve, so it is permanent
+    // (not a transient lookup failure that the cron would retry forever).
+    if (!contentId || !CONTENT_ID_UUID_RE.test(contentId)) {
+      return { ok: false, error: "content_source_missing" };
+    }
     let content: CustomerCenterContentSendRow | null;
     try {
       content = await lookupContent(contentId);

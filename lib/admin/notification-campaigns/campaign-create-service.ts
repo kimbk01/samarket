@@ -317,9 +317,26 @@ export async function ensureDraftCampaignSendOccurrence(
   if (!row || String(row.status ?? "") !== "draft") {
     return { ok: false, error: "occurrence_not_found", status: 404 };
   }
+  if (String(row.channel ?? "") === "test_only") {
+    // test_only campaigns are sent only through the test-send endpoint.
+    return { ok: false, error: "test_only_use_test_send_endpoint", status: 409 };
+  }
   if (String(row.target_type ?? "") === "selected_users") {
     // Draft rows do not persist selected targets — sending would reach nobody / the wrong set.
     return { ok: false, error: "draft_selected_users_targets_missing", status: 409 };
+  }
+  // A campaign keeps status `draft` while its first real occurrence is sending (and legacy rows
+  // stayed `draft` after sending). Any existing non-test occurrence means this campaign was
+  // already sent or is being sent — never open a second real occurrence (double send).
+  const { data: realOcc, error: realOccErr } = await svc
+    .from("admin_notification_campaign_occurrences")
+    .select("id")
+    .eq("campaign_id", input.campaignId)
+    .neq("trigger_type", "test")
+    .limit(1);
+  if (realOccErr) return { ok: false, error: "occurrence_lookup_failed", status: 503 };
+  if (Array.isArray(realOcc) && realOcc.length > 0) {
+    return { ok: false, error: "occurrence_already_exists", status: 409 };
   }
   const str = (v: unknown) => (typeof v === "string" ? v : null);
   const campaign = {

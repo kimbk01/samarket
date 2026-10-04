@@ -33,6 +33,9 @@ function fakeSvc(handlers: {
   nextSeq?: number;
   rpc?: (name: string, args: Record<string, unknown>) => unknown;
   updateResult?: { data: unknown; error: unknown };
+  /** existing non-test occurrence probe (`.neq("trigger_type","test").limit(1)`) */
+  realOccList?: unknown[];
+  realOccError?: unknown;
 }) {
   const calls: Array<{ table: string; op: string; args: unknown[] }> = [];
   const from = vi.fn((table: string) => {
@@ -46,6 +49,9 @@ function fakeSvc(handlers: {
       calls.push({ table, op: "limit", args });
       if (table === "admin_notification_campaign_occurrences" && args[0] === 20) {
         return Promise.resolve({ data: handlers.occList ?? [], error: null });
+      }
+      if (table === "admin_notification_campaign_occurrences" && args[0] === 1) {
+        return Promise.resolve({ data: handlers.realOccList ?? [], error: handlers.realOccError ?? null });
       }
       return chain;
     };
@@ -141,6 +147,31 @@ describe("EVENT-01 draft send occurrence", () => {
     const { svc, rpc } = fakeSvc({ campaign: { ...draft, target_type: "selected_users" } });
     const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k" });
     expect(r).toEqual({ ok: false, error: "draft_selected_users_targets_missing", status: 409 });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([["sending"], ["sent"], ["partially_failed"], ["cancelled"]])(
+    "draft with an existing real occurrence (%s) → 409, never a second real occurrence (no double send)",
+    async () => {
+      const { svc, rpc, calls } = fakeSvc({ campaign: draft, realOccList: [{ id: "o1" }] });
+      const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k2" });
+      expect(r).toEqual({ ok: false, error: "occurrence_already_exists", status: 409 });
+      expect(rpc).not.toHaveBeenCalled();
+      expect(calls.some((c) => c.op === "neq" && c.args[0] === "trigger_type" && c.args[1] === "test")).toBe(true);
+    }
+  );
+
+  it("existing-occurrence probe error → 503 (fail closed), no occurrence", async () => {
+    const { svc, rpc } = fakeSvc({ campaign: draft, realOccError: { message: "x" } });
+    const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k" });
+    expect(r).toEqual({ ok: false, error: "occurrence_lookup_failed", status: 503 });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("test_only draft → 409 (test-send endpoint only), no occurrence", async () => {
+    const { svc, rpc } = fakeSvc({ campaign: { ...draft, channel: "test_only" } });
+    const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k" });
+    expect(r).toEqual({ ok: false, error: "test_only_use_test_send_endpoint", status: 409 });
     expect(rpc).not.toHaveBeenCalled();
   });
 

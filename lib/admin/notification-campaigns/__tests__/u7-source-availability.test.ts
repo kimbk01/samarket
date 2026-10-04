@@ -9,9 +9,10 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { loadActiveEventHeroBanners } from "@/lib/platform-promotion-distribution/load-active-event-hero-banners";
 
+const NOTICE_ID = "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const NOTICE_ROW = {
   type: "notice",
-  target_payload: { appNoticeId: "n-1", content_type: "notice" },
+  target_payload: { appNoticeId: NOTICE_ID, content_type: "notice" },
 };
 const noEventLookup = async () => null;
 const DAY = 86_400_000;
@@ -32,7 +33,7 @@ describe("EVENT-06 content-bound send eligibility", () => {
     it(`${label} → ${expected ?? "ok"}`, async () => {
       const lookup = vi.fn(async () => content);
       const r = await evaluateOfficialCampaignSendEligibility(NOTICE_ROW, noEventLookup, lookup);
-      expect(lookup).toHaveBeenCalledWith("n-1");
+      expect(lookup).toHaveBeenCalledWith(NOTICE_ID);
       if (expected) {
         expect(r).toEqual({ ok: false, error: expected });
       } else {
@@ -47,6 +48,19 @@ describe("EVENT-06 content-bound send eligibility", () => {
       throw new Error("db down");
     });
     expect(r).toEqual({ ok: false, error: "content_source_lookup_failed" });
+  });
+
+  it("malformed (non-uuid) content id → content_source_missing without lookup (permanent, not retried)", async () => {
+    const lookup = vi.fn(async () => {
+      throw new Error("invalid input syntax for type uuid");
+    });
+    const r = await evaluateOfficialCampaignSendEligibility(
+      { type: "notice", target_payload: { appNoticeId: "n-1", content_type: "notice" } },
+      noEventLookup,
+      lookup
+    );
+    expect(r).toEqual({ ok: false, error: "content_source_missing" });
+    expect(lookup).not.toHaveBeenCalled();
   });
 
   it("test-send path (no content lookup) keeps current behavior", async () => {
