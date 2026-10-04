@@ -185,6 +185,8 @@ export default function NotificationDetailPage() {
       onBeforeNavigate: (resolvedHref) => {
         prewarmInboxNotificationChatHref(router, resolvedHref);
       },
+      // CTA-07: auto-forward replaces this intermediate entry — Back must not re-enter and re-forward.
+      navigationMode: "replace",
     });
   }, [ctaDestination?.kind, row, router]);
 

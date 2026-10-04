@@ -14,18 +14,26 @@ import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { PromotionCoordinationChannel } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
 
-type RouterLike = { push: (href: string) => void };
+type RouterLike = { push: (href: string) => void; replace?: (href: string) => void };
 
 /**
  * Resolve-first navigate.
  * - Stamps `from=notifications` so destination Back returns to Notification Center.
  * - Enter motion: path-matched session → `AppRouteTransition` bottom→top 440ms.
  */
-export function pushNotificationDestination(router: RouterLike, href: string): void {
+export function pushNotificationDestination(
+  router: RouterLike,
+  href: string,
+  mode: "push" | "replace" = "push"
+): void {
   const raw = String(href ?? "").trim();
   if (!raw) return;
   const target = withNotificationEntryFrom(raw);
   armNotificationDestinationEnterSession(target);
+  if (mode === "replace" && router.replace) {
+    router.replace(target);
+    return;
+  }
   router.push(target);
 }
 
@@ -60,6 +68,11 @@ export function activateNotificationDestination(input: {
   markRead?: (ids: string[]) => void | Promise<void | boolean>;
   /** Default BELL — inbox open. Pass PUSH for OS push open. */
   promotionOpenChannel?: Extract<PromotionCoordinationChannel, "PUSH" | "BELL">;
+  /**
+   * Default "push" (list taps keep the list in history). "replace" for auto-forward from an
+   * intermediate screen (notification detail) so Back does not land on it and re-forward.
+   */
+  navigationMode?: "push" | "replace";
 }): string {
   const dest = resolveNotificationDestination(input.resolveInput);
   const stamped = withNotificationEntryFrom(dest.href);
@@ -83,6 +96,6 @@ export function activateNotificationDestination(input: {
     dest.href,
     input.promotionOpenChannel === "PUSH" ? "PUSH" : "BELL"
   );
-  pushNotificationDestination(input.router, dest.href);
+  pushNotificationDestination(input.router, dest.href, input.navigationMode ?? "push");
   return stamped;
 }
