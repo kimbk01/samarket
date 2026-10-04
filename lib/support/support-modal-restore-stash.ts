@@ -20,3 +20,17 @@ export function consumeSupportModalRestoreCaseId(): string | null {
     return null;
   }
 }
+
+/**
+ * DEF-10 — user dismissed the Support sheet: drop the cold-start restore marker so a
+ * later reload / full navigation does not re-open a case the user already closed.
+ * Cold-start push restore is unaffected (the host consumes the marker on mount).
+ */
+export function clearSupportModalRestoreCaseId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(SUPPORT_MODAL_RESTORE_CASE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
