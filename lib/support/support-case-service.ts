@@ -92,12 +92,20 @@ async function recordCaseEvent(
     payload?: Record<string, unknown>;
   }
 ): Promise<void> {
-  await sb.from("support_case_events").insert({
+  const { error } = await sb.from("support_case_events").insert({
     case_id: input.caseId,
     event_type: input.eventType,
     actor_user_id: input.actorUserId ?? null,
     payload: input.payload ?? {},
   });
+  if (error) {
+    // DEF-05 (Phase 1 observability only): audit-trail write failure must be visible.
+    console.error("[support] case_event_insert_failed", {
+      caseId: input.caseId,
+      eventType: input.eventType,
+      error: error.message,
+    });
+  }
 }
 
 async function notifySupportEvent(
@@ -128,7 +136,7 @@ async function notifySupportEvent(
     (input.audience === "OWNER" && input.storeId
       ? `${buildSupportCaseRoute(input.caseId)}?storeId=${encodeURIComponent(input.storeId)}`
       : buildSupportCaseRoute(input.caseId));
-  await createAndDispatchNotificationEvent(sb, {
+  const notified = await createAndDispatchNotificationEvent(sb, {
     userId: input.userId,
     type: input.type,
     category: input.type === "support_admin_replied" ? "inquiry_answered" : "admin_notice",
@@ -146,6 +154,14 @@ async function notifySupportEvent(
     actorUserId: input.actorUserId,
     appState: "background",
   });
+  if (!notified.ok && !notified.duplicate) {
+    // DEF-05 (Phase 1 observability only): notification failure must not be silent.
+    console.error("[support] notification_failed", {
+      caseId: input.caseId,
+      type: input.type,
+      error: notified.error,
+    });
+  }
 }
 
 export async function openSupportCaseFromContext(
@@ -562,7 +578,25 @@ export async function appendSupportMessage(
       patch.status = "WAITING_ADMIN";
       patch.admin_unread_count = Number(caseRow.admin_unread_count ?? 0) + 1;
     }
-    await sb.from("support_cases").update(patch).eq("id", input.caseId);
+    const { error: caseUpdateErr } = await sb
+      .from("support_cases")
+      .update(patch)
+      .eq("id", input.caseId);
+    if (caseUpdateErr) {
+      // DEF-05 (Phase 1 observability only): message saved but case state not advanced.
+      // Atomic message+state write is Phase 2 (DB change, separate approval).
+      console.error("[support] case_state_update_failed", {
+        caseId: input.caseId,
+        senderType,
+        error: caseUpdateErr.message,
+      });
+    }
+  } else {
+    console.error("[support] case_state_update_failed", {
+      caseId: input.caseId,
+      senderType,
+      error: "case_row_missing_after_message_insert",
+    });
   }
 
   return { ok: true, message: message as SupportMessageRow };
