@@ -676,6 +676,14 @@ function mapRawNotificationEventRows(data: unknown[]): InboxNotificationRow[] {
  * Bell / NC inbox list loader.
  * Fills eligible visible rows after chat/owner exclude — not a single raw `limit(N)` cut.
  */
+/** NOTIF-01: list query failed before any row was loaded. */
+export class NotificationInboxLoadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotificationInboxLoadError";
+  }
+}
+
 export async function fetchNotificationEventsForInbox(
   sb: SupabaseClient,
   userId: string,
@@ -708,6 +716,8 @@ export async function fetchNotificationEventsForInbox(
         return filled;
       }
       console.warn("[fetchNotificationEventsForInbox]", error.message);
+      // NOTIF-01: nothing loaded → surface the failure (never disguise it as "no notifications").
+      if (filled.length === 0) throw new NotificationInboxLoadError(error.message);
       return filled;
     }
 
