@@ -46,6 +46,10 @@ function fakeSvc(handlers: {
       return chain;
     };
     for (const op of ["select", "eq", "neq", "in", "order", "update"]) chain[op] = rec(op);
+    chain.upsert = (...args: unknown[]) => {
+      calls.push({ table, op: "upsert", args });
+      return Promise.resolve({ data: [], error: null });
+    };
     chain.limit = (...args: unknown[]) => {
       calls.push({ table, op: "limit", args });
       if (table === "admin_notification_campaign_occurrences" && args[0] === 20) {
@@ -147,11 +151,29 @@ describe("EVENT-01 draft send occurrence", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("selected_users draft (targets not persisted) → 409, no occurrence", async () => {
-    const { svc, rpc } = fakeSvc({ campaign: { ...draft, target_type: "selected_users" } });
+  it("selected_users draft without selected_user_ids → 409, no occurrence", async () => {
+    const { svc, rpc } = fakeSvc({ campaign: { ...draft, target_type: "selected_users", target_payload: {} } });
     const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k" });
     expect(r).toEqual({ ok: false, error: "draft_selected_users_targets_missing", status: 409 });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("DEF-03: selected_users draft with selected_user_ids → occurrence + targets", async () => {
+    const { svc, rpc } = fakeSvc({
+      campaign: {
+        ...draft,
+        target_type: "selected_users",
+        target_payload: { selected_user_ids: ["u-qa-1"] },
+      },
+      nextSeq: 1,
+    });
+    const r = await ensureDraftCampaignSendOccurrence(svc, {
+      campaignId: "c1",
+      adminUserId: "a1",
+      idempotencyKey: "k-sel",
+    });
+    expect(r).toEqual({ ok: true, occurrenceId: "occ-new" });
+    expect(rpc).toHaveBeenCalled();
   });
 
   it.each([["sending"], ["sent"], ["partially_failed"], ["cancelled"]])(

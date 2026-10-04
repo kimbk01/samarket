@@ -106,7 +106,7 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
     expect(inserted).toHaveLength(0);
   });
 
-  it("notice with app_notice_id inserts content bind payload", async () => {
+  it("notice with app_notice_id inserts content bind + selected_user_ids", async () => {
     const inserted = mockInsertCapture();
     const { POST } = await import("@/app/api/admin/notification-campaigns/route");
     const contentId = "a8c5996e-3259-4622-810e-679597987cd8";
@@ -126,12 +126,15 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
       }) as never
     );
     expect(res.status).toBe(200);
+    // Content bind keys stay authoritative; selected_users audience is persisted alongside (DEF-03).
     expect(inserted[0]?.target_payload).toEqual({
       appNoticeId: contentId,
       content_id: contentId,
       content_type: "notice",
       canonical_route: `/mypage/customer-center/notice/${contentId}`,
+      selected_user_ids: ["u1"],
     });
+    expect(inserted[0]?.target_count).toBe(1);
   });
 
   it("marketing with approved landing and no content passes", async () => {

@@ -160,6 +160,16 @@ export async function refreshOccurrenceMetrics(
   }
 }
 
+/**
+ * DEF-02: campaign.sent_count must reflect successful delivery on either channel.
+ * in_app_only campaigns previously left sent_count=0 because only push_sent was written.
+ */
+export function resolveCampaignSentCountAggregate(pushSent: number, inAppSent: number): number {
+  const push = Number.isFinite(pushSent) ? Math.max(0, pushSent) : 0;
+  const inApp = Number.isFinite(inAppSent) ? Math.max(0, inAppSent) : 0;
+  return Math.max(push, inApp);
+}
+
 async function syncCampaignAggregateFromOccurrences(
   svc: SupabaseClient,
   campaignId: string,
@@ -173,7 +183,7 @@ async function syncCampaignAggregateFromOccurrences(
 ): Promise<void> {
   const { data: occRow } = await svc
     .from("admin_notification_campaign_occurrences")
-    .select("target_member_count, in_app_sent")
+    .select("target_member_count, in_app_sent, in_app_skipped, in_app_failed")
     .eq("campaign_id", campaignId)
     .order("sequence_number", { ascending: false })
     .limit(1)
@@ -186,13 +196,16 @@ async function syncCampaignAggregateFromOccurrences(
     .maybeSingle();
   // U1: recurring campaigns keep their lifecycle status (active/paused/ended) — scheduler depends on it.
   const isRecurring = String((campRow as { send_mode?: string } | null)?.send_mode ?? "") === "recurring";
+  const inAppSent = Number((occRow as { in_app_sent?: number } | null)?.in_app_sent ?? 0);
+  const inAppSkipped = Number((occRow as { in_app_skipped?: number } | null)?.in_app_skipped ?? 0);
+  const inAppFailed = Number((occRow as { in_app_failed?: number } | null)?.in_app_failed ?? 0);
 
   await svc
     .from("admin_notification_campaigns")
     .update({
-      sent_count: latest.push_sent,
-      skipped_count: latest.push_skipped,
-      failed_count: latest.push_failed,
+      sent_count: resolveCampaignSentCountAggregate(latest.push_sent, inAppSent),
+      skipped_count: Math.max(latest.push_skipped, inAppSkipped),
+      failed_count: Math.max(latest.push_failed, inAppFailed),
       target_count: (occRow as { target_member_count?: number } | null)?.target_member_count ?? 0,
       ...(isRecurring ? {} : { status: mapOccurrenceStatusToLegacyCampaignStatus(latest.status) }),
       sent_at: latest.completed_at,

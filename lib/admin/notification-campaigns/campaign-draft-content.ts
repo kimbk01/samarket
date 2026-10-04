@@ -47,6 +47,20 @@ async function updateUnsentDraft(
     .maybeSingle();
   if (occErr || realOcc) return { updated: false };
   const now = new Date().toISOString();
+  const selectedIds =
+    content.target_type === "selected_users" &&
+    content.target_payload &&
+    typeof content.target_payload === "object" &&
+    !Array.isArray(content.target_payload) &&
+    Array.isArray((content.target_payload as Record<string, unknown>).selected_user_ids)
+      ? [
+          ...new Set(
+            ((content.target_payload as Record<string, unknown>).selected_user_ids as unknown[])
+              .map((x) => String(x ?? "").trim())
+              .filter(Boolean)
+          ),
+        ].slice(0, 5000)
+      : [];
   const { data, error } = await svc
     .from("admin_notification_campaigns")
     .update({
@@ -61,6 +75,7 @@ async function updateUnsentDraft(
       push_image_url: content.push_image_url,
       in_app_image_url: content.in_app_image_url,
       target_payload: content.target_payload,
+      ...(content.target_type === "selected_users" ? { target_count: selectedIds.length } : {}),
       updated_by: adminUserId,
       updated_at: now,
     })
