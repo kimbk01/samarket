@@ -1,6 +1,6 @@
 # 고객문의 UI · CTA · 알림 SSOT 설계서 (Phase 3)
 
-- 작성: 2026-10-05 · 상태: **승인 대기** (승인 전 코드 변경 없음)
+- 작성: 2026-10-05 · 상태: **승인 완료 (3A+3B, D1=상단 배너, D2=배정 알림 제거)** · 구현: PR #27(3A), 3B PR
 - 기준 코드: `main` @ `8e7c3beb5` (Phase 1·2 배포 완료본)
 - 원칙: **화면 재설계 금지 · 기존 컴포넌트 유지 · 최소 수정 · 레거시 동등성 · 한 가지 사실은 한 곳(SSOT)에서만 정의**
 - 모든 "현재(As-Is)" 항목은 코드(file:line) 또는 운영 DB 조회로 확인한 사실만 기재. 추측 없음.
@@ -91,7 +91,7 @@ FAB 「고객센터」(허용 화면만, 뱃지 없음) ──▶ 시트(맥락 
                       │     ├ 섹션 「이전 1:1 문의」 (started_by=member)
                       │     └ 섹션 「이전 관리자 쪽지」 (started_by=admin)  ← 사장님 보관 탭과 같은 구조
                       ├ 포인트 / 충전 신청                            (변경 없음)
-/mypage/inbox ★ → /mypage/inquiries#inbox 로 이동 (옛 링크·옛 알림 호환)
+/mypage/inbox ★ → 같은 2섹션 화면을 열고 「이전 관리자 쪽지」 섹션으로 스크롤 (옛 링크·옛 알림 호환, 화면 깜빡임 없음)
 알림함 ★ support 알림 표시 → 탭 시 시트(상담) 열림, 상담을 읽으면 알림도 읽음 처리
 앱 사용 중 관리자 답변 ★ (결정 D1) 상단 인앱 배너 「DIBAY 고객센터 · 답변이 도착했어요」 → 탭 시 시트(상담)
 ```
@@ -168,7 +168,7 @@ FAB 「고객센터」(허용 화면만, 뱃지 없음) ──▶ 시트(맥락 
 | B1 (U2,U4) | `lib/support/support-status-label.ts` | 고객 라벨(현행 유지) + **관리자 라벨**(접수/답변 대기/사용자 답변 대기/종료/보관 — 기존 필터칩 문구 유지) + 역할(회원/사장님) + 우선순위(일반/높음/긴급)를 한 파일에서 정의. `AdminSupportPage`·`AdminSupportControlPlane`·토스트가 모두 여기서 읽음 |
 | B2 (U2) | 신규 `lib/support/support-error-label.ts` | 오류코드 → 문구 1곳: 401 로그인 필요 / forbidden·not_found 열 수 없음 / case_closed 종료된 문의 / network_error 네트워크 / 그 외 `common_content_unavailable`. 적용: `SupportModalHost.tsx:398,502`, `SupportTriageFlow.tsx:373,420`, `SupportCasesHistoryList.tsx:80`, `SupportCenterEnterClient` |
 | B3 (U2) | 신규 `lib/support/support-reference-label.ts` + i18n `support_ref_*` 13종 | `SUPPORT_REFERENCE_TYPES` → 「주문」「출금 신청」 등. 적용: `SupportTriageFlow.tsx:278,481`, 관리자 맥락 열 |
-| B4 (U1) | `MemberCsNoteListClient.tsx`, `/mypage/inbox` 페이지 | `/mypage/inquiries` = 2섹션(「이전 1:1 문의」·「이전 관리자 쪽지」, 사장님 보관 탭과 같은 문구·구조). `/mypage/inbox` → `/mypage/inquiries#inbox` redirect. 정의되지 않은 레거시 상태값은 영문 원문 대신 「확인 필요」 표시 |
+| B4 (U1) | `MemberCsNoteListClient.tsx`, `/mypage/inbox` 페이지 | `/mypage/inquiries` = 2섹션(「이전 1:1 문의」·「이전 관리자 쪽지」, 사장님 보관 탭과 같은 문구·구조). `/mypage/inbox` 도 같은 2섹션 화면(관리자 쪽지 섹션으로 스크롤). 정의되지 않은 레거시 상태값은 영문 원문 대신 「확인 필요」 표시 |
 | B5 | `SupportCasesHistoryList.tsx`, 허브 | 행 제목 폴백 `subject` → 카테고리 라벨. 허브 「상담 내역」 행 미읽음 숫자(기존 목록 API 재사용, 허브 진입 시 1회) |
 | B6 (U3) | `OwnerCustomerCareHubView.tsx`, `OwnerCustomerCenterView.tsx`, `customer-center/page.tsx` | 뱃지 출처를 OWNER 상담 미읽음 합으로 교체 (기존 `GET /api/support/cases?audience=OWNER&storeId`) |
 | B7 (U5) | `AdminSupportPage.tsx` | `support_messages` INSERT 구독 필터 제거 → 목록 300ms debounce 재조회, 상세는 `case_id === activeId` 일 때만. 검색 300ms debounce |
@@ -199,3 +199,15 @@ FAB 「고객센터」(허용 화면만, 뱃지 없음) ──▶ 시트(맥락 
 
 ## 5. 순서
 3A(알림) → 3B(라벨·리스트) → D1 → D4. 각 단계: 브랜치 → CI → 병합 → 운영 확인 → 다음 단계. 3C D3 는 별도 승인.
+
+## 6. 구현 기록
+
+| 단계 | 내용 | 검증 |
+|---|---|---|
+| 3A (PR #27) | A1~A5 | `support-phase3a-notification-contract.test.ts`, 회귀 테스트 A3/A5 |
+| 3B | B1~B10 + D1 | `support-phase3b-ui-ssot-contract.test.ts` |
+
+구현 중 확정 사항
+- B1 관리자 상태 문구는 기존 필터칩 문구(「사용자 답변 대기」) 유지, 「매장 Owner」 → 「사장님」, 관리자 페이지 설명의 「SSOT」 표기 제거.
+- B1 관제 카드 제목: 내부 토큰 `subject` 대신 고객 첫 문의 내용(`initial_summary`).
+- D1 배너는 메신저 배너와 같은 위치·토큰·4초 자동 닫힘. 고객이 그 상담을 이미 보고 있으면 띄우지 않음. 탭 → 시트(상담), 열면 A3 로 알림 읽음.

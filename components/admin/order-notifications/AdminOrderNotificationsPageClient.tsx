@@ -20,6 +20,7 @@ type BellPayload = {
     member_inquiry_open?: number;
     store_inquiry_open?: number;
     platform_inquiry_open?: number;
+    support_actionable?: number;
     community_reports?: number;
   };
 };
@@ -107,22 +108,18 @@ export function AdminOrderNotificationsPageClient() {
       titleEn: "Delivery operation alerts",
     },
     {
-      href: "/admin/member-notes?kind=inquiry",
-      count: c?.member_inquiry_open ?? 0,
-      titleKo: "회원 문의",
-      titleEn: "Member inquiries",
+      // B9 — Support Center SSOT (same count as the sidebar badge); replaces the legacy
+      // member/platform inquiry tiles that were hard-coded 0 and linked to the archive.
+      href: "/admin/support?filter=ACTIONABLE",
+      count: c?.support_actionable ?? 0,
+      titleKo: "고객지원 답변 필요",
+      titleEn: "Support waiting on admin",
     },
     {
       href: "/admin/store-inquiries",
       count: c?.store_inquiry_open ?? 0,
       titleKo: "매장 문의",
       titleEn: "Store inquiries",
-    },
-    {
-      href: "/admin/platform-inquiries",
-      count: c?.platform_inquiry_open ?? 0,
-      titleKo: "플랫폼 문의",
-      titleEn: "Platform inquiries",
     },
     {
       href: "/admin/community/reports",

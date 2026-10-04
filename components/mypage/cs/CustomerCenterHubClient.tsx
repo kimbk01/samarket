@@ -40,6 +40,7 @@ import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/custo
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
+import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 
 const BOARD_TABS: {
   type: CustomerCenterContentType;
@@ -57,6 +58,8 @@ type HubEntry = {
   titleKey: MessageKey;
   icon: ReactNode;
   accessory?: string;
+  /** B5 — unread pill (support_cases.requester_unread_count sum). */
+  badge?: number;
 };
 
 function HubRow({
@@ -64,12 +67,14 @@ function HubRow({
   title,
   icon,
   accessory,
+  badge,
   first,
 }: {
   href: string;
   title: string;
   icon: ReactNode;
   accessory?: string;
+  badge?: number;
   first?: boolean;
 }) {
   return (
@@ -81,6 +86,14 @@ function HubRow({
     >
       <span className={CC_ICON_WELL_CLASS}>{icon}</span>
       <span className={`min-w-0 flex-1 ${CC_HEADER_CLASS}`}>{title}</span>
+      {badge && badge > 0 ? (
+        <span
+          className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sam-primary px-1.5 text-[11px] font-semibold text-white"
+          data-support-hub-unread={badge}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
       {accessory ? (
         <span className={`shrink-0 tabular-nums ${CC_NOTE_CLASS}`}>{accessory}</span>
       ) : null}
@@ -98,6 +111,7 @@ const MEMBER_CC_CONTEXT = DISABLED_SUPPORT_CONTEXT;
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
   const { balance, loading } = useUserPointBalance();
+  const supportUnread = useSupportRequesterUnread({ audience: "MEMBER" });
   const pointsAccessory = loading ? "…" : balance.toLocaleString(language === "ko" ? "ko-KR" : "en-US");
 
   const greeting = safeT("mypage_cs_hub_greeting", {
@@ -112,6 +126,7 @@ export function CustomerCenterHubClient() {
       titleKo: "상담 내역",
       titleEn: "Support history",
       icon: <MessageSquare className="h-5 w-5" aria-hidden />,
+      badge: supportUnread,
     },
     {
       href: customerCenterChildHref("/mypage/inquiries"),
@@ -204,6 +219,7 @@ export function CustomerCenterHubClient() {
                   })}
                   icon={entry.icon}
                   accessory={entry.accessory}
+                  badge={entry.badge}
                 />
               ))}
             </section>

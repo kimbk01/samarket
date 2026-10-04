@@ -7,6 +7,7 @@ import { routeNotificationInsertSound } from "@/lib/notifications/notification-s
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import { applyOwnerCommerceNotificationInvalidate } from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
+import { pushSupportInAppNoticeFromRealtimeRow } from "@/lib/support/support-in-app-notice";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
 const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
@@ -66,6 +67,8 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       route: "NotificationsBadgeRealtimeBridge",
       reason: "owner_commerce_notification_insert",
     });
+    // Support D1 — requester support events show the in-app banner (foreground only).
+    pushSupportInAppNoticeFromRealtimeRow(row);
     return routeNotificationInsertSound(row);
   }, []);
 

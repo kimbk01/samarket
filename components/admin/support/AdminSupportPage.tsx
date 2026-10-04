@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -15,7 +15,17 @@ import {
   type SupportMessageRow,
 } from "@/lib/support/support-case-types";
 import type { SupportCaseAdminDisplayRow } from "@/lib/support/support-case-service";
-import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
+import {
+  supportAdminStatusLabel,
+  supportAudienceLabel,
+  supportPriorityLabel,
+} from "@/lib/support/support-status-label";
+import {
+  supportCategoryLabel,
+  supportErrorLabel,
+  supportIssueLabel,
+  supportReferenceLabel,
+} from "@/lib/support/support-display-labels";
 import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
 import { AdminSupportControlPlane } from "@/components/admin/support/AdminSupportControlPlane";
 
@@ -24,7 +34,7 @@ const FILTER_LABELS: Record<AdminSupportListFilter, { labelKo: string; labelEn: 
   ALL: { labelKo: "전체", labelEn: "All" },
   ACTIONABLE: { labelKo: "답변 필요", labelEn: "Actionable" },
   MEMBER: { labelKo: "회원", labelEn: "Member" },
-  OWNER: { labelKo: "매장 Owner", labelEn: "Owner" },
+  OWNER: { labelKo: "사장님", labelEn: "Owner" },
   UNASSIGNED: { labelKo: "미배정", labelEn: "Unassigned" },
   WAITING_ADMIN: { labelKo: "답변 대기", labelEn: "Waiting admin" },
   WAITING_USER: { labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
@@ -34,43 +44,8 @@ const FILTER_LABELS: Record<AdminSupportListFilter, { labelKo: string; labelEn: 
 const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] =
   ADMIN_SUPPORT_LIST_FILTERS.map((id) => ({ id, ...FILTER_LABELS[id] }));
 
-const PRIORITIES: { id: SupportCasePriority; labelKo: string; labelEn: string }[] = [
-  { id: "NORMAL", labelKo: "일반", labelEn: "Normal" },
-  { id: "HIGH", labelKo: "높음", labelEn: "High" },
-  { id: "URGENT", labelKo: "긴급", labelEn: "Urgent" },
-];
-
-function humanizeToken(raw: string | null | undefined): string {
-  const s = (raw ?? "").trim();
-  if (!s) return "—";
-  return s
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
-    .join(" ");
-}
-
-function roleLabel(audience: "MEMBER" | "OWNER", ko: boolean): string {
-  if (audience === "OWNER") return ko ? "사장님" : "Owner";
-  return ko ? "회원" : "Member";
-}
-
-function statusLabel(status: string, ko: boolean): string {
-  switch (status) {
-    case "WAITING_ADMIN":
-      return ko ? "답변 대기" : "Waiting admin";
-    case "WAITING_USER":
-      return ko ? "사용자 답변 대기" : "Waiting user";
-    case "RESOLVED":
-      return ko ? "종료" : "Resolved";
-    case "ARCHIVED":
-      return ko ? "보관" : "Archived";
-    case "OPEN":
-      return ko ? "접수" : "Open";
-    default:
-      return humanizeToken(status);
-  }
-}
+/** Labels come from support-status-label SSOT (B1). */
+const PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH", "URGENT"];
 
 function waitingAgeLabel(iso: string, ko: boolean): string {
   const t = new Date(iso).getTime();
@@ -93,6 +68,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     FILTERS.some((f) => f.id === filterParam) ? filterParam : "ALL"
   );
   const [search, setSearch] = useState(searchParam);
+  /** B7 — the query actually sent; typing settles 300ms first, button/Enter apply at once. */
+  const [appliedSearch, setAppliedSearch] = useState(searchParam);
   const [cases, setCases] = useState<SupportCaseAdminDisplayRow[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
@@ -112,7 +89,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     try {
       const qs = new URLSearchParams();
       if (filter !== "ALL") qs.set("filter", filter);
-      if (search.trim()) qs.set("search", search.trim());
+      if (appliedSearch.trim()) qs.set("search", appliedSearch.trim());
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, {
         credentials: "include",
       });
@@ -133,7 +110,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     } finally {
       setListLoading(false);
     }
-  }, [filter, search]);
+  }, [filter, appliedSearch]);
 
   const loadDetail = useCallback(async (caseId: string) => {
     setDetailLoading(true);
@@ -174,7 +151,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       "ALL") as AdminSupportListFilter;
     if (FILTERS.some((f) => f.id === next)) setFilter(next);
     const nextSearch = searchParams.get("search")?.trim() ?? "";
-    if (nextSearch) setSearch(nextSearch);
+    if (nextSearch) {
+      setSearch(nextSearch);
+      setAppliedSearch(nextSearch);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -187,29 +167,51 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   }, [activeId, loadDetail]);
 
   useEffect(() => {
-    if (!activeId) return;
+    const t = window.setTimeout(() => setAppliedSearch(search), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  /**
+   * B7 — queue-wide Realtime: any case's new message (customer, other admin, new-case seed) or
+   * case-row change refreshes the list (300ms coalesced). The detail pane reloads only for
+   * messages of the open case. Was: subscribed to the open case only → other rows went stale.
+   */
+  const activeIdRef = useRef<string | null>(activeId);
+  const loadListRef = useRef(loadList);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    loadListRef.current = loadList;
+  });
+  useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
+    let listTimer: number | null = null;
+    const scheduleList = () => {
+      if (listTimer != null) window.clearTimeout(listTimer);
+      listTimer = window.setTimeout(() => {
+        listTimer = null;
+        void loadListRef.current();
+      }, 300);
+    };
     const channel = sb
-      .channel(`admin-support-${activeId}`)
+      .channel("admin-support-queue")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "support_messages",
-          filter: `case_id=eq.${activeId}`,
-        },
-        () => {
-          void loadDetail(activeId);
-          void loadList();
+        { event: "INSERT", schema: "public", table: "support_messages" },
+        (payload) => {
+          const caseId = String((payload.new as { case_id?: unknown })?.case_id ?? "");
+          const open = activeIdRef.current;
+          if (open && caseId === open) void loadDetail(open);
+          scheduleList();
         }
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_cases" }, scheduleList)
       .subscribe();
     return () => {
+      if (listTimer != null) window.clearTimeout(listTimer);
       void sb.removeChannel(channel);
     };
-  }, [activeId, loadDetail, loadList]);
+  }, [loadDetail]);
 
   const patchCase = async (payload: Record<string, unknown>) => {
     if (!activeId || busy) return false;
@@ -239,18 +241,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     }
   };
 
-  const categoryLabel = (c: SupportCaseRow) => {
-    const def = getSupportCategoryDefinition(c.category);
-    if (def?.labelKey) {
-      return safeT(def.labelKey as "support_enter_category_label", {
-        fallbackKo: humanizeToken(c.category),
-        fallbackEn: humanizeToken(c.category),
-      });
-    }
-    return humanizeToken(c.category);
-  };
+  const categoryLabel = (c: SupportCaseRow) => supportCategoryLabel(safeT, c.category);
 
-  const issueLabel = (c: SupportCaseRow) => humanizeToken(c.issue_type);
+  const issueLabel = (c: SupportCaseRow) => supportIssueLabel(safeT, c.category, c.issue_type) ?? "";
 
   /** DEF-09: member identification (display name · email · store) like the legacy console. */
   const displayFor = (c: SupportCaseRow): SupportCaseAdminDisplayRow | undefined =>
@@ -260,7 +253,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       : undefined);
 
   const whoLine = (c: SupportCaseRow) => {
-    const role = roleLabel(c.audience, ko);
+    const role = supportAudienceLabel(c.audience, ko);
     const d = displayFor(c);
     const who =
       d?.requester_display_name || d?.requester_email || c.requester_user_id.slice(0, 8);
@@ -301,7 +294,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           fallbackEn: "Support Center",
         })}
         description={safeT("admin_support_desc", {
-          fallbackKo: "회원·매장 Owner 문의 상담 콘솔",
+          fallbackKo: "회원·사장님 문의 처리",
           fallbackEn: "Member and owner support console",
         })}
       />
@@ -330,6 +323,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setAppliedSearch(search);
+          }}
           placeholder={safeT("admin_support_search_placeholder", {
             fallbackKo: "케이스 번호·제목 검색",
             fallbackEn: "Search case no or subject",
@@ -339,7 +335,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         <button
           type="button"
           className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm font-medium"
-          onClick={() => void loadList()}
+          onClick={() => {
+            if (appliedSearch === search) void loadList();
+            else setAppliedSearch(search);
+          }}
         >
           {safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
         </button>
@@ -389,7 +388,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           {c.public_case_no}
                         </span>
                         <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-bold">
-                          {roleLabel(c.audience, ko)}
+                          {supportAudienceLabel(c.audience, ko)}
                         </span>
                         {Number(c.admin_unread_count) > 0 ? (
                           <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -417,10 +416,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         </p>
                       ) : null}
                       <p className="mt-1 text-[10px] text-sam-muted">
-                        {statusLabel(c.status, ko)}
+                        {supportAdminStatusLabel(c.status, ko)}
                         {" · "}
-                        {PRIORITIES.find((p) => p.id === c.priority)?.[ko ? "labelKo" : "labelEn"] ??
-                          c.priority}
+                        {supportPriorityLabel(c.priority, ko)}
                         {!c.assigned_admin_id ? (ko ? " · 미배정" : " · Unassigned") : ""}
                         {" · "}
                         {waitingAgeLabel(c.last_message_at || c.created_at, ko)}
@@ -445,7 +443,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           ) : detailLoading ? (
             <p className="p-4 text-sm text-sam-muted">…</p>
           ) : !activeCase ? (
-            <p className="p-4 text-sm text-red-600">{error}</p>
+            <p className="p-4 text-sm text-red-600">
+              {supportErrorLabel(safeT, error)} ({error})
+            </p>
           ) : (
             <>
               <div
@@ -461,7 +461,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       {categoryLabel(activeCase)}
                       {activeCase.issue_type ? ` · ${issueLabel(activeCase)}` : ""}
                       {" · "}
-                      {statusLabel(activeCase.status, ko)}
+                      {supportAdminStatusLabel(activeCase.status, ko)}
                     </p>
                   </div>
                   {activeClosed ? (
@@ -534,14 +534,18 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       }}
                     >
                       {PRIORITIES.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {ko ? p.labelKo : p.labelEn}
+                        <option key={p} value={p}>
+                          {supportPriorityLabel(p, ko)}
                         </option>
                       ))}
                     </select>
                   </label>
                 </div>
-                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {error ? (
+                  <p className="text-sm text-red-600">
+                    {supportErrorLabel(safeT, error)} ({error})
+                  </p>
+                ) : null}
               </div>
 
               <div
@@ -718,7 +722,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                 {activeCase.owner_store_id ? (
                   <section>
                     <h3 className="text-xs font-semibold text-sam-muted">{ko ? "매장" : "Store"}</h3>
-                    <p className="mt-1 break-all text-xs">{activeCase.owner_store_id}</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {displayFor(activeCase)?.owner_store_name || "—"}
+                    </p>
+                    <p className="break-all text-xs text-sam-muted">{activeCase.owner_store_id}</p>
                   </section>
                 ) : null}
                 <section>
@@ -733,7 +740,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-sam-muted">
-                    {statusLabel(activeCase.status, ko)} · {activeCase.priority}
+                    {supportAdminStatusLabel(activeCase.status, ko)} · {supportPriorityLabel(activeCase.priority, ko)}
                   </p>
                   <p className="text-xs text-sam-muted">
                     {ko ? "생성" : "Created"}: {new Date(activeCase.created_at).toLocaleString()}
@@ -766,7 +773,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   </h3>
                   {activeCase.reference_type ? (
                     <p className="mt-1 text-xs">
-                      {humanizeToken(activeCase.reference_type)}
+                      {supportReferenceLabel(safeT, activeCase.reference_type)}
                       {activeCase.reference_id
                         ? ` · ${String(activeCase.reference_id).slice(0, 12)}…`
                         : ""}

@@ -16,11 +16,10 @@ import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
+import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
 
 type UnreadState = {
   storeInquiry: number;
-  adminInbox: number;
-  adminInquiry: number;
   reviewsNeedReply: number;
 };
 
@@ -41,8 +40,6 @@ export function OwnerCustomerCareHubView() {
   const orderChatUnread = useOwnerFabOrderChatBadgeCount();
   const [unread, setUnread] = useState<UnreadState>({
     storeInquiry: 0,
-    adminInbox: 0,
-    adminInquiry: 0,
     reviewsNeedReply: 0,
   });
   const [resolvedStoreId, setResolvedStoreId] = useState<string | null>(storeIdParam);
@@ -60,19 +57,6 @@ export function OwnerCustomerCareHubView() {
       }
     }
     setResolvedStoreId(sid || null);
-
-    const noteUnread = async (kind: "inbox" | "inquiry") => {
-      const res = await fetch(`/api/me/admin-notes?kind=${kind}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        threads?: { member_unread_count?: number }[];
-      };
-      if (!res.ok || !j.ok || !Array.isArray(j.threads)) return 0;
-      return j.threads.reduce((sum, th) => sum + Math.max(0, Number(th.member_unread_count) || 0), 0);
-    };
 
     let storeInquiry = 0;
     if (sid) {
@@ -98,8 +82,7 @@ export function OwnerCustomerCareHubView() {
       }
     }
 
-    const [adminInbox, adminInquiry] = await Promise.all([noteUnread("inbox"), noteUnread("inquiry")]);
-    setUnread({ storeInquiry, adminInbox, adminInquiry, reviewsNeedReply });
+    setUnread({ storeInquiry, reviewsNeedReply });
   }, [storeIdParam]);
 
   useEffect(() => {
@@ -107,7 +90,11 @@ export function OwnerCustomerCareHubView() {
   }, [loadBadges]);
 
   const storeId = resolvedStoreId ?? storeIdParam;
-  const customerCenterUnread = unread.adminInbox + unread.adminInquiry;
+  // B6 — 「DIBAY 고객센터」 badge = this store's OWNER support cases unread (was legacy notes).
+  const customerCenterUnread = useSupportRequesterUnread({
+    audience: "OWNER",
+    storeId: storeIdParam?.trim() || storeId,
+  });
   const hubEntries = listOwnerCustomerHubEntries(storeIdParam?.trim() || storeId);
 
   const storeCustomerEntries = hubEntries.filter((e) => e.audience === "store_customer");
