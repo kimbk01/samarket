@@ -5,6 +5,10 @@
  * UI: omits target_payload unless linking via app_notice_id
  * Downstream: appNoticeId + content bind fields when linked
  *
+ * Audience persistence (DEF-03): when target_type is selected_users,
+ * `createAdminNotificationCampaign` may merge `selected_user_ids` into the
+ * resolved payload. Content bind keys remain authoritative and are not replaced.
+ *
  * DO NOT insert SQL null — it overrides the DB default and 500s.
  */
 
