@@ -14,6 +14,7 @@ import {
   type SupportCaseRow,
   type SupportMessageRow,
 } from "@/lib/support/support-case-types";
+import type { SupportCaseAdminDisplayRow } from "@/lib/support/support-case-service";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
 import { AdminSupportControlPlane } from "@/components/admin/support/AdminSupportControlPlane";
@@ -92,7 +93,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     FILTERS.some((f) => f.id === filterParam) ? filterParam : "ALL"
   );
   const [search, setSearch] = useState(searchParam);
-  const [cases, setCases] = useState<SupportCaseRow[]>([]);
+  const [cases, setCases] = useState<SupportCaseAdminDisplayRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
   const [activeCase, setActiveCase] = useState<SupportCaseRow | null>(null);
@@ -114,7 +115,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, {
         credentials: "include",
       });
-      const json = (await res.json()) as { ok?: boolean; cases?: SupportCaseRow[] };
+      const json = (await res.json()) as { ok?: boolean; cases?: SupportCaseAdminDisplayRow[] };
       setCases(json.cases ?? []);
     } finally {
       setListLoading(false);
@@ -232,13 +233,20 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const issueLabel = (c: SupportCaseRow) => humanizeToken(c.issue_type);
 
+  /** DEF-09: member identification (display name · email · store) like the legacy console. */
+  const displayFor = (c: SupportCaseRow): SupportCaseAdminDisplayRow | undefined =>
+    cases.find((row) => row.id === c.id);
+
   const whoLine = (c: SupportCaseRow) => {
     const role = roleLabel(c.audience, ko);
-    const idShort = c.requester_user_id.slice(0, 8);
+    const d = displayFor(c);
+    const who =
+      d?.requester_display_name || d?.requester_email || c.requester_user_id.slice(0, 8);
     if (c.audience === "OWNER" && c.owner_store_id) {
-      return `${idShort} · ${role} · Store ${c.owner_store_id.slice(0, 8)}`;
+      const store = d?.owner_store_name || `Store ${c.owner_store_id.slice(0, 8)}`;
+      return `${who} · ${role} · ${store}`;
     }
-    return `${idShort} · ${role}`;
+    return `${who} · ${role}`;
   };
 
   const lastPublicPreview = (caseId: string) => {

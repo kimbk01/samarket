@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { listSupportCasesForAdmin } from "@/lib/support/support-case-service";
+import {
+  enrichSupportCasesForAdminDisplay,
+  listSupportCasesForAdmin,
+} from "@/lib/support/support-case-service";
 import { isAdminSupportListFilter } from "@/lib/support/support-case-types";
 
 export const runtime = "nodejs";
@@ -26,7 +29,8 @@ export async function GET(req: NextRequest) {
   if (!res.ok) {
     return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, cases: res.cases });
+  const cases = await enrichSupportCasesForAdminDisplay(sb, res.cases);
+  return NextResponse.json({ ok: true, cases });
 }
 
 export async function POST(req: NextRequest) {

@@ -636,7 +636,7 @@ export async function listSupportCasesForAdmin(
     if (isUuid(search)) {
       // CUT D — match case id, business reference, or Owner store context
       query = query.or(
-        `id.eq.${search},reference_id.eq.${search},owner_store_id.eq.${search}`
+        `id.eq.${search},reference_id.eq.${search},owner_store_id.eq.${search},requester_user_id.eq.${search}`
       );
     } else if (/^SC-\d+$/i.test(search)) {
       query = query.ilike("public_case_no", search);
@@ -651,6 +651,70 @@ export async function listSupportCasesForAdmin(
     return { ok: false, error: error.message };
   }
   return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+}
+
+/** DEF-09 — Admin queue display fields (read-only; never written to support_cases). */
+export type SupportCaseAdminDisplayRow = SupportCaseRow & {
+  requester_display_name: string | null;
+  requester_email: string | null;
+  owner_store_name: string | null;
+};
+
+/**
+ * DEF-09 — restore legacy Admin member identification (display name / email / store)
+ * using the same read pattern as `enrichAdminNoteThreadsForDisplay`.
+ * Display-only: lookup failure degrades to null fields, never fails the list.
+ */
+export async function enrichSupportCasesForAdminDisplay(
+  sb: SupabaseClient,
+  cases: SupportCaseRow[]
+): Promise<SupportCaseAdminDisplayRow[]> {
+  if (cases.length === 0) return [];
+  const userIds = [...new Set(cases.map((c) => c.requester_user_id).filter(Boolean))];
+  const storeIds = [
+    ...new Set(cases.map((c) => c.owner_store_id).filter((v): v is string => Boolean(v))),
+  ];
+  const [profilesRes, storesRes] = await Promise.all([
+    sb.from("profiles").select("id, display_name, nickname, email").in("id", userIds),
+    storeIds.length > 0
+      ? sb.from("stores").select("id, store_name").in("id", storeIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+  ]);
+  if (profilesRes.error || storesRes.error) {
+    console.error("[support] admin_display_enrich_failed", {
+      profiles: profilesRes.error?.message ?? null,
+      stores: storesRes.error?.message ?? null,
+    });
+  }
+  const profileById = new Map<
+    string,
+    { display_name?: string | null; nickname?: string | null; email?: string | null }
+  >();
+  for (const p of (profilesRes.data ?? []) as {
+    id?: string;
+    display_name?: string | null;
+    nickname?: string | null;
+    email?: string | null;
+  }[]) {
+    if (p.id) profileById.set(String(p.id), p);
+  }
+  const storeNameById = new Map<string, string>();
+  for (const st of (storesRes.data ?? []) as { id?: string; store_name?: string | null }[]) {
+    const name = String(st.store_name ?? "").trim();
+    if (st.id && name) storeNameById.set(String(st.id), name);
+  }
+  return cases.map((c) => {
+    const profile = profileById.get(c.requester_user_id);
+    return {
+      ...c,
+      requester_display_name:
+        String(profile?.display_name ?? "").trim() ||
+        String(profile?.nickname ?? "").trim() ||
+        null,
+      requester_email: String(profile?.email ?? "").trim() || null,
+      owner_store_name: c.owner_store_id ? storeNameById.get(c.owner_store_id) ?? null : null,
+    };
+  });
 }
 
 export async function getSupportCaseForAdmin(
