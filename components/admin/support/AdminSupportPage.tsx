@@ -7,26 +7,32 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type {
-  SupportCasePriority,
-  SupportCaseRow,
-  SupportMessageRow,
+import {
+  ADMIN_SUPPORT_LIST_FILTERS,
+  type AdminSupportListFilter,
+  type SupportCasePriority,
+  type SupportCaseRow,
+  type SupportMessageRow,
 } from "@/lib/support/support-case-types";
-import type { AdminSupportListFilter } from "@/lib/support/support-case-service";
+import type { SupportCaseAdminDisplayRow } from "@/lib/support/support-case-service";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
 import { AdminSupportControlPlane } from "@/components/admin/support/AdminSupportControlPlane";
 
-const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] = [
-  { id: "ALL", labelKo: "전체", labelEn: "All" },
-  { id: "ACTIONABLE", labelKo: "답변 필요", labelEn: "Actionable" },
-  { id: "MEMBER", labelKo: "회원", labelEn: "Member" },
-  { id: "OWNER", labelKo: "매장 Owner", labelEn: "Owner" },
-  { id: "UNASSIGNED", labelKo: "미배정", labelEn: "Unassigned" },
-  { id: "WAITING_ADMIN", labelKo: "답변 대기", labelEn: "Waiting admin" },
-  { id: "WAITING_USER", labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
-  { id: "RESOLVED", labelKo: "종료", labelEn: "Resolved" },
-];
+/** DEF-03: chips are derived from ADMIN_SUPPORT_LIST_FILTERS (same list the API whitelists). */
+const FILTER_LABELS: Record<AdminSupportListFilter, { labelKo: string; labelEn: string }> = {
+  ALL: { labelKo: "전체", labelEn: "All" },
+  ACTIONABLE: { labelKo: "답변 필요", labelEn: "Actionable" },
+  MEMBER: { labelKo: "회원", labelEn: "Member" },
+  OWNER: { labelKo: "매장 Owner", labelEn: "Owner" },
+  UNASSIGNED: { labelKo: "미배정", labelEn: "Unassigned" },
+  WAITING_ADMIN: { labelKo: "답변 대기", labelEn: "Waiting admin" },
+  WAITING_USER: { labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
+  RESOLVED: { labelKo: "종료", labelEn: "Resolved" },
+};
+
+const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] =
+  ADMIN_SUPPORT_LIST_FILTERS.map((id) => ({ id, ...FILTER_LABELS[id] }));
 
 const PRIORITIES: { id: SupportCasePriority; labelKo: string; labelEn: string }[] = [
   { id: "NORMAL", labelKo: "일반", labelEn: "Normal" },
@@ -87,7 +93,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     FILTERS.some((f) => f.id === filterParam) ? filterParam : "ALL"
   );
   const [search, setSearch] = useState(searchParam);
-  const [cases, setCases] = useState<SupportCaseRow[]>([]);
+  const [cases, setCases] = useState<SupportCaseAdminDisplayRow[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
   const [activeCase, setActiveCase] = useState<SupportCaseRow | null>(null);
@@ -109,8 +116,20 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, {
         credentials: "include",
       });
-      const json = (await res.json()) as { ok?: boolean; cases?: SupportCaseRow[] };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        cases?: SupportCaseAdminDisplayRow[];
+        error?: string;
+      };
+      // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
+      if (!res.ok || !json.ok) {
+        setListError(json.error ?? `http_${res.status}`);
+        return;
+      }
+      setListError(null);
       setCases(json.cases ?? []);
+    } catch {
+      setListError("network_error");
     } finally {
       setListLoading(false);
     }
@@ -135,6 +154,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       }
       setActiveCase(json.case);
       setMessages(json.messages ?? []);
+    } catch {
+      setError("network_error");
     } finally {
       setDetailLoading(false);
     }
@@ -209,6 +230,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       await loadDetail(activeId);
       await loadList();
       return true;
+    } catch {
+      // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
+      setError("network_error");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -227,14 +252,24 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const issueLabel = (c: SupportCaseRow) => humanizeToken(c.issue_type);
 
+  /** DEF-09: member identification (display name · email · store) like the legacy console. */
+  const displayFor = (c: SupportCaseRow): SupportCaseAdminDisplayRow | undefined =>
+    cases.find((row) => row.id === c.id);
+
   const whoLine = (c: SupportCaseRow) => {
     const role = roleLabel(c.audience, ko);
-    const idShort = c.requester_user_id.slice(0, 8);
+    const d = displayFor(c);
+    const who =
+      d?.requester_display_name || d?.requester_email || c.requester_user_id.slice(0, 8);
     if (c.audience === "OWNER" && c.owner_store_id) {
-      return `${idShort} · ${role} · Store ${c.owner_store_id.slice(0, 8)}`;
+      const store = d?.owner_store_name || `Store ${c.owner_store_id.slice(0, 8)}`;
+      return `${who} · ${role} · ${store}`;
     }
-    return `${idShort} · ${role}`;
+    return `${who} · ${role}`;
   };
+
+  const activeClosed =
+    activeCase?.status === "RESOLVED" || activeCase?.status === "ARCHIVED";
 
   const lastPublicPreview = (caseId: string) => {
     if (activeId === caseId) {
@@ -317,6 +352,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             {ko ? "문의 목록" : "Queue"}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {listError ? (
+              <div
+                className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                data-admin-support-list-error="1"
+              >
+                <span>
+                  {ko ? "목록을 불러오지 못했습니다" : "Could not load the queue"} ({listError})
+                </span>
+                <button type="button" className="underline" onClick={() => void loadList()}>
+                  {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+                </button>
+              </div>
+            ) : null}
             {listLoading ? (
               <p className="p-4 text-sm text-sam-muted">…</p>
             ) : cases.length === 0 ? (
@@ -413,18 +461,31 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       {statusLabel(activeCase.status, ko)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm"
-                    data-admin-support-resolve="1"
-                    onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
-                  >
-                    {safeT("admin_support_resolve", {
-                      fallbackKo: "상담 종료",
-                      fallbackEn: "End consultation",
-                    })}
-                  </button>
+                  {activeClosed ? (
+                    // DEF-02: closed cases return to active only via the existing reopen action.
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                      data-admin-support-reopen="1"
+                      onClick={() => void patchCase({ action: "reopen" })}
+                    >
+                      {ko ? "재오픈" : "Reopen"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="min-h-9 shrink-0 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                      data-admin-support-resolve="1"
+                      onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
+                    >
+                      {safeT("admin_support_resolve", {
+                        fallbackKo: "상담 종료",
+                        fallbackEn: "End consultation",
+                      })}
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -577,9 +638,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         fallbackEn: "Reply",
                       })}
                     />
+                    {activeClosed ? (
+                      <p className="text-xs text-sam-muted" data-admin-support-reply-closed="1">
+                        {ko
+                          ? "종료된 문의입니다. 답변하려면 먼저 재오픈하세요."
+                          : "This case is closed. Reopen it to reply."}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
-                      disabled={busy || !reply.trim()}
+                      disabled={busy || !reply.trim() || activeClosed}
                       className="min-h-9 rounded-ui-rect bg-sam-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
                       onClick={async () => {
                         const ok = await patchCase({ action: "reply", body: reply });

@@ -32,6 +32,7 @@ import {
   subscribeSupportModalState,
   type SupportModalState,
 } from "@/lib/support/support-modal-controller";
+import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
 
@@ -58,27 +59,6 @@ function mergeSupportMessage(
 ): SupportMessageRow[] {
   if (prev.some((m) => m.id === message.id)) return prev;
   return [...prev, message];
-}
-
-function statusLabelMeta(status: SupportCaseRow["status"] | null): {
-  key: "support_status_active" | "support_status_resolved" | "support_status_waiting_admin";
-  fallbackKo: string;
-  fallbackEn: string;
-} {
-  if (!status) {
-    return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
-  }
-  if (status === "RESOLVED" || status === "ARCHIVED") {
-    return { key: "support_status_resolved", fallbackKo: "상담 종료", fallbackEn: "Closed" };
-  }
-  if (status === "WAITING_ADMIN" || status === "OPEN") {
-    return {
-      key: "support_status_waiting_admin",
-      fallbackKo: "답변 대기",
-      fallbackEn: "Awaiting reply",
-    };
-  }
-  return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
 }
 
 function SupportSheetChrome({
@@ -166,6 +146,11 @@ function ContextChips({ context }: { context: SupportContext }) {
   );
 }
 
+type SupportNewInquiryOrigin = {
+  audience: "MEMBER" | "OWNER";
+  ownerStoreId: string | null;
+};
+
 function SupportActiveConversation({
   caseId,
   titleId,
@@ -180,7 +165,8 @@ function SupportActiveConversation({
   title: string;
   closeLabel: string;
   onClose: () => void;
-  onRequestNewInquiry: () => void;
+  /** DEF-11 — pass the loaded case identity so a new inquiry keeps its audience/store. */
+  onRequestNewInquiry: (fromCase: SupportNewInquiryOrigin | null) => void;
   onDismissibleChange: (dismissible: boolean) => void;
 }) {
   const { safeT } = useI18n();
@@ -242,6 +228,15 @@ function SupportActiveConversation({
         const closed =
           json.case.status === "RESOLVED" || json.case.status === "ARCHIVED";
         onDismissibleChange(closed);
+      } catch {
+        // DEF-07: network failure / non-JSON (e.g. 502 HTML) must surface as an error with
+        // Retry — never as an empty conversation with a live composer.
+        if (!silent) {
+          setError("network_error");
+          setSupportCase(null);
+          setMessages([]);
+          onDismissibleChange(true);
+        }
       } finally {
         if (!silent) setLoading(false);
       }
@@ -343,6 +338,10 @@ function SupportActiveConversation({
       };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "send_failed");
+        if (json.error === "case_closed") {
+          // DEF-12: case was closed meanwhile — re-read so the closed state + "새 문의하기" show.
+          void load({ silent: true });
+        }
         return;
       }
       pendingOwnSendRef.current = true;
@@ -361,7 +360,7 @@ function SupportActiveConversation({
 
   const closed =
     supportCase?.status === "RESOLVED" || supportCase?.status === "ARCHIVED";
-  const statusMeta = statusLabelMeta(supportCase?.status ?? null);
+  const statusMeta = supportCaseStatusLabelMeta(supportCase?.status ?? null);
   const statusLabel = safeT(statusMeta.key, {
     fallbackKo: statusMeta.fallbackKo,
     fallbackEn: statusMeta.fallbackEn,
@@ -472,7 +471,16 @@ function SupportActiveConversation({
             <DibayOverlayButton
               roleTone="primary"
               className="w-full !min-h-11"
-              onClick={onRequestNewInquiry}
+              onClick={() =>
+                onRequestNewInquiry(
+                  supportCase
+                    ? {
+                        audience: supportCase.audience,
+                        ownerStoreId: supportCase.owner_store_id,
+                      }
+                    : null
+                )
+              }
             >
               {safeT("support_new_inquiry_cta", {
                 fallbackKo: "새 문의하기",
@@ -733,10 +741,15 @@ export function SupportModalHost() {
     [openingCase]
   );
 
-  const handleNewInquiry = useCallback(() => {
+  const handleNewInquiry = useCallback((fromCase: SupportNewInquiryOrigin | null) => {
     const prev = getSupportModalState().context;
-    const audience = prev?.audience === "OWNER" ? "OWNER" : "MEMBER";
-    const storeId = prev?.storeId;
+    // DEF-11: opened by caseId (push / history) → context is null; fall back to the
+    // loaded case's audience/store instead of defaulting an Owner to MEMBER.
+    const audience =
+      (prev?.audience ?? fromCase?.audience) === "OWNER" ? "OWNER" : "MEMBER";
+    const storeId =
+      prev?.storeId ??
+      (audience === "OWNER" ? fromCase?.ownerStoreId ?? undefined : undefined);
     resetSupportModalToStart(
       buildGenericSupportTriageContext({
         audience,

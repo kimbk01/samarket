@@ -3,22 +3,13 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
+  enrichSupportCasesForAdminDisplay,
   listSupportCasesForAdmin,
-  type AdminSupportListFilter,
 } from "@/lib/support/support-case-service";
+import { isAdminSupportListFilter } from "@/lib/support/support-case-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const FILTERS = new Set<AdminSupportListFilter>([
-  "ALL",
-  "MEMBER",
-  "OWNER",
-  "UNASSIGNED",
-  "WAITING_ADMIN",
-  "WAITING_USER",
-  "RESOLVED",
-]);
 
 export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
@@ -30,16 +21,16 @@ export async function GET(req: NextRequest) {
   }
 
   const filterRaw = req.nextUrl.searchParams.get("filter")?.trim().toUpperCase() ?? "ALL";
-  const filter = FILTERS.has(filterRaw as AdminSupportListFilter)
-    ? (filterRaw as AdminSupportListFilter)
-    : "ALL";
+  // DEF-03: whitelist = ADMIN_SUPPORT_LIST_FILTERS SSOT (same list the UI chips render).
+  const filter = isAdminSupportListFilter(filterRaw) ? filterRaw : "ALL";
   const search = req.nextUrl.searchParams.get("search")?.trim() ?? "";
 
   const res = await listSupportCasesForAdmin(sb, { filter, search });
   if (!res.ok) {
     return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, cases: res.cases });
+  const cases = await enrichSupportCasesForAdminDisplay(sb, res.cases);
+  return NextResponse.json({ ok: true, cases });
 }
 
 export async function POST(req: NextRequest) {

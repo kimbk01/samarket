@@ -11,7 +11,10 @@ import {
   type SupportMessageRow,
   type SupportCaseStatus,
   type SupportCasePriority,
+  type AdminSupportListFilter,
 } from "@/lib/support/support-case-types";
+
+export type { AdminSupportListFilter } from "@/lib/support/support-case-types";
 import {
   assertSupportReferenceAuthority,
   normalizeSupportContextForCase,
@@ -89,12 +92,20 @@ async function recordCaseEvent(
     payload?: Record<string, unknown>;
   }
 ): Promise<void> {
-  await sb.from("support_case_events").insert({
+  const { error } = await sb.from("support_case_events").insert({
     case_id: input.caseId,
     event_type: input.eventType,
     actor_user_id: input.actorUserId ?? null,
     payload: input.payload ?? {},
   });
+  if (error) {
+    // DEF-05 (Phase 1 observability only): audit-trail write failure must be visible.
+    console.error("[support] case_event_insert_failed", {
+      caseId: input.caseId,
+      eventType: input.eventType,
+      error: error.message,
+    });
+  }
 }
 
 async function notifySupportEvent(
@@ -125,7 +136,7 @@ async function notifySupportEvent(
     (input.audience === "OWNER" && input.storeId
       ? `${buildSupportCaseRoute(input.caseId)}?storeId=${encodeURIComponent(input.storeId)}`
       : buildSupportCaseRoute(input.caseId));
-  await createAndDispatchNotificationEvent(sb, {
+  const notified = await createAndDispatchNotificationEvent(sb, {
     userId: input.userId,
     type: input.type,
     category: input.type === "support_admin_replied" ? "inquiry_answered" : "admin_notice",
@@ -143,6 +154,14 @@ async function notifySupportEvent(
     actorUserId: input.actorUserId,
     appState: "background",
   });
+  if (!notified.ok && !notified.duplicate) {
+    // DEF-05 (Phase 1 observability only): notification failure must not be silent.
+    console.error("[support] notification_failed", {
+      caseId: input.caseId,
+      type: input.type,
+      error: notified.error,
+    });
+  }
 }
 
 export async function openSupportCaseFromContext(
@@ -253,9 +272,26 @@ export async function openSupportCaseFromContext(
       requesterUserId: input.userId,
     });
     if (!session.ok) return { ok: false, error: session.error };
+    // DEF-01: dedupe reuses the active case, but the customer's newly typed text must be
+    // kept — append it through the canonical requester write path (→ WAITING_ADMIN).
+    const followUpText = (initialSummary ?? input.initialBody ?? "").trim();
+    let reusedCase = existing as SupportCaseRow;
+    if (followUpText) {
+      const appended = await postRequesterSupportMessage(sb, {
+        userId: input.userId,
+        caseId: existing.id,
+        body: followUpText,
+      });
+      if (!appended.ok) return { ok: false, error: appended.error };
+      const reread = await getSupportCaseForUser(sb, {
+        userId: input.userId,
+        caseId: existing.id,
+      });
+      if (reread.ok) reusedCase = reread.case;
+    }
     return {
       ok: true,
-      case: existing as SupportCaseRow,
+      case: reusedCase,
       sessionId: session.sessionId,
       created: false,
     };
@@ -542,7 +578,25 @@ export async function appendSupportMessage(
       patch.status = "WAITING_ADMIN";
       patch.admin_unread_count = Number(caseRow.admin_unread_count ?? 0) + 1;
     }
-    await sb.from("support_cases").update(patch).eq("id", input.caseId);
+    const { error: caseUpdateErr } = await sb
+      .from("support_cases")
+      .update(patch)
+      .eq("id", input.caseId);
+    if (caseUpdateErr) {
+      // DEF-05 (Phase 1 observability only): message saved but case state not advanced.
+      // Atomic message+state write is Phase 2 (DB change, separate approval).
+      console.error("[support] case_state_update_failed", {
+        caseId: input.caseId,
+        senderType,
+        error: caseUpdateErr.message,
+      });
+    }
+  } else {
+    console.error("[support] case_state_update_failed", {
+      caseId: input.caseId,
+      senderType,
+      error: "case_row_missing_after_message_insert",
+    });
   }
 
   return { ok: true, message: message as SupportMessageRow };
@@ -588,16 +642,6 @@ export async function postRequesterSupportMessage(
   return res;
 }
 
-export type AdminSupportListFilter =
-  | "ALL"
-  | "MEMBER"
-  | "OWNER"
-  | "UNASSIGNED"
-  | "WAITING_ADMIN"
-  | "WAITING_USER"
-  | "RESOLVED"
-  /** ARO-OPS-UX-002-B6 — OPEN | WAITING_ADMIN (actionable admin work). */
-  | "ACTIONABLE";
 
 export async function listSupportCasesForAdmin(
   sb: SupabaseClient,
@@ -643,7 +687,7 @@ export async function listSupportCasesForAdmin(
     if (isUuid(search)) {
       // CUT D — match case id, business reference, or Owner store context
       query = query.or(
-        `id.eq.${search},reference_id.eq.${search},owner_store_id.eq.${search}`
+        `id.eq.${search},reference_id.eq.${search},owner_store_id.eq.${search},requester_user_id.eq.${search}`
       );
     } else if (/^SC-\d+$/i.test(search)) {
       query = query.ilike("public_case_no", search);
@@ -658,6 +702,70 @@ export async function listSupportCasesForAdmin(
     return { ok: false, error: error.message };
   }
   return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+}
+
+/** DEF-09 — Admin queue display fields (read-only; never written to support_cases). */
+export type SupportCaseAdminDisplayRow = SupportCaseRow & {
+  requester_display_name: string | null;
+  requester_email: string | null;
+  owner_store_name: string | null;
+};
+
+/**
+ * DEF-09 — restore legacy Admin member identification (display name / email / store)
+ * using the same read pattern as `enrichAdminNoteThreadsForDisplay`.
+ * Display-only: lookup failure degrades to null fields, never fails the list.
+ */
+export async function enrichSupportCasesForAdminDisplay(
+  sb: SupabaseClient,
+  cases: SupportCaseRow[]
+): Promise<SupportCaseAdminDisplayRow[]> {
+  if (cases.length === 0) return [];
+  const userIds = [...new Set(cases.map((c) => c.requester_user_id).filter(Boolean))];
+  const storeIds = [
+    ...new Set(cases.map((c) => c.owner_store_id).filter((v): v is string => Boolean(v))),
+  ];
+  const [profilesRes, storesRes] = await Promise.all([
+    sb.from("profiles").select("id, display_name, nickname, email").in("id", userIds),
+    storeIds.length > 0
+      ? sb.from("stores").select("id, store_name").in("id", storeIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+  ]);
+  if (profilesRes.error || storesRes.error) {
+    console.error("[support] admin_display_enrich_failed", {
+      profiles: profilesRes.error?.message ?? null,
+      stores: storesRes.error?.message ?? null,
+    });
+  }
+  const profileById = new Map<
+    string,
+    { display_name?: string | null; nickname?: string | null; email?: string | null }
+  >();
+  for (const p of (profilesRes.data ?? []) as {
+    id?: string;
+    display_name?: string | null;
+    nickname?: string | null;
+    email?: string | null;
+  }[]) {
+    if (p.id) profileById.set(String(p.id), p);
+  }
+  const storeNameById = new Map<string, string>();
+  for (const st of (storesRes.data ?? []) as { id?: string; store_name?: string | null }[]) {
+    const name = String(st.store_name ?? "").trim();
+    if (st.id && name) storeNameById.set(String(st.id), name);
+  }
+  return cases.map((c) => {
+    const profile = profileById.get(c.requester_user_id);
+    return {
+      ...c,
+      requester_display_name:
+        String(profile?.display_name ?? "").trim() ||
+        String(profile?.nickname ?? "").trim() ||
+        null,
+      requester_email: String(profile?.email ?? "").trim() || null,
+      owner_store_name: c.owner_store_id ? storeNameById.get(c.owner_store_id) ?? null : null,
+    };
+  });
 }
 
 export async function getSupportCaseForAdmin(
@@ -683,6 +791,14 @@ export async function adminReplySupportCase(
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
+  // DEF-02: a closed case returns to an active state only via reopenSupportCase
+  // (reopened event + session + notification). Internal notes do not change state.
+  if (
+    !input.internalNote &&
+    (gate.case.status === "RESOLVED" || gate.case.status === "ARCHIVED")
+  ) {
+    return { ok: false, error: "case_closed" };
+  }
 
   const res = await appendSupportMessage(sb, {
     caseId: input.caseId,
@@ -724,6 +840,11 @@ export async function adminUpdateSupportCaseStatus(
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
+  // DEF-15: same-status transition is a no-op (no write, no event, no notification) —
+  // same idempotency contract as mark-read.
+  if (gate.case.status === input.status) {
+    return { ok: true, case: gate.case };
+  }
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {

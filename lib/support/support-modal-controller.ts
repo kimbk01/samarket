@@ -5,6 +5,7 @@
 
 import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
+import { clearSupportModalRestoreCaseId } from "@/lib/support/support-modal-restore-stash";
 
 export type SupportModalPhase = "closed" | "open";
 
@@ -80,6 +81,7 @@ export function openSupportModal(input: OpenSupportModalInput = {}): boolean {
 /** UI-only close — does not resolve case or revoke session. */
 export function closeSupportModal(): void {
   if (state.phase === "closed") return;
+  clearSupportModalRestoreCaseId();
   state = { ...INITIAL };
   emit();
 }

@@ -62,6 +62,9 @@ export function AdminSupportArchivePage() {
       if (platRes.ok && platJson.ok) {
         const rows = platJson.rows ?? platJson.inquiries ?? [];
         setPlatform(Array.isArray(rows) ? rows : []);
+      } else {
+        // DEF-07: platform archive failure must not look like an empty archive.
+        setError((prev) => prev ?? platJson.error ?? "platform_load_failed");
       }
     } catch {
       setError("network_error");
