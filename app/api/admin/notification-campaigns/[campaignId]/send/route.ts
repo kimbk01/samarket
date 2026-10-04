@@ -3,9 +3,12 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { resolveActiveOccurrenceForSend } from "@/lib/admin/notification-campaigns/campaign-create-service";
 import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import {
+  CAMPAIGN_CONTINUABLE_ERRORS,
   claimAdminCampaignManualSend,
   drainNotificationCampaignSendBatches,
   newCampaignSendClaimToken,
+  releaseOccurrenceForContinuation,
+  stampOccurrenceDueForRecovery,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
 import { evaluateOfficialCampaignSendEligibility } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -159,6 +162,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     );
   }
 
+  if (claim.claimed) {
+    await stampOccurrenceDueForRecovery(svc, occurrenceId);
+  }
+
   if (enqueueOnly) {
     return NextResponse.json({
       ok: true,
@@ -194,7 +201,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   });
 
   if (!drained.ok) {
+    if (claim.claimed && CAMPAIGN_CONTINUABLE_ERRORS.has(String(drained.error ?? ""))) {
+      await releaseOccurrenceForContinuation(svc, occurrenceId, claimToken, drained.error ?? null);
+    }
     return NextResponse.json({ ok: false, error: drained.error ?? "batch_failed" }, { status: 500 });
+  }
+
+  if (!drained.done && claim.claimed) {
+    // U1-B: remaining targets continue via the existing scheduled dispatcher.
+    await releaseOccurrenceForContinuation(svc, occurrenceId, claimToken);
   }
 
   return NextResponse.json({

@@ -4,8 +4,10 @@ import {
   getCampaignOccurrence,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import {
+  CAMPAIGN_CONTINUABLE_ERRORS,
   drainNotificationCampaignSendBatches,
   newCampaignSendClaimToken,
+  releaseOccurrenceForContinuation,
   scheduleNextRecurringOccurrence,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
@@ -45,15 +47,21 @@ async function runDispatchScheduled(req: Request) {
     error?: string;
   }> = [];
 
+  const tickStarted = Date.now();
+  let slowestBatchMs = 0;
   for (let i = 0; i < MAX_OCCURRENCES_PER_TICK; i += 1) {
+    // U1-B: do not claim another occurrence when one more batch would not fit the tick budget.
+    const remainingMs = MAX_WALL_MS_PER_OCCURRENCE - (Date.now() - tickStarted);
+    if (i > 0 && remainingMs < slowestBatchMs) break;
     const claimToken = newCampaignSendClaimToken();
     const claimed = await claimDueOccurrence(svc, { claimToken });
     if (!claimed?.id) break;
 
     const drained = await drainNotificationCampaignSendBatches(svc, claimed.id, {
       maxBatches: MAX_BATCHES_PER_OCCURRENCE,
-      maxWallMs: MAX_WALL_MS_PER_OCCURRENCE,
+      maxWallMs: Math.max(5_000, MAX_WALL_MS_PER_OCCURRENCE - (Date.now() - tickStarted)),
     });
+    slowestBatchMs = Math.max(slowestBatchMs, drained.slowestBatchMs ?? 0);
 
     if (!drained.ok) {
       await svc
@@ -63,6 +71,12 @@ async function runDispatchScheduled(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", claimed.id);
+      if (CAMPAIGN_CONTINUABLE_ERRORS.has(String(drained.error ?? ""))) {
+        await releaseOccurrenceForContinuation(svc, claimed.id, claimToken, drained.error ?? null);
+      }
+    } else if (!drained.done) {
+      // U1-B: continue on the next tick instead of waiting for lease expiry.
+      await releaseOccurrenceForContinuation(svc, claimed.id, claimToken);
     }
 
     results.push({
