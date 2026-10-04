@@ -313,6 +313,11 @@ describe("support audit phase 1 — regression lock", () => {
     expect(host).toContain("(prev?.audience ?? fromCase?.audience)");
     const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-controller.ts"), "utf8");
     expect(ctrl).toMatch(/closeSupportModal\(\): void \{[\s\S]*clearSupportModalRestoreCaseId\(\)/);
+    const detail = readFileSync(
+      join(process.cwd(), "app/api/admin/support/cases/[caseId]/route.ts"),
+      "utf8"
+    );
+    expect(detail).toContain("enrichSupportCasesForAdminDisplay(sb, [gate.case])");
     const flow = readFileSync(join(process.cwd(), "components/support/SupportTriageFlow.tsx"), "utf8");
     expect(flow).toContain("initialBody: summary,");
   });

@@ -254,7 +254,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   /** DEF-09: member identification (display name · email · store) like the legacy console. */
   const displayFor = (c: SupportCaseRow): SupportCaseAdminDisplayRow | undefined =>
-    cases.find((row) => row.id === c.id);
+    cases.find((row) => row.id === c.id) ??
+    (activeCase && activeCase.id === c.id && "requester_display_name" in activeCase
+      ? (activeCase as SupportCaseAdminDisplayRow)
+      : undefined);
 
   const whoLine = (c: SupportCaseRow) => {
     const role = roleLabel(c.audience, ko);
