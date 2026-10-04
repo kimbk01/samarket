@@ -41,6 +41,11 @@ export function resolveNotificationDestinationHint(
   if (p.startsWith("/my/store-orders") || p.startsWith("/mypage/store-orders")) {
     return ko ? "주문 목록으로 이동" : "Open orders";
   }
+  if (p === "/orders") {
+    return /[?&]expand=[^&]/.test(path)
+      ? ko ? "주문 상세로 이동" : "Open order detail"
+      : ko ? "주문 목록으로 이동" : "Open orders";
+  }
   if (p.startsWith("/stores/owner/orders")) return ko ? "사장님 주문으로 이동" : "Open owner orders";
   if (p.startsWith("/mypage/customer-center/notice/")) {
     return ko ? "공지 원문으로 이동" : "Open notice";

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
@@ -25,9 +26,6 @@ export async function markPriorBuyerOrderStatusNotificationsRead(
   await markOrderNotificationsRead(sb, uid, oid);
   invalidateNotificationUnreadCountCache(uid);
 }
-
-/** 구매자 매장 주문 알림의 바로가기 — 주문 내역 목록으로 통일 */
-const BUYER_STORE_ORDERS_NOTIFICATION_HREF = "/my/store-orders";
 
 async function loadStoreName(sb: SupabaseClient, storeId: string): Promise<string> {
   const { data } = await sb.from("stores").select("store_name").eq("id", storeId.trim()).maybeSingle();
@@ -320,7 +318,7 @@ export async function notifyBuyerStorePaymentCompleted(
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_done_title"),
     body: nt(language, "notify_commerce_payment_done_body", { store: label, orderNo }),
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_payment_completed_buyer",
       order_id: oid,
@@ -622,7 +620,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     dedupe_key: dedupe,
     title: copy.title,
     body: `${copy.body}${etaSuffix}`,
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: BUYER_ORDER_STATUS_META_KIND,
       order_id: oid,
@@ -671,7 +669,7 @@ export async function notifyBuyerStorePaymentFailed(
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_failed_title"),
     body: nt(language, "notify_commerce_payment_failed_body", { store: label, orderNo }),
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_payment_failed",
       order_id: oid,
@@ -715,7 +713,7 @@ export async function notifyBuyerStoreRefundApproved(
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_refund_processed_title"),
     body: nt(language, "notify_commerce_refund_processed_body", { store: label, orderNo }),
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_refund_approved",
       order_id: oid,
@@ -767,7 +765,7 @@ export async function notifyBuyerStoreRefundRejected(
           reason,
         })
       : nt(language, "notify_commerce_refund_rejected_body", { store: label, orderNo }),
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_refund_rejected",
       order_id: oid,
@@ -812,7 +810,7 @@ export async function notifyBuyerStoreOrderAutoCompleted(
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_auto_completed_title"),
     body: nt(language, "notify_commerce_auto_completed_body", { store: label, orderNo }),
-    link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
+    link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_auto_completed",
       order_id: oid,
