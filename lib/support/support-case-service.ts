@@ -256,9 +256,26 @@ export async function openSupportCaseFromContext(
       requesterUserId: input.userId,
     });
     if (!session.ok) return { ok: false, error: session.error };
+    // DEF-01: dedupe reuses the active case, but the customer's newly typed text must be
+    // kept — append it through the canonical requester write path (→ WAITING_ADMIN).
+    const followUpText = (initialSummary ?? input.initialBody ?? "").trim();
+    let reusedCase = existing as SupportCaseRow;
+    if (followUpText) {
+      const appended = await postRequesterSupportMessage(sb, {
+        userId: input.userId,
+        caseId: existing.id,
+        body: followUpText,
+      });
+      if (!appended.ok) return { ok: false, error: appended.error };
+      const reread = await getSupportCaseForUser(sb, {
+        userId: input.userId,
+        caseId: existing.id,
+      });
+      if (reread.ok) reusedCase = reread.case;
+    }
     return {
       ok: true,
-      case: existing as SupportCaseRow,
+      case: reusedCase,
       sessionId: session.sessionId,
       created: false,
     };
