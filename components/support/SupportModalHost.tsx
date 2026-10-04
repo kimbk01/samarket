@@ -338,6 +338,10 @@ function SupportActiveConversation({
       };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "send_failed");
+        if (json.error === "case_closed") {
+          // DEF-12: case was closed meanwhile — re-read so the closed state + "새 문의하기" show.
+          void load({ silent: true });
+        }
         return;
       }
       pendingOwnSendRef.current = true;
