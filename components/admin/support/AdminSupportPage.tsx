@@ -94,6 +94,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   );
   const [search, setSearch] = useState(searchParam);
   const [cases, setCases] = useState<SupportCaseAdminDisplayRow[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
   const [activeCase, setActiveCase] = useState<SupportCaseRow | null>(null);
@@ -115,8 +116,20 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, {
         credentials: "include",
       });
-      const json = (await res.json()) as { ok?: boolean; cases?: SupportCaseAdminDisplayRow[] };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        cases?: SupportCaseAdminDisplayRow[];
+        error?: string;
+      };
+      // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
+      if (!res.ok || !json.ok) {
+        setListError(json.error ?? `http_${res.status}`);
+        return;
+      }
+      setListError(null);
       setCases(json.cases ?? []);
+    } catch {
+      setListError("network_error");
     } finally {
       setListLoading(false);
     }
@@ -141,6 +154,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       }
       setActiveCase(json.case);
       setMessages(json.messages ?? []);
+    } catch {
+      setError("network_error");
     } finally {
       setDetailLoading(false);
     }
@@ -215,6 +230,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       await loadDetail(activeId);
       await loadList();
       return true;
+    } catch {
+      // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
+      setError("network_error");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -330,6 +349,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             {ko ? "문의 목록" : "Queue"}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
+            {listError ? (
+              <div
+                className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                data-admin-support-list-error="1"
+              >
+                <span>
+                  {ko ? "목록을 불러오지 못했습니다" : "Could not load the queue"} ({listError})
+                </span>
+                <button type="button" className="underline" onClick={() => void loadList()}>
+                  {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+                </button>
+              </div>
+            ) : null}
             {listLoading ? (
               <p className="p-4 text-sm text-sam-muted">…</p>
             ) : cases.length === 0 ? (

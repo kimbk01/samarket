@@ -242,6 +242,15 @@ function SupportActiveConversation({
         const closed =
           json.case.status === "RESOLVED" || json.case.status === "ARCHIVED";
         onDismissibleChange(closed);
+      } catch {
+        // DEF-07: network failure / non-JSON (e.g. 502 HTML) must surface as an error with
+        // Retry — never as an empty conversation with a live composer.
+        if (!silent) {
+          setError("network_error");
+          setSupportCase(null);
+          setMessages([]);
+          onDismissibleChange(true);
+        }
       } finally {
         if (!silent) setLoading(false);
       }
