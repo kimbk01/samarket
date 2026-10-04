@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 
@@ -126,7 +127,8 @@ export async function PATCH(
         notification_type: "review",
         title: "사장님이 리뷰에 댓글을 남겼어요",
         body: reply.length > 80 ? `${reply.slice(0, 79)}…` : reply,
-        link_url: `/stores/owner/reviews`,
+        // Buyer-facing CTA: the reviewed order card (owner review console is owner-only).
+        link_url: orderId ? buyerStoreOrderDetailPath(orderId) : "/orders",
         domain: "store",
         ref_id: rid,
         sender_id: userId,
