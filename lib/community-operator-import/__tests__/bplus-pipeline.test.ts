@@ -201,7 +201,8 @@ describe("content policy", () => {
     const c = buildPublishContent({ article: rich, edit: { ...defaultOperatorDraftEdit(rich), contentPolicy: "full" }, sourcePolicy: "full", sourceName: "S", rules: [] });
     const md = blocksToCommunityMarkdown(c.blocks);
     expect(md).toBe("소제목\n\n인용문\n\n• 하나\n• 둘\n\n▶ YouTube 영상 보기 https://youtu.be/x\n\n![](https://e.com/1.jpg)");
-    expect(md).not.toMatch(/^#|^>|\]\(https?:/m);
+    // images are the only markup the community body supports; nothing else may remain
+    expect(md.replace(/!\[[^\]]*\]\([^)]*\)/g, "")).not.toMatch(/^#|^>|\]\(https?:/m);
   });
 
   it("summary prefers the publisher's per-item summary, then the body lead — never invents text", () => {
