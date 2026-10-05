@@ -12,10 +12,18 @@ const bySite = new Map();
 // Staging steps are named "N name": group by step number so there are never more than 9 groups.
 const groupKey = (site) => (/^\d+ /.test(site) ? `step ${site.split(" ")[0]}` : site);
 for (const r of rows) bySite.set(groupKey(r.site), [...(bySite.get(groupKey(r.site)) || []), r]);
+const out = { notice: [], warning: [] };
 for (const [site, list] of bySite) {
   const failed = list.some((r) => r.result === "FAIL");
-  const level = failed ? "warning" : "notice";
   const body = list.map((r) => `[${r.result}] ${r.site} · ${r.check}: ${r.detail}`).join("\n");
-  console.log(`::${level} title=${esc(`${failed ? "FAIL" : "PASS"} ${site}`)}::${esc(body)}`);
+  out[failed ? "warning" : "notice"].push({ title: `${failed ? "FAIL" : "PASS"} ${site}`, body });
+}
+// Merge neighbours when a level has more than 9 groups, so nothing is dropped by the cap.
+for (const [level, groups] of Object.entries(out)) {
+  const size = Math.ceil(groups.length / 9) || 1;
+  for (let i = 0; i < groups.length; i += size) {
+    const part = groups.slice(i, i + size);
+    console.log(`::${level} title=${esc(part.map((g) => g.title).join(" + "))}::${esc(part.map((g) => g.body).join("\n"))}`);
+  }
 }
 console.log(`PASS ${rows.filter((r) => r.result === "PASS").length} / FAIL ${rows.filter((r) => r.result === "FAIL").length}`);

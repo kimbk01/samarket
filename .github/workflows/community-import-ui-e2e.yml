@@ -79,7 +79,9 @@ jobs:
         run: |
           test -f ui-results.json || echo '[{"site":"실패","check":"no_results","result":"FAIL","detail":"spec did not write results"}]' > ui-results.json
           node scripts/live-probe/annotate.mjs ui-results.json
-          grep -iE "error|unhandled" next-start.log | grep -v "^\s*$" | head -40 | while read -r l; do echo "::warning title=next start log::$l"; done || true
+      - name: Server log errors (missing non-import tables are expected in the snapshot DB)
+        if: always()
+        run: grep -iE "error|unhandled" next-start.log | grep -iE "philife|community|import|neighborhood|post" | head -8 | while read -r l; do echo "::warning title=next start log::$l"; done || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -165,10 +165,16 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
 
     // ── 10 community: feed + detail as users see it ──────────────────────
     const finalTitle = updated[0]?.title ?? "";
-    await page.goto(`/philife/${post?.id}`);
-    const detailOk = await page.getByText(finalTitle.slice(0, 20)).first().isVisible({ timeout: 60_000 }).catch(() => false);
+    const detailResp = await page.goto(`/philife/${post?.id}`);
+    const detailOk = await page
+      .getByText(finalTitle.slice(0, 20))
+      .first()
+      .waitFor({ timeout: 60_000 })
+      .then(() => true)
+      .catch(() => false);
     await shot(page, "09-community-detail");
-    record("10 커뮤니티", "post_detail_page", detailOk, `/philife/${post?.id} title visible=${detailOk}`);
+    const detailText = (await page.locator("main, body").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
+    record("10 커뮤니티", "post_detail_page", detailOk, `/philife/${post?.id} http=${detailResp?.status()} final=${new URL(page.url()).pathname} title visible=${detailOk} text="${detailText}"`);
     await page.goto("/philife");
     const feedOk = await page
       .getByText(finalTitle.slice(0, 20))
