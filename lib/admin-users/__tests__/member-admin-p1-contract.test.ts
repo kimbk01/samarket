@@ -211,6 +211,30 @@ describe("P1 Member Admin ActionPolicy", () => {
     expect(noStore?.visible).toBe(false);
   });
 
+  it("G7: member S16 password CTA hidden for admin and super_admin targets", () => {
+    const adminTarget = resolveMemberAdminActionPolicy(
+      ctx("ACTIVE", {
+        operator: { ...fullOp, targetPrivilege: "admin" },
+      }),
+    ).find((a) => a.id === "manage_password");
+    expect(adminTarget?.visible).toBe(false);
+
+    const saTarget = resolveMemberAdminActionPolicy(
+      ctx("ACTIVE", {
+        operator: { ...fullOp, targetPrivilege: "super_admin", targetIsSuperAdmin: true },
+      }),
+    ).find((a) => a.id === "manage_password");
+    expect(saTarget?.visible).toBe(false);
+
+    const memberTarget = resolveMemberAdminActionPolicy(
+      ctx("ACTIVE", {
+        operator: { ...fullOp, targetPrivilege: "member" },
+      }),
+    ).find((a) => a.id === "manage_password");
+    expect(memberTarget?.visible).toBe(true);
+    expect(memberTarget?.enabled).toBe(true);
+  });
+
   it("operator authorization gates privilege and moderation", () => {
     const noPriv = resolveMemberAdminActionPolicy(
       ctx("ACTIVE", {

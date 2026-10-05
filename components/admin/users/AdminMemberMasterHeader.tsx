@@ -26,6 +26,7 @@ import { adminMembershipRoleFromRow } from "@/lib/admin-users/member-role-badges
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { EditMemberForm } from "./EditMemberForm";
+import { EditAdminForm } from "./EditAdminForm";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
@@ -112,6 +113,7 @@ export function AdminMemberMasterHeader({
   const [showVerify, setShowVerify] = useState(false);
   const [showStoreRel, setShowStoreRel] = useState(false);
   const [showPrivilege, setShowPrivilege] = useState(false);
+  const [showStaffEdit, setShowStaffEdit] = useState(false);
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
@@ -196,6 +198,12 @@ export function AdminMemberMasterHeader({
       : privilegePresentation === "member"
         ? "promote"
         : null;
+  // G9: SA → general admin staff settings (incl. password) via existing EditAdminForm.
+  // Not mixed with member S16; list AdminStaffTable remains unmounted (P2).
+  const isSelfOperator = Boolean(snapshot?.userId && snapshot.userId === user.id);
+  const canEditStaff = Boolean(
+    isSuperAdmin && !meLoading && privilegePresentation === "admin" && !isSelfOperator,
+  );
 
   return (
     <div className="rounded-lg border border-sam-border bg-sam-surface px-4 py-3" data-member-detail-header="1">
@@ -318,6 +326,18 @@ export function AdminMemberMasterHeader({
               {MEMBER_DETAIL_PASSWORD_CTA_KO}
             </button>
           ) : null}
+          {canEditStaff ? (
+            <button
+              type="button"
+              className={memberAdminCtaClass("secondary")}
+              onClick={() => setShowStaffEdit(true)}
+              data-member-cta="staff_edit"
+              data-member-cta-variant="secondary"
+              data-member-cta-cap="CAP-PRIV-VIEW"
+            >
+              {t("admin_users_form_edit_admin_title")}
+            </button>
+          ) : null}
           {canEdit ? (
             <button
               type="button"
@@ -433,6 +453,16 @@ export function AdminMemberMasterHeader({
           currentPrivilege={privilegePresentation}
           onClose={() => setShowPrivilege(false)}
           onSuccess={() => onUpdated?.()}
+        />
+      ) : null}
+      {showStaffEdit ? (
+        <EditAdminForm
+          staffId={user.id}
+          onClose={() => setShowStaffEdit(false)}
+          onSuccess={() => {
+            setShowStaffEdit(false);
+            onUpdated?.();
+          }}
         />
       ) : null}
     </div>
