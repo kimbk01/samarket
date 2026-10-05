@@ -28,9 +28,31 @@ export type NotificationSoundSsotSnapshot = {
   mappings: Map<string, NotificationSoundMappingRow>;
 };
 
+/**
+ * Snapshot cache lifetime — split by runtime (W1 / A1, 2026-10-05 Owner D1).
+ *
+ * - Server (no `window`): unchanged policy. A snapshot older than SERVER_CACHE_MS is replaced by the
+ *   static registry; `ensureNotificationSoundSsotHydratedForServer` reloads from DB on its own TTL.
+ * - Client (browser / WebView): the last successfully hydrated admin snapshot ("last-good") is kept
+ *   with no time-based expiry. Age or a failed refresh never reverts the client to the static registry.
+ *   `invalidateNotificationSoundSsotCache()` on the client keeps last-good and only flags a refresh,
+ *   which `ensureNotificationSoundSsotHydratedForClient()` honours on its next run.
+ *   A client that has never hydrated keeps using the registry snapshot (unchanged first-boot behaviour).
+ *
+ * Device evidence for the defect this fixes: Phase 0-A T1-6 vs T1b (report §14), same device and screen,
+ * admin asset before 60 s and `/sounds/notification.wav` after.
+ */
+type SnapshotOrigin = "registry" | "hydrated";
+
 let cachedSnapshot: NotificationSoundSsotSnapshot | null = null;
 let cachedAt = 0;
-const CACHE_MS = 60_000;
+let cachedOrigin: SnapshotOrigin = "registry";
+let clientRefreshRequested = false;
+const SERVER_CACHE_MS = 60_000;
+
+function isClientRuntime(): boolean {
+  return typeof window !== "undefined";
+}
 
 export function buildRegistrySnapshot(): NotificationSoundSsotSnapshot {
   const assets = new Map<string, NotificationSoundAssetRow>();
@@ -54,20 +76,55 @@ export function buildRegistrySnapshot(): NotificationSoundSsotSnapshot {
   return { assets, events, mappings };
 }
 
+/** A non-null snapshot set here is treated as hydrated (admin) data; `null` clears to registry. */
 export function setNotificationSoundSsotSnapshot(snapshot: NotificationSoundSsotSnapshot | null): void {
   cachedSnapshot = snapshot;
   cachedAt = Date.now();
+  cachedOrigin = snapshot ? "hydrated" : "registry";
+  if (snapshot) clientRefreshRequested = false;
 }
 
+/**
+ * Server: drop the snapshot (next read rebuilds registry until DB reload) — unchanged.
+ * Client: keep last-good hydrated snapshot and request a refresh; never revert to registry.
+ */
 export function invalidateNotificationSoundSsotCache(): void {
+  if (isClientRuntime() && cachedSnapshot && cachedOrigin === "hydrated") {
+    clientRefreshRequested = true;
+    return;
+  }
   cachedSnapshot = null;
   cachedAt = 0;
+  cachedOrigin = "registry";
+  if (isClientRuntime()) clientRefreshRequested = true;
+}
+
+/** Client hydrate reads this to bypass its TTL after an invalidate. */
+export function isNotificationSoundSsotClientRefreshRequested(): boolean {
+  return clientRefreshRequested;
+}
+
+/** Diagnostics / tests: where the current snapshot came from. */
+export function getNotificationSoundSsotSnapshotOrigin(): SnapshotOrigin {
+  return cachedSnapshot ? cachedOrigin : "registry";
+}
+
+/** Tests only — full reset including client last-good (simulates a fresh app process). */
+export function resetNotificationSoundSsotSnapshotForTests(): void {
+  cachedSnapshot = null;
+  cachedAt = 0;
+  cachedOrigin = "registry";
+  clientRefreshRequested = false;
 }
 
 export function getNotificationSoundSsotSnapshot(): NotificationSoundSsotSnapshot {
-  if (cachedSnapshot && Date.now() - cachedAt < CACHE_MS) return cachedSnapshot;
+  if (cachedSnapshot) {
+    if (isClientRuntime()) return cachedSnapshot;
+    if (Date.now() - cachedAt < SERVER_CACHE_MS) return cachedSnapshot;
+  }
   cachedSnapshot = buildRegistrySnapshot();
   cachedAt = Date.now();
+  cachedOrigin = "registry";
   return cachedSnapshot;
 }
 

@@ -1,9 +1,14 @@
 /**
  * Foreground in-app sound — hydrate admin DB SSOT into client resolver snapshot.
- * Failure leaves registry fallback intact.
+ * Failure keeps the current snapshot: last-good admin data if hydrated before, otherwise registry
+ * (W1 / A1: the client never reverts from admin data to the static registry on age or failure).
+ * HYDRATE_TTL_MS only throttles refetches; it does not expire the snapshot.
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { hydrateNotificationSoundSnapshotFromRows } from "@/lib/notifications/notification-sound-resolver";
+import {
+  hydrateNotificationSoundSnapshotFromRows,
+  isNotificationSoundSsotClientRefreshRequested,
+} from "@/lib/notifications/notification-sound-resolver";
 import type {
   NotificationSoundAssetRow,
   NotificationSoundEventRow,
@@ -56,12 +61,19 @@ export async function ensureNotificationSoundSsotHydratedForClient(): Promise<vo
   if (typeof window === "undefined") return;
 
   const now = Date.now();
-  if (lastHydratedAt > 0 && now - lastHydratedAt < HYDRATE_TTL_MS) return;
+  const refreshRequested = isNotificationSoundSsotClientRefreshRequested();
+  if (!refreshRequested && lastHydratedAt > 0 && now - lastHydratedAt < HYDRATE_TTL_MS) return;
   if (hydrateFailedAt > 0 && now - hydrateFailedAt < HYDRATE_FAILURE_BACKOFF_MS) return;
 
   await runSingleFlight(FLIGHT_KEY, async () => {
     const again = Date.now();
-    if (lastHydratedAt > 0 && again - lastHydratedAt < HYDRATE_TTL_MS) return;
+    if (
+      !isNotificationSoundSsotClientRefreshRequested() &&
+      lastHydratedAt > 0 &&
+      again - lastHydratedAt < HYDRATE_TTL_MS
+    ) {
+      return;
+    }
 
     try {
       const res = await fetch("/api/app/notification-sound-ssot", {
