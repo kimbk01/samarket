@@ -1,8 +1,10 @@
 name: community-import staging e2e
 
 # Disposable, isolated staging: a local Supabase stack inside the runner (no production data,
-# no production credentials, no cost). Replays every migration, then runs the B+ integration
-# suite (register → collect → inbox → edit → publish → update → duplicate guard → feed).
+# no production credentials, no cost). The full migration history cannot be replayed (some prod
+# tables were created outside migrations), so the stack starts empty, a structure-only snapshot of
+# the import-flow tables is applied, then the REAL publish-RPC migration file is applied on top.
+# Then the B+ integration suite runs (register → collect → inbox → edit → publish → update → feed).
 on:
   workflow_dispatch:
   push:
@@ -34,23 +36,35 @@ jobs:
         run: |
           test -f supabase/config.toml || supabase init --force --with-vscode-settings=false || supabase init --force
           sed -i 's/^project_id = .*/project_id = "bplus-staging"/' supabase/config.toml
-      - name: Start local Supabase (replays all migrations)
+      - name: Start empty local Supabase
         id: start
         continue-on-error: true
         run: |
           set -o pipefail
+          mkdir -p "$RUNNER_TEMP/all-migrations" && mv supabase/migrations/* "$RUNNER_TEMP/all-migrations/" && ls supabase/migrations | wc -l
           supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime 2>&1 | tee supabase-start.log
-      - name: Report migration replay
-        if: always()
-        run: node scripts/staging-e2e/report-start.mjs supabase-start.log "${{ steps.start.outcome }}"
-      - run: npm ci
-        if: steps.start.outcome == 'success'
-      - name: Staging integration suite
+      - name: Apply schema snapshot + real publish-RPC migration
+        id: schema
         if: steps.start.outcome == 'success'
         continue-on-error: true
         run: |
+          set -o pipefail
+          DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/staging-e2e/bootstrap-schema.sql 2>&1 | tee schema.log
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$RUNNER_TEMP/all-migrations/20270420120200_community_operator_import_bplus_publish_rpc.sql" 2>&1 | tee -a schema.log
+          psql "$DB_URL" -At -c "select 'rpc=' || count(*) from pg_proc where proname='community_import_publish'" | tee -a schema.log
+      - name: Report staging DB
+        if: always()
+        run: node scripts/staging-e2e/report-start.mjs supabase-start.log "${{ steps.start.outcome }}" schema.log "${{ steps.schema.outcome }}"
+      - run: npm ci
+        if: steps.schema.outcome == 'success'
+      - name: Staging integration suite
+        if: steps.schema.outcome == 'success'
+        continue-on-error: true
+        run: |
           eval "$(supabase status -o env | sed 's/^/export /')"
-          export STAGING_SUPABASE_URL="$API_URL" STAGING_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" STAGING_ANON_KEY="$ANON_KEY"
+          supabase status -o env | sed 's/=.*//' | tr '\n' ' '; echo
+          export STAGING_SUPABASE_URL="$API_URL" STAGING_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-$SECRET_KEY}" STAGING_ANON_KEY="${ANON_KEY:-$PUBLISHABLE_KEY}"
           export STAGING_DB_URL="$DB_URL"
           npx vitest run --config vitest.staging.config.ts
       - name: Annotate staging results
