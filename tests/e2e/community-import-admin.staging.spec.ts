@@ -240,6 +240,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       .catch(() => false);
     await shot(page, "09-community-detail");
     const detailText = (await page.locator("main, body").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
+    const detailFull = (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ");
     record("10 커뮤니티", "post_detail_page", detailOk, `/philife/${post?.id} http=${detailResp?.status()} final=${new URL(page.url()).pathname} title visible=${detailOk} text="${detailText}"`);
     await page.goto("/philife");
     const feedOk = await page
@@ -250,7 +251,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       .catch(() => false);
     await shot(page, "10-community-feed");
     record("10 커뮤니티", "post_in_feed", feedOk, `/philife feed shows updated title=${feedOk}`);
-    const plain = (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ");
+    const plain = detailFull;
     record(
       "10 커뮤니티",
       "detail_no_raw_markup_and_source_block",
