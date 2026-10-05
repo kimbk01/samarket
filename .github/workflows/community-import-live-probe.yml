@@ -1,0 +1,33 @@
+name: community-import live probe
+
+# Read-only re-verification of the community import collector against real public sites.
+# No database, no secrets, robots.txt honored. Results are printed as annotations.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/community-import-bplus"]
+    paths:
+      - "lib/community-operator-import/**"
+      - "vitest.live.config.ts"
+      - ".github/workflows/community-import-live-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Live probe
+        continue-on-error: true
+        run: npx vitest run --config vitest.live.config.ts
+      - name: Annotate results
+        if: always()
+        run: node scripts/live-probe/annotate.mjs
