@@ -185,7 +185,10 @@ export async function POST(req: NextRequest) {
 
   const contactPhone = phNorm.value;
   const phoneFields = profilePhoneStorageFieldsFromDb09(contactPhone);
-  const email = emailRaw || buildManualMemberAuthEmail(username);
+  /** Auth 로그인 식별자는 항상 loginId@manual.local. 연락 이메일은 profiles.email 만. */
+  const authEmail = buildManualMemberAuthEmail(username);
+  const contactEmail = emailRaw || null;
+  const email = authEmail;
   const nowIso = new Date().toISOString();
 
   let regionId = regionIdLegacy;
@@ -270,8 +273,8 @@ export async function POST(req: NextRequest) {
 
   const profileRow: Record<string, unknown> = {
     id,
-    email,
-    auth_login_email: email,
+    email: contactEmail,
+    auth_login_email: authEmail,
     display_name: nickname,
     username,
     nickname,

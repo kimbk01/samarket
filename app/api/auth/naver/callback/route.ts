@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
+import { shouldPreserveAdminManagedPassword } from "@/lib/auth/manual-member-login-credential";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import {
   buildNaverSupabasePassword,
@@ -88,8 +89,9 @@ export async function GET(req: NextRequest) {
     };
 
     if (existing) {
+      const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, existing.id);
       const { error: updateError } = await adminSb.auth.admin.updateUserById(existing.id, {
-        password,
+        ...(preservePassword ? {} : { password }),
         email_confirm: true,
         user_metadata: metadata,
       });

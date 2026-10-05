@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 import { buildGoogleSupabasePassword } from "@/lib/auth/native/google-native-session.server";
+import { shouldPreserveAdminManagedPassword } from "@/lib/auth/manual-member-login-credential";
 import {
   authUserHasProductProfile,
   PROVIDER_ACCOUNT_RECONCILIATION_REQUIRED,
@@ -96,6 +97,9 @@ async function establishOwnerSession(
     throw new Error("owner_session_reissue_unsupported_provider");
   }
 
+  if (await shouldPreserveAdminManagedPassword(adminSb, ownerUserId)) {
+    throw new Error("admin_managed_password_preserved");
+  }
   const password = buildGoogleSupabasePassword(candidate.providerUserId);
   const { error: updateError } = await adminSb.auth.admin.updateUserById(ownerUserId, {
     password,

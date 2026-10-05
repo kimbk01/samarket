@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { ensureManualLoginEmailAligned } from "@/lib/auth/manual-member-login-credential";
 import {
   isSuperAdminRole,
   loadStaffPermissionKeys,
@@ -150,6 +151,7 @@ export async function PATCH(
         { status: 500 },
       );
     }
+    void ensureManualLoginEmailAligned(sb, staffId);
     void appendAuditLog(sb, {
       actor_type: "admin",
       actor_id: actor.userId,

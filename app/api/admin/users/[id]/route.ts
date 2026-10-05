@@ -28,6 +28,10 @@ import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-locati
 import type { AdminUserDetail } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
+  ensureManualLoginEmailAligned,
+  resolveContactEmailCredentialPatch,
+} from "@/lib/auth/manual-member-login-credential";
+import {
   profilePhoneStorageFieldsFromDb09,
 } from "@/lib/profile/resolve-profile-phone";
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
@@ -782,11 +786,16 @@ export async function PATCH(
 
   const { sb } = gate;
 
-  const { data: initialProfile, error: profileError } = await sb
-    .from("profiles")
-    .select("id, dibay_id")
-    .eq("id", userId)
-    .maybeSingle();
+  const [{ data: initialProfile, error: profileError }, authLookup] = await Promise.all([
+    sb
+      .from("profiles")
+      .select("id, dibay_id, username, email, auth_login_email, provider, auth_provider")
+      .eq("id", userId)
+      .maybeSingle(),
+    sb.auth.admin.getUserById(userId),
+  ]);
+  const currentAuthEmail =
+    String(authLookup.data?.user?.email ?? "").trim().toLowerCase() || null;
 
   if (profileError) {
     return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
@@ -855,9 +864,21 @@ export async function PATCH(
   if (nextPhonePatch !== null) {
     Object.assign(patch, nextPhonePatch);
   }
+  let authEmailUpdate: string | undefined = undefined;
   if (nextEmail !== undefined) {
-    patch.email = nextEmail;
-    patch.auth_login_email = nextEmail;
+    const contactPlan = resolveContactEmailCredentialPatch({
+      nextContactEmail: nextEmail,
+      profile: {
+        provider: (initialProfile as { provider?: string | null } | null)?.provider ?? null,
+        auth_provider: (initialProfile as { auth_provider?: string | null } | null)?.auth_provider ?? null,
+        username: (initialProfile as { username?: string | null } | null)?.username ?? null,
+        email: (initialProfile as { email?: string | null } | null)?.email ?? null,
+        auth_login_email: (initialProfile as { auth_login_email?: string | null } | null)?.auth_login_email ?? null,
+      },
+      authEmail: currentAuthEmail,
+    });
+    Object.assign(patch, contactPlan.profilePatch);
+    authEmailUpdate = contactPlan.authEmailUpdate;
   }
 
   if (Object.keys(patch).length > 0) {
@@ -908,15 +929,17 @@ export async function PATCH(
     }
   }
 
-  /** profiles 변경과 Auth 로그인 자격(이메일·비번·닉네임)을 함께 맞춤. */
+  /** profiles 변경과 Auth 로그인 자격(이메일·비번·닉네임)을 함께 맞춤.
+   * 수동/관리자 계정: 연락 이메일로 Auth.email 을 옮기지 않는다.
+   */
   const authPatch: {
     email?: string;
     password?: string;
     email_confirm?: boolean;
     user_metadata?: Record<string, unknown>;
   } = {};
-  if (nextEmail !== undefined && nextEmail) {
-    authPatch.email = nextEmail;
+  if (authEmailUpdate) {
+    authPatch.email = authEmailUpdate;
     authPatch.email_confirm = true;
   }
   if (nextPassword) {
@@ -938,6 +961,7 @@ export async function PATCH(
       );
     }
     if (nextPassword) {
+      void ensureManualLoginEmailAligned(sb, userId);
       void appendAuditLog(sb, {
         actor_type: "admin",
         actor_id: gate.actor.userId,

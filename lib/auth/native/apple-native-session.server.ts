@@ -6,6 +6,7 @@ import {
   isAppleNativeExchangeSessionEnabled,
   isApplePrivateRelayEmail,
 } from "@/lib/auth/native/apple-auth-env.server";
+import { shouldPreserveAdminManagedPassword } from "@/lib/auth/manual-member-login-credential";
 import type { AppleVerifiedIdentityToken } from "@/lib/auth/native/apple-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
 import {
@@ -111,9 +112,14 @@ async function upsertAppleAuthUser(
         status: 409,
       };
     }
+    const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, args.existingUserId);
     const { error: updateError } = await adminSb.auth.admin.updateUserById(args.existingUserId, {
-      password,
-      email: authEmail,
+      ...(preservePassword
+        ? {}
+        : {
+            password,
+            email: authEmail,
+          }),
       email_confirm: true,
       user_metadata: metadata,
     });

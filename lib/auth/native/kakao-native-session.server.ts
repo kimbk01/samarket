@@ -5,6 +5,7 @@ import {
   buildKakaoNativeAuthEmail,
   isKakaoNativeExchangeSessionEnabled,
 } from "@/lib/auth/native/kakao-auth-env.server";
+import { shouldPreserveAdminManagedPassword } from "@/lib/auth/manual-member-login-credential";
 import type { KakaoVerifiedIdentity } from "@/lib/auth/native/kakao-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
 import {
@@ -101,9 +102,14 @@ async function upsertKakaoAuthUser(
         status: 409,
       };
     }
+    const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, args.existingUserId);
     const { error: updateError } = await adminSb.auth.admin.updateUserById(args.existingUserId, {
-      password,
-      email: authEmail,
+      ...(preservePassword
+        ? {}
+        : {
+            password,
+            email: authEmail,
+          }),
       email_confirm: true,
       user_metadata: metadata,
       app_metadata: { provider: "kakao", providers: ["kakao"] },

@@ -4,6 +4,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-query";
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
+import { ensureManualLoginEmailAligned } from "@/lib/auth/manual-member-login-credential";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -197,6 +198,9 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  // Heal contact/login diverge so username login keeps working after temp password set.
+  void ensureManualLoginEmailAligned(gate.sb, userId);
 
   void appendAuditLog(gate.sb, {
     actor_type: "admin",

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { shouldPreserveAdminManagedPassword } from "@/lib/auth/manual-member-login-credential";
 import type { NextRequest, NextResponse } from "next/server";
 import {
   buildGoogleNativeAuthEmail,
@@ -91,16 +92,19 @@ async function updateGoogleAuthUserById(
   const existingEmail = String(existingUserData.user.email ?? "").trim();
   await reclaimGoogleNativeSyntheticAuthOrphan(adminSb, userId, args.verified.googleUserId);
 
+  const preservePassword = await shouldPreserveAdminManagedPassword(adminSb, userId);
   const updatePayload: {
-    password: string;
+    password?: string;
     email_confirm: boolean;
     user_metadata: Record<string, unknown>;
     email?: string;
   } = {
-    password,
     email_confirm: true,
     user_metadata: metadata,
   };
+  if (!preservePassword) {
+    updatePayload.password = password;
+  }
   if (!existingEmail || isGoogleNativeSyntheticAuthEmail(existingEmail)) {
     updatePayload.email = syntheticEmail;
   }
