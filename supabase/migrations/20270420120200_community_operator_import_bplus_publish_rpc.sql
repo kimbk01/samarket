@@ -10,13 +10,16 @@ where d.status = 'published'
   and exists (select 1 from public.community_posts p where p.id = d.published_post_id)
 on conflict do nothing;
 
+-- A row already flagged source_updated keeps that signal (the original changed after publishing).
 update public.community_operator_import_inbox i
-set status = 'published', published_post_id = d.published_post_id, updated_at = now()
+set status = case when i.status = 'source_updated' then 'source_updated' else 'published' end,
+    published_post_id = d.published_post_id, updated_at = now()
 from public.community_operator_import_drafts d
 where d.status = 'published'
   and d.published_post_id is not null
+  and exists (select 1 from public.community_posts p where p.id = d.published_post_id)
   and i.source_site = d.source_site and i.source_board = d.source_board and i.source_article_key = d.source_article_key
-  and i.status <> 'published';
+  and (i.status not in ('published', 'source_updated') or i.published_post_id is distinct from d.published_post_id);
 
 -- 10. publish / update RPC -----------------------------------------------------------------------
 create or replace function public.community_import_publish(p jsonb)
