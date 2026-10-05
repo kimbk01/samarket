@@ -41,6 +41,8 @@ jobs:
           psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/owner-apply-check/fixture.sql
       - name: Rehearse
         run: |
+          # Scenarios A and C expect psql to fail; GitHub's default `bash -e` would abort on them.
+          set +e
           set -uo pipefail
           q() { psql "$DB_URL" -At -q -f "$1" 2>&1 | tail -1; }
           note() { echo "::notice title=$1::$2"; }
