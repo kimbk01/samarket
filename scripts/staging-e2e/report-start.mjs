@@ -8,7 +8,8 @@ if (outcome === "success") {
   console.log(`::notice title=${esc("PASS staging DB · migration replay")}::${esc(`local Supabase started, migrations applied=${applied}`)}`);
 } else {
   const lastApplying = [...log.matchAll(/Applying migration ([^\n]+)/g)].pop()?.[1] ?? "?";
-  const errIdx = log.search(/ERROR|error:|failed/i);
-  const tail = errIdx >= 0 ? log.slice(errIdx, errIdx + 1500) : log.slice(-1500);
+  // Postgres errors look like `ERROR: ... (SQLSTATE xxxxx)` followed by `At statement N:` — skip docker pull noise.
+  const errIdx = log.search(/ERROR: |SQLSTATE|At statement|failed to apply|error running container/i);
+  const tail = errIdx >= 0 ? log.slice(Math.max(0, errIdx - 200), errIdx + 1800) : log.slice(-1500);
   console.log(`::warning title=${esc("FAIL staging DB · migration replay")}::${esc(`applied=${applied} last=${lastApplying}\n${tail}`)}`);
 }
