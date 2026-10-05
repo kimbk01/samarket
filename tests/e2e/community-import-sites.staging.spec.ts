@@ -201,7 +201,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         if (site.key === "gnuboard" && upd) gnuPost = { id: upd.id, title: upd.title, sourceId };
       } catch (e) {
         await shot(page, `s-${site.key}-zz-failure`);
-        record(tag, "unexpected_error", false, `${e instanceof Error ? e.message.split("\n")[0] : String(e)} @ ${page.url()}`);
+        record(tag, "unexpected_error", false, `${e instanceof Error ? e.message.replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 6).join(" | ") : String(e)} @ ${page.url()}`);
       }
       flush();
     }
@@ -213,8 +213,8 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         const beforeCount = await postCount();
         await page.goto("/admin/community/external-import");
         await page.getByRole("tab", { name: "출처·게시판" }).click();
-        const card = page.locator("div.sam-card").filter({ hasText: /alabang|알이즈웰/ }).first();
-        await card.locator("> button").first().click();
+        const card = page.getByTestId("import-source-card").filter({ hasText: /alabang|알이즈웰/ }).first();
+        await card.getByTestId("import-source-toggle").click();
         await card.getByRole("button", { name: /^수집 설정/ }).click();
         await card.getByPlaceholder("#ct, .article-body").fill("#old-layout-body");
         await Promise.all([

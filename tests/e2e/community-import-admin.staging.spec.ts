@@ -120,7 +120,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     await Promise.all([reloaded(), page.getByRole("checkbox", { name: /^맛집.* 자동수집$/ }).click()]);
     await page.reload();
     await page.getByRole("tab", { name: "출처·게시판" }).click();
-    await page.locator("section").filter({ hasText: "등록된 출처" }).locator("div.sam-card > button").first().click();
+    await page.getByTestId("import-source-toggle").first().click();
     const topicSelAfter = page.getByRole("combobox", { name: /^맛집.* DIBAY 주제$/ });
     // topics load asynchronously after the reload; wait for the stored value to be selectable
     await expect(topicSelAfter).toHaveValue(food?.id ?? "", { timeout: 30_000 }).catch(() => undefined);
@@ -297,7 +297,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     record("11 정기수집", "cron_runs_and_never_publishes", cron.ok() && (await postCount()) === beforeCron, `status=${cron.status()} posts ${beforeCron}→${await postCount()} body=${cronBody.slice(0, 300)}`);
   } catch (e) {
     await shot(page, "zz-failure");
-    record("실패", "unexpected_error", false, `${e instanceof Error ? e.message : String(e)} @ ${page.url()}`);
+    record("실패", "unexpected_error", false, `${e instanceof Error ? e.message.replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 6).join(" | ") : String(e)} @ ${page.url()}`);
     throw e;
   } finally {
     flush();

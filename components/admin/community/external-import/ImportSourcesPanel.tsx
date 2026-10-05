@@ -271,8 +271,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           const isOpen = open === s.id;
           const collecting = s.boards.filter((b) => b.collectEnabled).length;
           return (
-            <div key={s.id} className="rounded-ui-rect border border-sam-border bg-sam-surface">
-              <button type="button" className="w-full text-left px-3 py-2.5 flex flex-wrap items-center gap-2" onClick={() => setOpen(isOpen ? null : s.id)}>
+            <div key={s.id} data-testid="import-source-card" data-source-id={s.id} className="rounded-ui-rect border border-sam-border bg-sam-surface">
+              <button type="button" data-testid="import-source-toggle" aria-expanded={isOpen} className="w-full text-left px-3 py-2.5 flex flex-wrap items-center gap-2" onClick={() => setOpen(isOpen ? null : s.id)}>
                 <VerdictBadge v={s.verification} />
                 <span className="font-semibold text-sm">{s.displayName}</span>
                 <span className="text-[11px] text-sam-muted">{s.engine}</span>
