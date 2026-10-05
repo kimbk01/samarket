@@ -443,3 +443,56 @@ export async function tryLockBoard(sb: SupabaseClient, sourceId: string, boardId
   if (error) return false;
   return Array.isArray(data) && data.length === 1;
 }
+
+/**
+ * Operator-defined board (e.g. a feed narrowed by keyword: `https://site/rss#keyword=필리핀,세부`).
+ * Starts disabled for scheduled collection; sample it first, then switch collection on.
+ */
+export async function addCustomBoard(
+  sb: SupabaseClient,
+  sourceId: string,
+  input: { displayName: string; engineKey: string; boardKind?: BoardKind; defaultTopicId?: string | null },
+): Promise<ManagedBoard> {
+  const source = await loadManagedSource(sb, sourceId);
+  if (!source) throw new Error("source_not_found");
+  const name = String(input.displayName || "").trim().slice(0, 120);
+  const key = String(input.engineKey || "").trim().slice(0, 1000);
+  if (!name || !key) throw new Error("board_name_and_key_required");
+  try {
+    const u = new URL(key, source.baseUrl.endsWith("/") ? source.baseUrl : `${source.baseUrl}/`);
+    if (u.host.replace(/^www\./, "") !== new URL(source.baseUrl).host.replace(/^www\./, "")) throw new Error("board_must_be_on_source_host");
+  } catch (e) {
+    throw e instanceof Error && e.message === "board_must_be_on_source_host" ? e : new Error("invalid_board_url");
+  }
+  const kind = input.boardKind && KINDS.has(input.boardKind) ? input.boardKind : "editorial";
+  const boardId = `custom-${createHashId(key)}`;
+  const { error } = await sb.from(BOARDS_TABLE).upsert(
+    {
+      source_id: sourceId,
+      board_id: boardId,
+      display_name: name,
+      short_label: name.slice(0, 40),
+      engine_key: key,
+      board_kind: kind,
+      enabled: true,
+      collect_enabled: false,
+      default_topic_id: input.defaultTopicId || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "source_id,board_id" },
+  );
+  if (error) throw new Error(error.message);
+  const after = await loadManagedSource(sb, sourceId);
+  const saved = after?.boards.find((b) => b.boardId === boardId);
+  if (!saved) throw new Error("board_readback_failed");
+  return saved;
+}
+
+function createHashId(s: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}

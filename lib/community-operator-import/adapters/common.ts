@@ -98,6 +98,8 @@ export type FeedItem = {
   /** Plain-text summary (description). */
   summary: string;
   mediaImage: string | null;
+  /** RSS <category> / Atom <category term> values. */
+  categories: string[];
 };
 
 /**
@@ -150,6 +152,11 @@ export function parseFeed(xml: string): { items: FeedItem[]; isFeed: boolean } {
       contentHtml,
       summary: decodeHtmlText(summaryHtml).slice(0, 600),
       mediaImage: media,
+      categories: $el
+        .children("category")
+        .map((_, c) => decodeHtmlText($(c).attr("term") || $(c).text()))
+        .get()
+        .filter(Boolean),
     });
   };
   $("item").each((_, el) => readItem(el, false));

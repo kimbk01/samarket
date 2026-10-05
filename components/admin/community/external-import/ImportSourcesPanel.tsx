@@ -312,6 +312,16 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       {s.enabled ? "출처 끄기" : "출처 켜기"}
                     </button>
                   </div>
+                  {s.engine === "rss_atom" ? (
+                    <KeywordBoardForm
+                      source={s}
+                      busy={!!busy}
+                      onPreview={(engineKey, name) =>
+                        setProbeTarget({ baseUrl: s.baseUrl, engine: s.engine, adapterConfig: s.adapterConfig, engineKey, displayName: name })
+                      }
+                      onAdd={(engineKey, name) => void sourceAction(s.id, "addBoard", { engineKey, displayName: name })}
+                    />
+                  ) : null}
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead className="text-left text-sam-muted">
@@ -406,6 +416,54 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           );
         })}
       </section>
+    </div>
+  );
+}
+
+/** Feed board narrowed by keywords (e.g. Korean travel/golf news → only Philippines topics). */
+function KeywordBoardForm({
+  source,
+  busy,
+  onPreview,
+  onAdd,
+}: {
+  source: ManagedSource;
+  busy: boolean;
+  onPreview: (engineKey: string, name: string) => void;
+  onAdd: (engineKey: string, name: string) => void;
+}) {
+  const feeds = source.boards.filter((b) => !b.engineKey.includes("#"));
+  const [feed, setFeed] = useState(feeds[0]?.engineKey ?? "");
+  const [keywords, setKeywords] = useState("필리핀,세부,마닐라,클락,보라카이");
+  const [name, setName] = useState("");
+  const kw = keywords
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .join(",");
+  const engineKey = feed && kw ? `${feed.split("#")[0]}#keyword=${encodeURIComponent(kw)}` : "";
+  const label = name.trim() || `${source.displayName} · ${kw.split(",").slice(0, 3).join("·")}`;
+  if (!feeds.length) return null;
+  return (
+    <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
+      <div className="text-[11px] font-semibold">키워드 게시판 추가 — 이 피드에서 키워드가 들어간 글만 수집</div>
+      <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
+        <select className="sam-input text-xs" value={feed} onChange={(e) => setFeed(e.target.value)}>
+          {feeds.map((b) => (
+            <option key={b.boardId} value={b.engineKey}>
+              {b.displayName}
+            </option>
+          ))}
+        </select>
+        <input className="sam-input text-xs" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="쉼표로 구분: 필리핀,세부" />
+        <input className="sam-input text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="게시판 이름 (선택)" />
+        <button type="button" className="sam-btn sam-btn-ghost text-[11px]" disabled={!engineKey} onClick={() => onPreview(engineKey, label)}>
+          샘플 보기
+        </button>
+        <button type="button" className="sam-btn sam-btn-secondary text-[11px]" disabled={!engineKey || busy} onClick={() => onAdd(engineKey, label)}>
+          게시판으로 추가
+        </button>
+      </div>
     </div>
   );
 }

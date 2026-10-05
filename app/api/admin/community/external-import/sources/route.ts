@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { detectSource, probeBoard } from "@/lib/community-operator-import/detect";
 import {
+  addCustomBoard,
   type BoardPatch,
   loadManagedSource,
   loadManagedSources,
@@ -56,6 +57,7 @@ type Body = {
  *  board    {sourceId, boardId, patch}              → enabled / collectEnabled / defaultTopicId / kind / name
  *  verify   {sourceId}                              → re-sample stored boards, store verdicts
  *  rescan   {sourceId}                              → re-discover boards from the site (adds new ones)
+ *  addBoard {sourceId, displayName, engineKey}      → operator board, e.g. feed#keyword=필리핀 (collection off)
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAdminApiUser();
@@ -105,6 +107,9 @@ export async function POST(req: NextRequest) {
     if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
     if (action === "update") {
       return jsonOk({ source: await updateSource(sb, sourceId, b.patch || {}) });
+    }
+    if (action === "addBoard") {
+      return jsonOk({ board: await addCustomBoard(sb, sourceId, { displayName: String(b.displayName || ""), engineKey: String(b.engineKey || "") }) });
     }
     if (action === "board") {
       const boardId = String(b.boardId || "").trim();

@@ -11,6 +11,7 @@ import {
   type AdapterContext,
   articleKeyFromLink,
   boardUrl,
+  classifyBoardKind,
   type DetailTarget,
   type DiscoveredBoard,
   feedItemsToRows,
@@ -46,23 +47,81 @@ export async function readFeed(url: string): Promise<FeedItem[]> {
   return parsed.items;
 }
 
+/**
+ * Board filters live in the board URL fragment (never sent to the site):
+ *   `…/rss#category=맛집`         → items whose <category> matches
+ *   `…/rss#keyword=필리핀,세부`    → items whose title/summary contains any keyword
+ * This turns one site-wide feed into real boards (e.g. a community's "맛집" category)
+ * and lets Korean news feeds be narrowed to Philippines topics.
+ */
+export type FeedFilter = { categories: string[]; keywords: string[] };
+
+export function feedFilterOf(url: string): FeedFilter {
+  const hash = url.includes("#") ? url.slice(url.indexOf("#") + 1) : "";
+  const params = new URLSearchParams(hash);
+  const list = (k: string) =>
+    (params.get(k) || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  return { categories: list("category"), keywords: list("keyword") };
+}
+
+export function applyFeedFilter(items: FeedItem[], f: FeedFilter): FeedItem[] {
+  return items.filter((it) => {
+    if (f.categories.length && !it.categories.some((c) => f.categories.includes(c))) return false;
+    if (f.keywords.length) {
+      const hay = `${it.title} ${it.summary}`.toLowerCase();
+      if (!f.keywords.some((k) => hay.includes(k.toLowerCase()))) return false;
+    }
+    return true;
+  });
+}
+
+/** Category boards of a feed: every category with at least `min` items in the current window. */
+export function categoryBoards(feedUrl: string, items: FeedItem[], min = 3): DiscoveredBoard[] {
+  const counts = new Map<string, number>();
+  for (const it of items) for (const c of new Set(it.categories)) counts.set(c, (counts.get(c) || 0) + 1);
+  return [...counts.entries()]
+    .filter(([, n]) => n >= min)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([c, n]) => ({
+      boardId: slugBoardId(`cat-${c}`),
+      displayName: `${c} (${n})`,
+      engineKey: `${feedUrl.split("#")[0]}#category=${encodeURIComponent(c)}`,
+      boardKind: classifyBoardKind(c),
+    }));
+}
+
 export async function discoverRssBoards(
   _ctx: AdapterContext,
   feedUrls: Array<{ url: string; title?: string | null }>,
 ): Promise<DiscoveredBoard[]> {
-  return feedUrls.map((f, i) => ({
+  const boards: DiscoveredBoard[] = feedUrls.map((f, i) => ({
     boardId: i === 0 && feedUrls.length === 1 ? "feed" : slugBoardId(f.url),
     displayName: f.title?.trim() || (feedUrls.length === 1 ? "전체 피드" : f.url.replace(/^https?:\/\/[^/]+/, "")),
     engineKey: f.url,
     boardKind: /missing|실종/i.test(f.url + (f.title || "")) ? "member_qa" : "editorial",
   }));
+  // A single site-wide feed: expose its categories as boards.
+  if (feedUrls.length <= 2) {
+    for (const f of feedUrls) {
+      try {
+        boards.push(...categoryBoards(f.url, await readFeed(f.url)));
+      } catch {
+        /* category boards are optional */
+      }
+    }
+  }
+  return boards;
 }
 
 export async function listRss(ctx: AdapterContext, board: RuntimeBoard, page: number): Promise<OperatorListRow[]> {
   if (page > 1) return []; // feeds carry only their latest window
   const url = boardUrl(ctx.source, board);
-  const items = await readFeed(url);
-  return feedItemsToRows(items, url);
+  const items = applyFeedFilter(await readFeed(url.split("#")[0]!), feedFilterOf(url));
+  return feedItemsToRows(items, url.split("#")[0]!);
 }
 
 function feedBlocks(item: FeedItem | undefined): OperatorContentBlock[] {
@@ -79,7 +138,7 @@ export async function detailRss(
   const warnings: string[] = [];
   let item: FeedItem | undefined;
   try {
-    const items = await readFeed(boardUrl(ctx.source, board));
+    const items = await readFeed(boardUrl(ctx.source, board).split("#")[0]!);
     item = items.find((it) => articleKeyFromLink(it.link) === target.articleKey);
   } catch (e) {
     warnings.push(`feed_unavailable: ${describeFetchError(e)}`);

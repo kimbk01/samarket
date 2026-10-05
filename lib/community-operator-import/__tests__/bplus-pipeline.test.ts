@@ -336,3 +336,24 @@ describe("staging findings (2026-10-05 live probe)", () => {
     expect(boards[0]!.boardId).not.toContain("https");
   });
 });
+
+describe("feed boards by category and keyword", () => {
+  const xml = `<rss version="2.0"><channel>
+    <item><title>당하리 장어 후기</title><link>https://c.example.com/p/10001</link><category>맛집</category><description>마닐라 맛집</description></item>
+    <item><title>KTV 안내</title><link>https://c.example.com/p/10002</link><category>JTV</category><description>x</description></item>
+    <item><title>레오피자 후기</title><link>https://c.example.com/p/10003</link><category>맛집</category><description>피자</description></item>
+    <item><title>말라테 이자카야</title><link>https://c.example.com/p/10004</link><category>맛집</category><description>한잔</description></item>
+    <item><title>세부 골프장 후기</title><link>https://c.example.com/p/10005</link><category>골프</category><description>세부 막탄</description></item>
+  </channel></rss>`;
+  it("splits one site feed into category boards and filters items", async () => {
+    const { applyFeedFilter, categoryBoards, feedFilterOf } = await import("@/lib/community-operator-import/adapters/rss");
+    const { items } = parseFeed(xml);
+    expect(items[0]!.categories).toEqual(["맛집"]);
+    const boards = categoryBoards("https://c.example.com/rss", items);
+    expect(boards).toHaveLength(1);
+    expect(boards[0]!.displayName).toBe("맛집 (3)");
+    expect(applyFeedFilter(items, feedFilterOf(boards[0]!.engineKey)).map((i) => i.title)).toEqual(["당하리 장어 후기", "레오피자 후기", "말라테 이자카야"]);
+    expect(applyFeedFilter(items, feedFilterOf(`https://c.example.com/rss#keyword=${encodeURIComponent("세부,클락")}`)).map((i) => i.title)).toEqual(["세부 골프장 후기"]);
+    expect(applyFeedFilter(items, feedFilterOf("https://c.example.com/rss"))).toHaveLength(5);
+  });
+});
