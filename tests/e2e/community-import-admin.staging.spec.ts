@@ -202,7 +202,8 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       `확인창="${dialogText.slice(0, 160)}" | db topic=${post?.topic_slug}/${post?.topic_id} 선택=${food?.slug}/${food?.id}`,
     );
     const inboxSummaryRow = (await db.from("community_operator_import_inbox").select("summary").eq("source_site", sourceId).limit(1)).data?.[0];
-    const content = String(post?.content ?? "");
+    // image markdown is the one markup the community body supports; check everything else
+    const content = String(post?.content ?? "").replace(/!\[[^\]]*\]\([^)]*\)/g, "");
     record(
       "7 게시",
       "content_contract",
@@ -249,7 +250,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       .catch(() => false);
     await shot(page, "10-community-feed");
     record("10 커뮤니티", "post_in_feed", feedOk, `/philife feed shows updated title=${feedOk}`);
-    const plain = detailText;
+    const plain = (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ");
     record(
       "10 커뮤니티",
       "detail_no_raw_markup_and_source_block",
@@ -261,7 +262,9 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     await page.goto("/admin/community/external-import");
     await page.getByTestId("import-inbox-list").waitFor({ timeout: 60_000 });
     await page.getByLabel("처리 상태").selectOption("published");
-    const pubItem = page.getByTestId("import-inbox-list").locator("li").first();
+    // wait for the filtered list (status chip 게시됨) before opening — avoids clicking a stale row
+    const pubItem = page.getByTestId("import-inbox-list").locator("li").filter({ hasText: "게시됨" }).first();
+    await expect(pubItem).toBeVisible({ timeout: 60_000 });
     await pubItem.locator("button").first().click();
     const bar = page.getByTestId("import-post-manage");
     await expect(bar).toBeVisible({ timeout: 90_000 });

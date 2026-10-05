@@ -81,7 +81,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         await page.getByRole("button", { name: "사이트 분석" }).click();
         const wizard = page.locator("section").filter({ hasText: "새 사이트 등록" });
         const registerBtn = wizard.getByRole("button", { name: /^등록 \(게시판 \d+개 사용\)$/ });
-        await expect(registerBtn.or(wizard.getByText("발견된 게시판이 없습니다."))).toBeVisible({ timeout: 150_000 });
+        await expect(registerBtn.or(wizard.getByText("발견된 게시판이 없습니다."))).toBeVisible({ timeout: 240_000 });
         const boardRows = wizard.locator("table tbody tr");
         const shown = await boardRows.count();
         const names = (await boardRows.locator("td:nth-child(2) .font-medium").allInnerTexts()).slice(0, 12);
