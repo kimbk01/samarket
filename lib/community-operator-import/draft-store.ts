@@ -32,6 +32,10 @@ function mapRow(row: DraftRow): OperatorDraftRecord {
   };
 }
 
+/**
+ * Save an operator draft. A previously published draft keeps `published` + its post id
+ * (saving edits never detaches provenance); the inbox row moves to `draft` only when unreviewed.
+ */
 export async function upsertOperatorImportDraft(
   sb: SupabaseClient,
   input: {
@@ -41,6 +45,12 @@ export async function upsertOperatorImportDraft(
   },
 ): Promise<OperatorDraftRecord> {
   const { original, edit, updatedBy } = input;
+  const key = {
+    sourceSite: original.sourceSite,
+    sourceBoard: original.sourceBoard,
+    sourceArticleKey: original.sourceArticleKey,
+  };
+  const prev = await loadOperatorImportDraft(sb, key);
   const payload = {
     source_site: original.sourceSite,
     source_board: original.sourceBoard,
@@ -48,7 +58,8 @@ export async function upsertOperatorImportDraft(
     canonical_url: original.canonicalUrl,
     original_json: original,
     edit_json: edit,
-    status: "draft" as const,
+    status: prev?.status === "published" ? ("published" as const) : ("draft" as const),
+    published_post_id: prev?.publishedPostId ?? null,
     updated_by: updatedBy,
     updated_at: new Date().toISOString(),
   };
@@ -62,6 +73,13 @@ export async function upsertOperatorImportDraft(
   if (error || !data) {
     throw new Error(error?.message || "operator_import_draft_upsert_failed");
   }
+  await sb
+    .from("community_operator_import_inbox")
+    .update({ status: "draft", updated_at: new Date().toISOString() })
+    .eq("source_site", key.sourceSite)
+    .eq("source_board", key.sourceBoard)
+    .eq("source_article_key", key.sourceArticleKey)
+    .in("status", ["new", "failed"]);
   return mapRow(data as DraftRow);
 }
 
@@ -87,30 +105,6 @@ export async function loadOperatorImportDraft(
   return mapRow(data as DraftRow);
 }
 
-export async function markOperatorImportDraftPublished(
-  sb: SupabaseClient,
-  input: {
-    sourceSite: string;
-    sourceBoard: string;
-    sourceArticleKey: string;
-    publishedPostId: string;
-    edit: OperatorDraftEdit;
-  },
-): Promise<void> {
-  const { error } = await sb
-    .from(OPERATOR_IMPORT_DRAFTS_TABLE)
-    .update({
-      status: "published",
-      published_post_id: input.publishedPostId,
-      edit_json: input.edit,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("source_site", input.sourceSite)
-    .eq("source_board", input.sourceBoard)
-    .eq("source_article_key", input.sourceArticleKey);
-  if (error) throw new Error(error.message);
-}
-
 export function ensureDraftEdit(
   article: OperatorNormalizedArticle,
   edit: OperatorDraftEdit | null | undefined,
@@ -126,5 +120,32 @@ export function ensureDraftEdit(
     imageOrder: Array.isArray(edit.imageOrder) && edit.imageOrder.length ? edit.imageOrder : base.imageOrder,
     thumbnailImageIndex:
       edit.thumbnailImageIndex !== undefined ? edit.thumbnailImageIndex : base.thumbnailImageIndex,
+  };
+}
+
+/**
+ * Carry operator edits onto a re-fetched article. Index-based edits (image include/order,
+ * block excludes, text overrides) are only kept when the block structure is unchanged.
+ */
+export function carryEditToArticle(
+  prevEdit: OperatorDraftEdit,
+  prevArticle: OperatorNormalizedArticle,
+  next: OperatorNormalizedArticle,
+): OperatorDraftEdit {
+  const sameShape =
+    prevArticle.orderedContentBlocks.length === next.orderedContentBlocks.length &&
+    prevArticle.orderedContentBlocks.every((b, i) => b.type === next.orderedContentBlocks[i]?.type);
+  const base = sameShape ? ensureDraftEdit(next, prevEdit) : defaultOperatorDraftEdit(next);
+  const titleEdited = prevEdit.displayTitle && prevEdit.displayTitle !== prevArticle.title;
+  return {
+    ...base,
+    displayTitle: titleEdited ? prevEdit.displayTitle : next.title,
+    displayAuthor: prevEdit.displayAuthor || base.displayAuthor,
+    topicId: prevEdit.topicId,
+    topicSlug: prevEdit.topicSlug,
+    summaryText: prevEdit.summaryText,
+    contentPolicy: prevEdit.contentPolicy,
+    replaceFrom: prevEdit.replaceFrom,
+    replaceTo: prevEdit.replaceTo,
   };
 }

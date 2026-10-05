@@ -1,186 +1,164 @@
 /**
- * Dispatch list/detail to verified extractors.
- * Runtime registry = code seed + Admin-enabled managed sources.
+ * COLLECTION: list → inbox, detail → normalized article + quality.
+ * Every fetch first honors robots.txt; challenges / 401 / 403 are reported, never bypassed.
  */
-import { fetchPhilsamoTravelDetail, fetchPhilsamoTravelList } from "./philsamo-travel";
-import { fetchRssDetail, fetchRssList } from "./rss-atom";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { adapterFor } from "./adapters";
+import { boardUrl } from "./adapters/common";
+import { describeFetchError, ImportFetchError } from "./http";
+import { type InboxKey, loadInboxRow, recordInboxQuality, upsertInboxRowsFromList, type UpsertInboxResult } from "./inbox-store";
+import { withQuality } from "./quality";
+import { assertRobotsAllows } from "./robots";
 import {
-  boardListUrl,
-  listVerifiedBoards,
-  listVerifiedSources,
-  type VerifiedOperatorBoard,
-  type VerifiedOperatorSource,
-} from "./registry";
-import {
-  buildRuntimeOperationalRegistry,
-  resolveRuntimeSourceBoard,
-  type ManagedSourceRow,
+  type ManagedBoard,
+  type ManagedSource,
+  recordBoardOutcome,
+  recordSourceOutcome,
+  resolvePreviewPair,
 } from "./source-store";
 import type { OperatorListRow, OperatorNormalizedArticle } from "./types";
-import { fetchWordpressDetail, fetchWordpressList } from "./wordpress-rest";
 
-export type OperatorSourceMeta = {
-  site: string;
-  siteLabel: string;
-  board: string;
-  boardLabel: string;
-  boardUrl: string;
-  engine: string;
-};
+export type CollectErrorKind = "robots" | "blocked" | "http" | "network" | "parse" | "empty";
 
-export type CollectListOptions = {
-  page?: number;
-  maxPages?: number;
-  maxItems?: number;
-};
-
-export async function loadOperationalRegistry(): Promise<{
-  sources: VerifiedOperatorSource[];
-  boards: VerifiedOperatorBoard[];
-  managed: ManagedSourceRow[];
-}> {
-  try {
-    const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
-    const sb = getSupabaseServer();
-    return await buildRuntimeOperationalRegistry(sb);
-  } catch {
-    return {
-      sources: listVerifiedSources(),
-      boards: listVerifiedBoards(),
-      managed: [],
-    };
+export function classifyCollectError(e: unknown): { kind: CollectErrorKind; message: string } {
+  const message = e instanceof ImportFetchError ? describeFetchError(e) : e instanceof Error ? e.message : String(e);
+  if (/^robots_disallowed/.test(message)) return { kind: "robots", message };
+  if (e instanceof ImportFetchError) {
+    if (e.code === "challenge" || e.status === 401 || e.status === 403) return { kind: "blocked", message };
+    if (e.code === "timeout" || e.code === "network") return { kind: "network", message };
+    return { kind: "http", message };
   }
+  return { kind: "parse", message };
 }
 
-export function buildRegistryPayloadFromRuntime(runtime: {
-  sources: VerifiedOperatorSource[];
-  boards: VerifiedOperatorBoard[];
-  managed: ManagedSourceRow[];
-}) {
-  return {
-    sources: runtime.sources.map((s) => ({
-      id: s.id,
-      displayName: s.displayName,
-      baseUrl: s.baseUrl,
-      engine: s.engine,
-      status: s.status,
-      priority: s.priority,
-      boards: runtime.boards
-        .filter((b) => b.sourceId === s.id)
-        .map((b) => ({
-          boardId: b.boardId,
-          displayName: b.displayName,
-          shortLabel: b.shortLabel,
-          category: b.category,
-        })),
-    })),
-    managed: runtime.managed,
-  };
-}
-
-export function toSourceMeta(source: VerifiedOperatorSource, board: VerifiedOperatorBoard): OperatorSourceMeta {
-  return {
-    site: source.id,
-    siteLabel: source.displayName,
-    board: board.boardId,
-    boardLabel: board.displayName,
-    boardUrl: boardListUrl(source, board),
-    engine: source.engine,
-  };
-}
-
-async function listOnePage(
-  source: VerifiedOperatorSource,
-  board: VerifiedOperatorBoard,
+export async function listBoardPage(
+  source: ManagedSource,
+  board: ManagedBoard,
   page: number,
 ): Promise<OperatorListRow[]> {
-  if (source.engine === "gnuboard") {
-    return fetchPhilsamoTravelList(page, board.engineKey);
-  }
-  if (source.engine === "wordpress_rest") {
-    return fetchWordpressList(source, board, page);
-  }
-  if (source.engine === "rss_atom") {
-    return fetchRssList(source, board, page);
-  }
-  throw new Error(`source_engine_unsupported:${source.id}`);
+  await assertRobotsAllows(boardUrl(source, board));
+  return adapterFor(source.engine).list({ source }, board, Math.max(1, Math.min(20, page)));
 }
 
-export async function collectOperatorList(
-  sourceId: string,
-  boardId: string,
-  opts: CollectListOptions | number = 1,
-): Promise<{ meta: OperatorSourceMeta; rows: OperatorListRow[]; page: number; maxPages: number }> {
-  const runtime = await loadOperationalRegistry();
-  const pair = resolveRuntimeSourceBoard(runtime.sources, runtime.boards, sourceId, boardId);
-  if (!pair) throw new Error("source_board_unsupported");
-  const { source, board } = pair;
-  const meta = toSourceMeta(source, board);
+export type BoardCollectResult = {
+  sourceId: string;
+  boardId: string;
+  ok: boolean;
+  pages: number;
+  listed: number;
+  inbox: Omit<UpsertInboxResult, "rows"> | null;
+  latestSourceAt: string | null;
+  error: string | null;
+  errorKind: CollectErrorKind | null;
+};
 
-  const options: CollectListOptions = typeof opts === "number" ? { page: opts } : opts || {};
-  const startPage = Math.max(1, Math.min(20, Number(options.page) || 1));
-  const maxPages = Math.max(1, Math.min(5, Number(options.maxPages) || 1));
-  const maxItems = Math.max(1, Math.min(100, Number(options.maxItems) || 40));
+function latestDate(rows: OperatorListRow[]): string | null {
+  const ts = rows.map((r) => Date.parse(String(r.sourcePublishedDate || ""))).filter((n) => !Number.isNaN(n));
+  return ts.length ? new Date(Math.max(...ts)).toISOString() : null;
+}
 
+/** Collect 1..N list pages of a board into the inbox and record the outcome on the board/source. */
+export async function collectBoardToInbox(
+  sb: SupabaseClient,
+  source: ManagedSource,
+  board: ManagedBoard,
+  opts: { pages?: number; maxItems?: number } = {},
+): Promise<BoardCollectResult & { rows: OperatorListRow[] }> {
+  const pages = Math.max(1, Math.min(5, opts.pages ?? 1));
+  const maxItems = Math.max(1, Math.min(200, opts.maxItems ?? 60));
   const rows: OperatorListRow[] = [];
   const seen = new Set<string>();
-  for (let p = startPage; p < startPage + maxPages; p++) {
-    const chunk = await listOnePage(source, board, p);
-    if (!chunk.length) break;
-    for (const row of chunk) {
-      if (seen.has(row.articleKey)) continue;
-      seen.add(row.articleKey);
-      rows.push({ ...row, listOrder: rows.length });
-      if (rows.length >= maxItems) break;
+  let fetched = 0;
+  try {
+    for (let p = 1; p <= pages; p++) {
+      const chunk = await listBoardPage(source, board, p);
+      fetched++;
+      let added = 0;
+      for (const r of chunk) {
+        if (seen.has(r.articleKey)) continue;
+        seen.add(r.articleKey);
+        rows.push({ ...r, listOrder: rows.length });
+        added++;
+        if (rows.length >= maxItems) break;
+      }
+      if (!added || rows.length >= maxItems) break;
     }
-    if (rows.length >= maxItems) break;
-    if (chunk.length < 10) break;
+    if (!rows.length) {
+      const err = "list_empty";
+      await recordBoardOutcome(sb, { sourceId: source.id, boardId: board.boardId, ok: false, error: err, verdict: "FAILED", prevFailures: board.status.consecutiveFailures });
+      return { sourceId: source.id, boardId: board.boardId, ok: false, pages: fetched, listed: 0, inbox: null, latestSourceAt: null, error: err, errorKind: "empty", rows };
+    }
+    const inbox = await upsertInboxRowsFromList(sb, { sourceSite: source.id, sourceBoard: board.boardId, rows });
+    const latest = latestDate(rows);
+    await recordBoardOutcome(sb, { sourceId: source.id, boardId: board.boardId, ok: true, latestSourceAt: latest, prevFailures: board.status.consecutiveFailures });
+    await recordSourceOutcome(sb, { sourceId: source.id, ok: true, prevFailures: source.status.consecutiveFailures });
+    return {
+      sourceId: source.id,
+      boardId: board.boardId,
+      ok: true,
+      pages: fetched,
+      listed: rows.length,
+      inbox: { inserted: inbox.inserted, changed: inbox.changed, unchanged: inbox.unchanged },
+      latestSourceAt: latest,
+      error: null,
+      errorKind: null,
+      rows,
+    };
+  } catch (e) {
+    const c = classifyCollectError(e);
+    const verdict = c.kind === "robots" || c.kind === "blocked" ? "BLOCKED" : "FAILED";
+    await recordBoardOutcome(sb, { sourceId: source.id, boardId: board.boardId, ok: false, error: c.message, verdict, prevFailures: board.status.consecutiveFailures });
+    await recordSourceOutcome(sb, { sourceId: source.id, ok: false, error: `${board.boardId}: ${c.message}`, prevFailures: source.status.consecutiveFailures });
+    return { sourceId: source.id, boardId: board.boardId, ok: false, pages: fetched, listed: rows.length, inbox: null, latestSourceAt: null, error: c.message, errorKind: c.kind, rows };
   }
-
-  return { meta, rows, page: startPage, maxPages };
 }
 
-export async function collectOperatorDetail(
-  sourceId: string,
-  boardId: string,
-  articleKey: string,
+/**
+ * Fetch + normalize one article. The detail URL always comes from the stored inbox row
+ * (or the list row), never rebuilt from a guessed pattern.
+ */
+export async function fetchArticle(
+  source: ManagedSource,
+  board: ManagedBoard,
+  target: { articleKey: string; detailUrl: string; title?: string | null; summary?: string | null },
 ): Promise<OperatorNormalizedArticle> {
-  const runtime = await loadOperationalRegistry();
-  const pair = resolveRuntimeSourceBoard(runtime.sources, runtime.boards, sourceId, boardId);
-  if (!pair) throw new Error("source_board_unsupported");
-  const { source, board } = pair;
-
-  if (source.engine === "gnuboard") {
-    return fetchPhilsamoTravelDetail(articleKey, board.engineKey);
-  }
-  if (source.engine === "wordpress_rest") {
-    return fetchWordpressDetail(source, board, articleKey);
-  }
-  if (source.engine === "rss_atom") {
-    return fetchRssDetail(source, board, articleKey);
-  }
-  throw new Error(`source_engine_unsupported:${source.id}`);
+  if (!target.detailUrl) throw new Error("detail_url_missing");
+  await assertRobotsAllows(target.detailUrl);
+  const article = await adapterFor(source.engine).detail({ source }, board, target);
+  return withQuality({
+    ...article,
+    sourceSite: source.id,
+    sourceBoard: board.boardId,
+    sourceBoardLabel: article.sourceBoardLabel || board.displayName,
+    sourceArticleKey: target.articleKey,
+  });
 }
 
-/** @deprecated use loadOperationalRegistry + buildRegistryPayloadFromRuntime */
-export function buildRegistryPayload() {
-  const sources = listVerifiedSources().map((s) => ({
-    id: s.id,
-    displayName: s.displayName,
-    baseUrl: s.baseUrl,
-    engine: s.engine,
-    status: s.status,
-    priority: s.priority,
-    boards: listVerifiedBoards(s.id).map((b) => ({
-      boardId: b.boardId,
-      displayName: b.displayName,
-      shortLabel: b.shortLabel,
-      category: b.category,
-    })),
-  }));
-  return { sources };
-}
-
-export function resolveSourceBoardPair(sourceId: string, boardId: string) {
-  return resolveRuntimeSourceBoard(listVerifiedSources(), listVerifiedBoards(), sourceId, boardId);
+/** Detail for an inbox row: loads the row, fetches, and stores the quality outcome on it. */
+export async function fetchArticleForInbox(
+  sb: SupabaseClient,
+  key: InboxKey,
+): Promise<{ article: OperatorNormalizedArticle; source: ManagedSource; board: ManagedBoard }> {
+  const { source, board } = await resolvePreviewPair(sb, key.sourceSite, key.sourceBoard);
+  const row = await loadInboxRow(sb, key);
+  if (!row) throw new Error("inbox_row_not_found");
+  try {
+    const article = await fetchArticle(source, board, {
+      articleKey: row.sourceArticleKey,
+      detailUrl: row.canonicalUrl,
+      title: row.title,
+      summary: row.summary,
+    });
+    await recordInboxQuality(sb, key, {
+      quality: article.quality?.verdict ?? null,
+      reasons: article.quality?.reasons ?? [],
+      failed: article.quality?.verdict === "FAILED",
+      error: article.quality?.verdict === "FAILED" ? article.quality.reasons.join(", ") : null,
+    });
+    return { article, source, board };
+  } catch (e) {
+    const c = classifyCollectError(e);
+    await recordInboxQuality(sb, key, { quality: "FAILED", reasons: [c.kind], error: c.message, failed: true });
+    throw new Error(c.message);
+  }
 }
