@@ -253,7 +253,11 @@ export async function upsertDetectedBoards(
   const rows = d.boards.map((b) => {
     const prev = existing.get(b.boardId) as { enabled?: boolean } | undefined;
     const sampleVerdict = b.sample?.verdict ?? null;
-    const usable = b.robotsAllowed && (sampleVerdict === "FULL" || sampleVerdict === "PARTIAL");
+    // Not sampled (detection samples only a few boards) is not a failure: an admin-selected,
+    // robots-allowed board is usable; a sampled board must have passed.
+    const usable =
+      b.robotsAllowed &&
+      (sampleVerdict === "FULL" || sampleVerdict === "PARTIAL" || (sampleVerdict === null && Boolean(selected?.has(b.boardId))));
     const enabled = selected ? selected.has(b.boardId) && usable : prev ? Boolean(prev.enabled) : usable && b.boardKind === "editorial";
     const row: Record<string, unknown> = {
       source_id: sourceId,

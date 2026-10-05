@@ -58,6 +58,7 @@ describe("B+ staging E2E (isolated local Supabase)", () => {
     const reread = await loadManagedSource(sb, "philsuda");
     record("1 등록", "source_saved", !!reread && reread.engine === "rss_atom", `engine=${reread?.engine} verification=${reread?.verification} policy=${reread?.contentPolicy}`);
     record("1 등록", "boards_saved", (reread?.boards.length ?? 0) >= 2 && !!reread?.boards.find((b) => /맛집/.test(b.displayName)), reread?.boards.map((b) => `${b.displayName}${b.enabled ? "✓" : ""}`).join(" | ") ?? "");
+    record("1 등록", "selected_board_enabled", !!reread?.boards.find((b) => /맛집/.test(b.displayName) && b.enabled), "관리자가 고른 맛집 게시판이 사용 상태로 저장");
     expect(saved.id).toBe("philsuda");
   });
 
