@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { DetectResult } from "@/lib/community-operator-import/detect";
-import type { BoardKind } from "@/lib/community-operator-import/types";
+import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-operator-import/types";
+import { BoardProbePanel } from "./BoardProbePanel";
 import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE } from "./api";
 
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
@@ -39,6 +40,13 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [probeTarget, setProbeTarget] = useState<{
+    baseUrl: string;
+    engine: SourceEngine;
+    adapterConfig: AdapterConfig;
+    engineKey: string;
+    displayName: string;
+  } | null>(null);
 
   const run = async <T,>(label: string, fn: () => Promise<T>): Promise<T | null> => {
     setBusy(label);
@@ -150,7 +158,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       <th className="py-1 pr-2">검증</th>
                       <th className="py-1 pr-2">목록/썸네일</th>
                       <th className="py-1 pr-2">본문 샘플</th>
-                      <th className="py-1">최신글</th>
+                      <th className="py-1 pr-2">최신글</th>
+                      <th className="py-1">확인</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -197,7 +206,26 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                               "—"
                             )}
                           </td>
-                          <td className="py-1.5">{fmtDate(b.sample?.latestAt)}</td>
+                          <td className="py-1.5 pr-2">{fmtDate(b.sample?.latestAt)}</td>
+                          <td className="py-1.5">
+                            {b.robotsAllowed && detect.engine ? (
+                              <button
+                                type="button"
+                                className="sam-btn sam-btn-ghost text-[11px]"
+                                onClick={() =>
+                                  setProbeTarget({
+                                    baseUrl: detect.baseUrl,
+                                    engine: detect.engine!,
+                                    adapterConfig: detect.adapterConfig,
+                                    engineKey: b.engineKey,
+                                    displayName: b.displayName,
+                                  })
+                                }
+                              >
+                                샘플 보기
+                              </button>
+                            ) : null}
+                          </td>
                         </tr>
                       );
                     })}
@@ -207,6 +235,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
             ) : (
               <p className="text-xs text-sam-muted">발견된 게시판이 없습니다.</p>
             )}
+            {probeTarget ? <BoardProbePanel key={`${probeTarget.baseUrl}|${probeTarget.engineKey}`} target={probeTarget} onClose={() => setProbeTarget(null)} /> : null}
             {detect.engine && detect.verdict !== "BLOCKED" ? (
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
                 <label className="text-xs text-sam-muted">
@@ -346,6 +375,21 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                 <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => onOpenBoard(s.id, b.boardId)}>
                                   수집함
                                 </button>
+                                <button
+                                  type="button"
+                                  className="sam-btn sam-btn-ghost text-[11px]"
+                                  onClick={() =>
+                                    setProbeTarget({
+                                      baseUrl: s.baseUrl,
+                                      engine: s.engine,
+                                      adapterConfig: s.adapterConfig,
+                                      engineKey: b.engineKey,
+                                      displayName: `${s.displayName} · ${b.displayName}`,
+                                    })
+                                  }
+                                >
+                                  샘플 보기
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -353,6 +397,9 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       </tbody>
                     </table>
                   </div>
+                  {probeTarget && probeTarget.baseUrl === s.baseUrl ? (
+                    <BoardProbePanel key={`${probeTarget.baseUrl}|${probeTarget.engineKey}`} target={probeTarget} onClose={() => setProbeTarget(null)} />
+                  ) : null}
                 </div>
               ) : null}
             </div>

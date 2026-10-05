@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { detectSource } from "@/lib/community-operator-import/detect";
+import { detectSource, probeBoard } from "@/lib/community-operator-import/detect";
 import {
   type BoardPatch,
   loadManagedSource,
@@ -12,7 +12,7 @@ import {
   updateSource,
   upsertDetectedBoards,
 } from "@/lib/community-operator-import/source-store";
-import type { ContentPolicy } from "@/lib/community-operator-import/types";
+import type { AdapterConfig, ContentPolicy, SourceEngine } from "@/lib/community-operator-import/types";
 import { verifyStoredSource } from "@/lib/community-operator-import/verify";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
@@ -40,11 +40,17 @@ type Body = {
   contentPolicy?: ContentPolicy;
   selectedBoardIds?: string[];
   patch?: SourcePatch & BoardPatch;
+  baseUrl?: string;
+  engine?: SourceEngine;
+  adapterConfig?: AdapterConfig;
+  engineKey?: string;
+  articleIndex?: number;
 };
 
 /**
  * actions:
  *  detect   {url}                                   → type, real boards, per-board sample (nothing saved)
+ *  probe    {baseUrl, engine, adapterConfig, engineKey, articleIndex?} → board list + one full article (nothing saved)
  *  register {url, sourceId?, displayName?, contentPolicy?, selectedBoardIds?} → re-detect server-side + save
  *  update   {sourceId, patch}                       → name / enabled / content policy / adapter config
  *  board    {sourceId, boardId, patch}              → enabled / collectEnabled / defaultTopicId / kind / name
@@ -64,6 +70,21 @@ export async function POST(req: NextRequest) {
       const result = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 45_000 });
       const existing = await loadManagedSource(sb, result.sourceIdSuggestion);
       return jsonOk({ detect: result, existingSourceId: existing?.id ?? null });
+    }
+    if (action === "probe") {
+      const engine = b.engine;
+      if (!b.baseUrl || !b.engineKey || !engine || !["gnuboard", "wordpress_rest", "rss_atom", "html"].includes(engine)) {
+        return jsonError("baseUrl, engine, engineKey 필요", 400, { code: "probe_input_required" });
+      }
+      const probe = await probeBoard({
+        baseUrl: b.baseUrl,
+        engine,
+        adapterConfig: b.adapterConfig ?? {},
+        engineKey: b.engineKey,
+        displayName: b.displayName,
+        articleIndex: Number(b.articleIndex) || 0,
+      });
+      return jsonOk({ probe });
     }
     if (action === "register") {
       const detect = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 40_000 });

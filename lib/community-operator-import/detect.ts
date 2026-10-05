@@ -5,7 +5,7 @@
  */
 import * as cheerio from "cheerio";
 import { adapterFor } from "./adapters";
-import { type AdapterContext, type DiscoveredBoard, slugBoardId, sourceBase } from "./adapters/common";
+import { type AdapterContext, boardUrl, type DiscoveredBoard, slugBoardId, sourceBase } from "./adapters/common";
 import { discoverGnuboardBoards } from "./adapters/gnuboard";
 import { discoverHtmlBoards, rankItemTemplates } from "./adapters/html";
 import { discoverRssBoards, FEED_PATH_CANDIDATES, readFeed } from "./adapters/rss";
@@ -13,8 +13,16 @@ import { discoverWordpressBoards, probeWordpressApi } from "./adapters/wordpress
 import { describeFetchError, fetchImportText, ImportFetchError } from "./http";
 import { absUrl, blockStats, cleanText } from "./normalize";
 import { assessArticleQuality } from "./quality";
-import { isPathAllowed, loadRobotsPolicy } from "./robots";
-import type { AdapterConfig, BoardKind, RuntimeBoard, RuntimeSource, SourceEngine } from "./types";
+import { assertRobotsAllows, isPathAllowed, loadRobotsPolicy } from "./robots";
+import type {
+  AdapterConfig,
+  BoardKind,
+  OperatorListRow,
+  OperatorNormalizedArticle,
+  RuntimeBoard,
+  RuntimeSource,
+  SourceEngine,
+} from "./types";
 
 export type DetectVerdict = "FULL" | "PARTIAL" | "BLOCKED" | "FAILED" | "NOT_PROVEN";
 
@@ -329,4 +337,73 @@ export async function sampleBoard(ctx: AdapterContext, board: RuntimeBoard): Pro
       reasons: [`list_failed: ${describeFetchError(e)}`],
     };
   }
+}
+
+export type BoardProbe = {
+  rows: OperatorListRow[];
+  article: OperatorNormalizedArticle | null;
+  quality: { verdict: string; reasons: string[] } | null;
+  listError: string | null;
+  detailError: string | null;
+};
+
+/**
+ * Read-only probe of one board (nothing is stored): the real list plus the full extraction of one
+ * article, so the operator can compare it with the original before registering.
+ */
+export async function probeBoard(input: {
+  baseUrl: string;
+  engine: SourceEngine;
+  adapterConfig?: AdapterConfig;
+  engineKey: string;
+  displayName?: string;
+  articleIndex?: number;
+}): Promise<BoardProbe> {
+  const source: RuntimeSource = {
+    id: suggestSourceId(input.baseUrl),
+    displayName: input.displayName || input.baseUrl,
+    baseUrl: input.baseUrl,
+    engine: input.engine,
+    enabled: true,
+    contentPolicy: "summary_link",
+    adapterConfig: input.adapterConfig ?? {},
+    verification: "NOT_PROVEN",
+  };
+  const board: RuntimeBoard = {
+    sourceId: source.id,
+    boardId: slugBoardId(input.engineKey),
+    displayName: input.displayName || input.engineKey,
+    shortLabel: (input.displayName || input.engineKey).slice(0, 12),
+    category: "living",
+    engineKey: input.engineKey,
+    enabled: true,
+    collectEnabled: false,
+    boardKind: "unknown",
+    defaultTopicId: null,
+  };
+  const adapter = adapterFor(source.engine);
+  const out: BoardProbe = { rows: [], article: null, quality: null, listError: null, detailError: null };
+  try {
+    await assertRobotsAllows(boardUrl(source, board));
+    out.rows = (await adapter.list({ source }, board, 1)).slice(0, 20);
+  } catch (e) {
+    out.listError = describeFetchError(e);
+    return out;
+  }
+  const row = out.rows[Math.max(0, Math.min(out.rows.length - 1, input.articleIndex ?? 0))];
+  if (!row) return out;
+  try {
+    await assertRobotsAllows(row.detailUrl);
+    const article = await adapter.detail({ source }, board, {
+      articleKey: row.articleKey,
+      detailUrl: row.detailUrl,
+      title: row.title,
+      summary: row.summary ?? null,
+    });
+    out.article = article;
+    out.quality = assessArticleQuality(article);
+  } catch (e) {
+    out.detailError = describeFetchError(e);
+  }
+  return out;
 }

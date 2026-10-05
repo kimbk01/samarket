@@ -5,7 +5,7 @@ import type { OperatorContentBlock, OperatorDraftEdit } from "@/lib/community-op
 import { VerdictBadge } from "./ImportSourcesPanel";
 import { call, type ContentPolicy, type DetailPayload, fmtDate, type InboxRow, POLICY_LABEL, type PublishContent, STATUS_LABEL, type TopicOption } from "./api";
 
-function Blocks({ blocks }: { blocks: OperatorContentBlock[] }) {
+export function Blocks({ blocks }: { blocks: OperatorContentBlock[] }) {
   return (
     <div className="space-y-2 text-sm leading-relaxed text-sam-fg break-words">
       {blocks.map((b, i) => {
