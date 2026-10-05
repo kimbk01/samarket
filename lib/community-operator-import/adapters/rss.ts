@@ -124,6 +124,17 @@ export async function listRss(ctx: AdapterContext, board: RuntimeBoard, page: nu
   return feedItemsToRows(items, url.split("#")[0]!);
 }
 
+/** Feeds often truncate titles (`…`, `...`, broken multibyte `�`); the page's own title wins then. */
+export function pickFeedTitle(feedTitle: string | null | undefined, pageTitle: string | null | undefined): string {
+  const f = String(feedTitle || "").trim();
+  const p = String(pageTitle || "").trim();
+  if (!f) return p;
+  if (!p) return f;
+  const truncated = /(\.\.\.|…|\uFFFD)\s*$/.test(f) || f.includes("\uFFFD");
+  const stem = f.replace(/(\.\.\.|…|\uFFFD)+\s*$/, "").replace(/\uFFFD/g, "").trim();
+  return truncated && p.length >= stem.length ? p : f;
+}
+
 function feedBlocks(item: FeedItem | undefined): OperatorContentBlock[] {
   if (!item?.contentHtml) return [];
   return htmlToBlocks(item.contentHtml, { baseUrl: item.link });
@@ -196,7 +207,7 @@ export async function detailRss(
     sourceBoardLabel: board.displayName,
     canonicalUrl,
     sourceArticleKey: target.articleKey,
-    title: item?.title || pageMeta?.ogTitle || String(target.title || ""),
+    title: pickFeedTitle(item?.title, pageMeta?.ogTitle) || String(target.title || ""),
     author: item?.author ?? pageMeta?.author ?? null,
     sourcePublishedDate: parseSourceDate(item?.date) || parseSourceDate(pageMeta?.published) || null,
     orderedContentBlocks: blocks,

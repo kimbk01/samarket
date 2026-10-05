@@ -357,3 +357,14 @@ describe("feed boards by category and keyword", () => {
     expect(applyFeedFilter(items, feedFilterOf("https://c.example.com/rss"))).toHaveLength(5);
   });
 });
+
+describe("truncated feed titles", () => {
+  it("uses the page title when the feed title was cut", async () => {
+    const { pickFeedTitle } = await import("@/lib/community-operator-import/adapters/rss");
+    expect(pickFeedTitle("한국 스포츠 빛내는 필리핀계  국가대표들... 이해란�...", "한국 스포츠 빛내는 필리핀계 국가대표들... 이해란·카노아 활약")).toBe(
+      "한국 스포츠 빛내는 필리핀계 국가대표들... 이해란·카노아 활약",
+    );
+    expect(pickFeedTitle("완전한 제목", "사이트 이름")).toBe("완전한 제목");
+    expect(pickFeedTitle("", "페이지 제목")).toBe("페이지 제목");
+  });
+});

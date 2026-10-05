@@ -312,6 +312,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       {s.enabled ? "출처 끄기" : "출처 켜기"}
                     </button>
                   </div>
+                  <AdapterConfigForm
+                    key={`${s.id}:${JSON.stringify(s.adapterConfig)}`}
+                    source={s}
+                    busy={!!busy}
+                    onSave={(adapterConfig) => void sourceAction(s.id, "update", { patch: { adapterConfig } })}
+                  />
                   {s.engine === "rss_atom" ? (
                     <KeywordBoardForm
                       source={s}
@@ -462,6 +468,83 @@ function KeywordBoardForm({
         </button>
         <button type="button" className="sam-btn sam-btn-secondary text-[11px]" disabled={!engineKey || busy} onClick={() => onAdd(engineKey, label)}>
           게시판으로 추가
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Per-site extraction settings (stored in adapter_config) — adjusts a site without code changes. */
+function AdapterConfigForm({
+  source,
+  busy,
+  onSave,
+}: {
+  source: ManagedSource;
+  busy: boolean;
+  onSave: (cfg: AdapterConfig) => void;
+}) {
+  const cfg = source.adapterConfig || {};
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState((cfg.bodySelectors || []).join(", "));
+  const [remove, setRemove] = useState((cfg.removeSelectors || []).join(", "));
+  const [date, setDate] = useState(cfg.dateSelector || "");
+  const [tpl, setTpl] = useState(cfg.itemUrlTemplate || "");
+  const list = (v: string) =>
+    v
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  if (!open) {
+    return (
+      <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => setOpen(true)}>
+        수집 설정 (본문 위치·제거 영역·날짜)
+        {cfg.bodySelectors?.length ? ` · 본문 ${cfg.bodySelectors.join(", ")}` : ""}
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
+      <div className="text-[11px] font-semibold">수집 설정 — 비워 두면 자동 판별. 저장 후 「샘플 보기」로 결과를 확인하세요.</div>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        <label className="text-[11px] text-sam-muted">
+          본문 위치 (CSS 선택자, 쉼표 구분)
+          <input className="sam-input w-full text-xs mt-0.5" value={body} onChange={(e) => setBody(e.target.value)} placeholder="#ct, .article-body" />
+        </label>
+        <label className="text-[11px] text-sam-muted">
+          본문에서 뺄 영역
+          <input className="sam-input w-full text-xs mt-0.5" value={remove} onChange={(e) => setRemove(e.target.value)} placeholder=".share, .ad" />
+        </label>
+        <label className="text-[11px] text-sam-muted">
+          게시일 위치
+          <input className="sam-input w-full text-xs mt-0.5" value={date} onChange={(e) => setDate(e.target.value)} placeholder=".date" />
+        </label>
+        {source.engine === "html" ? (
+          <label className="text-[11px] text-sam-muted">
+            글 주소 형식
+            <input className="sam-input w-full text-xs mt-0.5" value={tpl} onChange={(e) => setTpl(e.target.value)} placeholder="/news/article.html?no" />
+          </label>
+        ) : null}
+      </div>
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          className="sam-btn sam-btn-secondary text-[11px]"
+          disabled={busy}
+          onClick={() =>
+            onSave({
+              ...cfg,
+              bodySelectors: list(body),
+              removeSelectors: list(remove),
+              dateSelector: date.trim() || undefined,
+              itemUrlTemplate: tpl.trim() || undefined,
+            })
+          }
+        >
+          설정 저장
+        </button>
+        <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => setOpen(false)}>
+          닫기
         </button>
       </div>
     </div>
