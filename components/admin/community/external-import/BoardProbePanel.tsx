@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { BoardProbe } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, SourceEngine } from "@/lib/community-operator-import/types";
 import { call, fmtDate, VERDICT_TONE } from "./api";
@@ -58,9 +59,9 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
       <div className="flex items-center gap-2 px-3 py-2 border-b border-sam-border">
         <span className="text-xs font-semibold">샘플 보기 · {target.displayName}</span>
         <span className="text-[11px] text-sam-muted">저장하지 않는 읽기 전용 확인입니다.</span>
-        <button type="button" className="sam-btn sam-btn-ghost text-[11px] ml-auto" onClick={onClose}>
+        <AdminActionButton variant="neutral" className="ml-auto" onClick={onClose}>
           닫기
-        </button>
+        </AdminActionButton>
       </div>
       {error ? <p className="p-3 text-xs text-rose-600 break-words">{error}</p> : null}
       {probe?.listError ? <p className="p-3 text-xs text-rose-600 break-words">목록 수집 실패: {probe.listError}</p> : null}

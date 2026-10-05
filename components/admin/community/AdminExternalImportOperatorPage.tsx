@@ -76,7 +76,7 @@ export function AdminExternalImportOperatorPage() {
 
       {tab === "inbox" ? (
         <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
-          <div className={`sam-card min-h-0 flex flex-col overflow-hidden ${active ? "hidden xl:flex" : "flex"}`}>
+          <div className={`rounded-ui-rect border border-sam-border bg-sam-surface min-h-0 flex flex-col overflow-hidden ${active ? "hidden xl:flex" : "flex"}`}>
             <ImportInboxPanel
               sources={sources}
               topics={topics}
@@ -88,7 +88,7 @@ export function AdminExternalImportOperatorPage() {
               onJobDone={() => void loadSources()}
             />
           </div>
-          <div className={`sam-card min-h-0 flex-col overflow-hidden ${active ? "flex" : "hidden xl:flex"}`}>
+          <div className={`rounded-ui-rect border border-sam-border bg-sam-surface min-h-0 flex-col overflow-hidden ${active ? "flex" : "hidden xl:flex"}`}>
             {active ? (
               <ImportEditorPanel key={keyOf(active)} row={active} topics={topics} onClose={() => setActive(null)} onChanged={bump} />
             ) : (

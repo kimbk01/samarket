@@ -23,6 +23,11 @@ const DB_URL = process.env.STAGING_SUPABASE_URL || "";
 const DB_KEY = process.env.STAGING_SERVICE_ROLE_KEY || "";
 const API = "/api/admin/community/external-import";
 const shot = (page: Page, name: string) => page.screenshot({ path: `ui-shots/${name}.png`, fullPage: true }).catch(() => undefined);
+const confirmDialog = async (page: Page, label: string) => {
+  const dlg = page.getByRole("dialog");
+  await expect(dlg).toBeVisible({ timeout: 15_000 });
+  await dlg.getByRole("button", { name: label, exact: true }).click();
+};
 
 type Site = {
   key: string;
@@ -166,6 +171,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         if (await partial.count()) await partial.check();
         const before = await postCount();
         await page.getByRole("button", { name: "DIBAY에 게시" }).click();
+        await confirmDialog(page, "게시");
         await expect(page.getByText(/^(게시 완료|업데이트 완료)/).or(page.locator("p.text-rose-600"))).toBeVisible({ timeout: 150_000 });
         const pubMsg = await page.locator("p.text-emerald-700, p.text-rose-600").last().innerText().catch(() => "");
         const link = (await db.from("community_import_post_links").select("post_id").eq("source_site", sourceId).limit(1)).data?.[0];
@@ -188,6 +194,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         const afterPub = await postCount();
         await titleInput.fill(`[J-${site.key} 수정] ${original}`);
         await page.getByRole("button", { name: "게시물 업데이트" }).click();
+        await confirmDialog(page, "업데이트");
         await expect(page.getByText(/^업데이트 완료/)).toBeVisible({ timeout: 150_000 });
         const upd = post ? (await db.from("community_posts").select("id, title").eq("id", post.id).single()).data : null;
         record(tag, "5 update_no_new_post", !!upd && upd.title.startsWith(`[J-${site.key} 수정]`) && (await postCount()) === afterPub, `posts ${afterPub}→${await postCount()} title=${upd?.title}`);

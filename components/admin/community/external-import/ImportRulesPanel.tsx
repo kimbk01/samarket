@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { call, type ImportRule, type ManagedSource } from "./api";
 
 const EMPTY = { scope: "global" as ImportRule["scope"], sourceSite: "", sourceBoard: "", findText: "", replaceText: "", isRegex: false, note: "" };
@@ -58,18 +59,18 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
 
   return (
     <div className="space-y-4">
-      <section className="sam-card sam-card-pad space-y-2">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4 space-y-2">
         <h2 className="text-sm font-semibold">일괄 변경 규칙</h2>
         <p className="text-xs text-sam-muted">
           제목·본문의 문구를 일괄 치환합니다 (예: 홍보 문구 제거, 표기 통일). 전체 → 출처 → 게시판 순서로 적용됩니다.
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
-          <select className="sam-input text-sm" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as ImportRule["scope"] })}>
+          <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as ImportRule["scope"] })}>
             <option value="global">전체 출처</option>
             <option value="source">특정 출처</option>
             <option value="board">특정 게시판</option>
           </select>
-          <select className="sam-input text-sm" disabled={form.scope === "global"} value={form.sourceSite} onChange={(e) => setForm({ ...form, sourceSite: e.target.value, sourceBoard: "" })}>
+          <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" disabled={form.scope === "global"} value={form.sourceSite} onChange={(e) => setForm({ ...form, sourceSite: e.target.value, sourceBoard: "" })}>
             <option value="">출처 선택</option>
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -77,7 +78,7 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
               </option>
             ))}
           </select>
-          <select className="sam-input text-sm" disabled={form.scope !== "board"} value={form.sourceBoard} onChange={(e) => setForm({ ...form, sourceBoard: e.target.value })}>
+          <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" disabled={form.scope !== "board"} value={form.sourceBoard} onChange={(e) => setForm({ ...form, sourceBoard: e.target.value })}>
             <option value="">게시판 선택</option>
             {boards.map((b) => (
               <option key={b.boardId} value={b.boardId}>
@@ -85,21 +86,21 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
               </option>
             ))}
           </select>
-          <input className="sam-input text-sm" placeholder="찾을 문구" value={form.findText} onChange={(e) => setForm({ ...form, findText: e.target.value })} />
-          <input className="sam-input text-sm" placeholder="바꿀 문구 (비우면 삭제)" value={form.replaceText} onChange={(e) => setForm({ ...form, replaceText: e.target.value })} />
-          <input className="sam-input text-sm" placeholder="메모" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="찾을 문구" value={form.findText} onChange={(e) => setForm({ ...form, findText: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="바꿀 문구 (비우면 삭제)" value={form.replaceText} onChange={(e) => setForm({ ...form, replaceText: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="메모" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 text-xs text-sam-muted">
             <input type="checkbox" checked={form.isRegex} onChange={(e) => setForm({ ...form, isRegex: e.target.checked })} /> 정규식
           </label>
-          <button type="button" className="sam-btn sam-btn-primary text-sm ml-auto" disabled={!form.findText} onClick={() => void save()}>
+          <AdminActionButton variant="primary" className="ml-auto" disabled={!form.findText} onClick={() => void save()}>
             규칙 추가
-          </button>
+          </AdminActionButton>
         </div>
         {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-rose-600" : "text-emerald-700"}`}>{msg.text}</p> : null}
       </section>
-      <section className="sam-card">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
         {rules.length === 0 ? <p className="p-3 text-xs text-sam-muted">등록된 규칙이 없습니다.</p> : null}
         <ul>
           {rules.map((r) => (
@@ -111,9 +112,9 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
               <span className="text-sam-muted">→</span>
               <code className="break-all">{r.replaceText || "(삭제)"}</code>
               {r.isRegex ? <span className="text-[10px] text-sam-muted">regex</span> : null}
-              <button type="button" className="sam-btn sam-btn-ghost text-[11px] ml-auto" onClick={() => void toggle(r)}>
+              <AdminActionButton variant="neutral" className="ml-auto" onClick={() => void toggle(r)}>
                 {r.enabled ? "사용 중" : "꺼짐"}
-              </button>
+              </AdminActionButton>
             </li>
           ))}
         </ul>

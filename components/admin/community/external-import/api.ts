@@ -45,6 +45,8 @@ export type DetailPayload = {
   source: { id: string; displayName: string; contentPolicy: ContentPolicy; baseUrl: string };
   board: { boardId: string; displayName: string; defaultTopicId: string | null };
   preview: PublishContent;
+  /** The community post this article is published as (null = not published). */
+  post: { id: string; title: string; status: string; topicSlug: string; updatedAt: string } | null;
   qualityLabels: Record<string, string>;
 };
 

@@ -221,7 +221,7 @@ export async function detailRss(
     author: item?.author ?? pageMeta?.author ?? null,
     sourcePublishedDate: parseSourceDate(item?.date) || parseSourceDate(pageMeta?.published) || null,
     orderedContentBlocks: blocks,
-    summary: target.summary || item?.summary || pageMeta?.description || null,
+    summary: target.summary || item?.summary || null,
     extraction: { bodySource, sourceImageCount, ogImage: og, usedFeedFallback, warnings },
   };
 }
