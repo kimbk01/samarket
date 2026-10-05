@@ -55,6 +55,17 @@ begin
     if found then
       raise exception 'already_published:%', v_link.post_id using errcode = 'P0001';
     end if;
+    -- Same original already on the community under another key: a legacy import (no provenance row)
+    -- or the same article collected through a second board. Never create a second public post.
+    if coalesce(v_post->>'public_attribution_url', '') <> '' then
+      select id into v_post_id from public.community_posts
+      where origin_kind = 'imported' and status <> 'deleted'
+        and public_attribution_url = v_post->>'public_attribution_url'
+      limit 1;
+      if found then
+        raise exception 'published_under_other_key:%', v_post_id using errcode = 'P0001';
+      end if;
+    end if;
     insert into public.community_posts (
       user_id, section_id, section_slug, topic_id, topic_slug, title, content, summary, region_label, category,
       images, is_question, is_meetup, meetup_place, meetup_date, status, is_sample_data, origin_kind,

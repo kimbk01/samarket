@@ -9,6 +9,7 @@ import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/commun
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
+import { removeCanonicalImageAsset } from "@/lib/media/canonical-image-upload.server";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { blocksToCommunityMarkdown, remapBlockImageUrls } from "./draft-apply";
@@ -173,6 +174,12 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
 
   const { data, error } = await sb.rpc("community_import_publish", { p: payload });
   if (error) {
+    // Nothing was written by the RPC (single transaction): drop the copies made for this attempt.
+    await Promise.all(
+      ingested.mapped.map((m) =>
+        removeCanonicalImageAsset({ sb, bucket: "post-images", originalPath: m.storagePath }).catch(() => undefined),
+      ),
+    );
     const m = mapPublishRpcError(error.message);
     return fail(m.code, m.message);
   }

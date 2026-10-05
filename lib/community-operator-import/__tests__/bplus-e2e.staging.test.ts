@@ -209,4 +209,33 @@ describe("B+ staging E2E (isolated local Supabase)", () => {
     record("7 정기수집", "failure_recorded", (badRow?.consecutive_failures ?? 0) >= 1 && !!badRow?.last_error, `failures=${badRow?.consecutive_failures} err=${badRow?.last_error}`);
     void updateBoard;
   });
+
+  it("8 legacy post without provenance (prod has 4): same original is never published twice", async () => {
+    const { fetchArticleForInbox } = await import("@/lib/community-operator-import/collect");
+    const { ensureDraftEdit } = await import("@/lib/community-operator-import/draft-store");
+    const { publishImportedArticle } = await import("@/lib/community-operator-import/publish");
+    const { data: pending } = await sb.from("community_operator_import_inbox").select("source_site, source_board, source_article_key, canonical_url").eq("source_site", "philsuda").is("published_post_id", null).limit(1);
+    const row = pending![0]!;
+    const key = { sourceSite: row.source_site, sourceBoard: row.source_board, sourceArticleKey: row.source_article_key };
+    const { article } = await fetchArticleForInbox(sb, key);
+    // A pre-B+ imported post of the same original: copy of an existing post row, no link row.
+    const { data: tmpl } = await sb.from("community_posts").select("*").eq("origin_kind", "imported").limit(1).single();
+    const legacy = { ...tmpl } as Record<string, unknown>;
+    delete legacy.id;
+    legacy.title = "[레거시] 이전 수집 게시물";
+    legacy.public_attribution_url = article.canonicalUrl;
+    legacy.status = "active";
+    const ins = await sb.from("community_posts").insert(legacy).select("id").single();
+    const before = (await sb.from("community_posts").select("*", { count: "exact", head: true })).count ?? 0;
+    const edit = { ...ensureDraftEdit(article, null), topicId: topic?.id ?? null, topicSlug: topic?.slug ?? null };
+    const r = await publishImportedArticle(sb, { article, edit, mode: "create", adminUserId: adminId, acceptPartial: true, rules: [] });
+    const after = (await sb.from("community_posts").select("*", { count: "exact", head: true })).count ?? 0;
+    const legacyAfter = (await sb.from("community_posts").select("title, status").eq("id", ins.data?.id ?? "").single()).data;
+    record(
+      "8 레거시 중복",
+      "refused_and_legacy_untouched",
+      !r.ok && (r as { code?: string }).code === "published_under_other_key" && after === before && legacyAfter?.title === "[레거시] 이전 수집 게시물",
+      `insertErr=${ins.error?.message ?? "none"} result=${JSON.stringify(r).slice(0, 200)} posts ${before}→${after} legacy=${JSON.stringify(legacyAfter)}`,
+    );
+  });
 });

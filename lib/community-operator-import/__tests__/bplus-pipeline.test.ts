@@ -306,6 +306,7 @@ describe("edits and publish errors", () => {
   });
   it("maps RPC errors to operator codes", () => {
     expect(mapPublishRpcError("already_published:abc").code).toBe("already_published");
+    expect(mapPublishRpcError("published_under_other_key:abc").code).toBe("published_under_other_key");
     expect(mapPublishRpcError("Could not find the function public.community_import_publish").code).toBe("publish_rpc_missing");
   });
 });
