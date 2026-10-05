@@ -164,12 +164,14 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                   </thead>
                   <tbody>
                     {detect.boards.map((b) => {
-                      const usable = b.robotsAllowed && (b.sample?.verdict === "FULL" || b.sample?.verdict === "PARTIAL");
+                      // Unsampled boards (detect samples only a few) stay selectable: register re-checks them server-side.
+                      const usable = b.robotsAllowed && (!b.sample || b.sample.verdict === "FULL" || b.sample.verdict === "PARTIAL");
                       return (
                         <tr key={b.boardId} className="border-t border-sam-border align-top">
                           <td className="py-1.5 pr-2">
                             <input
                               type="checkbox"
+                              aria-label={`${b.displayName} 사용`}
                               disabled={!usable}
                               checked={selected.has(b.boardId)}
                               onChange={(e) => {
@@ -356,6 +358,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             <td className="py-1.5 pr-2">
                               <select
                                 className="sam-input text-xs"
+                                aria-label={`${b.displayName} DIBAY 주제`}
                                 value={b.defaultTopicId ?? ""}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { defaultTopicId: e.target.value || null })}
                               >
@@ -368,11 +371,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                               </select>
                             </td>
                             <td className="py-1.5 pr-2">
-                              <input type="checkbox" checked={b.enabled} onChange={(e) => void boardPatch(s.id, b.boardId, { enabled: e.target.checked })} />
+                              <input type="checkbox" aria-label={`${b.displayName} 게시판 사용`} checked={b.enabled} onChange={(e) => void boardPatch(s.id, b.boardId, { enabled: e.target.checked })} />
                             </td>
                             <td className="py-1.5 pr-2">
                               <input
                                 type="checkbox"
+                                aria-label={`${b.displayName} 자동수집`}
                                 checked={b.collectEnabled}
                                 title="검증된 출처의 기사·정보·커뮤니티 게시판만 정기수집할 수 있습니다"
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { collectEnabled: e.target.checked })}

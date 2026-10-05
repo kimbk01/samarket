@@ -189,12 +189,13 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
             <div className="text-[11px] font-semibold text-sam-muted">편집 · 게시 결과</div>
             <label className="block text-xs text-sam-muted">
               제목
-              <input className="sam-input w-full text-sm mt-0.5" value={edit.displayTitle} onChange={(e) => set({ displayTitle: e.target.value })} />
+              <input aria-label="제목" className="sam-input w-full text-sm mt-0.5" value={edit.displayTitle} onChange={(e) => set({ displayTitle: e.target.value })} />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-xs text-sam-muted">
                 DIBAY 주제
                 <select
+                  aria-label="DIBAY 주제"
                   className="sam-input w-full text-sm mt-0.5"
                   value={edit.topicId ?? ""}
                   onChange={(e) => {

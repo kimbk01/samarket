@@ -204,7 +204,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
         {!loading && !rows.length && !error ? (
           <p className="p-4 text-xs text-sam-muted">수집된 글이 없습니다. 「출처·게시판」에서 게시판의 「지금 수집」을 누르거나 자동수집을 켜세요.</p>
         ) : null}
-        <ul>
+        <ul data-testid="import-inbox-list">
           {rows.map((r) => {
             const k = keyOf(r);
             const active = activeKey === k;
