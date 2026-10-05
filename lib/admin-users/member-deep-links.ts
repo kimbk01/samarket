@@ -67,7 +67,8 @@ export function memberBusinessCreditHref(query?: string): string {
 }
 
 export function memberNoteComposeHref(userId: string): string {
-  return `/admin/member-notes?kind=inbox&memberUserId=${encodeURIComponent(userId)}`;
+  // A2-2: Support Center is SSOT for admin↔member messaging (legacy member-notes writer disabled).
+  return `/admin/support?search=${encodeURIComponent(userId)}`;
 }
 
 export function memberMessengerAdminHref(userId: string): string {
@@ -83,9 +84,9 @@ export function memberOrderRoomAdminHref(): string {
 }
 
 export function memberInquiryAdminHref(userId: string): string {
-  return `/admin/member-notes?kind=inquiry&memberUserId=${encodeURIComponent(userId)}`;
+  return `/admin/support?search=${encodeURIComponent(userId)}`;
 }
 
 export function memberInboxAdminHref(): string {
-  return "/admin/member-notes?kind=inbox";
+  return "/admin/support";
 }

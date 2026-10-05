@@ -219,7 +219,11 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
         ) : null}
 
         {isSuperAdmin && (staff.role !== "master" || isSelfStaff) ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+            data-admin-staff-password-fields="1"
+            data-admin-staff-password-self={isSelfStaff ? "1" : "0"}
+          >
             <div>
               <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password")}</label>
               <input
@@ -231,6 +235,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
                 placeholder={t("admin_users_ph_password_min")}
+                data-admin-staff-password-input="1"
               />
               <p className="mt-1 text-[11px] text-[#6F4E37]">{t("admin_users_auth_password_hint")}</p>
             </div>
@@ -245,9 +250,14 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-[#D4E9E2] px-3 py-2 text-[13px]"
                 placeholder={t("admin_users_ph_password_min")}
+                data-admin-staff-password-confirm="1"
               />
             </div>
           </div>
+        ) : staff?.role === "master" && isSuperAdmin && !isSelfStaff ? (
+          <p className="text-[12px] text-[#667085]" data-admin-staff-password-blocked="other_sa">
+            다른 최고 관리자 비밀번호는 이 화면에서 변경할 수 없습니다. 본인 계정 상세의 「비밀번호 관리」를 사용하세요.
+          </p>
         ) : null}
 
         {staff.role !== "master" ? (

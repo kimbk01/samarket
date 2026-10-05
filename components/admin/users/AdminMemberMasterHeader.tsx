@@ -215,13 +215,14 @@ export function AdminMemberMasterHeader({
     isSelf: isSelfOperator,
     targetPresentation: privilegePresentation,
   });
+  // SA self: show password CTA from session identity alone — do not wait on /auth probe.
+  const saSelfPassword =
+    !meLoading &&
+    isSuperAdmin &&
+    privilegePresentation === "super_admin" &&
+    isSelfOperator;
   const canPassword = Boolean(
-    (primary.managePassword?.visible && primary.managePassword.enabled) ||
-      (!meLoading &&
-        passwordResetSupported &&
-        isSuperAdmin &&
-        privilegePresentation === "super_admin" &&
-        isSelfOperator),
+    (primary.managePassword?.visible && primary.managePassword.enabled) || saSelfPassword,
   );
   const canEditStaff = Boolean(
     isSuperAdmin &&

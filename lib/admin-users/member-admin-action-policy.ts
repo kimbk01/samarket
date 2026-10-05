@@ -176,7 +176,12 @@ export function resolveMemberAdminActionPolicy(
       const saSelfPathOk =
         targetPrivilege === "super_admin" && operator.canManagePrivilege && operator.isSelf;
       const passwordPathOk = memberPathOk || saSelfPathOk;
-      const pwVisible = !terminal && passwordResetSupported && passwordPathOk;
+      // SA self must not hide behind auth-eligibility probe races (passwordResetSupported).
+      // Members still require passwordResetSupported.
+      const pwVisible =
+        !terminal &&
+        passwordPathOk &&
+        (saSelfPathOk || passwordResetSupported);
       const pwEnabled =
         pwVisible && operator.canResetPassword && lifecycle !== "BLOCKED";
       let disabledReasonKo: string | undefined;

@@ -76,6 +76,33 @@ describe("G7 member password policy vs server target guard", () => {
     expect(d?.enabled).toBe(true);
   });
 
+  it("keeps SA self password CTA visible even when passwordResetSupported is false", () => {
+    const d = resolveMemberAdminActionPolicy(
+      ctx("ACTIVE", {
+        passwordResetSupported: false,
+        operator: {
+          ...fullOp,
+          targetPrivilege: "super_admin",
+          targetIsSuperAdmin: true,
+          canManagePrivilege: true,
+          isSelf: true,
+        },
+      }),
+    ).find((a) => a.id === "manage_password");
+    expect(d?.visible).toBe(true);
+    expect(d?.enabled).toBe(true);
+  });
+
+  it("still hides member password CTA when passwordResetSupported is false", () => {
+    const d = resolveMemberAdminActionPolicy(
+      ctx("ACTIVE", {
+        passwordResetSupported: false,
+        operator: { ...fullOp, targetPrivilege: "member" },
+      }),
+    ).find((a) => a.id === "manage_password");
+    expect(d?.visible).toBe(false);
+  });
+
   it("hides SA password CTA for other super_admin targets", () => {
     const d = resolveMemberAdminActionPolicy(
       ctx("ACTIVE", {

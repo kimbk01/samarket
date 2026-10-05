@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
-import { memberInquiryAdminHref, memberMessengerAdminHref } from "@/lib/admin-users/member-deep-links";
+import { memberInquiryAdminHref, memberMessengerAdminHref, memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
 import type { MemberOpsHistoryItem, MemberOpsHistoryPayload } from "@/lib/admin-users/member-ops-history";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO, memberDetailAccountStateLabelKo } from "@/lib/admin-users/member-detail-presentation";
@@ -55,34 +54,7 @@ export function AdminMemberOpsPanel({
   const [deletion, setDeletion] = useState<
     { kind: "loading" } | { kind: "error"; message: string } | { kind: "ok"; open: DeletionRequestItem | null; items: DeletionRequestItem[] }
   >({ kind: "loading" });
-  const [subject, setSubject] = useState("");
-  const [noteBody, setNoteBody] = useState("");
-  const [noteBusy, setNoteBusy] = useState(false);
-
-  const sendNote = async () => {
-    if (!subject.trim() || !noteBody.trim()) return;
-    setNoteBusy(true);
-    try {
-      const res = await fetch("/api/admin/member-notes", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberUserId: userId, subject: subject.trim(), body: noteBody.trim() }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || data.ok === false) {
-        await dibayAlert({ title: data.error ?? t("admin_users_action_failed") });
-        return;
-      }
-      setSubject("");
-      setNoteBody("");
-      setCursor(null);
-      setStack([]);
-      onUpdated?.();
-    } finally {
-      setNoteBusy(false);
-    }
-  };
+  const supportHref = memberNoteComposeHref(userId);
 
   const reloadDeletion = useCallback(async () => {
     setDeletion({ kind: "loading" });
@@ -150,34 +122,22 @@ export function AdminMemberOpsPanel({
           {safeT("admin_users_cc_contact_title", { fallbackKo: "연락", fallbackEn: "Contact" })}
         </h3>
         <p className="text-xs text-[#667085]">{nickname}</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder={safeT("admin_users_cc_note_subject", { fallbackKo: "쪽지 제목", fallbackEn: "Note subject" })}
-            className="rounded-md border border-[#e4e7ec] px-3 py-2 text-sm"
-            data-member-note-subject="1"
-          />
-          <textarea
-            value={noteBody}
-            onChange={(e) => setNoteBody(e.target.value)}
-            placeholder={safeT("admin_users_cc_note_body", { fallbackKo: "쪽지 내용", fallbackEn: "Note body" })}
-            className="rounded-md border border-[#e4e7ec] px-3 py-2 text-sm sm:col-span-2"
-            rows={3}
-            data-member-note-body="1"
-          />
-        </div>
+        <p className="text-xs text-[#667085]">
+          {safeT("admin_users_cc_note_support_ssot", {
+            fallbackKo: "회원 쪽지·문의는 Support Center가 단일 경로입니다. 레거시 쪽지 API는 비활성(410)입니다.",
+            fallbackEn: "Member messaging uses Support Center only. Legacy note writer returns 410.",
+          })}
+        </p>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={noteBusy}
-            onClick={() => void sendNote()}
-            className="rounded-md bg-[#2563eb] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+          <Link
+            href={supportHref}
+            className="rounded-md bg-[#2563eb] px-3 py-2 text-xs font-semibold text-white"
             data-member-cta="send-note"
             data-member-cta-cap="CAP-MSG-SUPPORT"
+            data-member-note-support-href="1"
           >
-            {safeT("admin_users_cc_cta_send_note", { fallbackKo: "쪽지 보내기", fallbackEn: "Send note" })}
-          </button>
+            {safeT("admin_users_cc_cta_send_note", { fallbackKo: "Support Center에서 쪽지", fallbackEn: "Message via Support Center" })}
+          </Link>
           <Link
             href={memberInquiryAdminHref(userId)}
             className="rounded-md border border-[#e4e7ec] px-3 py-2 text-xs font-semibold text-[#344054]"

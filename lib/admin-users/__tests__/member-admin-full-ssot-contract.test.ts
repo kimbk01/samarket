@@ -56,6 +56,7 @@ describe("member-admin-full-ssot-contract", () => {
     expect(presentation).toContain("joinedFrom");
     expect(presentation).toContain("MemberListSortId");
     expect(filter).toContain('data-member-list-filter="sort"');
+    expect(filter).toContain('data-member-list-filter-layout="single-row"');
     expect(route).toContain("sortColumn");
     expect(table).toContain("queryScopeKey");
   });

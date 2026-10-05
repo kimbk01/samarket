@@ -48,7 +48,7 @@ export const MEMBER_ADMIN_FULL_SSOT_CATALOG = [
   { id: "MM-DETAIL-VERIFY", nameKo: "전화 인증 4상태", kind: "RESTORE", uiEntry: "S15", api: "PATCH …/phone-verification", evidence: "L4_RUNTIME" },
   { id: "MM-DETAIL-MODERATION", nameKo: "상세 제재 실행", kind: "RESTORE", uiEntry: "DangerZone", api: "POST …/moderation", evidence: "L4_RUNTIME" },
   { id: "MM-DETAIL-WITHDRAW-PURGE", nameKo: "상세 탈퇴·영구삭제", kind: "RESTORE", uiEntry: "DangerZone", api: "POST …/delete", evidence: "L4_RUNTIME" },
-  { id: "MM-DETAIL-NOTE", nameKo: "쪽지 전송", kind: "RESTORE", uiEntry: "Ops", api: "POST /api/admin/member-notes", evidence: "L4_RUNTIME" },
+  { id: "MM-DETAIL-NOTE", nameKo: "쪽지 전송", kind: "RESTORE", uiEntry: "Ops", api: "GET /admin/support?search=:userId (Support SSOT; legacy POST /api/admin/member-notes = 410)", evidence: "L4_RUNTIME" },
   { id: "MM-OTP-MEMBER", nameKo: "회원 OTP", kind: "PRESERVE", uiEntry: "PhoneVerificationBox", api: "phone-otp-service", evidence: "NOT_PROVEN" },
   { id: "MM-VERIFY-FREEZE", nameKo: "인증 후 화면 갱신", kind: "DEFECT_FIX", uiEntry: "AdminUserDetailPage", api: "soft refresh", evidence: "L4_RUNTIME" },
   { id: "MM-ACCESS-POLICY", nameKo: "미인증 서비스 접근", kind: "OWNER_GATE", uiEntry: "—", api: "member-access", evidence: "L2_CONTRACT" },

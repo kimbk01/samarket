@@ -266,12 +266,17 @@ describe("R3 Member Detail Control Center IA", () => {
   });
 
 
-  it("Ops contact: CAP-MSG-SUPPORT note send restored (Owner FULL SSOT)", () => {
+  it("Ops contact: CAP-MSG-SUPPORT routes to Support Center SSOT (Owner FULL SSOT)", () => {
     const ops = src("components/admin/users/AdminMemberOpsPanel.tsx");
-    expect(ops).toContain("쪽지 보내기");
+    const links = src("lib/admin-users/member-deep-links.ts");
     expect(ops).toContain("admin_users_cc_cta_send_note");
-    expect(ops).toContain("/api/admin/member-notes");
+    expect(ops).toContain("admin_users_cc_note_support_ssot");
+    expect(ops).toContain("memberNoteComposeHref");
+    expect(ops).toContain('data-member-note-support-href="1"');
+    expect(ops).not.toContain('fetch("/api/admin/member-notes"');
     expect(ops).toContain('data-member-cta-cap="CAP-MSG-SUPPORT"');
+    expect(links).toContain("/admin/support?search=");
+    expect(src("app/api/admin/member-notes/route.ts")).toContain("legacy_writer_disabled");
   });
 
   it("R2 list contract file still free of 표시만", () => {
