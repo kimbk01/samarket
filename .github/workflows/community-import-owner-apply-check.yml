@@ -1,0 +1,86 @@
+name: community-import owner apply check
+
+# Rehearses docs/community-import-bplus-owner-apply.sql (the script the OWNER runs in the Supabase SQL
+# Editor) on a disposable local Supabase seeded with the reviewed production state (production ids,
+# synthetic content). Proves: tampered state → STOP with no change; correct state → exactly
+# 3 links + 3 inbox rows + 1 function, untouched data identical; re-run → STOP with no change;
+# rollback script → original state; re-apply after rollback works.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/community-import-bplus"]
+    paths:
+      - "docs/community-import-bplus-owner-*.sql"
+      - "scripts/owner-apply-check/**"
+      - "supabase/migrations/20270420120200_community_operator_import_bplus_publish_rpc.sql"
+      - ".github/workflows/community-import-owner-apply-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Empty local Supabase + structure snapshot + reviewed production state
+        run: |
+          set -euo pipefail
+          test -f supabase/config.toml || supabase init --force --with-vscode-settings=false || supabase init --force
+          sed -i 's/^project_id = .*/project_id = "bplus-owner-apply"/' supabase/config.toml
+          mkdir -p "$RUNNER_TEMP/m" && mv supabase/migrations/* "$RUNNER_TEMP/m/"
+          supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime
+          DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/staging-e2e/bootstrap-schema.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -c "create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text, created_by text, idempotency_key text unique, rollback text[]);"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/owner-apply-check/fixture.sql
+      - name: Rehearse
+        run: |
+          set -uo pipefail
+          q() { psql "$DB_URL" -At -q -f "$1" 2>&1 | tail -1; }
+          note() { echo "::notice title=$1::$2"; }
+          fail() { echo "::error title=$1::$2"; FAILED=1; }
+          FAILED=0
+          S0=$(q scripts/owner-apply-check/snapshot.sql); ST0=$(q scripts/owner-apply-check/state.sql)
+          note "0 before" "$ST0"
+
+          # A — tampered production state must STOP with no change
+          psql "$DB_URL" -q -c "update public.community_operator_import_inbox set status='hidden' where id='dbc4ffc7-ad8c-4d11-9162-4e3aede50847'"
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f docs/community-import-bplus-owner-apply.sql 2>&1); RC=$?
+          psql "$DB_URL" -q -c "update public.community_operator_import_inbox set status='new' where id='dbc4ffc7-ad8c-4d11-9162-4e3aede50847'"
+          STA=$(q scripts/owner-apply-check/state.sql)
+          if [ $RC -ne 0 ] && echo "$OUT" | grep -q "STOP: the 3 inbox rows" && [ "$STA" = "$ST0" ]; then note "PASS A tampered state stops" "rc=$RC $(echo "$OUT" | grep -o 'STOP[^"]*' | head -1) | $STA"; else fail "FAIL A" "rc=$RC out=$OUT state=$STA"; fi
+
+          # B — reviewed state applies exactly the reviewed change
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f docs/community-import-bplus-owner-apply.sql 2>&1); RC=$?
+          STB=$(q scripts/owner-apply-check/state.sql); SB=$(q scripts/owner-apply-check/snapshot.sql)
+          EXP="fn=1 links=3 inbox=00829cb7:source_updated:2ed070f4 22222222:new:- 6dc87a9f:published:9e794acc dbc4ffc7:published:21379aff mig=1"
+          if [ $RC -eq 0 ] && [ "$STB" = "$EXP" ] && [ "$SB" = "$S0" ]; then note "PASS B apply" "$STB | untouched data identical"; else fail "FAIL B" "rc=$RC out=$OUT state=$STB snapshotSame=$([ "$SB" = "$S0" ] && echo yes || echo no)"; fi
+          PRIV=$(psql "$DB_URL" -At -c "select prosecdef, proconfig::text, has_function_privilege('anon','public.community_import_publish(jsonb)','execute'), has_function_privilege('authenticated','public.community_import_publish(jsonb)','execute'), has_function_privilege('service_role','public.community_import_publish(jsonb)','execute') from pg_proc where proname='community_import_publish'")
+          if [ "$PRIV" = "t|{search_path=public}|f|f|t" ]; then note "PASS B function security" "secdef|search_path|anon|authenticated|service_role = $PRIV"; else fail "FAIL B privileges" "$PRIV"; fi
+
+          # C — running it again stops and changes nothing
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f docs/community-import-bplus-owner-apply.sql 2>&1); RC=$?
+          STC=$(q scripts/owner-apply-check/state.sql)
+          if [ $RC -ne 0 ] && echo "$OUT" | grep -q "already exists" && [ "$STC" = "$STB" ]; then note "PASS C re-run stops" "$STC"; else fail "FAIL C" "rc=$RC out=$OUT state=$STC"; fi
+
+          # C2 — the migration body alone is idempotent (0 extra rows on a 2nd run)
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$RUNNER_TEMP/m/20270420120200_community_operator_import_bplus_publish_rpc.sql" 2>&1); RC=$?
+          STC2=$(q scripts/owner-apply-check/state.sql)
+          if [ $RC -eq 0 ] && [ "$STC2" = "$STB" ]; then note "PASS C2 migration idempotent" "$STC2"; else fail "FAIL C2" "rc=$RC out=$OUT state=$STC2"; fi
+
+          # D — rollback script restores the reviewed state; untouched data identical
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f docs/community-import-bplus-owner-rollback.sql 2>&1); RC=$?
+          STD=$(q scripts/owner-apply-check/state.sql); SD=$(q scripts/owner-apply-check/snapshot.sql)
+          if [ $RC -eq 0 ] && [ "$STD" = "$ST0" ] && [ "$SD" = "$S0" ]; then note "PASS D rollback" "$STD"; else fail "FAIL D" "rc=$RC out=$OUT state=$STD"; fi
+
+          # E — re-apply after rollback works
+          OUT=$(psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f docs/community-import-bplus-owner-apply.sql 2>&1); RC=$?
+          STE=$(q scripts/owner-apply-check/state.sql)
+          if [ $RC -eq 0 ] && [ "$STE" = "$EXP" ]; then note "PASS E re-apply" "$STE"; else fail "FAIL E" "rc=$RC out=$OUT state=$STE"; fi
+          exit $FAILED

@@ -39,9 +39,23 @@ select status, count(*) from community_operator_import_inbox where published_pos
 Then, from the admin screen, publish one `summary_link` article to a test-visible topic, update it
 once, and confirm the post count rose by exactly 1 (see staging evidence in REPORT Q).
 
+## How to apply (OWNER, Supabase Dashboard → SQL Editor)
+
+The MCP connection used by Claude cannot apply this file: the Supabase MCP server asks for a form
+confirmation (the function body contains `delete`), and the Claude cloud session answers MCP
+confirmation requests with `cancel` (no dialog, no Elicitation hook). See REPORT S.
+
+Run `docs/community-import-bplus-owner-apply.sql` once. It is one transaction that:
+1. stops without changing anything unless production is exactly in the reviewed state;
+2. runs the migration body (byte-identical to the migration file, md5 `b16016cf21680fdab2b2b609dfe0a766`);
+3. rolls everything back unless exactly 3 link rows / 3 inbox rows / 1 function with the right
+   privileges resulted; 4. records the migration in `supabase_migrations.schema_migrations`.
+Rehearsed by `.github/workflows/community-import-owner-apply-check.yml`.
+
 ## Rollback
 
-Before any B+ publish has happened (only the 3 backfilled links exist):
+Before any B+ publish has happened (only the 3 backfilled links exist): run
+`docs/community-import-bplus-owner-rollback.sql` (one transaction, refuses if other links exist). Equivalent SQL:
 
 ```sql
 begin;
