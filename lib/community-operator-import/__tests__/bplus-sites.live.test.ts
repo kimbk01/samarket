@@ -45,7 +45,7 @@ describe("B+ live re-verification", () => {
       const p = await probeBoard({ baseUrl: d.baseUrl, engine: "rss_atom", engineKey: cat.engineKey });
       const allFood = p.rows.length > 0;
       record("필수다", "category_filter", allFood, `rows=${p.rows.length} titles=${p.rows.slice(0, 3).map((r) => r.title).join(" / ")}`);
-      record("필수다", "article", !!p.article && blockStats(p.article.orderedContentBlocks).textChars > 200, summary(p.article) + ` q=${p.quality?.verdict} ${p.quality?.reasons}`);
+      record("필수다", "article", !!p.article && blockStats(p.article.orderedContentBlocks).textChars > 200, summary(p.article) + ` q=${p.quality?.verdict} ${p.quality?.reasons} warnings=${p.article?.extraction?.warnings.join(";")}`);
     }
   });
 
@@ -69,7 +69,23 @@ describe("B+ live re-verification", () => {
       1,
     );
     const thumbs = rows.filter((r) => r.thumbnailUrl).length;
-    record("GolfAsian", "latest_thumbnails", thumbs >= Math.ceil(rows.length * 0.7), `rows=${rows.length} thumbs=${thumbs}`);
+    // A post without any image cannot have a thumbnail: check those against the source API.
+    const missing = rows.filter((r) => !r.thumbnailUrl);
+    const api = (await fetch("https://www.golfasian.com/wp-json/wp/v2/posts?per_page=20&_embed=1").then((r) => r.json())) as Array<{
+      id: number;
+      featured_media?: number;
+      content?: { rendered?: string };
+    }>;
+    const missingWithImage = missing.filter((m) => {
+      const post = api.find((x) => String(x.id) === m.articleKey);
+      return !!post && (post.featured_media || /<img/i.test(post.content?.rendered || ""));
+    });
+    record(
+      "GolfAsian",
+      "latest_thumbnails",
+      missingWithImage.length === 0,
+      `rows=${rows.length} thumbs=${thumbs} missing=${missing.length} missing_but_source_has_image=${missingWithImage.length} ${missingWithImage.map((m) => m.articleKey).join(",")}`,
+    );
   });
 
   it("필리핀 이모저모 (tistory rss)", async () => {
