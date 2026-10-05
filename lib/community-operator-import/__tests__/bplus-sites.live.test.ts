@@ -60,11 +60,11 @@ describe("B+ live re-verification", () => {
       const scripts = (html.match(/<script/g) || []).length;
       const titleInHtml = p.rows[0] ? html.includes(p.rows[0].title.slice(0, 12)) : false;
       const bodyText = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      detail = `status=${r.status} final=${r.finalUrl} html=${html.length} visibleText=${bodyText.length} scripts=${scripts} titleInHtml=${titleInHtml} nextData=${/__NEXT_DATA__|self.__next_f/.test(html)} sample="${bodyText.slice(0, 160)}"`;
+      detail = `status=${r.status} sameUrl=${r.finalUrl === url} html=${html.length} visibleText=${bodyText.length} scripts=${scripts} titleInHtml=${titleInHtml} nextData=${/__NEXT_DATA__|self.__next_f/.test(html)} sample="${bodyText.slice(0, 160)}"`;
     } catch (e) {
       detail = `fetch_failed: ${describeFetchError(e)}`;
     }
-    record("필수다 원문", "page_diagnosis", true, `${url} ${detail} warnings=${p.article?.extraction?.warnings.join(";")}`);
+    record("필수다 원문", "page_diagnosis", true, `${detail} warnings=${p.article?.extraction?.warnings.join(";")}`);
   });
 
   it("마닐라서울 (rss): full title and #ct body", async () => {
