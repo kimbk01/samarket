@@ -368,3 +368,14 @@ describe("truncated feed titles", () => {
     expect(pickFeedTitle("", "페이지 제목")).toBe("페이지 제목");
   });
 });
+
+describe("video posts", () => {
+  it("keeps a YouTube embed as thumbnail + watch link instead of dropping it", () => {
+    const html = `<div class="view-content"><p>태풍 초이완 북상 | 필리핀동포방송</p>
+      <iframe src="https://www.youtube.com/embed/QLiT2yyw6gU?autohide=1" width="640"></iframe></div>`;
+    const blocks = htmlToBlocks(html, { baseUrl: "https://philsamo.com/bbs/board.php" });
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph", "image", "link"]);
+    expect(blocks[1]).toMatchObject({ type: "image", url: "https://img.youtube.com/vi/QLiT2yyw6gU/hqdefault.jpg" });
+    expect(blocks[2]).toMatchObject({ type: "link", href: "https://www.youtube.com/watch?v=QLiT2yyw6gU" });
+  });
+});

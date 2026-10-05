@@ -115,9 +115,36 @@ export type NormalizeOptions = {
 /**
  * Normalize an HTML fragment (or a selected body element's HTML) into ordered blocks.
  */
+/** YouTube / Vimeo embed src → canonical watch URL + thumbnail (null when not a known video host). */
+export function videoFromEmbed(src: string | null | undefined): { url: string; thumb: string | null; label: string } | null {
+  const s = String(src || "").trim();
+  const yt = s.match(/(?:youtube(?:-nocookie)?\.com\/(?:embed|shorts|v)\/|youtu\.be\/|youtube\.com\/watch\?(?:.*&)?v=)([\w-]{11})/i);
+  if (yt) {
+    return { url: `https://www.youtube.com/watch?v=${yt[1]}`, thumb: `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`, label: "▶ YouTube 영상 보기" };
+  }
+  const vm = s.match(/player\.vimeo\.com\/video\/(\d+)/i);
+  if (vm) return { url: `https://vimeo.com/${vm[1]}`, thumb: null, label: "▶ Vimeo 영상 보기" };
+  return null;
+}
+
+/**
+ * Video posts (common on community "news" boards) are an iframe plus a title line.
+ * Keep the video as a thumbnail + link instead of silently dropping it with the iframe.
+ */
+function preserveVideoEmbeds($: CheerioAPI, root: CheerioSel): void {
+  root.find("iframe[src], iframe[data-src], embed[src]").each((_, el) => {
+    const $el = $(el);
+    const v = videoFromEmbed($el.attr("src") || $el.attr("data-src"));
+    if (!v) return;
+    const img = v.thumb ? `<img src="${v.thumb}" alt="video">` : "";
+    $el.replaceWith(`<p>${img}<a data-nrm-video="1" href="${v.url}">${v.label}</a></p>`);
+  });
+}
+
 export function htmlToBlocks(html: string, opts: NormalizeOptions): OperatorContentBlock[] {
   const $ = cheerio.load(`<div id="__nrm_root">${html}</div>`);
   const root = $("#__nrm_root");
+  preserveVideoEmbeds($, root as CheerioSel);
   root.find(CHROME_SELECTORS).remove();
   for (const s of opts.removeSelectors ?? []) {
     try {
@@ -203,6 +230,11 @@ function walkBlocks($: CheerioAPI, root: CheerioSel, base: string): OperatorCont
       flush();
       const t = cleanText($el.text());
       if (t) blocks.push({ type: "paragraph", text: t });
+      return;
+    }
+    if (tag === "a" && $el.attr("data-nrm-video")) {
+      flush();
+      blocks.push({ type: "link", href: $el.attr("href") || null, text: cleanText($el.text()) || null });
       return;
     }
     if (tag === "a") {
