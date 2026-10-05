@@ -50,7 +50,7 @@ export function AdminExternalImportOperatorPage() {
           description="사이트 등록 → 실제 게시판 선택 → 수집함 → 원문 비교·편집 → 게시/업데이트. 자동 수집은 수집함까지만 하며 자동 게시하지 않습니다."
         />
       </div>
-      <div className="sam-tabs shrink-0">
+      <div role="tablist" className="flex shrink-0 gap-1 border-b border-sam-border overflow-x-auto">
         {(
           [
             ["inbox", "수집함"],
@@ -58,7 +58,16 @@ export function AdminExternalImportOperatorPage() {
             ["rules", "일괄 변경 규칙"],
           ] as const
         ).map(([k, label]) => (
-          <button key={k} type="button" className={tab === k ? "sam-tab sam-tab--active" : "sam-tab"} onClick={() => setTab(k)}>
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={tab === k}
+            className={`shrink-0 px-4 py-2.5 text-sm -mb-px border-b-2 ${
+              tab === k ? "border-sam-primary text-sam-fg font-semibold" : "border-transparent text-sam-muted hover:text-sam-fg"
+            }`}
+            onClick={() => setTab(k)}
+          >
             {label}
           </button>
         ))}
