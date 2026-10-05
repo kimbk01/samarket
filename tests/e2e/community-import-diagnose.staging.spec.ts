@@ -109,6 +109,42 @@ test("diagnose production report (isolated staging)", async ({ page }) => {
     note("D1 버튼 스타일", "editor 미리보기 갱신", await styleOf(page, /^미리보기 갱신$/));
     await page.screenshot({ path: "ui-shots/d1-editor.png", fullPage: true }).catch(() => undefined);
 
+    // D5 — which CSS rules actually match the button (walks @layer / @media blocks)
+    const cssReport = await page.getByRole("button", { name: /^DIBAY에 게시$/ }).first().evaluate((el) => {
+      const out: string[] = [];
+      let samBtnRules = 0;
+      const walk = (rules: CSSRuleList, ctx: string) => {
+        for (const r of Array.from(rules)) {
+          const anyR = r as CSSRule & { cssRules?: CSSRuleList; selectorText?: string; name?: string; style?: CSSStyleDeclaration };
+          if (anyR.selectorText) {
+            if (anyR.selectorText.includes("sam-btn")) samBtnRules++;
+            let m = false;
+            try { m = el.matches(anyR.selectorText); } catch { m = false; }
+            const st = anyR.style;
+            if (m && st && (st.getPropertyValue("padding-left") || st.getPropertyValue("background-color") || st.getPropertyValue("padding") || st.getPropertyValue("background") || st.getPropertyValue("border-width") || st.getPropertyValue("border"))) {
+              out.push(`${ctx}|${anyR.selectorText}|bg=${st.getPropertyValue("background-color") || st.getPropertyValue("background")}|pad=${st.getPropertyValue("padding-left") || st.getPropertyValue("padding") || st.getPropertyValue("padding-inline")}|border=${st.getPropertyValue("border-width") || st.getPropertyValue("border")}`);
+            }
+          }
+          if (anyR.cssRules) walk(anyR.cssRules, `${ctx}>${anyR.name ?? (anyR as CSSMediaRule).conditionText ?? r.constructor.name}`);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) {
+        try { walk(sh.cssRules, (sh.href || "inline").split("/").pop() || "inline"); } catch { out.push(`unreadable ${sh.href}`); }
+      }
+      // what the stylesheet says for .sam-btn-primary, verbatim
+      const verbatim: string[] = [];
+      const grab = (rules: CSSRuleList) => {
+        for (const r of Array.from(rules)) {
+          const anyR = r as CSSRule & { cssRules?: CSSRuleList; selectorText?: string };
+          if (anyR.selectorText && /(^|,)\s*\.sam-btn(-primary)?\s*(,|$)/.test(anyR.selectorText)) verbatim.push(r.cssText.slice(0, 400));
+          if (anyR.cssRules) grab(anyR.cssRules);
+        }
+      };
+      for (const sh of Array.from(document.styleSheets)) { try { grab(sh.cssRules); } catch { /* */ } }
+      return `samBtnRules=${samBtnRules} matching=${out.join(" ;; ")} || verbatim=${verbatim.join(" ;; ")}`;
+    });
+    note("D5 CSS 원인", "rules matching the publish button", cssReport);
+
     // D2 — publish then update (no edit), then update (with edit)
     if (news) await page.getByLabel("DIBAY 주제", { exact: true }).selectOption(news.id);
     const partial = page.getByLabel(/품질 PARTIAL 확인함/);
