@@ -82,6 +82,7 @@ export function MemberAdminDialog({
   const bodyId = useId();
   const errorId = useId();
   const [mounted, setMounted] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [dirtyConfirmOpen, setDirtyConfirmOpen] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const firstFieldRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +90,24 @@ export function MemberAdminDialog({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Overlay CSS keeps panel/backdrop at opacity:0 until data-entered="true".
+  // Without this, CTAs appear to do nothing and an invisible overlay steals clicks.
+  useEffect(() => {
+    if (!open) {
+      setEntered(false);
+      return;
+    }
+    if (!mounted) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setEntered(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [open, mounted]);
 
   useEffect(() => {
     if (!open) {
@@ -171,6 +190,7 @@ export function MemberAdminDialog({
     <div
       className={`${OverlayUi.root} dibay-overlay-root--center ${OVERLAY_Z_CLASS.dialog}`}
       role="presentation"
+      data-entered={entered ? "true" : "false"}
       data-member-admin-dialog="1"
       data-member-admin-dialog-z="dialog"
       data-tone={tone}

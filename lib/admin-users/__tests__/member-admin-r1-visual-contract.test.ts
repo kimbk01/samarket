@@ -290,6 +290,8 @@ describe("R1 MemberAdminDialog stacking", () => {
     );
     expect(src).toContain("OVERLAY_Z_CLASS.dialog");
     expect(src).toContain('data-member-admin-dialog-z="dialog"');
+    expect(src).toContain('data-entered={entered ? "true" : "false"}');
+    expect(src).toContain("setEntered(true)");
     // z-[1300] is MAIN_BOTTOM_NAV_SHEET_Z_CLASS — above admin shell z-40/z-45
     expect(OVERLAY_Z_CLASS.dialog).toMatch(/z-\[/);
   });
