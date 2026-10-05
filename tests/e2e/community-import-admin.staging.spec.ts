@@ -141,8 +141,27 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     // ── 7 publish ────────────────────────────────────────────────────────
     const before = await postCount();
     const partial = page.getByLabel(/품질 PARTIAL 확인함/);
-    if (await partial.count()) await partial.check();
-    await page.getByRole("button", { name: "DIBAY에 게시" }).click();
+    const publishBtn = page.getByRole("button", { name: "DIBAY에 게시" });
+    if (await partial.count()) {
+      const badge = await page.locator(".bg-amber-50").first().innerText().catch(() => "");
+      const disabledBefore = await publishBtn.isDisabled();
+      const apiNoConfirm = await page.request.post(`${API}/publish`, {
+        data: await (async () => {
+          const ib = (await db.from("community_operator_import_drafts").select("source_site, source_board, source_article_key").eq("source_site", sourceId).limit(1)).data?.[0];
+          const d = await (await page.request.get(`${API}/detail?site=${encodeURIComponent(ib!.source_site)}&board=${encodeURIComponent(ib!.source_board)}&key=${encodeURIComponent(ib!.source_article_key)}`)).json();
+          return { article: d.article, edit: { ...d.edit, topicId: food?.id ?? null, topicSlug: food?.slug ?? null }, mode: "create", acceptPartial: false };
+        })(),
+      });
+      const apiBody = await apiNoConfirm.text();
+      record(
+        "7 게시",
+        "partial_requires_confirmation",
+        disabledBefore && !apiNoConfirm.ok() && /quality_partial_needs_confirm/.test(apiBody) && (await postCount()) === before,
+        `화면 표시="${badge.slice(0, 120)}" 확인 전 게시 버튼 disabled=${disabledBefore} / API(확인 없이)=${apiNoConfirm.status()} ${apiBody.slice(0, 120)}`,
+      );
+      await partial.check();
+    }
+    await publishBtn.click();
     await expect(page.getByText(/^게시 완료/)).toBeVisible({ timeout: 120_000 });
     await shot(page, "08-published");
     const post = (await db.from("community_posts").select("id, title, status, origin_kind, images, topic_slug").like("title", "[UI-E2E]%").maybeSingle()).data;

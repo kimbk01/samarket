@@ -2,19 +2,12 @@
  * QUALITY GATE — compares what the source page had with what was extracted.
  * Short notices and image-less posts are valid (FULL) when the source itself has no images.
  */
-import { blockStats } from "./normalize";
+import { BODY_SELECTOR_CHANGED, blockStats } from "./normalize";
 import type { OperatorNormalizedArticle, QualityVerdict } from "./types";
 
 export type QualityResult = { verdict: QualityVerdict; reasons: string[] };
 
-export const QUALITY_REASON_LABELS: Record<string, string> = {
-  title_missing: "제목 없음",
-  body_missing: "본문·이미지 모두 없음",
-  images_missing: "원본 이미지 일부 누락",
-  feed_fallback: "원문 페이지 수집 실패 — 피드 요약만 사용",
-  entity_leak: "HTML 문자(&nbsp; 등) 노출",
-  date_missing: "원본 게시일 없음",
-};
+export { QUALITY_REASON_LABELS } from "./quality-labels";
 
 export function assessArticleQuality(article: OperatorNormalizedArticle): QualityResult {
   const reasons: string[] = [];
@@ -35,6 +28,7 @@ export function assessArticleQuality(article: OperatorNormalizedArticle): Qualit
       reasons.push("images_missing");
     }
     if (ex.usedFeedFallback) reasons.push("feed_fallback");
+    if (ex.warnings?.includes(BODY_SELECTOR_CHANGED)) reasons.push("structure_changed");
   }
   if (stats.entityLeak) reasons.push("entity_leak");
   if (!article.sourcePublishedDate) reasons.push("date_missing");

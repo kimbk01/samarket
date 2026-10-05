@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DetectResult } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-operator-import/types";
+import { labelReasons } from "@/lib/community-operator-import/quality-labels";
 import { BoardProbePanel } from "./BoardProbePanel";
 import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE } from "./api";
 
@@ -189,7 +190,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                           <td className="py-1.5 pr-2">{KIND_LABEL[b.boardKind]}</td>
                           <td className="py-1.5 pr-2">
                             <VerdictBadge v={b.robotsAllowed ? b.sample?.verdict ?? "NOT_PROVEN" : "BLOCKED"} />
-                            {b.sample?.reasons.length ? <div className="text-[10px] text-sam-muted mt-0.5">{b.sample.reasons.join(", ")}</div> : null}
+                            {b.sample?.reasons.length ? <div className="text-[10px] text-sam-muted mt-0.5">{labelReasons(b.sample.reasons.join(", "))}</div> : null}
                           </td>
                           <td className="py-1.5 pr-2">
                             {b.sample ? `${b.sample.listCount} / ${b.sample.withThumb}` : "—"}
@@ -353,7 +354,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             </td>
                             <td className="py-1.5 pr-2">
                               <VerdictBadge v={b.status.lastVerdict} />
-                              {b.status.lastError ? <div className="text-[10px] text-rose-600 max-w-[220px] break-words">{b.status.lastError}</div> : null}
+                              {b.status.lastError ? <div className="text-[10px] text-rose-600 max-w-[220px] break-words">{labelReasons(b.status.lastError)}</div> : null}
                             </td>
                             <td className="py-1.5 pr-2">
                               <select

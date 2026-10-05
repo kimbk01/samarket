@@ -6,6 +6,8 @@
 import * as cheerio from "cheerio";
 import { fetchImportText } from "../http";
 import {
+  BODY_SELECTOR_CHANGED,
+  configuredBodySelectorMissed,
   absUrl,
   cleanText,
   GENERIC_BODY_SELECTORS,
@@ -190,7 +192,7 @@ export async function detailHtml(ctx: AdapterContext, board: RuntimeBoard, targe
       sourceImageCount: body ? cheerio.load(body.html)("img").length : 0,
       ogImage: meta.ogImage ? absUrl(res.finalUrl, meta.ogImage) : null,
       usedFeedFallback: false,
-      warnings: body ? [] : ["body_selector_not_found"],
+      warnings: [...(body ? [] : ["body_selector_not_found"]), ...(configuredBodySelectorMissed(cfg.bodySelectors, body) ? [BODY_SELECTOR_CHANGED] : [])],
     },
   };
 }

@@ -90,6 +90,32 @@ describe("gnuboard adapter", () => {
   });
 });
 
+describe("structure change (REPORT L criterion 6)", () => {
+  const url = "https://gnu.example.com/madang/bbs/board.php?bo_table=info&wr_id=72";
+  const page = `<html><head><meta property="og:title" content="세부 골프 후기"></head><body>
+    <div id="bo_v_info"><strong class="if_date">26-10-05 12:30</strong></div>
+    <div class="view-content"><p>세부 골프장 라운딩 후기입니다. 그린 상태가 좋았습니다.</p></div></body></html>`;
+
+  it("configured body selector that matches → no structure warning", async () => {
+    routes[url] = { body: page };
+    const src = { ...gnu, adapterConfig: { bodySelectors: ["div.view-content"] } };
+    const a = await adapterFor("gnuboard").detail({ source: src }, board("info"), { articleKey: "72", detailUrl: url, title: "x" });
+    expect(a.extraction?.warnings).not.toContain("body_selector_changed");
+    expect(assessArticleQuality(a).reasons).not.toContain("structure_changed");
+  });
+
+  it("configured body selector that no longer matches → 구조 변경 의심 (PARTIAL), body still extracted", async () => {
+    routes[url] = { body: page };
+    const src = { ...gnu, adapterConfig: { bodySelectors: ["#old-layout-body"] } };
+    const a = await adapterFor("gnuboard").detail({ source: src }, board("info"), { articleKey: "72", detailUrl: url, title: "x" });
+    const q = assessArticleQuality(a);
+    expect(a.extraction?.warnings).toContain("body_selector_changed");
+    expect(q.verdict).toBe("PARTIAL");
+    expect(q.reasons).toContain("structure_changed");
+    expect(a.orderedContentBlocks.some((b) => b.type === "paragraph" && b.text.includes("라운딩"))).toBe(true);
+  });
+});
+
 describe("rss adapter", () => {
   const rss: RuntimeSource = { ...gnu, id: "blog", baseUrl: "https://blog.example.com", engine: "rss_atom" };
   const feedBoard: RuntimeBoard = { ...board("feed"), sourceId: "blog", boardId: "feed", engineKey: "https://blog.example.com/rss" };

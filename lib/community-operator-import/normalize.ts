@@ -376,6 +376,16 @@ export function selectBody(
   return null;
 }
 
+/**
+ * Structure-change signal: the operator configured body selectors for this site, but none of them
+ * matched and the body came from a generic/auto fallback. The page layout probably changed.
+ */
+export const BODY_SELECTOR_CHANGED = "body_selector_changed";
+export function configuredBodySelectorMissed(configured: string[] | undefined, body: { selector: string } | null): boolean {
+  const list = (configured ?? []).filter(Boolean);
+  return list.length > 0 && !(body && list.includes(body.selector));
+}
+
 /** Generic article-body selectors tried after an adapter's own list (ordered, no site names). */
 export const GENERIC_BODY_SELECTORS = [
   "[itemprop='articleBody']",

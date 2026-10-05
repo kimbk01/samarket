@@ -16,7 +16,7 @@ on:
       - "app/api/cron/community-import-collect/**"
       - "supabase/migrations/20270420120200_community_operator_import_bplus_publish_rpc.sql"
       - "scripts/staging-e2e/**"
-      - "tests/e2e/community-import-admin.staging.spec.ts"
+      - "tests/e2e/community-import-*.staging.spec.ts"
       - ".github/workflows/community-import-ui-e2e.yml"
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
 jobs:
   ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -73,12 +73,17 @@ jobs:
         env:
           PLAYWRIGHT_NO_WEBSERVER: "1"
           PLAYWRIGHT_BASE_URL: http://localhost:3000
-        run: npx playwright test tests/e2e/community-import-admin.staging.spec.ts --reporter=line
+        run: npx playwright test tests/e2e/community-import-admin.staging.spec.ts tests/e2e/community-import-sites.staging.spec.ts --workers=1 --reporter=line
       - name: Annotate UI results
         if: always()
         run: |
           test -f ui-results.json || echo '[{"site":"실패","check":"no_results","result":"FAIL","detail":"spec did not write results"}]' > ui-results.json
           node scripts/live-probe/annotate.mjs ui-results.json
+      - name: Annotate REPORT L site results
+        if: always()
+        run: |
+          test -f ui-sites-results.json || echo '[{"site":"실패","check":"no_results","result":"FAIL","detail":"sites spec did not write results"}]' > ui-sites-results.json
+          node scripts/live-probe/annotate.mjs ui-sites-results.json
       - name: Server log errors (missing non-import tables are expected in the snapshot DB)
         if: always()
         run: grep -iE "error|unhandled" next-start.log | grep -iE "philife|community|import|neighborhood|post" | head -8 | while read -r l; do echo "::warning title=next start log::$l"; done || true
@@ -89,4 +94,5 @@ jobs:
           path: |
             ui-shots/
             ui-results.json
+            ui-sites-results.json
           retention-days: 7

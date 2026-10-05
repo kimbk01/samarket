@@ -5,7 +5,16 @@
  */
 import * as cheerio from "cheerio";
 import { describeFetchError, fetchImportText } from "../http";
-import { absUrl, blockStats, GENERIC_BODY_SELECTORS, htmlToBlocks, readPageMeta, selectBody } from "../normalize";
+import {
+  absUrl,
+  BODY_SELECTOR_CHANGED,
+  blockStats,
+  configuredBodySelectorMissed,
+  GENERIC_BODY_SELECTORS,
+  htmlToBlocks,
+  readPageMeta,
+  selectBody,
+} from "../normalize";
 import type { OperatorContentBlock, OperatorListRow, OperatorNormalizedArticle, RuntimeBoard } from "../types";
 import {
   type AdapterContext,
@@ -170,6 +179,7 @@ export async function detailRss(
       const $ = cheerio.load(res.text);
       pageMeta = readPageMeta($);
       const body = selectBody($, [...(cfg.bodySelectors ?? []), ...GENERIC_BODY_SELECTORS]);
+      if (configuredBodySelectorMissed(cfg.bodySelectors, body)) warnings.push(BODY_SELECTOR_CHANGED);
       if (body) {
         pageBlocks = htmlToBlocks(body.html, {
           baseUrl: canonicalUrl,
