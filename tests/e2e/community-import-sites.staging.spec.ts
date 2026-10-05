@@ -143,7 +143,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         await expect(page.getByText("편집 · 게시 결과")).toBeVisible({ timeout: 120_000 });
         const editor = page.locator("section").filter({ hasText: "원문" }).first();
         const meta = await editor.locator("div").filter({ has: page.getByRole("link", { name: "원문 열기" }) }).last().innerText().catch(() => "");
-        const reasonsBar = await page.locator(".bg-amber-50").first().innerText({ timeout: 2_000 }).catch(() => "");
+        const reasonsBar = await page.locator("div.shrink-0.bg-amber-50").first().innerText({ timeout: 2_000 }).catch(() => "");
         const verdict = await page.locator("span").filter({ hasText: /^(FULL|PARTIAL|FAILED)$/ }).first().innerText({ timeout: 2_000 }).catch(() => "");
         const srcText = (await editor.innerText()).length;
         const srcImgs = await editor.locator("img").count();

@@ -3,6 +3,7 @@
  * (gnuboard `view-img` attachments + JS-rendered list → rss.php fallback, Tistory escaped feeds).
  * Network is stubbed; SSRF guard is stubbed to accept the fixture hosts.
  */
+import * as cheerio from "cheerio";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/security/remote-image-import-url", () => ({
@@ -10,6 +11,7 @@ vi.mock("@/lib/security/remote-image-import-url", () => ({
 }));
 
 import { adapterFor } from "@/lib/community-operator-import/adapters";
+import { feedDirectoryLinks } from "@/lib/community-operator-import/detect";
 import { assessArticleQuality } from "@/lib/community-operator-import/quality";
 import type { RuntimeBoard, RuntimeSource } from "@/lib/community-operator-import/types";
 
@@ -87,6 +89,24 @@ describe("gnuboard adapter", () => {
     expect(a.title).toBe("오카다 마닐라 후기");
     expect(a.extraction?.bodySource).toBe("div.view-content");
     expect(assessArticleQuality(a).verdict).toBe("FULL");
+  });
+});
+
+describe("RSS directory page (GMA-style)", () => {
+  it("turns each same-site feed link into a board; ignores other sites and pages", () => {
+    const html = `<html><body>
+      <a href="https://data.news.example.com/rss/news/nation/feed.xml">Nation</a>
+      <a href="https://data.news.example.com/rss/news/metro/feed.xml">Metro</a>
+      <a href="https://data.news.example.com/rss/sports/basketball/feed.xml">Basketball</a>
+      <a href="https://www.news.example.com/news/">News home</a>
+      <a href="https://other.example.org/rss.xml">Other site</a></body></html>`;
+    const feeds = feedDirectoryLinks(cheerio.load(html), "https://www.news.example.com/news/rss/");
+    expect(feeds.map((f) => f.title)).toEqual(["Nation", "Metro", "Basketball"]);
+  });
+
+  it("a page with one or two feed links is not a directory", () => {
+    const html = `<a href="/rss.xml">RSS</a><a href="/feed/">Feed</a>`;
+    expect(feedDirectoryLinks(cheerio.load(html), "https://blog.example.com/")).toEqual([]);
   });
 });
 

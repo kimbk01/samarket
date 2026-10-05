@@ -128,7 +128,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       });
       setMsg({
         tone: "ok",
-        text: `${r.mode === "update" ? "업데이트" : "게시"} 완료 · 이미지 ${r.imageCount}장${r.warnings.length ? ` · 경고 ${r.warnings.length}` : ""}`,
+        text: `${r.mode === "update" ? "업데이트" : "게시"} 완료 · 이미지 ${r.imageCount}장${r.warnings.length ? ` · 경고 ${r.warnings.length}: ${r.warnings.join(", ")}` : ""}`,
       });
       onChanged();
       setData({ ...data, inbox: data.inbox ? { ...data.inbox, status: "published", publishedPostId: r.postId } : data.inbox });

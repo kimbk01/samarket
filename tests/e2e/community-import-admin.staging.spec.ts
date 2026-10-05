@@ -101,7 +101,10 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     await page.reload();
     await page.getByRole("tab", { name: "출처·게시판" }).click();
     await page.locator("section").filter({ hasText: "등록된 출처" }).locator("div.sam-card > button").first().click();
-    const topicAfter = await page.getByRole("combobox", { name: /^맛집.* DIBAY 주제$/ }).inputValue();
+    const topicSelAfter = page.getByRole("combobox", { name: /^맛집.* DIBAY 주제$/ });
+    // topics load asynchronously after the reload; wait for the stored value to be selectable
+    await expect(topicSelAfter).toHaveValue(food?.id ?? "", { timeout: 30_000 }).catch(() => undefined);
+    const topicAfter = await topicSelAfter.inputValue();
     const collectAfter = await page.getByRole("checkbox", { name: /^맛집.* 자동수집$/ }).isChecked();
     await shot(page, "05-board-settings");
     const dbBoard = (await db.from("community_operator_import_source_boards").select("default_topic_id, collect_enabled").eq("source_id", sourceId).eq("board_id", foodBoard?.board_id ?? "").single()).data;
@@ -143,7 +146,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     const partial = page.getByLabel(/품질 PARTIAL 확인함/);
     const publishBtn = page.getByRole("button", { name: "DIBAY에 게시" });
     if (await partial.count()) {
-      const badge = await page.locator(".bg-amber-50").first().innerText().catch(() => "");
+      const badge = await page.locator("div.shrink-0.bg-amber-50").first().innerText().catch(() => "");
       const disabledBefore = await publishBtn.isDisabled();
       const apiNoConfirm = await page.request.post(`${API}/publish`, {
         data: await (async () => {

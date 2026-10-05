@@ -84,7 +84,43 @@ function result(partial: Partial<DetectResult> & Pick<DetectResult, "inputUrl" |
   } as DetectResult;
 }
 
+/** example.co.kr → co.kr-aware registrable domain (approximation, no public-suffix list). */
+function siteDomain(host: string): string {
+  const parts = host.toLowerCase().replace(/^www\./, "").split(".");
+  const n = parts.length;
+  if (n >= 3 && parts[n - 1]!.length === 2 && parts[n - 2]!.length <= 3) return parts.slice(-3).join(".");
+  return parts.slice(-2).join(".");
+}
+
+const FEED_LINK = /(\.(xml|rss)$)|(\/(rss|feed|atom)\/?$)/i;
+
+/**
+ * An RSS directory page (e.g. a news site's "/rss/" page listing one feed per section) links many
+ * feeds as plain anchors. Three or more same-site feed links → each feed becomes a board.
+ */
+export function feedDirectoryLinks($page: ReturnType<typeof cheerio.load>, pageUrl: string): Array<{ url: string; title: string | null }> {
+  const site = siteDomain(new URL(pageUrl).hostname);
+  const out: Array<{ url: string; title: string | null }> = [];
+  $page("a[href]").each((_, a) => {
+    const u = absUrl(pageUrl, $page(a).attr("href"));
+    if (!u || out.length >= 200) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(u);
+    } catch {
+      return;
+    }
+    if (!/^https?:$/.test(parsed.protocol) || siteDomain(parsed.hostname) !== site) return;
+    if (!FEED_LINK.test(parsed.pathname) || /comments/i.test(parsed.pathname)) return;
+    if (out.some((f) => f.url === u)) return;
+    out.push({ url: u, title: cleanText($page(a).text()) || null });
+  });
+  return out.length >= 3 ? out : [];
+}
+
 async function findFeeds(base: string, $home: ReturnType<typeof cheerio.load>, homeUrl: string) {
+  const directory = feedDirectoryLinks($home, homeUrl);
+  if (directory.length) return directory;
   const feeds: Array<{ url: string; title: string | null }> = [];
   $home("link[rel='alternate']").each((_, l) => {
     const type = String($home(l).attr("type") || "");
@@ -181,7 +217,9 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     // instead of switching to a site-wide feed that would ignore the section.
     const entered = new URL(finalUrl);
     const isSectionPage = (entered.pathname !== "/" && entered.pathname !== new URL(base).pathname) || entered.search.length > 1;
-    const inputTemplate = !isTistory && isSectionPage ? rankItemTemplates(html, finalUrl)[0] : undefined;
+    // An RSS directory page wins over its own link list: each listed feed is a real board.
+    const isFeedDirectory = feedDirectoryLinks($home, finalUrl).length > 0;
+    const inputTemplate = !isTistory && isSectionPage && !isFeedDirectory ? rankItemTemplates(html, finalUrl)[0] : undefined;
     const feeds = inputTemplate && inputTemplate.items >= 5 ? [] : await findFeeds(base, $home, finalUrl);
     if (inputTemplate && inputTemplate.items >= 5) {
       engine = "html";

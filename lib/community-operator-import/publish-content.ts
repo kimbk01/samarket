@@ -82,7 +82,11 @@ export function buildPublishContent(input: {
     String(edit.summaryText || "").trim() || String(article.summary || "").trim() || leadSummary(applied),
     rules,
   ).trim();
-  const thumb = feedImages[0];
+  // No image in the article body at all → the page/feed preview image (og:image, media:content),
+  // unless it is clearly a site-wide logo/share image.
+  const hasBodyImage = article.orderedContentBlocks.some((b) => b.type === "image");
+  const og = article.extraction?.ogImage ?? null;
+  const thumb = feedImages[0] ?? (!hasBodyImage && og && !/logo|default|og[-_]?img|share[-_]?img/i.test(og) ? og : undefined);
   const blocks: OperatorContentBlock[] = [];
   if (thumb) blocks.push({ type: "image", url: thumb, displaySrc: thumb, alt: null, caption: null });
   if (summary) blocks.push({ type: "paragraph", text: summary });
