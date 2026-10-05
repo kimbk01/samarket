@@ -172,18 +172,20 @@ describe("G9 staff EditAdminForm detail wiring (candidate B)", () => {
     expect(listPage).not.toMatch(/<AdminStaffTable/);
   });
 
-  it("EditAdminForm allows SA password fields including master self and SA-only submit", () => {
+  it("EditAdminForm shows password fields for any Super Admin actor (staff target)", () => {
     const form = src("components/admin/users/EditAdminForm.tsx");
-    expect(form).toMatch(/isSelfStaff/);
+    expect(form).toMatch(/data-admin-staff-password-fields/);
     expect(form).toMatch(/canSetPassword/);
     expect(form).toMatch(/updateAdminStaffApi/);
+    expect(form).toMatch(/isSuperAdmin \? \(/);
   });
 
-  it("staff password API remains requireSuperAdmin + SA self-only password", () => {
+  it("staff password API: Super Admin may reset any staff password; non-SA cannot reset SA", () => {
     const route = src("app/api/admin/staff/[id]/route.ts");
     expect(route).toMatch(/requireSuperAdmin/);
     expect(route).toMatch(/forbidden_super_admin_target/);
-    expect(route).toMatch(/forbidden_other_super_admin_target/);
+    expect(route).not.toMatch(/forbidden_other_super_admin_target/);
     expect(route).toMatch(/admin_password_reset/);
+    expect(route).toMatch(/including other SA/);
   });
 });

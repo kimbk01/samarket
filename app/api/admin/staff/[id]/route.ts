@@ -131,13 +131,10 @@ export async function PATCH(
   const passwordRaw = body.password;
   const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
   if (hasPassword) {
-    if (isSuperAdminRole(effectiveRole)) {
-      if (!actor.isSuperAdmin) {
-        return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
-      }
-      if (actor.userId !== staffId) {
-        return NextResponse.json({ ok: false, error: "forbidden_other_super_admin_target" }, { status: 403 });
-      }
+    // Super Admin may reset any staff password (operator/manager/master), including other SA.
+    // Non-SA actors cannot reset a Super Admin password.
+    if (isSuperAdminRole(effectiveRole) && !actor.isSuperAdmin) {
+      return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
     }
     const pwd = String(passwordRaw);
     if (pwd.length < 4) {

@@ -19,14 +19,15 @@ const ROLE_OPTIONS: { value: AdminRole; labelKey: MessageKey }[] = [
 
 interface EditAdminFormProps {
   staffId: string;
+  /** Parent already resolved self (MasterHeader). Prefer over snapshot race. */
+  isSelf?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProps) {
+export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: EditAdminFormProps) {
   const { t } = useI18n();
-  const { isSuperAdmin, snapshot } = useAdminMe();
-  const isSelfStaff = Boolean(snapshot?.userId && snapshot.userId === staffId);
+  const { isSuperAdmin, snapshot, refresh } = useAdminMe();
   const [staff, setStaff] = useState<AdminStaff | null>(null);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -36,6 +37,10 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    void refresh().catch(() => {});
+  }, [refresh, staffId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +87,16 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
     setPermissions(DEFAULT_PERMISSIONS_BY_ROLE[r]);
   }, []);
 
+  const isSelfById = Boolean(isSelf || (snapshot?.userId && snapshot.userId === staffId));
+  const isSelfByLogin = Boolean(
+    snapshot?.loginId &&
+      staff?.loginId &&
+      snapshot.loginId.trim().toLowerCase() === staff.loginId.trim().toLowerCase(),
+  );
+  const isSelfStaff = Boolean(isSelfById || isSelfByLogin);
+
   const handleSubmit = async (e: React.FormEvent) => {
+
     e.preventDefault();
     if (!staff) return;
     setError(null);
@@ -98,10 +112,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
       setError(t("admin_users_err_display_name_max"));
       return;
     }
-    const canSetPassword =
-      isSuperAdmin &&
-      (staff.role !== "master" || isSelfStaff) &&
-      Boolean(newPassword || confirmPassword);
+    const canSetPassword = isSuperAdmin && Boolean(newPassword || confirmPassword);
     if (canSetPassword) {
       if (newPassword.length < 4) {
         setError(t("admin_users_err_password_min"));
@@ -218,7 +229,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
           </div>
         ) : null}
 
-        {isSuperAdmin && (staff.role !== "master" || isSelfStaff) ? (
+        {isSuperAdmin ? (
           <div
             className="grid grid-cols-1 gap-4 sm:grid-cols-2"
             data-admin-staff-password-fields="1"
@@ -254,10 +265,6 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
               />
             </div>
           </div>
-        ) : staff?.role === "master" && isSuperAdmin && !isSelfStaff ? (
-          <p className="text-[12px] text-[#667085]" data-admin-staff-password-blocked="other_sa">
-            다른 최고 관리자 비밀번호는 이 화면에서 변경할 수 없습니다. 본인 계정 상세의 「비밀번호 관리」를 사용하세요.
-          </p>
         ) : null}
 
         {staff.role !== "master" ? (

@@ -496,6 +496,7 @@ export function AdminMemberMasterHeader({
       {showStaffEdit ? (
         <EditAdminForm
           staffId={user.id}
+          isSelf={isSelfOperator}
           onClose={() => setShowStaffEdit(false)}
           onSuccess={() => {
             setShowStaffEdit(false);
