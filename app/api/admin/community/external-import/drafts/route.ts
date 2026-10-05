@@ -1,54 +1,53 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { ensureDraftEdit } from "@/lib/community-operator-import/draft-store";
-import { upsertOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
-import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { ensureDraftEdit, upsertOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
+import { loadManagedSource } from "@/lib/community-operator-import/source-store";
+import { buildPublishContent } from "@/lib/community-operator-import/publish-content";
+import { loadRules, rulesFor } from "@/lib/community-operator-import/rules";
+import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * POST {article, edit, action?: "save" | "preview"}
+ *  save    → stores the draft (keeps published status/provenance) and returns the server-side preview
+ *  preview → returns the exact content that would be published (policy + rules), nothing saved
+ */
 export async function POST(req: NextRequest) {
   const auth = await requireAdminApiUser();
   if (!auth.ok) return auth.response;
-
-  const parsed = await parseJsonBody<{
-    article?: OperatorNormalizedArticle;
-    edit?: OperatorDraftEdit;
-  }>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<{ article?: OperatorNormalizedArticle; edit?: OperatorDraftEdit; action?: string }>(
+    req,
+    "JSON 본문이 필요합니다.",
+  );
   if (!parsed.ok) return parsed.response;
-
   const article = parsed.value.article;
   if (!article?.sourceArticleKey || !article.sourceSite || !article.sourceBoard) {
     return jsonError("원문 article이 필요합니다.", 400, { code: "article_required" });
   }
-
   const edit = ensureDraftEdit(article, parsed.value.edit);
   try {
     const sb = getSupabaseServer();
-    const draft = await upsertOperatorImportDraft(sb, {
-      original: article,
+    const [source, rules] = await Promise.all([loadManagedSource(sb, article.sourceSite), loadRules(sb)]);
+    if (!source) return jsonError("출처 없음", 404, { code: "source_not_found" });
+    const preview = buildPublishContent({
+      article,
       edit,
-      updatedBy: auth.userId,
+      sourcePolicy: source.contentPolicy,
+      sourceName: source.displayName,
+      rules: rulesFor(rules, article.sourceSite, article.sourceBoard),
     });
+    if (parsed.value.action === "preview") return jsonOk({ preview });
+    const draft = await upsertOperatorImportDraft(sb, { original: article, edit, updatedBy: auth.userId });
     return jsonOk({
       saved: true,
-      published: false,
-      draft: {
-        id: draft.id,
-        status: draft.status,
-        updatedAt: draft.updatedAt,
-        publishedPostId: draft.publishedPostId,
-      },
+      preview,
+      draft: { id: draft.id, status: draft.status, updatedAt: draft.updatedAt, publishedPostId: draft.publishedPostId },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "임시저장 실패";
-    if (msg.includes("operator_import_drafts_table_missing") || /does not exist|schema cache/i.test(msg)) {
-      return jsonError("임시저장 테이블이 아직 없습니다. 마이그레이션 적용이 필요합니다.", 503, {
-        code: "drafts_table_missing",
-      });
-    }
-    return jsonError(msg, 500, { code: "draft_save_failed" });
+    return jsonError(e instanceof Error ? e.message : "draft_save_failed", 500, { code: "draft_save_failed" });
   }
 }

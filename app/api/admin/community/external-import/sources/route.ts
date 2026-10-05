@@ -1,95 +1,109 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { NON_OPERATIONAL_SOURCES } from "@/lib/community-operator-import/registry";
-import {
-  loadManagedSources,
-  setManagedSourceEnabled,
-  upsertManagedSourceFromVerify,
-} from "@/lib/community-operator-import/source-store";
-import { canEnableVerification, verifyOperatorSourceUrl } from "@/lib/community-operator-import/source-verify";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { detectSource } from "@/lib/community-operator-import/detect";
+import {
+  type BoardPatch,
+  loadManagedSource,
+  loadManagedSources,
+  saveDetectedSource,
+  type SourcePatch,
+  updateBoard,
+  updateSource,
+  upsertDetectedBoards,
+} from "@/lib/community-operator-import/source-store";
+import type { ContentPolicy } from "@/lib/community-operator-import/types";
+import { verifyStoredSource } from "@/lib/community-operator-import/verify";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET() {
   const auth = await requireAdminApiUser();
   if (!auth.ok) return auth.response;
   try {
-    const sb = getSupabaseServer();
-    const managed = await loadManagedSources(sb);
-    return jsonOk({
-      managed,
-      diagnostic: NON_OPERATIONAL_SOURCES,
-      note: "managed=Admin 등록 출처. 운영 LEFT는 seed+enabled managed 병합.",
-    });
+    const sources = await loadManagedSources(getSupabaseServer());
+    return jsonOk({ sources });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "sources_load_failed", 500, {
-      code: "sources_table_missing_or_error",
-    });
+    return jsonError(e instanceof Error ? e.message : "sources_load_failed", 500, { code: "sources_load_failed" });
   }
 }
 
+type Body = {
+  action?: string;
+  url?: string;
+  sourceId?: string;
+  boardId?: string;
+  displayName?: string;
+  contentPolicy?: ContentPolicy;
+  selectedBoardIds?: string[];
+  patch?: SourcePatch & BoardPatch;
+};
+
+/**
+ * actions:
+ *  detect   {url}                                   → type, real boards, per-board sample (nothing saved)
+ *  register {url, sourceId?, displayName?, contentPolicy?, selectedBoardIds?} → re-detect server-side + save
+ *  update   {sourceId, patch}                       → name / enabled / content policy / adapter config
+ *  board    {sourceId, boardId, patch}              → enabled / collectEnabled / defaultTopicId / kind / name
+ *  verify   {sourceId}                              → re-sample stored boards, store verdicts
+ *  rescan   {sourceId}                              → re-discover boards from the site (adds new ones)
+ */
 export async function POST(req: NextRequest) {
   const auth = await requireAdminApiUser();
   if (!auth.ok) return auth.response;
-
-  const parsed = await parseJsonBody<{
-    action?: string;
-    url?: string;
-    displayName?: string;
-    sourceId?: string;
-    enabled?: boolean;
-  }>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<Body>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
-
-  const action = String(parsed.value.action || "").trim();
+  const b = parsed.value;
+  const action = String(b.action || "").trim();
+  const sb = getSupabaseServer();
   try {
-    const sb = getSupabaseServer();
-
-    if (action === "verify") {
-      const result = await verifyOperatorSourceUrl(String(parsed.value.url || ""));
-      return jsonOk({
-        ...result,
-        canRegister: canEnableVerification(result.verdict) && result.engine !== "unknown",
-        canEnable: canEnableVerification(result.verdict),
-        operatorNote: "DOM/CSS/selector 입력 없음. 공개 LIST/DETAIL 증명만 사용.",
-      });
+    if (action === "detect") {
+      const result = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 45_000 });
+      const existing = await loadManagedSource(sb, result.sourceIdSuggestion);
+      return jsonOk({ detect: result, existingSourceId: existing?.id ?? null });
     }
-
     if (action === "register") {
-      const verify = await verifyOperatorSourceUrl(String(parsed.value.url || ""));
-      if (!canEnableVerification(verify.verdict) || verify.engine === "unknown") {
-        return jsonError(`등록 불가: ${verify.verdict} · ${verify.reason}`, 400, {
-          code: "cannot_register",
-          verify,
-        });
+      const detect = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 40_000 });
+      if (!detect.engine || detect.verdict === "BLOCKED") {
+        return jsonError(`등록 불가: ${detect.verdict} · ${detect.reason}`, 400, { code: "cannot_register", detect });
       }
-      const enabled = parsed.value.enabled !== false;
-      const saved = await upsertManagedSourceFromVerify(sb, {
-        displayName: String(parsed.value.displayName || "").trim() || verify.url,
-        verify,
-        enabled,
+      const source = await saveDetectedSource(sb, {
+        detect,
+        sourceId: b.sourceId,
+        displayName: b.displayName,
+        contentPolicy: b.contentPolicy,
+        selectedBoardIds: Array.isArray(b.selectedBoardIds) ? b.selectedBoardIds.map(String) : undefined,
         adminUserId: auth.userId,
-        sourceId: parsed.value.sourceId,
       });
-      return jsonOk({ registered: true, source: saved, verify });
+      return jsonOk({ source, detect });
     }
-
-    if (action === "enable" || action === "disable") {
-      const sourceId = String(parsed.value.sourceId || "").trim();
-      if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
-      const saved = await setManagedSourceEnabled(sb, sourceId, action === "enable");
-      return jsonOk({ updated: true, source: saved });
+    const sourceId = String(b.sourceId || "").trim();
+    if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
+    if (action === "update") {
+      return jsonOk({ source: await updateSource(sb, sourceId, b.patch || {}) });
     }
-
-    return jsonError("지원 action: verify | register | enable | disable", 400, {
-      code: "unsupported_action",
-    });
+    if (action === "board") {
+      const boardId = String(b.boardId || "").trim();
+      if (!boardId) return jsonError("boardId 필요", 400, { code: "board_id_required" });
+      return jsonOk({ board: await updateBoard(sb, sourceId, boardId, b.patch || {}) });
+    }
+    const source = await loadManagedSource(sb, sourceId);
+    if (!source) return jsonError("출처 없음", 404, { code: "source_not_found" });
+    if (action === "verify") {
+      const outcome = await verifyStoredSource(sb, source, { maxBoards: 8, budgetMs: 45_000 });
+      return jsonOk({ outcome, source: await loadManagedSource(sb, sourceId) });
+    }
+    if (action === "rescan") {
+      const detect = await detectSource(source.baseUrl, { sampleBoards: 6, budgetMs: 45_000 });
+      if (detect.engine && detect.engine === source.engine) await upsertDetectedBoards(sb, sourceId, detect);
+      return jsonOk({ detect, source: await loadManagedSource(sb, sourceId) });
+    }
+    return jsonError("지원 action: detect | register | update | board | verify | rescan", 400, { code: "unsupported_action" });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "sources_action_failed", 500, {
-      code: "sources_action_failed",
-    });
+    const msg = e instanceof Error ? e.message : "sources_action_failed";
+    return jsonError(msg, 400, { code: msg.split(":")[0] || "sources_action_failed" });
   }
 }

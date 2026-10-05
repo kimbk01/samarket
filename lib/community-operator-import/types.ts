@@ -69,6 +69,10 @@ export type OperatorDraftEdit = {
   thumbnailImageIndex?: number | null;
   topicId: string | null;
   topicSlug: string | null;
+  /** Operator-written summary for the summary_link policy (else the source's own summary/lead is used). */
+  summaryText?: string;
+  /** Per-article policy; may only be equal to or stricter than the source policy. */
+  contentPolicy?: ContentPolicy;
 };
 
 export type OperatorDraftRecord = {

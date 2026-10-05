@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "ignoreCommand": "node scripts/vercel-ignored-build-step.mjs",
   "env": {
     "SAMARKET_PROD_PERF_MEASURE": "1",
@@ -28,6 +30,10 @@
     {
       "path": "/api/cron/notification-push-handoff",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/community-import-collect",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -1,246 +1,445 @@
+/**
+ * SOURCE REGISTRY (DB SSOT): community_operator_import_sources + community_operator_import_source_boards.
+ * No source or board is hard-coded in engines; adapters read RuntimeSource/RuntimeBoard from here.
+ */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { OperatorBoardCategory, OperatorSourceEngine, VerifiedOperatorBoard, VerifiedOperatorSource } from "./registry";
-import {
-  listVerifiedBoards,
-  listVerifiedSources,
-  resolveVerifiedBoard,
-  resolveVerifiedSource,
-} from "./registry";
-import type { ProposedBoard, SourceVerifyResult, VerifyVerdict } from "./source-verify";
-import { canEnableVerification, slugFromUrl } from "./source-verify";
+import type { DetectResult } from "./detect";
+import type {
+  AdapterConfig,
+  BoardKind,
+  ContentPolicy,
+  RuntimeBoard,
+  RuntimeSource,
+  SourceEngine,
+} from "./types";
 
-export const OPERATOR_IMPORT_SOURCES_TABLE = "community_operator_import_sources";
-export const OPERATOR_IMPORT_SOURCE_BOARDS_TABLE = "community_operator_import_source_boards";
+export const SOURCES_TABLE = "community_operator_import_sources";
+export const BOARDS_TABLE = "community_operator_import_source_boards";
 
-export type ManagedSourceRow = {
-  id: string;
-  displayName: string;
-  baseUrl: string;
-  engine: OperatorSourceEngine;
-  verification: VerifyVerdict;
-  enabled: boolean;
-  priority: "P0" | "P1" | "P2";
-  origin: "seed" | "admin";
+/** Verdicts that may be switched on for collection. BLOCKED/FAILED/REJECT never. */
+export const COLLECTABLE_VERDICTS = new Set(["FULL", "VERIFIED", "PARTIAL"]);
+/** Verdicts that may be previewed manually by an admin (NOT_PROVEN = not yet re-checked). */
+export const PREVIEWABLE_VERDICTS = new Set(["FULL", "VERIFIED", "PARTIAL", "NOT_PROVEN"]);
+
+export type SourceStatus = {
+  verification: string;
+  robotsStatus: string | null;
+  aiBotsBlocked: boolean;
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
   reason: string | null;
-  verifyJson: Record<string, unknown>;
-  boards: Array<{
-    boardId: string;
-    displayName: string;
-    shortLabel: string;
-    category: string;
-    engineKey: string;
-    enabled: boolean;
-  }>;
+  origin: string;
+  priority: string;
 };
 
-function mapSource(row: Record<string, unknown>, boards: ManagedSourceRow["boards"]): ManagedSourceRow {
+export type BoardStatus = {
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+  lastVerdict: string | null;
+  latestSourceAt: string | null;
+  consecutiveFailures: number;
+};
+
+export type ManagedBoard = RuntimeBoard & { status: BoardStatus };
+export type ManagedSource = RuntimeSource & { status: SourceStatus; boards: ManagedBoard[] };
+
+const ENGINES = new Set<SourceEngine>(["gnuboard", "wordpress_rest", "rss_atom", "html"]);
+const POLICIES = new Set<ContentPolicy>(["full", "summary_link", "link_only"]);
+const KINDS = new Set<BoardKind>(["editorial", "community", "member_qa", "directory", "ads", "unknown"]);
+
+function str(v: unknown): string {
+  return v == null ? "" : String(v);
+}
+function strOrNull(v: unknown): string | null {
+  const s = str(v).trim();
+  return s ? s : null;
+}
+
+export function mapSourceRow(row: Record<string, unknown>): Omit<ManagedSource, "boards"> {
+  const engine = str(row.engine) as SourceEngine;
+  const policy = str(row.content_policy) as ContentPolicy;
   return {
-    id: String(row.id || ""),
-    displayName: String(row.display_name || ""),
-    baseUrl: String(row.base_url || ""),
-    engine: String(row.engine || "wordpress_rest") as OperatorSourceEngine,
-    verification: String(row.verification || "NOT_PROVEN") as VerifyVerdict,
+    id: str(row.id),
+    displayName: str(row.display_name) || str(row.id),
+    baseUrl: str(row.base_url),
+    engine: ENGINES.has(engine) ? engine : "html",
     enabled: Boolean(row.enabled),
-    priority: (String(row.priority || "P1") as "P0" | "P1" | "P2") || "P1",
-    origin: (String(row.origin || "admin") as "seed" | "admin") || "admin",
-    reason: (row.reason as string | null) || null,
-    verifyJson: (row.verify_json as Record<string, unknown>) || {},
-    boards,
+    contentPolicy: POLICIES.has(policy) ? policy : "summary_link",
+    adapterConfig: (row.adapter_config && typeof row.adapter_config === "object" ? row.adapter_config : {}) as AdapterConfig,
+    verification: str(row.verification) || "NOT_PROVEN",
+    status: {
+      verification: str(row.verification) || "NOT_PROVEN",
+      robotsStatus: strOrNull(row.robots_status),
+      aiBotsBlocked: Boolean(row.ai_bots_blocked),
+      lastCheckedAt: strOrNull(row.last_checked_at),
+      lastSuccessAt: strOrNull(row.last_success_at),
+      lastFailureAt: strOrNull(row.last_failure_at),
+      lastError: strOrNull(row.last_error),
+      consecutiveFailures: Number(row.consecutive_failures) || 0,
+      reason: strOrNull(row.reason),
+      origin: str(row.origin) || "admin",
+      priority: str(row.priority) || "P1",
+    },
   };
 }
 
-export async function loadManagedSources(sb: SupabaseClient): Promise<ManagedSourceRow[]> {
-  const { data: sources, error } = await sb
-    .from(OPERATOR_IMPORT_SOURCES_TABLE)
-    .select("*")
-    .order("updated_at", { ascending: false });
-  if (error) {
-    const m = String(error.message || "").toLowerCase();
-    if (m.includes("does not exist") || m.includes("schema cache")) {
-      throw new Error("operator_import_sources_table_missing");
-    }
-    throw new Error(error.message);
+export function mapBoardRow(row: Record<string, unknown>): ManagedBoard {
+  const kind = str(row.board_kind) as BoardKind;
+  return {
+    sourceId: str(row.source_id),
+    boardId: str(row.board_id),
+    displayName: str(row.display_name) || str(row.board_id),
+    shortLabel: str(row.short_label) || str(row.board_id),
+    category: str(row.category) || "living",
+    engineKey: str(row.engine_key),
+    enabled: Boolean(row.enabled),
+    collectEnabled: Boolean(row.collect_enabled),
+    boardKind: KINDS.has(kind) ? kind : "unknown",
+    defaultTopicId: strOrNull(row.default_topic_id),
+    status: {
+      lastCheckedAt: strOrNull(row.last_checked_at),
+      lastSuccessAt: strOrNull(row.last_success_at),
+      lastFailureAt: strOrNull(row.last_failure_at),
+      lastError: strOrNull(row.last_error),
+      lastVerdict: strOrNull(row.last_verdict),
+      latestSourceAt: strOrNull(row.latest_source_at),
+      consecutiveFailures: Number(row.consecutive_failures) || 0,
+    },
+  };
+}
+
+/** All sources with their boards (2 queries, no N+1). */
+export async function loadManagedSources(sb: SupabaseClient): Promise<ManagedSource[]> {
+  const [{ data: srcRows, error: se }, { data: boardRows, error: be }] = await Promise.all([
+    sb.from(SOURCES_TABLE).select("*").order("display_name", { ascending: true }),
+    sb.from(BOARDS_TABLE).select("*").order("board_id", { ascending: true }),
+  ]);
+  if (se) throw new Error(`sources_load_failed: ${se.message}`);
+  if (be) throw new Error(`boards_load_failed: ${be.message}`);
+  const bySource = new Map<string, ManagedBoard[]>();
+  for (const r of boardRows || []) {
+    const b = mapBoardRow(r as Record<string, unknown>);
+    const list = bySource.get(b.sourceId) || [];
+    list.push(b);
+    bySource.set(b.sourceId, list);
   }
-  const ids = (sources || []).map((s) => String((s as { id: string }).id));
-  const boardsBySource = new Map<string, ManagedSourceRow["boards"]>();
-  if (ids.length) {
-    const { data: boards } = await sb
-      .from(OPERATOR_IMPORT_SOURCE_BOARDS_TABLE)
-      .select("*")
-      .in("source_id", ids);
-    for (const b of boards || []) {
-      const row = b as Record<string, unknown>;
-      const sid = String(row.source_id || "");
-      const list = boardsBySource.get(sid) || [];
-      list.push({
-        boardId: String(row.board_id || ""),
-        displayName: String(row.display_name || ""),
-        shortLabel: String(row.short_label || ""),
-        category: String(row.category || "living"),
-        engineKey: String(row.engine_key || ""),
-        enabled: Boolean(row.enabled),
-      });
-      boardsBySource.set(sid, list);
-    }
-  }
-  return (sources || []).map((s) => {
-    const row = s as Record<string, unknown>;
-    return mapSource(row, boardsBySource.get(String(row.id)) || []);
+  return (srcRows || []).map((r) => {
+    const s = mapSourceRow(r as Record<string, unknown>);
+    return { ...s, boards: bySource.get(s.id) || [] };
   });
 }
 
-export async function upsertManagedSourceFromVerify(
-  sb: SupabaseClient,
-  input: {
-    displayName: string;
-    verify: SourceVerifyResult;
-    enabled: boolean;
-    adminUserId: string;
-    sourceId?: string;
-    boards?: ProposedBoard[];
-  },
-): Promise<ManagedSourceRow> {
-  if (!canEnableVerification(input.verify.verdict) && input.enabled) {
-    throw new Error("blocked_or_unproven_cannot_enable");
-  }
-  if (input.verify.engine === "unknown") {
-    throw new Error("unknown_engine_cannot_register");
-  }
-  const id = (input.sourceId || slugFromUrl(input.verify.url)).trim().toLowerCase();
-  const boards = input.boards?.length ? input.boards : input.verify.proposedBoards;
-  if (!boards.length) throw new Error("no_boards_to_register");
-
-  const payload = {
-    id,
-    display_name: String(input.displayName || id).trim() || id,
-    base_url: input.verify.url,
-    engine: input.verify.engine,
-    verification: input.verify.verdict,
-    enabled: Boolean(input.enabled) && canEnableVerification(input.verify.verdict),
-    priority: "P1",
-    origin: "admin",
-    verify_json: input.verify as unknown as Record<string, unknown>,
-    reason: input.verify.reason,
-    created_by: input.adminUserId,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await sb.from(OPERATOR_IMPORT_SOURCES_TABLE).upsert(payload, { onConflict: "id" });
-  if (error) throw new Error(error.message);
-
-  await sb.from(OPERATOR_IMPORT_SOURCE_BOARDS_TABLE).delete().eq("source_id", id);
-  const boardRows = boards.map((b) => ({
-    source_id: id,
-    board_id: b.boardId,
-    display_name: b.displayName,
-    short_label: b.shortLabel || b.boardId,
-    category: b.category || "living",
-    engine_key: b.engineKey,
-    enabled: true,
-    updated_at: new Date().toISOString(),
-  }));
-  const { error: be } = await sb.from(OPERATOR_IMPORT_SOURCE_BOARDS_TABLE).insert(boardRows);
+export async function loadManagedSource(sb: SupabaseClient, sourceId: string): Promise<ManagedSource | null> {
+  const [{ data: src, error: se }, { data: boards, error: be }] = await Promise.all([
+    sb.from(SOURCES_TABLE).select("*").eq("id", sourceId).maybeSingle(),
+    sb.from(BOARDS_TABLE).select("*").eq("source_id", sourceId).order("board_id"),
+  ]);
+  if (se) throw new Error(se.message);
   if (be) throw new Error(be.message);
-
-  const all = await loadManagedSources(sb);
-  const found = all.find((s) => s.id === id);
-  if (!found) throw new Error("register_readback_failed");
-  return found;
+  if (!src) return null;
+  return {
+    ...mapSourceRow(src as Record<string, unknown>),
+    boards: (boards || []).map((b) => mapBoardRow(b as Record<string, unknown>)),
+  };
 }
 
-export async function setManagedSourceEnabled(
+export type ResolvedPair = { source: ManagedSource; board: ManagedBoard };
+
+/** Source+board for manual admin preview. Refuses disabled or BLOCKED/FAILED sources. */
+export async function resolvePreviewPair(
   sb: SupabaseClient,
   sourceId: string,
-  enabled: boolean,
-): Promise<ManagedSourceRow> {
-  const { data, error } = await sb
-    .from(OPERATOR_IMPORT_SOURCES_TABLE)
-    .select("*")
-    .eq("id", sourceId)
-    .maybeSingle();
-  if (error || !data) throw new Error(error?.message || "source_not_found");
-  const verification = String((data as { verification?: string }).verification || "") as VerifyVerdict;
-  if (enabled && !canEnableVerification(verification)) {
-    throw new Error("blocked_or_unproven_cannot_enable");
-  }
-  const { error: ue } = await sb
-    .from(OPERATOR_IMPORT_SOURCES_TABLE)
-    .update({ enabled, updated_at: new Date().toISOString() })
-    .eq("id", sourceId);
-  if (ue) throw new Error(ue.message);
-  const all = await loadManagedSources(sb);
-  const found = all.find((s) => s.id === sourceId);
-  if (!found) throw new Error("enable_readback_failed");
-  return found;
+  boardId: string,
+): Promise<ResolvedPair> {
+  const source = await loadManagedSource(sb, sourceId);
+  if (!source) throw new Error("source_not_found");
+  if (!PREVIEWABLE_VERDICTS.has(source.verification)) throw new Error(`source_${source.verification.toLowerCase()}`);
+  const board = source.boards.find((b) => b.boardId === boardId);
+  if (!board) throw new Error("board_not_found");
+  return { source, board };
+}
+
+function normalizeSourceId(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48);
 }
 
 /**
- * Runtime operational sources = code seed VERIFIED + DB enabled managed sources.
- * BLOCKED/NOT_PROVEN never appear even if somehow stored enabled=false only.
+ * Save a detection result as a source + its real discovered boards.
+ * Boards: insert new, refresh labels/keys of existing ones; never delete boards (their inbox rows stay valid).
+ * `enabled` is only honored for collectable verdicts.
  */
-export async function buildRuntimeOperationalRegistry(sb: SupabaseClient | null): Promise<{
-  sources: VerifiedOperatorSource[];
-  boards: VerifiedOperatorBoard[];
-  managed: ManagedSourceRow[];
-}> {
-  const seedSources = listVerifiedSources();
-  const seedBoards = listVerifiedBoards();
-  let managed: ManagedSourceRow[] = [];
-  if (sb) {
-    try {
-      managed = await loadManagedSources(sb);
-    } catch {
-      managed = [];
-    }
+export async function saveDetectedSource(
+  sb: SupabaseClient,
+  input: {
+    detect: DetectResult;
+    sourceId?: string;
+    displayName?: string;
+    contentPolicy?: ContentPolicy;
+    selectedBoardIds?: string[];
+    adminUserId: string;
+  },
+): Promise<ManagedSource> {
+  const d = input.detect;
+  if (!d.engine) throw new Error(`cannot_register:${d.verdict}`);
+  if (d.verdict === "BLOCKED") throw new Error("cannot_register:BLOCKED");
+  const id = normalizeSourceId(input.sourceId || d.sourceIdSuggestion);
+  if (!id) throw new Error("source_id_required");
+  const now = new Date().toISOString();
+  const policy = input.contentPolicy && POLICIES.has(input.contentPolicy) ? input.contentPolicy : "summary_link";
+
+  const { data: existing } = await sb.from(SOURCES_TABLE).select("id, origin, enabled").eq("id", id).maybeSingle();
+  const payload: Record<string, unknown> = {
+    id,
+    display_name: (input.displayName || d.displayNameSuggestion || id).trim().slice(0, 120) || id,
+    base_url: d.baseUrl,
+    engine: d.engine,
+    verification: d.verdict,
+    adapter_config: d.adapterConfig || {},
+    content_policy: policy,
+    robots_status: d.robots.status,
+    ai_bots_blocked: d.robots.aiBotsBlocked,
+    verify_json: d as unknown as Record<string, unknown>,
+    reason: d.reason,
+    last_checked_at: d.checkedAt,
+    updated_at: now,
+  };
+  if (d.verdict === "FULL" || d.verdict === "PARTIAL") {
+    payload.last_success_at = now;
+    payload.consecutive_failures = 0;
+    payload.last_error = null;
+  } else {
+    payload.last_failure_at = now;
+    payload.last_error = d.reason;
   }
-
-  const sources: VerifiedOperatorSource[] = [...seedSources];
-  const boards: VerifiedOperatorBoard[] = [...seedBoards];
-  const seedIds = new Set(seedSources.map((s) => s.id));
-
-  for (const m of managed) {
-    if (!m.enabled) continue;
-    if (!canEnableVerification(m.verification)) continue;
-    if (m.engine !== "gnuboard" && m.engine !== "wordpress_rest" && m.engine !== "rss_atom") continue;
-    if (seedIds.has(m.id)) {
-      // seed already present; managed enable primarily for admin-registered extras
-      continue;
-    }
-    sources.push({
-      id: m.id,
-      displayName: m.displayName,
-      baseUrl: m.baseUrl,
-      engine: m.engine,
-      status: "verified",
-      priority: m.priority,
-    });
-    for (const b of m.boards.filter((x) => x.enabled)) {
-      boards.push({
-        sourceId: m.id,
-        boardId: b.boardId,
-        displayName: b.displayName,
-        shortLabel: b.shortLabel || b.boardId,
-        category: (b.category as OperatorBoardCategory) || "living",
-        engineKey: b.engineKey,
-        enabled: true,
-        verification: "verified",
-      });
-    }
+  if (!existing) {
+    payload.origin = "admin";
+    payload.priority = "P1";
+    payload.created_by = input.adminUserId;
+    payload.enabled = COLLECTABLE_VERDICTS.has(d.verdict);
+  } else if (!COLLECTABLE_VERDICTS.has(d.verdict) && d.verdict !== "NOT_PROVEN") {
+    payload.enabled = false;
   }
+  const { error } = await sb.from(SOURCES_TABLE).upsert(payload, { onConflict: "id" });
+  if (error) throw new Error(`source_save_failed: ${error.message}`);
 
-  return { sources, boards, managed };
+  await upsertDetectedBoards(sb, id, d, input.selectedBoardIds);
+  const saved = await loadManagedSource(sb, id);
+  if (!saved) throw new Error("source_readback_failed");
+  return saved;
 }
 
-export function resolveRuntimeSourceBoard(
-  sources: VerifiedOperatorSource[],
-  boards: VerifiedOperatorBoard[],
+/** Insert/refresh discovered boards. Selected boards (or all FULL/PARTIAL editorial boards) become enabled. */
+export async function upsertDetectedBoards(
+  sb: SupabaseClient,
+  sourceId: string,
+  d: DetectResult,
+  selectedBoardIds?: string[],
+): Promise<void> {
+  if (!d.boards.length) return;
+  const { data: existingRows } = await sb.from(BOARDS_TABLE).select("board_id, enabled, collect_enabled").eq("source_id", sourceId);
+  const existing = new Map((existingRows || []).map((r) => [String((r as { board_id: string }).board_id), r]));
+  const selected = selectedBoardIds ? new Set(selectedBoardIds) : null;
+  const now = new Date().toISOString();
+  const rows = d.boards.map((b) => {
+    const prev = existing.get(b.boardId) as { enabled?: boolean } | undefined;
+    const sampleVerdict = b.sample?.verdict ?? null;
+    const usable = b.robotsAllowed && (sampleVerdict === "FULL" || sampleVerdict === "PARTIAL");
+    const enabled = selected ? selected.has(b.boardId) && usable : prev ? Boolean(prev.enabled) : usable && b.boardKind === "editorial";
+    const row: Record<string, unknown> = {
+      source_id: sourceId,
+      board_id: b.boardId,
+      display_name: b.displayName.slice(0, 120),
+      short_label: b.displayName.slice(0, 40),
+      engine_key: b.engineKey,
+      board_kind: b.boardKind,
+      enabled,
+      last_checked_at: now,
+      last_verdict: b.robotsAllowed ? sampleVerdict : "BLOCKED",
+      latest_source_at: b.sample?.latestAt ?? null,
+      last_error: b.sample && b.sample.verdict !== "FULL" ? b.sample.reasons.join(", ").slice(0, 500) || null : null,
+      updated_at: now,
+    };
+    if (usable) row.last_success_at = now;
+    else row.last_failure_at = now;
+    return row;
+  });
+  const { error } = await sb.from(BOARDS_TABLE).upsert(rows, { onConflict: "source_id,board_id" });
+  if (error) throw new Error(`boards_save_failed: ${error.message}`);
+}
+
+export type SourcePatch = {
+  displayName?: string;
+  enabled?: boolean;
+  contentPolicy?: ContentPolicy;
+  adapterConfig?: AdapterConfig;
+};
+
+export async function updateSource(sb: SupabaseClient, sourceId: string, patch: SourcePatch): Promise<ManagedSource> {
+  const current = await loadManagedSource(sb, sourceId);
+  if (!current) throw new Error("source_not_found");
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.displayName != null) row.display_name = String(patch.displayName).trim().slice(0, 120) || current.displayName;
+  if (patch.contentPolicy != null) {
+    if (!POLICIES.has(patch.contentPolicy)) throw new Error("invalid_content_policy");
+    row.content_policy = patch.contentPolicy;
+  }
+  if (patch.adapterConfig != null) row.adapter_config = sanitizeAdapterConfig(patch.adapterConfig);
+  if (patch.enabled != null) {
+    if (patch.enabled && !PREVIEWABLE_VERDICTS.has(current.verification)) {
+      throw new Error(`cannot_enable_${current.verification.toLowerCase()}`);
+    }
+    row.enabled = Boolean(patch.enabled);
+  }
+  const { error } = await sb.from(SOURCES_TABLE).update(row).eq("id", sourceId);
+  if (error) throw new Error(error.message);
+  const saved = await loadManagedSource(sb, sourceId);
+  if (!saved) throw new Error("source_readback_failed");
+  return saved;
+}
+
+export type BoardPatch = {
+  enabled?: boolean;
+  collectEnabled?: boolean;
+  defaultTopicId?: string | null;
+  displayName?: string;
+  boardKind?: BoardKind;
+};
+
+export async function updateBoard(
+  sb: SupabaseClient,
   sourceId: string,
   boardId: string,
-): { source: VerifiedOperatorSource; board: VerifiedOperatorBoard } | null {
-  const source = sources.find((s) => s.id === sourceId) || resolveVerifiedSource(sourceId);
-  const board =
-    boards.find((b) => b.sourceId === sourceId && b.boardId === boardId) ||
-    resolveVerifiedBoard(sourceId, boardId);
-  if (!source || !board) return null;
-  return { source, board };
+  patch: BoardPatch,
+): Promise<ManagedBoard> {
+  const source = await loadManagedSource(sb, sourceId);
+  if (!source) throw new Error("source_not_found");
+  const board = source.boards.find((b) => b.boardId === boardId);
+  if (!board) throw new Error("board_not_found");
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.displayName != null) {
+    row.display_name = String(patch.displayName).trim().slice(0, 120) || board.displayName;
+    row.short_label = String(row.display_name).slice(0, 40);
+  }
+  if (patch.boardKind != null) {
+    if (!KINDS.has(patch.boardKind)) throw new Error("invalid_board_kind");
+    row.board_kind = patch.boardKind;
+  }
+  if (patch.defaultTopicId !== undefined) row.default_topic_id = patch.defaultTopicId || null;
+  if (patch.enabled != null) row.enabled = Boolean(patch.enabled);
+  if (patch.collectEnabled != null) {
+    if (patch.collectEnabled) {
+      if (!COLLECTABLE_VERDICTS.has(source.verification)) {
+        throw new Error(`collect_requires_verified_source:${source.verification}`);
+      }
+      const kind = (patch.boardKind ?? board.boardKind) as BoardKind;
+      if (kind === "member_qa" || kind === "ads") throw new Error(`collect_forbidden_board_kind:${kind}`);
+      if (board.status.lastVerdict === "BLOCKED" || board.status.lastVerdict === "FAILED") {
+        throw new Error(`collect_requires_working_board:${board.status.lastVerdict}`);
+      }
+      row.enabled = true;
+    }
+    row.collect_enabled = Boolean(patch.collectEnabled);
+  }
+  const { error } = await sb.from(BOARDS_TABLE).update(row).eq("source_id", sourceId).eq("board_id", boardId);
+  if (error) throw new Error(error.message);
+  const after = await loadManagedSource(sb, sourceId);
+  const saved = after?.boards.find((b) => b.boardId === boardId);
+  if (!saved) throw new Error("board_readback_failed");
+  return saved;
+}
+
+export function sanitizeAdapterConfig(raw: AdapterConfig): AdapterConfig {
+  const list = (v: unknown) =>
+    Array.isArray(v)
+      ? v
+          .map((x) => String(x).trim())
+          .filter((x) => x && x.length <= 200)
+          .slice(0, 12)
+      : undefined;
+  const out: AdapterConfig = {};
+  const body = list(raw.bodySelectors);
+  if (body?.length) out.bodySelectors = body;
+  const rm = list(raw.removeSelectors);
+  if (rm?.length) out.removeSelectors = rm;
+  const att = list(raw.attachmentSelectors);
+  if (att?.length) out.attachmentSelectors = att;
+  if (raw.dateSelector) out.dateSelector = String(raw.dateSelector).slice(0, 200);
+  if (raw.itemUrlTemplate) out.itemUrlTemplate = String(raw.itemUrlTemplate).slice(0, 300);
+  if (raw.fetchArticle === false) out.fetchArticle = false;
+  return out;
+}
+
+/** Record a collection/verification outcome for a source and board. */
+export async function recordBoardOutcome(
+  sb: SupabaseClient,
+  input: {
+    sourceId: string;
+    boardId: string;
+    ok: boolean;
+    verdict?: string | null;
+    error?: string | null;
+    latestSourceAt?: string | null;
+    prevFailures: number;
+  },
+): Promise<void> {
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = { last_checked_at: now, updated_at: now, locked_until: null };
+  if (input.ok) {
+    row.last_success_at = now;
+    row.consecutive_failures = 0;
+    row.last_error = null;
+    if (input.latestSourceAt) row.latest_source_at = input.latestSourceAt;
+  } else {
+    row.last_failure_at = now;
+    row.consecutive_failures = input.prevFailures + 1;
+    row.last_error = String(input.error || "unknown").slice(0, 500);
+  }
+  if (input.verdict) row.last_verdict = input.verdict;
+  await sb.from(BOARDS_TABLE).update(row).eq("source_id", input.sourceId).eq("board_id", input.boardId);
+}
+
+export async function recordSourceOutcome(
+  sb: SupabaseClient,
+  input: { sourceId: string; ok: boolean; error?: string | null; prevFailures: number },
+): Promise<void> {
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = { last_checked_at: now, updated_at: now };
+  if (input.ok) {
+    row.last_success_at = now;
+    row.consecutive_failures = 0;
+    row.last_error = null;
+  } else {
+    row.last_failure_at = now;
+    row.consecutive_failures = input.prevFailures + 1;
+    row.last_error = String(input.error || "unknown").slice(0, 500);
+  }
+  await sb.from(SOURCES_TABLE).update(row).eq("id", input.sourceId);
+}
+
+/**
+ * Take a short lease on a board so overlapping cron runs never collect the same board twice.
+ * Returns false when another run holds the lease.
+ */
+export async function tryLockBoard(sb: SupabaseClient, sourceId: string, boardId: string, seconds: number): Promise<boolean> {
+  const now = new Date();
+  const until = new Date(now.getTime() + seconds * 1000).toISOString();
+  const { data, error } = await sb
+    .from(BOARDS_TABLE)
+    .update({ locked_until: until })
+    .eq("source_id", sourceId)
+    .eq("board_id", boardId)
+    .or(`locked_until.is.null,locked_until.lt.${now.toISOString()}`)
+    .select("board_id");
+  if (error) return false;
+  return Array.isArray(data) && data.length === 1;
 }

@@ -33,6 +33,7 @@ declare
   v_post jsonb := p->'post';
   v_link public.community_import_post_links%rowtype;
   v_post_id uuid;
+  v_images jsonb;
 begin
   if v_site is null or v_board is null or v_key is null or v_post is null then
     raise exception 'invalid_payload' using errcode = 'P0001';
@@ -40,6 +41,11 @@ begin
   if coalesce(v_post->>'title', '') = '' or coalesce(v_post->>'content', '') = '' then
     raise exception 'empty_content' using errcode = 'P0001';
   end if;
+
+  -- Feed `images` column is derived from image_rows (same order) so both stores can never diverge.
+  select coalesce(jsonb_agg(x.image_url order by coalesce(x.sort_order, 0)), '[]'::jsonb) into v_images
+  from jsonb_to_recordset(coalesce(p->'image_rows', '[]'::jsonb)) as x(image_url text, storage_path text, sort_order int)
+  where coalesce(x.image_url, '') <> '';
 
   select * into v_link from public.community_import_post_links
   where source_site = v_site and source_board = v_board and source_article_key = v_key
@@ -56,7 +62,7 @@ begin
     ) values (
       (v_post->>'user_id')::uuid, (v_post->>'section_id')::uuid, v_post->>'section_slug',
       (v_post->>'topic_id')::uuid, v_post->>'topic_slug', v_post->>'title', v_post->>'content', v_post->>'summary',
-      v_post->>'region_label', v_post->>'category', coalesce(v_post->'images', '[]'::jsonb), false, false, null, null,
+      v_post->>'region_label', v_post->>'category', v_images, false, false, null, null,
       'active', false, 'imported', v_post->>'display_author_name', null, nullif(v_post->>'display_date', '')::timestamptz,
       v_post->>'public_attribution_name', v_post->>'public_attribution_url'
     ) returning id into v_post_id;
@@ -78,16 +84,19 @@ begin
       content = v_post->>'content',
       summary = v_post->>'summary',
       category = v_post->>'category',
-      images = coalesce(v_post->'images', '[]'::jsonb),
+      images = v_images,
       display_author_name = v_post->>'display_author_name',
       display_date = nullif(v_post->>'display_date', '')::timestamptz,
       public_attribution_name = v_post->>'public_attribution_name',
       public_attribution_url = v_post->>'public_attribution_url',
       updated_at = now()
-    where id = v_post_id;
+    where id = v_post_id and origin_kind = 'imported';
     if not found then
       raise exception 'post_missing:%', v_post_id using errcode = 'P0001';
     end if;
+    -- Replace this one imported post's image rows. Scope: the single post_id taken from the locked
+    -- provenance link (unique per post) and confirmed origin_kind='imported' above. Runs inside this
+    -- function's transaction, so any later failure restores the previous rows.
     delete from public.community_post_images where post_id = v_post_id;
     update public.community_import_post_links set
       canonical_url = coalesce(p->>'canonical_url', canonical_url),

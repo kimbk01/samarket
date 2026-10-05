@@ -290,7 +290,7 @@ export function readPageMeta(
 
 /** Score-based main content fallback when no configured selector matches. */
 export function findDensestContent($: CheerioAPI): CheerioSel | null {
-  const scope = $("body").length ? $("body") : $.root();
+  const scope = ($("body").length ? $("body") : $.root()) as unknown as CheerioSel;
   const clone = scope.clone();
   clone.find(CHROME_SELECTORS).remove();
   let best: CheerioSel | null = null;
