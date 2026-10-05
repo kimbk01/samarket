@@ -66,7 +66,7 @@ describe("normalize", () => {
 describe("feeds", () => {
   it("decodes entity-escaped HTML bodies (Tistory style) and reads media thumbnails", () => {
     const xml = `<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-      <item><title>세부 여행 &amp; 맛집</title><link>https://blog.example.com/123</link>
+      <item><title>세부 여행 &amp; 맛집</title><link>https://blog.example.com/12345</link>
         <description>&lt;p&gt;안녕하세요&amp;nbsp;세부입니다&lt;/p&gt;&lt;img src="https://blog.example.com/a.jpg"&gt;</description>
         <pubDate>Mon, 05 Oct 2026 10:00:00 +0900</pubDate>
         <media:thumbnail url="https://blog.example.com/t.jpg"/></item>
@@ -79,7 +79,7 @@ describe("feeds", () => {
     expect(items[0]!.summary).toContain("안녕하세요");
     expect(items[0]!.summary).not.toContain("&nbsp;");
     const rows = feedItemsToRows(items, "https://blog.example.com/");
-    expect(rows[0]!.articleKey).toBe("123");
+    expect(rows[0]!.articleKey).toBe("12345");
     expect(rows[0]!.thumbnailUrl).toBeTruthy();
     expect(rows[0]!.sourcePublishedDate).toBe("2026-10-05T01:00:00.000Z");
   });

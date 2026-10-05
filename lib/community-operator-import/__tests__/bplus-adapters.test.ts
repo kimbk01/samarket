@@ -93,26 +93,26 @@ describe("gnuboard adapter", () => {
 describe("rss adapter", () => {
   const rss: RuntimeSource = { ...gnu, id: "blog", baseUrl: "https://blog.example.com", engine: "rss_atom" };
   const feedBoard: RuntimeBoard = { ...board("feed"), sourceId: "blog", boardId: "feed", engineKey: "https://blog.example.com/rss" };
-  const feed = `<rss version="2.0"><channel><item><title>세부 맛집</title><link>https://blog.example.com/55</link>
+  const feed = `<rss version="2.0"><channel><item><title>세부 맛집</title><link>https://blog.example.com/55555</link>
     <description>&lt;p&gt;피드 본문&lt;/p&gt;&lt;img src="https://blog.example.com/f.jpg"&gt;</description>
     <pubDate>Mon, 05 Oct 2026 10:00:00 +0900</pubDate></item></channel></rss>`;
 
   it("uses the article page body when it is reachable", async () => {
     routes["https://blog.example.com/rss"] = { body: feed, type: "application/rss+xml" };
-    routes["https://blog.example.com/55"] = {
+    routes["https://blog.example.com/55555"] = {
       body: `<html><body><div class="tt_article_useless_p_margin"><p>페이지 본문 전체입니다.</p><img src="https://blog.example.com/p1.jpg"><img src="https://blog.example.com/p2.jpg"></div></body></html>`,
     };
     const rows = await adapterFor("rss_atom").list({ source: rss }, feedBoard, 1);
-    expect(rows[0]!.articleKey).toBe("55");
-    const a = await adapterFor("rss_atom").detail({ source: rss }, feedBoard, { articleKey: "55", detailUrl: rows[0]!.detailUrl, title: rows[0]!.title });
+    expect(rows[0]!.articleKey).toBe("55555");
+    const a = await adapterFor("rss_atom").detail({ source: rss }, feedBoard, { articleKey: "55555", detailUrl: rows[0]!.detailUrl, title: rows[0]!.title });
     expect(a.extraction?.usedFeedFallback).toBe(false);
     expect(a.orderedContentBlocks.filter((b) => b.type === "image")).toHaveLength(2);
   });
 
   it("falls back to the decoded feed body (PARTIAL) when the page is blocked", async () => {
     routes["https://blog.example.com/rss"] = { body: feed, type: "application/rss+xml" };
-    routes["https://blog.example.com/55"] = { status: 403, body: "forbidden" };
-    const a = await adapterFor("rss_atom").detail({ source: rss }, feedBoard, { articleKey: "55", detailUrl: "https://blog.example.com/55", title: "세부 맛집" });
+    routes["https://blog.example.com/55555"] = { status: 403, body: "forbidden" };
+    const a = await adapterFor("rss_atom").detail({ source: rss }, feedBoard, { articleKey: "55555", detailUrl: "https://blog.example.com/55555", title: "세부 맛집" });
     expect(a.extraction?.usedFeedFallback).toBe(true);
     expect(a.orderedContentBlocks.some((b) => b.type === "paragraph" && b.text.includes("피드 본문"))).toBe(true);
     expect(assessArticleQuality(a).verdict).toBe("PARTIAL");
