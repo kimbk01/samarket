@@ -194,7 +194,7 @@ export async function detailGnuboard(
     author,
     sourcePublishedDate: parseSourceDate(dateRaw) || dateRaw,
     orderedContentBlocks: [...attachmentBlocks, ...bodyBlocks],
-    summary: target.summary ?? meta.description,
+    summary: target.summary ?? null,
     extraction: {
       bodySource: body?.selector ?? "none",
       sourceImageCount,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { DetectResult } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-operator-import/types";
 import { labelReasons } from "@/lib/community-operator-import/quality-labels";
@@ -116,7 +117,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
 
   return (
     <div className="space-y-4">
-      <section className="sam-card sam-card-pad space-y-3">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-sam-fg">새 사이트 등록</h2>
           <p className="text-xs text-sam-muted mt-0.5">
@@ -125,7 +126,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
-            className="sam-input flex-1 text-sm"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 flex-1 text-sm"
             placeholder="https://example.com 또는 게시판 주소"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -133,9 +134,9 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               if (e.key === "Enter" && url.trim() && !busy) void doDetect();
             }}
           />
-          <button type="button" className="sam-btn sam-btn-primary text-sm" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
+          <AdminActionButton variant="primary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
             {busy === "detect" ? "분석 중… (최대 45초)" : "사이트 분석"}
-          </button>
+          </AdminActionButton>
         </div>
 
         {detect ? (
@@ -212,9 +213,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                           <td className="py-1.5 pr-2">{fmtDate(b.sample?.latestAt)}</td>
                           <td className="py-1.5">
                             {b.robotsAllowed && detect.engine ? (
-                              <button
-                                type="button"
-                                className="sam-btn sam-btn-ghost text-[11px]"
+                              <AdminActionButton
+                                variant="neutral"
                                 onClick={() =>
                                   setProbeTarget({
                                     baseUrl: detect.baseUrl,
@@ -226,7 +226,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                 }
                               >
                                 샘플 보기
-                              </button>
+                              </AdminActionButton>
                             ) : null}
                           </td>
                         </tr>
@@ -243,11 +243,11 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
                 <label className="text-xs text-sam-muted">
                   표시 이름
-                  <input className="sam-input w-full text-sm mt-0.5" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                  <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                 </label>
                 <label className="text-xs text-sam-muted">
                   게시 정책
-                  <select className="sam-input w-full text-sm mt-0.5" value={policy} onChange={(e) => setPolicy(e.target.value as ContentPolicy)}>
+                  <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={policy} onChange={(e) => setPolicy(e.target.value as ContentPolicy)}>
                     {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                       <option key={p} value={p}>
                         {POLICY_LABEL[p]}
@@ -255,9 +255,9 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                     ))}
                   </select>
                 </label>
-                <button type="button" className="sam-btn sam-btn-primary text-sm" disabled={!!busy} onClick={() => void doRegister()}>
+                <AdminActionButton variant="primary" disabled={!!busy} onClick={() => void doRegister()}>
                   {busy === "register" ? "재검증 후 등록 중…" : `등록 (게시판 ${selected.size}개 사용)`}
-                </button>
+                </AdminActionButton>
               </div>
             ) : null}
           </div>
@@ -271,8 +271,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           const isOpen = open === s.id;
           const collecting = s.boards.filter((b) => b.collectEnabled).length;
           return (
-            <div key={s.id} className="sam-card">
-              <button type="button" className="w-full text-left px-3 py-2.5 flex flex-wrap items-center gap-2" onClick={() => setOpen(isOpen ? null : s.id)}>
+            <div key={s.id} data-testid="import-source-card" data-source-id={s.id} className="rounded-ui-rect border border-sam-border bg-sam-surface">
+              <button type="button" data-testid="import-source-toggle" aria-expanded={isOpen} className="w-full text-left px-3 py-2.5 flex flex-wrap items-center gap-2" onClick={() => setOpen(isOpen ? null : s.id)}>
                 <VerdictBadge v={s.verification} />
                 <span className="font-semibold text-sm">{s.displayName}</span>
                 <span className="text-[11px] text-sam-muted">{s.engine}</span>
@@ -290,7 +290,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <select
-                      className="sam-input text-xs"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs"
                       value={s.contentPolicy}
                       onChange={(e) => void sourceAction(s.id, "update", { patch: { contentPolicy: e.target.value } })}
                     >
@@ -300,20 +300,19 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                         </option>
                       ))}
                     </select>
-                    <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={!!busy} onClick={() => void sourceAction(s.id, "verify")}>
+                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void sourceAction(s.id, "verify")}>
                       {busy === `verify:${s.id}` ? "검증 중…" : "재검증"}
-                    </button>
-                    <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={!!busy} onClick={() => void sourceAction(s.id, "rescan")}>
+                    </AdminActionButton>
+                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void sourceAction(s.id, "rescan")}>
                       {busy === `rescan:${s.id}` ? "탐색 중…" : "게시판 다시 찾기"}
-                    </button>
-                    <button
-                      type="button"
-                      className="sam-btn sam-btn-ghost text-xs"
+                    </AdminActionButton>
+                    <AdminActionButton
+                      variant="neutral"
                       disabled={!!busy}
                       onClick={() => void sourceAction(s.id, "update", { patch: { enabled: !s.enabled } })}
                     >
                       {s.enabled ? "출처 끄기" : "출처 켜기"}
-                    </button>
+                    </AdminActionButton>
                   </div>
                   <AdapterConfigForm
                     key={`${s.id}:${JSON.stringify(s.adapterConfig)}`}
@@ -358,7 +357,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             </td>
                             <td className="py-1.5 pr-2">
                               <select
-                                className="sam-input text-xs"
+                                className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs"
                                 aria-label={`${b.displayName} DIBAY 주제`}
                                 value={b.defaultTopicId ?? ""}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { defaultTopicId: e.target.value || null })}
@@ -385,20 +384,18 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             </td>
                             <td className="py-1.5">
                               <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  className="sam-btn sam-btn-ghost text-[11px]"
+                                <AdminActionButton
+                                  variant="neutral"
                                   disabled={!!busy || !s.enabled}
                                   onClick={() => void collectNow(s.id, b.boardId)}
                                 >
                                   {busy === `collect:${s.id}:${b.boardId}` ? "수집 중…" : "지금 수집"}
-                                </button>
-                                <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => onOpenBoard(s.id, b.boardId)}>
+                                </AdminActionButton>
+                                <AdminActionButton variant="neutral" onClick={() => onOpenBoard(s.id, b.boardId)}>
                                   수집함
-                                </button>
-                                <button
-                                  type="button"
-                                  className="sam-btn sam-btn-ghost text-[11px]"
+                                </AdminActionButton>
+                                <AdminActionButton
+                                  variant="neutral"
                                   onClick={() =>
                                     setProbeTarget({
                                       baseUrl: s.baseUrl,
@@ -410,7 +407,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                   }
                                 >
                                   샘플 보기
-                                </button>
+                                </AdminActionButton>
                               </div>
                             </td>
                           </tr>
@@ -459,21 +456,21 @@ function KeywordBoardForm({
     <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
       <div className="text-[11px] font-semibold">키워드 게시판 추가 — 이 피드에서 키워드가 들어간 글만 수집</div>
       <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
-        <select className="sam-input text-xs" value={feed} onChange={(e) => setFeed(e.target.value)}>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={feed} onChange={(e) => setFeed(e.target.value)}>
           {feeds.map((b) => (
             <option key={b.boardId} value={b.engineKey}>
               {b.displayName}
             </option>
           ))}
         </select>
-        <input className="sam-input text-xs" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="쉼표로 구분: 필리핀,세부" />
-        <input className="sam-input text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="게시판 이름 (선택)" />
-        <button type="button" className="sam-btn sam-btn-ghost text-[11px]" disabled={!engineKey} onClick={() => onPreview(engineKey, label)}>
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="쉼표로 구분: 필리핀,세부" />
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="게시판 이름 (선택)" />
+        <AdminActionButton variant="neutral" disabled={!engineKey} onClick={() => onPreview(engineKey, label)}>
           샘플 보기
-        </button>
-        <button type="button" className="sam-btn sam-btn-secondary text-[11px]" disabled={!engineKey || busy} onClick={() => onAdd(engineKey, label)}>
+        </AdminActionButton>
+        <AdminActionButton variant="secondary" disabled={!engineKey || busy} onClick={() => onAdd(engineKey, label)}>
           게시판으로 추가
-        </button>
+        </AdminActionButton>
       </div>
     </div>
   );
@@ -502,10 +499,10 @@ function AdapterConfigForm({
       .filter(Boolean);
   if (!open) {
     return (
-      <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => setOpen(true)}>
+      <AdminActionButton variant="neutral" onClick={() => setOpen(true)}>
         수집 설정 (본문 위치·제거 영역·날짜)
         {cfg.bodySelectors?.length ? ` · 본문 ${cfg.bodySelectors.join(", ")}` : ""}
-      </button>
+      </AdminActionButton>
     );
   }
   return (
@@ -514,27 +511,26 @@ function AdapterConfigForm({
       <div className="grid gap-1.5 sm:grid-cols-2">
         <label className="text-[11px] text-sam-muted">
           본문 위치 (CSS 선택자, 쉼표 구분)
-          <input className="sam-input w-full text-xs mt-0.5" value={body} onChange={(e) => setBody(e.target.value)} placeholder="#ct, .article-body" />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={body} onChange={(e) => setBody(e.target.value)} placeholder="#ct, .article-body" />
         </label>
         <label className="text-[11px] text-sam-muted">
           본문에서 뺄 영역
-          <input className="sam-input w-full text-xs mt-0.5" value={remove} onChange={(e) => setRemove(e.target.value)} placeholder=".share, .ad" />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={remove} onChange={(e) => setRemove(e.target.value)} placeholder=".share, .ad" />
         </label>
         <label className="text-[11px] text-sam-muted">
           게시일 위치
-          <input className="sam-input w-full text-xs mt-0.5" value={date} onChange={(e) => setDate(e.target.value)} placeholder=".date" />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={date} onChange={(e) => setDate(e.target.value)} placeholder=".date" />
         </label>
         {source.engine === "html" ? (
           <label className="text-[11px] text-sam-muted">
             글 주소 형식
-            <input className="sam-input w-full text-xs mt-0.5" value={tpl} onChange={(e) => setTpl(e.target.value)} placeholder="/news/article.html?no" />
+            <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={tpl} onChange={(e) => setTpl(e.target.value)} placeholder="/news/article.html?no" />
           </label>
         ) : null}
       </div>
       <div className="flex gap-1.5">
-        <button
-          type="button"
-          className="sam-btn sam-btn-secondary text-[11px]"
+        <AdminActionButton
+          variant="secondary"
           disabled={busy}
           onClick={() =>
             onSave({
@@ -547,10 +543,10 @@ function AdapterConfigForm({
           }
         >
           설정 저장
-        </button>
-        <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => setOpen(false)}>
+        </AdminActionButton>
+        <AdminActionButton variant="neutral" onClick={() => setOpen(false)}>
           닫기
-        </button>
+        </AdminActionButton>
       </div>
     </div>
   );

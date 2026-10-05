@@ -186,7 +186,8 @@ export async function detailHtml(ctx: AdapterContext, board: RuntimeBoard, targe
     author: meta.author,
     sourcePublishedDate: parseSourceDate(dateRaw),
     orderedContentBlocks: blocks,
-    summary: meta.description,
+    // A page meta description is often the site-wide blurb, never an article summary.
+    summary: null,
     extraction: {
       bodySource: body?.selector ?? "none",
       sourceImageCount: body ? cheerio.load(body.html)("img").length : 0,

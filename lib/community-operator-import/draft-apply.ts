@@ -133,19 +133,37 @@ export function collectOrderedImageUrlsForFeed(
 }
 
 /** Normal Community body: interleaved markdown with ![](url) preserving order. */
+/** Text of a non-image block as a community body sees it (plain text, no markup). */
+export function blockPlainText(b: OperatorContentBlock): string {
+  switch (b.type) {
+    case "paragraph":
+    case "heading":
+    case "quote":
+      return b.text.trim();
+    case "list":
+      return b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `• ${it}`)).join("\n");
+    case "link": {
+      const text = String(b.text || "").trim();
+      const href = String(b.href || "").trim();
+      if (text && href && text !== href) return `${text} ${href}`;
+      return text || href;
+    }
+    default:
+      return "";
+  }
+}
+
+/**
+ * Community body serialisation — the body format understands plain text and `![](url)` only, so
+ * every other block is written as plain text (no `#`, `>`, `[text](url)` markup ever reaches users).
+ */
 export function blocksToCommunityMarkdown(blocks: OperatorContentBlock[]): string {
   const parts: string[] = [];
   for (const b of blocks) {
-    if (b.type === "paragraph") parts.push(b.text);
-    else if (b.type === "heading") parts.push(`${"#".repeat(Math.min(6, Math.max(1, b.level)))} ${b.text}`);
-    else if (b.type === "quote") parts.push(`> ${b.text}`);
-    else if (b.type === "image") parts.push(`![](${b.url})`);
-    else if (b.type === "link") {
-      if (b.href && b.text) parts.push(`[${b.text}](${b.href})`);
-      else if (b.href) parts.push(b.href);
-      else if (b.text) parts.push(b.text);
-    } else if (b.type === "list") {
-      parts.push(b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `- ${it}`)).join("\n"));
+    if (b.type === "image") parts.push(`![](${b.url})`);
+    else {
+      const t = blockPlainText(b);
+      if (t) parts.push(t);
     }
   }
   return parts.join("\n\n").trim();

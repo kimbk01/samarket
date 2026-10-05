@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { VerdictBadge } from "./ImportSourcesPanel";
 import {
   call,
@@ -42,6 +44,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
   const [acceptPartial, setAcceptPartial] = useState(false);
   const [job, setJob] = useState<JobSummary | null>(null);
   const [jobBusy, setJobBusy] = useState(false);
+  const [pendingJob, setPendingJob] = useState<null | "publish" | "update" | "hide" | "unhide" | "reprocess">(null);
 
   const boards = useMemo(() => sources.find((s) => s.id === filter.site)?.boards ?? [], [sources, filter.site]);
 
@@ -105,6 +108,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
     if (!items.length) return;
     const topic = topics.find((t) => t.id === bulkTopic);
     setJobBusy(true);
+    setPendingJob(null);
     try {
       let r = await call<{ job: JobSummary }>("/jobs", {
         body: {
@@ -143,7 +147,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
   return (
     <div className="flex flex-col min-h-0 h-full">
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-2 border-b border-sam-border shrink-0">
-        <select className="sam-input text-xs" value={filter.site} onChange={(e) => setFilter({ ...filter, site: e.target.value, board: "" })}>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.site} onChange={(e) => setFilter({ ...filter, site: e.target.value, board: "" })}>
           <option value="">모든 출처</option>
           {sources.map((s) => (
             <option key={s.id} value={s.id}>
@@ -151,7 +155,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
             </option>
           ))}
         </select>
-        <select className="sam-input text-xs" value={filter.board} disabled={!filter.site} onChange={(e) => setFilter({ ...filter, board: e.target.value })}>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.board} disabled={!filter.site} onChange={(e) => setFilter({ ...filter, board: e.target.value })}>
           <option value="">모든 게시판</option>
           {boards.map((b) => (
             <option key={b.boardId} value={b.boardId}>
@@ -159,7 +163,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
             </option>
           ))}
         </select>
-        <select className="sam-input text-xs" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="처리 상태" value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
           <option value="new,draft,source_updated,failed">처리 대기</option>
           <option value="">전체 상태</option>
           {Object.entries(STATUS_LABEL).map(([k, v]) => (
@@ -168,14 +172,14 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
             </option>
           ))}
         </select>
-        <select className="sam-input text-xs" value={filter.quality} onChange={(e) => setFilter({ ...filter, quality: e.target.value })}>
+        <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.quality} onChange={(e) => setFilter({ ...filter, quality: e.target.value })}>
           <option value="">모든 품질</option>
           <option value="FULL">FULL</option>
           <option value="PARTIAL">PARTIAL</option>
           <option value="FAILED">FAILED</option>
           <option value="none">미확인</option>
         </select>
-        <input className="sam-input text-xs col-span-2 sm:col-span-1" placeholder="제목 검색" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs col-span-2 sm:col-span-1" placeholder="제목 검색" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
       </div>
 
       <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-sam-muted border-b border-sam-border shrink-0">
@@ -186,15 +190,15 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
           {total}건 중 {total ? offset + 1 : 0}–{Math.min(offset + PAGE, total)}
         </span>
         <span className="ml-auto flex gap-1">
-          <button type="button" className="sam-btn sam-btn-ghost text-[11px]" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
+          <AdminActionButton variant="neutral" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
             이전
-          </button>
-          <button type="button" className="sam-btn sam-btn-ghost text-[11px]" disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
+          </AdminActionButton>
+          <AdminActionButton variant="neutral" disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
             다음
-          </button>
-          <button type="button" className="sam-btn sam-btn-ghost text-[11px]" onClick={() => void load()}>
+          </AdminActionButton>
+          <AdminActionButton variant="neutral" onClick={() => void load()}>
             새로고침
-          </button>
+          </AdminActionButton>
         </span>
       </div>
 
@@ -245,7 +249,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                 {selected.size}건 선택 (미게시 {counts.unpublished} · 게시됨 {counts.published})
               </div>
               <div className="grid grid-cols-2 gap-1.5">
-                <select className="sam-input text-xs" value={bulkTopic} onChange={(e) => setBulkTopic(e.target.value)}>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={bulkTopic} onChange={(e) => setBulkTopic(e.target.value)}>
                   <option value="">주제: 게시판 기본값 사용</option>
                   {topics.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -253,7 +257,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                     </option>
                   ))}
                 </select>
-                <select className="sam-input text-xs" value={bulkPolicy} onChange={(e) => setBulkPolicy(e.target.value as "" | ContentPolicy)}>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={bulkPolicy} onChange={(e) => setBulkPolicy(e.target.value as "" | ContentPolicy)}>
                   <option value="">정책: 출처 기본값</option>
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                     <option key={p} value={p}>
@@ -267,27 +271,27 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
                 품질 PARTIAL도 게시 허용 (FAILED는 항상 제외)
               </label>
               <div className="flex flex-wrap gap-1">
-                <button type="button" className="sam-btn sam-btn-primary text-xs" disabled={jobBusy || !counts.unpublished} onClick={() => void runJob("publish")}>
+                <AdminActionButton variant="primary" disabled={jobBusy || !counts.unpublished} onClick={() => setPendingJob("publish")}>
                   일괄 게시 ({counts.unpublished})
-                </button>
-                <button type="button" className="sam-btn sam-btn-secondary text-xs" disabled={jobBusy || !counts.published} onClick={() => void runJob("update")}>
+                </AdminActionButton>
+                <AdminActionButton variant="secondary" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("update")}>
                   일괄 업데이트 ({counts.published})
-                </button>
-                <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={jobBusy || !counts.published} onClick={() => void runJob("hide")}>
+                </AdminActionButton>
+                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("hide")}>
                   게시물 숨김
-                </button>
-                <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={jobBusy || !counts.published} onClick={() => void runJob("unhide")}>
+                </AdminActionButton>
+                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => setPendingJob("unhide")}>
                   숨김 해제
-                </button>
-                <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={jobBusy} onClick={() => void runJob("reprocess")}>
+                </AdminActionButton>
+                <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => setPendingJob("reprocess")}>
                   본문 재수집
-                </button>
-                <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={jobBusy || !counts.unpublished} onClick={() => void setStatus("skipped")}>
+                </AdminActionButton>
+                <AdminActionButton variant="neutral" disabled={jobBusy || !counts.unpublished} onClick={() => void setStatus("skipped")}>
                   수집함에서 제외
-                </button>
-                <button type="button" className="sam-btn sam-btn-ghost text-xs" disabled={jobBusy} onClick={() => setSelected(new Map())}>
+                </AdminActionButton>
+                <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => setSelected(new Map())}>
                   선택 해제
-                </button>
+                </AdminActionButton>
               </div>
             </>
           ) : null}
@@ -299,6 +303,33 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
           ) : null}
         </div>
       ) : null}
+
+      <AdminActionConfirmDialog
+        open={pendingJob !== null}
+        title={
+          pendingJob === "publish"
+            ? `${counts.unpublished}건을 DIBAY에 게시할까요?`
+            : pendingJob === "update"
+              ? `게시된 ${counts.published}건을 업데이트할까요?`
+              : pendingJob === "hide"
+                ? `게시된 ${counts.published}건을 숨길까요?`
+                : pendingJob === "unhide"
+                  ? `숨긴 게시물 ${counts.published}건을 다시 공개할까요?`
+                  : `${selected.size}건의 본문을 다시 수집할까요?`
+        }
+        description={
+          pendingJob === "publish" || pendingJob === "update"
+            ? `주제: ${topics.find((t) => t.id === bulkTopic)?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 품질 PARTIAL ${acceptPartial ? "포함" : "제외"} (FAILED는 항상 제외). 공개 커뮤니티에 바로 반영됩니다.`
+            : pendingJob === "reprocess"
+              ? "원문을 다시 가져와 품질을 다시 판정합니다. 게시물은 바뀌지 않습니다."
+              : "커뮤니티 피드·상세의 노출 상태만 바뀝니다."
+        }
+        confirmLabel={pendingJob === "publish" ? "게시" : pendingJob === "update" ? "업데이트" : pendingJob === "hide" ? "숨김" : pendingJob === "unhide" ? "공개" : "재수집"}
+        cancelLabel="취소"
+        pending={jobBusy}
+        onCancel={() => setPendingJob(null)}
+        onConfirm={() => pendingJob && void runJob(pendingJob)}
+      />
     </div>
   );
 }

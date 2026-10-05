@@ -1,0 +1,86 @@
+name: community-import diagnose
+
+# B+ admin UI end-to-end on an isolated stack — no production data, credentials, or cost:
+# disposable local Supabase in the runner (structure-only snapshot + the REAL publish-RPC migration),
+# a NEW test admin seeded there, a production build of this branch pointed at it, and Playwright
+# driving the real login screen and admin screens (register → collect → edit → publish → update →
+# community feed). Results are printed as annotations; screenshots are uploaded as an artifact.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/community-import-bplus"]
+    paths:
+      - "tests/e2e/community-import-diagnose.staging.spec.ts"
+      - ".github/workflows/community-import-diagnose.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start empty local Supabase + schema snapshot + real publish-RPC migration
+        run: |
+          set -o pipefail
+          test -f supabase/config.toml || supabase init --force --with-vscode-settings=false || supabase init --force
+          sed -i 's/^project_id = .*/project_id = "bplus-ui"/' supabase/config.toml
+          mkdir -p "$RUNNER_TEMP/all-migrations" && mv supabase/migrations/* "$RUNNER_TEMP/all-migrations/"
+          supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime
+          DB_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/staging-e2e/bootstrap-schema.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f scripts/staging-e2e/bootstrap-auth.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$RUNNER_TEMP/all-migrations/20270420120200_community_operator_import_bplus_publish_rpc.sql"
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          {
+            echo "STAGING_SUPABASE_URL=$API_URL"
+            echo "STAGING_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY:-$SECRET_KEY}"
+            echo "STAGING_ANON_KEY=${ANON_KEY:-$PUBLISHABLE_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY:-$PUBLISHABLE_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY:-$SECRET_KEY}"
+            echo "CRON_SECRET=cron-$(openssl rand -hex 16)"
+          } >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Seed a NEW test admin in the local DB (never aaaa, never production)
+        run: node scripts/staging-e2e/seed-ui-admin.mjs
+      - name: Build this branch against the local stack
+        run: npm run build
+      - name: Start app
+        run: |
+          nohup npx next start -p 3000 > next-start.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/login && break; sleep 2; done
+          curl -s -o /dev/null -w "login page %{http_code}\n" http://localhost:3000/login
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Admin UI E2E
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_NO_WEBSERVER: "1"
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: npx playwright test tests/e2e/community-import-diagnose.staging.spec.ts --workers=1 --reporter=line
+      - name: Annotate diagnostics
+        if: always()
+        run: |
+          test -f diagnose-results.json || echo '[{"site":"실패","check":"no_results","result":"FAIL","detail":"no results"}]' > diagnose-results.json
+          node scripts/live-probe/annotate.mjs diagnose-results.json
+      - name: Server log errors (missing non-import tables are expected in the snapshot DB)
+        if: always()
+        run: grep -iE "error|unhandled" next-start.log | grep -iE "philife|community|import|neighborhood|post" | head -8 | while read -r l; do echo "::warning title=next start log::$l"; done || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnose-shots
+          path: |
+            ui-shots/
+            diagnose-results.json
+          retention-days: 7

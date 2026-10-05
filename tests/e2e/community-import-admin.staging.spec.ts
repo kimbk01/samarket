@@ -29,6 +29,26 @@ const API = "/api/admin/community/external-import";
 
 mkdirSync("ui-shots", { recursive: true });
 const shot = (page: Page, name: string) => page.screenshot({ path: `ui-shots/${name}.png`, fullPage: true }).catch(() => undefined);
+/** Confirm the admin confirmation dialog (AdminActionConfirmDialog) with its exact action label. */
+const confirmDialog = async (page: Page, label: string) => {
+  const dlg = page.getByRole("dialog");
+  await expect(dlg).toBeVisible({ timeout: 15_000 });
+  const text = (await dlg.innerText()).replace(/\s+/g, " ");
+  await dlg.getByRole("button", { name: label, exact: true }).click();
+  return text;
+};
+/** A real button look: non-transparent background or a visible border, and horizontal padding. */
+const looksLikeButton = (page: Page, name: string | RegExp) =>
+  page
+    .getByRole("button", { name })
+    .first()
+    .evaluate((el) => {
+      const s = getComputedStyle(el);
+      const bg = s.backgroundColor;
+      const filled = bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent";
+      const bordered = parseFloat(s.borderTopWidth) > 0;
+      return { ok: (filled || bordered) && parseFloat(s.paddingLeft) >= 8, bg, border: s.borderTopWidth, pad: s.paddingLeft };
+    });
 
 test.describe.configure({ mode: "serial" });
 
@@ -100,7 +120,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     await Promise.all([reloaded(), page.getByRole("checkbox", { name: /^맛집.* 자동수집$/ }).click()]);
     await page.reload();
     await page.getByRole("tab", { name: "출처·게시판" }).click();
-    await page.locator("section").filter({ hasText: "등록된 출처" }).locator("div.sam-card > button").first().click();
+    await page.getByTestId("import-source-toggle").first().click();
     const topicSelAfter = page.getByRole("combobox", { name: /^맛집.* DIBAY 주제$/ });
     // topics load asynchronously after the reload; wait for the stored value to be selectable
     await expect(topicSelAfter).toHaveValue(food?.id ?? "", { timeout: 30_000 }).catch(() => undefined);
@@ -164,16 +184,40 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       );
       await partial.check();
     }
+    const looks = {
+      publish: await looksLikeButton(page, "DIBAY에 게시"),
+      save: await looksLikeButton(page, "임시저장"),
+    };
+    record("7 게시", "buttons_render_as_buttons", looks.publish.ok && looks.save.ok, JSON.stringify(looks));
     await publishBtn.click();
+    const dialogText = await confirmDialog(page, "게시");
     await expect(page.getByText(/^게시 완료/)).toBeVisible({ timeout: 120_000 });
     await shot(page, "08-published");
-    const post = (await db.from("community_posts").select("id, title, status, origin_kind, images, topic_slug").like("title", "[UI-E2E]%").maybeSingle()).data;
-    record("7 게시", "post_created", !!post && post.status === "active" && post.origin_kind === "imported" && (await postCount()) === before + 1, `posts ${before}→${await postCount()} post=${JSON.stringify(post)}`);
+    const post = (await db.from("community_posts").select("id, title, status, origin_kind, images, topic_slug, topic_id, content, summary, public_attribution_name, public_attribution_url").like("title", "[UI-E2E]%").maybeSingle()).data;
+    record("7 게시", "post_created", !!post && post.status === "active" && post.origin_kind === "imported" && (await postCount()) === before + 1, `posts ${before}→${await postCount()} id=${post?.id}`);
+    record(
+      "7 게시",
+      "published_to_selected_topic",
+      !!post && post.topic_slug === food?.slug && post.topic_id === food?.id && dialogText.includes(food?.name ?? "\u0000"),
+      `확인창="${dialogText.slice(0, 160)}" | db topic=${post?.topic_slug}/${post?.topic_id} 선택=${food?.slug}/${food?.id}`,
+    );
+    const inboxSummaryRow = (await db.from("community_operator_import_inbox").select("summary").eq("source_site", sourceId).limit(1)).data?.[0];
+    // image markdown is the one markup the community body supports; check everything else
+    const content = String(post?.content ?? "").replace(/!\[[^\]]*\]\([^)]*\)/g, "");
+    record(
+      "7 게시",
+      "content_contract",
+      !!post && !/\]\(https?:/.test(content) && !/^(#|>)/m.test(content) && !!post.public_attribution_url && !!post.public_attribution_name,
+      `inline link=${/\]\(https?:/.test(content)} markup=${/^(#|>)/m.test(content)} attribution=${post?.public_attribution_name} ${post?.public_attribution_url ? "url ok" : "no url"} | summary="${String(post?.summary ?? "").slice(0, 120)}" | inbox.summary=${inboxSummaryRow?.summary ?? null}`,
+    );
 
     // ── 8 update the same post from the editor ───────────────────────────
     await titleInput.fill(`[UI-E2E 수정] ${original}`);
     await page.getByRole("button", { name: "게시물 업데이트" }).click();
+    await confirmDialog(page, "업데이트");
     await expect(page.getByText(/^업데이트 완료/)).toBeVisible({ timeout: 120_000 });
+    const manage = page.getByTestId("import-post-manage");
+    record("8 업데이트", "management_bar_visible", await manage.isVisible(), (await manage.innerText().catch(() => "")).replace(/\s+/g, " "));
     const updated = (await db.from("community_posts").select("id, title").like("title", "[UI-E2E%").limit(5)).data ?? [];
     record("8 업데이트", "same_post_updated", updated.length === 1 && updated[0]!.id === post?.id && updated[0]!.title.startsWith("[UI-E2E 수정]"), `rows=${updated.length} sameId=${updated[0]?.id === post?.id} title=${updated[0]?.title}`);
 
@@ -196,6 +240,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       .catch(() => false);
     await shot(page, "09-community-detail");
     const detailText = (await page.locator("main, body").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300);
+    const detailFull = (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ");
     record("10 커뮤니티", "post_detail_page", detailOk, `/philife/${post?.id} http=${detailResp?.status()} final=${new URL(page.url()).pathname} title visible=${detailOk} text="${detailText}"`);
     await page.goto("/philife");
     const feedOk = await page
@@ -206,6 +251,49 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
       .catch(() => false);
     await shot(page, "10-community-feed");
     record("10 커뮤니티", "post_in_feed", feedOk, `/philife feed shows updated title=${feedOk}`);
+    const plain = detailFull;
+    record(
+      "10 커뮤니티",
+      "detail_no_raw_markup_and_source_block",
+      detailOk && !/\[원문 보기[^\]]*\]\(/.test(plain) && /(출처|Source)/.test(plain),
+      `rawLink=${/\[원문 보기[^\]]*\]\(/.test(plain)} sourceBlock=${/(출처|Source)/.test(plain)}`,
+    );
+
+    // ── 10b admin management from the import editor: hide → re-open → delete ──
+    await page.goto("/admin/community/external-import");
+    await page.getByTestId("import-inbox-list").waitFor({ timeout: 60_000 });
+    await page.getByLabel("처리 상태").selectOption("published");
+    // wait for the filtered list (status chip 게시됨) before opening — avoids clicking a stale row
+    const pubItem = page.getByTestId("import-inbox-list").locator("li").filter({ hasText: "게시됨" }).first();
+    await expect(pubItem).toBeVisible({ timeout: 60_000 });
+    await pubItem.locator("button").first().click();
+    const bar = page.getByTestId("import-post-manage");
+    await expect(bar).toBeVisible({ timeout: 90_000 });
+    const statusOf = async () => (await db.from("community_posts").select("status").eq("id", post?.id ?? "").single()).data?.status;
+    await bar.getByRole("button", { name: "숨김", exact: true }).click();
+    await confirmDialog(page, "숨김");
+    await expect.poll(statusOf, { timeout: 60_000 }).toBe("hidden");
+    await expect(bar.getByRole("button", { name: "다시 공개" })).toBeVisible({ timeout: 60_000 });
+    const sHidden = await statusOf();
+    const feedHidden = (await (await page.request.get("/api/philife/neighborhood-feed?globalFeed=1&limit=50")).json()) as { posts?: Array<{ id: string }> };
+    await bar.getByRole("button", { name: "다시 공개" }).click();
+    await confirmDialog(page, "공개");
+    await expect.poll(statusOf, { timeout: 60_000 }).toBe("active");
+    await expect(bar.getByRole("button", { name: "숨김", exact: true })).toBeVisible({ timeout: 60_000 });
+    const sActive = await statusOf();
+    await bar.getByRole("button", { name: "삭제", exact: true }).click();
+    await confirmDialog(page, "삭제");
+    await expect.poll(statusOf, { timeout: 60_000 }).toBe("deleted");
+    await expect(bar.getByText("삭제됨")).toBeVisible({ timeout: 60_000 });
+    const sDeleted = await statusOf();
+    const detailAfterDelete = await page.request.get(`/philife/${post?.id}`);
+    await shot(page, "11-managed");
+    record(
+      "10 관리",
+      "hide_reopen_delete_from_admin",
+      sHidden === "hidden" && !(feedHidden.posts ?? []).some((p) => p.id === post?.id) && sActive === "active" && sDeleted === "deleted",
+      `hidden=${sHidden} (feed excludes=${!(feedHidden.posts ?? []).some((p) => p.id === post?.id)}) → active=${sActive} → deleted=${sDeleted} | detail after delete http=${detailAfterDelete.status()}`,
+    );
 
     // ── 11 scheduled collection over HTTP: auth + never publishes ────────
     const noAuth = await page.request.get("/api/cron/community-import-collect");
@@ -216,7 +304,7 @@ test("B+ admin UI end-to-end (isolated staging)", async ({ page }) => {
     record("11 정기수집", "cron_runs_and_never_publishes", cron.ok() && (await postCount()) === beforeCron, `status=${cron.status()} posts ${beforeCron}→${await postCount()} body=${cronBody.slice(0, 300)}`);
   } catch (e) {
     await shot(page, "zz-failure");
-    record("실패", "unexpected_error", false, `${e instanceof Error ? e.message : String(e)} @ ${page.url()}`);
+    record("실패", "unexpected_error", false, `${e instanceof Error ? e.message.replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 6).join(" | ") : String(e)} @ ${page.url()}`);
     throw e;
   } finally {
     flush();

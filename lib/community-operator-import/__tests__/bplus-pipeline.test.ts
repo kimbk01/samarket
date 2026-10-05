@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { describe, expect, it } from "vitest";
 import { classifyBoardKind, feedItemsToRows, parseFeed, parseSourceDate } from "@/lib/community-operator-import/adapters/common";
 import { rankItemTemplates, urlTemplate } from "@/lib/community-operator-import/adapters/html";
-import { defaultOperatorDraftEdit } from "@/lib/community-operator-import/draft-apply";
+import { blocksToCommunityMarkdown, defaultOperatorDraftEdit } from "@/lib/community-operator-import/draft-apply";
 import { nextInboxStatus } from "@/lib/community-operator-import/inbox-store";
 import { carryEditToArticle } from "@/lib/community-operator-import/draft-store";
 import { blockStats, htmlToBlocks, selectBody, unthumbnailUrl } from "@/lib/community-operator-import/normalize";
@@ -164,25 +164,52 @@ describe("content policy", () => {
     expect(effectivePolicy("summary_link", null)).toBe("summary_link");
   });
 
-  it("summary_link publishes thumbnail + lead + source link only", () => {
+  it("summary_link publishes thumbnail + lead only; the source is credited by attribution columns", () => {
     const c = buildPublishContent({ article: a, edit, sourcePolicy: "summary_link", sourceName: "출처", rules: [] });
     expect(c.policy).toBe("summary_link");
     expect(c.imageUrls).toEqual(["https://e.com/1.jpg"]);
-    expect(c.blocks.map((b) => b.type)).toEqual(["image", "paragraph", "link"]);
-    expect(c.blocks[2]).toMatchObject({ type: "link", href: a.canonicalUrl });
+    expect(c.blocks.map((b) => b.type)).toEqual(["image", "paragraph"]);
+    expect(c.blocks[1]).toMatchObject({ type: "paragraph", text: "첫 문장입니다. 둘째 문장입니다." });
     expect(c.attributionUrl).toBe(a.canonicalUrl);
+    expect(c.attributionName).toBe("출처");
   });
 
-  it("full keeps all images and appends attribution", () => {
+  it("full keeps all images and never appends an inline source link", () => {
     const c = buildPublishContent({ article: a, edit, sourcePolicy: "full", sourceName: "출처", rules: [] });
     expect(c.imageUrls).toHaveLength(2);
-    expect(c.blocks.at(-1)).toMatchObject({ type: "link", text: "출처: 출처" });
+    expect(c.blocks.every((b) => b.type === "paragraph" || b.type === "image")).toBe(true);
   });
 
-  it("link_only has no images", () => {
+  it("link_only has no images and one plain line", () => {
     const c = buildPublishContent({ article: a, edit: { ...edit, contentPolicy: "link_only" }, sourcePolicy: "full", sourceName: "출처", rules: [] });
     expect(c.imageUrls).toEqual([]);
     expect(c.blocks).toHaveLength(1);
+    expect(c.blocks[0]!.type).toBe("paragraph");
+  });
+
+  it("community body contract: headings, quotes, lists and links become plain text (no markup)", () => {
+    const rich = article(
+      [
+        { type: "heading", level: 2, text: "소제목" },
+        { type: "quote", text: "인용문" },
+        { type: "list", ordered: false, items: ["하나", "둘"] },
+        { type: "link", href: "https://youtu.be/x", text: "▶ YouTube 영상 보기" },
+        { type: "image", url: "https://e.com/1.jpg", displaySrc: null, alt: null, caption: null },
+      ],
+      { summary: null },
+    );
+    const c = buildPublishContent({ article: rich, edit: { ...defaultOperatorDraftEdit(rich), contentPolicy: "full" }, sourcePolicy: "full", sourceName: "S", rules: [] });
+    const md = blocksToCommunityMarkdown(c.blocks);
+    expect(md).toBe("소제목\n\n인용문\n\n• 하나\n• 둘\n\n▶ YouTube 영상 보기 https://youtu.be/x\n\n![](https://e.com/1.jpg)");
+    // images are the only markup the community body supports; nothing else may remain
+    expect(md.replace(/!\[[^\]]*\]\([^)]*\)/g, "")).not.toMatch(/^#|^>|\]\(https?:/m);
+  });
+
+  it("summary prefers the publisher's per-item summary, then the body lead — never invents text", () => {
+    const withItemSummary = article(blocks, { summary: "피드가 준 요약" });
+    expect(buildPublishContent({ article: withItemSummary, edit, sourcePolicy: "summary_link", sourceName: "S", rules: [] }).blocks[1]).toMatchObject({ text: "피드가 준 요약" });
+    const noText = article([{ type: "image", url: "https://e.com/1.jpg", displaySrc: null, alt: null, caption: null }], { summary: null, title: "제목만" });
+    expect(buildPublishContent({ article: noText, edit: defaultOperatorDraftEdit(noText), sourcePolicy: "summary_link", sourceName: "S", rules: [] }).blocks.at(-1)).toMatchObject({ text: "제목만" });
   });
 
   it("lead summary cuts on a sentence boundary without inventing text", () => {

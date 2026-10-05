@@ -172,6 +172,24 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     draft: { original: article, edit: { ...edit, topicId: meta.id, topicSlug } },
   };
 
+  // Update replaces the post's image rows: remember this post's current copies so the ones no longer
+  // referenced can be removed after the transaction commits (no orphaned copies per update).
+  let previousImagePaths: string[] = [];
+  if (input.mode === "update") {
+    const { data: link } = await sb
+      .from("community_import_post_links")
+      .select("post_id")
+      .match({ source_site: article.sourceSite, source_board: article.sourceBoard, source_article_key: article.sourceArticleKey })
+      .maybeSingle();
+    const linkedPostId = (link as { post_id?: string } | null)?.post_id;
+    if (linkedPostId) {
+      const { data: prevRows } = await sb.from("community_post_images").select("storage_path").eq("post_id", linkedPostId);
+      previousImagePaths = (prevRows ?? [])
+        .map((r) => String((r as { storage_path?: string | null }).storage_path || ""))
+        .filter((path) => path.includes("/community/import/"));
+    }
+  }
+
   const { data, error } = await sb.rpc("community_import_publish", { p: payload });
   if (error) {
     // Nothing was written by the RPC (single transaction): drop the copies made for this attempt.
@@ -185,6 +203,19 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
   }
   const postId = String((data as { post_id?: string } | null)?.post_id || "");
   if (!postId) return fail("publish_readback_failed", "게시 결과를 확인할 수 없습니다.");
+  const keep = new Set(imageRows.map((r) => r.storage_path));
+  const stale = previousImagePaths.filter((path) => !keep.has(path));
+  if (stale.length) {
+    const removed = await Promise.all(
+      stale.map((path) =>
+        removeCanonicalImageAsset({ sb, bucket: "post-images", originalPath: path }).then(
+          () => true,
+          () => false,
+        ),
+      ),
+    );
+    if (removed.includes(false)) warnings.push(`old_image_cleanup_failed: ${removed.filter((x) => !x).length}`);
+  }
   return {
     ok: true,
     postId,

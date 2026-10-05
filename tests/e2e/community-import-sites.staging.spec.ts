@@ -23,6 +23,11 @@ const DB_URL = process.env.STAGING_SUPABASE_URL || "";
 const DB_KEY = process.env.STAGING_SERVICE_ROLE_KEY || "";
 const API = "/api/admin/community/external-import";
 const shot = (page: Page, name: string) => page.screenshot({ path: `ui-shots/${name}.png`, fullPage: true }).catch(() => undefined);
+const confirmDialog = async (page: Page, label: string) => {
+  const dlg = page.getByRole("dialog");
+  await expect(dlg).toBeVisible({ timeout: 15_000 });
+  await dlg.getByRole("button", { name: label, exact: true }).click();
+};
 
 type Site = {
   key: string;
@@ -37,6 +42,9 @@ type Site = {
 
 const SITES: Site[] = [
   { key: "gnuboard", label: "알이즈웰 (그누보드)", url: "https://alabang-zapote.com/madang/", jBoards: "18", board: /정보통|모아모아 뉴스|컬럼/, topicName: /필리핀 ?생할|필리핀 ?생활|필리핀 뉴스/, minBoards: 10 },
+  // Same engine type, used when 알이즈웰 refuses the CI runner (seen from 2026-10-05 12:56 UTC in both the
+  // read-only live probe and this suite); never bypassed.
+  { key: "gnuboard2", label: "필사모 (그누보드)", url: "https://philsamo.com/", jBoards: "-", board: /필리핀 뉴스룸|필리핀 여행/, topicName: /필리핀 뉴스/, minBoards: 10 },
   { key: "wordpress", label: "Our Awesome Planet (WordPress)", url: "https://awesome.blog", jBoards: "15", board: /Restaurant/i, topicName: /맛집/, minBoards: 10 },
   { key: "tistory", label: "필리핀 이모저모 (티스토리)", url: "https://www.phil1234.com/", jBoards: "1", topicName: /필리핀 ?생할|필리핀 ?생활|여행정보/, minBoards: 1 },
   { key: "rss", label: "GMA News (일반 RSS)", url: "https://www.gmanetwork.com/news/rss/", jBoards: "121", board: /Nation|Metro/i, topicName: /필리핀 뉴스/, minBoards: 50 },
@@ -76,7 +84,13 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         await page.getByRole("button", { name: "사이트 분석" }).click();
         const wizard = page.locator("section").filter({ hasText: "새 사이트 등록" });
         const registerBtn = wizard.getByRole("button", { name: /^등록 \(게시판 \d+개 사용\)$/ });
-        await expect(registerBtn.or(wizard.getByText("발견된 게시판이 없습니다."))).toBeVisible({ timeout: 150_000 });
+        await expect(registerBtn.or(wizard.getByText("발견된 게시판이 없습니다.")).first()).toBeVisible({ timeout: 240_000 });
+        if (!(await registerBtn.count())) {
+          const reason = (await wizard.locator("p").first().innerText().catch(() => "")).slice(0, 200);
+          record(tag, "site_unreachable_from_ci", false, `사이트 분석 결과 게시판 0개 — ${reason}`);
+          flush();
+          continue;
+        }
         const boardRows = wizard.locator("table tbody tr");
         const shown = await boardRows.count();
         const names = (await boardRows.locator("td:nth-child(2) .font-medium").allInnerTexts()).slice(0, 12);
@@ -166,6 +180,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         if (await partial.count()) await partial.check();
         const before = await postCount();
         await page.getByRole("button", { name: "DIBAY에 게시" }).click();
+        await confirmDialog(page, "게시");
         await expect(page.getByText(/^(게시 완료|업데이트 완료)/).or(page.locator("p.text-rose-600"))).toBeVisible({ timeout: 150_000 });
         const pubMsg = await page.locator("p.text-emerald-700, p.text-rose-600").last().innerText().catch(() => "");
         const link = (await db.from("community_import_post_links").select("post_id").eq("source_site", sourceId).limit(1)).data?.[0];
@@ -188,26 +203,27 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         const afterPub = await postCount();
         await titleInput.fill(`[J-${site.key} 수정] ${original}`);
         await page.getByRole("button", { name: "게시물 업데이트" }).click();
+        await confirmDialog(page, "업데이트");
         await expect(page.getByText(/^업데이트 완료/)).toBeVisible({ timeout: 150_000 });
         const upd = post ? (await db.from("community_posts").select("id, title").eq("id", post.id).single()).data : null;
         record(tag, "5 update_no_new_post", !!upd && upd.title.startsWith(`[J-${site.key} 수정]`) && (await postCount()) === afterPub, `posts ${afterPub}→${await postCount()} title=${upd?.title}`);
-        if (site.key === "gnuboard" && upd) gnuPost = { id: upd.id, title: upd.title, sourceId };
+        if ((site.key === "gnuboard" || site.key === "gnuboard2") && upd && !gnuPost) gnuPost = { id: upd.id, title: upd.title, sourceId };
       } catch (e) {
         await shot(page, `s-${site.key}-zz-failure`);
-        record(tag, "unexpected_error", false, `${e instanceof Error ? e.message.split("\n")[0] : String(e)} @ ${page.url()}`);
+        record(tag, "unexpected_error", false, `${e instanceof Error ? e.message.replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 6).join(" | ") : String(e)} @ ${page.url()}`);
       }
       flush();
     }
 
     // ── 6 wrong body selector → 「구조 변경 의심」, existing post untouched ──
     if (gnuPost) {
-      const tag = "알이즈웰 (그누보드)";
+      const tag = "그누보드 구조 변경";
       try {
         const beforeCount = await postCount();
         await page.goto("/admin/community/external-import");
         await page.getByRole("tab", { name: "출처·게시판" }).click();
-        const card = page.locator("div.sam-card").filter({ hasText: /alabang|알이즈웰/ }).first();
-        await card.locator("> button").first().click();
+        const card = page.locator(`[data-testid="import-source-card"][data-source-id="${gnuPost.sourceId}"]`);
+        await card.getByTestId("import-source-toggle").click();
         await card.getByRole("button", { name: /^수집 설정/ }).click();
         await card.getByPlaceholder("#ct, .article-body").fill("#old-layout-body");
         await Promise.all([
@@ -233,7 +249,7 @@ test("REPORT L acceptance — 5 new site types through the admin UI", async ({ p
         record(tag, "6 structure_change_flagged_posts_untouched", false, `${e instanceof Error ? e.message.split("\n")[0] : String(e)}`);
       }
     } else {
-      record("알이즈웰 (그누보드)", "6 structure_change_flagged_posts_untouched", false, "그누보드 게시물이 없어 실행하지 못함");
+      record("그누보드 구조 변경", "6 structure_change_flagged_posts_untouched", false, "그누보드 게시물이 없어 실행하지 못함");
     }
   } finally {
     flush();

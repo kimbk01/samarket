@@ -72,7 +72,7 @@ describe("gnuboard adapter", () => {
   it("reads attachment images (view-img) before the body and keeps text", async () => {
     const url = "https://gnu.example.com/madang/bbs/board.php?bo_table=info&wr_id=71";
     routes[url] = {
-      body: `<html><head><meta property="og:title" content="오카다 마닐라 후기"></head><body>
+      body: `<html><head><meta property="og:title" content="오카다 마닐라 후기"><meta name="description" content="사이트 전체 소개문입니다"></head><body>
         <div id="bo_v_info"><span class="sv_member">작성자</span><strong class="if_date">26-10-05 12:30</strong></div>
         <div class="view-img">
           <a class="view_image" href="../bbs/view_image.php?fn=%2Fmadang%2Fdata%2Ffile%2Finfo%2Fbig1.jpg"><img src="/madang/data/file/info/thumb-big1_600x400.jpg"></a>
@@ -88,6 +88,8 @@ describe("gnuboard adapter", () => {
     expect(JSON.stringify(a.orderedContentBlocks)).not.toContain("공유");
     expect(a.title).toBe("오카다 마닐라 후기");
     expect(a.extraction?.bodySource).toBe("div.view-content");
+    // the page-wide meta description is never taken as the article summary
+    expect(a.summary).toBeNull();
     expect(assessArticleQuality(a).verdict).toBe("FULL");
   });
 });
