@@ -108,6 +108,8 @@ export async function POST(req: NextRequest) {
     name?: string;
     accountType?: string;
     contactPhone?: string;
+    /** @deprecated alias — prefer contactPhone */
+    phone?: string;
     contactAddress?: string;
     regionCode?: string;
     cityCode?: string;
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const memberType = "normal";
-  const contactPhoneRaw = String(body.contactPhone ?? "").trim();
+  const contactPhoneRaw = String(body.contactPhone ?? (body as { phone?: string }).phone ?? "").trim();
   const contactAddressRaw = String(body.contactAddress ?? "").trim();
   const regionIdLegacy = String(body.regionCode ?? "").trim();
   const cityIdLegacy = String(body.cityCode ?? "").trim();

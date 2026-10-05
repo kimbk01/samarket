@@ -15,6 +15,8 @@ import {
 } from "@/lib/admin-users/member-list-presentation";
 import { memberAdminCtaClass } from "@/lib/admin-users/member-admin-visual-ssot";
 import { AdminUserListPagination } from "./AdminUserListPagination";
+import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
+import { AdminMemberListBulkBar } from "./AdminMemberListBulkBar";
 import {
   displayNameForAdminUser,
   formatAdminLiteDate,
@@ -23,9 +25,11 @@ import {
   statusBadgeClass,
   statusCategoryForAdminUser,
 } from "./admin-user-lite-display";
-import type { AdminUser } from "@/lib/types/admin-user";
+import type { AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
 import {
+  AdminManagementSelectionCheckbox,
   AdminManagementTableViewport,
+  useAdminManagementSelection,
 } from "@/components/admin/management";
 import {
   computeTableMinWidthPx,
@@ -42,6 +46,7 @@ interface AdminUserTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onViewDetail: (user: AdminUser) => void;
+  onSelectionActionCompleted?: () => void;
   onHorizontalScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
@@ -49,11 +54,21 @@ function stopRowNav(e: React.SyntheticEvent) {
   e.stopPropagation();
 }
 
+function resolveProvider(user: AdminUser): AdminAuthProvider {
+  const p = String(user.authProvider ?? "").trim().toLowerCase();
+  if (p === "kakao" || p === "google" || p === "apple" || p === "email" || p === "manual") return p;
+  return "unknown" as AdminAuthProvider;
+}
+
 const AdminUserTableRow = memo(function AdminUserTableRow({
   user,
+  selected,
+  onToggleSelect,
   onViewDetail,
 }: {
   user: AdminUser;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onViewDetail: (user: AdminUser) => void;
 }) {
   const emptyCell = "—";
@@ -71,6 +86,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   const copyId = publicId || user.id;
   const phone = user.phone?.trim() || "";
   const contactEmail = user.email?.trim() || "";
+  const provider = resolveProvider(user);
 
   return (
     <tr
@@ -79,7 +95,16 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       data-member-list-row="1"
       data-member-status={status}
       data-member-verified={user.phoneVerified === true ? "1" : "0"}
+      data-member-selected={selected ? "1" : "0"}
     >
+      <td className="px-3 py-2" style={managementColumnStyle("SELECTION")} onClick={stopRowNav}>
+        <AdminManagementSelectionCheckbox
+          role="row"
+          checked={selected}
+          onToggle={() => onToggleSelect(user.id)}
+          aria-label={`${display} 선택`}
+        />
+      </td>
       <td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-xs font-bold text-[#2563eb]">
@@ -130,7 +155,12 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="whitespace-nowrap px-3 py-2 text-[#344054]" data-member-list-privilege="1">
         {privilege}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-[#344054]">{origin}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-[#344054]" data-member-list-origin="1">
+        <span className="inline-flex items-center gap-1.5">
+          <AdminUserProviderIcon provider={provider} />
+          <span>{origin}</span>
+        </span>
+      </td>
       <td className="whitespace-nowrap px-3 py-2 text-[13px] tabular-nums text-[#475467]">
         {formatAdminLiteDateTime(user.lastSignInAt, "ko-KR", emptyCell)}
       </td>
@@ -156,18 +186,22 @@ AdminUserTableRow.displayName = "AdminUserTableRow";
 export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(function AdminUserTable(
   {
     users,
-    queryScopeKey: _queryScopeKey,
+    queryScopeKey,
     totalItems,
     page,
     pageSize,
     onPageChange,
     onPageSizeChange,
     onViewDetail,
+    onSelectionActionCompleted,
     onHorizontalScroll,
   },
   ref,
 ) {
+  const selectableIds = users.map((u) => u.id);
+  const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
   const tableMinWidth = computeTableMinWidthPx([
+    "SELECTION",
     "TITLE",
     "IDENTITY",
     "METADATA",
@@ -187,14 +221,29 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
       onHorizontalScroll={onHorizontalScroll}
       className="rounded-lg border-[#e4e7ec]"
     >
+      <AdminMemberListBulkBar
+        selectedIds={[...selection.selected]}
+        users={users}
+        onClear={selection.clear}
+        onCompleted={onSelectionActionCompleted}
+      />
       <table
         className="w-full border-collapse text-[13px]"
         style={{ minWidth: tableMinWidth }}
         data-admin-mgmt-table-min-width={String(tableMinWidth)}
         data-member-list-table="1"
+        data-member-list-selection="1"
       >
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase tracking-wide text-[#475467]">
+            <th className="px-3 py-2" style={managementColumnStyle("SELECTION")}>
+              <AdminManagementSelectionCheckbox
+                role="header"
+                state={selection.headerState}
+                onToggle={selection.toggleAll}
+                aria-label="현재 페이지 전체 선택"
+              />
+            </th>
             <th className="px-3 py-2" style={managementColumnStyle("TITLE")}>
               회원
             </th>
@@ -212,7 +261,13 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
         </thead>
         <tbody>
           {users.map((u) => (
-            <AdminUserTableRow key={u.id} user={u} onViewDetail={onViewDetail} />
+            <AdminUserTableRow
+              key={u.id}
+              user={u}
+              selected={selection.isSelected(u.id)}
+              onToggleSelect={selection.toggleRow}
+              onViewDetail={onViewDetail}
+            />
           ))}
         </tbody>
       </table>

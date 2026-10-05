@@ -74,7 +74,7 @@ describe("R1 Capability catalog guard", () => {
     }
   });
 
-  it("does not claim REGRESSED moderation CAPs as final YES", () => {
+  it("does not claim moderation CAPs as final YES until L4 PASS", () => {
     for (const row of MEMBER_ADMIN_CAPABILITY_CATALOG.filter((r) =>
       ["CAP-WARN", "CAP-SUSPEND", "CAP-BLOCK", "CAP-WITHDRAW", "CAP-PURGE"].includes(r.id),
     )) {

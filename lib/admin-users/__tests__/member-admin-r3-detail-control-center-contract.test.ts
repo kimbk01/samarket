@@ -127,6 +127,10 @@ describe("R3 Member Detail Control Center IA", () => {
     expect(header).toMatch(/data-member-cta-cap="CAP-PASSWORD"/);
     expect(header).toMatch(/data-member-cta-cap="CAP-VERIFY-VIEW"/);
     expect(header).toMatch(/data-member-cta-cap="CAP-PRIV-VIEW"/);
+    expect(header).toMatch(/setShowPrivilegeView\(true\)/);
+    expect(header).toMatch(/mode="view"/);
+    expect(header).not.toMatch(/privilege_view"[\s\S]*onOpenTab\?\.\("overview"\)/);
+    expect(header).not.toMatch(/data-member-cta="privilege_view"[\s\S]{0,120}onOpenTab\?\.\("overview"\)/);
   });
 
   it("maps every Detail CTA to a catalog CAP with target phase", () => {
@@ -262,18 +266,12 @@ describe("R3 Member Detail Control Center IA", () => {
   });
 
 
-  it("Ops contact: CAP-MSG-SUPPORT not rendered as executable note CTA", () => {
+  it("Ops contact: CAP-MSG-SUPPORT note send restored (Owner FULL SSOT)", () => {
     const ops = src("components/admin/users/AdminMemberOpsPanel.tsx");
-    expect(ops).not.toContain("쪽지 보내기");
-    expect(ops).not.toContain('admin_users_cc_cta_send_note');
-    expect(ops).not.toContain("/api/admin/member-notes");
-    expect(ops).not.toContain("memberInquiryAdminHref");
-    expect(ops).toMatch(/MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO/);
-    expect(MEMBER_DETAIL_SUPPORT_MESSAGE_DEFERRED_KO).toBe("Support 워크플로에서 제공 (R8)");
-    expect(ops).toMatch(/data-member-support-deferred/);
-    expect(ops).toMatch(/CAP-MSG-MESSENGER/);
-    expect(findPlaceholderFinalCopy(ops)).toEqual([]);
-    expect(ops).not.toContain("표시만");
+    expect(ops).toContain("쪽지 보내기");
+    expect(ops).toContain("admin_users_cc_cta_send_note");
+    expect(ops).toContain("/api/admin/member-notes");
+    expect(ops).toContain('data-member-cta-cap="CAP-MSG-SUPPORT"');
   });
 
   it("R2 list contract file still free of 표시만", () => {

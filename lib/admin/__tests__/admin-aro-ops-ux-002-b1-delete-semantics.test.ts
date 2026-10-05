@@ -95,9 +95,8 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
     expect(comments).not.toContain("bulk-delete");
   });
 
-  it("B1-11/B1-12 protected entities: Member/Store/Order/Settlement hard blocked", () => {
+  it("B1-11/B1-12 protected entities: Store/Order/Settlement hard blocked; Member purge gated", () => {
     for (const p of [
-      MEMBER_ENTITY_ACTION_POLICY,
       STORE_ENTITY_ACTION_POLICY,
       ORDER_ENTITY_ACTION_POLICY,
       SETTLEMENT_ENTITY_ACTION_POLICY,
@@ -107,6 +106,10 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
       expect(isBulkActionAllowed(p, "hard_delete")).toBe(false);
       expect(p.hardConfirmMode).toBe("blocked");
     }
+    // Owner FULL SSOT: member purge allowed via dedicated /delete + strong confirm (not generic wipe).
+    expect(MEMBER_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
+    expect(MEMBER_ENTITY_ACTION_POLICY.hardConfirmMode).toBe("strong_danger_confirm");
+    expect(MEMBER_ENTITY_ACTION_POLICY.hardMutationOwner).toMatch(/mode=purge/);
   });
 
   it("B1-13/B1-14 shared policy owner only — no parallel delete system invented in UI", () => {

@@ -5,11 +5,21 @@ import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
 
-type ConfirmAction = "approve" | "reset" | null;
+type PhoneStatus = "unverified" | "pending" | "verified" | "rejected";
+type ConfirmAction = "approve" | "reset" | "set_status" | null;
 
-function isVerified(phoneVerified?: boolean, status?: string | null): boolean {
-  if (phoneVerified === true) return true;
-  return String(status ?? "").toLowerCase() === "verified";
+const STATUS_OPTIONS: { value: PhoneStatus; labelKo: string }[] = [
+  { value: "unverified", labelKo: "미인증" },
+  { value: "pending", labelKo: "인증 대기" },
+  { value: "verified", labelKo: "인증 완료" },
+  { value: "rejected", labelKo: "인증 거절" },
+];
+
+function normalizeStatus(phoneVerified?: boolean, status?: string | null): PhoneStatus {
+  if (phoneVerified === true) return "verified";
+  const s = String(status ?? "").toLowerCase();
+  if (s === "pending" || s === "rejected" || s === "verified" || s === "unverified") return s;
+  return "unverified";
 }
 
 export function AdminMemberVerificationDialog({
@@ -32,23 +42,28 @@ export function AdminMemberVerificationDialog({
   onSuccess?: () => void;
 }) {
   const [phoneValue, setPhoneValue] = useState(phone ?? "");
+  const [statusValue, setStatusValue] = useState<PhoneStatus>(() =>
+    normalizeStatus(phoneVerified, verificationStatus),
+  );
   const [pending, setPending] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmAction>(null);
 
-  const verified = isVerified(phoneVerified, verificationStatus);
+  const initialStatus = normalizeStatus(phoneVerified, verificationStatus);
 
   useEffect(() => {
     if (!open) return;
     setPhoneValue(phone ?? "");
+    setStatusValue(normalizeStatus(phoneVerified, verificationStatus));
     setErrorText(null);
     setPending(false);
     setConfirm(null);
   }, [open, phone, phoneVerified, verificationStatus]);
 
   const phoneDirty = phoneValue.trim() !== (phone ?? "").trim();
-  const canApprove = !verified && phoneValue.trim().length > 0;
-  const canReset = verified;
+  const statusDirty = statusValue !== initialStatus;
+  const canApprove = statusValue !== "verified" && phoneValue.trim().length > 0;
+  const canReset = initialStatus === "verified";
 
   const targetLabel = useMemo(() => {
     const id = adminMemberPublicIdAt(publicId);
@@ -85,9 +100,9 @@ export function AdminMemberVerificationDialog({
     }
   };
 
-  const runVerifyAction = async (action: "approve" | "reset") => {
+  const runVerifyAction = async (action: "approve" | "reset" | "set_status") => {
     setErrorText(null);
-    if (action === "approve" && !phoneValue.trim()) {
+    if ((action === "approve" || (action === "set_status" && statusValue === "verified")) && !phoneValue.trim()) {
       setErrorText(MEMBER_ADMIN_COPY.verify_no_phone_for_approve);
       setConfirm(null);
       return;
@@ -102,16 +117,22 @@ export function AdminMemberVerificationDialog({
           return;
         }
       }
+      const body =
+        action === "set_status"
+          ? { action: "set_status", status: statusValue }
+          : { action };
       const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/phone-verification`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
         if (res.status === 401 || res.status === 403) {
           setErrorText("이 작업을 수행할 권한이 없습니다.");
+        } else if (data.error === "phone_required") {
+          setErrorText(MEMBER_ADMIN_COPY.verify_no_phone_for_approve);
         } else {
           setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
         }
@@ -132,30 +153,40 @@ export function AdminMemberVerificationDialog({
   if (!open) return null;
 
   if (confirm) {
+    const title =
+      confirm === "approve"
+        ? MEMBER_ADMIN_COPY.verify_approve_confirm_title
+        : confirm === "reset"
+          ? MEMBER_ADMIN_COPY.verify_reset_confirm_title
+          : "전화 인증 상태를 변경할까요?";
+    const body =
+      confirm === "approve"
+        ? `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_approve_confirm_body}`
+        : confirm === "reset"
+          ? `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_reset_confirm_body}`
+          : `${targetLabel} — 상태를 「${STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue}」로 저장합니다.`;
     return (
       <MemberAdminDialog
         open
-        title={
-          confirm === "approve"
-            ? MEMBER_ADMIN_COPY.verify_approve_confirm_title
-            : MEMBER_ADMIN_COPY.verify_reset_confirm_title
-        }
-        description={
-          confirm === "approve"
-            ? `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_approve_confirm_body}`
-            : `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_reset_confirm_body}`
-        }
+        title={title}
+        description={body}
         size="small"
         tone="default"
         pending={pending}
         errorText={errorText}
-        primaryLabel={confirm === "approve" ? MEMBER_ADMIN_COPY.verify_approve : MEMBER_ADMIN_COPY.verify_reset}
+        primaryLabel={
+          confirm === "approve"
+            ? MEMBER_ADMIN_COPY.verify_approve
+            : confirm === "reset"
+              ? MEMBER_ADMIN_COPY.verify_reset
+              : "상태 저장"
+        }
         onCancel={() => setConfirm(null)}
         onPrimary={() => void runVerifyAction(confirm)}
       >
         <div data-member-verify-confirm={confirm}>
           <p className="text-[13px] text-[#475467]">
-            현재 상태: {verified ? MEMBER_ADMIN_COPY.verify_status_done : MEMBER_ADMIN_COPY.verify_status_pending}
+            현재 선택: {STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue}
           </p>
         </div>
       </MemberAdminDialog>
@@ -167,13 +198,17 @@ export function AdminMemberVerificationDialog({
       open={open}
       title={MEMBER_ADMIN_COPY.verify_manage_title}
       size="standard"
-      dirty={phoneDirty}
+      dirty={phoneDirty || statusDirty}
       pending={pending}
       errorText={errorText}
-      primaryLabel={phoneDirty ? MEMBER_ADMIN_COPY.verify_save_phone : "닫기"}
+      primaryLabel={phoneDirty && !statusDirty ? MEMBER_ADMIN_COPY.verify_save_phone : statusDirty ? "상태 저장" : "닫기"}
       primaryDisabled={false}
       onCancel={onClose}
       onPrimary={() => {
+        if (statusDirty) {
+          setConfirm("set_status");
+          return;
+        }
         if (phoneDirty) void savePhone();
         else onClose();
       }}
@@ -188,15 +223,21 @@ export function AdminMemberVerificationDialog({
             data-member-verify-phone-input="1"
           />
         </label>
-        <div>
-          <p className="mb-1 text-[13px] text-[#667085]">{MEMBER_ADMIN_COPY.verify_status_label}</p>
-          <p
-            className="text-sm font-semibold text-[#101828]"
-            data-member-verify-status={verified ? "verified" : "unverified"}
+        <label className="block text-[13px]">
+          <span className="mb-1 block text-[#667085]">{MEMBER_ADMIN_COPY.verify_status_label}</span>
+          <select
+            className="w-full rounded-md border border-[#d0d5dd] px-3 py-2"
+            value={statusValue}
+            onChange={(e) => setStatusValue(e.target.value as PhoneStatus)}
+            data-member-verify-status-select="1"
           >
-            {verified ? MEMBER_ADMIN_COPY.verify_status_done : MEMBER_ADMIN_COPY.verify_status_pending}
-          </p>
-        </div>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.labelKo}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex flex-wrap gap-2" data-member-verify-actions="1">
           {canApprove ? (
             <button

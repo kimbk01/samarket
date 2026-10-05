@@ -125,6 +125,7 @@ export async function PATCH(
 
   const targetGuard = await assertMemberPasswordChangeAllowed(gate.sb, {
     targetUserId: userId,
+    actorUserId: gate.actor.userId,
     actorIsSuperAdmin: gate.actor.isSuperAdmin,
   });
   if (!targetGuard.ok) {
@@ -151,6 +152,8 @@ export async function PATCH(
             ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
             : targetGuard.error === "membership_unavailable"
               ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+              : targetGuard.error === "forbidden_other_super_admin_target"
+                ? "다른 최고 관리자 비밀번호는 변경할 수 없습니다."
               : undefined,
       },
       { status: targetGuard.status },

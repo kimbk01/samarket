@@ -45,7 +45,10 @@ export async function adminFetch(url: string, init?: AdminFetchInit): Promise<Re
     }
   }
 
-  return runSingleFlight(dedupeKey, async () => {
+  // Single-flight shares one Promise across waiters. Each waiter must receive its own
+  // Response clone — otherwise the first `res.json()` consumes the body and later
+  // waiters parse `{}` (empty list) while the network payload was actually fine.
+  const shared = runSingleFlight(dedupeKey, async () => {
     logAdminApiCall(dedupeKey);
     const res = await fetch(url, init);
     if (method === "GET" && cacheTtlMs > 0 && res.ok) {
@@ -57,6 +60,7 @@ export async function adminFetch(url: string, init?: AdminFetchInit): Promise<Re
     }
     return res;
   });
+  return shared.then((res) => res.clone());
 }
 
 /** 저장·승인 등 mutation 직후 관련 GET·query 캐시 무효화 */

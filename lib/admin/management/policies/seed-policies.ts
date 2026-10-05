@@ -21,21 +21,25 @@ export const TRADE_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   hardConfirmMode: "strong_danger_confirm",
 };
 
-/** Member list: no generic bulk hard-delete. Deletion-request queue is separate. */
+/**
+ * Member list bulk — Owner FULL SSOT (2026-10).
+ * Mutations go through existing /moderation and /delete APIs via AdminMemberListBulkBar
+ * (not a generic wipe). Hard purge requires strong confirm + per-id results.
+ */
 export const MEMBER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "member",
-  canDelete: false,
-  deleteMode: "BLOCKED",
+  canDelete: true,
+  deleteMode: "HARD_DELETE",
   canHide: false,
-  canRestore: false,
-  canSoftDelete: false,
+  canRestore: true,
+  canSoftDelete: true,
   canChangeStatus: true,
-  allowedBulkActions: [],
-  hardDeleteAvailable: false,
-  softMutationOwner: null,
-  hardMutationOwner: null,
-  softConfirmMode: "blocked",
-  hardConfirmMode: "blocked",
+  allowedBulkActions: ["change_status", "restore", "soft_delete", "hard_delete"],
+  hardDeleteAvailable: true,
+  softMutationOwner: "POST /api/admin/users/:id/delete?mode=withdraw",
+  hardMutationOwner: "POST /api/admin/users/:id/delete?mode=purge",
+  softConfirmMode: "danger_confirm",
+  hardConfirmMode: "strong_danger_confirm",
 };
 
 /** Store — finance/order dependency; no list hard wipe. */

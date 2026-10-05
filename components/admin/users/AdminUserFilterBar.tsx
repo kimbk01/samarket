@@ -15,6 +15,7 @@ import type {
   AdminMemberStoreFilter,
   AdminMemberVerifyFilter,
 } from "@/lib/admin-users/admin-member-list-query";
+import type { MemberListSortId } from "@/lib/admin-users/member-list-presentation";
 import {
   ADMIN_USERS_LITE_BTN_PRIMARY,
   ADMIN_USERS_LITE_CARD,
@@ -36,6 +37,12 @@ interface AdminUserFilterBarProps {
   onPrivilegeFilterChange: (value: AdminMemberPrivilegeFilter | "") => void;
   originFilter: AdminMemberOriginFilter | "";
   onOriginFilterChange: (value: AdminMemberOriginFilter | "") => void;
+  joinedFrom: string;
+  onJoinedFromChange: (value: string) => void;
+  joinedTo: string;
+  onJoinedToChange: (value: string) => void;
+  sort: MemberListSortId;
+  onSortChange: (value: MemberListSortId) => void;
   loading?: boolean;
 }
 
@@ -57,6 +64,12 @@ export function AdminUserFilterBar({
   onPrivilegeFilterChange,
   originFilter,
   onOriginFilterChange,
+  joinedFrom,
+  onJoinedFromChange,
+  joinedTo,
+  onJoinedToChange,
+  sort,
+  onSortChange,
   loading = false,
 }: AdminUserFilterBarProps) {
   return (
@@ -67,7 +80,7 @@ export function AdminUserFilterBar({
         onSearchSubmit();
       }}
       data-member-list-filter-bar="1"
-      data-member-list-filter-axes="status,verify,store,privilege,origin"
+      data-member-list-filter-axes="status,verify,store,privilege,origin,joined,sort"
     >
       <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative min-w-0 flex-1">
@@ -160,6 +173,38 @@ export function AdminUserFilterBar({
           <option value="manual">{memberListOriginFilterLabelKo("manual")}</option>
           <option value="kakao">{memberListOriginFilterLabelKo("kakao")}</option>
           <option value="other">{memberListOriginFilterLabelKo("other")}</option>
+        </select>
+        <label className="flex w-full flex-col gap-1 text-[11px] font-semibold text-[#667085] sm:w-auto">
+          가입일 시작
+          <input
+            type="date"
+            value={joinedFrom}
+            onChange={(e) => onJoinedFromChange(e.target.value)}
+            className={selectClass}
+            data-member-list-filter="joinedFrom"
+          />
+        </label>
+        <label className="flex w-full flex-col gap-1 text-[11px] font-semibold text-[#667085] sm:w-auto">
+          가입일 종료
+          <input
+            type="date"
+            value={joinedTo}
+            onChange={(e) => onJoinedToChange(e.target.value)}
+            className={selectClass}
+            data-member-list-filter="joinedTo"
+          />
+        </label>
+        <select
+          value={sort}
+          onChange={(e) => onSortChange(e.target.value as MemberListSortId)}
+          className={selectClass}
+          aria-label="정렬"
+          data-member-list-filter="sort"
+        >
+          <option value="created_at_desc">가입일 ↓</option>
+          <option value="created_at_asc">가입일 ↑</option>
+          <option value="last_login_desc">최근 로그인 ↓</option>
+          <option value="last_login_asc">최근 로그인 ↑</option>
         </select>
       </div>
     </form>

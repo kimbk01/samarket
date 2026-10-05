@@ -73,3 +73,40 @@ export function formatProfilePhoneForDisplay(row: ProfilePhoneRowSlice): string 
   if (!db09) return "";
   return formatPhMobileDisplayPlus63(db09);
 }
+
+export type AdminPhoneVerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+
+/** Admin 4-state status set (manual). verified uses same gate fields as approve. */
+export function buildPhoneVerificationStatusPatch(input: {
+  status: AdminPhoneVerificationStatus;
+  phoneRow?: ProfilePhoneRowSlice | null;
+  nowIso?: string;
+}): Record<string, unknown> {
+  const status = input.status;
+  if (status === "verified") {
+    return buildPhoneVerifiedMemberPatch({
+      method: "admin_manual",
+      phoneRow: input.phoneRow,
+      nowIso: input.nowIso,
+    });
+  }
+  if (status === "unverified") {
+    return buildPhoneVerificationResetPatch(input.nowIso);
+  }
+  const ts = input.nowIso ?? new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    phone_verified: false,
+    phone_verified_at: null,
+    phone_verification_status: status,
+    phone_verification_method: "admin_manual",
+    member_status: "pending",
+    verified_member_at: null,
+    updated_at: ts,
+  };
+  const resolved = input.phoneRow ? resolveProfilePhoneDb09(input.phoneRow) : null;
+  if (resolved) {
+    Object.assign(patch, profilePhoneStorageFieldsFromDb09(resolved));
+  }
+  return patch;
+}
+

@@ -228,7 +228,7 @@ export const MEMBER_DETAIL_CTA_CAPABILITY_MAP: readonly MemberDetailCtaCapabilit
     capId: "CAP-PRIV-VIEW",
     currentState: "YES",
     targetPhase: "R6",
-    handlerOrRoute: "overview privilege section / badge (mutation R6)",
+    handlerOrRoute: "AdminMemberPrivilegeDialog mode=view (CAP-PRIV-VIEW); mutation CTAs separate R6",
     executableInR3: true,
   },
   {

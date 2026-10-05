@@ -31,6 +31,7 @@ export const MEMBER_ADMIN_COPY = {
   moderation: "신고·제재",
   warn: "경고 등록",
   cancel: "취소",
+  confirm: "확인",
   save_changes: "변경사항 저장",
   continue_editing: "계속 수정",
   discard_changes: "변경사항 버리기",

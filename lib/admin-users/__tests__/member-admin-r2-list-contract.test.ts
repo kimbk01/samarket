@@ -89,7 +89,7 @@ describe("R2 member list — columns and identity", () => {
     expect(table).not.toContain("관계");
     expect(table).not.toContain("회원 구분");
     expect(table).not.toContain("표시만");
-    expect(table).not.toContain("AdminManagementSelectionCheckbox");
+    expect(table).toContain("AdminManagementSelectionCheckbox");
     expect(filter).not.toContain("관계 전체");
     expect(filter).toContain('data-member-list-filter="status"');
     expect(filter).toContain('data-member-list-filter="verify"');
@@ -176,6 +176,9 @@ describe("R2 member list — URL state authority", () => {
       store: "has_store",
       privilege: "admin",
       origin: "kakao",
+      joinedFrom: "",
+      joinedTo: "",
+      sort: "created_at_desc",
       page: 2,
       pageSize: 20,
     });
@@ -188,6 +191,9 @@ describe("R2 member list — URL state authority", () => {
       store: "has_store",
       privilege: "admin",
       origin: "kakao",
+      joinedFrom: "",
+      joinedTo: "",
+      sort: "created_at_desc",
       page: 2,
       pageSize: 20,
     });
@@ -205,6 +211,8 @@ describe("R2 member list — API / UI wiring", () => {
     expect(route).toContain('searchParams.get("store")');
     expect(route).toContain('searchParams.get("privilege")');
     expect(route).toContain('searchParams.get("origin")');
+    expect(route).toContain('searchParams.get("joinedFrom")');
+    expect(route).toContain('searchParams.get("sort")');
     expect(route).not.toContain("parseAdminMemberRelationFilter");
     expect(route).toContain("Account state is independent of verification");
   });

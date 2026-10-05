@@ -25,7 +25,8 @@ interface EditAdminFormProps {
 
 export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProps) {
   const { t } = useI18n();
-  const { isSuperAdmin } = useAdminMe();
+  const { isSuperAdmin, snapshot } = useAdminMe();
+  const isSelfStaff = Boolean(snapshot?.userId && snapshot.userId === staffId);
   const [staff, setStaff] = useState<AdminStaff | null>(null);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -39,21 +40,37 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
   useEffect(() => {
     let cancelled = false;
     setLoadingStaff(true);
-    void fetchAdminStaffList().then((list) => {
-      if (cancelled) return;
-      const found = list.find((s) => s.id === staffId) ?? null;
-      setStaff(found);
-      if (found) {
-        setDisplayName(found.displayName);
-        setRole(found.role);
-        setPermissions([...found.permissions]);
-      }
-      setLoadingStaff(false);
-    });
+    setError(null);
+    void fetchAdminStaffList()
+      .then((list) => {
+        if (cancelled) return;
+        const found = list.find((s) => s.id === staffId) ?? null;
+        setStaff(found);
+        if (found) {
+          setDisplayName(found.displayName);
+          setRole(found.role);
+          setPermissions([...found.permissions]);
+        } else {
+          setError(t("admin_users_form_staff_not_found"));
+        }
+        setLoadingStaff(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setStaff(null);
+        const key = err instanceof Error ? err.message : "admin_users_error_fetch_failed";
+        const known = new Set([
+          "admin_users_error_login_required",
+          "admin_users_error_admin_only",
+          "admin_users_error_fetch_failed",
+        ]);
+        setError(known.has(key) ? t(key as MessageKey) : t("admin_users_error_fetch_failed"));
+        setLoadingStaff(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [staffId]);
+  }, [staffId, t]);
 
   const togglePermission = useCallback((key: AdminPermissionKey) => {
     setPermissions((prev) =>
@@ -81,7 +98,11 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
       setError(t("admin_users_err_display_name_max"));
       return;
     }
-    if (staff.role !== "master" && (newPassword || confirmPassword)) {
+    const canSetPassword =
+      isSuperAdmin &&
+      (staff.role !== "master" || isSelfStaff) &&
+      Boolean(newPassword || confirmPassword);
+    if (canSetPassword) {
       if (newPassword.length < 4) {
         setError(t("admin_users_err_password_min"));
         return;
@@ -97,7 +118,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
       displayName: displayName.trim(),
       role: staff.role === "master" ? undefined : role,
       permissions: staff.role === "master" ? undefined : permissions,
-      ...(staff.role !== "master" && newPassword ? { password: newPassword } : {}),
+      ...(canSetPassword && newPassword ? { password: newPassword } : {}),
     });
     setSubmitting(false);
 
@@ -197,7 +218,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
           </div>
         ) : null}
 
-        {staff.role !== "master" ? (
+        {isSuperAdmin && (staff.role !== "master" || isSelfStaff) ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-[13px] font-medium text-[#1E3932]">{t("admin_users_label_password")}</label>

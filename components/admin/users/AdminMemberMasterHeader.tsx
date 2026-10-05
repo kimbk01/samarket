@@ -34,6 +34,7 @@ import { AdminMemberStoreRelationDialog } from "./AdminMemberStoreRelationDialog
 import { AdminMemberPrivilegeDialog } from "./AdminMemberPrivilegeDialog";
 import {
   memberPrivilegePresentationFromMembership,
+  resolveMemberPrivilegeActionPolicy,
   type MemberPrivilegeMutationOp,
 } from "@/lib/admin-users/member-admin-privilege-ssot";
 import { MEMBER_STORE_RELATION_COPY, resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
@@ -113,6 +114,7 @@ export function AdminMemberMasterHeader({
   const [showVerify, setShowVerify] = useState(false);
   const [showStoreRel, setShowStoreRel] = useState(false);
   const [showPrivilege, setShowPrivilege] = useState(false);
+  const [showPrivilegeView, setShowPrivilegeView] = useState(false);
   const [showStaffEdit, setShowStaffEdit] = useState(false);
   const [passwordResetSupported, setPasswordResetSupported] = useState(false);
   const [showSystemKey, setShowSystemKey] = useState(false);
@@ -128,6 +130,8 @@ export function AdminMemberMasterHeader({
   });
 
   useEffect(() => {
+    // Wait for admin me session; early auth GET can 401 and stick password CTA off.
+    if (meLoading) return;
     let cancelled = false;
     (async () => {
       try {
@@ -135,6 +139,10 @@ export function AdminMemberMasterHeader({
           credentials: "include",
           cache: "no-store",
         });
+        if (!res.ok) {
+          if (!cancelled) setPasswordResetSupported(false);
+          return;
+        }
         const data = (await res.json().catch(() => ({}))) as { passwordResetSupported?: boolean };
         if (!cancelled) setPasswordResetSupported(data.passwordResetSupported === true);
       } catch {
@@ -144,7 +152,7 @@ export function AdminMemberMasterHeader({
     return () => {
       cancelled = true;
     };
-  }, [user.id]);
+  }, [user.id, meLoading, snapshot?.userId]);
   const phone = formatPhMobileDisplay(user.contact_phone ?? "") || user.contact_phone?.trim() || empty;
 
   const canManageMember = isSuperAdmin || hasPermission("users");
@@ -185,24 +193,42 @@ export function AdminMemberMasterHeader({
 
   const primary = memberDetailPrimaryActions(decisions);
   const canEdit = Boolean(primary.editProfile?.visible && primary.editProfile.enabled);
-  const canPassword = Boolean(primary.managePassword?.visible && primary.managePassword.enabled);
   const privilegeDecision = primary.managePrivilege;
   const canPrivilegeMutate = Boolean(privilegeDecision?.visible && privilegeDecision.enabled);
   const privilegePresentation = memberPrivilegePresentationFromMembership({
     hasActiveAdminMembership: isAdmin,
     role: membershipRole,
   });
+  // G9: SA → general admin staff settings via EditAdminForm.
+  // Super Admin targets: restore staff edit (display name + self password only; role/permissions protected).
+  // Not mixed with member S16 for general admin; list AdminStaffTable remains unmounted (P2).
+  const isSelfOperator = Boolean(snapshot?.userId && snapshot.userId === user.id);
   const privilegeOp: MemberPrivilegeMutationOp | null =
     privilegePresentation === "admin"
       ? "revoke"
       : privilegePresentation === "member"
         ? "promote"
         : null;
-  // G9: SA → general admin staff settings (incl. password) via existing EditAdminForm.
-  // Not mixed with member S16; list AdminStaffTable remains unmounted (P2).
-  const isSelfOperator = Boolean(snapshot?.userId && snapshot.userId === user.id);
+  /** CAP-PRIV-VIEW — status dialog (never a no-op tab switch). */
+  const privilegeViewDecision = resolveMemberPrivilegeActionPolicy({
+    canManagePrivilege: isSuperAdmin,
+    isSelf: isSelfOperator,
+    targetPresentation: privilegePresentation,
+  });
+  const canPassword = Boolean(
+    (primary.managePassword?.visible && primary.managePassword.enabled) ||
+      (!meLoading &&
+        passwordResetSupported &&
+        isSuperAdmin &&
+        privilegePresentation === "super_admin" &&
+        isSelfOperator),
+  );
   const canEditStaff = Boolean(
-    isSuperAdmin && !meLoading && privilegePresentation === "admin" && !isSelfOperator,
+    isSuperAdmin &&
+      !meLoading &&
+      (privilegePresentation === "admin"
+        ? !isSelfOperator
+        : privilegePresentation === "super_admin"),
   );
 
   return (
@@ -396,7 +422,7 @@ export function AdminMemberMasterHeader({
           <button
             type="button"
             className={memberAdminCtaClass("tertiary")}
-            onClick={() => onOpenTab?.("overview")}
+            onClick={() => setShowPrivilegeView(true)}
             data-member-cta="privilege_view"
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-PRIV-VIEW"
@@ -443,9 +469,20 @@ export function AdminMemberMasterHeader({
         stores={stores}
         onClose={() => setShowStoreRel(false)}
       />
+      <AdminMemberPrivilegeDialog
+        open={showPrivilegeView}
+        mode="view"
+        userId={user.id}
+        displayName={display}
+        publicId={publicId}
+        currentPrivilege={privilegePresentation}
+        disabledReasonKo={privilegeViewDecision.disabledReasonKo ?? null}
+        onClose={() => setShowPrivilegeView(false)}
+      />
       {privilegeOp ? (
         <AdminMemberPrivilegeDialog
           open={showPrivilege}
+          mode="mutate"
           op={privilegeOp}
           userId={user.id}
           displayName={display}

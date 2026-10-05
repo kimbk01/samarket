@@ -283,6 +283,14 @@ export async function GET(req: NextRequest) {
   const storeFilter = parseStoreFilter(req.nextUrl.searchParams.get("store"));
   const privilegeFilter = parsePrivilegeFilter(req.nextUrl.searchParams.get("privilege"));
   const originFilter = parseOriginFilter(req.nextUrl.searchParams.get("origin"));
+  const joinedFromRaw = String(req.nextUrl.searchParams.get("joinedFrom") ?? "").trim();
+  const joinedToRaw = String(req.nextUrl.searchParams.get("joinedTo") ?? "").trim();
+  const joinedFrom = /^\d{4}-\d{2}-\d{2}$/.test(joinedFromRaw) ? joinedFromRaw : "";
+  const joinedTo = /^\d{4}-\d{2}-\d{2}$/.test(joinedToRaw) ? joinedToRaw : "";
+  const sortRaw = String(req.nextUrl.searchParams.get("sort") ?? "created_at_desc").trim().toLowerCase();
+  const sortColumn =
+    sortRaw === "last_login_asc" || sortRaw === "last_login_desc" ? "last_login_at" : "created_at";
+  const sortAscending = sortRaw === "created_at_asc" || sortRaw === "last_login_asc";
   const { page, pageSize, from, to } = parseAdminMemberListPage(
     req.nextUrl.searchParams.get("page"),
     req.nextUrl.searchParams.get("pageSize"),
@@ -387,13 +395,16 @@ export async function GET(req: NextRequest) {
       if (planned.empty) {
         return { data: [] as ProfileRow[], error: null as { message?: string } | null, count: 0 };
       }
-      const query = applyProfileFilterOps(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Postgrest filter chain
+      let query: any = applyProfileFilterOps(
         supabase
           .from("profiles")
           .select(select, { count: "exact" })
-          .order("created_at", { ascending: false }),
+          .order(sortColumn, { ascending: sortAscending, nullsFirst: false }),
         planned.ops,
       );
+      if (joinedFrom) query = query.gte("created_at", `${joinedFrom}T00:00:00.000Z`);
+      if (joinedTo) query = query.lte("created_at", `${joinedTo}T23:59:59.999Z`);
       return query.range(from, to);
     };
 
@@ -409,10 +420,14 @@ export async function GET(req: NextRequest) {
     ) => {
       const planned = listOps(includeAuthLoginEmail, opts);
       if (planned.empty) return { count: 0 as number | null, error: null as string | null };
-      const resolved = await applyProfileFilterOps(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Postgrest filter chain
+      let countQuery: any = applyProfileFilterOps(
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         planned.ops,
       );
+      if (joinedFrom) countQuery = countQuery.gte("created_at", `${joinedFrom}T00:00:00.000Z`);
+      if (joinedTo) countQuery = countQuery.lte("created_at", `${joinedTo}T23:59:59.999Z`);
+      const resolved = await countQuery;
       if (resolved.error) return { count: null, error: resolved.error.message ?? "count_failed" };
       return { count: resolved.count ?? 0, error: null };
     };

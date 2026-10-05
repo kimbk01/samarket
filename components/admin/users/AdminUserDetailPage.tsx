@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
 import type {
@@ -43,14 +43,25 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   const { t, safeT } = useI18n();
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<DetailLoadState>({ kind: "loading" });
+  const [softRefreshing, setSoftRefreshing] = useState(false);
 
   const onUpdated = useCallback(() => {
     setRefreshKey((key) => key + 1);
   }, []);
 
+  const foundRef = useRef(false);
+  useEffect(() => {
+    foundRef.current = state.kind === "found";
+  }, [state.kind]);
+
   useEffect(() => {
     let cancelled = false;
-    setState({ kind: "loading" });
+    const keepSurface = foundRef.current;
+    if (!keepSurface) {
+      setState({ kind: "loading" });
+    } else {
+      setSoftRefreshing(true);
+    }
     (async () => {
       try {
         const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
@@ -76,14 +87,16 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
             });
             return;
           }
-          setState({ kind: "error", messageKey: "admin_users_error_fetch_failed" });
+          if (!keepSurface) setState({ kind: "error", messageKey: "admin_users_error_fetch_failed" });
           return;
         }
-        setState(classifyHttpError(res.status));
+        if (!keepSurface) setState(classifyHttpError(res.status));
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !keepSurface) {
           setState({ kind: "error", messageKey: "admin_users_error_network" });
         }
+      } finally {
+        if (!cancelled) setSoftRefreshing(false);
       }
     })();
     return () => {
@@ -144,7 +157,15 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   }
 
   return (
-    <div data-member-detail-state="found">
+    <div data-member-detail-state="found" data-member-detail-soft-refresh={softRefreshing ? "1" : "0"}>
+      {softRefreshing ? (
+        <p
+          className="mb-2 rounded-md border border-[#dbeafe] bg-[#eff6ff] px-3 py-2 text-[12px] text-[#1d4ed8]"
+          data-member-detail-refreshing="1"
+        >
+          회원 정보를 갱신하는 중…
+        </p>
+      ) : null}
       <AdminMemberControlCenter
         user={state.user}
         stores={state.stores}

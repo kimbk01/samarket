@@ -23,6 +23,11 @@ import { AdminMemberChatPanel } from "@/components/admin/users/AdminMemberChatPa
 import { AdminMemberOpsPanel } from "@/components/admin/users/AdminMemberOpsPanel";
 import { AdminMemberReportsPanel } from "@/components/admin/users/AdminMemberReportsPanel";
 import { AdminMemberDangerZone } from "@/components/admin/users/AdminMemberDangerZone";
+import {
+  executeMemberManagementAction,
+  type MemberManagementActionId,
+} from "@/lib/admin-users/member-management-actions-client";
+import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { AdminUserPointsSection } from "@/components/admin/users/AdminUserPointsSection";
 import { AdminUserTrustSection } from "@/components/admin/users/AdminUserTrustSection";
 import {
@@ -127,6 +132,7 @@ export function AdminMemberControlCenter({
   const lazy = useMemo(() => visited, [visited]);
 
   const canManageMember = isSuperAdmin || hasPermission("users");
+  const [dangerBusy, setDangerBusy] = useState(false);
   const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
   const dangerActions = useMemo(() => {
     if (meLoading) return [];
@@ -158,6 +164,105 @@ export function AdminMemberControlCenter({
     snapshot?.userId,
     membershipRole,
   ]);
+
+  const runDangerAction = useCallback(
+    async (actionId: MemberManagementActionId) => {
+      if (dangerBusy) return;
+      const label =
+        actionId === "purge"
+          ? "영구 삭제"
+          : actionId === "withdraw"
+            ? "탈퇴 처리"
+            : actionId === "suspend"
+              ? "이용 정지"
+              : actionId === "block"
+                ? "이용 차단"
+                : actionId === "unsuspend"
+                  ? "정지 해제"
+                  : actionId === "unblock"
+                    ? "차단 해제"
+                    : actionId === "warn"
+                      ? "경고"
+                      : actionId;
+      let confirmTitle =
+        actionId === "purge"
+          ? "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다."
+          : `${label}을(를) 실행할까요?`;
+      if (actionId === "purge") {
+        try {
+          const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/purge-preview`, {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const data = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            purgeAllowed?: boolean;
+            blockers?: string[];
+            protectedTarget?: boolean;
+          };
+          if (res.ok && data.ok) {
+            if (data.protectedTarget) {
+              await dibayAlert({ title: "관리자·최고관리자 계정은 영구 삭제할 수 없습니다." });
+              return;
+            }
+            if (!data.purgeAllowed) {
+              await dibayAlert({
+                title: `영구 삭제가 차단되었습니다.\n${(data.blockers ?? []).join("\n") || "unknown"}`,
+              });
+              return;
+            }
+            confirmTitle = `이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.\n영향 검사: 통과`;
+          }
+        } catch {
+          /* preview failure does not auto-allow; still confirm with warning */
+          confirmTitle =
+            "영향 미리보기에 실패했습니다. 그래도 영구 삭제를 시도할까요? (서버가 다시 검증합니다)";
+        }
+      }
+      const confirmed = await dibayConfirm({
+        title: confirmTitle,
+        confirmTone: actionId === "purge" || actionId === "withdraw" || actionId === "block" ? "destructive" : "primary",
+      });
+      if (!confirmed) return;
+      let reason = `${actionId}_by_admin`;
+      if (actionId !== "purge" && actionId !== "withdraw") {
+        const prompted = await dibayPrompt({
+          title: "처리 사유를 입력해 주세요.",
+          required: true,
+        });
+        if (!prompted?.trim()) return;
+        reason = prompted.trim();
+      } else if (actionId === "purge") {
+        reason = "admin_permanent_delete";
+      } else {
+        reason = "admin_withdraw";
+      }
+      setDangerBusy(true);
+      try {
+        const result = await executeMemberManagementAction({
+          userId: user.id,
+          action: actionId,
+          reason,
+        });
+        if (!result.ok) {
+          const extra =
+            result.blockers && result.blockers.length > 0 ? `\n${result.blockers.join(", ")}` : "";
+          await dibayAlert({
+            title: `${result.message ?? result.error ?? "작업에 실패했습니다."}${extra}`,
+          });
+          return;
+        }
+        if (actionId === "purge" || actionId === "withdraw") {
+          window.location.href = "/admin/users";
+          return;
+        }
+        onUpdated?.();
+      } finally {
+        setDangerBusy(false);
+      }
+    },
+    [dangerBusy, onUpdated, user.id],
+  );
 
   return (
     <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 pb-6`} data-member-detail-control-center="1">
@@ -312,7 +417,13 @@ export function AdminMemberControlCenter({
         </div>
       ) : null}
 
-      <AdminMemberDangerZone actions={dangerActions} />
+      <AdminMemberDangerZone
+        actions={dangerActions}
+        busy={dangerBusy}
+        onAction={(id) => {
+          void runDangerAction(id as MemberManagementActionId);
+        }}
+      />
 
     </div>
   );

@@ -132,7 +132,12 @@ export async function PATCH(
   const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
   if (hasPassword) {
     if (isSuperAdminRole(effectiveRole)) {
-      return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
+      if (!actor.isSuperAdmin) {
+        return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
+      }
+      if (actor.userId !== staffId) {
+        return NextResponse.json({ ok: false, error: "forbidden_other_super_admin_target" }, { status: 403 });
+      }
     }
     const pwd = String(passwordRaw);
     if (pwd.length < 4) {

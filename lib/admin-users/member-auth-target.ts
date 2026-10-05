@@ -32,6 +32,7 @@ export type MemberPasswordTargetGuard =
       ok: false;
       error:
         | "forbidden_super_admin_target"
+        | "forbidden_other_super_admin_target"
         | "forbidden_admin_target"
         | MemberAuthTargetLookupError;
       status: 403 | 503;
@@ -138,12 +139,12 @@ export async function classifyMemberAuthTarget(
  * Password / sensitive Auth credential changes:
  * - GENERAL MEMBER (confirmed no membership) → allowed (caller must already hold `users` / SA)
  * - ADMIN → Super Admin actor only
- * - SUPER ADMIN → always blocked
+ * - SUPER ADMIN → Super Admin actor + self only (other SA protected)
  * - Membership probe failure → blocked (fail-closed)
  */
 export async function assertMemberPasswordChangeAllowed(
   sb: SupabaseClient,
-  input: { targetUserId: string; actorIsSuperAdmin: boolean },
+  input: { targetUserId: string; actorUserId: string; actorIsSuperAdmin: boolean },
 ): Promise<MemberPasswordTargetGuard> {
   const classified = await classifyMemberAuthTarget(sb, input.targetUserId);
   if (!classified.ok) {
@@ -157,7 +158,13 @@ export async function assertMemberPasswordChangeAllowed(
 
   const { targetClass } = classified;
   if (targetClass === "super_admin") {
-    return { ok: false, error: "forbidden_super_admin_target", status: 403, targetClass };
+    if (!input.actorIsSuperAdmin) {
+      return { ok: false, error: "forbidden_super_admin_target", status: 403, targetClass };
+    }
+    if (input.actorUserId !== input.targetUserId) {
+      return { ok: false, error: "forbidden_other_super_admin_target", status: 403, targetClass };
+    }
+    return { ok: true, targetClass };
   }
   if (targetClass === "admin" && !input.actorIsSuperAdmin) {
     return { ok: false, error: "forbidden_admin_target", status: 403, targetClass };

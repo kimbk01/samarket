@@ -38,14 +38,19 @@ function readEnvInt(name: string): number | null {
   return Number.isFinite(n) ? Math.floor(n) : null;
 }
 
-/** SEMAPHORE_API_KEY 가 있으면 OTP 활성(관리자 DB off 여도 Vercel 배포 기본). PHONE_OTP_ENABLED=0 으로 끔. */
+/**
+ * OTP enable is explicit only (POLICY-OTP-01).
+ * - PHONE_OTP_ENABLED=0/false → force off
+ * - PHONE_OTP_ENABLED=1/true → force on (provider semaphore)
+ * - else keep DB `settings.enabled` (default false)
+ *
+ * SEMAPHORE_API_KEY alone must NOT enable OTP (capability ≠ authorization).
+ * Key remains required at send time via sendSemaphoreSms.
+ */
 function applyPhoneOtpEnvEnable(settings: AuthPhoneSettings): AuthPhoneSettings {
   const flag = process.env.PHONE_OTP_ENABLED?.trim().toLowerCase();
   if (flag === "false" || flag === "0") {
     return { ...settings, enabled: false };
-  }
-  if (process.env.SEMAPHORE_API_KEY?.trim()) {
-    return { ...settings, enabled: true, provider: "semaphore" };
   }
   if (flag === "true" || flag === "1") {
     return { ...settings, enabled: true, provider: "semaphore" };

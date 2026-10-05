@@ -874,6 +874,7 @@ export async function PATCH(
   if (nextPassword) {
     const targetGuard = await assertMemberPasswordChangeAllowed(sb, {
       targetUserId: userId,
+      actorUserId: gate.actor.userId,
       actorIsSuperAdmin: gate.actor.isSuperAdmin,
     });
     if (!targetGuard.ok) {

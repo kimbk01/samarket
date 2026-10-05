@@ -31,37 +31,38 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
     );
   });
 
-  it("M3–M7 R2 list has no bulk selection surface (policy helpers remain)", () => {
-    // R2 operator console: row → Detail only; no list multi-select / bulk bar.
+  it("M3–M7 Owner FULL SSOT: page-scoped checkbox selection + member bulk bar", () => {
     const table = read("components/admin/users/AdminUserTable.tsx");
-    const page = read("components/admin/users/AdminUserListPage.tsx");
     expect(table).toContain("queryScopeKey");
     expect(table).toContain("onViewDetail");
-    expect(table).not.toContain("useAdminManagementSelection");
-    expect(table).not.toContain("AdminManagementSelectionCheckbox");
-    expect(table).not.toContain("AdminManagementBulkBar");
-    expect(table).not.toContain("selectedIds");
-    expect(page).not.toContain("useAdminManagementSelection");
-    expect(page).not.toContain("AdminManagementBulkBar");
-    // Shared helpers remain available for other admin surfaces — list must not wire them.
+    expect(table).toContain("useAdminManagementSelection");
+    expect(table).toContain("AdminManagementSelectionCheckbox");
+    expect(table).toContain("AdminMemberListBulkBar");
     expect(selectionHeaderState(new Set(["a"]), ["a", "b"])).toBe("some");
     expect(shouldClearSelectionOnQueryChange("p1", "p2")).toBe(true);
   });
 
-  it("M8–M9 member policy blocks hard delete and list bulk wipe", () => {
-    // Policy SSOT: member entity hard-delete / list bulk wipe remain BLOCKED.
-    expect(MEMBER_ENTITY_ACTION_POLICY.deleteMode).toBe("BLOCKED");
-    expect(MEMBER_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(false);
-    expect(listVisibleBulkActions(MEMBER_ENTITY_ACTION_POLICY)).toEqual([]);
-    expect(isBulkActionAllowed(MEMBER_ENTITY_ACTION_POLICY, "hard_delete")).toBe(false);
+  it("M8–M9 member bulk uses dedicated APIs with strong purge confirm policy", () => {
+    expect(MEMBER_ENTITY_ACTION_POLICY.deleteMode).toBe("HARD_DELETE");
+    expect(MEMBER_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
+    expect(MEMBER_ENTITY_ACTION_POLICY.hardConfirmMode).toBe("strong_danger_confirm");
+    expect(isBulkActionAllowed(MEMBER_ENTITY_ACTION_POLICY, "hard_delete")).toBe(true);
+    expect(listVisibleBulkActions(MEMBER_ENTITY_ACTION_POLICY)).toEqual([
+      "change_status",
+      "restore",
+      "soft_delete",
+      "hard_delete",
+    ]);
     const table = read("components/admin/users/AdminUserTable.tsx");
-    const page = read("components/admin/users/AdminUserListPage.tsx");
-    // List UI must not resurrect bulk wipe wiring.
-    expect(table).not.toContain("MEMBER_ENTITY_ACTION_POLICY");
-    expect(table).not.toMatch(/bulk-delete|bulkDelete|hardDeleteAvailable:\s*true/);
+    // Must not invent a separate wipe endpoint; reuse per-member delete/moderation.
     expect(table).not.toContain("/api/admin/users/bulk");
-    expect(page).not.toContain("/api/admin/users/bulk");
-    expect(page).not.toContain("hardDeleteAvailable");
+    expect(table).toContain("AdminMemberListBulkBar");
+    const bulk = read("components/admin/users/AdminMemberListBulkBar.tsx");
+    expect(bulk).toContain("executeMemberManagementActionsBulk");
+    const client = read("lib/admin-users/member-management-actions-client.ts");
+    expect(client).toContain("/api/admin/users/");
+    expect(client).toContain("/moderation");
+    expect(client).toContain("/delete");
   });
 
   it("M10 deletion request queue remains separate from list bulk", () => {

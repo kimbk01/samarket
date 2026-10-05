@@ -71,14 +71,16 @@ export function AdminMemberPasswordDialog({
               : data.error === "forbidden_admin_target"
                 ? "관리자 계정의 비밀번호는 이 화면에서 변경할 수 없습니다. 최고 관리자 설정에서 처리하세요."
                 : data.error === "forbidden_super_admin_target"
-                  ? "최고 관리자 계정의 비밀번호는 변경할 수 없습니다."
-                  : data.error === "membership_lookup_failed"
-                    ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
-                    : data.error === "membership_unavailable"
-                      ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
-                      : data.message && !String(data.message).includes("Auth")
-                        ? data.message
-                        : t("admin_users_action_failed");
+                  ? "최고 관리자만 이 계정의 비밀번호를 변경할 수 있습니다."
+                  : data.error === "forbidden_other_super_admin_target"
+                    ? "다른 최고 관리자 비밀번호는 변경할 수 없습니다."
+                    : data.error === "membership_lookup_failed"
+                      ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+                      : data.error === "membership_unavailable"
+                        ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+                        : data.message && !String(data.message).includes("Auth")
+                          ? data.message
+                          : t("admin_users_action_failed");
         setErrorText(text);
         return;
       }

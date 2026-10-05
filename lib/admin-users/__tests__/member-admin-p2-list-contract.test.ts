@@ -134,6 +134,9 @@ describe("P2 member list — search and query", () => {
       store: "has_store",
       privilege: "admin",
       origin: "kakao",
+      joinedFrom: "",
+      joinedTo: "",
+      sort: "created_at_desc",
       page: 2,
       pageSize: 20,
     });
@@ -145,6 +148,9 @@ describe("P2 member list — search and query", () => {
       store: "has_store",
       privilege: "admin",
       origin: "kakao",
+      joinedFrom: "",
+      joinedTo: "",
+      sort: "created_at_desc",
       page: 2,
       pageSize: 20,
     });

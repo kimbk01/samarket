@@ -184,6 +184,12 @@ export function memberListSummaryChipLabelKo(id: MemberListSummaryChipId): strin
   }
 }
 
+export type MemberListSortId =
+  | "created_at_desc"
+  | "created_at_asc"
+  | "last_login_desc"
+  | "last_login_asc";
+
 export type MemberListQueryState = {
   search: string;
   status: AdminUserStatusCategory | "";
@@ -191,6 +197,10 @@ export type MemberListQueryState = {
   store: AdminMemberStoreFilter | "";
   privilege: AdminMemberPrivilegeFilter | "";
   origin: AdminMemberOriginFilter | "";
+  /** Inclusive YYYY-MM-DD (created_at / joined). */
+  joinedFrom: string;
+  joinedTo: string;
+  sort: MemberListSortId;
   page: number;
   pageSize: number;
 };
@@ -226,6 +236,24 @@ function parseOrigin(raw: string): AdminMemberOriginFilter | "" {
   return v === "email" || v === "manual" || v === "kakao" || v === "other" ? v : "";
 }
 
+function parseDateYmd(raw: string): string {
+  const v = raw.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
+}
+
+function parseSort(raw: string): MemberListSortId {
+  const v = raw.trim().toLowerCase();
+  if (
+    v === "created_at_asc" ||
+    v === "created_at_desc" ||
+    v === "last_login_asc" ||
+    v === "last_login_desc"
+  ) {
+    return v;
+  }
+  return "created_at_desc";
+}
+
 export function parseMemberListQueryState(sp: URLSearchParams): MemberListQueryState {
   const search = String(sp.get("search") ?? "").trim();
   const status = parseStatus(String(sp.get("status") ?? ""));
@@ -233,9 +261,12 @@ export function parseMemberListQueryState(sp: URLSearchParams): MemberListQueryS
   const store = parseStore(String(sp.get("store") ?? ""));
   const privilege = parsePrivilege(String(sp.get("privilege") ?? ""));
   const origin = parseOrigin(String(sp.get("origin") ?? ""));
+  const joinedFrom = parseDateYmd(String(sp.get("joinedFrom") ?? ""));
+  const joinedTo = parseDateYmd(String(sp.get("joinedTo") ?? ""));
+  const sort = parseSort(String(sp.get("sort") ?? ""));
   const page = Math.max(1, Math.trunc(Number(sp.get("page")) || 1));
   const pageSize = Math.min(50, Math.max(1, Math.trunc(Number(sp.get("pageSize")) || 10)));
-  return { search, status, verify, store, privilege, origin, page, pageSize };
+  return { search, status, verify, store, privilege, origin, joinedFrom, joinedTo, sort, page, pageSize };
 }
 
 export function buildMemberListQueryString(input: MemberListQueryState): string {
@@ -246,6 +277,9 @@ export function buildMemberListQueryString(input: MemberListQueryState): string 
   if (input.store) params.set("store", input.store);
   if (input.privilege) params.set("privilege", input.privilege);
   if (input.origin) params.set("origin", input.origin);
+  if (input.joinedFrom) params.set("joinedFrom", input.joinedFrom);
+  if (input.joinedTo) params.set("joinedTo", input.joinedTo);
+  if (input.sort && input.sort !== "created_at_desc") params.set("sort", input.sort);
   if (input.page > 1) params.set("page", String(input.page));
   if (input.pageSize !== 10) params.set("pageSize", String(input.pageSize));
   return params.toString();

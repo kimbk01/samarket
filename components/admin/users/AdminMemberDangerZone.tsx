@@ -80,8 +80,10 @@ export function AdminMemberDangerZone({
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[color:var(--sam-danger,#b42318)]">{action.labelKo}</p>
-                      {!action.enabled && action.disabledReasonKo ? (
-                        <p className="text-xs text-[color:var(--sam-danger,#912018)]">{action.disabledReasonKo}</p>
+                      {!action.enabled ? (
+                        <p className="text-xs text-[color:var(--sam-danger,#912018)]">
+                          {action.disabledReasonKo || "이 대상에는 실행할 수 없습니다."}
+                        </p>
                       ) : (
                         <p className="text-xs text-[color:var(--sam-danger,#912018)]">
                           {canRun
@@ -99,12 +101,19 @@ export function AdminMemberDangerZone({
                       >
                         {action.labelKo}
                       </button>
-                    ) : (
+                    ) : action.enabled ? (
                       <span
                         className="shrink-0 rounded-ui-rect border border-[color:var(--sam-danger,#fecdca)] px-2 py-1 text-xs font-semibold text-[color:var(--sam-danger,#912018)]"
                         data-danger-status="deferred"
                       >
                         {MEMBER_DETAIL_DANGER_EXECUTION_DEFERRED_KO}
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-xs font-semibold text-sam-muted"
+                        data-danger-status="blocked"
+                      >
+                        실행 불가
                       </span>
                     )}
                   </li>

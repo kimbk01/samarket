@@ -73,10 +73,11 @@ function errorSb(message: string) {
 }
 
 describe("assertMemberPasswordChangeAllowed", () => {
-  it("blocks Super Admin targets regardless of actor", async () => {
+  it("blocks Super Admin targets for non-super actors", async () => {
     const result = await assertMemberPasswordChangeAllowed(membershipSb("super_admin") as never, {
+      actorUserId: "actor",
       targetUserId: "target",
-      actorIsSuperAdmin: true,
+      actorIsSuperAdmin: false,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -85,8 +86,34 @@ describe("assertMemberPasswordChangeAllowed", () => {
     }
   });
 
+  it("allows Super Admin self password for Super Admin actors", async () => {
+    const result = await assertMemberPasswordChangeAllowed(membershipSb("super_admin") as never, {
+      actorUserId: "target",
+      targetUserId: "target",
+      actorIsSuperAdmin: true,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.targetClass).toBe("super_admin");
+    }
+  });
+
+  it("blocks other Super Admin password even for Super Admin actors", async () => {
+    const result = await assertMemberPasswordChangeAllowed(membershipSb("super_admin") as never, {
+      actorUserId: "actor",
+      targetUserId: "target",
+      actorIsSuperAdmin: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("forbidden_other_super_admin_target");
+      expect(result.targetClass).toBe("super_admin");
+    }
+  });
+
   it("blocks admin targets for non-super actors", async () => {
     const result = await assertMemberPasswordChangeAllowed(membershipSb("admin") as never, {
+      actorUserId: "actor",
       targetUserId: "target",
       actorIsSuperAdmin: false,
     });
@@ -99,6 +126,7 @@ describe("assertMemberPasswordChangeAllowed", () => {
 
   it("allows admin targets for Super Admin actors", async () => {
     const result = await assertMemberPasswordChangeAllowed(membershipSb("admin") as never, {
+      actorUserId: "actor",
       targetUserId: "target",
       actorIsSuperAdmin: true,
     });
@@ -107,6 +135,7 @@ describe("assertMemberPasswordChangeAllowed", () => {
 
   it("allows general members only when membership absence is confirmed", async () => {
     const result = await assertMemberPasswordChangeAllowed(membershipSb(null) as never, {
+      actorUserId: "actor",
       targetUserId: "target",
       actorIsSuperAdmin: false,
     });
@@ -122,6 +151,7 @@ describe("assertMemberPasswordChangeAllowed", () => {
     }
 
     const denied = await assertMemberPasswordChangeAllowed(errorSb("simulated_db_error") as never, {
+      actorUserId: "actor",
       targetUserId: "target",
       actorIsSuperAdmin: false,
     });
@@ -135,7 +165,7 @@ describe("assertMemberPasswordChangeAllowed", () => {
   it("FAIL-CLOSED: missing membership table denies password change", async () => {
     const denied = await assertMemberPasswordChangeAllowed(
       errorSb('relation "admin_memberships" does not exist') as never,
-      { targetUserId: "target", actorIsSuperAdmin: true },
+      { actorUserId: "actor", targetUserId: "target", actorIsSuperAdmin: true },
     );
     expect(denied.ok).toBe(false);
     if (!denied.ok) {
@@ -147,7 +177,7 @@ describe("assertMemberPasswordChangeAllowed", () => {
   it("FAIL-CLOSED: permission/RLS error denies password change", async () => {
     const denied = await assertMemberPasswordChangeAllowed(
       errorSb("permission denied for table admin_memberships") as never,
-      { targetUserId: "target", actorIsSuperAdmin: false },
+      { actorUserId: "actor", targetUserId: "target", actorIsSuperAdmin: false },
     );
     expect(denied.ok).toBe(false);
     if (!denied.ok) {

@@ -212,6 +212,18 @@ describe("R6 Admin Privilege — ActionPolicy CTAs", () => {
 });
 
 describe("R6 Admin Privilege — UI / dialog / CAP wiring", () => {
+
+  it("CAP-PRIV-VIEW opens privilege status dialog (not overview tab no-op)", () => {
+    const header = src("components/admin/users/AdminMemberMasterHeader.tsx");
+    const dialog = src("components/admin/users/AdminMemberPrivilegeDialog.tsx");
+    expect(header).toMatch(/data-member-cta="privilege_view"/);
+    expect(header).toMatch(/setShowPrivilegeView\(true\)/);
+    expect(header).toMatch(/mode="view"/);
+    expect(header).not.toMatch(/data-member-cta="privilege_view"[\s\S]{0,160}onOpenTab/);
+    expect(dialog).toContain('data-member-privilege-mode={isView ? "view" : "mutate"}');
+    expect(dialog).toContain('mode?: "view" | "mutate"');
+  });
+
   it("CAP-PRIV-PROMOTE/REVOKE are YES and S17 dialog consumes MemberAdminDialog", () => {
     const promote = MEMBER_ADMIN_CAPABILITY_CATALOG.find((c) => c.id === "CAP-PRIV-PROMOTE");
     const revoke = MEMBER_ADMIN_CAPABILITY_CATALOG.find((c) => c.id === "CAP-PRIV-REVOKE");

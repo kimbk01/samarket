@@ -35,6 +35,9 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
       store: "has_store",
       privilege: "admin",
       origin: "",
+      joinedFrom: "",
+      joinedTo: "",
+      sort: "created_at_desc",
       page: 1,
       pageSize: 10,
     });

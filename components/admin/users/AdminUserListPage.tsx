@@ -45,6 +45,7 @@ import {
   buildMemberListQueryString,
   memberListDetailHref,
   parseMemberListQueryState,
+  type MemberListSortId,
   type MemberListSummaryChipId,
 } from "@/lib/admin-users/member-list-presentation";
 import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
@@ -77,6 +78,9 @@ export function AdminUserListPage() {
   const [storeFilter, setStoreFilter] = useState<AdminMemberStoreFilter | "">(urlState.store);
   const [privilegeFilter, setPrivilegeFilter] = useState<AdminMemberPrivilegeFilter | "">(urlState.privilege);
   const [originFilter, setOriginFilter] = useState<AdminMemberOriginFilter | "">(urlState.origin);
+  const [joinedFrom, setJoinedFrom] = useState(urlState.joinedFrom);
+  const [joinedTo, setJoinedTo] = useState(urlState.joinedTo);
+  const [sort, setSort] = useState<MemberListSortId>(urlState.sort);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [membersKey, setMembersKey] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -112,6 +116,9 @@ export function AdminUserListPage() {
     setStoreFilter(urlState.store);
     setPrivilegeFilter(urlState.privilege);
     setOriginFilter(urlState.origin);
+    setJoinedFrom(urlState.joinedFrom);
+    setJoinedTo(urlState.joinedTo);
+    setSort(urlState.sort);
     setMembersPage(urlState.page);
     setMembersPageSize(urlState.pageSize);
     syncingFromUrl.current = false;
@@ -122,6 +129,9 @@ export function AdminUserListPage() {
     urlState.store,
     urlState.privilege,
     urlState.origin,
+    urlState.joinedFrom,
+    urlState.joinedTo,
+    urlState.sort,
     urlState.page,
     urlState.pageSize,
   ]);
@@ -134,6 +144,9 @@ export function AdminUserListPage() {
       store: AdminMemberStoreFilter | "";
       privilege: AdminMemberPrivilegeFilter | "";
       origin: AdminMemberOriginFilter | "";
+      joinedFrom: string;
+      joinedTo: string;
+      sort: MemberListSortId;
       page: number;
       pageSize: number;
     }) => {
@@ -153,6 +166,9 @@ export function AdminUserListPage() {
       store: storeFilter,
       privilege: privilegeFilter,
       origin: originFilter,
+      joinedFrom,
+      joinedTo,
+      sort,
       page: membersPage,
       pageSize: membersPageSize,
     });
@@ -163,6 +179,9 @@ export function AdminUserListPage() {
     storeFilter,
     privilegeFilter,
     originFilter,
+    joinedFrom,
+    joinedTo,
+    sort,
     membersPage,
     membersPageSize,
     pushListQuery,
@@ -206,6 +225,9 @@ export function AdminUserListPage() {
     if (storeFilter) params.set("store", storeFilter);
     if (privilegeFilter) params.set("privilege", privilegeFilter);
     if (originFilter) params.set("origin", originFilter);
+    if (joinedFrom) params.set("joinedFrom", joinedFrom);
+    if (joinedTo) params.set("joinedTo", joinedTo);
+    if (sort && sort !== "created_at_desc") params.set("sort", sort);
     params.set("page", String(membersPage));
     params.set("pageSize", String(membersPageSize));
     return params.toString();
@@ -216,6 +238,9 @@ export function AdminUserListPage() {
     storeFilter,
     privilegeFilter,
     originFilter,
+    joinedFrom,
+    joinedTo,
+    sort,
     membersPage,
     membersPageSize,
   ]);
@@ -568,6 +593,21 @@ export function AdminUserListPage() {
           setOriginFilter(value);
           setMembersPage(1);
         }}
+        joinedFrom={joinedFrom}
+        onJoinedFromChange={(value) => {
+          setJoinedFrom(value);
+          setMembersPage(1);
+        }}
+        joinedTo={joinedTo}
+        onJoinedToChange={(value) => {
+          setJoinedTo(value);
+          setMembersPage(1);
+        }}
+        sort={sort}
+        onSortChange={(value) => {
+          setSort(value);
+          setMembersPage(1);
+        }}
         loading={membersListPending}
       />
       {membersError ? (
@@ -618,6 +658,7 @@ export function AdminUserListPage() {
             setMembersPage(1);
           }}
           onViewDetail={handleViewDetail}
+          onSelectionActionCompleted={refreshMembers}
           onHorizontalScroll={onTableHorizontalScroll}
         />
       )}
