@@ -49,6 +49,24 @@ describe("B+ live re-verification", () => {
     }
   });
 
+  it("필수다 article page: why the body falls back to the feed", async () => {
+    const { fetchImportText, describeFetchError } = await import("@/lib/community-operator-import/http");
+    const p = await probeBoard({ baseUrl: "https://philsuda.com/", engine: "rss_atom", engineKey: "https://philsuda.com/rss#category=%EB%A7%9B%EC%A7%91" });
+    const url = p.rows[0]?.detailUrl || "";
+    let detail = "";
+    try {
+      const r = await fetchImportText(url);
+      const html = r.text;
+      const scripts = (html.match(/<script/g) || []).length;
+      const titleInHtml = p.rows[0] ? html.includes(p.rows[0].title.slice(0, 12)) : false;
+      const bodyText = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      detail = `status=${r.status} final=${r.finalUrl} html=${html.length} visibleText=${bodyText.length} scripts=${scripts} titleInHtml=${titleInHtml} nextData=${/__NEXT_DATA__|self.__next_f/.test(html)} sample="${bodyText.slice(0, 160)}"`;
+    } catch (e) {
+      detail = `fetch_failed: ${describeFetchError(e)}`;
+    }
+    record("필수다 원문", "page_diagnosis", true, `${url} ${detail} warnings=${p.article?.extraction?.warnings.join(";")}`);
+  });
+
   it("마닐라서울 (rss): full title and #ct body", async () => {
     const p = await probeBoard({ baseUrl: "http://manilaseoul.co.kr/", engine: "rss_atom", engineKey: "http://manilaseoul.co.kr/happynews_rss.php", adapterConfig: { bodySelectors: ["#ct"] } });
     record("마닐라서울", "list", p.rows.length >= 5, `rows=${p.rows.length} err=${p.listError}`);

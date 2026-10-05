@@ -160,6 +160,24 @@ describe("B+ staging E2E (isolated local Supabase)", () => {
     }
   });
 
+  it("4b concurrent publish of the same article creates exactly one post", async () => {
+    const { fetchArticleForInbox } = await import("@/lib/community-operator-import/collect");
+    const { ensureDraftEdit } = await import("@/lib/community-operator-import/draft-store");
+    const { publishImportedArticle } = await import("@/lib/community-operator-import/publish");
+    const { data: pending } = await sb.from("community_operator_import_inbox").select("source_site, source_board, source_article_key").eq("source_site", "philsuda").is("published_post_id", null).order("first_seen_at", { ascending: false }).limit(1);
+    const key = { sourceSite: "philsuda", sourceBoard: String(pending![0]!.source_board), sourceArticleKey: String(pending![0]!.source_article_key) };
+    const { article } = await fetchArticleForInbox(sb, key);
+    const edit = { ...ensureDraftEdit(article, null), topicId: topic?.id ?? null, topicSlug: topic?.slug ?? null };
+    const before = (await sb.from("community_posts").select("*", { count: "exact", head: true })).count ?? 0;
+    const [a, b] = await Promise.all([
+      publishImportedArticle(sb, { article, edit, mode: "create", adminUserId: adminId, acceptPartial: true, rules: [] }),
+      publishImportedArticle(sb, { article, edit, mode: "create", adminUserId: adminId, acceptPartial: true, rules: [] }),
+    ]);
+    const after = (await sb.from("community_posts").select("*", { count: "exact", head: true })).count ?? 0;
+    const links = (await sb.from("community_import_post_links").select("post_id").match({ source_site: key.sourceSite, source_board: key.sourceBoard, source_article_key: key.sourceArticleKey })).data ?? [];
+    record("4b 동시게시", "exactly_one_post", after === before + 1 && links.length === 1 && [a, b].filter((r) => r.ok).length === 1, `posts ${before}→${after} links=${links.length} results=${[a, b].map((r) => (r.ok ? "ok" : r.code)).join(",")}`);
+  });
+
   it("6 bulk job: publish 2 more, then hide them", async () => {
     const { createJob, runJobChunk } = await import("@/lib/community-operator-import/jobs");
     const { data: pending } = await sb.from("community_operator_import_inbox").select("source_site, source_board, source_article_key").eq("source_site", "philsuda").is("published_post_id", null).limit(2);
