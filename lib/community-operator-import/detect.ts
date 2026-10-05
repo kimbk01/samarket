@@ -92,7 +92,8 @@ function siteDomain(host: string): string {
   return parts.slice(-2).join(".");
 }
 
-const FEED_LINK = /(\.(xml|rss)$)|(\/(rss|feed|atom)\/?$)/i;
+/** A feed file (…/feed.xml, …/rss.xml) or a feed endpoint (…/feed, …/atom, …/rss) — not a directory page (…/rss/). */
+const FEED_LINK = /(\.(xml|rss)$)|(\/(feed|atom)\/?$)|(\/rss$)/i;
 
 /**
  * An RSS directory page (e.g. a news site's "/rss/" page listing one feed per section) links many
@@ -111,9 +112,12 @@ export function feedDirectoryLinks($page: ReturnType<typeof cheerio.load>, pageU
       return;
     }
     if (!/^https?:$/.test(parsed.protocol) || siteDomain(parsed.hostname) !== site) return;
+    parsed.hash = "";
+    if (parsed.toString() === new URL(pageUrl).toString().replace(/#.*$/, "")) return;
     if (!FEED_LINK.test(parsed.pathname) || /comments/i.test(parsed.pathname)) return;
-    if (out.some((f) => f.url === u)) return;
-    out.push({ url: u, title: cleanText($page(a).text()) || null });
+    const clean = parsed.toString();
+    if (out.some((f) => f.url === clean)) return;
+    out.push({ url: clean, title: cleanText($page(a).text()) || cleanText($page(a).attr("title")) || null });
   });
   return out.length >= 3 ? out : [];
 }
