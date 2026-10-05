@@ -16,7 +16,15 @@ import {
   selectBody,
 } from "../normalize";
 import type { OperatorListRow, OperatorNormalizedArticle, RuntimeBoard } from "../types";
-import { type AdapterContext, boardUrl, classifyBoardKind, type DetailTarget, type DiscoveredBoard, parseSourceDate } from "./common";
+import {
+  type AdapterContext,
+  boardUrl,
+  classifyBoardKind,
+  type DetailTarget,
+  type DiscoveredBoard,
+  parseSourceDate,
+  slugBoardId,
+} from "./common";
 
 const CHROME = "header, footer, nav, aside, script, style, #header, #footer, .gnb, .lnb, .header, .footer, .menu, #menu";
 
@@ -61,28 +69,46 @@ export function rankItemTemplates(html: string, pageUrl: string): TemplateCandid
     .sort((a, b) => b.score - a.score);
 }
 
+/** Menu links that are never content lists. */
+const NON_LIST_PATH =
+  /(log-?in|log-?out|member|join|sign-?up|register|mypage|my-page|account|search|sitemap|privacy|policy|agreement|terms|contact|about|faq|\/com\/|\.(?:jpe?g|png|gif|pdf|zip)$)/i;
+
 export async function discoverHtmlBoards(ctx: AdapterContext, homeHtml: string, inputUrl: string): Promise<DiscoveredBoard[]> {
   const $ = cheerio.load(homeHtml);
-  const host = new URL(ctx.source.baseUrl).host;
+  const base = new URL(ctx.source.baseUrl);
   const found = new Map<string, DiscoveredBoard>();
-  const add = (url: string, label: string) => {
-    if (found.has(url)) return;
-    found.set(url, { boardId: url, displayName: label, engineKey: url, boardKind: classifyBoardKind(label) });
+  const labels = new Set<string>();
+  const add = (raw: string, label: string) => {
+    let u: URL;
+    try {
+      u = new URL(raw);
+    } catch {
+      return;
+    }
+    if (u.host.replace(/^www\./, "") !== base.host.replace(/^www\./, "")) return;
+    u.protocol = base.protocol; // http/https duplicates collapse to the site's scheme
+    u.host = base.host;
+    u.hash = "";
+    if (NON_LIST_PATH.test(u.pathname + u.search)) return;
+    const key = u.pathname + u.search;
+    if (found.has(key) || labels.has(label)) return;
+    labels.add(label);
+    found.set(key, {
+      boardId: slugBoardId(key === "/" ? "home" : key),
+      displayName: label,
+      engineKey: u.toString(),
+      boardKind: classifyBoardKind(label),
+    });
   };
   // The page the admin entered is itself a candidate list page.
-  if (rankItemTemplates(homeHtml, inputUrl).length) add(inputUrl, "입력한 페이지");
+  if (rankItemTemplates(homeHtml, inputUrl).length) add(inputUrl, "입력한 페이지 (메인 목록)");
   $("nav a[href], header a[href], .gnb a[href], .lnb a[href], .menu a[href], #menu a[href], .nav a[href]").each((_, a) => {
     const u = absUrl(inputUrl, $(a).attr("href"));
     const label = cleanText($(a).text());
     if (!u || !label || label.length > 20) return;
-    try {
-      if (new URL(u).host !== host) return;
-    } catch {
-      return;
-    }
     add(u, label);
   });
-  return [...found.values()].slice(0, 40).map((b) => ({ ...b, boardId: b.boardId.slice(0, 200) }));
+  return [...found.values()].slice(0, 40);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,7 +181,7 @@ export async function detailHtml(ctx: AdapterContext, board: RuntimeBoard, targe
     canonicalUrl: res.finalUrl,
     sourceArticleKey: target.articleKey,
     title: meta.ogTitle || cleanText($("h1").first().text()) || String(target.title || ""),
-    author: null,
+    author: meta.author,
     sourcePublishedDate: parseSourceDate(dateRaw),
     orderedContentBlocks: blocks,
     summary: meta.description,

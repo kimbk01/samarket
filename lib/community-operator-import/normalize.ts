@@ -19,7 +19,9 @@ type DomNode = { type?: string; name?: string; data?: string };
 const CHROME_SELECTORS =
   "script, style, noscript, iframe, form, nav, header, footer, aside, button, input, select, textarea, svg, " +
   "[role='navigation'], [aria-hidden='true'], .another_category, .container_postbtn, .revenue_unit_wrap, " +
-  ".adsbygoogle, .sharedaddy, .jp-relatedposts, .wp-block-buttons, .post-navigation, .comments-area";
+  ".adsbygoogle, .sharedaddy, .jp-relatedposts, .wp-block-buttons, .post-navigation, .comments-area, " +
+  // news-CMS footers inside the article body: reporter card, tip line, copyright notice
+  ".view-copyright, .view-editors, .dn_txt, .profile-images, .article-copyright, .copyright, .reporter-info, .byline";
 
 const BLOCK_TAGS = new Set([
   "p", "div", "section", "article", "main", "figure", "center", "td", "th", "tr", "tbody", "table", "dl", "dd", "dt",
@@ -264,7 +266,7 @@ export function blockStats(blocks: OperatorContentBlock[]): BlockStats {
 /** Read common article metadata from a full HTML page. */
 export function readPageMeta(
   $: CheerioAPI,
-): { ogImage: string | null; ogTitle: string | null; published: string | null; description: string | null } {
+): { ogImage: string | null; ogTitle: string | null; published: string | null; description: string | null; author: string | null } {
   const meta = (sel: string) => cleanText($(sel).attr("content")) || null;
   let published =
     meta('meta[property="article:published_time"]') ||
@@ -285,6 +287,12 @@ export function readPageMeta(
     ogTitle: meta('meta[property="og:title"]'),
     published,
     description: meta('meta[property="og:description"]') || meta('meta[name="description"]'),
+    author:
+      [meta('meta[name="author"]'), meta('meta[property="dable:author"]'), meta('meta[property="article:author"]')].find(
+        (v) => v && !/^https?:/i.test(v),
+      ) ||
+      cleanText($("[itemprop='author'] [itemprop='name'], [rel='author']").first().text()) ||
+      null,
   };
 }
 

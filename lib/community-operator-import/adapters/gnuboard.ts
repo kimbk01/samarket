@@ -111,6 +111,11 @@ export async function listGnuboard(ctx: AdapterContext, board: RuntimeBoard, pag
   return rows;
 }
 
+/** `제목 > 게시판 | 사이트` (gnuboard og:title / <title>) → `제목`. */
+export function stripSiteSuffix(raw: string | null | undefined): string {
+  return cleanText(raw).replace(/\s+>\s+[^>|]{1,40}\s*\|\s*[^|]{1,60}$/, "").trim();
+}
+
 function attachmentImages($: ReturnType<typeof cheerio.load>, selectors: string[], pageUrl: string): string[] {
   const urls: string[] = [];
   for (const sel of selectors) {
@@ -160,8 +165,9 @@ export async function detailGnuboard(
 
   const title =
     cleanText($("#bo_v_title .bo_v_tit").text()) ||
-    cleanText($("h2[itemprop='headline']").attr("content")) ||
-    meta.ogTitle ||
+    stripSiteSuffix($("h2[itemprop='headline']").attr("content")) ||
+    cleanText($("#bo_v_title").first().text()) ||
+    stripSiteSuffix(meta.ogTitle) ||
     cleanText(target.title) ||
     cleanText($("h1").first().text());
   const author =

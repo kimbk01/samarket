@@ -5,7 +5,15 @@ import * as cheerio from "cheerio";
 import { fetchImportText } from "../http";
 import { absUrl, decodeHtmlText, htmlToBlocks } from "../normalize";
 import type { OperatorListRow, OperatorNormalizedArticle, RuntimeBoard } from "../types";
-import { type AdapterContext, classifyBoardKind, type DetailTarget, type DiscoveredBoard, parseSourceDate, sourceBase } from "./common";
+import {
+  type AdapterContext,
+  classifyBoardKind,
+  type DetailTarget,
+  type DiscoveredBoard,
+  firstImageInHtml,
+  parseSourceDate,
+  sourceBase,
+} from "./common";
 
 type WpPost = {
   id: number;
@@ -15,6 +23,8 @@ type WpPost = {
   title?: { rendered?: string };
   excerpt?: { rendered?: string };
   content?: { rendered?: string };
+  jetpack_featured_media_url?: string;
+  yoast_head_json?: { og_image?: Array<{ url?: string }> };
   _embedded?: {
     author?: Array<{ name?: string }>;
     "wp:featuredmedia"?: Array<{ source_url?: string }>;
@@ -60,8 +70,15 @@ export async function discoverWordpressBoards(ctx: AdapterContext): Promise<Disc
   return boards;
 }
 
+/** Thumbnail: featured media → Jetpack/Yoast image → first content image (many posts have no featured media). */
 function featured(post: WpPost, base: string): string | null {
-  return absUrl(base, post._embedded?.["wp:featuredmedia"]?.[0]?.source_url || null);
+  const direct =
+    post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ||
+    post.jetpack_featured_media_url ||
+    post.yoast_head_json?.og_image?.[0]?.url ||
+    null;
+  if (direct) return absUrl(base, direct);
+  return firstImageInHtml(post.content?.rendered || "", post.link || base);
 }
 
 function postDate(post: WpPost): string | null {

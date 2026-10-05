@@ -309,3 +309,30 @@ describe("edits and publish errors", () => {
     expect(mapPublishRpcError("Could not find the function public.community_import_publish").code).toBe("publish_rpc_missing");
   });
 });
+
+describe("staging findings (2026-10-05 live probe)", () => {
+  it("strips the gnuboard `> board | site` title suffix but keeps titles that contain pipes", async () => {
+    const { stripSiteSuffix } = await import("@/lib/community-operator-import/adapters/gnuboard");
+    expect(stripSiteSuffix("기아차 부사장 인터뷰 > 인터뷰 | 알이즈웰")).toBe("기아차 부사장 인터뷰");
+    expect(stripSiteSuffix("태풍 북상 | 필리핀동포방송 | 필리핀뉴스룸")).toBe("태풍 북상 | 필리핀동포방송 | 필리핀뉴스룸");
+  });
+
+  it("drops news-CMS reporter cards, tip lines and copyright footers from the body", () => {
+    const html = `<div><p>본문 문단입니다.</p><img src="/photo/1.jpg"><div class="dn_txt">기사제보 전화</div>
+      <div class="view-copyright">저작권자 © 무단전재 금지</div><div class="view-editors"><div class="profile-images"><img src="/img/reporter.jpg"></div>기자</div></div>`;
+    const blocks = htmlToBlocks(html, { baseUrl: "https://news.example.com/a" });
+    expect(blocks.filter((b) => b.type === "image")).toHaveLength(1);
+    expect(JSON.stringify(blocks)).not.toMatch(/기사제보|저작권자|reporter/);
+  });
+
+  it("HTML board discovery uses menu labels, skips login/member pages and collapses http/https", async () => {
+    const { discoverHtmlBoards } = await import("@/lib/community-operator-import/adapters/html");
+    const home = `<nav><a href="/news/list.html?sec=1">교민뉴스</a><a href="http://news.example.com/news/list.html?sec=1">교민뉴스 2</a>
+      <a href="/member/login.html">로그인</a><a href="/news/list.html?sec=2">여행</a><a href="https://other.com/x">외부</a></nav>`;
+    const source = { id: "n", displayName: "N", baseUrl: "https://news.example.com/", engine: "html" as const, enabled: true, contentPolicy: "summary_link" as const, adapterConfig: {}, verification: "NOT_PROVEN" };
+    const boards = await discoverHtmlBoards({ source }, home, "https://news.example.com/");
+    expect(boards.map((b) => b.displayName)).toEqual(["교민뉴스", "여행"]);
+    expect(boards[0]!.engineKey).toBe("https://news.example.com/news/list.html?sec=1");
+    expect(boards[0]!.boardId).not.toContain("https");
+  });
+});

@@ -118,3 +118,18 @@ describe("rss adapter", () => {
     expect(assessArticleQuality(a).verdict).toBe("PARTIAL");
   });
 });
+
+describe("wordpress thumbnails", () => {
+  it("falls back to the first content image when a post has no featured media", async () => {
+    const wp: RuntimeSource = { ...gnu, id: "wp", baseUrl: "https://wp.example.com/", engine: "wordpress_rest" };
+    routes["https://wp.example.com/wp-json/wp/v2/posts?per_page=20&page=1&_embed=1"] = {
+      type: "application/json",
+      body: JSON.stringify([
+        { id: 1, link: "https://wp.example.com/a/", title: { rendered: "A" }, content: { rendered: '<p>x</p><img src="https://wp.example.com/u/a.jpg">' } },
+        { id: 2, link: "https://wp.example.com/b/", title: { rendered: "B" }, _embedded: { "wp:featuredmedia": [{ source_url: "https://wp.example.com/u/f.jpg" }] }, content: { rendered: "" } },
+      ]),
+    };
+    const rows = await adapterFor("wordpress_rest").list({ source: wp }, { ...board("all"), engineKey: "all" }, 1);
+    expect(rows.map((r) => r.thumbnailUrl)).toEqual(["https://wp.example.com/u/a.jpg", "https://wp.example.com/u/f.jpg"]);
+  });
+});

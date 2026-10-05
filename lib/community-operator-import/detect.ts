@@ -177,8 +177,17 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     engine = "wordpress_rest";
     boards = await discoverWordpressBoards({ source: draftSource(engine) });
   } else {
-    const feeds = await findFeeds(base, $home, finalUrl);
-    if (feeds.length) {
+    // A specific list page (section/category URL) keeps the admin's choice: collect that list as HTML
+    // instead of switching to a site-wide feed that would ignore the section.
+    const entered = new URL(finalUrl);
+    const isSectionPage = (entered.pathname !== "/" && entered.pathname !== new URL(base).pathname) || entered.search.length > 1;
+    const inputTemplate = !isTistory && isSectionPage ? rankItemTemplates(html, finalUrl)[0] : undefined;
+    const feeds = inputTemplate && inputTemplate.items >= 5 ? [] : await findFeeds(base, $home, finalUrl);
+    if (inputTemplate && inputTemplate.items >= 5) {
+      engine = "html";
+      adapterConfig = { itemUrlTemplate: inputTemplate.template };
+      boards = [{ boardId: slugBoardId(entered.pathname + entered.search), displayName: siteName ? `${siteName} (입력한 목록)` : "입력한 목록", engineKey: finalUrl, boardKind: "editorial" }];
+    } else if (feeds.length) {
       engine = "rss_atom";
       boards = await discoverRssBoards({ source: draftSource(engine) }, feeds);
     } else {

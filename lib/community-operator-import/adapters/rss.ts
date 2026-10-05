@@ -36,7 +36,8 @@ const ARTICLE_REMOVE = [
   ".share",
 ];
 
-export const FEED_PATH_CANDIDATES = ["rss", "feed", "feed/", "rss.xml", "atom.xml", "index.xml", "feed.xml"];
+/** Common feed paths; `rss/allArticle.xml` is the standard path of Korean news CMSs. */
+export const FEED_PATH_CANDIDATES = ["rss", "feed", "feed/", "rss.xml", "atom.xml", "index.xml", "feed.xml", "rss/allArticle.xml"];
 
 export async function readFeed(url: string): Promise<FeedItem[]> {
   const res = await fetchImportText(url, { accept: "application/rss+xml,application/atom+xml,application/xml,text/xml,*/*" });
@@ -137,7 +138,7 @@ export async function detailRss(
     canonicalUrl,
     sourceArticleKey: target.articleKey,
     title: item?.title || pageMeta?.ogTitle || String(target.title || ""),
-    author: item?.author ?? null,
+    author: item?.author ?? pageMeta?.author ?? null,
     sourcePublishedDate: parseSourceDate(item?.date) || parseSourceDate(pageMeta?.published) || null,
     orderedContentBlocks: blocks,
     summary: target.summary || item?.summary || pageMeta?.description || null,
