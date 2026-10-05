@@ -1,6 +1,6 @@
 // Print live-probe results as GitHub annotations (readable via the check-runs API).
 import { existsSync, readFileSync } from "node:fs";
-const f = "live-probe-results.json";
+const f = process.argv[2] || "live-probe-results.json";
 if (!existsSync(f)) {
   console.log("::error title=live-probe::no results file");
   process.exit(0);

@@ -1,0 +1,58 @@
+name: community-import staging e2e
+
+# Disposable, isolated staging: a local Supabase stack inside the runner (no production data,
+# no production credentials, no cost). Replays every migration, then runs the B+ integration
+# suite (register → collect → inbox → edit → publish → update → duplicate guard → feed).
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/community-import-bplus"]
+    paths:
+      - "lib/community-operator-import/**"
+      - "supabase/migrations/**"
+      - "scripts/staging-e2e/**"
+      - "vitest.staging.config.ts"
+      - ".github/workflows/community-import-staging-e2e.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Init local Supabase config (runner only)
+        run: |
+          test -f supabase/config.toml || supabase init --force --with-vscode-settings=false || supabase init --force
+          sed -i 's/^project_id = .*/project_id = "bplus-staging"/' supabase/config.toml
+      - name: Start local Supabase (replays all migrations)
+        id: start
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime 2>&1 | tee supabase-start.log
+      - name: Report migration replay
+        if: always()
+        run: node scripts/staging-e2e/report-start.mjs supabase-start.log "${{ steps.start.outcome }}"
+      - run: npm ci
+        if: steps.start.outcome == 'success'
+      - name: Staging integration suite
+        if: steps.start.outcome == 'success'
+        continue-on-error: true
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export STAGING_SUPABASE_URL="$API_URL" STAGING_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" STAGING_ANON_KEY="$ANON_KEY"
+          export STAGING_DB_URL="$DB_URL"
+          npx vitest run --config vitest.staging.config.ts
+      - name: Annotate staging results
+        if: always()
+        run: node scripts/live-probe/annotate.mjs staging-results.json
