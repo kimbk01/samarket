@@ -107,8 +107,9 @@ describe("admin sidebar active path authority", () => {
       expectCount: 1,
     },
     {
-      name: "system reports root",
-      workspaceKey: "system",
+      // J-AMD-1: /admin/reports lives under members (not system).
+      name: "members reports root",
+      workspaceKey: "members",
       path: "/admin/reports",
       expectLeaf: "/admin/reports",
       expectCount: 1,
