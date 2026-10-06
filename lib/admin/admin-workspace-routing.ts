@@ -13,6 +13,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 export type AdminWorkspaceId =
   | "dashboard"
+  | "members"
   | "delivery"
   | "trade"
   | "community"

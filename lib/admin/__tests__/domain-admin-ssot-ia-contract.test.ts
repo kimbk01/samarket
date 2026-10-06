@@ -10,6 +10,7 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
   it("exposes CUT J top-level workspaces in OWNER order", () => {
     expect(adminMenu.map((w) => w.key)).toEqual([
       "dashboard",
+      "members",
       "delivery",
       "trade",
       "community",
@@ -23,7 +24,7 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
     ]);
   });
 
-  it("System owns global reports and audit; Trade reports are domain-scoped only", () => {
+  it("Members owns global reports and audit; Trade reports are domain-scoped only", () => {
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
     expect(findAdminMenuByKey(adminMenu, "audit-logs")?.path).toBe("/admin/audit-logs");
     const tradeReports = findAdminMenuByKey(adminMenu, "reports-posts");

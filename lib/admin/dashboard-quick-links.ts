@@ -30,6 +30,7 @@ export type DashboardQuickLink = {
  */
 export const DASHBOARD_QUICK_LINK_MENU_KEYS = {
   ops: [
+    "users",
     "delivery",
     "trade",
     "community",

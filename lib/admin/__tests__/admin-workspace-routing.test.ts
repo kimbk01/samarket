@@ -19,6 +19,7 @@ describe("admin-workspace-routing (CUT J)", () => {
     const ws = listAdminWorkspaces("master");
     expect(ws.map((w) => w.id)).toEqual([
       "dashboard",
+      "members",
       "delivery",
       "trade",
       "community",
@@ -45,8 +46,10 @@ describe("admin-workspace-routing (CUT J)", () => {
   it("resolves active workspace from pathname and matchPaths", () => {
     expect(resolveActiveWorkspace("/admin", "master").id).toBe("dashboard");
     expect(resolveActiveWorkspace("/admin/customer-platform", "master").id).toBe("system");
-    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("system");
-    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("members");
+    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("members");
+    expect(resolveActiveWorkspace("/admin/reports/log", "master").id).toBe("members");
+    expect(resolveActiveWorkspace("/admin/audit-logs", "master").id).toBe("members");
     expect(resolveActiveWorkspace("/admin/finance", "master").id).toBe("finance");
     expect(resolveActiveWorkspace("/admin/point-charges", "master").id).toBe("finance");
     expect(resolveActiveWorkspace("/admin/delivery-ads", "master").id).toBe("ads");

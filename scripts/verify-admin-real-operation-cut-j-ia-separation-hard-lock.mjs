@@ -32,6 +32,12 @@ for (const s of [
   'financeF1F3F4F7: "NOT_PROVEN"',
   'adsApplyActiveApp: "NOT_PROVEN"',
   'resetStorage: "NOT_IMPLEMENTED"',
+  // J-AMD-1 Owner-approved SSOT (target order; live menu unchanged until impl auth)
+  "CUT_J_J_AMD_1_OWNER_APPROVED = true",
+  "CUT_J_WORKSPACE_ORDER_J_AMD_1",
+  'fullWorkspaceReorder_J_AMD_2: true',
+  'adsPromotionSingleParent_B_X1: true',
+  "cutJFullUnlock: true",
 ]) {
   if (!a.includes(s)) fail(`anchor missing: ${s}`);
 }
@@ -57,6 +63,7 @@ if (/\n  \{\n    key: "common",/.test(m)) {
 const r = read(routing);
 for (const id of [
   '"dashboard"',
+  '"members"',
   '"delivery"',
   '"trade"',
   '"community"',
@@ -69,6 +76,7 @@ for (const id of [
 ]) {
   if (!r.includes(id)) fail(`routing missing workspace id ${id}`);
 }
+if (!m.includes('key: "members"')) fail("menu missing members workspace (J-AMD-1)");
 
 for (const shell of [
   "app/admin/ads-v2/page.tsx",

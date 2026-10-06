@@ -57,6 +57,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   // Workspaces
   dashboard: "admin_menu_home",
   home: "admin_menu_home",
+  members: "admin_menu_members",
   common: "admin_menu_common",
   "customer-platform": "admin_menu_customer_platform",
   community: "admin_menu_community",
@@ -357,8 +358,9 @@ function attachAdminMenuTitleKeys(items: AdminMenuItem[]): AdminMenuItem[] {
 
 /**
  * CUT J workspace SSOT
- * DASHBOARD / DELIVERY / TRADE / COMMUNITY / MESSENGER /
- * FINANCE / ADS / SUPPORT / NOTIFICATIONS / SYSTEM
+ * DASHBOARD / MEMBERS / DELIVERY / TRADE / COMMUNITY / MESSENGER /
+ * FINANCE / ADS / PROMOTION / SUPPORT / NOTIFICATIONS / SYSTEM
+ * (J-AMD-1: members immediately after dashboard)
  */
 export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   // ── DASHBOARD ──────────────────────────────────
@@ -367,6 +369,19 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     title: "",
     path: "/admin",
     status: "done",
+  },
+
+  // ── MEMBERS (J-AMD-1) ──────────────────────────
+  {
+    key: "members",
+    title: "",
+    status: "done",
+    children: [
+      { key: "users", title: "", path: "/admin/users", status: "done" },
+      { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
+      { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
+      { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
+    ],
   },
 
   // ── DELIVERY ───────────────────────────────────
@@ -1177,17 +1192,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
               { key: "cp-business", title: "", path: "/admin/app/business", status: "done" },
             ],
           },
-        ],
-      },
-      {
-        key: "system-members",
-        title: "",
-        status: "done",
-        children: [
-          { key: "users", title: "", path: "/admin/users", status: "done" },
-          { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
-          { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
-          { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
         ],
       },
       {

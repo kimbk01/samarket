@@ -12,6 +12,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 /** CUT J — Domain / Common Operation IA */
 const WORKSPACE_KEYS = [
   "dashboard",
+  "members",
   "delivery",
   "trade",
   "community",
@@ -102,10 +103,13 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(appConfig?.children?.some((c) => c.key === "settings-notifications")).toBe(false);
   });
 
-  it("moves common reports into system-members; trade reports stay domain-scoped", () => {
+  it("J-AMD-1: members workspace owns global reports; trade reports stay domain-scoped", () => {
     expect(findAdminMenuByKey(adminMenu, "common")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "system-members")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "members")).toBeTruthy();
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
-    expect(findAdminMenuByKey(adminMenu, "system-members")).toBeTruthy();
+    expect(findAdminMenuByKey(adminMenu, "reports-logs")?.path).toBe("/admin/reports/log");
+    expect(findAdminMenuByKey(adminMenu, "users")?.path).toBe("/admin/users");
 
     const messengerKids = findAdminMenuByKey(adminMenu, "messenger")?.children ?? [];
     expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);

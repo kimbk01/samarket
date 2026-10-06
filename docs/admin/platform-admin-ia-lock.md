@@ -175,20 +175,47 @@ Uniqueness key = menu `path` 문자열 전체(쿼리·hash 포함).
 
 ---
 
-## D. Final 11 workspace IA
+## D. Workspace IA (live CUT J + Owner J-AMD-1)
+
+**Live authority:** CUT J `CUT_J_WORKSPACE_ORDER` / `components/admin/admin-menu.ts`  
+**Owner-approved target:** J-AMD-1 inserts `members` after `dashboard` — see  
+`docs/dibay-admin-real-operation-cut-j-ia-separation-hard-lock.md` and  
+`docs/admin/dibay-admin-ia-owner-approved-amendment.md`.  
+Menu implementation of J-AMD-1 is **not** authorized by the SSOT amendment alone.
 
 ```text
-HOME                 /admin
-CUSTOMER PLATFORM    /admin/customer-platform (+ Support / Assets / Content / Engine)
-MEMBERS              /admin/users · push-devices
-MODERATION           reports · reviews · feed/store/chat reported · meeting-reports · recommendation-reports
-TRADE                trade hub · products · posts-management · trade ads · menus/trade · favorites · trade-flow · trade-complete
-COMMUNITY            community/* · boards · comments · meeting-events
-DELIVERY             stores · orders console · store-orders (Action Queue) · order-chats · riders · settlement · …
-MESSENGER            chats (all/trade/messenger/group/community/business) · messenger-performance
-GROWTH               ads* · banners · ad-products · promoted · benefits · recommendation*
-APP CONFIG           settings · startup · auth · notifications · menus · categories · app meta/countries/languages · my/*
-PLATFORM OPS         manage knowledge/eval · system · launch* · docs · memo · qa … (role-gated)
+LIVE top-level (enforced today):
+  dashboard → delivery → trade → community → messenger →
+  finance → ads → promotion → support → notifications → system
+
+J-AMD-1 TARGET (Owner-approved SSOT; pending menu impl):
+  dashboard → members → delivery → trade → community → messenger →
+  finance → ads → promotion → support → notifications → system
+
+members leaves (URL preserve): /admin/users · /admin/reports ·
+  /admin/reports/log · /admin/audit-logs
+
+Domain (independent): delivery · trade · community · messenger
+Common: finance · ads · promotion · support · notifications · system
+Ads ≠ Promotion (siblings; B-X1 single parent REJECTED)
+Cross-domain: deep-links only (M2 ads↔promotion hubs APPROVED as design)
+
+Nested (not top-level workspaces):
+  system → customer-platform · system-members (live) · growth-rec ·
+    app-config · platform-ops (role-gated)
+  Label design (M1 APPROVED, impl later): stores = 입점 심사 ·
+    business = 매장 운영
+  M5 APPROVED (design): dashboard shortcut → /admin/users
+  M4 HELD · J-AMD-2 REJECTED · CUT J full unlock FORBIDDEN
+```
+
+### Historical Phase-0 sketch (not live authority)
+
+The former HOME / CP / MEMBERS / GROWTH / APP CONFIG / PLATFORM OPS tree below is **archival** relative to live CUT J. Do not treat it as current nav SSOT.
+
+```text
+(archival) HOME · CUSTOMER PLATFORM · MEMBERS · MODERATION · TRADE ·
+COMMUNITY · DELIVERY · MESSENGER · GROWTH · APP CONFIG · PLATFORM OPS
 ```
 
 ### CP subtree (no URL mirrors)

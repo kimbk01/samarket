@@ -26,6 +26,7 @@ import {
   adsWorkspaceMutationConfirmCopy,
   type AdminMutationConfirmCopy,
 } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { PROMOTION_WORKSPACE_HREF } from "@/lib/admin/promotion-ownership-visibility";
 import {
   filterShellRowsByProductFamily,
   filterShellRowsByTab,
@@ -616,6 +617,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           </h1>
           <p className="text-[13px] text-sam-muted" data-admin-ads-workspace-purpose="1">
             {modeDescription(mode, ko)}
+          </p>
+          <p className="text-[12px] text-sam-muted" data-admin-ads-promotion-deeplink-note="1">
+            {ko
+              ? "이벤트·팝업·배너 등 플랫폼 노출은 「프로모션 / 이벤트」에서 관리합니다."
+              : "Event, popup, and banner exposure live under Promotion / Events."}{" "}
+            <AdminActionLink
+              href={PROMOTION_WORKSPACE_HREF}
+              variant="quiet"
+              data-admin-ads-to-promotion-deeplink="1"
+            >
+              {ko ? "프로모션 / 이벤트" : "Promotion / Events"}
+            </AdminActionLink>
           </p>
         </div>
         {headerCtas.showRegister || headerCtas.showPlacementsLink ? (

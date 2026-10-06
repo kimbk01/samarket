@@ -337,6 +337,9 @@ export function eventSectionsHaveBenefit(sections: unknown): boolean {
 
 export const PLACEMENTS_INVENTORY_HREF = "/admin/advertising/placements";
 export const ADS_WORKSPACE_HREF = "/admin/advertising";
+
+/** Platform Promotion workspace hub — deep-link only (no writer merge). */
+export const PROMOTION_WORKSPACE_HREF = "/admin/platform-promotion";
 export const NOTIFICATIONS_SEND_HREF = "/admin/notifications";
 export const NOTIFICATIONS_CREATE_HREF = "/admin/notifications/create";
 export const PROMOTION_NOTIFICATIONS_HUB_HREF = "/admin/platform-promotion/notifications";
