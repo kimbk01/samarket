@@ -72,6 +72,19 @@ public final class DibayNotificationChannelRegistry {
   }
 
   public static String resolveMessageChannelIdFromFcmData(Map<String, String> data) {
+    String base = resolveBaseMessageChannelIdFromFcmData(data);
+    // W4 — 이벤트별 SSOT 음원 채널(동기화·자산 일치·Android 10+ 일 때만). 그 외에는 기존 기본 채널 그대로.
+    try {
+      String resolved = DibayNotificationSoundChannelStore.resolveChannelForPush(data, base);
+      return resolved != null && !resolved.trim().isEmpty() && !isCallChannelId(resolved) ? resolved : base;
+    } catch (Throwable t) {
+      Log.w(TAG, "[fcm] event_sound_channel_resolve_failed → base", t);
+      return base;
+    }
+  }
+
+  /** W4 이전 결정 로직 그대로 — 메시지·일반 기본 채널(기본음). */
+  static String resolveBaseMessageChannelIdFromFcmData(Map<String, String> data) {
     String raw = firstNonEmpty(
         data != null ? data.get("androidChannelId") : null,
         data != null ? data.get("android_channel_id") : null);

@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
+  notificationSoundRowInputFromRecord,
   resolveNotificationSoundEventKeyFromRow,
-  type NotificationSoundRowInput,
 } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { ingestNotificationEventRowSound } from "@/lib/notifications/notification-sound-decision";
 import { adaptNotificationEventInsertToLegacyRow } from "@/lib/notifications/adapt-notification-event-realtime-row";
@@ -36,14 +36,7 @@ function shouldPlaySoundForNotificationInsert(payload: unknown): boolean {
   return true;
 }
 
-function rowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowInput {
-  return {
-    notification_type: typeof row.notification_type === "string" ? row.notification_type : null,
-    domain: typeof row.domain === "string" ? row.domain : null,
-    meta: row.meta,
-    ref_id: typeof row.ref_id === "string" ? row.ref_id : null,
-  };
-}
+const rowInputFromRecord = notificationSoundRowInputFromRecord;
 
 function playRowEventSound(row: Record<string, unknown>): void {
   const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));

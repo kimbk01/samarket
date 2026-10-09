@@ -11,10 +11,10 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import { ensureInitialBadgeSnapshotForBoot } from "@/lib/notifications/notification-badge-count-store";
 import { isMemberBadgeAuthoritySurface } from "@/lib/notifications/member-badge-surface-authority";
+import { armNotificationSoundSsotFirstLoad } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 
 let backgroundArmId = 0;
 let backgroundCancel: (() => void) | null = null;
-
 /** P3-b1 — same boot background arm must not double-schedule badge initial. */
 const APP_BOOT_INITIAL_BADGE_JOB = "app-boot-initial-badge";
 
@@ -62,6 +62,16 @@ export function scheduleAppBootBackgroundHydration(): void {
   backgroundCancel?.();
   backgroundCancel = null;
   const armId = ++backgroundArmId;
+
+  /**
+   * W1-b — admin notification-sound SSOT first load is owned by authenticated App Boot completion
+   * (route-independent: `/`, `/philife`, 내정보, messenger all share this one snapshot).
+   * Not deferred to idle: a message can arrive right after boot. Guest boot skips (API is auth-only).
+   * Browser-only (same guard as `scheduleAfterFirstPaint`); the hydrate module is a no-op without window.
+   */
+  if (typeof window !== "undefined" && getAppBootSnapshot().profile) {
+    armNotificationSoundSsotFirstLoad("app_boot");
+  }
 
   scheduleAfterFirstPaint(() => {
     if (armId !== backgroundArmId) return;
