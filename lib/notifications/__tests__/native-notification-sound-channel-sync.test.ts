@@ -12,13 +12,15 @@ import {
   resetNotificationSoundSsotSnapshotForTests,
 } from "@/lib/notifications/notification-sound-resolver";
 
-const syncEventSounds = vi.fn(async () => ({ ok: true }));
+const { syncEventSounds, platform } = vi.hoisted(() => ({
+  syncEventSounds: vi.fn(async (_options: unknown): Promise<Record<string, unknown>> => ({ ok: true })),
+  platform: { native: true, shell: "android" as "android" | "ios" | null },
+}));
 
 vi.mock("@capacitor/core", () => ({
   registerPlugin: () => ({ syncEventSounds }),
 }));
 
-const platform = { native: true, shell: "android" as "android" | "ios" | null };
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: () => platform.native,
   resolveCapacitorShellPlatform: () => platform.shell,

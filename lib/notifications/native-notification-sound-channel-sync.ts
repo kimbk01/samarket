@@ -17,7 +17,7 @@ import {
   getNotificationSoundSsotSnapshotOrigin,
   resolveNotificationSoundForEvent,
 } from "@/lib/notifications/notification-sound-resolver";
-import type { NotificationSoundSsotSnapshot } from "@/lib/notifications/notification-sound-types";
+import type { NotificationSoundSsotSnapshot } from "@/lib/notifications/notification-sound-resolver";
 
 export type NativeEventSoundEntry = {
   eventKey: string;
