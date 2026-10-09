@@ -13,7 +13,10 @@ import {
   invalidateNotificationSoundSsotCache,
   resolveNotificationSound,
 } from "@/lib/notifications/notification-sound-resolver";
-import { invalidateNotificationSoundSsotClientHydrate } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
+import {
+  invalidateNotificationSoundSsotClientHydrate,
+  waitForNotificationSoundSsotClientReady,
+} from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
@@ -182,6 +185,33 @@ export async function playEventNotificationSound(
     repeatTimers.push(t);
   }
   scheduleAutoStop();
+}
+
+/** W1-b — max time a receive sound waits for the in-flight first SSOT load (no new request). */
+export const NOTIFICATION_SOUND_SSOT_READY_WAIT_MS = 3_000;
+
+/**
+ * W1-b — receive sound before the admin SSOT has ever been applied on this client.
+ * Waits (bounded) for the first load — in flight, retrying, or starting right after login — and plays
+ * the admin sound; if no admin data arrives in time, skips with `ssot_not_ready` (never replayed late)
+ * instead of playing the static registry default as if it were the configured sound. The load itself
+ * keeps going independently, so the next message uses the admin sound. Room entry / auth wipe during the wait cancel it (same epoch as playEvent).
+ * SOUND HOT PATH HTTP = 0 still holds: this never starts a hydrate request (boot / Prime own it).
+ */
+export async function playEventNotificationSoundWhenSsotReady(eventKey: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const entryEpochAtStart = roomEntryCancelEpoch;
+  const ready = await waitForNotificationSoundSsotClientReady(NOTIFICATION_SOUND_SSOT_READY_WAIT_MS);
+  if (entryEpochAtStart !== roomEntryCancelEpoch) {
+    logBadgeFdProbe("playEventNotificationSound.skip", { eventKey, reason: "room_entry_cancel" });
+    return;
+  }
+  if (!ready) {
+    logBadgeFdProbe("playEventNotificationSound.skip", { eventKey, reason: "ssot_not_ready" });
+    console.info(`${SOUND_EVENT_LOG} ${JSON.stringify({ source: "event", stage: "skip", eventKey, reason: "ssot_not_ready" })}`);
+    return;
+  }
+  await playEventNotificationSound(eventKey);
 }
 
 /**

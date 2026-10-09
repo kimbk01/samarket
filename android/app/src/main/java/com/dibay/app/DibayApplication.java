@@ -12,6 +12,7 @@ public class DibayApplication extends Application {
   public void onCreate() {
     super.onCreate();
     ResumedActivityTracker.register(this);
+    DibayNotificationSoundChannelStore.init(this);
     String appKey = getString(R.string.kakao_native_app_key).trim();
     if (appKey.isEmpty()) {
       Log.w(TAG, "kakao_native_app_key_missing");

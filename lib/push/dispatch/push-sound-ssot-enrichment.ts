@@ -50,13 +50,17 @@ function resolveCallKindFromMeta(meta: Record<string, unknown> | null): "voice" 
   return raw === "video" ? "video" : "voice";
 }
 
-export function rowInputFromPushOut(out: NotificationSideEffectPayloadOut): NotificationSoundRowInput {
+export function rowInputFromPushOut(
+  out: NotificationSideEffectPayloadOut,
+  opts?: DispatchPushOptions
+): NotificationSoundRowInput {
   const meta = metaRecord(out);
   return {
     notification_type: out.notification_type,
     domain: trimText(meta?.domain) || null,
     meta,
     ref_id: trimText(meta?.ref_id ?? meta?.order_id ?? meta?.room_id) || null,
+    event_type: resolveEventType(out, opts),
   };
 }
 
@@ -90,7 +94,7 @@ export function resolveEventKeyForPushDispatch(
     return "call_ended";
   }
 
-  const fromRow = resolveNotificationSoundEventKeyFromRow(rowInputFromPushOut(out));
+  const fromRow = resolveNotificationSoundEventKeyFromRow(rowInputFromPushOut(out, opts));
   if (fromRow) return fromRow;
 
   if (isNotificationEventType(eventType)) {
@@ -109,7 +113,7 @@ export function resolveEventKeyForPushDispatch(
     }
   }
 
-  return resolveNotificationSoundEventKeyFromRowWithFallback(rowInputFromPushOut(out));
+  return resolveNotificationSoundEventKeyFromRowWithFallback(rowInputFromPushOut(out, opts));
 }
 
 /** Returns a shallow copy with SSOT sound meta merged into meta when missing. */

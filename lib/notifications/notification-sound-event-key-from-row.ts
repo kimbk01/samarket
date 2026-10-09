@@ -20,6 +20,11 @@ export type NotificationSoundRowInput = {
   domain?: string | null;
   meta?: unknown;
   ref_id?: string | null;
+  /**
+   * W2 — canonical `notification_events.type` (or push `event_type`). Same identifier the push
+   * dispatcher already uses, so in-app and push resolve one event to one SSOT eventKey.
+   */
+  event_type?: string | null;
 };
 
 const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
@@ -61,6 +66,25 @@ const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
   admin_notice: "admin_notice_received",
   admin_report: "admin_report_received",
 };
+
+/**
+ * W2 — single row → input adapter for every in-app sound caller (gate router, realtime hook).
+ * Previously duplicated in both files and both dropped the event type.
+ */
+export function notificationSoundRowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowInput {
+  return {
+    notification_type: typeof row.notification_type === "string" ? row.notification_type : null,
+    domain: typeof row.domain === "string" ? row.domain : null,
+    meta: row.meta,
+    ref_id: typeof row.ref_id === "string" ? row.ref_id : null,
+    event_type:
+      typeof row.event_type === "string"
+        ? row.event_type
+        : typeof row.type === "string"
+          ? row.type
+          : null,
+  };
+}
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -128,6 +152,11 @@ function eventKeyFromNotificationType(notificationType: string): string | null {
 export function resolveNotificationSoundEventKeyFromRow(
   row: NotificationSoundRowInput
 ): string | null {
+  /**
+   * W2-b — a mention is a mention even inside a group room. `metaFromEvent` rewrites meta.kind to
+   * `group_chat` from roomKind, so the canonical event type must win here (dedicated item exists).
+   */
+  if (trimText(row.event_type) === "mention_message") return "community_mention_received";
   const kind = metaKind(row);
   if (kind) {
     const fromMeta = META_KIND_TO_EVENT_KEY[kind];
@@ -191,6 +220,15 @@ export function resolveNotificationSoundEventKeyFromRowWithFallback(
 ): string {
   const direct = resolveNotificationSoundEventKeyFromRow(row);
   if (direct) return direct;
+
+  /**
+   * W2-a — same step and order as `resolveEventKeyForPushDispatch` (meta → event type → domain).
+   * Without it in-app fell to `system_default` while push picked the event-type key (F1, §22.2).
+   */
+  const eventType = trimText(row.event_type);
+  if (eventType && isNotificationEventType(eventType)) {
+    return eventKeyForNotificationEventType(eventType);
+  }
 
   const domain = trimText(row.domain);
   if (domain && isNotificationDomain(domain)) {

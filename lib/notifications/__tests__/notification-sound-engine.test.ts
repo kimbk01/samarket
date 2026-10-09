@@ -11,6 +11,7 @@ vi.mock("@/lib/notifications/notification-sound-resolver", () => ({
 vi.mock("@/lib/notifications/notification-sound-ssot-client-hydrate", () => ({
   ensureNotificationSoundSsotHydratedForClient: vi.fn().mockResolvedValue(undefined),
   invalidateNotificationSoundSsotClientHydrate: vi.fn(),
+  waitForNotificationSoundSsotClientReady: vi.fn().mockResolvedValue(true),
 }));
 
 describe("playEventNotificationSound", () => {

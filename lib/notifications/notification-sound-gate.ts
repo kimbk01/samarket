@@ -1,7 +1,7 @@
 import {
+  notificationSoundRowInputFromRecord,
   resolveNotificationSoundEventKeyFromRowWithFallback,
   resolveNotificationSoundGateDomainFromRow,
-  type NotificationSoundRowInput,
 } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { shouldSkipNotificationInsertSoundForCmParticipant } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import {
@@ -85,14 +85,7 @@ export function shouldPlayGroupChatInAppSoundFromGate(
   return true;
 }
 
-function rowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowInput {
-  return {
-    notification_type: typeof row.notification_type === "string" ? row.notification_type : null,
-    domain: typeof row.domain === "string" ? row.domain : null,
-    meta: row.meta,
-    ref_id: typeof row.ref_id === "string" ? row.ref_id : null,
-  };
-}
+const rowInputFromRecord = notificationSoundRowInputFromRecord;
 
 function playRowEventSound(
   row: Record<string, unknown>,

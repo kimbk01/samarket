@@ -20,8 +20,13 @@ import { traceAdminSound } from "@/lib/notifications/admin-notification-sound-tr
 import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";
 import {
   playEventNotificationSound,
+  playEventNotificationSoundWhenSsotReady,
   resetNotificationSoundEngineForAuthEpoch,
 } from "@/lib/notifications/notification-sound-engine";
+import {
+  cancelNotificationSoundSsotFirstLoad,
+  isNotificationSoundSsotClientReady,
+} from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 import {
   getNotificationSoundGateSnapshot,
   type NotificationSoundGateSnapshot,
@@ -115,6 +120,7 @@ let testLeaderOverride: boolean | null = null;
 let testCallActiveOverride: boolean | null = null;
 let testVisibilityOverride: "visible" | "hidden" | null = null;
 let testFocusOverride: boolean | null = null;
+let testSsotReadyOverride: boolean | null = null;
 
 function trimId(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -206,6 +212,8 @@ export function resetNotificationSoundRuntimeForAuthEpoch(): void {
   soundAuthEpoch += 1;
   sessionStartedAt = Date.now();
   resetNotificationSoundEngineForAuthEpoch();
+  /** W1-b — previous account's first-load retry chain must not continue (snapshot itself is global). */
+  cancelNotificationSoundSsotFirstLoad();
 }
 
 export function seedCanonicalSoundConsumed(input: {
@@ -362,7 +370,17 @@ export function ingestCanonicalNotificationSound(input: NotificationSoundDecisio
   const decision = decideNotificationSound(input);
   if (decision.action !== "PLAY") return decision;
   recordPlayClock(input.identityKind);
-  void playEventNotificationSound(input.eventType);
+  /**
+   * W1-b — the receive sound is the admin SSOT sound. Hydrated (incl. last-good past TTL): play now,
+   * unchanged hot path. Before the first load: engine joins the in-flight load or skips
+   * (`ssot_not_ready`) — never the static registry default as if it were the admin sound.
+   */
+  const ssotReady = testSsotReadyOverride ?? isNotificationSoundSsotClientReady();
+  if (ssotReady) {
+    void playEventNotificationSound(input.eventType);
+  } else {
+    void playEventNotificationSoundWhenSsotReady(input.eventType);
+  }
   return decision;
 }
 
@@ -452,6 +470,8 @@ export function __resetNotificationSoundDecisionForTests(opts?: {
   callActive?: boolean | null;
   visibility?: "visible" | "hidden" | null;
   windowFocused?: boolean | null;
+  /** W1-b — default `true` (decision-gate tests assume admin SSOT applied); `null` = real check. */
+  ssotReady?: boolean | null;
 }): void {
   consumedKeys.clear();
   lastMessengerPlayAt = 0;
@@ -463,6 +483,7 @@ export function __resetNotificationSoundDecisionForTests(opts?: {
   testCallActiveOverride = opts?.callActive === undefined ? null : opts.callActive;
   testVisibilityOverride = opts?.visibility === undefined ? null : opts.visibility;
   testFocusOverride = opts?.windowFocused === undefined ? null : opts.windowFocused;
+  testSsotReadyOverride = opts?.ssotReady === undefined ? true : opts.ssotReady;
 }
 
 export function __getNotificationSoundConsumedSizeForTests(): number {
