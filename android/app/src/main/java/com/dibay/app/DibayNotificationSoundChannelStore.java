@@ -426,7 +426,12 @@ public final class DibayNotificationSoundChannelStore {
     NotificationChannel ch = new NotificationChannel(channelId, name, importance);
     ch.setDescription(baseName + " · DIBAY 알림음");
     ch.enableVibration(vibrate);
-    if (lockscreen != NotificationManager.VISIBILITY_NO_OVERRIDE) ch.setLockscreenVisibility(lockscreen);
+    // 사용자/시스템 미지정(NO_OVERRIDE 등)은 그대로 두고, 명시값만 승계한다.
+    if (lockscreen == Notification.VISIBILITY_PUBLIC
+        || lockscreen == Notification.VISIBILITY_PRIVATE
+        || lockscreen == Notification.VISIBILITY_SECRET) {
+      ch.setLockscreenVisibility(lockscreen);
+    }
     ch.setShowBadge(badge);
     ch.setSound(
         soundUri,
