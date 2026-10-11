@@ -1,0 +1,1390 @@
+{
+  "version": "p1-proposed-2026-10-11",
+  "source": "docs/data-reset/p1_classification_matrix.csv",
+  "tables": {
+    "_call_sessions_domain_backfill_candidates": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "_call_sessions_domain_backfill_rollback": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "_samarket_meeting_cm_backfill_work": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "account_deletion_requests": {
+      "class": "COND"
+    },
+    "ad_logs": {
+      "class": "DELETE"
+    },
+    "ad_payment_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "ad_position_slots": {
+      "class": "KEEP"
+    },
+    "ad_positions": {
+      "class": "KEEP"
+    },
+    "ad_products": {
+      "class": "KEEP"
+    },
+    "ad_slots": {
+      "class": "KEEP"
+    },
+    "admin_action_logs": {
+      "class": "COND"
+    },
+    "admin_banner_change_logs": {
+      "class": "KEEP"
+    },
+    "admin_memberships": {
+      "class": "KEEP"
+    },
+    "admin_messenger_call_sound_settings": {
+      "class": "KEEP"
+    },
+    "admin_notification_campaign_occurrences": {
+      "class": "UNRESOLVED"
+    },
+    "admin_notification_campaign_targets": {
+      "class": "DELETE"
+    },
+    "admin_notification_campaigns": {
+      "class": "UNRESOLVED"
+    },
+    "admin_notification_preferences": {
+      "class": "KEEP"
+    },
+    "admin_notification_settings": {
+      "class": "KEEP"
+    },
+    "admin_settings": {
+      "class": "KEEP"
+    },
+    "admin_staff_permissions": {
+      "class": "KEEP"
+    },
+    "ads": {
+      "class": "DELETE"
+    },
+    "app_legal_documents": {
+      "class": "KEEP"
+    },
+    "app_notices": {
+      "class": "UNRESOLVED"
+    },
+    "app_platform_business_info": {
+      "class": "KEEP"
+    },
+    "audit_logs": {
+      "class": "SPLIT",
+      "split": "action IS NULL OR action !~ '^(admin_destructive_|data_reset|user_purge|user_withdraw)'"
+    },
+    "auth_duplicate_login_policy": {
+      "class": "KEEP"
+    },
+    "auth_login_settings": {
+      "class": "KEEP"
+    },
+    "auth_phone_settings": {
+      "class": "KEEP"
+    },
+    "auth_providers": {
+      "class": "KEEP"
+    },
+    "board_categories": {
+      "class": "KEEP"
+    },
+    "board_point_policies": {
+      "class": "KEEP"
+    },
+    "boards": {
+      "class": "KEEP"
+    },
+    "business_cash_accounts": {
+      "class": "LEGAL_HOLD"
+    },
+    "business_cash_charge_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "business_cash_conversion_rate_history": {
+      "class": "KEEP"
+    },
+    "business_cash_conversion_rate_policies": {
+      "class": "KEEP"
+    },
+    "business_cash_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "buyer_store_orders_list_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "categories": {
+      "class": "KEEP"
+    },
+    "category_settings": {
+      "class": "KEEP"
+    },
+    "chat_event_logs": {
+      "class": "DELETE"
+    },
+    "chat_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "chat_reports": {
+      "class": "COND"
+    },
+    "chat_requests": {
+      "class": "DELETE"
+    },
+    "chat_room_participants": {
+      "class": "DELETE"
+    },
+    "chat_rooms": {
+      "class": "DELETE"
+    },
+    "coin_withdrawal_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "comments": {
+      "class": "DELETE"
+    },
+    "community_author_pool_aliases": {
+      "class": "KEEP"
+    },
+    "community_author_pools": {
+      "class": "KEEP"
+    },
+    "community_chat_bans": {
+      "class": "DELETE"
+    },
+    "community_chat_join_requests": {
+      "class": "DELETE"
+    },
+    "community_chat_logs": {
+      "class": "DELETE"
+    },
+    "community_chat_message_attachments": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "community_chat_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "community_chat_notices": {
+      "class": "DELETE"
+    },
+    "community_chat_reports": {
+      "class": "COND"
+    },
+    "community_chat_room_members": {
+      "class": "DELETE"
+    },
+    "community_chat_rooms": {
+      "class": "DELETE"
+    },
+    "community_comment_likes": {
+      "class": "DELETE"
+    },
+    "community_comments": {
+      "class": "DELETE"
+    },
+    "community_friend_favorites": {
+      "class": "DELETE"
+    },
+    "community_friend_requests": {
+      "class": "DELETE"
+    },
+    "community_import_job_items": {
+      "class": "DELETE"
+    },
+    "community_import_jobs": {
+      "class": "DELETE"
+    },
+    "community_import_post_links": {
+      "class": "DELETE"
+    },
+    "community_import_principal": {
+      "class": "UNRESOLVED"
+    },
+    "community_import_rules": {
+      "class": "KEEP"
+    },
+    "community_likes": {
+      "class": "DELETE"
+    },
+    "community_messenger_admin_oversight_logs": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "community_messenger_bootstrap_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "community_messenger_call_events": {
+      "class": "DELETE"
+    },
+    "community_messenger_call_logs": {
+      "class": "DELETE"
+    },
+    "community_messenger_call_session_participants": {
+      "class": "DELETE"
+    },
+    "community_messenger_call_sessions": {
+      "class": "DELETE"
+    },
+    "community_messenger_call_signals": {
+      "class": "DELETE"
+    },
+    "community_messenger_friendships": {
+      "class": "DELETE"
+    },
+    "community_messenger_group_bans": {
+      "class": "DELETE"
+    },
+    "community_messenger_group_invite_links": {
+      "class": "DELETE"
+    },
+    "community_messenger_group_join_requests": {
+      "class": "DELETE"
+    },
+    "community_messenger_home_sync_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "community_messenger_membership_leave_intervals": {
+      "class": "DELETE"
+    },
+    "community_messenger_message_reactions": {
+      "class": "DELETE"
+    },
+    "community_messenger_message_read_counts": {
+      "class": "DELETE"
+    },
+    "community_messenger_message_reads": {
+      "class": "DELETE"
+    },
+    "community_messenger_message_requests": {
+      "class": "DELETE"
+    },
+    "community_messenger_message_user_hides": {
+      "class": "DELETE"
+    },
+    "community_messenger_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "community_messenger_participants": {
+      "class": "DELETE"
+    },
+    "community_messenger_peer_notices": {
+      "class": "DELETE"
+    },
+    "community_messenger_presence_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "community_messenger_reports": {
+      "class": "COND"
+    },
+    "community_messenger_room_bootstrap_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "community_messenger_room_profiles": {
+      "class": "DELETE"
+    },
+    "community_messenger_rooms": {
+      "class": "DELETE"
+    },
+    "community_operator_import_drafts": {
+      "class": "UNRESOLVED"
+    },
+    "community_operator_import_inbox": {
+      "class": "DELETE"
+    },
+    "community_operator_import_source_boards": {
+      "class": "KEEP"
+    },
+    "community_operator_import_sources": {
+      "class": "KEEP"
+    },
+    "community_post_hides": {
+      "class": "DELETE"
+    },
+    "community_post_images": {
+      "class": "DELETE"
+    },
+    "community_post_likes": {
+      "class": "DELETE"
+    },
+    "community_post_saves": {
+      "class": "DELETE"
+    },
+    "community_post_views": {
+      "class": "DELETE"
+    },
+    "community_posts": {
+      "class": "DELETE"
+    },
+    "community_reports": {
+      "class": "COND"
+    },
+    "community_sections": {
+      "class": "KEEP"
+    },
+    "community_topics": {
+      "class": "KEEP"
+    },
+    "community_topics_legacy": {
+      "class": "KEEP"
+    },
+    "coupon_audit_events": {
+      "class": "LEGAL_HOLD"
+    },
+    "coupon_user_entitlements": {
+      "class": "DELETE"
+    },
+    "customer_center_comments": {
+      "class": "UNRESOLVED"
+    },
+    "customer_center_content_views": {
+      "class": "DELETE"
+    },
+    "delivery_ad_accounts": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_attribution_policy": {
+      "class": "KEEP"
+    },
+    "delivery_ad_audit_logs": {
+      "class": "DELETE"
+    },
+    "delivery_ad_billing_policy": {
+      "class": "KEEP"
+    },
+    "delivery_ad_business_cash_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_campaign_budgets": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_campaign_commercial_snapshots": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_campaign_fundings": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_canonical_bc_fundings": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_charge_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_click_events": {
+      "class": "DELETE"
+    },
+    "delivery_ad_commercial_override_audit": {
+      "class": "DELETE"
+    },
+    "delivery_ad_creatives": {
+      "class": "DELETE"
+    },
+    "delivery_ad_extension_policy": {
+      "class": "KEEP"
+    },
+    "delivery_ad_extension_snapshots": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_impression_events": {
+      "class": "DELETE"
+    },
+    "delivery_ad_inventories": {
+      "class": "KEEP"
+    },
+    "delivery_ad_operations_cases": {
+      "class": "DELETE"
+    },
+    "delivery_ad_operations_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "delivery_ad_operations_thread_reads": {
+      "class": "DELETE"
+    },
+    "delivery_ad_operations_threads": {
+      "class": "DELETE"
+    },
+    "delivery_ad_order_attributions": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_packages": {
+      "class": "KEEP"
+    },
+    "delivery_ad_partner_config": {
+      "class": "KEEP"
+    },
+    "delivery_ad_partner_memberships": {
+      "class": "DELETE"
+    },
+    "delivery_ad_placement_commercial": {
+      "class": "KEEP"
+    },
+    "delivery_ad_position_preview": {
+      "class": "KEEP"
+    },
+    "delivery_ad_pricing_policies": {
+      "class": "KEEP"
+    },
+    "delivery_ad_products": {
+      "class": "KEEP"
+    },
+    "delivery_ad_refund_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_ad_runtime_settings": {
+      "class": "KEEP"
+    },
+    "delivery_ad_store_cash_spends": {
+      "class": "LEGAL_HOLD"
+    },
+    "delivery_alert_auto_assign_rr": {
+      "class": "KEEP"
+    },
+    "delivery_auto_actions_runtime_settings": {
+      "class": "KEEP"
+    },
+    "delivery_banner_campaign_inventories": {
+      "class": "DELETE"
+    },
+    "delivery_bottom_nav_items": {
+      "class": "KEEP"
+    },
+    "delivery_coverage_policy_state": {
+      "class": "KEEP"
+    },
+    "delivery_operation_alert_actions": {
+      "class": "DELETE"
+    },
+    "delivery_operation_alert_event_logs": {
+      "class": "DELETE"
+    },
+    "delivery_operation_alert_events": {
+      "class": "DELETE"
+    },
+    "delivery_operation_alert_rules": {
+      "class": "KEEP"
+    },
+    "delivery_release_gate_manual_checks": {
+      "class": "KEEP"
+    },
+    "delivery_riders": {
+      "class": "DELETE"
+    },
+    "delivery_store_sponsored_campaign_inventories": {
+      "class": "DELETE"
+    },
+    "delivery_summary_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "dibay_ads": {
+      "class": "DELETE"
+    },
+    "dibay_categories": {
+      "class": "KEEP"
+    },
+    "dibay_domain_mark_read_idempotency": {
+      "class": "DELETE"
+    },
+    "dibay_favorites": {
+      "class": "DELETE"
+    },
+    "dibay_item_images": {
+      "class": "DELETE"
+    },
+    "dibay_item_stats_daily": {
+      "class": "DELETE"
+    },
+    "dibay_item_tags": {
+      "class": "DELETE"
+    },
+    "dibay_items": {
+      "class": "DELETE"
+    },
+    "dibay_region_groups": {
+      "class": "KEEP"
+    },
+    "dibay_regions": {
+      "class": "KEEP"
+    },
+    "dibay_related_rules": {
+      "class": "KEEP"
+    },
+    "dibay_room_unread_idempotency": {
+      "class": "DELETE"
+    },
+    "dibay_settings": {
+      "class": "KEEP"
+    },
+    "exposure_policy_logs": {
+      "class": "KEEP"
+    },
+    "exposure_score_policies": {
+      "class": "KEEP"
+    },
+    "favorite_audit_log": {
+      "class": "DELETE"
+    },
+    "favorites": {
+      "class": "DELETE"
+    },
+    "feed_ad_campaigns": {
+      "class": "UNRESOLVED"
+    },
+    "feed_ad_creatives": {
+      "class": "UNRESOLVED"
+    },
+    "feed_ad_point_holds": {
+      "class": "LEGAL_HOLD"
+    },
+    "feed_ad_products": {
+      "class": "KEEP"
+    },
+    "feed_ad_request_creatives": {
+      "class": "DELETE"
+    },
+    "feed_ad_requests": {
+      "class": "DELETE"
+    },
+    "gift_admin_events": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_applications": {
+      "class": "DELETE"
+    },
+    "gift_certificate_cash_out_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_conversion_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_instances": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_ownership_events": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_products": {
+      "class": "SPLIT",
+      "split": "store_id IS NOT NULL"
+    },
+    "gift_certificate_redemptions": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_revenue_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_certificate_transfers": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_promo_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "gift_promo_obligations": {
+      "class": "LEGAL_HOLD"
+    },
+    "group_audit_log": {
+      "class": "DELETE"
+    },
+    "group_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "group_room_members": {
+      "class": "DELETE"
+    },
+    "group_rooms": {
+      "class": "DELETE"
+    },
+    "hub_badge_user_unread_counters": {
+      "class": "DELETE"
+    },
+    "job_applications": {
+      "class": "DELETE"
+    },
+    "job_details": {
+      "class": "DELETE"
+    },
+    "launch_intro_drafts": {
+      "class": "KEEP"
+    },
+    "launch_intro_live": {
+      "class": "KEEP"
+    },
+    "launch_intro_publications": {
+      "class": "KEEP"
+    },
+    "locations": {
+      "class": "KEEP"
+    },
+    "meeting_action_logs": {
+      "class": "DELETE"
+    },
+    "meeting_album_items": {
+      "class": "DELETE"
+    },
+    "meeting_chat_participants": {
+      "class": "DELETE"
+    },
+    "meeting_chat_rooms": {
+      "class": "DELETE"
+    },
+    "meeting_events": {
+      "class": "DELETE"
+    },
+    "meeting_feed_comments": {
+      "class": "DELETE"
+    },
+    "meeting_feed_images": {
+      "class": "DELETE"
+    },
+    "meeting_feed_posts": {
+      "class": "DELETE"
+    },
+    "meeting_join_answers": {
+      "class": "DELETE"
+    },
+    "meeting_join_questions": {
+      "class": "DELETE"
+    },
+    "meeting_join_requests": {
+      "class": "DELETE"
+    },
+    "meeting_member_bans": {
+      "class": "DELETE"
+    },
+    "meeting_members": {
+      "class": "DELETE"
+    },
+    "meeting_notices": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_attachments": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "meeting_open_chat_bans": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_join_requests": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_logs": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_members": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "meeting_open_chat_notices": {
+      "class": "DELETE"
+    },
+    "meeting_open_chat_reports": {
+      "class": "COND"
+    },
+    "meeting_open_chat_rooms": {
+      "class": "DELETE"
+    },
+    "meeting_reports": {
+      "class": "COND"
+    },
+    "meetings": {
+      "class": "DELETE"
+    },
+    "member_admin_note_messages": {
+      "class": "COND",
+      "followParents": true
+    },
+    "member_admin_note_threads": {
+      "class": "COND"
+    },
+    "member_benefit_logs": {
+      "class": "DELETE"
+    },
+    "member_benefit_policies": {
+      "class": "KEEP"
+    },
+    "member_order_discount_policies": {
+      "class": "KEEP"
+    },
+    "member_trust_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "moderation_actions": {
+      "class": "COND"
+    },
+    "moderation_audit_messages": {
+      "class": "COND",
+      "followParents": true
+    },
+    "my_page_banners": {
+      "class": "KEEP"
+    },
+    "my_page_sections": {
+      "class": "KEEP"
+    },
+    "my_services": {
+      "class": "KEEP"
+    },
+    "notification_campaign_deliveries": {
+      "class": "DELETE"
+    },
+    "notification_deliveries": {
+      "class": "DELETE"
+    },
+    "notification_events": {
+      "class": "DELETE"
+    },
+    "notification_logs": {
+      "class": "DELETE"
+    },
+    "notification_room_overrides": {
+      "class": "DELETE"
+    },
+    "notification_sound_assets": {
+      "class": "KEEP"
+    },
+    "notification_sound_events": {
+      "class": "KEEP"
+    },
+    "notification_sound_mappings": {
+      "class": "KEEP"
+    },
+    "notification_targets": {
+      "class": "DELETE"
+    },
+    "notifications": {
+      "class": "DELETE"
+    },
+    "open_chat_bans": {
+      "class": "DELETE"
+    },
+    "open_chat_join_requests": {
+      "class": "DELETE"
+    },
+    "open_chat_members": {
+      "class": "DELETE"
+    },
+    "open_chat_notices": {
+      "class": "DELETE"
+    },
+    "open_chat_rooms": {
+      "class": "DELETE"
+    },
+    "ops_trade_policy": {
+      "class": "KEEP"
+    },
+    "os_launch_config": {
+      "class": "KEEP"
+    },
+    "owner_dashboard_notifications_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "owner_notification_settings": {
+      "class": "DELETE"
+    },
+    "owner_store_orders_list_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "phone_otp_challenges": {
+      "class": "DELETE"
+    },
+    "platform_ad_events": {
+      "class": "DELETE"
+    },
+    "platform_ad_metrics_daily": {
+      "class": "DELETE"
+    },
+    "platform_ad_products": {
+      "class": "KEEP"
+    },
+    "platform_admin_inquiries": {
+      "class": "COND"
+    },
+    "platform_ads": {
+      "class": "UNRESOLVED"
+    },
+    "platform_event_owner_requests": {
+      "class": "DELETE"
+    },
+    "platform_events": {
+      "class": "UNRESOLVED"
+    },
+    "platform_popup_ad_packages": {
+      "class": "KEEP"
+    },
+    "platform_popup_campaign_events": {
+      "class": "DELETE"
+    },
+    "platform_popup_campaign_surfaces": {
+      "class": "UNRESOLVED"
+    },
+    "platform_popup_campaigns": {
+      "class": "UNRESOLVED"
+    },
+    "platform_popup_creatives": {
+      "class": "UNRESOLVED"
+    },
+    "platform_popup_owner_requests": {
+      "class": "DELETE"
+    },
+    "platform_popup_user_suppressions": {
+      "class": "DELETE"
+    },
+    "platform_promotion_content_visits": {
+      "class": "DELETE"
+    },
+    "platform_promotion_distributions": {
+      "class": "UNRESOLVED"
+    },
+    "platform_runtime_capabilities": {
+      "class": "KEEP"
+    },
+    "platform_runtime_settings": {
+      "class": "KEEP"
+    },
+    "point_action_logs": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "point_charge_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "point_event_policies": {
+      "class": "KEEP"
+    },
+    "point_expire_executions": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "point_expire_logs": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "point_expire_policies": {
+      "class": "KEEP"
+    },
+    "point_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "point_plans": {
+      "class": "KEEP"
+    },
+    "point_policy_logs": {
+      "class": "KEEP"
+    },
+    "point_probability_rules": {
+      "class": "KEEP"
+    },
+    "point_promotion_orders": {
+      "class": "LEGAL_HOLD"
+    },
+    "point_reclaim_policies": {
+      "class": "KEEP"
+    },
+    "point_reward_executions": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "point_reward_logs": {
+      "class": "COND",
+      "holdAll": true
+    },
+    "post_ads": {
+      "class": "DELETE"
+    },
+    "post_comments": {
+      "class": "DELETE"
+    },
+    "post_images": {
+      "class": "DELETE"
+    },
+    "post_likes": {
+      "class": "DELETE"
+    },
+    "post_reports": {
+      "class": "COND"
+    },
+    "posts": {
+      "class": "DELETE"
+    },
+    "price_offers": {
+      "class": "DELETE"
+    },
+    "product_chat_messages": {
+      "class": "DELETE",
+      "followParents": true
+    },
+    "product_chat_reads": {
+      "class": "DELETE"
+    },
+    "product_chats": {
+      "class": "DELETE"
+    },
+    "profiles": {
+      "class": "DELETE"
+    },
+    "promotion_point_holds": {
+      "class": "LEGAL_HOLD"
+    },
+    "report_actions": {
+      "class": "COND"
+    },
+    "reports": {
+      "class": "COND"
+    },
+    "reputation_logs": {
+      "class": "COND"
+    },
+    "sanctions": {
+      "class": "COND"
+    },
+    "services": {
+      "class": "KEEP"
+    },
+    "slot_ads": {
+      "class": "UNRESOLVED"
+    },
+    "store_ad_applications": {
+      "class": "DELETE"
+    },
+    "store_ad_placements": {
+      "class": "DELETE"
+    },
+    "store_banner_ad_campaigns": {
+      "class": "DELETE"
+    },
+    "store_banners": {
+      "class": "DELETE"
+    },
+    "store_browse_scope_policy": {
+      "class": "KEEP"
+    },
+    "store_browse_scope_policy_state": {
+      "class": "KEEP"
+    },
+    "store_business_verifications": {
+      "class": "DELETE"
+    },
+    "store_cash_accounts": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_cash_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_cash_recovery_obligations": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_categories": {
+      "class": "KEEP"
+    },
+    "store_composition_policy_logs": {
+      "class": "KEEP"
+    },
+    "store_composition_policy_overrides": {
+      "class": "KEEP"
+    },
+    "store_composition_policy_surface_state": {
+      "class": "KEEP"
+    },
+    "store_coupon_campaigns": {
+      "class": "DELETE"
+    },
+    "store_coupon_redemptions": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_delivery_coverage": {
+      "class": "DELETE"
+    },
+    "store_delivery_service_areas": {
+      "class": "DELETE"
+    },
+    "store_discovery_campaigns": {
+      "class": "DELETE"
+    },
+    "store_economic_point_accounts": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_economic_point_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_favorites": {
+      "class": "DELETE"
+    },
+    "store_fee_policies": {
+      "class": "SPLIT",
+      "split": "store_id IS NOT NULL"
+    },
+    "store_inquiries": {
+      "class": "DELETE"
+    },
+    "store_menu_sections": {
+      "class": "DELETE"
+    },
+    "store_menus_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "store_order_buyer_hides": {
+      "class": "DELETE"
+    },
+    "store_order_cancel_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_order_daily_stats": {
+      "class": "DELETE"
+    },
+    "store_order_deliveries": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_order_detail_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "store_order_events": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_order_item_options": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_order_items": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_order_popularity_ledger": {
+      "class": "DELETE"
+    },
+    "store_order_stock_restore_claims": {
+      "class": "DELETE"
+    },
+    "store_orders": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_paid_ad_campaigns": {
+      "class": "DELETE"
+    },
+    "store_payment_events": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_payments": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_point_charge_requests": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_point_ledger": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_point_policies": {
+      "class": "SPLIT",
+      "split": "store_id IS NOT NULL"
+    },
+    "store_product_categories": {
+      "class": "KEEP"
+    },
+    "store_products": {
+      "class": "DELETE"
+    },
+    "store_rating_confidence_policy": {
+      "class": "KEEP"
+    },
+    "store_reports": {
+      "class": "COND"
+    },
+    "store_reviews": {
+      "class": "COND"
+    },
+    "store_sale_fee_obligations": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_sales_permissions": {
+      "class": "DELETE"
+    },
+    "store_settlements": {
+      "class": "LEGAL_HOLD"
+    },
+    "store_subtopics": {
+      "class": "KEEP"
+    },
+    "store_topics": {
+      "class": "KEEP"
+    },
+    "stores": {
+      "class": "DELETE"
+    },
+    "stores_browse_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "support_case_events": {
+      "class": "COND"
+    },
+    "support_cases": {
+      "class": "COND"
+    },
+    "support_guidance_entries": {
+      "class": "KEEP"
+    },
+    "support_messages": {
+      "class": "COND",
+      "followParents": true
+    },
+    "support_sessions": {
+      "class": "COND"
+    },
+    "test_users": {
+      "class": "DELETE"
+    },
+    "trade_ad_point_holds": {
+      "class": "LEGAL_HOLD"
+    },
+    "trade_appointments": {
+      "class": "DELETE"
+    },
+    "trade_categories": {
+      "class": "KEEP"
+    },
+    "trade_chat_rooms_snapshots": {
+      "class": "DELETE",
+      "wholesale": true
+    },
+    "trade_local_area_lgu_map": {
+      "class": "KEEP"
+    },
+    "trade_national_lgu": {
+      "class": "KEEP"
+    },
+    "trade_national_lgu_alias": {
+      "class": "KEEP"
+    },
+    "trade_post_ads": {
+      "class": "DELETE"
+    },
+    "transaction_reviews": {
+      "class": "COND"
+    },
+    "trust_events": {
+      "class": "COND"
+    },
+    "trust_score_policy": {
+      "class": "KEEP"
+    },
+    "unified_ad_logs": {
+      "class": "DELETE"
+    },
+    "user_addresses": {
+      "class": "DELETE"
+    },
+    "user_auth_identities": {
+      "class": "DELETE"
+    },
+    "user_blocks": {
+      "class": "DELETE"
+    },
+    "user_devices": {
+      "class": "DELETE"
+    },
+    "user_moderation_events": {
+      "class": "COND"
+    },
+    "user_notification_settings": {
+      "class": "DELETE"
+    },
+    "user_relationships": {
+      "class": "DELETE"
+    },
+    "user_sessions": {
+      "class": "DELETE"
+    },
+    "user_settings": {
+      "class": "DELETE"
+    },
+    "user_social_relations": {
+      "class": "DELETE"
+    },
+    "users": {
+      "class": "DELETE"
+    },
+    "web_push_subscriptions": {
+      "class": "DELETE"
+    }
+  },
+  "softRefs": [
+    {
+      "from": "reports",
+      "col": "product_id",
+      "to": [
+        "posts"
+      ]
+    },
+    {
+      "from": "reports",
+      "col": "room_id",
+      "to": [
+        "chat_rooms",
+        "product_chats"
+      ]
+    },
+    {
+      "from": "reports",
+      "col": "target_id",
+      "to": [
+        "posts",
+        "community_posts",
+        "comments",
+        "community_comments",
+        "stores"
+      ]
+    },
+    {
+      "from": "chat_reports",
+      "col": "item_id",
+      "to": [
+        "posts"
+      ]
+    },
+    {
+      "from": "community_reports",
+      "col": "post_id",
+      "to": [
+        "community_posts"
+      ]
+    },
+    {
+      "from": "community_reports",
+      "col": "target_id",
+      "to": [
+        "community_posts",
+        "community_comments"
+      ]
+    },
+    {
+      "from": "moderation_actions",
+      "col": "target_id",
+      "to": [
+        "posts",
+        "community_posts",
+        "community_comments"
+      ]
+    },
+    {
+      "from": "meeting_reports",
+      "col": "target_id",
+      "to": [
+        "meetings",
+        "meeting_feed_posts"
+      ]
+    },
+    {
+      "from": "transaction_reviews",
+      "col": "product_id",
+      "to": [
+        "posts"
+      ]
+    },
+    {
+      "from": "transaction_reviews",
+      "col": "room_id",
+      "to": [
+        "chat_rooms",
+        "product_chats"
+      ]
+    },
+    {
+      "from": "store_reports",
+      "col": "target_id",
+      "to": [
+        "stores",
+        "store_products",
+        "store_reviews"
+      ]
+    },
+    {
+      "from": "community_post_images",
+      "col": "post_id",
+      "to": [
+        "community_posts"
+      ]
+    },
+    {
+      "from": "post_images",
+      "col": "post_id",
+      "to": [
+        "posts"
+      ]
+    },
+    {
+      "from": "chat_event_logs",
+      "col": "room_id",
+      "to": [
+        "chat_rooms"
+      ]
+    },
+    {
+      "from": "favorite_audit_log",
+      "col": "post_id",
+      "to": [
+        "posts"
+      ]
+    },
+    {
+      "from": "delivery_ad_impression_events",
+      "col": "store_id",
+      "to": [
+        "stores"
+      ]
+    },
+    {
+      "from": "delivery_ad_partner_memberships",
+      "col": "store_id",
+      "to": [
+        "stores"
+      ]
+    }
+  ],
+  "pathColumns": [
+    {
+      "table": "community_post_images",
+      "col": "storage_path",
+      "bucket": "post-images"
+    },
+    {
+      "table": "post_images",
+      "col": "storage_path",
+      "bucket": "post-images"
+    }
+  ],
+  "ownerInclude": [
+    "test_users.id",
+    "users.id",
+    "favorite_audit_log.user_id",
+    "audit_logs.actor_id"
+  ],
+  "ownerExclude": []
+}

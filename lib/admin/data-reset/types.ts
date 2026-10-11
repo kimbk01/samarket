@@ -3,7 +3,7 @@
  * Plan authority: buildDomainResetPlan (preview + execute).
  */
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { DataResetDerivedTarget } from "@/lib/admin/data-reset/derived-state";
 
 export type { DataResetDerivedTarget };
@@ -139,17 +139,38 @@ export function hashDataResetPayload(payload: unknown): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 24);
 }
 
+/**
+ * Server secret for data-reset action tokens (HMAC-SHA256). Must be at least 32 characters.
+ * Missing / short secret → tokens cannot be issued or verified (fail-closed).
+ * Previously the token was an unsigned sha256 of (planId, planHash, actor) and could be computed
+ * by anyone who knew those values.
+ */
+export const DATA_RESET_ACTION_SECRET_ENV = "DATA_RESET_ACTION_SECRET" as const;
+
+export function readDataResetActionSecret(env: NodeJS.ProcessEnv = process.env): string | null {
+  const raw = env[DATA_RESET_ACTION_SECRET_ENV];
+  const v = typeof raw === "string" ? raw.trim() : "";
+  return v.length >= 32 ? v : null;
+}
+
+/** HMAC-bound one-time token. Returns "" when the server secret is not configured. */
 export function issueDataResetOneTimeToken(input: {
   planId: string;
   planHash: string;
   actorUserId: string;
 }): string {
-  return hashDataResetPayload({
-    kind: "data_reset_ot",
-    planId: input.planId,
-    planHash: input.planHash,
-    actorUserId: input.actorUserId,
-  });
+  const secret = readDataResetActionSecret();
+  if (!secret) return "";
+  return createHmac("sha256", secret)
+    .update(
+      JSON.stringify({
+        kind: "data_reset_ot_v2",
+        planId: input.planId,
+        planHash: input.planHash,
+        actorUserId: input.actorUserId,
+      })
+    )
+    .digest("base64url");
 }
 
 export function verifyDataResetOneTimeToken(
@@ -157,7 +178,10 @@ export function verifyDataResetOneTimeToken(
   input: { planId: string; planHash: string; actorUserId: string }
 ): boolean {
   const expected = issueDataResetOneTimeToken(input);
-  return Boolean(token) && token === expected;
+  if (!token || !expected) return false;
+  const a = Buffer.from(String(token));
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export const DATA_RESET_PLAN_TTL_MS = 15 * 60 * 1000;

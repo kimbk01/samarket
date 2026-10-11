@@ -20,8 +20,9 @@ import {
   dataResetUiExecuteBlocked,
   resolveDataResetUiCapability,
 } from "@/lib/admin/data-reset/ui-capability";
+import { AdminFullResetPanel } from "@/components/admin/system/AdminFullResetPanel";
 
-type View = "list" | "detail" | "preview";
+type View = "list" | "detail" | "preview" | "full";
 
 const DOMAIN_SCOPES: Record<
   DataResetDomain,
@@ -422,22 +423,25 @@ export function AdminDataResetPage() {
             <button
               type="button"
               className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-100"
-              onClick={() => {
-                setDomain("full");
-                setScopeIdx(0);
-                setView("detail");
-              }}
+              onClick={() => setView("full")}
             >
-              {ko
-                ? "Full Service Reset (고위험 · 실측 미증명)"
-                : "Full Service Reset (high-risk · not runtime-proven)"}
+              {ko ? "전체 데이터 초기화 (평상시 잠김)" : "Full data reset (locked by default)"}
             </button>
             <p className="mt-2 text-xs text-sam-muted">
               {ko
-                ? "미리보기는 가능합니다. Production 파괴 실행은 기본 비활성이며 운영 실측은 아직 없습니다."
-                : "Preview is available. Production destructive execute stays off by default and is not runtime-proven."}
+                ? "두 명의 최고관리자 승인 창 · Dry-run · 재인증 · 확인 문구가 필요합니다. 운영 DB에서는 서버에서 차단됩니다."
+                : "Requires a two-Super-Admin window, dry-run, re-auth and typed phrases. Blocked server-side on the Production database."}
             </p>
           </div>
+        </div>
+      ) : null}
+
+      {view === "full" ? (
+        <div className="space-y-3">
+          <button type="button" className="text-sm text-sam-muted underline" onClick={() => setView("list")}>
+            {ko ? "← 목록" : "← Back"}
+          </button>
+          <AdminFullResetPanel ko={ko} />
         </div>
       ) : null}
 

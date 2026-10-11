@@ -1,0 +1,40 @@
+{
+  "version": "fixture-1",
+  "tables": {
+    "categories": { "class": "KEEP" },
+    "profiles": { "class": "COND" },
+    "admin_memberships": { "class": "KEEP" },
+    "test_users": { "class": "DELETE" },
+    "users": { "class": "DELETE" },
+    "posts": { "class": "DELETE" },
+    "post_images": { "class": "DELETE" },
+    "comments": { "class": "DELETE" },
+    "favorites": { "class": "DELETE" },
+    "reports": { "class": "COND", "holdAll": true },
+    "sanctions": { "class": "LEGAL_HOLD" },
+    "orders": { "class": "KEEP" },
+    "order_items": { "class": "KEEP" },
+    "point_ledger": { "class": "LEGAL_HOLD" },
+    "chat_rooms": { "class": "DELETE" },
+    "chat_messages": { "class": "DELETE", "followParents": true },
+    "stores": { "class": "DELETE" },
+    "store_products": { "class": "DELETE" },
+    "store_fee_policies": { "class": "SPLIT", "split": "store_id IS NOT NULL" },
+    "audit_logs": { "class": "SPLIT", "split": "action LIKE 'batch\\_%'" },
+    "backfill_nopk": { "class": "DELETE", "wholesale": true },
+    "browse_snapshots": { "class": "DELETE", "wholesale": true },
+    "settings": { "class": "KEEP" },
+    "favorite_audit_log": { "class": "DELETE" },
+    "unresolved_things": { "class": "UNRESOLVED" },
+    "ad_impressions": { "class": "DELETE" },
+    "lookup_children": { "class": "DELETE" }
+  },
+  "softRefs": [
+    { "from": "reports", "col": "target_id", "to": ["posts"] },
+    { "from": "post_images", "col": "post_id", "to": ["posts"] },
+    { "from": "ad_impressions", "col": "store_id", "to": ["stores"] }
+  ],
+  "pathColumns": [ { "table": "post_images", "col": "storage_path", "bucket": "post-images" } ],
+  "ownerInclude": ["test_users.id", "users.id", "favorite_audit_log.user_id"],
+  "ownerExclude": []
+}

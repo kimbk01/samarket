@@ -74,7 +74,38 @@ export function resolveDataResetDatabaseTarget(
   return { target: "non_production", projectRef: ref, reason: "database_target_non_production" };
 }
 
-/** True only when the database is positively identified as non-Production. */
+/**
+ * QA allowlist for destructive reset execution. Not being Production is not enough: the database
+ * must be one of the QA project refs listed in DATA_RESET_QA_SUPABASE_REFS (comma separated
+ * 20-char refs; the literal "loopback" admits a local Supabase stack). Missing / empty / unmatched →
+ * refused. A Production ref is never admitted even if listed. This is one layer only — the DB guard
+ * row, the open two-person window and plan approvals are still required.
+ */
+export const DATA_RESET_QA_REFS_ENV = "DATA_RESET_QA_SUPABASE_REFS" as const;
+
+export type DataResetExecutionTarget = {
+  allowed: boolean;
+  projectRef: string | null;
+  reason: string;
+};
+
+export function resolveDataResetExecutionTarget(env: NodeJS.ProcessEnv = process.env): DataResetExecutionTarget {
+  const t = resolveDataResetDatabaseTarget(env);
+  if (t.target !== "non_production") return { allowed: false, projectRef: t.projectRef, reason: t.reason };
+  const prod = productionRefs(env);
+  const allow = new Set(
+    (env[DATA_RESET_QA_REFS_ENV] ?? "")
+      .split(",")
+      .map((x) => x.trim().toLowerCase())
+      .filter((x) => (x === "loopback" || /^[a-z0-9]{20}$/.test(x)) && !prod.has(x))
+  );
+  if (allow.size === 0) return { allowed: false, projectRef: t.projectRef, reason: "qa_allowlist_missing" };
+  const key = t.projectRef ?? "loopback";
+  if (!allow.has(key)) return { allowed: false, projectRef: t.projectRef, reason: "database_target_not_in_qa_allowlist" };
+  return { allowed: true, projectRef: t.projectRef, reason: "database_target_qa_allowlisted" };
+}
+
+/** True only for a non-Production database that is on the QA allowlist. */
 export function isDataResetDestructiveTargetAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
-  return resolveDataResetDatabaseTarget(env).target === "non_production";
+  return resolveDataResetExecutionTarget(env).allowed;
 }

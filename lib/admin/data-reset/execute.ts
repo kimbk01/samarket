@@ -4,7 +4,10 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { appendDataResetAuditChecked as appendAuditLogChecked } from "@/lib/admin/data-reset/audit-checked";
+import { deleteAllRowsInBatches, updateAllRowsInBatches } from "@/lib/admin/data-reset/batch-mutate";
+import { requireOpenDataResetWindow } from "@/lib/admin/data-reset/full/window-gate";
+import { resolveDataResetExecutionTarget } from "@/lib/admin/data-reset/database-target-guard";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
 import { executeDerivedStateReset } from "@/lib/admin/data-reset/derived-state";
 import {
@@ -106,21 +109,10 @@ async function runDbActions(
       continue;
     }
     if (step.table === "community_posts" && plan.scope === "all") {
-      // Safety: require HIGH confirm already; delete all via filter that matches any uuid
-      const { data, error } = await sb.from("community_posts").select("id").limit(5000);
-      if (error) {
-        errors.push(error.message);
-        continue;
-      }
-      const ids = (data ?? []).map((r) => String((r as { id: string }).id));
-      if (ids.length) {
-        const { error: dErr, count } = await sb
-          .from("community_posts")
-          .delete({ count: "exact" })
-          .in("id", ids);
-        if (dErr) errors.push(dErr.message);
-        else counts.community_posts = (counts.community_posts ?? 0) + (count ?? 0);
-      }
+      // Batched until no row is left (former limit(5000) stopped early and still reported success).
+      const r = await deleteAllRowsInBatches(sb, "community_posts");
+      counts.community_posts = (counts.community_posts ?? 0) + r.affected;
+      if (r.error) errors.push(r.error);
       continue;
     }
     if (step.table === "posts" && plan.domain === "market" && plan.scope === "single" && plan.entityId) {
@@ -129,18 +121,10 @@ async function runDbActions(
       else counts.posts = (counts.posts ?? 0) + (count ?? 0);
       continue;
     }
-    if (step.table === "posts" && (plan.domain === "market" || plan.domain === "full") && plan.scope === "all") {
-      const { data, error } = await sb.from("posts").select("id").limit(5000);
-      if (error) {
-        errors.push(error.message);
-        continue;
-      }
-      const ids = (data ?? []).map((r) => String((r as { id: string }).id));
-      if (ids.length) {
-        const { error: dErr, count } = await sb.from("posts").delete({ count: "exact" }).in("id", ids);
-        if (dErr) errors.push(dErr.message);
-        else counts.posts = (counts.posts ?? 0) + (count ?? 0);
-      }
+    if (step.table === "posts" && plan.domain === "market" && plan.scope === "all") {
+      const r = await deleteAllRowsInBatches(sb, "posts");
+      counts.posts = (counts.posts ?? 0) + r.affected;
+      if (r.error) errors.push(r.error);
       continue;
     }
     if (step.table === "posts" && plan.domain === "member" && plan.entityId) {
@@ -177,20 +161,9 @@ async function runDbActions(
         if (error) errors.push(error.message);
         else counts.store_products = (counts.store_products ?? 0) + (count ?? 0);
       } else {
-        const { data, error } = await sb.from("store_products").select("id").limit(5000);
-        if (error) {
-          errors.push(error.message);
-          continue;
-        }
-        const ids = (data ?? []).map((r) => String((r as { id: string }).id));
-        if (ids.length) {
-          const { error: dErr, count } = await sb
-            .from("store_products")
-            .delete({ count: "exact" })
-            .in("id", ids);
-          if (dErr) errors.push(dErr.message);
-          else counts.store_products = (counts.store_products ?? 0) + (count ?? 0);
-        }
+        const r = await deleteAllRowsInBatches(sb, "store_products");
+        counts.store_products = (counts.store_products ?? 0) + r.affected;
+        if (r.error) errors.push(r.error);
       }
       continue;
     }
@@ -210,20 +183,9 @@ async function runDbActions(
         if (error) errors.push(error.message);
         else counts.user_social_relations = (counts.user_social_relations ?? 0) + (count ?? 0);
       } else {
-        const { data, error } = await sb.from("user_social_relations").select("id").limit(5000);
-        if (error) {
-          errors.push(error.message);
-          continue;
-        }
-        const ids = (data ?? []).map((r) => String((r as { id: string }).id));
-        if (ids.length) {
-          const { error: dErr, count } = await sb
-            .from("user_social_relations")
-            .delete({ count: "exact" })
-            .in("id", ids);
-          if (dErr) errors.push(dErr.message);
-          else counts.user_social_relations = (counts.user_social_relations ?? 0) + (count ?? 0);
-        }
+        const r = await deleteAllRowsInBatches(sb, "user_social_relations");
+        counts.user_social_relations = (counts.user_social_relations ?? 0) + r.affected;
+        if (r.error) errors.push(r.error);
       }
       continue;
     }
@@ -248,27 +210,14 @@ async function runDbActions(
         ? [plan.subtype]
         : ["general_direct", "group"];
     for (const d of domains) {
-      const { data, error } = await sb
-        .from("community_messenger_rooms")
-        .select("id")
-        .eq("chat_domain", d)
-        .is("deleted_at", null)
-        .limit(5000);
-      if (error) {
-        errors.push(error.message);
-        continue;
-      }
-      const ids = (data ?? []).map((r) => String((r as { id: string }).id));
-      if (!ids.length) continue;
-      const { error: uErr, count } = await sb
-        .from("community_messenger_rooms")
-        .update({ deleted_at: now, deleted_by: actorUserId }, { count: "exact" })
-        .in("id", ids)
-        .is("deleted_at", null);
-      if (uErr) errors.push(uErr.message);
-      else
-        counts.community_messenger_rooms_soft =
-          (counts.community_messenger_rooms_soft ?? 0) + (count ?? 0);
+      const r = await updateAllRowsInBatches(
+        sb,
+        "community_messenger_rooms",
+        { deleted_at: now, deleted_by: actorUserId },
+        { filter: (q) => q.eq("chat_domain", d).is("deleted_at", null) }
+      );
+      counts.community_messenger_rooms_soft = (counts.community_messenger_rooms_soft ?? 0) + r.affected;
+      if (r.error) errors.push(r.error);
     }
   }
 
@@ -278,7 +227,41 @@ async function runDbActions(
   return { counts, errors };
 }
 
+/**
+ * Public entry. Every BLOCKED outcome is written to the audit trail (previously refusals left no
+ * record), and the full-service domain is served only by the window/plan/approval system in
+ * lib/admin/data-reset/full (this per-domain engine cannot meet its preservation rules).
+ */
 export async function executeDomainReset(
+  input: ExecuteDomainResetInput
+): Promise<DataResetExecuteResult> {
+  const result = await executeDomainResetInner(input);
+  if (result.overall === "BLOCKED") {
+    const last = result.phases[result.phases.length - 1];
+    const audit = await appendAuditLogChecked(input.sb, {
+      actor_type: "admin",
+      actor_id: input.actorUserId,
+      target_type: "data_reset",
+      target_id: String(input.planId || "no_plan"),
+      action: `data_reset_execute_blocked_${input.request.domain}_${input.request.scope}`,
+      after_json: { reason: last?.detail ?? "blocked", at: new Date().toISOString() },
+    });
+    await input.sb
+      .rpc("data_reset_audit_log", {
+        p_actor: input.actorUserId,
+        p_action: `domain_execute_${input.request.domain}_${input.request.scope}`,
+        p_outcome: "blocked",
+        p_detail: { reason: last?.detail ?? "blocked", auditLogsWritten: audit.ok },
+      })
+      .then(
+        () => undefined,
+        () => undefined
+      );
+  }
+  return result;
+}
+
+async function executeDomainResetInner(
   input: ExecuteDomainResetInput
 ): Promise<DataResetExecuteResult> {
   const phases: DataResetPhaseResult[] = [];
@@ -297,6 +280,25 @@ export async function executeDomainReset(
       status: "BLOCKED",
       detail: env.reasons.join(",") || "execute_forbidden",
     });
+    return {
+      ok: false,
+      overall: "BLOCKED",
+      plan,
+      phases,
+      executedCounts: {},
+      clientSessionInvalidationRequired: false,
+    };
+  }
+
+  if (input.request.domain === "full") {
+    const plan = await buildDomainResetPlan({
+      sb: input.sb,
+      actorUserId: input.actorUserId,
+      request: input.request,
+      planId: input.planId,
+      createdAt: input.createdAt,
+    });
+    phases.push({ phase: "VERIFY", status: "BLOCKED", detail: "full_reset_uses_window_plan_system" });
     return {
       ok: false,
       overall: "BLOCKED",
@@ -435,6 +437,34 @@ export async function executeDomainReset(
     }
   }
 
+  // QA allowlist: only a listed non-Production project ref may be mutated.
+  const execTarget = resolveDataResetExecutionTarget();
+  if (!execTarget.allowed) {
+    phases.push({ phase: "VERIFY", status: "BLOCKED", detail: execTarget.reason });
+    return {
+      ok: false,
+      overall: "BLOCKED",
+      plan,
+      phases,
+      executedCounts: {},
+      clientSessionInvalidationRequired: false,
+    };
+  }
+
+  // Server lock: an OPEN two-person reset window is required for any destructive mutation.
+  const windowGate = await requireOpenDataResetWindow(input.sb);
+  if (!windowGate.ok) {
+    phases.push({ phase: "VERIFY", status: "BLOCKED", detail: windowGate.reason });
+    return {
+      ok: false,
+      overall: "BLOCKED",
+      plan,
+      phases,
+      executedCounts: {},
+      clientSessionInvalidationRequired: false,
+    };
+  }
+
   // L3: material binding + DB-backed one-time claim BEFORE any destructive mutation.
   // Same token / same plan replay → BLOCKED. Failed execute after claim needs fresh preview.
   if (plan.confirmationLevel >= 3) {
@@ -542,7 +572,7 @@ export async function executeDomainReset(
     overall = "PARTIAL";
   }
 
-  await appendAuditLog(input.sb, {
+  const audit = await appendAuditLogChecked(input.sb, {
     actor_type: "admin",
     actor_id: input.actorUserId,
     target_type: "data_reset",
@@ -564,7 +594,13 @@ export async function executeDomainReset(
       clientInvalidation: plan.clientInvalidation,
     },
   });
-  phases.push({ phase: "AUDIT", status: "PASS", detail: "audit_logs_appended" });
+  if (audit.ok) {
+    phases.push({ phase: "AUDIT", status: "PASS", detail: "audit_logs_appended" });
+  } else {
+    // A destructive run whose audit record was lost is never reported as SUCCESS.
+    phases.push({ phase: "AUDIT", status: "FAIL", detail: `audit_log_insert_failed:${audit.error}` });
+    if (overall === "SUCCESS") overall = "PARTIAL";
+  }
 
   return {
     ok: overall === "SUCCESS",

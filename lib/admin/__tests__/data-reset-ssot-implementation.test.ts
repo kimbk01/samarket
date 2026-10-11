@@ -29,6 +29,9 @@ import { ORDER_HARD_DELETE_BLOCKED } from "@/lib/admin/data-reset/order-hard-del
 import { STORE_ROW_DELETE_WHEN_FINANCE_PRESENT } from "@/lib/admin/data-reset/store-finance-fk-boundary";
 import { PRELAUNCH_RESET_FORBIDDEN_OPS } from "@/lib/admin/prelaunch-reset/domain-inventory";
 
+// Action tokens are HMAC-signed with a server secret (fail-closed without it).
+process.env.DATA_RESET_ACTION_SECRET ??= "test-only-data-reset-action-secret-0123456789abcdef";
+
 const root = process.cwd();
 function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");

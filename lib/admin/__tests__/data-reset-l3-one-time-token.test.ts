@@ -21,6 +21,9 @@ import {
   isDataResetProductionScopeEnabled,
 } from "@/lib/admin/data-reset/production-enable-policy";
 
+// Action tokens are HMAC-signed with a server secret (fail-closed without it).
+process.env.DATA_RESET_ACTION_SECRET ??= "test-only-data-reset-action-secret-0123456789abcdef";
+
 const root = resolve(process.cwd());
 function read(rel: string): string {
   return readFileSync(resolve(root, rel), "utf8");

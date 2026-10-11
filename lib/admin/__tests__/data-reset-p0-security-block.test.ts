@@ -83,7 +83,11 @@ describe("P0 database-target guard", () => {
   it("only a positively non-production target allows destructive execute", () => {
     expect(isDataResetDestructiveTargetAllowed(env({ NEXT_PUBLIC_SUPABASE_URL: PROD_URL }))).toBe(false);
     expect(isDataResetDestructiveTargetAllowed(env({}))).toBe(false);
-    expect(isDataResetDestructiveTargetAllowed(env({ NEXT_PUBLIC_SUPABASE_URL: LOCAL_URL }))).toBe(true);
+    // Non-production alone is no longer enough: the target must also be on the QA allowlist.
+    expect(isDataResetDestructiveTargetAllowed(env({ NEXT_PUBLIC_SUPABASE_URL: LOCAL_URL }))).toBe(false);
+    expect(
+      isDataResetDestructiveTargetAllowed(env({ NEXT_PUBLIC_SUPABASE_URL: LOCAL_URL, DATA_RESET_QA_SUPABASE_REFS: "loopback" }))
+    ).toBe(true);
   });
 });
 
