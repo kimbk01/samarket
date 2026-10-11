@@ -35,9 +35,24 @@ function currentViewerId(): string {
   return getCurrentUser()?.id?.trim() ?? "";
 }
 
-/** Server seed counts only for the account it was computed for (unknown local viewer = same request). */
+/**
+ * Seeds whose page the user has left. A router-cache-reused RSC payload (back/forward, reused
+ * segment) carries the same nonce, so it can never re-show an admin fact computed before leaving.
+ * In-memory only, cleared by any full page load; no time-based expiry.
+ */
+const retiredSeedNonces = new Set<string>();
+
+function currentPathname(): string {
+  return typeof window === "undefined" ? "" : window.location.pathname;
+}
+
+/**
+ * Server seed counts only for the account it was computed for (unknown local viewer = same request)
+ * and only while it has not been retired.
+ */
 function seedShowsAdminForViewer(seed: MypageAdminMenuSeed | null, viewerId: string): boolean {
   if (!seed || seed.isAdmin !== true) return false;
+  if (retiredSeedNonces.has(seed.nonce)) return false;
   return !viewerId || viewerId === seed.viewerId;
 }
 
@@ -50,6 +65,8 @@ function seedShowsAdminForViewer(seed: MypageAdminMenuSeed | null, viewerId: str
  * - Every mount, auth change and return-to-visible re-verifies with access-check:
  *   admin → show, not_admin → hide immediately, unknown → keep the current state (never upgrades to shown).
  * - A seed for a different account than the current session is ignored (hidden until verified).
+ * - A seed is single-visit: after leaving the page it is retired, so a router-cache-reused payload
+ *   starts hidden and waits for access-check (same as having no seed).
  */
 export function MyPageAdminMenuEntry({
   /** 홈 대시보드 `<ul>` 안에서만 `true` — 유효한 마크업(`<li>`) */
@@ -72,8 +89,9 @@ export function MyPageAdminMenuEntry({
     let disposed = false;
     let generation = 0;
 
-    // Adopt this RSC seed once (per seed); a seed for another account is never shown.
+    // Adopt this RSC seed once (per seed); a retired seed or one for another account is never shown.
     if (serverSeed) setShow(seedShowsAdminForViewer(serverSeed, currentViewerId()));
+    const pathnameAtMount = currentPathname();
 
     const verify = async () => {
       const gen = ++generation;
@@ -105,6 +123,9 @@ export function MyPageAdminMenuEntry({
       disposed = true;
       unsubscribeAuth();
       document.removeEventListener("visibilitychange", onVisibility);
+      // Leaving the page (URL already changed when passive cleanup runs) retires this seed.
+      // A remount on the same page (same pathname) keeps it.
+      if (serverSeed && currentPathname() !== pathnameAtMount) retiredSeedNonces.add(serverSeed.nonce);
     };
   }, [serverSeed]);
 
