@@ -35,6 +35,9 @@ function probeFromMeStoresResult(status: number, json: unknown): MeStoresProbe {
   return { kind: "failed" };
 }
 
+const OWNER_CTA_CLASS =
+  "inline-flex max-w-full items-center gap-0.5 truncate text-[12px] font-medium text-signature hover:underline";
+
 /**
  * Compact store-owner action — independent of content tab geometry.
  * Gate/destination SSOT = resolveMypageHomeStoreOwnerEntry (same as MyPage).
@@ -42,7 +45,8 @@ function probeFromMeStoresResult(status: number, json: unknown): MeStoresProbe {
  *
  * Decided only from this mount's `/api/me/stores` response — never from OwnerLite / me-stores
  * cache rows, which may belong to an earlier session, account or approval state.
- * Pending / failed (5xx, 503, `ok:false`, network) → render nothing (never a false "매장 신청").
+ * Pending / failed (5xx, 503, `ok:false`, network) → invisible same-size placeholder only
+ * (never a false "매장 신청"; layout identical to the rendered CTA).
  * 401 → apply entry (unchanged legacy behavior).
  */
 export function CommerceHubStoreOwnerEntryCta() {
@@ -75,7 +79,23 @@ export function CommerceHubStoreOwnerEntryCta() {
   };
 
   const stores = resolveStores();
-  if (stores === null) return null;
+  if (stores === null) {
+    // Pending / failed: keep the CTA's exact box (same classes + content, invisible, inert) so the
+    // action row height and the order list below never shift. No link, no claim about the store.
+    return (
+      <span
+        aria-hidden
+        className={OWNER_CTA_CLASS}
+        style={{ visibility: "hidden" }}
+        data-commerce-hub-owner-cta-placeholder="1"
+      >
+        <span className="truncate break-keep">
+          {safeT("mypage_hub_store_apply", { fallbackKo: "매장 신청", fallbackEn: "Apply for store" })}
+        </span>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      </span>
+    );
+  }
 
   const deriveFromLive = () => {
     const forGate = stores.map((s) => ({
@@ -110,7 +130,7 @@ export function CommerceHubStoreOwnerEntryCta() {
       prefetch={false}
       title={title}
       aria-label={title}
-      className="inline-flex max-w-full items-center gap-0.5 truncate text-[12px] font-medium text-signature hover:underline"
+      className={OWNER_CTA_CLASS}
       data-commerce-hub-owner-cta="1"
       data-commerce-hub-seller-cta="1"
       data-commerce-hub-seller-gate={derived.gate?.kind ?? "empty"}
