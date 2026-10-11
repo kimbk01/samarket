@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,34 +8,76 @@ import { resolveMypageHomeStoreOwnerEntry } from "@/lib/mypage/mypage-home-menu-
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { refreshOwnerLiteStore, useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import {
+  fetchMeStoresListDeduped,
   invalidateMeStoresListDedupedCache,
   parseStoreRowsFromMeStoresJson,
-  peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 /**
+ * This mount's `GET /api/me/stores` outcome (same deduped flight OwnerLite refresh uses).
+ * OwnerLite stores an empty list for HTTP errors too, so an empty list there cannot
+ * prove "no store"; only a 2xx `{ ok: true, stores }` body can.
+ */
+type MeStoresProbe =
+  | { kind: "pending" }
+  | { kind: "ok"; stores: StoreRow[] }
+  | { kind: "unauthenticated" }
+  | { kind: "failed" };
+
+function probeFromMeStoresResult(status: number, json: unknown): MeStoresProbe {
+  if (status === 401) return { kind: "unauthenticated" };
+  if (status >= 200 && status < 300) {
+    const rows = parseStoreRowsFromMeStoresJson(json);
+    if (rows) return { kind: "ok", stores: rows };
+  }
+  return { kind: "failed" };
+}
+
+/**
  * Compact store-owner action — independent of content tab geometry.
  * Gate/destination SSOT = resolveMypageHomeStoreOwnerEntry (same as MyPage).
  * Not a content tab; does not participate in ?tab= or tab width distribution.
+ *
+ * Decided only from this mount's `/api/me/stores` response — never from OwnerLite / me-stores
+ * cache rows, which may belong to an earlier session, account or approval state.
+ * Pending / failed (5xx, 503, `ok:false`, network) → render nothing (never a false "매장 신청").
+ * 401 → apply entry (unchanged legacy behavior).
  */
 export function CommerceHubStoreOwnerEntryCta() {
   const { safeT } = useI18n();
-  const ownerLite = useOwnerLiteStore();
+  // Kept only for the existing OwnerLite subscription (idle-hydrate scheduling); rows are not read.
+  useOwnerLiteStore();
+  const [probe, setProbe] = useState<MeStoresProbe>({ kind: "pending" });
 
   useEffect(() => {
+    let cancelled = false;
+    // Invalidates the me-stores cache and starts the deduped flight; the call below joins it.
     void refreshOwnerLiteStore();
+    fetchMeStoresListDeduped().then(
+      ({ status, json }) => {
+        if (!cancelled) setProbe(probeFromMeStoresResult(status, json));
+      },
+      () => {
+        if (!cancelled) setProbe({ kind: "failed" });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  const resolveStores = (): StoreRow[] | null => {
+    if (probe.kind === "ok") return probe.stores;
+    if (probe.kind === "unauthenticated") return [];
+    return null;
+  };
+
+  const stores = resolveStores();
+  if (stores === null) return null;
+
   const deriveFromLive = () => {
-    const storesFromLite = ownerLite.ownerStores;
-    let stores: StoreRow[] = storesFromLite;
-    if (stores.length === 0) {
-      const peek = peekMeStoresListClientCache();
-      const fromPeek = peek ? parseStoreRowsFromMeStoresJson(peek.json) : null;
-      if (fromPeek && fromPeek.length > 0) stores = fromPeek;
-    }
     const forGate = stores.map((s) => ({
       id: s.id,
       approval_status: String(s.approval_status ?? ""),
