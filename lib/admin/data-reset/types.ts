@@ -162,6 +162,9 @@ export function verifyDataResetOneTimeToken(
 
 export const DATA_RESET_PLAN_TTL_MS = 15 * 60 * 1000;
 
+/** P0: max allowed clock skew for a client-supplied plan createdAt (future side). */
+export const DATA_RESET_PLAN_CREATED_AT_MAX_SKEW_MS = 2 * 60 * 1000;
+
 export const DATA_RESET_FORBIDDEN_OPS = {
   wipeAllAppDataSql: "supabase/scripts/wipe-all-app-data.sql",
   truncateCascadePublic: true,

@@ -184,6 +184,8 @@ describe("CUT I-P0-11 Reset Storage/Auth", () => {
 
     vi.stubEnv("NEXT_PUBLIC_APP_DEPLOY_TIER", "local");
     vi.stubEnv("PRELAUNCH_RESET_ENABLED", "1");
+    // P0 database-target guard: executor contract runs against a local Supabase stack.
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
     vi.stubEnv("NODE_ENV", "development");
 
     vi.doMock("@/lib/admin/prelaunch-reset/planner", () => ({

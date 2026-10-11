@@ -106,10 +106,11 @@ describe("ARO-RST-001 Selective Reset", () => {
     expect(ui).not.toContain('type="radio"');
     expect(ui).not.toContain("reset-v2");
     expect(ui).toContain("selectedScopes");
+    // P0: legacy HTTP routes retired (410); selectedScopes remains in the library planner/executor.
     const dry = read("app/api/admin/prelaunch-reset/dry-run/route.ts");
     const exec = read("app/api/admin/prelaunch-reset/execute/route.ts");
-    expect(dry).toContain("selectedScopes");
-    expect(exec).toContain("selectedScopes");
+    expect(dry).toContain("PRELAUNCH_RESET_LEGACY_API_GONE_STATUS");
+    expect(exec).toContain("PRELAUNCH_RESET_LEGACY_API_GONE_STATUS");
     expect(read("lib/admin/prelaunch-reset/planner.ts")).toContain("selectedScopes");
     expect(read("lib/admin/prelaunch-reset/execute.ts")).toContain("community_posts");
   });

@@ -8,6 +8,7 @@
  */
 
 import type { AppDeployTier } from "@/lib/config/deploy-surface";
+import { resolveDataResetDatabaseTarget } from "@/lib/admin/data-reset/database-target-guard";
 
 function truthy(raw: string | undefined): boolean {
   const v = (raw ?? "").toLowerCase().trim();
@@ -35,9 +36,16 @@ export type PrelaunchResetEnvGate = {
 };
 
 export function resolvePrelaunchResetEnvGate(env: NodeJS.ProcessEnv = process.env): PrelaunchResetEnvGate {
-  const tier = deployTierFromEnv(env);
+  // P0: the database actually targeted overrides the deploy-tier env vars.
+  // A Production (or unidentifiable) Supabase project is treated as Production tier,
+  // so a Preview deployment wired to the Production DB can never execute.
+  const dbTarget = resolveDataResetDatabaseTarget(env);
+  const tier = dbTarget.target === "non_production" ? deployTierFromEnv(env) : "production";
   const reasons: string[] = [];
   const enabled = truthy(env.PRELAUNCH_RESET_ENABLED);
+  if (dbTarget.target !== "non_production") {
+    reasons.push(dbTarget.reason);
+  }
 
   if (tier === "production") {
     const prodDryOptIn = truthy(env.PRELAUNCH_RESET_PRODUCTION_DRY_RUN);

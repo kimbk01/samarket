@@ -4,6 +4,7 @@
  */
 
 import { resolvePrelaunchResetEnvGate } from "@/lib/admin/prelaunch-reset/environment";
+import { resolveDataResetDatabaseTarget } from "@/lib/admin/data-reset/database-target-guard";
 
 export type DataResetEnvGate = {
   tier: "local" | "staging" | "production";
@@ -28,6 +29,7 @@ export function resolveDataResetEnvGate(env: NodeJS.ProcessEnv = process.env): D
   }
 
   const base = resolvePrelaunchResetEnvGate(merged);
+  const dbTarget = resolveDataResetDatabaseTarget(merged);
 
   if (base.tier === "production") {
     const reasons: string[] = [];
@@ -35,7 +37,14 @@ export function resolveDataResetEnvGate(env: NodeJS.ProcessEnv = process.env): D
     if (!base.dryRunAllowed) {
       reasons.push("production_dry_run_requires_explicit_opt_in");
     }
-    if (!prodExecOptIn) {
+    // P0 hard stop: a Production or unidentifiable database is never mutated by Data Reset,
+    // regardless of DATA_RESET_PRODUCTION_EXECUTE. Re-enabling Production execute requires the
+    // server-held approval flow (two-person + MFA), not an env var.
+    if (dbTarget.target !== "non_production") {
+      reasons.push("production_execute_forbidden");
+      reasons.push(dbTarget.reason);
+      if (prodExecOptIn) reasons.push("DATA_RESET_PRODUCTION_EXECUTE_ignored_by_database_guard");
+    } else if (!prodExecOptIn) {
       reasons.push("production_execute_forbidden");
       reasons.push("DATA_RESET_PRODUCTION_EXECUTE_not_set");
     } else {
@@ -45,7 +54,7 @@ export function resolveDataResetEnvGate(env: NodeJS.ProcessEnv = process.env): D
       tier: "production",
       previewAllowed: base.dryRunAllowed,
       // Scope allowlist applied in planner finalize + execute VERIFY.
-      executeAllowed: prodExecOptIn,
+      executeAllowed: prodExecOptIn && dbTarget.target === "non_production",
       reasons,
     };
   }

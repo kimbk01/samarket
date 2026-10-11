@@ -22,6 +22,15 @@ import { DATA_RESET_FORBIDDEN_OPS } from "@/lib/admin/data-reset/types";
 import type { DataResetPlan } from "@/lib/admin/data-reset/types";
 
 const root = process.cwd();
+
+/**
+ * P0 database-target guard: planner/executor contracts below model a local Supabase stack.
+ * Without a positively non-production database URL the guard treats the target as Production.
+ */
+const LOCAL_SUPABASE_URL_FOR_TESTS = "http://127.0.0.1:54321";
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = LOCAL_SUPABASE_URL_FOR_TESTS;
+}
 function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
 }
@@ -180,15 +189,28 @@ describe("Data Reset Production env gate", () => {
     expect(DATA_RESET_FORBIDDEN_OPS.productionExecuteDefaultForbidden).toBe(true);
   });
 
-  it("opt-in opens env executeAllowed; scope allowlist still required", () => {
+  it("P0: opt-in opens env executeAllowed only for a positively non-production database", () => {
     const gate = resolveDataResetEnvGate({
       NEXT_PUBLIC_APP_DEPLOY_TIER: "production",
+      NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
       DATA_RESET_PRODUCTION_EXECUTE: "1",
       DATA_RESET_PRODUCTION_PREVIEW: "1",
     } as NodeJS.ProcessEnv);
     expect(gate.executeAllowed).toBe(true);
     expect(gate.previewAllowed).toBe(true);
     expect(gate.reasons).toContain("production_execute_opt_in_scope_allowlist");
+  });
+
+  it("P0: DATA_RESET_PRODUCTION_EXECUTE is ignored against the Production database", () => {
+    const gate = resolveDataResetEnvGate({
+      NEXT_PUBLIC_APP_DEPLOY_TIER: "production",
+      NEXT_PUBLIC_SUPABASE_URL: "https://ckdosyydvgzqwpbwuhon.supabase.co",
+      DATA_RESET_PRODUCTION_EXECUTE: "1",
+      DATA_RESET_PRODUCTION_PREVIEW: "1",
+    } as NodeJS.ProcessEnv);
+    expect(gate.executeAllowed).toBe(false);
+    expect(gate.reasons).toContain("database_target_production");
+    expect(gate.reasons).toContain("DATA_RESET_PRODUCTION_EXECUTE_ignored_by_database_guard");
   });
 });
 
@@ -392,6 +414,30 @@ describe("plan hash / expiry / confirmation contracts", () => {
     });
     expect(expired.ok).toBe(false);
     if (!expired.ok) expect(expired.reason).toBe("plan_expired_preview_required_again");
+  });
+
+  it("P0: future createdAt rejected even when the hash matches (TTL cannot be extended)", async () => {
+    process.env.DATA_RESET_ENABLED = "1";
+    process.env.PRELAUNCH_RESET_ENABLED = "1";
+    delete process.env.NEXT_PUBLIC_APP_DEPLOY_TIER;
+    const sb = mockSb({ community_posts: 2 }) as never;
+    const futureCreated = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    const plan = await buildDomainResetPlan({
+      sb,
+      actorUserId: "admin",
+      request: { domain: "community", scope: "all", mode: "preview" },
+      createdAt: futureCreated,
+    });
+    const forged = await revalidateDomainResetPlan({
+      sb,
+      actorUserId: "admin",
+      request: { domain: "community", scope: "all" },
+      planId: plan.planId,
+      expectedHash: plan.planHash,
+      createdAt: futureCreated,
+    });
+    expect(forged.ok).toBe(false);
+    if (!forged.ok) expect(forged.reason).toBe("plan_created_at_in_future");
   });
 
   it("L3 one-time token enforced in execute source; typed confirmation always", () => {

@@ -37,6 +37,7 @@ import {
 import {
   DATA_RESET_B1B2_MIGRATION,
   DATA_RESET_DOMAINS,
+  DATA_RESET_PLAN_CREATED_AT_MAX_SKEW_MS,
   DATA_RESET_PLAN_TTL_MS,
   DATA_RESET_SCOPES,
   hashDataResetPayload,
@@ -964,6 +965,17 @@ export async function revalidateDomainResetPlan(input: {
       planId: input.planId,
     });
     return { ok: false, reason: "plan_created_at_required", plan };
+  }
+  // P0: createdAt comes from the client. A future createdAt would push expiresAt forward
+  // and defeat the TTL. Reject anything beyond a small clock-skew allowance.
+  if (Date.parse(createdAt) > Date.now() + DATA_RESET_PLAN_CREATED_AT_MAX_SKEW_MS) {
+    const plan = await buildDomainResetPlan({
+      sb: input.sb,
+      actorUserId: input.actorUserId,
+      request: input.request,
+      planId: input.planId,
+    });
+    return { ok: false, reason: "plan_created_at_in_future", plan };
   }
 
   const plan = await buildDomainResetPlan({

@@ -87,14 +87,16 @@ describe("CUT H Pre-launch Reset", () => {
     ).toEqual(["a"]);
   });
 
-  it("H1/H2/H18 — API routes use shared planner + super admin", () => {
+  it("H1/H2/H18 — P0: legacy API routes retired (410, no planner/executor/DB access)", () => {
     const dry = read("app/api/admin/prelaunch-reset/dry-run/route.ts");
     const exec = read("app/api/admin/prelaunch-reset/execute/route.ts");
-    expect(dry).toContain("buildPrelaunchResetPlan");
-    expect(dry).toContain("requireSuperAdmin");
-    expect(exec).toContain("executePrelaunchReset");
-    expect(exec).toContain("requireSuperAdmin");
-    expect(exec).toContain("execute_forbidden");
+    for (const src of [dry, exec]) {
+      expect(src).toContain("PRELAUNCH_RESET_LEGACY_API_GONE_STATUS");
+      expect(src).not.toContain("buildPrelaunchResetPlan");
+      expect(src).not.toContain("executePrelaunchReset");
+      expect(src).not.toContain("requireSuperAdmin");
+      expect(src).not.toContain("req.json");
+    }
     const execLib = read("lib/admin/prelaunch-reset/execute.ts");
     expect(execLib).toContain("revalidatePrelaunchResetPlan");
     expect(execLib).toContain("confirmationMatches");

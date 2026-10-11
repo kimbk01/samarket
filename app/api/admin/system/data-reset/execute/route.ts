@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { executeDomainReset } from "@/lib/admin/data-reset/execute";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
+import { toDataResetExecutePublicResponse } from "@/lib/admin/data-reset/execute-response";
 import {
   DATA_RESET_DOMAINS,
   DATA_RESET_SCOPES,
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
         ok: false,
         error: "execute_forbidden",
         reasons: envGate.reasons,
-        hint: "Production execute requires DATA_RESET_PRODUCTION_EXECUTE=1 and an allowlisted scope. Non-prod requires DATA_RESET_ENABLED or PRELAUNCH_RESET_ENABLED.",
+        hint: "Data Reset never executes against a Production or unidentified Supabase project (database-target guard). Non-production execute requires DATA_RESET_ENABLED or PRELAUNCH_RESET_ENABLED.",
       },
       { status: 403 }
     );
@@ -84,16 +85,6 @@ export async function POST(req: Request) {
   const status =
     result.overall === "BLOCKED" ? 403 : result.overall === "FAILED" ? 500 : 200;
 
-  return NextResponse.json(
-    {
-      ok: result.ok,
-      overall: result.overall,
-      plan: result.plan,
-      phases: result.phases,
-      executedCounts: result.executedCounts,
-      clientSessionInvalidationRequired: result.clientSessionInvalidationRequired,
-      clientInvalidation: result.clientInvalidation ?? result.plan.clientInvalidation,
-    },
-    { status }
-  );
+  // P0: never echo the plan (hash / confirmation phrase / plan id) from execute.
+  return NextResponse.json(toDataResetExecutePublicResponse(result), { status });
 }
