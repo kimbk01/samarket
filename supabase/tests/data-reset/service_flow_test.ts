@@ -1,9 +1,9 @@
-// @ts-nocheck — standalone bun/psql harness (scripts/data-reset-local-test.sh); not app code, uses a psql-backed client stand-in.
 /**
  * End-to-end check of lib/admin/data-reset/full/service.ts against a local Postgres that has the
  * fixture + migration (database "dra"/"drb" style, created by scripts/data-reset-local-test.sh).
  * A psql-backed stand-in replaces supabase-js (rpc / from().select…/storage.remove) so the real
  * orchestration code (advance loop, Storage marking, abort, state, re-lock) runs unchanged.
+ * Standalone bun/psql harness (not Vitest / not app graph) — see scripts/data-reset-local-test.sh.
  *   PGHOST=/tmp PGPORT=54329 DB=drsvc bun run supabase/tests/data-reset/service_flow_test.ts
  */
 import { execFileSync } from "node:child_process";
@@ -85,6 +85,7 @@ function from(table: string) {
   return b;
 }
 
+/** psql-backed stand-in; cast at the boundary so the harness is not typed as supabase-js. */
 const sb = {
   rpc,
   from,
@@ -98,7 +99,7 @@ const sb = {
       };
     },
   },
-};
+} as never;
 
 const A1 = "a0000000-0000-0000-0000-000000000001";
 const A2 = "a0000000-0000-0000-0000-000000000002";

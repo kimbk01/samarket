@@ -25,7 +25,8 @@
   "exclude": [
     "node_modules",
     ".tsbuild",
-    "scripts"
+    "scripts",
+    "supabase/tests"
   ],
   "references": [{ "path": "./tsconfig.app.json" }]
 }

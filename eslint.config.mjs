@@ -48,6 +48,8 @@ const eslintConfig = defineConfig([
     ".qa-logs/**",
     ".worktrees/**",
     ".recovery/**",
+    /** bun/psql local harnesses — not app/Vitest; see scripts/data-reset-local-test.sh */
+    "supabase/tests/**",
   ]),
   {
     plugins: {
