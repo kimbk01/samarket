@@ -1,3 +1,4 @@
+// @ts-nocheck — standalone bun/psql harness (scripts/data-reset-local-test.sh); not app code, uses a psql-backed client stand-in.
 /**
  * End-to-end check of lib/admin/data-reset/full/service.ts against a local Postgres that has the
  * fixture + migration (database "dra"/"drb" style, created by scripts/data-reset-local-test.sh).
