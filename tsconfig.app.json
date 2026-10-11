@@ -23,12 +23,14 @@
     "lib/community-messenger/cm-client-first-paint-baseline.json",
     "lib/community-messenger/mark-read-performance-lock.baseline.json",
     "data/trade-national-lgu/lgu-display-by-id.json",
-    "config/os-launch.json"
+    "config/os-launch.json",
+    "lib/admin/data-reset/full/manifest.json"
   ],
   "exclude": [
     "node_modules",
     "scripts",
     "tests",
+    "supabase/tests",
     "tmp",
     "tmp-addr-video-frames",
     "tmp-addr-video2",

@@ -50,7 +50,7 @@ function rpc(fn: string, args: Record<string, unknown> = {}) {
 function from(table: string) {
   const where: string[] = [];
   let cols = "*";
-  let order: string[] = [];
+  const order: string[] = [];
   let lim: number | null = null;
   let head = false;
   let single = false;

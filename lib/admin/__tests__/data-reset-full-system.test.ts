@@ -76,9 +76,12 @@ describe("full reset action token", () => {
         };
       },
     };
-    const [a, b] = await Promise.all([consumeFullResetActionToken(sb, t.token, binding), consumeFullResetActionToken(sb, t.token, binding)]);
+    const [a, b] = await Promise.all([
+      consumeFullResetActionToken(sb as never, t.token, binding),
+      consumeFullResetActionToken(sb as never, t.token, binding),
+    ]);
     expect([a.ok, b.ok].sort()).toEqual([false, true]);
-    expect(await consumeFullResetActionToken(sb, t.token, binding)).toEqual({ ok: false, reason: "token_replay" });
+    expect(await consumeFullResetActionToken(sb as never, t.token, binding)).toEqual({ ok: false, reason: "token_replay" });
     process.env.DATA_RESET_ACTION_SECRET = prev;
   });
 });
@@ -136,14 +139,19 @@ function fakeTable(n: number) {
 describe("batched mutation replaces limit(5000)", () => {
   it("deletes every row of a 12,345-row table and verifies none remain", async () => {
     const t = fakeTable(12_345);
-    const r = await deleteAllRowsInBatches(t.sb, "posts");
+    const r = await deleteAllRowsInBatches(t.sb as never, "posts");
     expect(r).toMatchObject({ affected: 12_345, remaining: 0, error: null });
     expect(r.batches).toBe(13);
     expect(t.rows.length).toBe(0);
   });
   it("soft-updates until no row matches", async () => {
     const t = fakeTable(6_001);
-    const r = await updateAllRowsInBatches(t.sb, "community_messenger_rooms", { deleted_at: "x" }, { filter: (q) => q.is("deleted_at", null) });
+    const r = await updateAllRowsInBatches(
+      t.sb as never,
+      "community_messenger_rooms",
+      { deleted_at: "x" },
+      { filter: (q) => q.is("deleted_at", null) }
+    );
     expect(r).toMatchObject({ affected: 6_001, remaining: 0, error: null });
   });
   it("reports no progress instead of success", async () => {
@@ -156,7 +164,7 @@ describe("batched mutation replaces limit(5000)", () => {
         return q;
       },
     };
-    const r = await deleteAllRowsInBatches(sb, "posts");
+    const r = await deleteAllRowsInBatches(sb as never, "posts");
     expect(r.error).toBe("posts:delete_made_no_progress");
   });
   it("old engine no longer carries limit(5000)", () => {

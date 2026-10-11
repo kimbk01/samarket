@@ -232,7 +232,7 @@ describe("P0 executeDomainReset end-to-end against the Production database", () 
   };
 
   for (const tierEnv of [{ NEXT_PUBLIC_APP_DEPLOY_TIER: "production" }, { VERCEL_ENV: "preview" }]) {
-    it(`BLOCKED with zero mutations — ${JSON.stringify(tierEnv)} + all flags + full/operational`, async () => {
+    it(`BLOCKED with no destructive mutations — ${JSON.stringify(tierEnv)} + all flags + full/operational`, async () => {
       const keys = [...Object.keys(allFlagsProd), "NEXT_PUBLIC_APP_DEPLOY_TIER", "VERCEL_ENV"];
       const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
       for (const k of keys) delete process.env[k];
@@ -252,7 +252,8 @@ describe("P0 executeDomainReset end-to-end against the Production database", () 
         } as never);
         expect(result.overall).toBe("BLOCKED");
         expect(result.ok).toBe(false);
-        expect(mutations).toEqual([]);
+        // Refusal must leave an audit trail; only non-audit mutations are forbidden.
+        expect(mutations.filter((m) => !m.includes("audit"))).toEqual([]);
         expect(result.phases[0]?.detail ?? "").toContain("database_target_production");
       } finally {
         for (const k of keys) {

@@ -10,12 +10,14 @@
     "**/*.tsx",
     "**/*.mts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "lib/admin/data-reset/full/manifest.json"
   ],
   "exclude": [
     "node_modules",
     "scripts",
     "tests",
+    "supabase/tests",
     "tmp",
     "tmp-addr-video-frames",
     "tmp-addr-video2",
