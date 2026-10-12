@@ -17,6 +17,7 @@ import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-rea
 import { applyBootstrapCacheBusEvent } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   cmReceiveLatencyKey,
   cmReceiveLatencyMark,
@@ -121,6 +122,7 @@ export function useCmParticipantsHubSync(
       sb,
       name: `community-messenger-unread-sound:${userId}`,
       scope: `community-messenger-unread-sound:${userId}`,
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => false,
       silentAfterMs: 18_000,
       build: (ch) => {

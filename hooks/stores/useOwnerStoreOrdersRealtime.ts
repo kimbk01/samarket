@@ -16,6 +16,7 @@ import {
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { r2d1OwnerOrdersTrace } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export function sortOwnerOrdersDesc(list: OwnerOrder[]): OwnerOrder[] {
   return [...list].sort(
@@ -121,7 +122,7 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
       pendingUpdatesRef.current.clear();
 
       ch = sb
-        .channel(`owner-store-orders-rt:${sid}`)
+        .channel(`owner-store-orders-rt:${sid}`, messengerPrivateBroadcastChannelOptions())
         .on(
           "postgres_changes",
           {

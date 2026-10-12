@@ -55,6 +55,35 @@ describe("cm realtime private broadcast authorization contract", () => {
     expect(java).not.toContain('config.put("private", false)');
   });
 
+  it("residual postgres_changes topics are private-authorized (migration + clients)", () => {
+    const sql = readFileSync(
+      join(process.cwd(), "supabase/migrations/20270422130000_cm_realtime_private_postgres_changes_topics.sql"),
+      "utf8"
+    );
+    expect(sql).toContain("kasama-chat:chat_messages:%");
+    expect(sql).toContain("integrated-chat-list:participants:%");
+    expect(sql).toContain("cm-room-friendship:%");
+    expect(sql).toContain("support-modal-case-%");
+    expect(sql).toContain("rider_orders_%");
+    expect(sql).toContain("admin-support-queue");
+    expect(sql).toContain("community-messenger:presence");
+    expect(sql).toContain("store-orders-rt:%");
+    expect(sql).not.toMatch(/^\s*using\s*\(\s*true\s*\)/im);
+
+    const kasama = readFileSync(join(process.cwd(), "lib/chats/use-chat-room-realtime.ts"), "utf8");
+    const integrated = readFileSync(
+      join(process.cwd(), "lib/chats/use-integrated-chat-room-list-realtime.ts"),
+      "utf8"
+    );
+    const friendship = readFileSync(
+      join(process.cwd(), "lib/community-messenger/room/use-messenger-room-friendship-sync.ts"),
+      "utf8"
+    );
+    expect(kasama).toContain("messengerPrivateBroadcastChannelOptions");
+    expect(integrated).toContain("messengerPrivateBroadcastChannelOptions");
+    expect(friendship).toContain("messengerPrivateBroadcastChannelOptions");
+  });
+
   it("trade typing/presence/listing clients use private channel options (source)", () => {
     const typing = readFileSync(join(process.cwd(), "lib/chats/use-trade-chat-room-typing.ts"), "utf8");
     const presence = readFileSync(join(process.cwd(), "lib/chats/use-trade-chat-room-presence.ts"), "utf8");

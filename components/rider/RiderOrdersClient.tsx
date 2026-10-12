@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type DeliveryRow = {
@@ -62,7 +63,7 @@ export function RiderOrdersClient() {
     const sb = getSupabaseClient();
     if (!sb) return;
     const ch = sb
-      .channel(`rider_orders_${riderId}`)
+      .channel(`rider_orders_${riderId}`, messengerPrivateBroadcastChannelOptions())
       .on(
         "postgres_changes",
         {
