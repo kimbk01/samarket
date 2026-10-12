@@ -30,6 +30,8 @@ public class IncomingCallTerminalHandlerTest {
     ShadowLog.clear();
     // RingOwner state is static — isolate from other test classes in the same sandbox.
     IncomingCallRingOwner.clearForTests();
+    context.getSharedPreferences("dibay_incoming_call_native_store", Context.MODE_PRIVATE).edit().clear().apply();
+    ForegroundIncomingCallRegistry.setActive(null);
     DibayCallConsumedStore.mark(context, "stale", "cancelled");
     // reset coordinator state for isolated tests
     IncomingCallActionCoordinator.complete("stale", "cancelled");
@@ -112,6 +114,64 @@ public class IncomingCallTerminalHandlerTest {
   }
 
   @Test
+  public void staleExpiredRingingRecord_doesNotBlockNormalTerminalCleanup() {
+    String staleCall = "terminal-stale-E";
+    String endingCall = "terminal-ending-F";
+    seedNativeStore(staleCall, DibayIncomingCallNativeStore.STATE_RINGING, System.currentTimeMillis() - 60_000L);
+    assertFalse(IncomingCallTerminalHandler.isOtherIncomingCallActive(context, endingCall));
+
+    seedPendingRoutes(endingCall);
+    IncomingCallTerminalHandler.handle(context, endingCall, "cancelled", "fcm:call_canceled");
+    assertFalse("stale record must not keep pending state alive", hasPendingCallRoute());
+    assertFalse(hasPendingPushRoute());
+  }
+
+  @Test
+  public void unexpiredRingingRecordOfAnotherCall_countsAsActive() {
+    seedNativeStore("terminal-live-G", DibayIncomingCallNativeStore.STATE_RINGING, System.currentTimeMillis() + 60_000L);
+    assertTrue(IncomingCallTerminalHandler.isOtherIncomingCallActive(context, "terminal-prev-H"));
+    assertFalse(IncomingCallTerminalHandler.isOtherIncomingCallActive(context, "terminal-live-G"));
+  }
+
+  @Test
+  public void acceptHandoffOfAnotherCall_keepsItsPendingRoute_onLateTerminal() {
+    String previousCall = "terminal-prev-I";
+    String acceptingCall = "terminal-accepting-J";
+    // B accepted: ring stopped (RingOwner idle), native store moved to connecting.
+    seedNativeStore(acceptingCall, DibayIncomingCallNativeStore.STATE_CONNECTING, 0L);
+    seedPendingRoutes(acceptingCall);
+    context
+        .getSharedPreferences("dibay_call_pending_route", Context.MODE_PRIVATE)
+        .edit()
+        .putString(MainActivity.PENDING_CALL_ID_KEY, acceptingCall)
+        .apply();
+
+    IncomingCallTerminalHandler.handle(context, previousCall, "cancelled", "fcm:call_canceled");
+
+    assertTrue("accepting call pending route kept", hasPendingCallRoute());
+    assertTrue("pending push route kept", hasPendingPushRoute());
+    assertEquals(
+        DibayIncomingCallNativeStore.STATE_CONNECTING,
+        DibayIncomingCallNativeStore.getState(context, acceptingCall));
+  }
+
+  @Test
+  public void lateTerminalForPreviousCall_keepsRingingCallsWakeLock() {
+    String previousCall = "terminal-prev-K";
+    String ringingCall = "terminal-ringing-L";
+    assertTrue(IncomingCallRingOwner.start(context, ringingCall));
+    IncomingCallWakeLock.acquire(context, ringingCall);
+    android.os.PowerManager.WakeLock lock = org.robolectric.shadows.ShadowPowerManager.getLatestWakeLock();
+    assertTrue(lock != null && lock.isHeld());
+
+    IncomingCallTerminalHandler.handle(context, previousCall, "cancelled", "fcm:call_canceled");
+    assertTrue("B's wake lock must survive A's terminal", lock.isHeld());
+
+    IncomingCallTerminalHandler.handle(context, ringingCall, "cancelled", "fcm:call_canceled");
+    assertFalse("B's own terminal releases its wake lock", lock.isHeld());
+  }
+
+  @Test
   public void handle_runsWhenAppNotVisible_backgroundSource() {
     String callId = "terminal-bg-2";
     // MainActivity.appVisible defaults false when activity not resumed.
@@ -140,6 +200,17 @@ public class IncomingCallTerminalHandlerTest {
         .edit()
         .putString("pending_path", "/community-messenger/calls/" + callId)
         .putLong("pending_at", now)
+        .apply();
+  }
+
+  private void seedNativeStore(String callId, String state, long expiresAtMs) {
+    context
+        .getSharedPreferences("dibay_incoming_call_native_store", Context.MODE_PRIVATE)
+        .edit()
+        .clear()
+        .putString("call_id", callId)
+        .putString("state", state)
+        .putLong("expires_at", expiresAtMs)
         .apply();
   }
 
