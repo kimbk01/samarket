@@ -8,12 +8,12 @@
  *   - message postgres_changes both directions (global-messenger:bundle:<uid>:0)
  *   - deny: outsider / anonymous
  *
- * Test users are created at run time with random credentials (never stored) in the throwaway
+ * Test users are pre-provisioned in the QA DB (password via GitHub secret RT_QA_PROBE_PASSWORD) in the throwaway
  * domain @rt-probe.dibay.invalid; fixtures go through QA-only probe RPCs (removed after the run).
  * Required env: RT_QA_URL, RT_QA_ANON_KEY (+ NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY = same QA values).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { randomBytes } from "node:crypto";
+
 import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import { messengerPrivateBroadcastChannelOptions, sendMessengerPrivateBroadcastFromClient } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
@@ -48,12 +48,15 @@ function client(): SupabaseClient {
 }
 
 async function signUpProbeUser(label: string): Promise<User> {
+  // QA Auth rejects reserved test domains on signUp, so probe users are provisioned in the QA DB
+  // (confirmed, @rt-probe.dibay.invalid only) and deleted after the run; only sign-in happens here.
   const sb = client();
-  const email = `rt-${label}-${randomBytes(6).toString("hex")}@rt-probe.dibay.invalid`;
-  const password = randomBytes(24).toString("base64url");
-  const { data, error } = await sb.auth.signUp({ email, password });
-  if (error) throw new Error(`signUp ${label}: ${error.message}`);
-  if (!data.session || !data.user) throw new Error(`signUp ${label}: no session (email auto-confirm is OFF on QA)`);
+  const email = `rt-${label}@rt-probe.dibay.invalid`;
+  const password = process.env.RT_QA_PROBE_PASSWORD ?? "";
+  if (!password) throw new Error("RT_QA_PROBE_PASSWORD (GitHub secret) is not set");
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(`signIn ${label}: ${error.message}`);
+  if (!data.session || !data.user) throw new Error(`signIn ${label}: no session`);
   await sb.realtime.setAuth(data.session.access_token);
   const { error: pErr } = await sb.rpc("qa_rt_probe_profile");
   if (pErr) throw new Error(`profile ${label}: ${pErr.message}`);

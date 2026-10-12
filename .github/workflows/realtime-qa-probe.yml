@@ -1,9 +1,10 @@
 name: Realtime QA probe (isolated branch)
 
 # Live Supabase Realtime probe against the ISOLATED QA project (gczyogboohpixpurckkg) — never Production.
-# Uses only the QA publishable anon key (public by design). Test users are created at run time with
-# random credentials that are never stored; QA-only probe RPCs restrict fixtures to @rt-probe.dibay.invalid.
+# Uses only the QA publishable anon key (public by design). Throwaway probe users are pre-provisioned in QA (password from the
+# RT_QA_PROBE_PASSWORD secret) and deleted after the run; QA-only probe RPCs restrict fixtures to @rt-probe.dibay.invalid.
 on:
+  workflow_dispatch:
   push:
     branches: ["claude/charming-bardeen-mxzdsu"]
     paths:
@@ -26,6 +27,7 @@ jobs:
     env:
       RT_QA_URL: https://gczyogboohpixpurckkg.supabase.co
       RT_QA_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
+      RT_QA_PROBE_PASSWORD: ${{ secrets.RT_QA_PROBE_PASSWORD }}
       NEXT_PUBLIC_SUPABASE_URL: https://gczyogboohpixpurckkg.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
     steps:
