@@ -666,10 +666,16 @@ export const ADMIN_POST_AD_TRANSITION_FROM: Record<
   confirm_payment: ["pending_payment"],
 };
 
+/** 관리자 취소 중 RPC `refund_post_ad_points` 로 환불+취소하는 노출 전 상태 (RPC 허용 상태와 동일). */
+export const ADMIN_POST_AD_REFUND_CANCEL_FROM: readonly AdApplyStatus[] = ["draft", "pending_payment", "pending_review"];
+/** 관리자 취소 중 기존 정책(상태만 변경)을 유지하는 노출 상태. */
+export const ADMIN_POST_AD_STATUS_ONLY_CANCEL_FROM: readonly AdApplyStatus[] = ["approved", "active"];
+
 /**
  * 서비스 롤 — 관리자 광고 처리. 성공 시 `{ ok: true }`, 해당 id 행 없으면 `{ ok: false, notFound: true }`.
  * - reject: DB RPC `refund_post_ad_points` (환불+상태 전이 원자 처리)
- * - approve/cancel/expire/confirm_payment: 상태 조건부 UPDATE, 0행이면 `not_allowed`
+ * - cancel(draft/pending_*): DB RPC `refund_post_ad_points` (관리자 취소 환불+상태 전이 원자 처리)
+ * - cancel(approved/active)/approve/expire/confirm_payment: 상태 조건부 UPDATE, 0행이면 `not_allowed`
  */
 export async function adminPatchPostAdInDb(
   sb: SupabaseClient,
@@ -746,7 +752,39 @@ export async function adminPatchPostAdInDb(
   }
 
   if (action === "cancel") {
-    const up = await conditionalUpdate(ADMIN_POST_AD_TRANSITION_FROM.cancel, {
+    const st = String(row.apply_status ?? "") as AdApplyStatus;
+    if ((ADMIN_POST_AD_REFUND_CANCEL_FROM as readonly string[]).includes(st)) {
+      /* 노출 전(결제·승인 대기) 광고 — 환불+상태 전이를 RPC 한 트랜잭션으로 (원장 기준 상한·멱등·행 잠금) */
+      const r = await refundPostAdPointsViaRpc(sb, {
+        userId: String(row.user_id ?? ""),
+        adId,
+        actorType: "admin",
+        actorId: adminId,
+        targetStatus: "cancelled",
+        reason: adminNote ?? null,
+      });
+      if (!r.ok) {
+        if (r.error === "not_found") return { ok: false, notFound: true };
+        /* 그 사이 승인되어 노출 시작 → 무환불 취소로 넘기지 않고 409 (관리자가 재확인) */
+        if (r.error === "not_cancellable") return { ok: false, error: "not_allowed", httpStatus: 409 };
+        return { ok: false, error: r.error, httpStatus: httpStatusForRefundPostAdPointsError(r.error) };
+      }
+      if (!r.idempotent) {
+        /* RPC 는 cancel 시 admin_note 를 쓰지 않음 — 메모만 후속 반영 (금액 무관) */
+        await sb
+          .from("post_ads")
+          .update({ admin_note: adminNote ?? null, updated_at: now })
+          .eq("id", adId)
+          .eq("apply_status", "cancelled");
+        await insertAdLogInDb(sb, adId, adminId, "cancelled", {
+          note: adminNote ?? "",
+          refunded_amount: r.refundedAmount,
+        });
+      }
+      return { ok: true };
+    }
+    /* 노출 중(approved/active) 강제 취소 — 기존 정책 유지(무환불, 상태만) */
+    const up = await conditionalUpdate(ADMIN_POST_AD_STATUS_ONLY_CANCEL_FROM, {
       apply_status: "cancelled",
       is_active: false,
       admin_note: adminNote ?? null,
