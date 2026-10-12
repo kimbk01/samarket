@@ -33,7 +33,6 @@ import {
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   syncSupabaseRealtimeAuthFromSession,
   waitForSupabaseRealtimeAuth,
@@ -1068,7 +1067,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }
 
       channel = sb
-        .channel("admin-ops-realtime-bridge", messengerPrivateBroadcastChannelOptions())
+        .channel("admin-ops-realtime-bridge")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "store_point_charge_requests" },

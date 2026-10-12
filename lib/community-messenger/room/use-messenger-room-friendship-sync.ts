@@ -14,7 +14,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 /** general pair direct_key — legacy contextMeta.trade 잔재여도 friendship RT·refresh 유지 */
@@ -82,10 +81,7 @@ export function useMessengerRoomFriendshipSync({
 
     const channel = sb
       ? sb
-          .channel(
-            `cm-room-friendship:${viewerId}:${peerUserId}`,
-            messengerPrivateBroadcastChannelOptions()
-          )
+          .channel(`cm-room-friendship:${viewerId}:${peerUserId}`)
           .on(
             "postgres_changes",
             {

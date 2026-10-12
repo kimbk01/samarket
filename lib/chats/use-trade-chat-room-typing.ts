@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { TRADE_TYPING_TTL_MS } from "@/lib/chats/trade-presence-policy";
@@ -55,7 +54,7 @@ export function useTradeChatRoomTypingPeer(args: {
       const authOk = await waitForSupabaseRealtimeAuth(sb);
       if (cancelled || !authOk) return;
       const channel = sb
-        .channel(typingChannel(roomId), messengerPrivateBroadcastChannelOptions({ ack: false }))
+        .channel(typingChannel(roomId), { config: { broadcast: { ack: false } } })
         .on("broadcast", { event: EVENT_START }, (msg) => {
           const p = (msg as { payload?: Record<string, unknown> }).payload ?? {};
           const from = typeof p.fromUserId === "string" ? p.fromUserId.trim() : "";
@@ -125,9 +124,7 @@ export function useTradeChatRoomTypingPublisher(args: {
     void (async () => {
       const authOk = await waitForSupabaseRealtimeAuth(sb);
       if (cancelled || !authOk) return;
-      const channel = sb
-        .channel(typingChannel(roomId), messengerPrivateBroadcastChannelOptions({ ack: false }))
-        .subscribe((status) => {
+      const channel = sb.channel(typingChannel(roomId), { config: { broadcast: { ack: false } } }).subscribe((status) => {
         if (cancelled) return;
         if (status === "SUBSCRIBED") {
           channelRef.current = channel;

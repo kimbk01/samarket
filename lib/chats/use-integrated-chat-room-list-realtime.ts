@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 /** Supabase `in` 필터 한도에 맞춤 — 커뮤니티 메신저 홈 청크와 동일 여유 */
 const INTEGRATED_CHAT_LIST_IN_FILTER_MAX = 90;
@@ -90,7 +89,7 @@ export function useIntegratedChatRoomListRealtime(args: {
       const participantsName = `integrated-chat-list:participants:${userId}`;
       expectedChannelCount += 1;
       const chParticipants = sb
-        .channel(participantsName, messengerPrivateBroadcastChannelOptions())
+        .channel(participantsName)
         .on(
           "postgres_changes",
           {
@@ -114,7 +113,7 @@ export function useIntegratedChatRoomListRealtime(args: {
         const msgName = `integrated-chat-list:msgs:${userId}:${offset}`;
         expectedChannelCount += 1;
         const chMsg = sb
-          .channel(msgName, messengerPrivateBroadcastChannelOptions())
+          .channel(msgName)
           .on(
             "postgres_changes",
             { event: "*", schema: "public", table: "chat_messages", filter },
@@ -129,7 +128,7 @@ export function useIntegratedChatRoomListRealtime(args: {
         const roomName = `integrated-chat-list:rooms:${userId}:${offset}`;
         expectedChannelCount += 1;
         const chRoom = sb
-          .channel(roomName, messengerPrivateBroadcastChannelOptions())
+          .channel(roomName)
           .on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "chat_rooms", filter: roomFilter },

@@ -13,8 +13,6 @@ import {
   type SetStateAction,
 } from "react";
 import { unstable_batchedUpdates } from "react-dom";
-import { App } from "@capacitor/app";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import {
   applyCmHomeCutoverGateFromResponseJson,
@@ -119,9 +117,6 @@ import {
   shouldDeferDuringRoomEntryQuiet,
   shouldDeferHomeSyncStart,
 } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
-
-/** 이보다 짧게 가려진 복귀(알림 셰이드 등)는 재동기화하지 않는다. */
-const HOME_RESUME_RESYNC_MIN_HIDDEN_MS = 1_500;
 
 /**
  * Cold complete bootstrap(lite/full) apply 가 여전히 유효한지 판정한다.
@@ -518,55 +513,14 @@ export function useCommunityMessengerHomeBootstrap({
     };
   }, []);
 
-  /**
-   * 복귀 catch-up — 백그라운드·네이티브 통화 Activity(WebView 가 가려진 동안)에는 Realtime 이벤트가 유실될 수 있다.
-   * 실기기(2026-10-12): 통화 종료 후 홈 목록 미리보기가 60s+ 이전 메시지로 남고, 목록에 없던 방(새 통화 상대)이
-   * 계속 누락됨 — 홈에는 복귀 시 재동기화가 없었다(방 화면에는 visibility catch-up 이 있음).
-   * 복귀 시 기존 silent home_sync(`refresh(true)` → critical_patch + full partial_upsert) 1회 — 폴링 아님.
-   */
-  const resumeRefreshRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (typeof document === "undefined") return;
-    let hiddenAt = document.visibilityState === "visible" ? 0 : Date.now();
-    const markHidden = () => {
-      if (!hiddenAt) hiddenAt = Date.now();
-    };
-    const onResume = (source: "visibility" | "app_state") => {
-      const wasHiddenFor = hiddenAt ? Date.now() - hiddenAt : 0;
-      hiddenAt = 0;
-      samarketMessengerHomeDebugEvent("messenger_home_visibility_resume", { source, wasHiddenFor });
-      if (wasHiddenFor < HOME_RESUME_RESYNC_MIN_HIDDEN_MS) return;
-      resumeRefreshRef.current?.();
-    };
     const onVis = () => {
-      if (document.visibilityState !== "visible") {
-        markHidden();
-        return;
-      }
-      onResume("visibility");
+      if (document.visibilityState !== "visible") return;
+      samarketMessengerHomeDebugEvent("messenger_home_visibility_resume");
     };
     document.addEventListener("visibilitychange", onVis);
-    let removeAppListener: (() => void) | undefined;
-    let disposed = false;
-    if (isCapacitorNativePlatform()) {
-      void App.addListener("appStateChange", ({ isActive }) => {
-        if (!isActive) markHidden();
-        else onResume("app_state");
-      }).then((handle) => {
-        if (disposed) {
-          void handle.remove();
-          return;
-        }
-        removeAppListener = () => {
-          void handle.remove();
-        };
-      });
-    }
-    return () => {
-      disposed = true;
-      document.removeEventListener("visibilitychange", onVis);
-      removeAppListener?.();
-    };
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
   /** Multi-tab Kill 전파 수신 (control-plane 전용 BroadcastChannel). */
@@ -1537,9 +1491,6 @@ export function useCommunityMessengerHomeBootstrap({
     seedCanonicalFromTrustedFullProvenance,
     shadowDispatch,
   ]);
-  resumeRefreshRef.current = () => {
-    void refresh(true);
-  };
 
   /** `refresh` 콜백 참조가 바뀌어도 초기 마운트 부트스트랩 effect 가 재실행·중복 fetch 되지 않게 */
   const refreshRef = useRef(refresh);

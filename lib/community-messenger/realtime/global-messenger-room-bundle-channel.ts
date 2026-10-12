@@ -32,7 +32,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
 import { isStaleRealtimeBindGeneration } from "@/lib/community-messenger/realtime/realtime-bind-generation";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
   MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
@@ -527,7 +526,6 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           name: `global-messenger:bundle:${args.viewerForChannel}:${chunkIndex}`,
           logStreamRoomId: args.viewerForChannel,
           scope: "community-messenger-room:global-bundle",
-          channelOptions: messengerPrivateBroadcastChannelOptions(),
           isCancelled: () => cancelled || gen !== postgresBindGeneration,
           onStatus: (status) => {
             if (gen !== postgresBindGeneration || cancelled) return;

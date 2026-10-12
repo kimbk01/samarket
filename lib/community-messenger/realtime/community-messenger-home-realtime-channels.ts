@@ -1,7 +1,6 @@
 import type { MutableRefObject } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { MESSENGER_HOME_META_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
 import type {
@@ -129,7 +128,6 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       sb: args.sb,
       name: `community-messenger-home:meta:${args.userId}`,
       scope: `community-messenger-home:meta`,
-      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: cancelled,
       hs4Context: {
         fingerprint: args.roomIdsFingerprint,
@@ -288,7 +286,6 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       sb: args.sb,
       name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
       scope: `community-messenger-home:rooms-in`,
-      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: cancelled,
       hs4Context: {
         fingerprint: args.roomIdsFingerprint,

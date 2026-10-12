@@ -1,9 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
-  detectMessengerTimelineWindowGapAnchor,
-  noteMessengerRoomTimelineGap,
-} from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
-import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -171,20 +167,6 @@ function applyPrimedTimelineSeed(
   const roomId = primed.room?.id?.trim() ?? "";
   if (msgs.length === 0 && roomId === "") return false;
   setRoomMessages((prev) => {
-    /**
-     * M-3: 로컬 창(이전·IndexedDB 등)과 서버 최신 창이 겹치지 않으면 그 사이가 비어 있다 —
-     * 합집합만 하면 영구 중간 갭(이전 로드는 가장 오래된 id 기준이라 못 메움). 갭 앵커를 등록해
-     * 열린 방 catch-up 이 `after=` 로 메운다(이벤트 기반 1회).
-     */
-    if (roomId && prev.length > 0 && msgs.length > 0) {
-      const gapAnchor = detectMessengerTimelineWindowGapAnchor(prev, msgs);
-      if (gapAnchor) {
-        const anchorRow = prev.find((m) => String(m?.id ?? "").trim() === gapAnchor);
-        queueMicrotask(() => {
-          noteMessengerRoomTimelineGap(roomId, gapAnchor, anchorRow?.createdAt ?? null);
-        });
-      }
-    }
     const next = mergePrimedTimelineSeedIntoExisting({
       roomId,
       prev,

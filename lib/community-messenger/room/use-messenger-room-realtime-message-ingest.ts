@@ -105,8 +105,6 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
 };
 
 const CM_RT_MESSAGE_INGEST_CHUNK_SIZE = 28;
-/** rAF 미발화 시 flush 상한(ms) — 정상 가시 상태에서는 rAF(~16ms)가 먼저 실행된다. */
-export const CM_RT_MESSAGE_INGEST_FRAME_FALLBACK_MS = 160;
 
 export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtimeMessageIngestArgs): void {
   const {
@@ -130,8 +128,6 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
   const realtimeMessageBatchRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
   const realtimeBatchFlushRafRef = useRef<number | null>(null);
-  /** D1: rAF 미발화(네이티브 통화 화면이 WebView 를 덮음) 대비 — 같은 flush 를 타이머로 1회 보장 */
-  const realtimeBatchFlushFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** `snapshot` 참조만 바뀌는 경우(메시지 병합 등) room_identity 디버그 로그가 연속으로 찍히지 않게 */
   const lastRoomIdentityDebugSigRef = useRef<string>("");
 
@@ -140,10 +136,6 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       if (realtimeBatchFlushRafRef.current !== null) {
         cancelAnimationFrame(realtimeBatchFlushRafRef.current);
         realtimeBatchFlushRafRef.current = null;
-      }
-      if (realtimeBatchFlushFallbackTimerRef.current !== null) {
-        clearTimeout(realtimeBatchFlushFallbackTimerRef.current);
-        realtimeBatchFlushFallbackTimerRef.current = null;
       }
     };
   }, []);
@@ -367,39 +359,17 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     timelineInitialLoadComplete,
   ]);
 
-  const flushRealtimeMessageBatchRef = useRef<() => void>(() => undefined);
-
-  /**
-   * rAF 코얼레스 + 타이머 fallback — 먼저 오는 쪽이 1회 flush.
-   * rAF 는 WebView 가 합성되지 않는 동안(Android 네이티브 통화 Activity, iOS CallKit 전면) 발화하지 않아
-   * 작성자 기기의 call_stub INSERT(유일 경로)가 큐에 묶이는 문제를 막는다. paint 와 데이터 반영 분리.
-   */
-  const scheduleRealtimeBatchFlush = useCallback(() => {
-    if (realtimeBatchFlushRafRef.current !== null || realtimeBatchFlushFallbackTimerRef.current !== null) return;
-    const run = () => {
-      if (realtimeBatchFlushRafRef.current !== null) {
-        cancelAnimationFrame(realtimeBatchFlushRafRef.current);
-        realtimeBatchFlushRafRef.current = null;
-      }
-      if (realtimeBatchFlushFallbackTimerRef.current !== null) {
-        clearTimeout(realtimeBatchFlushFallbackTimerRef.current);
-        realtimeBatchFlushFallbackTimerRef.current = null;
-      }
-      flushRealtimeMessageBatchRef.current();
-    };
-    realtimeBatchFlushRafRef.current = window.requestAnimationFrame(run);
-    realtimeBatchFlushFallbackTimerRef.current = setTimeout(run, CM_RT_MESSAGE_INGEST_FRAME_FALLBACK_MS);
-  }, []);
-
   const flushRealtimeMessageBatch = useCallback(() => {
+    realtimeBatchFlushRafRef.current = null;
     const batch = realtimeMessageBatchRef.current.splice(0, CM_RT_MESSAGE_INGEST_CHUNK_SIZE);
     if (batch.length === 0) return;
     if (realtimeMessageBatchRef.current.length > 0) {
-      scheduleRealtimeBatchFlush();
+      realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
+        flushRealtimeMessageBatch();
+      });
     }
     applyRealtimeMessageBatch(batch);
-  }, [applyRealtimeMessageBatch, scheduleRealtimeBatchFlush]);
-  flushRealtimeMessageBatchRef.current = flushRealtimeMessageBatch;
+  }, [applyRealtimeMessageBatch]);
 
   const handleRealtimeMessageEvent = useCallback(
     (event: CommunityMessengerRoomRealtimeMessageEvent) => {
@@ -415,9 +385,12 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       } else {
         realtimeMessageBatchRef.current.push(event);
       }
-      scheduleRealtimeBatchFlush();
+      if (realtimeBatchFlushRafRef.current !== null) return;
+      realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
+        flushRealtimeMessageBatch();
+      });
     },
-    [scheduleRealtimeBatchFlush]
+    [flushRealtimeMessageBatch]
   );
 
   useEffect(() => {

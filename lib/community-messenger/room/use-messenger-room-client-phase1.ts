@@ -649,11 +649,9 @@ export function useMessengerRoomClientPhase1({
 
   useEffect(() => {
     const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
-    const readAckRoomId = String(streamRoomId ?? "").trim();
-    if (!viewerId || !roomReadyForRealtime || !readAckRoomId) return;
-    /** 방 단위 비공개 토픽 `cm-read-ack:<canonical roomId>` — 서버 발행 id 와 동일(`streamRoomId`) */
-    return acquireCommunityMessengerReadAckBroadcast(viewerId, readAckRoomId);
-  }, [snapshot?.viewerUserId, initialServerSnapshot?.viewerUserId, roomReadyForRealtime, streamRoomId]);
+    if (!viewerId || !roomReadyForRealtime) return;
+    return acquireCommunityMessengerReadAckBroadcast(viewerId);
+  }, [snapshot?.viewerUserId, initialServerSnapshot?.viewerUserId, roomReadyForRealtime]);
   const [busy, setBusy] = useState<string | null>(null);
   const [messageActionItem, setMessageActionItem] = useState<CommunityMessengerMessageActionOpenState | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(

@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { StoreOrdersRealtimeHandlers } from "@/hooks/useSupabaseStoreOrdersRealtime";
 
 /**
@@ -48,7 +47,7 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
       if (deliveryCh) void sb.removeChannel(deliveryCh);
       clearDebounce();
       ch = sb
-        .channel(`buyer-store-orders-rt:${u}`, messengerPrivateBroadcastChannelOptions())
+        .channel(`buyer-store-orders-rt:${u}`)
         .on(
           "postgres_changes",
           {
@@ -72,7 +71,7 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
         )
         .subscribe();
       deliveryCh = sb
-        .channel(`buyer-store-order-deliveries-rt:${u}`, messengerPrivateBroadcastChannelOptions())
+        .channel(`buyer-store-order-deliveries-rt:${u}`)
         .on(
           "postgres_changes",
           {

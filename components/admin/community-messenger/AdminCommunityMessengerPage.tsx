@@ -10,7 +10,6 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type {
   AdminCommunityMessengerActiveCallSession,
   AdminCommunityMessengerCallAuditLog,
@@ -126,7 +125,7 @@ export function AdminCommunityMessengerPage() {
     };
 
     const channel: RealtimeChannel = sb
-      .channel("admin-community-messenger-overview", messengerPrivateBroadcastChannelOptions())
+      .channel("admin-community-messenger-overview")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "community_messenger_rooms" },

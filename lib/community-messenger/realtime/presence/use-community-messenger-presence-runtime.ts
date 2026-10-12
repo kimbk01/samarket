@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
@@ -318,7 +317,6 @@ function ensurePresenceRuntime(userId: string) {
     sb,
     name: "community-messenger:presence",
     scope: PRESENCE_RUNTIME_SCOPE,
-    channelOptions: messengerPrivateBroadcastChannelOptions(),
     isCancelled: () => runtimeRefCount <= 0,
     silentAfterMs: 18_000,
     onStatus: (status) => {

@@ -10,15 +10,6 @@ type RoomBumpArgs = {
   fromUserId: string;
   messageId?: string;
   messageCreatedAt?: string;
-  messageForBump?: {
-    id: string;
-    roomId: string;
-    senderId: string | null;
-    messageType: string;
-    content: string;
-    createdAt: string;
-    metadata?: Record<string, unknown> | null;
-  } | null;
 };
 
 const publishBumpMock = vi.fn(async (_args: RoomBumpArgs) => {});
@@ -141,65 +132,6 @@ describe("CUT-1 terminal call_stub room-bump parity", () => {
         })
       );
     }
-  });
-
-  it("D1: carries call_stub message snapshot (row created_at = session start, sender = stub author)", async () => {
-    await appendCommunityMessengerCallStubMessage({
-      userId: "callee",
-      roomId: "room-1",
-      sessionId: "sess-d1",
-      callKind: "voice",
-      status: "rejected",
-      createdAt: "2026-06-09T10:00:00.000Z",
-      listActivityAt: "2026-06-09T10:00:12.000Z",
-      bumpRoomLastMessageAt: true,
-      endedReason: "declined",
-      initiatorUserId: "caller",
-      recipientUserId: "callee",
-      terminalActorUserId: "callee",
-    });
-    const row = devState().messages[0]!;
-    const args = publishBumpMock.mock.calls[0]![0] as RoomBumpArgs;
-    expect(args.fromUserId).toBe("callee");
-    expect(args.messageCreatedAt).toBe("2026-06-09T10:00:12.000Z");
-    expect(args.messageForBump).toEqual(
-      expect.objectContaining({
-        id: row.id,
-        roomId: "room-1",
-        senderId: "callee",
-        messageType: "call_stub",
-        content: row.content,
-        createdAt: "2026-06-09T10:00:00.000Z",
-      })
-    );
-    expect(args.messageForBump?.metadata).toEqual(
-      expect.objectContaining({ sessionId: "sess-d1", initiatorUserId: "caller" })
-    );
-  });
-
-  it("D1: same-session UPDATE snapshot keeps the original stub sender and created_at", async () => {
-    const base = {
-      roomId: "room-1",
-      sessionId: "sess-d1-upd",
-      callKind: "voice" as const,
-      createdAt: "2026-06-09T10:00:00.000Z",
-      listActivityAt: "2026-06-09T10:00:30.000Z",
-      bumpRoomLastMessageAt: true,
-      initiatorUserId: "caller",
-      recipientUserId: "callee",
-    };
-    await appendCommunityMessengerCallStubMessage({ ...base, userId: "caller", status: "cancelled", endedReason: "canceled" });
-    await appendCommunityMessengerCallStubMessage({
-      ...base,
-      userId: "callee",
-      createdAt: "2026-06-09T10:00:05.000Z",
-      status: "missed",
-      endedReason: "missed",
-    });
-    const second = publishBumpMock.mock.calls[1]![0] as RoomBumpArgs;
-    expect(second.fromUserId).toBe("callee");
-    expect(second.messageForBump?.senderId).toBe("caller");
-    expect(second.messageForBump?.createdAt).toBe("2026-06-09T10:00:00.000Z");
   });
 
   it("does not publish room-bump when roomId is missing", async () => {

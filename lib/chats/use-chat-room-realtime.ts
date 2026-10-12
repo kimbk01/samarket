@@ -5,7 +5,6 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { ChatMessage } from "@/lib/types/chat";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
 import { groupMessageRowToChatMessage } from "@/lib/group-chat/map-group-message-row";
@@ -138,7 +137,7 @@ export function useChatRoomRealtime(args: {
       const filter = `${col}=eq.${roomId}`;
 
       const channel = sb
-        .channel(`kasama-chat:${table}:${roomId}`, messengerPrivateBroadcastChannelOptions())
+        .channel(`kasama-chat:${table}:${roomId}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table, filter },

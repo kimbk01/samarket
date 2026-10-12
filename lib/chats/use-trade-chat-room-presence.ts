@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -127,7 +126,6 @@ export function useTradeChatRoomPresence(args: {
       scope: `trade-chat-presence:${roomId}`,
       isCancelled: () => cancelled,
       silentAfterMs: 18_000,
-      channelOptions: messengerPrivateBroadcastChannelOptions({ ack: false }),
       onStatus: (status) => {
         if (cancelled) return;
         const live = status === "SUBSCRIBED";

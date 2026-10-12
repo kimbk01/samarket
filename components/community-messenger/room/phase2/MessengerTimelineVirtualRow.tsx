@@ -1,6 +1,5 @@
 "use client";
 
-import { withCallStubViewerDirection } from "@/lib/community-messenger/call-stub-viewer-direction";
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -8,7 +7,6 @@ import {
   type ReactNode,
   memo,
   type MutableRefObject,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -176,7 +174,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
 
 /** 단일 타임라인 메시지 행 — 가상 스크롤에서만 마운트되며 `React.memo` 로 불필요 갱신을 줄인다. */
 export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtualRow({
-  item: rawItem,
+  item,
   virtualStart,
   virtualIndex,
   directLayout = false,
@@ -215,8 +213,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   t,
   onGiftMessageMerge,
 }: MessengerTimelineVirtualRowProps) {
-  /** call_stub: 정렬·톤·「발신/수신」을 통화 발신자(initiator) 기준 viewer 방향으로 (작성자 기준 아님) */
-  const item = useMemo(() => withCallStubViewerDirection(rawItem), [rawItem]);
   if (entryLightRow && item.messageType === "text") {
     bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
   }

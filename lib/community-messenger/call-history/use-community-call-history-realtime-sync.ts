@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -152,7 +151,6 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
       sb,
       name: `community-messenger:call-logs:${userId}`,
       scope: "community-messenger:call-logs",
-      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       build: (ch) =>
         ch

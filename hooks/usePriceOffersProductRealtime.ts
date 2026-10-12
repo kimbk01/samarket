@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 
@@ -68,7 +67,7 @@ export function usePriceOffersProductRealtime(
       if (!ok) return;
 
       ch = sb
-        .channel(`price-offers-product:${pid}`, messengerPrivateBroadcastChannelOptions())
+        .channel(`price-offers-product:${pid}`)
         .on(
           "postgres_changes",
           {

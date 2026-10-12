@@ -271,9 +271,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
   let activeGeneration = 1;
   let expectedInternalClosed = 0;
   const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
-  const openChannel = () =>
-    args.build(args.channelOptions ? args.sb.channel(args.name, args.channelOptions) : args.sb.channel(args.name));
-  let channel: RealtimeChannel = openChannel();
+  let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
   let previousChannelStatusForHs4: string | null = null;
 
   /**
@@ -467,7 +465,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
       /* ignore */
     }
     if (gen !== activeGeneration || stopped || args.isCancelled()) return;
-    channel = openChannel();
+    channel = args.build(args.sb.channel(args.name));
     attachSubscribe();
   };
 

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { r2d1OwnerOrdersTrace } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export type StoreOrderDeliveryRealtimeEvent = {
   eventType: "INSERT" | "UPDATE" | "DELETE";
@@ -70,10 +69,7 @@ export function useSupabaseStoreOrderDeliveriesRealtime(
       if (ch) void sb.removeChannel(ch);
       clearDebounce();
       ch = sb
-        .channel(
-          `store-order-deliveries-rt:${scope.kind}:${key}`,
-          messengerPrivateBroadcastChannelOptions()
-        )
+        .channel(`store-order-deliveries-rt:${scope.kind}:${key}`)
         .on(
           "postgres_changes",
           {

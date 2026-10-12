@@ -91,9 +91,8 @@ describe("A2-3 support notification → Support Modal restore", () => {
     const page = read("components/support/SupportModalHost.tsx");
     expect(page).toContain("support_modal_case_load");
     expect(page).toContain("forbidden");
-    // Route fallbacks only — import paths like @/lib/community-messenger/* are allowed.
-    expect(page).not.toMatch(/["'`]\/mypage\/inquiries/);
-    expect(page).not.toMatch(/["'`]\/community-messenger(?:\/|"|'|`|\s|$)/);
+    expect(page).not.toContain("/mypage/inquiries");
+    expect(page).not.toContain("/community-messenger");
   });
 
   it("canonical waiting status remains WAITING_USER (not WAITING_CUSTOMER)", () => {

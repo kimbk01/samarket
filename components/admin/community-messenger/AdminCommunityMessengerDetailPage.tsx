@@ -9,7 +9,6 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { CommunityMessengerCallForceEndReasonCode } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import type { AdminCommunityMessengerRoomDetail } from "@/lib/admin-community-messenger/service";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { useCmAdminLabels } from "./useCmAdminLabels";
 
 type DetailResponse = AdminCommunityMessengerRoomDetail & { ok?: boolean };
@@ -104,7 +103,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     };
 
     const channel: RealtimeChannel = sb
-      .channel(`admin-community-messenger-room:${roomId}`, messengerPrivateBroadcastChannelOptions())
+      .channel(`admin-community-messenger-room:${roomId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "community_messenger_rooms", filter: `id=eq.${roomId}` },
