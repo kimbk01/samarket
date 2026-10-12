@@ -1,0 +1,113 @@
+name: Android verify (isolated branch)
+
+# Verification-only: compile + Robolectric unit tests + debug APK for the isolated fix branch.
+# Runs the base commit (before native changes) and the fix commit side by side so pre-existing
+# native test failures are separated from regressions. No secrets, no signing, no deploy.
+on:
+  push:
+    branches: ["claude/charming-bardeen-mxzdsu"]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-verify-isolated.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: base-b141aa34
+            ref: b141aa34968e61031e7767e4097ad476c92044ba
+          - label: fix-head
+            ref: ${{ github.sha }}
+    name: gradle (${{ matrix.label }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.ref }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Capacitor sync (generates capacitor-cordova-android-plugins)
+        run: npx cap sync android
+
+      - name: Accept SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Compile (Java + resources)
+        working-directory: android
+        run: ./gradlew --no-daemon :app:compileDebugJavaWithJavac :app:compileDebugUnitTestJavaWithJavac
+
+      - name: Unit tests (Robolectric, all)
+        working-directory: android
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --continue
+
+      - name: Assemble debug APK
+        if: always()
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          tot = fail = err = skip = 0
+          failed = []
+          for f in glob.glob("android/app/build/test-results/testDebugUnitTest/*.xml"):
+              r = ET.parse(f).getroot()
+              tot += int(r.get("tests", 0)); fail += int(r.get("failures", 0))
+              err += int(r.get("errors", 0)); skip += int(r.get("skipped", 0))
+              for tc in r.iter("testcase"):
+                  if tc.find("failure") is not None or tc.find("error") is not None:
+                      failed.append(f"{tc.get('classname')}#{tc.get('name')}")
+          print(f"SUMMARY tests={tot} failures={fail} errors={err} skipped={skip}")
+          for name in sorted(failed):
+              print("FAILED", name)
+          for cls in ["IncomingCallRingOwnerContractTest", "IncomingCallTerminalHandlerTest"]:
+              for f in glob.glob(f"android/app/build/test-results/testDebugUnitTest/*{cls}*.xml"):
+                  for tc in ET.parse(f).getroot().iter("testcase"):
+                      ok = tc.find("failure") is None and tc.find("error") is None and tc.find("skipped") is None
+                      print("CASE", "PASS" if ok else "FAIL", f"{cls}#{tc.get('name')}")
+          PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results-${{ matrix.label }}
+          path: |
+            android/app/build/test-results/testDebugUnitTest/
+            android/app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-${{ matrix.label }}
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
