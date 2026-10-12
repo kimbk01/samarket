@@ -4,6 +4,10 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { grantStoreCouponFromEditorialEvent } from "@/lib/stores/store-coupon-event-grant";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const BUYER_B = "edc8c2f0-2673-4ca8-9d63-92a609d556f4";
 const STORE = "19085860-52d2-4183-b033-e71fcb58bcec";

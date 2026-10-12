@@ -43,6 +43,7 @@ import {
   isDeliveryBannerDestinationReady,
 } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const CUT_F_ADMIN_TRANSACTIONAL_MUTATION = {
   authority: "admin_delivery_ad_transition",
@@ -60,6 +61,7 @@ export type AdminDeliveryAdWriterError =
   | "stale_lifecycle"
   | "stale_updated_at"
   | "delete_not_allowed"
+  | "delete_blocked_funding_secured"
   | "invalid_schedule"
   | "invalid_inventory"
   | "future_inventory"
@@ -324,6 +326,16 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
     return { ok: false, error: "stale_updated_at" };
   }
 
+  // F-09 — SECURED canonical Cash funding must be refunded first; never orphan a debit.
+  if (
+    await hasCanonicalBcFundingSecured(sb, {
+      productKind: input.productKind,
+      applicationId: input.campaignId,
+    })
+  ) {
+    return { ok: false, error: "delete_blocked_funding_secured" };
+  }
+
   if (input.productKind === "banner") {
     await sb.from("delivery_banner_campaign_inventories").delete().eq("campaign_id", input.campaignId);
   } else {
@@ -353,6 +365,79 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
     from: input.expectedLifecycle,
     to: input.expectedLifecycle,
     action: "delete_safe_draft",
+  };
+}
+
+export const BC_DELIVERY_AD_REFUND_ORPHAN_DRAFT_RPC =
+  "business_cash_delivery_ad_refund_orphan_draft" as const;
+
+export type AdminRefundOrphanFundingError =
+  | "forbidden"
+  | "not_admin"
+  | "reason_required"
+  | "not_found"
+  | "not_secured"
+  | "not_orphan"
+  | "invalid_product"
+  | "rpc_missing"
+  | "rpc_failed";
+
+export type AdminRefundOrphanFundingResult =
+  | { ok: true; idempotent: boolean; refundedMinor: number }
+  | { ok: false; error: AdminRefundOrphanFundingError; detail?: string };
+
+const REFUND_ORPHAN_RPC_ERRORS = new Set<AdminRefundOrphanFundingError>([
+  "forbidden",
+  "not_admin",
+  "reason_required",
+  "not_found",
+  "not_secured",
+  "not_orphan",
+]);
+
+/**
+ * F-09 — refund a SECURED canonical Cash funding whose campaign is still DRAFT (orphan after a
+ * failed submit transition). Single DB TX in RPC: locks funding → campaign, credits Cash with
+ * idempotency key bc_refund:{kind}:{id}, writes delivery_ad_audit_logs.
+ */
+export async function adminRefundOrphanDeliveryAdFunding(
+  sb: SupabaseClient,
+  input: {
+    adminUserId: string;
+    productKind: AdminDeliveryAdProduct;
+    campaignId: string;
+    reason: string | null | undefined;
+  }
+): Promise<AdminRefundOrphanFundingResult> {
+  if (!isAdminDeliveryAdProduct(input.productKind)) {
+    return { ok: false, error: "invalid_product" };
+  }
+  const reason = String(input.reason ?? "").trim();
+  if (!reason) return { ok: false, error: "reason_required" };
+
+  const { data, error } = await sb.rpc(BC_DELIVERY_AD_REFUND_ORPHAN_DRAFT_RPC, {
+    p_admin_user_id: input.adminUserId,
+    p_application_id: input.campaignId,
+    p_product_kind: input.productKind,
+    p_reason: reason,
+  });
+  if (error) {
+    if (/does not exist|Could not find the function|schema cache/i.test(String(error.message))) {
+      return { ok: false, error: "rpc_missing", detail: error.message };
+    }
+    return { ok: false, error: "rpc_failed", detail: error.message };
+  }
+  const row = (data ?? {}) as { ok?: unknown; error?: unknown; idempotent?: unknown; refunded_minor?: unknown };
+  if (row.ok !== true) {
+    const code = String(row.error ?? "") as AdminRefundOrphanFundingError;
+    return REFUND_ORPHAN_RPC_ERRORS.has(code)
+      ? { ok: false, error: code }
+      : { ok: false, error: "rpc_failed", detail: String(row.error ?? "unknown") };
+  }
+  return {
+    ok: true,
+    idempotent: row.idempotent === true,
+    refundedMinor: Math.trunc(Number(row.refunded_minor) || 0),
   };
 }
 

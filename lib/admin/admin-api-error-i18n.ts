@@ -16,6 +16,8 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   unauthorized: "common_login_required",
   insufficient_balance: "admin_api_err_insufficient_balance",
   store_not_found: "admin_api_err_store_not_found",
+  snapshot_invalid: "admin_api_err_snapshot_invalid",
+  payout_reference_required: "admin_api_err_payout_reference_required",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

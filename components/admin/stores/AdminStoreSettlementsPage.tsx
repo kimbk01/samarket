@@ -180,6 +180,10 @@ export function AdminStoreSettlementsPage() {
           return t("admin_stores_settlements_err_hold_required");
         case "invalid_status":
           return t("admin_stores_settlements_err_invalid_status");
+        case "payout_reference_required":
+          return t("admin_stores_settlements_err_payout_reference_required");
+        case "settlement_coin_recognized":
+          return t("admin_stores_settlements_err_coin_recognized");
         default:
           return c || t("admin_stores_settlements_err_failed");
       }
@@ -429,6 +433,11 @@ export function AdminStoreSettlementsPage() {
     try {
       let body: Record<string, unknown> = {};
       if (opsMode === "paid") {
+        if (!opsMethod.trim() || !opsRef.trim()) {
+          setOpsError(settlementErrMessage("payout_reference_required"));
+          setBusyId(null);
+          return;
+        }
         body = {
           settlement_status: "paid",
           payout_method: opsMethod.trim() || null,
@@ -1148,10 +1157,12 @@ export function AdminStoreSettlementsPage() {
 
             <label className="mt-3 block text-xs font-medium text-sam-muted">
               {t("admin_stores_settlements_payout_method")}
+              {opsMode === "paid" ? <span className="text-red-600"> *</span> : null}
             </label>
             <select
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               value={opsMethod}
+              required={opsMode === "paid"}
               disabled={Boolean(busyId)}
               onChange={(e) => setOpsMethod(e.target.value)}
             >
@@ -1164,10 +1175,12 @@ export function AdminStoreSettlementsPage() {
 
             <label className="mt-3 block text-xs font-medium text-sam-muted">
               {t("admin_stores_settlements_payout_reference")}
+              {opsMode === "paid" ? <span className="text-red-600"> *</span> : null}
             </label>
             <input
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
               value={opsRef}
+              required={opsMode === "paid"}
               disabled={Boolean(busyId)}
               onChange={(e) => setOpsRef(e.target.value)}
               placeholder={t("admin_stores_settlements_payout_ref_ph")}
@@ -1229,7 +1242,9 @@ export function AdminStoreSettlementsPage() {
               </DibayOverlayButton>
               <DibayOverlayButton
                 roleTone="primary"
-                disabled={Boolean(busyId)}
+                disabled={
+                  Boolean(busyId) || (opsMode === "paid" && (!opsMethod.trim() || !opsRef.trim()))
+                }
                 loading={Boolean(busyId)}
                 onClick={() => void submitOps()}
               >

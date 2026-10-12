@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { COIN_WITHDRAWAL_REQUESTS_TABLE, requestCoinWithdrawal } from "@/lib/currency/coin-withdrawal-writer";
 import { loadStoreEconomicPointsBalance } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
@@ -19,6 +20,8 @@ export async function POST(
 ) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
 
   const { storeId } = await context.params;
   const sid = typeof storeId === "string" ? storeId.trim() : "";
@@ -79,7 +82,8 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    const status = result.error === "not_owner" ? 403 : 400;
+    return NextResponse.json({ ok: false, error: result.error }, { status });
   }
   return NextResponse.json({ ok: true, requestId: result.requestId }, { status: 201 });
 }
@@ -91,6 +95,8 @@ export async function GET(
 ) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
 
   const { storeId } = await context.params;
   const sid = typeof storeId === "string" ? storeId.trim() : "";

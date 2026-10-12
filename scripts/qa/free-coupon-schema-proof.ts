@@ -3,6 +3,10 @@
  * npx tsx --env-file=.env.local scripts/qa/free-coupon-schema-proof.ts
  */
 import { createClient } from "@supabase/supabase-js";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 function sb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();

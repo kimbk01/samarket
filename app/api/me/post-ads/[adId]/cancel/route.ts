@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { cancelPostAdForUserWithServiceRole } from "@/lib/ads/post-ads-supabase";
-import { creditUserPoints } from "@/lib/points/user-point-ledger";
+import {
+  cancelPostAdForUserWithServiceRole,
+  httpStatusForRefundPostAdPointsError,
+} from "@/lib/ads/post-ads-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/me/post-ads/[adId]/cancel
- * 승인 전(draft / pending_payment / pending_review)만 취소. 포인트 결제분 환불.
+ * 승인 전(draft / pending_payment / pending_review)만 취소. 포인트 결제분 환불은
+ * DB RPC `refund_post_ad_points` 가 원장 기준으로 원자 처리.
  */
 export async function POST(
   _req: Request,
@@ -28,25 +31,24 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "db_unavailable" }, { status: 503 });
   }
 
-  const r = await cancelPostAdForUserWithServiceRole(svc, auth.userId, adId.trim(), {
-    refundPoints: async ({ userId, pointCost, adProductName }) => {
-      await creditUserPoints(svc, {
-        userId,
-        amount: pointCost,
-        entryType: "ad_refund",
-        relatedType: "ad_application",
-        relatedId: adId.trim(),
-        description: `${adProductName ?? "광고"} 취소 환불`,
-        actorType: "user",
-      });
-    },
-  });
+  const r = await cancelPostAdForUserWithServiceRole(svc, auth.userId, adId.trim());
 
   if (!r.ok) {
-    const status =
-      r.error === "not_cancellable" ? 400 : r.error === "forbidden" ? 403 : r.error === "not_found" ? 404 : 500;
-    return NextResponse.json({ ok: false, error: r.error ?? "failed" }, { status });
+    const status = httpStatusForRefundPostAdPointsError(r.error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: r.error ?? "failed",
+        ...(r.currentStatus ? { current_status: r.currentStatus } : {}),
+      },
+      { status }
+    );
   }
 
-  return NextResponse.json({ ok: true, source: "supabase" });
+  return NextResponse.json({
+    ok: true,
+    source: "supabase",
+    idempotent: r.idempotent === true,
+    refunded_amount: r.refundedAmount ?? 0,
+  });
 }

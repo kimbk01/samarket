@@ -10,6 +10,10 @@ import path from "node:path";
 import { createStoreOrderAtomic } from "../lib/stores/create-store-order-atomic";
 import { applyStoreOrderStatusTransition } from "../lib/stores/apply-store-order-status-transition";
 import { recordStoreOrderPaymentFailed } from "../lib/stores/record-store-order-payment";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 type CaseResult = { id: string; ok: boolean; detail: string };
 

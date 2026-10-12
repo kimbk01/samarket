@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
@@ -30,8 +30,18 @@ type LedgerRow = {
   amount?: number;
   amountMinor?: number;
   direction?: string;
+  relatedType?: string | null;
   relatedId?: string | null;
   createdAt: string;
+};
+
+/** F-15 — server-computed sums over the same N most recent Coin ledger rows. */
+type CoinRecentWindow = {
+  rowCount: number;
+  earned: number;
+  converted: number;
+  withdrawn: number;
+  reversed: number;
 };
 
 type FinancePayload = {
@@ -40,6 +50,7 @@ type FinancePayload = {
     businessCash?: { balanceMinor?: number };
   };
   storePointsLedger?: LedgerRow[];
+  storePointsRecentWindow?: CoinRecentWindow;
   businessCashLedger?: LedgerRow[];
   saleFeeObligations?: {
     outstandingMinor?: number;
@@ -101,6 +112,15 @@ function mapCashLedgerTitle(language: "ko" | "en", kind: string): string {
   }
 }
 
+/** Small reference line (related_type · related_id) for ledger rows; null when absent. */
+function ledgerReference(row: LedgerRow): string | null {
+  const type = String(row.relatedType ?? "").trim();
+  const id = String(row.relatedId ?? "").trim();
+  if (!type && !id) return null;
+  const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
+  return [type, shortId].filter(Boolean).join(" · ");
+}
+
 function signedCashMinor(row: LedgerRow): number {
   const minor = Math.abs(Math.trunc(Number(row.amountMinor ?? row.amount) || 0));
   const dir = String(row.direction ?? "").toLowerCase();
@@ -128,6 +148,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     NonNullable<NonNullable<FinancePayload["saleFeeObligations"]>["rows"]>
   >([]);
   const [coinLedger, setCoinLedger] = useState<LedgerRow[]>([]);
+  const [coinRecentWindow, setCoinRecentWindow] = useState<CoinRecentWindow | null>(null);
   const [cashLedger, setCashLedger] = useState<LedgerRow[]>([]);
   const [settleSummary, setSettleSummary] = useState<OwnerStoreSettlementSummary | null>(null);
 
@@ -155,6 +176,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
       setObligationRows(json.saleFeeObligations?.rows ?? []);
       setCoinLedger(json.storePointsLedger ?? []);
+      setCoinRecentWindow(json.storePointsRecentWindow ?? null);
       setCashLedger(json.businessCashLedger ?? []);
 
       if (settleRes.status === 200 && settleRes.json && typeof settleRes.json === "object") {
@@ -203,27 +225,11 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     router.replace(`/stores/owner/finance?${qs.toString()}#${hash}`);
   }, [router, searchParams, section, storeId]);
 
-  const periodCoinIn = useMemo(
-    () =>
-      coinLedger
-        .filter((r) => Math.trunc(Number(r.amount) || 0) > 0)
-        .reduce((a, r) => a + Math.trunc(Number(r.amount) || 0), 0),
-    [coinLedger]
-  );
-  const periodCoinConvert = useMemo(
-    () =>
-      coinLedger
-        .filter((r) => r.entryKind === "CONVERT_TO_BUSINESS_CASH")
-        .reduce((a, r) => a + Math.abs(Math.trunc(Number(r.amount) || 0)), 0),
-    [coinLedger]
-  );
-  const periodCoinWithdraw = useMemo(
-    () =>
-      coinLedger
-        .filter((r) => r.entryKind.startsWith("WITHDRAWAL"))
-        .reduce((a, r) => a + Math.abs(Math.trunc(Number(r.amount) || 0)), 0),
-    [coinLedger]
-  );
+  const recentN = coinRecentWindow?.rowCount ?? 0;
+  const recentLabel = (koLabel: string, enLabel: string) =>
+    ownerUiCopy(language, `최근 ${recentN}건 기준 ${koLabel}`, `${enLabel} (last ${recentN} entries)`);
+  const recentValue = (amount: number | undefined) =>
+    coinRecentWindow ? formatFinanceAmount({ wallet: "COIN", amount: amount ?? 0 }) : "—";
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
@@ -328,18 +334,22 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "coin" ? (
         <section className="space-y-3" data-owner-finance-section="coin">
           <CurrencyBalanceCard currency="coin" amount={coinBalance} />
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" data-owner-finance-coin-recent-window={recentN}>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 적립", "Earned")}</dt>
-              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinIn })}</dd>
+              <dt className="text-xs text-sam-muted">{recentLabel("적립", "Earned")}</dt>
+              <dd className="font-semibold">{recentValue(coinRecentWindow?.earned)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 전환", "Converted")}</dt>
-              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinConvert })}</dd>
+              <dt className="text-xs text-sam-muted">{recentLabel("전환", "Converted")}</dt>
+              <dd className="font-semibold">{recentValue(coinRecentWindow?.converted)}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 출금", "Withdrawn")}</dt>
-              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinWithdraw })}</dd>
+              <dt className="text-xs text-sam-muted">{recentLabel("출금", "Withdrawn")}</dt>
+              <dd className="font-semibold">{recentValue(coinRecentWindow?.withdrawn)}</dd>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
+              <dt className="text-xs text-sam-muted">{recentLabel("반전", "Reversed")}</dt>
+              <dd className="font-semibold">{recentValue(coinRecentWindow?.reversed)}</dd>
             </div>
           </dl>
           <div className="flex flex-wrap gap-2">
@@ -362,6 +372,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                   amount={Math.trunc(Number(row.amount) || 0)}
                   signed
                   createdAt={row.createdAt}
+                  reference={ledgerReference(row)}
                 />
               ))
             )}
@@ -400,6 +411,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     isMinor
                     signed
                     createdAt={row.createdAt}
+                    reference={ledgerReference(row)}
                   />
                 ))
             )}

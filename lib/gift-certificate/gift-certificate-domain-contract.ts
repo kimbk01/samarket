@@ -395,6 +395,47 @@ export function giftInstanceAllowsRedeem(status: GiftInstanceStatus): boolean {
   return status === "ACTIVE";
 }
 
+/**
+ * Asia/Manila 기준 오늘 날짜 (YYYY-MM-DD).
+ * SQL `gift_certificate_issue_date(now())` = `(now() AT TIME ZONE 'Asia/Manila')::date` 와 동일.
+ */
+export function giftManilaTodayYmd(now: Date = new Date()): string {
+  // en-CA → YYYY-MM-DD
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+function giftDateYmd(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const v = String(raw).trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
+export type GiftInstanceValidityError = "gift_expired" | "gift_not_yet_valid";
+
+/**
+ * Instance 유효기간 판정 (inclusive valid_from .. valid_until, date-only Asia/Manila).
+ * - expired ≡ SQL `gift_certificate_instance_is_expired(valid_until)`:
+ *   valid_until IS NOT NULL AND valid_until < manila_today
+ * - not yet valid ≡ valid_from IS NOT NULL AND valid_from > manila_today
+ * - valid_until null = 만료 없음.
+ */
+export function giftInstanceValidityError(
+  args: { validFrom: string | null | undefined; validUntil: string | null | undefined },
+  now: Date = new Date()
+): GiftInstanceValidityError | null {
+  const today = giftManilaTodayYmd(now);
+  const until = giftDateYmd(args.validUntil);
+  if (until !== null && until < today) return "gift_expired";
+  const from = giftDateYmd(args.validFrom);
+  if (from !== null && from > today) return "gift_not_yet_valid";
+  return null;
+}
+
 export function giftInstanceAllowsRegift(status: GiftInstanceStatus, transferable: boolean): boolean {
   if (!transferable) return false;
   return status === "ACTIVE";

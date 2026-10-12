@@ -19,6 +19,10 @@ import {
   connectWebView,
   navigateApkWebView,
 } from "./lib/apk-webview-cdp.mjs";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-");

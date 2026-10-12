@@ -28,7 +28,13 @@ type WithdrawalRow = {
   approved_by?: string | null;
 };
 
-type PendingAct = { requestId: string; action: "reject" | "mark_paid"; amount: number };
+type PendingAct = {
+  requestId: string;
+  action: "reject" | "mark_paid";
+  amount: number;
+  /** mark_paid: 요청 행의 지급 수단(gcash/bank) — RPC p_payout_method */
+  payoutMethod?: string;
+};
 
 /**
  * Coin withdrawal ops list — reject | mark_paid only (no approve invent).
@@ -94,16 +100,48 @@ export function AdminCoinWithdrawalsPanel() {
     }
   }, [focusRequestId, loading, rows]);
 
-  const act = async (requestId: string, action: "reject" | "mark_paid") => {
+  const act = async (
+    requestId: string,
+    action: "reject" | "mark_paid",
+    payout?: { method: string; reference: string }
+  ) => {
+    if (action === "mark_paid" && (!payout?.reference.trim() || !payout?.method.trim())) {
+      setError(
+        safeT("admin_api_err_payout_reference_required", {
+          fallbackKo: "지급 참조번호를 입력해 주세요.",
+          fallbackEn: "Enter a payout reference.",
+        })
+      );
+      return;
+    }
     setBusyId(requestId);
     setError("");
     try {
       const res = await fetch("/api/admin/coin-withdrawals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, requestId }),
+        body: JSON.stringify(
+          action === "mark_paid" && payout
+            ? {
+                action,
+                requestId,
+                payoutMethod: payout.method.trim(),
+                payoutReference: payout.reference.trim(),
+              }
+            : { action, requestId }
+        ),
       });
-      if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        if (json.error === "payout_reference_required") {
+          setError(
+            safeT("admin_api_err_payout_reference_required", {
+              fallbackKo: "지급 참조번호를 입력해 주세요.",
+              fallbackEn: "Enter a payout reference.",
+            })
+          );
+          return;
+        }
         setError(
           safeT("admin_store_finance_withdrawals_action_failed", {
             fallbackKo: "Coin 출금 요청 처리에 실패했습니다.",
@@ -259,7 +297,12 @@ export function AdminCoinWithdrawalsPanel() {
                             disabled={busyId === r.id}
                             className="rounded-ui-rect bg-[var(--currency-coin-accent)] px-2 py-1 text-xs font-semibold text-white"
                             onClick={() =>
-                              setPending({ requestId: r.id, action: "mark_paid", amount: r.amount })
+                              setPending({
+                                requestId: r.id,
+                                action: "mark_paid",
+                                amount: r.amount,
+                                payoutMethod: r.destination_type,
+                              })
                             }
                             data-finance-cta="mark-withdrawal-paid"
                           >
@@ -315,10 +358,24 @@ export function AdminCoinWithdrawalsPanel() {
               : "Mark paid"
         }
         cancelLabel={ko ? "취소" : "Cancel"}
+        reasonRequired={pending?.action === "mark_paid"}
+        reasonLabel={
+          ko
+            ? `지급 참조번호 (${pending?.payoutMethod === "gcash" ? "GCash" : "Bank"} 거래번호 등)`
+            : `Payout reference (${pending?.payoutMethod === "gcash" ? "GCash" : "Bank"} transaction id, etc.)`
+        }
+        reasonPlaceholder={ko ? "거래번호·송금표시 등" : "Transaction id, transfer note, etc."}
         pending={busyId === pending?.requestId}
         onCancel={() => setPending(null)}
-        onConfirm={() => {
+        onConfirm={(reference) => {
           if (!pending) return;
+          if (pending.action === "mark_paid") {
+            void act(pending.requestId, pending.action, {
+              method: pending.payoutMethod ?? "",
+              reference,
+            });
+            return;
+          }
           void act(pending.requestId, pending.action);
         }}
       />

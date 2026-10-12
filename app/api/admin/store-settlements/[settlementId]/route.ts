@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -36,9 +36,17 @@ function resolvePaidTimestamps(body: PatchBody): { paidAt: string; payoutConfirm
   return { paidAt: now, payoutConfirmedAt: now };
 }
 
+/** DB trigger: sale_coin Coin 인식된 주문은 Cash 정산 paid 불가 (이중 지급 방지) */
+const SETTLEMENT_PAID_BLOCKED_COIN_RECOGNIZED = "settlement_paid_blocked_coin_recognized";
+
+function isSettlementCoinRecognizedError(err: { message?: string | null; details?: string | null } | null): boolean {
+  if (!err) return false;
+  return `${err.message ?? ""} ${err.details ?? ""}`.includes(SETTLEMENT_PAID_BLOCKED_COIN_RECOGNIZED);
+}
+
 /**
  * 관리자: 정산 지급 완료 / 보류
- * - paid: scheduled|processing → paid, paid_at 설정
+ * - paid: scheduled|processing|held → paid, paid_at 설정 (payout_reference·payout_method 필수)
  * - held: scheduled → held + hold_reason
  * - processing: scheduled → processing (지급 준비 중)
  */
@@ -46,9 +54,9 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ settlementId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  /* 정산 지급은 금전 처리 — coin-withdrawals 와 동일한 business 권한 게이트 */
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { settlementId } = await context.params;
   const sid = typeof settlementId === "string" ? settlementId.trim() : "";
@@ -110,8 +118,17 @@ export async function PATCH(
   if ("payout_confirmed_at" in body) payoutPatch.payout_confirmed_at = body.payout_confirmed_at ?? null;
 
   if (next === "paid") {
+    const payoutReference = String(body.payout_reference ?? "").trim();
+    const payoutMethod = String(body.payout_method ?? "").trim();
+    if (!payoutReference || !payoutMethod) {
+      return NextResponse.json({ ok: false, error: "payout_reference_required" }, { status: 400 });
+    }
     const { paidAt, payoutConfirmedAt } = resolvePaidTimestamps(body);
-    const payoutForPaid = { ...payoutPatch };
+    const payoutForPaid: Record<string, unknown> = {
+      ...payoutPatch,
+      payout_method: payoutMethod,
+      payout_reference: payoutReference,
+    };
     delete payoutForPaid.payout_confirmed_at;
 
     const { data: updated, error } = await sb
@@ -129,6 +146,9 @@ export async function PATCH(
       .maybeSingle();
 
     if (error) {
+      if (isSettlementCoinRecognizedError(error)) {
+        return NextResponse.json({ ok: false, error: "settlement_coin_recognized" }, { status: 409 });
+      }
       if (error.message?.includes("does not exist")) {
         return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
       }

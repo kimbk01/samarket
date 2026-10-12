@@ -35,6 +35,7 @@ function statusForError(error: string): number {
     case "illegal_transition":
     case "duplicate_submit":
     case "quote_stale":
+    case "funding_required":
       return 409;
     case "INSUFFICIENT_BUSINESS_CASH":
     case "INSUFFICIENT_STORE_CASH":

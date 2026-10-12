@@ -6,6 +6,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 const STORE_ID = process.env.STORE_ID?.trim() || "19085860-52d2-4183-b033-e71fcb58bcec";
 const OUT = path.join(process.cwd(), "docs/perf/currency-cut-g-production-close-report.json");
 

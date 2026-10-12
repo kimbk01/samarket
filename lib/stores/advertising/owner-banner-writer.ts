@@ -34,6 +34,7 @@ import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-c
 import type { OwnerCampaignAction } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { ownerActionTargetLifecycle } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
+import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
 const INVENTORY_TABLE = "delivery_ad_inventories" as const;
@@ -127,6 +128,8 @@ export type OwnerBannerWriterError =
   | "not_editable"
   | "illegal_transition"
   | "delete_not_allowed"
+  | "delete_blocked_funding_secured"
+  | "funding_required"
   | "duplicate_submit"
   | "capacity_full"
   | "db_error"
@@ -461,6 +464,7 @@ function mapOwnerBannerTransitionRpcError(error: unknown): OwnerBannerWriterErro
   if (code === "campaign_not_found") return "campaign_not_found";
   if (code === "illegal_transition") return "illegal_transition";
   if (code === "stale_lifecycle") return "duplicate_submit";
+  if (code === "funding_required") return "funding_required";
   return "db_error";
 }
 
@@ -593,12 +597,23 @@ export async function deleteOwnerBannerDraft(
   });
   if (blocking) return { ok: false, error: "delete_not_allowed" };
 
+  // F-09 — SECURED canonical Cash funding must be refunded first; never orphan a debit.
+  if (
+    await hasCanonicalBcFundingSecured(sb, {
+      productKind: "banner",
+      applicationId: loaded.row.id,
+    })
+  ) {
+    return { ok: false, error: "delete_blocked_funding_secured" };
+  }
+
   const creativeId = loaded.row.creativeId;
   const { error } = await sb
     .from(BANNER_AD_CAMPAIGN_TABLE)
     .delete()
     .eq("id", loaded.row.id)
-    .eq("owner_user_id", input.ownerUserId);
+    .eq("owner_user_id", input.ownerUserId)
+    .eq("lifecycle_status", "DRAFT");
   if (error) return { ok: false, error: "db_error" };
   if (creativeId) {
     await sb.from(DELIVERY_AD_CREATIVE_TABLE).delete().eq("id", creativeId);

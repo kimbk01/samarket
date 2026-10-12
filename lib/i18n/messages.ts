@@ -1,6 +1,7 @@
 import type { AppLanguageCode } from "./config";
 import { adminMessages } from "./catalog/admin";
 import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
+import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
 import { commonMessages } from "./catalog/common";
@@ -161,6 +162,7 @@ const KO_MESSAGES = {
   ...platformEventsUiMessages.ko,
   ...adminMessages.ko,
   ...adminOsLaunchMessages.ko,
+  ...adminFinanceSsot19Messages.ko,
   ...adminLaunchIntroMessages.ko,
   ...adminPlatformPromotionNotificationsMessages.ko,
   ...koJson,
@@ -239,6 +241,7 @@ const EN_MESSAGES = {
   ...platformEventsUiMessages.en,
   ...adminMessages.en,
   ...adminOsLaunchMessages.en,
+  ...adminFinanceSsot19Messages.en,
   ...adminLaunchIntroMessages.en,
   ...adminPlatformPromotionNotificationsMessages.en,
   ...enJson,

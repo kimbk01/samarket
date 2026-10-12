@@ -20,8 +20,22 @@ export type SpendUserPointsInput = {
 };
 
 export type PointLedgerMutationResult =
-  | { ok: true; balanceAfter: number; ledgerId?: string }
+  | { ok: true; balanceAfter: number; ledgerId?: string; duplicate?: true }
   | { ok: false; error: string; code?: "insufficient_balance" | "table_missing" | "duplicate" };
+
+/**
+ * Hold release / refund 1회 보장 unique index (DB migration).
+ * 이 인덱스로 인한 23505 만 "이미 처리됨" 으로 간주 — 다른 unique 위반(예: community_reward)은 기존대로 실패.
+ */
+export const POINT_LEDGER_REFUND_RELEASE_ONCE_INDEX = "point_ledger_refund_release_once_uidx";
+
+export function isPointLedgerRefundReleaseOnceViolation(
+  err: { code?: string | null; message?: string | null; details?: string | null } | null | undefined
+): boolean {
+  if (!err || String(err.code ?? "") !== "23505") return false;
+  const text = `${err.message ?? ""} ${err.details ?? ""}`;
+  return text.includes(POINT_LEDGER_REFUND_RELEASE_ONCE_INDEX);
+}
 
 export type SpendUserPointsResult = PointLedgerMutationResult;
 
@@ -323,6 +337,12 @@ export async function creditUserPoints(
   if (ledgerErr) {
     if (isMissingPointsTable(ledgerErr.message ?? "", "point_ledger")) {
       return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    if (isPointLedgerRefundReleaseOnceViolation(ledgerErr)) {
+      /* 동시 요청이 먼저 환불/해제 원장을 기록함 — 이미 처리됨 */
+      const projectedDup = await projectUserPointBalanceFromLedger(sb, uid);
+      const balanceDup = projectedDup.ok ? projectedDup.balance : await readUserPointBalance(sb, uid);
+      return { ok: true, duplicate: true, balanceAfter: balanceDup };
     }
     return { ok: false, error: ledgerErr.message };
   }

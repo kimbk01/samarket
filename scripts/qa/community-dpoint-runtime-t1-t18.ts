@@ -22,6 +22,10 @@ import { listBoardPointPolicies } from "@/lib/points/point-policy-db";
 import { loadPointFinancialHistory } from "@/lib/points/project-point-financial-history";
 import { spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-ledger";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const PROD_REF = "ckdosyydvgzqwpbwuhon";
 const MARK = "[DPOINT-QA-20260811]";
