@@ -6,8 +6,10 @@
 --       payout or as Coin, never both, in any execution order.
 -- F-14: coin_withdrawal_mark_paid requires payout method + reference.
 -- M-4 : coin_withdrawal_request verifies the store owner.
--- M-3 : convert_store_economic_points_to_business_cash replay lookup is scoped
---       to this store and the conversion entry kind.
+-- M-3 : convert_store_economic_points_to_business_cash writes the owner key into
+--       its own namespace ('convert:' || key) in business_cash_ledger, so an owner key
+--       can never occupy a system key (sale_fee:*, bc_spend:*, ...). Replay lookup is
+--       scoped to this store + conversion kind and also finds legacy raw-key rows.
 -- Each body = current production definition + the listed change only.
 
 BEGIN;
@@ -290,6 +292,7 @@ DECLARE
   v_month_count integer;
   v_month_coin integer;
   v_last_at timestamptz;
+  v_bc_key text;
 BEGIN
   IF p_owner_user_id IS NULL OR p_store_id IS NULL OR p_points IS NULL OR p_points <= 0 THEN
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
@@ -298,15 +301,19 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'idempotency_required');
   END IF;
 
+  -- SSOT-19 M-3: owner keys live in the 'convert:' namespace of the Cash ledger.
+  v_bc_key := 'convert:' || trim(p_idempotency_key);
+
   SELECT id INTO v_existing_bc
   FROM public.business_cash_ledger
-  WHERE idempotency_key = trim(p_idempotency_key)
+  WHERE idempotency_key IN (v_bc_key, trim(p_idempotency_key))
     AND store_id = p_store_id
-    AND entry_kind = 'CONVERT_FROM_STORE_POINTS';
+    AND entry_kind = 'CONVERT_FROM_STORE_POINTS'
+  LIMIT 1;
   IF NOT FOUND AND EXISTS (
-    SELECT 1 FROM public.business_cash_ledger WHERE idempotency_key = trim(p_idempotency_key)
+    SELECT 1 FROM public.business_cash_ledger WHERE idempotency_key = v_bc_key
   ) THEN
-    -- SSOT-19 M-3: key belongs to another store or another entry kind.
+    -- SSOT-19 M-3: the conversion key was used by another store.
     RETURN jsonb_build_object('ok', false, 'error', 'idempotency_conflict');
   END IF;
   IF FOUND THEN
@@ -455,7 +462,7 @@ BEGIN
   ) VALUES (
     p_store_id, 'CONVERT_FROM_STORE_POINTS', 'credit', v_credit_minor, v_bc_bal,
     'store_economic_point_ledger', v_sp_ledger::text,
-    trim(p_idempotency_key), 'owner', p_owner_user_id,
+    v_bc_key, 'owner', p_owner_user_id,
     jsonb_build_object(
       'sp_debited', p_points,
       'rate_pesos_per_point', v_policy.rate_pesos_per_point,

@@ -4,6 +4,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import type { PointChargeRequest } from "@/lib/types/point";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
+import { computeExpiringPointsFromLedger } from "@/lib/points/point-expire-utils";
 import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
   loadPointFinancialHistory,
@@ -127,6 +128,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const history = serializePointFinancialPage(historyRes.page);
 
+  /* SSOT-19 F-17: 소멸 예정 = 미만료·미래 만료 적립분 합, 잔액 상한 */
+  let expiring = { totalExpiringPoint: 0, nearestExpireAt: null as string | null, expiringEntriesCount: 0 };
+  const expRes = await sb
+    .from("point_ledger")
+    .select("amount, expires_at, expired_amount")
+    .eq("user_id", userId)
+    .gt("amount", 0)
+    .not("expires_at", "is", null)
+    .is("expired_amount", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: true })
+    .limit(1000);
+  if (!expRes.error) {
+    expiring = computeExpiringPointsFromLedger(
+      (expRes.data ?? []) as Array<{ amount: number; expires_at: string | null; expired_amount: number | null }>,
+      summary.balance
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     balance: summary.balance,
@@ -147,6 +167,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       actorType: item.actorType,
     })),
     chargeRequests,
+    expiring,
     source: "supabase",
   });
 }

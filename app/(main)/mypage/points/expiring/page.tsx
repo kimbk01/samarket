@@ -6,9 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { PointExpiringCard } from "@/components/points/PointExpiringCard";
-import { getUpcomingExpiringSummary } from "@/lib/points/point-expire-utils";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type { PointLedgerEntry } from "@/lib/types/point";
 import { withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
   CUSTOMER_CENTER_LIST_COLUMN_CLASS,
@@ -16,6 +14,13 @@ import {
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+type ExpiringSummary = {
+  totalExpiringPoint: number;
+  nearestExpireAt: string | null;
+  expiringEntriesCount: number;
+};
+const EMPTY_EXPIRING: ExpiringSummary = { totalExpiringPoint: 0, nearestExpireAt: null, expiringEntriesCount: 0 };
 
 export default function MyPointsExpiringPage() {
   return (
@@ -31,7 +36,7 @@ function MyPointsExpiringPageInner() {
   const from = searchParams.get("from");
   const backHref = withCustomerCenterFrom("/mypage/points", from);
   const userId = getCurrentUser()?.id ?? "";
-  const [ledgerEntries, setLedgerEntries] = useState<PointLedgerEntry[]>([]);
+  const [expiring, setExpiring] = useState<ExpiringSummary>(EMPTY_EXPIRING);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,18 +49,18 @@ function MyPointsExpiringPageInner() {
       );
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        ledger?: PointLedgerEntry[];
+        expiring?: ExpiringSummary;
         error?: string;
       };
       if (!res.ok || !json.ok) {
         setError(json.error ?? t("common_content_unavailable"));
-        setLedgerEntries([]);
+        setExpiring(EMPTY_EXPIRING);
         return;
       }
-      setLedgerEntries(Array.isArray(json.ledger) ? json.ledger : []);
+      setExpiring(json.expiring ?? EMPTY_EXPIRING);
     } catch {
       setError(t("common_content_unavailable"));
-      setLedgerEntries([]);
+      setExpiring(EMPTY_EXPIRING);
     } finally {
       setLoading(false);
     }
@@ -68,9 +73,9 @@ function MyPointsExpiringPageInner() {
   const summary = useMemo(
     () => ({
       userId,
-      ...getUpcomingExpiringSummary(userId, ledgerEntries),
+      ...expiring,
     }),
-    [userId, ledgerEntries],
+    [userId, expiring],
   );
 
   return (
