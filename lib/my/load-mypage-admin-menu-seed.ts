@@ -7,8 +7,8 @@
  * - Display hint only. `/admin` and `/api/admin/**` keep their own server checks; the client still
  *   re-verifies with `/api/admin/access-check` on every mount.
  * - `viewerId` lets the client reject a seed that belongs to a different account.
- * - `nonce` is unique per RSC request: once the user leaves the page, the client retires it, so a
- *   router-cache-reused payload (e.g. back navigation) can never re-show an older admin fact.
+ * - `nonce` is unique per RSC request: the client trusts only the hard-load document's own seed
+ *   (until the user leaves the page); prefetched / router-cached payloads are never trusted.
  */
 import { randomUUID } from "node:crypto";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
