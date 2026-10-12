@@ -1,17 +1,17 @@
 name: Realtime QA probe (isolated branch)
 
 # Live Supabase Realtime probe against the ISOLATED QA project (gczyogboohpixpurckkg) — never Production.
-# Uses only the QA publishable anon key (public by design). Throwaway probe users are pre-provisioned in QA (password from the
-# RT_QA_PROBE_PASSWORD secret) and deleted after the run; QA-only probe RPCs restrict fixtures to @rt-probe.dibay.invalid.
+# Uses only the QA publishable anon key (public by design). Throwaway probe users (@rt-probe.dibay.invalid) are
+# pre-provisioned in QA and deleted after the run; QA-only probe RPCs restrict fixtures to that domain.
+# Dispatch-only: the probe needs short-lived QA probe-user credentials that are supplied per run
+# (input, masked) or via the RT_QA_PROBE_PASSWORD secret — a plain push has neither, so it must not run.
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/charming-bardeen-mxzdsu"]
-    paths:
-      - "scripts/qa/realtime-probe/**"
-      - ".github/workflows/realtime-qa-probe.yml"
-      - "lib/community-messenger/call-invite-realtime-broadcast.ts"
-      - "lib/community-messenger/realtime/**"
+    inputs:
+      probe_password:
+        description: "Short-lived password of the QA probe users (rotated + users deleted after the run)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +27,6 @@ jobs:
     env:
       RT_QA_URL: https://gczyogboohpixpurckkg.supabase.co
       RT_QA_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
-      RT_QA_PROBE_PASSWORD: ${{ secrets.RT_QA_PROBE_PASSWORD }}
       NEXT_PUBLIC_SUPABASE_URL: https://gczyogboohpixpurckkg.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
     steps:
@@ -36,6 +35,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Probe credential
+        env:
+          INPUT_PW: ${{ inputs.probe_password }}
+          SECRET_PW: ${{ secrets.RT_QA_PROBE_PASSWORD }}
+        run: |
+          PW="${INPUT_PW:-$SECRET_PW}"
+          if [ -z "$PW" ]; then echo "::error::no probe credential (input or RT_QA_PROBE_PASSWORD)"; exit 1; fi
+          echo "::add-mask::$PW"
+          echo "RT_QA_PROBE_PASSWORD=$PW" >> "$GITHUB_ENV"
       - run: npm ci --no-audit --no-fund
       - name: Live Realtime probe
         run: npx vitest run --config scripts/qa/realtime-probe/vitest.config.ts --reporter=verbose

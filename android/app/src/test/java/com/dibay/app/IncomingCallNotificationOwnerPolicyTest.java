@@ -10,6 +10,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
 /** V4 incoming visible-surface owner policy — one UI per callId on lock/background. */
@@ -27,6 +28,39 @@ public class IncomingCallNotificationOwnerPolicyTest {
     context = app.getApplicationContext();
     app.getSharedPreferences(LANE_PREFS, Context.MODE_PRIVATE).edit().putBoolean(LANE_KEY, true).apply();
     IncomingCallActivity.clearActivityShownEmittedForTests();
+    // Owner policy is evaluated on a device whose lock-screen tier is ready
+    // (NotificationReceiveGate.lockScreenIncomingReady): POST_NOTIFICATIONS granted, FSI allowed,
+    // battery optimisation ignored. Robolectric's default device has none of these.
+    setLockScreenIncomingReady(true);
+  }
+
+  private void setLockScreenIncomingReady(boolean ready) {
+    Application app = ApplicationProvider.getApplicationContext();
+    if (ready) {
+      Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS);
+    } else {
+      Shadows.shadowOf(app).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS);
+    }
+    Shadows.shadowOf(app.getSystemService(android.app.NotificationManager.class))
+        .setCanUseFullScreenIntent(ready);
+    Shadows.shadowOf(app.getSystemService(android.os.PowerManager.class))
+        .setIgnoringBatteryOptimizations(app.getPackageName(), ready);
+  }
+
+  @Test
+  public void lockScreenTierNotReady_neverAttachesFullScreenIntent() {
+    String callId = "owner-gate-blocked-1";
+    IncomingCallSurfaceOwner.tryClaimIncomingOwner(
+        context, callId, IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY, "test");
+    setLockScreenIncomingReady(false);
+
+    assertFalse(NotificationReceiveGate.snapshot(context).lockScreenIncomingReady);
+    assertFalse(
+        IncomingCallNotificationBuilder.shouldAttachIncomingFullScreenIntent(
+            context, callId, false, false, true, true, true));
+    assertFalse(
+        IncomingCallNotificationBuilder.shouldAttachIncomingFullScreenIntent(
+            context, callId, false, true, true, true, true));
   }
 
   @Test

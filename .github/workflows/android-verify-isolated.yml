@@ -1,8 +1,9 @@
 name: Android verify (isolated branch)
 
 # Verification-only: compile + Robolectric unit tests + debug APK for the isolated fix branch.
-# Runs the base commit (before native changes) and the fix commit side by side so pre-existing
-# native test failures are separated from regressions. No secrets, no signing, no deploy.
+# Base-vs-fix comparison (base b141aa34: 96 tests / 3 pre-existing IncomingCallNotificationOwnerPolicyTest
+# failures) is recorded in run 38313174885; the fixture root cause is fixed, so only the head is gated now.
+# No secrets, no signing, no deploy.
 on:
   push:
     branches: ["claude/charming-bardeen-mxzdsu"]
@@ -25,8 +26,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: base-b141aa34
-            ref: b141aa34968e61031e7767e4097ad476c92044ba
           - label: fix-head
             ref: ${{ github.sha }}
     name: gradle (${{ matrix.label }})
