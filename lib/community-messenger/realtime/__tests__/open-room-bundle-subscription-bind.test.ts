@@ -92,7 +92,12 @@ describe("CUT-R1 open-room bundle subscription bind", () => {
     await Promise.resolve();
 
     expect(channelNames.some((n) => n === `global-messenger:bundle:${viewer}:0`)).toBe(true);
-    expect(mockSb.channel).toHaveBeenCalledWith(`global-messenger:bundle:${viewer}:0`);
+    expect(mockSb.channel).toHaveBeenCalledWith(`global-messenger:bundle:${viewer}:0`, {
+      config: {
+        private: true,
+        broadcast: { ack: false, self: false },
+      },
+    });
 
     entry.stop();
   });
