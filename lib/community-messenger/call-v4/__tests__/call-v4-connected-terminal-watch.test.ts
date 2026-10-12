@@ -92,10 +92,11 @@ describe("call-v4 connected terminal watch", () => {
       httpStatus: 200,
       notFound: false,
     });
-    const channel = { id: "ch" };
+    /** 공유 허브 해제 함수 — 소비자가 채널을 직접 removeChannel 하지 않는다(D-2) */
+    const releaseInvite = vi.fn();
     mocks.subscribeInvite.mockImplementation((_sb, _userId, handlers) => {
       handlers.onHangup({ sessionId: "call-watch", status: "rejected" });
-      return channel;
+      return releaseInvite;
     });
     startCallV4ConnectedTerminalWatch("call-watch");
     const cleanup = startCallV4TerminalRealtimeWatch("u-b");
@@ -103,7 +104,8 @@ describe("call-v4 connected terminal watch", () => {
     await Promise.resolve();
     expect(handler).toHaveBeenCalledWith("call-watch", "rejected", "realtime");
     cleanup();
-    expect(mocks.removeChannel).toHaveBeenCalledWith(channel);
+    expect(releaseInvite).toHaveBeenCalledTimes(1);
+    expect(mocks.removeChannel).not.toHaveBeenCalled();
   });
 
   it("ignores non-current call terminal triggers", async () => {

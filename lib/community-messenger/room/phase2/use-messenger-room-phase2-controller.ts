@@ -104,6 +104,11 @@ import {
 import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import {
+  isUncertainOutboundSendHttpStatus,
+  resolveOutboundTextClientMessageId,
+  type UncertainOutboundTextSend,
+} from "@/lib/community-messenger/room/outbound-retry-client-message-id";
+import {
   postCommunityMessengerBusEvent,
   syncMessengerHomeAfterOutboundSend,
 } from "@/lib/community-messenger/multi-tab-bus";
@@ -352,6 +357,8 @@ export function useMessengerRoomPhase2Controller() {
   const [attachmentConfirmDraft, setAttachmentConfirmDraft] = useState<MessengerAttachmentConfirmDraft | null>(null);
   const [privateGroupAvatarUrl, setPrivateGroupAvatarUrl] = useState<string | null>(null);
   const messengerSentFeedbackPlayedClientIdsRef = useRef<Set<string>>(new Set());
+  /** D-7: 직전 텍스트 전송의 불확실 실패(예외·5xx) — 같은 내용 재전송 시 clientMessageId 재사용 */
+  const uncertainOutboundTextSendRef = useRef<UncertainOutboundTextSend | null>(null);
 
   useEffect(() => {
     const rid = roomId?.trim();
@@ -907,8 +914,26 @@ export function useMessengerRoomPhase2Controller() {
       if (!trimmed || !snapshot) return false;
       // CHAT-03: 예외(네트워크/비행기 모드) 정리를 위해 낙관적 말풍선 id 를 try 밖으로 보관.
       let optimisticTempId: string | null = null;
+      const rid = (replyToMessageId ?? "").trim();
+      /** D-7: 직전 불확실 실패와 같은 내용·답장 대상 재전송이면 같은 clientMessageId(서버 dedupe) — 보관값은 이번 시도에서 소비 */
+      const uncertainFailure = uncertainOutboundTextSendRef.current;
+      uncertainOutboundTextSendRef.current = null;
+      const { clientMessageId } = resolveOutboundTextClientMessageId({
+        uncertainFailure,
+        content: trimmed,
+        replyToMessageId: rid,
+        now: Date.now(),
+        createClientMessageId: createCommunityMessengerClientMessageId,
+      });
+      const rememberUncertainFailure = () => {
+        uncertainOutboundTextSendRef.current = {
+          content: trimmed,
+          replyToMessageId: rid,
+          clientMessageId,
+          failedAt: Date.now(),
+        };
+      };
       try {
-      const clientMessageId = createCommunityMessengerClientMessageId();
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
         sender_click_ms: cmReceiveLatencyNow(),
@@ -917,7 +942,6 @@ export function useMessengerRoomPhase2Controller() {
       });
       const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
       optimisticTempId = tempId;
-      const rid = (replyToMessageId ?? "").trim();
       const replySnap =
         rid && replySourceMessage && replySourceMessage.id === rid ? buildReplyPreviewSnapshot(replySourceMessage) : null;
       const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
@@ -972,6 +996,8 @@ export function useMessengerRoomPhase2Controller() {
         messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
       if (!res.ok || !json.ok) {
+        /** 5xx 는 커밋 여부 불확실(게이트웨이 타임아웃 등) — 같은 문장 재전송 시 같은 id 로 dedupe. 4xx 는 거절 확정 */
+        if (!res.ok && isUncertainOutboundSendHttpStatus(res.status)) rememberUncertainFailure();
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
         if (redirectIfMessengerAuthBlocked(res, json)) return false;
@@ -1017,7 +1043,8 @@ export function useMessengerRoomPhase2Controller() {
       return true;
       } catch {
         // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거,
-        // 입력 복원, 오류 스낵바. (서버에 저장 안 됨 → 재전송 시 1행, 중복 없음.)
+        // 입력 복원, 오류 스낵바. 응답만 유실되고 서버는 커밋했을 수 있으므로(D-7) 재전송은 같은 clientMessageId 로 보낸다.
+        rememberUncertainFailure();
         if (optimisticTempId) {
           const stuckId = optimisticTempId;
           setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));

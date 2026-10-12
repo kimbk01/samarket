@@ -7,9 +7,11 @@ import {
   type ReactNode,
   memo,
   type MutableRefObject,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import { resolveCallStubViewerIsCaller } from "@/lib/community-messenger/call-stub-viewer-direction";
 import {
   communityMessengerMemberAvatar,
   formatTime,
@@ -450,6 +452,17 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   const communityPostShareCard =
     item.messageType === "community_post_share" ? parseCommunityPostShareMetadata(metadata) : null;
 
+  /** D-6: 통화 기록은 작성자(종료 행위자)가 아니라 통화 발신자 기준으로 정렬·「발신/수신」 표시 — 상호작용은 원본 item 유지 */
+  const callStubViewerIsCaller =
+    item.messageType === "call_stub" ? resolveCallStubViewerIsCaller(item) : Boolean(item.isMine);
+  const callStubDisplayItem = useMemo(
+    () =>
+      item.messageType === "call_stub" && callStubViewerIsCaller !== Boolean(item.isMine)
+        ? { ...item, isMine: callStubViewerIsCaller }
+        : item,
+    [item, callStubViewerIsCaller]
+  );
+
   const viberInnerBody: ReactNode =
     item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
@@ -461,7 +474,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       <TimelineViberInnerFile item={item} mediaAutoSaveEnabled={mediaAutoSaveEnabled} />
     ) : item.messageType === "call_stub" ? (
       <TimelineViberInnerCallStub
-        item={item}
+        item={callStubDisplayItem}
         stubBusy={stubBusy}
         voiceCallLabel={voiceCallLabel}
         videoCallLabel={videoCallLabel}
@@ -523,9 +536,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   );
 
   const callStubEventRow = (
-    <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
+    <div className={`flex w-full min-w-0 px-2 ${callStubViewerIsCaller ? "justify-end" : "justify-start"}`}>
       <div className="flex min-w-0 max-w-full items-end gap-1.5">
-        {item.isMine ? (
+        {callStubViewerIsCaller ? (
           <>
             {callStubTimeLabel}
             {callStubBubble}

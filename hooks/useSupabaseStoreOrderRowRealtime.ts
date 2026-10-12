@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export type StoreOrderRowRealtimeDomain = "delivery-customer" | "delivery-owner" | "platform-admin";
 
@@ -115,7 +116,9 @@ export function useStoreOrderRowRealtimeTransport(
             domain,
             orderId: oid,
             storeId: opts?.storeId,
-          })
+          }),
+          /** Public OFF(private-only) — 정책: 20270423120000 `*-order-row-rt:` */
+          messengerPrivateBroadcastChannelOptions()
         )
         .on(
           "postgres_changes",

@@ -31,11 +31,26 @@
 
 | 단계 | 역할 | 코드 |
 |------|------|------|
-| 발행 | 메시지·미디어 mutation 직후 **서비스 롤**이 Realtime Broadcast 로 bump 전송. 응답 본문 전에 `await` 로 전송 완료를 보장. | [`publish-messenger-room-bump.ts`](../lib/community-messenger/server/publish-messenger-room-bump.ts) → [`room-bump-broadcast-server.ts`](../lib/community-messenger/realtime/room-bump-broadcast-server.ts) |
+| 발행 | 메시지·미디어 mutation 직후 **서비스 롤**이 Realtime **REST** Broadcast(비공개 토픽)로 bump 전송. 텍스트 전송 API 는 ACK 응답 뒤 `after()` 에서 **푸시(FCM/APNs) 발송보다 먼저** 발행한다 — 푸시 지연·예외가 bump 를 늦추거나 누락시키지 않게(D-4). | [`publish-messenger-room-bump.ts`](../lib/community-messenger/server/publish-messenger-room-bump.ts) → [`room-bump-broadcast-server.ts`](../lib/community-messenger/realtime/room-bump-broadcast-server.ts) |
 | 페이로드 | v2: `canonicalRoomId`, `fromUserId`, `messageId`, 선택 **`message`**(직렬화된 확정 행). 거래·레거시 URL id 와 canonical 이 다르면 **두 채널** 모두 발행 + `rawRouteRoomId` 로 매칭. Phase E: 선택 **`chatDomain`/`domainIdentity`/`eventId`** (dual-write된 방만) — dedupe [`domain-realtime-envelope.ts`](../lib/chat-domain/realtime/domain-realtime-envelope.ts). | [`community-messenger-room-bump-channel.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-channel.ts) (`communityMessengerBumpPayloadMatchesKnownRooms` 등) |
 | 직렬화·검증 | 서버→와이어용 `serialize…`, 수신 측 `parse…` — `fromUserId`·방 id·`messageId` 힌트와 교차 검증 후에만 UI 병합. | [`community-messenger-room-bump-message-snapshot.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot.ts) |
 | 수신 UI | `subscribeCommunityMessengerRoomBumpBroadcast` + 즉시 `mergeRoomMessages`; bump `message` snapshot 병합 성공 시 단건 GET 은 생략하고, snapshot 이 없거나 검증 실패한 경우에만 HTTP 증분(`catchUpAfterRemoteBump`)으로 정합. `postgres_changes` 는 병행. | [`room-bump-broadcast.ts`](../lib/community-messenger/realtime/room-bump-broadcast.ts) (구독만), [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts) |
 | 금지 | **클라이언트**가 동일 bump 채널로 메시지 알림을 발행하는 것 — 서버 bump 와 중복·지연·보안 모델이 어긋난다. | (구 `publishCommunityMessengerRoomBump*` 클라 발행 제거됨) |
+
+## Realtime 비공개 토픽(Authorization)
+
+**Production 은 Realtime "Allow public access to channels" = OFF (private-only).** public 으로 join 하는 채널은 서버가 `PrivateOnly` 로 **전부 거절**한다(2026-10 사고: 4,014건). 따라서:
+
+| 규칙 | 내용 |
+|------|------|
+| 구독 | 모든 `sb.channel(…)` 은 `messengerPrivateBroadcastChannelOptions()`(= `config.private: true`) 를 넘긴다. `subscribeWithRetry` / `acquireIncomingCallRealtimeSubscription` 은 `channelOptions` 필수. 같은 토픽을 여는 모든 호출부가 같은 옵션을 써야 한다(realtime-js 는 토픽으로 인스턴스를 재사용). |
+| 권한 | join 시 사용자 JWT 로 `realtime.messages` SELECT 정책 → `internal.cm_realtime_can_read_topic(topic)` 평가. 토픽 접두마다 참가자·본인·관리자 등 **테이블 RLS 와 같은 주체**만 허용, 그 외 `else false`. postgres_changes 행은 여전히 테이블 RLS 로 한 번 더 걸러진다. |
+| 발행 | 서버 = 서비스 롤 REST broadcast(`publishMessengerPrivateBroadcastFromServer`). 클라이언트가 **상대** 토픽에 보낼 때 = 사용자 JWT REST(`sendMessengerPrivateBroadcastFromClient`, INSERT 정책 `cm_realtime_can_send_topic`) — 상대 토픽 join 금지(SELECT 거절됨). |
+| 공유 토픽 | `cm-call-invite:<me>` 는 전역 수신·통화 화면·v3/v4 감시·영상 전환이 함께 쓴다 → `subscribeCommunityMessengerCallInviteBroadcast` 허브만 사용, 반환된 해제 함수만 호출(직접 `removeChannel` 금지 — 공유 인스턴스가 닫혀 전역 수신 벨이 죽는다). |
+| 신규 토픽 | 클라이언트 추가와 **같은 변경**에 정책 migration 을 추가하고, migration → 웹 배포 순서로 반영. Public ON 복귀로 해결하지 않는다(익명 join 재개방). |
+| 회귀 검사 | [`cm-realtime-private-channel-sweep.contract.test.ts`](../lib/community-messenger/realtime/__tests__/cm-realtime-private-channel-sweep.contract.test.ts) 가 저장소 전체에서 public 채널·정책 누락 토픽을 검출한다. |
+
+정책 migration: `supabase/migrations/20270422120000_…`, `20270422130000_…`, `20270422140000_…`, `20270423120000_cm_realtime_call_and_order_row_private_topics.sql`(1:1 통화·주문 row).
 
 ## 원칙
 

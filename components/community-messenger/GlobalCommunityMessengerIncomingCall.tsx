@@ -73,6 +73,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { ForegroundIncomingCallHost } from "@/components/community-messenger/ForegroundIncomingCallHost";
@@ -1129,7 +1130,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     const sb = getSupabaseClient();
     if (!sb) return;
     let cancelled = false;
-    const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, userId, {
+    const releaseInvite = subscribeCommunityMessengerCallInviteBroadcast(sb, userId, {
       onRing: (payload) => {
         if (cancelled) return;
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
@@ -1213,11 +1214,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     });
     return () => {
       cancelled = true;
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
+      releaseInvite();
     };
   }, [userId, bumpIncomingListFastSync, handleCallTerminalEvent]);
 
@@ -1467,6 +1464,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       sb,
       name: `community-messenger-incoming-call:${userId}`,
       scope: INCOMING_CALL_REALTIME_SCOPE,
+      /** Public OFF(private-only) — 정책: 20270423120000 `community-messenger-incoming-call:<본인 uid>` */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
       onStatus: (status) => {

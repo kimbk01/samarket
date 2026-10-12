@@ -46,16 +46,8 @@ export function startCallV3CallerTerminalBroadcastSubscribe(userId: string): () 
   const sb = getSupabaseClient();
   if (!sb) return () => undefined;
 
-  const channel = subscribeCommunityMessengerCallInviteBroadcast(sb, uid, {
-    onRing: () => undefined,
+  /** 공유 `cm-call-invite:<me>` 허브 — 이 감시만 해제(전역 수신 벨 구독 유지) */
+  return subscribeCommunityMessengerCallInviteBroadcast(sb, uid, {
     onHangup: handleActiveCallTerminalBroadcast,
   });
-
-  return () => {
-    try {
-      void sb.removeChannel(channel);
-    } catch {
-      /* noop */
-    }
-  };
 }

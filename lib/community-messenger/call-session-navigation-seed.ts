@@ -269,6 +269,17 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   }
 }
 
+/**
+ * 실제 통화 화면 라우트인지 — `/community-messenger/calls/<id>`(통화 기록 목록 `calls/logs` 제외)·`calls-v3/`·`calls-v4/`.
+ * (v3 `isOnCallV3ScreenPath` 와 같은 규칙 + logs 제외)
+ */
+export function isCommunityMessengerCallScreenPathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").trim();
+  if (/^\/community-messenger\/calls-v[34]\/[^/]+/.test(p)) return true;
+  const m = /^\/community-messenger\/calls\/([^/?#]+)/.exec(p);
+  return Boolean(m && m[1] !== "logs");
+}
+
 /** 터미널 확정 — surface 정리 + active 세션 해제 + Origin Return 복귀 */
 export function finalizeCommunityMessengerCallTerminalExit(
   router: { replace: (href: string) => void },
@@ -282,6 +293,22 @@ export function finalizeCommunityMessengerCallTerminalExit(
     void hardClearActiveCallSession(sid, source);
   }
   releaseCallActionLock(source);
+  /**
+   * 통화 화면 클라이언트는 dock·최소화 상태에서도 전역 호스트(`CommunityMessengerActiveCallHost`)로 마운트된다.
+   * 그때 사용자는 다른 채팅방·홈을 보고 있으므로, 원격 종료·벨 해제 시 화면을 바꾸지 않는다(사용자 동작 없는 강제 이동 차단).
+   * 통화 화면 라우트에서 끝난 경우에만 기존처럼 Origin Return 으로 복귀한다.
+   */
+  if (typeof window !== "undefined" && !isCommunityMessengerCallScreenPathname(window.location.pathname)) {
+    const stale = takeCallNavigationReturnPath();
+    console.info("[call-flow] call_return_navigation_decision", {
+      target: null,
+      reason: "not_on_call_screen",
+      source,
+      currentPath: `${window.location.pathname}${window.location.search}`,
+      discardedReturnPath: stale,
+    });
+    return;
+  }
   navigateBackFromCommunityMessengerCall(router, roomIdFallback);
 }
 

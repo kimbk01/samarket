@@ -8,7 +8,6 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 const CONNECTED_TERMINAL_POLL_MS = 1_000;
 const TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed", "failed"]);
@@ -19,7 +18,8 @@ let watchedCallId: string | null = null;
 let terminalHandler:
   | ((callId: string, status: string, source: "agora" | "realtime" | "poll") => Promise<void> | void)
   | null = null;
-let realtimeChannel: ReturnType<SupabaseClient["channel"]> | null = null;
+/** 공유 `cm-call-invite:<me>` 허브 해제 함수 — 직접 removeChannel 금지(전역 수신 벨 구독까지 닫힘) */
+let releaseRealtimeInvite: (() => void) | null = null;
 
 function normalizeStatus(status: string | null | undefined): string {
   const normalized = (status ?? "").trim().toLowerCase();
@@ -109,8 +109,8 @@ export function startCallV4TerminalRealtimeWatch(userId: string): () => void {
   const uid = userId.trim();
   const sb = getSupabaseClient();
   if (!uid || !sb) return () => undefined;
-  realtimeChannel = subscribeCommunityMessengerCallInviteBroadcast(sb, uid, {
-    onRing: () => undefined,
+  releaseRealtimeInvite?.();
+  releaseRealtimeInvite = subscribeCommunityMessengerCallInviteBroadcast(sb, uid, {
     onHangup: (payload) => {
       const callId = readPayloadCallId(payload);
       if (!callId) return;
@@ -118,15 +118,15 @@ export function startCallV4TerminalRealtimeWatch(userId: string): () => void {
     },
   });
   return () => {
-    const ch = realtimeChannel;
-    realtimeChannel = null;
-    if (ch) void sb.removeChannel(ch);
+    const release = releaseRealtimeInvite;
+    releaseRealtimeInvite = null;
+    release?.();
   };
 }
 
 export function resetCallV4ConnectedTerminalWatchForTests(): void {
   stopCallV4ConnectedTerminalWatch();
   terminalHandler = null;
-  realtimeChannel = null;
+  releaseRealtimeInvite = null;
 }
 

@@ -36,6 +36,15 @@ describe("CM message send Domain target bump before ACK", () => {
     expect(publish).toBeGreaterThan(afterCall);
     expect(src).toContain("skipBadgeTargetBump: true");
   });
+
+  it("publishes realtime room bump before deferred FCM effects (bump must not wait for push)", () => {
+    const afterBlock = src.slice(src.indexOf("after(async () => {"));
+    const bump = afterBlock.indexOf("await publishMessengerRoomBumpAfterMutation(bumpArgs)");
+    const push = afterBlock.indexOf("await runCommunityMessengerSendDeferredPostAckEffects");
+    expect(bump).toBeGreaterThan(-1);
+    expect(push).toBeGreaterThan(-1);
+    expect(bump).toBeLessThan(push);
+  });
 });
 
 const groupSrc = readFileSync(

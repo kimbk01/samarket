@@ -1,12 +1,11 @@
 "use client";
 
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { communityMessengerCallInviteChannelName } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import {
-  createMessengerPrivateChannelStatusHandler,
-  messengerPrivateBroadcastChannelOptions,
-  sendMessengerPrivateBroadcastFromClient,
-} from "@/lib/community-messenger/realtime/private-broadcast-client";
+  communityMessengerCallInviteChannelName,
+  subscribeCommunityMessengerCallInviteBroadcast,
+} from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { sendMessengerPrivateBroadcastFromClient } from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export const CM_VIDEO_UPGRADE_REQUEST = "cm_video_upgrade_request";
 export const CM_VIDEO_UPGRADE_RESPONSE = "cm_video_upgrade_response";
@@ -66,19 +65,12 @@ export function subscribeVideoUpgradeBroadcast(
 ): () => void {
   const sb = getSupabaseClient();
   if (!sb || !userId.trim()) return () => {};
-  const name = communityMessengerCallInviteChannelName(userId);
-  /** 같은 토픽을 여는 다른 구독자와 동일 옵션(realtime-js 는 토픽으로 채널 인스턴스를 재사용) */
-  const ch = sb.channel(name, messengerPrivateBroadcastChannelOptions());
-  ch.on("broadcast", { event: CM_VIDEO_UPGRADE_REQUEST }, (msg) => {
-    const p = msg.payload as VideoUpgradeBroadcastPayload;
-    if (p?.sessionId) onEvent(CM_VIDEO_UPGRADE_REQUEST, p);
+  /** 본인 `cm-call-invite:<uid>` 공유 허브 — 직접 removeChannel 하면 전역 수신 벨 구독까지 닫힌다 */
+  return subscribeCommunityMessengerCallInviteBroadcast(sb, userId, {
+    onOtherEvent: (event, raw) => {
+      if (event !== CM_VIDEO_UPGRADE_REQUEST && event !== CM_VIDEO_UPGRADE_RESPONSE) return;
+      const p = raw as unknown as VideoUpgradeBroadcastPayload;
+      if (p?.sessionId) onEvent(event, p);
+    },
   });
-  ch.on("broadcast", { event: CM_VIDEO_UPGRADE_RESPONSE }, (msg) => {
-    const p = msg.payload as VideoUpgradeBroadcastPayload;
-    if (p?.sessionId) onEvent(CM_VIDEO_UPGRADE_RESPONSE, p);
-  });
-  ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "video_upgrade" }));
-  return () => {
-    void sb.removeChannel(ch);
-  };
 }

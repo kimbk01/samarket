@@ -80,6 +80,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   consumeOutgoingRingtonePrimedSessionFlag,
   playCommunityMessengerCallSignalSound,
@@ -3967,6 +3968,8 @@ export function CommunityMessengerCallClient({
       sb,
       name: `community-messenger-call-session:${sessionId}`,
       scope: "community-messenger-call-client:session",
+      /** Public OFF(private-only) — 정책: 20270423120000 `community-messenger-call-session:<uuid>` */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       onStatus: (status) => {
         setSessionRealtimeSubscribed(status === "SUBSCRIBED");
@@ -4053,6 +4056,8 @@ export function CommunityMessengerCallClient({
   }, [beginRingingCallDismiss, refreshSession, scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
+    /** tmp_* 다이얼 id 는 uuid 가 아니라 비공개 토픽 정책에서 거절된다(행도 없음) — 세션 채널과 동일하게 건너뜀 */
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
     const sb = getSupabaseClient();
     if (!sb || !sessionId) return;
     let cancelled = false;
@@ -4060,6 +4065,8 @@ export function CommunityMessengerCallClient({
       sb,
       name: `community-messenger-call-signal-hangup:${sessionId}`,
       scope: "community-messenger-call-client:hangup-signal",
+      /** Public OFF(private-only) — 정책: 20270423120000 `community-messenger-call-signal-hangup:<uuid>` */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       build: (ch) =>
         ch.on(
@@ -4137,7 +4144,7 @@ export function CommunityMessengerCallClient({
         : (current?.recipientUserId?.trim() ?? ""));
     if (!sb || !sessionId || !myUserId) return;
     let cancelled = false;
-    const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, myUserId, {
+    const releaseInvite = subscribeCommunityMessengerCallInviteBroadcast(sb, myUserId, {
       onRing: () => {
         if (!cancelled) scheduleSilentRefresh("realtime");
       },
@@ -4190,7 +4197,8 @@ export function CommunityMessengerCallClient({
     });
     return () => {
       cancelled = true;
-      void sb.removeChannel(ch);
+      /** 공유 `cm-call-invite:<me>` — 이 화면 소비자만 해제(전역 수신 벨 구독 유지) */
+      releaseInvite();
     };
   }, [
     appendTerminalCallHistory,
