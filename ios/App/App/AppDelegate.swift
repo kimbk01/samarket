@@ -8,7 +8,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
+    private static let lifecycleWasInBackgroundKey = "dibay_lifecycle_was_in_background"
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Lifecycle SSOT §5.2: only emit restore|fresh when OS restore vs cold is actually
+        // distinguishable. `was_in_background` alone is NOT OS-restore evidence (user may
+        // background → force-quit → relaunch). Consume the flag for diagnostics only.
+        let defaults = UserDefaults.standard
+        let wasInBackground = defaults.bool(forKey: Self.lifecycleWasInBackgroundKey)
+        defaults.set(false, forKey: Self.lifecycleWasInBackgroundKey)
+        if wasInBackground {
+            // Prior background observed — insufficient to confirm OS task restore.
+            DibayRootBridgeViewController.nativeRestoreHint = "unknown"
+        } else {
+            // No durable background mark (first launch / cleared defaults) → cold candidate.
+            DibayRootBridgeViewController.nativeRestoreHint = "fresh"
+        }
+        NSLog(
+            "[DibayLifecycle] native_restore_hint=%@ was_in_background=%d (background≠restore)",
+            DibayRootBridgeViewController.nativeRestoreHint,
+            wasInBackground ? 1 : 0
+        )
+
         if let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String {
             let trimmed = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
             let isPlaceholder = trimmed.isEmpty || trimmed.hasPrefix("$(") || trimmed.contains("YOUR_KAKAO")
@@ -27,6 +48,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
+        UserDefaults.standard.set(true, forKey: Self.lifecycleWasInBackgroundKey)
         DibayActiveCallSessionManager.shared.onAppBackground()
     }
 

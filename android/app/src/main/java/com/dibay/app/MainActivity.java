@@ -1,5 +1,7 @@
 package com.dibay.app;
 
+import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -45,6 +47,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.security.MessageDigest;
 import java.util.concurrent.CountDownLatch;
@@ -59,10 +62,15 @@ public class MainActivity extends BridgeActivity {
   static final String LAUNCH_EPOCH = UUID.randomUUID().toString();
 
   /**
-   * Installs {@code window.__DIBAY_LAUNCH_EPOCH__} as a document-start script, before any
-   * application JS of every document of the app origin. Runs from plugin load(), i.e. inside
-   * the Bridge constructor before loadWebView() issues the first navigation.
-   * Unsupported WebView (no DOCUMENT_START_SCRIPT) → no epoch → web Intro bypass (fail-safe).
+   * Lifecycle SSOT — native restore hint for Web AppEntryKind.
+   * Set once in onCreate before Bridge loads. Values: restore | fresh | unknown.
+   * Never invent restore/fresh without evidence (API&lt;R without saved state → unknown).
+   */
+  static String NATIVE_RESTORE_HINT = "unknown";
+
+  /**
+   * Installs {@code window.__DIBAY_LAUNCH_EPOCH__} + {@code __DIBAY_NATIVE_RESTORE_HINT__}
+   * as document-start scripts before application JS.
    */
   @CapacitorPlugin(name = "DibayLaunchEpoch")
   public static class LaunchEpochPlugin extends Plugin {
@@ -77,16 +85,100 @@ public class MainActivity extends BridgeActivity {
       try {
         String origin =
             Uri.parse(bridge.getAppUrl()).buildUpon().path(null).fragment(null).clearQuery().build().toString();
+        String hint = NATIVE_RESTORE_HINT != null ? NATIVE_RESTORE_HINT : "unknown";
         String js =
             "Object.defineProperty(window,'__DIBAY_LAUNCH_EPOCH__',{value:'"
                 + LAUNCH_EPOCH
+                + "',writable:false,enumerable:false,configurable:false});"
+                + "Object.defineProperty(window,'__DIBAY_NATIVE_RESTORE_HINT__',{value:'"
+                + hint
                 + "',writable:false,enumerable:false,configurable:false});";
         WebViewCompat.addDocumentStartJavaScript(webView, js, Collections.singleton(origin));
-        Log.i("DibayLaunchEpoch", "launch_epoch_installed epoch=" + LAUNCH_EPOCH + " origin=" + origin);
+        Log.i(
+            "DibayLaunchEpoch",
+            "launch_epoch_installed epoch="
+                + LAUNCH_EPOCH
+                + " restore_hint="
+                + hint
+                + " origin="
+                + origin);
       } catch (Exception e) {
         Log.w("DibayLaunchEpoch", "launch_epoch_not_installed reason=" + e.getClass().getSimpleName());
       }
     }
+  }
+
+  /**
+   * Compute restore hint from Activity saved state + ApplicationExitInfo (API 30+).
+   * Does not guess: insufficient evidence → unknown.
+   */
+  /** Set in onStop; cleared in onStart (warm). Survives process death → next onCreate. */
+  private static final String LIFECYCLE_PREFS = "dibay_lifecycle";
+  private static final String LIFECYCLE_SESSION_PAUSED_KEY = "session_paused";
+
+  static String computeNativeRestoreHint(android.content.Context ctx, Bundle savedInstanceState) {
+    final boolean hasSavedState = savedInstanceState != null;
+    SharedPreferences lifePrefs = ctx.getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE);
+    final boolean sessionPaused = lifePrefs.getBoolean(LIFECYCLE_SESSION_PAUSED_KEY, false);
+    // Consume: warm onStart also clears; consume here so a cold path cannot reuse stale pause.
+    if (sessionPaused) {
+      lifePrefs.edit().putBoolean(LIFECYCLE_SESSION_PAUSED_KEY, false).apply();
+    }
+
+    int exitReason = -1;
+    String exitDesc = "";
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      try {
+        ActivityManager am = (ActivityManager) ctx.getSystemService(ACTIVITY_SERVICE);
+        if (am != null) {
+          List<ApplicationExitInfo> exits = am.getHistoricalProcessExitReasons(null, 0, 1);
+          if (exits != null && !exits.isEmpty()) {
+            ApplicationExitInfo last = exits.get(0);
+            exitReason = last.getReason();
+            exitDesc = last.getDescription() != null ? last.getDescription() : "";
+          }
+        }
+      } catch (Exception e) {
+        Log.w("DibayLaunchEpoch", "exit_info_unavailable err=" + e.getClass().getSimpleName());
+      }
+    }
+
+    Log.i(
+        "DibayLaunchEpoch",
+        "onCreate_savedInstanceState="
+            + (hasSavedState ? "non_null" : "null")
+            + " session_paused="
+            + (sessionPaused ? 1 : 0)
+            + " exit_info_reason="
+            + exitReason
+            + " desc="
+            + exitDesc);
+
+    // 1) Hard Activity OS restore
+    if (hasSavedState) {
+      return "restore";
+    }
+
+    /*
+     * 2) Process died while Activity was stopped (background session).
+     *    ExitInfo alone is previous-death metadata — only combine with session_paused.
+     *    SIGNALED/LMK/… + paused → OS restore candidate (am kill path).
+     *    OTHER/EXIT_SELF/USER_* + paused → user/OEM stop → fresh (force-stop / clear).
+     * 3) No paused session → fresh (install, clear-data, launcher after clean stop).
+     */
+    if (sessionPaused && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && exitReason >= 0) {
+      switch (exitReason) {
+        case ApplicationExitInfo.REASON_SIGNALED:
+        case ApplicationExitInfo.REASON_LOW_MEMORY:
+        case ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE:
+        case ApplicationExitInfo.REASON_DEPENDENCY_DIED:
+          return "restore";
+        default:
+          return "fresh";
+      }
+    }
+
+    return "fresh";
   }
 
   private static final String TAG = "DIBAY_OAuth";
@@ -1122,6 +1214,9 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    // Lifecycle SSOT: classify before Bridge injects document-start scripts.
+    NATIVE_RESTORE_HINT = computeNativeRestoreHint(this, savedInstanceState);
+    Log.i("DibayLaunchEpoch", "native_restore_hint=" + NATIVE_RESTORE_HINT);
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
     registerPlugin(BrowserPlugin.class);
     registerPlugin(NativeOAuthLauncherPlugin.class);
@@ -1216,6 +1311,11 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onStart() {
     super.onStart();
+    // Warm resume: process never died — do not treat next cold as OS restore.
+    getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE)
+        .edit()
+        .putBoolean(LIFECYCLE_SESSION_PAUSED_KEY, false)
+        .apply();
     appVisible = true;
     activeInstance = this;
     attachDibayWebChromeClient();
@@ -1257,6 +1357,13 @@ public class MainActivity extends BridgeActivity {
   public void onStop() {
     appVisible = false;
     if (activeInstance == this) activeInstance = null;
+    // Mark paused only when leaving UI without finishing — survives OS process death.
+    if (!isFinishing()) {
+      getSharedPreferences(LIFECYCLE_PREFS, MODE_PRIVATE)
+          .edit()
+          .putBoolean(LIFECYCLE_SESSION_PAUSED_KEY, true)
+          .apply();
+    }
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId != null && !callId.isEmpty() && DibayActiveCallSessionManager.isConnected()) {
       DibayActiveCallSessionManager.onAppBackground(callId);
@@ -1610,58 +1717,13 @@ public class MainActivity extends BridgeActivity {
   private boolean initialRemotePathApplied = false;
 
   /**
-   * Cap loads origin `/` (community). If Admin cached a non-community surface and there is no
-   * deep-link pending, navigate once — never waits on network.
+   * Lifecycle SSOT: Initial Surface is applied by Web after Intro / AppEntryKind.
+   * Native must not loadUrl away from Cap `/` before the lifecycle gate (D1 race removed).
    */
   private void ensureInitialRemotePathOnce() {
     if (initialRemotePathApplied) return;
-    if (pendingAppPath != null && !pendingAppPath.isEmpty()) {
-      initialRemotePathApplied = true;
-      return;
-    }
-    Bridge bridge = getBridge();
-    if (bridge == null) return;
-    WebView webView = bridge.getWebView();
-    if (webView == null) return;
-    String origin = DibayServerOrigin.resolve(this);
-    if (origin == null || origin.isEmpty()) return;
-    if (isForbiddenCapacitorServerUrl(origin)) return;
-
-    String surface =
-        getSharedPreferences("dibay_startup", MODE_PRIVATE)
-            .getString("initial_surface", "community");
-    if (surface == null || surface.isEmpty()) surface = "community";
-    surface = surface.trim().toLowerCase(java.util.Locale.US);
-    if ("community".equals(surface)) {
-      initialRemotePathApplied = true;
-      Log.i(WEBVIEW_LOG_TAG, "initial_remote_path skip surface=community (Cap /)");
-      return;
-    }
-    final String path;
-    switch (surface) {
-      case "trade":
-        path = "/market";
-        break;
-      case "food":
-        path = "/stores";
-        break;
-      case "chat":
-        path = "/community-messenger?section=chats";
-        break;
-      case "my":
-        path = "/mypage";
-        break;
-      default:
-        initialRemotePathApplied = true;
-        return;
-    }
     initialRemotePathApplied = true;
-    final String url = origin + path;
-    webView.post(
-        () -> {
-          Log.i(WEBVIEW_LOG_TAG, "initial_remote_path url=" + url);
-          webView.loadUrl(url);
-        });
+    Log.i(WEBVIEW_LOG_TAG, "initial_remote_path defer_to_web reason=lifecycle_ssot");
   }
 
   /** Reads {@code assets/dibay-runtime-mode.json} — localRuntime XOR legacyRemoteRuntime. */

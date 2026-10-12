@@ -201,6 +201,8 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
       latched.current = true;
       console.info(`[dibay-launch-intro] exit reason=${reason}${target ? ` target=${target}` : ""}`);
       if (reason === "background" || reason === "error") {
+        // Same epoch: do not re-show Intro after an interrupted USER_COLD Intro.
+        markLaunchEpochShown(snapshot.epoch);
         releaseLaunchIntroDeferral();
         setPhase("done");
         return;

@@ -4,7 +4,7 @@ import { useLayoutEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getStartupConfigCached, scheduleStartupConfigRefresh } from "@/lib/startup/startup-config-client";
 import { resolveInitialAppSurfacePath } from "@/lib/startup/initial-app-surface";
-import { isColdAppLaunchNavigation } from "@/lib/startup/startup-detect";
+import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
 
 const APPLIED_KEY = "dibay:startup:initial-surface-applied";
 
@@ -13,8 +13,8 @@ function isRootCommunityPath(pathname: string): boolean {
 }
 
 /**
- * Cold start only: apply cached Admin initialSurface when Cap/Web landed on community root.
- * Never overrides deep links / auth callbacks (non-root paths). Never waits on network.
+ * USER_COLD only (Lifecycle SSOT): apply Admin initialSurface after Intro ownership ends.
+ * Never overrides deep links / auth / restore navigation. Never waits on network.
  */
 export function InitialSurfaceBootstrap(): null {
   const pathname = usePathname() || "/";
@@ -24,7 +24,9 @@ export function InitialSurfaceBootstrap(): null {
     scheduleStartupConfigRefresh();
 
     if (typeof window === "undefined") return;
-    if (!isColdAppLaunchNavigation()) return;
+    const entry = getAppEntryDecision();
+    // Initial Surface only on confirmed USER_COLD — not OS_RESTORE / AMBIGUOUS / DOC_RESET.
+    if (entry.kind !== "user_cold") return;
 
     try {
       if (sessionStorage.getItem(APPLIED_KEY) === "1") return;

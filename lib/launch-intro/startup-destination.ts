@@ -16,6 +16,7 @@ import {
   claimLaunchOsReleaseForIntro,
   handLaunchOsReleaseToCommunity,
 } from "@/lib/launch-intro/os-release-owner";
+import { appEntryAllowsIntro, getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
 
 export type LaunchIntroSnapshot = {
   epoch: string;
@@ -50,9 +51,14 @@ function frequencyAllows(pub: LaunchIntroCachedPublication): boolean {
 function decide(): LaunchDestinationDecision {
   const community = (reason: string): LaunchDestinationDecision => ({ destination: "community", reason, snapshot: null });
   if (typeof window === "undefined") return community("server");
+  // Lifecycle SSOT: Intro only on USER_COLD (native hint FRESH). Classify before content gate.
+  const entry = getAppEntryDecision();
+  if (!appEntryAllowsIntro()) {
+    return community(`lifecycle_${entry.kind}_${entry.reason}`);
+  }
   const epoch = readLaunchEpoch();
   if (!epoch) return community("no_epoch");
-  if (window.location.pathname !== "/") return community("not_app_entry");
+  // USER_COLD may land on Cap `/` or another entry URL; do not require pathname === "/".
   if (readShownLaunchEpoch() === epoch) return community("shown_this_epoch");
   const index = readLaunchIntroIndex();
   if (!index) return community("no_index");

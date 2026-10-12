@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
+import { LifecycleRouteEffects } from "@/lib/lifecycle/lifecycle-route-effects.client";
 import { LaunchIntroRoot } from "@/components/launch-intro/LaunchIntroRoot";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
@@ -106,6 +107,7 @@ export default async function RootLayout({
             <NotificationSoundLeaderBootstrap />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
             <LaunchIntroRoot>
+              <LifecycleRouteEffects />
               <InitialSurfaceBootstrap />
               {children}
             </LaunchIntroRoot>

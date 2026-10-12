@@ -59,6 +59,12 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   static let launchEpoch = UUID().uuidString
 
   /**
+   * Lifecycle SSOT — restore | fresh | unknown.
+   * Set from AppDelegate before first document. Do not invent restore from background alone.
+   */
+  static var nativeRestoreHint: String = "unknown"
+
+  /**
    * capacitorDidLoad() runs inside loadView(), before viewDidLoad() → loadWebView() issues the
    * first navigation: App-target plugins are registered and the launch epoch user script is
    * installed before the very first document runs.
@@ -114,18 +120,20 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     NSLog("[DibayRootBridge] app_target_plugins_registered count=%d", plugins.count)
   }
 
-  /** Installs `window.__DIBAY_LAUNCH_EPOCH__` at document start, before any application JS. */
+  /** Installs launch epoch + native restore hint at document start. */
   private func installLaunchEpoch() {
     guard let controller = webView?.configuration.userContentController else {
       NSLog("[DibayRootBridge] launch_epoch_not_installed reason=no_webview")
       return
     }
+    let hint = Self.nativeRestoreHint
     let source =
       "Object.defineProperty(window,'__DIBAY_LAUNCH_EPOCH__',{value:'\(Self.launchEpoch)',writable:false,enumerable:false,configurable:false});"
+      + "Object.defineProperty(window,'__DIBAY_NATIVE_RESTORE_HINT__',{value:'\(hint)',writable:false,enumerable:false,configurable:false});"
     controller.addUserScript(
       WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     )
-    NSLog("[DibayRootBridge] launch_epoch_installed epoch=%@", Self.launchEpoch)
+    NSLog("[DibayRootBridge] launch_epoch_installed epoch=%@ restore_hint=%@", Self.launchEpoch, hint)
   }
 
   override func viewDidLoad() {
