@@ -22,6 +22,7 @@ import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
+import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
 
 /**
  * Legacy IA — single behavior-flow column (all viewports).
@@ -33,12 +34,14 @@ export function MyPageHomeDashboard({
   onProfileRefresh,
   needsRelogin = false,
   ownerStoreGateSeed = null,
+  adminMenuSeed = null,
 }: {
   projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
   /** Local session present but profile resolve failed — show re-login, not endless checking. */
   needsRelogin?: boolean;
   ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
+  adminMenuSeed?: MypageAdminMenuSeed | null;
 }) {
   const { setOnProfileUpdated } = useMypageProfileSheets();
   useMypageHubScrollRestore(true);
@@ -68,7 +71,7 @@ export function MyPageHomeDashboard({
         {!needsRelogin ? <MypagePointsAssetSummary /> : null}
         <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
         <MyInfoServiceMenuSection />
-        <MyPageAdminMenuEntry starbucks />
+        <MyPageAdminMenuEntry starbucks serverSeed={adminMenuSeed} />
         <MyInfoSupportMenuSection />
         <MyInfoPolicyMenuSection />
         <MyInfoDangerMenuSection />

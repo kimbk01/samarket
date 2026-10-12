@@ -26,6 +26,7 @@ import { MypageProfileSheetsProvider } from "@/components/mypage/profile-setting
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
+import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -51,9 +52,12 @@ function resolveLegacyMyPageRedirectTarget(args: {
  */
 export function MyContent({
   ownerStoreGateSeed = null,
+  adminMenuSeed = null,
 }: {
   /** RSC cold authority for store menu CTA — OwnerLite/TTL may be empty on first paint. */
   ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
+  /** RSC `isRouteAdmin()` fact for this request — admin row in the first render (client re-verifies). */
+  adminMenuSeed?: MypageAdminMenuSeed | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -158,6 +162,7 @@ export function MyContent({
             onProfileRefresh={() => void refresh()}
             needsRelogin={needsRelogin}
             ownerStoreGateSeed={ownerStoreGateSeed}
+            adminMenuSeed={adminMenuSeed}
           />
         </div>
       </div>
