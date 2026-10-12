@@ -124,7 +124,11 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "payout_reference_required" }, { status: 400 });
     }
     const { paidAt, payoutConfirmedAt } = resolvePaidTimestamps(body);
-    const payoutForPaid = { ...payoutPatch, payout_method: payoutMethod, payout_reference: payoutReference };
+    const payoutForPaid: Record<string, unknown> = {
+      ...payoutPatch,
+      payout_method: payoutMethod,
+      payout_reference: payoutReference,
+    };
     delete payoutForPaid.payout_confirmed_at;
 
     const { data: updated, error } = await sb
