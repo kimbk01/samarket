@@ -1,0 +1,39 @@
+name: Realtime QA probe (isolated branch)
+
+# Live Supabase Realtime probe against the ISOLATED QA project (gczyogboohpixpurckkg) — never Production.
+# Uses only the QA publishable anon key (public by design). Test users are created at run time with
+# random credentials that are never stored; QA-only probe RPCs restrict fixtures to @rt-probe.dibay.invalid.
+on:
+  push:
+    branches: ["claude/charming-bardeen-mxzdsu"]
+    paths:
+      - "scripts/qa/realtime-probe/**"
+      - ".github/workflows/realtime-qa-probe.yml"
+      - "lib/community-messenger/call-invite-realtime-broadcast.ts"
+      - "lib/community-messenger/realtime/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realtime-qa-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RT_QA_URL: https://gczyogboohpixpurckkg.supabase.co
+      RT_QA_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
+      NEXT_PUBLIC_SUPABASE_URL: https://gczyogboohpixpurckkg.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjenlvZ2Jvb2hwaXhwdXJja2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MjMzNzQsImV4cCI6MjEwNzI5OTM3NH0.2qre1MC8PAgq5JvEB5Bb6upqI8bx6GyEdW7wLOoSNe8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Live Realtime probe
+        run: npx vitest run --config scripts/qa/realtime-probe/vitest.config.ts --reporter=verbose
