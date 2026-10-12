@@ -934,40 +934,20 @@ export async function callV4LaunchOutgoingDirectCall(
     alertOutgoingCallFailure(outgoingCallVoiceOnlyMessage());
     return { ok: false, userMessage: "" };
   }
-  {
-    logCallV4("call_v4_media_preflight_start", { kind: input.kind });
-    logCallV4("media_prime_started", {
-      kind: input.kind,
-      wall_ms: Date.now(),
-      mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
-    });
-    const perm = await ensureCallMediaForUserGesture(input.kind);
-    logCallV4("media_prime_resolved", {
-      kind: input.kind,
-      ok: perm.ok,
-      wall_ms: Date.now(),
-      mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
-    });
-    if (!perm.ok) {
-      logCallV4("call_v4_media_preflight_failed", {
-        kind: input.kind,
-        reason: perm.reason,
-        microphone: perm.state.microphone,
-        camera: perm.state.camera,
-      });
-      alertOutgoingCallFailure(outgoingCallMediaPermissionMessage(input.kind));
-      return { ok: false, userMessage: "" };
-    }
-    logCallV4("call_v4_media_preflight_done", {
-      kind: input.kind,
-      microphone: perm.state.microphone,
-      camera: perm.state.camera,
-    });
-  }
-
+  // A-1 — Telegram-style: start GUM in the user gesture, but do not block create/route/PREPARING.
   if (typeof window !== "undefined") {
     rememberCallV4ReturnPath();
   }
+  useCallV4Store.getState().setPhase("creating");
+  logCallV4("call_v4_outgoing_early_paint", { kind: input.kind });
+
+  logCallV4("call_v4_media_preflight_start", { kind: input.kind });
+  logCallV4("media_prime_started", {
+    kind: input.kind,
+    wall_ms: Date.now(),
+    mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+  });
+  const mediaPromise = ensureCallMediaForUserGesture(input.kind);
 
   logCallV4("outgoing_launch", {
     roomId: input.roomId?.trim() || undefined,
@@ -980,7 +960,7 @@ export async function callV4LaunchOutgoingDirectCall(
     mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
   });
 
-  return callV4CreateOutgoing({
+  const createPromise = callV4CreateOutgoing({
     roomId: input.roomId,
     peerUserId: input.peerUserId,
     peerLabel: input.peerLabel,
@@ -988,6 +968,41 @@ export async function callV4LaunchOutgoingDirectCall(
     signal: input.signal,
     router,
   });
+
+  const perm = await mediaPromise;
+  logCallV4("media_prime_resolved", {
+    kind: input.kind,
+    ok: perm.ok,
+    wall_ms: Date.now(),
+    mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+  });
+  if (!perm.ok) {
+    logCallV4("call_v4_media_preflight_failed", {
+      kind: input.kind,
+      reason: perm.reason,
+      microphone: perm.state.microphone,
+      camera: perm.state.camera,
+    });
+    const attempt = readCallV4OutgoingAttempt();
+    if (attempt) {
+      abandonCallV4OutgoingAttempt(attempt.attemptId);
+    }
+    const created = await createPromise.catch(() => ({ ok: false as const, userMessage: "" }));
+    if (created.ok && "session" in created && created.session?.id) {
+      await callV4Cancel(created.session.id, router);
+    } else {
+      useCallV4Store.getState().resetToIdle();
+    }
+    alertOutgoingCallFailure(outgoingCallMediaPermissionMessage(input.kind));
+    return { ok: false, userMessage: "" };
+  }
+  logCallV4("call_v4_media_preflight_done", {
+    kind: input.kind,
+    microphone: perm.state.microphone,
+    camera: perm.state.camera,
+  });
+
+  return createPromise;
 }
 
 export async function callV4Cancel(callId: string, router: CallV4Router): Promise<void> {

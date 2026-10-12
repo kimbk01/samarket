@@ -22,6 +22,8 @@ import org.json.JSONObject;
 final class NativeVoiceCallUpgradeRealtimeClient {
   static final String CM_VIDEO_UPGRADE_REQUEST = "cm_video_upgrade_request";
   static final String CM_VIDEO_UPGRADE_RESPONSE = "cm_video_upgrade_response";
+  /** Matches web `messengerPrivateBroadcastChannelOptions` — required after S-1 private cut. */
+  static final boolean BROADCAST_CHANNEL_PRIVATE = true;
   static final int SUBSCRIBE_TIMEOUT_MS = 1_800;
   private static final int HEARTBEAT_INTERVAL_MS = 25_000;
   private static final String VSN = "2.0.0";
@@ -142,7 +144,11 @@ final class NativeVoiceCallUpgradeRealtimeClient {
     JSONObject config = new JSONObject();
     config.put("broadcast", new JSONObject().put("ack", ack).put("self", self));
     config.put("presence", new JSONObject().put("key", "").put("enabled", false));
-    config.put("private", false);
+    /**
+     * Must match web `messengerPrivateBroadcastChannelOptions` / private REST publish.
+     * Join uses user JWT (accessToken); RLS: own topic SELECT, peer topic INSERT during live 1:1 call.
+     */
+    config.put("private", BROADCAST_CHANNEL_PRIVATE);
     JSONObject payload = new JSONObject();
     payload.put("config", config);
     payload.put("access_token", accessToken);

@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  clearMessengerOutboundRetry,
+  messengerOutboundFileSignature,
+  messengerOutboundRetryKey,
+  rememberMessengerOutboundAmbiguousFailure,
+  resolveMessengerOutboundClientMessageId,
+} from "@/lib/community-messenger/room/outbound-retry-client-message-id";
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 function trimCmText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -907,8 +914,17 @@ export function useMessengerRoomPhase2Controller() {
       if (!trimmed || !snapshot) return false;
       // CHAT-03: 예외(네트워크/비행기 모드) 정리를 위해 낙관적 말풍선 id 를 try 밖으로 보관.
       let optimisticTempId: string | null = null;
+      // M-5: 응답 유실(fetch 예외) 후 같은 내용 재전송이면 같은 clientMessageId → 서버 idempotent 1행.
+      const outboundRetryKey = messengerOutboundRetryKey(
+        streamRoomId,
+        "text",
+        `${(replyToMessageId ?? "").trim()}\0${trimmed}`
+      );
+      const clientMessageId = resolveMessengerOutboundClientMessageId(
+        outboundRetryKey,
+        createCommunityMessengerClientMessageId
+      );
       try {
-      const clientMessageId = createCommunityMessengerClientMessageId();
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
         sender_click_ms: cmReceiveLatencyNow(),
@@ -971,6 +987,7 @@ export function useMessengerRoomPhase2Controller() {
           typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
         messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
+      clearMessengerOutboundRetry(outboundRetryKey);
       if (!res.ok || !json.ok) {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
@@ -1016,8 +1033,10 @@ export function useMessengerRoomPhase2Controller() {
       forgetRoomBootstrapClientFlightsAfterMutation();
       return true;
       } catch {
-        // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거,
-        // 입력 복원, 오류 스낵바. (서버에 저장 안 됨 → 재전송 시 1행, 중복 없음.)
+        // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거, 입력 복원, 오류 스낵바.
+        // M-5: 서버가 이미 커밋했을 수 있다(응답만 유실) — 같은 내용 재전송 시 같은 clientMessageId 를 재사용해
+        // 서버 idempotent 반환으로 1행 보장(이전 주석 "서버에 저장 안 됨" 은 사실과 달랐음).
+        rememberMessengerOutboundAmbiguousFailure(outboundRetryKey, clientMessageId);
         if (optimisticTempId) {
           const stuckId = optimisticTempId;
           setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));
@@ -1303,11 +1322,16 @@ export function useMessengerRoomPhase2Controller() {
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-image");
       dismissRoomSheet();
+      // M-5: 같은 파일 재전송(응답 유실 후)이면 같은 clientMessageId — CHAT-05 UNIQUE 로 서버 1행.
+      const imageRetryKey = messengerOutboundRetryKey(streamRoomId, "image", messengerOutboundFileSignature(list));
+      const imageClientMessageId = resolveMessengerOutboundClientMessageId(
+        imageRetryKey,
+        createCommunityMessengerClientMessageId
+      );
       try {
         const form = new FormData();
         for (const f of list) form.append("files", f);
-        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
-        form.append("clientMessageId", createCommunityMessengerClientMessageId());
+        form.append("clientMessageId", imageClientMessageId);
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/images`, {
           method: "POST",
@@ -1323,6 +1347,7 @@ export function useMessengerRoomPhase2Controller() {
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
           messengerMonitorMessageRtt(streamRoomId, elapsed, "image");
         }
+        clearMessengerOutboundRetry(imageRetryKey);
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (redirectIfMessengerAuthBlocked(res, json)) return;
@@ -1344,6 +1369,11 @@ export function useMessengerRoomPhase2Controller() {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
+      } catch {
+        // M-4: fetch 예외 시 '전송 중' 말풍선이 영구 잔류(blob URL 은 finally 에서 해제)하던 결함 — 텍스트와 동일 정리.
+        rememberMessengerOutboundAmbiguousFailure(imageRetryKey, imageClientMessageId);
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        showMessengerSnackbar(getRoomActionErrorMessage("message_send_failed"), { variant: "error" });
       } finally {
         for (const u of previews) URL.revokeObjectURL(u);
         setBusy(null);
@@ -1425,11 +1455,15 @@ export function useMessengerRoomPhase2Controller() {
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-file");
       dismissRoomSheet();
+      const fileRetryKey = messengerOutboundRetryKey(streamRoomId, "file", messengerOutboundFileSignature([file]));
+      const fileClientMessageId = resolveMessengerOutboundClientMessageId(
+        fileRetryKey,
+        createCommunityMessengerClientMessageId
+      );
       try {
         const form = new FormData();
         form.append("file", file);
-        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
-        form.append("clientMessageId", createCommunityMessengerClientMessageId());
+        form.append("clientMessageId", fileClientMessageId);
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/files`, {
           method: "POST",
@@ -1445,6 +1479,7 @@ export function useMessengerRoomPhase2Controller() {
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
           messengerMonitorMessageRtt(streamRoomId, elapsed, "file");
         }
+        clearMessengerOutboundRetry(fileRetryKey);
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (redirectIfMessengerAuthBlocked(res, json)) return;
@@ -1466,6 +1501,11 @@ export function useMessengerRoomPhase2Controller() {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
+      } catch {
+        // M-4: fetch 예외 시 '전송 중' 말풍선 영구 잔류 방지.
+        rememberMessengerOutboundAmbiguousFailure(fileRetryKey, fileClientMessageId);
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        showMessengerSnackbar(getRoomActionErrorMessage("message_send_failed"), { variant: "error" });
       } finally {
         setBusy(null);
       }

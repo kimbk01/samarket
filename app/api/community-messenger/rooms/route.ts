@@ -142,14 +142,15 @@ export async function POST(req: NextRequest) {
   const storeOrderId = typeof body.storeOrderId === "string" ? body.storeOrderId.trim() : "";
   const productChatRoomId = typeof body.productChatRoomId === "string" ? body.productChatRoomId.trim() : "";
 
-  let result: { ok: boolean; roomId?: string; error?: string };
+  let result: { ok: boolean; roomId?: string; error?: string; created?: boolean };
   const isPeerOnlyDirect = !storeOrderId && !productChatRoomId;
+  const peerUserId = String(body.peerUserId ?? "").trim();
   if (storeOrderId) {
     result = await ensureCommunityMessengerDirectRoomFromStoreOrderChat(auth.userId, storeOrderId);
   } else if (productChatRoomId) {
     result = await ensureCommunityMessengerDirectRoomFromProductChat(auth.userId, productChatRoomId);
   } else {
-    result = await ensureGeneralFriendDirectRoom(auth.userId, String(body.peerUserId ?? ""));
+    result = await ensureGeneralFriendDirectRoom(auth.userId, peerUserId);
   }
   if (!result.ok || !result.roomId) {
     const err = result.error ?? "room_failed";
@@ -171,6 +172,20 @@ export async function POST(req: NextRequest) {
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
   if (isPeerOnlyDirect && snapshot?.room && !isGeneralFriendDirectRoom(snapshot.room)) {
     return jsonError("cannot_start_chat", 403, { error: "cannot_start_chat" });
+  }
+  /**
+   * B-1d: 신규 1:1 direct 방이면 peer 홈 목록에 INSERT broadcast.
+   * 그룹 초대와 동일 transport — 통화/채팅으로 방이 생길 때 상대 Android 목록 누락 방지.
+   */
+  if (isPeerOnlyDirect && result.created === true && peerUserId) {
+    const { publishHomeListRoomInsertForInviteesBestEffort } = await import(
+      "@/lib/community-messenger/realtime/home-list-room-insert-broadcast-server"
+    );
+    void publishHomeListRoomInsertForInviteesBestEffort({
+      fromUserId: auth.userId,
+      roomId: result.roomId,
+      inviteeUserIds: [peerUserId],
+    });
   }
   return jsonOkWithRequest(req, { ...result, snapshot });
 }

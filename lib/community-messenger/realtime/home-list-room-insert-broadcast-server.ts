@@ -2,50 +2,14 @@
  * Server-only publish for home list INSERT broadcasts (group create/invite peers).
  * Client subscription is a separate module — do not import this from client graphs.
  */
-import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { publishMessengerPrivateBroadcastFromServer } from "@/lib/community-messenger/realtime/private-broadcast-server";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import {
   CM_HOME_LIST_ROOM_INSERT_EVENT,
   communityMessengerHomeListChannelName,
   isCanonicalHomeListRoomSummaryPayload,
 } from "@/lib/community-messenger/realtime/home-list-room-insert-contract";
-
-function waitForChannelSubscribed(
-  sb: SupabaseClient<any>,
-  ch: RealtimeChannel,
-  timeoutMs: number
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const t = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try {
-        void sb.removeChannel(ch);
-      } catch {
-        /* ignore */
-      }
-      reject(new Error("cm_home_list_channel_timeout"));
-    }, timeoutMs);
-    ch.subscribe((status) => {
-      if (settled) return;
-      if (status === "SUBSCRIBED") {
-        settled = true;
-        clearTimeout(t);
-        resolve();
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-        settled = true;
-        clearTimeout(t);
-        try {
-          void sb.removeChannel(ch);
-        } catch {
-          /* ignore */
-        }
-        reject(new Error(`cm_home_list_channel_${status}`));
-      }
-    });
-  });
-}
 
 export async function publishHomeListRoomInsertToUser(args: {
   sb: SupabaseClient<any>;
@@ -57,27 +21,24 @@ export async function publishHomeListRoomInsertToUser(args: {
   const fromUserId = String(args.fromUserId ?? "").trim();
   if (!recipientUserId || !fromUserId) return;
   if (!isCanonicalHomeListRoomSummaryPayload(args.room)) return;
-  const name = communityMessengerHomeListChannelName(recipientUserId);
-  const ch = args.sb.channel(name, { config: { broadcast: { ack: false } } });
-  try {
-    await waitForChannelSubscribed(args.sb, ch, 2_500);
-    await ch.send({
-      type: "broadcast",
-      event: CM_HOME_LIST_ROOM_INSERT_EVENT,
-      payload: {
-        v: 1,
-        fromUserId,
-        at: new Date().toISOString(),
-        room: args.room,
+  /** 비공개 토픽 `cm-home-list:<uid>` — 서비스 롤 REST broadcast(WS join 대기 없음). `args.sb` 는 호환용(미사용). */
+  void args.sb;
+  const res = await publishMessengerPrivateBroadcastFromServer({
+    scope: "home_list_insert",
+    messages: [
+      {
+        topic: communityMessengerHomeListChannelName(recipientUserId),
+        event: CM_HOME_LIST_ROOM_INSERT_EVENT,
+        payload: {
+          v: 1,
+          fromUserId,
+          at: new Date().toISOString(),
+          room: args.room,
+        },
       },
-    });
-  } finally {
-    try {
-      void args.sb.removeChannel(ch);
-    } catch {
-      /* ignore */
-    }
-  }
+    ],
+  });
+  if (!res.ok) throw new Error(`cm_home_list_publish_${res.status || res.error}`);
 }
 
 /**

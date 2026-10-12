@@ -331,13 +331,36 @@ export async function POST(
           markT5(t5, "S12");
         }
       }
-    } catch {
-      /* best-effort — do not fail the send ACK */
+    } catch (e) {
+      /* best-effort — do not fail the send ACK; 실패는 숨기지 않고 기록(E-1) */
+      console.warn("[cm-send] pre-ack effects failed", {
+        stage: "target_bump_or_durable_pre_ack",
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
     if (t5) markT5(t5, "S13");
     after(async () => {
+      if (t5) markT5(t5, "S14");
+      /**
+       * 실시간 bump 를 FCM 푸시보다 **먼저** 발행 — 이전에는 수신자별 직렬 푸시 발송이 끝난 뒤 bump 가 나가
+       * 상대 화면 반영이 푸시 시간만큼 늦었고(실측: 메시지 저장 → bump 수신 2.98s), 푸시 단계 예외 시 bump 가 누락됐다.
+       */
       try {
-        if (t5) markT5(t5, "S14");
+        const { publishMessengerRoomBumpAfterMutation } = await import(
+          "@/lib/community-messenger/server/publish-messenger-room-bump"
+        );
+        const bumpPubT0 = performance.now();
+        await publishMessengerRoomBumpAfterMutation(bumpArgs);
+        if (t5) {
+          spanT5(t5, "S17_room_bump_ms", bumpPubT0);
+          markT5(t5, "S17");
+        }
+      } catch (e) {
+        console.warn("[cm-send] room bump publish failed", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      try {
         const { resolveServiceSupabaseForApi } = await import(
           "@/lib/supabase/resolve-service-supabase-for-api"
         );
@@ -348,17 +371,11 @@ export async function POST(
           );
           await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck, t5 ?? undefined);
         }
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        const bumpPubT0 = performance.now();
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-        if (t5) {
-          spanT5(t5, "S17_room_bump_ms", bumpPubT0);
-          markT5(t5, "S17");
-        }
-      } catch {
-        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+      } catch (e) {
+        /* 푸시 실패는 handoff pending → cron 복구 경로 유지 */
+        console.warn("[cm-send] deferred post-ack effects failed", {
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
     });
   }

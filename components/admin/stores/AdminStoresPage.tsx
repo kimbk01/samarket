@@ -18,6 +18,7 @@ import {
 } from "@/components/admin/stores/admin-store-review-ui";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { AdminStoreReviewPanel } from "@/components/admin/stores/AdminStoreReviewPanel";
 import { formatPhMobileDisplayPlus63, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
@@ -137,7 +138,7 @@ export function AdminStoresPage() {
     };
 
     const channel = sb
-      .channel("admin-stores-list-freshness")
+      .channel("admin-stores-list-freshness", messengerPrivateBroadcastChannelOptions())
       .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, scheduleRefresh)
       .subscribe();
 

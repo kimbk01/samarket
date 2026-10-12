@@ -9,6 +9,9 @@
  *
  * 계약 요약: v2 페이로드 + 선택 `message` 스냅샷 — 수신·검증·병합은
  * `community-messenger-room-bump-message-snapshot.ts` 및 `use-messenger-room-client-phase1` 참고.
+ *
+ * **비공개 토픽**: `config.private: true` — 수신은 `realtime.messages` SELECT 정책(방 접근 가능자)만.
+ * 클라이언트 INSERT 정책 없음(발행 불가). JWT 는 `lib/supabase/client.ts` 의 `realtime.setAuth` 로 유지.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -17,6 +20,11 @@ import {
   CM_ROOM_BUMP_BROADCAST_EVENT,
   communityMessengerRoomBumpChannelName,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
+import {
+  createMessengerPrivateChannelStatusHandler,
+  messengerPrivateBroadcastChannelOptions,
+  primeMessengerPrivateRealtimeAuth,
+} from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
   sb: SupabaseClient;
@@ -25,8 +33,9 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
 }): ReturnType<SupabaseClient["channel"]> {
   const roomId = args.roomId.trim();
   const name = communityMessengerRoomBumpChannelName(roomId);
+  primeMessengerPrivateRealtimeAuth(args.sb);
   return args.sb
-    .channel(name, { config: { broadcast: { ack: false } } })
+    .channel(name, messengerPrivateBroadcastChannelOptions())
     .on("broadcast", { event: CM_ROOM_BUMP_BROADCAST_EVENT }, (msg) => {
       const raw = (msg as { payload?: unknown }).payload;
       if (isCommunityMessengerRealtimeDebugEnabled()) {
@@ -35,5 +44,5 @@ export function subscribeCommunityMessengerRoomBumpBroadcast(args: {
       }
       args.onBump(typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {});
     })
-    .subscribe();
+    .subscribe(createMessengerPrivateChannelStatusHandler({ sb: args.sb, scope: "room_bump" }));
 }
