@@ -5315,7 +5315,7 @@ function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | nul
   return trimText(metadata.sessionId) === sid || trimText(metadata.tmpSessionId) === sid;
 }
 
-type CallStubExistingRow = { id: string; createdAt: string };
+type CallStubExistingRow = { id: string; createdAt: string; senderId?: string | null };
 
 async function findCallStubRowBySessionId(
   roomId: string,
@@ -5327,18 +5327,19 @@ async function findCallStubRowBySessionId(
   if (sb) {
     const { data: existingRows } = await (sb as any)
       .from("community_messenger_messages")
-      .select("id, metadata, created_at")
+      .select("id, sender_id, metadata, created_at")
       .eq("room_id", roomId)
       .eq("message_type", "call_stub")
       .order("created_at", { ascending: false })
       .limit(100);
-    const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown; created_at?: string }>).find(
-      (row) => hasMatchingCallStubSessionId(row.metadata, sid)
-    );
+    const existingRow = (
+      (existingRows ?? []) as Array<{ id: string; sender_id?: string | null; metadata?: unknown; created_at?: string }>
+    ).find((row) => hasMatchingCallStubSessionId(row.metadata, sid));
     if (!existingRow?.id) return null;
     return {
       id: existingRow.id,
       createdAt: trimText(existingRow.created_at) || "",
+      senderId: trimText(existingRow.sender_id) || null,
     };
   }
   const dev = getDevState();
@@ -5351,7 +5352,11 @@ async function findCallStubRowBySessionId(
         hasMatchingCallStubSessionId(item.metadata, sid)
     );
   if (!existingMessage) return null;
-  return { id: existingMessage.id, createdAt: trimText(existingMessage.createdAt) };
+  return {
+    id: existingMessage.id,
+    createdAt: trimText(existingMessage.createdAt),
+    senderId: trimText(existingMessage.senderId) || null,
+  };
 }
 
 async function resolveCallSessionStartedAtIso(input: {
@@ -5469,10 +5474,36 @@ export async function appendCommunityMessengerCallStubMessage(input: {
    */
   const publishTerminalCallStubRoomBumpBestEffort = async (args: {
     messageId?: string | null;
+    /** 행 created_at (= session.started_at, HARD LOCK C) — snapshot 전용, 목록 tip 은 listActivityAt */
+    stubCreatedAt?: string | null;
+    /** 기존 stub UPDATE 시 원래 sender — 없으면 input.userId(INSERT 작성자) */
+    stubSenderId?: string | null;
   }): Promise<void> => {
     const roomId = trimText(input.roomId);
     const fromUserId = trimText(input.userId);
     if (!roomId || !fromUserId) return;
+    const messageId = trimText(args.messageId ?? "");
+    /**
+     * D1: stub 은 optimistic 사본이 없다 — 작성자 기기도 bump snapshot 으로 즉시 병합할 수 있게
+     * text 전송과 동일 매퍼(mapCommunityMessengerDbMessageRowToMessage)로 스냅샷을 싣는다.
+     * 수신 측 isMine 은 parse 에서 viewer 기준으로 재계산된다.
+     */
+    const stubSenderId = trimText(args.stubSenderId ?? "") || fromUserId;
+    const messageForBump: CommunityMessengerMessage | null = messageId
+      ? mapCommunityMessengerDbMessageRowToMessage({
+          row: {
+            id: messageId,
+            room_id: roomId,
+            sender_id: stubSenderId,
+            message_type: "call_stub",
+            content: label,
+            metadata: metadata as Record<string, unknown>,
+            created_at: trimText(args.stubCreatedAt ?? "") || trimText(input.createdAt) || listActivityAt,
+          },
+          viewerUserId: stubSenderId,
+          profileById: new Map(),
+        })
+      : null;
     try {
       const { publishMessengerRoomBumpAfterMutation } = await import(
         "@/lib/community-messenger/server/publish-messenger-room-bump"
@@ -5481,8 +5512,9 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         rawRouteRoomId: roomId,
         canonicalRoomId: roomId,
         fromUserId,
-        messageId: trimText(args.messageId ?? "") || undefined,
+        messageId: messageId || undefined,
         messageCreatedAt: listActivityAt,
+        messageForBump,
       });
     } catch {
       /* best-effort — postgres_changes remains */
@@ -5563,7 +5595,11 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existing = await findCallStubRowBySessionId(input.roomId, sessionId);
     if (existing) {
       await updateExistingStub(existing);
-      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existing.id });
+      await publishTerminalCallStubRoomBumpBestEffort({
+        messageId: existing.id,
+        stubCreatedAt: existing.createdAt,
+        stubSenderId: existing.senderId,
+      });
       return;
     }
   }
@@ -5571,7 +5607,11 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existingByTmp = await findCallStubRowBySessionId(input.roomId, tmp);
     if (existingByTmp) {
       await updateExistingStub(existingByTmp);
-      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existingByTmp.id });
+      await publishTerminalCallStubRoomBumpBestEffort({
+        messageId: existingByTmp.id,
+        stubCreatedAt: existingByTmp.createdAt,
+        stubSenderId: existingByTmp.senderId,
+      });
       return;
     }
   }
@@ -5626,7 +5666,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
           .eq("id", input.roomId);
       }
     }
-    await publishTerminalCallStubRoomBumpBestEffort({ messageId: appended.messageId });
+    await publishTerminalCallStubRoomBumpBestEffort({ messageId: appended.messageId, stubCreatedAt: createdAt });
     return;
   }
 
@@ -5655,7 +5695,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
     }
   }
-  await publishTerminalCallStubRoomBumpBestEffort({ messageId: newId });
+  await publishTerminalCallStubRoomBumpBestEffort({ messageId: newId, stubCreatedAt: input.createdAt });
 }
 
 async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
@@ -10097,7 +10137,7 @@ async function ensureDirectMessengerRoomParticipantsForPair(
 export async function ensureGeneralFriendDirectRoom(
   userId: string,
   peerUserId: string
-): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+): Promise<{ ok: boolean; roomId?: string; error?: string; created?: boolean }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
@@ -10129,7 +10169,7 @@ export async function ensureGeneralFriendDirectRoom(
     let existingId = await loadExistingGeneralRoomId();
     if (existingId) {
       await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
-      return { ok: true, roomId: existingId };
+      return { ok: true, roomId: existingId, created: false };
     }
 
     const gdDomain = plannedColumnsForGeneralDirect(userId, peerId);
@@ -10159,7 +10199,7 @@ export async function ensureGeneralFriendDirectRoom(
         { room_id: roomId, user_id: peerId, role: "member" },
       ]);
       if (!participantError) {
-        return { ok: true, roomId };
+        return { ok: true, roomId, created: true };
       }
       await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
       return { ok: false, error: String(participantError.message ?? "room_participant_create_failed") };
@@ -10169,7 +10209,7 @@ export async function ensureGeneralFriendDirectRoom(
       existingId = await loadExistingGeneralRoomId();
       if (existingId) {
         await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
-        return { ok: true, roomId: existingId };
+        return { ok: true, roomId: existingId, created: false };
       }
     }
     if (roomError && !isMissingTableError(roomError)) {
@@ -10184,7 +10224,7 @@ export async function ensureGeneralFriendDirectRoom(
   const existing = dev.rooms.find(
     (room) => room.roomType === "direct" && room.directKey === basePairKey
   );
-  if (existing) return { ok: true, roomId: existing.id };
+  if (existing) return { ok: true, roomId: existing.id, created: false };
 
   const roomId = randomUUID();
   const createdAt = nowIso();
@@ -10242,7 +10282,7 @@ export async function ensureGeneralFriendDirectRoom(
       joinedAt: createdAt,
     }
   );
-  return { ok: true, roomId };
+  return { ok: true, roomId, created: true };
 }
 
 export async function ensureCommunityMessengerDirectRoom(

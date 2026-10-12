@@ -51,6 +51,11 @@ describe("POST /api/community-messenger/rooms — Phase 2-2 peer-only contract",
     expect(routeSrc).toContain('jsonError("cannot_start_chat", 403');
   });
 
+  it("B-1d: newly created peer-only direct publishes home-list insert to peer", () => {
+    expect(routeSrc).toContain("publishHomeListRoomInsertForInviteesBestEffort");
+    expect(routeSrc).toContain("result.created === true");
+  });
+
   it("store_order and productChat paths are unchanged", () => {
     expect(routeSrc).toContain("ensureCommunityMessengerDirectRoomFromStoreOrderChat");
     expect(routeSrc).toContain("ensureCommunityMessengerDirectRoomFromProductChat");

@@ -14,6 +14,11 @@ import {
 } from "@/lib/community-messenger/realtime/home-list-room-insert-contract";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import {
+  createMessengerPrivateChannelStatusHandler,
+  messengerPrivateBroadcastChannelOptions,
+  primeMessengerPrivateRealtimeAuth,
+} from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 /**
  * Subscribe to user-scoped home list INSERT broadcasts.
@@ -30,7 +35,9 @@ export function subscribeHomeListRoomInsertBroadcast(args: {
   if (!sb) return () => {};
 
   const name = communityMessengerHomeListChannelName(userId);
-  const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
+  /** 비공개 토픽 `cm-home-list:<uid>` — 수신 = 본인만(`realtime.messages` SELECT 정책) */
+  primeMessengerPrivateRealtimeAuth(sb);
+  const ch = sb.channel(name, messengerPrivateBroadcastChannelOptions());
   ch.on("broadcast", { event: CM_HOME_LIST_ROOM_INSERT_EVENT }, (msg) => {
     const payload = (msg as { payload?: unknown })?.payload;
     if (!payload || typeof payload !== "object") return;
@@ -44,7 +51,7 @@ export function subscribeHomeListRoomInsertBroadcast(args: {
     });
     requestMessengerHubBadgeResync("home_list_merge_summary");
   });
-  ch.subscribe();
+  ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "home_list_insert" }));
   return () => {
     try {
       void sb.removeChannel(ch);

@@ -1,8 +1,12 @@
 "use client";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { communityMessengerCallInviteChannelName } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import {
+  createMessengerPrivateChannelStatusHandler,
+  messengerPrivateBroadcastChannelOptions,
+  sendMessengerPrivateBroadcastFromClient,
+} from "@/lib/community-messenger/realtime/private-broadcast-client";
 
 export const CM_VIDEO_UPGRADE_REQUEST = "cm_video_upgrade_request";
 export const CM_VIDEO_UPGRADE_RESPONSE = "cm_video_upgrade_response";
@@ -13,6 +17,7 @@ export type VideoUpgradeBroadcastPayload = {
   accepted?: boolean;
 };
 
+/** 상대 비공개 토픽으로 REST broadcast(INSERT 정책) — 상대 토픽 join 없음 → 타임아웃 시 채널 잔류 문제 제거 */
 async function publishToUser(
   recipientUserId: string,
   event: string,
@@ -20,22 +25,15 @@ async function publishToUser(
 ): Promise<void> {
   const sb = getSupabaseClient();
   if (!sb) throw new Error("supabase_unavailable");
-  const name = communityMessengerCallInviteChannelName(recipientUserId);
-  const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
-  await new Promise<void>((resolve, reject) => {
-    const t = window.setTimeout(() => reject(new Error("upgrade_broadcast_timeout")), 1_800);
-    ch.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        window.clearTimeout(t);
-        resolve();
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-        window.clearTimeout(t);
-        reject(new Error(status));
-      }
-    });
+  const res = await sendMessengerPrivateBroadcastFromClient({
+    sb,
+    topic: communityMessengerCallInviteChannelName(recipientUserId),
+    event,
+    payload: payload as unknown as Record<string, unknown>,
+    scope: `video_upgrade:${event}`,
+    timeoutMs: 3_000,
   });
-  await ch.send({ type: "broadcast", event, payload });
-  void sb.removeChannel(ch);
+  if (!res.ok) throw new Error(`upgrade_broadcast_${res.status || res.error}`);
 }
 
 export async function publishVideoUpgradeRequest(
@@ -69,7 +67,8 @@ export function subscribeVideoUpgradeBroadcast(
   const sb = getSupabaseClient();
   if (!sb || !userId.trim()) return () => {};
   const name = communityMessengerCallInviteChannelName(userId);
-  const ch = sb.channel(name, { config: { broadcast: { self: false } } });
+  /** 같은 토픽을 여는 다른 구독자와 동일 옵션(realtime-js 는 토픽으로 채널 인스턴스를 재사용) */
+  const ch = sb.channel(name, messengerPrivateBroadcastChannelOptions());
   ch.on("broadcast", { event: CM_VIDEO_UPGRADE_REQUEST }, (msg) => {
     const p = msg.payload as VideoUpgradeBroadcastPayload;
     if (p?.sessionId) onEvent(CM_VIDEO_UPGRADE_REQUEST, p);
@@ -78,7 +77,7 @@ export function subscribeVideoUpgradeBroadcast(
     const p = msg.payload as VideoUpgradeBroadcastPayload;
     if (p?.sessionId) onEvent(CM_VIDEO_UPGRADE_RESPONSE, p);
   });
-  ch.subscribe();
+  ch.subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "video_upgrade" }));
   return () => {
     void sb.removeChannel(ch);
   };

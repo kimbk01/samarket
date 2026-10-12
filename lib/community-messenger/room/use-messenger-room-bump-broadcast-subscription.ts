@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type { CommunityMessengerMessage, CommunityMessengerProfileLite, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
@@ -25,15 +26,24 @@ type RoomBumpEntry = {
 
 const roomBumpEntries = new Map<string, RoomBumpEntry>();
 
+/** rAF 미발화(비합성 WebView) 시 bump 반영 상한 — paint 와 데이터 반영 분리 */
+export const ROOM_BUMP_FRAME_FALLBACK_MS = 160;
+
 function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
   const sb = getSupabaseClient();
   const entry: RoomBumpEntry = {
     listeners: new Set(),
     stop: () => undefined,
   };
-  if (!sb || roomIds.length === 0) return entry;
+  /**
+   * 비공개 토픽 권한(`realtime.messages` SELECT)은 `community_messenger_rooms.id`(uuid) 토픽에만 부여된다.
+   * 레거시 라우트 id(비 uuid) 토픽은 항상 거부되어 rejoin 백오프만 반복하므로 구독하지 않는다
+   * (서버는 canonical uuid 토픽으로도 항상 발행).
+   */
+  const authorizedRoomIds = roomIds.filter((rid) => isUuidLikeString(String(rid ?? "").trim()));
+  if (!sb || authorizedRoomIds.length === 0) return entry;
 
-  const channels = roomIds.map((rid) =>
+  const channels = authorizedRoomIds.map((rid) =>
     subscribeCommunityMessengerRoomBumpBroadcast({
       sb,
       roomId: rid,
@@ -117,6 +127,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
     let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingHint = "";
     let pendingAlreadyMergedSnapshot = false;
+    let bumpFrameFallbackTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleCatchUp = (hintMessageId: string, opts?: { alreadyMergedSnapshot?: boolean }) => {
       const now = Date.now();
       const elapsed = now - lastCatchUpAt;
@@ -184,6 +195,15 @@ export function useMessengerRoomBumpBroadcastSubscription({
             ? String((rawMessage as { senderId: string }).senderId).trim()
             : ""
           : "";
+      /**
+       * D1: call_stub 은 서버 projection(SESSION → STUB) 이 유일 작성자 — 작성자 기기에도 optimistic/ACK 사본이 없다.
+       * 거절·취소한 본인(stub sender) 기기가 bump 를 버리면 postgres_changes 단일 경로에만 의존하게 된다.
+       */
+      const rawMessageType =
+        rawMessage && typeof rawMessage === "object" && rawMessage !== null
+          ? (rawMessage as { messageType?: unknown }).messageType
+          : null;
+      const isServerProjectedCallStubBump = rawMessageType === "call_stub";
       const hint =
         typeof payload.messageId === "string"
           ? payload.messageId.trim()
@@ -195,7 +215,13 @@ export function useMessengerRoomBumpBroadcastSubscription({
        * Peer-mutated same-id UPDATE (fromUserId !== message.senderId), e.g. gift accept
        * projection by recipient on sender's message: must NOT skip — HTTP reconcile SSOT.
        */
-      if (from && from === viewer && !isStoreOrderSystemBump && (!rawSenderId || rawSenderId === from)) {
+      if (
+        from &&
+        from === viewer &&
+        !isStoreOrderSystemBump &&
+        !isServerProjectedCallStubBump &&
+        (!rawSenderId || rawSenderId === from)
+      ) {
         return;
       }
 
@@ -205,9 +231,24 @@ export function useMessengerRoomBumpBroadcastSubscription({
 
       if (remoteBumpCatchUpRafRef.current != null) {
         cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
-      }
-      remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
         remoteBumpCatchUpRafRef.current = null;
+      }
+      if (bumpFrameFallbackTimer != null) {
+        clearTimeout(bumpFrameFallbackTimer);
+        bumpFrameFallbackTimer = null;
+      }
+      let applied = false;
+      const applyBump = () => {
+        if (applied) return;
+        applied = true;
+        if (remoteBumpCatchUpRafRef.current != null) {
+          cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
+          remoteBumpCatchUpRafRef.current = null;
+        }
+        if (bumpFrameFallbackTimer != null) {
+          clearTimeout(bumpFrameFallbackTimer);
+          bumpFrameFallbackTimer = null;
+        }
         /**
          * Snapshot acceleration only when parse validates (message.senderId === fromUserId).
          * Peer-mutated rows fail parse by design — canonical GET reconcile is authority.
@@ -242,7 +283,13 @@ export function useMessengerRoomBumpBroadcastSubscription({
           mergedSnapshot = true;
         }
         scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
-      });
+      };
+      /**
+       * D1: rAF 는 WebView 가 합성되지 않을 때(Android 네이티브 통화 Activity·iOS CallKit 이 덮은 동안) 발화하지 않는다.
+       * 데이터 반영은 paint 와 분리 — 프레임이 없으면 짧은 타이머로 동일 1회 적용.
+       */
+      remoteBumpCatchUpRafRef.current = requestAnimationFrame(applyBump);
+      bumpFrameFallbackTimer = setTimeout(applyBump, ROOM_BUMP_FRAME_FALLBACK_MS);
     };
     listenerRef.current.onBump = onBump;
     const registryKey = `${viewer}:${[...bumpSubscribeIds].sort().join("\0")}`;
@@ -262,6 +309,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (catchUpTimer != null) {
         clearTimeout(catchUpTimer);
         catchUpTimer = null;
+      }
+      if (bumpFrameFallbackTimer != null) {
+        clearTimeout(bumpFrameFallbackTimer);
+        bumpFrameFallbackTimer = null;
       }
       const current = roomBumpEntries.get(registryKey);
       if (!current) return;

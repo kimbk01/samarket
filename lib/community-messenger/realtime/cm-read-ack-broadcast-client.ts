@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * 전역 토픽 `cm_read_ack` — 상대 mark_read 직후 서버 broadcast 수신.
- * 홈 realtime(`createHomeRealtimeEntry`)·방 Phase1 이 refcount 로 단일 구독 공유.
+ * 방 단위 **비공개** 토픽 `cm-read-ack:<roomId>` — 상대 mark_read 직후 서버(서비스 롤) broadcast 수신.
+ * 방 Phase1 이 열린 방마다 acquire(같은 viewer+room 은 refcount 공유).
+ * 수신 권한: `realtime.messages` SELECT 정책(방 접근 가능자) — 구 전역 토픽 `cm_read_ack` 는 폐기.
  */
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -10,16 +11,23 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import {
+  CM_READ_ACK_BROADCAST_EVENT,
+  communityMessengerReadAckChannelName,
+} from "@/lib/community-messenger/realtime/cm-read-ack-channel";
+import {
+  createMessengerPrivateChannelStatusHandler,
+  messengerPrivateBroadcastChannelOptions,
+} from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
 
-export const CM_READ_ACK_CHANNEL_NAME = "cm_read_ack";
-export const CM_READ_ACK_BROADCAST_EVENT = "read_ack";
+export { CM_READ_ACK_BROADCAST_EVENT, communityMessengerReadAckChannelName };
 
-let refcount = 0;
-let combinedStop: (() => void) | null = null;
+type ReadAckEntry = { refcount: number; stop: () => void };
+const readAckEntries = new Map<string, ReadAckEntry>();
 
-function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
+function subscribeCmReadAckBroadcast(viewerUserId: string, subscribeRoomId: string): () => void {
   const sb = getSupabaseClient();
   if (!sb) return () => undefined;
 
@@ -40,6 +48,8 @@ function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
       typeof p.lastReadMessageId === "string" && p.lastReadMessageId.trim() ? p.lastReadMessageId.trim() : null;
     const lastReadAt = typeof p.lastReadAt === "string" && p.lastReadAt.trim() ? p.lastReadAt.trim() : null;
     if (!roomId || !readerUserId) return;
+    /** 토픽=방 — 페이로드 roomId 가 다른 방이면 무시(라우팅 방어) */
+    if (roomId.toLowerCase() !== subscribeRoomId) return;
     if (messengerUserIdsEqual(readerUserId, viewerUserId)) return;
 
     cmRtReadSyncLog("read_ack_broadcast_received", {
@@ -72,9 +82,9 @@ function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
       ch = null;
     }
     ch = sb
-      .channel(CM_READ_ACK_CHANNEL_NAME, { config: { broadcast: { ack: false } } })
+      .channel(communityMessengerReadAckChannelName(subscribeRoomId), messengerPrivateBroadcastChannelOptions())
       .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
-      .subscribe();
+      .subscribe(createMessengerPrivateChannelStatusHandler({ sb, scope: "read_ack" }));
   };
 
   const bridgeCleanup = createRealtimeAuthBridge({
@@ -103,20 +113,32 @@ function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
   };
 }
 
-/** 단일 Supabase broadcast 구독 — 홈·방 양쪽에서 refcount 로 공유 */
-export function acquireCommunityMessengerReadAckBroadcast(viewerUserId: string): () => void {
+/**
+ * 방 단위 read-ack 비공개 구독 — 같은 viewer+room 은 refcount 로 공유.
+ * `roomId` 는 서버 발행과 같은 canonical `community_messenger_rooms.id` (방 Phase1 의 `streamRoomId`).
+ */
+export function acquireCommunityMessengerReadAckBroadcast(viewerUserId: string, roomId: string): () => void {
   const uid = viewerUserId.trim();
-  if (!uid) return () => undefined;
+  const rid = String(roomId ?? "").trim().toLowerCase();
+  if (!uid || !rid) return () => undefined;
+  const key = `${uid}\0${rid}`;
 
-  refcount += 1;
-  if (refcount === 1) {
-    combinedStop = subscribeCmReadAckBroadcast(uid);
+  let entry = readAckEntries.get(key);
+  if (!entry) {
+    entry = { refcount: 0, stop: subscribeCmReadAckBroadcast(uid, rid) };
+    readAckEntries.set(key, entry);
   }
+  entry.refcount += 1;
+  let released = false;
   return () => {
-    refcount = Math.max(0, refcount - 1);
-    if (refcount === 0) {
-      combinedStop?.();
-      combinedStop = null;
+    if (released) return;
+    released = true;
+    const cur = readAckEntries.get(key);
+    if (!cur) return;
+    cur.refcount = Math.max(0, cur.refcount - 1);
+    if (cur.refcount === 0) {
+      readAckEntries.delete(key);
+      cur.stop();
     }
   };
 }

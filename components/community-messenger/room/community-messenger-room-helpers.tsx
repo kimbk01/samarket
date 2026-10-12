@@ -236,6 +236,8 @@ export function mergeRoomMessages(
       const cidA = typeof confirmedItem.clientMessageId === "string" ? confirmedItem.clientMessageId.trim() : "";
       const cidB = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
       if (cidA && cidB && cidA === cidB) return true;
+      /** 양쪽 clientMessageId 가 있고 다르면 다른 메시지 — 같은 문구 연속 전송 시 2번째 pending 이 숨지 않게(M-6) */
+      if (cidA && cidB) return false;
       const dt = Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime());
       if (item.messageType === "voice" && item.pending) {
         return dt < 15_000;
