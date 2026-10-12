@@ -473,6 +473,21 @@ describe("call-v4 import isolation", () => {
     }
   });
 
+  it("A-1 callV4LaunchOutgoingDirectCall early-paints and starts create before awaiting media", () => {
+    const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
+    const launch = actions.slice(actions.indexOf("export async function callV4LaunchOutgoingDirectCall"));
+    expect(launch.indexOf('setPhase("creating")')).toBeGreaterThan(-1);
+    expect(launch.indexOf("call_v4_outgoing_early_paint")).toBeGreaterThan(-1);
+    expect(launch.indexOf("const mediaPromise = ensureCallMediaForUserGesture")).toBeGreaterThan(-1);
+    expect(launch.indexOf("const createPromise = callV4CreateOutgoing")).toBeGreaterThan(-1);
+    expect(launch.indexOf("const mediaPromise = ensureCallMediaForUserGesture")).toBeLessThan(
+      launch.indexOf("const createPromise = callV4CreateOutgoing"),
+    );
+    expect(launch.indexOf("const createPromise = callV4CreateOutgoing")).toBeLessThan(
+      launch.indexOf("const perm = await mediaPromise"),
+    );
+  });
+
   it("P2-2 callV4CreateOutgoing Android+iOS routes Web presentation only outside native-owned success", () => {
     const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
     expect(actions).toContain("isAndroidNativeOutgoingShell");
