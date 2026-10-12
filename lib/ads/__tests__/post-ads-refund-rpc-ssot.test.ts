@@ -1,7 +1,8 @@
 /**
  * finance-ssot-19 T1 — post_ads cancel/reject refund via DB RPC `refund_post_ad_points`.
  * - user cancel / admin reject → RPC (lock + ledger-based refund + status in one TX)
- * - admin approve/cancel/expire/confirm_payment → status-conditioned UPDATE, 0 rows → not_allowed
+ * - admin cancel of draft/pending_* → RPC (admin cancel refund, same TX guarantees)
+ * - admin approve/cancel(approved|active)/expire/confirm_payment → status-conditioned UPDATE, 0 rows → not_allowed
  * - routes no longer call creditUserPoints / refundPoints callbacks
  */
 import { readFileSync } from "node:fs";
@@ -9,6 +10,8 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ADMIN_POST_AD_REFUND_CANCEL_FROM,
+  ADMIN_POST_AD_STATUS_ONLY_CANCEL_FROM,
   ADMIN_POST_AD_TRANSITION_FROM,
   adminPatchPostAdInDb,
   cancelPostAdForUserWithServiceRole,
@@ -179,7 +182,76 @@ describe("adminPatchPostAdInDb", () => {
     const r = await adminPatchPostAdInDb(sb, AD, ADMIN, action);
     expect(r).toMatchObject({ ok: false, error: "not_allowed" });
     const inCall = calls.find((c) => c.table === "post_ads" && c.op === "in");
-    expect(inCall?.args).toEqual(["apply_status", [...ADMIN_POST_AD_TRANSITION_FROM[action]]]);
+    const expected = action === "cancel" ? ADMIN_POST_AD_STATUS_ONLY_CANCEL_FROM : ADMIN_POST_AD_TRANSITION_FROM[action];
+    expect(inCall?.args).toEqual(["apply_status", [...expected]]);
+  });
+
+  it.each(["draft", "pending_payment", "pending_review"])(
+    "admin cancel of %s → refund_post_ad_points(ad.user_id, ad, 'admin', adminId, 'cancelled', note)",
+    async (st) => {
+      const { sb, rpc, calls } = makeSb({
+        row: { id: AD, user_id: USER, apply_status: st, payment_method: "points" },
+        rpcResult: { ok: true, idempotent: false, refunded_amount: 400, ledger_id: "l3", status: "cancelled" },
+        updateRows: [{ id: AD }],
+      });
+      const r = await adminPatchPostAdInDb(sb, AD, ADMIN, "cancel", "memo");
+      expect(r).toEqual({ ok: true });
+      expect(rpc).toHaveBeenCalledWith("refund_post_ad_points", {
+        p_user_id: USER,
+        p_ad_id: AD,
+        p_actor_type: "admin",
+        p_actor_id: ADMIN,
+        p_target_status: "cancelled",
+        p_reason: "memo",
+      });
+      /* status 는 RPC 만 변경 — 후속 update 는 admin_note 메모뿐, apply_status 미포함 */
+      const upd = calls.filter((c) => c.table === "post_ads" && c.op === "update");
+      expect(upd).toHaveLength(1);
+      expect(upd[0]?.args[0]).not.toHaveProperty("apply_status");
+      const log = calls.find((c) => c.table === "ad_logs" && c.op === "insert");
+      expect(JSON.stringify(log?.args ?? [])).toContain("400");
+    }
+  );
+
+  it("admin cancel retry (RPC idempotent) → ok, no extra update/log", async () => {
+    const { sb, calls } = makeSb({
+      row: { id: AD, user_id: USER, apply_status: "pending_review" },
+      rpcResult: { ok: true, idempotent: true, refunded_amount: 0, ledger_id: null, status: "cancelled" },
+    });
+    const r = await adminPatchPostAdInDb(sb, AD, ADMIN, "cancel");
+    expect(r).toEqual({ ok: true });
+    expect(calls.some((c) => c.op === "update" || c.op === "insert")).toBe(false);
+  });
+
+  it("admin cancel when approved concurrently (RPC not_cancellable) → 409, never status-only cancel", async () => {
+    const { sb, calls } = makeSb({
+      row: { id: AD, user_id: USER, apply_status: "pending_review" },
+      rpcResult: { ok: false, error: "not_cancellable", current_status: "active" },
+      updateRows: [{ id: AD }],
+    });
+    const r = await adminPatchPostAdInDb(sb, AD, ADMIN, "cancel");
+    expect(r).toMatchObject({ ok: false, error: "not_allowed", httpStatus: 409 });
+    expect(calls.some((c) => c.op === "update")).toBe(false);
+  });
+
+  it.each(["rpc_failed", "forbidden", "invalid_input"])("admin cancel RPC %s → error, status not changed", async (code) => {
+    const { sb, calls } = makeSb({
+      row: { id: AD, user_id: USER, apply_status: "pending_payment" },
+      rpcResult: { ok: false, error: code },
+      updateRows: [{ id: AD }],
+    });
+    const r = await adminPatchPostAdInDb(sb, AD, ADMIN, "cancel");
+    expect(r.ok).toBe(false);
+    expect(calls.some((c) => c.op === "update")).toBe(false);
+  });
+
+  it.each(["approved", "active"])("admin cancel of %s keeps existing policy (status-only, no RPC)", async (st) => {
+    const { sb, rpc, calls } = makeSb({ row: { id: AD, user_id: USER, apply_status: st }, updateRows: [{ id: AD }] });
+    const r = await adminPatchPostAdInDb(sb, AD, ADMIN, "cancel");
+    expect(r).toEqual({ ok: true });
+    expect(rpc).not.toHaveBeenCalled();
+    const inCall = calls.find((c) => c.table === "post_ads" && c.op === "in");
+    expect(inCall?.args).toEqual(["apply_status", ["approved", "active"]]);
   });
 
   it("transition tables match product rules", () => {
@@ -188,6 +260,9 @@ describe("adminPatchPostAdInDb", () => {
     expect(ADMIN_POST_AD_TRANSITION_FROM.cancel).not.toContain("rejected");
     expect(ADMIN_POST_AD_TRANSITION_FROM.cancel).not.toContain("expired");
     expect(ADMIN_POST_AD_TRANSITION_FROM.cancel).not.toContain("cancelled");
+    expect([...ADMIN_POST_AD_REFUND_CANCEL_FROM, ...ADMIN_POST_AD_STATUS_ONLY_CANCEL_FROM].sort()).toEqual(
+      [...ADMIN_POST_AD_TRANSITION_FROM.cancel].sort()
+    );
   });
 });
 
