@@ -51,7 +51,6 @@ import {
   messengerRealtimeGetHomeChannelPhysicalBindCount,
   normalizeCmRealtimeSubscribeRoomId,
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
-import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 import {
   cmRtHs4DiagnosisLog,
@@ -486,7 +485,6 @@ function createHomeRealtimeEntry(args: {
   let cancelSchedulers: (() => void) | null = null;
   let authBridgeCleanup: (() => void) | null = null;
   let homeBound = false;
-  let releaseReadAckBroadcast: (() => void) | null = null;
   const isRoomsInEntry = args.channelBindRole === "home_rooms_in";
   let pendingFingerprint = args.roomIdsFingerprint;
   let pendingVisibleTradeRoomCount = args.visibleTradeRoomCount ?? 0;
@@ -556,9 +554,10 @@ function createHomeRealtimeEntry(args: {
       visibleTradeRoomCount: pendingVisibleTradeRoomCount,
       physicalBindCountBeforeBind: messengerRealtimeGetHomeChannelPhysicalBindCount(),
     });
-    if (!isRoomsInEntry) {
-      releaseReadAckBroadcast = acquireCommunityMessengerReadAckBroadcast(args.userId);
-    }
+    /**
+     * read-ack 는 방 단위 비공개 토픽(`cm-read-ack:<roomId>`) — 열린 방(Phase1)만 구독한다.
+     * 홈은 peer read-ack 소비자가 없어 전역 구독을 두지 않는다(구 전역 `cm_read_ack` 폐기).
+     */
     attachChannelsForFingerprint(
       pendingFingerprint,
       isRoomsInEntry ? "rooms_initial_bind" : "meta_initial_bind"
@@ -647,8 +646,6 @@ function createHomeRealtimeEntry(args: {
     authBridgeCleanup = null;
     cancelSchedulers?.();
     cancelSchedulers = null;
-    releaseReadAckBroadcast?.();
-    releaseReadAckBroadcast = null;
     const chLen = channels.length;
     if (chLen > 0) {
       recordMessengerHomeSupabaseHomeChannelGaugeDelta(-chLen);

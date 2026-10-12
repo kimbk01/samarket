@@ -15,6 +15,16 @@ export type SubscribeWithRetryArgs = {
   onAfterSubscribeFailure?: (status: string, attempt: number) => void;
   silentAfterMs?: number;
   hs4Context?: CmRtHs4SubscribeContext;
+  /**
+   * Passed to `sb.channel(name, channelOptions)`.
+   * Private broadcast topics must set `config.private: true` (Realtime Authorization RLS).
+   */
+  channelOptions?: {
+    config: {
+      private?: boolean;
+      broadcast?: { ack?: boolean; self?: boolean };
+    };
+  };
 };
 
 export type SubscribeWithRetryHandle = {

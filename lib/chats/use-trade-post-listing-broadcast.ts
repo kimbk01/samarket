@@ -2,6 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -67,6 +68,7 @@ export function useTradePostListingBroadcast(args: {
       scope: `trade-post-listing:${pid}`,
       isCancelled: () => cancelled,
       silentAfterMs: 22_000,
+      channelOptions: messengerPrivateBroadcastChannelOptions({ ack: false }),
       build: (ch) =>
         ch.on("broadcast", { event: TRADE_POST_LISTING_BROADCAST_EVENT }, (msg) => {
           try {

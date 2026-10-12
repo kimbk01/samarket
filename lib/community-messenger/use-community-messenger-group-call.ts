@@ -12,6 +12,7 @@ import {
 } from "@/lib/community-messenger/call-provider/group-agora-session";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   playCommunityMessengerCallSignalSound,
   stopCommunityMessengerCallTone,
@@ -224,6 +225,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       sb,
       name: `community-messenger-group-call-session:${sessionId}`,
       scope: "community-messenger-group-call:session",
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       build: (ch) =>
         ch.on(

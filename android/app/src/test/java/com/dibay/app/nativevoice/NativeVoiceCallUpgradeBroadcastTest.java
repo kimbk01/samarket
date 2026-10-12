@@ -23,6 +23,11 @@ public class NativeVoiceCallUpgradeBroadcastTest {
   }
 
   @Test
+  public void joinChannel_usesPrivateTrue_matchingWebPrivateBroadcast() {
+    assertTrue(NativeVoiceCallUpgradeRealtimeClient.BROADCAST_CHANNEL_PRIVATE);
+  }
+
+  @Test
   public void realtimeTopic_prefixesRealtimeNamespace() {
     assertEquals(
         "realtime:cm-call-invite:abc",

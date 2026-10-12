@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   notificationSoundRowInputFromRecord,
   resolveNotificationSoundEventKeyFromRow,
@@ -118,6 +119,7 @@ export function useSupabaseNotificationsRealtime(
         sb,
         name: `notifications-rt:${uid}`,
         scope: `notifications-rt:${uid}`,
+        channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled,
         silentAfterMs: 18_000,
         build: (channel) =>

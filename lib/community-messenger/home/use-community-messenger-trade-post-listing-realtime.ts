@@ -4,6 +4,7 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -44,6 +45,7 @@ export function useCommunityMessengerTradePostListingRealtime(args: {
         sb,
         name: `cm-home:posts-trade-meta:${userId}:${offset}`,
         scope: `cm-home:posts-trade-meta:${userId}`,
+        channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled,
         silentAfterMs: 18_000,
         build: (ch) =>

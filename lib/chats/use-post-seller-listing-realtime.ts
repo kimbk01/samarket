@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /** `in` 필터 청크 — 커뮤니티 메신저 홈·통합 채팅 목록과 동일 상한 */
@@ -44,6 +45,7 @@ export function usePostSellerListingRealtime(args: {
       sb,
       name: `post-seller-listing:${pid}`,
       scope: `post-seller-listing:${pid}`,
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       isCancelled: () => cancelled,
       silentAfterMs: 18_000,
       build: (ch) =>
@@ -115,6 +117,7 @@ export function usePostsSellerListingRealtimeBatch(args: {
         sb,
         name: `chat-list:posts-listing:${userId}:${offset}`,
         scope: `chat-list:posts-listing:${userId}`,
+        channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled,
         silentAfterMs: 18_000,
         build: (ch) =>

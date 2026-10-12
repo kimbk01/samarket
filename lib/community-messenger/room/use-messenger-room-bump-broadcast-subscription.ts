@@ -10,6 +10,7 @@ import {
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -31,9 +32,14 @@ function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
     listeners: new Set(),
     stop: () => undefined,
   };
-  if (!sb || roomIds.length === 0) return entry;
+  /**
+   * 비공개 토픽 SELECT 권한은 `community_messenger_rooms.id`(uuid) 토픽에만 부여된다.
+   * 레거시 비-uuid 라우트 id 구독은 Unauthorized rejoin만 반복하므로 제외한다.
+   */
+  const authorizedRoomIds = roomIds.filter((rid) => isUuidLikeString(String(rid ?? "").trim()));
+  if (!sb || authorizedRoomIds.length === 0) return entry;
 
-  const channels = roomIds.map((rid) =>
+  const channels = authorizedRoomIds.map((rid) =>
     subscribeCommunityMessengerRoomBumpBroadcast({
       sb,
       roomId: rid,
