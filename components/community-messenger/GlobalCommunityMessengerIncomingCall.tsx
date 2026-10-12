@@ -17,7 +17,12 @@ import {
   dibayCallSealTerminal,
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
-import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import {
+  getActiveIncomingRingCallId,
+  stopIncomingCallRing,
+  syncIncomingCallRing,
+} from "@/lib/community-messenger/incoming-call/ring-owner";
+import { resolveTerminalRingStopTarget } from "@/lib/community-messenger/incoming-call/terminal-ring-scope";
 import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
 import {
   dismissIncomingPresenterAfterAccept,
@@ -659,7 +664,19 @@ export function GlobalCommunityMessengerIncomingCall() {
             ? "missed"
             : "cancelled"
       ) as RemoteTerminalStatus;
-      syncIncomingCallRing(null);
+      /**
+       * 이 종료가 **현재 울리는 벨**의 통화일 때만 정지(tmp 별칭 포함) — 예전 `syncIncomingCallRing(null)` 은
+       * 이전 통화의 지연된 종료 신호로 새 통화 벨까지 껐다. 판정 규칙: `terminal-ring-scope.ts`.
+       */
+      const activeRingCallId = getActiveIncomingRingCallId();
+      const ringTarget = resolveTerminalRingStopTarget({
+        activeRingCallId,
+        ringingSession: activeRingCallId
+          ? (sessionsRef.current.find((s) => s.id.trim() === activeRingCallId) ?? null)
+          : null,
+        query: { sessionId, tmpSessionId, roomId, initiatorUserId, callKind },
+      });
+      if (ringTarget) stopIncomingCallRing(`terminal_${sourceTag}`, ringTarget);
       dibayIncomingLaneStopRing(`terminal_${sourceTag}`, terminalSid);
       dismissAllIncomingCallNotificationsFireAndForget(terminalSid);
       void dispatchCallEngineSignal({

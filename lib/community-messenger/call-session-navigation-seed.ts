@@ -1,6 +1,7 @@
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
+import { isCommunityMessengerCallScreenPathname as isCallScreenPathname } from "@/lib/community-messenger/call-screen-pathname";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
   assertPhoneVerifiedForMessengerActionOrOpenSheet,
@@ -269,16 +270,7 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   }
 }
 
-/**
- * 실제 통화 화면 라우트인지 — `/community-messenger/calls/<id>`(통화 기록 목록 `calls/logs` 제외)·`calls-v3/`·`calls-v4/`.
- * (v3 `isOnCallV3ScreenPath` 와 같은 규칙 + logs 제외)
- */
-export function isCommunityMessengerCallScreenPathname(pathname: string | null | undefined): boolean {
-  const p = (pathname ?? "").trim();
-  if (/^\/community-messenger\/calls-v[34]\/[^/]+/.test(p)) return true;
-  const m = /^\/community-messenger\/calls\/([^/?#]+)/.exec(p);
-  return Boolean(m && m[1] !== "logs");
-}
+export { isCommunityMessengerCallScreenPathname } from "@/lib/community-messenger/call-screen-pathname";
 
 /** 터미널 확정 — surface 정리 + active 세션 해제 + Origin Return 복귀 */
 export function finalizeCommunityMessengerCallTerminalExit(
@@ -298,7 +290,7 @@ export function finalizeCommunityMessengerCallTerminalExit(
    * 그때 사용자는 다른 채팅방·홈을 보고 있으므로, 원격 종료·벨 해제 시 화면을 바꾸지 않는다(사용자 동작 없는 강제 이동 차단).
    * 통화 화면 라우트에서 끝난 경우에만 기존처럼 Origin Return 으로 복귀한다.
    */
-  if (typeof window !== "undefined" && !isCommunityMessengerCallScreenPathname(window.location.pathname)) {
+  if (typeof window !== "undefined" && !isCallScreenPathname(window.location.pathname)) {
     const stale = takeCallNavigationReturnPath();
     console.info("[call-flow] call_return_navigation_decision", {
       target: null,

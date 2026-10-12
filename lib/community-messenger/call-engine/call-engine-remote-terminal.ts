@@ -1,7 +1,11 @@
 "use client";
 
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
-import { syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import {
+  getActiveIncomingRingCallId,
+  stopIncomingCallRing,
+} from "@/lib/community-messenger/incoming-call/ring-owner";
+import { resolveTerminalRingStopTarget } from "@/lib/community-messenger/incoming-call/terminal-ring-scope";
 import {
   markCallConsumed,
   type CallConsumedReason,
@@ -81,7 +85,12 @@ export function stopRemoteIncomingSounds(callId: string, reason: string): void {
   const sid = callId.trim();
   if (!sid) return;
   dibayIncomingLaneStopRing(reason, sid);
-  syncIncomingCallRing(null);
+  /** 다른 통화가 울리는 중이면 건드리지 않는다 — 이 통화(sid)가 현재 벨일 때만 정지 */
+  const ringTarget = resolveTerminalRingStopTarget({
+    activeRingCallId: getActiveIncomingRingCallId(),
+    query: { sessionId: sid },
+  });
+  if (ringTarget) stopIncomingCallRing(reason, ringTarget);
   const plugin = getSyncNativeIncomingCallPlugin();
   try {
     void plugin?.stopIncomingRingtone({ sessionId: sid });

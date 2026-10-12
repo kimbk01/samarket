@@ -114,6 +114,11 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   logDibayCall("ring_start", { sessionId: sid, callId: sid, callKind: candidate.callKind, source });
 }
 
+/** 읽기 전용 — 현재 Web 링 소유 callId (종료 신호가 이 벨의 통화인지 판단용, `terminal-ring-scope.ts`) */
+export function getActiveIncomingRingCallId(): string | null {
+  return activeRingCallId;
+}
+
 export function resetIncomingCallRingOwner(): void {
   activeRingCallId = null;
   stopWebRing("reset");

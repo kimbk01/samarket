@@ -21,6 +21,8 @@ public final class DibayForegroundRingtone {
   private static final String TAG = "DIBAY_CALL";
   private static Ringtone active;
   private static MediaPlayer activePlayer;
+  /** callId of the ringtone currently playing (null when idle) — stop(otherCallId) must not release it. */
+  private static volatile String playingCallId;
 
   private DibayForegroundRingtone() {}
 
@@ -52,6 +54,7 @@ public final class DibayForegroundRingtone {
     if (IncomingCallRingtoneSsotCache.POLICY_CUSTOM.equals(resolvedPolicy)
         && ringtoneUrl != null
         && !ringtoneUrl.trim().isEmpty()) {
+      playingCallId = sid.isEmpty() ? null : sid;
       if (startAdminRingtone(app, sid, ringtoneUrl.trim())) {
         return;
       }
@@ -62,6 +65,7 @@ public final class DibayForegroundRingtone {
               + " reason=custom_load_failed");
     }
 
+    playingCallId = sid.isEmpty() ? null : sid;
     startDefaultRingtone(app, sid);
   }
 
@@ -175,6 +179,13 @@ public final class DibayForegroundRingtone {
   }
 
   public static void stop(String callId) {
+    String requested = callId != null ? callId.trim() : "";
+    String playing = playingCallId;
+    if (!requested.isEmpty() && playing != null && !requested.equals(playing)) {
+      Log.i(TAG, "[DIBAY_CALL] native_call_ringtone_stop_ignored_other_call callId=" + requested + " playing=" + playing);
+      return;
+    }
+    playingCallId = null;
     boolean playerReleased = releasePlayer();
     boolean ringtoneReleased = releaseRingtone();
     boolean released = playerReleased || ringtoneReleased;

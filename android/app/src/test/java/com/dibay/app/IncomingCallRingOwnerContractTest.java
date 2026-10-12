@@ -63,6 +63,26 @@ public class IncomingCallRingOwnerContractTest {
   }
 
   @Test
+  public void stopForAnotherCallId_doesNotSilenceTheRingingCall() {
+    String previousCall = "late-terminal-A";
+    String ringingCall = "ringing-now-B";
+    assertTrue(IncomingCallRingOwner.start(context, ringingCall));
+
+    IncomingCallRingOwner.stop(context, previousCall);
+    assertEquals(ringingCall, IncomingCallRingOwner.getActiveCallId());
+
+    IncomingCallRingOwner.stop(context, ringingCall);
+    assertEquals(null, IncomingCallRingOwner.getActiveCallId());
+  }
+
+  @Test
+  public void stopWithoutCallId_stillStopsWhateverRings() {
+    assertTrue(IncomingCallRingOwner.start(context, "ringing-any"));
+    IncomingCallRingOwner.stop(context, null);
+    assertEquals(null, IncomingCallRingOwner.getActiveCallId());
+  }
+
+  @Test
   public void sameCallId_ringDedupesWithoutRestart() {
     String callId = "dedupe-ring-1";
     assertTrue(IncomingCallRingOwner.start(context, callId));

@@ -34,6 +34,9 @@ public final class IncomingCallSessionCleanup {
       return;
     }
 
+    // Evaluate BEFORE any cleanup: is a different call ringing / shown right now?
+    boolean otherCallActive = IncomingCallTerminalHandler.isOtherIncomingCallActive(app, sid);
+
     IncomingCallActionCoordinator.cancelMissedTimeout(sid);
     IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(sid);
     PendingIncomingPresentation.remove(sid);
@@ -46,10 +49,18 @@ public final class IncomingCallSessionCleanup {
     IncomingCallActivity.clearVisibleFlag(sid);
     com.dibay.app.call.CallActivityRouter.clearRouteLatch(sid);
     ForegroundIncomingCallRegistry.clear(sid);
-    IncomingCallWakeLock.release();
-    IncomingCallActivity.finishAnyActiveInstance(r);
+    if (otherCallActive) {
+      // Late terminal of a previous call: close only this call's surface; keep the ringing call's
+      // wake lock, incoming screen and task (all three below are global, not callId-scoped).
+      Log.i(TAG, "[call-ui] incoming_session_purge_scoped callId=" + sid + " reason=" + r + " other_call_active=1");
+    } else {
+      IncomingCallWakeLock.release();
+      IncomingCallActivity.finishAnyActiveInstance(r);
+    }
     IncomingCallActivity.finishActiveForCallId(app, sid, r);
-    IncomingCallActivity.finishAllIncomingTasks(app, r);
+    if (!otherCallActive) {
+      IncomingCallActivity.finishAllIncomingTasks(app, r);
+    }
 
     if (CallV4Lane.isTelegramLaneEnabled(app)) {
       Log.i(

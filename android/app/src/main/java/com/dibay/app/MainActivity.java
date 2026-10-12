@@ -842,6 +842,16 @@ public class MainActivity extends BridgeActivity {
     return value.replace("\\", "\\\\").replace("'", "\\'");
   }
 
+  /** Read-only — callId saved with the persisted call pending route ("" when none). */
+  public static String readPersistedCallPendingCallId(android.content.Context context) {
+    if (context == null) return "";
+    String v =
+        context
+            .getSharedPreferences(CALL_ROUTE_PREFS, android.content.Context.MODE_PRIVATE)
+            .getString(PENDING_CALL_ID_KEY, "");
+    return v != null ? v.trim() : "";
+  }
+
   public static void clearPersistedCallPendingRoute(android.content.Context context) {
     if (context == null) return;
     context

@@ -2,6 +2,7 @@
 
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { isCommunityMessengerCallScreenPathname } from "@/lib/community-messenger/call-screen-pathname";
 
 const CALL_V4_RETURN_PATH_KEY = "samarket.cm.call_v4_return_path.v1";
 
@@ -82,8 +83,36 @@ export function routeToCallV4Screen(router: { push: (href: string) => void; repl
   go(href);
 }
 
+/**
+ * 통화 종료 후 복귀 이동을 건너뛸지 — 사용자가 **통화를 시작한 화면과 다른 일반 화면**(dock·CallKit 통화 중 다른 채팅방 등)에
+ * 있을 때만 true. 이동 강제(다른 화면으로 끌려감)를 막는다.
+ *
+ * 기존 동작을 유지하는 경우(false):
+ * - 통화 화면(`/calls-v4/…` 등)에 있을 때 — 정상 복귀
+ * - 현재 경로 = 통화 시작 시 저장한 복귀 경로 — 발신·수락 직후 실패로 **URL 이 아직 통화 화면으로 바뀌기 전**인 경우 포함
+ *   (같은 경로로 replace 해 진행 중인 통화 화면 이동을 덮는다)
+ * - 복귀 경로가 없음 — 판단 근거가 없으므로 이전과 같이 이동
+ */
+export function shouldSkipCallV4ExitNavigation(returnPath: string | null): boolean {
+  if (typeof window === "undefined") return false;
+  const pathname = window.location.pathname;
+  if (isCommunityMessengerCallScreenPathname(pathname)) return false;
+  if (!returnPath) return false;
+  const returnPathname = returnPath.split(/[?#]/)[0] ?? returnPath;
+  return returnPathname !== pathname;
+}
+
 export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
-  const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
+  const returnPath = takeCallV4ReturnPath();
+  if (shouldSkipCallV4ExitNavigation(returnPath)) {
+    logCallV4("exit_screen_skipped", {
+      reason: "not_on_call_screen",
+      currentPath: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null,
+      discardedReturnPath: returnPath,
+    });
+    return;
+  }
+  const exit = returnPath ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
   logCallV4("exit_screen", { exit, establishmentRemoved: isLegacyWebCallEstablishmentRemoved() });
   const go = router?.replace ?? router?.push ?? registeredExitRouter?.replace ?? registeredExitRouter?.push;
   go?.(exit);

@@ -64,6 +64,13 @@ public final class IncomingCallRingOwner {
     if (context == null) return;
     String sid = callId != null ? callId.trim() : "";
     if (!sid.isEmpty()) {
+      String owner = activeCallId;
+      if (owner != null && !owner.isEmpty() && !sid.equals(owner)) {
+        // Late terminal of a previous call must not silence the call that is ringing now.
+        IncomingCallRingtoneSsotCache.clear(sid);
+        Log.i(TAG, "[DIBAY_CALL] ring_stop_ignored_other_call callId=" + sid + " active=" + owner);
+        return;
+      }
       DibayForegroundRingtone.stop(sid);
       IncomingCallRingtoneSsotCache.clear(sid);
       if (sid.equals(activeCallId)) {

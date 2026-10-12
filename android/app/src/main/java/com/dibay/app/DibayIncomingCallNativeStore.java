@@ -81,6 +81,14 @@ public final class DibayIncomingCallNativeStore {
     return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CALL_ID, "");
   }
 
+  /** Read-only — ring expiry (epoch ms) for the stored call, 0 when unknown / different call. */
+  public static long getExpiresAtMs(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return 0L;
+    SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    if (!callId.trim().equals(prefs.getString(KEY_CALL_ID, ""))) return 0L;
+    return prefs.getLong(KEY_EXPIRES_AT, 0L);
+  }
+
   public static String getState(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return "";
     SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);

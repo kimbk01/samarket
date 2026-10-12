@@ -28,6 +28,8 @@ public class IncomingCallTerminalHandlerTest {
     Application app = ApplicationProvider.getApplicationContext();
     context = app.getApplicationContext();
     ShadowLog.clear();
+    // RingOwner state is static — isolate from other test classes in the same sandbox.
+    IncomingCallRingOwner.clearForTests();
     DibayCallConsumedStore.mark(context, "stale", "cancelled");
     // reset coordinator state for isolated tests
     IncomingCallActionCoordinator.complete("stale", "cancelled");
@@ -61,6 +63,52 @@ public class IncomingCallTerminalHandlerTest {
     assertLogContains("ring_stop");
     assertLogContains("call_canceled_native_handled");
     assertLogContains("terminal_handler_done");
+  }
+
+  @Test
+  public void lateTerminalForPreviousCall_keepsRingingCallRingAndPendingState() {
+    String previousCall = "terminal-prev-A";
+    String ringingCall = "terminal-ringing-B";
+    // Caller cancelled A and redialed B; B is ringing when A's late terminal push arrives.
+    assertTrue(IncomingCallRingOwner.start(context, ringingCall));
+    seedPendingRoutes(ringingCall);
+    context
+        .getSharedPreferences("dibay_call_pending_route", Context.MODE_PRIVATE)
+        .edit()
+        .putString(MainActivity.PENDING_CALL_ID_KEY, ringingCall)
+        .apply();
+
+    IncomingCallTerminalHandler.handle(context, previousCall, "cancelled", "fcm:call_canceled");
+
+    assertTrue(DibayCallConsumedStore.isConsumed(context, previousCall));
+    assertEquals(ringingCall, IncomingCallRingOwner.getActiveCallId());
+    assertTrue("B call pending route must survive A's terminal", hasPendingCallRoute());
+    assertTrue("pending push route must survive A's terminal", hasPendingPushRoute());
+    assertLogContains("ring_stop_ignored_other_call");
+
+    // B's own terminal still clears everything.
+    IncomingCallTerminalHandler.handle(context, ringingCall, "cancelled", "fcm:call_canceled");
+    assertEquals(null, IncomingCallRingOwner.getActiveCallId());
+    assertFalse(hasPendingCallRoute());
+    assertFalse(hasPendingPushRoute());
+  }
+
+  @Test
+  public void terminalForPendingCallOfTerminatedCall_clearsOnlyThatCallRoute_whenOtherCallRings() {
+    String previousCall = "terminal-prev-C";
+    String ringingCall = "terminal-ringing-D";
+    assertTrue(IncomingCallRingOwner.start(context, ringingCall));
+    seedPendingRoutes(previousCall);
+    context
+        .getSharedPreferences("dibay_call_pending_route", Context.MODE_PRIVATE)
+        .edit()
+        .putString(MainActivity.PENDING_CALL_ID_KEY, previousCall)
+        .apply();
+
+    IncomingCallTerminalHandler.handle(context, previousCall, "cancelled", "fcm:call_canceled");
+
+    assertFalse("terminated call's own pending route is dropped", hasPendingCallRoute());
+    assertEquals(ringingCall, IncomingCallRingOwner.getActiveCallId());
   }
 
   @Test

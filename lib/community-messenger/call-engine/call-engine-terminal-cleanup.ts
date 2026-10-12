@@ -34,7 +34,11 @@ import {
   stopCallEngineOutgoingRingback,
 } from "@/lib/community-messenger/call-engine/call-engine-ringtone-owner";
 import { readCallEngineActiveVideoSession } from "@/lib/community-messenger/call-engine/call-engine-store";
-import { syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import {
+  getActiveIncomingRingCallId,
+  stopIncomingCallRing,
+} from "@/lib/community-messenger/incoming-call/ring-owner";
+import { resolveTerminalRingStopTarget } from "@/lib/community-messenger/incoming-call/terminal-ring-scope";
 import {
   markCallConsumed,
   readCallConsumedReason,
@@ -96,7 +100,14 @@ export async function releaseCallEngineTerminalLocalState(
   runCleanupStep(sid, "releaseCallActionLock", () => releaseCallActionLock(reason));
   runCleanupStep(sid, "stopCallEngineIncomingRingtone", () => stopCallEngineIncomingRingtone(sid, reason));
   runCleanupStep(sid, "stopCallEngineOutgoingRingback", () => stopCallEngineOutgoingRingback(sid, reason));
-  runCleanupStep(sid, "syncIncomingCallRing", () => syncIncomingCallRing(null));
+  /** 이 통화가 현재 벨일 때만 정지 — 이전 통화의 지연된 종료가 새 통화 벨을 끄지 않게 */
+  runCleanupStep(sid, "syncIncomingCallRing", () => {
+    const ringTarget = resolveTerminalRingStopTarget({
+      activeRingCallId: getActiveIncomingRingCallId(),
+      query: { sessionId },
+    });
+    if (ringTarget) stopIncomingCallRing(reason, ringTarget);
+  });
   runCleanupStep(sid, "dismissAllIncomingCallNotifications", () =>
     dismissAllIncomingCallNotificationsFireAndForget(sid),
   );

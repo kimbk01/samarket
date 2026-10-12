@@ -47,6 +47,7 @@ vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
 vi.mock("@/lib/community-messenger/incoming-call/ring-owner", () => ({
   syncIncomingCallRing: vi.fn(),
   stopIncomingCallRing: vi.fn(),
+  getActiveIncomingRingCallId: vi.fn(() => null),
 }));
 
 vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
