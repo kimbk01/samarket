@@ -5,7 +5,6 @@ const cleanupMocks = vi.hoisted(() => ({
   endNative: vi.fn<(callId: string, reason: string) => Promise<boolean>>(async () => true),
   clearMissedTimer: vi.fn<(callId?: string) => void>(),
   stopOutgoingTerminalSync: vi.fn<(callId?: string) => void>(),
-  exitScreen: vi.fn<(router?: unknown) => void>(),
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-cleanup", () => ({
@@ -19,15 +18,6 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-missed-timeout", () => ({
 vi.mock("@/lib/community-messenger/call-v4/native-outgoing-terminal-sync", () => ({
   stopNativeOutgoingTerminalSync: (callId?: string) => cleanupMocks.stopOutgoingTerminalSync(callId),
 }));
-
-vi.mock("@/lib/community-messenger/call-v4/call-v4-route", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/community-messenger/call-v4/call-v4-route")>();
-  return {
-    ...actual,
-    exitCallV4ScreenAfterCleanup: (router?: unknown) => cleanupMocks.exitScreen(router),
-    readCallV4ExitRouter: () => null,
-  };
-});
 
 vi.mock("@/lib/call/native/native-call-service", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/call/native/native-call-service")>();
@@ -67,7 +57,6 @@ describe("native-terminal-sync", () => {
     cleanupMocks.endNative.mockClear();
     cleanupMocks.clearMissedTimer.mockClear();
     cleanupMocks.stopOutgoingTerminalSync.mockClear();
-    cleanupMocks.exitScreen.mockClear();
     useCallV4Store.getState().resetToIdle();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
@@ -115,37 +104,6 @@ describe("native-terminal-sync", () => {
     expect(cleanupMocks.clearMissedTimer).toHaveBeenCalledWith("call-end-1");
     expect(cleanupMocks.stopOutgoingTerminalSync).toHaveBeenCalledWith("call-end-1");
     expect(cleanupMocks.endNative).toHaveBeenCalledWith("call-end-1", "native_stale_terminal");
-  });
-
-  it("B-3: exits Web outgoing presentation route after native local terminal", async () => {
-    const href = "/community-messenger/calls-v4/call-end-1?source=outgoing";
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/community-messenger/calls-v4/call-end-1",
-        search: "?source=outgoing",
-        href,
-      },
-    });
-    useCallV4Store.setState({
-      phase: "connected",
-      canStartNewCall: false,
-      identity: {
-        callId: "call-end-1",
-        roomId: "room-1",
-        callerUserId: "",
-        calleeUserId: "peer-1",
-        direction: "outgoing",
-        mediaType: "audio",
-        createdAt: new Date().toISOString(),
-      },
-    });
-
-    await onNativeCallLocalTerminal(sampleTerminal());
-
-    expect(useCallV4Store.getState().phase).toBe("idle");
-    expect(cleanupMocks.exitScreen).toHaveBeenCalledTimes(1);
-    expect(cleanupMocks.cleanup).toHaveBeenCalledWith("call-end-1", "ended");
-    vi.unstubAllGlobals();
   });
 
   it("flushes pending connected before terminal so identity is set for idle reset", async () => {

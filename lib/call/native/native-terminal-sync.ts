@@ -20,12 +20,6 @@ import {
   clearNativeConnectedHydrationForCall,
   flushPendingNativeConnected,
 } from "@/lib/call/native/native-connected-sync";
-import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
-import {
-  exitCallV4ScreenAfterCleanup,
-  isCallV4OutgoingPresentationSource,
-  readCallV4ExitRouter,
-} from "@/lib/community-messenger/call-v4/call-v4-route";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const handledNativeLocalTerminal = new Set<string>();
@@ -57,19 +51,6 @@ function mapNativeTerminalReason(reason: string): string {
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   if (normalized === "failed") return "failed";
   return "ended";
-}
-
-/** B-3 — native local terminal skips finalizeCallV4Terminal; exit Web outgoing presentation shell. */
-function maybeExitWebOutgoingPresentationAfterNativeTerminal(callId: string): void {
-  if (typeof window === "undefined") return;
-  const sid = callId.trim();
-  if (!sid) return;
-  const route = `${window.location.pathname}${window.location.search}`;
-  if (readCallV4SessionIdFromNativeRoute(route) !== sid) return;
-  const source = new URLSearchParams(window.location.search).get("source");
-  if (!isCallV4OutgoingPresentationSource(source)) return;
-  logCallV4("native_local_terminal_exit_outgoing_presentation", { callId: sid });
-  exitCallV4ScreenAfterCleanup(readCallV4ExitRouter() ?? undefined);
 }
 
 /** Native local end — immediate idle for re-dial; HTTP/native cleanup continues async. */
@@ -110,7 +91,6 @@ export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPaylo
   });
   useCallV4Store.getState().resetToIdle();
   logCallV4("native_local_terminal_idle_immediate", { callId: sid, status: terminalStatus });
-  maybeExitWebOutgoingPresentationAfterNativeTerminal(sid);
 
   void cleanupCallV4(sid, terminalStatus).catch((error: unknown) => {
     logCallV4("native_local_terminal_cleanup_failed", {

@@ -28,84 +28,6 @@ const hydratedNativeConnected = new Set<string>();
 const pendingNativeConnected: NativeCallConnectedPayload[] = [];
 let nativeConnectedListenerReady = false;
 
-/** B-2 — deferred pre-active must retry until server active (or terminal), then patch connected_at. */
-const DEFERRED_CONNECTED_RETRY_DELAYS_MS = [250, 500, 1_000, 2_000] as const;
-const deferredConnectedRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const deferredConnectedRetryAttempts = new Map<string, number>();
-
-function clearDeferredNativeConnectedRetry(callId: string): void {
-  const sid = callId.trim();
-  if (!sid) return;
-  const timer = deferredConnectedRetryTimers.get(sid);
-  if (timer != null) clearTimeout(timer);
-  deferredConnectedRetryTimers.delete(sid);
-  deferredConnectedRetryAttempts.delete(sid);
-}
-
-function scheduleDeferredNativeConnectedRetry(payload: NativeCallConnectedPayload): void {
-  const sid = payload.callId.trim();
-  if (!sid) return;
-  clearDeferredNativeConnectedRetry(sid);
-  deferredConnectedRetryAttempts.set(sid, 0);
-
-  const tick = (): void => {
-    void (async () => {
-      if (hydratedNativeConnected.has(sid)) {
-        clearDeferredNativeConnectedRetry(sid);
-        return;
-      }
-      const phase = readCallV4Phase();
-      if (TERMINAL_OR_BLOCKING_PHASES.has(phase)) {
-        clearDeferredNativeConnectedRetry(sid);
-        return;
-      }
-      const session = await callV4FetchSession(sid);
-      const sessionStatus = (session?.status ?? "").trim().toLowerCase();
-      if (sessionStatus === "active") {
-        clearDeferredNativeConnectedRetry(sid);
-        logCallV4("native_connected_deferred_retry_active", { callId: sid });
-        await onNativeCallConnected(payload);
-        return;
-      }
-      if (
-        sessionStatus === "ended" ||
-        sessionStatus === "cancelled" ||
-        sessionStatus === "canceled" ||
-        sessionStatus === "rejected" ||
-        sessionStatus === "missed" ||
-        sessionStatus === "failed"
-      ) {
-        clearDeferredNativeConnectedRetry(sid);
-        logCallV4("native_connected_deferred_retry_terminal", {
-          callId: sid,
-          sessionStatus,
-        });
-        return;
-      }
-      const attempt = (deferredConnectedRetryAttempts.get(sid) ?? 0) + 1;
-      deferredConnectedRetryAttempts.set(sid, attempt);
-      if (attempt >= DEFERRED_CONNECTED_RETRY_DELAYS_MS.length) {
-        clearDeferredNativeConnectedRetry(sid);
-        logCallV4("native_connected_deferred_retry_exhausted", {
-          callId: sid,
-          sessionStatus: session?.status ?? null,
-        });
-        return;
-      }
-      const delay = DEFERRED_CONNECTED_RETRY_DELAYS_MS[attempt] ?? 2_000;
-      deferredConnectedRetryTimers.set(
-        sid,
-        setTimeout(tick, delay),
-      );
-    })();
-  };
-
-  deferredConnectedRetryTimers.set(
-    sid,
-    setTimeout(tick, DEFERRED_CONNECTED_RETRY_DELAYS_MS[0]),
-  );
-}
-
 function buildIdentityFromNativeConnected(payload: NativeCallConnectedPayload): CallV4Identity {
   const direction = payload.direction === "outgoing" ? "outgoing" : "incoming";
   const peerUserId = payload.peerUserId?.trim() ?? "";
@@ -189,12 +111,10 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
         direction: payload.direction,
         sessionStatus: session?.status ?? null,
       });
-      scheduleDeferredNativeConnectedRetry(payload);
       return;
     }
   }
 
-  clearDeferredNativeConnectedRetry(sid);
   hydratedNativeConnected.add(sid);
   useCallV4Store.setState({
     phase: "connected",
@@ -249,14 +169,10 @@ export function startNativeConnectedSync(): () => void {
 export function clearNativeConnectedHydrationForCall(callId: string): void {
   const sid = callId.trim();
   if (!sid) return;
-  clearDeferredNativeConnectedRetry(sid);
   hydratedNativeConnected.delete(sid);
 }
 
 export function resetNativeConnectedSyncForTests(): void {
-  for (const sid of [...deferredConnectedRetryTimers.keys()]) {
-    clearDeferredNativeConnectedRetry(sid);
-  }
   hydratedNativeConnected.clear();
   pendingNativeConnected.length = 0;
   nativeConnectedListenerReady = false;

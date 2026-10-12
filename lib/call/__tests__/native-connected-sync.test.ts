@@ -10,7 +10,7 @@ import {
   markCallV4NativeConnectedOps,
   resetCallV4ConnectedSideEffectsForTests,
 } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
-import { callV4FetchSession, callV4PatchConnected } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import {
   readCallV4MissedTimerCallIdForTests,
   resetCallV4MissedTimersForTests,
@@ -68,8 +68,6 @@ describe("native-connected-sync", () => {
     heartbeatMocks.start.mockClear();
     terminalMocks.start.mockClear();
     vi.mocked(callV4FetchSession).mockReset();
-    vi.mocked(callV4PatchConnected).mockReset();
-    vi.mocked(callV4PatchConnected).mockResolvedValue({ ok: true } as never);
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -182,39 +180,6 @@ describe("native-connected-sync", () => {
 
     expect(useCallV4Store.getState().phase).toBe("connected");
     expect(useCallV4Store.getState().identity?.callId).toBe("call-o3-1");
-  });
-
-  it("B-2: deferred pre-active retries until server active then patches connected_at", async () => {
-    vi.useFakeTimers();
-    let fetchCount = 0;
-    vi.mocked(callV4FetchSession).mockImplementation(async () => {
-      fetchCount += 1;
-      return {
-        id: "call-o3-1",
-        status: fetchCount <= 2 ? "ringing" : "active",
-      } as never;
-    });
-
-    // runtime outside native_voice/native_video → trust gate off → defer path
-    await onNativeCallConnected(
-      samplePayload({
-        runtime: "bridge_pending" as "native_voice",
-        nativeOwned: true,
-      }),
-    );
-
-    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
-    expect(callV4PatchConnected).not.toHaveBeenCalled();
-    expect(fetchCount).toBe(1);
-
-    await vi.advanceTimersByTimeAsync(250);
-    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
-    expect(fetchCount).toBe(2);
-
-    await vi.advanceTimersByTimeAsync(500);
-    expect(useCallV4Store.getState().phase).toBe("connected");
-    expect(callV4PatchConnected).toHaveBeenCalledWith("call-o3-1");
-    expect(fetchCount).toBeGreaterThanOrEqual(3);
   });
 });
 
