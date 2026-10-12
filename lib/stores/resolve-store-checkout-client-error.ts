@@ -35,6 +35,8 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   gift_not_owner: "gift_u4_err_not_owner",
   gift_insufficient_remaining: "gift_u4_err_insufficient",
   gift_invalid_status: "gift_u4_err_invalid_status",
+  gift_expired: "gift_u4_err_expired",
+  gift_not_yet_valid: "gift_u4_err_not_yet_valid",
   gift_instance_not_found: "gift_u4_err_generic",
   gift_max_one_per_order: "gift_u4_err_generic",
   invalid_gift_instance_ids: "gift_u4_err_generic",

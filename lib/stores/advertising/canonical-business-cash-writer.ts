@@ -539,12 +539,16 @@ export async function listBusinessCashLedgerForStore(
     direction: string;
     amountMinor: number;
     balanceAfterMinor: number;
+    relatedType: string;
+    relatedId: string;
     createdAt: string;
   }>
 > {
   const { data, error } = await sb
     .from(BUSINESS_CASH_LEDGER_TABLE)
-    .select("id, entry_kind, direction, amount_minor, balance_after_minor, created_at")
+    .select(
+      "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at"
+    )
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
@@ -555,6 +559,8 @@ export async function listBusinessCashLedgerForStore(
     direction: String(row.direction ?? ""),
     amountMinor: Math.trunc(Number(row.amount_minor) || 0),
     balanceAfterMinor: Math.trunc(Number(row.balance_after_minor) || 0),
+    relatedType: String(row.related_type ?? ""),
+    relatedId: String(row.related_id ?? ""),
     createdAt: String(row.created_at ?? ""),
   }));
 }
@@ -569,12 +575,14 @@ export async function listEconomicPointLedgerForStore(
     entryKind: string;
     amount: number;
     balanceAfter: number;
+    relatedType: string;
+    relatedId: string;
     createdAt: string;
   }>
 > {
   const { data, error } = await sb
     .from(STORE_ECONOMIC_POINT_LEDGER_TABLE)
-    .select("id, entry_kind, amount, balance_after, created_at")
+    .select("id, entry_kind, amount, balance_after, related_type, related_id, created_at")
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
@@ -584,6 +592,8 @@ export async function listEconomicPointLedgerForStore(
     entryKind: String(row.entry_kind ?? ""),
     amount: Math.trunc(Number(row.amount) || 0),
     balanceAfter: Math.trunc(Number(row.balance_after) || 0),
+    relatedType: String(row.related_type ?? ""),
+    relatedId: String(row.related_id ?? ""),
     createdAt: String(row.created_at ?? ""),
   }));
 }

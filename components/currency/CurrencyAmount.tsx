@@ -11,6 +11,17 @@ const AMOUNT_CLASS: Record<CurrencyVisualVariant, string> = {
   cash: "currency-amount--cash",
 };
 
+/**
+ * Sign prefix SSOT: negative amounts ALWAYS render "−" (U+2212) so a debit can never read as a
+ * credit; "+" only when `signed` and positive; zero has no prefix.
+ */
+export function currencyAmountSignPrefix(amount: number, signed: boolean): "" | "+" | "−" {
+  const raw = Math.trunc(Number(amount) || 0);
+  if (raw < 0) return "−";
+  if (signed && raw > 0) return "+";
+  return "";
+}
+
 export function CurrencyAmount({
   currency,
   amount,
@@ -36,7 +47,7 @@ export function CurrencyAmount({
     compactPoint,
     locale,
   });
-  const prefix = signed && raw !== 0 ? (raw > 0 ? "+" : "−") : "";
+  const prefix = currencyAmountSignPrefix(raw, signed);
 
   return (
     <span

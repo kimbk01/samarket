@@ -15,6 +15,7 @@ export function CurrencyHistoryRow({
   createdAt,
   status,
   detailHref,
+  reference,
 }: {
   currency: CurrencyVisualVariant;
   title: string;
@@ -24,6 +25,8 @@ export function CurrencyHistoryRow({
   createdAt?: string | null;
   status?: string | null;
   detailHref?: string;
+  /** Optional ledger reference (e.g. related_type · related_id). */
+  reference?: string | null;
 }) {
   const { language } = useI18n();
   const locale = catalogDateLocale(language);
@@ -51,6 +54,11 @@ export function CurrencyHistoryRow({
         </div>
         <p className="text-sm font-medium text-sam-fg">{title}</p>
         {when ? <p className="sam-text-xxs text-sam-muted">{when}</p> : null}
+        {reference ? (
+          <p className="sam-text-xxs break-all text-sam-muted" data-currency-history-reference="1">
+            {reference}
+          </p>
+        ) : null}
       </div>
       <div className="shrink-0 text-right">
         <CurrencyAmount

@@ -9,6 +9,7 @@ import {
   computeGiftRedemptionSplit,
   giftInstanceAllowsCheckoutStore,
   giftInstanceAllowsRedeem,
+  giftInstanceValidityError,
   isGiftInstanceStatus,
   isGiftScope,
   type GiftInstanceStatus,
@@ -29,9 +30,10 @@ export type CheckoutEligibleGift = {
 };
 
 export function isCheckoutEligibleGiftInstance(
-  inst: Pick<GiftWalletInstance, "storeId" | "remainingBalance" | "status" | "giftScope">,
+  inst: Pick<GiftWalletInstance, "storeId" | "remainingBalance" | "status" | "giftScope"> &
+    Partial<Pick<GiftWalletInstance, "validFrom" | "validUntil">>,
   orderStoreId: string,
-  opts?: { checkoutStoreEligible?: boolean }
+  opts?: { checkoutStoreEligible?: boolean; now?: Date }
 ): boolean {
   const storeId = orderStoreId.trim();
   if (!storeId) return false;
@@ -50,13 +52,20 @@ export function isCheckoutEligibleGiftInstance(
   }
   if (Math.trunc(Number(inst.remainingBalance) || 0) <= 0) return false;
   if (!isGiftInstanceStatus(inst.status)) return false;
-  return giftInstanceAllowsRedeem(inst.status);
+  if (!giftInstanceAllowsRedeem(inst.status)) return false;
+  // 유효기간(Asia/Manila date) — 만료·사용 시작 전 상품권은 결제 선택지에서 제외 (SQL 과 동일 의미)
+  return (
+    giftInstanceValidityError(
+      { validFrom: inst.validFrom ?? null, validUntil: inst.validUntil ?? null },
+      opts?.now
+    ) === null
+  );
 }
 
 export function filterCheckoutEligibleGifts(
   instances: GiftWalletInstance[],
   orderStoreId: string,
-  opts?: { checkoutStoreEligible?: boolean }
+  opts?: { checkoutStoreEligible?: boolean; now?: Date }
 ): CheckoutEligibleGift[] {
   const out: CheckoutEligibleGift[] = [];
   for (const inst of instances) {

@@ -15,6 +15,10 @@ import {
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import {
+  aggregateOpenSaleFeeObligations,
+  computeCoinLedgerRecentWindowSums,
+} from "@/lib/stores/owner-finance-recent-window";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +43,7 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
-  const [bc, sp, quote, bcLedger, spLedger, charges, obligations] = await Promise.all([
+  const [bc, sp, quote, bcLedger, spLedger, charges, obligations, obligationAggregate] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
     buildOwnerConversionDisclosure(sb, { storeId: sid, requestedPoints: 0 }),
@@ -60,13 +64,21 @@ export async function GET(
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(20),
+    // M-19 — totals over ALL open obligations (list above stays capped at 20 rows).
+    aggregateOpenSaleFeeObligations(sb, sid),
   ]);
 
   const openObligations = obligations.error ? [] : obligations.data ?? [];
-  const outstandingMinor = openObligations.reduce(
-    (sum, row) => sum + Math.trunc(Number((row as { fee_outstanding_minor?: number }).fee_outstanding_minor) || 0),
-    0
-  );
+  const outstandingMinor = obligationAggregate.ok
+    ? obligationAggregate.outstandingMinor
+    : openObligations.reduce(
+        (sum, row) =>
+          sum + Math.trunc(Number((row as { fee_outstanding_minor?: number }).fee_outstanding_minor) || 0),
+        0
+      );
+  const openCount = obligationAggregate.ok ? obligationAggregate.openCount : openObligations.length;
+  // F-15 — server-computed sums over the SAME coin ledger rows returned below (N most recent).
+  const storePointsRecentWindow = computeCoinLedgerRecentWindowSums(spLedger);
 
   return NextResponse.json({
     ok: true,
@@ -90,9 +102,11 @@ export async function GET(
       : null,
     businessCashLedger: bcLedger,
     storePointsLedger: spLedger,
+    storePointsRecentWindow,
     saleFeeObligations: {
       outstandingMinor,
-      openCount: openObligations.length,
+      openCount,
+      totalsComplete: obligationAggregate.ok,
       rows: openObligations.map((r) => ({
         id: String((r as { id: string }).id),
         orderId: String((r as { order_id?: string }).order_id ?? ""),

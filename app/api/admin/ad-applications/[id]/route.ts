@@ -7,7 +7,6 @@ import {
   updatePostAdAdminNoteInDb,
 } from "@/lib/ads/post-ads-supabase";
 import { mapAdLogRow, mapPostAdRowToApplication } from "@/lib/ads/post-ad-application-adapter";
-import { creditUserPoints } from "@/lib/points/user-point-ledger";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -97,24 +96,12 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
-  const db = await adminPatchPostAdInDb(svc, id, admin.userId, action, body.adminNote, {
-    refundPoints: async ({ userId, pointCost, adProductName }) => {
-      await creditUserPoints(svc, {
-        userId,
-        amount: pointCost,
-        entryType: "ad_refund",
-        relatedType: "ad_application",
-        relatedId: id,
-        description: `${adProductName ?? "광고"} 반려 환불`,
-        actorType: "admin",
-      });
-    },
-  });
+  const db = await adminPatchPostAdInDb(svc, id, admin.userId, action, body.adminNote);
 
   if (!db.ok) {
     return NextResponse.json(
       { ok: false, error: db.notFound ? "not_found" : db.error ?? "action_failed" },
-      { status: db.notFound ? 404 : 400 }
+      { status: db.notFound ? 404 : db.httpStatus ?? 400 }
     );
   }
 

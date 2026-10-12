@@ -23,6 +23,7 @@ function statusForError(error: string): number {
     case "campaign_not_found":
       return 404;
     case "delete_not_allowed":
+    case "delete_blocked_funding_secured":
     case "not_editable":
     case "illegal_transition":
       return 409;

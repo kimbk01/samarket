@@ -21,6 +21,8 @@ export const giftCertificateU4Messages = {
     gift_u4_err_not_owner: "더 이상 보유 중인 상품권이 아닙니다.",
     gift_u4_err_insufficient: "상품권 잔액이 부족합니다.",
     gift_u4_err_invalid_status: "지금은 사용할 수 없는 상품권입니다.",
+    gift_u4_err_expired: "유효기간이 지난 상품권입니다.",
+    gift_u4_err_not_yet_valid: "아직 사용 시작일이 되지 않은 상품권입니다.",
     gift_u4_err_generic: "상품권을 적용할 수 없습니다. 다시 선택해 주세요.",
   },
   en: {
@@ -44,6 +46,8 @@ export const giftCertificateU4Messages = {
     gift_u4_err_not_owner: "You no longer own this gift certificate.",
     gift_u4_err_insufficient: "Not enough gift certificate balance.",
     gift_u4_err_invalid_status: "This gift certificate can’t be used right now.",
+    gift_u4_err_expired: "This gift certificate has expired.",
+    gift_u4_err_not_yet_valid: "This gift certificate isn’t valid yet.",
     gift_u4_err_generic: "Couldn’t apply the gift. Please choose again.",
   },
 } as const;

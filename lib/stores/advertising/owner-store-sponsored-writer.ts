@@ -18,6 +18,7 @@ import {
   type DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
+import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import {
   DELIVERY_AD_OWNER_PRICING_PRODUCT,
   inventoryKeysToPrimaryPlacement,
@@ -98,6 +99,8 @@ export type OwnerSponsoredWriterError =
   | "not_editable"
   | "illegal_transition"
   | "delete_not_allowed"
+  | "delete_blocked_funding_secured"
+  | "funding_required"
   | "duplicate_submit"
   | "db_error"
   | "inventory_lookup_failed"
@@ -663,6 +666,7 @@ function mapOwnerTransitionRpcError(error: unknown): OwnerSponsoredWriterError {
   if (code === "campaign_not_found") return "campaign_not_found";
   if (code === "illegal_transition") return "illegal_transition";
   if (code === "stale_lifecycle") return "duplicate_submit";
+  if (code === "funding_required") return "funding_required";
   return "db_error";
 }
 
@@ -769,6 +773,16 @@ export async function deleteOwnerSponsoredDraft(
     );
   });
   if (blocking) return { ok: false, error: "delete_not_allowed" };
+
+  // F-09 — SECURED canonical Cash funding must be refunded first; never orphan a debit.
+  if (
+    await hasCanonicalBcFundingSecured(sb, {
+      productKind: "store_sponsored",
+      applicationId: loaded.row.id,
+    })
+  ) {
+    return { ok: false, error: "delete_blocked_funding_secured" };
+  }
 
   // Remove inventory links before campaign row (no orphan junctions).
   const { error: junctionErr } = await sb

@@ -547,67 +547,129 @@ export async function updatePostAdAdminNoteInDb(
   return { ok: true };
 }
 
+export type RefundPostAdPointsErrorCode =
+  | "forbidden"
+  | "invalid_input"
+  | "not_found"
+  | "not_owner"
+  | "not_cancellable"
+  | "rpc_failed";
+
+export type RefundPostAdPointsResult =
+  | {
+      ok: true;
+      idempotent: boolean;
+      refundedAmount: number;
+      ledgerId: string | null;
+      status: string;
+    }
+  | { ok: false; error: RefundPostAdPointsErrorCode | string; currentStatus?: string; message?: string };
+
+/**
+ * DB SSOT — `refund_post_ad_points` (service role).
+ * post_ads 행 잠금 + 원장 기준 환불 + 상태 전이 + 잔액 projection 을 한 트랜잭션에서 처리.
+ */
+export async function refundPostAdPointsViaRpc(
+  sb: SupabaseClient,
+  input: {
+    userId: string;
+    adId: string;
+    actorType: "user" | "admin";
+    actorId: string;
+    targetStatus: "cancelled" | "rejected";
+    reason: string | null;
+  }
+): Promise<RefundPostAdPointsResult> {
+  const { data, error } = await sb.rpc("refund_post_ad_points", {
+    p_user_id: input.userId,
+    p_ad_id: input.adId,
+    p_actor_type: input.actorType,
+    p_actor_id: input.actorId,
+    p_target_status: input.targetStatus,
+    p_reason: input.reason,
+  });
+  if (error) {
+    return { ok: false, error: "rpc_failed", message: error.message };
+  }
+  const j = (data ?? {}) as Record<string, unknown>;
+  if (j.ok !== true) {
+    const err = typeof j.error === "string" && j.error.trim() ? j.error.trim() : "rpc_failed";
+    return {
+      ok: false,
+      error: err,
+      currentStatus: typeof j.current_status === "string" ? j.current_status : undefined,
+    };
+  }
+  return {
+    ok: true,
+    idempotent: j.idempotent === true,
+    refundedAmount: Math.trunc(Number(j.refunded_amount) || 0),
+    ledgerId: typeof j.ledger_id === "string" && j.ledger_id ? j.ledger_id : null,
+    status: typeof j.status === "string" ? j.status : input.targetStatus,
+  };
+}
+
+/** refund_post_ad_points 오류 → HTTP status (routes 공용) */
+export function httpStatusForRefundPostAdPointsError(error: string | undefined): number {
+  switch (error) {
+    case "not_found":
+      return 404;
+    case "not_owner":
+      return 403;
+    case "not_cancellable":
+      return 409;
+    case "invalid_input":
+      return 400;
+    case "not_allowed":
+      return 409;
+    case "forbidden":
+    default:
+      return 500;
+  }
+}
+
 export async function cancelPostAdForUserWithServiceRole(
   sb: SupabaseClient,
   userId: string,
   adId: string,
-  options?: { refundPoints?: (input: { userId: string; pointCost: number; adProductName?: string }) => Promise<void> }
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { data: row, error: readErr } = await sb
-    .from("post_ads")
-    .select("id, user_id, apply_status, payment_method, point_cost, paid_amount, ad_product_id")
-    .eq("id", adId)
-    .maybeSingle();
-
-  if (readErr || !row) {
-    return { ok: false, error: "not_found" };
+  /** @deprecated 환불은 DB RPC `refund_post_ad_points` 가 수행 — 무시됨 (호환용 시그니처). */
+  _options?: { refundPoints?: (input: { userId: string; pointCost: number; adProductName?: string }) => Promise<void> }
+): Promise<{ ok: true; idempotent?: boolean; refundedAmount?: number } | { ok: false; error: string; currentStatus?: string }> {
+  const r = await refundPostAdPointsViaRpc(sb, {
+    userId,
+    adId,
+    actorType: "user",
+    actorId: userId,
+    targetStatus: "cancelled",
+    reason: null,
+  });
+  if (!r.ok) {
+    return { ok: false, error: r.error, currentStatus: r.currentStatus };
   }
-  if (String(row.user_id) !== userId) {
-    return { ok: false, error: "forbidden" };
+  if (!r.idempotent) {
+    await insertAdLogInDb(sb, adId, userId, "cancelled", { refunded_amount: r.refundedAmount });
   }
-  const st = String(row.apply_status);
-  if (!["draft", "pending_payment", "pending_review"].includes(st)) {
-    return { ok: false, error: "not_cancellable" };
-  }
-
-  const pointCost = Number(row.point_cost) || 0;
-  const paidAmount = Number(row.paid_amount) || 0;
-  if (
-    row.payment_method === "points" &&
-    pointCost > 0 &&
-    paidAmount > 0 &&
-    options?.refundPoints
-  ) {
-    let adProductName: string | undefined;
-    if (row.ad_product_id) {
-      const { data: prod } = await sb.from("ad_products").select("name").eq("id", row.ad_product_id).maybeSingle();
-      adProductName = typeof prod?.name === "string" ? prod.name : undefined;
-    }
-    await options.refundPoints({ userId, pointCost, adProductName });
-  }
-
-  const { error: upErr } = await sb
-    .from("post_ads")
-    .update({
-      apply_status: "cancelled",
-      is_active: false,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", adId)
-    .eq("user_id", userId);
-
-  if (upErr) {
-    return { ok: false, error: upErr.message || "update_failed" };
-  }
-
-  await insertAdLogInDb(sb, adId, userId, "cancelled", {});
-  return { ok: true };
+  return { ok: true, idempotent: r.idempotent, refundedAmount: r.refundedAmount };
 }
 
 type AdminPatchAction = "approve" | "reject" | "cancel" | "expire" | "confirm_payment";
 
+/** 관리자 상태 전이 허용 원본 상태 — UPDATE 조건(.in) 으로 강제 (TOCTOU 방지). */
+export const ADMIN_POST_AD_TRANSITION_FROM: Record<
+  "approve" | "cancel" | "expire" | "confirm_payment",
+  readonly AdApplyStatus[]
+> = {
+  approve: ["pending_payment", "pending_review"],
+  /* 관리자 UI 는 cancelled/expired 외 행에 취소 버튼 노출 — 노출 중(active) 강제 취소 유지, rejected 제외 */
+  cancel: ["draft", "pending_payment", "pending_review", "approved", "active"],
+  expire: ["active", "approved"],
+  confirm_payment: ["pending_payment"],
+};
+
 /**
  * 서비스 롤 — 관리자 광고 처리. 성공 시 `{ ok: true }`, 해당 id 행 없으면 `{ ok: false, notFound: true }`.
+ * - reject: DB RPC `refund_post_ad_points` (환불+상태 전이 원자 처리)
+ * - approve/cancel/expire/confirm_payment: 상태 조건부 UPDATE, 0행이면 `not_allowed`
  */
 export async function adminPatchPostAdInDb(
   sb: SupabaseClient,
@@ -615,8 +677,9 @@ export async function adminPatchPostAdInDb(
   adminId: string,
   action: AdminPatchAction,
   adminNote?: string,
-  options?: { refundPoints?: (input: { userId: string; pointCost: number; adProductName?: string }) => Promise<void> }
-): Promise<{ ok: true } | { ok: false; notFound?: boolean; error?: string }> {
+  /** @deprecated 환불은 DB RPC `refund_post_ad_points` 가 수행 — 무시됨 (호환용 시그니처). */
+  _options?: { refundPoints?: (input: { userId: string; pointCost: number; adProductName?: string }) => Promise<void> }
+): Promise<{ ok: true } | { ok: false; notFound?: boolean; error?: string; httpStatus?: number }> {
   const { data: row, error: readErr } = await sb
     .from("post_ads")
     .select("id, user_id, ad_product_id, apply_status, payment_method, point_cost, paid_amount")
@@ -629,87 +692,79 @@ export async function adminPatchPostAdInDb(
 
   const now = new Date().toISOString();
 
+  const conditionalUpdate = async (
+    from: readonly AdApplyStatus[],
+    patch: Record<string, unknown>
+  ): Promise<{ ok: true } | { ok: false; error: string; httpStatus?: number }> => {
+    const { data, error } = await sb
+      .from("post_ads")
+      .update(patch)
+      .eq("id", adId)
+      .in("apply_status", [...from])
+      .select("id");
+    if (error) return { ok: false, error: error.message };
+    if (!Array.isArray(data) || data.length === 0) {
+      return { ok: false, error: "not_allowed", httpStatus: 409 };
+    }
+    return { ok: true };
+  };
+
   if (action === "confirm_payment") {
     if (row.apply_status !== "pending_payment") {
       return { ok: false, error: "not_pending_payment" };
     }
-    const { error } = await sb
-      .from("post_ads")
-      .update({
-        apply_status: "pending_review",
-        admin_note: adminNote ?? null,
-        updated_at: now,
-      })
-      .eq("id", adId);
-    if (error) return { ok: false, error: error.message };
+    const up = await conditionalUpdate(ADMIN_POST_AD_TRANSITION_FROM.confirm_payment, {
+      apply_status: "pending_review",
+      admin_note: adminNote ?? null,
+      updated_at: now,
+    });
+    if (!up.ok) return up;
     await insertAdLogInDb(sb, adId, adminId, "payment_confirmed", { note: adminNote ?? "" });
     return { ok: true };
   }
 
   if (action === "reject") {
-    const pointCost = Number(row.point_cost) || 0;
-    const paidAmount = Number(row.paid_amount) || 0;
-    if (
-      row.payment_method === "points" &&
-      pointCost > 0 &&
-      paidAmount > 0 &&
-      options?.refundPoints &&
-      row.user_id
-    ) {
-      let adProductName: string | undefined;
-      if (row.ad_product_id) {
-        const { data: prod } = await sb.from("ad_products").select("name").eq("id", row.ad_product_id).maybeSingle();
-        adProductName = typeof prod?.name === "string" ? prod.name : undefined;
-      }
-      await options.refundPoints({
-        userId: String(row.user_id),
-        pointCost,
-        adProductName,
+    const r = await refundPostAdPointsViaRpc(sb, {
+      userId: String(row.user_id ?? ""),
+      adId,
+      actorType: "admin",
+      actorId: adminId,
+      targetStatus: "rejected",
+      reason: adminNote ?? null,
+    });
+    if (!r.ok) {
+      if (r.error === "not_found") return { ok: false, notFound: true };
+      return { ok: false, error: r.error, httpStatus: httpStatusForRefundPostAdPointsError(r.error) };
+    }
+    if (!r.idempotent) {
+      await insertAdLogInDb(sb, adId, adminId, "rejected", {
+        note: adminNote ?? "",
+        refunded_amount: r.refundedAmount,
       });
     }
-
-    const { error } = await sb
-      .from("post_ads")
-      .update({
-        apply_status: "rejected",
-        is_active: false,
-        rejected_by: adminId,
-        rejected_at: now,
-        admin_note: adminNote ?? null,
-        updated_at: now,
-      })
-      .eq("id", adId);
-    if (error) return { ok: false, error: error.message };
-    await insertAdLogInDb(sb, adId, adminId, "rejected", { note: adminNote ?? "" });
     return { ok: true };
   }
 
   if (action === "cancel") {
-    const { error } = await sb
-      .from("post_ads")
-      .update({
-        apply_status: "cancelled",
-        is_active: false,
-        admin_note: adminNote ?? null,
-        updated_at: now,
-      })
-      .eq("id", adId);
-    if (error) return { ok: false, error: error.message };
+    const up = await conditionalUpdate(ADMIN_POST_AD_TRANSITION_FROM.cancel, {
+      apply_status: "cancelled",
+      is_active: false,
+      admin_note: adminNote ?? null,
+      updated_at: now,
+    });
+    if (!up.ok) return up;
     await insertAdLogInDb(sb, adId, adminId, "cancelled", { note: adminNote ?? "" });
     return { ok: true };
   }
 
   if (action === "expire") {
-    const { error } = await sb
-      .from("post_ads")
-      .update({
-        apply_status: "expired",
-        is_active: false,
-        admin_note: adminNote ?? null,
-        updated_at: now,
-      })
-      .eq("id", adId);
-    if (error) return { ok: false, error: error.message };
+    const up = await conditionalUpdate(ADMIN_POST_AD_TRANSITION_FROM.expire, {
+      apply_status: "expired",
+      is_active: false,
+      admin_note: adminNote ?? null,
+      updated_at: now,
+    });
+    if (!up.ok) return up;
     await insertAdLogInDb(sb, adId, adminId, "expired", { note: adminNote ?? "" });
     return { ok: true };
   }
@@ -728,21 +783,17 @@ export async function adminPatchPostAdInDb(
 
   const start = new Date();
   const end = new Date(start.getTime() + durationDays * 86400000);
-  const { error } = await sb
-    .from("post_ads")
-    .update({
-      apply_status: "active",
-      is_active: true,
-      start_at: start.toISOString(),
-      end_at: end.toISOString(),
-      approved_by: adminId,
-      approved_at: now,
-      admin_note: adminNote ?? null,
-      updated_at: now,
-    })
-    .eq("id", adId);
-
-  if (error) return { ok: false, error: error.message };
+  const up = await conditionalUpdate(ADMIN_POST_AD_TRANSITION_FROM.approve, {
+    apply_status: "active",
+    is_active: true,
+    start_at: start.toISOString(),
+    end_at: end.toISOString(),
+    approved_by: adminId,
+    approved_at: now,
+    admin_note: adminNote ?? null,
+    updated_at: now,
+  });
+  if (!up.ok) return up;
   await insertAdLogInDb(sb, adId, adminId, "approved", { note: adminNote ?? "" });
   return { ok: true };
 }

@@ -41,6 +41,7 @@ import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/
 import {
   computeGiftRedemptionSplit,
   giftInstanceAllowsCheckoutStore,
+  giftInstanceValidityError,
   isGiftScope,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import {
@@ -421,7 +422,9 @@ export async function POST(req: NextRequest) {
     const gid = giftInstanceIds[0]!;
     const { data: giftRow, error: giftErr } = await sb
       .from("gift_certificate_instances")
-      .select("id, store_id, gift_scope, current_owner_user_id, remaining_balance, status")
+      .select(
+        "id, store_id, gift_scope, current_owner_user_id, remaining_balance, status, valid_from, valid_until"
+      )
       .eq("id", gid)
       .maybeSingle();
     if (giftErr) {
@@ -452,6 +455,14 @@ export async function POST(req: NextRequest) {
     // One-time contract: only pristine ACTIVE may redeem (historical PARTIAL never second-redeems).
     if (status !== "ACTIVE") {
       return NextResponse.json({ ok: false, error: "gift_invalid_status" }, { status: 400 });
+    }
+    // Validity window — mirrors SQL gift_certificate_instance_is_expired / valid_from (Asia/Manila date).
+    const validityErr = giftInstanceValidityError({
+      validFrom: row.valid_from == null ? null : String(row.valid_from),
+      validUntil: row.valid_until == null ? null : String(row.valid_until),
+    });
+    if (validityErr) {
+      return NextResponse.json({ ok: false, error: validityErr }, { status: 400 });
     }
     const giftRemaining = Math.trunc(Number(row.remaining_balance) || 0);
     if (giftRemaining <= 0) {

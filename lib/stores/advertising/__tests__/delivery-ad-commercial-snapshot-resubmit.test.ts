@@ -17,6 +17,12 @@ vi.mock("@/lib/stores/advertising/delivery-ad-commercial-catalog", () => ({
     prepareOwnerPaidCampaignSnapshotFromQuote(...args),
 }));
 
+// No SECURED canonical funding in these scenarios (F-09 reuse path covered in
+// delivery-ad-f09-funding-secured-guards.test.ts).
+vi.mock("@/lib/stores/advertising/canonical-business-cash-writer", () => ({
+  hasCanonicalBcFundingSecured: async () => false,
+}));
+
 import { attachOwnerPaidCommercialSnapshotOnSubmit } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 
 describe("commercial snapshot resubmit reuse", () => {

@@ -1080,6 +1080,8 @@ export const adminMessages = {
     admin_api_err_forbidden: "관리자 권한이 필요합니다.",
     admin_api_err_insufficient_balance: "잔액이 부족하여 차감할 수 없습니다.",
     admin_api_err_store_not_found: "매장을 찾을 수 없습니다.",
+    admin_api_err_snapshot_invalid: "충전 신청 스냅샷(요금제·금액)이 유효하지 않아 승인할 수 없습니다. 신청 내용을 확인해 주세요.",
+    admin_api_err_payout_reference_required: "지급 참조번호를 입력해 주세요.",
     admin_page_store_point_ledger: "이전 매장 운영 원장 보관함",
     admin_store_point_ledger_desc: "비제품 과거 기록을 읽기 전용으로 제공합니다.",
     admin_store_point_ledger_archive_notice:
@@ -2579,6 +2581,8 @@ export const adminMessages = {
     admin_stores_settlements_err_invalid_state:
       "이미 처리되었거나 이 작업을 할 수 없는 상태입니다. 목록을 새로고침해 주세요.",
     admin_stores_settlements_err_hold_required: "보류 사유를 입력해 주세요.",
+    admin_stores_settlements_err_payout_reference_required: "지급 완료 처리에는 지급 수단과 지급 참조번호가 모두 필요합니다.",
+    admin_stores_settlements_err_coin_recognized: "이 주문은 이미 판매 Coin으로 인식되어 현금 정산 지급 완료로 처리할 수 없습니다(이중 지급 방지).",
     admin_stores_settlements_err_invalid_status: "유효하지 않은 처리 유형입니다.",
     admin_stores_settlements_err_failed: "요청에 실패했습니다.",
     admin_stores_settlements_err_ops_not_allowed: "현재 상태에서는 선택한 처리를 할 수 없습니다.",
@@ -4106,6 +4110,8 @@ export const adminMessages = {
     admin_api_err_forbidden: "Admin access required.",
     admin_api_err_insufficient_balance: "Insufficient balance to deduct points.",
     admin_api_err_store_not_found: "Store not found.",
+    admin_api_err_snapshot_invalid: "The charge request snapshot (plan/amount) is invalid, so it cannot be approved. Please review the request.",
+    admin_api_err_payout_reference_required: "Enter a payout reference.",
     admin_page_store_point_ledger: "Historical store operations ledger archive",
     admin_store_point_ledger_desc: "Read-only non-product historical records.",
     admin_store_point_ledger_archive_notice:
@@ -5593,6 +5599,8 @@ export const adminMessages = {
     admin_stores_settlements_hold_reason_ph: "Enter reason",
     admin_stores_settlements_err_invalid_state: "Already processed or action not allowed. Refresh the list.",
     admin_stores_settlements_err_hold_required: "Enter a hold reason.",
+    admin_stores_settlements_err_payout_reference_required: "Marking as paid requires both a payout method and a payout reference.",
+    admin_stores_settlements_err_coin_recognized: "This order was already recognized as sale Coin, so the cash settlement cannot be marked paid (prevents double payout).",
     admin_stores_settlements_err_invalid_status: "Invalid operation type.",
     admin_stores_settlements_err_failed: "Request failed.",
     admin_stores_settlements_err_ops_not_allowed: "Selected action is not allowed in the current state.",

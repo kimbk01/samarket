@@ -56,14 +56,22 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "mark_paid") {
+    const payoutMethod = String(body.payoutMethod ?? body.payout_method ?? "").trim();
+    const payoutReference = String(body.payoutReference ?? body.payout_reference ?? "").trim();
+    if (!payoutReference || !payoutMethod) {
+      return NextResponse.json({ ok: false, error: "payout_reference_required" }, { status: 400 });
+    }
     const result = await markCoinWithdrawalPaid(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
-      payoutMethod: String(body.payoutMethod ?? body.payout_method ?? ""),
-      payoutReference: String(body.payoutReference ?? body.payout_reference ?? ""),
+      payoutMethod,
+      payoutReference,
       payoutNote: String(body.payoutNote ?? body.payout_note ?? ""),
     });
-    if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    if (!result.ok) {
+      /* RPC: payout_reference_required (blank ref) 등 — 코드 그대로 400 */
+      return NextResponse.json({ ok: false, error: result.error ?? "mark_paid_failed" }, { status: 400 });
+    }
     return NextResponse.json({ ok: true });
   }
 

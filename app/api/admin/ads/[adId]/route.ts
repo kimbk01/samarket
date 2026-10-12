@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { creditUserPoints } from "@/lib/points/user-point-ledger";
 import type { AdApplyStatus } from "@/lib/ads/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { adminPatchPostAdInDb } from "@/lib/ads/post-ads-supabase";
@@ -50,35 +49,32 @@ export async function PATCH(
     action === "expire" ||
     action === "confirm_payment"
   ) {
-    const db = await adminPatchPostAdInDb(svc, adId, adminId, action, adminNote, {
-      refundPoints: async ({ userId, pointCost, adProductName }) => {
-        await creditUserPoints(svc, {
-          userId,
-          amount: pointCost,
-          entryType: "ad_refund",
-          relatedType: "ad_application",
-          relatedId: adId,
-          description: `${adProductName ?? "광고"} 반려 환불`,
-          actorType: "admin",
-        });
-      },
-    });
+    const db = await adminPatchPostAdInDb(svc, adId, adminId, action, adminNote);
     if (!db.ok) {
       return NextResponse.json(
         { ok: false, error: db.notFound ? "not_found" : db.error ?? "action_failed" },
-        { status: db.notFound ? 404 : 400 }
+        { status: db.notFound ? 404 : db.httpStatus ?? 400 }
       );
     }
     return NextResponse.json({ ok: true, source: "supabase" });
   }
 
   if (action === "update" || body.status || body.priority !== undefined || body.endAt) {
+    /*
+     * apply_status 는 generic update 로 직접 설정하지 않는다 — 환불·상태 전이 규칙이 있는
+     * 전용 action(approve/reject/cancel/expire/confirm_payment) 경로로만 처리.
+     */
+    if (body.status) {
+      return NextResponse.json(
+        { ok: false, error: "status_change_requires_action" },
+        { status: 400 }
+      );
+    }
     const now = new Date().toISOString();
     const payload: Record<string, unknown> = { updated_at: now };
     if (adminNote !== undefined) payload.admin_note = adminNote ?? null;
     if (body.priority !== undefined) payload.priority = body.priority;
     if (body.endAt !== undefined) payload.end_at = body.endAt;
-    if (body.status) payload.apply_status = body.status;
 
     const { data, error } = await svc
       .from("post_ads")

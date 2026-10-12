@@ -12,6 +12,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
 import { DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import type { DeliveryAdProductKey } from "@/lib/stores/advertising/delivery-ad-product-registry";
+import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const OWNER_AD_PACKAGE_PRICING_MODEL_PREFIX = "pkg:" as const;
 
@@ -83,6 +84,39 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
 ): Promise<OwnerCommercialAttachResult> {
   const packageId = String(input.packageId ?? "").trim();
   if (!packageId) return { ok: false, error: "package_required" };
+
+  /**
+   * F-09 — Cash already SECURED against the bound snapshot (e.g. resubmit after a failed
+   * transition). The bound price is authority; re-quoting could fail with quote_stale /
+   * existing_snapshot_mismatch and strand the funding. Reuse the existing snapshot.
+   */
+  const fundingSecured = await hasCanonicalBcFundingSecured(sb, {
+    productKind: input.productKind,
+    applicationId: input.campaignId,
+  });
+  if (fundingSecured) {
+    const { data: bound, error: boundErr } = await sb
+      .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
+      .select("package_id, final_payable_minor, currency")
+      .eq("campaign_id", input.campaignId)
+      .eq("product_kind", input.productKind)
+      .maybeSingle();
+    if (boundErr) {
+      return { ok: false, error: "commercial_snapshot_failed", quoteError: boundErr.message };
+    }
+    if (bound) {
+      const b = bound as { package_id?: unknown; final_payable_minor?: unknown; currency?: unknown };
+      const boundPayable = Math.trunc(Number(b.final_payable_minor ?? NaN));
+      if (Number.isFinite(boundPayable)) {
+        return {
+          ok: true,
+          finalPayableMinor: boundPayable,
+          currency: typeof b.currency === "string" && b.currency ? b.currency : "PHP",
+          packageId: typeof b.package_id === "string" && b.package_id ? b.package_id : packageId,
+        };
+      }
+    }
+  }
 
   const quote = await quoteDeliveryAdApplicationCommercial(sb, {
     productKind: input.productKind,

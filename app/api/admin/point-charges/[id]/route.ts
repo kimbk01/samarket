@@ -149,6 +149,13 @@ export async function PATCH(
       if (errCode === "user_not_found") {
         return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
       }
+      if (errCode === "snapshot_invalid") {
+        /* 신청 시점 요금제·금액 스냅샷 불일치 — 승인 차단 (UI: admin_api_err_snapshot_invalid) */
+        return NextResponse.json(
+          { ok: false, error: "snapshot_invalid", message_key: "admin_api_err_snapshot_invalid" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ ok: false, error: errCode }, { status: 400 });
     }
 

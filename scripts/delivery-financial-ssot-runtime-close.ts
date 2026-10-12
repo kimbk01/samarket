@@ -17,6 +17,10 @@ import { loadStoreSettlementFinancialFacts, settlementPeriodDayToIso } from "@/l
 import { STORE_ORDER_FINANCIAL_CONTRACT } from "@/lib/stores/store-order-financial-contract";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { resolveEffectiveStoreFeePolicy } from "@/lib/stores/store-fee-policy-resolve";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 type Case = { id: string; ok: boolean; detail: string };
 
