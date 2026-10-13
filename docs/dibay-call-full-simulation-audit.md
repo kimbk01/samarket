@@ -255,7 +255,7 @@ accept_click → accept_signal_received → accept_patch_start → accept_patch_
 | 본인 live session | `GET /api/community-messenger/calls/sessions/active` |
 | 수신 목록 | `GET /api/community-messenger/calls/sessions/incoming?directOnly=1` |
 | 세션 상세 | `GET /api/community-messenger/calls/sessions/:id` |
-| 발신 생성 | `POST /api/community-messenger/calls` (room) |
+| 발신 생성 | `POST /api/community-messenger/rooms/:roomId/calls` |
 
 ### 6.2 서버 live 판정 (`getUserLiveDirectCallSessionId`)
 
