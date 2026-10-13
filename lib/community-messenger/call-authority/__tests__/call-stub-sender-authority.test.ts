@@ -131,6 +131,27 @@ describe("call stub sender authority (pure)", () => {
     ).toBe("caller");
     expect(pickActiveCallStubSender(["callee", "caller"], [{ user_id: "caller", left_at: "x" }])).toBeNull();
   });
+
+  it("skips participants with blocked_hidden_at set", () => {
+    expect(
+      pickActiveCallStubSender(
+        ["callee", "caller"],
+        [
+          { user_id: "callee", left_at: null, blocked_hidden_at: "2026-06-01T00:00:00.000Z" },
+          { user_id: "caller", left_at: null, blocked_hidden_at: null },
+        ]
+      )
+    ).toBe("caller");
+    expect(
+      pickActiveCallStubSender(
+        ["callee", "caller"],
+        [
+          { user_id: "callee", left_at: null, blocked_hidden_at: "2026-06-01T00:00:00.000Z" },
+          { user_id: "caller", left_at: null, blocked_hidden_at: "2026-06-01T00:00:00.000Z" },
+        ]
+      )
+    ).toBeNull();
+  });
 });
 
 describe("appendCommunityMessengerCallStubMessage — active sender + surfaced failure", () => {
@@ -153,23 +174,47 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
     expect(appendAtomicMock.mock.calls[0]![1]).toEqual(expect.objectContaining({ senderId: "caller" }));
   });
 
-  it("re-admits left call parties once so terminal stub reaches chat list (no forged call_log)", async () => {
+  it("does not re-admit left call parties — fail-closed without mutating membership", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     tables.community_messenger_participants = [
       { room_id: "room-1", user_id: "callee", left_at: "2026-06-05T00:00:00.000Z" },
       { room_id: "room-1", user_id: "caller", left_at: "2026-06-05T00:00:00.000Z" },
     ];
+    const before = structuredClone(tables.community_messenger_participants);
     const result = await appendCommunityMessengerCallStubMessage({ ...baseStub, userId: "callee" });
-    expect(result).toEqual({ ok: true, messageId: "msg-1", senderId: "callee" });
-    expect(appendAtomicMock).toHaveBeenCalledTimes(1);
-    expect(tables.community_messenger_participants).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ user_id: "callee", left_at: null }),
-        expect.objectContaining({ user_id: "caller", left_at: null }),
-      ])
-    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe(CALL_STUB_NO_ACTIVE_SENDER_ERROR);
+    expect(appendAtomicMock).not.toHaveBeenCalled();
+    expect(tables.community_messenger_participants).toEqual(before);
+    errSpy.mockRestore();
   });
 
-  it("returns an explicit error when session party ids are missing so heal cannot run", async () => {
+  it("does not clear blocked_hidden_at to force a stub sender", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    tables.community_messenger_participants = [
+      {
+        room_id: "room-1",
+        user_id: "callee",
+        left_at: null,
+        blocked_hidden_at: "2026-06-05T00:00:00.000Z",
+      },
+      {
+        room_id: "room-1",
+        user_id: "caller",
+        left_at: null,
+        blocked_hidden_at: "2026-06-05T00:00:00.000Z",
+      },
+    ];
+    const before = structuredClone(tables.community_messenger_participants);
+    const result = await appendCommunityMessengerCallStubMessage({ ...baseStub, userId: "callee" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe(CALL_STUB_NO_ACTIVE_SENDER_ERROR);
+    expect(appendAtomicMock).not.toHaveBeenCalled();
+    expect(tables.community_messenger_participants).toEqual(before);
+    errSpy.mockRestore();
+  });
+
+  it("returns an explicit error when no active participants exist (no membership heal)", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     tables.community_messenger_participants = [];
     const result = await appendCommunityMessengerCallStubMessage({
@@ -188,7 +233,8 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
     errSpy.mockRestore();
   });
 
-  it("createCommunityMessengerCallLog heals empty membership then projects stub with the call log", async () => {
+  it("createCommunityMessengerCallLog keeps call_log when stub fails closed (no membership heal)", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     tables.community_messenger_participants = [];
     const result = await createCommunityMessengerCallLog({
       userId: "caller",
@@ -204,8 +250,14 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
       recipientUserId: "callee",
     });
     expect(insertedCallLogs).toHaveLength(1);
-    expect(result).toEqual({ ok: true, callLogPersisted: true });
-    expect(appendAtomicMock).toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: `call_stub_projection_failed:${CALL_STUB_NO_ACTIVE_SENDER_ERROR}`,
+      callLogPersisted: true,
+    });
+    expect(appendAtomicMock).not.toHaveBeenCalled();
+    expect(tables.community_messenger_participants).toEqual([]);
+    errSpy.mockRestore();
   });
 
   it("createCommunityMessengerCallLog projects the stub via the active initiator when the rejecting callee left", async () => {

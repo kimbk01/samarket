@@ -9,9 +9,11 @@
  *
  * Contract:
  *   - Sender = first *active* member among [preferred actor, terminal actor, initiator, recipient].
+ *   - Active = left_at IS NULL and blocked_hidden_at IS NULL (no membership heal / re-admit).
  *   - Projection semantics (label, resolvedEvent, terminalActorUserId metadata) never change —
  *     only the row's sender_id falls back.
  *   - No active candidate → explicit `no_active_stub_sender` failure (never a silent drop).
+ *   - Call stub projection must not mutate participants (no left_at / blocked_hidden_at clear).
  */
 
 export const CALL_STUB_NO_ACTIVE_SENDER_ERROR = "no_active_stub_sender" as const;
@@ -37,13 +39,18 @@ export function resolveCallStubSenderCandidates(input: {
 
 export function pickActiveCallStubSender(
   candidates: readonly string[],
-  participantRows: ReadonlyArray<{ user_id?: string | null; left_at?: string | null }>
+  participantRows: ReadonlyArray<{
+    user_id?: string | null;
+    left_at?: string | null;
+    blocked_hidden_at?: string | null;
+  }>
 ): string | null {
   const active = new Set<string>();
   for (const row of participantRows) {
     const id = String(row.user_id ?? "").trim();
     if (!id) continue;
     if (row.left_at != null && String(row.left_at).trim() !== "") continue;
+    if (row.blocked_hidden_at != null && String(row.blocked_hidden_at).trim() !== "") continue;
     active.add(id);
   }
   for (const candidate of candidates) {

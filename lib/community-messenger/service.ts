@@ -5601,6 +5601,9 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     /**
      * Sender must be an active member (RPC rejects not_member / participant_left).
      * Terminal actor may have left → fall back to the other call party who is still in the room.
+     * Never mutate membership for stub projection (no left_at / blocked_hidden_at heal, no
+     * ensureDirectMessengerRoomParticipantsForPair). Blocked / left parties stay fail-closed;
+     * call_logs remain a separate write via createCommunityMessengerCallLog.
      */
     const senderCandidates = resolveCallStubSenderCandidates({
       preferredUserId: input.userId,
@@ -5614,7 +5617,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     > => {
       const { data: participantRows, error: participantErr } = await (sb as any)
         .from("community_messenger_participants")
-        .select("user_id, left_at")
+        .select("user_id, left_at, blocked_hidden_at")
         .eq("room_id", input.roomId)
         .in("user_id", senderCandidates);
       if (participantErr) {
@@ -5625,28 +5628,17 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       }
       const senderId = pickActiveCallStubSender(
         senderCandidates,
-        (participantRows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>
+        (participantRows ?? []) as Array<{
+          user_id?: string | null;
+          left_at?: string | null;
+          blocked_hidden_at?: string | null;
+        }>
       );
       if (!senderId) return { ok: false, error: CALL_STUB_NO_ACTIVE_SENDER_ERROR };
       return { ok: true, senderId };
     };
-    /**
-     * Terminal stub must reach chat list + room tip. If both call parties left/missing,
-     * re-admit the session pair once (same readmit path as opening a general DM) — never
-     * invent a forged call_log POST, never use a non-member sender.
-     */
-    const healCallPartyMembershipOnce = async (): Promise<void> => {
-      const initiator = trimText(input.initiatorUserId ?? "");
-      const recipient = trimText(input.recipientUserId ?? "");
-      if (!initiator || !recipient || initiator === recipient) return;
-      await ensureDirectMessengerRoomParticipantsForPair(sb, input.roomId!, initiator, recipient);
-    };
 
-    let senderPick = await loadActiveStubSender();
-    if (!senderPick.ok && senderPick.error === CALL_STUB_NO_ACTIVE_SENDER_ERROR) {
-      await healCallPartyMembershipOnce();
-      senderPick = await loadActiveStubSender();
-    }
+    const senderPick = await loadActiveStubSender();
     if (!senderPick.ok) {
       console.error("[room_unread_v1] call_stub_append", {
         code: "cm_call_stub_projection_failed",
@@ -5657,7 +5649,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       });
       return { ok: false, error: senderPick.error, candidates: senderCandidates };
     }
-    let stubSenderId = senderPick.senderId;
+    const stubSenderId = senderPick.senderId;
     const createdAt = trimText(input.createdAt) || nowIso();
     const idempotencyKey = resolveCallStubIdempotencyKey({
       sessionId,
@@ -5665,7 +5657,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       roomId: input.roomId,
       createdAt,
     });
-    let appended = await appendTypedMessengerMessageAtomic(sb as any, {
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
       roomId: input.roomId,
       senderId: stubSenderId,
       messageType: "call_stub",
@@ -5676,26 +5668,6 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       /** CUT4: one stub per session — do not include actor/label in key */
       idempotencyKey,
     });
-    if (
-      !appended.ok &&
-      (appended.error === "not_member" || appended.error === "participant_left")
-    ) {
-      await healCallPartyMembershipOnce();
-      const healedSender = await loadActiveStubSender();
-      if (healedSender.ok) {
-        stubSenderId = healedSender.senderId;
-        appended = await appendTypedMessengerMessageAtomic(sb as any, {
-          roomId: input.roomId,
-          senderId: stubSenderId,
-          messageType: "call_stub",
-          content: label,
-          metadata,
-          createdAt,
-          countsAsUnread: shouldIncrementUnread,
-          idempotencyKey,
-        });
-      }
-    }
     if (!appended.ok) {
       console.error("[room_unread_v1] call_stub_append", {
         code: "cm_call_stub_projection_failed",
@@ -18417,9 +18389,9 @@ export async function createCommunityMessengerCallLog(input: {
   /**
    * call_logs(사용자 통화 기록) 와 call_stub(채팅 목록 투영)는 두 쓰기다 — 단일 RPC 가 없다.
    * 로그는 유지(통화 사실은 사라지면 안 됨)하고, 스텁 실패는 삼키지 않고 결과로 노출한다.
-   * 스텁 sender 는 활성 멤버로 해석되므로(call-stub-sender-authority) 나간 actor 때문에
-   * 목록만 갱신이 빠지는 분기는 더 이상 생기지 않는다. 같은 세션의 후속 terminal 요청은
-   * `ensureTerminalCallStub` 로 동일 idempotency key 를 다시 투영한다.
+   * 스텁은 활성 멤버(left_at / blocked_hidden_at 모두 null)만 sender 로 쓰며, 멤버십을
+   * 고쳐 쓰지 않는다. 양측 퇴장·차단 숨김이면 stub 만 fail-closed · call_log 는 유지.
+   * 같은 세션의 후속 terminal 요청은 `ensureTerminalCallStub` 로 동일 idempotency key 를 다시 투영한다.
    */
   const toCallLogResult = (
     stub: CallStubAppendResult
