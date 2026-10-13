@@ -115,7 +115,7 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
 
   it("B7 queue Realtime is queue-wide; search is debounced", () => {
     const page = read("components/admin/support/AdminSupportPage.tsx");
-    expect(page).toContain('.channel("admin-support-queue")');
+    expect(page).toContain('.channel("admin-support-queue", privateRealtimeChannelOptions())');
     expect(page).not.toContain("filter: `case_id=eq.${activeId}`");
     expect(page).toContain("setAppliedSearch(search), 300");
   });
