@@ -73,6 +73,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { ForegroundIncomingCallHost } from "@/components/community-messenger/ForegroundIncomingCallHost";
@@ -1466,6 +1467,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     const sub = acquireIncomingCallRealtimeSubscription({
       sb,
       name: `community-messenger-incoming-call:${userId}`,
+      /** Public access OFF — private join; authorized by internal.cm_realtime_can_read_topic (own user id). */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       scope: INCOMING_CALL_REALTIME_SCOPE,
       isCancelled: () => cancelled,
       silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
