@@ -134,6 +134,23 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
     default:
       break
     }
+    // Connected peer left normally (Agora offline QUIT=0) → remote end owner (same as incoming):
+    // local teardown + one server `end` (peer may be force-killed). Other reasons unchanged.
+    if snap.state == .connected, reason == "remote_offline=0" {
+      cancelConnectingTimeout()
+      NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "remote_quit")
+      DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
+      log("ios_native_video_outgoing_remote_left", sid, "reason=\(reason)")
+      syncQueue.sync {
+        outgoingGenerationBySession.removeValue(forKey: sid)
+        agoraGenerationBySession.removeValue(forKey: sid)
+      }
+      NativeVideoIncomingCallCoordinator.shared.handleRemoteQuitWhileConnected(
+        sessionId: sid,
+        source: "outgoing_agora_remote_offline"
+      )
+      return
+    }
     terminateOutgoing(sessionId: sid, reason: "agora_disconnected:\(reason)")
   }
 

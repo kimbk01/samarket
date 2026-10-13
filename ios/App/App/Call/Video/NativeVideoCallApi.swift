@@ -59,6 +59,25 @@ enum NativeVideoCallApi {
     )
   }
 
+  /**
+   * `end` carrying a diagnostic `clientEndedReason` (trigger name).
+   * Not in server TRUSTED_CLIENT_ENDED_REASONS → server keeps default ended_reason semantics.
+   */
+  static func endAsync(
+    callId: String,
+    clientEndedReason: String,
+    completion: @escaping PatchCallback
+  ) {
+    patchAsync(
+      callId: callId,
+      action: "end",
+      startMarker: "end_patch_start",
+      doneMarker: "end_patch_done",
+      extraBody: ["clientEndedReason": clientEndedReason],
+      completion: completion
+    )
+  }
+
   static func startCallerJoinAsync(
     callId: String,
     roomId: String,

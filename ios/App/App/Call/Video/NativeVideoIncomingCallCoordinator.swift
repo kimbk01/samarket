@@ -303,6 +303,41 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     )
   }
 
+  /**
+   * Remote QUIT while CONNECTED (video incoming + outgoing single owner).
+   * 1) Local teardown via `handleRemoteTerminal` (remote_ended presentation).
+   * 2) Then ONE server `end` so the session does not wait for the both-sides-stale sweep.
+   * Skips the PATCH when a server terminal (VoIP call_ended / prior CallKit end) already
+   * owns this session — server already ended it.
+   */
+  func handleRemoteQuitWhileConnected(sessionId: String, source: String) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    let serverTerminalSeen = CallKitProvider.shared.isTerminalSuppressed(sessionId: sid)
+      || CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+    log(
+      "ios_native_video_remote_quit_connected",
+      sid,
+      "source=\(source) terminalSeen=\(serverTerminalSeen ? 1 : 0)"
+    )
+    handleRemoteTerminal(sessionId: sid)
+    guard !serverTerminalSeen else { return }
+    guard NativeCallServerEndOnce.claim(sessionId: sid) else {
+      log("ios_native_video_remote_quit_end_duplicate_skipped", sid, "source=\(source)")
+      return
+    }
+    NativeVideoCallApi.endAsync(
+      callId: sid,
+      clientEndedReason: NativeCallServerEndOnce.reasonRemoteQuit
+    ) { [weak self] ok, status, error in
+      self?.log(
+        "ios_native_video_remote_quit_end_patch_done",
+        sid,
+        "ok=\(ok ? 1 : 0) status=\(status) err=\(error ?? "")"
+      )
+    }
+  }
+
   // MARK: - Agora Listener
 
   func onConnected() {
@@ -345,6 +380,12 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     }
     let normalized = reason.lowercased()
     if snap.state == .connected, normalized.contains("remote_offline") {
+      // QUIT (0): peer left / force-killed → local teardown + one server `end`.
+      // Other offline reasons (DROPPED=1 …): local teardown only — server stale sweep owns.
+      if normalized == "remote_offline=0" {
+        handleRemoteQuitWhileConnected(sessionId: sid, source: "incoming_agora_remote_offline")
+        return
+      }
       handleRemoteTerminal(sessionId: sid)
       return
     }

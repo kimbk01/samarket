@@ -40,6 +40,23 @@ enum NativeVoiceCallApi {
     patchAsync(callId: callId, action: "end", completion: completion)
   }
 
+  /**
+   * `end` carrying a diagnostic `clientEndedReason` (trigger name).
+   * Not in server TRUSTED_CLIENT_ENDED_REASONS → server keeps default ended_reason semantics.
+   */
+  static func endAsync(
+    callId: String,
+    clientEndedReason: String,
+    completion: @escaping PatchCallback
+  ) {
+    patchAsync(
+      callId: callId,
+      action: "end",
+      extraBody: ["clientEndedReason": clientEndedReason],
+      completion: completion
+    )
+  }
+
   /** CUT7 — local ring timeout proposer only; server CUT2 deadline/CAS remains authority. */
   static func missedAsync(callId: String, completion: @escaping PatchCallback) {
     patchAsync(callId: callId, action: "missed", completion: completion)
@@ -288,4 +305,31 @@ enum NativeVoiceCallApi {
     }
   }
 
+}
+
+/**
+ * Native-initiated server `end` owner gate — at most ONE end PATCH per session from the
+ * remote-QUIT-while-connected path and the app-terminate path (voice + video share it).
+ * Server end stays idempotent; this only prevents duplicate client emits.
+ * Local user end / failure paths keep their own existing single `end` (runtime phase gated).
+ */
+enum NativeCallServerEndOnce {
+  /** Peer left the Agora channel normally (offline reason QUIT=0) while we were CONNECTED. */
+  static let reasonRemoteQuit = "ios_native_remote_quit"
+  /** iOS `applicationWillTerminate` during a live Native call (swipe-kill). */
+  static let reasonAppTerminate = "ios_native_app_terminate"
+
+  private static let lock = NSLock()
+  private static var claimedSessionIds = Set<String>()
+
+  /// Returns true exactly once per sessionId.
+  static func claim(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    lock.lock()
+    defer { lock.unlock() }
+    if claimedSessionIds.contains(sid) { return false }
+    claimedSessionIds.insert(sid)
+    return true
+  }
 }

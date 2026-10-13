@@ -132,9 +132,13 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
     // Connected peer left normally (Agora offline reason QUIT=0) → same teardown as server
     // call_ended VoIP (`reportCallEnded`), not mediaFailed (avoids "통화 실패" notice hold).
     // Dropped (reason 1) etc. stay mediaFailed.
+    // Single owner (incoming coordinator): local teardown + one server `end` (remote may be force-killed).
     if case .connected = snap.phase, reason == "remote_offline=0" {
       log("ios_native_voice_outgoing_remote_left", sid, "reason=\(reason)")
-      CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .remoteEnded)
+      NativeVoiceIncomingCallCoordinator.shared.handleRemoteQuitWhileConnected(
+        sessionId: sid,
+        source: "outgoing_agora_remote_offline"
+      )
       return
     }
     fail(sessionId: sid, reason: .mediaFailed)

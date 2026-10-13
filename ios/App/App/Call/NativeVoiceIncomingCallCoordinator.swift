@@ -389,7 +389,49 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     let inFlight = syncQueue.sync { cleanupInFlight.contains(sid) }
     if inFlight { return }
+    // Connected peer left normally (Agora offline QUIT=0) → remote end (not mediaFailed),
+    // same owner as outgoing. Dropped (1) etc. keep the existing failure path.
+    if case .connected = snap.phase, reason == "remote_offline=0" {
+      handleRemoteQuitWhileConnected(sessionId: sid, source: "incoming_agora_remote_offline")
+      return
+    }
     failAfterFulfill(sessionId: sid, reason: .mediaFailed, serverAction: "end")
+  }
+
+  /**
+   * Remote QUIT while CONNECTED (voice incoming + outgoing single owner).
+   * 1) Local teardown = same path as server call_ended VoIP (`reportCallEnded` → handleRemoteTerminal).
+   * 2) Then ONE server `end` so the session does not wait for the both-sides-stale sweep
+   *    (peer may have been force-killed and can never PATCH itself).
+   * Skips the PATCH when a server terminal (VoIP call_ended / prior CallKit end) already
+   * owns this session — server already ended it.
+   */
+  func handleRemoteQuitWhileConnected(sessionId: String, source: String) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    let serverTerminalSeen = CallKitProvider.shared.isTerminalSuppressed(sessionId: sid)
+      || CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+    log(
+      "ios_native_voice_remote_quit_connected",
+      sid,
+      "source=\(source) terminalSeen=\(serverTerminalSeen ? 1 : 0)"
+    )
+    CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .remoteEnded)
+    guard !serverTerminalSeen else { return }
+    guard NativeCallServerEndOnce.claim(sessionId: sid) else {
+      log("ios_native_voice_remote_quit_end_duplicate_skipped", sid, "source=\(source)")
+      return
+    }
+    NativeVoiceCallApi.endAsync(
+      callId: sid,
+      clientEndedReason: NativeCallServerEndOnce.reasonRemoteQuit
+    ) { [weak self] ok, status, error in
+      self?.log(
+        "ios_native_voice_remote_quit_end_patch_done",
+        sid,
+        "ok=\(ok ? 1 : 0) status=\(status) err=\(error ?? "")"
+      )
+    }
   }
 
   func onError(reason: String) {
