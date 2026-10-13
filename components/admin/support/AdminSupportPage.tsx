@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import { privateRealtimeChannelOptions } from "@/lib/supabase/private-realtime-channel-options";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ADMIN_SUPPORT_TABS,
@@ -262,7 +262,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       }, 300);
     };
     const channel = sb
-      .channel("admin-support-queue", messengerPrivateBroadcastChannelOptions())
+      .channel("admin-support-queue", privateRealtimeChannelOptions())
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_messages" },
