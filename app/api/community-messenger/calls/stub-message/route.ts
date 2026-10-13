@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   const callEndedAt = trimText(body.callEndedAt);
   const listActivityAt = callEndedAt || new Date().toISOString();
 
-  await appendCommunityMessengerCallStubMessage({
+  const appended = await appendCommunityMessengerCallStubMessage({
     userId: senderId,
     roomId,
     sessionId: sessionId || null,
@@ -109,6 +109,9 @@ export async function POST(req: NextRequest) {
     bumpRoomLastMessageAt: true,
     durationSeconds,
   });
+  if (!appended.ok) {
+    return NextResponse.json({ ok: false, error: appended.error }, { status: 409 });
+  }
 
   await publishMessengerRoomBumpAfterMutation({
     rawRouteRoomId: roomId,
