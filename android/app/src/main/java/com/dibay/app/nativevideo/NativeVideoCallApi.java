@@ -41,19 +41,29 @@ public final class NativeVideoCallApi {
   private NativeVideoCallApi() {}
 
   public static void acceptAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "accept", "accept_patch_start", "accept_patch_done", callback);
+    patchAsync(context, callId, "accept", null, "accept_patch_start", "accept_patch_done", callback);
   }
 
   public static void rejectAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "reject", "reject_patch_start", "reject_patch_done", callback);
+    patchAsync(context, callId, "reject", null, "reject_patch_start", "reject_patch_done", callback);
   }
 
   public static void endAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "end", "end_patch_start", "end_patch_done", callback);
+    endAsync(context, callId, null, callback);
+  }
+
+  /**
+   * End PATCH with a diagnostic {@code clientEndedReason} (see {@code NativeCallEndReason}). The
+   * value is untrusted server-side and never changes status / ended_reason semantics.
+   */
+  public static void endAsync(
+      Context context, String callId, String clientEndedReason, PatchCallback callback) {
+    patchAsync(
+        context, callId, "end", clientEndedReason, "end_patch_start", "end_patch_done", callback);
   }
 
   public static void missedAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "missed", "missed_patch_start", "missed_patch_done", callback);
+    patchAsync(context, callId, "missed", null, "missed_patch_start", "missed_patch_done", callback);
   }
 
   /**
@@ -219,13 +229,19 @@ public final class NativeVideoCallApi {
       Context context,
       String callId,
       String action,
+      String clientEndedReason,
       String startMarker,
       String doneMarker,
       PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    NativeVideoCallLog.info(startMarker, sid);
+    NativeVideoCallLog.info(
+        startMarker,
+        sid,
+        clientEndedReason != null && !clientEndedReason.trim().isEmpty()
+            ? "reason=" + clientEndedReason.trim()
+            : "");
     new Thread(
             () -> {
               HttpURLConnection conn = null;
@@ -246,6 +262,9 @@ public final class NativeVideoCallApi {
                 String deviceId = resolveDeviceId(app);
                 JSONObject bodyJson = new JSONObject();
                 bodyJson.put("action", action);
+                if (clientEndedReason != null && !clientEndedReason.trim().isEmpty()) {
+                  bodyJson.put("clientEndedReason", clientEndedReason.trim());
+                }
                 if (deviceId != null && !deviceId.isEmpty()) {
                   bodyJson.put("deviceId", deviceId);
                 }

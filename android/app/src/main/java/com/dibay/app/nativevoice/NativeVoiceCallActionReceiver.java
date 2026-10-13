@@ -29,7 +29,10 @@ public class NativeVoiceCallActionReceiver extends BroadcastReceiver {
     }
     if (ACTION_END.equals(action)) {
       NativeVoiceCallLog.info("end_tapped", sid, "source=notification");
-      NativeVoiceCallRuntime.end(context.getApplicationContext(), sid);
+      NativeVoiceCallRuntime.end(
+          context.getApplicationContext(),
+          sid,
+          com.dibay.app.nativecall.NativeCallEndReason.SOURCE_NOTIFICATION);
     }
   }
 }

@@ -2078,7 +2078,10 @@ public class NativeVideoCallActivity extends Activity {
         },
         v -> {
           NativeVideoCallLog.info("end_tapped", callId, "source=dock");
-          NativeVideoCallRuntime.end(NativeVideoCallActivity.this, callId);
+          NativeVideoCallRuntime.end(
+              NativeVideoCallActivity.this,
+              callId,
+              com.dibay.app.nativecall.NativeCallEndReason.SOURCE_DOCK);
         });
     if (videoRoot != null) videoRoot.setVisibility(View.GONE);
     if (overlayRoot != null) overlayRoot.setVisibility(View.GONE);

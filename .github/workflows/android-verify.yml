@@ -1,0 +1,98 @@
+name: Android verify
+
+# Verification-only: compile + Robolectric unit tests + debug APK for PRs touching android/**.
+# No secrets, no signing, no deploy.
+on:
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-verify.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    name: gradle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Capacitor sync (generates capacitor-cordova-android-plugins)
+        run: npx cap sync android
+
+      # android/gradle.properties pins org.gradle.java.home to a local macOS Android Studio JBR;
+      # override with the runner JDK (system property wins over gradle.properties). Repo file untouched.
+      - name: Accept SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Compile (Java + resources)
+        working-directory: android
+        run: ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:compileDebugJavaWithJavac :app:compileDebugUnitTestJavaWithJavac
+
+      - name: Unit tests (Robolectric, all)
+        working-directory: android
+        run: ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:testDebugUnitTest --continue
+
+      - name: Assemble debug APK
+        if: always()
+        working-directory: android
+        run: ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:assembleDebug
+
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          tot = fail = err = skip = 0
+          failed = []
+          for f in glob.glob("android/app/build/test-results/testDebugUnitTest/*.xml"):
+              r = ET.parse(f).getroot()
+              tot += int(r.get("tests", 0)); fail += int(r.get("failures", 0))
+              err += int(r.get("errors", 0)); skip += int(r.get("skipped", 0))
+              for tc in r.iter("testcase"):
+                  if tc.find("failure") is not None or tc.find("error") is not None:
+                      failed.append(f"{tc.get('classname')}#{tc.get('name')}")
+          print(f"SUMMARY tests={tot} failures={fail} errors={err} skipped={skip}")
+          for name in sorted(failed):
+              print("FAILED", name)
+          PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: |
+            android/app/build/test-results/testDebugUnitTest/
+            android/app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn

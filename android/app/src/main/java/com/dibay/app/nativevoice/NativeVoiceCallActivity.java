@@ -782,7 +782,10 @@ public class NativeVoiceCallActivity extends Activity {
         },
         v -> {
           NativeVoiceCallLog.info("end_tapped", callId, "source=dock");
-          NativeVoiceCallRuntime.end(NativeVoiceCallActivity.this, callId);
+          NativeVoiceCallRuntime.end(
+              NativeVoiceCallActivity.this,
+              callId,
+              com.dibay.app.nativecall.NativeCallEndReason.SOURCE_DOCK);
         });
     if (mediaActions != null) mediaActions.setVisibility(View.GONE);
     dockRoot.setVisibility(View.VISIBLE);

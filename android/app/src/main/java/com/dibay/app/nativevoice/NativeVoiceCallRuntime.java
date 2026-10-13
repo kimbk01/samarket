@@ -13,7 +13,9 @@ import com.dibay.app.IncomingCallRingOwner;
 import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.nativecall.NativeCallEndReason;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
+import com.dibay.app.nativecall.NativeCallTerminalEndOutbox;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,16 +85,40 @@ public final class NativeVoiceCallRuntime {
 
   interface TerminalPatchDispatcher {
     void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
+
+    /** {@code endReason} = diagnostic clientEndedReason for action=end (null otherwise). */
+    default void dispatch(
+        Context app,
+        String callId,
+        String action,
+        String endReason,
+        NativeVoiceCallApi.PatchCallback callback) {
+      dispatch(app, callId, action, callback);
+    }
   }
 
   private static final TerminalPatchDispatcher DEFAULT_PATCH_DISPATCHER =
-      (app, callId, action, callback) -> {
-        if ("reject".equals(action)) {
-          NativeVoiceCallApi.rejectAsync(app, callId, callback);
-        } else if ("missed".equals(action)) {
-          NativeVoiceCallApi.missedAsync(app, callId, callback);
-        } else {
-          NativeVoiceCallApi.endAsync(app, callId, callback);
+      new TerminalPatchDispatcher() {
+        @Override
+        public void dispatch(
+            Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback) {
+          dispatch(app, callId, action, null, callback);
+        }
+
+        @Override
+        public void dispatch(
+            Context app,
+            String callId,
+            String action,
+            String endReason,
+            NativeVoiceCallApi.PatchCallback callback) {
+          if ("reject".equals(action)) {
+            NativeVoiceCallApi.rejectAsync(app, callId, callback);
+          } else if ("missed".equals(action)) {
+            NativeVoiceCallApi.missedAsync(app, callId, callback);
+          } else {
+            NativeVoiceCallApi.endAsync(app, callId, endReason, callback);
+          }
         }
       };
 
@@ -571,7 +597,7 @@ public final class NativeVoiceCallRuntime {
 
                 @Override
                 public void onRemotePeerLeft(String reason) {
-                  onRemoteTerminal(app, sid, "ended", reason);
+                  onRemotePeerQuit(app, sid, reason);
                 }
 
                 @Override
@@ -646,7 +672,7 @@ public final class NativeVoiceCallRuntime {
 
                       @Override
                       public void onRemotePeerLeft(String reason) {
-                        onRemoteTerminal(app, sid, "ended", reason);
+                        onRemotePeerQuit(app, sid, reason);
                       }
 
                       @Override
@@ -671,7 +697,44 @@ public final class NativeVoiceCallRuntime {
     if (context != null && callId != null) {
       NativeVoiceCallLog.info("end_tapped", callId.trim(), "source=" + safe(source));
     }
-    terminalPatch(context, callId, "end");
+    terminalPatch(context, callId, "end", NativeCallEndReason.fromSource(source));
+  }
+
+  /**
+   * Bug A2 — Agora remote USER_OFFLINE_QUIT while this side is CONNECTED: also write the server end
+   * (idempotent) in addition to local cleanup, so a peer that died before its own end PATCH landed
+   * does not leave the session active until the server both-stale sweep. Same contract and
+   * exclusions as {@code NativeVideoCallRuntime.onRemotePeerQuit} (no upgrade/reattach QUIT; remote
+   * DROPPED never reaches here).
+   */
+  static void onRemotePeerQuit(Context context, String callId, String agoraReason) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session != null
+        && session.state == State.CONNECTED
+        && !NativeVoiceCallTerminalOnce.isClaimed(sid)) {
+      NativeVoiceCallLog.info("remote_quit_server_end", sid, "agoraReason=" + safe(agoraReason));
+      DibayCallConsumedStore.mark(app, sid, "end");
+      // Durable now; send after a grace so the leaving peer's own end PATCH normally lands first
+      // (ended_by_* attribution stays with the peer that hung up; ours is then idempotent).
+      NativeCallTerminalEndOutbox.record(
+          app, sid, NativeCallTerminalEndOutbox.LANE_VOICE, NativeCallEndReason.REMOTE_LEFT);
+      Runnable send =
+          () -> {
+            TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
+            if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
+            dispatcher.dispatch(
+                app,
+                sid,
+                "end",
+                NativeCallEndReason.REMOTE_LEFT,
+                (ok, status, error) -> NativeCallTerminalEndOutbox.settle(app, sid, ok, status));
+          };
+      MAIN.postDelayed(send, NativeCallTerminalEndOutbox.REMOTE_QUIT_END_GRACE_MS);
+    }
+    onRemoteTerminal(app, sid, "ended", agoraReason);
   }
 
   public static void missed(Context context, String callId) {
@@ -753,6 +816,11 @@ public final class NativeVoiceCallRuntime {
    * (same order as NativeVideoCallRuntime.terminalPatch).
    */
   private static void terminalPatch(Context context, String callId, String action) {
+    terminalPatch(context, callId, action, null);
+  }
+
+  private static void terminalPatch(
+      Context context, String callId, String action, String endReason) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -766,6 +834,13 @@ public final class NativeVoiceCallRuntime {
     if (session != null) setState(app, session, State.ENDING);
     DibayCallConsumedStore.mark(app, sid, action);
     NativeVoiceCallActivity.finishIfActive(sid, action);
+    boolean isEnd = !"reject".equals(action) && !"missed".equals(action);
+    String reason = isEnd ? (endReason != null ? endReason : NativeCallEndReason.USER_END) : null;
+    if (isEnd) {
+      // Bug A: persist the end intent BEFORE Agora leave — the peer sees QUIT right after leave and
+      // this process may be killed (swipe) before the PATCH below completes.
+      NativeCallTerminalEndOutbox.record(app, sid, NativeCallTerminalEndOutbox.LANE_VOICE, reason);
+    }
     // Release Agora at terminal intent so remote observes USER_OFFLINE promptly.
     if (!skipAgoraLeaveForTests) {
       try {
@@ -776,10 +851,13 @@ public final class NativeVoiceCallRuntime {
     }
     cancelMissed(sid);
     NativeVoiceCallApi.PatchCallback done =
-        (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");
+        (ok, status, error) -> {
+          if (isEnd) NativeCallTerminalEndOutbox.settle(app, sid, ok, status);
+          cleanup(app, sid, ok ? action : action + "_patch_failed");
+        };
     TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
     if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
-    dispatcher.dispatch(app, sid, action, done);
+    dispatcher.dispatch(app, sid, action, reason, done);
   }
 
   static void putSessionForTests(Session session) {
@@ -954,7 +1032,8 @@ public final class NativeVoiceCallRuntime {
     if (session != null && !NativeVoiceCallTerminalOnce.isClaimed(sid)) {
       String action = session.initiator ? "end" : "reject";
       NativeVoiceCallLog.info("fail_terminal_propagate", sid, "action=" + action + " reason=" + safe(reason));
-      terminalPatch(context, sid, action);
+      terminalPatch(
+          context, sid, action, "end".equals(action) ? NativeCallEndReason.FAIL_PROPAGATE : null);
       return;
     }
     cleanup(context, sid, "failed");

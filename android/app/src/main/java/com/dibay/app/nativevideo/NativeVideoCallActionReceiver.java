@@ -29,7 +29,10 @@ public class NativeVideoCallActionReceiver extends BroadcastReceiver {
     }
     if (ACTION_END.equals(action)) {
       NativeVideoCallLog.info("end_tapped", sid, "source=notification");
-      NativeVideoCallRuntime.end(context.getApplicationContext(), sid);
+      NativeVideoCallRuntime.end(
+          context.getApplicationContext(),
+          sid,
+          com.dibay.app.nativecall.NativeCallEndReason.SOURCE_NOTIFICATION);
     }
   }
 }

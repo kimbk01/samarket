@@ -3,10 +3,14 @@ package com.dibay.app.nativevideo;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Application;
 import android.content.Context;
 import androidx.test.core.app.ApplicationProvider;
+import com.dibay.app.nativecall.NativeCallEndReason;
+import com.dibay.app.nativecall.NativeCallTerminalEndOutbox;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,12 +28,14 @@ public class NativeVideoCallTerminalCleanupTest {
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
     NativeVideoCallRuntime.resetForTests();
+    NativeCallTerminalEndOutbox.clearForTests(context);
     NativeVideoCallRuntime.skipAgoraLeaveForTests = true;
   }
 
   @After
   public void tearDown() {
     NativeVideoCallRuntime.resetForTests();
+    NativeCallTerminalEndOutbox.clearForTests(context);
   }
 
   @Test
@@ -84,6 +90,35 @@ public class NativeVideoCallTerminalCleanupTest {
     NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "agora_user_offline_quit");
 
     assertNull(NativeVideoCallRuntime.getSession(callId));
+  }
+
+  @Test
+  public void agoraRemoteQuit_whileConnected_cleansAndRecordsServerEnd() {
+    String callId = "video-agora-quit-connected";
+    putConnected(callId);
+
+    NativeVideoCallRuntime.onRemotePeerQuit(context, callId, "agora_user_offline_quit");
+
+    assertNull(NativeVideoCallRuntime.getSession(callId));
+    List<NativeCallTerminalEndOutbox.Entry> pending = NativeCallTerminalEndOutbox.snapshot(context);
+    assertEquals(1, pending.size());
+    assertEquals(callId, pending.get(0).callId);
+    assertEquals(NativeCallTerminalEndOutbox.LANE_VIDEO, pending.get(0).lane);
+    assertEquals(NativeCallEndReason.REMOTE_LEFT, pending.get(0).reason);
+  }
+
+  @Test
+  public void agoraRemoteQuit_whileNotConnected_isLocalCleanupOnly() {
+    String callId = "video-agora-quit-connecting";
+    NativeVideoCallRuntime.Session session =
+        new NativeVideoCallRuntime.Session(callId, "room", "peer", "Peer", "video", true);
+    session.state = NativeVideoCallRuntime.State.CONNECTING;
+    NativeVideoCallRuntime.putSessionForTests(session);
+
+    NativeVideoCallRuntime.onRemotePeerQuit(context, callId, "agora_user_offline_quit");
+
+    assertNull(NativeVideoCallRuntime.getSession(callId));
+    assertTrue(NativeCallTerminalEndOutbox.snapshot(context).isEmpty());
   }
 
   @Test
