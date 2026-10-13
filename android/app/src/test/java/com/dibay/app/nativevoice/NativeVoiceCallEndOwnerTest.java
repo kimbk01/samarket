@@ -149,29 +149,6 @@ public class NativeVoiceCallEndOwnerTest {
     assertTrue(NativeCallTerminalEndOutbox.snapshot(context).isEmpty());
   }
 
-  @Test
-  public void taskRemoved_endsLiveSession_withTaskRemovedReason() {
-    String callId = "voice-task-removed";
-    put(callId, NativeVoiceCallRuntime.State.CONNECTED, false);
-
-    NativeVoiceCallRuntime.onTaskRemoved(context);
-
-    assertEquals(1, dispatched.size());
-    assertEquals(callId + "|end|" + NativeCallEndReason.TASK_REMOVED, dispatched.get(0));
-    assertEquals(Integer.valueOf(1), outboxSizeAtDispatch.get(0));
-  }
-
-  @Test
-  public void taskRemoved_leavesRingingCalleeAlone() {
-    String callId = "voice-task-removed-ringing";
-    put(callId, NativeVoiceCallRuntime.State.RINGING, false);
-
-    NativeVoiceCallRuntime.onTaskRemoved(context);
-
-    assertTrue(dispatched.isEmpty());
-    assertNotNull(NativeVoiceCallRuntime.getSession(callId));
-  }
-
   private void put(String callId, NativeVoiceCallRuntime.State state, boolean initiator) {
     NativeVoiceCallRuntime.Session session =
         new NativeVoiceCallRuntime.Session(callId, "room", "peer", "Peer", "voice", initiator);

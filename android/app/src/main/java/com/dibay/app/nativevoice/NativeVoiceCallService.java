@@ -94,20 +94,6 @@ public class NativeVoiceCallService extends Service {
     return START_NOT_STICKY;
   }
 
-  /**
-   * Bug A — app task swiped away while a native voice call is live. Native call surfaces are
-   * excludeFromRecents, so this fires for the main task swipe; OEMs commonly kill the process right
-   * after. End the live call through the runtime terminal path (durable outbox record before Agora
-   * leave, then PATCH; replayed on next process start if the PATCH is lost). Unlike
-   * {@code CallForegroundService.onTaskRemoved} (WebView lane, keeps the call and saves a resume
-   * route), the native lane has no resume path that survives process death.
-   */
-  @Override
-  public void onTaskRemoved(Intent rootIntent) {
-    NativeVoiceCallRuntime.onTaskRemoved(getApplicationContext());
-    super.onTaskRemoved(rootIntent);
-  }
-
   @Override
   public IBinder onBind(Intent intent) {
     return null;

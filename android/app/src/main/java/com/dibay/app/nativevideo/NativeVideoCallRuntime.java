@@ -692,23 +692,6 @@ public final class NativeVideoCallRuntime {
     onRemoteTerminal(app, sid, "ended", agoraReason);
   }
 
-  /**
-   * Bug A — swipe-kill / task removal while a native video call is live. Ends ACCEPTING /
-   * CONNECTING / CONNECTED sessions through the normal terminal path (durable outbox + PATCH).
-   * Callee RINGING is left to the missed / server ringing timeout (no reject on swipe).
-   */
-  public static void onTaskRemoved(Context context) {
-    if (context == null) return;
-    Context app = context.getApplicationContext();
-    for (Session session : SESSIONS.values()) {
-      State st = session.state;
-      if (st != State.ACCEPTING && st != State.CONNECTING && st != State.CONNECTED) continue;
-      NativeVideoCallLog.info(
-          "task_removed_end_live_session", session.callId, "state=" + st.name().toLowerCase());
-      end(app, session.callId, NativeCallEndReason.SOURCE_TASK_REMOVED);
-    }
-  }
-
   public static void missed(Context context, String callId) {
     terminalPatch(context, callId, "missed");
   }
