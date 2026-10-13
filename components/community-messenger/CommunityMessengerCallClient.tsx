@@ -80,6 +80,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import {
   consumeOutgoingRingtonePrimedSessionFlag,
   playCommunityMessengerCallSignalSound,
@@ -3966,6 +3967,8 @@ export function CommunityMessengerCallClient({
     const sub = subscribeWithRetry({
       sb,
       name: `community-messenger-call-session:${sessionId}`,
+      /** Public access OFF — private join; authorized by internal.cm_realtime_can_access_call_session. */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       scope: "community-messenger-call-client:session",
       isCancelled: () => cancelled,
       onStatus: (status) => {
@@ -4053,12 +4056,15 @@ export function CommunityMessengerCallClient({
   }, [beginRingingCallDismiss, refreshSession, scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
     const sb = getSupabaseClient();
     if (!sb || !sessionId) return;
     let cancelled = false;
     const sub = subscribeWithRetry({
       sb,
       name: `community-messenger-call-signal-hangup:${sessionId}`,
+      /** Public access OFF — private join; authorized by internal.cm_realtime_can_access_call_session. */
+      channelOptions: messengerPrivateBroadcastChannelOptions(),
       scope: "community-messenger-call-client:hangup-signal",
       isCancelled: () => cancelled,
       build: (ch) =>
