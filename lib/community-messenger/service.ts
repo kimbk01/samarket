@@ -266,6 +266,12 @@ import {
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
 import { evaluateConnectedProposal } from "@/lib/community-messenger/call-authority/call-connected-authority";
 import {
+  CALL_STUB_NO_ACTIVE_SENDER_ERROR,
+  pickActiveCallStubSender,
+  resolveCallStubSenderCandidates,
+  type CallStubAppendResult,
+} from "@/lib/community-messenger/call-authority/call-stub-sender-authority";
+import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
 import {
@@ -5415,8 +5421,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   answeredAt?: string | null;
   terminalActorUserId?: string | null;
   resolvedEvent?: CallSessionResolvedEvent | null;
-}) {
-  if (!input.roomId) return;
+}): Promise<CallStubAppendResult> {
+  if (!input.roomId) return { ok: true, messageId: null, senderId: null, skipped: "no_room" };
   const sessionId = trimText(input.sessionId ?? "");
   const tmp = trimText(input.tmpSessionId ?? "");
   const projection = resolveProjectionFromSession({
@@ -5469,9 +5475,10 @@ export async function appendCommunityMessengerCallStubMessage(input: {
    */
   const publishTerminalCallStubRoomBumpBestEffort = async (args: {
     messageId?: string | null;
+    fromUserId?: string | null;
   }): Promise<void> => {
     const roomId = trimText(input.roomId);
-    const fromUserId = trimText(input.userId);
+    const fromUserId = trimText(args.fromUserId ?? "") || trimText(input.userId);
     if (!roomId || !fromUserId) return;
     try {
       const { publishMessengerRoomBumpAfterMutation } = await import(
@@ -5564,7 +5571,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     if (existing) {
       await updateExistingStub(existing);
       await publishTerminalCallStubRoomBumpBestEffort({ messageId: existing.id });
-      return;
+      return { ok: true, messageId: existing.id, senderId: null };
     }
   }
   if (tmp) {
@@ -5572,7 +5579,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     if (existingByTmp) {
       await updateExistingStub(existingByTmp);
       await publishTerminalCallStubRoomBumpBestEffort({ messageId: existingByTmp.id });
-      return;
+      return { ok: true, messageId: existingByTmp.id, senderId: null };
     }
   }
 
@@ -5584,10 +5591,48 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const { appendTypedMessengerMessageAtomic } = await import(
       "@/lib/community-messenger/room-unread-authority-rpc"
     );
+    /**
+     * Sender must be an active member (RPC rejects not_member / participant_left).
+     * Terminal actor may have left → fall back to the other call party who is still in the room.
+     */
+    const senderCandidates = resolveCallStubSenderCandidates({
+      preferredUserId: input.userId,
+      terminalActorUserId: input.terminalActorUserId,
+      initiatorUserId: input.initiatorUserId,
+      recipientUserId: input.recipientUserId,
+    });
+    const { data: participantRows, error: participantErr } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("user_id, left_at")
+      .eq("room_id", input.roomId)
+      .in("user_id", senderCandidates);
+    if (participantErr) {
+      const error = `participants_lookup_failed:${String(participantErr.message ?? "unknown")}`;
+      console.error("[cm_call_stub_projection_failed]", {
+        roomId: input.roomId,
+        sessionId: sessionId || null,
+        error,
+        candidates: senderCandidates,
+      });
+      return { ok: false, error, candidates: senderCandidates };
+    }
+    const stubSenderId = pickActiveCallStubSender(
+      senderCandidates,
+      (participantRows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>
+    );
+    if (!stubSenderId) {
+      console.error("[cm_call_stub_projection_failed]", {
+        roomId: input.roomId,
+        sessionId: sessionId || null,
+        error: CALL_STUB_NO_ACTIVE_SENDER_ERROR,
+        candidates: senderCandidates,
+      });
+      return { ok: false, error: CALL_STUB_NO_ACTIVE_SENDER_ERROR, candidates: senderCandidates };
+    }
     const createdAt = trimText(input.createdAt) || nowIso();
     const appended = await appendTypedMessengerMessageAtomic(sb as any, {
       roomId: input.roomId,
-      senderId: input.userId,
+      senderId: stubSenderId,
       messageType: "call_stub",
       content: label,
       metadata,
@@ -5602,13 +5647,15 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       }),
     });
     if (!appended.ok) {
-      console.error("[room_unread_v1] call_stub_append", {
+      console.error("[cm_call_stub_projection_failed]", {
         roomId: input.roomId,
+        sessionId: sessionId || null,
+        senderId: stubSenderId,
         error: appended.error,
         fallbackUsed: false,
         rpc_used: "dibay_append_room_message_atomic",
       });
-      return;
+      return { ok: false, error: appended.error, candidates: senderCandidates };
     }
     if (bumpRoomLastMessageAt) {
       /** lastActivityAt SSOT — terminal occurred_at 기준 forward-only (room preview only). */
@@ -5626,8 +5673,11 @@ export async function appendCommunityMessengerCallStubMessage(input: {
           .eq("id", input.roomId);
       }
     }
-    await publishTerminalCallStubRoomBumpBestEffort({ messageId: appended.messageId });
-    return;
+    await publishTerminalCallStubRoomBumpBestEffort({
+      messageId: appended.messageId,
+      fromUserId: stubSenderId,
+    });
+    return { ok: true, messageId: appended.messageId, senderId: stubSenderId };
   }
 
   const dev = getDevState();
@@ -5656,6 +5706,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     }
   }
   await publishTerminalCallStubRoomBumpBestEffort({ messageId: newId });
+  return { ok: true, messageId: newId, senderId: input.userId };
 }
 
 async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
@@ -18094,7 +18145,7 @@ export async function createCommunityMessengerCallLog(input: {
   initiatorUserId?: string | null;
   recipientUserId?: string | null;
   answeredAt?: string | null;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; callLogPersisted?: boolean }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
   const peerUserId = trimText(input.peerUserId ?? "") || null;
@@ -18149,12 +18200,24 @@ export async function createCommunityMessengerCallLog(input: {
     answered_at: answeredAtIso,
     ended_reason: endedReasonValue,
   };
+  /**
+   * call_logs(사용자 통화 기록) 와 call_stub(채팅 목록 투영)는 두 쓰기다 — 단일 RPC 가 없다.
+   * 로그는 유지(통화 사실은 사라지면 안 됨)하고, 스텁 실패는 삼키지 않고 결과로 노출한다.
+   * 스텁 sender 는 활성 멤버로 해석되므로(call-stub-sender-authority) 나간 actor 때문에
+   * 목록만 갱신이 빠지는 분기는 더 이상 생기지 않는다. 같은 세션의 후속 terminal 요청은
+   * `ensureTerminalCallStub` 로 동일 idempotency key 를 다시 투영한다.
+   */
+  const toCallLogResult = (
+    stub: CallStubAppendResult
+  ): { ok: boolean; error?: string; callLogPersisted?: boolean } =>
+    stub.ok
+      ? { ok: true, callLogPersisted: true }
+      : { ok: false, error: `call_stub_projection_failed:${stub.error}`, callLogPersisted: true };
   const sb = getSupabaseOrNull();
   if (sb) {
     const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
-      await appendCommunityMessengerCallStubMessage(stubInput);
-      return { ok: true };
+      return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput));
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
@@ -18167,11 +18230,12 @@ export async function createCommunityMessengerCallLog(input: {
           .eq("session_id", sessionId)
           .is("ended_at", null);
       }
-      await appendCommunityMessengerCallStubMessage({
-        ...stubInput,
-        replaceExisting: input.replaceExistingStub ?? true,
-      });
-      return { ok: true };
+      return toCallLogResult(
+        await appendCommunityMessengerCallStubMessage({
+          ...stubInput,
+          replaceExisting: input.replaceExistingStub ?? true,
+        })
+      );
     }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "call_log_failed") };
   }
@@ -18188,8 +18252,7 @@ export async function createCommunityMessengerCallLog(input: {
     durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     startedAt,
   });
-  await appendCommunityMessengerCallStubMessage(stubInput);
-  return { ok: true };
+  return toCallLogResult(await appendCommunityMessengerCallStubMessage(stubInput));
 }
 
 /**
@@ -19165,7 +19228,7 @@ export async function updateCommunityMessengerCallSession(input: {
       trimText(mapped.endedAt ?? "") ||
       (isDbSession ? trimText(session.ended_at ?? "") : trimText(session.endedAt ?? "")) ||
       undefined;
-    await createCommunityMessengerCallLog({
+    const logged = await createCommunityMessengerCallLog({
       userId: initiatorUserId,
       stubActorUserId: resolveTerminalStubActorUserId(session, mapped),
       roomId: "room_id" in session ? session.room_id : session.roomId,
@@ -19186,6 +19249,10 @@ export async function updateCommunityMessengerCallSession(input: {
         isDbSession ? (session.answered_at ?? mapped.answeredAt ?? "") : (session.answeredAt ?? mapped.answeredAt ?? "")
       ) || null,
     });
+    if (!logged.ok && !logged.callLogPersisted) {
+      /** stub 투영 실패는 append 쪽에서 `[cm_call_stub_projection_failed]` 로 이미 기록된다. */
+      console.error("[cm_call_log_write_failed]", { sessionId, error: logged.error ?? null });
+    }
   };
 
   const resolveDirectNextStatus = (
