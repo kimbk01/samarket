@@ -203,7 +203,13 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     // Already terminal-suppressed (e.g. fail_after_fulfill marked before map clear):
     // not a true cold orphan — completion-only. fulfillOrphan would still
     // reportNewIncomingCall (will_report_then_end) and cause visible resurrection.
-    if callProvider.isTerminalSuppressed(sessionId: sessionId) {
+    // Local end already closed this CallKit session (e.g. caller saw Agora remote leave before
+    // the server call_ended VoIP arrived): endCallKitSession clears the map but not the
+    // suppress set — treat as already terminal so the orphan path cannot re-report it as a
+    // new incoming call on the device that just hung up.
+    if callProvider.isTerminalSuppressed(sessionId: sessionId)
+      || callProvider.isCallKitEndCompleted(sessionId: sessionId)
+    {
       DibayCallLog.infoCallV4(
         "ios_voip_terminal_already_suppressed",
         callId: sessionId,
