@@ -317,7 +317,6 @@ enum NativeCallServerEndOnce {
   /** Peer left the Agora channel normally (offline reason QUIT=0) while we were CONNECTED. */
   static let reasonRemoteQuit = "ios_native_remote_quit"
   /** iOS `applicationWillTerminate` during a live Native call (swipe-kill). */
-  static let reasonAppTerminate = "ios_native_app_terminate"
 
   private static let lock = NSLock()
   private static var claimedSessionIds = Set<String>()
