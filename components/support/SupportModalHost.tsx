@@ -18,7 +18,7 @@ import { SupportSheetShell } from "@/components/support/SupportSheetShell";
 import { SupportTriageFlow } from "@/components/support/SupportTriageFlow";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
+import { privateRealtimeChannelOptions } from "@/lib/supabase/private-realtime-channel-options";
 import type { SupportContext } from "@/lib/support/support-context";
 import { buildGenericSupportTriageContext, isSupportContextEnabled } from "@/lib/support/support-context";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
@@ -306,7 +306,7 @@ function SupportActiveConversation({
     const sb = getSupabaseClient();
     if (!sb) return;
     const channel = sb
-      .channel(`support-modal-case-${caseId}`, messengerPrivateBroadcastChannelOptions())
+      .channel(`support-modal-case-${caseId}`, privateRealtimeChannelOptions())
       .on(
         "postgres_changes",
         {
