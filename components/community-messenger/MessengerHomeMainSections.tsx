@@ -21,7 +21,6 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
-import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerPillarSummary,
@@ -94,7 +93,6 @@ type Props = {
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
-  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
@@ -157,7 +155,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   chatListVisual = "default",
   bootstrapCalls = [],
   callsHydrating = false,
-  onStartDirectCall,
   onBootstrapCallsChange,
   showSectionTabs = false,
   onPrimarySectionChange,
@@ -311,7 +308,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
               entryOrigin={entryOriginQuery}
               viewerUserId={viewerUserId}
               peerProfiles={sortedFriends}
-              onStartDirectCall={onStartDirectCall}
               onBootstrapCallsChange={onBootstrapCallsChange}
               openedSwipeItemId={openedSwipeItemId}
               onOpenSwipeItem={onOpenSwipeItem}
