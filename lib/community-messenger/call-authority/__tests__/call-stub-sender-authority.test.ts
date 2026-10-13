@@ -148,7 +148,10 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe(CALL_STUB_NO_ACTIVE_SENDER_ERROR);
     expect(appendAtomicMock).not.toHaveBeenCalled();
-    expect(errSpy).toHaveBeenCalledWith("[cm_call_stub_projection_failed]", expect.any(Object));
+    expect(errSpy).toHaveBeenCalledWith(
+      "[room_unread_v1] call_stub_append",
+      expect.objectContaining({ code: "cm_call_stub_projection_failed", error: CALL_STUB_NO_ACTIVE_SENDER_ERROR })
+    );
     errSpy.mockRestore();
   });
 

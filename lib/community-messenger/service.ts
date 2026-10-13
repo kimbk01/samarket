@@ -272,6 +272,13 @@ import {
   type CallStubAppendResult,
 } from "@/lib/community-messenger/call-authority/call-stub-sender-authority";
 import {
+  evaluateHistoricRedialRoom,
+  type HistoricRedialParticipantRow,
+  type HistoricRedialRoomRejectReason,
+  type HistoricRedialRoomRow,
+  type RedialRoomResolveResult,
+} from "@/lib/community-messenger/call-authority/call-redial-room-authority";
+import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
 import {
@@ -5608,7 +5615,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       .in("user_id", senderCandidates);
     if (participantErr) {
       const error = `participants_lookup_failed:${String(participantErr.message ?? "unknown")}`;
-      console.error("[cm_call_stub_projection_failed]", {
+      console.error("[room_unread_v1] call_stub_append", {
+        code: "cm_call_stub_projection_failed",
         roomId: input.roomId,
         sessionId: sessionId || null,
         error,
@@ -5621,7 +5629,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       (participantRows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>
     );
     if (!stubSenderId) {
-      console.error("[cm_call_stub_projection_failed]", {
+      console.error("[room_unread_v1] call_stub_append", {
+        code: "cm_call_stub_projection_failed",
         roomId: input.roomId,
         sessionId: sessionId || null,
         error: CALL_STUB_NO_ACTIVE_SENDER_ERROR,
@@ -5647,7 +5656,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       }),
     });
     if (!appended.ok) {
-      console.error("[cm_call_stub_projection_failed]", {
+      console.error("[room_unread_v1] call_stub_append", {
+        code: "cm_call_stub_projection_failed",
         roomId: input.roomId,
         sessionId: sessionId || null,
         senderId: stubSenderId,
@@ -10110,38 +10120,57 @@ async function ensureDirectMessengerRoomParticipantsForPair(
   roomId: string,
   openerUserId: string,
   peerUserId: string
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const rid = trimText(roomId);
   const opener = trimText(openerUserId);
   const peer = trimText(peerUserId);
-  if (!rid || !opener || !peer) return;
+  if (!rid || !opener || !peer) return { ok: false, error: "bad_participant_pair" };
   const { data: rows, error } = await sb
     .from("community_messenger_participants")
-    .select("user_id, role")
+    .select("user_id, role, left_at")
     .eq("room_id", rid);
-  if (error && !isMissingTableError(error)) return;
-  const present = new Map<string, "owner" | "admin" | "member">();
-  for (const row of (rows ?? []) as Array<{ user_id?: string; role?: string }>) {
+  if (error && !isMissingTableError(error)) {
+    return { ok: false, error: String(error.message ?? "participant_lookup_failed") };
+  }
+  const present = new Map<string, { role: "owner" | "admin" | "member"; left: boolean }>();
+  for (const row of (rows ?? []) as Array<{ user_id?: string; role?: string; left_at?: string | null }>) {
     const uid = trimText(row.user_id);
     if (!uid) continue;
     const r = row.role;
     const role: "owner" | "admin" | "member" =
       r === "owner" || r === "admin" ? (r as "owner" | "admin") : "member";
-    present.set(uid, role);
+    present.set(uid, { role, left: Boolean(trimText(row.left_at)) });
   }
-  const hasOwner = [...present.values()].some((role) => role === "owner");
+  const hasOwner = [...present.values()].some((entry) => entry.role === "owner" && !entry.left);
   const toInsert: Array<{ room_id: string; user_id: string; role: "owner" | "member" }> = [];
+  const toReadmit: string[] = [];
   if (!present.has(opener)) {
     toInsert.push({ room_id: rid, user_id: opener, role: hasOwner ? "member" : "owner" });
+  } else if (present.get(opener)!.left) {
+    toReadmit.push(opener);
   }
   if (!present.has(peer)) {
     toInsert.push({ room_id: rid, user_id: peer, role: "member" });
+  } else if (present.get(peer)!.left) {
+    toReadmit.push(peer);
   }
-  if (!toInsert.length) return;
+  /** 1:1 방 — 나간(left_at) 참가자도 같은 쌍이 다시 열면 재입장(행 삭제 leave 와 동일 결과). */
+  if (toReadmit.length) {
+    const { error: readmitErr } = await sb
+      .from("community_messenger_participants")
+      .update({ left_at: null })
+      .eq("room_id", rid)
+      .in("user_id", toReadmit);
+    if (readmitErr && !isMissingTableError(readmitErr)) {
+      return { ok: false, error: String(readmitErr.message ?? "participant_readmit_failed") };
+    }
+  }
+  if (!toInsert.length) return { ok: true };
   const { error: insErr } = await sb.from("community_messenger_participants").insert(toInsert);
-  if (insErr && !isUniqueViolationError(insErr)) {
-    /* 로그 없이 무시 — 운영은 재시도·다음 ensure 에서 보정 */
+  if (insErr && !isUniqueViolationError(insErr) && !isMissingTableError(insErr)) {
+    return { ok: false, error: String(insErr.message ?? "participant_insert_failed") };
   }
+  return { ok: true };
 }
 
 /** Telegram-style general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
@@ -10179,7 +10208,8 @@ export async function ensureGeneralFriendDirectRoom(
 
     let existingId = await loadExistingGeneralRoomId();
     if (existingId) {
-      await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+      const admitted = await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+      if (!admitted.ok) return { ok: false, error: admitted.error };
       return { ok: true, roomId: existingId };
     }
 
@@ -10219,7 +10249,8 @@ export async function ensureGeneralFriendDirectRoom(
     if (isUniqueViolationError(roomError)) {
       existingId = await loadExistingGeneralRoomId();
       if (existingId) {
-        await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+        const admitted = await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+        if (!admitted.ok) return { ok: false, error: admitted.error };
         return { ok: true, roomId: existingId };
       }
     }
@@ -10294,6 +10325,148 @@ export async function ensureGeneralFriendDirectRoom(
     }
   );
   return { ok: true, roomId };
+}
+
+/**
+ * 통화 기록 재발신 — 기록의 방이 viewer 에게 아직 통화 가능한지 (서버 권위).
+ * `call-redial-room-authority` 계약. 거래·주문·그룹 도메인 방은 통화 가능하면 그대로 유지.
+ */
+export async function evaluateCommunityMessengerHistoricRedialRoom(input: {
+  userId: string;
+  peerUserId?: string | null;
+  historicRoomId: string;
+}): Promise<
+  | { ok: true; callable: true }
+  | { ok: true; callable: false; reason: HistoricRedialRoomRejectReason }
+  | { ok: false; error: string }
+> {
+  const userId = trimText(input.userId);
+  const peerId = trimText(input.peerUserId ?? "") || null;
+  const historicRoomId = trimText(input.historicRoomId);
+  if (!userId || !historicRoomId) return { ok: false, error: "missing_room" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const snapshot = await getCommunityMessengerRoomSnapshot(userId, historicRoomId);
+    if (!snapshot) return { ok: true, callable: false, reason: "viewer_not_participant" };
+    if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
+      return { ok: true, callable: false, reason: "room_unavailable" };
+    }
+    return { ok: true, callable: true };
+  }
+  const memberIds = peerId ? [userId, peerId] : [userId];
+  const [{ data: roomData, error: roomErr }, { data: partRows, error: partErr }] = await Promise.all([
+    (sb as any)
+      .from("community_messenger_rooms")
+      .select(
+        "id, room_type, room_status, is_readonly, deleted_at, chat_domain, domain_identity_key, domain_identity, direct_key"
+      )
+      .eq("id", historicRoomId)
+      .maybeSingle(),
+    (sb as any)
+      .from("community_messenger_participants")
+      .select("user_id, left_at")
+      .eq("room_id", historicRoomId)
+      .in("user_id", memberIds),
+  ]);
+  if (roomErr && !isMissingTableError(roomErr)) {
+    return { ok: false, error: String(roomErr.message ?? "room_lookup_failed") };
+  }
+  if (partErr && !isMissingTableError(partErr)) {
+    return { ok: false, error: String(partErr.message ?? "participant_lookup_failed") };
+  }
+  const roomRow = (roomData ?? null) as (HistoricRedialRoomRow & Record<string, unknown>) | null;
+  const verdict = evaluateHistoricRedialRoom({
+    viewerUserId: userId,
+    peerUserId: peerId,
+    room: roomRow,
+    isGroupRoom: Boolean(
+      roomRow && isCommunityMessengerGroupRoomType(roomRow.room_type as RoomRow["room_type"])
+    ),
+    quarantined: isFourDomainPollutionQuarantineRoom(historicRoomId),
+    domainEnvelopePresent: Boolean(
+      roomRow && provenCanonicalRoomDomainEnvelopeFromDbRow(roomRow as Record<string, unknown>)
+    ),
+    participants: (partRows ?? []) as HistoricRedialParticipantRow[],
+  });
+  return verdict.callable
+    ? { ok: true, callable: true }
+    : { ok: true, callable: false, reason: verdict.reason };
+}
+
+/**
+ * 통화 기록 재발신 — 상대와의 canonical general direct 방(생성·재입장) + viewer 숨김 해제.
+ * 홈 `startDirectCall`(canonical GD 방 · 숨김이면 revive)과 동일 결과를 서버에서 보장한다.
+ */
+export async function ensureCommunityMessengerCanonicalRedialRoom(input: {
+  userId: string;
+  peerUserId: string;
+}): Promise<{ ok: true; roomId: string } | { ok: false; error: string }> {
+  const userId = trimText(input.userId);
+  const peerId = trimText(input.peerUserId);
+  const ensured = await ensureGeneralFriendDirectRoom(userId, peerId);
+  if (!ensured.ok || !ensured.roomId) return { ok: false, error: ensured.error ?? "ensure_room_failed" };
+  const roomId = ensured.roomId;
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: me, error: meErr } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("is_archived, left_at")
+      .eq("room_id", roomId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (meErr && !isMissingTableError(meErr)) {
+      return { ok: false, error: String(meErr.message ?? "participant_lookup_failed") };
+    }
+    const meRow = me as { is_archived?: boolean | null; left_at?: string | null } | null;
+    if (!meRow || trimText(meRow.left_at)) return { ok: false, error: "room_participant_missing" };
+    if (meRow.is_archived === true) {
+      const revived = await updateCommunityMessengerRoomArchiveState({ userId, roomId, archived: false });
+      if (!revived.ok) return { ok: false, error: revived.error ?? "room_archive_update_failed" };
+    }
+  }
+  return { ok: true, roomId };
+}
+
+/** 재발신 방 해석 조합 — 기록 방이 통화 가능하면 유지, 아니면 canonical GD 방. */
+export async function resolveCommunityMessengerRedialRoom(input: {
+  userId: string;
+  peerUserId?: string | null;
+  historicRoomId?: string | null;
+  /** canonical 방 생성/재입장 직전 정책 게이트(라우트: 가입·프로필) */
+  beforeEnsureCanonical?: () => Promise<{ ok: true } | { ok: false; error: string }>;
+}): Promise<RedialRoomResolveResult> {
+  const userId = trimText(input.userId);
+  const peerId = trimText(input.peerUserId ?? "") || null;
+  const historicRoomId = trimText(input.historicRoomId ?? "") || null;
+  if (!userId) return { ok: false, error: "unauthorized" };
+  if (!peerId && !historicRoomId) return { ok: false, error: "missing_room" };
+  if (peerId && peerId === userId) return { ok: false, error: "bad_peer" };
+
+  let historicRejectReason: HistoricRedialRoomRejectReason | undefined;
+  if (historicRoomId) {
+    const evaluated = await evaluateCommunityMessengerHistoricRedialRoom({
+      userId,
+      peerUserId: peerId,
+      historicRoomId,
+    });
+    if (!evaluated.ok) return { ok: false, error: evaluated.error };
+    if (evaluated.callable) return { ok: true, roomId: historicRoomId, source: "historic_room" };
+    historicRejectReason = evaluated.reason;
+  }
+  if (!peerId) return { ok: false, error: historicRejectReason ?? "missing_room" };
+
+  if (input.beforeEnsureCanonical) {
+    const gate = await input.beforeEnsureCanonical();
+    if (!gate.ok) return { ok: false, error: gate.error };
+  }
+  const canonical = await ensureCommunityMessengerCanonicalRedialRoom({ userId, peerUserId: peerId });
+  if (!canonical.ok) return { ok: false, error: canonical.error };
+  return {
+    ok: true,
+    roomId: canonical.roomId,
+    source: "canonical_direct",
+    ...(historicRejectReason ? { historicRejectReason } : {}),
+  };
 }
 
 export async function ensureCommunityMessengerDirectRoom(
@@ -19250,7 +19423,7 @@ export async function updateCommunityMessengerCallSession(input: {
       ) || null,
     });
     if (!logged.ok && !logged.callLogPersisted) {
-      /** stub 투영 실패는 append 쪽에서 `[cm_call_stub_projection_failed]` 로 이미 기록된다. */
+      /** stub 투영 실패는 append 쪽에서 `[room_unread_v1] call_stub_append` (code cm_call_stub_projection_failed) 로 이미 기록된다. */
       console.error("[cm_call_log_write_failed]", { sessionId, error: logged.error ?? null });
     }
   };

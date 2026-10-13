@@ -26,7 +26,6 @@ import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/compone
 import { CommunityMessengerHomeMasterDetail } from "@/components/community-messenger/home/CommunityMessengerHomeMasterDetail";
 import { MessengerArchiveSectionPanel } from "@/components/community-messenger/MessengerArchiveSectionPanel";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
-import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
@@ -120,7 +119,6 @@ type Props = {
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
-  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
   splitLayoutMode?: "hub" | "list-only";
@@ -433,7 +431,6 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 chatListVisual={props.chatListVisual}
                 bootstrapCalls={props.bootstrapCalls}
                 callsHydrating={props.callsHydrating}
-                onStartDirectCall={props.onStartDirectCall}
                 onBootstrapCallsChange={props.onBootstrapCallsChange}
                 showSectionTabs={props.showSectionTabs}
                 onPrimarySectionChange={props.onPrimarySectionChange}
@@ -534,7 +531,6 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               chatListVisual={props.chatListVisual ?? "default"}
               bootstrapCalls={props.bootstrapCalls ?? []}
               callsHydrating={props.callsHydrating ?? false}
-              onStartDirectCall={props.onStartDirectCall}
               onBootstrapCallsChange={props.onBootstrapCallsChange}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}

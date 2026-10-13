@@ -2979,7 +2979,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         pillarSummaries={inboxPillarSummaries}
         bootstrapCalls={messengerHomeBootstrapCalls}
         callsHydrating={Boolean(data?.deferredCallLog)}
-        onStartDirectCall={startDirectCall}
         onBootstrapCallsChange={onBootstrapCallsChange}
         chatListVisual={
           pillar === "trade"

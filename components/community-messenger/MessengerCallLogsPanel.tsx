@@ -27,7 +27,12 @@ import {
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
-import { guardInstantOutgoingCallStart, isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
+import {
+  guardInstantOutgoingCallStart,
+  isOutgoingCallPhoneVerificationRequired,
+  navigateBlockedOutgoingCall,
+} from "@/lib/call/outgoing-call-start-guard";
+import { resolveCallHistoryRedialRoomClient } from "@/lib/community-messenger/call-history/call-history-redial-room-client";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -45,20 +50,12 @@ function resolveCallPeerRoomId(peerUserId: string, roomId: string | null | undef
   return null;
 }
 
-export type MessengerCallLogsStartDirectCallFn = (
-  peerUserId: string,
-  kind: "voice" | "video",
-  peerLabel?: string | null
-) => boolean;
-
 type Props = {
   seedCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   entryOrigin?: string | null;
   viewerUserId?: string | null;
   peerProfiles?: CommunityMessengerProfileLite[];
-  /** 메신저 홈 `startDirectCall` — 친구 탭과 동일 발신·roomId 해석 */
-  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   /** 메신저 홈 — 채팅 목록과 동일 스와이프 상태 공유 */
   openedSwipeItemId?: string | null;
   onOpenSwipeItem?: (id: string | null) => void;
@@ -81,7 +78,6 @@ export function MessengerCallLogsPanel({
   entryOrigin = null,
   viewerUserId = null,
   peerProfiles = [],
-  onStartDirectCall,
   openedSwipeItemId: controlledOpenedSwipeItemId,
   onOpenSwipeItem: controlledOnOpenSwipeItem,
   messengerOverlayGeneration,
@@ -237,44 +233,6 @@ export function MessengerCallLogsPanel({
     setError(null);
   }, [callsHydrating]);
 
-  const resolveRoomIdForPeer = useCallback(
-    (peerUserId: string, seedRoomId: string | null) => {
-      const direct = seedRoomId?.trim();
-      if (direct) return direct;
-      const fromCalls = calls.find((row) => row.peerUserId?.trim() === peerUserId && row.roomId?.trim())?.roomId;
-      return fromCalls?.trim() || null;
-    },
-    [calls]
-  );
-
-  const launchOutgoingFallback = useCallback(
-    async (
-      peerUserId: string | null,
-      kind: "voice" | "video",
-      peerLabel: string,
-      roomId: string | null
-    ) => {
-      const guard = guardInstantOutgoingCallStart({ peerUserId, kind, roomId });
-      if (!guard.ok) {
-        if (isOutgoingCallPhoneVerificationRequired(guard)) return;
-        alertOutgoingCallFailure(guard.userMessage);
-        return;
-      }
-      const dialInput = roomId?.trim()
-        ? { kind, roomId: roomId.trim(), peerUserId: peerUserId?.trim() || undefined, peerLabel }
-        : peerUserId?.trim()
-          ? { kind, peerUserId: peerUserId.trim(), peerLabel }
-          : null;
-      if (!dialInput) return;
-      const result = await launchOutgoingDirectCall(dialInput, router);
-      if (!result.ok) {
-        if (isOutgoingCallPhoneVerificationRequired(result)) return;
-        alertOutgoingCallFailure(result.userMessage);
-      }
-    },
-    [router]
-  );
-
   const onRowNavigate = useCallback(
     (call: CommunityMessengerCallLog) => {
       closeCallLogSwipe();
@@ -284,7 +242,8 @@ export function MessengerCallLogsPanel({
         const peerUserId = sanitizeCallPeerUserId(call.peerUserId) ?? sanitizeCallPeerUserId(vm.peerUserId) ?? "";
         setPeerDetailSelection({
           peerUserId: peerUserId || `room:${call.roomId?.trim() || call.id}`,
-          roomId: resolveRoomIdForPeer(peerUserId, call.roomId),
+          /** 이 기록의 방만 — 다른 기록 행의 방으로 대체하지 않는다(재발신은 서버가 해석). */
+          roomId: call.roomId?.trim() || null,
           peerName: vm.peerName,
           peerPublicId: vm.peerPublicId,
           peerDisplayLabel: vm.peerDisplayLabel,
@@ -313,7 +272,7 @@ export function MessengerCallLogsPanel({
         }
       }
     },
-    [closeCallLogSwipe, entryOrigin, resolveRoomIdForPeer, router, viewerUserId]
+    [closeCallLogSwipe, entryOrigin, router, viewerUserId]
   );
 
   const onRequestOutgoingConfirm = useCallback(
@@ -382,19 +341,29 @@ export function MessengerCallLogsPanel({
       sanitizeCallPeerUserId(next.call.peerUserId) ??
       sanitizeCallPeerUserId(vm.peerUserId) ??
       sanitizeCallPeerUserId(peerDetailSelection?.peerUserId);
-    const roomId =
+    /** 기록의 방은 "후보"일 뿐 — 통화 가능 여부·canonical 대체는 서버(`/calls/redial-room`)가 결정. */
+    const historicRoomId =
       next.call.roomId?.trim() ||
-      peerDetailSelection?.roomId?.trim() ||
       resolveCallPeerRoomId(peerDetailSelection?.peerUserId ?? "", peerDetailSelection?.roomId) ||
-      (peerUserId ? resolveRoomIdForPeer(peerUserId, next.call.roomId) : null);
+      null;
 
-    if (!peerUserId && !roomId) {
+    if (!peerUserId && !historicRoomId) {
       alertOutgoingCallFailure(
         safeT("cm_ui_call_outgoing_missing_room", {
           fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
           fallbackEn: "Cannot start the call. Peer information is missing.",
         }),
       );
+      return;
+    }
+
+    const guard = guardInstantOutgoingCallStart({ peerUserId, kind: next.kind, roomId: historicRoomId });
+    if (!guard.ok) {
+      if (isOutgoingCallPhoneVerificationRequired(guard)) return;
+      setOutgoingConfirm(null);
+      /** 홈 `startDirectCall` 과 동일 — 진행 중 통화가 있으면 그 통화 화면으로. */
+      if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
+      else alertOutgoingCallFailure(guard.userMessage);
       return;
     }
 
@@ -405,50 +374,42 @@ export function MessengerCallLogsPanel({
     logCallV4("video_confirm_clicked", {
       kind: next.kind,
       peerUserId: peerUserId || undefined,
-      roomId: roomId || undefined,
-      hasOnStartDirectCall: Boolean(onStartDirectCall),
-    });
-
-    /**
-     * Prefer call log roomId (preserves trade/SO/group domain).
-     * Peer-only home `onStartDirectCall` only when roomId is missing (legacy GD logs).
-     */
-    if (roomId) {
-      logCallV4("video_confirm_launch_with_room", {
-        kind: next.kind,
-        peerUserId: peerUserId || undefined,
-        roomId,
-      });
-      void (async () => {
-        try {
-          await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
-        } catch {
-          alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
-        } finally {
-          setOutgoingBusy(false);
-        }
-      })();
-      return;
-    }
-
-    if (peerUserId && onStartDirectCall?.(peerUserId, next.kind, next.peerLabel)) {
-      logCallV4("video_confirm_start_direct_call", {
-        kind: next.kind,
-        peerUserId,
-      });
-      setOutgoingBusy(false);
-      return;
-    }
-
-    logCallV4("video_confirm_launch_fallback", {
-      kind: next.kind,
-      peerUserId: peerUserId || undefined,
-      roomId: roomId || undefined,
+      roomId: historicRoomId || undefined,
     });
 
     void (async () => {
       try {
-        await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
+        const resolved = await resolveCallHistoryRedialRoomClient({ peerUserId, roomId: historicRoomId });
+        if (!resolved.ok) {
+          logCallV4("video_confirm_redial_room_failed", {
+            kind: next.kind,
+            peerUserId: peerUserId || undefined,
+            roomId: historicRoomId || undefined,
+            error: resolved.error,
+          });
+          if (!resolved.phoneVerificationRequired) alertOutgoingCallFailure(resolved.userMessage);
+          return;
+        }
+        logCallV4("video_confirm_launch_with_room", {
+          kind: next.kind,
+          peerUserId: peerUserId || undefined,
+          roomId: resolved.roomId,
+          historicRoomId: historicRoomId || undefined,
+          source: resolved.source,
+        });
+        const result = await launchOutgoingDirectCall(
+          {
+            kind: next.kind,
+            roomId: resolved.roomId,
+            peerUserId: peerUserId || undefined,
+            peerLabel: next.peerLabel,
+          },
+          router
+        );
+        if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
+          alertOutgoingCallFailure(result.userMessage);
+        }
       } catch {
         alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
       } finally {
@@ -456,13 +417,11 @@ export function MessengerCallLogsPanel({
       }
     })();
   }, [
-    launchOutgoingFallback,
-    onStartDirectCall,
     outgoingBusy,
     outgoingConfirm,
     peerDetailSelection?.peerUserId,
     peerDetailSelection?.roomId,
-    resolveRoomIdForPeer,
+    router,
     safeT,
     t,
   ]);
