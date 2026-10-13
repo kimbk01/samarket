@@ -66,7 +66,24 @@ public final class NativeVoiceCallApi {
   }
 
   public static void endAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "end", "end_patch_start", "end_patch_done", 2_000L, callback);
+    endAsync(context, callId, null, callback);
+  }
+
+  /**
+   * End PATCH with a diagnostic {@code clientEndedReason} (see {@code NativeCallEndReason}). The
+   * value is untrusted server-side and never changes status / ended_reason semantics.
+   */
+  public static void endAsync(
+      Context context, String callId, String clientEndedReason, PatchCallback callback) {
+    patchAsync(
+        context,
+        callId,
+        "end",
+        clientEndedReason,
+        "end_patch_start",
+        "end_patch_done",
+        2_000L,
+        callback);
   }
 
   public static void missedAsync(Context context, String callId, PatchCallback callback) {
@@ -359,10 +376,27 @@ public final class NativeVoiceCallApi {
       String doneMarker,
       long cookieTimeoutMs,
       PatchCallback callback) {
+    patchAsync(
+        context, callId, action, null, startMarker, doneMarker, cookieTimeoutMs, callback);
+  }
+
+  private static void patchAsync(
+      Context context,
+      String callId,
+      String action,
+      String clientEndedReason,
+      String startMarker,
+      String doneMarker,
+      long cookieTimeoutMs,
+      PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    NativeVoiceCallLog.info(startMarker, sid);
+    String endReason =
+        clientEndedReason != null && !clientEndedReason.trim().isEmpty()
+            ? clientEndedReason.trim()
+            : null;
+    NativeVoiceCallLog.info(startMarker, sid, endReason != null ? "reason=" + endReason : "");
     new Thread(
             () -> {
               HttpURLConnection conn = null;
@@ -383,6 +417,9 @@ public final class NativeVoiceCallApi {
                 String deviceId = resolveDeviceId(app);
                 JSONObject bodyJson = new JSONObject();
                 bodyJson.put("action", action);
+                if (endReason != null) {
+                  bodyJson.put("clientEndedReason", endReason);
+                }
                 if (deviceId != null && !deviceId.isEmpty()) {
                   bodyJson.put("deviceId", deviceId);
                 }

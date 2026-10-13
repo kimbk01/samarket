@@ -13,6 +13,8 @@ public class DibayApplication extends Application {
     super.onCreate();
     ResumedActivityTracker.register(this);
     DibayNotificationSoundChannelStore.init(this);
+    // Bug A: re-send native end PATCHes lost to process death (swipe-kill after Agora leave).
+    com.dibay.app.nativecall.NativeCallTerminalEndOutbox.drainOnProcessStart(this);
     String appKey = getString(R.string.kakao_native_app_key).trim();
     if (appKey.isEmpty()) {
       Log.w(TAG, "kakao_native_app_key_missing");

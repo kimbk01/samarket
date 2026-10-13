@@ -17,7 +17,9 @@ import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
+import com.dibay.app.nativecall.NativeCallEndReason;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
+import com.dibay.app.nativecall.NativeCallTerminalEndOutbox;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -519,7 +521,7 @@ public final class NativeVideoCallRuntime {
 
                 @Override
                 public void onRemotePeerLeft(String reason) {
-                  onRemoteTerminal(app, sid, "ended", reason);
+                  onRemotePeerQuit(app, sid, reason);
                 }
 
                 @Override
@@ -589,7 +591,7 @@ public final class NativeVideoCallRuntime {
 
                 @Override
                 public void onRemotePeerLeft(String reason) {
-                  onRemoteTerminal(app, sid, "ended", reason);
+                  onRemotePeerQuit(app, sid, reason);
                 }
 
                 @Override
@@ -651,7 +653,60 @@ public final class NativeVideoCallRuntime {
     if (context != null && callId != null) {
       NativeVideoCallLog.info("end_tapped", callId.trim(), "source=" + safe(source));
     }
-    terminalPatch(context, callId, "end");
+    terminalPatch(context, callId, "end", NativeCallEndReason.fromSource(source));
+  }
+
+  /**
+   * Bug A2 — Agora remote USER_OFFLINE_QUIT (peer left the channel on purpose). When this side is
+   * CONNECTED the call is over, so this side also writes the server end (idempotent server-side):
+   * the peer may have died before its own end PATCH landed, and the server only ends an active call
+   * by itself when BOTH heartbeats are stale. Local cleanup is unchanged and stays immediate.
+   *
+   * <p>Not reached during voice→video upgrade or surface reattach: native upgrade is not wired, web
+   * upgrade publishes camera in the same channel, and reattach only rebinds render surfaces — none
+   * of them produce a remote QUIT. Remote DROPPED is not routed here (server both-stale owns it).
+   */
+  static void onRemotePeerQuit(Context context, String callId, String agoraReason) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session != null && session.state == State.CONNECTED) {
+      NativeVideoCallLog.info(
+          "remote_quit_server_end", sid, "agoraReason=" + safe(agoraReason));
+      DibayCallConsumedStore.mark(app, sid, "end");
+      // Durable now; send after a grace so the leaving peer's own end PATCH (started right after its
+      // Agora leave) normally lands first and keeps ended_by_* attribution — ours is then idempotent.
+      NativeCallTerminalEndOutbox.record(
+          app, sid, NativeCallTerminalEndOutbox.LANE_VIDEO, NativeCallEndReason.REMOTE_LEFT);
+      MAIN.postDelayed(
+          () ->
+              NativeVideoCallApi.endAsync(
+                  app,
+                  sid,
+                  NativeCallEndReason.REMOTE_LEFT,
+                  (ok, status, error) ->
+                      NativeCallTerminalEndOutbox.settle(app, sid, ok, status)),
+          NativeCallTerminalEndOutbox.REMOTE_QUIT_END_GRACE_MS);
+    }
+    onRemoteTerminal(app, sid, "ended", agoraReason);
+  }
+
+  /**
+   * Bug A — swipe-kill / task removal while a native video call is live. Ends ACCEPTING /
+   * CONNECTING / CONNECTED sessions through the normal terminal path (durable outbox + PATCH).
+   * Callee RINGING is left to the missed / server ringing timeout (no reject on swipe).
+   */
+  public static void onTaskRemoved(Context context) {
+    if (context == null) return;
+    Context app = context.getApplicationContext();
+    for (Session session : SESSIONS.values()) {
+      State st = session.state;
+      if (st != State.ACCEPTING && st != State.CONNECTING && st != State.CONNECTED) continue;
+      NativeVideoCallLog.info(
+          "task_removed_end_live_session", session.callId, "state=" + st.name().toLowerCase());
+      end(app, session.callId, NativeCallEndReason.SOURCE_TASK_REMOVED);
+    }
   }
 
   public static void missed(Context context, String callId) {
@@ -730,6 +785,11 @@ public final class NativeVideoCallRuntime {
   }
 
   private static void terminalPatch(Context context, String callId, String action) {
+    terminalPatch(context, callId, action, null);
+  }
+
+  private static void terminalPatch(
+      Context context, String callId, String action, String endReason) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -740,6 +800,16 @@ public final class NativeVideoCallRuntime {
     DibayCallConsumedStore.mark(app, sid, action);
     // END UX: dismiss surface immediately; PATCH + cleanup continue on Runtime (survives Activity).
     NativeVideoCallActivity.finishIfActive(sid, action);
+    boolean isEnd = !"reject".equals(action) && !"missed".equals(action);
+    if (isEnd) {
+      // Bug A: persist the end intent BEFORE Agora leave — the peer sees QUIT right after leave and
+      // this process may be killed (swipe) before the PATCH below completes.
+      NativeCallTerminalEndOutbox.record(
+          app,
+          sid,
+          NativeCallTerminalEndOutbox.LANE_VIDEO,
+          endReason != null ? endReason : NativeCallEndReason.USER_END);
+    }
     // Release Agora at terminal intent so remote peer observes USER_OFFLINE promptly.
     // SESSIONS.remove still waits for PATCH → cleanup (locked lifecycle invariant).
     if (!skipAgoraLeaveForTests) {
@@ -757,7 +827,15 @@ public final class NativeVideoCallRuntime {
     } else if ("missed".equals(action)) {
       NativeVideoCallApi.missedAsync(app, sid, done);
     } else {
-      NativeVideoCallApi.endAsync(app, sid, done);
+      String reason = endReason != null ? endReason : NativeCallEndReason.USER_END;
+      NativeVideoCallApi.endAsync(
+          app,
+          sid,
+          reason,
+          (ok, status, error) -> {
+            NativeCallTerminalEndOutbox.settle(app, sid, ok, status);
+            done.onDone(ok, status, error);
+          });
     }
   }
 
@@ -942,7 +1020,8 @@ public final class NativeVideoCallRuntime {
     if (session != null && !alreadyTerminal) {
       String action = session.initiator ? "end" : "reject";
       NativeVideoCallLog.info("fail_terminal_propagate", sid, "action=" + action + " reason=" + safe(reason));
-      terminalPatch(context, sid, action);
+      terminalPatch(
+          context, sid, action, "end".equals(action) ? NativeCallEndReason.FAIL_PROPAGATE : null);
       return;
     }
     cleanup(context, sid, "failed");
