@@ -15,11 +15,15 @@ const insertedCallLogs: Row[] = [];
 
 function makeBuilder(table: string) {
   const filters: Array<(row: Row) => boolean> = [];
+  let pendingUpdate: Row | null = null;
   const builder: Record<string, unknown> = {
     select: () => builder,
     order: () => builder,
     limit: () => builder,
-    update: () => builder,
+    update: (payload: Row) => {
+      pendingUpdate = payload;
+      return builder;
+    },
     is: () => builder,
     eq: (col: string, value: unknown) => {
       filters.push((row) => row[col] === value);
@@ -29,16 +33,26 @@ function makeBuilder(table: string) {
       filters.push((row) => values.includes(row[col]));
       return builder;
     },
-    insert: async (payload: Row) => {
-      if (table === "community_messenger_call_logs") insertedCallLogs.push(payload);
+    insert: async (payload: Row | Row[]) => {
+      const rows = Array.isArray(payload) ? payload : [payload];
+      if (table === "community_messenger_call_logs") insertedCallLogs.push(...rows);
+      if (table === "community_messenger_participants") {
+        tables[table] = [...(tables[table] ?? []), ...rows];
+      }
       return { error: null };
     },
     maybeSingle: async () => ({
       data: (tables[table] ?? []).filter((row) => filters.every((f) => f(row)))[0] ?? null,
       error: null,
     }),
-    then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
-      resolve({ data: (tables[table] ?? []).filter((row) => filters.every((f) => f(row))), error: null }),
+    then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
+      const matched = (tables[table] ?? []).filter((row) => filters.every((f) => f(row)));
+      if (pendingUpdate && table === "community_messenger_participants") {
+        for (const row of matched) Object.assign(row, pendingUpdate);
+        pendingUpdate = null;
+      }
+      return resolve({ data: matched, error: null });
+    },
   };
   return builder;
 }
@@ -139,12 +153,31 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
     expect(appendAtomicMock.mock.calls[0]![1]).toEqual(expect.objectContaining({ senderId: "caller" }));
   });
 
-  it("returns an explicit error (not a silent drop) when no call party is an active member", async () => {
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("re-admits left call parties once so terminal stub reaches chat list (no forged call_log)", async () => {
     tables.community_messenger_participants = [
       { room_id: "room-1", user_id: "callee", left_at: "2026-06-05T00:00:00.000Z" },
+      { room_id: "room-1", user_id: "caller", left_at: "2026-06-05T00:00:00.000Z" },
     ];
     const result = await appendCommunityMessengerCallStubMessage({ ...baseStub, userId: "callee" });
+    expect(result).toEqual({ ok: true, messageId: "msg-1", senderId: "callee" });
+    expect(appendAtomicMock).toHaveBeenCalledTimes(1);
+    expect(tables.community_messenger_participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ user_id: "callee", left_at: null }),
+        expect.objectContaining({ user_id: "caller", left_at: null }),
+      ])
+    );
+  });
+
+  it("returns an explicit error when session party ids are missing so heal cannot run", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    tables.community_messenger_participants = [];
+    const result = await appendCommunityMessengerCallStubMessage({
+      ...baseStub,
+      userId: "callee",
+      initiatorUserId: null,
+      recipientUserId: null,
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe(CALL_STUB_NO_ACTIVE_SENDER_ERROR);
     expect(appendAtomicMock).not.toHaveBeenCalled();
@@ -155,8 +188,7 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
     errSpy.mockRestore();
   });
 
-  it("createCommunityMessengerCallLog surfaces stub projection failure while keeping the call log", async () => {
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("createCommunityMessengerCallLog heals empty membership then projects stub with the call log", async () => {
     tables.community_messenger_participants = [];
     const result = await createCommunityMessengerCallLog({
       userId: "caller",
@@ -172,12 +204,8 @@ describe("appendCommunityMessengerCallStubMessage — active sender + surfaced f
       recipientUserId: "callee",
     });
     expect(insertedCallLogs).toHaveLength(1);
-    expect(result).toEqual({
-      ok: false,
-      error: `call_stub_projection_failed:${CALL_STUB_NO_ACTIVE_SENDER_ERROR}`,
-      callLogPersisted: true,
-    });
-    errSpy.mockRestore();
+    expect(result).toEqual({ ok: true, callLogPersisted: true });
+    expect(appendAtomicMock).toHaveBeenCalled();
   });
 
   it("createCommunityMessengerCallLog projects the stub via the active initiator when the rejecting callee left", async () => {

@@ -5608,38 +5608,64 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       initiatorUserId: input.initiatorUserId,
       recipientUserId: input.recipientUserId,
     });
-    const { data: participantRows, error: participantErr } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("user_id, left_at")
-      .eq("room_id", input.roomId)
-      .in("user_id", senderCandidates);
-    if (participantErr) {
-      const error = `participants_lookup_failed:${String(participantErr.message ?? "unknown")}`;
+    const loadActiveStubSender = async (): Promise<
+      | { ok: true; senderId: string }
+      | { ok: false; error: string }
+    > => {
+      const { data: participantRows, error: participantErr } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id, left_at")
+        .eq("room_id", input.roomId)
+        .in("user_id", senderCandidates);
+      if (participantErr) {
+        return {
+          ok: false,
+          error: `participants_lookup_failed:${String(participantErr.message ?? "unknown")}`,
+        };
+      }
+      const senderId = pickActiveCallStubSender(
+        senderCandidates,
+        (participantRows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>
+      );
+      if (!senderId) return { ok: false, error: CALL_STUB_NO_ACTIVE_SENDER_ERROR };
+      return { ok: true, senderId };
+    };
+    /**
+     * Terminal stub must reach chat list + room tip. If both call parties left/missing,
+     * re-admit the session pair once (same readmit path as opening a general DM) — never
+     * invent a forged call_log POST, never use a non-member sender.
+     */
+    const healCallPartyMembershipOnce = async (): Promise<void> => {
+      const initiator = trimText(input.initiatorUserId ?? "");
+      const recipient = trimText(input.recipientUserId ?? "");
+      if (!initiator || !recipient || initiator === recipient) return;
+      await ensureDirectMessengerRoomParticipantsForPair(sb, input.roomId!, initiator, recipient);
+    };
+
+    let senderPick = await loadActiveStubSender();
+    if (!senderPick.ok && senderPick.error === CALL_STUB_NO_ACTIVE_SENDER_ERROR) {
+      await healCallPartyMembershipOnce();
+      senderPick = await loadActiveStubSender();
+    }
+    if (!senderPick.ok) {
       console.error("[room_unread_v1] call_stub_append", {
         code: "cm_call_stub_projection_failed",
         roomId: input.roomId,
         sessionId: sessionId || null,
-        error,
+        error: senderPick.error,
         candidates: senderCandidates,
       });
-      return { ok: false, error, candidates: senderCandidates };
+      return { ok: false, error: senderPick.error, candidates: senderCandidates };
     }
-    const stubSenderId = pickActiveCallStubSender(
-      senderCandidates,
-      (participantRows ?? []) as Array<{ user_id?: string | null; left_at?: string | null }>
-    );
-    if (!stubSenderId) {
-      console.error("[room_unread_v1] call_stub_append", {
-        code: "cm_call_stub_projection_failed",
-        roomId: input.roomId,
-        sessionId: sessionId || null,
-        error: CALL_STUB_NO_ACTIVE_SENDER_ERROR,
-        candidates: senderCandidates,
-      });
-      return { ok: false, error: CALL_STUB_NO_ACTIVE_SENDER_ERROR, candidates: senderCandidates };
-    }
+    let stubSenderId = senderPick.senderId;
     const createdAt = trimText(input.createdAt) || nowIso();
-    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+    const idempotencyKey = resolveCallStubIdempotencyKey({
+      sessionId,
+      tmpSessionId: tmp,
+      roomId: input.roomId,
+      createdAt,
+    });
+    let appended = await appendTypedMessengerMessageAtomic(sb as any, {
       roomId: input.roomId,
       senderId: stubSenderId,
       messageType: "call_stub",
@@ -5648,13 +5674,28 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       createdAt,
       countsAsUnread: shouldIncrementUnread,
       /** CUT4: one stub per session — do not include actor/label in key */
-      idempotencyKey: resolveCallStubIdempotencyKey({
-        sessionId,
-        tmpSessionId: tmp,
-        roomId: input.roomId,
-        createdAt,
-      }),
+      idempotencyKey,
     });
+    if (
+      !appended.ok &&
+      (appended.error === "not_member" || appended.error === "participant_left")
+    ) {
+      await healCallPartyMembershipOnce();
+      const healedSender = await loadActiveStubSender();
+      if (healedSender.ok) {
+        stubSenderId = healedSender.senderId;
+        appended = await appendTypedMessengerMessageAtomic(sb as any, {
+          roomId: input.roomId,
+          senderId: stubSenderId,
+          messageType: "call_stub",
+          content: label,
+          metadata,
+          createdAt,
+          countsAsUnread: shouldIncrementUnread,
+          idempotencyKey,
+        });
+      }
+    }
     if (!appended.ok) {
       console.error("[room_unread_v1] call_stub_append", {
         code: "cm_call_stub_projection_failed",
@@ -19354,7 +19395,7 @@ export async function updateCommunityMessengerCallSession(input: {
     // NEW-19: 비종료 상태면 스텁을 쓰지 않는다(둔갑 기록 방지).
     const stubStatus = terminalLogStatus(mapped);
     if (stubStatus === null) return;
-    await appendCommunityMessengerCallStubMessage({
+    const stubResult = await appendCommunityMessengerCallStubMessage({
       userId: actorUserId,
       roomId,
       sessionId,
@@ -19374,6 +19415,15 @@ export async function updateCommunityMessengerCallSession(input: {
       terminalActorUserId: actorUserId,
       resolvedEvent: projection.resolvedEvent,
     });
+    if (!stubResult.ok) {
+      console.error("[cm_call_session] ensureTerminalCallStub_projection_failed", {
+        sessionId,
+        roomId,
+        status: stubStatus,
+        error: stubResult.error,
+        candidates: stubResult.candidates ?? null,
+      });
+    }
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
     const status = terminalLogStatus(mapped);
