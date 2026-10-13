@@ -15,6 +15,7 @@
  * 정책: `supabase/migrations/20270422120000_cm_realtime_private_broadcast_authorization.sql`
  */
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { privateRealtimeChannelOptions } from "@/lib/supabase/private-realtime-channel-options";
 import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
 import {
   postRealtimeBroadcastRest,
@@ -27,12 +28,7 @@ type RealtimeSubscribeStatus = Parameters<NonNullable<Parameters<RealtimeChannel
 export function messengerPrivateBroadcastChannelOptions(broadcast?: { ack?: boolean; self?: boolean }): {
   config: { private: true; broadcast: { ack: boolean; self: boolean } };
 } {
-  return {
-    config: {
-      private: true,
-      broadcast: { ack: broadcast?.ack === true, self: broadcast?.self === true },
-    },
-  };
+  return privateRealtimeChannelOptions(broadcast);
 }
 
 const STATUS_LOG_WINDOW_MS = 30_000;
