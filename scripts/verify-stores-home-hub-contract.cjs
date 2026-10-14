@@ -72,9 +72,19 @@ assertIncludes(
 
   headerChrome,
 
-  "store_home_pull_hint",
+  "DibayPtrSlot",
 
-  "stores header must show pull-to-refresh hint"
+  "stores header must mount shared PTR hint slot"
+
+);
+
+assertIncludes(
+
+  read("components/ptr/DibayPtrSlot.tsx"),
+
+  "ptr_pull_hint",
+
+  "shared PTR slot must show pull-to-refresh hint copy"
 
 );
 
@@ -300,9 +310,9 @@ assertIncludes(
 
 assertIncludes(
 
-  read("lib/stores/use-stores-home-pull-refresh.ts"),
+  read("lib/ui/ptr/use-dibay-ptr-gesture.ts"),
 
-  "computeStoresHomePullPxFromTouchDy",
+  "computeDibayPtrPullPxFromTouchDy",
 
   "pull refresh must use shared rubber-band pull curve"
 
@@ -312,9 +322,29 @@ assertIncludes(
 
   read("lib/stores/stores-home-pull-refresh-store.ts"),
 
-  "STORES_HOME_PULL_REFRESH_THRESHOLD_PX = 58",
+  "computeStoresHomePullPxFromTouchDy = computeDibayPtrPullPxFromTouchDy",
+
+  "stores home PTR must keep rubber-band alias on shared curve"
+
+);
+
+assertIncludes(
+
+  read("lib/ui/ptr/dibay-ptr-ssot.ts"),
+
+  "DIBAY_PTR_THRESHOLD_PX = 58",
 
   "pull refresh threshold must stay at +20% over legacy 48px"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-pull-refresh-store.ts"),
+
+  "STORES_HOME_PULL_REFRESH_THRESHOLD_PX = DIBAY_PTR_THRESHOLD_PX",
+
+  "stores home PTR threshold must alias shared SSOT (58px)"
 
 );
 
@@ -340,9 +370,9 @@ assertIncludes(
 
 assertIncludes(
 
-  read("components/stores/home/hub/StoresHomeHeaderChrome.tsx"),
+  read("components/ptr/DibayPtrSlot.tsx"),
 
-  "StoresHomePtrSpinner",
+  "DibayPtrSpinner",
 
   "pull refresh must show buffering spinner while refreshing"
 
@@ -382,7 +412,7 @@ assertIncludes(
 );
 assertIncludes(
   read("lib/stores/use-stores-home-pull-refresh.ts"),
-  "data-app-sticky-header",
+  "bindStickyHeader: true",
   "pull refresh must bind sticky header as well as scroll body (delivery chrome)"
 );
 
