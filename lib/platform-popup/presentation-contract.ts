@@ -10,6 +10,8 @@ export const PLATFORM_POPUP_PRESENTATION_TYPES = [
   "benefit_dialog",
   "inline_banner",
   "hero_banner",
+  /** 비간섭 — 당겨서 새로고침 슬롯 띠 배너 (`lib/platform-popup/ptr-reveal-contract.ts`) */
+  "ptr_reveal",
 ] as const;
 export type PlatformPopupPresentationType = (typeof PLATFORM_POPUP_PRESENTATION_TYPES)[number];
 
@@ -22,7 +24,8 @@ export const PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS = [
 export type PlatformPopupInterruptivePresentation =
   (typeof PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS)[number];
 
-export const PLATFORM_POPUP_CREATIVE_MODES = ["card", "artwork"] as const;
+/** `ptr_band` — PTR 띠 소재(휴대폰·태블릿 띠, 로고), ptr_reveal 전용 */
+export const PLATFORM_POPUP_CREATIVE_MODES = ["card", "artwork", "ptr_band"] as const;
 export type PlatformPopupCreativeMode = (typeof PLATFORM_POPUP_CREATIVE_MODES)[number];
 
 export const PLATFORM_POPUP_FREQUENCY_MODES = [
@@ -43,6 +46,17 @@ export function isPlatformPopupInterruptivePresentation(
   value: string
 ): value is PlatformPopupInterruptivePresentation {
   return (PLATFORM_POPUP_INTERRUPTIVE_PRESENTATIONS as readonly string[]).includes(value);
+}
+
+/** 관리자 저장 허용 프레젠테이션 — 인터럽트 3종 + PTR 띠 배너 */
+export function isPlatformPopupAdminSelectablePresentation(
+  value: string
+): value is PlatformPopupInterruptivePresentation | "ptr_reveal" {
+  return isPlatformPopupInterruptivePresentation(value) || value === "ptr_reveal";
+}
+
+export function isPlatformPopupPtrRevealPresentation(value: string | null | undefined): boolean {
+  return String(value ?? "").trim().toLowerCase() === "ptr_reveal";
 }
 
 export function isPlatformPopupCreativeMode(value: string): value is PlatformPopupCreativeMode {

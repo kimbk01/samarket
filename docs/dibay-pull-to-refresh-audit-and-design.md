@@ -539,3 +539,83 @@ PASS 기준: 응답 200 이 아니라 **DOM 목록 텍스트가 새 응답으로
 - 메신저·사장님 대시보드 로그인 런타임: 테스트 계정 없음(계정 생성 = DB 변경 금지) → **NOT_PROVEN**.
 - 실제 서버 API: 서버 라우트에 `SUPABASE_SERVICE_ROLE_KEY` 필요(이 환경 미보유), Vercel 프리뷰 조회 403(팀 스코프 권한 없음) → **NOT_PROVEN**.
 - 실기기 Android·iPhone·태블릿: 기기 미연결 → **NOT_PROVEN**.
+
+## 11. PTR 띠 광고(ptr_reveal) — 관리자 운영 시스템 구현 (A안, 2026-10-14)
+
+Owner 승인: 「A안 — PTR 광고 운영 관리 전체 구현」. §10.7 의 "구현하지 않음" 은 이 절로 대체된다.
+검증 등급 표기: CODE(코드·단위 테스트) · BROWSER(로컬 dev + 스텁 API, 에뮬레이션) · DB(TEST 프로젝트 조회) · **NOT_PROVEN**(실기기·TEST 배포·실제 로그인·실제 DB 쓰기).
+
+### 11.1 구조 — Platform Popup 재사용, 노출 경로는 완전 분리
+
+| 항목 | 결정 | 근거 파일 |
+|---|---|---|
+| 캠페인 | `platform_popup_campaigns.presentation_type = 'ptr_reveal'` (비간섭) | `lib/platform-popup/presentation-contract.ts` |
+| 소재 | `platform_popup_creatives.creative_mode = 'ptr_band'` + `variant` default(휴대폰, 필수)·tablet(선택)·logo(선택) | `lib/platform-popup/ptr-reveal-contract.ts` |
+| 승인·기간·우선순위·대상화면·CTA 검증·감사로그·이벤트·빈도 억제 | 팝업과 동일 코드 경로 | `admin-campaign-writer.ts`, `admin-transitions.ts`, `resolve-popup-ad.ts` |
+| 노출 판정 | `selectPlatformPopupEligibleWinner(input, scope)` — `interruptive`(팝업) / `ptr_reveal`(PTR) 범위가 서로의 캠페인·소재를 선택하지 않음 | `resolve-popup-ad.ts` |
+| 조회 API | `GET /api/platform-popup/ptr-reveal` (팝업 resolve 와 별도, impression 미기록) | `app/api/platform-popup/ptr-reveal/route.ts` |
+| 팝업↔PTR 전환 | 저장 시 `presentation_family_locked`(409), 소재 업로드 시 `creative_mode_presentation_mismatch` | writer |
+| 승인 검증 | PTR 은 ptr_band 소재 필수, 팝업은 ptr_band 금지 | `admin-campaign-authority.ts` |
+
+### 11.2 앱 런타임 (DibayPtrSlot)
+
+- 유휴 시간에 조회(타임아웃 4s) + 기기 변형 이미지 디코드 → 준비된 광고만 노출. 5분 캐시. 당김 중 네트워크 대기 없음.
+- PTR 엔진(`store.run`)은 광고를 기다리지 않음 — 광고 실패·지연(6s)·없음 모두 새로고침 결과·시간 동일 (BROWSER: fail/slow/none 각 ~1.6s SUCCESS).
+- 노출 1회 = 새로고침 1사이클(`exposureId`). **impression 은 REFRESHING/SUCCESS/ERROR 유지 단계 + 슬롯 ≥ 58px + 해당 띠 이미지 load 완료 + 화면 전면일 때만** 1회. 당기다 취소 = 노출 아님.
+- 노출 종료(띠 접힘) 또는 CTA 후 캠페인 `frequency_mode` → 억제 기록(팝업 `frequencyModeToDismissSuppressMode` 와 동일 매핑, `close_only` 는 기록 없음) → 캐시 비움 → 다음 유휴에 재조회(회전).
+- CTA 는 유지 단계에서만 탭 가능, `click`(click_handler) + `landing_success/failure` 기록, 내부 경로 `router.push` / 외부 `location.assign`.
+- 메신저·통화·결제·주문 핵심 화면: `resolveDibaySurface` 비광고 표면 → 조회 자체 없음 (BROWSER: `/community-messenger` 요청 0건).
+- 광고 없는 화면·태블릿 띠가 없는 태블릿: 기존 PTR 그대로(마크업 동일, 회귀 probe 통과).
+- 과금: 없음.
+
+### 11.3 띠 영역 규칙 (잠정 — 실기기 확인 후 Owner 확정)
+
+| 변형 | 표준 출력 | 비율 | 최소 원본(자른 뒤) | 핵심 문구 | 상태(스피너·문구) | 앱 표시물(광고 표기·로고·CTA) |
+|---|---|---|---|---|---|---|
+| 휴대폰 default | 1280×320 WebP | 4:1 | 960×240 | x 10–32% | x 32–68% | x 68–90% |
+| 태블릿 tablet | 2560×320 WebP | 8:1 | 1920×240 | x 16–40% | x 40–60% | x 60–84% |
+| 로고 logo | 256×256 WebP | 1:1 | 96×96 | 10–90% | — | — |
+
+세로: 모든 영역 y = 22.6–77.4% (새로고침 유지 최소 58px / 렌더 106px 의 가운데 띠).
+배치 함수 `computePtrBandLayout` 하나를 앱과 관리자 미리보기가 공유:
+
+| 프레임 폭 | 변형 | 이미지 렌더 | 보이는 가로 | 비고 |
+|---|---|---|---|---|
+| 360 (Galaxy S) | 휴대폰 | 424×106, left −32 | 7.5–92.5% | 좌우 잘림, 핵심·표시물 영역 모두 보임 (BROWSER 실측) |
+| 393 (iPhone 15) | 휴대폰 | 424×106 | 3.7–96.3% | |
+| 430 (Pro Max) | 휴대폰 | 430×107.5 | 0–100% | 폭 cover, 세로 소폭 잘림 |
+| 600 (안드 7") | 태블릿 | 848×106, left −124 | 14.6–85.4% | 안전영역 바깥 경계(16%) 보임 |
+| 820 (iPad) | 태블릿 | 848×106 | 1.7–98.3% | |
+| 1180 (iPad 가로) | 태블릿 | 848×106, 좌우 여백 166 | 0–100% | 여백 = 슬롯 배경색 (BROWSER 실측) |
+
+기기 구분 600px(잠정), 1280×320·2560×320·106px 고정 높이 모두 잠정 — 실기기 슬롯 높이 측정 후 확정.
+
+### 11.4 관리자 — 프로모션 / 이벤트 › 「당겨서 새로고침 광고」 (`/admin/ptr-reveal-ads`)
+
+- 팝업 메뉴와 분리(목록 API `scope=ptr` / 팝업 목록은 ptr_reveal 제외). 기존 관리자 권한(`requireAdminApiUser`)·승인 정책 재사용.
+- 목록·검색·상태 필터, 새로 만들기(ptr_reveal 프리셋), 복사(승인·기간 제외, 소재 파일 공유 — 삭제 경로 없음 확인).
+- 상세: 광고 이름·문구(대체 텍스트)·버튼 문구·우선순위 / 내부 경로·외부 HTTPS / 노출 화면(전체·거래·커뮤니티·배달) / 시작·종료·빈도.
+- 이미지: 휴대폰·태블릿·로고 각각 PC 파일 선택·끌어다 놓기, 업로드 전 형식·용량(8MB)·해상도(자른 뒤 최소)·비율 검사, 비율 불일치 시 가운데 자르기 확인.
+- 기기별 미리보기: Galaxy 360/384 · iPhone 393/430 · 안드 태블릿 600/800 · iPad 820/1024, 세로·가로, 6상태(당김·놓기·새로고침·성공·실패·광고 없음), 놓은 위치(슬롯 58–106) 조절, 영역 가이드(초록 핵심 / 빨강 상태 / 파랑 표시물), 보이는 영역 %·좌우 여백 표시 — **앱과 같은 `DibayPtrSlot` 컴포넌트**를 프레임 폭으로 렌더.
+- 승인·운영: 검토 요청 · 승인 후 예약 · 승인 후 노출 시작 · 반려 · 노출 중지 · 다시 노출 · 종료 — 모두 확인창. 저장·취소도 확인창.
+- 성과: 노출·클릭·CTR·이동 성공/실패·화면별 (`platform_popup_campaign_events`).
+
+### 11.5 DB — 마이그레이션 `20270501120000_platform_popup_ptr_reveal.sql`
+
+- 버전 충돌 발견·수정: 최초 `20270425120000` 은 `origin/main` 의 `20270425120000_cm_realtime_store_order_row_private_topics.sql` 및 dibay-test 적용 이력과 충돌 → `20270501120000` 으로 변경.
+- 내용: presentation CHECK 에 ptr_reveal 추가 / creative_mode CHECK 에 ptr_band 추가 / `variant` 컬럼(기본 default) + CHECK 3종(값, ptr_band 전용, 변형별 비율) / ready 유니크 인덱스를 (campaign, variant) 로 동치 치환(팝업 소재는 항상 default → 팝업의 "ready 1개" 보장 불변). 기존 CHECK·UNIQUE 삭제 없음(재정의만).
+- 롤백: `supabase/rollback/20270501120000_platform_popup_ptr_reveal_rollback.sql` (PTR 데이터 존재 시 중단 가드).
+- 프로젝트 확인(DB): PROD `ckdosyydvgzqwpbwuhon` — **미적용·미접근**. TEST `tcwnueuzuxftyomttdyu`(dibay-test, 저장소 마이그레이션 586개 재생, 팝업 CHECK·인덱스 전부 존재, 팝업 데이터 0). TEST `gczyogboohpixpurckkg`(dibay-reset-qa).
+- **dibay-reset-qa 드리프트 원인(DB 조회)**: 저장소 마이그레이션이 아니라 `qa_schema_chunk_00~07`(구조 덤프) + QA 베이스라인으로 생성(이력 27건). 공개 스키마 CHECK 71개 vs dibay-test 710개 — 팝업 테이블의 CHECK·부분 유니크 인덱스가 덤프에 포함되지 않음.
+- **TEST 적용: NOT_PROVEN(미적용)** — dibay-test 에 `execute_sql`·`apply_migration` 3회 시도 모두 도구 60s 타임아웃, 매번 스키마 무변경·활성 세션 0·락 대기 0 확인. 도구가 파괴적 구문(DROP CONSTRAINT/INDEX) 승인을 요구하는 것으로 판단, 우회 시도하지 않음.
+
+### 11.6 검증 결과
+
+| 항목 | 결과 | 등급 |
+|---|---|---|
+| 단위: 계약·배치·영역·자격 범위 분리·승인 게이트·sharp 파이프라인 | 18/18 | CODE |
+| 관리자 미리보기·업로드·저장·승인·통계 (임시 하네스, 커밋 안 함) | 29/29 | BROWSER |
+| 앱 런타임: 프리페치·노출 1회·억제·재조회·CTA·실패/지연/없음·iPad 태블릿 띠·메신저 제외 | 23/23 | BROWSER |
+| 무광고 PTR 회귀(/market) | FAIL 0 | BROWSER |
+| 브라우저에서 발견·수정한 결함 | ① 전역 `img{max-width:100%}` 가 띠 폭 cover 를 무력화(360 에서 오른쪽 32px 빈 띠) → 인라인 `maxWidth:none` ② 광고 표기·로고·CTA 가 핵심 문구 영역을 덮음 → 오른쪽 표시물 전용 영역 신설 ③ 성공 문구 알약이 CTA 를 덮음 → 상태 영역 폭으로 제한 ④ 노출 종료 후 재조회 안 됨 → 캐시 버전 의존성 | BROWSER |
+| 실기기(Samsung APK·iPhone·안드 태블릿·iPad), TEST 배포, 실제 관리자 로그인, 실제 업로드·DB 쓰기, 실제 노출·클릭 집계 | — | **NOT_PROVEN** |

@@ -70,6 +70,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "promotion-home": "admin_menu_promotion_home",
   "promotion-events": "admin_menu_promotion_events",
   "promotion-popup": "admin_menu_promotion_popup",
+  "promotion-ptr-ads": "admin_menu_promotion_ptr_ads",
   "promotion-banners": "admin_menu_promotion_banners",
   "promotion-notifications": "admin_menu_promotion_notifications",
   "promotion-owner-requests": "admin_menu_promotion_owner_requests",
@@ -1068,6 +1069,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           "/admin/platform-popup/requests",
           "/admin/platform-popup/requests/",
         ],
+        status: "done",
+      },
+      {
+        // 당겨서 새로고침 띠 광고 — Platform Popup 승인·기간·이벤트 재사용, 팝업 목록과 분리(ptr_reveal 만)
+        key: "promotion-ptr-ads",
+        title: "",
+        path: "/admin/ptr-reveal-ads",
+        matchPaths: ["/admin/ptr-reveal-ads/"],
         status: "done",
       },
       {

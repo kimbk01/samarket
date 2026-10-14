@@ -50,6 +50,25 @@ export function formatPlatformPopupAdminError(
   if (lower === "schedule_invalid") {
     return lang === "en" ? "End time must be after start time." : "종료 시각은 시작 시각보다 이후여야 합니다.";
   }
+  if (lower.includes("creative_mode_presentation_mismatch")) {
+    return lang === "en"
+      ? "This image type does not match the campaign type (popup vs pull-to-refresh band)."
+      : "소재 종류가 캠페인 종류와 맞지 않습니다(팝업 소재 ↔ 당겨서 새로고침 띠).";
+  }
+  if (lower === "presentation_family_locked") {
+    return lang === "en"
+      ? "A popup cannot be changed into a pull-to-refresh ad (or the reverse). Create a new campaign."
+      : "팝업과 당겨서 새로고침 광고는 서로 전환할 수 없습니다. 새 캠페인을 만들어 주세요.";
+  }
+  if (lower === "ptr_band_too_small") {
+    return lang === "en" ? "Image resolution is too low." : "이미지 해상도가 낮습니다.";
+  }
+  if (lower.includes("creative_required")) {
+    return lang === "en" ? "Upload the phone band image first." : "휴대폰 띠 이미지를 먼저 올려 주세요.";
+  }
+  if (lower === "owner_campaign_copy_forbidden") {
+    return lang === "en" ? "Owner-requested campaigns cannot be copied." : "오너 요청 캠페인은 복사할 수 없습니다.";
+  }
   if (lower === "load_failed" || lower === "save_failed") {
     return lang === "en" ? "Could not save. Try again." : "저장하지 못했습니다. 다시 시도해 주세요.";
   }

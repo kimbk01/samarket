@@ -35,7 +35,7 @@ function read(rel: string): string {
 }
 
 describe("CUT3 Promotion IA navigation", () => {
-  it("exposes promotion workspace with home + 5 children + Startup group (intro burned R15 ZERO)", () => {
+  it("exposes promotion workspace with home + 6 children + Startup group (intro burned R15 ZERO)", () => {
     const promo = findAdminMenuByKey(adminMenu, "promotion");
     expect(promo).toBeTruthy();
     const keys = (promo?.children ?? []).map((c) => c.key);
@@ -44,6 +44,7 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion-home",
       "promotion-events",
       "promotion-popup",
+      "promotion-ptr-ads",
       "promotion-banners",
       "promotion-notifications",
       "settings-startup",

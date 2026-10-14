@@ -10,6 +10,11 @@ import {
   POPUP_CREATIVE_SOURCE_MAX_BYTES,
 } from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import {
+  checkPtrBandSource,
+  normalizePtrBandVariant,
+  PTR_BAND_SPECS,
+} from "@/lib/platform-popup/ptr-reveal-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +24,7 @@ const BUCKET = "platform-popup-creatives";
 /**
  * POST multipart `file` (+ optional applyCrop=center, altText)
  * Final production creative = DIBAY_CANONICAL_POPUP_CREATIVE_SIZE @ 36:25.
+ * creativeMode=ptr_band (+ variant=default|tablet|logo) → PTR 띠 표준 크기 (`ptr-reveal-contract.ts`).
  */
 export async function POST(
   req: NextRequest,
@@ -69,7 +75,9 @@ export async function POST(
   const applyCrop = String(form.get("applyCrop") ?? "").trim().toLowerCase() === "center";
   const altText = String(form.get("altText") ?? "").trim() || null;
   const creativeModeRaw = String(form.get("creativeMode") ?? "card").trim().toLowerCase();
-  const creativeMode = creativeModeRaw === "artwork" ? "artwork" : "card";
+  const creativeMode =
+    creativeModeRaw === "artwork" ? "artwork" : creativeModeRaw === "ptr_band" ? "ptr_band" : "card";
+  const ptrBandVariant = normalizePtrBandVariant(String(form.get("variant") ?? "default"));
   const buf = Buffer.from(await file.arrayBuffer());
 
   let width = 0;
@@ -91,15 +99,61 @@ export async function POST(
     );
   }
 
+  if (creativeMode === "ptr_band") {
+    const spec = PTR_BAND_SPECS[ptrBandVariant];
+    const check = checkPtrBandSource({
+      variant: ptrBandVariant,
+      mime: file.type,
+      bytes: file.size,
+      width,
+      height,
+    });
+    if (!check.ok && check.error === "too_small") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "ptr_band_too_small",
+          variant: ptrBandVariant,
+          minWidth: spec.minSourceWidth,
+          minHeight: spec.minSourceHeight,
+          width,
+          height,
+          message: `해상도가 낮습니다. ${spec.labelKo}는 자른 뒤 최소 ${spec.minSourceWidth}×${spec.minSourceHeight}px 이 필요합니다.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const processed = await processPlatformPopupCreativeToCanonical({
     buffer: buf,
     width,
     height,
     applyCenterCrop: applyCrop,
     creativeMode,
+    ptrBandVariant,
   });
 
   if (!processed.ok) {
+    if (processed.error === "needs_crop" && creativeMode === "ptr_band") {
+      const spec = PTR_BAND_SPECS[ptrBandVariant];
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "needs_crop",
+          variant: ptrBandVariant,
+          requiredAspect: `${spec.aspectW}:${spec.aspectH}`,
+          canonicalWidth: spec.width,
+          canonicalHeight: spec.height,
+          width,
+          height,
+          ratio: width / height,
+          proposedCrop: processed.proposedCrop,
+          message: `${spec.labelKo} 비율(${spec.aspectW}:${spec.aspectH})이 아닙니다. 가운데 자르기 결과를 확인한 뒤 적용해 주세요.`,
+        },
+        { status: 400 }
+      );
+    }
     if (processed.error === "needs_crop") {
       return NextResponse.json(
         {
@@ -149,6 +203,7 @@ export async function POST(
     aspectW: processed.width,
     aspectH: processed.height,
     creativeMode: processed.creativeMode,
+    ptrBandVariant: processed.creativeMode === "ptr_band" ? ptrBandVariant : undefined,
   });
   if (!replaced.ok) {
     return NextResponse.json(
@@ -167,8 +222,11 @@ export async function POST(
     aspect:
       processed.creativeMode === "card"
         ? "36:25"
-        : `${processed.width}:${processed.height}`,
+        : processed.creativeMode === "ptr_band"
+          ? `${PTR_BAND_SPECS[ptrBandVariant].aspectW}:${PTR_BAND_SPECS[ptrBandVariant].aspectH}`
+          : `${processed.width}:${processed.height}`,
     creativeMode: processed.creativeMode,
+    variant: processed.creativeMode === "ptr_band" ? ptrBandVariant : "default",
     hasAlpha: processed.hasAlpha,
     canonical: processed.creativeMode === "card",
     cropped: processed.cropped,

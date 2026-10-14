@@ -24,10 +24,16 @@ import type {
   PlatformPopupTargetSurface,
 } from "@/lib/platform-popup/types";
 import {
+  isPlatformPopupAdminSelectablePresentation,
   isPlatformPopupFrequencyMode,
-  isPlatformPopupInterruptivePresentation,
   isPlatformPopupPresentationType,
+  isPlatformPopupPtrRevealPresentation,
 } from "@/lib/platform-popup/presentation-contract";
+import {
+  normalizePtrBandVariant,
+  PTR_BAND_SPECS,
+  type PtrBandVariant,
+} from "@/lib/platform-popup/ptr-reveal-contract";
 
 export type PlatformPopupAdminUpsertInput = {
   name?: string;
@@ -72,10 +78,16 @@ export async function createPlatformPopupAdminCampaign(
     surfaces?: string[];
     priority?: number;
     timezone?: string;
+    /** 생략 시 center_modal. `ptr_reveal` = 당겨서 새로고침 띠 광고 */
+    presentationType?: string;
   }
 ): Promise<{ ok: true; id: string } | { ok: false; error: string; httpStatus?: number }> {
   const name = input.name.trim();
   if (!name) return { ok: false, error: "name_required", httpStatus: 400 };
+  const presentationType = String(input.presentationType ?? "center_modal").trim().toLowerCase();
+  if (!isPlatformPopupAdminSelectablePresentation(presentationType)) {
+    return { ok: false, error: "presentation_invalid", httpStatus: 400 };
+  }
 
   const surfaces = normalizeSurfaces(input.surfaces?.length ? input.surfaces : ["GLOBAL"]);
   if ("error" in surfaces) return { ok: false, error: surfaces.error, httpStatus: 400 };
@@ -91,7 +103,7 @@ export async function createPlatformPopupAdminCampaign(
       cta_type: "internal_page",
       cta_target: PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
       external_url: null,
-      presentation_type: "center_modal",
+      presentation_type: presentationType,
       frequency_mode: "once_per_session",
       suppression_mode: "SESSION",
       created_by: input.adminUserId,
@@ -116,7 +128,7 @@ export async function createPlatformPopupAdminCampaign(
     target_id: data.id,
     action: "platform_popup.create",
     before_json: null,
-    after_json: { name, surfaces },
+    after_json: { name, surfaces, presentationType },
   });
 
   return { ok: true, id: data.id as string };
@@ -140,7 +152,7 @@ export async function updatePlatformPopupAdminCampaign(
   const { data: current, error: fetchErr } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, presentation_type"
     )
     .eq("id", campaignId)
     .maybeSingle();
@@ -192,8 +204,15 @@ export async function updatePlatformPopupAdminCampaign(
 
   if (input.patch.presentationType != null) {
     const p = String(input.patch.presentationType).trim().toLowerCase();
-    if (!isPlatformPopupPresentationType(p) || !isPlatformPopupInterruptivePresentation(p)) {
+    if (!isPlatformPopupPresentationType(p) || !isPlatformPopupAdminSelectablePresentation(p)) {
       return { ok: false, error: "presentation_invalid", httpStatus: 400 };
+    }
+    // 팝업 ↔ PTR 띠 배너 전환 금지 — 소재 규격이 달라 팝업이 PTR 로(또는 반대로) 노출되는 것을 막는다.
+    if (
+      isPlatformPopupPtrRevealPresentation(p) !==
+      isPlatformPopupPtrRevealPresentation(current.presentation_type as string | null)
+    ) {
+      return { ok: false, error: "presentation_family_locked", httpStatus: 409 };
     }
     patch.presentation_type = p;
   }
@@ -287,6 +306,9 @@ export async function updatePlatformPopupAdminCampaign(
     material.add("creative");
   }
   if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
+    if (isPlatformPopupPtrRevealPresentation(current.presentation_type as string | null)) {
+      return { ok: false, error: "creative_mode_invalid_for_ptr", httpStatus: 400 };
+    }
     material.add("creative");
   }
 
@@ -347,7 +369,9 @@ export async function replacePlatformPopupReadyCreative(
     altText?: string | null;
     aspectW?: number;
     aspectH?: number;
-    creativeMode?: "card" | "artwork";
+    creativeMode?: "card" | "artwork" | "ptr_band";
+    /** creativeMode=ptr_band 전용 */
+    ptrBandVariant?: PtrBandVariant;
   }
 ): Promise<{ ok: true; creativeId: string; revertedToReview: boolean } | { ok: false; error: string; httpStatus?: number }> {
   const campaignId = input.campaignId.trim();
@@ -355,37 +379,70 @@ export async function replacePlatformPopupReadyCreative(
 
   const { data: campaign, error: cErr } = await sb
     .from("platform_popup_campaigns")
-    .select("id, status")
+    .select("id, status, presentation_type")
     .eq("id", campaignId)
     .maybeSingle();
   if (cErr) return { ok: false, error: cErr.message, httpStatus: 500 };
   if (!campaign) return { ok: false, error: "not_found", httpStatus: 404 };
   if (campaign.status === "ended") return { ok: false, error: "ended_immutable", httpStatus: 409 };
 
-  const creativeMode = input.creativeMode === "artwork" ? "artwork" : "card";
-  const aspectW =
-    creativeMode === "artwork" && input.aspectW && input.aspectW > 0 ? Math.trunc(input.aspectW) : 36;
-  const aspectH =
-    creativeMode === "artwork" && input.aspectH && input.aspectH > 0 ? Math.trunc(input.aspectH) : 25;
+  const isPtrCampaign = isPlatformPopupPtrRevealPresentation(
+    (campaign as { presentation_type?: string | null }).presentation_type
+  );
+  if (isPtrCampaign !== (input.creativeMode === "ptr_band")) {
+    // PTR 캠페인 ↔ ptr_band 소재만 짝 — 팝업 소재가 PTR 로, PTR 띠가 팝업으로 쓰이지 않게.
+    return { ok: false, error: "creative_mode_presentation_mismatch", httpStatus: 400 };
+  }
 
-  await sb
-    .from("platform_popup_creatives")
-    .update({ status: "rejected", updated_at: new Date().toISOString() })
-    .eq("campaign_id", campaignId)
-    .eq("status", "ready");
+  const creativeMode =
+    input.creativeMode === "ptr_band" ? "ptr_band" : input.creativeMode === "artwork" ? "artwork" : "card";
+  const ptrVariant = normalizePtrBandVariant(input.ptrBandVariant);
+  const aspectW =
+    creativeMode === "ptr_band"
+      ? PTR_BAND_SPECS[ptrVariant].aspectW
+      : creativeMode === "artwork" && input.aspectW && input.aspectW > 0
+        ? Math.trunc(input.aspectW)
+        : 36;
+  const aspectH =
+    creativeMode === "ptr_band"
+      ? PTR_BAND_SPECS[ptrVariant].aspectH
+      : creativeMode === "artwork" && input.aspectH && input.aspectH > 0
+        ? Math.trunc(input.aspectH)
+        : 25;
+
+  if (creativeMode === "ptr_band") {
+    // 같은 변형의 ready 만 교체 — 휴대폰·태블릿 띠·로고는 각각 1개씩 ready 유지.
+    const { error: rejErr } = await sb
+      .from("platform_popup_creatives")
+      .update({ status: "rejected", updated_at: new Date().toISOString() })
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready")
+      .eq("variant", ptrVariant);
+    if (rejErr) return { ok: false, error: rejErr.message, httpStatus: 500 };
+  } else {
+    await sb
+      .from("platform_popup_creatives")
+      .update({ status: "rejected", updated_at: new Date().toISOString() })
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready");
+  }
+
+  const row: Record<string, unknown> = {
+    campaign_id: campaignId,
+    asset_path: input.assetPath,
+    asset_url: input.assetUrl,
+    aspect_w: aspectW,
+    aspect_h: aspectH,
+    creative_mode: creativeMode,
+    alt_text: input.altText?.trim() || null,
+    status: "ready",
+  };
+  // `variant` 컬럼은 PTR 마이그레이션 이후에만 존재 — 기존 팝업 경로는 컬럼을 참조하지 않는다(기본값 default).
+  if (creativeMode === "ptr_band") row.variant = ptrVariant;
 
   const { data: created, error: insErr } = await sb
     .from("platform_popup_creatives")
-    .insert({
-      campaign_id: campaignId,
-      asset_path: input.assetPath,
-      asset_url: input.assetUrl,
-      aspect_w: aspectW,
-      aspect_h: aspectH,
-      creative_mode: creativeMode,
-      alt_text: input.altText?.trim() || null,
-      status: "ready",
-    })
+    .insert(row)
     .select("id")
     .maybeSingle();
 
@@ -426,6 +483,8 @@ export async function replacePlatformPopupReadyCreative(
     after_json: {
       creativeId: created.id,
       assetPath: input.assetPath,
+      creativeMode,
+      ...(creativeMode === "ptr_band" ? { variant: ptrVariant } : {}),
       revertedToReview,
     },
   });
@@ -440,21 +499,27 @@ export async function loadSnapshotForApproval(
   const { data: row } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url"
+      "name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, presentation_type"
     )
     .eq("id", campaignId)
     .maybeSingle();
   if (!row) return null;
 
-  const [{ data: surfaces }, { data: creative }] = await Promise.all([
+  // PTR 캠페인은 변형별 ready 가 여러 개 — `*` 로 읽어 variant 컬럼 유무(마이그레이션 전후)와 무관하게 동작.
+  const [{ data: surfaces }, { data: readyCreatives }] = await Promise.all([
     sb.from("platform_popup_campaign_surfaces").select("surface").eq("campaign_id", campaignId),
     sb
       .from("platform_popup_creatives")
-      .select("id, status, aspect_w, aspect_h, creative_mode, asset_path, asset_url")
+      .select("*")
       .eq("campaign_id", campaignId)
-      .eq("status", "ready")
-      .maybeSingle(),
+      .eq("status", "ready"),
   ]);
+  const readyRows = (readyCreatives ?? []) as Array<Record<string, unknown>>;
+  const creative =
+    readyRows.find((r) => normalizePtrBandVariant(r.variant as string | null) === "default") ?? null;
+  const isPtr = isPlatformPopupPtrRevealPresentation(
+    (row as { presentation_type?: string | null }).presentation_type
+  );
 
   return {
     name: String(row.name ?? ""),
@@ -470,6 +535,12 @@ export async function loadSnapshotForApproval(
     ctaTarget: String(row.cta_target ?? ""),
     externalUrl: row.external_url,
     surfaces: (surfaces ?? []).map((s) => (s as { surface: PlatformPopupTargetSurface }).surface),
+    presentationType: (row as { presentation_type?: string | null }).presentation_type ?? null,
+    ptrBandVariants: isPtr
+      ? readyRows
+          .filter((r) => r.creative_mode === "ptr_band")
+          .map((r) => normalizePtrBandVariant(r.variant as string | null))
+      : undefined,
     creative: creative
       ? {
           id: String((creative as { id: string }).id),
@@ -485,3 +556,97 @@ export async function loadSnapshotForApproval(
 }
 
 export { validatePlatformPopupCampaignForApproval };
+
+/**
+ * 캠페인 복사 — 설정·대상 화면·ready 소재(같은 저장 파일 재사용)를 새 draft 로.
+ * 승인·기간은 복사하지 않는다(새 캠페인은 다시 승인). 원본 소재 파일은 삭제 경로가 없어 공유해도 안전.
+ */
+export async function copyPlatformPopupAdminCampaign(
+  sb: SupabaseClient,
+  input: { campaignId: string; adminUserId: string; nameSuffix: string }
+): Promise<{ ok: true; id: string } | { ok: false; error: string; httpStatus?: number }> {
+  const sourceId = input.campaignId.trim();
+  if (!sourceId) return { ok: false, error: "missing_id", httpStatus: 400 };
+
+  const { data: src, error: srcErr } = await sb
+    .from("platform_popup_campaigns")
+    .select(
+      "name, priority, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, cta_label, title, body, presentation_type, frequency_mode, owner_store_id"
+    )
+    .eq("id", sourceId)
+    .maybeSingle();
+  if (srcErr) return { ok: false, error: srcErr.message, httpStatus: 500 };
+  if (!src) return { ok: false, error: "not_found", httpStatus: 404 };
+  if ((src as { owner_store_id?: string | null }).owner_store_id) {
+    // 오너 요청 캠페인은 오너 요청 흐름 소유 — 관리자 복사 대상 아님
+    return { ok: false, error: "owner_campaign_copy_forbidden", httpStatus: 409 };
+  }
+  const s = src as Record<string, unknown>;
+
+  const { data: created, error: insErr } = await sb
+    .from("platform_popup_campaigns")
+    .insert({
+      name: `${String(s.name ?? "").trim()}${input.nameSuffix}`.slice(0, 200),
+      status: "draft",
+      approval_status: "not_submitted",
+      priority: s.priority ?? 0,
+      timezone: s.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE,
+      suppression_mode: s.suppression_mode ?? "SESSION",
+      suppression_duration_seconds: s.suppression_duration_seconds ?? null,
+      cta_type: s.cta_type,
+      cta_target: s.cta_target,
+      external_url: s.external_url ?? null,
+      cta_label: s.cta_label ?? null,
+      title: s.title ?? null,
+      body: s.body ?? null,
+      presentation_type: s.presentation_type,
+      frequency_mode: s.frequency_mode ?? "once_per_session",
+      created_by: input.adminUserId,
+    })
+    .select("id")
+    .maybeSingle();
+  if (insErr) return { ok: false, error: insErr.message, httpStatus: 500 };
+  if (!created?.id) return { ok: false, error: "create_failed", httpStatus: 500 };
+  const newId = created.id as string;
+
+  const [{ data: surfaces }, { data: creatives }] = await Promise.all([
+    sb.from("platform_popup_campaign_surfaces").select("surface").eq("campaign_id", sourceId),
+    sb.from("platform_popup_creatives").select("*").eq("campaign_id", sourceId).eq("status", "ready"),
+  ]);
+  if (surfaces?.length) {
+    const { error } = await sb.from("platform_popup_campaign_surfaces").insert(
+      surfaces.map((r) => ({ campaign_id: newId, surface: (r as { surface: string }).surface }))
+    );
+    if (error) return { ok: false, error: error.message, httpStatus: 500 };
+  }
+  if (creatives?.length) {
+    const rows = (creatives as Array<Record<string, unknown>>).map((c) => {
+      const row: Record<string, unknown> = {
+        campaign_id: newId,
+        asset_path: c.asset_path,
+        asset_url: c.asset_url,
+        aspect_w: c.aspect_w,
+        aspect_h: c.aspect_h,
+        creative_mode: c.creative_mode,
+        alt_text: c.alt_text ?? null,
+        status: "ready",
+      };
+      if (c.creative_mode === "ptr_band") row.variant = c.variant;
+      return row;
+    });
+    const { error } = await sb.from("platform_popup_creatives").insert(rows);
+    if (error) return { ok: false, error: error.message, httpStatus: 500 };
+  }
+
+  await appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: input.adminUserId,
+    target_type: "platform_popup_campaign",
+    target_id: newId,
+    action: "platform_popup.copy",
+    before_json: { sourceCampaignId: sourceId },
+    after_json: { surfaces: surfaces?.length ?? 0, creatives: creatives?.length ?? 0 },
+  });
+
+  return { ok: true, id: newId };
+}

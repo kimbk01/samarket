@@ -58,7 +58,10 @@ export function interruptivePresentationForComposition(
   return "center_modal";
 }
 
-export function creativeModeForComposition(kind: PlatformPopupComposition): PlatformPopupCreativeMode {
+/** 팝업 구성은 card·artwork 만 — `ptr_band` 는 PTR 띠 광고 전용 */
+export function creativeModeForComposition(
+  kind: PlatformPopupComposition
+): Extract<PlatformPopupCreativeMode, "card" | "artwork"> {
   return kind === "artwork_modal" ? "artwork" : "card";
 }
 

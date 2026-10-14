@@ -17,8 +17,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
   }
 
-  const status = new URL(req.url).searchParams.get("status");
-  const result = await listPlatformPopupAdminCampaigns(sb, { status });
+  const params = new URL(req.url).searchParams;
+  const status = params.get("status");
+  const scope = params.get("scope") === "ptr" ? "ptr" : "popup";
+  const result = await listPlatformPopupAdminCampaigns(sb, { status, scope });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     surfaces?: string[];
     priority?: number;
     timezone?: string;
+    presentationType?: string;
   };
 
   const result = await createPlatformPopupAdminCampaign(sb, {
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     surfaces: body.surfaces,
     priority: body.priority,
     timezone: body.timezone,
+    presentationType: body.presentationType,
   });
 
   if (!result.ok) {
