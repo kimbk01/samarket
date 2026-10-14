@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { isShaFormat } from "@/lib/admin/deploy-promotion/deploy-promotion-ssot";
-import { cancelVerified } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
+import {
+  cancelVerified,
+  hydratePromotionRecordFromLedger,
+  listEvidenceForSha,
+  tryPersistLedgerRow,
+} from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
 
 export const runtime = "nodejs";
@@ -22,6 +27,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid_sha" }, { status: 400 });
   }
 
+  await hydratePromotionRecordFromLedger(gate.sb, sha);
   const record = cancelVerified({ sha, actorUserId: gate.actor.userId });
   if (!record) {
     return NextResponse.json(
@@ -30,5 +36,6 @@ export async function POST(req: Request) {
     );
   }
 
+  await tryPersistLedgerRow(gate.sb, record, listEvidenceForSha(sha));
   return NextResponse.json({ ok: true, record });
 }

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { isShaFormat } from "@/lib/admin/deploy-promotion/deploy-promotion-ssot";
 import {
   getOrCreatePromotionRecord,
+  hydratePromotionRecordFromLedger,
   listEvidenceForSha,
+  tryPersistLedgerRow,
   upsertEvidence,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { DEPLOY_GATE_CATALOG } from "@/lib/admin/deploy-promotion/deploy-evidence-gates";
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "unknown_gate" }, { status: 400 });
   }
 
+  await hydratePromotionRecordFromLedger(gate.sb, sha);
   getOrCreatePromotionRecord(sha);
   const evidence = await runDeployGate({
     gateId,
@@ -42,10 +45,13 @@ export async function POST(req: Request) {
     actorUserId: gate.actor.userId,
   });
   upsertEvidence(evidence);
+  const allEvidence = listEvidenceForSha(sha);
+  const record = getOrCreatePromotionRecord(sha);
+  await tryPersistLedgerRow(gate.sb, record, allEvidence);
 
   return NextResponse.json({
     ok: true,
     evidence,
-    allEvidence: listEvidenceForSha(sha),
+    allEvidence,
   });
 }

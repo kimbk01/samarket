@@ -6,7 +6,12 @@ import {
   type DeployPipelineStageId,
   type DeployPipelineStageState,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-ssot";
-import { setPipelineMock } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
+import {
+  hydratePromotionRecordFromLedger,
+  listEvidenceForSha,
+  setPipelineMock,
+  tryPersistLedgerRow,
+} from "@/lib/admin/deploy-promotion/deploy-promotion-store";
 import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
 import { isTestRuntimeSurface } from "@/lib/config/test-access-control";
 
@@ -68,6 +73,8 @@ export async function POST(req: Request) {
     };
   }
 
+  await hydratePromotionRecordFromLedger(gate.sb, sha);
   const record = setPipelineMock(sha, pipeline);
+  await tryPersistLedgerRow(gate.sb, record, listEvidenceForSha(sha));
   return NextResponse.json({ ok: true, record, pipeline: record.pipeline });
 }

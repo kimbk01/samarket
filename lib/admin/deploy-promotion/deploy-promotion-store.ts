@@ -278,6 +278,128 @@ export function listPromotionHistory(limit = 20) {
   return history().slice(0, limit);
 }
 
+type LedgerRow = {
+  sha: string;
+  status: string;
+  layers: DeployPromoteLayer[] | null;
+  impact_scope: string | null;
+  pipeline: DeployPipelineSnapshot | null;
+  gates: DeployEvidenceRecord[] | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+  promoted_by: string | null;
+  promoted_at: string | null;
+  error: string | null;
+  github_result: string | null;
+  promote_locked: boolean | null;
+  promote_lock_reason: string | null;
+  updated_at: string | null;
+};
+
+function applyLedgerRowToMemory(row: LedgerRow): MutableRecord {
+  const key = row.sha.toLowerCase();
+  const evidence = Array.isArray(row.gates) ? row.gates.map((g) => ({ ...g, sha: key })) : [];
+  const next: MutableRecord = {
+    sha: key,
+    layers: Array.isArray(row.layers) && row.layers.length > 0 ? row.layers : ["web"],
+    status: (row.status as DeployPromotionStatus) || "pending_verify",
+    impactScope: (row.impact_scope as DeployPromotionRecord["impactScope"]) || "web_admin_deploy",
+    pipeline: row.pipeline ?? emptyPipeline("idle"),
+    verifiedBy: row.verified_by,
+    verifiedAt: row.verified_at,
+    cancelledBy: row.cancelled_by,
+    cancelledAt: row.cancelled_at,
+    promotedBy: row.promoted_by,
+    promotedAt: row.promoted_at,
+    error: row.error,
+    githubResult: row.github_result,
+    promoteLocked: Boolean(row.promote_locked),
+    promoteLockReason: row.promote_lock_reason,
+    updatedAt: row.updated_at ?? nowIso(),
+    evidence,
+  };
+  map().set(key, next);
+
+  // Seed audit trail once per process when memory history is empty.
+  if (history().length === 0) {
+    for (const e of evidence) {
+      history().push({
+        at: e.executedAt || next.updatedAt,
+        sha: key,
+        action: "evidence",
+        actorUserId: "system",
+        detail: `${e.gateId}:${e.result}`,
+      });
+    }
+    if (next.verifiedAt) {
+      history().unshift({
+        at: next.verifiedAt,
+        sha: key,
+        action: "mark_verified",
+        actorUserId: next.verifiedBy ?? "system",
+      });
+    }
+    if (next.cancelledAt) {
+      history().unshift({
+        at: next.cancelledAt,
+        sha: key,
+        action: "cancel_verified",
+        actorUserId: next.cancelledBy ?? "system",
+      });
+    }
+    if (next.pipeline?.mode === "mock_test") {
+      history().unshift({
+        at: next.updatedAt,
+        sha: key,
+        action: "pipeline_mock",
+        actorUserId: "system",
+        detail: next.pipeline.allPass ? "all_pass" : "partial",
+      });
+    }
+  }
+  return next;
+}
+
+/**
+ * Reload durable TEST ledger into process memory (serverless cold-start recovery).
+ * No-op when memory already has evidence or a non-default status for the SHA.
+ */
+export async function hydratePromotionRecordFromLedger(
+  sb: SupabaseClient,
+  sha: string
+): Promise<{ hydrated: boolean; error?: string }> {
+  const key = sha.toLowerCase();
+  const existing = map().get(key);
+  if (
+    existing &&
+    (existing.evidence.length > 0 ||
+      (existing.status !== "pending_verify" && existing.status !== "unverified"))
+  ) {
+    return { hydrated: false };
+  }
+
+  try {
+    const { data, error } = await sb
+      .from("dibay_deploy_promotion_ledger")
+      .select(
+        "sha,status,layers,impact_scope,pipeline,gates,verified_by,verified_at,cancelled_by,cancelled_at,promoted_by,promoted_at,error,github_result,promote_locked,promote_lock_reason,updated_at"
+      )
+      .eq("sha", key)
+      .maybeSingle();
+    if (error) return { hydrated: false, error: error.message };
+    if (!data) return { hydrated: false };
+    applyLedgerRowToMemory(data as LedgerRow);
+    return { hydrated: true };
+  } catch (e) {
+    return {
+      hydrated: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 /** Best-effort persist when TEST table exists (service role client). */
 export async function tryPersistLedgerRow(
   sb: SupabaseClient,

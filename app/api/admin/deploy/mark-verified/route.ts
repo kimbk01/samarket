@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin/deploy-promotion/deploy-promotion-ssot";
 import {
   getOrCreatePromotionRecord,
+  hydratePromotionRecordFromLedger,
   listEvidenceForSha,
   markVerified,
   tryPersistLedgerRow,
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
   }
 
   const impact = normalizeImpactScope(body.impactScope ?? "web_admin_deploy");
+  await hydratePromotionRecordFromLedger(gate.sb, sha);
   const existing = getOrCreatePromotionRecord(sha);
   if (!canMarkVerified(existing.status) && existing.status !== "verified") {
     return NextResponse.json(

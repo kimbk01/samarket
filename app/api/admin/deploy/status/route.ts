@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import {
   getOrCreatePromotionRecord,
+  hydratePromotionRecordFromLedger,
   invalidateVerifiedIfShaChanged,
   listEvidenceForSha,
   listPromotionHistory,
@@ -44,7 +45,10 @@ export async function GET() {
   let currentRecord = null;
   let matrix = null;
   let evidence: ReturnType<typeof listEvidenceForSha> = [];
+  let ledgerHydrated = false;
   if (sha) {
+    const hydrate = await hydratePromotionRecordFromLedger(gate.sb, sha);
+    ledgerHydrated = hydrate.hydrated;
     const recent = listRecentDeployPromotionRecords(5);
     const prevVerified = recent.find((r) => r.status === "verified" && r.sha !== sha);
     if (prevVerified) {
@@ -80,5 +84,6 @@ export async function GET() {
       rollback: rollbackExec,
     },
     promoteEnabled: promoteExec.allowed,
+    ledgerHydrated,
   });
 }
