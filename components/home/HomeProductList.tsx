@@ -61,6 +61,8 @@ import { MARKETPLACE_LIST_CLIENT_PAGE_SIZE } from "@/lib/trade/marketplace/marke
 import { MARKETPLACE_BROWSE_RESET_EVENT } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -291,6 +293,8 @@ export function HomeProductList({
   const serverPageRef = useRef(retainedBoot?.serverPage ?? 1);
   const [serverHasMore, setServerHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
   const [loadingMoreServer, setLoadingMoreServer] = useState(false);
+  const loadMoreSeqRef = useRef(0);
+  const ptrRefreshInFlightRef = useRef(false);
   const retainedVisibleCountRef = useRef<number | null>(
     retainedBoot && retainedBoot.visibleCount > 0
       ? Math.max(
@@ -319,7 +323,29 @@ export function HomeProductList({
     return true;
   }, []);
 
-  const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean; replaceList?: boolean }) => {
+  /**
+   * 1페이지 재요청 실패 — 같은 identity 의 표시 중 목록이 있으면 그대로 보여주고(대기 중 `loading` 은 해제),
+   * 없거나 identity 전환이면 오류 상태(재시도 버튼).
+   */
+  const failListKeepingVisible = useCallback((keepVisible: boolean) => {
+    if (keepVisible && postsRef.current.length > 0) {
+      setListState((s) => (s === "loading" ? "idle" : s));
+      return;
+    }
+    setListState("error");
+  }, []);
+
+  const load = useCallback(async (opts?: {
+    forceFreshRankedWindow?: boolean;
+    replaceList?: boolean;
+    /** 성공 응답 커밋과 같은 동기 블록에서 실행 — PTR 페이지네이션·세션 리셋 */
+    beforeSuccessCommit?: () => void;
+    /**
+     * 동일 browse identity 재요청(PTR·캐시 무효화)만 true — 실패 시 표시 중 목록 유지.
+     * identity 전환·재시도는 false: 이전 조건 목록을 남기지 않고 오류 상태.
+     */
+    keepVisibleOnFailure?: boolean;
+  }): Promise<DibayPtrOutcome> => {
     silentRequestIdRef.current += 1;
     if (locationInvalid) {
       setPosts([]);
@@ -327,11 +353,11 @@ export function HomeProductList({
       setPendingNewCount(0);
       setListState("empty");
       lastLoadedAtRef.current = Date.now();
-      return;
+      return "success";
     }
     if (locationUnset) {
       setListState("loading");
-      return;
+      return "cancelled";
     }
     const requestId = ++latestRequestIdRef.current;
     const listOpts = homePostListOptions;
@@ -355,7 +381,13 @@ export function HomeProductList({
         page: 1,
         forceFreshRankedWindow: opts?.forceFreshRankedWindow,
       });
-      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return "cancelled";
+      if (res.failed) {
+        /* 실패를 빈 목록으로 오인하지 않음 (PTR D2) */
+        failListKeepingVisible(opts?.keepVisibleOnFailure === true);
+        return "error";
+      }
+      opts?.beforeSuccessCommit?.();
       serverPageRef.current = 1;
       setServerHasMore(res.hasMore);
       const replaceList = opts?.replaceList === true || opts?.forceFreshRankedWindow === true;
@@ -389,36 +421,47 @@ export function HomeProductList({
           });
         });
       }
+      return "success";
     } catch {
-      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return "cancelled";
       /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
-      setListState("error");
+      failListKeepingVisible(opts?.keepVisibleOnFailure === true);
+      return "error";
     } finally {
       if (requestId === latestRequestIdRef.current) {
         allowRscHomeListSeedRef.current = true;
       }
     }
-  }, [homePostListOptions, locationInvalid, locationUnset]);
+  }, [failListKeepingVisible, homePostListOptions, locationInvalid, locationUnset]);
 
   const pullRefreshRouteKey = useMemo(
     () => resolveTradeMarketPullRefreshRouteKey(pathname, searchParams),
     [pathname, searchParams]
   );
 
-  const onPullRefresh = useCallback(async () => {
+  const onPullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     invalidateHomePostsCache({ notifyListReload: false });
     allowRscHomeListSeedRef.current = false;
     listFeedEpochRef.current += 1;
     latestRequestIdRef.current += 1;
-    serverPageRef.current = 1;
-    setServerHasMore(false);
-    setListPaginationEpoch((n) => n + 1);
-    setPendingNewCount(0);
-    clearTradeListPresentationSession(browseIdentityKey);
-    await load({
-      forceFreshRankedWindow: true,
-      replaceList: true,
-    });
+    ptrRefreshInFlightRef.current = true;
+    try {
+      /**
+       * 페이지네이션·프레젠테이션 세션 리셋은 성공 응답 커밋과 함께만 — 실패 시 기존 목록·더보기 유지.
+       */
+      return await load({
+        forceFreshRankedWindow: true,
+        replaceList: true,
+        keepVisibleOnFailure: true,
+        beforeSuccessCommit: () => {
+          setListPaginationEpoch((n) => n + 1);
+          setPendingNewCount(0);
+          clearTradeListPresentationSession(browseIdentityKey);
+        },
+      });
+    } finally {
+      ptrRefreshInFlightRef.current = false;
+    }
   }, [load, browseIdentityKey]);
 
   const tradePullRefreshRegister =
@@ -543,6 +586,7 @@ export function HomeProductList({
     void load({
       forceFreshRankedWindow: !!q || identityTransition,
       replaceList: identityTransition || !!q,
+      keepVisibleOnFailure: !identityTransition,
     });
   }, [
     tradeState,
@@ -576,7 +620,7 @@ export function HomeProductList({
   useEffect(() => {
     const onBust = () => {
       allowRscHomeListSeedRef.current = false;
-      void load();
+      void load({ keepVisibleOnFailure: true });
     };
     window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
     return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
@@ -687,15 +731,21 @@ export function HomeProductList({
       return;
     }
     if (!serverHasMore || loadingMoreServer || locationInvalid || locationUnset) return;
+    /* PTR 진행 중 append 금지 — 새 1페이지와 이전 목록 N+1 페이지 혼합 방지 */
+    if (ptrRefreshInFlightRef.current) return;
     setLoadingMoreServer(true);
     const nextPage = serverPageRef.current + 1;
     const requestId = ++latestRequestIdRef.current;
+    /** 로딩 플래그 소유권 — PTR 이 requestId 를 올려도 이 append 가 끝나면 반드시 해제 (PTR D1) */
+    const loadMoreSeq = ++loadMoreSeqRef.current;
     try {
       const res = await getPostsForHome({
         ...homePostListOptions,
         page: nextPage,
       });
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
+      /* 실패 시 페이지·hasMore 유지 → 재시도 가능 */
+      if (res.failed) return;
       serverPageRef.current = nextPage;
       setServerHasMore(res.hasMore);
       setPosts((prev) => {
@@ -715,7 +765,7 @@ export function HomeProductList({
       });
       setFavoriteMap((prev) => ({ ...prev, ...res.favoriteMap }));
     } finally {
-      if (requestId === latestRequestIdRef.current) {
+      if (loadMoreSeq === loadMoreSeqRef.current && listMountedRef.current) {
         setLoadingMoreServer(false);
       }
     }
@@ -810,7 +860,7 @@ export function HomeProductList({
     setPendingNewCount(0);
     invalidateHomePostsCache({ notifyListReload: false });
     allowRscHomeListSeedRef.current = false;
-    await load();
+    await load({ keepVisibleOnFailure: true });
   }, [load]);
 
   useEffect(() => {
@@ -992,7 +1042,7 @@ export function HomeProductList({
       <>
         {tradePullRefreshRegister}
         <div className={rootClass}>
-          <ErrorState onRetry={handleRetry} />
+          <TradeListErrorState onRetry={handleRetry} />
         </div>
       </>
     );
@@ -1195,18 +1245,3 @@ function EmptyState() {
   );
 }
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-sam-muted">{t("trade_060")}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="mt-2 text-[14px] font-medium text-signature"
-      >
-        다시 시도
-      </button>
-    </div>
-  );
-}

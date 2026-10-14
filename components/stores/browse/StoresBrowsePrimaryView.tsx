@@ -1,4 +1,6 @@
 "use client";
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { withStoresBrowseFreshParam } from "@/lib/stores/stores-browse-fresh-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
@@ -162,6 +164,8 @@ export function StoresBrowsePrimaryView({
     if (typeof window === "undefined") return undefined;
     return readInitialBrowseListSessionSnapshot()?.rows;
   });
+  const remoteRowsRef = useRef(remoteRows);
+  remoteRowsRef.current = remoteRows;
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(() => {
     if (typeof window === "undefined") return null;
     return readInitialBrowseListSessionSnapshot()?.source ?? null;
@@ -482,8 +486,13 @@ export function StoresBrowsePrimaryView({
   );
 
   const loadRemote = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean }) => {
-      if (!browseActiveRef.current) return;
+    async (opts?: {
+      silent?: boolean;
+      force?: boolean;
+      /** PTR — 실패 시 표시 중 목록·인서션·선반·정렬 정책 유지 (D15) */
+      keepVisibleOnFailure?: boolean;
+    }): Promise<DibayPtrOutcome> => {
+      if (!browseActiveRef.current) return "cancelled";
       const silent = !!opts?.silent;
       const force = !!opts?.force;
       const requestId = ++loadRemoteRequestIdRef.current;
@@ -494,16 +503,15 @@ export function StoresBrowsePrimaryView({
         setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
-        const qs = force
-          ? `${qsAtStart}${qsAtStart.includes("?") ? "&" : "?"}fresh=1`
-          : qsAtStart;
+        /* `browseQuerySuffix` 는 선행 `?` 없는 쿼리 — 문자열 결합 시 `sub=all?fresh=1` 오염 (D13) */
+        const qs = force ? withStoresBrowseFreshParam(qsAtStart) : qsAtStart;
         const { json } = await fetchStoresBrowseDeduped(qs, { language });
         if (
           !browseActiveRef.current ||
           requestId !== loadRemoteRequestIdRef.current ||
           contextKeyAtStart !== browseListContextKeyRef.current
         ) {
-          return;
+          return "cancelled";
         }
         const j = json as {
           ok?: boolean;
@@ -527,6 +535,12 @@ export function StoresBrowsePrimaryView({
           };
         };
         const src = j?.meta?.source;
+        const okSources = src === "supabase" || src === "supabase_unconfigured";
+        const networkOk = !!j?.ok && Array.isArray(j.stores) && okSources;
+        if (!networkOk && opts?.keepVisibleOnFailure && (remoteRowsRef.current?.length ?? 0) > 0) {
+          browseEverPaintedListRef.current = true;
+          return "error";
+        }
         const rideSrc = j?.meta?.delivery_ride_time_source?.trim();
         if (rideSrc) setDeliveryRideTimeSource(rideSrc);
         const insertionRows = j?.meta?.browseInsertion?.rows;
@@ -553,8 +567,7 @@ export function StoresBrowsePrimaryView({
               }
             : null
         );
-        const okSources = src === "supabase" || src === "supabase_unconfigured";
-        if (j?.ok && Array.isArray(j.stores) && okSources) {
+        if (networkOk) {
           const rows = j.stores as BrowseStoreListItem[];
           const source = src as BrowseFeedMetaSource;
           remoteCacheRef.current.set(browseListContextKeyRef.current, {
@@ -573,24 +586,30 @@ export function StoresBrowsePrimaryView({
               discoveryShelf: nextShelf,
             });
           }
-        } else {
-          setRemoteRows([]);
-          setFeedSource(null);
-          if (!silent) browseHadListForContextRef.current = false;
+          return "success";
         }
+        setRemoteRows([]);
+        setFeedSource(null);
+        if (!silent) browseHadListForContextRef.current = false;
+        return "error";
       } catch {
         if (
           !browseActiveRef.current ||
           requestId !== loadRemoteRequestIdRef.current ||
           contextKeyAtStart !== browseListContextKeyRef.current
         ) {
-          return;
+          return "cancelled";
+        }
+        if (opts?.keepVisibleOnFailure && (remoteRowsRef.current?.length ?? 0) > 0) {
+          browseEverPaintedListRef.current = true;
+          return "error";
         }
         if (!silent) {
           setRemoteRows([]);
           setFeedSource((prev) => (prev === null ? prev : null));
           browseHadListForContextRef.current = false;
         }
+        return "error";
       } finally {
         if (
           !browseActiveRef.current ||
@@ -821,8 +840,8 @@ export function StoresBrowsePrimaryView({
 
   const browseListReady = !!primary;
 
-  const onBrowsePullRefresh = useCallback(async () => {
-    if (!browseActiveRef.current) return;
+  const onBrowsePullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
+    if (!browseActiveRef.current) return "cancelled";
     invalidateStoresBrowseMemoryCache(primarySlug);
     invalidateStoresBrowseClientCache(browseQuerySuffix, language);
     invalidateStoresBrowseClientCache(browseQuerySuffixWithoutGeo, language);
@@ -832,10 +851,12 @@ export function StoresBrowsePrimaryView({
     forgetStoresBrowseFetchSingleFlight(browseQuerySuffix, language);
     forgetStoresBrowseFetchSingleFlight(browseQuerySuffixWithoutGeo, language);
     remoteCacheRef.current.delete(browseListContextKey);
-    await Promise.all([
+    const [taxonomyOutcome, listOutcome] = await Promise.all([
       reloadBrowseTaxonomySnapshot(language),
-      loadRemote({ silent: false, force: true }),
+      loadRemote({ silent: false, force: true, keepVisibleOnFailure: true }),
     ]);
+    if (listOutcome === "cancelled") return "cancelled";
+    return listOutcome === "error" || taxonomyOutcome === "error" ? "error" : "success";
   }, [
     browseListContextKey,
     browseQuerySuffix,

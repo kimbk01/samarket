@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrHandler } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { useLayoutEffect } from "react";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 
@@ -7,7 +8,7 @@ import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-r
 export function StoresHomePullRefreshRegister({
   onRefresh,
 }: {
-  onRefresh: () => void | Promise<void>;
+  onRefresh: DibayPtrHandler;
 }) {
   useLayoutEffect(() => {
     return addStoresHomePullRefreshHandler(onRefresh);

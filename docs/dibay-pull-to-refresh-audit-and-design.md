@@ -1,7 +1,7 @@
 # DIBAY Pull-to-Refresh(PTR) — 최종 설계 보고서 (설계 확정 전 검증판)
 
-Document status: **VERIFICATION REPORT · 설계 방향 지정(§3.0) · 세부 Owner 승인 대기 · 구현 0 · DB 변경 0**
-Date: 2026-10-12 (v2 — v1 감사 결과를 보존하면서 정정·보완, Owner 설계 방향 반영)
+Document status: **v3 — PTR 정상화 구현 완료(§10, 미커밋) · 광고 정책 Owner 승인 대기 · DB 변경 0**
+Date: 2026-10-12 (v2 감사 `4332d8d0` 보존 + §10 구현·검증 결과 추가)
 범위: 메인 허브 「아래로 당겨 새로고침」 — 기능 정확성, 공통 UI/UX, 광고 연동, 기기별 이미지 비율, 레거시 비교.
 
 ## 0. 증거 등급 · v1 정정 사항
@@ -426,3 +426,107 @@ v1 의 레거시 비교표는 근거 없는 서술이었으므로 철회한다. 
 ---
 
 *최종 보고 후 Owner 승인을 기다린다. 구현·DB 변경·Commit·Push·Deploy 는 이번 작업에서 수행하지 않았다.*
+
+---
+
+## 10. PTR 정상화 구현 결과 (v3, 2026-10-12)
+
+기준 SHA: `4332d8d0` (v2 감사). 구현은 **로컬 작업 트리에만 존재 — Commit·Push·Merge·Deploy 미실시**(Owner 승인 대기). DB·광고 집행 변경 0.
+
+### 10.1 검증 등급 (이 절)
+
+| 라벨 | 의미 |
+|---|---|
+| `UNIT` | vitest 단위 테스트 (Node 환경) |
+| `BROWSER` | 로컬 `next dev` + Playwright(Chromium, 모바일 터치 에뮬레이션·CDP 터치 이벤트), **API 응답은 스텁** (Supabase 미설정 환경) |
+| `BROWSER-BEFORE/AFTER` | 같은 스크립트를 변경 전 코드(stash)·변경 후 코드에 각각 실행 — 전 FAIL·후 PASS |
+| `CODE` | 코드 수정만, 런타임 미재현 |
+| `DEVICE` | 실기기(iOS WKWebView·Android APK·태블릿) — **이번 작업에서 전부 미실시 → NOT_PROVEN** |
+
+### 10.2 공통 PTR 엔진·UI SSOT (신규)
+
+| 파일 | 역할 |
+|---|---|
+| `lib/ui/ptr/dibay-ptr-ssot.ts` | 물리값(기존 값 그대로: 58/106/52/450ms/320ms/감쇠식), 페이즈 타입, 결과 집계, 잠정 타이밍(SUCCESS 700ms·ERROR 2200ms·핸들러 상한 30s·클릭 억제 창 400ms) |
+| `lib/ui/ptr/create-dibay-ptr-store.ts` | 스토어 팩토리 (다중 핸들러 / 라우트 키 단일 핸들러). `IDLE→PULLING→READY→REFRESHING→SUCCESS/ERROR/CANCELLED`, 재진입 `busy`, 핸들러 없음 즉시 접힘, throw·타임아웃 → ERROR, 늦은 쓰기 세대 무효화 |
+| `lib/ui/ptr/use-dibay-ptr-gesture.ts` | 제스처 1벌 (기존 5벌 로직 동일 이관 + 자식 스크롤 컨테이너 판정 옵션 + 클릭 억제 수정) |
+| `components/ptr/DibayPtrSlot.tsx` · `DibayPtrSpinner.tsx(.module.css)` | 슬롯 UI 1벌: 12점 결정형(당김 진행률)/무한(새로고침) 스피너 24px, tone(onBrand 그린·onSurface 배달 헤더·onGold browse), 페이즈 문구, `role=status` 상태 전환만 낭독, Reduce Motion(펄스·전환 0ms) |
+| `lib/i18n/catalog/ptr.ts` | 문구 SSOT ko/en (`ptr_pull_hint`·`ptr_release`·`ptr_refreshing`·`ptr_result_success`·`ptr_result_error`·`ptr_result_partial`) |
+
+도메인별 기존 공개 API(`*PullRefreshHost/Register/Hint`, `run*/add*/patch*/get*` export, `data-*-ptr-hint` 셀렉터, 스크롤 루트 dataset 키)는 유지 — 내부만 팩토리로 대체. 사장님 대시보드는 운영 UI 셸(필 형태·별도 물리값)을 유지하고 같은 SSOT 의 결과 타이밍·세로 판정·문구만 공유.
+
+문구 메모: 「새로고침 중…」은 앱 기존 타이포(`…`)를 따름(지시 후보 `...`와 기호만 다름). 기존 `store_home_pull_*` 키는 카탈로그에 남겨 둠(코드 참조 0).
+
+### 10.3 D1~D25 처리 결과
+
+| ID | 처리 | 원인 → 수정 | 검증 |
+|---|---|---|---|
+| D1 | **수정** | load-more 로딩 플래그가 requestId 소유 → 전용 시퀀스(`loadMoreSeqRef`)로 해제, PTR 진행 중 append 차단 | BROWSER-BEFORE/AFTER (전: 「Loading」 고착 / 후: 더보기 복귀·페이지 2 정상 추가) |
+| D2 | **수정** | `getPostsForHome` 실패가 `{posts:[]}` → `failed:true` 플래그(캐시 미기록). 홈: 같은 조건 재요청은 목록 유지+ERROR, 조건 전환·빈 화면은 기존 오류 화면(재시도). 카테고리: 실패 상태 신설(공용 `TradeListErrorState`, 홈 컴포넌트 추출) | UNIT 3 + BROWSER-BEFORE/AFTER(홈) + BROWSER(카테고리) |
+| D3 | **수정** | 핸들러 없음 시 스토어 미리셋 → 엔진에서 즉시 IDLE | UNIT 2 |
+| D4 | 수정(코드) | 카테고리 PTR 이 `loading` 토글 → 스크롤 복원 재발화 → background 모드(표시 목록 있으면 토글 안 함) | CODE · RUNTIME NOT_PROVEN |
+| D5 | 수정(코드) | 커뮤니티 28s 타임아웃이 무음 abort → 타임아웃 플래그로 오류 표시·ERROR | CODE · NOT_PROVEN |
+| D6 | 처리 | 다른 요청이 PTR 요청을 대체 → `cancelled`(성공 문구 없이 접힘) | CODE · NOT_PROVEN |
+| D7 | **수정** | 메신저 실패 시 `setData(null)` → 시작 시 표시 데이터 있으면 보존(지연 lite 실패 포함 3곳) | UNIT(결과 보고) · RUNTIME NOT_PROVEN(로그인 필요) |
+| D8 | 부분 | 진행 중 라운드로 skip 시 `cancelled` 로 정직 보고. 캐시 선삭제는 유지(다음 요청이 네트워크를 타도록 하는 기존 의도) | UNIT |
+| D9 | 미변경 | critical 커밋 후 완료, lite 는 후속 — 설계상 의도. 문서화만 | — |
+| D10 | **수정** | 메신저 최상단 판정을 실제 목록 컨테이너 `[data-messenger-hub-list-scroll]` 포함으로 | UNIT 3 · RUNTIME NOT_PROVEN |
+| D11 | **수정** | 퀵카테고리 핸들러 catch 추가(HTTP 판정), 주문요약 PTR 실패 시 표시값 유지. 주문요약 force 의 기존 flight 합류는 미변경 | BROWSER(배달 홈 부분 실패 문구) |
+| D12 | **수정** | 배달 헤더(`#f1f7ee`) 위 흰 글자 → 헤더 타이틀 색 tone | BROWSER 스크린샷 |
+| D13 | **수정** | `fresh=1` 문자열 결합 → `URLSearchParams`(`withStoresBrowseFreshParam`) | UNIT 3 + BROWSER-BEFORE/AFTER (전 `sub=all?fresh=1`) |
+| D14 | **수정** | taxonomy 재검증 중·실패 시 직전 ready 스냅샷 유지 | UNIT 4 + BROWSER-BEFORE/AFTER (전: 슬롯 언마운트) |
+| D15 | **수정** | browse 실패 시 목록 비움 → PTR 은 목록·인서션·선반 유지 | BROWSER-BEFORE/AFTER |
+| D16 | **수정** | 대시보드 PTR 을 silent 재검증으로, silent 실패 시 표시 대시보드 유지, 매장목록 22s 캐시 무효화 | CODE · RUNTIME NOT_PROVEN(로그인 필요) |
+| D17 | **수정** | 레거시 훅 세로 판정 후에만 preventDefault, 가로 제스처 해제, 예외 catch, 결과 표시 | CODE · NOT_PROVEN |
+| D18 | **수정** | PTR 스피너 24px·tone 색 변수 | BROWSER (360px 최소 유지 높이 61px 에서 클립 없음) |
+| D19 | 범위 외 | 배달 목록 스피너의 `html.dark` 키프레임 — PTR 은 신규 스피너 사용, 배달 목록 스피너는 미변경 | — |
+| D20 | **수정** | 엔진 결과 채널·핸들러 결과 반환(전 도메인) | UNIT 13 + BROWSER |
+| D21 | 미구현 | 광고 PTR 재요청 여부는 Owner 결정(O8) | — |
+| D22 | **수정** | Reduce Motion | BROWSER |
+| D23 | **수정** | 5벌 → 엔진 1벌 | UNIT·BROWSER |
+| D24 | 미변경 | 히어로 캐러셀 터치 충돌 근거 없음 | NOT_PROVEN |
+| D25 | **보완** | 테스트 6파일(신규 4·보강 2)/29케이스 추가 | UNIT |
+| D26(신규) | **수정** | 당김이 켠 클릭 억제가 다음 click 까지 남아 **PTR 직후 첫 정상 탭을 삼킴**(5개 훅 공통, 브라우저에서 발견) → 새 터치 시작 시 해제 + 당김 종료 400ms 창 안의 click 만 억제 | BROWSER-BEFORE/AFTER |
+
+### 10.4 실제 데이터 갱신 검증 (BROWSER, 스텁 API)
+
+PASS 기준: 응답 200 이 아니라 **DOM 목록 텍스트가 새 응답으로 교체**·실패 시 기존 텍스트 유지.
+
+| 화면 | 성공 교체 | 실패 보존+ERROR | 지연 중 중복 당김 1회 | 스크롤 중 미발동 | 가로 스와이프 미발동 | 비고 |
+|---|---|---|---|---|---|---|
+| 거래 홈 `/market` | PASS | PASS | PASS | PASS | PASS | 페이지네이션 재개 PASS (D1·D2) |
+| 거래 카테고리 | PASS | PASS | PASS | — | — | |
+| 커뮤니티 `/philife` | PASS | PASS | PASS | — | — | |
+| 배달 홈 `/stores` | PASS | PASS(부분 실패 문구) | PASS | — | — | 피드 실패+보조 성공 시 「일부…」 문구 |
+| 배달 browse | PASS | PASS | PASS | — | — | 최초 목록은 배송 주소 대기 게이트(기존)로 로드 안 됨 — 환경 원인, 코드 미변경 |
+| 메신저 | NOT_PROVEN | NOT_PROVEN | NOT_PROVEN | NOT_PROVEN | — | 로그인 세션 필요 |
+| 사장님 대시보드 | NOT_PROVEN | NOT_PROVEN | NOT_PROVEN | — | — | 로그인 세션 필요 |
+
+### 10.5 기기·접근성 (BROWSER 에뮬레이션 — DEVICE 아님)
+
+360(Android 폰)·390(iPhone)·820×1180(iPad 세로)·1180×820(iPad 가로)·800×1280/1280×800(Android 태블릿) × ko/en: 슬롯 전폭, REFRESHING·ERROR 문구 가로 넘침·세로 클립 0 (28/28). 최소 유지 높이 61px(ko/en) 클립 0. Reduce Motion 펄스·전환 0s, 일반 모드 버퍼 애니메이션, `role=status` 낭독 PASS.
+실기기 iOS WKWebView·Android WebView·태블릿 회전·Safe Area·햅틱: **NOT_PROVEN**.
+
+### 10.6 정적 검증
+
+- `vitest run` 전체: **1912 파일 / 12521 테스트 PASS** (skip 2파일·1테스트, todo 6 — 기존과 동일 범주)
+- `tsc -p tsconfig.build.json --noEmit`: **0 error**
+- ESLint(변경 파일): **0 error**, warning 29 = 변경 전과 동일 목록(신규 0, 기존 1 해소)
+
+### 10.7 광고 시스템 — 구현하지 않음 (설계만, §4 유지)
+
+글로벌 팝업 재사용 시 필요한 변경(확인된 사실 기반):
+- DB: `platform_popup_campaigns_presentation_type_check` 에 신규 값(예: `ptr_reveal`) 추가 마이그레이션 필요 (`supabase/migrations/20261220130000_platform_popup_benefit_dialog_phase1.sql` 의 CHECK). 크리에이티브 비율은 CARD 36:25 / ARTWORK 임의비 — PTR 띠 비율용 규격 추가 필요.
+- 런타임: `resolve-popup-ad.ts` 는 비간섭 프레젠테이션을 건너뜀 → PTR 전용 비간섭 호스트·리졸브 경로 신설 필요. 노출 이벤트는 기존 `platform_popup_campaign_events` 재사용 가능하나 노출 정의는 O6.
+- 관리자: 기존 등록·승인·기간·일시정지·종료·감사로그·프로덕션 렌더러 미리보기 재사용, 프레젠테이션 선택지·미리보기 프레임(폰/태블릿, 슬롯 높이 58·82·106)만 추가.
+- PTR 연동 지점: 엔진은 광고를 await 하지 않음 — 슬롯 배경 레이어로만 결합(§3.6 계약).
+
+### 10.8 남은 위험
+
+1. 실기기 미검증(DEVICE NOT_PROVEN) — 특히 iOS 터치/스크롤 체이닝, Android WebView 오버스크롤, 메신저 D10 실제 체감.
+2. 거래 홈 최초 로드 실패가 「빈 목록」 대신 기존 오류 화면(재시도)으로 표시됨 — 의도된 수정이나 사용자 체감 변화.
+3. 배달 홈은 피드 실패여도 보조 핸들러 성공 시 「일부」 문구 — 피드 우선 판정 여부 Owner 결정.
+4. 잠정 타이밍(SUCCESS 700ms·ERROR 2200ms·상한 30s·억제 창 400ms) — 실측 근거 없음, O14.
+5. 햅틱 미구현 — 기존 SSOT 가 클릭음 동반, O13.
+6. browse 강제 재검증(`fresh=1`)이 이제 정상 전달되어 서버 캐시를 실제로 우회 — 서버 부하 영향 미측정(기존에는 오염된 파라미터로 의도와 다르게 동작).
+

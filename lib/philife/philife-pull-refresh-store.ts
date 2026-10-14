@@ -1,91 +1,44 @@
 "use client";
 
 import { preflightMainHubPtrRefresh } from "@/lib/layout/main-hub-ptr-preflight";
+import { createDibayPtrStore, type DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import {
-  computeStoresHomePullPxFromTouchDy,
-  resolveStoresHomePullHintHeightPx,
-  resolveStoresHomePullRefreshSlotPx,
-  STORES_HOME_PULL_REFRESH_COLLAPSE_MS,
-  STORES_HOME_PULL_REFRESH_MAX_PX,
-  STORES_HOME_PULL_REFRESH_MIN_SPIN_MS,
-  STORES_HOME_PULL_REFRESH_SLOT_PX,
-  STORES_HOME_PULL_REFRESH_THRESHOLD_PX,
-} from "@/lib/stores/stores-home-pull-refresh-store";
+  computeDibayPtrPullPxFromTouchDy,
+  DIBAY_PTR_COLLAPSE_MS,
+  DIBAY_PTR_MAX_PX,
+  DIBAY_PTR_MIN_SPIN_MS,
+  DIBAY_PTR_SLOT_PX,
+  DIBAY_PTR_THRESHOLD_PX,
+  resolveDibayPtrHintHeightPx,
+  resolveDibayPtrSlotPx,
+  type DibayPtrHandler,
+  type DibayPtrRunResult,
+} from "@/lib/ui/ptr/dibay-ptr-ssot";
 
-export type PhilifePullRefreshSnapshot = {
-  pullPx: number;
-  refreshing: boolean;
-};
+export type PhilifePullRefreshSnapshot = DibayPtrSnapshot;
 
-const EMPTY: PhilifePullRefreshSnapshot = {
-  pullPx: 0,
-  refreshing: false,
-};
+export const PHILIFE_PULL_REFRESH_THRESHOLD_PX = DIBAY_PTR_THRESHOLD_PX;
+export const PHILIFE_PULL_REFRESH_MAX_PX = DIBAY_PTR_MAX_PX;
+export const PHILIFE_PULL_REFRESH_SLOT_PX = DIBAY_PTR_SLOT_PX;
+export const PHILIFE_PULL_REFRESH_COLLAPSE_MS = DIBAY_PTR_COLLAPSE_MS;
+export const PHILIFE_PULL_REFRESH_MIN_SPIN_MS = DIBAY_PTR_MIN_SPIN_MS;
 
-let snapshot: PhilifePullRefreshSnapshot = EMPTY;
-const listeners = new Set<() => void>();
-const refreshHandlers = new Set<() => void | Promise<void>>();
+export const computePhilifePullPxFromTouchDy = computeDibayPtrPullPxFromTouchDy;
+export const resolvePhilifePullRefreshSlotPx = resolveDibayPtrSlotPx;
+export const resolvePhilifePullHintHeightPx = resolveDibayPtrHintHeightPx;
 
-export const PHILIFE_PULL_REFRESH_THRESHOLD_PX = STORES_HOME_PULL_REFRESH_THRESHOLD_PX;
-export const PHILIFE_PULL_REFRESH_MAX_PX = STORES_HOME_PULL_REFRESH_MAX_PX;
-export const PHILIFE_PULL_REFRESH_SLOT_PX = STORES_HOME_PULL_REFRESH_SLOT_PX;
-export const PHILIFE_PULL_REFRESH_COLLAPSE_MS = STORES_HOME_PULL_REFRESH_COLLAPSE_MS;
-export const PHILIFE_PULL_REFRESH_MIN_SPIN_MS = STORES_HOME_PULL_REFRESH_MIN_SPIN_MS;
+/** `/philife` 커뮤니티 피드 PTR */
+export const philifePtrStore = createDibayPtrStore({ preflight: preflightMainHubPtrRefresh });
 
-export const computePhilifePullPxFromTouchDy = computeStoresHomePullPxFromTouchDy;
-export const resolvePhilifePullRefreshSlotPx = resolveStoresHomePullRefreshSlotPx;
-export const resolvePhilifePullHintHeightPx = resolveStoresHomePullHintHeightPx;
+export const subscribePhilifePullRefresh = philifePtrStore.subscribe;
+export const getPhilifePullRefreshSnapshot = philifePtrStore.getSnapshot;
+export const getPhilifePullRefreshServerSnapshot = philifePtrStore.getServerSnapshot;
+export const patchPhilifePullRefresh = philifePtrStore.patch;
 
-function notify(): void {
-  listeners.forEach((listener) => listener());
+export function addPhilifePullRefreshHandler(fn: DibayPtrHandler): () => void {
+  return philifePtrStore.addHandler(fn);
 }
 
-export function subscribePhilifePullRefresh(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-export function getPhilifePullRefreshSnapshot(): PhilifePullRefreshSnapshot {
-  return snapshot;
-}
-
-export function getPhilifePullRefreshServerSnapshot(): PhilifePullRefreshSnapshot {
-  return EMPTY;
-}
-
-export function patchPhilifePullRefresh(patch: Partial<PhilifePullRefreshSnapshot>): void {
-  const next = { ...snapshot, ...patch };
-  if (next.pullPx === snapshot.pullPx && next.refreshing === snapshot.refreshing) return;
-  snapshot = next;
-  notify();
-}
-
-export function addPhilifePullRefreshHandler(fn: () => void | Promise<void>): () => void {
-  refreshHandlers.add(fn);
-  return () => {
-    refreshHandlers.delete(fn);
-  };
-}
-
-export async function runPhilifePullRefresh(releasePullPx = 0): Promise<void> {
-  if (refreshHandlers.size === 0 || snapshot.refreshing) return;
-  preflightMainHubPtrRefresh();
-  const slotPx = resolvePhilifePullRefreshSlotPx(releasePullPx);
-  patchPhilifePullRefresh({ refreshing: true, pullPx: slotPx });
-  const startedAt = performance.now();
-  try {
-    await Promise.all([...refreshHandlers].map((handler) => Promise.resolve(handler())));
-  } finally {
-    const waitMs = PHILIFE_PULL_REFRESH_MIN_SPIN_MS - (performance.now() - startedAt);
-    if (waitMs > 0) {
-      await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, waitMs);
-      });
-    }
-    patchPhilifePullRefresh({ refreshing: false, pullPx: slotPx });
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-    patchPhilifePullRefresh({ refreshing: false, pullPx: 0 });
-  }
+export function runPhilifePullRefresh(releasePullPx = 0): Promise<DibayPtrRunResult> {
+  return philifePtrStore.run(releasePullPx);
 }

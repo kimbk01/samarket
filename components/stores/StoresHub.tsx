@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore } from "react";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
@@ -120,7 +121,10 @@ export function StoresHub() {
     });
   }, [language, querySuffix, feedReady]);
 
-  const loadBuyerHub = useCallback(async (opts?: { force?: boolean; fromBfcacheRestore?: boolean }) => {
+  const loadBuyerHub = useCallback(async (opts?: {
+    force?: boolean;
+    fromBfcacheRestore?: boolean;
+  }): Promise<DibayPtrOutcome> => {
     if (shouldSkipStoresHomeHubSummaryFetch(opts)) {
       const snap = readMeStoreOrdersHubSummaryCache();
       if (snap.value) {
@@ -130,7 +134,7 @@ export function StoresHub() {
           setBuyerOrderSummary(next.buyerState);
         });
       }
-      return;
+      return "success";
     }
     const requestId = ++buyerHubRequestIdRef.current;
     buyerHubAbortRef.current?.abort();
@@ -141,17 +145,27 @@ export function StoresHub() {
         signal: controller.signal,
         force: opts?.force,
       });
-      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
+      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return "cancelled";
+      const summaryOk =
+        ordersStatus === 401 ||
+        ((ordersJsonRaw as StoreHubSummaryResponse | null)?.ok === true &&
+          !!(ordersJsonRaw as StoreHubSummaryResponse | null)?.hub_summary);
+      /* PTR(force) 실패 — 표시 중 주문 요약 유지 */
+      if (!summaryOk && opts?.force) return "error";
       const next = resolveBuyerHubFromJson(ordersStatus, ordersJsonRaw);
       startTransition(() => {
         setRecentOrder(next.recentOrder);
         setBuyerOrderSummary(next.buyerState);
       });
+      return summaryOk ? "success" : "error";
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
-      setBuyerOrderSummary({ kind: "idle" });
-      setRecentOrder((prev) => (prev === null ? prev : null));
+      if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return "cancelled";
+      if (!opts?.force) {
+        setBuyerOrderSummary({ kind: "idle" });
+        setRecentOrder((prev) => (prev === null ? prev : null));
+      }
+      return "error";
     } finally {
       if (buyerHubAbortRef.current === controller) {
         buyerHubAbortRef.current = null;
@@ -160,9 +174,7 @@ export function StoresHub() {
   }, []);
 
   useLayoutEffect(() => {
-    return addStoresHomePullRefreshHandler(async () => {
-      await loadBuyerHub({ force: true });
-    });
+    return addStoresHomePullRefreshHandler(() => loadBuyerHub({ force: true }));
   }, [loadBuyerHub]);
 
   useEffect(() => {

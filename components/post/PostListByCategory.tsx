@@ -25,6 +25,8 @@ import { HiddenPostCard } from "./HiddenPostCard";
 import { NotInterestedCard } from "./NotInterestedCard";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
+import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import {
   buildTradeLocationHref,
   parseTradeLocationScopeFromSearchParams,
@@ -375,6 +377,8 @@ export function PostListByCategory({
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !(retainedBoot && retainedBoot.posts.length > 0));
   const [loadingMore, setLoadingMore] = useState(false);
+  /** 마지막 1페이지 요청 실패 — 빈 목록 문구와 구분 */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [hasMore, setHasMore] = useState(() => retainedBoot?.serverHasMore ?? false);
   const [page, setPage] = useState(() => retainedBoot?.serverPage ?? 1);
   const retainedRestoredRef = useRef(Boolean(retainedBoot && retainedBoot.posts.length > 0));
@@ -420,20 +424,35 @@ export function PostListByCategory({
     []
   );
 
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+
   const load = useCallback(
-    async (pageNum: number = 1, opts?: { append?: boolean; forceFreshRankedWindow?: boolean }) => {
+    async (
+      pageNum: number = 1,
+      opts?: {
+        append?: boolean;
+        forceFreshRankedWindow?: boolean;
+        /**
+         * PTR — 표시 중 목록이 있으면 `loading` 을 토글하지 않음(스크롤 복원 재발화 방지, D4)
+         * 실패 시 표시 중 목록 유지(D2).
+         */
+        background?: boolean;
+      }
+    ): Promise<DibayPtrOutcome> => {
       if (!categoryId) {
         setLoading((prev) => (prev ? false : prev));
         allowRscBootstrapFeedRef.current = true;
-        return;
+        return "cancelled";
       }
       if (locationUnset) {
         setLoading(true);
-        return;
+        return "cancelled";
       }
       const append = opts?.append === true && pageNum > 1;
       const epochAtStart = listFeedEpochRef.current;
-      if (!append) {
+      const backgroundRefresh = opts?.background === true && postsRef.current.length > 0;
+      if (!append && !backgroundRefresh) {
         setLoading((prev) => (prev ? prev : true));
       }
       try {
@@ -442,8 +461,15 @@ export function PostListByCategory({
           page: pageNum,
           forceFreshRankedWindow: opts?.forceFreshRankedWindow,
         });
-        if (epochAtStart !== listFeedEpochRef.current) return;
+        if (epochAtStart !== listFeedEpochRef.current) return "cancelled";
+        if (next.failed) {
+          /* 실패를 빈 목록으로 표시하지 않음 (PTR D2) — append 실패는 기존 목록·hasMore 유지 */
+          if (!append && !backgroundRefresh) setLoadFailed(true);
+          return "error";
+        }
+        setLoadFailed(false);
         if (pageNum === 1) {
+          setPage(1);
           setPosts(next.posts);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
@@ -453,8 +479,9 @@ export function PostListByCategory({
           setFavoriteMap((prev) => ({ ...prev, ...(next.favoriteMap ?? {}) }));
         }
         setHasMore(next.hasMore);
+        return "success";
       } finally {
-        if (epochAtStart === listFeedEpochRef.current && !append) {
+        if (epochAtStart === listFeedEpochRef.current && !append && !backgroundRefresh) {
           setLoading(false);
         }
         allowRscBootstrapFeedRef.current = true;
@@ -466,9 +493,6 @@ export function PostListByCategory({
       locationUnset,
     ]
   );
-
-  const postsRef = useRef(posts);
-  postsRef.current = posts;
 
   const pullRefreshRouteKey = useMemo(() => {
     const marketSurfacePath = category ? tradeMarketPath(category) : pathname;
@@ -486,13 +510,13 @@ export function PostListByCategory({
   );
   useTradeMarketListScrollRestore(marketScrollRouteKey, !loading && posts.length > 0);
 
-  const onPullRefresh = useCallback(async () => {
+  const onPullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     invalidateHomePostsCache({ notifyListReload: false });
     allowRscBootstrapFeedRef.current = false;
     listFeedEpochRef.current += 1;
     favoriteFetchEpochRef.current += 1;
-    setPage(1);
-    await load(1, { forceFreshRankedWindow: true });
+    /* page 1 리셋은 성공 커밋 시 load 내부에서 — 실패 시 기존 페이지 유지 */
+    return load(1, { forceFreshRankedWindow: true, background: true });
   }, [load]);
 
   const tradePullRefreshRegister =
@@ -729,7 +753,9 @@ export function PostListByCategory({
     setLoadingMore(true);
     const startedAt = Date.now();
     try {
-      await load(next, { append: true });
+      const r = await load(next, { append: true });
+      /* append 실패·취소 — 다음 시도가 같은 페이지를 다시 요청하도록 복구 */
+      if (r !== "success") setPage((p) => (p === next ? next - 1 : p));
     } finally {
       await awaitTradeListLoadMoreMinDelay(startedAt);
       setLoadingMore(false);
@@ -864,6 +890,20 @@ export function PostListByCategory({
         <div className="flex min-h-[min(36vh,320px)] items-center justify-center py-8" aria-busy="true">
           <TradeFeedBufferingSpinner />
         </div>
+      </>
+    );
+  }
+
+  if (posts.length === 0 && loadFailed) {
+    return (
+      <>
+        {tradePullRefreshRegister}
+        <TradeListErrorState
+          onRetry={() => {
+            listFeedEpochRef.current += 1;
+            void load(1);
+          }}
+        />
       </>
     );
   }

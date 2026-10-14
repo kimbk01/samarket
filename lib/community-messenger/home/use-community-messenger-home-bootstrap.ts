@@ -240,6 +240,9 @@ function homeBootstrapHasListRooms(data: CommunityMessengerBootstrap | null | un
   return (data.chats?.length ?? 0) + (data.groups?.length ?? 0) > 0;
 }
 
+/** PTR 등 호출자가 non-silent refresh 결과를 받기 위한 보고 슬롯 (기본 "cancelled": 라운드 skip·abort) */
+export type MessengerHomeRefreshReport = { outcome: "success" | "error" | "cancelled" };
+
 export type UseCommunityMessengerHomeBootstrapArgs = {
   initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
   /** 언어 전환 시 effect 재실행 없이 최신 번역만 쓰기 위한 ref */
@@ -256,7 +259,7 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   setAuthRequired: Dispatch<SetStateAction<boolean>>;
   pageError: string | null;
   setPageError: Dispatch<SetStateAction<string | null>>;
-  refresh: (silent?: boolean) => Promise<void>;
+  refresh: (silent?: boolean, report?: MessengerHomeRefreshReport) => Promise<void>;
   homeRealtimeGateOpen: boolean;
   /** `deferredCallLog` 즉시 보강 — 통화 탭 진입 시 1200ms follow-up 대기 생략 */
   hydrateDeferredCallLogs: () => Promise<void>;
@@ -718,7 +721,7 @@ export function useCommunityMessengerHomeBootstrap({
     []
   );
 
-  const refresh = useCallback(async (silent = false) => {
+  const refresh = useCallback(async (silent = false, report?: MessengerHomeRefreshReport) => {
     recordMessengerHomeRefreshInvocation(silent);
     if (silent && isDevSafeMode()) return;
     if (!tryEnterHomeBootstrapRefreshRound(silent)) return;
@@ -800,6 +803,12 @@ export function useCommunityMessengerHomeBootstrap({
     const stale: CommunityMessengerBootstrap | null =
       staleFullOnly ??
       (staleCritPayload ? communityMessengerBootstrapFromCriticalPayload(staleCritPayload) : null);
+    /**
+     * PTR 등 non-silent 재요청 실패 시 화면의 기존 목록을 지우지 않는다 (PTR D7).
+     * 캐시 스냅샷(`stale`)이 없어도 이미 표시 중인 `data` 가 있으면 보존.
+     */
+    const hadVisibleDataAtStart = !silent && dataRef.current != null;
+    let refreshFailed = false;
     const shouldBlock = !silent && !loadedRef.current && !stale;
     const useLiteBootstrapFallback = !silent && !stale && !loadedRef.current;
     if (stale) {
@@ -1116,7 +1125,7 @@ export function useCommunityMessengerHomeBootstrap({
                   } else {
                     setAuthRequired(false);
                     setPageError(tRef.current("nav_messenger_load_failed"));
-                    if (!stale) {
+                    if (!stale && !hadVisibleDataAtStart) {
                       setData(null);
                       setListAwaitingCritical(false);
                     }
@@ -1414,10 +1423,12 @@ export function useCommunityMessengerHomeBootstrap({
                 setPageError(tRef.current("nav_messenger_login_required"));
                 setData(null);
                 setListAwaitingCritical(false);
+                refreshFailed = true;
               } else {
                 setAuthRequired(false);
                 setPageError(tRef.current("nav_messenger_load_failed"));
-                if (!silent && !stale) {
+                refreshFailed = true;
+                if (!silent && !stale && !hadVisibleDataAtStart) {
                   setData(null);
                   setListAwaitingCritical(false);
                 }
@@ -1446,12 +1457,16 @@ export function useCommunityMessengerHomeBootstrap({
       if (!silent) {
         setAuthRequired(false);
         setPageError(tRef.current("nav_messenger_load_failed"));
-        if (!stale) {
+        refreshFailed = true;
+        if (!stale && !hadVisibleDataAtStart) {
           setData(null);
           setListAwaitingCritical(false);
         }
       }
     } finally {
+      if (report) {
+        report.outcome = refreshDataOk ? "success" : refreshFailed ? "error" : "cancelled";
+      }
       if (refreshAbortRef.current === controller) {
         refreshAbortRef.current = null;
       }

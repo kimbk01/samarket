@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -13,6 +14,7 @@ import { getSingleFlightPromise } from "@/lib/http/run-single-flight";
 import { storesHomeFeedSingleFlightKey } from "@/lib/stores/stores-home-network-guards";
 import {
   applyStoresHomeFeedNetworkResult,
+  isStoresHomeFeedNetworkSuccess,
   readStoresHomeFeedExactCacheSnapshot,
   readStoresHomeFeedInitialSnapshot,
   resolveStoresHomeFeedCacheForLoad,
@@ -167,7 +169,11 @@ export function StoresHomeHub({
   }, [loading, stores.length]);
 
   const loadFeed = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean; fromBfcacheRestore?: boolean }) => {
+    async (opts?: {
+      silent?: boolean;
+      force?: boolean;
+      fromBfcacheRestore?: boolean;
+    }): Promise<DibayPtrOutcome> => {
       const silent = !!opts?.silent;
       const force = opts?.force === true;
       const requestId = ++requestIdRef.current;
@@ -230,7 +236,7 @@ export function StoresHomeHub({
               }
             })
             .catch(() => {});
-          return;
+          return "success";
         }
       }
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
@@ -251,7 +257,9 @@ export function StoresHomeHub({
             language,
             clientCallSource: "stores_home_mount",
           }));
-        if (requestId !== requestIdRef.current || controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return "cancelled";
+        /* non-2xx·파싱 실패 → 기존 행 유지(정책) + PTR 에는 실패로 보고 */
+        const networkOk = isStoresHomeFeedNetworkSuccess(status, json);
         commitFeedUi(() => {
           setStores((prevStores) => {
             const applied = applyStoresHomeFeedNetworkResult({
@@ -270,9 +278,10 @@ export function StoresHomeHub({
           });
           setLoading(false);
         });
+        return networkOk ? "success" : "error";
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (requestId !== requestIdRef.current || controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return "cancelled";
         const cached = resolveStoresHomeFeedCacheForLoad(querySuffix);
         if (cached.entryStores.length > 0) {
           writeStoresHomeFeedLiveStore(querySuffix, cached.entryStores, cached.entry?.meta ?? null);
@@ -282,6 +291,7 @@ export function StoresHomeHub({
             setLoading(false);
           });
         }
+        return "error";
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
         if (!silent && requestId === requestIdRef.current) {
@@ -291,6 +301,11 @@ export function StoresHomeHub({
       }
     },
     [language, querySuffix]
+  );
+
+  const onStoresHomePullRefresh = useCallback(
+    () => loadFeed({ silent: false, force: true }),
+    [loadFeed]
   );
 
   useLayoutEffect(() => {
@@ -439,9 +454,7 @@ export function StoresHomeHub({
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />
       <StoresHomePullRefreshRegister
-        onRefresh={async () => {
-          await loadFeed({ silent: false, force: true });
-        }}
+        onRefresh={onStoresHomePullRefresh}
       />
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
         <StoresHomeHeroBanner />

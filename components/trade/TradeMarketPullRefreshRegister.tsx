@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrHandler } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { useLayoutEffect, useRef } from "react";
 import { addTradeMarketPullRefreshHandler } from "@/lib/trade/trade-market-pull-refresh-store";
 
@@ -9,7 +10,7 @@ export function TradeMarketPullRefreshRegister({
   onRefresh,
 }: {
   routeKey: string;
-  onRefresh: () => void | Promise<void>;
+  onRefresh: DibayPtrHandler;
 }) {
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;

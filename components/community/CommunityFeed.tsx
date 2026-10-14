@@ -132,6 +132,7 @@ import {
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
 import { CommunityLocalFilterPickerSheet } from "@/components/community/CommunityLocalFilterPickerSheet";
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 
 declare global {
   interface Window {
@@ -655,7 +656,17 @@ export function CommunityFeed({
   }, [showNeighborOnlyStrip]);
 
   const fetchPage = useCallback(
-    async (nextOffset: number, append: boolean, session: number, showBlockingLoading = true) => {
+    async (
+      nextOffset: number,
+      append: boolean,
+      session: number,
+      showBlockingLoading = true,
+      /** PTR — 실패 시 표시 중 목록의 무한 스크롤(hasMore) 유지 */
+      keepHasMoreOnFailure = false
+    ): Promise<DibayPtrOutcome> => {
+      const failHasMore = () => {
+        if (!keepHasMoreOnFailure) setHasMore(false);
+      };
       let initialLoadToken = 0;
       if (append) setLoadingMore(true);
       else {
@@ -666,9 +677,12 @@ export function CommunityFeed({
       feedAbortRef.current?.abort();
       const controller = new AbortController();
       feedAbortRef.current = controller;
+      /** 타임아웃 abort 는 교체 abort 와 구분 — 실패로 보고 (D5) */
+      let timedOut = false;
       const timeoutId =
         typeof window !== "undefined"
           ? window.setTimeout(() => {
+              timedOut = true;
               controller.abort();
             }, 28_000)
           : undefined;
@@ -696,7 +710,7 @@ export function CommunityFeed({
             })
           );
           setHasMore(false);
-          return;
+          return "error";
         }
         const keysetCursor =
           feedSort === "latest" && append && nextCursorTokenRef.current
@@ -759,19 +773,19 @@ export function CommunityFeed({
             recordPhilifeCommunityPhase("community_list_fetch_json_ms", jsonParseMs, isInitialPage);
           }
         } catch {
-          if (session !== feedSessionRef.current) return;
+          if (session !== feedSessionRef.current) return "cancelled";
           setErr(t("community_feed_parse_failed"));
           /* fetch 실패 ≠ 빈 피드 — 세션 캐시·직전 목록 유지 */
-          setHasMore(false);
-          return;
+          failHasMore();
+          return "error";
         }
-        if (session !== feedSessionRef.current) return;
+        if (session !== feedSessionRef.current) return "cancelled";
         if (res.status === 401 && neighborOnly) {
           setErr(t("community_feed_neighbor_login_required"));
           setNeighborOnly(false);
           setLoadingMore(false);
           if (!append) setLoading(false);
-          return;
+          return "error";
         }
         if (!res.ok || !j.ok) {
           const code = j.error ?? "";
@@ -785,8 +799,8 @@ export function CommunityFeed({
                 ? t("community_feed_server_config")
                 : (j.error ?? t("community_feed_load_failed"));
           setErr(human);
-          setHasMore(false);
-          return;
+          failHasMore();
+          return "error";
         }
         const next = j.posts ?? [];
         const tMerge0 = performance.now();
@@ -887,11 +901,17 @@ export function CommunityFeed({
             });
           });
         }
+        return "success";
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (session !== feedSessionRef.current) return;
-        setHasMore(false);
+        if (error instanceof DOMException && error.name === "AbortError") {
+          if (!timedOut || session !== feedSessionRef.current) return "cancelled";
+          setErr(t("community_feed_load_failed"));
+          return "error";
+        }
+        if (session !== feedSessionRef.current) return "cancelled";
+        failHasMore();
         setErr(t("community_feed_load_failed"));
+        return "error";
       } finally {
         if (typeof timeoutId === "number") window.clearTimeout(timeoutId);
         if (feedAbortRef.current === controller) {
@@ -1086,7 +1106,7 @@ export function CommunityFeed({
   const ptrDomain = useMainHubPtrDomain();
   usePhilifePullRefresh(ptrDomain === "philife");
 
-  const onPhilifePullRefresh = useCallback(async () => {
+  const onPhilifePullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     clearPhilifeFeedCacheEntry(
       feedSessionKey,
       category,
@@ -1108,7 +1128,9 @@ export function CommunityFeed({
       .catch(() => {
         /* topic chips refresh optional */
       });
-    await Promise.all([fetchPage(0, false, session, false), topicRefresh]);
+    /* 주제 칩은 부가 갱신 — 결과 판정은 피드 본문 기준 */
+    const [feedOutcome] = await Promise.all([fetchPage(0, false, session, false, true), topicRefresh]);
+    return feedOutcome;
   }, [category, neighborOnly, tagFilter, viewerSig, feedSort, feedSessionKey, fetchPage]);
 
   /** Member Identity mutation — drop contaminated author_name snapshots; SWR refetch */

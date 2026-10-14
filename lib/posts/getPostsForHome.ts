@@ -72,6 +72,15 @@ export interface GetPostsForHomeResult {
   posts: PostWithMeta[];
   hasMore: boolean;
   favoriteMap: Record<string, boolean>;
+  /**
+   * 네트워크 오류·non-2xx·JSON 파싱 실패 — `posts:[]` 는 "빈 목록"이 아니라 "결과 없음".
+   * 캐시에 쓰지 않는다. 호출부는 기존 목록을 유지해야 한다(PTR D2).
+   */
+  failed?: true;
+}
+
+function failedHomePostsResult(): GetPostsForHomeResult {
+  return { posts: [], hasMore: false, favoriteMap: {}, failed: true };
 }
 
 const HOME_POSTS_TTL_MS = 45_000;
@@ -539,7 +548,7 @@ export async function getPostsForHome(
         recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
       }
       if (!res.ok) {
-        return { posts: [], hasMore: false, favoriteMap: {} };
+        return failedHomePostsResult();
       }
 
       const tJson0 = dbg ? performance.now() : 0;
@@ -578,7 +587,7 @@ export async function getPostsForHome(
       }
       return result;
     } catch {
-      return { posts: [], hasMore: false, favoriteMap: {} };
+      return failedHomePostsResult();
     }
   }
 
@@ -612,7 +621,7 @@ export async function getPostsForHome(
         recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
       }
       if (!res.ok) {
-        return { posts: [], hasMore: false, favoriteMap: {} };
+        return failedHomePostsResult();
       }
 
       const tJson0 = dbg ? performance.now() : 0;
@@ -651,7 +660,7 @@ export async function getPostsForHome(
       }
       return result;
     } catch {
-      return { posts: [], hasMore: false, favoriteMap: {} };
+      return failedHomePostsResult();
     }
   });
 }

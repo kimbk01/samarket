@@ -77,25 +77,39 @@ export function invalidateBrowseTaxonomySnapshot(): void {
   bump();
 }
 
-/** browse PTR — taxonomy 네트워크 재검증 후 스냅샷 갱신(헤더 1·2·3단) */
+/**
+ * browse PTR — taxonomy 네트워크 재검증 후 스냅샷 갱신(헤더 1·2·3단).
+ * 재검증 중·실패 시 직전 `ready` 스냅샷 유지 — 업종(primary) 판정이 null 로 흔들려
+ * 「업종 없음」 화면·PTR 슬롯 언마운트가 일어나지 않게 한다 (PTR D14).
+ */
 export async function reloadBrowseTaxonomySnapshot(
   language?: import("@/lib/i18n/config").AppLanguageCode
-): Promise<void> {
+): Promise<"success" | "error" | "cancelled"> {
   const gen = ++reloadGeneration;
   const { purgeStoresTaxonomyNetworkCache, fetchStoresTaxonomyDeduped } = await import(
     "@/lib/stores/store-delivery-api-client"
   );
   purgeStoresTaxonomyNetworkCache(language);
-  state = { status: "loading" };
-  bump();
+  const previous = state.status === "ready" ? state : null;
+  if (!previous) {
+    state = { status: "loading" };
+    bump();
+  }
   try {
     const { json } = await fetchStoresTaxonomyDeduped({ language });
-    if (gen !== reloadGeneration) return;
+    if (gen !== reloadGeneration) return "cancelled";
     const data = parseBrowseTaxonomyPayload(json);
-    state = data ? { status: "ready", data } : { status: "error" };
+    if (data) {
+      state = { status: "ready", data };
+      bump();
+      return "success";
+    }
   } catch {
-    if (gen !== reloadGeneration) return;
-    state = { status: "error" };
+    if (gen !== reloadGeneration) return "cancelled";
   }
-  bump();
+  if (!previous) {
+    state = { status: "error" };
+    bump();
+  }
+  return "error";
 }

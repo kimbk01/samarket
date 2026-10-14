@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrHandler } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { useLayoutEffect } from "react";
 import { addMessengerPullRefreshHandler } from "@/lib/community-messenger/messenger-pull-refresh-store";
 
@@ -7,7 +8,7 @@ import { addMessengerPullRefreshHandler } from "@/lib/community-messenger/messen
 export function MessengerPullRefreshRegister({
   onRefresh,
 }: {
-  onRefresh: () => void | Promise<void>;
+  onRefresh: DibayPtrHandler;
 }) {
   useLayoutEffect(() => {
     return addMessengerPullRefreshHandler(onRefresh);

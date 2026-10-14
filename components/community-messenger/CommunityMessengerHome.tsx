@@ -2841,9 +2841,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const onMessengerHomeRetryStable = useCallback(() => {
     void refresh();
   }, [refresh]);
-  const onMessengerPullRefresh = useCallback(async () => {
-    await runMessengerHomePullRefresh(refresh);
-  }, [refresh]);
+  const onMessengerPullRefresh = useCallback(() => runMessengerHomePullRefresh(refresh), [refresh]);
   const messengerHomeBootstrapCalls = useMemo(() => data?.calls ?? [], [data?.calls]);
   const onBootstrapCallsChange = useCallback(
     (calls: CommunityMessengerCallLog[]) => {
