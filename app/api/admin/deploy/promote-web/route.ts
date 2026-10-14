@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import {
   assertPhase1Layers,
+  assertPromoteReauth,
+  canPromoteWeb,
   isShaFormat,
   type DeployPromoteLayer,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-ssot";
@@ -9,22 +10,37 @@ import {
   getDeployPromotionRecord,
   upsertDeployPromotionRecord,
 } from "@/lib/admin/deploy-promotion/deploy-promotion-store";
+import { requireDeployOwner } from "@/lib/admin/deploy-promotion/deploy-owner";
+import { evaluateProductionPromoteExecution } from "@/lib/admin/deploy-promotion/deploy-execution-guard";
 import { promoteWebShaViaGithub } from "@/lib/admin/deploy-promotion/promote-web-sha-github";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Web-only promote. Requires:
- * - super admin
- * - confirmSha === sha
- * - reauthConfirm === "PROMOTE"
- * - record status verified for that sha
- * - DIBAY_PROMOTE_ENABLED + GitHub token (Owner console)
+ * Web promote — Owner only.
+ * Fail-closed until DIBAY_PROMOTE_ENABLED=1 AND DIBAY_PROMOTE_EXECUTION_UNLOCKED=1.
+ * Area A: both unset → always 503. Do not unlock until auth-split proven.
  */
 export async function POST(req: Request) {
-  const gate = await requireSuperAdmin();
+  const gate = await requireDeployOwner();
   if (!gate.ok) return gate.response;
+
+  const exec = evaluateProductionPromoteExecution();
+  if (!exec.allowed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: exec.reason,
+        code: "production_execution_blocked",
+        message: exec.messageKo,
+        messageEn: exec.messageEn,
+        ownerAction:
+          "Complete Area B (GitHub/Vercel auth split). Do not set DIBAY_PROMOTE_EXECUTION_UNLOCKED until Cursor cannot share Owner prod deploy rights.",
+      },
+      { status: 503 }
+    );
+  }
 
   let body: {
     sha?: string;
@@ -43,7 +59,7 @@ export async function POST(req: Request) {
   if (!isShaFormat(sha) || sha !== confirmSha) {
     return NextResponse.json({ ok: false, error: "sha_confirm_mismatch" }, { status: 400 });
   }
-  if ((body.reauthConfirm ?? "").trim() !== "PROMOTE") {
+  if (!assertPromoteReauth(body.reauthConfirm ?? "")) {
     return NextResponse.json({ ok: false, error: "reauth_confirm_required" }, { status: 400 });
   }
 
@@ -53,8 +69,15 @@ export async function POST(req: Request) {
   }
 
   const existing = getDeployPromotionRecord(sha);
-  if (!existing || existing.status !== "verified") {
+  if (!existing) {
     return NextResponse.json({ ok: false, error: "sha_not_verified" }, { status: 409 });
+  }
+  const promoteGate = canPromoteWeb(existing);
+  if (!promoteGate.ok) {
+    return NextResponse.json(
+      { ok: false, error: promoteGate.reason ?? "cannot_promote" },
+      { status: 409 }
+    );
   }
 
   upsertDeployPromotionRecord({

@@ -90,10 +90,27 @@ mustContain("components/runtime/DibayRuntimeEnvironmentBanner.tsx", [
 mustContain("app/admin/system/deploy/page.tsx", [
   "/api/admin/deploy/promote-web",
   "reauthConfirm",
+  "/api/admin/deploy/run-gate",
+  "promoteBlocked",
 ]);
 mustContain("lib/admin/deploy-promotion/promote-web-sha-github.ts", [
   "DIBAY_PROMOTE_ENABLED",
   "promoteWebShaViaGithub",
+]);
+mustContain("lib/admin/deploy-promotion/deploy-execution-guard.ts", [
+  "DIBAY_PROMOTE_EXECUTION_UNLOCKED",
+  "production_execution_blocked",
+]);
+mustContain("lib/admin/deploy-promotion/deploy-owner.ts", [
+  "DIBAY_DEPLOY_OWNER_IDS",
+  "requireDeployOwner",
+]);
+mustContain("app/api/admin/deploy/promote-web/route.ts", [
+  "evaluateProductionPromoteExecution",
+  "requireDeployOwner",
+]);
+mustContain("app/api/admin/deploy/rollback/route.ts", [
+  "rollback_execution_blocked",
 ]);
 
 // Native TEST identity (Android flavor + iOS xcconfig)

@@ -33,6 +33,18 @@
 | D 기능 매트릭스 | BLOCKED (스키마 미적용) |
 | E Web promote | code PASS; 토큰/실측 BLOCKED |
 
+## F. Area A — TEST 관리자 배포 UI/매트릭스 (2026-10-15 코드)
+
+| 항목 | 상태 | 증거 |
+|---|---|---|
+| `/admin/system/deploy` UI·CTA | PASS (code) | 매트릭스·검증완료/취소·A/B/C/D 모의·운영적용·복구 |
+| 증거 기반 게이트 | PASS (unit) | `deploy-evidence-gates` — 수동 PASS 불가 |
+| Owner 게이트 | PASS (unit) | `DIBAY_DEPLOY_OWNER_IDS` fail-closed |
+| 운영 promote/rollback API | **BLOCKED** | `DIBAY_PROMOTE_EXECUTION_UNLOCKED` 없으면 503 |
+| Cursor≠Owner 권한 분리 | **BLOCKED** | 공유 자격 — 기술 차단 NOT_PROVEN |
+| TEST ledger SQL | code only | `scripts/sql/test-dibay-deploy-promotion-ledger.sql` (TEST 전용 적용) |
+| main / Production / 운영 DB | **변경 없음** | 작업 브랜치 `dibay-test` only |
+
 ## 종료 조건
 
-스키마·allowlist 테스터·브랜치 트래킹·기능 실측 전 → **전체 완료 아님**
+Area B 권한 분리·실측·Owner 승인 전 → **전체 완료 아님**
