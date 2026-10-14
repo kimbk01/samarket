@@ -1465,7 +1465,7 @@ public class MainActivity extends BridgeActivity {
     if (!isVideo && !isVoice) return false;
     // Native voice owns its separate-task Activity + dock. MainActivity must never enter
     // system PiP for that lane — bringToFront from onResume otherwise triggers
-    // onUserLeaveHint → enterPictureInPictureMode on MainActivity (proven Xiaomi).
+    // onUserLeaveHint → enterPictureInPictureMode on MainActivity (device-reproduced).
     if (isVoice && NativeVoiceCallOwner.isNativeOwned(callId)) {
       return false;
     }

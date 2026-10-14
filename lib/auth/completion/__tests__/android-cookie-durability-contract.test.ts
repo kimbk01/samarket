@@ -42,15 +42,21 @@ describe("android-cookie-durability-contract", () => {
     for (const rel of files) {
       const src = readFileSync(join(root, rel), "utf8");
       if (rel.endsWith("MainActivity.java")) {
+        // Contract surface is flushAuthCookies only — not the whole Activity
+        // (PiP/call comments may name devices without OEM auth branches).
         expect(src).toMatch(/flushAuthCookies/);
         expect(src).toMatch(/CookieManager\.getInstance\(\)\.flush\(\)/);
-        expect(src).not.toMatch(/Build\.MODEL/);
-        expect(src).not.toMatch(/Samsung|Xiaomi/i);
         const start = src.indexOf("public boolean flushAuthCookies()");
         expect(start).toBeGreaterThan(-1);
-        const flushBlock = src.slice(start, start + 500);
+        const end = src.indexOf("\n    }", start);
+        expect(end).toBeGreaterThan(start);
+        const flushBlock = src.slice(start, end + "\n    }".length);
+        expect(flushBlock).toMatch(/CookieManager\.getInstance\(\)\.flush\(\)/);
+        expect(flushBlock).not.toMatch(/Build\.MODEL/);
+        expect(flushBlock).not.toMatch(/Samsung|Xiaomi/i);
         expect(flushBlock).not.toMatch(/SharedPreferences|getSharedPreferences/);
         expect(flushBlock).not.toMatch(/getCookie\(/);
+        expect(flushBlock).not.toMatch(/setTimeout\s*\(|\bsleep\s*\(/);
         continue;
       }
       for (const re of forbidden) {
