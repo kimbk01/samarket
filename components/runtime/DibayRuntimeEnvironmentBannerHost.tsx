@@ -8,9 +8,11 @@ export function DibayRuntimeEnvironmentBannerHost({
   /** Admin shell always shows PRODUCTION badge on production deploy. */
   forceProductionBadge?: boolean;
 }) {
-  let { variant, projectRefHint } = resolveRuntimeBannerVariant();
-  if (forceProductionBadge && variant === "hidden") {
-    variant = "production";
-  }
+  const resolved = resolveRuntimeBannerVariant();
+  const projectRefHint = resolved.projectRefHint;
+  const variant =
+    forceProductionBadge && resolved.variant === "hidden"
+      ? "production"
+      : resolved.variant;
   return <DibayRuntimeEnvironmentBanner variant={variant} projectRefHint={projectRefHint} />;
 }
