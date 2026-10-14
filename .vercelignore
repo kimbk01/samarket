@@ -1,7 +1,10 @@
-# DIBAY perf QA — 런타임 불필요, serverless 250MB 한도 초과 방지
+# DIBAY perf QA — 런타임 불필요, serverless 250MB / CLI 10MB 업로드 한도
 docs/perf/**/*.apk
+docs/perf/**/*.aab
+docs/perf/
 docs/perf/qa-safe-area/
 dist/apk/**/*.apk
+dist/apk/
 
 # Native Android/iOS — Web 배포에 불필요 (repo root only; not lib/.../presentation/android)
 /android/
