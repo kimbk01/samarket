@@ -39,13 +39,17 @@ export function getClockMinutesInTimeZone(date: Date, timeZone: string): number 
       hour: "numeric",
       minute: "numeric",
       hour12: false,
+      // Some ICU builds emit "24" at local midnight with hour12:false alone.
+      hourCycle: "h23",
     });
     const parts = dtf.formatToParts(date);
     const hv = parts.find((p) => p.type === "hour")?.value ?? "0";
     const mv = parts.find((p) => p.type === "minute")?.value ?? "0";
-    const h = Number(hv);
+    let h = Number(hv);
     const m = Number(mv);
     if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    // Defensive: treat 24:xx as 00:xx (ICU midnight quirk).
+    if (h === 24) h = 0;
     return h * 60 + m;
   } catch {
     return null;
@@ -86,10 +90,11 @@ export function isNowWithinAutoSchedule(cfg: AutoBusinessHoursConfig, now: Date)
   const closeM = hhmmToMinutes(cfg.close);
   const nowM = getClockMinutesInTimeZone(now, cfg.timezone);
   if (openM == null || closeM == null || nowM == null) return false;
+  // HH:mm close is inclusive for that minute (00:00–23:59 = full local day).
   if (openM < closeM) {
-    return nowM >= openM && nowM < closeM;
+    return nowM >= openM && nowM <= closeM;
   }
-  return nowM >= openM || nowM < closeM;
+  return nowM >= openM || nowM <= closeM;
 }
 
 /** auto_business_hours.timezone 또는 기본값 */
@@ -126,6 +131,7 @@ function isNowWithinBreakWindow(
   const endM = hhmmToMinutes(endHHmm);
   const nowM = getClockMinutesInTimeZone(now, timeZone);
   if (startM == null || endM == null || nowM == null) return false;
+  // Break end minute is exclusive so a break ending at HH:mm reopens that minute.
   if (startM < endM) {
     return nowM >= startM && nowM < endM;
   }

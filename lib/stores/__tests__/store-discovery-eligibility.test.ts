@@ -23,6 +23,9 @@ const breakHours = {
   },
 };
 
+/** Fixed Manila mid-day — never depend on CI wall clock. */
+const noonManilaFixed = new Date("2026-08-23T04:00:00.000Z");
+
 function baseInput(overrides: Record<string, unknown> = {}) {
   return {
     business_hours_json: openHours,
@@ -30,6 +33,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
     point_commerce_blocked: false,
     delivery_available: true,
     distanceOutOfRange: false,
+    now: noonManilaFixed,
     ...overrides,
   };
 }

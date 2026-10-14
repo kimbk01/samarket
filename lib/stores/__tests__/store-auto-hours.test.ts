@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  getClockMinutesInTimeZone,
+  isNowWithinAutoSchedule,
   readAutoBusinessHoursEnabled,
   resolveStoreFrontOpen,
 } from "@/lib/stores/store-auto-hours";
@@ -64,6 +66,25 @@ describe("store-auto-hours", () => {
     };
     const atNoon = new Date("2026-05-23T12:00:00+08:00");
     expect(resolveStoreFrontOpen(json, false, atNoon)).toBe(false);
+  });
+
+  it("00:00–23:59 includes local 23:59 (full-day fixture)", () => {
+    const cfg = {
+      enabled: true as const,
+      timezone: "Asia/Manila",
+      open: "00:00",
+      close: "23:59",
+    };
+    const at2359 = new Date("2026-10-15T15:59:00.000Z");
+    expect(isNowWithinAutoSchedule(cfg, at2359)).toBe(true);
+    expect(resolveStoreFrontOpen({ auto_business_hours: { ...cfg, schedule_enforced: true } }, true, at2359)).toBe(
+      true
+    );
+  });
+
+  it("normalizes ICU midnight hour 24 to minute 0", () => {
+    const atManilaMidnight = new Date("2026-10-14T16:00:00.000Z");
+    expect(getClockMinutesInTimeZone(atManilaMidnight, "Asia/Manila")).toBe(0);
   });
 });
 
