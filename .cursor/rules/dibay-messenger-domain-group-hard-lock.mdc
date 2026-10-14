@@ -49,3 +49,9 @@ Not counterpart. Domain Header Factory: `domain-room-header-chrome.ts`.
 ## Preserve
 
 Membership authority source close. 4-domain freeze. Soft delete tombstone. Per-member mute/read.
+
+## Production restore (linked)
+
+private_group send/recv + bg→resume catch-up + APK account-switch session are Production-proven under  
+`docs/dibay-call-messenger-restore-hard-lock.md` (R4–R6). Verify: `npm run verify:call-messenger-restore-hard-lock`.  
+Do not collapse GROUP into DIRECT to “simplify” those paths.

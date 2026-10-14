@@ -139,6 +139,7 @@ Shared UI/transport OK. Shared authority FAIL for room identity, message writer,
 | `docs/dibay-call-android-native-video-pip-restore-hard-lock.md` | Android PiP/surface restore |
 | `docs/dibay-call-legacy-web-shutdown-lock.md` | Android Web establishment removed |
 | `.cursor/rules/dibay-call-native-runtime-ssot.mdc` | Agent Native runtime SSOT |
+| `docs/dibay-call-messenger-restore-hard-lock.md` | **Production restore R1–R6** (direction, messageForBump/empty ghost, Android mute/camera/HOME/AudioFocus, private_group, bg catch-up, account switch). Verify: `npm run verify:call-messenger-restore-hard-lock`. **Exclusions:** iPhone CallKit 방 UI = NOT_PROVEN · Samsung PiP = DEVICE_ISSUE_DEFERRED |
 
 ---
 

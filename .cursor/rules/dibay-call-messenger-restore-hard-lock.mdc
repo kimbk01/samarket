@@ -1,0 +1,51 @@
+---
+description: HARD LOCK — Production-proven Call+Messenger restore contracts (direction, messageForBump/empty ghost, Android controls, group/catch-up/account switch). Excludes iPhone CallKit room UI + Samsung PiP.
+alwaysApply: false
+globs:
+  - lib/community-messenger/call-stub-viewer-direction.ts
+  - lib/community-messenger/room/empty-text-timeline-ghost.ts
+  - lib/community-messenger/room/use-messenger-room-derived-message-lists.ts
+  - lib/community-messenger/stores/messenger-realtime-store.ts
+  - lib/community-messenger/service.ts
+  - lib/community-messenger/server/publish-messenger-room-bump.ts
+  - lib/community-messenger/room/use-messenger-room-remote-catchup.ts
+  - lib/community-messenger/group/**
+  - components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx
+  - android/app/src/main/java/com/dibay/app/nativevoice/**
+  - android/app/src/main/java/com/dibay/app/nativevideo/**
+  - android/app/src/main/res/layout/activity_native_voice_call.xml
+  - android/app/src/main/res/layout/activity_native_video_call.xml
+  - docs/dibay-call-messenger-restore-hard-lock.md
+  - scripts/verify-call-messenger-restore-hard-lock.mjs
+---
+
+# Call + Messenger Production Restore HARD LOCK
+
+Full SSOT: `docs/dibay-call-messenger-restore-hard-lock.md`  
+Umbrella: `docs/dibay-chat-call-current-normal-hard-lock.md` (no duplicate Call Master).
+
+## Locked (proven)
+
+- R1 call_stub direction via `initiatorUserId` (`withCallStubViewerDirection`)
+- R2 terminal stub `messageForBump` + `isEmptyTextTimelineGhost` filter
+- R3 Android mute / camera / HOME resume / AudioFocus wires
+- R4–R6 private_group / bg catch-up / account switch (domain boundary preserved)
+
+## Explicitly NOT locked
+
+- iPhone CallKit 방 UI empty-bubble → **NOT_PROVEN**
+- Samsung PiP → **DEVICE_ISSUE_DEFERRED**
+
+## Verify (required — rule file ≠ PASS)
+
+```bash
+npm run verify:call-messenger-restore-hard-lock
+```
+
+Also runs via `npm run ci` (GitHub Actions CI on push/PR).
+
+## DO NOT
+
+- Remove R1–R6 wires for cleanup/refactor
+- Claim iPhone CallKit room UI or Samsung PiP PASS under this lock
+- Edit Native Call lifecycle beyond R3 control presence without Call Master / Owner gate

@@ -46,6 +46,16 @@ ONE call moment → ONE primary presentation owner (platform Cap rules in presen
 
 `general_direct` ≠ `group` ≠ `trade` ≠ `store_order` — `docs/dibay-messenger-domain-group-hard-lock.md`.
 
+## Production restore contracts (linked — not a second Call Master)
+
+`docs/dibay-call-messenger-restore-hard-lock.md` — R1 call_stub initiator direction · R2 terminal `messageForBump` + empty text ghost filter · R3 Android mute/camera/HOME/AudioFocus · R4–R6 messenger (group/catch-up/account switch under domain lock).
+
+```bash
+npm run verify:call-messenger-restore-hard-lock
+```
+
+**Not locked here:** iPhone CallKit 방 UI (NOT_PROVEN) · Samsung PiP (DEVICE_ISSUE_DEFERRED).
+
 ## Violation
 
 “구조 정리 / 중복 제거 / SSOT 개선”으로 A/B/C를 건드리면 STOP.  
