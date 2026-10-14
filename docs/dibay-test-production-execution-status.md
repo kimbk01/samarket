@@ -33,17 +33,20 @@
 | D 기능 매트릭스 | BLOCKED (스키마 미적용) |
 | E Web promote | code PASS; 토큰/실측 BLOCKED |
 
-## F. Area A — TEST 관리자 배포 UI/매트릭스 (2026-10-15 코드)
+## F. Area A — TEST 관리자 배포 UI/매트릭스 (2026-10-15)
 
 | 항목 | 상태 | 증거 |
 |---|---|---|
-| `/admin/system/deploy` UI·CTA | PASS (code) | 매트릭스·검증완료/취소·A/B/C/D 모의·운영적용·복구 |
-| 증거 기반 게이트 | PASS (unit) | `deploy-evidence-gates` — 수동 PASS 불가 |
-| Owner 게이트 | PASS (unit) | `DIBAY_DEPLOY_OWNER_IDS` fail-closed |
-| 운영 promote/rollback API | **BLOCKED** | `DIBAY_PROMOTE_EXECUTION_UNLOCKED` 없으면 503 |
+| Area A commits | PASS | `7e15f3846` + `c3263d528` + `b4d7ee5f6` on `dibay-test` |
+| Vercel Custom Env `test` | PASS | `dpl_96MYcYFptFG6abh216E2umde75mC` Ready → alias `samarket-env-test` |
+| Isolation probe | PASS | ref=`tcwnueuzuxftyomttdyu`, banner=`test`, prod credentials absent |
+| `.vercelignore` reports bug | PASS (fixed) | bare `reports/` dropped `components/reports`+`lib/reports` → `/reports/` only (`b4d7ee5f6`) |
+| TEST ledger table | PASS | `dibay_deploy_promotion_ledger` on TEST only |
+| Owner UUID / `DIBAY_DEPLOY_OWNER_IDS` | **BLOCKED** | TEST auth에 Owner 계정 없음 — 콘솔 설정 필요 |
+| Admin CTA 실측 (검증완료·게이트·모의) | **NOT_PROVEN** | Owner 세션 없어 로그인 게이트에서 중단 |
+| 운영 promote/rollback unlock | **BLOCKED** | TEST env에 PROMOTE/UNLOCK 키 없음; unauth API 401 |
 | Cursor≠Owner 권한 분리 | **BLOCKED** | 공유 자격 — 기술 차단 NOT_PROVEN |
-| TEST ledger SQL | code only | `scripts/sql/test-dibay-deploy-promotion-ledger.sql` (TEST 전용 적용) |
-| main / Production / 운영 DB | **변경 없음** | 작업 브랜치 `dibay-test` only |
+| main / Production / 운영 DB | **변경 없음** | `origin/main`=`6ba9ad329`; 운영 DB 미접속 |
 
 ## 종료 조건
 
