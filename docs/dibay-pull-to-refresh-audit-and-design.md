@@ -530,3 +530,12 @@ PASS 기준: 응답 200 이 아니라 **DOM 목록 텍스트가 새 응답으로
 5. 햅틱 미구현 — 기존 SSOT 가 클릭음 동반, O13.
 6. browse 강제 재검증(`fresh=1`)이 이제 정상 전달되어 서버 캐시를 실제로 우회 — 서버 부하 영향 미측정(기존에는 오염된 파라미터로 의도와 다르게 동작).
 
+
+### 10.9 보존·추가 런타임 검증 (2026-10-14)
+
+- 작업물 보존: `0c1a4e52` (기준 `4332d8d0`), 작업 브랜치 `claude/wonderful-sagan-4nhgbj` Push. **54파일**(수정 41 + 신규 13) — 앞선 보고의 「48개」는 `git status` 줄 수(신규 폴더 2개가 각 1줄)였음. 저장소 pre-commit(import 트리·i18n·tsc build/test 그래프) PASS. main 병합·배포·DB 변경 없음.
+- 배달 browse(위치 확보 상태): 게스트 위치(geolocation 허용, 마닐라 좌표)로 출발지 게이트 통과 → 최초 목록·PTR 성공 교체·실패 보존·중복 당김 1회·D13·D14 **11/11 PASS** (스텁 API). 회원 저장 배송지 경로는 로그인 필요 → NOT_PROVEN. 콜드 dev 서버에서는 REFRESHING 이 3.5s 를 넘길 수 있음(완료는 정상).
+- 배달 홈 핵심 피드 실패: 피드 500 + 보조(주문요약·카테고리) 성공 → 페이즈 **ERROR**(partial), SUCCESS 로 판정되지 않음(BROWSER). 문구만 「일부 내용을…」 — 피드 우선 문구 여부는 Owner 결정.
+- 메신저·사장님 대시보드 로그인 런타임: 테스트 계정 없음(계정 생성 = DB 변경 금지) → **NOT_PROVEN**.
+- 실제 서버 API: 서버 라우트에 `SUPABASE_SERVICE_ROLE_KEY` 필요(이 환경 미보유), Vercel 프리뷰 조회 403(팀 스코프 권한 없음) → **NOT_PROVEN**.
+- 실기기 Android·iPhone·태블릿: 기기 미연결 → **NOT_PROVEN**.
