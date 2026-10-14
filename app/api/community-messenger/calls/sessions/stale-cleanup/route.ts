@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cleanupStaleActiveCommunityMessengerCallSessions } from "@/lib/community-messenger/call-session-heartbeat";
 import { cleanupExpiredRingingCommunityMessengerCallSessions } from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ async function runStaleCleanup(req: NextRequest) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
+
   // CUT1: active both-stale → ended/heartbeat_timeout
   const active = await cleanupStaleActiveCommunityMessengerCallSessions();
   // CUT2: ringing past deadline → missed (separate authority from active presence)

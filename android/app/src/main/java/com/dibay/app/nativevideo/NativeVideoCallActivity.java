@@ -42,6 +42,9 @@ import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Native-only video call UI. Never hosts WebView. Render-only over NativeVideoCallRuntime state. */
 public class NativeVideoCallActivity extends Activity {
@@ -295,6 +298,32 @@ public class NativeVideoCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  /**
+   * When launcher resumes MainActivity over a stopped call task, reorder this Activity so
+   * fullscreen end/mute controls return. Skip while system PiP is active — PiP owns the surface.
+   */
+  public static boolean bringToFrontIfActive(android.content.Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || activity.isFinishing() || !sid.equals(activity.callId)) return false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && activity.isInPictureInPictureMode()) {
+      NativeVideoCallLog.info("native_video_ui_bring_to_front_skip_pip", sid, "source=main_resume");
+      return false;
+    }
+    Intent intent = new Intent(context, NativeVideoCallActivity.class);
+    intent.addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK
+            | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | Intent.FLAG_ACTIVITY_CLEAR_TOP
+            | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+    intent.putExtra(EXTRA_CALL_ID, sid);
+    intent.putExtra(EXTRA_UI_MODE, activity.uiMode != null ? activity.uiMode : UI_MODE_OUTGOING);
+    context.startActivity(intent);
+    NativeVideoCallLog.info("native_video_ui_bring_to_front", sid, "source=main_resume");
+    return true;
+  }
+
   public static boolean isShowingPreparing(String attemptId) {
     NativeVideoCallActivity activity = activeRef.get();
     return activity != null
@@ -350,8 +379,27 @@ public class NativeVideoCallActivity extends Activity {
     if (Looper.myLooper() == Looper.getMainLooper()) {
       return activity.minimizeConnectedCall(src);
     }
-    activity.runOnUiThread(() -> activity.minimizeConnectedCall(src));
-    return true;
+    AtomicBoolean result = new AtomicBoolean(false);
+    CountDownLatch latch = new CountDownLatch(1);
+    activity.runOnUiThread(
+        () -> {
+          try {
+            result.set(activity.minimizeConnectedCall(src));
+          } finally {
+            latch.countDown();
+          }
+        });
+    try {
+      if (!latch.await(300, TimeUnit.MILLISECONDS)) {
+        NativeVideoCallLog.warn(
+            "native_video_minimize_await_timeout", activity.callId, "source=" + src);
+        return false;
+      }
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
+    return result.get();
   }
 
   public String getBoundCallId() {
@@ -433,8 +481,15 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   @Override
+  protected void onStart() {
+    super.onStart();
+    restoreFullscreenControlsIfForeground("activity_start");
+  }
+
+  @Override
   protected void onResume() {
     super.onResume();
+    restoreFullscreenControlsIfForeground("activity_resume");
     NativeVideoCallLog.info("native_video_pip_activity_resumed", callId, buildPipLogDetails("resume"));
   }
 
@@ -465,12 +520,27 @@ public class NativeVideoCallActivity extends Activity {
       finish();
       return;
     }
+    // Voice parity: FGS/notification resume must exit dock so end/media controls return.
+    if (dockMode) {
+      hideDock("new_intent_resume");
+    }
     applyState(session.state);
     maybeHandleNotificationAccept(intent);
     maybeReattachSurfacesAfterConnectedRestore();
     if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
       restoreConnectedFullscreenVideoLayout("connected_restore");
     }
+  }
+
+  /**
+   * CONNECTED foreground (Recents/launcher, not system PiP) must restore fullscreen end controls.
+   * HOME enters dock/PiP; return without Intent previously left dockMode stuck.
+   */
+  private void restoreFullscreenControlsIfForeground(String source) {
+    if (isFinishing() || preparing) return;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode()) return;
+    if (!dockMode || currentState != NativeVideoCallRuntime.State.CONNECTED) return;
+    hideDock(source);
   }
 
   @Override

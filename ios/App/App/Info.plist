@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>DIBAY</string>
+	<string>$(DIBAY_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,10 +30,10 @@
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.dibay.app</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>dibay</string>
+				<string>$(DIBAY_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>

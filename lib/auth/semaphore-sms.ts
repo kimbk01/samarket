@@ -1,4 +1,5 @@
 import { requireSemaphoreSmsEnv } from "@/lib/env/semaphore-sms";
+import { isSideEffectDispatchAllowed } from "@/lib/config/test-production-isolation";
 
 const SMS_SEND_FAILED_MESSAGE = "인증번호 발송에 실패했습니다.";
 
@@ -34,6 +35,10 @@ export function toSemaphoreApiNumber(input: string): string {
 }
 
 export async function sendSemaphoreSms(number: string, message: string): Promise<SendSemaphoreSmsResult> {
+  // P0 complement: do not bill/send SMS when Preview/local is wired to Production DB.
+  if (!isSideEffectDispatchAllowed()) {
+    return { ok: false, error: "sms_blocked_miswired_environment" };
+  }
   const env = requireSemaphoreSmsEnv();
   if (!env.ok) return { ok: false, error: env.error };
 

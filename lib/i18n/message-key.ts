@@ -5,6 +5,7 @@
  */
 import { adminMessages } from "./catalog/admin";
 import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
+import { adminDeployMessages } from "./catalog/admin-deploy";
 import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
@@ -157,6 +158,7 @@ export type MessageKey =
   | KeyOf<typeof platformEventsUiMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminOsLaunchMessages.ko>
+  | KeyOf<typeof adminDeployMessages.ko>
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
   | KeyOf<typeof adminLaunchIntroMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
@@ -236,6 +238,7 @@ type EnMessageKey =
   | KeyOf<typeof platformEventsUiMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminOsLaunchMessages.en>
+  | KeyOf<typeof adminDeployMessages.en>
   | KeyOf<typeof adminFinanceSsot19Messages.en>
   | KeyOf<typeof adminLaunchIntroMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>

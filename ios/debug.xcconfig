@@ -1,2 +1,3 @@
 #include "App/App/kakao.xcconfig"
+#include "App/App/dibay-flavor-production.xcconfig"
 CAPACITOR_DEBUG = true

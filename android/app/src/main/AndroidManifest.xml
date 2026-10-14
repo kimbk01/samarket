@@ -59,42 +59,42 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="auth" android:pathPrefix="/callback" />
+                <data android:scheme="${deepLinkScheme}" android:host="auth" android:pathPrefix="/callback" />
             </intent-filter>
 
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="chat" android:pathPrefix="/" />
+                <data android:scheme="${deepLinkScheme}" android:host="chat" android:pathPrefix="/" />
             </intent-filter>
 
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="trade" android:pathPrefix="/chat/" />
+                <data android:scheme="${deepLinkScheme}" android:host="trade" android:pathPrefix="/chat/" />
             </intent-filter>
 
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="orders" android:pathPrefix="/" />
+                <data android:scheme="${deepLinkScheme}" android:host="orders" android:pathPrefix="/" />
             </intent-filter>
 
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="community" android:pathPrefix="/post/" />
+                <data android:scheme="${deepLinkScheme}" android:host="community" android:pathPrefix="/post/" />
             </intent-filter>
 
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="dibay" android:host="call" android:pathPrefix="/" />
+                <data android:scheme="${deepLinkScheme}" android:host="call" android:pathPrefix="/" />
             </intent-filter>
         </activity>
 

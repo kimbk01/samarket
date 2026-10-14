@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   claimCommercePushHandoffEvents,
@@ -24,6 +25,9 @@ async function runCommerceNotificationPushHandoff(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
+
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

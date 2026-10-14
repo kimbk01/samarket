@@ -3,6 +3,7 @@ import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
 import { getOptionalAdminUserIdCached } from "@/lib/admin/get-optional-admin-user-id-cached";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
+import { DibayRuntimeEnvironmentBannerHost } from "@/components/runtime/DibayRuntimeEnvironmentBannerHost";
 
 /** 빌드(SSG) 시 Supabase 조회가 60s+ 걸려 타임아웃 나는 일 방지 — 요청 시 렌더만 */
 export const dynamic = "force-dynamic";
@@ -21,15 +22,22 @@ export default async function AdminLayout({
     if (!adminId) {
       return (
         <div className="min-h-screen bg-sam-surface-muted">
+          <DibayRuntimeEnvironmentBannerHost forceProductionBadge />
           <AdminAccessDeniedPanel />
         </div>
       );
     }
-    return <AdminShell>{children}</AdminShell>;
+    return (
+      <>
+        <DibayRuntimeEnvironmentBannerHost forceProductionBadge />
+        <AdminShell>{children}</AdminShell>
+      </>
+    );
   }
 
   return (
     <AdminGuard>
+      <DibayRuntimeEnvironmentBannerHost forceProductionBadge />
       <AdminShell>{children}</AdminShell>
     </AdminGuard>
   );

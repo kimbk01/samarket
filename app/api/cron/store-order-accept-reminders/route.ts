@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { notifyStoreOwnerAcceptReminder } from "@/lib/notifications/notify-store-commerce";
@@ -41,6 +42,9 @@ async function runReminders(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
+
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

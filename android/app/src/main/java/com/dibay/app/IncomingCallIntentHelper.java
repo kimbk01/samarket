@@ -39,7 +39,8 @@ public final class IncomingCallIntentHelper {
     String sessionId = callId != null ? callId.trim() : "";
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(Uri.parse("dibay://call/" + Uri.encode(sessionId) + "?incomingPreview=1"));
+    launch.setData(
+        Uri.parse(BuildConfig.DEEP_LINK_SCHEME + "://call/" + Uri.encode(sessionId) + "?incomingPreview=1"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     return launch;
   }
@@ -50,7 +51,8 @@ public final class IncomingCallIntentHelper {
     launch.setAction(Intent.ACTION_VIEW);
     launch.setData(
         Uri.parse(
-            "dibay://call/"
+            BuildConfig.DEEP_LINK_SCHEME
+                + "://call/"
                 + Uri.encode(sessionId)
                 + "?action=accept&nativePrep=1&mode=active&source=activity"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -62,7 +64,12 @@ public final class IncomingCallIntentHelper {
     String sessionId = callId != null ? callId.trim() : "";
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(Uri.parse("dibay://call/" + Uri.encode(sessionId) + "?action=reject&source=activity"));
+    launch.setData(
+        Uri.parse(
+            BuildConfig.DEEP_LINK_SCHEME
+                + "://call/"
+                + Uri.encode(sessionId)
+                + "?action=reject&source=activity"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     return launch;
   }
@@ -72,7 +79,8 @@ public final class IncomingCallIntentHelper {
     String sessionId = callId != null ? callId.trim() : "";
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(Uri.parse("dibay://call/" + Uri.encode(sessionId) + "?source=native_resume"));
+    launch.setData(
+        Uri.parse(BuildConfig.DEEP_LINK_SCHEME + "://call/" + Uri.encode(sessionId) + "?source=native_resume"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     return launch;
   }

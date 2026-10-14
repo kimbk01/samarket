@@ -211,6 +211,15 @@ public class NativeVoiceCallService extends Service {
   private void requestAudioFocus(String callId) {
     AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
     if (audioManager == null) return;
+    // CONNECTING → CONNECTED re-enters onStartCommand. Replacing audioFocusRequest without
+    // abandoning the prior object leaves a GAIN_TRANSIENT owner after STOP (orphan focus).
+    if (audioFocusRequest != null) {
+      NativeVoiceCallLog.info(
+          "audio_focus_replace_prior",
+          callId,
+          "priorIdentity=" + System.identityHashCode(audioFocusRequest));
+      releaseAudioFocus();
+    }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       AudioAttributes attrs =
           new AudioAttributes.Builder()
@@ -221,9 +230,18 @@ public class NativeVoiceCallService extends Service {
           new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
               .setAudioAttributes(attrs)
               .build();
-      audioManager.requestAudioFocus(audioFocusRequest);
+      int result = audioManager.requestAudioFocus(audioFocusRequest);
+      NativeVoiceCallLog.info(
+          "audio_focus_request",
+          callId,
+          "lane=voice identity="
+              + System.identityHashCode(audioFocusRequest)
+              + " result="
+              + result);
     } else {
-      audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+      audioManager.requestAudioFocus(
+          null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+      NativeVoiceCallLog.info("audio_focus_request", callId, "lane=voice api=legacy");
     }
     NativeVoiceCallLog.info("audio_route_applied", callId, "focus=voice");
   }
@@ -232,10 +250,19 @@ public class NativeVoiceCallService extends Service {
     AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
     if (audioManager == null) return;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+      int identity = System.identityHashCode(audioFocusRequest);
       audioManager.abandonAudioFocusRequest(audioFocusRequest);
       audioFocusRequest = null;
-    } else {
+      NativeVoiceCallLog.info("audio_focus_abandon", "service", "lane=voice identity=" + identity);
+    } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
       audioManager.abandonAudioFocus(null);
+      NativeVoiceCallLog.info("audio_focus_abandon", "service", "lane=voice api=legacy");
     }
+  }
+
+  @Override
+  public void onDestroy() {
+    releaseAudioFocus();
+    super.onDestroy();
   }
 }

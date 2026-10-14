@@ -82,8 +82,9 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
           }
           return ""
         }()
-        // Bundle ID expected for Native SIWA — not a secret.
-        audMatched = aud == "com.dibay.app"
+        // Bundle ID expected for Native SIWA — production or TEST flavor.
+        let expectedAud = Bundle.main.bundleIdentifier ?? "com.dibay.app"
+        audMatched = aud == expectedAud
         if let tokenNonce = json["nonce"] as? String, let raw = currentNonce, !raw.isEmpty {
           nonceMatched = tokenNonce == sha256(raw)
         }

@@ -11,6 +11,25 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.dibay.app"
     compileSdk = rootProject.ext.compileSdkVersion
+    flavorDimensions += "environment"
+    productFlavors {
+        // Production app — do not change applicationId without separate Owner approval.
+        production {
+            dimension "environment"
+            applicationId "com.dibay.app"
+            resValue "string", "app_name", "DIBAY"
+            buildConfigField "String", "DEEP_LINK_SCHEME", "\"dibay\""
+            manifestPlaceholders += [deepLinkScheme: "dibay"]
+        }
+        // DIBAY TEST — side-by-side install with production (Owner policy 2026-10-14).
+        test {
+            dimension "environment"
+            applicationId "com.dibay.app.test"
+            resValue "string", "app_name", "DIBAY TEST"
+            buildConfigField "String", "DEEP_LINK_SCHEME", "\"dibay-test\""
+            manifestPlaceholders += [deepLinkScheme: "dibay-test"]
+        }
+    }
     defaultConfig {
         applicationId "com.dibay.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -18,6 +37,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "String", "DEEP_LINK_SCHEME", "\"dibay\""
+        manifestPlaceholders += [deepLinkScheme: "dibay"]
 
         def localProperties = new Properties()
         def localPropertiesFile = rootProject.file("local.properties")
@@ -100,6 +121,9 @@ android {
                 keyPassword keyPasswordValue
             }
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
     buildTypes {
         release {

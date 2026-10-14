@@ -34,9 +34,12 @@ const useLocalRuntime = ["1", "true", "on"].includes(
   (process.env.DIBAY_LOCAL_RUNTIME ?? "").trim().toLowerCase()
 );
 
+const nativeFlavor = (process.env.DIBAY_NATIVE_FLAVOR ?? "").trim().toLowerCase();
+const isTestNativeFlavor = nativeFlavor === "test";
+
 const config: CapacitorConfig = {
-  appId: "com.dibay.app",
-  appName: "DIBAY",
+  appId: isTestNativeFlavor ? "com.dibay.app.test" : "com.dibay.app",
+  appName: isTestNativeFlavor ? "DIBAY TEST" : "DIBAY",
   webDir: "capacitor-www",
   /**
    * WKWebView root background — app shell bg only (OS_REQUIRED_BOOT_PRIMITIVE).

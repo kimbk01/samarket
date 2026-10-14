@@ -1342,6 +1342,10 @@ public class MainActivity extends BridgeActivity {
     if (callId != null && !callId.isEmpty()) {
       CallScreenStateReceiver.register(this);
       DibayActiveCallSessionManager.onAppForeground(this, callId);
+      // Proven gap: HOME leaves Native*CallActivity in a separate taskAffinity; launcher icon
+      // resumes MainActivity only. isShowing stays true so Runtime will not relaunch — reorder
+      // the live call surface so native_*_call_end returns (notification path already works).
+      restoreNativeCallUiAfterLauncherResume(callId);
     }
     DibayWebSafeAreaBridge.syncIfPossible(this);
     // Gate 3 Step 11 — Cap prefs must not overwrite versioned App Icon on resume.
@@ -1426,6 +1430,23 @@ public class MainActivity extends BridgeActivity {
     getOnBackPressedDispatcher().addCallback(this, activeCallBackPressedCallback);
   }
 
+  /**
+   * Launcher/app-icon resume must surface the live Native call Activity. Does not invent a new
+   * session — only reorders an already-showing CONNECTED surface that HOME backgrounded.
+   */
+  private void restoreNativeCallUiAfterLauncherResume(String callId) {
+    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return;
+    if (NativeVoiceCallOwner.isNativeOwned(callId)
+        && com.dibay.app.nativevoice.NativeVoiceCallActivity.isShowing(callId)) {
+      com.dibay.app.nativevoice.NativeVoiceCallActivity.bringToFrontIfActive(this, callId);
+      return;
+    }
+    if (NativeVideoCallOwner.isNativeOwned(callId)
+        && com.dibay.app.nativevideo.NativeVideoCallActivity.isShowing(callId)) {
+      com.dibay.app.nativevideo.NativeVideoCallActivity.bringToFrontIfActive(this, callId);
+    }
+  }
+
   /** Bridge entry — video active call system PiP */
   public boolean requestVideoCallPipFromBridge() {
     return tryEnterVideoCallPip();
@@ -1442,8 +1463,15 @@ public class MainActivity extends BridgeActivity {
         "voice".equalsIgnoreCase(mediaType)
             || "audio".equalsIgnoreCase(mediaType);
     if (!isVideo && !isVoice) return false;
+    // Native voice owns its separate-task Activity + dock. MainActivity must never enter
+    // system PiP for that lane — bringToFront from onResume otherwise triggers
+    // onUserLeaveHint → enterPictureInPictureMode on MainActivity (proven Xiaomi).
+    if (isVoice && NativeVoiceCallOwner.isNativeOwned(callId)) {
+      return false;
+    }
     // Wave-1 M3: Native Video Activity owns PiP via minimizeConnectedCall when showing.
     if (isVideo
+        && com.dibay.app.nativevideo.NativeVideoCallActivity.isShowing(callId)
         && com.dibay.app.nativevideo.NativeVideoCallActivity.requestMinimizeConnectedCall(
             "main_activity_back")) {
       return true;

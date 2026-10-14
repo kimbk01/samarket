@@ -1,0 +1,5 @@
+// Production native identity — do not change without Owner approval.
+DIBAY_DISPLAY_NAME = DIBAY
+DIBAY_URL_SCHEME = dibay
+DIBAY_PRODUCT_BUNDLE_IDENTIFIER = com.dibay.app
+DIBAY_PUSH_EXTENSION_BUNDLE_IDENTIFIER = com.dibay.app.DibayPushServiceExtension

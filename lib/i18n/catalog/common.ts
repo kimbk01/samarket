@@ -1,5 +1,9 @@
 export const commonMessages = {
   ko: {
+    runtime_env_banner_test: "TEST 환경 — 운영 데이터가 아닙니다",
+    runtime_env_banner_miswired:
+      "위험: 비운영 배포가 운영 DB에 연결되어 있습니다. 쓰기·발송이 차단됩니다.",
+    runtime_env_banner_production: "PRODUCTION",
     common_loading: "불러오는 중…",
     common_settings: "설정",
     common_notifications: "알림",
@@ -183,6 +187,10 @@ export const commonMessages = {
     global_search_clear_query: "검색어 지우기",
   },
   en: {
+    runtime_env_banner_test: "TEST environment — not production data",
+    runtime_env_banner_miswired:
+      "Danger: non-production deploy is wired to the production database. Writes and outbound sends are blocked.",
+    runtime_env_banner_production: "PRODUCTION",
     common_loading: "Loading…",
     common_settings: "Settings",
     common_notifications: "Notifications",

@@ -1,0 +1,5 @@
+// DIBAY TEST — side-by-side install with production (Owner policy).
+DIBAY_DISPLAY_NAME = DIBAY TEST
+DIBAY_URL_SCHEME = dibay-test
+DIBAY_PRODUCT_BUNDLE_IDENTIFIER = com.dibay.app.test
+DIBAY_PUSH_EXTENSION_BUNDLE_IDENTIFIER = com.dibay.app.test.DibayPushServiceExtension

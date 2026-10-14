@@ -25,6 +25,11 @@ import {
 } from "@/lib/auth/resolve-member-lifecycle-authority";
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import {
+  evaluateTestAccess,
+  isMiswiredNonProductionOnProductionDb,
+  isTestRuntimeSurface,
+} from "@/lib/config/test-access-control";
 
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -39,7 +44,9 @@ function jsonDenied(status: number, code: string, message: string): NextResponse
         code === "member_product_write_denied" ||
         code === MEMBER_ACCOUNT_STATE_UNAVAILABLE.code ||
         code === "account_blocked" ||
-        code === "account_withdrawn",
+        code === "account_withdrawn" ||
+        code === "test_access_denied" ||
+        code === "miswired_production_database",
     },
     { status }
   );
@@ -85,6 +92,18 @@ export async function enforceApiMemberMutationPolicy(
   if (!MUTATION_METHODS.has(method)) return null;
 
   const pathname = request.nextUrl.pathname;
+  // P0 complement: Preview/local + Production DB must not mutate product data.
+  if (isMiswiredNonProductionOnProductionDb()) {
+    if (pathname.startsWith("/api/cron") || pathname.startsWith("/api/webhooks")) {
+      return null;
+    }
+    return jsonDenied(
+      503,
+      "miswired_production_database",
+      "비운영 배포가 운영 DB에 연결되어 쓰기가 차단되었습니다."
+    );
+  }
+
   const action = resolveMemberActionClassForApiMutation(pathname);
   if (action === "NON_MEMBER" || action === "EXEMPT" || action === "IDENTITY") {
     return null;
@@ -100,6 +119,17 @@ export async function enforceApiMemberMutationPolicy(
     return null;
   }
   if (!userId) return null;
+
+  if (isTestRuntimeSurface()) {
+    const access = evaluateTestAccess({ userId });
+    if (access.required && !access.allowed) {
+      return jsonDenied(
+        403,
+        "test_access_denied",
+        "TEST 환경은 승인된 테스터만 이용할 수 있습니다."
+      );
+    }
+  }
 
   // Always re-read DB — process-local lifecycle cache is not cross-isolate coherent
   // after admin moderation (FIRST DIVERGENCE: stale ACTIVE allowed PATCH /api/me/profile).

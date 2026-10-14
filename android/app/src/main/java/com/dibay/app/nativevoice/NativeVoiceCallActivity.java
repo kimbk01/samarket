@@ -119,6 +119,29 @@ public class NativeVoiceCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  /**
+   * HOME/launcher often resumes {@link com.dibay.app.MainActivity} while this Activity stays
+   * stopped in its separate taskAffinity — {@link #isShowing} remains true so Runtime will not
+   * relaunch. Same-package reorder restores fullscreen controls (incl. native_voice_call_end).
+   */
+  public static boolean bringToFrontIfActive(android.content.Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    NativeVoiceCallActivity activity = activeRef.get();
+    if (activity == null || activity.isFinishing() || !sid.equals(activity.callId)) return false;
+    Intent intent = new Intent(context, NativeVoiceCallActivity.class);
+    intent.addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK
+            | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | Intent.FLAG_ACTIVITY_CLEAR_TOP
+            | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+    intent.putExtra(EXTRA_CALL_ID, sid);
+    intent.putExtra(EXTRA_UI_MODE, activity.uiMode != null ? activity.uiMode : UI_MODE_OUTGOING);
+    context.startActivity(intent);
+    NativeVoiceCallLog.info("native_voice_ui_bring_to_front", sid, "source=main_resume");
+    return true;
+  }
+
   public static boolean isShowingPreparing(String attemptId) {
     NativeVoiceCallActivity activity = activeRef.get();
     return activity != null
@@ -270,8 +293,16 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   @Override
+  protected void onStart() {
+    super.onStart();
+    // Recents/launcher resume often skips onNewIntent — dock must not hide end controls.
+    restoreFullscreenControlsIfForeground("activity_start");
+  }
+
+  @Override
   protected void onResume() {
     super.onResume();
+    restoreFullscreenControlsIfForeground("activity_resume");
     // WP-3 NEW-11: user returned from app Settings — resume accept if the mic is now granted and
     // the call is still ringing.
     String parked = pendingSettingsAcceptSource;
@@ -285,6 +316,13 @@ public class NativeVoiceCallActivity extends Activity {
     if (session == null || session.state != NativeVoiceCallRuntime.State.RINGING) return;
     NativeVoiceCallLog.info("accept_resumed_after_settings", callId, "source=" + parked);
     resumeAccept(parked);
+  }
+
+  /** CONNECTED foreground must show mediaActions / native_voice_call_end (not dock-only). */
+  private void restoreFullscreenControlsIfForeground(String source) {
+    if (isFinishing() || preparing) return;
+    if (!dockMode || currentState != NativeVoiceCallRuntime.State.CONNECTED) return;
+    hideDock(source);
   }
 
   @Override

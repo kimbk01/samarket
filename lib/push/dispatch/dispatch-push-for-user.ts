@@ -25,9 +25,14 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
 import { evaluateNotificationDeliverySafety } from "@/lib/push/dispatch/notification-delivery-safety-gate";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
+import { isSideEffectDispatchAllowed } from "@/lib/config/test-production-isolation";
 
 export function isPushDispatchEnabled(): boolean {
-  return process.env.PUSH_DISPATCH_ENABLED === "1" || process.env.WEB_PUSH_ENABLED === "1";
+  if (process.env.PUSH_DISPATCH_ENABLED !== "1" && process.env.WEB_PUSH_ENABLED !== "1") {
+    return false;
+  }
+  // P0: Preview/local wired to Production Supabase must not fan-out push.
+  return isSideEffectDispatchAllowed();
 }
 
 function isForceDispatch(opts?: DispatchPushOptions): boolean {

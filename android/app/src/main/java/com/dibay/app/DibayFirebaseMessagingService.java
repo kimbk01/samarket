@@ -168,7 +168,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static String resolveChatRouteUrl(Map<String, String> data) {
     String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
     if (roomId != null) {
-      return "dibay://chat/" + Uri.encode(roomId);
+      return BuildConfig.DEEP_LINK_SCHEME + "://chat/" + Uri.encode(roomId);
     }
     return FcmPayloadResolver.resolveRouteUrl(data);
   }
