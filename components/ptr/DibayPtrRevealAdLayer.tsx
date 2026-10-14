@@ -29,6 +29,8 @@ type Exposure = {
   ad: PtrRevealAd;
   impressed: boolean;
   finished: boolean;
+  /** 실제 노출된 띠 소재 — 접힘(dismiss) 이벤트에 동일 소재 기록 */
+  creativeId?: string;
 };
 
 function newExposureId(): string {
@@ -93,6 +95,17 @@ export function useDibayPtrRevealAd(
         cur.finished = true;
         if (cur.impressed) {
           try {
+            // 띠 접힘 = 팝업의 닫힘에 대응 — 노출(impression)·빈도 억제(suppress 행)와 분리된 이벤트로 기록
+            void recordPlatformPopupEvent({
+              campaignId: cur.ad.campaignId,
+              creativeId: cur.creativeId ?? cur.ad.bands.default.creativeId,
+              surface: cur.ad.surface,
+              eventType: "dismiss",
+              source: "dismiss_handler",
+              exposureId: cur.id,
+              deviceKey: ensureClientInstanceId(),
+              meta: { placement: "ptr_reveal", reason: "band_collapse" },
+            }).catch(() => {});
             finishPtrRevealExposure(pathname, cur.ad);
           } catch {
             /* 광고 실패는 새로고침과 무관 */
@@ -139,6 +152,7 @@ export function useDibayPtrRevealAd(
     if (loadedUrlRef.current !== band.imageUrl) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     ex.impressed = true;
+    ex.creativeId = band.creativeId;
     void recordPlatformPopupEvent({
       campaignId: ex.ad.campaignId,
       creativeId: band.creativeId,

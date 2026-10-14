@@ -562,7 +562,9 @@ Owner 승인: 「A안 — PTR 광고 운영 관리 전체 구현」. §10.7 의 
 - 유휴 시간에 조회(타임아웃 4s) + 기기 변형 이미지 디코드 → 준비된 광고만 노출. 5분 캐시. 당김 중 네트워크 대기 없음.
 - PTR 엔진(`store.run`)은 광고를 기다리지 않음 — 광고 실패·지연(6s)·없음 모두 새로고침 결과·시간 동일 (BROWSER: fail/slow/none 각 ~1.6s SUCCESS).
 - 노출 1회 = 새로고침 1사이클(`exposureId`). **impression 은 REFRESHING/SUCCESS/ERROR 유지 단계 + 슬롯 ≥ 58px + 해당 띠 이미지 load 완료 + 화면 전면일 때만** 1회. 당기다 취소 = 노출 아님.
-- 노출 종료(띠 접힘) 또는 CTA 후 캠페인 `frequency_mode` → 억제 기록(팝업 `frequencyModeToDismissSuppressMode` 와 동일 매핑, `close_only` 는 기록 없음) → 캐시 비움 → 다음 유휴에 재조회(회전).
+- 노출 종료(띠 접힘) 또는 CTA 후 캠페인 `frequency_mode` → 억제 기록(팝업 `frequencyModeToDismissSuppressMode` 와 동일 매핑) → 캐시 비움 → 다음 유휴에 재조회(회전).
+- Owner 정책(2026-10-14): **띠 접힘 = 팝업 닫힘에 대응** → `dismiss` 이벤트(`dismiss_handler`, meta `reason: band_collapse`)를 노출(`impression`)·빈도 억제(`platform_popup_user_suppressions` 행)와 **분리 기록**. CTA 로 끝난 노출은 `click` 이 종료(팝업 CTA 와 동일, dismiss 없음).
+- `close_only`: 팝업과 동일하게 DB 억제 행 없음(CLOSE 는 미래 노출을 막지 않음). 단 PTR 은 새로고침이 반복 동작이므로, 팝업 호스트의 "닫은 뒤 화면을 바꾸기 전 재노출 금지" 와 같은 의미로 **같은 화면에 머무는 동안 같은 캠페인 재노출 보류**, 다른 화면 이동 시 해제 (클라이언트 전용, 팝업 코드 무변경). BROWSER: 1회차 노출·2회차 미노출·억제 행 0.
 - CTA 는 유지 단계에서만 탭 가능, `click`(click_handler) + `landing_success/failure` 기록, 내부 경로 `router.push` / 외부 `location.assign`.
 - 메신저·통화·결제·주문 핵심 화면: `resolveDibaySurface` 비광고 표면 → 조회 자체 없음 (BROWSER: `/community-messenger` 요청 0건).
 - 광고 없는 화면·태블릿 띠가 없는 태블릿: 기존 PTR 그대로(마크업 동일, 회귀 probe 통과).
@@ -607,7 +609,8 @@ Owner 승인: 「A안 — PTR 광고 운영 관리 전체 구현」. §10.7 의 
 - 롤백: `supabase/rollback/20270501120000_platform_popup_ptr_reveal_rollback.sql` (PTR 데이터 존재 시 중단 가드).
 - 프로젝트 확인(DB): PROD `ckdosyydvgzqwpbwuhon` — **미적용·미접근**. TEST `tcwnueuzuxftyomttdyu`(dibay-test, 저장소 마이그레이션 586개 재생, 팝업 CHECK·인덱스 전부 존재, 팝업 데이터 0). TEST `gczyogboohpixpurckkg`(dibay-reset-qa).
 - **dibay-reset-qa 드리프트 원인(DB 조회)**: 저장소 마이그레이션이 아니라 `qa_schema_chunk_00~07`(구조 덤프) + QA 베이스라인으로 생성(이력 27건). 공개 스키마 CHECK 71개 vs dibay-test 710개 — 팝업 테이블의 CHECK·부분 유니크 인덱스가 덤프에 포함되지 않음.
-- **TEST 적용: NOT_PROVEN(미적용)** — dibay-test 에 `execute_sql`·`apply_migration` 3회 시도 모두 도구 60s 타임아웃, 매번 스키마 무변경·활성 세션 0·락 대기 0 확인. 도구가 파괴적 구문(DROP CONSTRAINT/INDEX) 승인을 요구하는 것으로 판단, 우회 시도하지 않음.
+- **TEST 적용: NOT_PROVEN(미적용)** — dibay-test 에 `execute_sql`·`apply_migration` 4회 시도 모두 도구 60s 타임아웃, 매번 스키마 무변경·활성 세션 0·락 대기 0 확인.
+- 원인 특정(2026-10-14, 무변경 진단): 임시 테이블 쓰기 OK · ACCESS EXCLUSIVE 락 즉시 획득 OK · `DROP CONSTRAINT IF EXISTS`(롤백) OK · 마이그레이션 전반부(롤백) OK · **`DROP INDEX IF EXISTS <존재하지 않는 인덱스>`(롤백)만으로도 타임아웃, DB 에 쿼리 도달 안 함** → Supabase MCP 의 파괴적 변경(인덱스 삭제) 승인 게이트. Owner 지시에 따라 우회(EXECUTE 문자열·다른 접속 경로) 하지 않음. 적용에는 Owner 의 도구 승인 또는 SQL Editor 직접 실행이 필요.
 
 ### 11.6 검증 결과
 
@@ -615,7 +618,8 @@ Owner 승인: 「A안 — PTR 광고 운영 관리 전체 구현」. §10.7 의 
 |---|---|---|
 | 단위: 계약·배치·영역·자격 범위 분리·승인 게이트·sharp 파이프라인 | 18/18 | CODE |
 | 관리자 미리보기·업로드·저장·승인·통계 (임시 하네스, 커밋 안 함) | 29/29 | BROWSER |
-| 앱 런타임: 프리페치·노출 1회·억제·재조회·CTA·실패/지연/없음·iPad 태블릿 띠·메신저 제외 | 23/23 | BROWSER |
+| 앱 런타임: 프리페치·노출 1회·dismiss 분리·억제·재조회·close_only·CTA·실패/지연/없음·iPad 태블릿 띠·메신저 제외 | 26/26 | BROWSER |
+| 클라이언트 빈도 처리(close_only 보류·SESSION 억제 행·메신저) | 3/3 | CODE |
 | 무광고 PTR 회귀(/market) | FAIL 0 | BROWSER |
 | 브라우저에서 발견·수정한 결함 | ① 전역 `img{max-width:100%}` 가 띠 폭 cover 를 무력화(360 에서 오른쪽 32px 빈 띠) → 인라인 `maxWidth:none` ② 광고 표기·로고·CTA 가 핵심 문구 영역을 덮음 → 오른쪽 표시물 전용 영역 신설 ③ 성공 문구 알약이 CTA 를 덮음 → 상태 영역 폭으로 제한 ④ 노출 종료 후 재조회 안 됨 → 캐시 버전 의존성 | BROWSER |
 | 실기기(Samsung APK·iPhone·안드 태블릿·iPad), TEST 배포, 실제 관리자 로그인, 실제 업로드·DB 쓰기, 실제 노출·클릭 집계 | — | **NOT_PROVEN** |

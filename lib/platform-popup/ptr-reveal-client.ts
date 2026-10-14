@@ -29,6 +29,13 @@ type Entry =
   | { status: "none"; at: number };
 
 const entries = new Map<string, Entry>();
+/**
+ * `close_only`(매 노출 허용) — 팝업 호스트의 "닫은 뒤 화면을 바꾸기 전 재노출 금지" 와 같은 의미로,
+ * 같은 화면(표면)에 머무는 동안 새로고침마다 반복 노출하지 않는다. 다른 표면으로 이동하면 해제.
+ * DB 억제 행은 쓰지 않는다(팝업 CLOSE 와 동일하게 미래 노출을 막지 않음).
+ */
+const closeOnlyHeld = new Map<string, string>(); // surfaceKey → campaignId
+let lastSurfaceKey: string | null = null;
 const listeners = new Set<() => void>();
 let version = 0;
 
@@ -52,11 +59,21 @@ export function ptrRevealSurfaceKey(pathname: string | null | undefined): string
   return isPlatformPopupAdvertisingSurface(surface) ? surface : null;
 }
 
+/** 표면 이동 감지 — 다른 표면으로 가면 close_only 보류 해제 */
+function noteSurface(key: string | null): void {
+  if (key === lastSurfaceKey) return;
+  lastSurfaceKey = key;
+  for (const k of [...closeOnlyHeld.keys()]) if (k !== key) closeOnlyHeld.delete(k);
+}
+
 export function readPtrRevealAd(pathname: string | null | undefined): PtrRevealAd | null {
   const key = ptrRevealSurfaceKey(pathname);
+  noteSurface(key);
   if (!key) return null;
   const e = entries.get(key);
-  return e?.status === "ready" ? e.ad : null;
+  if (e?.status !== "ready") return null;
+  if (closeOnlyHeld.get(key) === e.ad.campaignId) return null;
+  return e.ad;
 }
 
 function decodeImage(url: string): Promise<boolean> {
@@ -93,6 +110,7 @@ export function ensurePtrRevealAd(
 ): void {
   if (typeof window === "undefined") return;
   const key = ptrRevealSurfaceKey(pathname);
+  noteSurface(key);
   if (!key) return;
   const now = Date.now();
   const cur = entries.get(key);
@@ -132,7 +150,7 @@ export function ensurePtrRevealAd(
 
 /**
  * 노출 종료(띠가 접힘) 또는 CTA 클릭 후 — 캠페인 빈도 정책으로 억제 기록, 캐시 무효화.
- * close_only 는 억제 행을 쓰지 않는다(매 새로고침 노출 가능, 회전은 마지막 노출 시각으로).
+ * close_only 는 억제 행을 쓰지 않고, 같은 표면에 머무는 동안만 재노출을 보류한다(표면 이동 시 해제).
  */
 export function finishPtrRevealExposure(pathname: string | null | undefined, ad: PtrRevealAd): void {
   const key = ptrRevealSurfaceKey(pathname);
@@ -141,7 +159,10 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
     emit();
   }
   const mode = frequencyModeToDismissSuppressMode(ad.frequencyMode);
-  if (!isFrequencySuppressMode(mode)) return;
+  if (!isFrequencySuppressMode(mode)) {
+    if (key) closeOnlyHeld.set(key, ad.campaignId);
+    return;
+  }
   try {
     void fetch("/api/platform-popup/suppress", {
       method: "POST",
@@ -164,6 +185,8 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
 /** @internal vitest */
 export function __resetPtrRevealAdsForTests(): void {
   entries.clear();
+  closeOnlyHeld.clear();
+  lastSurfaceKey = null;
   listeners.clear();
   version = 0;
 }
