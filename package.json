@@ -306,7 +306,9 @@
     "verify:no-cold-warm-renderer-split": "node scripts/verify-no-cold-warm-renderer-split.cjs",
     "verify:no-cache-network-full-replace": "node scripts/verify-no-cache-network-full-replace.cjs",
     "manner-battery:recompute": "npx tsx scripts/manner-battery-recompute-snapshots.ts",
-    "manner-battery:apply": "node scripts/apply-manner-battery-ssot-migrations.mjs"
+    "manner-battery:apply": "node scripts/apply-manner-battery-ssot-migrations.mjs",
+    "verify:test-prod-isolation-p0": "node scripts/verify-test-production-isolation-p0.mjs",
+    "verify:test-service-role-ref": "node scripts/verify-test-service-role-ref.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

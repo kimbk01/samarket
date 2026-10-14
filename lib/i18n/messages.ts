@@ -4,6 +4,7 @@ import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
 import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
+import { adminDeployMessages } from "./catalog/admin-deploy";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -167,6 +168,7 @@ const KO_MESSAGES = {
   ...adminFinanceSsot19Messages.ko,
   ...adminLaunchIntroMessages.ko,
   ...adminPlatformPromotionNotificationsMessages.ko,
+  ...adminDeployMessages.ko,
   ...koJson,
 } as LocaleMessageBag;
 
@@ -247,6 +249,7 @@ const EN_MESSAGES = {
   ...adminFinanceSsot19Messages.en,
   ...adminLaunchIntroMessages.en,
   ...adminPlatformPromotionNotificationsMessages.en,
+  ...adminDeployMessages.en,
   ...enJson,
 } as LocaleMessageBag;
 

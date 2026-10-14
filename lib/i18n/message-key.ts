@@ -8,6 +8,7 @@ import { adminOsLaunchMessages } from "./catalog/admin-os-launch";
 import { adminFinanceSsot19Messages } from "./catalog/admin-finance-ssot19";
 import { adminLaunchIntroMessages } from "./catalog/admin-launch-intro";
 import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-platform-promotion-notifications";
+import { adminDeployMessages } from "./catalog/admin-deploy";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -162,6 +163,7 @@ export type MessageKey =
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
   | KeyOf<typeof adminLaunchIntroMessages.ko>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.ko>
+  | KeyOf<typeof adminDeployMessages.ko>
   | KeyOf<typeof koJson>;
 
 /** EN sources — used only for compile-time KO/EN key parity. */
@@ -242,6 +244,7 @@ type EnMessageKey =
   | KeyOf<typeof adminFinanceSsot19Messages.en>
   | KeyOf<typeof adminLaunchIntroMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
+  | KeyOf<typeof adminDeployMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;
