@@ -15,11 +15,13 @@ docs/customer-platform/_ios-cs-captures/
 tmp-a1-evidence/
 
 # Local forensic / worktree / secret caches — never upload to Vercel
+# IMPORTANT: root-only patterns (`/reports/`) — bare `reports/` also drops
+# components/reports + lib/reports and breaks production/test builds.
 .tmp/
 .worktrees/
 .secrets/
-reports/
-research_notes/
-tests/e2e/.artifacts/
-tmp/
-android/.tmp/
+/reports/
+/research_notes/
+/tests/e2e/.artifacts/
+/tmp/
+/android/.tmp/
