@@ -10,6 +10,7 @@ type RoomBumpArgs = {
   fromUserId: string;
   messageId?: string;
   messageCreatedAt?: string;
+  messageForBump?: { messageType?: string; content?: string; senderId?: string | null } | null;
 };
 
 const publishBumpMock = vi.fn(async (_args: RoomBumpArgs) => {});
@@ -87,6 +88,11 @@ describe("CUT-1 terminal call_stub room-bump parity", () => {
         fromUserId: "caller",
         messageCreatedAt: "2026-06-09T10:00:30.000Z",
         messageId: devState().messages[0]!.id,
+        messageForBump: expect.objectContaining({
+          messageType: "call_stub",
+          senderId: "caller",
+          id: devState().messages[0]!.id,
+        }),
       })
     );
   });

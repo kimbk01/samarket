@@ -8,6 +8,7 @@ import {
   looksLikeDirectImageUrl,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
+import { isEmptyTextTimelineGhost } from "@/lib/community-messenger/room/empty-text-timeline-ghost";
 import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
@@ -42,7 +43,7 @@ export function useMessengerRoomDerivedMessageLists(
 
       const callStubHidden =
         m.messageType === "call_stub" && callStubHiddenKeys(m).some((key) => hiddenCallStubIds.has(key));
-      if (!callStubHidden) {
+      if (!callStubHidden && !isEmptyTextTimelineGhost(m)) {
         displayRoomMessages.push(m);
       }
 

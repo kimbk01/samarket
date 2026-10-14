@@ -5328,7 +5328,7 @@ function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | nul
   return trimText(metadata.sessionId) === sid || trimText(metadata.tmpSessionId) === sid;
 }
 
-type CallStubExistingRow = { id: string; createdAt: string };
+type CallStubExistingRow = { id: string; createdAt: string; senderId: string | null };
 
 async function findCallStubRowBySessionId(
   roomId: string,
@@ -5340,18 +5340,22 @@ async function findCallStubRowBySessionId(
   if (sb) {
     const { data: existingRows } = await (sb as any)
       .from("community_messenger_messages")
-      .select("id, metadata, created_at")
+      .select("id, sender_id, metadata, created_at")
       .eq("room_id", roomId)
       .eq("message_type", "call_stub")
       .order("created_at", { ascending: false })
       .limit(100);
-    const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown; created_at?: string }>).find(
-      (row) => hasMatchingCallStubSessionId(row.metadata, sid)
-    );
+    const existingRow = ((existingRows ?? []) as Array<{
+      id: string;
+      sender_id?: string | null;
+      metadata?: unknown;
+      created_at?: string;
+    }>).find((row) => hasMatchingCallStubSessionId(row.metadata, sid));
     if (!existingRow?.id) return null;
     return {
       id: existingRow.id,
       createdAt: trimText(existingRow.created_at) || "",
+      senderId: trimText(existingRow.sender_id) || null,
     };
   }
   const dev = getDevState();
@@ -5364,7 +5368,11 @@ async function findCallStubRowBySessionId(
         hasMatchingCallStubSessionId(item.metadata, sid)
     );
   if (!existingMessage) return null;
-  return { id: existingMessage.id, createdAt: trimText(existingMessage.createdAt) };
+  return {
+    id: existingMessage.id,
+    createdAt: trimText(existingMessage.createdAt),
+    senderId: trimText(existingMessage.senderId) || null,
+  };
 }
 
 async function resolveCallSessionStartedAtIso(input: {
@@ -5479,24 +5487,55 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   /**
    * CUT-1: terminal call_stub projection → same room-bump authority as text send.
    * Only after successful stub write. Best-effort — does not invent session terminal.
+   * messageForBump 필수: CallKit/네이티브 통화 중 HTTP catch-up 지연 시에도 수신 측이
+   * 빈 text 고스트 없이 call_stub 스냅샷을 즉시 병합한다(fromUserId === senderId 검증).
    */
+  const buildCallStubMessageForBump = (args: {
+    messageId: string;
+    senderId: string;
+    createdAt: string;
+  }): CommunityMessengerMessage => ({
+    id: args.messageId,
+    roomId: trimText(input.roomId),
+    senderId: args.senderId,
+    senderLabel: "",
+    messageType: "call_stub",
+    content: label,
+    createdAt: args.createdAt,
+    metadata,
+    isMine: false,
+    callKind: input.callKind,
+    callStatus,
+    callSessionId: sessionId || null,
+    callTmpSessionId: tmp || null,
+  });
+
   const publishTerminalCallStubRoomBumpBestEffort = async (args: {
     messageId?: string | null;
     fromUserId?: string | null;
+    createdAt?: string | null;
   }): Promise<void> => {
     const roomId = trimText(input.roomId);
     const fromUserId = trimText(args.fromUserId ?? "") || trimText(input.userId);
-    if (!roomId || !fromUserId) return;
+    const messageId = trimText(args.messageId ?? "");
+    if (!roomId || !fromUserId || !messageId) return;
     try {
       const { publishMessengerRoomBumpAfterMutation } = await import(
         "@/lib/community-messenger/server/publish-messenger-room-bump"
       );
+      const createdAt =
+        trimText(args.createdAt ?? "") || trimText(input.createdAt) || listActivityAt || nowIso();
       await publishMessengerRoomBumpAfterMutation({
         rawRouteRoomId: roomId,
         canonicalRoomId: roomId,
         fromUserId,
-        messageId: trimText(args.messageId ?? "") || undefined,
+        messageId,
         messageCreatedAt: listActivityAt,
+        messageForBump: buildCallStubMessageForBump({
+          messageId,
+          senderId: fromUserId,
+          createdAt,
+        }),
       });
     } catch {
       /* best-effort — postgres_changes remains */
@@ -5577,16 +5616,26 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existing = await findCallStubRowBySessionId(input.roomId, sessionId);
     if (existing) {
       await updateExistingStub(existing);
-      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existing.id });
-      return { ok: true, messageId: existing.id, senderId: null };
+      const bumpSender = existing.senderId || trimText(input.userId);
+      await publishTerminalCallStubRoomBumpBestEffort({
+        messageId: existing.id,
+        fromUserId: bumpSender,
+        createdAt: existing.createdAt,
+      });
+      return { ok: true, messageId: existing.id, senderId: existing.senderId };
     }
   }
   if (tmp) {
     const existingByTmp = await findCallStubRowBySessionId(input.roomId, tmp);
     if (existingByTmp) {
       await updateExistingStub(existingByTmp);
-      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existingByTmp.id });
-      return { ok: true, messageId: existingByTmp.id, senderId: null };
+      const bumpSender = existingByTmp.senderId || trimText(input.userId);
+      await publishTerminalCallStubRoomBumpBestEffort({
+        messageId: existingByTmp.id,
+        fromUserId: bumpSender,
+        createdAt: existingByTmp.createdAt,
+      });
+      return { ok: true, messageId: existingByTmp.id, senderId: existingByTmp.senderId };
     }
   }
 
@@ -5699,12 +5748,14 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     await publishTerminalCallStubRoomBumpBestEffort({
       messageId: appended.messageId,
       fromUserId: stubSenderId,
+      createdAt,
     });
     return { ok: true, messageId: appended.messageId, senderId: stubSenderId };
   }
 
   const dev = getDevState();
   const newId = randomUUID();
+  const devCreatedAt = trimText(input.createdAt) || nowIso();
   dev.messages.push({
     id: newId,
     roomId: input.roomId,
@@ -5712,7 +5763,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     messageType: "call_stub",
     content: label,
     metadata,
-    createdAt: input.createdAt,
+    createdAt: devCreatedAt,
   });
   const room = dev.rooms.find((item) => item.id === input.roomId);
   if (room) {
@@ -5728,7 +5779,11 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
     }
   }
-  await publishTerminalCallStubRoomBumpBestEffort({ messageId: newId });
+  await publishTerminalCallStubRoomBumpBestEffort({
+    messageId: newId,
+    fromUserId: input.userId,
+    createdAt: devCreatedAt,
+  });
   return { ok: true, messageId: newId, senderId: input.userId };
 }
 

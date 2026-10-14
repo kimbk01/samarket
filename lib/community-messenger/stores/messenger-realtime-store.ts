@@ -255,8 +255,11 @@ function createPlaceholderMessage(args: {
       callStatus: cs,
       callSessionId: trimMeta(meta.sessionId) || null,
       callTmpSessionId: trimMeta(meta.tmpSessionId) || null,
+      metadata: row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : null,
     };
   }
+  // 불완전 RT 행(타입 누락·빈 content)을 text 고스트로 올리지 않음 — catch-up/HTTP 가 SSOT.
+  if (mt === "text" && !String(base.content ?? "").trim()) return null;
   return base;
 }
 
