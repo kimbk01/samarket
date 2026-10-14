@@ -1,5 +1,7 @@
 "use client";
 
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -47,7 +49,8 @@ export function BusinessAdminDashboard({
   canSell: boolean;
   orderAlertsBadge: number;
   initialDashboard?: OwnerHubDashboardPack | null;
-  loadRemote: () => Promise<void>;
+  /** `{ silent: true }` — 로딩 화면 교체 없이 재검증(PTR) */
+  loadRemote: (opts?: { silent?: boolean }) => Promise<DibayPtrOutcome | void>;
 }) {
   const { t } = useI18n();
   const hubRuntime = useOwnerHubRuntime();
@@ -64,7 +67,7 @@ export function BusinessAdminDashboard({
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<Date | null>(null);
   const [opsRefreshing, setOpsRefreshing] = useState(false);
   const loadOpsSnapshotRef = useRef<
-    ((opts?: { force?: boolean; quiet?: boolean }) => Promise<void>) | null
+    ((opts?: { force?: boolean; quiet?: boolean }) => Promise<boolean>) | null
   >(null);
   const loadDashboardRef = useRef<((opts?: { silent?: boolean }) => Promise<void>) | null>(null);
 
@@ -95,7 +98,7 @@ export function BusinessAdminDashboard({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  const loadOpsSnapshot = useCallback(async (opts?: { force?: boolean; quiet?: boolean }) => {
+  const loadOpsSnapshot = useCallback(async (opts?: { force?: boolean; quiet?: boolean }): Promise<boolean> => {
     if (!opts?.quiet) setOpsRefreshing(true);
     try {
       const { status, json } = await fetchStoreOrderCountsDeduped(row.id, {
@@ -106,13 +109,15 @@ export function BusinessAdminDashboard({
         setOpsSnapshot(parsed);
         setSnapshotUpdatedAt(new Date());
         setFetchFailed(false);
-      } else {
-        setOpsSnapshot((prev) => prev ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT);
-        setFetchFailed(true);
+        return true;
       }
+      setOpsSnapshot((prev) => prev ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT);
+      setFetchFailed(true);
+      return false;
     } catch {
       setOpsSnapshot((prev) => prev ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT);
       setFetchFailed(true);
+      return false;
     } finally {
       setOpsLoaded(true);
       if (!opts?.quiet) setOpsRefreshing(false);
@@ -186,15 +191,24 @@ export function BusinessAdminDashboard({
     return () => window.clearInterval(id);
   }, [hubRuntime]);
 
-  const handlePullRefresh = useCallback(async () => {
+  const handlePullRefresh = useCallback(async (): Promise<DibayPtrOutcome> => {
     invalidateOwnerHubOrderCountsCache(row.id);
-    await Promise.all([
-      loadRemote(),
+    /* 매장 목록 22s TTL 캐시 — PTR 은 서버 재조회 */
+    invalidateMeStoresListDedupedCache();
+    /* silent — 로딩 화면으로 대시보드 전체를 교체하지 않음 (D16) */
+    const [remoteOutcome, opsOk] = await Promise.all([
+      loadRemote({ silent: true }),
       loadOpsSnapshot({ force: true }),
     ]);
+    return remoteOutcome === "error" || !opsOk ? "error" : "success";
   }, [loadRemote, loadOpsSnapshot, row.id]);
 
-  const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
+  const {
+    pullPx,
+    refreshing,
+    result: pullResult,
+    willReleaseRefresh,
+  } = usePullToRefreshAtDocumentTop(handlePullRefresh);
 
   const pulseNew = useOwnerOpsPulse(opsSnapshot?.pending_accept_count ?? 0);
   const isOwnerCompactShell = useOwnerCompactShellViewport();
@@ -207,7 +221,7 @@ export function BusinessAdminDashboard({
           : "relative flex w-full min-w-0 flex-col"
       }
     >
-      {(refreshing || pullPx > 6) && (
+      {(refreshing || pullPx > 6 || pullResult != null) && (
         <div
           aria-live="polite"
           className="pointer-events-none absolute inset-x-0 z-10 flex justify-center"
@@ -222,6 +236,12 @@ export function BusinessAdminDashboard({
                 <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-muted" aria-hidden />
                 <span className="sam-text-xxs font-semibold text-sam-muted">{t("common_loading")}</span>
               </>
+            : pullResult != null ?
+              <span
+                className={`sam-text-xxs font-semibold ${pullResult === "error" ? "text-sam-danger" : "text-sam-fg"}`}
+              >
+                {pullResult === "error" ? t("ptr_result_error") : t("ptr_result_success")}
+              </span>
             : <span className="sam-text-xxs font-semibold text-sam-fg">
                 {willReleaseRefresh ? t("store_owner_pull_release_refresh") : t("store_owner_pull_hint")}
               </span>}

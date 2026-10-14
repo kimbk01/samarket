@@ -9,6 +9,7 @@
 
 import { PLATFORM_POPUP_CREATIVE_ASPECT } from "@/lib/platform-popup/types";
 import { normalizePlatformPopupCreativeMode } from "@/lib/platform-popup/presentation-contract";
+import { isPtrBandAspectTokenKnown } from "@/lib/platform-popup/ptr-reveal-contract";
 export {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
   assertDibayCanonicalPopupCreativeSizeIs3625,
@@ -29,6 +30,10 @@ export function isPlatformPopupCreativeAspectValid(
   if (!(aspectW > 0) || !(aspectH > 0)) return false;
 
   const mode = normalizePlatformPopupCreativeMode(creativeMode);
+  if (mode === "ptr_band") {
+    // PTR 띠 소재: 변형별 비율 토큰(휴대폰·태블릿 띠, 로고) — `ptr-reveal-contract.ts` SSOT
+    return isPtrBandAspectTokenKnown(aspectW, aspectH);
+  }
   if (mode === "artwork") {
     // Intrinsic artwork geometry — positive finite dimensions only.
     return true;

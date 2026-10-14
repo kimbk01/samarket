@@ -56,6 +56,7 @@ import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { chatsMessages } from "./catalog/chats";
+import { ptrMessages } from "./catalog/ptr";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
@@ -142,6 +143,7 @@ const KO_MESSAGES = {
   ...navigationMessages.ko,
   ...notificationMessages.ko,
   ...chatsMessages.ko,
+  ...ptrMessages.ko,
   ...storeCommerceUiMessages.ko,
   ...cmMonitoringSloMessages.ko,
   ...communityMessengerUiMessages.ko,
@@ -221,6 +223,7 @@ const EN_MESSAGES = {
   ...navigationMessages.en,
   ...notificationMessages.en,
   ...chatsMessages.en,
+  ...ptrMessages.en,
   ...storeCommerceUiMessages.en,
   ...cmMonitoringSloMessages.en,
   ...communityMessengerUiMessages.en,

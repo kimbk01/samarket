@@ -5,6 +5,7 @@
 
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { isPlatformPopupCreativeAspectValid } from "@/lib/platform-popup/creative-contract";
+import { isPlatformPopupPtrRevealPresentation } from "@/lib/platform-popup/presentation-contract";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -32,6 +33,10 @@ export type PlatformPopupAdminCampaignSnapshot = {
   ctaTarget: string;
   externalUrl: string | null;
   surfaces: readonly PlatformPopupTargetSurface[];
+  /** 생략 = 기존 팝업 스냅샷(인터럽트) */
+  presentationType?: string | null;
+  /** ptr_reveal 전용 — ready 띠 변형 목록(default 필수, tablet·logo 선택) */
+  ptrBandVariants?: readonly string[];
   creative: {
     id: string;
     status: string;
@@ -100,6 +105,9 @@ export function validatePlatformPopupCampaignForApproval(
     ) {
       errors.push("creative_aspect_invalid");
     }
+    const isPtr = isPlatformPopupPtrRevealPresentation(snap.presentationType);
+    const isBand = snap.creative.creativeMode === "ptr_band";
+    if (isPtr !== isBand) errors.push("creative_mode_presentation_mismatch");
   }
 
   if (snap.startAt && snap.endAt) {

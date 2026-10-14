@@ -104,6 +104,12 @@ function parseHomeFeedJson(json: unknown): HomeFeedJson | null {
  * CONTRACT — 네트워크 실패·abort·일시 500 에도 **마지막 성공 목록 유지**(재접속 빈 화면 방지).
  * DO NOT: catch/!ok 분기에서 `setStores([])` — 캐시·현재 state 폴백만 허용.
  */
+/** home-feed 네트워크 응답이 신규 목록으로 커밋 가능한 성공인지 — PTR 결과 판정과 공유 */
+export function isStoresHomeFeedNetworkSuccess(status: number, json: unknown): boolean {
+  const parsed = parseHomeFeedJson(json);
+  return status >= 200 && status < 300 && parsed?.ok === true && Array.isArray(parsed.stores);
+}
+
 export function applyStoresHomeFeedNetworkResult(opts: {
   querySuffix: string;
   status: number;
@@ -112,12 +118,7 @@ export function applyStoresHomeFeedNetworkResult(opts: {
   previousMeta: StoresHomeFeedLoadMeta | null;
 }): StoresHomeFeedLoadSnapshot {
   const parsed = parseHomeFeedJson(opts.json);
-  if (
-    opts.status >= 200 &&
-    opts.status < 300 &&
-    parsed?.ok === true &&
-    Array.isArray(parsed.stores)
-  ) {
+  if (parsed && isStoresHomeFeedNetworkSuccess(opts.status, opts.json) && Array.isArray(parsed.stores)) {
     primeStoreHomeFeedClientCache(opts.querySuffix, {
       stores: parsed.stores,
       meta: parsed.meta ?? null,

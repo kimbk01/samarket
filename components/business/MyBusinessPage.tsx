@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
@@ -92,33 +93,39 @@ export function MyBusinessPage({
   const hubRuntime = useOwnerHubRuntime();
   const orderAlertsBadge = hubRuntime?.orderAlertsBadge ?? 0;
 
-  const loadRemote = useCallback(async (opts?: { silent?: boolean }) => {
+  const loadRemote = useCallback(async (opts?: { silent?: boolean }): Promise<DibayPtrOutcome> => {
+    /**
+     * silent(PTR 등 백그라운드 재검증): 로딩 화면으로 교체하지 않고(D16),
+     * 실패 시 표시 중 대시보드(`remote`)를 유지한다. 401·매장 없음은 그대로 반영.
+     */
     const silent = opts?.silent === true;
     if (!silent) {
       setState({ kind: "loading" });
     }
+    const failKeepingRemote = (next: LoadState): DibayPtrOutcome => {
+      setState((prev) => (silent && prev.kind === "remote" ? prev : next));
+      return "error";
+    };
     try {
       const { status, json: rawStores } = await fetchMeStoresListDeduped();
       const json = rawStores as { ok?: boolean; error?: string; stores?: StoreRow[] };
       if (status === 401) {
         setState({ kind: "unauth" });
-        return;
+        return "error";
       }
       if (status === 503) {
-        setState({ kind: "config" });
-        return;
+        return failKeepingRemote({ kind: "config" });
       }
       if (!json?.ok) {
-        setState({
+        return failKeepingRemote({
           kind: "error",
           message: typeof json?.error === "string" ? json.error : "load_failed",
         });
-        return;
       }
       const stores = (json.stores ?? []) as StoreRow[];
       if (stores.length === 0) {
         setState({ kind: "empty" });
-        return;
+        return "success";
       }
       const row = resolveOwnerActiveStoreRow(stores, {
         routeStoreId: preferredStoreId,
@@ -126,7 +133,7 @@ export function MyBusinessPage({
       });
       if (!row) {
         setState({ kind: "empty" });
-        return;
+        return "success";
       }
       let products: BusinessProduct[] = [];
       if (row.approval_status === "approved") {
@@ -153,8 +160,9 @@ export function MyBusinessPage({
         dashboard:
           prev.kind === "remote" && prev.row.id === row.id ? prev.dashboard : null,
       }));
+      return "success";
     } catch {
-      setState({ kind: "error", message: "network_error" });
+      return failKeepingRemote({ kind: "error", message: "network_error" });
     }
   }, [preferredStoreId]);
 

@@ -28,6 +28,14 @@ const ENTRIES = [
     descEn: "Manage promotion popups shown over the app screen.",
   },
   {
+    key: "promotion-ptr-ads",
+    href: "/admin/ptr-reveal-ads",
+    ko: "당겨서 새로고침 광고",
+    en: "Pull-to-refresh ads",
+    descKo: "목록을 당겨 새로고침할 때 스피너 뒤에 드러나는 띠 광고를 관리합니다.",
+    descEn: "Manage the band ad revealed behind the spinner when a list is pulled to refresh.",
+  },
+  {
     key: "promotion-banners",
     href: "/admin/platform-promotion/banners",
     ko: "배너",

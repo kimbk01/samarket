@@ -3,7 +3,12 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PlatformPopupCandidate } from "@/lib/platform-popup/resolve-popup-ad";
+import type {
+  PlatformPopupCandidate,
+  PlatformPopupPresentationScope,
+  PlatformPopupPtrBandAsset,
+} from "@/lib/platform-popup/resolve-popup-ad";
+import { normalizePtrBandVariant, PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
 import type {
   PlatformPopupApprovalStatus,
   PlatformPopupCampaignStatus,
@@ -43,6 +48,8 @@ type CreativeRow = {
   asset_url: string | null;
   alt_text: string | null;
   creative_mode: string | null;
+  /** PTR 마이그레이션 이후 컬럼 — ptr_reveal 범위에서만 `*` 로 읽음 */
+  variant?: string | null;
 };
 
 type SurfaceRow = {
@@ -70,16 +77,20 @@ export async function loadPlatformPopupCandidates(
   input: {
     userId?: string | null;
     anonymousDeviceKey?: string | null;
+    /** 생략 = 기존 팝업 경로(쿼리 불변). `ptr_reveal` = PTR 띠 캠페인만 + 변형별 소재 */
+    presentationScope?: PlatformPopupPresentationScope;
   }
 ): Promise<PlatformPopupCandidate[]> {
-  const { data: campaigns, error } = await sb
+  const isPtr = input.presentationScope === "ptr_reveal";
+  let campaignQuery = sb
     .from("platform_popup_campaigns")
     .select(
       "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
     )
     .in("status", ["scheduled", "active"])
-    .eq("approval_status", "approved")
-    .order("priority", { ascending: false });
+    .eq("approval_status", "approved");
+  if (isPtr) campaignQuery = campaignQuery.eq("presentation_type", PTR_REVEAL_PRESENTATION);
+  const { data: campaigns, error } = await campaignQuery.order("priority", { ascending: false });
 
   if (error || !campaigns?.length) return [];
 
@@ -90,7 +101,9 @@ export async function loadPlatformPopupCandidates(
       sb
         .from("platform_popup_creatives")
         .select(
-          "id, campaign_id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text, creative_mode"
+          isPtr
+            ? "*"
+            : "id, campaign_id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text, creative_mode"
         )
         .in("campaign_id", ids)
         .eq("status", "ready"),
@@ -103,7 +116,25 @@ export async function loadPlatformPopupCandidates(
     ]);
 
   const creativeByCampaign = new Map<string, CreativeRow>();
-  for (const row of (creatives ?? []) as CreativeRow[]) {
+  const ptrBandsByCampaign = new Map<string, NonNullable<PlatformPopupCandidate["ptrBands"]>>();
+  for (const row of (creatives ?? []) as unknown as CreativeRow[]) {
+    if (isPtr) {
+      const variant = normalizePtrBandVariant(row.variant);
+      const bands = ptrBandsByCampaign.get(row.campaign_id) ?? {};
+      const asset: PlatformPopupPtrBandAsset = {
+        id: row.id,
+        assetUrl: row.asset_url,
+        assetPath: row.asset_path,
+        altText: row.alt_text,
+        aspectW: row.aspect_w,
+        aspectH: row.aspect_h,
+      };
+      bands[variant] = asset;
+      ptrBandsByCampaign.set(row.campaign_id, bands);
+      // 자격 판정용 대표 소재 = 휴대폰 띠(default)
+      if (variant === "default") creativeByCampaign.set(row.campaign_id, row);
+      continue;
+    }
     if (!creativeByCampaign.has(row.campaign_id)) creativeByCampaign.set(row.campaign_id, row);
   }
 
@@ -164,6 +195,7 @@ export async function loadPlatformPopupCandidates(
       ctaLookup: { exists: true, visible: true, authorized: true },
       suppressions: suppressByCampaign.get(c.id) ?? [],
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
+      ...(isPtr ? { ptrBands: ptrBandsByCampaign.get(c.id) ?? {} } : {}),
     };
   });
 }

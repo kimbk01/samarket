@@ -1,5 +1,6 @@
 "use client";
 
+import type { DibayPtrHandler } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import { useLayoutEffect } from "react";
 import { addPhilifePullRefreshHandler } from "@/lib/philife/philife-pull-refresh-store";
 
@@ -7,7 +8,7 @@ import { addPhilifePullRefreshHandler } from "@/lib/philife/philife-pull-refresh
 export function PhilifePullRefreshRegister({
   onRefresh,
 }: {
-  onRefresh: () => void | Promise<void>;
+  onRefresh: DibayPtrHandler;
 }) {
   useLayoutEffect(() => {
     return addPhilifePullRefreshHandler(onRefresh);

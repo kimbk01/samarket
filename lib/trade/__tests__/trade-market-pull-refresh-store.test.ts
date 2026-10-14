@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stubVitestMinimalWindow } from "@/lib/test-utils/vitest-minimal-window";
 import {
   addTradeMarketPullRefreshHandler,
   getTradeMarketPullRefreshSnapshot,
@@ -9,26 +8,24 @@ import {
 
 describe("runTradeMarketPullRefresh", () => {
   beforeEach(() => {
-    stubVitestMinimalWindow({
-      setTimeout: ((fn: () => void) => {
-        fn();
-        return 0;
-      }) as typeof setTimeout,
-      requestAnimationFrame: (fn: FrameRequestCallback) => {
-        fn(0);
-        return 0;
-      },
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      requestIdleCallback: undefined,
+      setTimeout: (fn: () => void, ms?: number) => setTimeout(fn, ms),
+      clearTimeout: (id: number) => clearTimeout(id),
     });
     vi.stubGlobal("requestAnimationFrame", (fn: FrameRequestCallback) => {
-      fn(0);
+      setTimeout(() => fn(0), 0);
       return 0;
     });
+    vi.stubGlobal("document", undefined);
     patchTradeMarketPullRefresh({ pullPx: 0, refreshing: false });
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     patchTradeMarketPullRefresh({ pullPx: 0, refreshing: false });
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("runs only the handler for the current pathname route key", async () => {
@@ -40,7 +37,9 @@ describe("runTradeMarketPullRefresh", () => {
       vehicle
     );
 
-    await runTradeMarketPullRefresh(60, "/market/vehicle", new URLSearchParams({ topic: "phones" }));
+    const p = runTradeMarketPullRefresh(60, "/market/vehicle", new URLSearchParams({ topic: "phones" }));
+    await vi.runAllTimersAsync();
+    expect(await p).toMatchObject({ status: "success" });
 
     expect(home).not.toHaveBeenCalled();
     expect(vehicle).toHaveBeenCalledTimes(1);
@@ -52,9 +51,15 @@ describe("runTradeMarketPullRefresh", () => {
   });
 
   it("no-ops when handler is missing for the pathname", async () => {
-    await runTradeMarketPullRefresh(60, "/market");
+    expect(await runTradeMarketPullRefresh(60, "/market")).toBe("no_handler");
 
     expect(getTradeMarketPullRefreshSnapshot().refreshing).toBe(false);
     expect(getTradeMarketPullRefreshSnapshot().pullPx).toBe(0);
+  });
+
+  it("missing handler collapses a hint that was left open by the gesture (D3)", async () => {
+    patchTradeMarketPullRefresh({ pullPx: 72 });
+    expect(await runTradeMarketPullRefresh(72, "/market")).toBe("no_handler");
+    expect(getTradeMarketPullRefreshSnapshot()).toMatchObject({ pullPx: 0, phase: "IDLE" });
   });
 });

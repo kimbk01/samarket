@@ -1,0 +1,94 @@
+/*
+ * DIBAY PTR 12점 스피너 — 배달 목록 버퍼링(StoreDeliveryBufferingSpinner)과 같은 12점 언어.
+ * 색은 tone 별 CSS 변수(--ptr-dot-on/--ptr-dot-off) — 슬롯 배경 대비 보장.
+ * 크기 24px: 새로고침 유지 최소 높이 58px 안에 스피너+문구(13px)+여백이 들어감.
+ */
+.container {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  transition: transform 120ms ease-out;
+}
+
+.ready {
+  transform: scale(1.08);
+}
+
+.dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3.2px;
+  height: 3.2px;
+  margin-left: -1.6px;
+  margin-top: -1.6px;
+  border-radius: 9999px;
+  background-color: var(--ptr-dot-off);
+  transform: rotate(var(--deg)) translateY(-9px);
+}
+
+.dotOn {
+  background-color: var(--ptr-dot-on);
+}
+
+.spin .dot {
+  animation: ptrBufferDot 1.15s linear infinite;
+  animation-delay: var(--delay);
+}
+
+@keyframes ptrBufferDot {
+  0%,
+  100% {
+    background-color: var(--ptr-dot-off);
+    transform: rotate(var(--deg)) translateY(-9px) scale(0.7);
+  }
+  10% {
+    background-color: var(--ptr-dot-on);
+    transform: rotate(var(--deg)) translateY(-9px) scale(1.15);
+  }
+  30% {
+    background-color: var(--ptr-dot-off);
+    transform: rotate(var(--deg)) translateY(-9px) scale(0.85);
+  }
+}
+
+/* Reduce Motion — 순차 점등(회전 인상) 대신 전체 점 opacity 펄스, 결정형 점등·스케일 전환 없음 */
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    transition: none;
+  }
+  .ready {
+    transform: none;
+  }
+  .spin .dot {
+    animation: ptrPulse 1.6s ease-in-out infinite;
+    animation-delay: 0ms;
+    background-color: var(--ptr-dot-on);
+  }
+}
+
+@keyframes ptrPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.onBrand {
+  --ptr-dot-on: #ffffff;
+  --ptr-dot-off: rgba(255, 255, 255, 0.32);
+}
+
+.onSurface {
+  --ptr-dot-on: var(--sector-header-title-color, #243832);
+  --ptr-dot-off: rgba(36, 56, 50, 0.22);
+}
+
+.onGold {
+  --ptr-dot-on: var(--dibay-brown, #362415);
+  --ptr-dot-off: rgba(54, 36, 21, 0.25);
+}

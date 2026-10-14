@@ -319,3 +319,42 @@ describe("D2 — durable empty cache is not authoritative READY_EMPTY", () => {
     expect(tradeHomeBootSkipsNetworkLoad(null)).toBe(false);
   });
 });
+
+describe("failure is not an empty list (PTR D2)", () => {
+  const opts = { sort: "latest" as const, type: null, tradeState: "latest" as const, locationAll: true };
+
+  it("HTTP 500 → failed:true, not cached (next call hits network)", async () => {
+    const fetchMock = vi.fn(async () => new Response("err", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await getPostsForHome(opts);
+    expect(r).toEqual({ posts: [], hasMore: false, favoriteMap: {}, failed: true });
+    expect(peekCachedPostsForHome(opts)).toBeNull();
+    await getPostsForHome(opts);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("network throw → failed:true", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      })
+    );
+    expect((await getPostsForHome(opts)).failed).toBe(true);
+  });
+
+  it("successful empty list → not failed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ posts: [], hasMore: false, favoriteMap: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+    const r = await getPostsForHome(opts);
+    expect(r.failed).toBeUndefined();
+    expect(r.posts).toEqual([]);
+  });
+});

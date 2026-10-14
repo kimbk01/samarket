@@ -66,15 +66,25 @@ export function StoresHomeQuickCategories() {
     if (!isStoresHubRoot) return;
     return addStoresHomePullRefreshHandler(async () => {
       clearStoresTaxonomyClientCache(language);
-      const { json: jRaw } = await fetchStoresTaxonomyDeduped({
-        language,
-        clientCallSource: "stores_home_mount",
-      });
-      const next = resolveStoresHomeTaxonomyFromApi(jRaw, STORES_HOME_TAXONOMY_EMPTY);
-      if (next.categories.length === 0) return;
-      setTaxonomy(next);
-      setTaxonomyReady(true);
-      cacheAppliedRef.current = true;
+      try {
+        const { status, json: jRaw } = await fetchStoresTaxonomyDeduped({
+          language,
+          clientCallSource: "stores_home_mount",
+        });
+        const httpOk =
+          status >= 200 && status < 300 && (jRaw as { ok?: boolean } | null)?.ok !== false;
+        if (!httpOk) return "error";
+        const next = resolveStoresHomeTaxonomyFromApi(jRaw, STORES_HOME_TAXONOMY_EMPTY);
+        /* 빈 카테고리 응답은 커밋하지 않음(기존 동작) — 표시 중 카테고리 유지 */
+        if (next.categories.length === 0) return "success";
+        setTaxonomy(next);
+        setTaxonomyReady(true);
+        cacheAppliedRef.current = true;
+        return "success";
+      } catch {
+        /* 네트워크 실패 — 표시 중 카테고리 유지 (D11: unhandled rejection 제거) */
+        return "error";
+      }
     });
   }, [isStoresHubRoot, language]);
 

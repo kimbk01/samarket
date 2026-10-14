@@ -28,6 +28,7 @@ import { platformPopupSurfaceMatches } from "@/lib/platform-popup/surfaces";
 import { comparePopupCandidatesForRotation } from "@/lib/platform-popup/popup-rotation";
 import {
   isPlatformPopupInterruptivePresentation,
+  isPlatformPopupPtrRevealPresentation,
   normalizePlatformPopupCreativeMode,
   normalizePlatformPopupFrequencyMode,
   normalizePlatformPopupPresentationType,
@@ -80,6 +81,17 @@ export type PlatformPopupCandidate = {
   campaignRevision?: string | null;
   /** Actor last impression — drives rotation (null = never shown). */
   lastImpressionAt?: string | Date | null;
+  /** ptr_reveal 전용 — ready 띠 변형(default=creative 와 동일, tablet·logo 선택) */
+  ptrBands?: Partial<Record<"default" | "tablet" | "logo", PlatformPopupPtrBandAsset>>;
+};
+
+export type PlatformPopupPtrBandAsset = {
+  id: string;
+  assetUrl: string | null;
+  assetPath: string | null;
+  altText: string | null;
+  aspectW: number;
+  aspectH: number;
 };
 
 export type ResolvePopupAdInput = {
@@ -111,7 +123,28 @@ export type ResolvePopupAdResult =
   | { ok: true; winner: ResolvePopupAdWinner | null; reason?: string }
   | { ok: false; error: string };
 
-export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult {
+/**
+ * 프레젠테이션 범위 — `interruptive`(GlobalPopupHost 팝업 3종, 기본) · `ptr_reveal`(당겨서 새로고침 띠).
+ * 두 범위는 서로의 캠페인을 절대 선택하지 않는다(팝업이 PTR 로, PTR 이 팝업으로 노출 금지).
+ */
+export type PlatformPopupPresentationScope = "interruptive" | "ptr_reveal";
+
+export type PlatformPopupEligibleSelection =
+  | {
+      ok: true;
+      winner: PlatformPopupCandidate;
+      href: string;
+      surface: PlatformPopupConsumerSurface;
+    }
+  | { ok: true; winner: null; reason: string };
+
+/**
+ * 공통 자격 판정(승인·기간·대상 화면·소재 비율·CTA·이벤트 조율·빈도 억제) + 회전 정렬 → 0|1 후보.
+ */
+export function selectPlatformPopupEligibleWinner(
+  input: ResolvePopupAdInput,
+  scope: PlatformPopupPresentationScope
+): PlatformPopupEligibleSelection {
   if (isPlatformPopupDeferredByCriticalUi(input.criticalUi)) {
     return { ok: true, winner: null, reason: "critical_ui_deferred" };
   }
@@ -144,13 +177,17 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
     if (!platformPopupSurfaceMatches(c.surfaces, resolved)) continue;
 
     const presentationType = normalizePlatformPopupPresentationType(c.presentationType);
-    if (!isPlatformPopupInterruptivePresentation(presentationType)) {
-      continue; // banner presentations: non-interruptive host (later CUT)
+    if (scope === "ptr_reveal") {
+      if (!isPlatformPopupPtrRevealPresentation(presentationType)) continue;
+    } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
+      continue; // banner / ptr_reveal presentations: non-interruptive hosts
     }
 
     const creative = c.creative;
     if (!creative || creative.status !== "ready") continue;
     const creativeMode = normalizePlatformPopupCreativeMode(creative.creativeMode);
+    // 소재 계열 일치 — PTR 은 ptr_band 만, 팝업은 ptr_band 금지
+    if ((scope === "ptr_reveal") !== (creativeMode === "ptr_band")) continue;
     // Same aspect authority as Admin approval (Artwork intrinsic / Card 36:25).
     if (
       !isPlatformPopupCreativeAspectValid(creative.aspectW, creative.aspectH, creativeMode)
@@ -209,6 +246,14 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
   if (!cta.ok || !winner.creative) {
     return { ok: true, winner: null, reason: "winner_cta_invalid" };
   }
+  return { ok: true, winner, href: cta.value.href, surface: resolved };
+}
+
+export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult {
+  const selected = selectPlatformPopupEligibleWinner(input, "interruptive");
+  if (!selected.winner) return { ok: true, winner: null, reason: selected.reason };
+  const { winner, href, surface: resolved } = selected;
+  if (!winner.creative) return { ok: true, winner: null, reason: "winner_cta_invalid" };
 
   const presentationType = normalizePlatformPopupPresentationType(
     winner.presentationType
@@ -222,7 +267,7 @@ export function resolvePopupAd(input: ResolvePopupAdInput): ResolvePopupAdResult
       campaignId: winner.id,
       creativeId: winner.creative.id,
       surface: resolved,
-      href: cta.value.href,
+      href,
       presentationType,
       frequencyMode,
       creativeMode,
