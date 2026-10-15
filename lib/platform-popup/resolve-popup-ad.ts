@@ -37,6 +37,7 @@ import {
   type PlatformPopupInterruptivePresentation,
 } from "@/lib/platform-popup/presentation-contract";
 import { isPlatformPopupCreativeAspectValid } from "@/lib/platform-popup/creative-contract";
+import { isPtrRevealAudienceAllowed } from "@/lib/platform-popup/ptr-reveal-audience";
 import { isPopupCandidateCoordinatedAway } from "@/lib/platform-promotion-lifecycle/content-visit-eligibility";
 import type {
   PlatformPopupApprovalStatus,
@@ -83,6 +84,9 @@ export type PlatformPopupCandidate = {
   lastImpressionAt?: string | Date | null;
   /** ptr_reveal 전용 — ready 띠 변형(default=creative 와 동일, tablet·logo 선택) */
   ptrBands?: Partial<Record<"default" | "tablet" | "logo", PlatformPopupPtrBandAsset>>;
+  /** ptr_reveal 제한 노출 — 기본 all (팝업·공개 PTR). allowlist 는 앱 리졸버에서만 적용. */
+  audienceMode?: string | null;
+  audienceUserIds?: readonly string[] | null;
 };
 
 export type PlatformPopupPtrBandAsset = {
@@ -107,6 +111,8 @@ export type ResolvePopupAdInput = {
    * via POPUP/BANNER/PUSH/BELL. Does not replace campaign frequency suppressions.
    */
   coordinatedEventIds?: ReadonlySet<string> | readonly string[] | null;
+  /** ptr_reveal allowlist 판정용 — 미로그인·누락 시 allowlist 캠페인은 제외(fail-closed). */
+  viewerUserId?: string | null;
 };
 
 export type ResolvePopupAdWinner = {
@@ -179,6 +185,16 @@ export function selectPlatformPopupEligibleWinner(
     const presentationType = normalizePlatformPopupPresentationType(c.presentationType);
     if (scope === "ptr_reveal") {
       if (!isPlatformPopupPtrRevealPresentation(presentationType)) continue;
+      // Fail-closed allowlist — empty list / anonymous / miss → skip. Interruptive scope ignores this.
+      if (
+        !isPtrRevealAudienceAllowed({
+          audienceMode: c.audienceMode,
+          audienceUserIds: c.audienceUserIds,
+          viewerUserId: input.viewerUserId,
+        })
+      ) {
+        continue;
+      }
     } else if (!isPlatformPopupInterruptivePresentation(presentationType)) {
       continue; // banner / ptr_reveal presentations: non-interruptive hosts
     }

@@ -4,12 +4,16 @@
  * 프레젠테이션: Platform Popup 비간섭 타입 `ptr_reveal` (승인·기간·우선순위·CTA·감사로그·이벤트 재사용).
  * 소재: creative_mode `ptr_band`, 변형 `default`(휴대폰 띠, 필수) · `tablet`(태블릿 띠, 선택) · `logo`(선택).
  *
- * 렌더 규칙 (실제 슬롯 높이·기기 폭 대조 — 설계 문서 §5, 잠정·Owner 확정 대상)
- * - 슬롯 높이: 당김 0~106px, 새로고침 유지 58~106px(놓은 위치에 따라).
+ * 렌더 규칙 (슬롯 높이·기기 폭 — computePtrBandLayout 단일 권위; 앱·관리자 미리보기 공유)
+ * - 슬롯 높이: 당김 0~106px, 새로고침 유지 58~106px(놓은 위치에 따라). **106 confirmed** (DIBAY_PTR_MAX_PX).
  * - 띠 렌더 박스 높이 = 슬롯 최대 106px, 세로 중앙 정렬 → 슬롯이 낮으면 위·아래가 대칭으로 가려짐.
  * - 휴대폰(폭 < 600): 4:1 띠를 폭에 맞춰 cover — 360~424px 은 좌우 일부 잘림, 424px 초과는 세로 소폭 확대.
+ *   · Samsung SM-M156S 실측 CSS≈384 → image 424×106, L/R crop ≈4.7% each (layout 함수).
  * - 태블릿(폭 ≥ 600): 8:1 띠를 높이 106px 고정 — 848px 보다 좁으면 좌우 잘림, 넓으면 좌우는 슬롯 배경색.
+ *   · Xiaomi 24076RP19G 실측 CSS≈601 → image 848×106, L/R crop ≈14.6% each (layout 함수).
+ * - 소스 픽셀 **1280×320 (phone) / 2560×320 (tablet)** — 측정과 모순 없음 → confirmed (임의 변경 금지).
  * - 태블릿 띠가 없으면 태블릿 폭에서는 광고 미노출(휴대폰 띠 확대 금지 — 화질·세로 잘림).
+ * - iPhone/iPad 런타임 대조: 이 세션 미연결 → NOT_PROVEN (USB만으로 PASS 금지).
  */
 
 import { DIBAY_PTR_MAX_PX, DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
@@ -108,7 +112,10 @@ export const PTR_BAND_SPECS: Record<PtrBandVariant, PtrBandSpec> = {
   },
 };
 
-/** 기기 구분 — 이 폭 이상이면 태블릿 띠 (잠정: Android 7" 세로 600dp 기준) */
+/**
+ * 기기 구분 — 이 폭 이상이면 태블릿 띠.
+ * **600 confirmed** (Xiaomi 실측 CSS≈601 → tablet; Samsung 384 → phone). Android 7" 세로 600dp 기준과 일치.
+ */
 export const PTR_BAND_TABLET_MIN_VIEWPORT_PX = 600;
 
 export function resolvePtrBandVariantForViewport(viewportWidth: number): PtrBandDeviceVariant {

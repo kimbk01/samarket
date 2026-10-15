@@ -55,6 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       resolvedSurface: surface,
       candidates,
       coordinatedEventIds,
+      viewerUserId: userId,
     },
     "ptr_reveal"
   );

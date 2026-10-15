@@ -64,6 +64,8 @@ export async function PATCH(
     ctaLabel?: string | null;
     title?: string | null;
     body?: string | null;
+    audienceMode?: "all" | "allowlist" | string;
+    audienceUserIds?: string[];
     materialTouched?: PlatformPopupMaterialField[];
   };
 

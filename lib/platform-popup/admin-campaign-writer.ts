@@ -34,6 +34,11 @@ import {
   PTR_BAND_SPECS,
   type PtrBandVariant,
 } from "@/lib/platform-popup/ptr-reveal-contract";
+import {
+  normalizeAudienceUserIds,
+  normalizePtrRevealAudienceMode,
+  type PtrRevealAudienceMode,
+} from "@/lib/platform-popup/ptr-reveal-audience";
 
 export type PlatformPopupAdminUpsertInput = {
   name?: string;
@@ -54,6 +59,9 @@ export type PlatformPopupAdminUpsertInput = {
   ctaLabel?: string | null;
   title?: string | null;
   body?: string | null;
+  /** ptr_reveal only — ignored for interruptive popup campaigns */
+  audienceMode?: PtrRevealAudienceMode | string;
+  audienceUserIds?: string[];
 };
 
 function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurface[] | { error: string } {
@@ -224,6 +232,22 @@ export async function updatePlatformPopupAdminCampaign(
     patch.frequency_mode = f;
   }
 
+  const isPtrCurrent = isPlatformPopupPtrRevealPresentation(current.presentation_type as string | null);
+  if (input.patch.audienceMode != null || "audienceUserIds" in input.patch) {
+    if (!isPtrCurrent) {
+      return { ok: false, error: "audience_ptr_only", httpStatus: 400 };
+    }
+    if (input.patch.audienceMode != null) {
+      const mode = normalizePtrRevealAudienceMode(input.patch.audienceMode);
+      patch.audience_mode = mode;
+    }
+    if ("audienceUserIds" in input.patch) {
+      const normalized = normalizeAudienceUserIds(input.patch.audienceUserIds);
+      if (!normalized.ok) return { ok: false, error: normalized.error, httpStatus: 400 };
+      patch.audience_user_ids = normalized.ids;
+    }
+  }
+
   if ("ctaLabel" in input.patch) {
     const label = input.patch.ctaLabel?.trim() || null;
     patch.cta_label = label;
@@ -304,6 +328,10 @@ export async function updatePlatformPopupAdminCampaign(
   }
   if ("presentation_type" in patch || "title" in patch || "body" in patch) {
     material.add("creative");
+  }
+  if ("audience_mode" in patch || "audience_user_ids" in patch) {
+    // Audience expansion (esp. allowlist → all) must re-enter review when live.
+    material.add("surfaces");
   }
   if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
     if (isPlatformPopupPtrRevealPresentation(current.presentation_type as string | null)) {

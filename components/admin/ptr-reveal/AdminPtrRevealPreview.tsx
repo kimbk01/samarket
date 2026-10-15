@@ -15,16 +15,36 @@ import {
   resolveDibayPtrSlotPx,
 } from "@/lib/ui/ptr/dibay-ptr-ssot";
 
-/** 미리보기 기기 — CSS px(뷰포트) 기준. 실제 기기 검증 전 대표값(삼성·아이폰·안드로이드 태블릿·아이패드). */
+/**
+ * 미리보기 기기 — CSS px(뷰포트) 기준.
+ * 측정 근거: Samsung SM-M156S phys 1080×2340 dens 450 → CSS≈384 (phone);
+ * Xiaomi 24076RP19G phys 800×1340 dens 213 → CSS≈601 (tablet).
+ * iPhone/iPad 는 대표값 유지(이 세션 미연결 → 런타임 NOT_PROVEN).
+ */
 export const PTR_PREVIEW_DEVICES = [
-  { id: "galaxy-s", ko: "삼성 갤럭시 S (360)", en: "Samsung Galaxy S (360)", w: 360, h: 780 },
-  { id: "galaxy-plus", ko: "삼성 갤럭시 플러스 (384)", en: "Samsung Galaxy Plus (384)", w: 384, h: 832 },
-  { id: "iphone", ko: "iPhone 15 (393)", en: "iPhone 15 (393)", w: 393, h: 852 },
-  { id: "iphone-max", ko: "iPhone Pro Max (430)", en: "iPhone Pro Max (430)", w: 430, h: 932 },
-  { id: "android-tab-7", ko: "안드로이드 태블릿 7\" (600)", en: "Android tablet 7\" (600)", w: 600, h: 960 },
-  { id: "android-tab-10", ko: "안드로이드 태블릿 10\" (800)", en: "Android tablet 10\" (800)", w: 800, h: 1280 },
-  { id: "ipad", ko: "iPad (820)", en: "iPad (820)", w: 820, h: 1180 },
-  { id: "ipad-pro", ko: "iPad Pro 12.9 (1024)", en: "iPad Pro 12.9 (1024)", w: 1024, h: 1366 },
+  {
+    id: "samsung-m156s",
+    ko: "삼성 SM-M156S 측정 (CSS≈384)",
+    en: "Samsung SM-M156S measured (CSS≈384)",
+    w: 384,
+    h: 832,
+    measured: true as const,
+  },
+  { id: "galaxy-s", ko: "삼성 갤럭시 S (360)", en: "Samsung Galaxy S (360)", w: 360, h: 780, measured: false as const },
+  { id: "iphone", ko: "iPhone 15 (393)", en: "iPhone 15 (393)", w: 393, h: 852, measured: false as const },
+  { id: "iphone-max", ko: "iPhone Pro Max (430)", en: "iPhone Pro Max (430)", w: 430, h: 932, measured: false as const },
+  {
+    id: "xiaomi-24076rp19g",
+    ko: "샤오미 24076RP19G 측정 (CSS≈601)",
+    en: "Xiaomi 24076RP19G measured (CSS≈601)",
+    w: 601,
+    h: 1007,
+    measured: true as const,
+  },
+  { id: "android-tab-7", ko: "안드로이드 태블릿 7\" (600)", en: "Android tablet 7\" (600)", w: 600, h: 960, measured: false as const },
+  { id: "android-tab-10", ko: "안드로이드 태블릿 10\" (800)", en: "Android tablet 10\" (800)", w: 800, h: 1280, measured: false as const },
+  { id: "ipad", ko: "iPad (820)", en: "iPad (820)", w: 820, h: 1180, measured: false as const },
+  { id: "ipad-pro", ko: "iPad Pro 12.9 (1024)", en: "iPad Pro 12.9 (1024)", w: 1024, h: 1366, measured: false as const },
 ] as const;
 
 export const PTR_PREVIEW_STATES = [
@@ -189,8 +209,17 @@ function PreviewFrame({
   const effectiveAd = state === "no_ad" ? null : ad;
   const band = effectiveAd ? (variant === "tablet" ? effectiveAd.bands.tablet : effectiveAd.bands.default) : null;
   const slotH = snap.pullPx;
+  // crop% / layout readout 는 pull=106(슬롯 최대) 기준 — 기기 실측과 동일 비교점
+  const layoutAtMax = computePtrBandLayout({
+    variant,
+    frameWidthPx: frameW,
+    slotHeightPx: DIBAY_PTR_MAX_PX,
+  });
   const layout = computePtrBandLayout({ variant, frameWidthPx: frameW, slotHeightPx: slotH });
   const spec = PTR_BAND_SPECS[variant];
+  const cropL = Math.max(0, layoutAtMax.visible.x0);
+  const cropR = Math.max(0, 1 - layoutAtMax.visible.x1);
+  const cropPctEach = Math.round(((cropL + cropR) / 2) * 1000) / 10;
   // 미리보기 표시 폭 — 최대 640px 로 축소(레이아웃 폭은 실제 기기 CSS px 유지)
   const scale = Math.min(1, 640 / frameW);
 
@@ -200,14 +229,25 @@ function PreviewFrame({
     <div className="space-y-1" data-admin-ptr-preview-device={device.id}>
       <div className="flex flex-wrap items-baseline gap-x-3 text-xs">
         <span className="font-semibold">{lang === "en" ? device.en : device.ko}</span>
-        <span className="text-sam-muted">
-          {frameW}×{landscape ? device.w : device.h} · {lang === "en" ? spec.labelEn : spec.labelKo} {spec.width}×{spec.height}
+        <span className="text-sam-muted" data-admin-ptr-preview-css-width="">
+          {lang === "en" ? "CSS width" : "측정 CSS 폭"} {frameW}px
+          {device.measured ? (lang === "en" ? " · measured" : " · 실측") : ""}
+          {" · "}
+          {frameW}×{landscape ? device.w : device.h} · {lang === "en" ? spec.labelEn : spec.labelKo}{" "}
+          {spec.width}×{spec.height}
+        </span>
+        <span className="text-sam-muted" data-admin-ptr-preview-crop="">
+          {lang === "en" ? "L/R crop @pull=106" : "좌우 크롭 @pull=106"} ≈{cropPctEach}%
+          {layoutAtMax.sideFillPx > 0
+            ? ` · ${lang === "en" ? "side fill" : "좌우 여백"} ${Math.round(layoutAtMax.sideFillPx)}px`
+            : ""}
+          {" · "}
+          {Math.round(layoutAtMax.imageWidthPx)}×{Math.round(layoutAtMax.imageHeightPx)}
         </span>
         {band ?
           <span className="text-sam-muted">
             {lang === "en" ? "Visible" : "보이는 영역"} {lang === "en" ? "x" : "가로"} {pct(layout.visible.x0)}–
             {pct(layout.visible.x1)} · {lang === "en" ? "y" : "세로"} {pct(layout.visible.y0)}–{pct(layout.visible.y1)}
-            {layout.sideFillPx > 0 ? ` · ${lang === "en" ? "side fill" : "좌우 여백"} ${Math.round(layout.sideFillPx)}px` : ""}
           </span>
         : null}
       </div>

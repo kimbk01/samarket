@@ -72,6 +72,9 @@ export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
     imageUrl: string;
     altText: string | null;
   }>;
+  /** ptr_reveal 제한 노출 — 기본 all. 팝업은 항상 all(컬럼 기본값). */
+  audienceMode: "all" | "allowlist";
+  audienceUserIds: string[];
   eventSummary: Record<PlatformPopupEventType, number>;
   /** Impression/click/… counts keyed by resolved surface (nullable → "UNKNOWN"). */
   eventSummaryBySurface: Record<string, Partial<Record<PlatformPopupEventType, number>>>;
@@ -110,6 +113,8 @@ type CampaignRow = {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  audience_mode?: string | null;
+  audience_user_ids?: string[] | null;
 };
 
 function emptyEventSummary(): Record<PlatformPopupEventType, number> {
@@ -307,7 +312,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
   const { data, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body, owner_store_id, owner_request_id, created_by, approved_by, approved_at, created_at, updated_at, audience_mode, audience_user_ids"
     )
     .eq("id", id)
     .maybeSingle();
@@ -388,6 +393,11 @@ export async function loadPlatformPopupAdminCampaignDetail(
     eventTitle: null,
     hasBenefit: null,
   });
+  const audienceMode =
+    String(row.audience_mode ?? "all").trim().toLowerCase() === "allowlist" ? "allowlist" : "all";
+  const audienceUserIds = Array.isArray(row.audience_user_ids)
+    ? row.audience_user_ids.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
+    : [];
   return {
     ok: true,
     campaign: {
@@ -398,6 +408,8 @@ export async function loadPlatformPopupAdminCampaignDetail(
       approvedAt: row.approved_at,
       creative,
       ptrBands,
+      audienceMode,
+      audienceUserIds,
       eventSummary: summary,
       eventSummaryBySurface: bySurface,
       derived: {

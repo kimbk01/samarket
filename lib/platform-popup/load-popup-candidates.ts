@@ -36,6 +36,9 @@ type CampaignRow = {
   cta_label: string | null;
   title: string | null;
   body: string | null;
+  /** ptr_reveal 마이그레이션 이후 — interruptive 쿼리에는 포함하지 않음 */
+  audience_mode?: string | null;
+  audience_user_ids?: string[] | null;
 };
 
 type CreativeRow = {
@@ -82,19 +85,26 @@ export async function loadPlatformPopupCandidates(
   }
 ): Promise<PlatformPopupCandidate[]> {
   const isPtr = input.presentationScope === "ptr_reveal";
-  let campaignQuery = sb
-    .from("platform_popup_campaigns")
-    .select(
-      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
-    )
-    .in("status", ["scheduled", "active"])
-    .eq("approval_status", "approved");
-  if (isPtr) campaignQuery = campaignQuery.eq("presentation_type", PTR_REVEAL_PRESENTATION);
+  // interruptive: 기존 select 문자열 불변. ptr_reveal: audience_* 포함(스키마 타입 생성 전이라 * + CampaignRow 캐스트).
+  const campaignQuery = isPtr
+    ? sb
+        .from("platform_popup_campaigns")
+        .select("*")
+        .in("status", ["scheduled", "active"])
+        .eq("approval_status", "approved")
+        .eq("presentation_type", PTR_REVEAL_PRESENTATION)
+    : sb
+        .from("platform_popup_campaigns")
+        .select(
+          "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, cta_label, title, body, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode"
+        )
+        .in("status", ["scheduled", "active"])
+        .eq("approval_status", "approved");
   const { data: campaigns, error } = await campaignQuery.order("priority", { ascending: false });
 
   if (error || !campaigns?.length) return [];
 
-  const ids = (campaigns as CampaignRow[]).map((c) => c.id);
+  const ids = (campaigns as unknown as CampaignRow[]).map((c) => c.id);
 
   const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions] =
     await Promise.all([
@@ -159,7 +169,7 @@ export async function loadPlatformPopupCandidates(
     suppressByCampaign.set(row.campaign_id, list);
   }
 
-  return (campaigns as CampaignRow[]).map((c) => {
+  return (campaigns as unknown as CampaignRow[]).map((c) => {
     const cr = creativeByCampaign.get(c.id) ?? null;
     return {
       id: c.id,
@@ -195,7 +205,13 @@ export async function loadPlatformPopupCandidates(
       ctaLookup: { exists: true, visible: true, authorized: true },
       suppressions: suppressByCampaign.get(c.id) ?? [],
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
-      ...(isPtr ? { ptrBands: ptrBandsByCampaign.get(c.id) ?? {} } : {}),
+      ...(isPtr
+        ? {
+            ptrBands: ptrBandsByCampaign.get(c.id) ?? {},
+            audienceMode: c.audience_mode ?? "all",
+            audienceUserIds: Array.isArray(c.audience_user_ids) ? c.audience_user_ids : [],
+          }
+        : {}),
     };
   });
 }

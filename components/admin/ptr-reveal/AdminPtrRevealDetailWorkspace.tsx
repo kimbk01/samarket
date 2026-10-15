@@ -51,6 +51,8 @@ type Form = {
   startLocal: string;
   endLocal: string;
   frequencyMode: PlatformPopupFrequencyMode;
+  audienceMode: "all" | "allowlist";
+  audienceUserIdsText: string;
 };
 
 function toLocalInput(iso: string | null): string {
@@ -83,7 +85,16 @@ function formFromDetail(c: PlatformPopupAdminDetail): Form {
     startLocal: toLocalInput(c.startAt),
     endLocal: toLocalInput(c.endAt),
     frequencyMode: freq,
+    audienceMode: c.audienceMode === "allowlist" ? "allowlist" : "all",
+    audienceUserIdsText: (c.audienceUserIds ?? []).join("\n"),
   };
+}
+
+function parseAudienceUserIdsText(text: string): string[] {
+  return text
+    .split(/[\s,;]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 /** 저장된 소재 + 편집 중 문구로 앱과 같은 페이로드 구성(미리보기 전용) */
@@ -184,6 +195,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
         frequencyMode: form.frequencyMode,
         // 빈도 SSOT → 억제 모드 (팝업과 같은 매핑)
         suppressionMode: frequencyModeToDismissSuppressMode(form.frequencyMode),
+        audienceMode: form.audienceMode,
+        audienceUserIds: parseAudienceUserIdsText(form.audienceUserIdsText),
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; revertedToReview?: boolean };
@@ -381,6 +394,52 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               <p className="text-xs text-sam-muted sm:col-span-2">
                 {L(`시간대: ${detail.timezone}. 노출은 이미지가 실제로 보인 새로고침만 1회로 셉니다. 과금 없음.`, `Timezone: ${detail.timezone}. An impression counts only when the image was actually shown during a refresh. No billing.`)}
               </p>
+            </div>
+          </AdminCard>
+
+          <AdminCard title={L("노출 대상 (제한)", "Audience (restricted)")}>
+            <div className="grid gap-3 text-sm" data-admin-ptr-audience="">
+              <div className="flex flex-wrap gap-3">
+                {(["all", "allowlist"] as const).map((mode) => (
+                  <label key={mode} className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="ptr-audience-mode"
+                      checked={form.audienceMode === mode}
+                      onChange={() => patch({ audienceMode: mode })}
+                      data-admin-ptr-audience-mode={mode}
+                    />
+                    {mode === "all"
+                      ? L("전체 사용자", "Everyone")
+                      : L("허용 목록만 (fail-closed)", "Allowlist only (fail-closed)")}
+                  </label>
+                ))}
+              </div>
+              {form.audienceMode === "allowlist" ?
+                <label className="grid gap-1">
+                  {L("사용자 UUID (한 줄에 하나, 또는 쉼표/공백 구분)", "User UUIDs (one per line, or comma/space separated)")}
+                  <textarea
+                    className="min-h-[88px] rounded border border-sam-border px-2 py-1.5 font-mono text-xs"
+                    value={form.audienceUserIdsText}
+                    onChange={(e) => patch({ audienceUserIdsText: e.target.value })}
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    data-admin-ptr-audience-ids=""
+                  />
+                  <span className="text-xs text-amber-700">
+                    {L(
+                      "목록이 비어 있으면 누구에게도 보이지 않습니다. QA·내부 검증 전에는 허용 목록만 쓰세요.",
+                      "An empty allowlist serves nobody. Use allowlist-only until QA/internal verification is done."
+                    )}
+                  </span>
+                </label>
+              : (
+                <p className="text-xs text-amber-700">
+                  {L(
+                    "전체 사용자 모드는 Production에서 공개 노출입니다. 검증 전에는 허용 목록을 사용하세요.",
+                    "Everyone mode is public exposure on Production. Prefer allowlist until verification is done."
+                  )}
+                </p>
+              )}
             </div>
           </AdminCard>
 
