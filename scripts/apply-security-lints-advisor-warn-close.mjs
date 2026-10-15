@@ -240,8 +240,13 @@ function main() {
   }
   const topicAnon = topicRows.filter((r) => r.anon_exec).map((r) => r.proname);
   const topicNoAuth = topicRows.filter((r) => !r.auth_exec).map((r) => r.proname);
+  // pg_options_to_table returns empty GUC as "" (quoted) for SET search_path TO ''.
   const topicMutable = topicRows
-    .filter((r) => r.search_path == null || String(r.search_path) !== "")
+    .filter((r) => {
+      if (r.search_path == null) return true;
+      const sp = String(r.search_path).trim();
+      return sp !== "" && sp !== '""' && sp !== "''";
+    })
     .map((r) => `${r.proname}:${r.search_path ?? "<null>"}`);
   if (topicAnon.length) {
     throw new Error(`internal topic still anon-executable: ${topicAnon.join(", ")}`);
