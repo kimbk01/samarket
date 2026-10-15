@@ -19,7 +19,8 @@ import {
   openMessengerFileInNativeShellIfNeeded,
 } from "@/lib/community-messenger/messenger-file-download";
 
-export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean };
+/** `sendFailed` — C-3/C-10 발신 실패(재전송 대기) 표시. pending 과 함께 true 이며 "전송 중" 라벨을 숨긴다. */
+export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
 
 export const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
   item,
@@ -50,7 +51,7 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
         decoding="async"
         className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
       />
-      {item.pending ? (
+      {item.pending && !item.sendFailed ? (
         <span className="mt-1 sam-text-xxs text-sam-muted">{t("common_sending")}</span>
       ) : null}
     </div>
@@ -114,7 +115,9 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
       </div>
       <div className="mt-3">
         {item.pending ? (
-          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
+          item.sendFailed ? null : (
+            <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
+          )
         ) : fileUrl ? (
           <a
             href={fileHref}
@@ -243,7 +246,7 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
         >
           {body}
         </p>
-        {item.pending ? (
+        {item.pending && !item.sendFailed ? (
           <span
             className={`shrink-0 text-[11px] ${mineLight ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"}`}
           >

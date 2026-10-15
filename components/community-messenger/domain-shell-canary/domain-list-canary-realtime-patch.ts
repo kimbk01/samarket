@@ -22,6 +22,11 @@ import {
   stabilizeSoCustomerListDto,
   stabilizeTradeListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
+import {
+  formatCmListPreviewTextForViewer,
+  guardRawCmListPreviewText,
+} from "@/lib/community-messenger/cm-home-list-copy";
+import type { CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 
 export type DomainListCanaryBundle = "trade" | "store_order";
 
@@ -45,14 +50,35 @@ function notifyDomainListCanaryPatch(bundle: DomainListCanaryBundle): void {
   for (const l of listeners[bundle]) l();
 }
 
+/**
+ * Realtime 행 previewText(원문: `cmcall1|…` 통화 토큰·스티커 경로·상품권 content) → viewer 기준 라벨.
+ * 홈 리스트와 같은 포맷터(`getRoomPreviewText`) 단일 사용. 타입을 모르는 호출자도 원문 토큰은 차단.
+ */
+function resolveCanaryRealtimePreviewText(input: {
+  viewerUserId: string;
+  previewText: string;
+  lastMessageType?: CommunityMessengerMessageType | null;
+}): string {
+  if (input.lastMessageType) {
+    return formatCmListPreviewTextForViewer(
+      { lastMessage: input.previewText, lastMessageType: input.lastMessageType },
+      input.viewerUserId
+    );
+  }
+  return guardRawCmListPreviewText(input.previewText, input.viewerUserId);
+}
+
 /** 거래 리스트 캐시에 새 메시지 patch. 캐시에 없는 방은 조용히 무시. */
-export function applyDomainTradeListRealtimeMessagePatch(input: {
+export function applyDomainTradeListRealtimeMessagePatch(rawInput: {
   viewerUserId: string;
   roomId: string;
   previewText: string;
   lastMessageAt: string;
   boostUnread: boolean;
+  /** Realtime 행 message_type — 있으면 viewer 기준 라벨로 변환 후 저장 */
+  lastMessageType?: CommunityMessengerMessageType | null;
 }): boolean {
+  const input = { ...rawInput, previewText: resolveCanaryRealtimePreviewText(rawInput) };
   const cached = peekDomainTradeListCanaryCache(input.viewerUserId);
   if (!cached) return false;
   const idx = cached.rows.findIndex((r) => r.roomId === input.roomId);
@@ -165,13 +191,16 @@ export function applyDomainTradeListUnreadOnlyPatch(input: {
 }
 
 /** 주문(고객) 리스트 캐시에 새 메시지 patch. */
-export function applyDomainStoreOrderListRealtimeMessagePatch(input: {
+export function applyDomainStoreOrderListRealtimeMessagePatch(rawInput: {
   viewerUserId: string;
   roomId: string;
   previewText: string;
   lastMessageAt: string;
   boostUnread: boolean;
+  /** Realtime 행 message_type — 있으면 viewer 기준 라벨로 변환 후 저장 */
+  lastMessageType?: CommunityMessengerMessageType | null;
 }): boolean {
+  const input = { ...rawInput, previewText: resolveCanaryRealtimePreviewText(rawInput) };
   const cached = peekDomainStoreOrderCustomerListCanaryCache(input.viewerUserId);
   if (!cached) return false;
   const idx = cached.rows.findIndex((r) => r.roomId === input.roomId);

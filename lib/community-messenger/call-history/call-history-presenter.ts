@@ -1,8 +1,12 @@
 import {
   buildCallHistorySubtitle,
-  computeCallLogDisplayType,
   isCallLogMissedDisplayType,
 } from "@/lib/community-messenger/call-log-row-copy";
+import {
+  callLogDisplayTypeFromCanonical,
+  resolveCallLogBadgeMessageKey,
+  resolveCallLogViewerCanonical,
+} from "@/lib/community-messenger/call-history/call-log-display-type";
 import { buildCallPeerDisplayLabel } from "@/lib/community-messenger/call-history/call-peer-display-label";
 import type {
   CommunityMessengerCallLog,
@@ -36,9 +40,10 @@ const STATUS_PRESENTATION: Record<CommunityMessengerCallLogDisplayType, CallHist
     showDuration: false,
     directionKey: null,
   },
+  /** 발신자 관점 미응답 — 부재중(빨강) 아님 */
   missed_outgoing: {
     labelKey: "cm_call_status_no_answer",
-    color: "#E53935",
+    color: "#6B7280",
     showDuration: false,
     directionKey: null,
   },
@@ -82,6 +87,9 @@ export type CallHistoryRowViewModel = {
   callKind: CommunityMessengerCallLog["callKind"];
   displayType: CommunityMessengerCallLogDisplayType;
   statusPresentation: CallHistoryStatusPresentation;
+  /** viewer 관점 상태 배지 (발신·수신·부재중·응답 없음·취소됨·거절함·거절됨·실패) */
+  badgeLabelKey: MessageKey;
+  /** 통화 종류(음성/영상) — 상태 문구는 배지에만 둔다 */
   subtitleMessageKey: MessageKey;
   subtitleColor: string;
   durationLabel: string | null;
@@ -100,16 +108,28 @@ function resolveAvatarOverlayKind(
 ): CallHistoryAvatarOverlayKind {
   if (call.sessionMode === "group") return null;
   if (isCallLogMissedDisplayType(displayType)) return "missed";
-  if (displayType === "outgoing") return "outgoing";
+  if (displayType === "outgoing" || displayType === "missed_outgoing") return "outgoing";
   if (displayType === "incoming") return "incoming";
   return null;
 }
 
 export function presentCallHistoryRow(call: CommunityMessengerCallLog): CallHistoryRowViewModel {
-  const displayType =
-    call.displayType ?? computeCallLogDisplayType(call.status, call.endedReason, call.isOutgoing);
+  /** 서버 displayType 과 동일 SSOT 재계산 (구 캐시의 viewer 비인지 값 교정) */
+  const canonical = call.status
+    ? resolveCallLogViewerCanonical({
+        status: call.status,
+        endedReason: call.endedReason,
+        isOutgoing: call.isOutgoing,
+      })
+    : null;
+  const displayType = canonical
+    ? callLogDisplayTypeFromCanonical(canonical, call.isOutgoing)
+    : (call.displayType ?? (call.isOutgoing ? "outgoing" : "incoming"));
   const normalizedCall = displayType === call.displayType ? call : { ...call, displayType };
   const statusPresentation = presentCallHistoryStatus(displayType);
+  const badgeLabelKey = (
+    canonical ? resolveCallLogBadgeMessageKey(canonical, call.isOutgoing) : statusPresentation.labelKey
+  ) as MessageKey;
   const subtitle = buildCallHistorySubtitle(normalizedCall);
   const peerName = call.peerLabel?.trim() || call.title?.trim() || "";
   const peerPublicId = call.peerPublicId?.trim().replace(/^@+/, "") || null;
@@ -133,6 +153,7 @@ export function presentCallHistoryRow(call: CommunityMessengerCallLog): CallHist
     callKind: call.callKind,
     displayType,
     statusPresentation,
+    badgeLabelKey,
     subtitleMessageKey: subtitle.messageKey,
     subtitleColor: statusPresentation.color,
     durationLabel: subtitle.durationLabel,

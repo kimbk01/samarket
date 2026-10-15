@@ -276,7 +276,7 @@ export function CommunityMessengerCallRow({
                   ·
                 </span>
               ) : null}
-              <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
+              <CommunityMessengerCallDirectionBadge displayType={vm.displayType} labelKey={vm.badgeLabelKey} />
               <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
                 {durationOnly ? ` · ${durationOnly}` : ""}

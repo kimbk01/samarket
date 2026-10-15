@@ -196,8 +196,9 @@ function messengerBootstrapFromLiteApiJson(
     },
     friends: json.friends ?? [],
     following: json.following ?? [],
-    hidden: json.hidden ?? [],
-    blocked: json.blocked ?? [],
+    /** 서버가 모르면(lite 부분 hydrate·캐시 miss) 키 생략 → unknown 유지. `?? []` 금지(목록 wipe). */
+    hidden: Array.isArray(json.hidden) ? json.hidden : undefined,
+    blocked: Array.isArray(json.blocked) ? json.blocked : undefined,
     requests: json.requests ?? [],
     chats: json.chats ?? [],
     groups: json.groups ?? [],
@@ -265,6 +266,11 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   hydrateDeferredCallLogs: () => Promise<void>;
   /** 친구 탭 — lite/critical 에 friends 가 비었을 때 GET /friends 단일 보강 */
   hydrateMessengerFriends: () => Promise<void>;
+  /**
+   * 숨김·차단 목록 SSOT 보강 — `GET /relations/privacy-lists` → `privacy_lists_replace`.
+   * 개인정보 시트·보관함 숨김/차단 섹션 진입, 차단/해제·숨김/해제 성공 직후 호출.
+   */
+  hydrateMessengerPrivacyLists: () => Promise<void>;
   /** Phase2 shadow-only canonical pipeline dispatcher — UI render 입력으로 사용 금지 */
   shadowDispatch: MessengerHomeShadowDispatch;
 };
@@ -310,6 +316,8 @@ export function useCommunityMessengerHomeBootstrap({
   const deferredCallLogAbortRef = useRef<AbortController | null>(null);
   const friendsHydrateRequestIdRef = useRef(0);
   const friendsHydrateAbortRef = useRef<AbortController | null>(null);
+  const privacyListsHydrateRequestIdRef = useRef(0);
+  const privacyListsHydrateAbortRef = useRef<AbortController | null>(null);
   /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
   const silentFullSupplementTimerRef = useRef<number | null>(null);
 
@@ -928,8 +936,8 @@ export function useCommunityMessengerHomeBootstrap({
                 },
                 friends: jsonFull.friends ?? [],
                 following: jsonFull.following ?? [],
-                hidden: jsonFull.hidden ?? [],
-                blocked: jsonFull.blocked ?? [],
+                hidden: Array.isArray(jsonFull.hidden) ? jsonFull.hidden : undefined,
+                blocked: Array.isArray(jsonFull.blocked) ? jsonFull.blocked : undefined,
                 requests: jsonFull.requests ?? [],
                 chats: jsonFull.chats ?? [],
                 groups: jsonFull.groups ?? [],
@@ -1668,6 +1676,52 @@ export function useCommunityMessengerHomeBootstrap({
     await mergeDeferredMessengerFriends();
   }, [mergeDeferredMessengerFriends]);
 
+  /** 숨김·차단 SSOT — `mergeDeferredMessengerFriends` 와 동일 패턴(latest-wins·abort), hidden/blocked 만 replace */
+  const hydrateMessengerPrivacyLists = useCallback(async () => {
+    const requestId = ++privacyListsHydrateRequestIdRef.current;
+    privacyListsHydrateAbortRef.current?.abort();
+    const controller = new AbortController();
+    privacyListsHydrateAbortRef.current = controller;
+    try {
+      const res = await fetch("/api/community-messenger/relations/privacy-lists", {
+        cache: "no-store",
+        credentials: "include",
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || requestId !== privacyListsHydrateRequestIdRef.current) return;
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        blocked?: CommunityMessengerBootstrap["blocked"];
+        hidden?: CommunityMessengerBootstrap["hidden"];
+      };
+      if (!res.ok || !json.ok) return;
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = applyHomeListPatch(
+          prev,
+          {
+            kind: "privacy_lists_replace",
+            hidden: Array.isArray(json.hidden) ? json.hidden : undefined,
+            blocked: Array.isArray(json.blocked) ? json.blocked : undefined,
+          },
+          "bootstrap"
+        );
+        const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {
+          reason: "privacy_lists_hydrate",
+        });
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      /* ignore */
+    } finally {
+      if (privacyListsHydrateAbortRef.current === controller) {
+        privacyListsHydrateAbortRef.current = null;
+      }
+    }
+  }, []);
+
   return {
     data,
     setData,
@@ -1681,6 +1735,7 @@ export function useCommunityMessengerHomeBootstrap({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
+    hydrateMessengerPrivacyLists,
     shadowDispatch,
   };
 }

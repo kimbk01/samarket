@@ -87,8 +87,13 @@ export function communityMessengerBootstrapFromCriticalPayload(
     },
     friends: [],
     following: [],
-    hidden: [],
-    blocked: [],
+    /**
+     * critical tier 는 숨김·차단 목록을 모른다 → unknown(undefined). `[]` 를 넣으면
+     * `bootstrap_apply_full` 이 authoritative 빈 목록으로 보고 매 refresh 마다 기존 목록을 지운다.
+     * (friends·following·requests 의 기존 merge 의미는 변경하지 않음)
+     */
+    hidden: undefined,
+    blocked: undefined,
     requests: [],
     chats,
     groups,

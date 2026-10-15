@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
@@ -68,6 +68,11 @@ import { AppStickyHeader } from "./AppStickyHeader";
 import { RegionBar } from "./RegionBar";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { BottomNav } from "./BottomNav";
+import { BottomNavKeyboardHideProbe } from "./BottomNavKeyboardHideProbe";
+import {
+  BOTTOM_NAV_KEYBOARD_RESIZED_CLASS,
+  type BottomNavKeyboardHideState,
+} from "@/lib/layout/bottom-nav-keyboard-hide";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
@@ -367,6 +372,17 @@ export function ConditionalAppShell({
   );
   const bottomNavScrollHidden = Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll);
   /**
+   * Keyboard-hide (B-1) — Android APK layout viewport shrinks with IME, fixed nav rides
+   * on the keyboard. Visual translate-hide only (same class as scroll-hide); NOT fed into
+   * `BottomNavScrollChromeProvider` (clearance / `hidden` SSOT stays scroll-only).
+   * Probe mounts only with the nav → no listeners on nav-less routes.
+   */
+  const [bottomNavKeyboardState, setBottomNavKeyboardState] =
+    useState<BottomNavKeyboardHideState>("visible");
+  const bottomNavKeyboardHidden = showBottomNavMounted && bottomNavKeyboardState !== "visible";
+  const bottomNavKeyboardResized =
+    showBottomNavMounted && bottomNavKeyboardState === "hidden_layout_resized";
+  /**
    * Clearance SSOT — mount only (`showBottomNavEffective`).
    * DO NOT couple to scroll-hide: hide is transform-only; coupling caused hub thrash.
    */
@@ -415,13 +431,20 @@ export function ConditionalAppShell({
       </main>
       <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
       {showBottomNavMounted ? (
+        <BottomNavKeyboardHideProbe onStateChange={setBottomNavKeyboardState} />
+      ) : null}
+      {showBottomNavMounted ? (
         <BottomNav
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
+          inert={bottomNavKeyboardHidden}
           extraOuterClassName={[
-            bottomNavScrollHideEnabled
-              ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
+            bottomNavScrollHideEnabled || bottomNavKeyboardHidden
+              ? resolveBottomNavScrollHideOuterClass(
+                  bottomNavScrollHidden || bottomNavKeyboardHidden
+                )
               : "",
+            bottomNavKeyboardResized ? BOTTOM_NAV_KEYBOARD_RESIZED_CLASS : "",
             /**
              * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
              * Avoids SSR false → full-width flash then shrink.

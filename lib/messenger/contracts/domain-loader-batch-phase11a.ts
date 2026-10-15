@@ -79,6 +79,8 @@ export type DomainLoaderLatestMessageRow = Readonly<{
   bodyText: string | null;
   isSystem: boolean;
   createdAt: string;
+  /** community_messenger_messages.message_type — 리스트 라벨(통화·스티커·상품권) 변환용 */
+  messageType?: string | null;
 }>;
 
 export type DomainLoaderRoomSeedRow = Readonly<{

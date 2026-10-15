@@ -2,6 +2,7 @@
  * Domain trade-list DTO row → canonical UnifiedRoomListItem for MessengerChatListItem.
  * Preserves CM room id as action/navigation identity. Does not invent product_chats ids.
  */
+import { guardRawCmListPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
@@ -18,7 +19,9 @@ export function domainTradeListRowToUnifiedItem(row: DomainTradeListRow): Unifie
   const peerUserId = viewerRole === "buyer" ? sellerUserId || null : buyerUserId || null;
   const peerLabel = row.peerLabel?.trim() || "";
   const productTitle = row.productTitle.trim() || "거래";
-  const preview = row.previewText.trim();
+  const viewerUserId = viewerRole === "seller" ? sellerUserId : buyerUserId;
+  /** 방어선: 저장된 원문 통화 토큰·스티커 URI 는 홈 리스트 포맷터로 라벨화(렌더 원문 노출 금지). */
+  const preview = guardRawCmListPreviewText(row.previewText, viewerUserId || null).trim();
   const domainIdentityKey = row.domainIdentityKey.trim();
 
   const contextMeta = {

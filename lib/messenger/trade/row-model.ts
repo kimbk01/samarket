@@ -1,10 +1,9 @@
 /**
  * trade RowModel + RouterPort.
  */
-import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
-import { resolveTradePreview } from "@/lib/messenger/trade/preview";
+import { resolveTradeListItemPreview } from "@/lib/messenger/trade/preview";
 import { resolveTradePresentationFromListItem } from "@/lib/messenger/trade/presentation";
 import { normalizeTradeListPreviewLine } from "@/lib/messenger/trade/item-status";
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
@@ -25,11 +24,8 @@ export const tradeRouterPort: MessengerRouterPort = {
 
 export function buildTradeListViewModel(item: TradeListItem): TradeListViewModel {
   const presentation = resolveTradePresentationFromListItem(item);
-  const preview = resolveTradePreview({
-    content: resolveRoomLastMessageForViewer(item.lastMessage, null),
-    messageType: item.lastMessageIsSystem ? "system" : "text",
-    isSystemAllowed: true,
-  });
+  /** viewer(role 기준) 통화 문구 + 실제 message_type 라벨 — hub 와 동일 resolver */
+  const preview = resolveTradeListItemPreview(item);
   const statusBadge = item.tradeStatusLabel;
   const normalized = normalizeTradeListPreviewLine({
     previewText: preview.text,

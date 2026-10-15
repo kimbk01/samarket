@@ -23,6 +23,8 @@ export type TradeRoomInput = Readonly<{
   /** Real product_chats.id when linked — not posts.id */
   productChatId?: string | null | undefined;
   lastMessage: string | null | undefined;
+  /** 최신 메시지 message_type (call_stub·sticker·gift_certificate 등 라벨 변환용) */
+  lastMessageType?: string | null | undefined;
   lastMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   tradeStatusLabel?: string | null | undefined;
@@ -50,6 +52,8 @@ export type TradeListItem = Readonly<{
   /** Real product_chats.id when linked — dock must not use itemId */
   productChatId: string | null;
   lastMessage: string;
+  /** 최신 메시지 message_type — 없으면 lastMessageIsSystem 기준(레거시) */
+  lastMessageType?: string | null;
   lastMessageIsSystem: boolean;
   lastMessageAt: string;
   unreadCount: number;

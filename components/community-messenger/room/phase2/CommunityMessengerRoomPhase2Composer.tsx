@@ -16,6 +16,7 @@ import {
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { isTerminalStoreOrderStatus } from "@/lib/community-messenger/store-order-terminal-status";
+import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { resolveTradeBlockedProductDetailPostId } from "@/lib/community-messenger/room/phase2/trade-blocked-product-detail-cta";
@@ -429,14 +430,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
 
   const commitTextSend = useCallback(async () => {
     if (
-      vm.roomUnavailable ||
-      !draft.trim() ||
-      vm.busy === "send-image" ||
-      vm.busy === "send-file" ||
-      vm.busy === "send-voice" ||
-      vm.busy === "send-sticker" ||
-      vm.busy === "delete-message" ||
-      vm.busy === "edit-message"
+      isComposerTextSendBlocked({
+        busy: vm.busy,
+        roomUnavailable: Boolean(vm.roomUnavailable),
+        draft,
+      })
     ) {
       return;
     }
@@ -611,14 +609,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             vm.busy === "send-file" ||
             vm.busy === "send-sticker"
           }
-          sendDisabled={
-            vm.roomUnavailable ||
-            !draft.trim() ||
-            vm.busy === "send-image" ||
-            vm.busy === "send-file" ||
-            vm.busy === "send-sticker" ||
-            vm.busy === "delete-message"
-          }
+          sendDisabled={isComposerTextSendBlocked({
+            busy: vm.busy,
+            roomUnavailable: Boolean(vm.roomUnavailable),
+            draft,
+          })}
           sendAriaLabel={
             vm.voiceRecording && vm.voiceHandsFree ? t("cm_ui_send_voice") : t("common_send")
           }

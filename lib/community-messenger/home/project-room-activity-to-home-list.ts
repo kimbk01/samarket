@@ -198,13 +198,8 @@ function resolveIdentity(
   return { chatDomain, domainIdentityKey, row };
 }
 
-function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
-  const roomId = trim(activity.roomId);
-  const previewText = trim(activity.previewText);
-  const activityAt = trim(activity.activityAt);
-  if (!roomId || !previewText || !activityAt) return null;
-
-  const lastMessageType =
+function resolveActivityLastMessageType(activity: RoomActivityProjection): CommunityMessengerMessageType {
+  return (
     activity.lastMessageType ??
     (activity.eventKind === "call"
       ? "call_stub"
@@ -220,7 +215,17 @@ function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
                 ? "system"
                 : activity.eventKind === "community_post_share"
                   ? "community_post_share"
-                  : "text");
+                  : "text")
+  );
+}
+
+function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
+  const roomId = trim(activity.roomId);
+  const previewText = trim(activity.previewText);
+  const activityAt = trim(activity.activityAt);
+  if (!roomId || !previewText || !activityAt) return null;
+
+  const lastMessageType = resolveActivityLastMessageType(activity);
 
   if (activity.source === "call_event" || activity.eventKind === "call") {
     return {
@@ -267,11 +272,14 @@ function routeDomainCanary(
   if (!accepted) return;
   const viewer = trim(activity.viewerUserId);
   if (!viewer || !chatDomain) return;
+  /** 도메인 캐시는 previewText 만 저장 — 타입을 넘겨 patch 가 viewer 기준 라벨로 변환(원문 토큰 저장 금지). */
+  const lastMessageType = resolveActivityLastMessageType(activity);
   if (chatDomain === "trade") {
     applyDomainTradeListRealtimeMessagePatch({
       viewerUserId: viewer,
       roomId: trim(activity.roomId),
       previewText: trim(activity.previewText),
+      lastMessageType,
       lastMessageAt: trim(activity.activityAt),
       boostUnread: activity.boostUnread === true,
     });
@@ -280,6 +288,7 @@ function routeDomainCanary(
       viewerUserId: viewer,
       roomId: trim(activity.roomId),
       previewText: trim(activity.previewText),
+      lastMessageType,
       lastMessageAt: trim(activity.activityAt),
       boostUnread: activity.boostUnread === true,
     });

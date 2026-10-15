@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { toggleCommunityMessengerHiddenFriend } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,5 +36,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const result = await toggleCommunityMessengerHiddenFriend(auth.userId, friendUserId, desiredHidden);
+  /** lite social 캐시(hiddenIds·favoriteFriendIds) 즉시 무효화 — 다음 lite/full 이 stale 목록을 내지 않게 */
+  if (result.ok) invalidateBootstrapLiteSocialDeferredForPair(auth.userId, null);
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

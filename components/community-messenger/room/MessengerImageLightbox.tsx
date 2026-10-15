@@ -1,10 +1,13 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import {
-  buildMessengerFileDownloadUrl,
-  openMessengerFileInNativeShellIfNeeded,
-} from "@/lib/community-messenger/messenger-file-download";
-import { useEffect, useState } from "react";
+  messengerImageSaveNotice,
+  resolveMessengerImageSaveMode,
+  saveMessengerImages,
+  type MessengerImageSaveMode,
+} from "@/lib/community-messenger/attachment/messenger-image-save";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackIcon } from "@/components/navigation/AppBackButton";
@@ -37,8 +40,44 @@ export function MessengerImageLightbox(props: {
   }, []);
 
   const safeIndex = Math.max(0, Math.min(Math.max(urls.length - 1, 0), index));
-  const src = urls[safeIndex] ?? "";
-  const orig = originals[safeIndex] ?? src;
+  const orig = originals[safeIndex] ?? urls[safeIndex] ?? "";
+  /** 원본 보기 — 앱 안에서 원본 화질로 전환(외부 브라우저·다운로드로 대체하지 않음). */
+  const [showOriginal, setShowOriginal] = useState(false);
+  const src = showOriginal ? orig : (urls[safeIndex] ?? "");
+  const [saveMode, setSaveMode] = useState<MessengerImageSaveMode>("none");
+  const [saving, setSaving] = useState<"one" | "all" | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void resolveMessengerImageSaveMode().then((mode) => {
+      if (!cancelled) setSaveMode(mode);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    setShowOriginal(false);
+  }, [safeIndex, open]);
+
+  const runSave = useCallback(
+    async (scope: "one" | "all") => {
+      if (saving) return;
+      const all = urls.map((u, i) => originals[i] ?? u);
+      const targets = scope === "one" ? [orig] : all;
+      setSaving(scope);
+      try {
+        const outcome = await saveMessengerImages(targets);
+        const notice = messengerImageSaveNotice(outcome);
+        showMessengerSnackbar(t(notice.key, notice.params), { variant: notice.variant });
+      } finally {
+        setSaving(null);
+      }
+    },
+    [orig, originals, saving, t, urls]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -86,24 +125,16 @@ export function MessengerImageLightbox(props: {
         <span className="sam-text-body-secondary tabular-nums text-white/70">
           {safeIndex + 1} / {urls.length}
         </span>
-        <a
-          href={orig}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            /**
-             * Capacitor WebView 는 target=_blank·다운로드를 처리하지 못한다 → 인앱 브라우저로
-             * 원본을 첨부(Content-Disposition) URL 로 열어 OS 저장/공유 시트로 받는다.
-             */
-            const fileName = decodeURIComponent(orig.split("?")[0]?.split("/").pop() ?? "") || "image";
-            if (openMessengerFileInNativeShellIfNeeded(buildMessengerFileDownloadUrl(orig, fileName))) {
-              e.preventDefault();
-            }
-          }}
-          className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
+        <button
+          type="button"
+          aria-pressed={showOriginal}
+          onClick={() => setShowOriginal((v) => !v)}
+          className={`rounded-lg px-3 py-2 sam-text-body font-medium active:bg-white/10 ${
+            showOriginal ? "text-white" : "text-white/90"
+          }`}
         >
           {t("cm_ui_original")}
-        </a>
+        </button>
       </div>
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {urls.length > 1 ? (
@@ -148,6 +179,28 @@ export function MessengerImageLightbox(props: {
           </div>
         </div>
       </div>
+      {saveMode !== "none" ? (
+        <div className="flex shrink-0 items-center justify-center gap-2 px-3 py-2">
+          <button
+            type="button"
+            disabled={saving !== null}
+            onClick={() => void runSave("one")}
+            className="rounded-full bg-white/15 px-4 py-2 sam-text-body font-medium text-white active:bg-white/25 disabled:opacity-50"
+          >
+            {saving === "one" ? t("cm_ui_photo_saving") : t("cm_ui_photo_save")}
+          </button>
+          {urls.length > 1 ? (
+            <button
+              type="button"
+              disabled={saving !== null}
+              onClick={() => void runSave("all")}
+              className="rounded-full bg-white/15 px-4 py-2 sam-text-body font-medium text-white active:bg-white/25 disabled:opacity-50"
+            >
+              {saving === "all" ? t("cm_ui_photo_saving") : t("cm_ui_photo_save_all", { count: urls.length })}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 

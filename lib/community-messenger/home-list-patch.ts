@@ -40,6 +40,7 @@ import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-sta
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerProfileLite,
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
@@ -120,6 +121,15 @@ export type HomeListPatch =
       updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary;
     }
   | { kind: "remove_room"; roomId: string }
+  /**
+   * 숨김·차단 목록 SSOT replace (`GET /relations/privacy-lists` 또는 로컬 낙관 패치).
+   * `undefined` 필드 = 변경 없음. 배열 = authoritative 교체(빈 배열 포함). 다른 키는 건드리지 않는다.
+   */
+  | {
+      kind: "privacy_lists_replace";
+      hidden?: CommunityMessengerProfileLite[];
+      blocked?: CommunityMessengerProfileLite[];
+    }
   | {
       kind: "trade_post_listing_meta";
       postId: string;
@@ -275,6 +285,66 @@ function roomSummaryListsDisplayEqual(
 function logHomeListOwner(stats: HomeListPatchStats): void {
   if (!homeListOwnerTraceEnabled()) return;
   messengerTraceConsoleDebug("[cm-list-owner]", stats);
+}
+
+/**
+ * `hidden`/`blocked` unknown(undefined) 계약 — incoming 이 모르면 base 를 유지한다.
+ * @see `lib/community-messenger/home/bootstrap-privacy-lists-projection.ts`
+ */
+function keepBasePrivacyListsWhenIncomingUnknown(
+  base: CommunityMessengerBootstrap,
+  incoming: CommunityMessengerBootstrap
+): CommunityMessengerBootstrap {
+  const hiddenUnknown = incoming.hidden === undefined && base.hidden !== undefined;
+  const blockedUnknown = incoming.blocked === undefined && base.blocked !== undefined;
+  if (!hiddenUnknown && !blockedUnknown) return incoming;
+  return {
+    ...incoming,
+    ...(hiddenUnknown ? { hidden: base.hidden } : {}),
+    ...(blockedUnknown ? { blocked: base.blocked } : {}),
+  };
+}
+
+function privacyListIdsEqual(
+  a: CommunityMessengerProfileLite[] | undefined,
+  b: CommunityMessengerProfileLite[] | undefined
+): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+/** `privacy_lists_replace` — hidden/blocked 만 authoritative 교체. 동일 참조면 base 그대로(리렌더 방지). */
+function applyPrivacyListsReplace(
+  base: CommunityMessengerBootstrap,
+  hidden: CommunityMessengerProfileLite[] | undefined,
+  blocked: CommunityMessengerProfileLite[] | undefined
+): CommunityMessengerBootstrap {
+  const hiddenNext =
+    hidden === undefined
+      ? base.hidden
+      : (mergeJsonRecordsPreserveRefs(
+          (base.hidden ?? []) as Array<Record<string, unknown>>,
+          hidden as Array<Record<string, unknown>>
+        ).list as CommunityMessengerProfileLite[]);
+  const blockedNext =
+    blocked === undefined
+      ? base.blocked
+      : (mergeJsonRecordsPreserveRefs(
+          (base.blocked ?? []) as Array<Record<string, unknown>>,
+          blocked as Array<Record<string, unknown>>
+        ).list as CommunityMessengerProfileLite[]);
+  const hiddenSame = privacyListIdsEqual(hiddenNext, base.hidden);
+  const blockedSame = privacyListIdsEqual(blockedNext, base.blocked);
+  if (hiddenSame && blockedSame) return base;
+  return {
+    ...base,
+    hidden: hiddenSame ? base.hidden : hiddenNext,
+    blocked: blockedSame ? base.blocked : blockedNext,
+  };
 }
 
 /**
@@ -711,7 +781,8 @@ export function applyHomeListPatch(
             next = base;
             droppedStale = 1;
           } else {
-            next = incoming;
+            /** 방 목록은 incoming 으로 대체하되, unknown(undefined) 숨김·차단 목록은 base 를 유지한다. */
+            next = keepBasePrivacyListsWhenIncomingUnknown(base, incoming);
             appliedRooms = countListRooms(next);
           }
           break;
@@ -930,6 +1001,10 @@ export function applyHomeListPatch(
             next = patched;
             appliedRooms = 1;
           }
+          break;
+        }
+        case "privacy_lists_replace": {
+          next = applyPrivacyListsReplace(base, patch.hidden, patch.blocked);
           break;
         }
         case "remove_room": {

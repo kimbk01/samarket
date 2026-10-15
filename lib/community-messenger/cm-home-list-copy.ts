@@ -1,5 +1,9 @@
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
-import { formatCallStubRoomTipForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import {
+  formatCallStubRoomTipForViewer,
+  isCallStubRoomTipToken,
+} from "@/lib/community-messenger/call-stub-room-tip";
+import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
 import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
@@ -7,6 +11,7 @@ import {
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
   CommunityMessengerCallLog,
+  CommunityMessengerMessageType,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 
@@ -139,6 +144,43 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
     return summary;
   }
   return translateCmUi("cm_home_preview_no_messages");
+}
+
+/**
+ * 도메인 리스트(거래·주문 canary 등) 행 previewText — 홈 리스트(`getRoomPreviewText`)와 동일 포맷터.
+ * Realtime 행의 원문(`cmcall1|…` 토큰·스티커 경로·영문 상품권 content)을 viewer 기준 라벨로 바꾼다.
+ */
+export function formatCmListPreviewTextForViewer(
+  input: { lastMessage: string | null | undefined; lastMessageType?: CommunityMessengerMessageType | null },
+  viewerUserId?: string | null
+): string {
+  const room = {
+    lastMessage: String(input.lastMessage ?? ""),
+    lastMessageType: input.lastMessageType ?? "text",
+  } as Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType"> as CommunityMessengerRoomSummary;
+  return getRoomPreviewText(room, viewerUserId);
+}
+
+/** `sticker://…` (레거시) 또는 `/stickers/…` 정적 경로 — 원문 노출 금지 대상. */
+function looksLikeRawStickerContent(text: string): boolean {
+  return text.startsWith("sticker://") || isCommunityMessengerStickerPublicPath(text);
+}
+
+/**
+ * 렌더/통합 행 매핑 방어선 — 이미 저장된 previewText 가 원문 통화 토큰·스티커 URI 면
+ * 같은 포맷터(`formatCmListPreviewTextForViewer`)로 라벨화. 그 외 텍스트는 그대로.
+ */
+export function guardRawCmListPreviewText(text: string | null | undefined, viewerUserId?: string | null): string {
+  const raw = String(text ?? "");
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+  if (isCallStubRoomTipToken(trimmed)) {
+    return formatCmListPreviewTextForViewer({ lastMessage: trimmed, lastMessageType: "call_stub" }, viewerUserId);
+  }
+  if (looksLikeRawStickerContent(trimmed)) {
+    return formatCmListPreviewTextForViewer({ lastMessage: trimmed, lastMessageType: "sticker" }, viewerUserId);
+  }
+  return raw;
 }
 
 export function cmStoreOrderHeadline(storeName: string, orderNo: string | null | undefined): string {

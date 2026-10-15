@@ -1,5 +1,6 @@
 "use client";
 
+import { syncMessengerImageAutoSaveEnabled } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
 import type { RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
@@ -258,7 +259,11 @@ export function MessengerSettingsSheet({
                 title={t("cm_ui_media_auto_save")}
                 description={t("cm_ui_open_files_images_with_save_focus")}
                 checked={localSettings.mediaAutoSaveEnabled}
-                onChange={(next) => updateLocalSetting("mediaAutoSaveEnabled", next)}
+                onChange={(next) => {
+                  /** 켠 시각 이후 받은 사진만 자동 저장(과거 사진 일괄 저장 방지), 끄면 기준·권한 재시도 초기화 */
+                  syncMessengerImageAutoSaveEnabled(next);
+                  updateLocalSetting("mediaAutoSaveEnabled", next);
+                }}
               />
               <SettingsToggleRow
                 title={t("cm_ui_link_preview")}

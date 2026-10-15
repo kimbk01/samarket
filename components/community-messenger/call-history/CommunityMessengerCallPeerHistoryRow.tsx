@@ -33,7 +33,7 @@ export function CommunityMessengerCallPeerHistoryRow({ call }: Props) {
       <div className="min-w-0 flex-1">
         <p className="sam-text-body font-semibold text-sam-fg tabular-nums">{timeLabel}</p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
+          <CommunityMessengerCallDirectionBadge displayType={vm.displayType} labelKey={vm.badgeLabelKey} />
           <span className="sam-text-body-secondary text-sam-fg-muted">{kindLabel}</span>
           {vm.durationLabel ? (
             <>

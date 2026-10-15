@@ -31,6 +31,8 @@ import {
   seedRoomSnapshotFromSummary,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { mergeCommunityMessengerMessageLists } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
+import { retainDeletedForEveryoneAt } from "@/lib/community-messenger/room/messenger-message-merge-authority";
 import {
   MESSENGER_REALTIME_TRACKED_ROOMS_CAP,
   pruneSeenIncomingMessageIdsByRoom,
@@ -63,6 +65,36 @@ export type MessengerRealtimeState = {
 };
 
 const seenIncomingMessageIdsByRoom = new Map<string, Set<string>>();
+/**
+ * 같은 id 의 제자리 변경(수정·삭제·통화 상태·앨범 보강) 감지용 내용 서명.
+ * id 만 보던 중복 판정은 UPDATE 를 버려 방 스냅샷 캐시가 옛 내용으로 재오픈 페인트됐다(C-8).
+ */
+const appliedMessageSignatureByRoom = new Map<string, Map<string, string>>();
+const APPLIED_SIGNATURE_ROOM_CAP = 80;
+
+function incomingMessageContentSignature(message: CommunityMessengerMessage): string {
+  /** cid·pending 은 경로(Realtime 매퍼 vs HTTP)마다 달라 내용 변경이 아니다 — 서명에서 제외. */
+  return roomMessagesTimelineFingerprint([{ ...message, clientMessageId: null, pending: false }]);
+}
+
+/** @returns 이전 서명이 있었고 달라졌으면 true (제자리 갱신 필요). */
+function rememberAppliedMessageSignature(roomId: string, messageId: string, signature: string): boolean {
+  if (!messageId || !signature) return false;
+  const key = roomId.toLowerCase();
+  let map = appliedMessageSignatureByRoom.get(key);
+  if (!map) {
+    map = new Map();
+    appliedMessageSignatureByRoom.set(key, map);
+  }
+  const prev = map.get(messageId);
+  map.delete(messageId);
+  map.set(messageId, signature);
+  if (map.size > APPLIED_SIGNATURE_ROOM_CAP) {
+    const keep = [...map.entries()].slice(-Math.floor(APPLIED_SIGNATURE_ROOM_CAP / 2));
+    appliedMessageSignatureByRoom.set(key, new Map(keep));
+  }
+  return prev !== undefined && prev !== signature;
+}
 
 /** Realtime·DB room_id 와 부트스트랩 room.id 의 UUID 대소문자 차이로 스토어 키가 갈라지지 않게 한다 */
 function normalizeRoomId(roomId: string | null | undefined): string {
@@ -277,6 +309,10 @@ function pruneRuntimeRoomMaps(args: {
     ...Object.keys(pruned.lastReadByRoomId),
   ]);
   pruneSeenIncomingMessageIdsByRoom(keepIds, seenIncomingMessageIdsByRoom);
+  const keepSigKeys = new Set([...keepIds].map((id) => id.trim().toLowerCase()));
+  for (const key of [...appliedMessageSignatureByRoom.keys()]) {
+    if (!keepSigKeys.has(key)) appliedMessageSignatureByRoom.delete(key);
+  }
   return pruned;
 }
 
@@ -391,8 +427,38 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         projectedViewer = viewer;
       }
       const duplicate = incomingMessageId ? messageIdAlreadyApplied(rid, incomingMessageId) : false;
+      /** 명시 메시지만 서명 — 행 기반 placeholder 는 필드가 빈약해 서명이 흔들린다. */
+      const contentChanged =
+        explicitMessage != null && incomingMessageId
+          ? rememberAppliedMessageSignature(rid, incomingMessageId, incomingMessageContentSignature(explicitMessage))
+          : false;
       if (duplicate) {
-        return state;
+        if (!contentChanged || !explicitMessage) return state;
+        /**
+         * 같은 id 제자리 UPDATE — 이미 보유한 행만 교체(새 행 삽입 금지: 오래된 메시지가
+         * 캐시 창에 끼어들면 older 페이지 커서가 틀어진다). 배지·unread 경로는 타지 않는다.
+         */
+        let updatedMessages = state.messagesByRoomId;
+        const list = updatedMessages[rid];
+        const existingRow = list?.find((m) => m.id === incomingMessageId);
+        const cachedRow = viewer
+          ? peekRoomSnapshot(rid, viewer)?.messages?.find((m) => m.id === incomingMessageId)
+          : undefined;
+        /** 전체삭제 묘비는 늦게 온 옛 버전으로 되살리지 않는다. */
+        const tomb = retainDeletedForEveryoneAt(
+          existingRow?.deletedForEveryoneAt ?? cachedRow?.deletedForEveryoneAt,
+          explicitMessage.deletedForEveryoneAt
+        );
+        const updated: CommunityMessengerMessage = tomb ? { ...explicitMessage, deletedForEveryoneAt: tomb } : explicitMessage;
+        if (list && existingRow) {
+          wroteMessages = true;
+          updatedMessages = { ...updatedMessages, [rid]: mergeMessages(list, updated) };
+        }
+        if (viewer && cachedRow) {
+          mergeMessageIntoRoomSnapshotCache({ roomId: rid, viewerUserId: viewer, message: updated });
+        }
+        if (updatedMessages === state.messagesByRoomId) return state;
+        return { messagesByRoomId: updatedMessages };
       }
       cmReceiveBadgeLog("sender_check", {
         roomId: rid,
@@ -656,6 +722,7 @@ if (typeof window !== "undefined") {
 /** 로그아웃·계정 전환 — Realtime 메시지·active room 런타임 초기화 */
 export function resetMessengerRealtimeStore(): void {
   seenIncomingMessageIdsByRoom.clear();
+  appliedMessageSignatureByRoom.clear();
   useMessengerRealtimeStore.setState({
     viewerUserId: null,
     messagesByRoomId: {},

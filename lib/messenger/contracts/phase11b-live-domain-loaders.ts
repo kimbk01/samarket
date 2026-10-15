@@ -2,7 +2,10 @@
  * Phase 11B — Live Domain batch fetchers (read-only SELECT).
  * DB → Domain Loader map → BootstrapPort. Shell/raw 미전달.
  */
-import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import {
+  decodeCallStubRoomTip,
+  resolveRoomLastMessageForViewer,
+} from "@/lib/community-messenger/call-stub-room-tip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   timedSelect,
@@ -76,7 +79,7 @@ async function loadLatestMessagesByRoomIds(
   sb: SupabaseClient,
   roomIds: string[]
 ): Promise<{
-  map: Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string }>;
+  map: Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string; messageType: string }>;
   timing: Phase11bQueryTiming;
 }> {
   if (roomIds.length === 0) {
@@ -93,7 +96,7 @@ async function loadLatestMessagesByRoomIds(
       .order("created_at", { ascending: false })
       .limit(Math.min(roomIds.length * 3, 600))
   );
-  const map = new Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string }>();
+  const map = new Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string; messageType: string }>();
   for (const row of (data ?? []) as Array<{
     room_id?: string;
     content?: string | null;
@@ -107,6 +110,7 @@ async function loadLatestMessagesByRoomIds(
       bodyText: typeof row.content === "string" ? row.content : null,
       isSystem: mt === "system" || mt === "call_stub",
       createdAt: String(row.created_at ?? ""),
+      messageType: mt || "text",
     });
   }
   return { map, timing };
@@ -535,6 +539,22 @@ export function createGroupLiveBootstrapSource(
   });
 }
 
+/**
+ * 최신 메시지가 call_stub 이면 content 는 viewer 비의존 공유 라벨뿐이다.
+ * 같은 이벤트의 `rooms.last_message` 통화 토큰(sharedLabel 일치)이 있으면 그 토큰을 넘겨
+ * row-model 이 viewer(발신/수신) 기준 문구로 포맷하게 한다. 추가 조회 없음.
+ */
+function tradeLatestBodyWithCallTipToken(
+  latest: { bodyText: string | null; messageType: string },
+  roomLastMessage: string | null | undefined
+): string | null {
+  if (latest.messageType !== "call_stub") return latest.bodyText;
+  const tip = decodeCallStubRoomTip(roomLastMessage);
+  if (!tip) return latest.bodyText;
+  const body = (latest.bodyText ?? "").trim();
+  return body && tip.sharedLabel.trim() === body ? String(roomLastMessage) : latest.bodyText;
+}
+
 export async function fetchTradeLiveBatch(
   sb: SupabaseClient,
   viewerUserId: string
@@ -661,9 +681,10 @@ export async function fetchTradeLiveBatch(
       latestMessage: latest
         ? {
             roomId: p.room_id,
-            bodyText: latest.bodyText,
+            bodyText: tradeLatestBodyWithCallTipToken(latest, room.last_message),
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            messageType: latest.messageType,
           }
         : null,
       roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,

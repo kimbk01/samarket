@@ -38,6 +38,7 @@ import {
   type TimelineViberBubbleMessage,
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { MessengerOutboundFailedActions } from "@/components/community-messenger/room/phase2/MessengerOutboundFailedActions";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -665,6 +666,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 </>
               )}
             </div>
+            {item.isMine && item.pending && item.sendFailed ? (
+              <MessengerOutboundFailedActions messageId={String(item.id ?? "")} t={t} />
+            ) : null}
           </div>
         </div>
       )}

@@ -163,6 +163,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     return NextResponse.json(result, { status: 400 });
   }
 
+  if (result.deduped) {
+    // D-7 / CHAT-05 멱등 재전송: DB 행(서비스가 원 행 반환)은 이전 업로드를 가리킨다 — 이번 업로드분 정리.
+    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+  }
+
   if (result.ok) {
     try {
       await publishMessengerRoomBumpAfterMutation({

@@ -50,6 +50,8 @@ import { logCallPermission, type DirectCallDenyCode } from "@/lib/community-mess
 import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { autoSaveIncomingMessengerImages } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
+import { readMessengerSendAsAlbumPreference } from "@/lib/community-messenger/attachment/messenger-send-as-album-preference";
 import {
   communityMessengerFriendRequestFailureMessage,
   postCommunityMessengerFriendRequestApi,
@@ -127,6 +129,29 @@ import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 import { precheckMessengerFileForUpload } from "@/lib/community-messenger/upload/messenger-file-upload-policy";
+import {
+  classifyMessengerSendFailure,
+  messengerUploadFallbackErrorCode,
+} from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
+import {
+  uploadMessengerFile,
+  uploadMessengerImages,
+  type MessengerUploadOutcome,
+} from "@/lib/community-messenger/upload/messenger-direct-upload";
+import {
+  clearMessengerOutboundFailedSend,
+  disposeMessengerOutboundFailedSends,
+  isMessengerOutboundRowDisplayed,
+  markMessengerOutboundRowFailed,
+  markMessengerOutboundRowRetrying,
+  nextUnconfirmedTextSendAfterFailure,
+  planMessengerMediaSendFailure,
+  nextUnconfirmedTextSendAfterSuccess,
+  pickTextSendClientMessageId,
+  registerMessengerOutboundFailedSend,
+  runMessengerSequentialSends,
+  type MessengerUnconfirmedTextSend,
+} from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -506,6 +531,12 @@ export function useMessengerRoomPhase2Controller() {
     ]
   );
 
+  /** C-10: 음성 전송 성공 응답에 message 본문이 없을 때 — 임시 행 제거(훅) 후 재조회 */
+  const onVoiceOutboundBodyMissing = useCallback(() => {
+    void refresh(true);
+    forgetRoomBootstrapClientFlightsAfterMutation();
+  }, [forgetRoomBootstrapClientFlightsAfterMutation, refresh]);
+
   const {
     voiceMicArming,
     voiceRecording,
@@ -533,6 +564,7 @@ export function useMessengerRoomPhase2Controller() {
     setRoomMessages,
     scrollMessengerToBottom,
     onOutboundMessageConfirmed: onMessengerOutboundConfirmed,
+    onOutboundMessageBodyMissing: onVoiceOutboundBodyMissing,
     tryRedirectAuthBlocked: redirectIfMessengerAuthBlocked,
     t,
   });
@@ -898,10 +930,34 @@ export function useMessengerRoomPhase2Controller() {
   }, [activeSheet, infoSheetFocus]);
 
   /**
+   * '미디어 자동 저장' ON 일 때만 — 받은 사진을 기기 사진첩에 원본으로 저장.
+   * 중복·재조회·재실행 방지 원장과 기준 시각은 messenger-image-auto-save 가 관리한다.
+   */
+  const autoSaveViewerId = snapshot?.viewerUserId?.trim() ?? "";
+  const mediaAutoSaveOn = roomPreferences.mediaAutoSaveEnabled === true;
+  useEffect(() => {
+    if (!mediaAutoSaveOn || !autoSaveViewerId) return;
+    autoSaveIncomingMessengerImages({
+      enabled: true,
+      viewerUserId: autoSaveViewerId,
+      messages: roomMessages,
+      onNotice: (notice) => {
+        const key =
+          notice.key === "cm_ui_photo_saved" || notice.key === "cm_ui_photo_saved_count"
+            ? "cm_ui_photo_auto_saved_count"
+            : notice.key;
+        const params =
+          key === "cm_ui_photo_auto_saved_count" ? { count: notice.params?.count ?? 1 } : notice.params;
+        showMessengerSnackbar(translateCmUi(key, params), { variant: notice.variant });
+      },
+    });
+  }, [autoSaveViewerId, mediaAutoSaveOn, roomMessages]);
+
+  /**
    * 응답 유실(네트워크 예외) 후 같은 내용 재전송은 같은 clientMessageId 로 보낸다 —
    * 서버가 이미 커밋했다면 UNIQUE(client_message_id) 멱등으로 1행만 남는다(중복 메시지 방지).
    */
-  const unconfirmedTextSendRef = useRef<{ content: string; clientMessageId: string } | null>(null);
+  const unconfirmedTextSendRef = useRef<MessengerUnconfirmedTextSend | null>(null);
 
   const sendRawText = useCallback(
     async (
@@ -915,10 +971,11 @@ export function useMessengerRoomPhase2Controller() {
       // CHAT-03: 예외(네트워크/비행기 모드) 정리를 위해 낙관적 말풍선 id 를 try 밖으로 보관.
       let optimisticTempId: string | null = null;
       const unconfirmed = unconfirmedTextSendRef.current;
-      const clientMessageId =
-        unconfirmed && unconfirmed.content === trimmed
-          ? unconfirmed.clientMessageId
-          : createCommunityMessengerClientMessageId();
+      const clientMessageId = pickTextSendClientMessageId(
+        unconfirmed,
+        trimmed,
+        createCommunityMessengerClientMessageId
+      );
       try {
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
@@ -970,7 +1027,11 @@ export function useMessengerRoomPhase2Controller() {
         }),
       });
       cmReceiveLatencyMark(latencyKey, { send_api_done_ms: cmReceiveLatencyNow() });
-      const json = (await res.json().catch(() => ({}))) as {
+      let jsonParsed = true;
+      const json = (await res.json().catch(() => {
+        jsonParsed = false;
+        return {};
+      })) as {
         ok?: boolean;
         error?: string;
         message?: CommunityMessengerMessage;
@@ -983,15 +1044,30 @@ export function useMessengerRoomPhase2Controller() {
         messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
       if (!res.ok || !json.ok) {
+        /*
+         * C-5: 5xx·408·본문 유실처럼 서버 커밋 여부를 알 수 없으면 (내용, cid) 를 보존 → 같은 내용 재전송이
+         * 같은 cid 로 나가 서버 UNIQUE 멱등으로 1행만 남는다. 명시적 4xx 거절이면 보존분 폐기.
+         */
+        unconfirmedTextSendRef.current = nextUnconfirmedTextSendAfterFailure(
+          unconfirmedTextSendRef.current,
+          { content: trimmed, clientMessageId },
+          classifyMessengerSendFailure({ status: res.status, jsonParsed })
+        );
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
         if (redirectIfMessengerAuthBlocked(res, json)) return false;
-        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+        showMessengerSnackbar(
+          getRoomActionErrorMessage(
+            pickMessengerApiErrorField(json) || (jsonParsed ? undefined : messengerUploadFallbackErrorCode(res.status))
+          ),
+          { variant: "error" }
+        );
         return false;
       }
-      if (unconfirmedTextSendRef.current?.clientMessageId === clientMessageId) {
-        unconfirmedTextSendRef.current = null;
-      }
+      unconfirmedTextSendRef.current = nextUnconfirmedTextSendAfterSuccess(
+        unconfirmedTextSendRef.current,
+        clientMessageId
+      );
       bumpCommunityMessengerPresenceActivity("message_sent");
       const confirmedMessage = json.message;
       if (confirmedMessage?.id) {
@@ -1033,7 +1109,11 @@ export function useMessengerRoomPhase2Controller() {
         // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거,
         // 입력 복원, 오류 스낵바. 서버 커밋 여부는 알 수 없으므로(응답 유실) 같은 내용 재전송 시
         // 같은 clientMessageId 를 재사용해 서버 멱등으로 1행만 남긴다.
-        unconfirmedTextSendRef.current = { content: trimmed, clientMessageId };
+        unconfirmedTextSendRef.current = nextUnconfirmedTextSendAfterFailure(
+          unconfirmedTextSendRef.current,
+          { content: trimmed, clientMessageId },
+          classifyMessengerSendFailure({ networkError: true })
+        );
         if (optimisticTempId) {
           const stuckId = optimisticTempId;
           setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));
@@ -1283,12 +1363,140 @@ export function useMessengerRoomPhase2Controller() {
     showMessengerSnackbar,
   ]);
 
+  /**
+   * C-3 / C-10: 재전송 대기(sendFailed) 행 id — 언마운트 시 미리보기 blob 등 리소스 해제.
+   * 행 자체는 방 상태와 함께 사라진다(레지스트리만 정리).
+   */
+  const failedOutboundRowIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = failedOutboundRowIdsRef.current;
+    return () => {
+      disposeMessengerOutboundFailedSends(ids);
+      ids.clear();
+    };
+  }, []);
+
+  /**
+   * C-2 / C-3 / D-3: 이미지·파일 전송 1회 시도 공용 처리.
+   * - 성공: 확정 행으로 교체(cid 보강) · 미리보기 해제
+   * - definitive 거절(4xx): 말풍선 제거 · 미리보기 해제 · 스낵바
+   * - indeterminate(네트워크·5xx·타임아웃·staged PUT 실패): 말풍선을 '전송 실패'로 유지하고
+   *   같은 clientMessageId 로 재전송 가능(서버 UNIQUE 멱등 → 1행). 미리보기는 행이 남아 있는 동안 유지.
+   */
+  type MediaUploadAttemptArgs = {
+    tempId: string;
+    clientMessageId: string;
+    kind: "image" | "file";
+    upload: () => Promise<MessengerUploadOutcome>;
+    releasePreviews: () => void;
+    suppressErrorSnackbar?: boolean;
+  };
+  /** 최신 렌더의 콜백·상태를 쓰도록 ref 로 호출(재전송 클로저가 오래된 렌더를 잡지 않게) */
+  const runMediaUploadAttemptRef = useRef<(args: MediaUploadAttemptArgs) => Promise<boolean>>(async () => false);
+  const runMediaUploadAttempt = async ({
+    tempId,
+    clientMessageId,
+    kind,
+    upload,
+    releasePreviews,
+    suppressErrorSnackbar,
+  }: MediaUploadAttemptArgs): Promise<boolean> => {
+    const removeRowAndRelease = () => {
+      clearMessengerOutboundFailedSend(tempId);
+      failedOutboundRowIdsRef.current.delete(tempId);
+      setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+      releasePreviews();
+    };
+    setBusy(kind === "image" ? "send-image" : "send-file");
+    const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+    let outcome: MessengerUploadOutcome;
+    try {
+      outcome = await upload();
+    } catch {
+      outcome = {
+        ok: false,
+        transport: "multipart",
+        error: "upload_failed",
+        failure: "indeterminate",
+        beforeCommit: false,
+        res: null,
+        json: {},
+      };
+    } finally {
+      setBusy(null);
+    }
+    if (outcome.ok) {
+      clearMessengerOutboundFailedSend(tempId);
+      failedOutboundRowIdsRef.current.delete(tempId);
+      const elapsed =
+        typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+      messengerMonitorMessageRtt(streamRoomId, elapsed, kind);
+      bumpCommunityMessengerPresenceActivity("message_sent");
+      const serverMsg = outcome.message;
+      if (serverMsg?.id) {
+        const withCid = !trimCmText(serverMsg.clientMessageId) ? { ...serverMsg, clientMessageId } : serverMsg;
+        setRoomMessages((prev) =>
+          mergeRoomMessages(
+            prev.filter((item) => item.id !== tempId),
+            [withCid]
+          )
+        );
+        onMessengerOutboundConfirmed(withCid, clientMessageId);
+      } else {
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        void refresh(true);
+        forgetRoomBootstrapClientFlightsAfterMutation();
+      }
+      releasePreviews();
+      return true;
+    }
+    if (outcome.res && redirectIfMessengerAuthBlocked(outcome.res, outcome.json)) {
+      removeRowAndRelease();
+      return false;
+    }
+    if (!suppressErrorSnackbar) {
+      showMessengerSnackbar(getRoomActionErrorMessage(outcome.error), { variant: "error" });
+    }
+    if (!planMessengerMediaSendFailure(outcome.failure).keepRowAsFailed) {
+      removeRowAndRelease();
+      return false;
+    }
+    const retry = () => {
+      clearMessengerOutboundFailedSend(tempId);
+      if (!isMessengerOutboundRowDisplayed(roomMessagesRef.current, tempId)) {
+        // 이미 확정 행(같은 cid)이 도착해 실패 행이 사라졌다 — 재전송 불필요.
+        failedOutboundRowIdsRef.current.delete(tempId);
+        releasePreviews();
+        return;
+      }
+      setRoomMessages((prev) => markMessengerOutboundRowRetrying(prev, tempId));
+      void runMediaUploadAttemptRef.current({ tempId, clientMessageId, kind, upload, releasePreviews });
+    };
+    registerMessengerOutboundFailedSend(tempId, {
+      retry,
+      discard: removeRowAndRelease,
+      dispose: releasePreviews,
+    });
+    failedOutboundRowIdsRef.current.add(tempId);
+    setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));
+    return false;
+  };
+  useLayoutEffect(() => {
+    runMediaUploadAttemptRef.current = runMediaUploadAttempt;
+  });
+
   const sendImageFiles = useCallback(
-    async (files: File[], optimisticPreviewUrls: string[]) => {
-      if (!snapshot || roomUnavailable) return;
+    async (
+      files: File[],
+      optimisticPreviewUrls: string[],
+      opts?: { suppressErrorSnackbar?: boolean }
+    ): Promise<boolean> => {
+      if (!snapshot || roomUnavailable) return false;
       const list = files.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
       const previews = optimisticPreviewUrls.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
-      if (list.length === 0 || list.length !== previews.length) return;
+      if (list.length === 0 || list.length !== previews.length) return false;
+      // C-2: 텍스트와 동일 — 낙관 행 생성 전에 cid 1개를 만들고 행·요청 본문에 같은 값을 싣는다.
+      const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
@@ -1309,6 +1517,7 @@ export function useMessengerRoomPhase2Controller() {
               imageOriginalUrl: previews[0]!,
             }),
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
+        clientMessageId,
         isMine: true,
         pending: true,
         callKind: null,
@@ -1317,77 +1526,68 @@ export function useMessengerRoomPhase2Controller() {
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
-      setBusy("send-image");
       dismissRoomSheet();
-      try {
-        const form = new FormData();
-        for (const f of list) form.append("files", f);
-        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
-        form.append("clientMessageId", createCommunityMessengerClientMessageId());
-        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/images`, {
-          method: "POST",
-          body: form,
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          message?: CommunityMessengerMessage;
-        };
-        if (res.ok && json.ok) {
-          const elapsed =
-            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(streamRoomId, elapsed, "image");
-        }
-        if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
-        }
-        bumpCommunityMessengerPresenceActivity("message_sent");
-        const serverImageMsg = json.message;
-        if (serverImageMsg) {
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [serverImageMsg]
-            )
-          );
-          onMessengerOutboundConfirmed(serverImageMsg);
-          return;
-        }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        void refresh(true);
-        forgetRoomBootstrapClientFlightsAfterMutation();
-      } finally {
+      let released = false;
+      const releasePreviews = () => {
+        if (released) return;
+        released = true;
         for (const u of previews) URL.revokeObjectURL(u);
-        setBusy(null);
-      }
+      };
+      const roomResourcePath = communityMessengerRoomResourcePath(streamRoomId);
+      return runMediaUploadAttemptRef.current({
+        tempId,
+        clientMessageId,
+        kind: "image",
+        upload: () => uploadMessengerImages({ roomResourcePath, files: list, clientMessageId }),
+        releasePreviews,
+        suppressErrorSnackbar: opts?.suppressErrorSnackbar,
+      });
     },
     [
       dismissRoomSheet,
-      forgetRoomBootstrapClientFlightsAfterMutation,
-      getRoomActionErrorMessage,
-      redirectIfMessengerAuthBlocked,
-      refresh,
       roomMessagesRef,
       streamRoomId,
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
-      onMessengerOutboundConfirmed,
       snapshot,
+      stickToBottomRef,
     ]
+  );
+
+  /**
+   * C-3: '묶어 보내기' OFF — 선택 순서대로 한 장씩 별도 메시지. 한 장 실패가 나머지를 막지 않으며
+   * (실패 장은 '전송 실패' 말풍선으로 남아 재전송 가능) 끝에 요약을 알린다.
+   */
+  const sendImageFilesIndividually = useCallback(
+    async (files: File[], previewUrls: string[]) => {
+      const pairs = files.map((file, i) => ({ file, previewUrl: previewUrls[i]! })).filter((p) => Boolean(p.previewUrl));
+      const { sent, failed } = await runMessengerSequentialSends(pairs, (p) =>
+        sendImageFiles([p.file], [p.previewUrl], { suppressErrorSnackbar: true })
+      );
+      if (failed > 0) {
+        showMessengerSnackbar(
+          failed === 1 && sent === 0
+            ? getRoomActionErrorMessage("upload_failed")
+            : translateCmUi("cm_ui_send_partial_summary", { sent, failed }),
+          { variant: "error" }
+        );
+      }
+    },
+    [getRoomActionErrorMessage, sendImageFiles]
   );
 
   /** Attachment sheet explicit Send CTA → upload/send (pick is selection-only). */
   const sendAttachmentImagesDirect = useCallback(
-    async (files: File[], previewUrls: string[]) => {
+    async (files: File[], previewUrls: string[], opts?: { individually?: boolean }) => {
       setReplyToMessage(null);
+      if (opts?.individually && files.length > 1) {
+        await sendImageFilesIndividually(files, previewUrls);
+        return;
+      }
       await sendImageFiles(files, previewUrls);
     },
-    [sendImageFiles, setReplyToMessage]
+    [sendImageFiles, sendImageFilesIndividually, setReplyToMessage]
   );
 
   const openImagePicker = useCallback(() => {
@@ -1412,12 +1612,19 @@ export function useMessengerRoomPhase2Controller() {
     }
     const previewUrls = files.map((f) => URL.createObjectURL(f));
     setReplyToMessage(null);
+    if (files.length > 1 && !readMessengerSendAsAlbumPreference()) {
+      /** '묶어 보내기' OFF — 선택 순서대로 한 장씩 별도 메시지(실패해도 나머지 계속) */
+      void sendImageFilesIndividually(files, previewUrls);
+      return;
+    }
     void sendImageFiles(files, previewUrls);
-  }, [sendImageFiles, setReplyToMessage]);
+  }, [sendImageFiles, sendImageFilesIndividually, setReplyToMessage]);
 
   const sendFile = useCallback(
-    async (file: File) => {
-      if (!snapshot || roomUnavailable) return;
+    async (file: File): Promise<boolean> => {
+      if (!snapshot || roomUnavailable) return false;
+      // C-2: 낙관 행·요청 본문에 같은 cid.
+      const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:file:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
@@ -1428,6 +1635,7 @@ export function useMessengerRoomPhase2Controller() {
         messageType: "file",
         content: "",
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
+        clientMessageId,
         isMine: true,
         pending: true,
         callKind: null,
@@ -1439,71 +1647,26 @@ export function useMessengerRoomPhase2Controller() {
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
-      setBusy("send-file");
       dismissRoomSheet();
-      try {
-        const form = new FormData();
-        form.append("file", file);
-        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
-        form.append("clientMessageId", createCommunityMessengerClientMessageId());
-        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/files`, {
-          method: "POST",
-          body: form,
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          message?: CommunityMessengerMessage;
-        };
-        if (res.ok && json.ok) {
-          const elapsed =
-            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(streamRoomId, elapsed, "file");
-        }
-        if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
-        }
-        bumpCommunityMessengerPresenceActivity("message_sent");
-        const serverFileMsg = json.message;
-        if (serverFileMsg) {
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [serverFileMsg]
-            )
-          );
-          onMessengerOutboundConfirmed(serverFileMsg);
-          return;
-        }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        void refresh(true);
-        forgetRoomBootstrapClientFlightsAfterMutation();
-      } catch {
-        /* 네트워크 예외(오프라인·연결 끊김·본문 한도 초과로 인한 연결 종료 등) — HTTP 오류 분기와 동일하게
-         * pending 말풍선을 제거하고 오류 스낵바를 띄운다(무한 "업로드 중" 방지). */
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        showMessengerSnackbar(getRoomActionErrorMessage(undefined), { variant: "error" });
-      } finally {
-        setBusy(null);
-      }
+      const roomResourcePath = communityMessengerRoomResourcePath(streamRoomId);
+      // D-3: 3.5MB 초과(최대 15MB)는 staged direct upload — Vercel 본문 한도와 무관하게 실제 전송.
+      return runMediaUploadAttemptRef.current({
+        tempId,
+        clientMessageId,
+        kind: "file",
+        upload: () => uploadMessengerFile({ roomResourcePath, file, clientMessageId }),
+        releasePreviews: () => {},
+      });
     },
     [
       dismissRoomSheet,
-      forgetRoomBootstrapClientFlightsAfterMutation,
-      getRoomActionErrorMessage,
-      redirectIfMessengerAuthBlocked,
-      refresh,
       roomMessagesRef,
       streamRoomId,
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
-      onMessengerOutboundConfirmed,
       snapshot,
+      stickToBottomRef,
     ]
   );
 

@@ -11,6 +11,7 @@ import {
   formatDomainCanaryTime,
 } from "@/components/community-messenger/domain-shell-canary/DomainCanaryShellRow";
 import { markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import { guardRawCmListPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchDomainListCanaryWithRetry,
@@ -288,7 +289,10 @@ export function DomainStoreOrderCustomerListCanaryGate({
             key={row.roomId}
             href={row.href}
             title={row.storeName}
-            preview={row.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")}
+            preview={
+              guardRawCmListPreviewText(row.previewText, dto.viewerUserId) ||
+              (language === "en" ? "No messages" : "메시지가 없습니다")
+            }
             avatarUrl={row.storeImageUrl}
             avatarKind="store"
             statusBadge={row.statusBadge}

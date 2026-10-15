@@ -9,6 +9,10 @@ export const communityMessengerUiMessages = {
     cm_ui_jump_latest_unread_aria: "최신으로 이동, 읽지 않은 메시지 {count}개",
     cm_ui_timeline_load_failed: "대화 내용을 불러오지 못했습니다.",
     cm_ui_timeline_retry: "다시 불러오기",
+    cm_ui_send_failed_label: "전송 실패",
+    cm_ui_send_failed_retry: "재전송",
+    cm_ui_send_failed_discard: "삭제",
+    cm_ui_send_partial_summary: "{sent}개 전송, {failed}개 실패했습니다.",
     cm_ui_notifications_pending_friend_requests: "알림 · 친구 요청 대기 {count}건",
     cm_ui_call_type_missed_outgoing: "부재중 · 발신",
     cm_ui_call_type_missed_incoming: "부재중 · 수신",
@@ -65,8 +69,12 @@ export const communityMessengerUiMessages = {
     cm_call_status_missed: "부재중",
     cm_call_status_no_answer: "응답 없음",
     cm_call_status_rejected: "거절",
-    cm_call_status_cancelled: "취소",
+    cm_call_status_cancelled: "취소됨",
     cm_call_status_failed: "실패",
+    cm_call_status_rejected_by_me: "거절함",
+    cm_call_status_rejected_by_peer: "거절됨",
+    cm_ui_call_log_kind_voice: "음성 통화",
+    cm_ui_call_log_kind_video: "영상 통화",
     cm_call_direction_outgoing: "발신",
     cm_call_direction_incoming: "수신",
     cm_friend_section_favorites: "즐겨찾기",
@@ -103,6 +111,42 @@ export const communityMessengerUiMessages = {
     cm_ui_attach_recent_empty: "최근 사진이 없습니다. 사진에서 선택하세요.",
     cm_ui_attach_photo_permission_hint: "사진 접근 권한을 허용하면 최근 사진을 바로 선택할 수 있습니다.",
     cm_ui_attach_photo_partial_failed: "사진 {count}장을 불러오지 못했습니다.",
+
+    cm_ui_photo_save: "저장",
+
+    cm_ui_photo_save_all: "모두 저장 ({count})",
+
+    cm_ui_photo_save_menu: "사진 저장",
+
+    cm_ui_photo_save_all_menu: "사진 모두 저장 ({count}장)",
+
+    cm_ui_photo_saving: "저장 중…",
+
+    cm_ui_photo_save_one_by_one: "사진 하나씩 저장",
+
+    cm_ui_photo_save_index: "{index}번째 사진 저장",
+
+    cm_ui_photo_saved: "사진을 저장했습니다.",
+
+    cm_ui_photo_saved_count: "사진 {count}장을 저장했습니다.",
+
+    cm_ui_photo_save_partial: "사진 {saved}장 저장, {failed}장 실패했습니다.",
+
+    cm_ui_photo_save_failed: "사진을 저장하지 못했습니다.",
+
+    cm_ui_photo_save_permission_denied: "사진 저장 권한이 없습니다. 설정에서 사진 접근을 허용해 주세요.",
+
+    cm_ui_photo_save_unsupported: "이 앱 버전에서는 사진 저장을 지원하지 않습니다. 앱을 업데이트해 주세요.",
+
+    cm_ui_photo_save_cancelled: "사진 저장을 취소했습니다.",
+
+    cm_ui_photo_auto_saved_count: "받은 사진 {count}장을 자동 저장했습니다.",
+
+    cm_ui_send_as_album: "묶어 보내기",
+
+    cm_ui_send_as_album_hint_on: "{count}장을 한 번에 묶어 보냅니다",
+
+    cm_ui_send_as_album_hint_off: "{count}장을 한 장씩 따로 보냅니다",
     cm_ui_attach_send_file: "파일 보내기",
     cm_ui_file: "파일",
     cm_ui_link: "링크",
@@ -372,7 +416,7 @@ export const communityMessengerUiMessages = {
     cm_ui_check_info_before_join: "입장 전 정보 확인",
     cm_ui_check_meeting_info_before_join: "모임 채팅도 입장 전 정보를 먼저 확인",
     cm_ui_media_auto_save: "미디어 자동 저장",
-    cm_ui_open_files_images_with_save_focus: "파일·이미지 링크를 저장 중심으로 열기",
+    cm_ui_open_files_images_with_save_focus: "받은 사진을 사진첩에 자동 저장하고, 파일은 저장 중심으로 열기",
     cm_ui_link_preview: "링크 미리보기",
     cm_ui_show_link_chip_in_chat: "대화에서 링크 칩 표시",
     cm_ui_chat_backup: "대화 백업",
@@ -1084,6 +1128,10 @@ export const communityMessengerUiMessages = {
     cm_ui_jump_latest_unread_aria: "Jump to latest, {count} unread",
     cm_ui_timeline_load_failed: "Could not load this conversation.",
     cm_ui_timeline_retry: "Try again",
+    cm_ui_send_failed_label: "Not sent",
+    cm_ui_send_failed_retry: "Retry",
+    cm_ui_send_failed_discard: "Delete",
+    cm_ui_send_partial_summary: "Sent {sent}, {failed} failed.",
     cm_ui_notifications_pending_friend_requests: "Notifications · {count} pending friend requests",
     cm_ui_call_type_missed_outgoing: "Missed · outgoing",
     cm_ui_call_type_missed_incoming: "Missed · incoming",
@@ -1142,6 +1190,10 @@ export const communityMessengerUiMessages = {
     cm_call_status_rejected: "Declined",
     cm_call_status_cancelled: "Canceled",
     cm_call_status_failed: "Failed",
+    cm_call_status_rejected_by_me: "You declined",
+    cm_call_status_rejected_by_peer: "Declined",
+    cm_ui_call_log_kind_voice: "Voice call",
+    cm_ui_call_log_kind_video: "Video call",
     cm_call_direction_outgoing: "Outgoing",
     cm_call_direction_incoming: "Incoming",
     cm_friend_section_favorites: "Favorites",
@@ -1179,6 +1231,42 @@ export const communityMessengerUiMessages = {
     cm_ui_attach_recent_empty: "No recent photos. Choose from Photos.",
     cm_ui_attach_photo_permission_hint: "Allow photo access to select recent photos directly.",
     cm_ui_attach_photo_partial_failed: "Couldn't load {count} photo(s).",
+
+    cm_ui_photo_save: "Save",
+
+    cm_ui_photo_save_all: "Save all ({count})",
+
+    cm_ui_photo_save_menu: "Save photo",
+
+    cm_ui_photo_save_all_menu: "Save all photos ({count})",
+
+    cm_ui_photo_saving: "Saving…",
+
+    cm_ui_photo_save_one_by_one: "Save photos individually",
+
+    cm_ui_photo_save_index: "Save photo {index}",
+
+    cm_ui_photo_saved: "Photo saved.",
+
+    cm_ui_photo_saved_count: "Saved {count} photos.",
+
+    cm_ui_photo_save_partial: "Saved {saved} photo(s), {failed} failed.",
+
+    cm_ui_photo_save_failed: "Couldn't save the photo.",
+
+    cm_ui_photo_save_permission_denied: "No permission to save photos. Allow photo access in Settings.",
+
+    cm_ui_photo_save_unsupported: "This app version can't save photos. Please update the app.",
+
+    cm_ui_photo_save_cancelled: "Photo save cancelled.",
+
+    cm_ui_photo_auto_saved_count: "Auto-saved {count} received photo(s).",
+
+    cm_ui_send_as_album: "Send as album",
+
+    cm_ui_send_as_album_hint_on: "Send {count} photos together",
+
+    cm_ui_send_as_album_hint_off: "Send {count} photos one by one",
     cm_ui_attach_send_file: "Send file",
     cm_ui_file: "File",
     cm_ui_link: "Link",
@@ -1457,8 +1545,7 @@ export const communityMessengerUiMessages = {
     cm_ui_check_meeting_info_before_join:
       "Check info first before entering meeting chats as well.",
     cm_ui_media_auto_save: "Media auto-save",
-    cm_ui_open_files_images_with_save_focus:
-      "Open files/image links with save-focused behavior",
+    cm_ui_open_files_images_with_save_focus: "Auto-save received photos to your gallery and open files for saving",
     cm_ui_link_preview: "Link preview",
     cm_ui_show_link_chip_in_chat: "Show link chips in conversation",
     cm_ui_chat_backup: "Chat backup",

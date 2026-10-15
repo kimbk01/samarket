@@ -1,23 +1,28 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { buildMessengerImageVariantBuffers } from "@/lib/community-messenger/messenger-image-variants";
-import { sendCommunityMessengerImageMessage } from "@/lib/community-messenger/service";
-import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
-import type { CommunityMessengerImageSendItem } from "@/lib/community-messenger/types";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
-import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
-import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
+import {
+  collectMessengerStagedImages,
+  removeMessengerStagedObjects,
+  sendMessengerImageUploadBatch,
+} from "@/lib/community-messenger/server/messenger-media-upload-send";
+import type { MessengerImageUploadInput } from "@/lib/community-messenger/server/messenger-image-upload-process";
+import {
+  MESSENGER_IMAGE_UPLOAD_ALLOWED_MIMES,
+  MESSENGER_IMAGE_UPLOAD_MAX_BYTES,
+  MESSENGER_IMAGE_UPLOAD_MAX_FILES,
+  parseMessengerStagedPath,
+} from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_FILES = 10;
+const MAX_BYTES = MESSENGER_IMAGE_UPLOAD_MAX_BYTES;
+const ALLOWED = MESSENGER_IMAGE_UPLOAD_ALLOWED_MIMES;
+const MAX_FILES = MESSENGER_IMAGE_UPLOAD_MAX_FILES;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   const auth = await requireAuthenticatedUserId();
@@ -44,6 +49,51 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     sb = getSupabaseServer();
   } catch {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
+  }
+
+  const contentType = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (contentType.includes("application/json")) {
+    /*
+     * D-3 staged direct upload: `images/upload-urls` 로 받은 서명 URL 로 Storage 에 직접 PUT 한 staging 경로들.
+     * 서버가 내려받아(즉시 staging 삭제) multipart 와 **같은** 가공·전송 파이프라인을 실행한다 — 앨범은 1메시지.
+     */
+    const body = (await req.json().catch(() => null)) as { stagedPaths?: unknown; clientMessageId?: unknown } | null;
+    if (!body) {
+      return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    const sendGuard = await assertMessengerRoomSendAllowed({
+      supabase: sb,
+      userId: auth.userId,
+      roomId: canonicalRoomId,
+    });
+    if (!sendGuard.ok) {
+      // 송신 불가 — 본인·이 방 staging 만 정리하고 거부.
+      const raw = Array.isArray(body.stagedPaths) ? body.stagedPaths : [];
+      const own = raw.flatMap((p) => {
+        const parsed = parseMessengerStagedPath({ kind: "image", userId: auth.userId, roomId: canonicalRoomId, path: p });
+        return parsed.ok ? [parsed.path] : [];
+      });
+      await removeMessengerStagedObjects(sb, own);
+      return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
+    }
+    const collected = await collectMessengerStagedImages({
+      sb,
+      userId: auth.userId,
+      roomId: canonicalRoomId,
+      stagedPaths: body.stagedPaths,
+    });
+    if (!collected.ok) {
+      return NextResponse.json({ ok: false, error: collected.error }, { status: collected.status });
+    }
+    const staged = await sendMessengerImageUploadBatch({
+      sb,
+      userId: auth.userId,
+      canonicalRoomId,
+      rawRouteRoomId: canon.rawRouteRoomId,
+      images: collected.images,
+      clientMessageId: typeof body.clientMessageId === "string" ? body.clientMessageId.trim() || null : null,
+    });
+    return NextResponse.json(staged.body, { status: staged.status });
   }
 
   let form: FormData;
@@ -84,115 +134,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     return NextResponse.json({ ok: false, error: sendGuard.error }, { status: 400 });
   }
 
-  const bucket = sb.storage.from("post-images");
-  const baseDir = `${auth.userId}/community/messenger-image/${canonicalRoomId}`;
-  const uploaded: CommunityMessengerImageSendItem[] = [];
-  // IMG-02: 올린 저장소 경로를 모아 두었다가 실패·거절 시 purge 로 고아 정리.
-  const uploadedStoragePaths: string[] = [];
-
+  const images: MessengerImageUploadInput[] = [];
   for (const file of allFiles) {
-    const mimeType = (file.type || "").toLowerCase().trim();
-    const buf = Buffer.from(await file.arrayBuffer());
-    const variants = await buildMessengerImageVariantBuffers({ buf, mimeType });
-    if (variants.kind === "rejected") {
-      // SEC-09: sharp 가 원본을 소독하지 못함 → raw 저장 금지, 거부.
-      // IMG-02: 앞선 파일(1..k-1)은 이미 올라갔으므로 고아 정리 후 거부.
-      await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
-      return NextResponse.json({ ok: false, error: "unsupported_image" }, { status: 400 });
-    }
-    const id = randomUUID();
-    // SEC-09: 저장 형식·확장자는 소독된 원본의 정규 content-type 을 따른다.
-    const outMime = variants.kind === "triple" ? variants.originalContentType : variants.originalMime;
-    const origExt =
-      outMime === "image/png" ? "png" : outMime === "image/webp" ? "webp" : outMime === "image/gif" ? "gif" : "jpg";
-    const originalPath = `${baseDir}/${id}.${origExt}`;
-
-    const uploadBinary = async (path: string, body: Buffer, contentType: string) => {
-      const { error } = await bucket.upload(path, body, { contentType, upsert: false });
-      if (error) throw new Error(error.message ?? "upload_failed");
-      uploadedStoragePaths.push(path);
-    };
-
-    try {
-      if (variants.kind === "triple") {
-        const thumbPath = `${baseDir}/${id}.thumb.webp`;
-        const previewPath = `${baseDir}/${id}.preview.webp`;
-        await uploadBinary(originalPath, variants.original, variants.originalContentType);
-        await uploadBinary(thumbPath, variants.thumb, "image/webp");
-        await uploadBinary(previewPath, variants.preview, "image/webp");
-        const {
-          data: { publicUrl: originalPublicUrl },
-        } = bucket.getPublicUrl(originalPath);
-        const {
-          data: { publicUrl: chatPublicUrl },
-        } = bucket.getPublicUrl(thumbPath);
-        const {
-          data: { publicUrl: previewPublicUrl },
-        } = bucket.getPublicUrl(previewPath);
-        uploaded.push({
-          chatPublicUrl,
-          previewPublicUrl,
-          originalPublicUrl,
-          originalStoragePath: originalPath,
-          originalMimeType: variants.originalContentType,
-        });
-      } else {
-        await uploadBinary(originalPath, variants.original, variants.originalMime);
-        const {
-          data: { publicUrl },
-        } = bucket.getPublicUrl(originalPath);
-        uploaded.push({
-          chatPublicUrl: publicUrl,
-          previewPublicUrl: publicUrl,
-          originalPublicUrl: publicUrl,
-          originalStoragePath: originalPath,
-          originalMimeType: variants.originalMime,
-        });
-      }
-    } catch (e) {
-      // IMG-02: 업로드 중간 실패 → 지금까지 올린 파일 고아 정리.
-      await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
-      return NextResponse.json(
-        { ok: false, error: e instanceof Error ? e.message : "upload_failed" },
-        { status: 500 }
-      );
-    }
+    images.push({ buf: Buffer.from(await file.arrayBuffer()), mimeType: (file.type || "").toLowerCase().trim() });
   }
-
-  const result = await sendCommunityMessengerImageMessage({
+  const result = await sendMessengerImageUploadBatch({
+    sb,
     userId: auth.userId,
-    roomId: canonicalRoomId,
-    items: uploaded,
+    canonicalRoomId,
+    rawRouteRoomId: canon.rawRouteRoomId,
+    images,
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
-    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
-
-  if (!result.ok) {
-    // IMG-02: 전송 거절 → 올린 파일 고아 정리.
-    await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
-    return NextResponse.json(result, { status: 400 });
-  }
-
-  if (result.deduped) {
-    // CHAT-05 멱등 재전송: DB 행은 이전 업로드를 가리킨다 — 이번 요청 업로드분은 고아이므로 정리.
-    await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
-  }
-
-  if (result.ok) {
-    const bumpArgs = {
-      rawRouteRoomId: canon.rawRouteRoomId,
-      canonicalRoomId,
-      fromUserId: auth.userId,
-      messageId: result.message?.id,
-      messageCreatedAt: result.message?.createdAt,
-      messageForBump: result.message ?? null,
-    };
-    try {
-      await publishMessengerRoomBumpAfterMutation(bumpArgs);
-    } catch {
-      /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
-    }
-  }
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  return NextResponse.json(result.body, { status: result.status });
 }

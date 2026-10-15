@@ -67,6 +67,12 @@ function clearPresenceHeartbeatTimer() {
 }
 
 let lastPresenceHttpPostAt = 0;
+let lastPresenceHttpPostVisibility: "foreground" | "background" | null = null;
+/**
+ * 같은 가시성으로 이 간격 안에 다시 POST 하지 않는다 — SUBSCRIBED·focus·online 등 off-cadence 트리거가
+ * 12s 하트비트와 겹쳐 요청이 2배가 되지 않게 한다. 가시성 전환(foreground↔background)은 항상 즉시 전송.
+ */
+const PRESENCE_HTTP_MIN_GAP_MS = 5_000;
 
 function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippet: string; deltaMs: number; payloadNote?: string }) {
   if (!isDebugMessengerEnabled()) return;
@@ -135,10 +141,24 @@ function activeRoomIdFromPathname(): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
-function postPresenceHeartbeatHttp() {
+/**
+ * DB `last_ping_at`·`app_visibility` 하트비트 — Realtime 채널 구독 여부와 **무관하게** 보낸다
+ * (채널이 끊겨도 서버 presence·notification-presence-policy 가 stale 해지지 않도록).
+ * @returns 실제로 POST 를 보냈으면 true (최소 간격으로 생략되면 false)
+ */
+function postPresenceHeartbeatHttp(): boolean {
   const now = Date.now();
+  const appVisibility = currentDocumentVisible() ? "foreground" : "background";
+  if (
+    lastPresenceHttpPostAt > 0 &&
+    appVisibility === lastPresenceHttpPostVisibility &&
+    now - lastPresenceHttpPostAt < PRESENCE_HTTP_MIN_GAP_MS
+  ) {
+    return false;
+  }
   const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
   lastPresenceHttpPostAt = now;
+  lastPresenceHttpPostVisibility = appVisibility;
   if (deltaMs >= 0 && deltaMs < 90) {
     if (isDebugMessengerEnabled()) {
       try {
@@ -156,8 +176,8 @@ function postPresenceHeartbeatHttp() {
   const payload = {
     lastPingAt: nowIso(),
     lastActivityAt: new Date(lastActivityMs).toISOString(),
-    appVisibility: currentDocumentVisible() ? "foreground" : "background",
-    activeRoomId: currentDocumentVisible() ? activeRoomIdFromPathname() : null,
+    appVisibility,
+    activeRoomId: appVisibility === "foreground" ? activeRoomIdFromPathname() : null,
   } as const;
   const bodyObj = payload as unknown as Record<string, unknown>;
   // NEW-22: 백그라운드 전환 신호는 페이지 freeze/hide 에도 살아남도록 keepalive 로 보낸다
@@ -184,7 +204,7 @@ function postPresenceHeartbeatHttp() {
 
   if (!isDevSafeMode() || isTerminalPresencePostBody(bodyObj)) {
     void postOnce().catch(() => {});
-    return;
+    return true;
   }
 
   const surface = payload.appVisibility === "foreground" ? "heartbeat-fg" : "heartbeat-bg";
@@ -192,6 +212,7 @@ function postPresenceHeartbeatHttp() {
   void runDevSafeSingleFlight(dedupeKey, 90_000, () => postOnce(), {
     onlyCacheIf: (ok) => ok === true,
   }).catch(() => {});
+  return true;
 }
 
 function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {
@@ -249,10 +270,14 @@ function ensurePresenceRuntime(userId: string) {
   lastActivityMs = Date.now();
   lastActivityThrottleAt = 0;
   channelSubscribed = false;
+  lastPresenceHttpPostAt = 0;
+  lastPresenceHttpPostVisibility = null;
   const store = useMessengerPresenceStore;
   let activeChannel: RealtimeChannel | null = null;
 
   const syncOwnState = async () => {
+    /** HTTP 하트비트는 채널과 독립 — Realtime 이 끊겨도 DB ping·background 신호 유지 */
+    postPresenceHeartbeatHttp();
     if (!channelSubscribed || !activeChannel) return;
     const state = deriveLivePresenceFromSignals({
       nowMs: Date.now(),
@@ -274,19 +299,21 @@ function ensurePresenceRuntime(userId: string) {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-    postPresenceHeartbeatHttp();
   };
 
+  /** 마지막 HTTP POST 기준 HEARTBEAT_MS 주기 — off-cadence 전송이 있어도 간격이 12s 를 넘지 않게 앵커링 */
   const scheduleHeartbeat = () => {
     clearPresenceHeartbeatTimer();
     if (!currentDocumentVisible()) return;
+    const sinceLastPost = lastPresenceHttpPostAt > 0 ? Date.now() - lastPresenceHttpPostAt : 0;
+    const delayMs = Math.min(HEARTBEAT_MS, Math.max(0, HEARTBEAT_MS - sinceLastPost));
     presenceHeartbeatTimer = setTimeout(() => {
       presenceHeartbeatTimer = null;
       if (!currentDocumentVisible()) return;
       void syncOwnState().finally(() => {
         scheduleHeartbeat();
       });
-    }, HEARTBEAT_MS);
+    }, delayMs);
   };
 
   const onSync = () => {
@@ -324,11 +351,11 @@ function ensurePresenceRuntime(userId: string) {
     onStatus: (status) => {
       channelSubscribed = status === "SUBSCRIBED";
       if (channelSubscribed) {
+        // 즉시 track — HTTP 는 최소 간격 안이면 생략되어 이중 전송 없음
         void syncOwnState();
-        scheduleHeartbeat();
-      } else {
-        clearPresenceHeartbeatTimer();
       }
+      // 채널 상태와 무관하게 HTTP 하트비트 주기 유지 (끊김 시 타이머를 멈추지 않는다)
+      scheduleHeartbeat();
     },
     build: (channel) => {
       /**
@@ -336,7 +363,6 @@ function ensurePresenceRuntime(userId: string) {
        * 새 채널은 아직 join 이전 상태이므로 즉시 track/untrack를 막는다.
        */
       channelSubscribed = false;
-      clearPresenceHeartbeatTimer();
       activeChannel = channel;
       return channel.on("presence", { event: "sync" }, () => {
         markRealtimeSignal();
@@ -349,11 +375,12 @@ function ensurePresenceRuntime(userId: string) {
   const onVisibility = () => {
     if (currentDocumentVisible()) {
       lastActivityMs = Date.now();
+      void syncOwnState();
       scheduleHeartbeat();
     } else {
       clearPresenceHeartbeatTimer();
+      void syncOwnState();
     }
-    void syncOwnState();
   };
   const onPageHide = () => {
     const lastSeenAt = nowIso();
@@ -377,6 +404,10 @@ function ensurePresenceRuntime(userId: string) {
   document.addEventListener("pointerdown", onActivity, { capture: true, passive: true });
   document.addEventListener("keydown", onActivity);
   window.addEventListener("scroll", onActivity, { passive: true });
+
+  /** 첫 HTTP 하트비트 — Realtime SUBSCRIBED 를 기다리지 않는다 */
+  void syncOwnState();
+  scheduleHeartbeat();
 
   presenceCleanup = () => {
     channelSubscribed = false;

@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { toggleCommunityMessengerFavoriteFriend } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,5 +30,7 @@ export async function POST(
 
   const { friendUserId } = await params;
   const result = await toggleCommunityMessengerFavoriteFriend(auth.userId, friendUserId);
+  /** lite social 캐시(hiddenIds·favoriteFriendIds) 즉시 무효화 — 다음 lite/full 이 stale 목록을 내지 않게 */
+  if (result.ok) invalidateBootstrapLiteSocialDeferredForPair(auth.userId, null);
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

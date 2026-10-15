@@ -3,20 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
+import { getRoomPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
-type MessengerRoomSummary = {
-  id: string;
-  title: string;
-  summary: string;
-  unreadCount: number;
-  lastMessage: string;
-  lastMessageAt: string;
-  memberCount: number;
-};
+type MessengerRoomSummary = CommunityMessengerRoomSummary;
 
 type MessengerBootstrapPayload = {
   ok?: boolean;
+  me?: { id?: string | null } | null;
   tabs?: Record<string, number>;
   chats?: MessengerRoomSummary[];
   groups?: MessengerRoomSummary[];
@@ -30,6 +26,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
   const [tabs, setTabs] = useState<Record<string, number>>({});
   const [chats, setChats] = useState<MessengerRoomSummary[]>([]);
   const [groups, setGroups] = useState<MessengerRoomSummary[]>([]);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +39,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
           setError(t("mypage_comp_messenger_load_failed"));
           return;
         }
+        setViewerUserId(json.me?.id?.trim() || getSyncViewerUserIdForClient() || null);
         setTabs(json.tabs ?? {});
         setChats(Array.isArray(json.chats) ? json.chats : []);
         setGroups(Array.isArray(json.groups) ? json.groups : []);
@@ -101,7 +99,8 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-medium text-sam-fg">{room.title}</p>
                     <p className="mt-1 line-clamp-2 sam-text-helper text-sam-muted">
-                      {room.lastMessage || room.summary || t("mypage_comp_messenger_no_message")}
+                      {/* 홈 리스트와 동일 포맷터 — 스티커·상품권·통화 토큰·contextMeta JSON 원문 노출 금지 */}
+                      {getRoomPreviewText(room, viewerUserId) || t("mypage_comp_messenger_no_message")}
                     </p>
                     <p className="mt-1 sam-text-xxs text-sam-meta">
                       {[

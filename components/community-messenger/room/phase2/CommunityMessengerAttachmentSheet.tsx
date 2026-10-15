@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  readMessengerSendAsAlbumPreference,
+  writeMessengerSendAsAlbumPreference,
+} from "@/lib/community-messenger/attachment/messenger-send-as-album-preference";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   useCallback,
@@ -47,7 +51,11 @@ export type CommunityMessengerAttachmentSheetProps = {
   peerUserId: string;
   peerIsFriend: boolean;
   onDismiss: () => void;
-  onSendImages: (files: File[], previewUrls: string[]) => Promise<void> | void;
+  /**
+   * `individually` — '묶어 보내기' OFF: 컨트롤러가 한 장씩 별도 메시지로 보내며 한 장 실패가 나머지를
+   * 막지 않고 끝에 요약을 알린다(C-3, 루프 단일 구현은 컨트롤러).
+   */
+  onSendImages: (files: File[], previewUrls: string[], opts?: { individually?: boolean }) => Promise<void> | void;
   onOpenGift: () => void;
   onGiftFriendRequired: () => void;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -98,6 +106,15 @@ export function CommunityMessengerAttachmentSheet({
     useState<MessengerPhotoLibraryPermissionState>("unavailable");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  /** 여러 장 선택 시 묶어 보내기(앨범 1건) / 한 장씩 따로 보내기 — 마지막 선택을 기기에 기억 */
+  const [sendAsAlbum, setSendAsAlbum] = useState<boolean>(() => readMessengerSendAsAlbumPreference());
+  const toggleSendAsAlbum = useCallback(() => {
+    setSendAsAlbum((prev) => {
+      const next = !prev;
+      writeMessengerSendAsAlbumPreference(next);
+      return next;
+    });
+  }, []);
   const selectedIdsRef = useRef<string[]>([]);
   selectedIdsRef.current = selectedIds;
 
@@ -265,14 +282,19 @@ export function CommunityMessengerAttachmentSheet({
       return;
     }
     try {
-      await onSendImages(files, previewUrls);
+      if (sendAsAlbum || files.length === 1) {
+        await onSendImages(files, previewUrls);
+      } else {
+        /** 개별 전송 — 선택 순서대로 한 장씩 별도 메시지(각자 clientMessageId). 실패해도 나머지 계속. */
+        await onSendImages(files, previewUrls, { individually: true });
+      }
       setSelectedIds([]);
       onDismiss();
     } finally {
       sendingLockRef.current = false;
       setSending(false);
     }
-  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, selectedIds, stripItems, uploadBlocked]);
+  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, selectedIds, sendAsAlbum, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -389,6 +411,38 @@ export function CommunityMessengerAttachmentSheet({
           {t("common_send")}
         </button>
       </div>
+
+      {selectedIds.length > 1 ? (
+        <div className="flex items-center justify-between gap-3 px-4 pb-2">
+          <span className="min-w-0 text-[13px] text-[#6B7280]">
+            {sendAsAlbum
+              ? t("cm_ui_send_as_album_hint_on", { count: selectedIds.length })
+              : t("cm_ui_send_as_album_hint_off", { count: selectedIds.length })}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={sendAsAlbum}
+            onClick={toggleSendAsAlbum}
+            disabled={sending}
+            className="flex shrink-0 items-center gap-2 text-[14px] font-medium text-[#191919] disabled:opacity-50"
+          >
+            {t("cm_ui_send_as_album")}
+            <span
+              className={`relative inline-block h-6 w-10 rounded-full transition-colors ${
+                sendAsAlbum ? "bg-[color:var(--sam-brand,#085C3F)]" : "bg-[#D1D5DB]"
+              }`}
+              aria-hidden
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  sendAsAlbum ? "translate-x-[18px]" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       <div className="px-4 pb-3">
         <div className="-mx-1 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

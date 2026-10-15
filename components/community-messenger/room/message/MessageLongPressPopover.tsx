@@ -23,6 +23,14 @@ import {
 } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { MessageActionMenu } from "@/components/community-messenger/room/message/MessageActionMenu";
 import { MessageReactionBar } from "@/components/community-messenger/room/message/MessageReactionBar";
+import {
+  messengerImageOriginalUrls,
+  messengerImageSaveNotice,
+  resolveMessengerImageSaveMode,
+  saveMessengerImages,
+  type MessengerImageSaveMode,
+} from "@/lib/community-messenger/attachment/messenger-image-save";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 type Item = CommunityMessengerMessage & { pending?: boolean };
 
@@ -55,6 +63,52 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
   const [shareExpanded, setShareExpanded] = useState(false);
+  /** 사진 저장 — 개별(앨범은 하나씩 펼침)·모두 저장. 저장 미지원 바이너리는 행을 숨긴다. */
+  const photoUrls = item.pending ? [] : messengerImageOriginalUrls(item);
+  const [photoSaveMode, setPhotoSaveMode] = useState<MessengerImageSaveMode>("none");
+  const [photoListExpanded, setPhotoListExpanded] = useState(false);
+  const hasPhotos = photoUrls.length > 0;
+  useEffect(() => {
+    if (!hasPhotos) return;
+    let cancelled = false;
+    void resolveMessengerImageSaveMode().then((mode) => {
+      if (!cancelled) setPhotoSaveMode(mode);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPhotos]);
+  const savePhotos = (urls: string[]) => {
+    onClose();
+    void saveMessengerImages(urls).then((outcome) => {
+      const notice = messengerImageSaveNotice(outcome);
+      showMessengerSnackbar(t(notice.key, notice.params), { variant: notice.variant });
+    });
+  };
+  const photoSaveRows =
+    photoSaveMode === "none" || !hasPhotos
+      ? undefined
+      : photoUrls.length === 1
+        ? [{ key: "photo-save", label: t("cm_ui_photo_save_menu"), onClick: () => savePhotos(photoUrls) }]
+        : [
+            {
+              key: "photo-save-all",
+              label: t("cm_ui_photo_save_all_menu", { count: photoUrls.length }),
+              onClick: () => savePhotos(photoUrls),
+            },
+            {
+              key: "photo-save-each",
+              label: `${t("cm_ui_photo_save_one_by_one")} ${photoListExpanded ? "▾" : "▸"}`,
+              onClick: () => setPhotoListExpanded((v) => !v),
+            },
+            ...(photoListExpanded
+              ? photoUrls.map((url, i) => ({
+                  key: `photo-save-${i}`,
+                  label: `· ${t("cm_ui_photo_save_index", { index: i + 1 })}`,
+                  onClick: () => savePhotos([url]),
+                }))
+              : []),
+          ];
   /**
    * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
    * backdrop에 전달되어 팝오버가 즉시 닫히는 현상을 막는다.
@@ -297,6 +351,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           deleteForMe={deleteForMe}
           deleteForEveryone={deleteForEveryone}
           deleteVoiceHard={deleteVoiceHard}
+          photoSaveRows={photoSaveRows}
           pin={
             props.showPin && props.onPin
               ? {

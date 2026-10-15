@@ -3,6 +3,7 @@
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
+import { computeCallLogDisplayType, isCallLogMissedDisplayType } from "@/lib/community-messenger/call-log-row-copy";
 import {
   memo,
   useCallback,
@@ -69,6 +70,12 @@ import {
   resetMessengerAppShellFastPathClock,
 } from "@/lib/community-messenger/app-shell-fast-path-log";
 import { commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import {
+  applyLocalBlockStatePatch,
+  applyLocalFriendRemovedPatch,
+  resolveMessengerBlockToggleIntent,
+} from "@/lib/community-messenger/home/messenger-home-social-local-patch";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import {
@@ -277,6 +284,9 @@ type CommunityMessengerHomePropsMemoDiffEntry = {
   /** primitive 값 자체가 다름 */
   valueChange: boolean;
 };
+
+/** `hidden`/`blocked` unknown(undefined) 시 props 용 안정 참조 */
+const EMPTY_PRIVACY_PROFILES: CommunityMessengerProfileLite[] = [];
 
 function bootstrapPropsMemoRefLabel(value: CommunityMessengerBootstrap | null | undefined): string | null {
   if (value == null) return null;
@@ -628,6 +638,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
+    hydrateMessengerPrivacyLists,
     shadowDispatch,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   const dataRef = useRef(data);
@@ -734,6 +745,20 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const friendsPrivacySheetOpen = activeOverlay === "friends-privacy";
   const settingsSheetOpen = activeOverlay === "settings";
   const publicGroupFindOpen = activeOverlay === "public-group-find";
+  /**
+   * 숨김·차단 목록을 보여주는 화면(개인정보 시트·설정 시트·보관함 숨김/차단 섹션) 진입 시 SSOT hydrate.
+   * lite/critical 은 이 목록을 unknown 으로 둘 수 있으므로 표시 직전에만 on-demand 로 채운다(첫 페인트 경로 무관).
+   */
+  const privacyListsSurfaceOpen =
+    friendsPrivacySheetOpen ||
+    settingsSheetOpen ||
+    selectedArchiveSection === "hidden_friends" ||
+    selectedArchiveSection === "blocked_friends";
+  const privacyListsSurfaceMeId = data?.me?.id ?? null;
+  useEffect(() => {
+    if (!privacyListsSurfaceOpen || !privacyListsSurfaceMeId) return;
+    void hydrateMessengerPrivacyLists();
+  }, [hydrateMessengerPrivacyLists, privacyListsSurfaceMeId, privacyListsSurfaceOpen]);
 
   const openHomeOverlay = useCallback((overlay: CommunityMessengerHomeOverlayKind) => {
     setActiveOverlay((current) => (current === overlay ? current : overlay));
@@ -1376,21 +1401,19 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [hydrateMessengerFriends, navigateGeneralFriendRoom, t]
   );
 
-  const resolvePeerBlockedState = useCallback(
-    (targetUserId: string): boolean => {
-      const fromSearch = searchResults.find((p) => p.id === targetUserId);
-      if (fromSearch) return fromSearch.isBlockedByMe || fromSearch.isBlockedByPeer;
-      const pools = [
-        ...(data?.friends ?? []),
-        ...(data?.hidden ?? []),
-        ...(data?.blocked ?? []),
-        ...(data?.following ?? []),
-      ];
-      const hit = pools.find((p) => p.id === targetUserId);
-      if (hit) return Boolean(hit.blocked);
-      if (friendSheet?.profile.id === targetUserId) return Boolean(friendSheet.profile.blocked);
-      return false;
-    },
+  /**
+   * 차단 토글 DELETE 여부 — **내가 차단했는지(by-me)** 만. 상대가 나를 차단(isBlockedByPeer)한 경우
+   * DELETE 로 보내면 "해제" 스낵바만 뜨고 나는 상대를 차단할 수 없었다 (A-2).
+   */
+  const resolvePeerBlockedByMe = useCallback(
+    (targetUserId: string): boolean =>
+      resolveMessengerBlockToggleIntent({
+        targetUserId,
+        searchHit: searchResults.find((p) => p.id === targetUserId) ?? null,
+        blockedByMe: data?.blocked ?? null,
+        pools: [data?.friends, data?.hidden, data?.following],
+        sheetProfile: friendSheet?.profile ?? null,
+      }) === "unblock",
     [data?.blocked, data?.following, data?.friends, data?.hidden, friendSheet, searchResults]
   );
 
@@ -1416,9 +1439,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             return {
               ...prev,
               friends: patchList(prev.friends),
-              hidden: patchList(prev.hidden),
+              hidden: prev.hidden === undefined ? undefined : patchList(prev.hidden),
               following: patchList(prev.following),
-              blocked: patchList(prev.blocked),
+              blocked: prev.blocked === undefined ? undefined : patchList(prev.blocked),
             };
           });
           setSearchResults((prev) =>
@@ -1462,7 +1485,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           ? currentHiddenHint
           : Boolean(
               snapshot &&
-                (snapshot.hidden.some((profile) => profile.id === friendUserId) ||
+                ((snapshot.hidden ?? []).some((profile) => profile.id === friendUserId) ||
                   snapshot.friends.some(
                     (profile) => profile.id === friendUserId && profile.isHiddenFriend === true
                   ))
@@ -1482,22 +1505,27 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               list.map((profile) => (profile.id === friendUserId ? { ...profile, isHiddenFriend: nextHidden } : profile));
             const sourceProfile =
               prev.friends.find((profile) => profile.id === friendUserId) ??
-              prev.hidden.find((profile) => profile.id === friendUserId) ??
+              (prev.hidden ?? []).find((profile) => profile.id === friendUserId) ??
               null;
             const nextProfile = sourceProfile ? { ...sourceProfile, isHiddenFriend: nextHidden } : null;
             const nextFriendsBase = patchList(prev.friends).filter((profile) => profile.id !== friendUserId);
-            const nextHiddenBase = patchList(prev.hidden).filter((profile) => profile.id !== friendUserId);
+            const nextHiddenBase = patchList(prev.hidden ?? []).filter((profile) => profile.id !== friendUserId);
             const nextFriends = nextHidden ? nextFriendsBase : nextProfile ? [...nextFriendsBase, nextProfile] : nextFriendsBase;
             const nextHiddenList = nextHidden ? (nextProfile ? [...nextHiddenBase, nextProfile] : nextHiddenBase) : nextHiddenBase;
-            return {
+            const next: CommunityMessengerBootstrap = {
               ...prev,
               tabs: { ...prev.tabs, friends: nextFriends.length },
               friends: nextFriends,
               hidden: nextHiddenList,
               following: patchList(prev.following),
-              blocked: patchList(prev.blocked),
+              blocked: prev.blocked === undefined ? undefined : patchList(prev.blocked),
             };
+            /** 로컬 패치를 클라 부트스트랩 캐시에 반영 — 이후 refresh 의 stale seed 가 숨김을 되돌리지 않게 */
+            primeBootstrapCache(next);
+            return next;
           });
+          /** 서버 SSOT 로 숨김·차단 목록 정합 (로컬 패치 유지 후 authoritative replace) */
+          void hydrateMessengerPrivacyLists();
           setSearchResults((prev) =>
             prev.map((profile) => (profile.id === friendUserId ? { ...profile, isHiddenFriend: nextHidden } : profile))
           );
@@ -1511,14 +1539,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [setData]
+    [hydrateMessengerPrivacyLists, setData]
   );
 
   const toggleBlock = useCallback(
     async (targetUserId: string, options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }) => {
       setBusyId(`block:${targetUserId}`);
       try {
-        const isBlocked = resolvePeerBlockedState(targetUserId);
+        const isBlocked = resolvePeerBlockedByMe(targetUserId);
         const res = await fetch("/api/community-messenger/relations/block", {
           method: isBlocked ? "DELETE" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -1528,13 +1556,58 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               : { targetUserId, blockSource: options?.blockSource ?? "profile" }
           ),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; unblocked?: boolean };
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          unblocked?: boolean;
+          hiddenRoomIds?: unknown;
+        };
         if (res.ok && json.ok) {
           if (isBlocked) {
             showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
           }
-          /** Block changes room visibility — explicit non-silent reload (not silent tip rewrite). */
+          const nowBlocked = !isBlocked;
+          const searchHit = searchResults.find((p) => p.id === targetUserId);
+          const fallbackProfile: CommunityMessengerProfileLite | null =
+            friendSheet?.profile.id === targetUserId
+              ? friendSheet.profile
+              : searchHit
+                ? {
+                    id: searchHit.id,
+                    label: searchHit.displayName,
+                    avatarUrl: searchHit.avatarUrl,
+                    following: false,
+                    blocked: nowBlocked,
+                    isFriend: searchHit.isFriend,
+                    isFavoriteFriend: false,
+                  }
+                : null;
+          /** 1) 즉시 반영 — 서버 cleanup 과 동일하게 친구·숨김에서 제거 / blocked 목록 이동 */
+          setData((prev) => (prev ? applyLocalBlockStatePatch(prev, targetUserId, nowBlocked, fallbackProfile) : prev));
+          setSearchResults((prev) =>
+            prev.map((p) => (p.id === targetUserId ? { ...p, isBlockedByMe: nowBlocked } : p))
+          );
+          setFriendSheet((prev) =>
+            prev?.profile.id === targetUserId ? { ...prev, profile: { ...prev.profile, blocked: nowBlocked } } : prev
+          );
+          /** 차단으로 숨겨진 일반 1:1 방(general_direct 만 — 서버 hideDirectRoomsOnBlockForViewer) 즉시 제거 */
+          if (nowBlocked && Array.isArray(json.hiddenRoomIds)) {
+            for (const roomId of json.hiddenRoomIds) {
+              if (typeof roomId === "string" && roomId.trim()) {
+                commitHomeListPatch(setData, { kind: "remove_room", roomId: roomId.trim() }, "bootstrap", {
+                  primeCache: false,
+                });
+              }
+            }
+          }
+          /**
+           * 2) 클라 부트스트랩 캐시 무효화 — 5분 캐시(peekBootstrapCache)가 lite/refresh 를 단락해
+           *    차단 전 목록·방을 되살리지 않게 한다. 그 뒤 non-silent reload 가 서버에서 방 목록(해제 시 복원 방 포함)을 받는다.
+           */
+          clearBootstrapCache();
           void refresh(false);
+          /** 3) 숨김·차단 목록 SSOT hydrate (privacy_lists_replace) */
+          void hydrateMessengerPrivacyLists();
           void refreshFriendSearch(searchKeyword);
           return;
         }
@@ -1557,14 +1630,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       }
     },
     [
+      friendSheet,
       getMessengerActionErrorMessage,
+      hydrateMessengerPrivacyLists,
       messengerListPathname,
       refresh,
       refreshFriendSearch,
-      resolvePeerBlockedState,
+      resolvePeerBlockedByMe,
       router,
       searchKeyword,
+      searchResults,
       setAuthRequired,
+      setData,
       setPageError,
       t,
     ]
@@ -2283,7 +2360,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
     const missedCallItems: MessengerNotificationCenterItem[] = sortedCalls
-      .filter((call) => call.status === "missed")
+      /** 통화 탭과 동일 SSOT — 수신자 측 발신 취소는 부재중, 발신자의 미응답은 부재중 아님 */
+      .filter((call) =>
+        isCallLogMissedDisplayType(computeCallLogDisplayType(call.status, call.endedReason, call.isOutgoing))
+      )
       .map((call) => ({
         id: `missed:${call.id}`,
         kind: "missed_call",
@@ -2695,14 +2775,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         if (res.ok && json.ok) {
           setData((prev) => {
             if (!prev) return prev;
-            const nextFriends = prev.friends.filter((friend) => friend.id !== friendUserId);
-            const nextHidden = prev.hidden.filter((friend) => friend.id !== friendUserId);
-            return {
-              ...prev,
-              tabs: { ...prev.tabs, friends: nextFriends.length },
-              friends: nextFriends,
-              hidden: nextHidden,
-            };
+            const next = applyLocalFriendRemovedPatch(prev, friendUserId);
+            /**
+             * A-5: 클라 부트스트랩 캐시도 즉시 갱신 — 갱신하지 않으면 다음 refresh 의 stale seed 가
+             * never-shrink friends merge 로 삭제한 친구를 되살린다. (서버 lite social 캐시는 removeFriendSaved 에서 무효화)
+             */
+            primeBootstrapCache(next);
+            return next;
           });
           setSearchResults((prev) =>
             prev.map((user) =>
@@ -3295,8 +3374,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         <MessengerSettingsSheet
           onClose={() => closeHomeOverlay("settings")}
           busyId={busyId}
-          blocked={data.blocked}
-          hidden={data.hidden}
+          blocked={data.blocked ?? EMPTY_PRIVACY_PROFILES}
+          hidden={data.hidden ?? EMPTY_PRIVACY_PROFILES}
           favoriteManageFriends={favoriteManageFriends}
           favoriteCount={favoriteManageFriends.length}
           notificationSettings={notificationSettings}

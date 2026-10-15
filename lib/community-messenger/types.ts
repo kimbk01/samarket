@@ -655,8 +655,14 @@ export type CommunityMessengerBootstrap = {
   tabs: Record<CommunityMessengerTab, number>;
   friends: CommunityMessengerProfileLite[];
   following: CommunityMessengerProfileLite[];
-  hidden: CommunityMessengerProfileLite[];
-  blocked: CommunityMessengerProfileLite[];
+  /**
+   * 숨김 목록. `undefined` = unknown(이 페이로드가 목록을 모름 — critical·lite 부분 hydrate) →
+   * merge 는 기존 값을 유지한다. 배열(빈 배열 포함) = authoritative 전체 목록.
+   * @see `lib/community-messenger/home/bootstrap-privacy-lists-projection.ts`
+   */
+  hidden?: CommunityMessengerProfileLite[];
+  /** 내가 차단한 목록(by-me). `undefined` = unknown — `hidden` 과 동일 계약. */
+  blocked?: CommunityMessengerProfileLite[];
   requests: CommunityMessengerFriendRequest[];
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];

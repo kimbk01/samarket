@@ -1,5 +1,10 @@
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { computeCallLogDisplayType as computeCallLogDisplayTypeSsot } from "@/lib/community-messenger/call-history/call-log-display-type";
+import {
+  canRoleStartGroupCall,
+  GROUP_MEMBER_CALL_FORBIDDEN_API_ERROR,
+} from "@/lib/community-messenger/group/group-call-start-permission";
 import { randomUUID } from "crypto";
 import { after } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -100,11 +105,14 @@ import {
   storeBootstrapLiteRoomsPayload,
 } from "@/lib/community-messenger/bootstrap-lite-rooms-payload-cache";
 import {
+  invalidateBootstrapLiteSocialDeferredForPair,
   peekBootstrapLiteSocialDeferred,
+  peekBootstrapLiteSocialDeferredGeneration,
   scheduleBootstrapLiteSocialGraphBackgroundHydration,
-  storeBootstrapLiteSocialDeferred,
+  storeBootstrapLiteSocialDeferredIfCurrent,
   type BootstrapLiteSocialDeferredSnapshot,
 } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
+import { projectBootstrapPrivacyListOrUnknown } from "@/lib/community-messenger/home/bootstrap-privacy-lists-projection";
 import {
   peekHomeSyncCriticalRoomsCache,
   setHomeSyncCriticalRoomsCache,
@@ -4359,17 +4367,8 @@ function computeCommunityMessengerCallLogDisplayType(
   endedReason: string | null | undefined,
   isOutgoing: boolean
 ): CommunityMessengerCallLogDisplayType {
-  const er = trimText(endedReason ?? "") || null;
-  if (status === "missed") return isOutgoing ? "missed_outgoing" : "missed_incoming";
-  if (status === "rejected") return "rejected";
-  if (status === "cancelled") return "cancelled";
-  if (status === "dialing") return "outgoing";
-  if (status === "incoming") return "incoming";
-  if (status === "ended") {
-    if (er && er.startsWith("failed_")) return "failed";
-    return isOutgoing ? "outgoing" : "incoming";
-  }
-  return isOutgoing ? "outgoing" : "incoming";
+  /** viewer 관점 SSOT — 클라이언트 presenter 와 동일 (`call-history/call-log-display-type`) */
+  return computeCallLogDisplayTypeSsot(status, endedReason, isOutgoing);
 }
 
 function enrichDevCallLogRowWithSession(row: DevCall): DevCall {
@@ -6003,6 +6002,8 @@ export async function getCommunityMessengerBootstrap(
     diagnostics.bootstrapLiteProfilesFetchMs = 0;
   }
   const tBootstrapMonolith0 = performance.now();
+  /** full social fetch 시작 전 세대 — 그 사이 관계 쓰기(invalidate)가 있으면 stale snapshot store 생략 */
+  const socialDeferredGenerationAtStart = peekBootstrapLiteSocialDeferredGeneration(userId);
   const myPayloadPromise = (async () => {
     const tRooms = performance.now();
     if (isMinimalLiteBootstrap && !options?.bypassLiteRoomsCache) {
@@ -6122,6 +6123,8 @@ export async function getCommunityMessengerBootstrap(
   let followingIds: string[] = [];
   let hiddenIds: string[] = [];
   let blockedIds: string[] = [];
+  /** hidden/blocked 원천 확정 여부 — lite 캐시 miss 면 false → 목록을 unknown(undefined) 으로 낸다 */
+  let socialGraphSourceKnown = !isMinimalLiteBootstrap;
   let requestRows: RequestRow[] = [];
   let myPayload: Awaited<ReturnType<typeof fetchMyRoomsPayload>>;
   let discState: DiscoverableOpenGroupsRawState;
@@ -6141,6 +6144,7 @@ export async function getCommunityMessengerBootstrap(
       hiddenIds = socialPeek.snapshot.hiddenIds;
       blockedIds = socialPeek.snapshot.blockedIds;
       requestRows = socialPeek.snapshot.requestRows as RequestRow[];
+      socialGraphSourceKnown = true;
       diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "cache");
       diagnostics && (diagnostics.bootstrapLiteFriendsFetchMs = socialPeek.peekMs);
     } else {
@@ -6552,8 +6556,17 @@ export async function getCommunityMessengerBootstrap(
     },
     friends,
     following,
-    hidden,
-    blocked,
+    /**
+     * lite: 참가자+viewer 만 hydrate — 차단/숨김 상대(차단 DM 은 blocked_hidden)는 빠질 수 있다.
+     * 부분집합을 authoritative 로 내보내지 않고 unknown(undefined) 으로 → 클라가 base 유지.
+     * full: allIds 로 전부 hydrate 되므로 기존과 동일한 전체 배열.
+     */
+    hidden: isMinimalLiteBootstrap
+      ? projectBootstrapPrivacyListOrUnknown(hiddenIds, profileById, socialGraphSourceKnown)
+      : hidden,
+    blocked: isMinimalLiteBootstrap
+      ? projectBootstrapPrivacyListOrUnknown(blockedIds, profileById, socialGraphSourceKnown)
+      : blocked,
     requests,
     chats,
     groups,
@@ -6561,14 +6574,18 @@ export async function getCommunityMessengerBootstrap(
     calls,
   };
   if (!isMinimalLiteBootstrap) {
-    storeBootstrapLiteSocialDeferred(userId, {
-      acceptedFriendRows,
-      favoriteFriendIds,
-      followingIds,
-      hiddenIds,
-      blockedIds,
-      requestRows,
-    });
+    storeBootstrapLiteSocialDeferredIfCurrent(
+      userId,
+      {
+        acceptedFriendRows,
+        favoriteFriendIds,
+        followingIds,
+        hiddenIds,
+        blockedIds,
+        requestRows,
+      },
+      socialDeferredGenerationAtStart
+    );
     if (diagnostics) {
       finishBootstrapLiteParallelBreakdown(diagnostics);
     }
@@ -9851,6 +9868,32 @@ export async function listCommunityMessengerBlockedProfiles(
   return hydrateProfiles(userId, blockedIds);
 }
 
+/**
+ * 숨김·차단 목록 on-demand SSOT 로더 — `GET /api/community-messenger/relations/privacy-lists`.
+ * lite 첫 페인트 경로와 무관(시트·보관함 진입·관계 변경 직후에만 호출).
+ * blocked = `listBlockedByMeIds`, hidden = `user_relationships` hidden (full bootstrap 과 동일 원천).
+ */
+export async function listCommunityMessengerPrivacyListProfiles(userId: string): Promise<{
+  ok: true;
+  blocked: CommunityMessengerProfileLite[];
+  hidden: CommunityMessengerProfileLite[];
+}> {
+  const { buildMessengerPrivacyListsPayload, messengerPrivacyListsHydrateIds } = await import(
+    "@/lib/community-messenger/home/messenger-privacy-lists-payload"
+  );
+  const [rawBlockedIds, rawHiddenIds] = await Promise.all([
+    listBlockedByMeIds(userId),
+    listFollowingIds(userId, "hidden"),
+  ]);
+  const ids = messengerPrivacyListsHydrateIds(userId, rawBlockedIds, rawHiddenIds);
+  const profiles = ids.unionIds.length ? await hydrateProfiles(userId, ids.unionIds) : [];
+  return buildMessengerPrivacyListsPayload({
+    blockedIds: ids.blockedIds,
+    hiddenIds: ids.hiddenIds,
+    profiles,
+  });
+}
+
 export {
   resolveUserByPublicId,
   resolveDirectInteractionGuard,
@@ -10109,6 +10152,8 @@ export async function removeCommunityMessengerFriend(
     if (hiddenDeleteError && !isMissingTableError(hiddenDeleteError)) {
       return { ok: false, error: String(hiddenDeleteError.message ?? "friend_hidden_cleanup_failed") };
     }
+    /** favorite·hidden 정리 이후 재무효화 — 중간에 시작된 lite social 로더 snapshot 이 남지 않게 */
+    invalidateBootstrapLiteSocialDeferredForPair(userId, target);
     return { ok: true };
   }
 
@@ -10164,6 +10209,7 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
       }
     }
 
+    invalidateBootstrapLiteSocialDeferredForPair(a, b);
     return { ok: true };
   }
 
@@ -17259,15 +17305,18 @@ export async function sendCommunityMessengerImageMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
-      roomId,
-      messageId: appended.messageId,
-      senderUserId: input.userId,
-      preview: lastPreview,
-      recipientUserIds: appended.recipientUserIds,
-    });
-    input.onNotifyScheduled?.(notifyDone);
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    /* D-7: 멱등 재전송(deduped)은 이미 알림이 나간 원 행 — 수신자 알림·배지 무효화를 다시 하지 않는다(텍스트 경로와 동일). */
+    if (!appended.deduped) {
+      const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+        roomId,
+        messageId: appended.messageId,
+        senderUserId: input.userId,
+        preview: lastPreview,
+        recipientUserIds: appended.recipientUserIds,
+      });
+      input.onNotifyScheduled?.(notifyDone);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    }
     /**
      * 멱등 재전송(deduped): 이번 요청에서 새로 올린 URL 이 아니라 DB 에 있는 원 행을 돌려준다
      * (응답 URL ≠ DB URL 불일치 방지). 라우트는 deduped 시 이번 업로드분을 정리한다.
@@ -17463,15 +17512,18 @@ export async function sendCommunityMessengerStickerMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
-      roomId,
-      messageId: appended.messageId,
-      senderUserId: input.userId,
-      preview: cmLastPreviewSticker(),
-      recipientUserIds: appended.recipientUserIds,
-    });
-    input.onNotifyScheduled?.(notifyDone);
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    /* D-7: 멱등 재전송(deduped)은 이미 알림이 나간 원 행 — 수신자 알림·배지 무효화를 다시 하지 않는다(텍스트 경로와 동일). */
+    if (!appended.deduped) {
+      const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+        roomId,
+        messageId: appended.messageId,
+        senderUserId: input.userId,
+        preview: cmLastPreviewSticker(),
+        recipientUserIds: appended.recipientUserIds,
+      });
+      input.onNotifyScheduled?.(notifyDone);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    }
     return {
       ok: true,
       message: {
@@ -17808,15 +17860,45 @@ export async function sendCommunityMessengerFileMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
-      roomId,
-      messageId: appended.messageId,
-      senderUserId: input.userId,
-      preview: cmLastPreviewFile(fileName),
-      recipientUserIds: appended.recipientUserIds,
-    });
-    input.onNotifyScheduled?.(notifyDone);
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    /* D-7: 멱등 재전송(deduped)은 이미 알림이 나간 원 행 — 수신자 알림·배지 무효화를 다시 하지 않는다(텍스트 경로와 동일). */
+    if (!appended.deduped) {
+      const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+        roomId,
+        messageId: appended.messageId,
+        senderUserId: input.userId,
+        preview: cmLastPreviewFile(fileName),
+        recipientUserIds: appended.recipientUserIds,
+      });
+      input.onNotifyScheduled?.(notifyDone);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    }
+    /*
+     * D-7 / CHAT-05 멱등 재전송(deduped): 이번 요청에서 새로 올린 URL 이 아니라 DB 에 있는 원 행을 돌려준다
+     * (응답 URL ≠ DB URL 불일치 방지 — 라우트는 deduped 시 이번 업로드분을 purge 한다). 이미지 경로와 동일.
+     */
+    if (appended.deduped) {
+      const { data: existingRow } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+        (sb as any)
+          .from("community_messenger_messages")
+          .select(cols)
+          .eq("id", appended.messageId)
+          .eq("room_id", roomId)
+          .limit(1)
+      );
+      const row = ((existingRow ?? []) as MessageRow[])[0];
+      if (row) {
+        const mapped = mapCommunityMessengerDbMessageRowToMessage({
+          row,
+          viewerUserId: input.userId,
+          profileById: new Map(),
+        });
+        return {
+          ok: true,
+          deduped: true,
+          message: cmUploadCid && !trimText(mapped.clientMessageId) ? { ...mapped, clientMessageId: cmUploadCid } : mapped,
+        };
+      }
+    }
     return {
       ok: true,
       deduped: appended.deduped,
@@ -17834,6 +17916,7 @@ export async function sendCommunityMessengerFileMessage(input: {
         fileName,
         fileMimeType: mimeType,
         fileSizeBytes,
+        ...(cmUploadCid ? { clientMessageId: cmUploadCid } : {}),
       },
     };
   }
@@ -18598,15 +18681,45 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
-      roomId,
-      messageId: appended.messageId,
-      senderUserId: input.userId,
-      preview: cmLastPreviewVoice(),
-      recipientUserIds: appended.recipientUserIds,
-    });
-    input.onNotifyScheduled?.(notifyDone);
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    /* D-7: 멱등 재전송(deduped)은 이미 알림이 나간 원 행 — 수신자 알림·배지 무효화를 다시 하지 않는다(텍스트 경로와 동일). */
+    if (!appended.deduped) {
+      const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+        roomId,
+        messageId: appended.messageId,
+        senderUserId: input.userId,
+        preview: cmLastPreviewVoice(),
+        recipientUserIds: appended.recipientUserIds,
+      });
+      input.onNotifyScheduled?.(notifyDone);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    }
+    /*
+     * D-7 / CHAT-05 멱등 재전송(deduped): 이번 요청에서 새로 올린 URL 이 아니라 DB 에 있는 원 행을 돌려준다
+     * (응답 URL ≠ DB URL 불일치 방지 — 라우트는 deduped 시 이번 업로드분을 purge 한다). 이미지 경로와 동일.
+     */
+    if (appended.deduped) {
+      const { data: existingRow } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+        (sb as any)
+          .from("community_messenger_messages")
+          .select(cols)
+          .eq("id", appended.messageId)
+          .eq("room_id", roomId)
+          .limit(1)
+      );
+      const row = ((existingRow ?? []) as MessageRow[])[0];
+      if (row) {
+        const mapped = mapCommunityMessengerDbMessageRowToMessage({
+          row,
+          viewerUserId: input.userId,
+          profileById: new Map(),
+        });
+        return {
+          ok: true,
+          deduped: true,
+          message: cmUploadCid && !trimText(mapped.clientMessageId) ? { ...mapped, clientMessageId: cmUploadCid } : mapped,
+        };
+      }
+    }
     return {
       ok: true,
       deduped: appended.deduped,
@@ -18624,6 +18737,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         voiceDurationSeconds: durationSeconds,
         voiceWaveformPeaks: waveformPeaksStored ?? null,
         voiceMimeType: mimeType,
+        ...(cmUploadCid ? { clientMessageId: cmUploadCid } : {}),
       },
     };
   }
@@ -19082,6 +19196,13 @@ export async function startCommunityMessengerCallSession(input: {
     if (!isGroupRoom && !peerUserId) return { ok: false, error: "peer_not_found" };
     if (isGroupRoom && snapshot.members.length > 4) {
       return { ok: false, error: "group_call_limit_exceeded" };
+    }
+    /** 그룹 「일반 멤버 통화 시작」 설정 서버 강제 — 클라 canStartGroupCall 과 동일 규칙 (direct 미적용) */
+    if (
+      isGroupRoom &&
+      !canRoleStartGroupCall({ myRole: snapshot.myRole, allowMemberCall: snapshot.room.allowMemberCall })
+    ) {
+      return { ok: false, error: GROUP_MEMBER_CALL_FORBIDDEN_API_ERROR };
     }
     if (!dialFresh && snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
       activeCallForReuse = snapshot.activeCall;
@@ -20577,7 +20698,7 @@ export async function updateCommunityMessengerCallSession(input: {
             ) {
               updated = fresh;
             } else if (isTerminalCasLossIdempotent(input.action, freshStatus)) {
-              // end/cancel CAS loser — terminal winner owns log/stub/push; report idempotent (= route prefetch shape).
+              // end/cancel/reject/missed CAS loser — terminal winner owns log/stub/push; report idempotent (= route prefetch shape).
               const mapped = await mapCallSession(
                 input.userId,
                 fresh,

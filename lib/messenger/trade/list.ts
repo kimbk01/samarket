@@ -86,6 +86,7 @@ export function mapTradeListItem(
     peerAvatarUrl: trimOrEmpty(row.peerAvatarUrl) || null,
     productChatId: trimOrEmpty(row.productChatId) || null,
     lastMessage: trimOrEmpty(row.lastMessage),
+    lastMessageType: trimOrEmpty(row.lastMessageType) || null,
     lastMessageIsSystem: row.lastMessageIsSystem === true,
     lastMessageAt: lastAt,
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),

@@ -40,6 +40,7 @@ import type {
   CommunityMessengerCallSession,
 } from "@/lib/community-messenger/types";
 import { messengerMonitorCallConnection } from "@/lib/community-messenger/monitoring/client";
+import { GROUP_MEMBER_CALL_FORBIDDEN_API_ERROR } from "@/lib/community-messenger/group/group-call-start-permission";
 
 function cmTr(key: MessageKey, vars?: Record<string, string | number>): string {
   return translate(getRuntimeAppLanguage(), key, vars);
@@ -521,7 +522,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
           setErrorMessage(
             json.error === "group_call_limit_exceeded"
               ? cmTr("cm_ui_group_call_limit_four")
-              : cmTr("cm_ui_group_call_start_failed")
+              : json.error === GROUP_MEMBER_CALL_FORBIDDEN_API_ERROR
+                ? cmTr("cm_ui_group_member_call_forbidden")
+                : cmTr("cm_ui_group_call_start_failed")
           );
           return;
         }

@@ -1120,6 +1120,7 @@ export function BottomNav({
   initialTabs = null,
   bodyPortal = false,
   extraOuterClassName = "",
+  inert = false,
 }: {
   /**
    * SSR hydrate 호환을 위해 시그니처 유지 — 실제 탭 단일 소스는
@@ -1129,6 +1130,8 @@ export function BottomNav({
   /** `transform` 이 걸린 조상 밖(뷰포트 `fixed`) — 필라이프 헤더 메신저 슬라이드 스택 */
   bodyPortal?: boolean;
   extraOuterClassName?: string;
+  /** Keyboard-hide (translated off-screen) — remove from focus order / hit-testing. */
+  inert?: boolean;
 }) {
   void initialTabs;
   if (!shouldDeferUnreadBadgeRepaint()) {
@@ -1371,6 +1374,7 @@ export function BottomNav({
         .filter(Boolean)
         .join(" ")}
       aria-label={t("nav_bottom_bar_aria")}
+      inert={inert || undefined}
     >
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
         <div

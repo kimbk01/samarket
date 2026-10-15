@@ -20,6 +20,8 @@ describe("call-log-row-copy", () => {
 
   it("flags missed display types", () => {
     expect(isCallLogMissedDisplayType("missed_incoming")).toBe(true);
+    /** 발신자 미응답은 「응답 없음」 — 부재중 아님 */
+    expect(isCallLogMissedDisplayType("missed_outgoing")).toBe(false);
     expect(isCallLogMissedDisplayType("incoming")).toBe(false);
   });
 
@@ -28,7 +30,7 @@ describe("call-log-row-copy", () => {
     expect(shouldShowCallLogDuration("missed_incoming", 42)).toBe(false);
   });
 
-  it("buildCallHistorySubtitle uses single message key and duration for answered calls", () => {
+  it("buildCallHistorySubtitle uses call-kind key (status lives in badge) and duration for answered calls", () => {
     const answered = buildCallHistorySubtitle({
       id: "1",
       sessionId: null,
@@ -49,7 +51,7 @@ describe("call-log-row-copy", () => {
       displayType: "outgoing",
       peerAvatarUrl: null,
     });
-    expect(answered.messageKey).toBe("cm_ui_call_log_voice_outgoing");
+    expect(answered.messageKey).toBe("cm_ui_call_log_kind_voice");
     expect(answered.durationLabel).toBeTruthy();
 
     const cancelled = buildCallHistorySubtitle({
@@ -72,8 +74,33 @@ describe("call-log-row-copy", () => {
       displayType: "cancelled",
       peerAvatarUrl: null,
     });
-    expect(cancelled.messageKey).toBe("cm_ui_call_log_voice_cancelled");
+    expect(cancelled.messageKey).toBe("cm_ui_call_log_kind_voice");
     expect(cancelled.durationLabel).toBeNull();
+  });
+
+  it("normalize recomputes viewer-aware displayType from status (callee of caller-cancel → missed_incoming)", () => {
+    const normalized = normalizeCommunityMessengerCallLog({
+      id: "3",
+      sessionId: null,
+      roomId: "r1",
+      sessionMode: "direct",
+      title: "t",
+      peerLabel: "p",
+      peerUserId: "u1",
+      participantCount: 2,
+      participantLabels: [],
+      callKind: "video",
+      status: "cancelled",
+      startedAt: new Date().toISOString(),
+      durationSeconds: 0,
+      endedAt: null,
+      isOutgoing: false,
+      endedReason: null,
+      displayType: "cancelled",
+      peerAvatarUrl: null,
+    });
+    expect(normalized.displayType).toBe("missed_incoming");
+    expect(buildCallHistorySubtitle(normalized).messageKey).toBe("cm_ui_call_log_kind_video");
   });
 
   it("does not invent duration from ringing startedAt when durationSeconds is 0", () => {

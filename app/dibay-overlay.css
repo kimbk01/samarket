@@ -103,6 +103,17 @@ html:has(.app-bottom-nav-shell--delivery)
   );
 }
 
+/**
+ * Keyboard-hide (Android layout_resize only) — main BottomNav is translated away while
+ * a text field has the IME, so the nav offset would leave a see-through strip above the
+ * keyboard. Marker set by `ConditionalAppShell` (`BOTTOM_NAV_KEYBOARD_RESIZED_CLASS`);
+ * never set on iOS overlay keyboards. Doubled class out-ranks the orbit/delivery variants.
+ */
+html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized)
+  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
+  bottom: var(--safe-bottom);
+}
+
 .dibay-overlay-root--full {
   align-items: stretch;
   justify-content: stretch;

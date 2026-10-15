@@ -7,7 +7,7 @@
  */
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
 import { assertDomainAllowedOnHomeInboxList } from "@/lib/messenger/contracts/home-surface";
-import { resolveTradePreview } from "@/lib/messenger/trade/preview";
+import { resolveTradeListItemPreview, resolveTradePreview } from "@/lib/messenger/trade/preview";
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
 import { TRADE_LIST_HREF, type TradeHubViewModel } from "@/lib/messenger/trade/ux-contract";
 import type { TradeListItem } from "@/lib/messenger/trade/types";
@@ -28,7 +28,7 @@ export function buildTradeHubViewModel(rows: ReadonlyArray<TradeListItem>): Trad
     tieKey: r.roomId,
   }));
   const preview = latest
-    ? resolveTradePreview({ content: latest.lastMessage, messageType: "text", isSystemAllowed: true })
+    ? resolveTradeListItemPreview(latest)
     : resolveTradePreview(null);
   const unreadRoomCount = rows.filter((r) => r.unreadCount > 0).length;
   return {

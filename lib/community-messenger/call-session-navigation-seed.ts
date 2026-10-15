@@ -510,8 +510,16 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       return failPhoneVerification();
     }
     if (res.status === 403) {
+      /** raw API code(`blocked_target`·`cannot_start_chat`·`not_participant`) 노출 금지 — deny SSOT 문구 */
       const err = String(json.error ?? "").trim();
-      return fail(err || "요청을 처리할 수 없습니다.");
+      const denyMessage = resolveDirectCallDenyUserMessageFromApiError(err);
+      return fail(
+        denyMessage ??
+          safeTranslate(getRuntimeAppLanguage(), "cm_social_cannot_start_chat", {
+            fallbackKo: "대화를 시작할 수 없습니다.",
+            fallbackEn: "You can't start a conversation with this user.",
+          })
+      );
     }
     if (!res.ok || !json.ok || !json.roomId) {
       const err = String(json.error ?? "").trim();

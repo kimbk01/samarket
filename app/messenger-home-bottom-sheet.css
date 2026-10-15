@@ -35,6 +35,15 @@ html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
   max-height: min(88dvh, 520px);
 }
 
+/** Keyboard-hide (Android layout_resize only) — see `dibay-overlay.css` same marker. */
+html:has(.app-bottom-nav-shell.app-bottom-nav-shell--keyboard-resized) .messenger-home-bottom-sheet-panel {
+  bottom: var(--safe-bottom);
+  max-height: min(
+    calc(100dvh - var(--safe-bottom)),
+    calc(88dvh - var(--safe-bottom))
+  );
+}
+
 /**
  * 메신저 설정·그룹 생성 등 — 기기 맨 하단에서 뷰포트 비율(기본 70dvh)만큼 올라옴.
  * 기본: inset-x-0 w-full (폰·좁은 창 전폭).

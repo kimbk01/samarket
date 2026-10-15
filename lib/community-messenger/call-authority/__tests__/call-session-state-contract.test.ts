@@ -15,7 +15,7 @@ const root = process.cwd();
 const NOW = Date.parse("2026-10-15T10:00:00.000Z");
 const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 
-describe("end/cancel CAS loss → idempotent when already terminal", () => {
+describe("end/cancel/reject/missed CAS loss → idempotent when already terminal", () => {
   it.each(["ended", "cancelled", "rejected", "missed"])("end loser sees %s → idempotent", (s) => {
     expect(isTerminalCasLossIdempotent("end", s)).toBe(true);
     expect(isTerminalCasLossIdempotent("cancel", s)).toBe(true);
@@ -26,9 +26,21 @@ describe("end/cancel CAS loss → idempotent when already terminal", () => {
     expect(isTerminalCasLossIdempotent("cancel", "ringing")).toBe(false);
   });
 
-  it("other actions keep their own re-read rules", () => {
+  it("reject/missed loser that sees a different terminal status → idempotent (route prefetch parity)", () => {
+    /** callee reject racing caller cancel / ring-timeout missed racing reject — previously 400 call_session_update_failed */
+    expect(isTerminalCasLossIdempotent("reject", "cancelled")).toBe(true);
+    expect(isTerminalCasLossIdempotent("reject", "missed")).toBe(true);
+    expect(isTerminalCasLossIdempotent("missed", "rejected")).toBe(true);
+    expect(isTerminalCasLossIdempotent("missed", "cancelled")).toBe(true);
+    expect(isTerminalCasLossIdempotent("reject", "active")).toBe(false);
+    expect(isTerminalCasLossIdempotent("missed", "active")).toBe(false);
+  });
+
+  it("accept/leave/connected keep their own re-read rules (accept on terminal must not succeed)", () => {
     expect(isTerminalCasLossIdempotent("accept", "ended")).toBe(false);
-    expect(isTerminalCasLossIdempotent("reject", "cancelled")).toBe(false);
+    expect(isTerminalCasLossIdempotent("accept", "cancelled")).toBe(false);
+    expect(isTerminalCasLossIdempotent("leave", "ended")).toBe(false);
+    expect(isTerminalCasLossIdempotent("connected", "ended")).toBe(false);
   });
 
   it("service CAS loser branch returns idempotent success (route prefetch shape)", () => {

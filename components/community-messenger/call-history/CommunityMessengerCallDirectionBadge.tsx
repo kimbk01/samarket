@@ -11,19 +11,13 @@ const MISSED_RED = "#E53935";
 
 type Props = {
   displayType: CommunityMessengerCallLogDisplayType;
+  /** viewer 관점 상태 key — `presentCallHistoryRow().badgeLabelKey` (통화 기록 SSOT) */
+  labelKey: MessageKey;
 };
 
-function resolveBadgeKey(displayType: CommunityMessengerCallLogDisplayType): MessageKey {
-  if (isCallLogMissedDisplayType(displayType)) return "cm_call_status_missed";
-  const presentation = presentCallHistoryStatus(displayType);
-  if (presentation.directionKey) return presentation.directionKey as MessageKey;
-  return presentation.labelKey as MessageKey;
-}
-
-export function CommunityMessengerCallDirectionBadge({ displayType }: Props) {
+export function CommunityMessengerCallDirectionBadge({ displayType, labelKey }: Props) {
   const { safeT } = useI18n();
   const presentation = presentCallHistoryStatus(displayType);
-  const labelKey = resolveBadgeKey(displayType);
   const label = safeT(labelKey, {
     fallbackKo: "통화",
     fallbackEn: "Call",

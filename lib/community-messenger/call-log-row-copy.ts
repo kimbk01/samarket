@@ -3,6 +3,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
 import { formatCallHistoryDurationSeconds } from "@/lib/community-messenger/call-history/call-duration";
 import { formatMessengerClockTime } from "@/lib/community-messenger/messenger-clock-time";
+import { computeCallLogDisplayType } from "@/lib/community-messenger/call-history/call-log-display-type";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallLog,
@@ -11,30 +12,15 @@ import type {
   CommunityMessengerProfileLite,
 } from "@/lib/community-messenger/types";
 
-/** 클라이언트·레거시 페이로드용 — 서버 `computeCommunityMessengerCallLogDisplayType` 과 동일 */
-export function computeCallLogDisplayType(
-  status: CommunityMessengerCallStatus,
-  endedReason: string | null | undefined,
-  isOutgoing: boolean
-): CommunityMessengerCallLogDisplayType {
-  const er = endedReason?.trim() || null;
-  if (status === "missed") return isOutgoing ? "missed_outgoing" : "missed_incoming";
-  if (status === "rejected") return "rejected";
-  if (status === "cancelled") return "cancelled";
-  if (status === "dialing") return "outgoing";
-  if (status === "incoming") return "incoming";
-  if (status === "ended") {
-    if (er && er.startsWith("failed_")) return "failed";
-    return isOutgoing ? "outgoing" : "incoming";
-  }
-  return isOutgoing ? "outgoing" : "incoming";
-}
+/** 서버 `listCommunityMessengerCallLogs` 와 동일 SSOT — `call-history/call-log-display-type` */
+export { computeCallLogDisplayType };
 
 function resolveNormalizedCallLogDisplayType(
   entry: CommunityMessengerCallLog
 ): CommunityMessengerCallLogDisplayType {
-  if (entry.displayType) return entry.displayType;
-  return computeCallLogDisplayType(entry.status, entry.endedReason, entry.isOutgoing);
+  /** status 가 있으면 항상 SSOT 재계산 — 구 캐시 페이로드의 viewer 비인지 displayType 교정 */
+  if (entry.status) return computeCallLogDisplayType(entry.status, entry.endedReason, entry.isOutgoing);
+  return entry.displayType ?? (entry.isOutgoing ? "outgoing" : "incoming");
 }
 
 export function resolveCallLogStatusMessageKey(
@@ -44,8 +30,14 @@ export function resolveCallLogStatusMessageKey(
   return `cm_ui_call_log_${callKind}_${displayType}` as MessageKey;
 }
 
+/** viewer 가 놓친 수신 통화만 부재중 (발신자의 미응답 `missed_outgoing` 은 「응답 없음」 — 부재중 아님) */
 export function isCallLogMissedDisplayType(displayType: CommunityMessengerCallLogDisplayType): boolean {
-  return displayType === "missed_incoming" || displayType === "missed_outgoing";
+  return displayType === "missed_incoming";
+}
+
+/** 통화 탭 부제 — 상태는 배지가 담당하므로 통화 종류만 (중복 문구 방지) */
+export function resolveCallLogKindMessageKey(callKind: CommunityMessengerCallKind): MessageKey {
+  return (callKind === "video" ? "cm_ui_call_log_kind_video" : "cm_ui_call_log_kind_voice") as MessageKey;
 }
 
 export function shouldShowCallLogDuration(
@@ -73,12 +65,12 @@ export type CallHistorySubtitleModel = {
   durationLabel: string | null;
 };
 
-/** 카카오톡형 통화목록 부제 — `cm_ui_call_log_*` 단일 key + 연결 통화 시 통화시간 */
+/** 카카오톡형 통화목록 부제 — 통화 종류(`cm_ui_call_log_kind_*`) + 연결 통화 시 통화시간. 상태는 배지 SSOT */
 export function buildCallHistorySubtitle(call: CommunityMessengerCallLog): CallHistorySubtitleModel {
   const displayType = resolveNormalizedCallLogDisplayType(call);
   const durationSeconds = resolveCallLogDurationSeconds(call);
   return {
-    messageKey: resolveCallLogStatusMessageKey(call.callKind, displayType),
+    messageKey: resolveCallLogKindMessageKey(call.callKind),
     durationLabel: shouldShowCallLogDuration(displayType, durationSeconds, call.status)
       ? formatCallHistoryDurationSeconds(durationSeconds)
       : null,

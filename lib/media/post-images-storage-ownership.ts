@@ -112,6 +112,26 @@ export const POST_IMAGES_ACTIVE_WRITERS: readonly PostImagesWriterInventoryRow[]
     ownershipFromPath: "OWNERSHIP_EXPLICIT",
   },
   {
+    writer: "POST /api/community-messenger/rooms/[roomId]/images/upload-urls (signed direct PUT)",
+    domain: "chat",
+    entity: "messenger image staging (D-3; finalize downloads + deletes)",
+    pathShape: "{userId}/community/messenger-image-staging/{roomId}/{uuid}.{ext}",
+    dbColumn: "none (transient — never referenced by a message row)",
+    deleteOwner: "POST …/images finalize deletes in all outcomes; abandoned uploads remain (no cron)",
+    runtimeActive: true,
+    ownershipFromPath: "OWNERSHIP_EXPLICIT",
+  },
+  {
+    writer: "POST /api/community-messenger/rooms/[roomId]/files/upload-url (signed direct PUT)",
+    domain: "chat",
+    entity: "messenger file staging (D-3; finalize downloads + deletes)",
+    pathShape: "{userId}/community/messenger-file-staging/{roomId}/{uuid}.{ext}",
+    dbColumn: "none (transient — never referenced by a message row)",
+    deleteOwner: "POST …/files finalize deletes in all outcomes; abandoned uploads remain (no cron)",
+    runtimeActive: true,
+    ownershipFromPath: "OWNERSHIP_EXPLICIT",
+  },
+  {
     writer: "POST /api/me/profile/avatar",
     domain: "profile",
     entity: "profiles avatar",
@@ -186,7 +206,8 @@ export function classifyPostImagesPath(storagePath: string): ClassifiedPostImage
   if (/(^|\/)profile\//.test(path)) {
     return { ...base, domain: "profile", ownership: "OWNERSHIP_EXPLICIT" };
   }
-  if (/\/community\/messenger-(image|file|voice)\//.test(path)) {
+  /* `messenger-{image,file}-staging/` = D-3 staged direct upload 임시 객체(서버가 확정 시 항상 삭제) — chat 소유 */
+  if (/\/community\/messenger-(image|file|voice)(-staging)?\//.test(path)) {
     return { ...base, domain: "chat", ownership: "OWNERSHIP_EXPLICIT" };
   }
   if (/\/store-reviews\//.test(path)) {

@@ -25,6 +25,7 @@ import {
   type ProfilePublicIdFields,
 } from "@/lib/auth/dibay-public-id-ssot";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
+import { invalidateBootstrapLiteSocialDeferredForPair } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
 
 export type { BlockSource } from "@/lib/social/block-ssot-types";
 
@@ -267,6 +268,7 @@ export async function removeHiddenUserRelationshipById(
   }
 
   logSocialRelationEvent("social_relation_hidden_removed", { ownerUserId: owner, relationId: id });
+  invalidateBootstrapLiteSocialDeferredForPair(owner, null);
   return { ok: true };
 }
 
@@ -572,6 +574,7 @@ export async function addFriendSaved(
       return { ok: false, error: "blocked_target" };
     }
     logSocialRelationEvent("social_relation_friend_added", { ownerUserId: owner, targetUserId: target });
+    invalidateBootstrapLiteSocialDeferredForPair(owner, target);
     return { ok: true };
   }
 
@@ -583,6 +586,7 @@ export async function addFriendSaved(
   if (error) return { ok: false, error: String(error.message ?? "friend_add_failed") };
 
   logSocialRelationEvent("social_relation_friend_added", { ownerUserId: owner, targetUserId: target });
+  invalidateBootstrapLiteSocialDeferredForPair(owner, target);
   return { ok: true };
 }
 
@@ -606,6 +610,7 @@ export async function removeFriendSaved(
   if (error) return { ok: false, error: String(error.message ?? "friend_remove_failed") };
 
   logSocialRelationEvent("social_relation_friend_removed", { ownerUserId: owner, targetUserId: target });
+  invalidateBootstrapLiteSocialDeferredForPair(owner, target);
   return { ok: true };
 }
 
@@ -664,6 +669,8 @@ export async function blockUserSocial(
     targetUserId: target,
     blockSource: options?.blockSource ?? "",
   });
+  /** lite social 캐시(blockedIds·acceptedFriendRows) 즉시 무효화 — 차단 직후 목록 누락/친구 재등장 방지 */
+  invalidateBootstrapLiteSocialDeferredForPair(owner, target);
   return { ok: true };
 }
 
@@ -690,10 +697,17 @@ export async function unblockUserSocial(
 
   if (!existing?.id) {
     await syncLegacyBlockRow(sb, owner, target, false);
+    invalidateBootstrapLiteSocialDeferredForPair(owner, target);
     return { ok: true, wasActive: false };
   }
 
   if (existing.is_active === false) {
+    /**
+     * SSOT 는 이미 해제 — 그래도 legacy `user_relationships.blocked`/`user_blocks` 잔존 행은 정리한다.
+     * `listBlockedByMeIds` 가 legacy 행을 union 하므로 남아 있으면 해제 후에도 차단 목록에 계속 보인다.
+     */
+    await syncLegacyBlockRow(sb, owner, target, false);
+    invalidateBootstrapLiteSocialDeferredForPair(owner, target);
     return { ok: true, wasActive: false };
   }
 
@@ -713,6 +727,7 @@ export async function unblockUserSocial(
   await syncLegacyBlockRow(sb, owner, target, false);
 
   logSocialRelationEvent("social_relation_unblocked", { ownerUserId: owner, targetUserId: target });
+  invalidateBootstrapLiteSocialDeferredForPair(owner, target);
   return { ok: true, wasActive: true };
 }
 

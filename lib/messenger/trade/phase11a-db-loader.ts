@@ -93,6 +93,7 @@ export function mapTradeLoaderBatchRows(input: {
         productSummary: row.productSummary,
         orderStatusLabel: null,
       }),
+      lastMessageType: row.latestMessage?.messageType ?? null,
       lastMessageAt: row.latestMessage?.createdAt ?? null,
       lastMessageIsSystem: row.latestMessage?.isSystem === true,
       unreadCount: row.unreadCount,

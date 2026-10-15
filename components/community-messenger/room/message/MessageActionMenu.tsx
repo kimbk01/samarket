@@ -56,6 +56,8 @@ export type MessageActionMenuProps = {
   deleteForEveryone?: { disabled: boolean; title?: string; onClick: () => void };
   deleteVoiceHard?: { onClick: () => void };
   pin?: { label: string; disabled: boolean; title?: string; onClick: () => void };
+  /** 사진 저장(개별·모두) — 기기 로컬 동작이라 roomUnavailable 과 무관 */
+  photoSaveRows?: Array<{ key: string; label: string; disabled?: boolean; onClick: () => void }>;
 };
 
 export function MessageActionMenu(props: MessageActionMenuProps) {
@@ -80,6 +82,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     deleteForEveryone,
     deleteVoiceHard,
     pin,
+    photoSaveRows,
   } = props;
 
   const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
@@ -108,6 +111,9 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         disabled={roomUnavailable || replyDisabled}
         title={replyTitle}
       />
+      {photoSaveRows?.map((row) => (
+        <MenuRow key={row.key} label={row.label} onClick={row.onClick} disabled={Boolean(row.disabled)} />
+      ))}
       {pin ? (
         <MenuRow
           label={pin.label}

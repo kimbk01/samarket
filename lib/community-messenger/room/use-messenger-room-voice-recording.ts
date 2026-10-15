@@ -24,6 +24,18 @@ import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import {
+  classifyMessengerSendFailure,
+  messengerUploadFallbackErrorCode,
+} from "@/lib/community-messenger/upload/messenger-direct-upload-policy";
+import {
+  clearMessengerOutboundFailedSend,
+  disposeMessengerOutboundFailedSends,
+  markMessengerOutboundRowFailed,
+  markMessengerOutboundRowRetrying,
+  planMessengerMediaSendFailure,
+  registerMessengerOutboundFailedSend,
+} from "@/lib/community-messenger/room/messenger-outbound-failed-send";
 import { getCommunityMessengerUserMedia } from "@/lib/community-messenger/call-media-stream";
 import { isDiBaYMicGateDeferredAbort } from "@/lib/permissions/dibay-mic-gate-messages";
 
@@ -43,6 +55,8 @@ export type UseMessengerRoomVoiceRecordingParams = {
   scrollMessengerToBottom: () => void;
   /** 음성 전송 확정 시 텍스트·스티커와 동일하게 홈 목록·허브 뱃지 동기화 */
   onOutboundMessageConfirmed?: (message: CommunityMessengerMessage) => void;
+  /** C-10: 전송 성공 응답에 message 본문이 없을 때 — 임시 행 제거 후 방 재조회(이미지 경로와 동일) */
+  onOutboundMessageBodyMissing?: () => void;
   /** 로그인·전화 인증 필요 시 스낵바 대신 방 공통 리다이렉트 */
   tryRedirectAuthBlocked?: (res: Response, json: { error?: unknown; code?: unknown }) => boolean;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -64,6 +78,7 @@ export function useMessengerRoomVoiceRecording({
   setRoomMessages,
   scrollMessengerToBottom,
   onOutboundMessageConfirmed,
+  onOutboundMessageBodyMissing,
   tryRedirectAuthBlocked,
   t,
 }: UseMessengerRoomVoiceRecordingParams) {
@@ -87,6 +102,15 @@ export function useMessengerRoomVoiceRecording({
   const voiceMaxTimerRef = useRef<number | null>(null);
   const voiceSessionIdRef = useRef(0);
   const voicePointerDownRef = useRef(false);
+  /** C-10: 재전송 대기 음성 행 — 언마운트 시 녹음 blob URL 해제 */
+  const failedVoiceRowIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = failedVoiceRowIdsRef.current;
+    return () => {
+      disposeMessengerOutboundFailedSends(ids);
+      ids.clear();
+    };
+  }, []);
 
   const [voiceRecording, setVoiceRecording] = useState(false);
   /** 마이크 권한·스트림 준비 중(녹음 시작 전) — UI 리플 표시용 */
@@ -193,6 +217,8 @@ export function useMessengerRoomVoiceRecording({
 
       const roundedDur = Math.max(1, Math.min(600, Math.round(wallDurationSeconds)));
       const blobUrl = URL.createObjectURL(blob);
+      // C-2: 텍스트와 동일 — 낙관 행 생성 전에 cid 1개를 만들고 행·multipart 본문에 같은 값을 싣는다.
+      const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:${apiRoom}:voice:${pendingMessageIdRef.current++}`;
       setRoomMessages((prev) => {
         const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
@@ -203,6 +229,7 @@ export function useMessengerRoomVoiceRecording({
           messageType: "voice",
           content: blobUrl,
           createdAt: nextOptimisticCommunityMessengerCreatedAtIso(prev),
+          clientMessageId,
           isMine: true,
           pending: true,
           callKind: null,
@@ -215,73 +242,133 @@ export function useMessengerRoomVoiceRecording({
       });
       scrollMessengerToBottom();
       voiceFinalizingRef.current = false;
-      try {
-        const measuredSeconds = await measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout(blob);
-        const durationSeconds =
-          measuredSeconds != null &&
-          Number.isFinite(measuredSeconds) &&
-          measuredSeconds > 0.04 &&
-          Math.abs(measuredSeconds - wallDurationSeconds) < 25
-            ? measuredSeconds
-            : wallDurationSeconds;
-        const uploadDurationSeconds = Math.max(1, Math.min(600, Math.round(durationSeconds)));
-        if (uploadDurationSeconds !== roundedDur) {
-          setRoomMessages((prev) =>
-            prev.map((item) => (item.id === tempId ? { ...item, voiceDurationSeconds: uploadDurationSeconds } : item))
-          );
-        }
-        const form = new FormData();
-        const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
-        form.append("file", fileForUpload);
-        // CHAT-05: 업로드 멱등 — 이 전송 시도의 안정 clientMessageId(재전송 시 서버 1행 보장).
-        form.append("clientMessageId", createCommunityMessengerClientMessageId());
-        form.append("durationSeconds", String(uploadDurationSeconds));
-        if (waveformPeaks.length > 0) {
-          form.append("waveformPeaks", JSON.stringify(waveformPeaks));
-        }
-        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(apiRoom)}/voice`, {
-          method: "POST",
-          body: form,
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          code?: string;
-          message?: CommunityMessengerMessage;
-        };
-        if (res.ok && json.ok) {
-          const elapsed =
-            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(apiRoom, elapsed, "voice");
-        }
-        if (!res.ok || !json.ok) {
-          URL.revokeObjectURL(blobUrl);
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          if (tryRedirectAuthBlocked?.(res, json)) return;
-          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
-        }
-        const confirmedVoice = json.message;
-        if (confirmedVoice) {
-          URL.revokeObjectURL(blobUrl);
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [confirmedVoice]
-            )
-          );
-          scrollMessengerToBottom();
-          onOutboundMessageConfirmed?.(confirmedVoice);
-          return;
-        }
+
+      let blobUrlReleased = false;
+      const releaseBlobUrl = () => {
+        if (blobUrlReleased) return;
+        blobUrlReleased = true;
         URL.revokeObjectURL(blobUrl);
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
-      } catch {
-        // 네트워크 예외 — HTTP 오류 분기와 동일하게 pending 말풍선 제거 + 오류 스낵바(무한 pending 방지)
-        URL.revokeObjectURL(blobUrl);
+      };
+      const removeRowAndRelease = () => {
+        clearMessengerOutboundFailedSend(tempId);
+        failedVoiceRowIdsRef.current.delete(tempId);
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        showMessengerSnackbar(getRoomActionErrorMessage("upload_failed"), { variant: "error" });
+        releaseBlobUrl();
+      };
+
+      let uploadDurationSeconds = roundedDur;
+      let durationMeasured = false;
+
+      /**
+       * C-10: 업로드 1회 시도. 실패가 indeterminate(네트워크·5xx·타임아웃)면 녹음 Blob·cid 를 보존한 채
+       * 말풍선을 '전송 실패'로 남겨 같은 cid 로 재전송(서버 UNIQUE 멱등). definitive(4xx)면 제거.
+       */
+      const attemptUpload = async (): Promise<void> => {
+        let res: Response | null = null;
+        let json: { ok?: boolean; error?: string; code?: string; message?: CommunityMessengerMessage } = {};
+        let jsonParsed = true;
+        try {
+          if (!durationMeasured) {
+            durationMeasured = true;
+            const measuredSeconds = await measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout(blob);
+            const durationSeconds =
+              measuredSeconds != null &&
+              Number.isFinite(measuredSeconds) &&
+              measuredSeconds > 0.04 &&
+              Math.abs(measuredSeconds - wallDurationSeconds) < 25
+                ? measuredSeconds
+                : wallDurationSeconds;
+            uploadDurationSeconds = Math.max(1, Math.min(600, Math.round(durationSeconds)));
+            if (uploadDurationSeconds !== roundedDur) {
+              setRoomMessages((prev) =>
+                prev.map((item) => (item.id === tempId ? { ...item, voiceDurationSeconds: uploadDurationSeconds } : item))
+              );
+            }
+          }
+          const form = new FormData();
+          const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
+          form.append("file", fileForUpload);
+          // CHAT-05: 업로드 멱등 — 재전송도 같은 clientMessageId(서버 1행 보장).
+          form.append("clientMessageId", clientMessageId);
+          form.append("durationSeconds", String(uploadDurationSeconds));
+          if (waveformPeaks.length > 0) {
+            form.append("waveformPeaks", JSON.stringify(waveformPeaks));
+          }
+          const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+          res = await fetch(`${communityMessengerRoomResourcePath(apiRoom)}/voice`, {
+            method: "POST",
+            body: form,
+          });
+          json = (await res.json().catch(() => {
+            jsonParsed = false;
+            return {};
+          })) as typeof json;
+          if (res.ok && json.ok) {
+            const elapsed =
+              typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+            messengerMonitorMessageRtt(apiRoom, elapsed, "voice");
+          }
+        } catch {
+          res = null;
+        }
+        if (res && res.ok && json.ok) {
+          clearMessengerOutboundFailedSend(tempId);
+          failedVoiceRowIdsRef.current.delete(tempId);
+          const confirmedVoice = json.message;
+          if (confirmedVoice?.id) {
+            const withCid = confirmedVoice.clientMessageId?.trim()
+              ? confirmedVoice
+              : { ...confirmedVoice, clientMessageId };
+            setRoomMessages((prev) =>
+              mergeRoomMessages(
+                prev.filter((item) => item.id !== tempId),
+                [withCid]
+              )
+            );
+            releaseBlobUrl();
+            scrollMessengerToBottom();
+            onOutboundMessageConfirmed?.(withCid);
+            return;
+          }
+          // C-10: 응답에 message 가 없으면 blob 을 해제한 임시 행을 확정 처리하지 않는다(유령 말풍선 방지) —
+          // 이미지 경로와 동일하게 임시 행 제거 후 재조회로 정합.
+          removeRowAndRelease();
+          onOutboundMessageBodyMissing?.();
+          return;
+        }
+        if (res && tryRedirectAuthBlocked?.(res, json)) {
+          removeRowAndRelease();
+          return;
+        }
+        const failure = res
+          ? classifyMessengerSendFailure({ status: res.status, jsonParsed })
+          : classifyMessengerSendFailure({ networkError: true });
+        showMessengerSnackbar(
+          getRoomActionErrorMessage(
+            (res && pickMessengerApiErrorField(json)) ||
+              (res && jsonParsed ? undefined : messengerUploadFallbackErrorCode(res?.status ?? 0))
+          ),
+          { variant: "error" }
+        );
+        if (!planMessengerMediaSendFailure(failure).keepBytesForRetry) {
+          removeRowAndRelease();
+          return;
+        }
+        registerMessengerOutboundFailedSend(tempId, {
+          retry: () => {
+            clearMessengerOutboundFailedSend(tempId);
+            setRoomMessages((prev) => markMessengerOutboundRowRetrying(prev, tempId));
+            void attemptUpload();
+          },
+          discard: removeRowAndRelease,
+          dispose: releaseBlobUrl,
+        });
+        failedVoiceRowIdsRef.current.add(tempId);
+        setRoomMessages((prev) => markMessengerOutboundRowFailed(prev, tempId));
+      };
+
+      try {
+        await attemptUpload();
       } finally {
         voiceFinalizingRef.current = false;
       }
@@ -290,6 +377,7 @@ export function useMessengerRoomVoiceRecording({
       apiRoomId,
       getRoomActionErrorMessage,
       onOutboundMessageConfirmed,
+      onOutboundMessageBodyMissing,
       tryRedirectAuthBlocked,
       roomId,
       roomMembersDisplay,

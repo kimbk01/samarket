@@ -207,7 +207,9 @@ export function useMessengerRoomBumpBroadcastSubscription({
             : ""
           : "";
       /**
-       * Own bumps: skip only when THIS device already holds the message (optimistic/ACK clientMessageId).
+       * Own bumps: THIS device's still-pending optimistic row (same clientMessageId) → replace by validated
+       * snapshot only (no extra GET; the send ACK owns reconcile). Confirmed local rows (HTTP rows carry the cid
+       * too) → in-place merge so same-account other-device edits/deletes apply.
        * Server-authored rows in viewer's name (call_stub, group system) and other-device sends must apply.
        * Peer-mutated same-id UPDATE (fromUserId !== message.senderId) is never "own" — HTTP reconcile SSOT.
        */
@@ -220,9 +222,6 @@ export function useMessengerRoomBumpBroadcastSubscription({
         clientMessageId: rawClientMessageId,
         localMessages: roomMessagesRef.current,
       });
-      if (ownDecision === "skip") {
-        return;
-      }
 
       const dedupeKey = resolveRoomBumpDedupeKey(payload);
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
@@ -266,12 +265,16 @@ export function useMessengerRoomBumpBroadcastSubscription({
           catchUpHint = catchUpHint || String(pre.id ?? "").trim();
           mergedSnapshot = true;
         }
+        /** 서버 직렬화가 본문을 잘랐으면(14k 초과) 스냅샷은 가속일 뿐 — 단건 정합으로 전체 본문을 받는다. */
+        const snapshotTruncated = Boolean(pre && pre.content.length >= 13_999 && pre.content.endsWith("…"));
         /**
-         * 내 기기가 이미 가진 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
+         * 이 기기 낙관 행 — 스냅샷으로 pending 교체만, 정합은 송신 ACK 경로가 소유(추가 GET 금지).
+         * 내 기기가 이미 가진 확정 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
          * 스냅샷이 없으면(삭제·수정 등) messages/{id} 단건 정합으로 다른 기기 변경을 반영한다.
          */
-        if (ownDecision === "merge_only" && mergedSnapshot) return;
-        scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
+        if (ownDecision === "replace_pending" && !snapshotTruncated) return;
+        if (ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated) return;
+        scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot && !snapshotTruncated });
       });
     };
     listenerRef.current.onBump = onBump;

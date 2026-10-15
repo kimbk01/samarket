@@ -20,11 +20,124 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     CAPPluginMethod(name: "getRecentPhotos", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "pickPhotos", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "resolvePhotos", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "getSaveCapabilities", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "saveImages", returnType: CAPPluginReturnPromise),
   ]
 
   private var pendingPickCall: CAPPluginCall?
   private let thumbMaxPx: CGFloat = 256
   private let fullMaxEdge: CGFloat = 1920
+
+  /// JS feature probe — 구버전 바이너리는 이 메서드가 없어 reject → 저장 버튼을 숨긴다.
+  @objc func getSaveCapabilities(_ call: CAPPluginCall) {
+    call.resolve(["saveImages": true, "version": 1])
+  }
+
+  /**
+   * 메신저 사진을 사진첩(Photo Library)에 원본 바이트 그대로 저장한다 (재인코딩 없음 → 화질·EXIF 방향 유지).
+   * 권한: add-only. 결과는 index 별 saved / failed(reason) 로 돌려준다(부분 실패 표시용).
+   */
+  @objc func saveImages(_ call: CAPPluginCall) {
+    let rawUrls = call.getArray("urls", String.self) ?? []
+    let urls = Array(rawUrls.prefix(30))
+    if urls.isEmpty {
+      call.reject("urls_required")
+      return
+    }
+    requestAddOnlyAuthorization { [weak self] granted, permission in
+      guard let self = self else { return }
+      if !granted {
+        let failed: [[String: Any]] = urls.indices.map { ["index": $0, "reason": "permission_denied"] }
+        call.resolve(["saved": [Int](), "failed": failed, "permission": permission])
+        return
+      }
+      DispatchQueue.global(qos: .userInitiated).async {
+        var saved: [Int] = []
+        var failed: [[String: Any]] = []
+        for (index, raw) in urls.enumerated() {
+          guard let url = URL(string: raw), let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+            failed.append(["index": index, "reason": "invalid_url"])
+            continue
+          }
+          guard let data = self.downloadImageData(url), !data.isEmpty else {
+            failed.append(["index": index, "reason": "download_failed"])
+            continue
+          }
+          guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0 else {
+            failed.append(["index": index, "reason": "not_image"])
+            continue
+          }
+          let reason = self.addImageDataToLibrary(data, fileName: url.lastPathComponent)
+          if let reason = reason {
+            failed.append(["index": index, "reason": reason])
+          } else {
+            saved.append(index)
+          }
+        }
+        DispatchQueue.main.async {
+          call.resolve(["saved": saved, "failed": failed, "permission": permission])
+        }
+      }
+    }
+  }
+
+  private func requestAddOnlyAuthorization(_ completion: @escaping (Bool, String) -> Void) {
+    let current = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+    switch current {
+    case .authorized, .limited:
+      completion(true, "granted")
+    case .denied, .restricted:
+      completion(false, "denied")
+    case .notDetermined:
+      PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+        DispatchQueue.main.async {
+          let ok = status == .authorized || status == .limited
+          completion(ok, ok ? "granted" : "denied")
+        }
+      }
+    @unknown default:
+      completion(false, "denied")
+    }
+  }
+
+  private func downloadImageData(_ url: URL) -> Data? {
+    var request = URLRequest(url: url)
+    request.timeoutInterval = 30
+    let semaphore = DispatchSemaphore(value: 0)
+    var result: Data?
+    let task = URLSession.shared.dataTask(with: request) { data, response, error in
+      defer { semaphore.signal() }
+      guard error == nil, let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return }
+      result = data
+    }
+    task.resume()
+    if semaphore.wait(timeout: .now() + 45) == .timedOut {
+      task.cancel()
+      return nil
+    }
+    return result
+  }
+
+  /// 원본 데이터를 그대로 자산으로 추가. 실패 시 reason, 성공 시 nil.
+  private func addImageDataToLibrary(_ data: Data, fileName: String) -> String? {
+    let semaphore = DispatchSemaphore(value: 0)
+    var failure: String? = "save_failed"
+    PHPhotoLibrary.shared().performChanges({
+      let request = PHAssetCreationRequest.forAsset()
+      let options = PHAssetResourceCreationOptions()
+      if !fileName.isEmpty {
+        options.originalFilename = fileName
+      }
+      request.addResource(with: .photo, data: data, options: options)
+    }, completionHandler: { success, _ in
+      failure = success ? nil : "save_failed"
+      semaphore.signal()
+    })
+    if semaphore.wait(timeout: .now() + 60) == .timedOut {
+      return "save_timeout"
+    }
+    return failure
+  }
 
   @objc func getPermissionState(_ call: CAPPluginCall) {
     call.resolve(["state": permissionStateJs()])
