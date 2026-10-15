@@ -1,0 +1,63 @@
+---
+description: Domain product hard-lock — PTR Reveal ads (ptr_reveal / ptr_band); requestable; not global alwaysApply
+alwaysApply: false
+globs:
+  - lib/platform-popup/ptr-reveal*
+  - lib/platform-popup/**/ptr-reveal*
+  - lib/ui/ptr/**
+  - components/ptr/**
+  - components/admin/ptr-reveal/**
+  - app/admin/ptr-reveal-ads/**
+  - app/api/platform-popup/ptr-reveal/**
+  - supabase/migrations/*ptr_reveal*
+---
+
+# DIBAY PTR Reveal HARD LOCK
+
+**HARD LOCK (2026-10-15).** Full doc: `docs/dibay-ptr-reveal-hard-lock.md`.  
+**SSOT:** `docs/dibay-ptr-reveal-final-ssot.md`.  
+**Production SHA baseline:** `12d58a582387226ef75d2ef99fd90776ee2499dc`.
+
+## Baseline
+
+- **VERIFIED SCOPE HARD LOCK: PASS** — BLOCKER 0 · confirmed PTR DEFECT 0
+- Integrity: `tests/e2e/.artifacts/ptr-integrity-final-20261015/`
+- iPhone expose/CTA/metrics: `tests/e2e/.artifacts/ptr-ios-live3-20261015/IPHONE-FINAL.json`
+- Android expose/CTA/metrics: prior Owner PASS (reuse)
+- **NOT claimed:** iPad runtime · Safe Area metrology · audience=`all` public rollout · shared `/api/platform-popup/events`(+suppress) end-to-end security (PTR HARD LOCK PASS ≠ that guarantee; IMPROVEMENT only)
+
+## KEEP (without reopen — doc §1)
+
+| Concern | Decision |
+|---|---|
+| Presentation / creative | `ptr_reveal` / `ptr_band` |
+| Pixels | 1280×320 · 2560×320 · logo 256×256 |
+| Slot | max 106 · threshold 58 · tablet ≥600 |
+| Layout | `computePtrBandLayout` only |
+| New PTR audience | allowlist + empty (fail-closed) |
+| Copy | preserve audience |
+| Serve | approved ∧ active|scheduled ∧ gates |
+| close_only | same-surface hold; leave surface clears |
+| Resolve | `/api/platform-popup/ptr-reveal` only |
+| QA `5f811614-…` | paused + allowlist until Owner |
+
+## DO NOT (without reopen — doc §2)
+
+- QA/prod silent flip to `audience=all`
+- Serve paused / pending_review / empty allowlist as public
+- Phone-band upscale on tablet when tablet creative missing
+- Change 1280/2560/106/58/600 without measured reopen
+- Merge interruptive popup resolve with PTR
+- Claim iPad / Safe Area metrology PASS
+- Speculative redesign or unrelated domain edits for “PTR cleanup”
+
+## Authority (summary)
+
+| Concern | Owner |
+|---|---|
+| Band SSOT | `ptr-reveal-contract.ts` |
+| Physics | `lib/ui/ptr/dibay-ptr-ssot.ts` |
+| Audience | `ptr-reveal-audience.ts` |
+| Client | `ptr-reveal-client.ts` |
+| Admin | `ptr-reveal-admin-patch.ts` + admin writer/loader scope ptr |
+| Runtime UI | `components/ptr/*` |
