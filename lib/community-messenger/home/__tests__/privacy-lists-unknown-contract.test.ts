@@ -284,3 +284,17 @@ describe("A-5 friend delete — local removal survives never-shrink merge once c
     expect(next?.friends.map((p) => p.id)).toEqual(["f2"]);
   });
 });
+
+describe("lite bootstrap never emits stale cross-instance privacy lists", () => {
+  it("service lite + snapshot lite emit hidden/blocked as unknown; home hydrates once from DB when unknown", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const svc = readFileSync(join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
+    expect(svc).toContain("hidden: isMinimalLiteBootstrap ? undefined : hidden,");
+    expect(svc).toContain("blocked: isMinimalLiteBootstrap ? undefined : blocked,");
+    const snap = readFileSync(join(process.cwd(), "lib/community-messenger/cm-bootstrap-snapshot-assemble.ts"), "utf8");
+    expect(snap).toMatch(/hidden: undefined,\s*blocked: undefined,/);
+    const home = readFileSync(join(process.cwd(), "components/community-messenger/CommunityMessengerHome.tsx"), "utf8");
+    expect(home).toContain("data.hidden === undefined || data.blocked === undefined");
+  });
+});

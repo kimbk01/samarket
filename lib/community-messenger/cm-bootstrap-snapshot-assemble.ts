@@ -27,7 +27,6 @@ import type {
 } from "@/lib/community-messenger/types";
 import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { CM_BOOTSTRAP_LITE_DEFAULT_LIMIT } from "@/lib/community-messenger/cm-bootstrap-snapshot-counter";
-import { projectBootstrapPrivacyListOrUnknown } from "@/lib/community-messenger/home/bootstrap-privacy-lists-projection";
 
 export type CmBootstrapSnapshotPayloadJson = {
   ok?: boolean;
@@ -324,11 +323,11 @@ export async function assembleLiteBootstrapFromSnapshotPayload(
       .map((id) => profileById.get(id))
       .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile)),
     /**
-     * lite snapshot 은 참가자+viewer 만 hydrate — 차단/숨김 상대가 빠진 부분집합을 authoritative 로 내지 않는다.
-     * 캐시 miss 또는 hydrate 누락 시 unknown(undefined) → 클라 merge 가 base 유지.
+     * lite snapshot 의 소셜 id 는 서버 인스턴스별 메모리 캐시(최대 5분) — 다른 인스턴스의 차단·숨김 변경을 모를 수 있다.
+     * authoritative 로 내면 클라의 최신 목록(privacy-lists, DB 직조회)을 되돌리므로 항상 unknown(undefined).
      */
-    hidden: projectBootstrapPrivacyListOrUnknown(hiddenIds, profileById, Boolean(socialPeek.snapshot)),
-    blocked: projectBootstrapPrivacyListOrUnknown(blockedIds, profileById, Boolean(socialPeek.snapshot)),
+    hidden: undefined,
+    blocked: undefined,
     requests: buildCommunityMessengerFriendRequestsFromProfileMap(
       userId,
       requestRows as unknown as Parameters<typeof buildCommunityMessengerFriendRequestsFromProfileMap>[1],

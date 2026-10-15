@@ -759,6 +759,22 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (!privacyListsSurfaceOpen || !privacyListsSurfaceMeId) return;
     void hydrateMessengerPrivacyLists();
   }, [hydrateMessengerPrivacyLists, privacyListsSurfaceMeId, privacyListsSurfaceOpen]);
+  /**
+   * lite 부트스트랩은 숨김·차단을 항상 unknown 으로 둔다(서버 인스턴스별 캐시 stale 방지).
+   * 차단 토글 판정·친구 필터가 쓰는 목록이 비어 있지 않도록, 첫 페인트 이후 idle 에 DB 직조회로 1회 채운다.
+   */
+  const privacyListsUnknown = Boolean(data && (data.hidden === undefined || data.blocked === undefined));
+  useEffect(() => {
+    if (!privacyListsUnknown || !privacyListsSurfaceMeId) return;
+    const w = typeof window !== "undefined" ? window : null;
+    if (!w) return;
+    if (typeof w.requestIdleCallback === "function") {
+      const handle = w.requestIdleCallback(() => void hydrateMessengerPrivacyLists(), { timeout: 2500 });
+      return () => w.cancelIdleCallback?.(handle);
+    }
+    const t = w.setTimeout(() => void hydrateMessengerPrivacyLists(), 1200);
+    return () => w.clearTimeout(t);
+  }, [hydrateMessengerPrivacyLists, privacyListsSurfaceMeId, privacyListsUnknown]);
 
   const openHomeOverlay = useCallback((overlay: CommunityMessengerHomeOverlayKind) => {
     setActiveOverlay((current) => (current === overlay ? current : overlay));

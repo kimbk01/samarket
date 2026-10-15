@@ -19,6 +19,7 @@ import {
   buildMessengerStagingPath,
   messengerFinalMediaDir,
   messengerImageStagingExtForMime,
+  messengerStagingDir,
   MESSENGER_IMAGE_UPLOAD_ALLOWED_MIMES,
   MESSENGER_IMAGE_UPLOAD_MAX_BYTES,
   MESSENGER_IMAGE_UPLOAD_MAX_FILES,
@@ -207,6 +208,51 @@ export async function removeMessengerStagedObjects(sb: Sb, paths: string[]): Pro
 }
 
 /** 서명 업로드 URL 발급(staging). 클라이언트는 이 URL 로 Storage 에 직접 PUT 한다. */
+/** staging 객체가 확정(finalize) 없이 남아 있으면 이 시간이 지난 뒤 정리한다. 확정은 PUT 직후 수 초 내에 끝나고,
+ * 재시도는 항상 새 URL 을 발급받으므로(이전 staging 재사용 없음) 1시간 지난 staging 은 버려진 업로드다. */
+export const MESSENGER_STAGING_ABANDON_MS = 60 * 60 * 1000;
+
+/**
+ * 버려진 staged 업로드 정리(크론 없이) — 같은 사용자·같은 방의 staging 폴더에서 오래된 객체만 삭제.
+ * 범위: 본인 `${userId}/community/messenger-{kind}-staging/${roomId}` 만 — 최종 미디어 경로·타인 경로는 건드리지 않는다.
+ * best-effort: 실패해도 업로드 URL 발급을 막지 않는다.
+ */
+export async function purgeStaleMessengerStagingObjects(input: {
+  sb: Sb;
+  kind: MessengerStagingKind;
+  userId: string;
+  roomId: string;
+  nowMs?: number;
+}): Promise<number> {
+  const dir = messengerStagingDir(input.kind, input.userId, input.roomId);
+  const cutoff = (input.nowMs ?? Date.now()) - MESSENGER_STAGING_ABANDON_MS;
+  try {
+    const bucket = input.sb.storage.from(BUCKET);
+    const { data, error } = await bucket.list(dir, { limit: 100 });
+    if (error || !Array.isArray(data)) return 0;
+    const stale: string[] = [];
+    for (const obj of data as Array<{ name?: string; created_at?: string | null; id?: string | null }>) {
+      const name = typeof obj?.name === "string" ? obj.name : "";
+      /** 폴더 항목(id 없음)·이상한 이름 제외 — staging leaf 규칙(uuid.ext)과 일치하는 것만 */
+      if (!name || !obj.id) continue;
+      const parsed = parseMessengerStagedPath({
+        kind: input.kind,
+        userId: input.userId,
+        roomId: input.roomId,
+        path: `${dir}/${name}`,
+      });
+      if (!parsed.ok) continue;
+      const createdMs = obj.created_at ? new Date(obj.created_at).getTime() : NaN;
+      if (Number.isFinite(createdMs) && createdMs < cutoff) stale.push(`${dir}/${name}`);
+    }
+    if (stale.length === 0) return 0;
+    const { error: rmErr } = await bucket.remove(stale);
+    return rmErr ? 0 : stale.length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function createMessengerStagedUploadUrls(input: {
   sb: Sb;
   kind: MessengerStagingKind;
@@ -215,6 +261,12 @@ export async function createMessengerStagedUploadUrls(input: {
   exts: string[];
 }): Promise<{ ok: true; uploads: Array<{ path: string; signedUrl: string; token?: string }> } | { ok: false; error: string }> {
   const bucket = input.sb.storage.from(BUCKET);
+  await purgeStaleMessengerStagingObjects({
+    sb: input.sb,
+    kind: input.kind,
+    userId: input.userId,
+    roomId: input.roomId,
+  });
   const uploads: Array<{ path: string; signedUrl: string; token?: string }> = [];
   for (const ext of input.exts) {
     const path = buildMessengerStagingPath({

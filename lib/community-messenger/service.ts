@@ -112,7 +112,6 @@ import {
   storeBootstrapLiteSocialDeferredIfCurrent,
   type BootstrapLiteSocialDeferredSnapshot,
 } from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
-import { projectBootstrapPrivacyListOrUnknown } from "@/lib/community-messenger/home/bootstrap-privacy-lists-projection";
 import {
   peekHomeSyncCriticalRoomsCache,
   setHomeSyncCriticalRoomsCache,
@@ -6123,8 +6122,6 @@ export async function getCommunityMessengerBootstrap(
   let followingIds: string[] = [];
   let hiddenIds: string[] = [];
   let blockedIds: string[] = [];
-  /** hidden/blocked 원천 확정 여부 — lite 캐시 miss 면 false → 목록을 unknown(undefined) 으로 낸다 */
-  let socialGraphSourceKnown = !isMinimalLiteBootstrap;
   let requestRows: RequestRow[] = [];
   let myPayload: Awaited<ReturnType<typeof fetchMyRoomsPayload>>;
   let discState: DiscoverableOpenGroupsRawState;
@@ -6144,7 +6141,6 @@ export async function getCommunityMessengerBootstrap(
       hiddenIds = socialPeek.snapshot.hiddenIds;
       blockedIds = socialPeek.snapshot.blockedIds;
       requestRows = socialPeek.snapshot.requestRows as RequestRow[];
-      socialGraphSourceKnown = true;
       diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "cache");
       diagnostics && (diagnostics.bootstrapLiteFriendsFetchMs = socialPeek.peekMs);
     } else {
@@ -6561,12 +6557,13 @@ export async function getCommunityMessengerBootstrap(
      * 부분집합을 authoritative 로 내보내지 않고 unknown(undefined) 으로 → 클라가 base 유지.
      * full: allIds 로 전부 hydrate 되므로 기존과 동일한 전체 배열.
      */
-    hidden: isMinimalLiteBootstrap
-      ? projectBootstrapPrivacyListOrUnknown(hiddenIds, profileById, socialGraphSourceKnown)
-      : hidden,
-    blocked: isMinimalLiteBootstrap
-      ? projectBootstrapPrivacyListOrUnknown(blockedIds, profileById, socialGraphSourceKnown)
-      : blocked,
+    /**
+     * lite 의 소셜 id 는 서버 인스턴스별 메모리 캐시(최대 5분)에서 온다 — 다른 인스턴스에서 차단·숨김이 바뀌면
+     * 오래된 목록이 될 수 있다. 그 목록을 authoritative 로 보내면 클라의 최신 목록(privacy-lists, DB 직조회)을
+     * 되돌린다. 그래서 lite 는 항상 unknown(undefined) — 목록은 DB 직조회 경로(privacy-lists·full)만 채운다.
+     */
+    hidden: isMinimalLiteBootstrap ? undefined : hidden,
+    blocked: isMinimalLiteBootstrap ? undefined : blocked,
     requests,
     chats,
     groups,
