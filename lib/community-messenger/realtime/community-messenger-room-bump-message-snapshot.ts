@@ -66,6 +66,9 @@ export function serializeCommunityMessengerMessageForBump(
     if (urls.length > 1) row.imageAlbumUrls = urls;
     const prev = bumpImageUrls(msg.imageAlbumPreviewUrls ?? null);
     if (prev.length > 1) row.imageAlbumPreviewUrls = prev;
+    /** 원본 보기·저장이 썸네일로 대체되지 않도록 원본 배열도 같은 길이로 싣는다. */
+    const orig = bumpImageUrls(msg.imageAlbumOriginalUrls ?? null);
+    if (orig.length === urls.length) row.imageAlbumOriginalUrls = orig;
   }
   if (msg.messageType === "image" && typeof msg.imagePreviewUrl === "string" && msg.imagePreviewUrl.trim()) {
     const u = msg.imagePreviewUrl.trim();
@@ -160,6 +163,13 @@ export function parseCommunityMessengerBumpMessageSnapshot(
       .filter((u) => /^https?:\/\//i.test(u))
       .slice(0, 10);
     if (urls.length > 1) out.imageAlbumPreviewUrls = urls;
+  }
+  if (messageType === "image" && Array.isArray(m.imageAlbumOriginalUrls)) {
+    const urls = m.imageAlbumOriginalUrls
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter((u) => /^https?:\/\//i.test(u))
+      .slice(0, 10);
+    if (urls.length > 1) out.imageAlbumOriginalUrls = urls;
   }
   if (messageType === "image" && typeof m.imagePreviewUrl === "string" && m.imagePreviewUrl.trim()) {
     const u = m.imagePreviewUrl.trim();

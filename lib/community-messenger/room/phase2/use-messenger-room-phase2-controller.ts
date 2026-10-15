@@ -126,6 +126,7 @@ import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
+import { precheckMessengerFileForUpload } from "@/lib/community-messenger/upload/messenger-file-upload-policy";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -896,6 +897,12 @@ export function useMessengerRoomPhase2Controller() {
     });
   }, [activeSheet, infoSheetFocus]);
 
+  /**
+   * 응답 유실(네트워크 예외) 후 같은 내용 재전송은 같은 clientMessageId 로 보낸다 —
+   * 서버가 이미 커밋했다면 UNIQUE(client_message_id) 멱등으로 1행만 남는다(중복 메시지 방지).
+   */
+  const unconfirmedTextSendRef = useRef<{ content: string; clientMessageId: string } | null>(null);
+
   const sendRawText = useCallback(
     async (
       content: string,
@@ -907,8 +914,12 @@ export function useMessengerRoomPhase2Controller() {
       if (!trimmed || !snapshot) return false;
       // CHAT-03: 예외(네트워크/비행기 모드) 정리를 위해 낙관적 말풍선 id 를 try 밖으로 보관.
       let optimisticTempId: string | null = null;
+      const unconfirmed = unconfirmedTextSendRef.current;
+      const clientMessageId =
+        unconfirmed && unconfirmed.content === trimmed
+          ? unconfirmed.clientMessageId
+          : createCommunityMessengerClientMessageId();
       try {
-      const clientMessageId = createCommunityMessengerClientMessageId();
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
         sender_click_ms: cmReceiveLatencyNow(),
@@ -978,6 +989,9 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return false;
       }
+      if (unconfirmedTextSendRef.current?.clientMessageId === clientMessageId) {
+        unconfirmedTextSendRef.current = null;
+      }
       bumpCommunityMessengerPresenceActivity("message_sent");
       const confirmedMessage = json.message;
       if (confirmedMessage?.id) {
@@ -1017,7 +1031,9 @@ export function useMessengerRoomPhase2Controller() {
       return true;
       } catch {
         // CHAT-03: fetch 예외(네트워크/비행기 모드 등) → 낙관적 말풍선 제거,
-        // 입력 복원, 오류 스낵바. (서버에 저장 안 됨 → 재전송 시 1행, 중복 없음.)
+        // 입력 복원, 오류 스낵바. 서버 커밋 여부는 알 수 없으므로(응답 유실) 같은 내용 재전송 시
+        // 같은 clientMessageId 를 재사용해 서버 멱등으로 1행만 남긴다.
+        unconfirmedTextSendRef.current = { content: trimmed, clientMessageId };
         if (optimisticTempId) {
           const stuckId = optimisticTempId;
           setRoomMessages((prev) => prev.filter((item) => item.id !== stuckId));
@@ -1466,6 +1482,11 @@ export function useMessengerRoomPhase2Controller() {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
+      } catch {
+        /* 네트워크 예외(오프라인·연결 끊김·본문 한도 초과로 인한 연결 종료 등) — HTTP 오류 분기와 동일하게
+         * pending 말풍선을 제거하고 오류 스낵바를 띄운다(무한 "업로드 중" 방지). */
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        showMessengerSnackbar(getRoomActionErrorMessage(undefined), { variant: "error" });
       } finally {
         setBusy(null);
       }
@@ -1495,9 +1516,18 @@ export function useMessengerRoomPhase2Controller() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    // 서버(`files/route`)와 같은 용량·확장자 정책으로 사전 거절 — 업로드 후 413/415 로 버려지는 왕복 방지.
+    const precheck = precheckMessengerFileForUpload(file);
+    if (!precheck.ok) {
+      showMessengerSnackbar(
+        getRoomActionErrorMessage(precheck.error === "file_too_large" ? "file_too_large" : "unsupported_file"),
+        { variant: "error" }
+      );
+      return;
+    }
     setAttachmentConfirmDraft({ kind: "file", file });
     setActiveSheet("attach-confirm");
-  }, [setActiveSheet]);
+  }, [getRoomActionErrorMessage, setActiveSheet]);
 
   const cancelAttachmentConfirm = useCallback(() => {
     setAttachmentConfirmDraft((prev) => {

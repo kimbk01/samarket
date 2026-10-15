@@ -50,6 +50,12 @@ export const cmHomeListMessages = {
 
     cm_home_preview_no_messages: "최근 메시지가 아직 없습니다.",
 
+    cm_home_preview_gift: "상품권",
+
+    cm_home_preview_sticker: "스티커",
+
+    cm_home_preview_post_share: "게시글 공유",
+
     cm_home_sys_message: "시스템 메시지",
 
     cm_home_sys_notice_changed: "공지 변경",
@@ -152,6 +158,12 @@ export const cmHomeListMessages = {
     cm_home_preview_trade_order_guide: "Trade & order update",
 
     cm_home_preview_no_messages: "No messages yet.",
+
+    cm_home_preview_gift: "Gift certificate",
+
+    cm_home_preview_sticker: "Sticker",
+
+    cm_home_preview_post_share: "Shared post",
 
     cm_home_sys_message: "System message",
 

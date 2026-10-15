@@ -11,6 +11,7 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { isUuidString } from "@/lib/shared/uuid-string";
+import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     roomId,
     content: previewContent,
     metadata,
+    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
   if (!result.ok) {

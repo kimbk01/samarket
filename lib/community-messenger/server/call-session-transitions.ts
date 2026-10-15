@@ -46,6 +46,18 @@ export function isIdempotentCallSessionPatch(
   return isServerCallSessionTerminalStatus(currentStatus);
 }
 
+/**
+ * Direct status-CAS loser re-read: end/cancel whose session already reached a terminal
+ * status is the same outcome the route prefetch reports as idempotent — not a failure.
+ */
+export function isTerminalCasLossIdempotent(
+  action: "accept" | "reject" | "cancel" | "end" | "missed" | "leave" | "connected",
+  freshStatus: string,
+): boolean {
+  if (action !== "end" && action !== "cancel") return false;
+  return isServerCallSessionTerminalStatus(freshStatus);
+}
+
 export function canServerTransitionCallSessionStatus(
   from: CallEngineState,
   to: CallEngineState,

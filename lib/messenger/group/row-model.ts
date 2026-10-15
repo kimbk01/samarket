@@ -1,6 +1,7 @@
 /**
  * group RowModel + RouterPort — general_direct RowModel 상속 금지.
  */
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
 import { resolveGroupPreview } from "@/lib/messenger/group/preview";
@@ -23,7 +24,7 @@ export const groupRouterPort: MessengerRouterPort = {
 export function buildGroupRowModel(item: GroupListItem): GroupRowModel {
   const presentation = resolveGroupPresentationFromListItem(item);
   const preview = resolveGroupPreview({
-    message: { content: item.lastMessage, messageType: "text", isSystemAllowed: true },
+    message: { content: resolveRoomLastMessageForViewer(item.lastMessage, null), messageType: "text", isSystemAllowed: true },
   });
   return {
     roomId: item.roomId,

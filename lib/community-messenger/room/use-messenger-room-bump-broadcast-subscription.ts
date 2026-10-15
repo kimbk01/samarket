@@ -14,6 +14,7 @@ import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -79,6 +80,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomMembersDisplayRef,
   remoteBumpCatchUpRafRef,
   lastRemoteBumpDedupeRef,
+  roomMessagesRef,
   setRoomMessages,
   catchUpAfterRemoteBump,
 }: {
@@ -91,6 +93,8 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
   remoteBumpCatchUpRafRef: MutableRefObject<number | null>;
   lastRemoteBumpDedupeRef: MutableRefObject<string>;
+  /** 이 기기 타임라인(낙관 포함) — 내 bump 스킵 판정용 */
+  roomMessagesRef: MutableRefObject<ReadonlyArray<CommunityMessengerMessage & { pending?: boolean }>>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
@@ -196,12 +200,27 @@ export function useMessengerRoomBumpBroadcastSubscription({
           : typeof (payload as { message_id?: unknown }).message_id === "string"
             ? String((payload as { message_id: string }).message_id).trim()
             : "";
+      const rawClientMessageId =
+        rawMessage && typeof rawMessage === "object" && rawMessage !== null
+          ? typeof (rawMessage as { clientMessageId?: unknown }).clientMessageId === "string"
+            ? String((rawMessage as { clientMessageId: string }).clientMessageId).trim()
+            : ""
+          : "";
       /**
-       * Own authored INSERT bumps: optimistic/ACK already applied — skip.
-       * Peer-mutated same-id UPDATE (fromUserId !== message.senderId), e.g. gift accept
-       * projection by recipient on sender's message: must NOT skip — HTTP reconcile SSOT.
+       * Own bumps: skip only when THIS device already holds the message (optimistic/ACK clientMessageId).
+       * Server-authored rows in viewer's name (call_stub, group system) and other-device sends must apply.
+       * Peer-mutated same-id UPDATE (fromUserId !== message.senderId) is never "own" — HTTP reconcile SSOT.
        */
-      if (from && from === viewer && !isStoreOrderSystemBump && (!rawSenderId || rawSenderId === from)) {
+      const ownDecision = resolveOwnRoomBumpDecision({
+        viewerUserId: viewer,
+        fromUserId: from,
+        rawSenderId,
+        isStoreOrderSystemBump: Boolean(isStoreOrderSystemBump),
+        messageId: hint,
+        clientMessageId: rawClientMessageId,
+        localMessages: roomMessagesRef.current,
+      });
+      if (ownDecision === "skip") {
         return;
       }
 
@@ -247,6 +266,11 @@ export function useMessengerRoomBumpBroadcastSubscription({
           catchUpHint = catchUpHint || String(pre.id ?? "").trim();
           mergedSnapshot = true;
         }
+        /**
+         * 내 기기가 이미 가진 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
+         * 스냅샷이 없으면(삭제·수정 등) messages/{id} 단건 정합으로 다른 기기 변경을 반영한다.
+         */
+        if (ownDecision === "merge_only" && mergedSnapshot) return;
         scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
       });
     };

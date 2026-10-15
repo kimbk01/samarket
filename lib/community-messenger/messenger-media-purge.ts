@@ -40,7 +40,7 @@ function isSafePostImagesPath(path: string): boolean {
  * - metadata.storage_paths: string[] (이미지 번들)
  * - metadata.storagePath: string (단일 이미지/파일/보이스)
  * - content 의 레거시 공개 URL
- * - 같은 키의 파생 형제(.thumb / .preview) best-effort (없으면 remove no-op)
+ * - 같은 키의 파생 형제({id}.thumb.webp / {id}.preview.webp) best-effort (없으면 remove no-op)
  */
 export function collectMessengerMediaStoragePaths(input: {
   metadata?: Record<string, unknown> | null;
@@ -61,10 +61,25 @@ export function collectMessengerMediaStoragePaths(input: {
   const legacy = postImagesPathFromPublicUrl(input.content ?? "");
   if (legacy && isSafePostImagesPath(legacy)) out.add(legacy);
 
-  // 파생 형제 — 원본 키가 확정된 경우에만. 없는 키 remove 는 무해(no-op).
+  /** 앨범·단일 파생본 공개 URL(서버 기록 metadata) → 키. */
+  for (const key of ["image_thumb_urls", "image_preview_urls", "image_urls"] as const) {
+    const urls = (meta as Record<string, unknown>)[key];
+    if (!Array.isArray(urls)) continue;
+    for (const u of urls) {
+      const k = typeof u === "string" ? postImagesPathFromPublicUrl(u) : null;
+      if (k && isSafePostImagesPath(k)) out.add(k);
+    }
+  }
+
+  // 파생 형제 — 업로드 라우트 실제 키 규칙 `{id}.thumb.webp` / `{id}.preview.webp`
+  // (기존 `${원본키}.thumb` 는 존재하지 않는 키라 파생본이 영구히 남았다). 없는 키 remove 는 무해(no-op).
   for (const base of [...out]) {
-    out.add(`${base}.thumb`);
-    out.add(`${base}.preview`);
+    const slash = base.lastIndexOf("/");
+    const dot = base.lastIndexOf(".");
+    const stem = dot > slash + 1 ? base.slice(0, dot) : base;
+    if (stem.endsWith(".thumb") || stem.endsWith(".preview")) continue;
+    out.add(`${stem}.thumb.webp`);
+    out.add(`${stem}.preview.webp`);
   }
   return [...out];
 }

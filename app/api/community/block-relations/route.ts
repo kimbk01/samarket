@@ -15,6 +15,7 @@ import {
   hideDirectRoomsOnBlockForViewer,
   restoreDirectRoomsOnUnblockForViewer,
 } from "@/lib/community-messenger/participant-block-hide";
+import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,6 +136,13 @@ export async function POST(req: NextRequest) {
   await hideDirectRoomsOnBlockForViewer({
     viewerUserId: auth.userId,
     peerUserId: target,
+  });
+
+  /** 메신저 차단 경로(relations/block)와 동일 정책 — pair 일반 DM 의 ringing/active 통화 종료, 실패해도 차단은 성공 */
+  await terminateDirectCallsOnBlockBestEffort({
+    blockerUserId: auth.userId,
+    blockedUserId: target,
+    logTag: "community/block-relations",
   });
 
   return NextResponse.json({ ok: true, blocked: true });

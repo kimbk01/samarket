@@ -408,12 +408,14 @@ export function useCommunityMessengerHomeState({
   const unifiedRoomsRowCacheRef = useRef<Map<string, UnifiedRoomListItem>>(new Map());
   const unifiedRoomsStableListRef = useRef<UnifiedRoomListItem[] | null>(null);
 
+  /** 통화 기록 tip 은 발신자·수신자별 문구 — viewer id 필요(call-stub-room-tip). */
+  const viewerIdForPreview = data?.me?.id ?? null;
   const unifiedRooms = useMemo<UnifiedRoomListItem[]>(() => {
     const roomMap = new Map<string, UnifiedRoomListItem>();
     for (const room of [...sortedChats, ...sortedGroups]) {
       roomMap.set(room.id, {
         room,
-        preview: getRoomPreviewText(room),
+        preview: getRoomPreviewText(room, viewerIdForPreview),
         previewKind: room.lastMessageType === "call_stub" ? "call" : "message",
         callStatus: null,
         callKind: null,
@@ -452,7 +454,7 @@ export function useCommunityMessengerHomeState({
     bumpMessengerRenderPerf("messenger_room_list_sort");
     unifiedRoomsStableListRef.current = reconciled;
     return reconciled;
-  }, [sortedChats, sortedGroups]);
+  }, [sortedChats, sortedGroups, viewerIdForPreview]);
 
   const baseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const baseChatListItems = useMemo(() => {

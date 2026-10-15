@@ -113,6 +113,30 @@ export async function GET(
     return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });
   }
 
+  if (!before && req.nextUrl.searchParams.get("latest") === "1") {
+    /** 앵커 없는 최신 페이지 — 빈 방 첫 메시지·복귀 정합(과거 created_at 늦은 기록·제자리 갱신) */
+    const cm = await import("@/lib/community-messenger/service");
+    const latestKey = `community-messenger:messages:latest:${auth.userId}:${canonicalRoomId}:${
+      Number.isFinite(limit) ? String(limit) : "default"
+    }`;
+    const result = await runSingleFlight(latestKey, async () =>
+      cm.listCommunityMessengerRoomMessagesLatest({
+        userId: auth.userId,
+        roomId: canonicalRoomId,
+        limit: Number.isFinite(limit) ? limit : undefined,
+      })
+    );
+    if (!result.ok) {
+      recordMessengerApiTiming("GET .../messages?latest", Math.round(performance.now() - t0), 400);
+      if (result.error === "room_not_found") {
+        return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      return jsonError("메시지를 불러오지 못했습니다.", 400, { code: result.error });
+    }
+    recordMessengerApiTiming("GET .../messages?latest", Math.round(performance.now() - t0), 200);
+    return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "latest" as const });
+  }
+
   if (!before) {
     return jsonError("before(메시지 id) 또는 after(메시지 id)가 필요합니다.", 400);
   }

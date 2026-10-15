@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerVoiceMessage } from "@/lib/community-messenger/service";
+import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     waveformPeaks,
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
+    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
   if (!result.ok) {
@@ -162,14 +164,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }
 
   if (result.ok) {
-    await publishMessengerRoomBumpAfterMutation({
-      rawRouteRoomId: canon.rawRouteRoomId,
-      canonicalRoomId,
-      fromUserId: auth.userId,
-      messageId: result.message?.id,
-      messageCreatedAt: result.message?.createdAt,
-      messageForBump: result.message ?? null,
-    });
+    try {
+      await publishMessengerRoomBumpAfterMutation({
+        rawRouteRoomId: canon.rawRouteRoomId,
+        canonicalRoomId,
+        fromUserId: auth.userId,
+        messageId: result.message?.id,
+        messageCreatedAt: result.message?.createdAt,
+        messageForBump: result.message ?? null,
+      });
+    } catch {
+      /* best-effort(이미지 라우트와 동일): 전송은 이미 커밋됨 — 수신측은 Postgres Realtime·재요청으로 정합 */
+    }
   }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

@@ -12,7 +12,7 @@ import {
   type BlockedRelation,
 } from "@/lib/social/user-block-ssot";
 import type { BlockSource } from "@/lib/social/block-ssot-types";
-import { SOCIAL_BLOCK_ACTIVE_OR_LEGACY } from "@/lib/social/block-ssot-types";
+import { isActiveSocialBlockRow, SOCIAL_BLOCK_ACTIVE_OR_LEGACY } from "@/lib/social/block-ssot-types";
 import {
   canStartDirectCallBetweenUsers,
   resolveDirectCallPolicy,
@@ -197,7 +197,7 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
     is_active?: boolean | null;
     relation_type?: string;
   }>) {
-    if (row.relation_type === "blocked" && row.is_active === false) continue;
+    if (!isActiveSocialBlockRow(row)) continue;
     const id = trimText(row.target_user_id);
     if (id) ids.add(id);
   }
@@ -458,6 +458,23 @@ async function syncLegacyBlockRow(
     .eq("user_id", ownerUserId)
     .eq("target_user_id", targetUserId)
     .or("relation_type.eq.blocked,type.eq.blocked");
+  /**
+   * legacy `user_blocks` (released_at IS NULL) 도 `fetchBlockedPairFromSb` fallback 에서 활성 차단으로 읽힌다.
+   * 해제 시 함께 release 하지 않으면 SSOT 해제 후에도 차단이 유지된다 — 해제 이력 보존(released_at) 방식.
+   */
+  const { error: legacyBlocksErr } = await (sb as any)
+    .from("user_blocks")
+    .update({ released_at: new Date().toISOString() })
+    .eq("user_id", ownerUserId)
+    .eq("blocked_user_id", targetUserId)
+    .is("released_at", null);
+  if (legacyBlocksErr && !isMissingTableError(legacyBlocksErr)) {
+    console.warn("[social-relations] legacy user_blocks release failed", {
+      ownerUserId,
+      targetUserId,
+      message: String(legacyBlocksErr.message ?? ""),
+    });
+  }
 }
 
 export async function syncMutualFriendSavedAfterAccept(
@@ -518,7 +535,7 @@ export async function addFriendSaved(
 
   const { data: existing } = await (sb as any)
     .from("user_social_relations")
-    .select("id, relation_type")
+    .select("id, relation_type, is_active")
     .eq("owner_user_id", owner)
     .eq("target_user_id", target)
     .maybeSingle();
@@ -526,8 +543,36 @@ export async function addFriendSaved(
   if (existing?.relation_type === "friend") {
     return { ok: true };
   }
-  if (existing?.relation_type === "blocked") {
+  if (isActiveSocialBlockRow(existing)) {
     return { ok: false, error: "blocked_target" };
+  }
+  if (existing?.relation_type === "blocked") {
+    /**
+     * 해제된 차단 이력(is_active=false) — 차단 아님. UNIQUE(owner_user_id,target_user_id) 단일 row 모델이라
+     * insert 는 충돌하므로 같은 row 를 friend 로 전환한다 (재차단 경합 방지: inactive blocked 조건부 update).
+     */
+    const now = new Date().toISOString();
+    const { data: converted, error: convertError } = await (sb as any)
+      .from("user_social_relations")
+      .update({
+        relation_type: "friend",
+        is_active: true,
+        created_at: now,
+        last_action_at: now,
+        updated_at: now,
+      })
+      .eq("owner_user_id", owner)
+      .eq("target_user_id", target)
+      .eq("relation_type", "blocked")
+      .eq("is_active", false)
+      .select("id");
+    if (convertError) return { ok: false, error: String(convertError.message ?? "friend_add_failed") };
+    if (!Array.isArray(converted) || converted.length === 0) {
+      /** 동시에 재차단되었거나 row 상태가 바뀜 — 안전하게 차단으로 간주 */
+      return { ok: false, error: "blocked_target" };
+    }
+    logSocialRelationEvent("social_relation_friend_added", { ownerUserId: owner, targetUserId: target });
+    return { ok: true };
   }
 
   const { error } = await (sb as any).from("user_social_relations").insert({

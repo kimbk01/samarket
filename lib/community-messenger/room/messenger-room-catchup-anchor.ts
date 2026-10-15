@@ -39,6 +39,19 @@ export function buildCommunityMessengerMessagesAfterPath(
   return `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(after)}&limit=${limit}`;
 }
 
+/** 앵커 없는 최신 페이지 — 빈 방·복귀 정합 (`after=` 가 못 보는 과거 created_at 기록·제자리 갱신). */
+export const MESSENGER_ROOM_LATEST_RECONCILE_LIMIT = 40;
+
+export function buildCommunityMessengerMessagesLatestPath(
+  roomId: string,
+  limit = MESSENGER_ROOM_LATEST_RECONCILE_LIMIT
+): string {
+  return `${communityMessengerRoomResourcePath(roomId.trim())}/messages?latest=1&limit=${limit}`;
+}
+
+/** `after=` 연속 페이지 상한 — hasMore 를 무시하던 부분 복구 방지(폭주 상한). */
+export const MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES = 5;
+
 const catchUpInflight = new Map<string, Promise<boolean>>();
 
 /** Same room+cursor concurrent catch-up shares one GET. */

@@ -23,6 +23,17 @@ export async function POST(
   if (!rateLimit.ok) return rateLimit.response;
 
   const { friendUserId } = await params;
-  const result = await toggleCommunityMessengerHiddenFriend(auth.userId, friendUserId);
+  /** 선택 body `{ hidden: boolean }` — 있으면 멱등 set, 없으면 legacy toggle (구 클라이언트) */
+  let desiredHidden: boolean | undefined;
+  try {
+    const raw = await req.text();
+    if (raw.trim()) {
+      const body = JSON.parse(raw) as { hidden?: unknown };
+      if (typeof body?.hidden === "boolean") desiredHidden = body.hidden;
+    }
+  } catch {
+    return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+  const result = await toggleCommunityMessengerHiddenFriend(auth.userId, friendUserId, desiredHidden);
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

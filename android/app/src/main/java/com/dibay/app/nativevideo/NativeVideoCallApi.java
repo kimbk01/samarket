@@ -69,6 +69,59 @@ public final class NativeVideoCallApi {
     patchHeartbeatAsync(context, callId, false, callback);
   }
 
+  private static final java.util.Set<String> MEDIA_CONNECTED_REPORTED =
+      java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+  /**
+   * Media evidence — Agora remote uid joined (caller and callee). Fire-and-forget, once per session.
+   * Server stamps connected_at (active + null CAS). Does not touch runtime/PIP/notification state.
+   */
+  public static void reportMediaConnectedOnce(Context context, String callId, int remoteUid) {
+    if (context == null || callId == null || remoteUid == 0) return;
+    String sid = callId.trim();
+    if (sid.isEmpty() || !MEDIA_CONNECTED_REPORTED.add(sid)) return;
+    Context app = context.getApplicationContext();
+    new Thread(
+            () -> {
+              HttpURLConnection conn = null;
+              try {
+                String origin = DibayServerOrigin.resolve(app);
+                if (origin == null || origin.isEmpty()) return;
+                URL url =
+                    new URL(
+                        origin
+                            + "/api/community-messenger/calls/sessions/"
+                            + URLEncoder.encode(sid, "UTF-8"));
+                conn = open(origin, url);
+                conn.setRequestMethod("PATCH");
+                conn.setDoOutput(true);
+                JSONObject bodyJson = new JSONObject();
+                bodyJson.put("action", "media_connected");
+                bodyJson.put("evidence", "remote_user_joined");
+                bodyJson.put("remoteUid", String.valueOf(remoteUid & 0xFFFFFFFFL));
+                bodyJson.put("platform", "android");
+                byte[] body = bodyJson.toString().getBytes(StandardCharsets.UTF_8);
+                conn.setFixedLengthStreamingMode(body.length);
+                try (OutputStream os = conn.getOutputStream()) {
+                  os.write(body);
+                }
+                int status = conn.getResponseCode();
+                readBody(conn, status);
+                if (status >= 200 && status < 300) {
+                  NativeVideoCallLog.info("media_connected_patch_done", sid, "status=" + status);
+                } else {
+                  NativeVideoCallLog.warn("media_connected_patch_failed", sid, "status=" + status);
+                }
+              } catch (Exception error) {
+                NativeVideoCallLog.warn(
+                    "media_connected_patch_failed", sid, "err=" + error.getClass().getSimpleName());
+              } finally {
+                if (conn != null) conn.disconnect();
+              }
+            })
+        .start();
+  }
+
   private static void patchHeartbeatAsync(
       Context context, String callId, boolean nativeLease, PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;

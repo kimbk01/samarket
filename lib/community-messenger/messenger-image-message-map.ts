@@ -152,7 +152,15 @@ export function messengerImageClientFieldsFromMetadata(
       : [];
     /** `albumDisplay` 는 위와 동일 삼항(이 분기에선 `[]` 꼴 없음) — thumbs/legacy 재선택 제거 */
     const albumPreview = previews.length >= 2 ? previews : albumDisplay;
-    const originals = legacyAlbum ? legacy : albumDisplay;
+    /**
+     * 원본 = `image_urls`(원본 키). thumbs 가 앨범이면 위 단락에서 legacy 를 읽지 않으므로 여기서 읽는다 —
+     * 미파싱 시 originals 가 thumbs(960px)로 대체돼 "원본 보기·저장"이 썸네일을 열었다.
+     */
+    let originals = legacyAlbum ? legacy : albumDisplay;
+    if (!legacyAlbum && thumbsAlbum && Array.isArray(rawLegacy) && rawLegacy.length === tl) {
+      const parsedOriginals = parseMessengerImageUrlArray(rawLegacy, rawLegacy.length, true);
+      if (parsedOriginals.length === tl) originals = parsedOriginals;
+    }
     return {
       imageAlbumUrls: albumDisplay,
       imageAlbumPreviewUrls: albumPreview,

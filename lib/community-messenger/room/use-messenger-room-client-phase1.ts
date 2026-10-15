@@ -1074,7 +1074,7 @@ export function useMessengerRoomClientPhase1({
     openInfoSheetFromUrl,
   });
 
-  const { catchUpNewerMessages, catchUpAfterRemoteBump } = useMessengerRoomRemoteCatchup({
+  const { catchUpNewerMessages, reconcileLatestMessages, catchUpAfterRemoteBump } = useMessengerRoomRemoteCatchup({
     roomId,
     streamRoomId,
     refresh,
@@ -1094,6 +1094,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     streamRoomId,
     catchUpNewerMessages,
+    reconcileLatestMessages,
     refresh,
   });
 
@@ -1403,6 +1404,7 @@ export function useMessengerRoomClientPhase1({
     roomMembersDisplayRef,
     remoteBumpCatchUpRafRef,
     lastRemoteBumpDedupeRef,
+    roomMessagesRef,
     setRoomMessages,
     catchUpAfterRemoteBump,
   });

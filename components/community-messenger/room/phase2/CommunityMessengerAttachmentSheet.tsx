@@ -110,6 +110,15 @@ export function CommunityMessengerAttachmentSheet({
     });
   }, [t]);
 
+  /** Native decode failures (iCloud-only / HEIC / OOM) are reported, never silently dropped. */
+  const notifyPhotoLoadFailed = useCallback(
+    (count: number) => {
+      if (count <= 0) return;
+      showMessengerSnackbar(t("cm_ui_attach_photo_partial_failed", { count }), { variant: "error" });
+    },
+    [t]
+  );
+
   const giftVisible =
     !isGroupRoom && roomChatDomain === "general_direct" && Boolean(peerUserId.trim());
   const giftEligible = giftVisible && peerIsFriend && !roomUnavailable;
@@ -242,7 +251,8 @@ export function CommunityMessengerAttachmentSheet({
       }
     }
     if (nativeIds.length > 0) {
-      const payloads = await resolveMessengerPhotoLibraryPhotos(nativeIds);
+      const { photos: payloads, failed } = await resolveMessengerPhotoLibraryPhotos(nativeIds);
+      notifyPhotoLoadFailed(failed.length);
       payloads.forEach((payload, index) => {
         const file = messengerPhotoPayloadToFile(payload, files.length + index);
         files.push(file);
@@ -262,7 +272,7 @@ export function CommunityMessengerAttachmentSheet({
       sendingLockRef.current = false;
       setSending(false);
     }
-  }, [onDismiss, onSendImages, selectedIds, stripItems, uploadBlocked]);
+  }, [notifyPhotoLoadFailed, onDismiss, onSendImages, selectedIds, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -275,11 +285,14 @@ export function CommunityMessengerAttachmentSheet({
 
   const onNativePhotoPick = useCallback(async () => {
     if (uploadBlocked || sendingLockRef.current) return;
-    const payloads = await pickMessengerPhotoLibraryPhotos(MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
+    const { photos: payloads, failed } = await pickMessengerPhotoLibraryPhotos(
+      MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+    );
+    notifyPhotoLoadFailed(failed.length);
     if (payloads.length === 0) return;
     const files = payloads.map((payload, index) => messengerPhotoPayloadToFile(payload, index));
     commitPickedFilesToSelection(files);
-  }, [commitPickedFilesToSelection, uploadBlocked]);
+  }, [commitPickedFilesToSelection, notifyPhotoLoadFailed, uploadBlocked]);
 
   const onCameraChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {

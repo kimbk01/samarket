@@ -7,13 +7,19 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { validateMessengerFileUpload } from "@/lib/community-messenger/upload/validate-messenger-file-upload";
+import {
+  MESSENGER_FILE_UPLOAD_MAX_BYTES,
+  deriveMessengerFileExtension,
+  sanitizeMessengerFileDisplayName,
+} from "@/lib/community-messenger/upload/messenger-file-upload-policy";
+import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 15 * 1024 * 1024;
+const MAX_BYTES = MESSENGER_FILE_UPLOAD_MAX_BYTES;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   const auth = await requireAuthenticatedUserId();
@@ -67,8 +73,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     return NextResponse.json({ ok: false, error: "file_too_large" }, { status: 413 });
   }
 
-  const safeName = (file.name || "file").replace(/[^\w.\-() ]+/g, "_").trim() || "file";
-  const ext = safeName.includes(".") ? safeName.split(".").pop()!.toLowerCase() : "bin";
+  /*
+   * 표시명 = 원본 파일명(NFC·제어문자/경로 제거·200자) — 한글 등 유니코드 보존(과거 `\w` 치환으로 파괴).
+   * 저장 키는 uuid + 안전 확장자(`[a-z0-9]{1,10}`)라 표시명이 Storage 경로에 들어가지 않는다.
+   */
+  const displayName = sanitizeMessengerFileDisplayName(file.name || "file");
+  const ext = deriveMessengerFileExtension(displayName);
   const browserMime = (file.type || "application/octet-stream").toLowerCase().trim();
   const buf = Buffer.from(await file.arrayBuffer());
 
@@ -98,11 +108,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     roomId: canonicalRoomId,
     filePublicUrl: publicUrl,
     storagePath: path,
-    fileName: safeName,
+    fileName: displayName,
     mimeType,
     fileSizeBytes: file.size,
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
+    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
   if (!result.ok) {
@@ -112,14 +123,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }
 
   if (result.ok) {
-    await publishMessengerRoomBumpAfterMutation({
-      rawRouteRoomId: canon.rawRouteRoomId,
-      canonicalRoomId,
-      fromUserId: auth.userId,
-      messageId: result.message?.id,
-      messageCreatedAt: result.message?.createdAt,
-      messageForBump: result.message ?? null,
-    });
+    try {
+      await publishMessengerRoomBumpAfterMutation({
+        rawRouteRoomId: canon.rawRouteRoomId,
+        canonicalRoomId,
+        fromUserId: auth.userId,
+        messageId: result.message?.id,
+        messageCreatedAt: result.message?.createdAt,
+        messageForBump: result.message ?? null,
+      });
+    } catch {
+      /* best-effort(이미지 라우트와 동일): 전송은 이미 커밋됨 — 수신측은 Postgres Realtime·재요청으로 정합 */
+    }
   }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

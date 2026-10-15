@@ -11,6 +11,7 @@ import {
   upgradeCommunityMessengerCallSessionToVideo,
 } from "@/lib/community-messenger/service";
 import { isIdempotentCallSessionPatch } from "@/lib/community-messenger/server/call-session-transitions";
+import { CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -78,7 +79,8 @@ export async function PATCH(
         | "missed"
         | "upgrade_to_video"
         | "downgrade_to_voice"
-        | "heartbeat";
+        | "heartbeat"
+        | "media_connected";
       durationSeconds?: number;
       clientEndedReason?: string;
       reconnecting?: boolean;
@@ -86,6 +88,9 @@ export async function PATCH(
       heartbeatPurpose?: "active" | "native_lease";
       deviceId?: string;
       answeredDeviceId?: string;
+      evidence?: string;
+      remoteUid?: string | number;
+      platform?: string;
     };
     try {
       body = await req.json();
@@ -124,6 +129,20 @@ export async function PATCH(
           body.heartbeatPurpose === "active" || body.heartbeatPurpose === "native_lease"
             ? body.heartbeatPurpose
             : undefined,
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    }
+
+    if (body.action === "media_connected") {
+      const { recordCommunityMessengerCallMediaConnected } = await import(
+        "@/lib/community-messenger/call-media-connected"
+      );
+      const result = await recordCommunityMessengerCallMediaConnected({
+        userId: auth.userId,
+        sessionId,
+        evidence: body.evidence,
+        remoteUid: body.remoteUid,
+        platform: body.platform,
       });
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
     }
@@ -183,7 +202,9 @@ export async function PATCH(
         error: result.error,
       });
     }
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    // ring_deadline_reached: late accept refused (server finalized missed) — distinct 409 for clients.
+    const failStatus = result.error === CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR ? 409 : 400;
+    return NextResponse.json(result, { status: result.ok ? 200 : failStatus });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[call-session-patch] unhandled", { error: message });

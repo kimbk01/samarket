@@ -8,6 +8,8 @@ import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   buildCommunityMessengerMessagesAfterPath,
+  buildCommunityMessengerMessagesLatestPath,
+  MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES,
   runMessengerRoomCatchUpSingleFlight,
   selectNewestConfirmedMessageAnchor,
 } from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
@@ -64,25 +66,39 @@ export function useMessengerRoomRemoteCatchup({
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
 }): {
   catchUpNewerMessages: () => Promise<boolean>;
+  reconcileLatestMessages: () => Promise<boolean>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
     opts?: { alreadyMergedSnapshot?: boolean }
   ) => Promise<void>;
 } {
-  const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
+  const mergeCatchUpRows = useCallback(
+    (roomKey: string, incoming: CommunityMessengerMessage[]) => {
+      setRoomMessages((prev) => mergeRoomMessages(prev, incoming));
+      const viewer = snapshotRef.current?.viewerUserId?.trim() || null;
+      const roomSummary = snapshotRef.current?.room ?? null;
+      for (const row of incoming) {
+        projectHubTipAfterCatchUpMerge({
+          viewerUserId: viewer,
+          roomId: roomKey,
+          message: row,
+          roomSummary,
+        });
+      }
+    },
+    [setRoomMessages, snapshotRef]
+  );
+
+  /**
+   * 최신 창 재조회 — 빈 방(앵커 없음)·복귀 정합.
+   * `after=` 는 INSERT·created_at 커서라 통화 기록(created_at=통화 시작)·제자리 UPDATE 를 놓친다.
+   */
+  const reconcileLatestMessages = useCallback(async (): Promise<boolean> => {
     const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
     if (!id) return false;
-    const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
-    if (confirmed.length === 0) {
-      return false;
-    }
-    const anchorId = selectNewestConfirmedMessageAnchor(confirmed);
-    if (!anchorId) {
-      return false;
-    }
-    return runMessengerRoomCatchUpSingleFlight(id, anchorId, async () => {
+    return runMessengerRoomCatchUpSingleFlight(id, "latest", async () => {
       try {
-        const res = await fetch(buildCommunityMessengerMessagesAfterPath(id, anchorId), {
+        const res = await fetch(buildCommunityMessengerMessagesLatestPath(id), {
           cache: "no-store",
           credentials: "include",
         });
@@ -91,24 +107,51 @@ export function useMessengerRoomRemoteCatchup({
           messages?: CommunityMessengerMessage[];
         };
         if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-        const incoming = json.messages ?? [];
-        setRoomMessages((prev) => mergeRoomMessages(prev, incoming));
-        const viewer = snapshotRef.current?.viewerUserId?.trim() || null;
-        const roomSummary = snapshotRef.current?.room ?? null;
-        for (const row of incoming) {
-          projectHubTipAfterCatchUpMerge({
-            viewerUserId: viewer,
-            roomId: id,
-            message: row,
-            roomSummary,
-          });
-        }
+        mergeCatchUpRows(id, json.messages);
         return true;
       } catch {
         return false;
       }
     });
-  }, [roomId]);
+  }, [mergeCatchUpRows, roomId, roomMessagesRef, snapshotRef]);
+
+  const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
+    const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
+    if (!id) return false;
+    const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
+    const anchorId = confirmed.length > 0 ? selectNewestConfirmedMessageAnchor(confirmed) : null;
+    if (!anchorId) {
+      /** 빈 방 첫 메시지(비친구 첫 통화 기록 등) — 앵커가 없으면 최신 페이지로 받는다. */
+      return reconcileLatestMessages();
+    }
+    return runMessengerRoomCatchUpSingleFlight(id, anchorId, async () => {
+      let cursor = anchorId;
+      let mergedAny = false;
+      for (let page = 0; page < MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES; page++) {
+        try {
+          const res = await fetch(buildCommunityMessengerMessagesAfterPath(id, cursor), {
+            cache: "no-store",
+            credentials: "include",
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            messages?: CommunityMessengerMessage[];
+            hasMore?: boolean;
+          };
+          if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) break;
+          const incoming = json.messages;
+          mergeCatchUpRows(id, incoming);
+          mergedAny = true;
+          const nextCursor = selectNewestConfirmedMessageAnchor(incoming);
+          if (!json.hasMore || !nextCursor || nextCursor === cursor) break;
+          cursor = nextCursor;
+        } catch {
+          break;
+        }
+      }
+      return mergedAny;
+    });
+  }, [mergeCatchUpRows, reconcileLatestMessages, roomId, roomMessagesRef, snapshotRef]);
 
   const tryMergeSingleMessageFromBump = useCallback(async (messageId: string): Promise<boolean> => {
     const mid = String(messageId ?? "").trim();
@@ -193,5 +236,5 @@ export function useMessengerRoomRemoteCatchup({
     [catchUpNewerMessages, refresh, roomMessagesRef, tryMergeSingleMessageFromBump]
   );
 
-  return { catchUpNewerMessages, catchUpAfterRemoteBump };
+  return { catchUpNewerMessages, reconcileLatestMessages, catchUpAfterRemoteBump };
 }

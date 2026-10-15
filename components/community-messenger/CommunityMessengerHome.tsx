@@ -1453,11 +1453,25 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const toggleHiddenFriend = useCallback(
-    async (friendUserId: string) => {
+    async (friendUserId: string, currentHiddenHint?: boolean) => {
       setBusyId(`hidden:${friendUserId}`);
+      /** 현재 스냅샷 기준 명시 상태 전송 — 서버 멱등 set (연타·재시도 시 반대로 뒤집히지 않음) */
+      const snapshot = dataRef.current;
+      const currentlyHidden =
+        typeof currentHiddenHint === "boolean"
+          ? currentHiddenHint
+          : Boolean(
+              snapshot &&
+                (snapshot.hidden.some((profile) => profile.id === friendUserId) ||
+                  snapshot.friends.some(
+                    (profile) => profile.id === friendUserId && profile.isHiddenFriend === true
+                  ))
+            );
       try {
         const res = await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}/hidden`, {
           method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ hidden: !currentlyHidden }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; isHidden?: boolean };
         if (res.ok && json.ok) {
@@ -3015,7 +3029,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }}
           onToggleHidden={
             friendProfileForSheet.isFriend && friendProfileForSheet.id !== data?.me?.id
-              ? () => void toggleHiddenFriend(friendProfileForSheet.id)
+              ? () => void toggleHiddenFriend(friendProfileForSheet.id, friendProfileForSheet.isHiddenFriend === true)
               : undefined
           }
           onInviteToGroup={

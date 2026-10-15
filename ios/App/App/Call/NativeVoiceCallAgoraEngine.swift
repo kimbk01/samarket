@@ -252,6 +252,8 @@ extension NativeVoiceCallAgoraEngine: AgoraRtcEngineDelegate {
     callerJoin = callerJoinActive
     lock.unlock()
     guard let sid, uid != 0 else { return }
+    // Server media evidence (both roles) — additive; runtime connected path below unchanged.
+    NativeVoiceCallApi.reportMediaConnectedOnce(callId: sid, remoteUid: uid)
     currentListener?.onRemoteJoined()
     if callerJoin {
       DibayCallLog.infoCall("ios_native_voice_remote_user_joined", callId: sid, detail: "uid=\(uid)")

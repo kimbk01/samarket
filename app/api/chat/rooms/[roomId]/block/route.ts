@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { blockUserSocial } from "@/lib/community-messenger/social-relations";
+import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -82,5 +83,11 @@ export async function POST(
   }
   invalidateUserChatUnreadCache(userId);
   invalidateOwnerHubBadgeCache(userId);
+  /** 메신저 차단 경로와 동일 정책 — pair 일반 DM 의 ringing/active 통화 종료(실패해도 차단은 성공) */
+  await terminateDirectCallsOnBlockBestEffort({
+    blockerUserId: userId,
+    blockedUserId,
+    logTag: "chat/rooms/block",
+  });
   return NextResponse.json({ ok: true });
 }

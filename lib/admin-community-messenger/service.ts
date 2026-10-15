@@ -1,3 +1,4 @@
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -447,7 +448,7 @@ function mapRoomSummary(
     memberLimit: room.member_limit ?? null,
     isDiscoverable: room.is_discoverable === true,
     requiresPassword: t(room.password_hash).length > 0,
-    lastMessage: t(room.last_message) || "-",
+    lastMessage: t(resolveRoomLastMessageForViewer(room.last_message, null)) || "-",
     lastMessageAt: t(room.last_message_at) || t(room.created_at),
     lastMessageType: t(room.last_message_type) || "system",
     createdAt: t(room.created_at),

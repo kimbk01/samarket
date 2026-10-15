@@ -1,6 +1,6 @@
 "use client";
 
-import { registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
@@ -30,6 +30,22 @@ export type MessengerPhotoLibraryPayload = {
   base64: string;
 };
 
+/**
+ * Additive native field (newer binaries only): rows that could not be decoded/encoded.
+ * `index` = position in the picker selection (pickPhotos) or in `ids` (resolvePhotos).
+ * Old binaries omit `failed` entirely → treated as [].
+ */
+export type MessengerPhotoLibraryFailure = {
+  index: number;
+  id?: string;
+  reason: string;
+};
+
+export type MessengerPhotoLibraryResult = {
+  photos: MessengerPhotoLibraryPayload[];
+  failed: MessengerPhotoLibraryFailure[];
+};
+
 export type MessengerPhotoLibraryPlugin = {
   getPermissionState(): Promise<{ state: MessengerPhotoLibraryPermissionState }>;
   requestPermission(): Promise<{ state: MessengerPhotoLibraryPermissionState }>;
@@ -39,9 +55,13 @@ export type MessengerPhotoLibraryPlugin = {
   }>;
   pickPhotos(options: { max: number }): Promise<{
     photos: MessengerPhotoLibraryPayload[];
+    failed?: MessengerPhotoLibraryFailure[];
     cancelled?: boolean;
   }>;
-  resolvePhotos(options: { ids: string[] }): Promise<{ photos: MessengerPhotoLibraryPayload[] }>;
+  resolvePhotos(options: { ids: string[] }): Promise<{
+    photos: MessengerPhotoLibraryPayload[];
+    failed?: MessengerPhotoLibraryFailure[];
+  }>;
 };
 
 const MessengerPhotoLibrary = registerPlugin<MessengerPhotoLibraryPlugin>(
@@ -133,30 +153,52 @@ export async function getRecentPhotos(limit: number): Promise<{
   }
 }
 
-export async function pickPhotos(max: number): Promise<MessengerPhotoLibraryPayload[]> {
-  if (!(await ensureMessengerPhotoLibraryBridgeReady())) return [];
+/** Normalizes the optional native `failed` array (absent on old binaries, defensive against bad rows). */
+export function normalizeMessengerPhotoLibraryFailures(raw: unknown): MessengerPhotoLibraryFailure[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MessengerPhotoLibraryFailure[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as { index?: unknown; id?: unknown; reason?: unknown };
+    const index = typeof r.index === "number" && Number.isFinite(r.index) ? r.index : -1;
+    const reason = typeof r.reason === "string" && r.reason.trim() ? r.reason : "unknown";
+    out.push(typeof r.id === "string" ? { index, id: r.id, reason } : { index, reason });
+  }
+  return out;
+}
+
+const EMPTY_RESULT = (): MessengerPhotoLibraryResult => ({ photos: [], failed: [] });
+
+export async function pickPhotos(max: number): Promise<MessengerPhotoLibraryResult> {
+  if (!(await ensureMessengerPhotoLibraryBridgeReady())) return EMPTY_RESULT();
   try {
     const result = await invokeMessengerPhotoLibraryPlugin<{
       photos?: MessengerPhotoLibraryPayload[];
+      failed?: unknown;
       cancelled?: boolean;
     }>("pickPhotos", { max });
-    if (result.cancelled) return [];
-    return Array.isArray(result.photos) ? result.photos : [];
+    const failed = normalizeMessengerPhotoLibraryFailures(result.failed);
+    const photos = Array.isArray(result.photos) ? result.photos : [];
+    if (result.cancelled && failed.length === 0) return EMPTY_RESULT();
+    return { photos, failed };
   } catch {
-    return [];
+    return EMPTY_RESULT();
   }
 }
 
-export async function resolvePhotos(ids: string[]): Promise<MessengerPhotoLibraryPayload[]> {
-  if (ids.length === 0 || !(await ensureMessengerPhotoLibraryBridgeReady())) return [];
+export async function resolvePhotos(ids: string[]): Promise<MessengerPhotoLibraryResult> {
+  if (ids.length === 0 || !(await ensureMessengerPhotoLibraryBridgeReady())) return EMPTY_RESULT();
   try {
-    const result = await invokeMessengerPhotoLibraryPlugin<{ photos?: MessengerPhotoLibraryPayload[] }>(
-      "resolvePhotos",
-      { ids },
-    );
-    return Array.isArray(result.photos) ? result.photos : [];
+    const result = await invokeMessengerPhotoLibraryPlugin<{
+      photos?: MessengerPhotoLibraryPayload[];
+      failed?: unknown;
+    }>("resolvePhotos", { ids });
+    return {
+      photos: Array.isArray(result.photos) ? result.photos : [],
+      failed: normalizeMessengerPhotoLibraryFailures(result.failed),
+    };
   } catch {
-    return [];
+    return EMPTY_RESULT();
   }
 }
 
@@ -174,6 +216,19 @@ export function messengerPhotoPayloadToFile(
   return new File([bytes], fileName, { type: mimeType });
 }
 
+/**
+ * Native plugin header present in this binary? Old binaries without MessengerPhotoLibrary must fall back
+ * to the web `<input type="file">` path instead of rendering a dead native photo button.
+ */
+function isMessengerPhotoLibraryPluginRegistered(): boolean {
+  try {
+    if (typeof Capacitor?.isPluginAvailable !== "function") return true;
+    return Capacitor.isPluginAvailable(MESSENGER_PHOTO_LIBRARY_PLUGIN_ID);
+  } catch {
+    return false;
+  }
+}
+
 export function isMessengerPhotoLibraryNativeAvailable(): boolean {
-  return isCapacitorNativePlatform() && isCapacitorBridgeReady();
+  return isCapacitorNativePlatform() && isCapacitorBridgeReady() && isMessengerPhotoLibraryPluginRegistered();
 }

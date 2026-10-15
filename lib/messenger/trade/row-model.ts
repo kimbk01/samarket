@@ -1,6 +1,7 @@
 /**
  * trade RowModel + RouterPort.
  */
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
 import { resolveTradePreview } from "@/lib/messenger/trade/preview";
@@ -25,7 +26,7 @@ export const tradeRouterPort: MessengerRouterPort = {
 export function buildTradeListViewModel(item: TradeListItem): TradeListViewModel {
   const presentation = resolveTradePresentationFromListItem(item);
   const preview = resolveTradePreview({
-    content: item.lastMessage,
+    content: resolveRoomLastMessageForViewer(item.lastMessage, null),
     messageType: item.lastMessageIsSystem ? "system" : "text",
     isSystemAllowed: true,
   });

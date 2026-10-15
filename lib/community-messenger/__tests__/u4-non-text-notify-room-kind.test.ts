@@ -62,6 +62,17 @@ describe("NOTIF-03 non-text roomKind", () => {
 
   it("all 5 non-text senders go through the helper (no direct pipeline call)", () => {
     const src = readFileSync(join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
-    expect(src.match(/void notifyCommunityMessengerMessageRecipients\(/g)?.length).toBe(5);
+    expect(src.match(/const notifyDone = notifyCommunityMessengerMessageRecipients\(/g)?.length).toBe(5);
+    // 알림 Promise 는 라우트에 넘겨 after() 로 수명 보장(fire-and-forget 유실 방지)
+    expect(src.match(/input\.onNotifyScheduled\?\.\(notifyDone\);/g)?.length).toBe(5);
+    expect(src).not.toMatch(/void notifyCommunityMessengerMessageRecipients\(/);
+  });
+
+  it("returns a promise that settles after the pipeline (route registers it with after())", async () => {
+    const { sb } = sbWithRoom({ chat_domain: "group", room_type: "private_group", direct_key: null });
+    const done = notifyCommunityMessengerMessageRecipients(sb, base);
+    expect(done).toBeInstanceOf(Promise);
+    await done;
+    expect(notifyMessagePipeline).toHaveBeenCalledTimes(1);
   });
 });
