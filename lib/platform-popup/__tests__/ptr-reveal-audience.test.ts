@@ -62,6 +62,10 @@ describe("PTR reveal audience — fail-closed allowlist", () => {
       ok: true,
       ids: [QA_UID],
     });
+    // Seed/QA all-ones UUID (non-RFC variant nibble) must still be accepted
+    expect(
+      normalizeAudienceUserIds(["11111111-1111-1111-1111-111111111111"])
+    ).toEqual({ ok: true, ids: ["11111111-1111-1111-1111-111111111111"] });
     expect(normalizeAudienceUserIds(["not-a-uuid"]).ok).toBe(false);
   });
 
