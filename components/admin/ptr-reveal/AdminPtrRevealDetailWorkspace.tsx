@@ -9,7 +9,6 @@ import { AdminPtrRevealPreview } from "@/components/admin/ptr-reveal/AdminPtrRev
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
-import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 import {
   checkPtrBandSource,
@@ -21,6 +20,7 @@ import {
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import type { PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
 import { PLATFORM_POPUP_FREQUENCY_MODES, type PlatformPopupFrequencyMode } from "@/lib/platform-popup/presentation-contract";
+import { buildPtrRevealAdminPatch, type PtrRevealAdminForm } from "@/lib/platform-popup/ptr-reveal-admin-patch";
 
 type Lang = "ko" | "en";
 
@@ -39,21 +39,7 @@ const FREQUENCY_LABEL: Record<PlatformPopupFrequencyMode, { ko: string; en: stri
   close_only: { ko: "새로고침할 때마다", en: "Every refresh" },
 };
 
-type Form = {
-  name: string;
-  priority: number;
-  title: string;
-  ctaLabel: string;
-  ctaType: "internal_page" | "external_url";
-  ctaTarget: string;
-  externalUrl: string;
-  surfaces: string[];
-  startLocal: string;
-  endLocal: string;
-  frequencyMode: PlatformPopupFrequencyMode;
-  audienceMode: "all" | "allowlist";
-  audienceUserIdsText: string;
-};
+type Form = PtrRevealAdminForm;
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -61,12 +47,6 @@ function toLocalInput(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromLocalInput(v: string): string | null {
-  if (!v.trim()) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function formFromDetail(c: PlatformPopupAdminDetail): Form {
@@ -88,13 +68,6 @@ function formFromDetail(c: PlatformPopupAdminDetail): Form {
     audienceMode: c.audienceMode === "allowlist" ? "allowlist" : "all",
     audienceUserIdsText: (c.audienceUserIds ?? []).join("\n"),
   };
-}
-
-function parseAudienceUserIdsText(text: string): string[] {
-  return text
-    .split(/[\s,;]+/)
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
 }
 
 /** 저장된 소재 + 편집 중 문구로 앱과 같은 페이로드 구성(미리보기 전용) */
@@ -172,8 +145,16 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const patch = (p: Partial<Form>) => setForm((f) => (f ? { ...f, ...p } : f));
 
   const save = async () => {
-    if (!form) return;
-    if (!window.confirm(L("변경 내용을 저장할까요? 노출 중이면 다시 검토 상태로 바뀝니다.", "Save changes? A live campaign returns to review."))) return;
+    if (!form || !saved || !detail) return;
+    const body = buildPtrRevealAdminPatch(saved, form);
+    if (Object.keys(body).length === 0) return;
+    const live = detail.status === "active" || detail.status === "scheduled";
+    const materialKeys = ["ctaType", "ctaLabel", "surfaces", "startAt", "frequencyMode", "audienceMode", "title"];
+    const willReview = live && materialKeys.some((k) => k in body);
+    const msg = willReview
+      ? L("저장할까요? 노출 중인 광고의 노출 조건·문구가 바뀌어 다시 검토(노출 중단) 상태가 됩니다.", "Save? This changes a live ad's conditions or text, so it returns to review (exposure stops).")
+      : L("변경 내용을 저장할까요?", "Save changes?");
+    if (!window.confirm(msg)) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -181,23 +162,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       method: "PATCH",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name,
-        priority: form.priority,
-        title: form.title,
-        ctaLabel: form.ctaLabel,
-        ctaType: form.ctaType,
-        ctaTarget: form.ctaType === "internal_page" ? form.ctaTarget : "",
-        externalUrl: form.ctaType === "external_url" ? form.externalUrl : null,
-        surfaces: form.surfaces,
-        startAt: fromLocalInput(form.startLocal),
-        endAt: fromLocalInput(form.endLocal),
-        frequencyMode: form.frequencyMode,
-        // 빈도 SSOT → 억제 모드 (팝업과 같은 매핑)
-        suppressionMode: frequencyModeToDismissSuppressMode(form.frequencyMode),
-        audienceMode: form.audienceMode,
-        audienceUserIds: parseAudienceUserIdsText(form.audienceUserIdsText),
-      }),
+      body: JSON.stringify(body),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; revertedToReview?: boolean };
     setBusy(false);
@@ -277,6 +242,19 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   }
 
   const status = detail.status;
+  // 승인·노출 확인창에 실제 노출 대상을 명시 — 공개(all) 노출을 실수로 켜지 않도록
+  const audienceKo =
+    detail.audienceMode === "allowlist"
+      ? detail.audienceUserIds.length > 0
+        ? ` 노출 대상: 허용 목록 ${detail.audienceUserIds.length}명만.`
+        : " 노출 대상: 허용 목록이 비어 있어 아무에게도 보이지 않습니다."
+      : " 노출 대상: 전체 사용자(공개 노출)입니다.";
+  const audienceEn =
+    detail.audienceMode === "allowlist"
+      ? detail.audienceUserIds.length > 0
+        ? ` Audience: allowlist only (${detail.audienceUserIds.length} users).`
+        : " Audience: empty allowlist — nobody will see it."
+      : " Audience: EVERYONE (public).";
   const s = detail.eventSummary;
   const ctr = detail.derived.ctr;
 
@@ -475,11 +453,11 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 {L("검토 요청", "Submit for review")}
               </button>
               <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
-                onClick={() => void transition({ action: "approve", schedule: true }, "승인하고 예약 노출로 둘까요? 시작 시각부터 앱에 표시됩니다.", "Approve and schedule? It shows in the app from the start time.")}>
+                onClick={() => void transition({ action: "approve", schedule: true }, "승인하고 예약 노출로 둘까요? 시작 시각부터 앱에 표시됩니다." + audienceKo, "Approve and schedule? It shows in the app from the start time." + audienceEn)}>
                 {L("승인 후 예약", "Approve → schedule")}
               </button>
               <button type="button" className="rounded border border-sam-primary bg-sam-primary px-3 py-1.5 text-white" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
-                onClick={() => void transition({ action: "approve", activate: true }, "승인하고 바로 노출할까요? 실제 앱의 새로고침 화면에 표시됩니다.", "Approve and go live now? It will show on real app refresh screens.")}>
+                onClick={() => void transition({ action: "approve", activate: true }, "승인하고 바로 노출할까요? 실제 앱의 새로고침 화면에 표시됩니다." + audienceKo, "Approve and go live now? It will show on real app refresh screens." + audienceEn)}>
                 {L("승인 후 노출 시작", "Approve → go live")}
               </button>
               <button type="button" className="rounded border border-red-300 px-3 py-1.5 text-red-700" disabled={busy || status !== "pending_review"} data-admin-ptr-reject=""
@@ -491,7 +469,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 {L("노출 중지", "Stop")}
               </button>
               <button type="button" className="rounded border border-sam-border px-3 py-1.5" disabled={busy || status !== "paused"}
-                onClick={() => void transition({ action: "transition", nextStatus: "active" }, "다시 노출할까요?", "Resume exposure?")}>
+                onClick={() => void transition({ action: "transition", nextStatus: "active" }, "다시 노출할까요?" + audienceKo, "Resume exposure?" + audienceEn)}>
                 {L("다시 노출", "Resume")}
               </button>
               <button type="button" className="rounded border border-red-300 px-3 py-1.5 text-red-700" disabled={busy || status === "ended" || status === "draft"}
@@ -591,6 +569,30 @@ function PtrBandUploadSlot({
     : variant === "tablet" ? L(`태블릿 (폭 ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px 이상) — 없으면 태블릿에는 광고 없음`, `Tablets (≥ ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px) — without it tablets show no ad`)
     : L("광고주 로고 — 선택, 띠 오른쪽 「광고」 표기 옆 원형", "Advertiser logo — optional, round, next to the “Ad” label on the right");
 
+  const remove = async () => {
+    if (!current) return;
+    const ok = window.confirm(
+      L(
+        `${spec.labelKo} 이미지를 삭제할까요? 노출 중이면 다시 검토 상태가 됩니다.${variant === "tablet" ? " 태블릿에는 광고 없이 일반 새로고침만 보입니다." : ""}`,
+        `Delete the ${spec.labelEn}? A live campaign returns to review.${variant === "tablet" ? " Tablets will then show normal refresh without an ad." : ""}`
+      )
+    );
+    if (!ok) return;
+    setBusy(true);
+    const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/creative?variant=${variant}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; revertedToReview?: boolean };
+    setBusy(false);
+    if (!res.ok || !json.ok) {
+      setMsg({ tone: "err", text: formatPlatformPopupAdminError(json.error || "delete_failed", lang) });
+      return;
+    }
+    setMsg({ tone: "ok", text: json.revertedToReview ? L("삭제했습니다. 다시 검토 상태입니다.", "Deleted. Back in review.") : L("삭제했습니다.", "Deleted.") });
+    await onUploaded();
+  };
+
   const upload = async (file: File, applyCrop: boolean) => {
     const fd = new FormData();
     fd.set("file", file);
@@ -667,6 +669,17 @@ function PtrBandUploadSlot({
           alt=""
           className={`mt-2 border border-sam-border ${variant === "logo" ? "h-16 w-16 rounded-full object-cover" : "w-full"}`}
         />
+      : null}
+      {current ?
+        <button
+          type="button"
+          className="mt-1.5 rounded border border-red-300 px-2 py-1 text-xs text-red-700 disabled:opacity-50"
+          disabled={disabled || busy}
+          onClick={() => void remove()}
+          data-admin-ptr-delete={variant}
+        >
+          {L("이미지 삭제", "Delete image")}
+        </button>
       : null}
       <div
         role="button"

@@ -66,6 +66,11 @@ export function formatPlatformPopupAdminError(
   if (lower.includes("creative_required")) {
     return lang === "en" ? "Upload the phone band image first." : "휴대폰 띠 이미지를 먼저 올려 주세요.";
   }
+  if (lower === "ptr_default_band_required_live") {
+    return lang === "en"
+      ? "The phone band is required while the ad is live or scheduled. Replace it instead of deleting."
+      : "노출·예약 중에는 휴대폰 띠를 삭제할 수 없습니다. 교체해 주세요.";
+  }
   if (lower === "owner_campaign_copy_forbidden") {
     return lang === "en" ? "Owner-requested campaigns cannot be copied." : "오너 요청 캠페인은 복사할 수 없습니다.";
   }

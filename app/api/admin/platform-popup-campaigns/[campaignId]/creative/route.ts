@@ -3,7 +3,10 @@ import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
-import { replacePlatformPopupReadyCreative } from "@/lib/platform-popup/admin-campaign-writer";
+import {
+  removePlatformPopupPtrBandVariant,
+  replacePlatformPopupReadyCreative,
+} from "@/lib/platform-popup/admin-campaign-writer";
 import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
 import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
@@ -232,4 +235,33 @@ export async function POST(
     cropped: processed.cropped,
     revertedToReview: replaced.revertedToReview,
   });
+}
+
+/**
+ * DELETE ?variant=default|tablet|logo — PTR 띠 소재 변형 삭제(ready 해제, 감사 로그).
+ * 휴대폰 띠는 노출·예약 중 삭제 불가. 팝업 캠페인 소재에는 사용할 수 없다.
+ */
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ campaignId: string }> }
+): Promise<NextResponse> {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
+  }
+
+  const { campaignId } = await ctx.params;
+  const variant = new URL(req.url).searchParams.get("variant") ?? "";
+  const result = await removePlatformPopupPtrBandVariant(sb, {
+    campaignId,
+    adminUserId: admin.userId,
+    variant,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus ?? 400 });
+  }
+  return NextResponse.json({ ok: true, removed: result.removed, revertedToReview: result.revertedToReview });
 }
