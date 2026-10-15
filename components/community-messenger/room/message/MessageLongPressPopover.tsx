@@ -90,7 +90,14 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       ? undefined
       : photoUrls.length === 1
         ? [{ key: "photo-save", label: t("cm_ui_photo_save_menu"), onClick: () => savePhotos(photoUrls) }]
-        : [
+        : photoSaveMode === "browser"
+          ? /** 구버전 앱(브라우저 모드): 여러 장을 한 번에 넘길 수 없어 사진별 행만 노출 */
+            photoUrls.map((url, i) => ({
+              key: `photo-save-${i}`,
+              label: t("cm_ui_photo_save_index", { index: i + 1 }),
+              onClick: () => savePhotos([url]),
+            }))
+          : [
             {
               key: "photo-save-all",
               label: t("cm_ui_photo_save_all_menu", { count: photoUrls.length }),
@@ -108,7 +115,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
                   onClick: () => savePhotos([url]),
                 }))
               : []),
-          ];
+            ];
   /**
    * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
    * backdrop에 전달되어 팝오버가 즉시 닫히는 현상을 막는다.

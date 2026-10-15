@@ -1,7 +1,8 @@
 "use client";
 
 import { syncMessengerImageAutoSaveEnabled } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
-import type { RefObject } from "react";
+import { resolveMessengerImageSaveMode } from "@/lib/community-messenger/attachment/messenger-image-save";
+import { useEffect, useState, type RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
   MessengerHomeBottomSheetShell,
@@ -74,6 +75,17 @@ export function MessengerSettingsSheet({
   onOpenOpenChatDiscovery,
 }: MessengerSettingsSheetProps) {
   const { t } = useI18n();
+  /** 자동 저장은 네이티브 사진첩 저장(saveImages)이 있는 앱에서만 동작 — 아니면 설명에 업데이트 안내 */
+  const [autoSaveNativeSupported, setAutoSaveNativeSupported] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void resolveMessengerImageSaveMode().then((mode) => {
+      if (!cancelled) setAutoSaveNativeSupported(mode === "native");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return (
     <MessengerHomeBottomSheetShell
       onClose={onClose}
@@ -257,7 +269,11 @@ export function MessengerSettingsSheet({
               />
               <SettingsToggleRow
                 title={t("cm_ui_media_auto_save")}
-                description={t("cm_ui_open_files_images_with_save_focus")}
+                description={
+                  autoSaveNativeSupported === false
+                    ? `${t("cm_ui_open_files_images_with_save_focus")} ${t("cm_ui_media_auto_save_requires_update")}`
+                    : t("cm_ui_open_files_images_with_save_focus")
+                }
                 checked={localSettings.mediaAutoSaveEnabled}
                 onChange={(next) => {
                   /** 켠 시각 이후 받은 사진만 자동 저장(과거 사진 일괄 저장 방지), 끄면 기준·권한 재시도 초기화 */

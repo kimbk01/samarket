@@ -139,6 +139,9 @@ export const communityMessengerUiMessages = {
     cm_ui_photo_save_unsupported: "이 앱 버전에서는 사진 저장을 지원하지 않습니다. 앱을 업데이트해 주세요.",
 
     cm_ui_photo_save_cancelled: "사진 저장을 취소했습니다.",
+    cm_ui_media_auto_save_requires_update: "(자동 저장은 최신 버전 앱에서 동작합니다.)",
+    cm_ui_photo_save_browser_ios: "원본 사진을 열었어요. 사진을 길게 눌러 「사진 앱에 추가」를 선택해 주세요.",
+    cm_ui_photo_save_browser_android: "원본 사진 다운로드를 시작했어요. 완료되면 갤러리의 다운로드 앨범에서 확인할 수 있어요.",
 
     cm_ui_photo_auto_saved_count: "받은 사진 {count}장을 자동 저장했습니다.",
 
@@ -1259,6 +1262,9 @@ export const communityMessengerUiMessages = {
     cm_ui_photo_save_unsupported: "This app version can't save photos. Please update the app.",
 
     cm_ui_photo_save_cancelled: "Photo save cancelled.",
+    cm_ui_media_auto_save_requires_update: "(Auto-save works in the latest app version.)",
+    cm_ui_photo_save_browser_ios: "Opened the original photo. Long-press it and choose \"Add to Photos\".",
+    cm_ui_photo_save_browser_android: "Started downloading the original photo. Find it in your gallery's Download album.",
 
     cm_ui_photo_auto_saved_count: "Auto-saved {count} received photo(s).",
 
