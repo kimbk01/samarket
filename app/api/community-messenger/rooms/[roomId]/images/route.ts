@@ -4,6 +4,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildMessengerImageVariantBuffers } from "@/lib/community-messenger/messenger-image-variants";
 import { sendCommunityMessengerImageMessage } from "@/lib/community-messenger/service";
+import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import type { CommunityMessengerImageSendItem } from "@/lib/community-messenger/types";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     const variants = await buildMessengerImageVariantBuffers({ buf, mimeType });
     if (variants.kind === "rejected") {
       // SEC-09: sharp 가 원본을 소독하지 못함 → raw 저장 금지, 거부.
+      // IMG-02: 앞선 파일(1..k-1)은 이미 올라갔으므로 고아 정리 후 거부.
+      await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
       return NextResponse.json({ ok: false, error: "unsupported_image" }, { status: 400 });
     }
     const id = randomUUID();
@@ -162,12 +165,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     items: uploaded,
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: String(form.get("clientMessageId") ?? "").trim() || null,
+    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
   if (!result.ok) {
     // IMG-02: 전송 거절 → 올린 파일 고아 정리.
     await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
     return NextResponse.json(result, { status: 400 });
+  }
+
+  if (result.deduped) {
+    // CHAT-05 멱등 재전송: DB 행은 이전 업로드를 가리킨다 — 이번 요청 업로드분은 고아이므로 정리.
+    await purgeMessengerMediaStoragePaths(sb, uploadedStoragePaths, { roomId: canonicalRoomId });
   }
 
   if (result.ok) {

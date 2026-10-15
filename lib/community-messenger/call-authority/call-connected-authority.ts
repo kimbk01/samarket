@@ -93,3 +93,37 @@ export function evaluateConnectedProposal(input: {
 export function normalizeConnectedRequestDeviceId(raw: string | null | undefined): string | null {
   return normalizeAnswerClaimDeviceId(raw);
 }
+
+/**
+ * Native media evidence (PATCH action=media_connected).
+ * Only "remote_user_joined" counts — heartbeat / callee local join are NOT evidence.
+ * Either party may report; server stamps connected_at once (status=active AND connected_at IS NULL CAS).
+ */
+export const CALL_MEDIA_CONNECTED_SESSION_ACTION = "media_connected" as const;
+export const CALL_MEDIA_CONNECTED_EVIDENCE_REMOTE_USER_JOINED = "remote_user_joined" as const;
+
+export type MediaConnectedEvidenceDecision =
+  | { ok: true; kind: "stamp" }
+  | { ok: true; kind: "idempotent" }
+  | { ok: false; error: "bad_evidence" | "forbidden" | "not_active" };
+
+export function evaluateMediaConnectedEvidence(input: {
+  status: string | null | undefined;
+  connectedAt: string | null | undefined;
+  actorUserId: string;
+  initiatorUserId: string;
+  recipientUserId: string | null | undefined;
+  evidence: unknown;
+}): MediaConnectedEvidenceDecision {
+  if (input.evidence !== CALL_MEDIA_CONNECTED_EVIDENCE_REMOTE_USER_JOINED) {
+    return { ok: false, error: "bad_evidence" };
+  }
+  const actor = trimId(input.actorUserId);
+  const initiator = trimId(input.initiatorUserId);
+  const recipient = trimId(input.recipientUserId ?? "");
+  const isParty = idsEqual(actor, initiator) || (recipient.length > 0 && idsEqual(actor, recipient));
+  if (!isParty) return { ok: false, error: "forbidden" };
+  if (trimId(input.connectedAt ?? "")) return { ok: true, kind: "idempotent" };
+  if (trimId(input.status).toLowerCase() !== "active") return { ok: false, error: "not_active" };
+  return { ok: true, kind: "stamp" };
+}

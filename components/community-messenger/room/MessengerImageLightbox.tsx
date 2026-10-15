@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  buildMessengerFileDownloadUrl,
+  openMessengerFileInNativeShellIfNeeded,
+} from "@/lib/community-messenger/messenger-file-download";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -86,6 +90,16 @@ export function MessengerImageLightbox(props: {
           href={orig}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => {
+            /**
+             * Capacitor WebView 는 target=_blank·다운로드를 처리하지 못한다 → 인앱 브라우저로
+             * 원본을 첨부(Content-Disposition) URL 로 열어 OS 저장/공유 시트로 받는다.
+             */
+            const fileName = decodeURIComponent(orig.split("?")[0]?.split("/").pop() ?? "") || "image";
+            if (openMessengerFileInNativeShellIfNeeded(buildMessengerFileDownloadUrl(orig, fileName))) {
+              e.preventDefault();
+            }
+          }}
           className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
         >
           {t("cm_ui_original")}

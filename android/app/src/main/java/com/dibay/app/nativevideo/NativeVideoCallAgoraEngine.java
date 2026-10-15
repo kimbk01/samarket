@@ -792,14 +792,18 @@ public final class NativeVideoCallAgoraEngine {
           Listener currentListener;
           String sid;
           boolean callerJoin;
+          Context evidenceApp;
           synchronized (LOCK) {
             currentListener = listener;
             sid = activeCallId;
             callerJoin = callerJoinActive;
+            evidenceApp = renderContext;
             if (uid != 0) remoteUid = uid;
           }
           if (sid == null || uid == 0) return;
           NativeVideoCallLog.info("remote_user_joined", sid, "uid=" + uid);
+          // Server media evidence (caller AND callee) — additive; UI/listener behavior below unchanged.
+          NativeVideoCallApi.reportMediaConnectedOnce(evidenceApp, sid, uid);
           if (callerJoin) {
             NativeVideoCallActivity.onOutgoingRemoteUserJoined(sid, uid);
           }

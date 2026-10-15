@@ -3,6 +3,7 @@
  * Shared contract for client tip patch / UI display / server summarize.
  * Never use URL-extension heuristics — TEXT URLs stay text.
  */
+import { callStubRoomTipFromMessage } from "@/lib/community-messenger/call-stub-room-tip";
 import type { CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 
 function trimText(value: unknown): string {
@@ -62,7 +63,9 @@ export function canonicalRoomListPreviewFromMessageFields(input: {
     return { lastMessage: content || ROOM_LIST_PREVIEW_STICKER_TOKEN, lastMessageType: "sticker" };
   }
   if (messageType === "call_stub") {
-    return { lastMessage: content || ROOM_LIST_PREVIEW_CALL_TOKEN, lastMessageType: "call_stub" };
+    /** 발신자·수신자별 리스트 문구용 토큰(call-stub-room-tip) — 렌더러가 viewer 기준으로 해석. */
+    const tip = callStubRoomTipFromMessage({ content, metadata: meta });
+    return { lastMessage: tip || ROOM_LIST_PREVIEW_CALL_TOKEN, lastMessageType: "call_stub" };
   }
   if (messageType === "system") {
     return { lastMessage: content || ROOM_LIST_PREVIEW_SYSTEM_TOKEN, lastMessageType: "system" };

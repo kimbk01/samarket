@@ -1,4 +1,5 @@
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
+import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { randomUUID } from "crypto";
 import { after } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -288,14 +289,19 @@ import {
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 import {
   buildCallStubProjectionMetadata,
+  isCallStubUniqueViolationError,
   resolveCallStubIdempotencyKey,
   resolveProjectionFromSession,
   shouldPersistCallStubProjection,
 } from "@/lib/community-messenger/call-authority/call-chat-projection-authority";
 import {
+  evaluateAcceptRingDeadlineGate,
   evaluateMissedTransitionGate,
   resolveCanonicalRingTimeoutSeconds,
 } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
+import { resolveHeartbeatTimeoutEndedAtIso } from "@/lib/community-messenger/call-authority/call-heartbeat-timeout-ended-at-authority";
+import { isTerminalCasLossIdempotent } from "@/lib/community-messenger/server/call-session-transitions";
+import { CALL_SERVER_HEARTBEAT_ENDED_REASON } from "@/lib/call/call-server-heartbeat";
 import {
   buildRoomBoundMissedCallNotificationInput,
   decideRoomBoundMissedCallNotification,
@@ -609,6 +615,8 @@ type CallSessionRow = {
   answered_at: string | null;
   connected_at?: string | null;
   answered_device_id?: string | null;
+  caller_last_heartbeat_at?: string | null;
+  callee_last_heartbeat_at?: string | null;
   ended_at: string | null;
   ended_reason?: string | null;
   updated_at?: string | null;
@@ -2551,7 +2559,10 @@ function buildRoomSummaryFromHydratedMembers(
   const roomSummary = trimText(isDbRoom ? room.summary : room.summary);
   const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
-  const roomLastMessage = trimText(isDbRoom ? room.last_message : room.lastMessage);
+  /** 통화 기록 tip 토큰 → viewer(발신/수신)별 문구 — 원문 토큰은 클라이언트로 나가지 않는다. */
+  const roomLastMessage = trimText(
+    resolveRoomLastMessageForViewer(isDbRoom ? room.last_message : room.lastMessage, userId)
+  );
   const roomLastMessageTypeRaw = trimText(isDbRoom ? room.last_message_type : room.lastMessageType);
   const roomLastMessageType =
     roomLastMessageTypeRaw === "image" ||
@@ -5338,19 +5349,23 @@ async function findCallStubRowBySessionId(
   if (!sid) return null;
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: existingRows } = await (sb as any)
-      .from("community_messenger_messages")
-      .select("id, sender_id, metadata, created_at")
-      .eq("room_id", roomId)
-      .eq("message_type", "call_stub")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    const existingRow = ((existingRows ?? []) as Array<{
-      id: string;
-      sender_id?: string | null;
-      metadata?: unknown;
-      created_at?: string;
-    }>).find((row) => hasMatchingCallStubSessionId(row.metadata, sid));
+    /**
+     * Targeted lookup (no recent-N window): metadata->>sessionId is backed by the partial unique
+     * index cm_messages_call_stub_session_uidx; tmpSessionId keeps legacy preview parity.
+     */
+    const lookup = (metadataKey: "sessionId" | "tmpSessionId") =>
+      (sb as any)
+        .from("community_messenger_messages")
+        .select("id, sender_id, metadata, created_at")
+        .eq("room_id", roomId)
+        .eq("message_type", "call_stub")
+        .eq(`metadata->>${metadataKey}`, sid)
+        .order("created_at", { ascending: false })
+        .limit(1);
+    const [bySession, byTmp] = await Promise.all([lookup("sessionId"), lookup("tmpSessionId")]);
+    type StubLookupRow = { id: string; sender_id?: string | null; metadata?: unknown; created_at?: string };
+    const existingRow =
+      ((bySession?.data ?? []) as StubLookupRow[])[0] ?? ((byTmp?.data ?? []) as StubLookupRow[])[0];
     if (!existingRow?.id) return null;
     return {
       id: existingRow.id,
@@ -5456,6 +5471,16 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     input.durationSeconds,
     resolvedEvent,
   );
+  /** 리스트 tip — 발신자·수신자별 문구용 구조화 토큰(call-stub-room-tip). 메시지 content 는 공유 라벨 유지. */
+  const roomTip = encodeCallStubRoomTip({
+    callKind: input.callKind,
+    status: callStatus,
+    resolvedEvent: resolvedEvent ?? null,
+    initiatorUserId: trimText(input.initiatorUserId ?? ""),
+    recipientUserId: trimText(input.recipientUserId ?? ""),
+    durationSeconds: Number(input.durationSeconds ?? 0),
+    sharedLabel: label,
+  });
   const metadata = buildCallStubProjectionMetadata({
     callKind: input.callKind,
     callStatus,
@@ -5563,7 +5588,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       const stubMs = new Date(stubStartedAt).getTime();
       if (bumpRoomLastMessageAt) {
         const roomPatch: Record<string, unknown> = {
-          last_message: label,
+          last_message: roomTip,
           last_message_type: "call_stub",
         };
         const bumped = applyForwardOnlyRoomLastMessageAt(roomAt, listActivityAt);
@@ -5580,7 +5605,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         await (sb as any)
           .from("community_messenger_rooms")
           .update({
-            last_message: label,
+            last_message: roomTip,
             last_message_type: "call_stub",
           })
           .eq("id", input.roomId);
@@ -5717,6 +5742,23 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       /** CUT4: one stub per session — do not include actor/label in key */
       idempotencyKey,
     });
+    if (!appended.ok && sessionId && isCallStubUniqueViolationError(appended.error)) {
+      /**
+       * Concurrent terminal writers (different stub senders bypass per-sender idempotency):
+       * cm_messages_call_stub_session_uidx rejected the 2nd INSERT (RPC → 'unique_violation').
+       * Reuse the winner row — same as the "existing stub" path above.
+       */
+      const raced = await findCallStubRowBySessionId(input.roomId, sessionId);
+      if (raced) {
+        await updateExistingStub(raced);
+        await publishTerminalCallStubRoomBumpBestEffort({
+          messageId: raced.id,
+          fromUserId: raced.senderId || stubSenderId,
+          createdAt: raced.createdAt,
+        });
+        return { ok: true, messageId: raced.id, senderId: raced.senderId };
+      }
+    }
     if (!appended.ok) {
       console.error("[room_unread_v1] call_stub_append", {
         code: "cm_call_stub_projection_failed",
@@ -5728,6 +5770,18 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         rpc_used: "dibay_append_room_message_atomic",
       });
       return { ok: false, error: appended.error, candidates: senderCandidates };
+    }
+    if (roomTip !== label) {
+      /**
+       * RPC 는 tip 을 content(공유 라벨)로 기록한다 → 같은 tip 일 때만 viewer 별 토큰으로 치환
+       * (그 사이 다른 메시지가 tip 이 됐으면 조건 불일치로 no-op).
+       */
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({ last_message: roomTip })
+        .eq("id", input.roomId)
+        .eq("last_message_type", "call_stub")
+        .eq("last_message", label);
     }
     if (bumpRoomLastMessageAt) {
       /** lastActivityAt SSOT — terminal occurred_at 기준 forward-only (room preview only). */
@@ -9967,7 +10021,9 @@ export async function toggleCommunityMessengerFavoriteFriend(
 
 export async function toggleCommunityMessengerHiddenFriend(
   userId: string,
-  targetUserId: string
+  targetUserId: string,
+  /** 명시 상태(멱등 set). 생략 시 legacy toggle — 구 클라이언트 호환 */
+  desiredHidden?: boolean
 ): Promise<{ ok: boolean; isHidden?: boolean; error?: string }> {
   const target = trimText(targetUserId);
   if (!target || !(await isFriend(userId, target))) {
@@ -9975,19 +10031,31 @@ export async function toggleCommunityMessengerHiddenFriend(
   }
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: existing, error: selectError } = await (sb as any)
+    /** maybeSingle 금지 — 과거 중복 row 가 있으면 오류→insert 로 중복이 늘어났다. 목록으로 읽는다. */
+    const { data: existingRows, error: selectError } = await (sb as any)
       .from("user_relationships")
       .select("id")
       .eq("user_id", userId)
       .eq("target_user_id", target)
-      .or("relation_type.eq.hidden,type.eq.hidden")
-      .maybeSingle();
-    if (!selectError || !isMissingTableError(selectError)) {
-      if (existing?.id) {
-        const { error } = await (sb as any).from("user_relationships").delete().eq("id", existing.id);
+      .or("relation_type.eq.hidden,type.eq.hidden");
+    if (selectError && !isMissingTableError(selectError)) {
+      return { ok: false, error: String(selectError.message ?? "friend_hide_read_failed") };
+    }
+    if (!selectError) {
+      const currentlyHidden = Array.isArray(existingRows) && existingRows.length > 0;
+      const nextHidden = typeof desiredHidden === "boolean" ? desiredHidden : !currentlyHidden;
+      if (!nextHidden) {
+        if (!currentlyHidden) return { ok: true, isHidden: false };
+        const { error } = await (sb as any)
+          .from("user_relationships")
+          .delete()
+          .eq("user_id", userId)
+          .eq("target_user_id", target)
+          .or("relation_type.eq.hidden,type.eq.hidden");
         if (!error) return { ok: true, isHidden: false };
         return { ok: false, error: String(error.message ?? "friend_hide_update_failed") };
       }
+      if (currentlyHidden) return { ok: true, isHidden: true };
       const { error } = await (sb as any).from("user_relationships").insert({
         user_id: userId,
         target_user_id: target,
@@ -10001,7 +10069,8 @@ export async function toggleCommunityMessengerHiddenFriend(
 
   const dev = getDevState();
   const hidden = dev.hiddenFriends.get(userId) ?? new Set<string>();
-  if (hidden.has(target)) {
+  const nextDevHidden = typeof desiredHidden === "boolean" ? desiredHidden : !hidden.has(target);
+  if (!nextDevHidden) {
     hidden.delete(target);
     dev.hiddenFriends.set(userId, hidden);
     return { ok: true, isHidden: false };
@@ -12887,8 +12956,8 @@ export function notifyCommunityMessengerMessageRecipients(
     directKey?: string | null;
     hasMention?: boolean;
   }
-): void {
-  void (async () => {
+): Promise<void> {
+  return (async () => {
     // NOTIF-03: same classification authority as the text path (stored chat_domain first,
     // legacy room_type/direct_key fallback) so non-text messages get the room's event type.
     let directKey = args.directKey ?? null;
@@ -15497,8 +15566,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       tStep = performance.now();
     }
     const contentTrimmed = deletedForEveryone ? resolveDeletedMessagePlaceholder() : rawContent;
+    /**
+     * 이미지 앨범 필드는 모든 tier 필수 계약 — critical tier 에서 빠지면 말풍선이 content(첫 썸네일) 1장만 그리고
+     * 이후 정합에서도 복구되지 않았다(iOS 2장 → 수신 1장). 메타 파싱 O(n) 이라 critical 비용 영향 미미.
+     */
     const imageExtra =
-      !isCriticalTier && safeMt === "image" && !deletedForEveryone
+      safeMt === "image" && !deletedForEveryone
         ? messengerImageClientFieldsFromMetadata(safeMt, metadata, rawContent)
         : {};
     if (mappedMsgAcc) {
@@ -15945,6 +16018,122 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
       .eq("room_id", roomId)
       .is("deleted_at", null)
       .lt("created_at", anchorCreatedAt)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(pageLimit + 1)
+  );
+  if (msgErr && !isMissingTableError(msgErr)) {
+    return { ok: false, error: "load_failed" };
+  }
+
+  const raw = (rows ?? []) as MessageRow[];
+  const hasMore = raw.length > pageLimit;
+  const ascRows = raw.slice(0, pageLimit).reverse();
+  const ascMessageIds = ascRows.map((r) => r.id);
+  const senderIdsPre = dedupeIds(ascRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const [rx, hidden, profilePack] = await Promise.all([
+    fetchCommunityMessengerReactionAggregatesForMessages(
+      sb as SupabaseLike,
+      ascMessageIds,
+      input.userId,
+      { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(ascRows) }
+    ),
+    fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, ascMessageIds),
+    hydrateProfilesLabelsOnlyWithMap(input.userId, senderIdsPre, {
+      includeSelf: true,
+      bootstrapLiteFirstPaint: true,
+    }),
+  ]);
+  const visibleRows = ascRows.filter((r) => !hidden.has(r.id));
+  const profileById = new Map(profilePack.members.map((m) => [m.id, m]));
+  const messages = visibleRows.map((row) =>
+    mapCommunityMessengerDbMessageRowToMessage({
+      row,
+      viewerUserId: input.userId,
+      profileById,
+      reactions: rx.get(row.id),
+    })
+  );
+  return { ok: true, messages, hasMore };
+}
+
+/**
+ * 최신 페이지(앵커 없음) — 빈 방 첫 메시지·탭 복귀 정합용.
+ * `after=` 는 (created_at,id) 커서라 INSERT 만, 그리고 앵커보다 과거 created_at 으로 늦게 기록된 행
+ * (call_stub = session started_at)을 영구히 못 찾는다. 최신 창 재조회가 그 행과 제자리 UPDATE 를 정합한다.
+ */
+export async function listCommunityMessengerRoomMessagesLatest(input: {
+  userId: string;
+  roomId: string;
+  limit?: number;
+}): Promise<
+  { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const pageLimit = Math.min(
+    COMMUNITY_MESSENGER_MESSAGE_PAGE_MAX,
+    Math.max(1, Math.floor(Number(input.limit) || COMMUNITY_MESSENGER_MESSAGE_PAGE_DEFAULT))
+  );
+  if (!roomId) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    const dev = getDevState();
+    const mine = dev.participants.some((p) => p.roomId === roomId && p.userId === input.userId);
+    if (!mine) return { ok: false, error: "room_not_found" };
+    const pool = dev.messages
+      .filter((m) => m.roomId === roomId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    const page = pool.slice(0, pageLimit + 1);
+    const hasMore = page.length > pageLimit;
+    const sliced = page.slice(0, pageLimit).reverse();
+    const senderIds = dedupeIds(sliced.map((m) => m.senderId).filter((id): id is string => Boolean(id)));
+    const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+    const profileById = new Map(profiles.map((p) => [p.id, p]));
+    const messages: CommunityMessengerMessage[] = sliced.map((message) => {
+      const senderId = message.senderId;
+      const metadata = message.metadata ?? {};
+      const safeMt = message.messageType;
+      return {
+        id: message.id,
+        roomId: message.roomId,
+        senderId,
+        senderLabel: cmSenderDisplayLabel(
+          senderId ?? "",
+          input.userId,
+          senderId ? profileLabel(profileById.get(senderId), senderId) : ""
+        ),
+        messageType: safeMt,
+        content: trimText(message.content),
+        createdAt: message.createdAt,
+        isMine: senderId === input.userId,
+        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+        callSessionId: trimText(metadata.sessionId as string) || null,
+        ...(safeMt === "image"
+          ? messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content))
+          : {}),
+      };
+    });
+    return { ok: true, messages, hasMore };
+  }
+
+  const { data: myParticipant } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (!myParticipant) return { ok: false, error: "room_not_found" };
+
+  const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+    (sb as any)
+      .from("community_messenger_messages")
+      .select(cols)
+      .eq("room_id", roomId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageLimit + 1)
@@ -16846,14 +17035,18 @@ async function appendCommunityMessengerSystemMessage(input: {
   const sb = getSupabaseOrNull();
   if (sb) {
     const createdAt = nowIso();
-    const { error: insertError } = await (sb as any).from("community_messenger_messages").insert({
-      room_id: roomId,
-      sender_id: null,
-      message_type: "system",
-      content,
-      metadata: {},
-      created_at: createdAt,
-    });
+    const { data: insertedSystemRow, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: null,
+        message_type: "system",
+        content,
+        metadata: {},
+        created_at: createdAt,
+      })
+      .select("id")
+      .maybeSingle();
     if (!insertError) {
       await (sb as any)
         .from("community_messenger_rooms")
@@ -16864,6 +17057,25 @@ async function appendCommunityMessengerSystemMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
+      /** 서버 생성 메시지도 모든 참여자·모든 기기에 bump(실행자 기기 포함) — postgres_changes 단독 의존 제거. */
+      try {
+        const { publishMessengerRoomBumpAfterMutation } = await import(
+          "@/lib/community-messenger/server/publish-messenger-room-bump"
+        );
+        await publishMessengerRoomBumpAfterMutation({
+          rawRouteRoomId: roomId,
+          canonicalRoomId: roomId,
+          fromUserId: trimText(input.userId),
+          messageId: trimText((insertedSystemRow as { id?: string } | null)?.id) || undefined,
+          messageCreatedAt: createdAt,
+          skipBadgeTargetBump: true,
+        });
+      } catch (err) {
+        console.error("[messenger-system-message] bump_publish_failed", {
+          roomId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return { ok: true };
     }
     if (!isMissingTableError(insertError)) {
@@ -16951,6 +17163,11 @@ function communityMessengerBuiltImageClientMessage(
 }
 
 export async function sendCommunityMessengerImageMessage(input: {
+  /**
+   * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
+   * 응답 뒤에도 서버리스 인스턴스가 알림 작업을 끝까지 수행하도록(fire-and-forget 유실 방지).
+   */
+  onNotifyScheduled?: (done: Promise<void>) => void;
   userId: string;
   roomId: string;
   items: CommunityMessengerImageSendItem[];
@@ -17042,24 +17259,52 @@ export async function sendCommunityMessengerImageMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
       senderUserId: input.userId,
       preview: lastPreview,
       recipientUserIds: appended.recipientUserIds,
     });
+    input.onNotifyScheduled?.(notifyDone);
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    /**
+     * 멱등 재전송(deduped): 이번 요청에서 새로 올린 URL 이 아니라 DB 에 있는 원 행을 돌려준다
+     * (응답 URL ≠ DB URL 불일치 방지). 라우트는 deduped 시 이번 업로드분을 정리한다.
+     */
+    if (appended.deduped) {
+      const { data: existingRow } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+        (sb as any)
+          .from("community_messenger_messages")
+          .select(cols)
+          .eq("id", appended.messageId)
+          .eq("room_id", roomId)
+          .limit(1)
+      );
+      const row = ((existingRow ?? []) as MessageRow[])[0];
+      if (row) {
+        return {
+          ok: true,
+          deduped: true,
+          message: mapCommunityMessengerDbMessageRowToMessage({
+            row,
+            viewerUserId: input.userId,
+            profileById: new Map(),
+          }),
+        };
+      }
+    }
+    const builtImageMessage = communityMessengerBuiltImageClientMessage(
+      items,
+      appended.createdAt,
+      appended.messageId,
+      roomId,
+      input.userId
+    );
     return {
       ok: true,
       deduped: appended.deduped,
-      message: communityMessengerBuiltImageClientMessage(
-        items,
-        appended.createdAt,
-        appended.messageId,
-        roomId,
-        input.userId
-      ),
+      message: cmUploadCid ? { ...builtImageMessage, clientMessageId: cmUploadCid } : builtImageMessage,
     };
   }
 
@@ -17098,6 +17343,11 @@ export async function sendCommunityMessengerImageMessage(input: {
 }
 
 export async function sendCommunityMessengerStickerMessage(input: {
+  /**
+   * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
+   * 응답 뒤에도 서버리스 인스턴스가 알림 작업을 끝까지 수행하도록(fire-and-forget 유실 방지).
+   */
+  onNotifyScheduled?: (done: Promise<void>) => void;
   userId: string;
   roomId: string;
   content: string;
@@ -17213,13 +17463,14 @@ export async function sendCommunityMessengerStickerMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
       senderUserId: input.userId,
       preview: cmLastPreviewSticker(),
       recipientUserIds: appended.recipientUserIds,
     });
+    input.onNotifyScheduled?.(notifyDone);
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
@@ -17286,6 +17537,11 @@ export async function sendCommunityMessengerStickerMessage(input: {
 }
 
 export async function sendCommunityPostShareMessage(input: {
+  /**
+   * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
+   * 응답 뒤에도 서버리스 인스턴스가 알림 작업을 끝까지 수행하도록(fire-and-forget 유실 방지).
+   */
+  onNotifyScheduled?: (done: Promise<void>) => void;
   userId: string;
   roomId: string;
   content: string;
@@ -17385,13 +17641,14 @@ export async function sendCommunityPostShareMessage(input: {
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
         messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
         senderUserId: input.userId,
         preview,
         recipientUserIds,
       });
+      input.onNotifyScheduled?.(notifyDone);
       if (!unreadRpcError) {
         invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       }
@@ -17466,6 +17723,11 @@ export async function sendCommunityPostShareMessage(input: {
 }
 
 export async function sendCommunityMessengerFileMessage(input: {
+  /**
+   * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
+   * 응답 뒤에도 서버리스 인스턴스가 알림 작업을 끝까지 수행하도록(fire-and-forget 유실 방지).
+   */
+  onNotifyScheduled?: (done: Promise<void>) => void;
   userId: string;
   roomId: string;
   filePublicUrl: string;
@@ -17546,13 +17808,14 @@ export async function sendCommunityMessengerFileMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
       senderUserId: input.userId,
       preview: cmLastPreviewFile(fileName),
       recipientUserIds: appended.recipientUserIds,
     });
+    input.onNotifyScheduled?.(notifyDone);
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
@@ -17992,6 +18255,28 @@ export async function editCommunityMessengerTextMessage(input: {
     viewerUserId: userId,
     profileById: new Map(),
   });
+  /** 수정도 메시지 변경 계약대로 서버 bump(스냅샷 포함) — 상대·내 다른 기기 제자리 갱신. */
+  try {
+    const { publishMessengerRoomBumpAfterMutation } = await import(
+      "@/lib/community-messenger/server/publish-messenger-room-bump"
+    );
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: roomId,
+      canonicalRoomId: roomId,
+      fromUserId: userId,
+      messageId,
+      messageCreatedAt: mapped.createdAt,
+      messageForBump: mapped,
+      /** 수정·시스템 이벤트는 안읽음·알림 대상이 아니다 — 화면 정합 신호만. */
+      skipBadgeTargetBump: true,
+    });
+  } catch (err) {
+    console.error("[messenger-edit] bump_publish_failed", {
+      messageId,
+      roomId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
   return { ok: true, message: mapped };
 }
 
@@ -18156,13 +18441,16 @@ function legacyPostImagesPathFromPublicUrl(url: string): string | null {
   }
 }
 
-/** 방 멤버만 스트리밍 재생 — Storage 비공개·CORS 이슈 회피 */
-export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
+/**
+ * 방 멤버 검증 후 음성 Storage 경로·MIME 만 해석 (본문 다운로드 없음).
+ * `/audio` 라우트가 Range 요청을 Storage 로 그대로 위임(스트리밍)할 때 사용.
+ */
+export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   userId: string;
   roomId: string;
   messageId: string;
 }): Promise<
-  | { ok: true; data: Uint8Array; contentType: string; storagePath: string }
+  | { ok: true; contentType: string; storagePath: string }
   | { ok: false; status: number; error: string }
 > {
   const roomId = trimText(input.roomId);
@@ -18199,15 +18487,35 @@ export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
   if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(content) ?? "";
   if (!storagePath) return { ok: false, status: 404, error: "no_audio_path" };
 
-  const { data: file, error: dlErr } = await sb.storage.from("post-images").download(storagePath);
+  const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
+  return { ok: true, contentType, storagePath };
+}
+
+/** 방 멤버만 재생 — 전체 본문 다운로드(Range 위임 실패 시 폴백 경로) */
+export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<
+  | { ok: true; data: Uint8Array; contentType: string; storagePath: string }
+  | { ok: false; status: number; error: string }
+> {
+  const src = await resolveCommunityMessengerVoicePlaybackSource(input);
+  if (!src.ok) return src;
+  const sb = getSupabaseServer();
+  const { data: file, error: dlErr } = await sb.storage.from("post-images").download(src.storagePath);
   if (dlErr || !file) return { ok: false, status: 502, error: "download_failed" };
 
   const buf = new Uint8Array(await file.arrayBuffer());
-  const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
-  return { ok: true, data: buf, contentType, storagePath };
+  return { ok: true, data: buf, contentType: src.contentType, storagePath: src.storagePath };
 }
 
 export async function sendCommunityMessengerVoiceMessage(input: {
+  /**
+   * 수신자 알림(notify pipeline) 시작 직후 그 완료 Promise 를 넘긴다 — 라우트가 `after()` 로 등록해
+   * 응답 뒤에도 서버리스 인스턴스가 알림 작업을 끝까지 수행하도록(fire-and-forget 유실 방지).
+   */
+  onNotifyScheduled?: (done: Promise<void>) => void;
   userId: string;
   roomId: string;
   audioPublicUrl: string;
@@ -18290,13 +18598,14 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       });
       return { ok: false, error: appended.error };
     }
-    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const notifyDone = notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
       roomId,
       messageId: appended.messageId,
       senderUserId: input.userId,
       preview: cmLastPreviewVoice(),
       recipientUserIds: appended.recipientUserIds,
     });
+    input.onNotifyScheduled?.(notifyDone);
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
     return {
       ok: true,
@@ -19286,12 +19595,12 @@ export async function updateCommunityMessengerCallSession(input: {
   clientEndedReason?: string;
   /** First-answer-wins claim — callee deviceId (`user_devices.device_id` or native stable id) */
   answeredDeviceId?: string | null;
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; idempotent?: boolean }> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
   const clientDurationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
   const callSessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, caller_last_heartbeat_at, callee_last_heartbeat_at, ended_at, ended_reason, created_at";
   const resolveTerminalDurationSeconds = (
     session: CallSessionRow | DevCallSession,
     mapped: CommunityMessengerCallSession,
@@ -19558,6 +19867,18 @@ export async function updateCommunityMessengerCallSession(input: {
       }
       if (status !== "active") return null;
       if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
+      if (fr === CALL_SERVER_HEARTBEAT_ENDED_REASON && isDbSession) {
+        // Stale end fires minutes after last presence — ended_at = last heartbeat, not cron clock.
+        return {
+          nextStatus: "ended",
+          endedAt: resolveHeartbeatTimeoutEndedAtIso({
+            callerLastHeartbeatAt: session.caller_last_heartbeat_at,
+            calleeLastHeartbeatAt: session.callee_last_heartbeat_at,
+            answeredAt: session.answered_at,
+            connectedAt: session.connected_at,
+          }),
+        };
+      }
       return { nextStatus: "ended", endedAt: nowIso() };
     }
     return null;
@@ -19702,7 +20023,8 @@ export async function updateCommunityMessengerCallSession(input: {
           sessionId,
           actorUserId: input.userId,
           eventType: "connected",
-          payload: { source: "session_patch" },
+          // legacy JS proposal (no media evidence) — native evidence uses action=media_connected.
+          payload: { source: "session_patch", evidence: "client_connected_proposal" },
         });
         return { ok: true, session: mapped };
       }
@@ -20120,6 +20442,23 @@ export async function updateCommunityMessengerCallSession(input: {
           return { ok: false, error: missedGate.error };
         }
       }
+      if (input.action === "accept" && trimText(session.status) === "ringing") {
+        const acceptPolicy = await getMessengerCallAdminPolicyCached();
+        const acceptGate = evaluateAcceptRingDeadlineGate({
+          status: session.status,
+          startedAt: session.started_at,
+          ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(acceptPolicy),
+        });
+        if (!acceptGate.ok) {
+          // Late accept after ring deadline (+grace) → server finalizes missed (CUT2 gate passes) — no phantom active.
+          await updateCommunityMessengerCallSession({
+            userId: input.userId,
+            sessionId,
+            action: "missed",
+          }).catch(() => null);
+          return { ok: false, error: acceptGate.error };
+        }
+      }
       const requestDeviceId = normalizeAnswerClaimDeviceId(input.answeredDeviceId);
       if (input.action === "accept" && messengerUserIdsEqual(session.recipient_user_id, input.userId)) {
         const claim = evaluateAcceptDeviceClaim({
@@ -20237,6 +20576,17 @@ export async function updateCommunityMessengerCallSession(input: {
               (input.action === "reject" && freshStatus === "rejected")
             ) {
               updated = fresh;
+            } else if (isTerminalCasLossIdempotent(input.action, freshStatus)) {
+              // end/cancel CAS loser — terminal winner owns log/stub/push; report idempotent (= route prefetch shape).
+              const mapped = await mapCallSession(
+                input.userId,
+                fresh,
+                undefined,
+                undefined,
+                undefined,
+                "labels_only"
+              );
+              return { ok: true, session: mapped, idempotent: true };
             }
           }
         }

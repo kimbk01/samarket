@@ -67,6 +67,35 @@ enum NativeVoiceCallApi {
     )
   }
 
+  private static let mediaConnectedLock = NSLock()
+  private static var mediaConnectedReported = Set<String>()
+
+  /**
+   * Media evidence — Agora remote uid joined (caller and callee). Fire-and-forget, once per session.
+   * Server stamps connected_at (active + null CAS). Does not touch runtime/CallKit state.
+   */
+  static func reportMediaConnectedOnce(callId: String, remoteUid: UInt) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty, remoteUid != 0 else { return }
+    mediaConnectedLock.lock()
+    let first = mediaConnectedReported.insert(sid).inserted
+    mediaConnectedLock.unlock()
+    guard first else { return }
+    patchAsync(
+      callId: sid,
+      action: "media_connected",
+      extraBody: ["evidence": "remote_user_joined", "remoteUid": String(remoteUid), "platform": "ios"],
+      completion: { ok, status, error in
+        guard !ok else { return }
+        DibayCallLog.infoCall(
+          "ios_native_voice_media_connected_patch_failed",
+          callId: sid,
+          detail: "status=\(status) err=\(error ?? "")"
+        )
+      }
+    )
+  }
+
   static func startCallerJoinAsync(
     callId: String,
     roomId: String,

@@ -193,3 +193,16 @@ export function buildCallStubProjectionMetadata(input: {
     recipientUserId: trimText(input.recipientUserId) || null,
   };
 }
+
+/** Unique index name — one call_stub per (room_id, metadata->>'sessionId'). */
+export const CALL_STUB_SESSION_UNIQUE_INDEX = "cm_messages_call_stub_session_uidx" as const;
+
+/**
+ * dibay_append_room_message_atomic catches unique_violation → { ok:false, error:'unique_violation' };
+ * a raw PostgREST 23505 surfaces as "duplicate key value violates unique constraint".
+ */
+export function isCallStubUniqueViolationError(error: unknown): boolean {
+  const msg = typeof error === "string" ? error.trim() : "";
+  if (!msg) return false;
+  return msg === "unique_violation" || msg.includes("23505") || /duplicate key value/i.test(msg);
+}

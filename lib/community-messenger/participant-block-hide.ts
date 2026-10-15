@@ -6,6 +6,7 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { messengerDirectKeyForUserPair } from "@/lib/community-messenger/messenger-room-domain";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { fetchBlockedPairFromSb } from "@/lib/social/user-block-ssot";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -24,47 +25,58 @@ function isMissingColumnError(error: unknown): boolean {
   return /does not exist|42703|blocked_hidden_at/i.test(msg);
 }
 
-async function resolveDirectRoomIdsForPair(
+/** 차단 숨김 대상 — pair 일반 1:1 DM 만 (거래·주문·그룹 도메인 제외, chat_domain NULL = legacy 일반 DM). */
+export const BLOCK_HIDE_GENERAL_DIRECT_CHAT_DOMAIN_FILTER = "chat_domain.is.null,chat_domain.eq.general_direct";
+
+/**
+ * viewer↔peer 의 **일반 direct room** 만 반환한다.
+ * - `room_type='direct'` AND `direct_key = messengerDirectKeyForUserPair` AND chat_domain ∈ {NULL, general_direct}
+ * - 클라이언트 roomId 힌트는 같은 조건을 만족할 때만 사용 (검증 없는 힌트·공유 참여 방 fallback 금지 —
+ *   거래/주문 direct 방이 차단 숨김에 휘말리지 않도록).
+ */
+export async function resolveDirectRoomIdsForPair(
   sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>,
   viewerUserId: string,
   peerUserId: string,
   roomIdHint?: string
 ): Promise<string[]> {
-  const hint = trimText(roomIdHint);
-  if (hint) return [hint];
-
   const directKey = messengerDirectKeyForUserPair(viewerUserId, peerUserId);
-  const { data: byKey } = await (sb as any)
-    .from("community_messenger_rooms")
-    .select("id")
-    .eq("room_type", "direct")
-    .eq("direct_key", directKey);
+  if (!directKey) return [];
+
+  const baseQuery = () =>
+    (sb as any)
+      .from("community_messenger_rooms")
+      .select("id")
+      .eq("room_type", "direct")
+      .eq("direct_key", directKey);
+
+  let { data: byKey, error } = await baseQuery().or(BLOCK_HIDE_GENERAL_DIRECT_CHAT_DOMAIN_FILTER);
+  if (error && isMissingColumnError(error)) {
+    /** chat_domain 컬럼 미적용 환경 — pair direct_key 로만 판정 (commerce 키는 접두사로 이미 분리) */
+    ({ data: byKey, error } = await baseQuery());
+  }
+  if (error) return [];
 
   const ids = new Set(
     ((byKey ?? []) as Array<{ id?: string }>).map((row) => trimText(row.id)).filter(Boolean)
   );
 
-  if (ids.size > 0) return [...ids];
+  const hint = trimText(roomIdHint);
+  if (hint && ids.has(hint)) return [hint];
+  return [...ids];
+}
 
-  const { data: viewerParts } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("room_id")
-    .eq("user_id", viewerUserId);
-
-  const viewerRoomIds = ((viewerParts ?? []) as Array<{ room_id?: string }>)
-    .map((row) => trimText(row.room_id))
-    .filter(Boolean);
-  if (!viewerRoomIds.length) return [];
-
-  const { data: peerParts } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("room_id")
-    .eq("user_id", peerUserId)
-    .in("room_id", viewerRoomIds);
-
-  return ((peerParts ?? []) as Array<{ room_id?: string }>)
-    .map((row) => trimText(row.room_id))
-    .filter(Boolean);
+/** viewer↔peer 일반 1:1 DM room id 목록 (서버 전용, 차단 부수효과용). */
+export async function listGeneralDirectRoomIdsForPair(
+  viewerUserId: string,
+  peerUserId: string
+): Promise<string[]> {
+  const viewer = trimText(viewerUserId);
+  const peer = trimText(peerUserId);
+  if (!viewer || !peer || viewer === peer) return [];
+  const sb = getSupabaseOrNull();
+  if (!sb) return [];
+  return resolveDirectRoomIdsForPair(sb, viewer, peer);
 }
 
 async function hideDirectRoomForParticipantUser(input: {
@@ -179,6 +191,13 @@ export async function restoreDirectRoomsOnUnblockForViewer(
 
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, restoredRoomIds: [], error: "supabase_unavailable" };
+
+  /**
+   * 반대 방향(또는 잔존) 활성 차단이 있으면 복원 금지 — 상대가 나를 차단 중인 방이 다시 보이면 안 된다.
+   * 호출 시점: viewer→peer 해제가 저장된 직후이므로 남은 차단은 peer→viewer (또는 legacy) 뿐이다.
+   */
+  const remaining = await fetchBlockedPairFromSb(sb as any, viewer, peer);
+  if (remaining.blockedEitherWay) return { ok: true, restoredRoomIds: [] };
 
   const roomIds = await resolveDirectRoomIdsForPair(sb, viewer, peer);
   if (!roomIds.length) return { ok: true, restoredRoomIds: [] };

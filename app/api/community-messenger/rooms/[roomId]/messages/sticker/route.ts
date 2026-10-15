@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { sendCommunityMessengerStickerMessage } from "@/lib/community-messenger/service";
+import { keepMessengerNotifyAliveAfterAck } from "@/lib/community-messenger/server/keep-messenger-notify-alive-after-ack";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     content,
     clientMessageId: clientMessageId || undefined,
     stickerItemId: stickerItemId || undefined,
+    onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
   });
 
   if (result.ok) {

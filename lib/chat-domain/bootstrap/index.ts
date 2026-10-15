@@ -5,6 +5,7 @@
  * Real Domain queries cut over after migration+backfill and dedicated RPCs.
  */
 
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatDomain, StoreOrderRole } from "@/lib/chat-domain/four-domain-freeze";
 import type {
@@ -50,7 +51,8 @@ function mapDomainRows(
       unreadCount: Math.max(0, Number(row.unread_count ?? 0) || 0),
       lastMessageAt: typeof row.last_message_at === "string" ? row.last_message_at : null,
       title: typeof row.title === "string" ? row.title : "",
-      lastMessagePreview: typeof row.last_message === "string" ? row.last_message : null,
+      lastMessagePreview:
+        typeof row.last_message === "string" ? resolveRoomLastMessageForViewer(row.last_message, null) : null,
     });
   }
   return out;

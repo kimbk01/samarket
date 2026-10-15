@@ -2,6 +2,7 @@
  * `snapshotTier=silent_delta` — 방 메타 1행 + 내 참가자 1행만.
  * 메시지·프로필·presence·통화·trade·reactions·hides 조회 없음.
  */
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
@@ -102,7 +103,7 @@ function buildSilentDeltaRoomSummary(
   const roomSummary = trimText(room.summary);
   const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
   const roomAvatar = trimText(room.avatar_url) || null;
-  const roomLastMessage = trimText(room.last_message);
+  const roomLastMessage = trimText(resolveRoomLastMessageForViewer(room.last_message, viewerUserId));
   const roomLastMessageTypeRaw = trimText(room.last_message_type);
   const roomLastMessageType: CommunityMessengerMessageType =
     roomLastMessageTypeRaw === "image" ||

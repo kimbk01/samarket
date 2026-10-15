@@ -120,3 +120,36 @@ export function isCanonicalRingingExpiredForMissed(
     nowMs,
   );
 }
+
+/**
+ * Push/CallKit 전달 지연 허용 — 링 마감 직후 도착한 수락만 구제한다.
+ * 이 이후의 accept 는 발신 측이 이미 no-answer 로 종료했을 수 있어 phantom active 를 만든다.
+ */
+export const CALL_ACCEPT_RING_DEADLINE_GRACE_MS = 5_000;
+
+export const CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR = "ring_deadline_reached" as const;
+
+export type AcceptRingDeadlineGateResult =
+  | { ok: true }
+  | { ok: false; error: typeof CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR };
+
+/**
+ * Gate for direct action=accept on a ringing session.
+ * Same deadline authority as missed (`isRingingMissedDeadlineReached`), shifted by grace.
+ * Non-ringing statuses are not judged here (active retry / terminal handled by caller).
+ */
+export function evaluateAcceptRingDeadlineGate(input: {
+  status: string | null | undefined;
+  startedAt: string | null | undefined;
+  ringTimeoutSeconds: number;
+  nowMs?: number;
+  graceMs?: number;
+}): AcceptRingDeadlineGateResult {
+  if (trimText(input.status) !== "ringing") return { ok: true };
+  const nowMs = input.nowMs ?? Date.now();
+  const graceMs = Math.max(0, input.graceMs ?? CALL_ACCEPT_RING_DEADLINE_GRACE_MS);
+  if (isRingingMissedDeadlineReached(input.startedAt, input.ringTimeoutSeconds, nowMs - graceMs)) {
+    return { ok: false, error: CALL_ACCEPT_RING_DEADLINE_REACHED_ERROR };
+  }
+  return { ok: true };
+}

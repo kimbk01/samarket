@@ -2,6 +2,7 @@ import {
   bumpRoomTruthVersion,
   versionMsFromIso,
 } from "@/lib/community-messenger/consistency/messenger-consistency-version";
+import { callStubRoomTipFromMessage } from "@/lib/community-messenger/call-stub-room-tip";
 import { setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
 import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
@@ -86,7 +87,9 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   }
   if (messageType === "voice") lastMessage = lastMessage || "음성 메시지";
   if (messageType === "sticker") lastMessage = lastMessage || "스티커";
-  if (messageType === "call_stub") lastMessage = lastMessage || "통화";
+  if (messageType === "call_stub") {
+    lastMessage = callStubRoomTipFromMessage({ content, metadata: row.metadata }) || "통화";
+  }
   if (messageType === "system") lastMessage = lastMessage || "알림";
   if (!lastMessage) lastMessage = "새 메시지";
   return { lastMessage, lastMessageType: messageType, lastMessageAt: createdAt };

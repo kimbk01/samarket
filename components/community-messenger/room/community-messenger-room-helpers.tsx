@@ -235,7 +235,8 @@ export function mergeRoomMessages(
       if (confirmedItem.senderId !== item.senderId || confirmedItem.messageType !== item.messageType) return false;
       const cidA = typeof confirmedItem.clientMessageId === "string" ? confirmedItem.clientMessageId.trim() : "";
       const cidB = typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
-      if (cidA && cidB && cidA === cidB) return true;
+      if (cidA && cidB) return cidA === cidB;
+      /** 내용·시각 근사 매칭은 clientMessageId 가 한쪽이라도 없는 레거시 행에만 — 같은 내용 연속 전송 오삭제 방지 */
       const dt = Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime());
       if (item.messageType === "voice" && item.pending) {
         return dt < 15_000;

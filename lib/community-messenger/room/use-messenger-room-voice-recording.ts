@@ -164,6 +164,8 @@ export function useMessengerRoomVoiceRecording({
 
       const blobMime =
         (chunks[0] && chunks[0].type && chunks[0].type.length > 0 ? chunks[0].type : null) ||
+        // 청크 type 이 비면 실제로 선택된 recorder 형식(mp4 등)을 사용 — webm 오표기 방지
+        (rec?.mimeType && rec.mimeType.length > 0 ? rec.mimeType : null) ||
         voiceMimeRef.current?.mimeType ||
         "audio/webm";
       const ext =
@@ -275,6 +277,11 @@ export function useMessengerRoomVoiceRecording({
         }
         URL.revokeObjectURL(blobUrl);
         setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+      } catch {
+        // 네트워크 예외 — HTTP 오류 분기와 동일하게 pending 말풍선 제거 + 오류 스낵바(무한 pending 방지)
+        URL.revokeObjectURL(blobUrl);
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        showMessengerSnackbar(getRoomActionErrorMessage("upload_failed"), { variant: "error" });
       } finally {
         voiceFinalizingRef.current = false;
       }

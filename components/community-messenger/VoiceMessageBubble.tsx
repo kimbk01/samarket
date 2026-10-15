@@ -52,7 +52,7 @@ export function VoiceMessageBubble({
   sentTimeLabel?: string;
   /** API 스트림 실패 시 재생용 (공개 Storage URL 등) */
   fallbackSrc?: string | null;
-  /** `<source type>` — blob/브라우저별 디코딩 안정화 */
+  /** 오디오 MIME — 재생 요소 key 에 포함(형식 변경 시 재마운트) */
   mediaType?: string | null;
   mineBubbleStyle?: "signature" | "viberLight";
 }) {
@@ -127,7 +127,9 @@ export function VoiceMessageBubble({
   }, [activeSrc]);
 
   const playbackBlocked = !pending && !safePlaybackSrc;
-  const showBuffering = pending || loadError || playbackBlocked;
+  /** 기본(/audio)·공개 URL 모두 실패 → 스피너 대신 오류 표시 */
+  const showLoadError = !pending && loadError;
+  const showBuffering = !showLoadError && (pending || playbackBlocked);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -254,6 +256,10 @@ export function VoiceMessageBubble({
     fallbackKo: "재생 위치 — 파형을 눌러 이동",
     fallbackEn: "Playback position — tap the waveform to seek",
   });
+  const loadErrorAriaLabel = safeT("nav_messenger_voice_load_failed", {
+    fallbackKo: "음성을 불러오지 못했습니다.",
+    fallbackEn: "Could not load this voice message.",
+  });
   const playbackRateAriaLabel = safeT("nav_messenger_voice_playback_rate", {
     fallbackKo: "재생 속도",
     fallbackEn: "Playback speed",
@@ -265,7 +271,7 @@ export function VoiceMessageBubble({
         <button
           type="button"
           onClick={toggle}
-          disabled={showBuffering}
+          disabled={showBuffering || showLoadError}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-100 ${
             isMine
               ? mineLight
@@ -273,9 +279,14 @@ export function VoiceMessageBubble({
                 : "bg-sam-surface/25 text-white ring-2 ring-sam-surface/35"
               : "bg-sam-ink text-white ring-2 ring-sam-border"
           }`}
-          aria-label={playAriaLabel}
+          aria-label={showLoadError ? loadErrorAriaLabel : playAriaLabel}
+          title={showLoadError ? loadErrorAriaLabel : undefined}
         >
-          {showBuffering ? (
+          {showLoadError ? (
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+          ) : showBuffering ? (
             <VoiceMessageBufferingSpinner light={isMine} label={loadingAriaLabel} />
           ) : playing ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -356,19 +367,23 @@ export function VoiceMessageBubble({
         </div>
       </div>
       {safePlaybackSrc ? (
+        /*
+         * `src` 는 반드시 `<audio>` 에 직접 — `<source>` 자식에 두면 로드 실패 시 `error` 가
+         * `<source>` 에서만 발생하고 `<audio>` 의 `onError` 가 불리지 않아 fallback·loadError 가 동작하지 않는다.
+         * `preload="metadata"` — 말풍선마다 전체 프록시 다운로드를 유발하지 않도록(재생 시에만 본문 로드).
+         */
         <audio
           ref={audioRef}
           key={`${safePlaybackSrc}|${sourceType ?? ""}`}
-          preload="auto"
+          src={safePlaybackSrc}
+          preload="metadata"
           className="hidden"
           onTimeUpdate={onTimeUpdate}
           onEnded={onEnded}
           onError={onAudioError}
           onCanPlay={onCanPlay}
           playsInline
-        >
-          <source src={safePlaybackSrc} type={sourceType} />
-        </audio>
+        />
       ) : null}
     </div>
   );

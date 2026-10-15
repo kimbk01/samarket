@@ -7,7 +7,14 @@
  * 정책(설계 NEW-07): 허용 목록(pdf·txt·csv·zip·office·hwp·jpg·png·webp·mp4·m4a)만,
  * 확장자·MIME·파일 서명(magic bytes)이 **모두** 맞아야 통과. 저장 contentType 은
  * 브라우저 값이 아닌 **정규 안전 타입**으로 고정한다(폴리글랏 방어).
+ *
+ * 허용 확장자·차단 확장자·용량 상수는 클라이언트와 공유하는 `messenger-file-upload-policy.ts` 가 단일 정의.
  */
+import {
+  MESSENGER_FILE_UPLOAD_HARD_BLOCK_EXTS,
+  isMessengerFileAllowedExt,
+  type MessengerFileAllowedExt,
+} from "@/lib/community-messenger/upload/messenger-file-upload-policy";
 
 export type MessengerFileValidationResult =
   | { ok: true; canonicalContentType: string; ext: string }
@@ -62,7 +69,7 @@ function isSafeTextStart(b: Buffer): boolean {
   return true;
 }
 
-const ALLOW: Record<string, AllowEntry> = {
+const ALLOW: Record<MessengerFileAllowedExt, AllowEntry> = {
   pdf: { mimes: ["application/pdf"], canonicalContentType: "application/pdf", magic: SIG.pdf },
   txt: { mimes: ["text/plain"], canonicalContentType: "text/plain; charset=utf-8" },
   csv: {
@@ -117,10 +124,7 @@ const ALLOW: Record<string, AllowEntry> = {
 };
 
 /** Extensions that must always be rejected even if renamed/allow-shaped. */
-const HARD_BLOCK_EXT = new Set([
-  "html", "htm", "xhtml", "svg", "js", "mjs", "cjs", "apk", "jar", "exe", "bat", "cmd", "sh",
-  "php", "phtml", "jsp", "asp", "aspx", "dll", "so", "msi", "scr", "com", "vbs", "ps1",
-]);
+const HARD_BLOCK_EXT = MESSENGER_FILE_UPLOAD_HARD_BLOCK_EXTS;
 
 /**
  * Validate an incoming messenger file upload.
@@ -136,8 +140,8 @@ export function validateMessengerFileUpload(
   if (!buf || buf.length === 0) return { ok: false, error: "empty_file" };
   const e = ext.toLowerCase().trim();
   if (HARD_BLOCK_EXT.has(e)) return { ok: false, error: "blocked_file_type" };
+  if (!isMessengerFileAllowedExt(e)) return { ok: false, error: "blocked_file_type" };
   const entry = ALLOW[e];
-  if (!entry) return { ok: false, error: "blocked_file_type" };
 
   // MIME must be in the allowlist for this ext (empty/missing browser MIME is tolerated — signature decides).
   const mime = (browserMime || "").toLowerCase().trim();

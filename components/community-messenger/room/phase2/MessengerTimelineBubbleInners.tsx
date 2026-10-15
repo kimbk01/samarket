@@ -14,6 +14,10 @@ import {
 import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
 import { VoiceMessageBubble } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { GroupMentionText } from "@/components/community-messenger/group/GroupMentionText";
+import {
+  buildMessengerFileDownloadUrl,
+  openMessengerFileInNativeShellIfNeeded,
+} from "@/lib/community-messenger/messenger-file-download";
 
 export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean };
 
@@ -85,6 +89,10 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
   mediaAutoSaveEnabled: boolean;
 }) {
   const { t } = useI18n();
+  const fileUrl = item.content.trim();
+  const displayFileName = item.fileName?.trim() || "community-messenger-file";
+  /* 저장 모드: Storage `?download=원본명` → Content-Disposition(cross-origin 에서 `download` 속성은 무시됨) */
+  const fileHref = mediaAutoSaveEnabled ? buildMessengerFileDownloadUrl(fileUrl, displayFileName) : fileUrl;
   return (
     <div className="min-w-[200px] max-w-full">
       <div className="flex items-start gap-3">
@@ -107,12 +115,16 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
       <div className="mt-3">
         {item.pending ? (
           <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
-        ) : item.content.trim() ? (
+        ) : fileUrl ? (
           <a
-            href={item.content.trim()}
+            href={fileHref}
             target="_blank"
             rel="noopener noreferrer"
-            download={mediaAutoSaveEnabled ? item.fileName?.trim() || "community-messenger-file" : undefined}
+            download={mediaAutoSaveEnabled ? displayFileName : undefined}
+            onClick={(e) => {
+              /* Capacitor 셸: WebView 는 다운로드를 처리하지 못함 → 인앱 브라우저(@capacitor/browser) */
+              if (openMessengerFileInNativeShellIfNeeded(fileHref)) e.preventDefault();
+            }}
             className={`inline-flex rounded-[10px] border px-3 py-1.5 sam-text-helper font-semibold ${
               item.isMine
                 ? "border-white/35 bg-white/15 text-white"

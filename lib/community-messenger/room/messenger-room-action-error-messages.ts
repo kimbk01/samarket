@@ -140,6 +140,8 @@ export function getMessengerRoomActionErrorMessage(
     case "too_many_images":
       return t("nav_messenger_too_many_images");
     case "unsupported_file":
+    case "blocked_file_type":
+    case "file_type_mismatch":
       return t("nav_messenger_unsupported_file");
     case "file_required":
     case "multipart_required":

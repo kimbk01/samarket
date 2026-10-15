@@ -9,6 +9,8 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
@@ -26,6 +28,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -152,18 +155,26 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
       return;
     }
 
+    JSArray failed = new JSArray();
     for (int i = 0; i < ids.length(); i++) {
+      String id = null;
       try {
-        String id = ids.getString(i);
-        JSObject payload = encodeUriPayload(Uri.parse(id), "recent-" + i + ".jpg", id);
-        if (payload != null) photos.put(payload);
-      } catch (Exception ignored) {
-        // Skip unreadable rows and keep resolving the rest in selection order.
+        id = ids.getString(i);
+        EncodeOutcome outcome = encodeUriPayload(Uri.parse(id), "recent-" + i, id);
+        if (outcome.payload != null) {
+          photos.put(outcome.payload);
+        } else {
+          failed.put(failureRow(i, id, outcome.reason));
+        }
+      } catch (Exception e) {
+        // Keep resolving the rest in selection order; report this row instead of dropping it silently.
+        failed.put(failureRow(i, id, "invalid_id"));
       }
     }
 
     JSObject result = new JSObject();
     result.put("photos", photos);
+    result.put("failed", failed);
     call.resolve(result);
   }
 
@@ -180,14 +191,20 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
     }
 
     ArrayList<Uri> uris = readPickedUris(activityResult.getData());
+    JSArray failed = new JSArray();
     for (int i = 0; i < uris.size(); i++) {
-      JSObject payload = encodeUriPayload(uris.get(i), "pick-" + i + ".jpg", uris.get(i).toString());
-      if (payload != null) photos.put(payload);
+      EncodeOutcome outcome = encodeUriPayload(uris.get(i), "pick-" + i, uris.get(i).toString());
+      if (outcome.payload != null) {
+        photos.put(outcome.payload);
+      } else {
+        failed.put(failureRow(i, null, outcome.reason));
+      }
     }
 
     JSObject result = new JSObject();
     result.put("photos", photos);
-    result.put("cancelled", photos.length() == 0);
+    result.put("failed", failed);
+    result.put("cancelled", photos.length() == 0 && failed.length() == 0);
     call.resolve(result);
   }
 
@@ -246,21 +263,124 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
     return new ArrayList<>(ordered);
   }
 
-  private JSObject encodeUriPayload(Uri uri, String fileName, String id) {
-    try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
-      if (input == null) return null;
-      Bitmap bitmap = BitmapFactory.decodeStream(input);
-      if (bitmap == null) return null;
-      Bitmap scaled = scaleBitmap(bitmap, FULL_MAX_EDGE);
+  private static final class EncodeOutcome {
+    final JSObject payload;
+    final String reason;
+
+    EncodeOutcome(JSObject payload, String reason) {
+      this.payload = payload;
+      this.reason = reason;
+    }
+  }
+
+  private JSObject failureRow(int index, String id, String reason) {
+    JSObject row = new JSObject();
+    row.put("index", index);
+    if (id != null) row.put("id", id);
+    row.put("reason", reason);
+    return row;
+  }
+
+  /**
+   * Two-pass decode: bounds → inSampleSize (targets FULL_MAX_EDGE) → decode → EXIF rotate → exact scale.
+   * OutOfMemoryError is an Error (not Exception) and is caught explicitly per item.
+   */
+  private EncodeOutcome encodeUriPayload(Uri uri, String baseName, String id) {
+    ContentResolver resolver = getContext().getContentResolver();
+    Bitmap decoded = null;
+    Bitmap oriented = null;
+    Bitmap scaled = null;
+    try {
+      BitmapFactory.Options bounds = new BitmapFactory.Options();
+      bounds.inJustDecodeBounds = true;
+      try (InputStream input = resolver.openInputStream(uri)) {
+        if (input == null) return new EncodeOutcome(null, "open_failed");
+        BitmapFactory.decodeStream(input, null, bounds);
+      }
+      if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return new EncodeOutcome(null, "decode_failed");
+
+      BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
+      decodeOptions.inSampleSize = computeInSampleSize(bounds.outWidth, bounds.outHeight, FULL_MAX_EDGE);
+      try (InputStream input = resolver.openInputStream(uri)) {
+        if (input == null) return new EncodeOutcome(null, "open_failed");
+        decoded = BitmapFactory.decodeStream(input, null, decodeOptions);
+      }
+      if (decoded == null) return new EncodeOutcome(null, "decode_failed");
+
+      oriented = applyExifOrientation(decoded, readExifOrientation(resolver, uri));
+      scaled = scaleBitmap(oriented, FULL_MAX_EDGE);
+      boolean hasAlpha = scaled.hasAlpha();
+      String base64 = hasAlpha ? bitmapToPngBase64(scaled) : bitmapToBase64(scaled, 86);
       JSObject payload = new JSObject();
       payload.put("id", id);
-      payload.put("fileName", fileName);
-      payload.put("mimeType", "image/jpeg");
-      payload.put("base64", bitmapToBase64(scaled, 86));
-      return payload;
-    } catch (Exception ignored) {
-      return null;
+      payload.put("fileName", baseName + (hasAlpha ? ".png" : ".jpg"));
+      payload.put("mimeType", hasAlpha ? "image/png" : "image/jpeg");
+      payload.put("base64", base64);
+      return new EncodeOutcome(payload, null);
+    } catch (OutOfMemoryError oom) {
+      return new EncodeOutcome(null, "out_of_memory");
+    } catch (SecurityException se) {
+      return new EncodeOutcome(null, "permission_denied");
+    } catch (Exception e) {
+      return new EncodeOutcome(null, "decode_failed");
+    } finally {
+      if (scaled != null && scaled != oriented) scaled.recycle();
+      if (oriented != null && oriented != decoded) oriented.recycle();
+      if (decoded != null) decoded.recycle();
     }
+  }
+
+  private int computeInSampleSize(int width, int height, int maxEdge) {
+    int sample = 1;
+    int edge = Math.max(width, height);
+    // Largest power of two that keeps the decoded edge >= maxEdge (final exact scale happens afterwards).
+    while (edge / (sample * 2) >= maxEdge) {
+      sample *= 2;
+    }
+    return sample;
+  }
+
+  private int readExifOrientation(ContentResolver resolver, Uri uri) {
+    try (InputStream input = resolver.openInputStream(uri)) {
+      if (input == null) return ExifInterface.ORIENTATION_NORMAL;
+      ExifInterface exif = new ExifInterface(input);
+      return exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+    } catch (IOException | RuntimeException ignored) {
+      return ExifInterface.ORIENTATION_NORMAL;
+    }
+  }
+
+  private Bitmap applyExifOrientation(Bitmap source, int orientation) {
+    Matrix matrix = new Matrix();
+    switch (orientation) {
+      case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+        matrix.setScale(-1, 1);
+        break;
+      case ExifInterface.ORIENTATION_ROTATE_180:
+        matrix.setRotate(180);
+        break;
+      case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+        matrix.setRotate(180);
+        matrix.postScale(-1, 1);
+        break;
+      case ExifInterface.ORIENTATION_TRANSPOSE:
+        matrix.setRotate(90);
+        matrix.postScale(-1, 1);
+        break;
+      case ExifInterface.ORIENTATION_ROTATE_90:
+        matrix.setRotate(90);
+        break;
+      case ExifInterface.ORIENTATION_TRANSVERSE:
+        matrix.setRotate(-90);
+        matrix.postScale(-1, 1);
+        break;
+      case ExifInterface.ORIENTATION_ROTATE_270:
+        matrix.setRotate(-90);
+        break;
+      default:
+        return source;
+    }
+    return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
   }
 
   private Bitmap scaleBitmap(Bitmap source, int maxEdge) {
@@ -277,6 +397,12 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
   private String bitmapToBase64(Bitmap bitmap, int quality) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out);
+    return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+  }
+
+  private String bitmapToPngBase64(Bitmap bitmap) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
     return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
   }
 }

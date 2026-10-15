@@ -2,6 +2,7 @@
  * Phase 11B — Live Domain batch fetchers (read-only SELECT).
  * DB → Domain Loader map → BootstrapPort. Shell/raw 미전달.
  */
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   timedSelect,
@@ -366,7 +367,7 @@ export async function fetchGeneralDirectLiveBatch(
             createdAt: latest.createdAt,
           }
         : null,
-      roomLastMessageSummary: room.last_message ?? null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
       roomTitle: room.title ?? null,
     });
   }
@@ -508,7 +509,7 @@ export async function fetchGroupLiveBatch(
             createdAt: latest.createdAt,
           }
         : null,
-      roomLastMessageSummary: room.last_message ?? null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }
 
@@ -665,8 +666,8 @@ export async function fetchTradeLiveBatch(
             createdAt: latest.createdAt,
           }
         : null,
-      roomLastMessageSummary: room.last_message ?? null,
-      productSummary: room.last_message ?? null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      productSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }
 
@@ -821,7 +822,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
         : null,
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
-      roomLastMessageSummary: room.last_message ?? null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }
 
@@ -977,7 +978,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
         : null,
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
-      roomLastMessageSummary: room.last_message ?? null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }
 

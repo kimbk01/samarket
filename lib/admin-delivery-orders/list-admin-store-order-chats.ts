@@ -1,3 +1,4 @@
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
 
@@ -113,7 +114,7 @@ export async function listAdminStoreOrderChats(limit = 200): Promise<AdminStoreO
         : "-",
       orderStatus: trim(order.order_status) || "-",
       domainIdentityKey: storeOrderRoomIdentity(order.id).identityKey,
-      lastMessage: trim(room?.last_message) || "-",
+      lastMessage: trim(resolveRoomLastMessageForViewer(room?.last_message, null)) || "-",
       lastMessageAt:
         trim(room?.last_message_at) || trim(order.updated_at) || trim(order.created_at) || "",
     };

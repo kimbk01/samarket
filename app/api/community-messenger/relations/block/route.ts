@@ -8,6 +8,7 @@ import {
   hideDirectRoomsOnBlockForViewer,
   restoreDirectRoomsOnUnblockForViewer,
 } from "@/lib/community-messenger/participant-block-hide";
+import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,12 @@ export async function POST(req: NextRequest) {
   });
   if (result.ok) {
     await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, targetUserId);
+    /** 차단 직후 pair 일반 DM 의 ringing/active 통화 종료 — 실패해도 차단 응답은 성공 유지 */
+    await terminateDirectCallsOnBlockBestEffort({
+      blockerUserId: auth.userId,
+      blockedUserId: targetUserId,
+      logTag: "relations/block",
+    });
     const hide = await hideDirectRoomsOnBlockForViewer({
       viewerUserId: auth.userId,
       peerUserId: targetUserId,
@@ -76,7 +83,8 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ...result, blocked: true, hiddenRoomIds: hide.hiddenRoomIds }, { status: 200 });
   }
-  return NextResponse.json({ ...result, blocked: true }, { status: 400 });
+  /** 실패 시 차단 상태를 단정하지 않는다 (이전 `blocked: true` 는 실패를 성공처럼 보이게 함) */
+  return NextResponse.json({ ok: false, error: result.error ?? "block_failed" }, { status: 400 });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -107,5 +115,5 @@ export async function DELETE(req: NextRequest) {
       { status: 200 }
     );
   }
-  return NextResponse.json({ ...result, blocked: false }, { status: 400 });
+  return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 400 });
 }

@@ -1,6 +1,7 @@
 /**
  * general_direct RowModelPort + RouterPort.
  */
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
 import { resolveGeneralDirectPreview } from "@/lib/messenger/general-direct/preview";
@@ -26,7 +27,7 @@ export const generalDirectRouterPort: MessengerRouterPort = {
 export function buildGeneralDirectRowModel(item: GeneralDirectListItem): GeneralDirectRowModel {
   const identity = resolveGeneralDirectDisplayFromListItem(item);
   const preview = resolveGeneralDirectPreview({
-    content: item.lastMessage,
+    content: resolveRoomLastMessageForViewer(item.lastMessage, null),
     messageType: "text",
     isSystemAllowed: true,
   });

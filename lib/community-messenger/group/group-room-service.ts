@@ -1,3 +1,4 @@
+import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cmMgmtMemberInviteContent,
@@ -558,7 +559,7 @@ export async function listMyGroupRooms(
       roomType: "private_group",
       title: trimText(row.title) || cmServiceT("cm_svc_group_members", { count: memberCount }),
       memberCount,
-      lastMessage: trimText(row.last_message),
+      lastMessage: trimText(resolveRoomLastMessageForViewer(row.last_message, uid)),
       lastMessageAt: trimText(row.last_message_at) || new Date(0).toISOString(),
       lastMessageType: (trimText(row.last_message_type) || "text") as GroupRoomListItem["lastMessageType"],
       unreadCount: Math.max(0, Number(row.participant.unread_count ?? 0)),

@@ -31,6 +31,8 @@ public final class NativeVoiceCallAgoraEngine {
   private static Listener listener;
   private static boolean callerJoinActive;
   private static int remoteUid;
+  /** App context of the current join — media evidence PATCH only. */
+  private static Context evidenceContext;
   /**
    * leaveChannel in flight — join awaits this (usually ms). Cleanup must never await.
    *
@@ -66,6 +68,7 @@ public final class NativeVoiceCallAgoraEngine {
       activeCallId = sid;
       callerJoinActive = caller;
       remoteUid = 0;
+      evidenceContext = context.getApplicationContext();
     }
     if (caller) {
       NativeVoiceCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
@@ -418,11 +421,17 @@ public final class NativeVoiceCallAgoraEngine {
           Listener currentListener;
           String sid;
           boolean callerJoin;
+          Context evidenceApp;
           synchronized (LOCK) {
             currentListener = listener;
             sid = activeCallId;
             callerJoin = callerJoinActive;
+            evidenceApp = evidenceContext;
             if (uid != 0) remoteUid = uid;
+          }
+          // Server media evidence (caller AND callee) — additive; listener behavior below unchanged.
+          if (sid != null && uid != 0) {
+            NativeVoiceCallApi.reportMediaConnectedOnce(evidenceApp, sid, uid);
           }
           if (!callerJoin || sid == null || uid == 0) return;
           NativeVoiceCallLog.info("remote_user_joined", sid, "uid=" + uid);

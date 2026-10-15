@@ -1,4 +1,5 @@
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { formatCallStubRoomTipForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
@@ -81,10 +82,15 @@ function formatSystemPreview(value: string): string {
       ? translateCmUi("cm_home_sys_trade_offer_amount", { amount: m[0].trim() })
       : translateCmUi("cm_home_sys_trade_offer");
   }
-  return translateCmUi("cm_home_sys_message");
+  /**
+   * 서버가 저장한 실제 시스템 문구(주문 요약·예약 상태·그룹 입퇴장 등)를 그대로 보인다.
+   * 일괄 "시스템 메시지" 치환은 리스트에서 실제 내용을 숨겼다. 첫 줄만(여러 줄 요약 카드).
+   */
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim() ?? "";
+  return firstLine || translateCmUi("cm_home_sys_message");
 }
 
-export function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {
+export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUserId?: string | null): string {
   const lastMessage = room.lastMessage?.trim();
   const lastMessageType = room.lastMessageType ?? "text";
   if (lastMessageType === "image") return translateCmUi("cm_home_preview_photo");
@@ -100,13 +106,25 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary): string 
       : translateCmUi("cm_home_preview_file_named", { name: lastMessage });
   }
   if (lastMessageType === "system") {
-    return formatSystemPreview(lastMessage ?? "");
+    /**
+     * 방 생성 시 `last_message=''`·`last_message_type='system'` 이 기본값 — 메시지가 없는 방이다.
+     * "시스템 메시지"로 표기하지 않고 아래 빈 방/컨텍스트 안내로 내려간다.
+     */
+    if (lastMessage) return formatSystemPreview(lastMessage);
+  } else if (lastMessageType === "gift_certificate") {
+    return translateCmUi("cm_home_preview_gift");
+  } else if (lastMessageType === "sticker") {
+    return translateCmUi("cm_home_preview_sticker");
+  } else if (lastMessageType === "community_post_share") {
+    return translateCmUi("cm_home_preview_post_share");
   }
   if (lastMessageType === "call_stub") {
     if (!lastMessage) return translateCmUi("cm_home_preview_call");
-    return LEGACY_CALL_TOKEN.test(lastMessage)
-      ? lastMessage
-      : translateCmUi("cm_home_preview_call_named", { detail: lastMessage });
+    /** 토큰 tip → viewer(발신/수신) 기준 문구(타임라인과 동일 계약). 레거시 라벨은 그대로. */
+    const callText = formatCallStubRoomTipForViewer(lastMessage, viewerUserId);
+    return LEGACY_CALL_TOKEN.test(callText)
+      ? callText
+      : translateCmUi("cm_home_preview_call_named", { detail: callText });
   }
   /** TEXT: show content as-is (including https://…jpg) — no URL→photo heuristic. */
   if (lastMessage && !parseCommunityMessengerRoomContextMeta(lastMessage)) {

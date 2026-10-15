@@ -18,11 +18,14 @@ export function useMessengerRoomVisibilityBusCatchup({
   roomId,
   streamRoomId,
   catchUpNewerMessages,
+  reconcileLatestMessages,
   refresh,
 }: {
   roomId: string;
   streamRoomId: string;
   catchUpNewerMessages: () => Promise<boolean>;
+  /** 복귀 시 최신 창 재조회 — 백그라운드 동안의 제자리 갱신·과거 created_at 기록(통화) 정합 */
+  reconcileLatestMessages?: () => Promise<boolean>;
   refresh: MessengerRoomBootstrapRefreshFn;
 }): void {
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
@@ -41,6 +44,8 @@ export function useMessengerRoomVisibilityBusCatchup({
       scheduleWhenBrowserIdle(() => {
         void (async () => {
           const merged = await catchUpNewerMessages();
+          /** 메시지 정합 전용 — silent_delta(읽음·통화 배너) 판단은 기존대로 `after=` 결과만 따른다. */
+          if (reconcileLatestMessages) void reconcileLatestMessages();
           if (merged) return;
           void refresh(true, { triggerReason: "visibilitychange" });
         })();
@@ -52,7 +57,7 @@ export function useMessengerRoomVisibilityBusCatchup({
       document.removeEventListener("visibilitychange", bump);
       window.removeEventListener("pageshow", bump);
     };
-  }, [catchUpNewerMessages, refresh]);
+  }, [catchUpNewerMessages, reconcileLatestMessages, refresh]);
 
   // Multi-tab: another tab sent a message in this room -> catch up quickly without full reload storms.
   useEffect(() => {

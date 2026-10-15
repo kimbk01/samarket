@@ -8,6 +8,7 @@ import {
   serializeCommunityMessengerMessageForBump,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
 
 function source(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8");
@@ -128,8 +129,19 @@ describe("messenger canonical same-id UPDATE propagation", () => {
 
   it("wiring: peer-mutated bump is not skipped as own insert", () => {
     const bump = source("lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts");
-    expect(bump).toContain("rawSenderId === from");
+    expect(bump).toContain("resolveOwnRoomBumpDecision");
     expect(bump).toContain("Peer-mutated same-id UPDATE");
+    expect(
+      resolveOwnRoomBumpDecision({
+        viewerUserId: AUTHOR_ID,
+        fromUserId: AUTHOR_ID,
+        rawSenderId: PEER_ACTOR_ID,
+        isStoreOrderSystemBump: false,
+        messageId: MESSAGE_ID,
+        clientMessageId: "",
+        localMessages: [{ id: MESSAGE_ID }],
+      })
+    ).toBe("apply");
   });
 
   it("wiring: messages table uses REPLICA IDENTITY FULL migration", () => {

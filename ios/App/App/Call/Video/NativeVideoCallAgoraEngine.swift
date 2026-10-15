@@ -511,6 +511,8 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     guard let sid, uid != 0 else { return }
 
     NativeVideoCallLog.info("remote_user_joined", callId: sid, details: "uid=\(uid)")
+    // Server media evidence (both roles) — additive; UI/runtime connected path below unchanged.
+    NativeVideoCallApi.reportMediaConnectedOnce(callId: sid, remoteUid: uid)
     if callerJoin {
       NativeVideoCallUiHost.outgoingRemoteUserJoined(callId: sid, uid: uid)
       currentListener?.onConnected()
