@@ -8,6 +8,26 @@
 -- 데이터 변경 없음. 시그니처·SECURITY DEFINER·search_path·ACL 동일.
 -- 롤백: 아래 본문에서 `and m.deleted_at is null` 한 줄을 제거해 재실행.
 
+-- 안전장치: 운영 정의 해시가 적용 전 값(a16c2fd68a28a19af1e5674a7120d36f)일 때만 교체. 이미 적용됐으면(표식 존재) skip,
+-- 그 외 정의면 아무것도 바꾸지 않고 예외로 중단.
+DO $mig$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'community_messenger_room_messages_after';
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'community_messenger_room_messages_after not found';
+  END IF;
+  IF strpos(v_def, 'and m.deleted_at is null') > 0 THEN
+    RAISE NOTICE 'community_messenger_room_messages_after already migrated — skip';
+    RETURN;
+  END IF;
+  IF md5(v_def) <> 'a16c2fd68a28a19af1e5674a7120d36f' THEN
+    RAISE EXCEPTION 'unexpected community_messenger_room_messages_after definition hash % — abort (no change)', md5(v_def);
+  END IF;
+  EXECUTE $def$
 CREATE OR REPLACE FUNCTION public.community_messenger_room_messages_after(p_user_id uuid, p_room_id uuid, p_after_message_id uuid, p_limit integer)
  RETURNS SETOF community_messenger_messages
  LANGUAGE sql
@@ -41,4 +61,7 @@ AS $function$
     )
   order by m.created_at asc, m.id asc
   limit least(greatest(coalesce(p_limit, 50), 1), 100);
-$function$;
+$function$
+$def$;
+END
+$mig$;

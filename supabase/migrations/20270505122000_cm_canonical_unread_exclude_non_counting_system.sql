@@ -13,6 +13,26 @@
 -- 데이터 변경 없음. 시그니처·SECURITY DEFINER·search_path·ACL 동일(CREATE OR REPLACE).
 -- 롤백: 아래 본문에서 v_count_system 관련 조건을 제거한 원본(위 md5)을 재실행.
 
+-- 안전장치: 운영 정의 해시가 적용 전 값(3dd433d3f83200fb2c4b1a23a8f99b14)일 때만 교체. 이미 적용됐으면(표식 존재) skip,
+-- 그 외 정의면 아무것도 바꾸지 않고 예외로 중단.
+DO $mig$
+DECLARE
+  v_def text;
+BEGIN
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'dibay_cm_canonical_unread_count';
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'dibay_cm_canonical_unread_count not found';
+  END IF;
+  IF strpos(v_def, 'v_count_system') > 0 THEN
+    RAISE NOTICE 'dibay_cm_canonical_unread_count already migrated — skip';
+    RETURN;
+  END IF;
+  IF md5(v_def) <> '3dd433d3f83200fb2c4b1a23a8f99b14' THEN
+    RAISE EXCEPTION 'unexpected dibay_cm_canonical_unread_count definition hash % — abort (no change)', md5(v_def);
+  END IF;
+  EXECUTE $def$
 CREATE OR REPLACE FUNCTION public.dibay_cm_canonical_unread_count(p_room_id uuid, p_viewer_id uuid)
  RETURNS integer
  LANGUAGE plpgsql
@@ -77,4 +97,7 @@ BEGIN
 
   RETURN coalesce(v_count, 0);
 END;
-$function$;
+$function$
+$def$;
+END
+$mig$;
