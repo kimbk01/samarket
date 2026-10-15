@@ -7,7 +7,7 @@ const plugin = {
   pickPhotos: vi.fn(),
   resolvePhotos: vi.fn(),
 };
-const isPluginAvailable = vi.fn(() => true);
+const isPluginAvailable = vi.fn((_name: string) => true);
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: vi.fn(() => true),
