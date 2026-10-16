@@ -501,7 +501,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     );
 
   const viberBubble = (
-    <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
+    <ViberChatBubble
+      isMine={item.isMine}
+      showTail={showBubbleTail}
+      media={(item.messageType === "image" || item.messageType === "sticker") && !replyQuote}
+    >
       <div className="flex min-w-0 max-w-full flex-col">
         {renderReplyQuoteInsideBubble()}
         {item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share" ? (

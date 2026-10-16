@@ -47,11 +47,9 @@ export function MessengerChatImageBubble(props: {
   if (album) {
     return (
       <div className={`${BUBBLE_MAX} max-h-[360px] bg-transparent`}>
-        <AlbumLayout urls={album} pending={pending} onOpenCell={openFrom} />
+        <AlbumLayout urls={album} onOpenCell={openFrom} />
         {pending ? (
-          <p
-            className={`mt-1 text-center sam-text-xxs ${item.isMine ? "text-white/85" : "text-sam-muted"}`}
-          >
+          <p className="mt-1 text-center sam-text-xxs text-sam-muted">
             {t("common_sending")}
           </p>
         ) : null}
@@ -65,7 +63,6 @@ export function MessengerChatImageBubble(props: {
       width={item.imageWidth ?? null}
       height={item.imageHeight ?? null}
       pending={pending}
-      isMine={item.isMine}
       onOpen={() => openFrom(0)}
     />
   );
@@ -73,11 +70,9 @@ export function MessengerChatImageBubble(props: {
 
 function AlbumLayout({
   urls,
-  pending,
   onOpenCell,
 }: {
   urls: string[];
-  pending?: boolean;
   onOpenCell: (i: number) => void;
 }) {
   const { t } = useI18n();
@@ -97,7 +92,7 @@ function AlbumLayout({
       <img
         src={src}
         alt=""
-        className={`h-full w-full object-cover ${pending ? "blur-sm opacity-70" : ""}`}
+        className="h-full w-full object-cover"
         loading="lazy"
         decoding="async"
       />
@@ -151,7 +146,7 @@ function AlbumLayout({
           <img
             src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!}
             alt=""
-            className={`h-full w-full object-cover ${pending ? "blur-sm opacity-70" : ""}`}
+            className="h-full w-full object-cover"
             loading="lazy"
             decoding="async"
           />
@@ -169,7 +164,6 @@ function SingleChatImage({
   width,
   height,
   pending,
-  isMine,
   onOpen,
 }: {
   src: string;
@@ -177,7 +171,6 @@ function SingleChatImage({
   width: number | null;
   height: number | null;
   pending?: boolean;
-  isMine: boolean;
   onOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -230,7 +223,7 @@ function SingleChatImage({
           <img
             src={src}
             alt=""
-            className={`relative h-full w-full object-cover ${pending ? "scale-105 blur-sm opacity-75" : ""}`}
+            className="relative h-full w-full object-cover"
             loading={underlaySrc ? "eager" : "lazy"}
             decoding="async"
             onLoad={(e) => {
@@ -262,7 +255,7 @@ function SingleChatImage({
         </div>
       </button>
       {pending ? (
-        <p className={`mt-1 text-center sam-text-xxs ${isMine ? "text-white/85" : "text-sam-muted"}`}>{t("common_sending")}</p>
+        <p className="mt-1 text-center sam-text-xxs text-sam-muted">{t("common_sending")}</p>
       ) : null}
     </div>
   );

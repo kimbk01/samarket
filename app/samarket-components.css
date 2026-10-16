@@ -856,6 +856,10 @@
     border: 0;
   }
 
+  [data-cm-room] .sam-bubble--media::after {
+    content: none;
+  }
+
   [data-cm-messenger-home-root] {
     background-color: var(--sam-bg-app);
     padding-left: 0;

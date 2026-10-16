@@ -298,15 +298,18 @@ export function getLatestCallStubForSession(
 /** Viber 톤 — tail은 `[data-cm-room] .sam-bubble::*` pseudo-element가 항상 담당한다. */
 export function ViberChatBubble({
   isMine,
+  media,
   children,
 }: {
   isMine: boolean;
   showTail: boolean;
+  /** 사진·스티커 단독 — 색 배경·말꼬리 없이 그린다(카톡·텔레그램과 동일, 로드 전·전송 중 배경색이 비치지 않게). */
+  media?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
-      className={`sam-bubble ${isMine ? "sam-bubble--outgoing" : "sam-bubble--incoming"}`}
+      className={`sam-bubble ${isMine ? "sam-bubble--outgoing" : "sam-bubble--incoming"}${media ? " sam-bubble--media" : ""}`}
       style={{
         borderRadius: "var(--cm-room-radius-bubble)",
       }}
