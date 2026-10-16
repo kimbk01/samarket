@@ -87,6 +87,14 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Select Xcode 26 (Kakao SDK prebuilt binaries need the Swift 6.2 runtime — Xcode 16.4 fails at link)
+        run: |
+          set -e
+          ls -d /Applications/Xcode*.app
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)"
+          if [ -z "$XC" ]; then XC="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"; fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
       - name: Capacitor sync iOS (Production server URL)
         run: npm run cap:sync:vercel:ios
       - name: Build for iOS Simulator (no code signing — compile verification)
