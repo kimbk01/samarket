@@ -178,9 +178,9 @@ public final class NativeVideoCallRuntime {
     if (context == null) return false;
     android.content.Intent intent = new android.content.Intent(context, NativeVideoCallActivity.class);
     intent.addFlags(
-        android.content.Intent.FLAG_NativeVideoCallActivityIVITY_NEW_TASK
-            | android.content.Intent.FLAG_NativeVideoCallActivityIVITY_SINGLE_TOP
-            | android.content.Intent.FLAG_NativeVideoCallActivityIVITY_CLEAR_TOP);
+        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
     PreparingState prep = preparingState;
     String key;
     if (prep != null && prep.attemptId != null && !prep.attemptId.isEmpty()) {
