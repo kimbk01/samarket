@@ -1,5 +1,6 @@
 "use client";
 
+import { useOwnLiveCall } from "@/lib/call/own-live-call";
 import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
@@ -120,7 +121,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const canOpenPeerFriendProfile = vm.canOpenPeerFriendProfile;
   const [headerVoiceConfirmOpen, setHeaderVoiceConfirmOpen] = useState(false);
 
+  /** 내 통화가 울리는 중/진행 중이면 확인 팝업을 다시 띄우지 않는다 — 기존 통화로 돌아가거나 「통화 중」 안내(1회 통화). */
+  const ownLiveCall = useOwnLiveCall();
   const openHeaderVoiceConfirm = () => {
+    if (ownLiveCall) {
+      setHeaderVoiceConfirmOpen(false);
+      void vm.startManagedDirectCall("voice");
+      return;
+    }
     logCallV3ButtonClick({
       location: "room_header",
       roomId,
@@ -530,20 +538,38 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               type="button"
               onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
-              aria-label={vm.t("cm_ui_voice_call")}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45 ${
+                ownLiveCall ? "text-[color:var(--cm-room-primary,#006B43)]" : "text-[color:var(--cm-room-text-muted)]"
+              }`}
+              aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
+              data-cm-own-call-live={ownLiveCall ? "1" : undefined}
             >
               <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              {ownLiveCall ? (
+                <span
+                  className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary,#006B43)]"
+                  aria-hidden
+                />
+              ) : null}
             </button>
           ) : showHeaderVoiceCall ? (
             <button
               type="button"
               onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
-              aria-label={vm.t("cm_ui_voice_call")}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45 ${
+                ownLiveCall ? "text-[color:var(--cm-room-primary,#006B43)]" : "text-[color:var(--cm-room-text-muted)]"
+              }`}
+              aria-label={ownLiveCall ? vm.t("cm_ui_call_in_progress_return") : vm.t("cm_ui_voice_call")}
+              data-cm-own-call-live={ownLiveCall ? "1" : undefined}
             >
               <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              {ownLiveCall ? (
+                <span
+                  className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-[color:var(--cm-room-primary,#006B43)]"
+                  aria-hidden
+                />
+              ) : null}
             </button>
           ) : vm.isPrivateGroupRoom || vm.isGroupRoom ? null : (
             <button
@@ -557,7 +583,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           )}
         </div>
     </MessengerHeader>
-    {headerVoiceConfirmOpen ? (
+    {headerVoiceConfirmOpen && !ownLiveCall ? (
       <MessengerOutgoingCallConfirmDialog
         open
         peerLabel={voiceConfirmPeerLabel}

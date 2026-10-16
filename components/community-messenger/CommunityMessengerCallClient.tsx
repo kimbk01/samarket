@@ -5027,12 +5027,16 @@ export function CommunityMessengerCallClient({
     !agoraReconnecting && (session.status === "active" || calleeAcceptInFlightUi);
   const displayCallPhase: CallPhase = instantCallActiveUi ? "connected" : callScreenPhase;
   /** 발신자: 상대 수락(active) 후 media ready 이면 자동 Agora 조인 — 앱 레벨 권한 오버레이 없음 */
+  const startOutgoingAgainInFlightRef = useRef(false);
   const acceptFromScreen = () => {
     autoJoinBlockedRef.current = false;
     void acceptIncoming();
   };
 
   const startOutgoingAgain = (kind: "voice" | "video") => {
+    /** 「다시 걸기」 — 연타로 발신이 두 번 시작되지 않게 단일 비행(종료된 통화 화면에서만 노출). */
+    if (startOutgoingAgainInFlightRef.current) return;
+    startOutgoingAgainInFlightRef.current = true;
     void (async () => {
       try {
         const result = await launchOutgoingDirectCall(
@@ -5045,6 +5049,8 @@ export function CommunityMessengerCallClient({
         }
       } catch {
         alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
+      } finally {
+        startOutgoingAgainInFlightRef.current = false;
       }
     })();
   };

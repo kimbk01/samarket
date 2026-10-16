@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { isOutgoingCallStartBlocked } from "@/lib/call/call-action-lock";
+import { readOwnLiveCall } from "@/lib/call/own-live-call";
 import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
 import { isDibayCallTerminalConsumedLocal } from "@/lib/community-messenger/incoming-call-state";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -50,6 +51,19 @@ export function guardInstantOutgoingCallStart(
       peerId: _input?.peerUserId,
     });
     return { ok: false, blockedCallId: activeCallId, userMessage: alreadyInProgressMessage() };
+  }
+  /**
+   * V4/네이티브 lane — activeCallSession·lock 을 쓰지 않으므로 별도로 본다(통화가 울리는 중 두 번째 발신 차단).
+   * 통화 화면은 네이티브(CallKit/전용 Activity)가 소유하므로 웹 통화 화면으로 이동하지 않고 안내만 한다.
+   */
+  const ownLive = readOwnLiveCall();
+  if (ownLive?.source === "v4") {
+    logCallButtonState({
+      location: "guardInstantOutgoingCallStart",
+      roomId: _input?.roomId,
+      peerId: _input?.peerUserId,
+    });
+    return { ok: false, blockedCallId: "", userMessage: alreadyInProgressMessage() };
   }
   if (isOutgoingCallStartBlocked()) {
     logCallButtonState({

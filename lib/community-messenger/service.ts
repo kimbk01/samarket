@@ -19273,6 +19273,29 @@ export async function startCommunityMessengerCallSession(input: {
     };
   }
 
+  /**
+   * 1회 통화 — 같은 방에서 「내가 건」 같은 종류의 통화가 아직 울리는 중(링 타임아웃 전)이면 새로 만들지 않고
+   * 그 세션을 돌려준다. 두 번째 탭·중복 요청이 기존 통화를 끊고 상대를 다시 울리게 하지 않는다(재푸시 없음).
+   * 오래된 ringing·진행 중(active)·다른 종류(음성↔영상) 는 아래 fresh 정리 경로 그대로.
+   */
+  if (!isGroupRoom && sb && dialFresh) {
+    const liveInRoomId = await getLiveDirectCallSessionIdInRoom(sb, roomId);
+    if (liveInRoomId) {
+      const liveInRoom = await loadDirectCallSessionRowById(sb, input.userId, liveInRoomId);
+      if (
+        liveInRoom &&
+        liveInRoom.status === "ringing" &&
+        trimText(liveInRoom.initiatorUserId) === trimText(input.userId) &&
+        liveInRoom.callKind === input.callKind
+      ) {
+        const ringPolicy = await getMessengerCallAdminPolicyCached();
+        if (!isStaleRingingRow({ status: liveInRoom.status, started_at: liveInRoom.startedAt }, ringPolicy)) {
+          return { ok: true, session: liveInRoom, reused: true };
+        }
+      }
+    }
+  }
+
   if (!isGroupRoom && sb && !dialFresh) {
     const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
     if (callerLiveId) {
