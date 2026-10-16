@@ -10,17 +10,24 @@ import { messengerImageOriginalUrlSlots } from "@/lib/community-messenger/attach
 const P = "https://x.supabase.co/storage/v1/object/public/post-images/u/r";
 
 /** DOM 없이 closest 를 흉내 — 조상 체인에서 data-album-index 를 찾는다. */
-function fakeEl(attrs: Record<string, string>, parent: ReturnType<typeof fakeEl> | null = null) {
-  const el = {
+type FakeEl = {
+  attrs: Record<string, string>;
+  parent: FakeEl | null;
+  getAttribute: (n: string) => string | null;
+  closest: (sel: string) => FakeEl | null;
+};
+
+function fakeEl(attrs: Record<string, string>, parent: FakeEl | null = null): FakeEl {
+  const el: FakeEl = {
     attrs,
     parent,
     getAttribute: (n: string) => (n in attrs ? attrs[n]! : null),
-    closest(this: unknown, sel: string) {
+    closest(sel: string) {
       const name = sel.replace(/^\[|\]$/g, "");
-      let cur: typeof el | null = el;
+      let cur: FakeEl | null = el;
       while (cur) {
         if (name in cur.attrs) return cur;
-        cur = cur.parent as typeof el | null;
+        cur = cur.parent;
       }
       return null;
     },
