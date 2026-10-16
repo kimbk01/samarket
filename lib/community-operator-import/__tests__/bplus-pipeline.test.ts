@@ -158,10 +158,11 @@ describe("content policy", () => {
   const a = article(blocks, { summary: null });
   const edit = { ...defaultOperatorDraftEdit(a), topicId: "t", topicSlug: "news" };
 
-  it("policy can only narrow", () => {
-    expect(effectivePolicy("summary_link", "full")).toBe("summary_link");
+  it("source policy is the default; the operator's explicit choice wins", () => {
+    expect(effectivePolicy("summary_link", "full")).toBe("full");
     expect(effectivePolicy("full", "link_only")).toBe("link_only");
     expect(effectivePolicy("summary_link", null)).toBe("summary_link");
+    expect(effectivePolicy("full", "bogus" as never)).toBe("full");
   });
 
   it("summary_link publishes thumbnail + lead only; the source is credited by attribution columns", () => {

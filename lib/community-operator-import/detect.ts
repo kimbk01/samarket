@@ -13,6 +13,7 @@ import { discoverWordpressBoards, probeWordpressApi } from "./adapters/wordpress
 import { describeFetchError, fetchImportText, ImportFetchError } from "./http";
 import { absUrl, blockStats, cleanText } from "./normalize";
 import { assessArticleQuality } from "./quality";
+import { knownFeedFor, naverBlogId } from "./platforms";
 import { assertRobotsAllows, isPathAllowed, loadRobotsPolicy } from "./robots";
 import type {
   AdapterConfig,
@@ -123,6 +124,8 @@ export function feedDirectoryLinks($page: ReturnType<typeof cheerio.load>, pageU
 }
 
 async function findFeeds(base: string, $home: ReturnType<typeof cheerio.load>, homeUrl: string) {
+  const platformFeed = knownFeedFor(homeUrl) ?? knownFeedFor(base);
+  if (platformFeed) return [{ url: platformFeed, title: null }];
   const directory = feedDirectoryLinks($home, homeUrl);
   if (directory.length) return directory;
   const feeds: Array<{ url: string; title: string | null }> = [];
@@ -190,6 +193,9 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     if (abs) base = abs.replace(/bbs\/board\.php.*$/, "");
   } else if (/\/bbs\//.test(finalUrl)) {
     base = finalUrl.replace(/bbs\/.*$/, "");
+  } else if (naverBlogId(inputUrl)) {
+    // One Naver blog = one source (the host alone would merge every blog into one id).
+    base = `https://blog.naver.com/${naverBlogId(inputUrl)}/`;
   } else {
     base = `${new URL(finalUrl).origin}/`;
   }
@@ -200,7 +206,7 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     baseUrl: base,
     engine,
     enabled: true,
-    contentPolicy: "summary_link",
+    contentPolicy: "full",
     adapterConfig,
     verification: "NOT_PROVEN",
   });
@@ -223,7 +229,7 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     const isSectionPage = (entered.pathname !== "/" && entered.pathname !== new URL(base).pathname) || entered.search.length > 1;
     // An RSS directory page wins over its own link list: each listed feed is a real board.
     const isFeedDirectory = feedDirectoryLinks($home, finalUrl).length > 0;
-    const inputTemplate = !isTistory && isSectionPage && !isFeedDirectory ? rankItemTemplates(html, finalUrl)[0] : undefined;
+    const inputTemplate = !isTistory && !knownFeedFor(inputUrl) && isSectionPage && !isFeedDirectory ? rankItemTemplates(html, finalUrl)[0] : undefined;
     const feeds = inputTemplate && inputTemplate.items >= 5 ? [] : await findFeeds(base, $home, finalUrl);
     if (inputTemplate && inputTemplate.items >= 5) {
       engine = "html";
@@ -416,7 +422,7 @@ export async function probeBoard(input: {
     baseUrl: input.baseUrl,
     engine: input.engine,
     enabled: true,
-    contentPolicy: "summary_link",
+    contentPolicy: "full",
     adapterConfig: input.adapterConfig ?? {},
     verification: "NOT_PROVEN",
   };

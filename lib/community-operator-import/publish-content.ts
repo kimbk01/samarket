@@ -6,8 +6,8 @@
  * else, so headings, quotes, lists and links are flattened to readable text here. The source is
  * credited only through public_attribution_name/url (the detail page's 출처 block) — never inline.
  *
- *  - full          : edited body + images (only for sources with republication rights)
- *  - summary_link  : thumbnail + short summary (default)
+ *  - full          : edited body + all included images (default)
+ *  - summary_link  : thumbnail + short summary
  *  - link_only     : one line naming the source (the 출처 block carries the link)
  * Summary order: operator text → the publisher's own per-item summary (feed/excerpt) → the body's
  * leading sentences. Nothing is generated; a site-wide page description is never used.
@@ -18,12 +18,11 @@ export { blockPlainText } from "./draft-apply";
 import { applyRulesToBlocks, applyRulesToText, type ImportRule } from "./rules";
 import type { ContentPolicy, OperatorContentBlock, OperatorDraftEdit, OperatorNormalizedArticle } from "./types";
 
-const POLICY_RANK: Record<ContentPolicy, number> = { full: 2, summary_link: 1, link_only: 0 };
+const POLICIES: ReadonlySet<ContentPolicy> = new Set(["full", "summary_link", "link_only"]);
 
-/** Article policy may only narrow the source policy. */
+/** The source policy is the default; an explicit per-article / bulk choice by the operator wins. */
 export function effectivePolicy(sourcePolicy: ContentPolicy, requested?: ContentPolicy | null): ContentPolicy {
-  if (!requested || !(requested in POLICY_RANK)) return sourcePolicy;
-  return POLICY_RANK[requested] <= POLICY_RANK[sourcePolicy] ? requested : sourcePolicy;
+  return requested && POLICIES.has(requested) ? requested : sourcePolicy;
 }
 
 /** Flatten editor blocks to the community body contract: paragraphs + images only. */

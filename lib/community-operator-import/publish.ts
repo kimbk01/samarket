@@ -47,7 +47,8 @@ export type PublishResult =
 
 const fail = (code: string, message: string): PublishResult => ({ ok: false, code, message });
 
-function toIsoDisplayDate(edit: OperatorDraftEdit, article: OperatorNormalizedArticle): string | null {
+export function toIsoDisplayDate(edit: OperatorDraftEdit, article: OperatorNormalizedArticle): string | null {
+  if (edit.dateMode === "publish") return null;
   const raw = String(edit.displayDate || "").trim();
   if (raw) {
     const m = raw.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
@@ -111,6 +112,26 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
   });
   if (!content.title) return fail("empty_content", "제목이 필요합니다.");
 
+  // The same original collected through another board/key must never become a second post. The RPC
+  // also checks the public 출처 URL, but that column is empty when the operator hides the 출처 block,
+  // so provenance links (always written) are the authority here.
+  if (input.mode === "create" && article.canonicalUrl) {
+    const { data: other } = await sb
+      .from("community_import_post_links")
+      .select("post_id, source_site, source_board, source_article_key")
+      .eq("canonical_url", article.canonicalUrl)
+      .limit(5);
+    const dup = (other ?? []).find((r) => {
+      const x = r as { source_site: string; source_board: string; source_article_key: string };
+      return !(x.source_site === article.sourceSite && x.source_board === article.sourceBoard && x.source_article_key === article.sourceArticleKey);
+    }) as { post_id?: string } | undefined;
+    if (dup?.post_id) {
+      const { data: live } = await sb.from("community_posts").select("id").eq("id", dup.post_id).neq("status", "deleted").maybeSingle();
+      if (live) return fail("published_under_other_key", `이미 같은 원문이 게시되어 있습니다 (게시물 ${dup.post_id}).`);
+    }
+  }
+  const showAttribution = edit.showAttribution !== false;
+
   // Images become DIBAY-owned copies; a failed image is dropped, never hot-linked.
   const ingested = await ingestOperatorImageUrlList({
     sb,
@@ -165,8 +186,8 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       category: deriveCommunityPostCategoryBucket({ topicOrCategoryRaw: topicSlug, isMeetup: false }),
       display_author_name: String(edit.displayAuthor || article.author || "").trim() || content.attributionName,
       display_date: toIsoDisplayDate(edit, article),
-      public_attribution_name: content.attributionName,
-      public_attribution_url: content.attributionUrl,
+      public_attribution_name: showAttribution ? content.attributionName : null,
+      public_attribution_url: showAttribution ? content.attributionUrl : null,
     },
     image_rows: imageRows,
     draft: { original: article, edit: { ...edit, topicId: meta.id, topicSlug } },

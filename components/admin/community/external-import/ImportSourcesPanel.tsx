@@ -38,7 +38,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
   const [detect, setDetect] = useState<DetectResult | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [displayName, setDisplayName] = useState("");
-  const [policy, setPolicy] = useState<ContentPolicy>("summary_link");
+  const [policy, setPolicy] = useState<ContentPolicy>("full");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);

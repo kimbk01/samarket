@@ -10,6 +10,7 @@
  * No site-specific selectors live here. Site/skin differences are adapter config.
  */
 import * as cheerio from "cheerio";
+import { fullSizePlatformImage, PLATFORM_BODY_SELECTORS } from "./platforms";
 import type { OperatorContentBlock } from "./types";
 
 type CheerioAPI = ReturnType<typeof cheerio.load>;
@@ -103,7 +104,7 @@ export function imageUrlOf($img: CheerioSel, base: string): string | null {
 
 /** Gnuboard / generic "thumb-xxx_400x300.jpg" → original file when the pattern is unambiguous. */
 export function unthumbnailUrl(url: string): string {
-  return url.replace(/\/thumb-([^/]+?)_\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, "/$1$2");
+  return fullSizePlatformImage(url.replace(/\/thumb-([^/]+?)_\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, "/$1$2"));
 }
 
 export type NormalizeOptions = {
@@ -391,6 +392,7 @@ export const GENERIC_BODY_SELECTORS = [
   "[itemprop='articleBody']",
   ".tt_article_useless_p_margin",
   ".contents_style",
+  ...PLATFORM_BODY_SELECTORS,
   "article .entry-content",
   ".entry-content",
   ".article_view",

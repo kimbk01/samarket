@@ -69,7 +69,7 @@ export function mapSourceRow(row: Record<string, unknown>): Omit<ManagedSource, 
     baseUrl: str(row.base_url),
     engine: ENGINES.has(engine) ? engine : "html",
     enabled: Boolean(row.enabled),
-    contentPolicy: POLICIES.has(policy) ? policy : "summary_link",
+    contentPolicy: POLICIES.has(policy) ? policy : "full",
     adapterConfig: (row.adapter_config && typeof row.adapter_config === "object" ? row.adapter_config : {}) as AdapterConfig,
     verification: str(row.verification) || "NOT_PROVEN",
     status: {
@@ -195,7 +195,7 @@ export async function saveDetectedSource(
   const id = normalizeSourceId(input.sourceId || d.sourceIdSuggestion);
   if (!id) throw new Error("source_id_required");
   const now = new Date().toISOString();
-  const policy = input.contentPolicy && POLICIES.has(input.contentPolicy) ? input.contentPolicy : "summary_link";
+  const policy = input.contentPolicy && POLICIES.has(input.contentPolicy) ? input.contentPolicy : "full";
 
   const { data: existing } = await sb.from(SOURCES_TABLE).select("id, origin, enabled").eq("id", id).maybeSingle();
   const payload: Record<string, unknown> = {

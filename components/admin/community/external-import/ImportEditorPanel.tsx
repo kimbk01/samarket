@@ -283,8 +283,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                   onChange={(e) => set({ contentPolicy: e.target.value as ContentPolicy })}
                 >
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
-                    <option key={p} value={p} disabled={p === "full" && data.source.contentPolicy !== "full"}>
+                    <option key={p} value={p}>
                       {POLICY_LABEL[p]}
+                      {p === data.source.contentPolicy ? " · 출처 기본값" : ""}
                     </option>
                   ))}
                 </select>
@@ -295,7 +296,20 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </label>
               <label className="block text-xs text-sam-muted">
                 표시 날짜
-                <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayDate} onChange={(e) => set({ displayDate: e.target.value })} />
+                <input
+                  className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5 disabled:opacity-50"
+                  value={edit.displayDate}
+                  disabled={edit.dateMode === "publish"}
+                  onChange={(e) => set({ displayDate: e.target.value })}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-sam-muted">
+                <input type="checkbox" checked={edit.dateMode === "publish"} onChange={(e) => set({ dateMode: e.target.checked ? "publish" : "original" })} />
+                원문 날짜 대신 DIBAY 게시 시각 표시
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-sam-muted">
+                <input type="checkbox" checked={edit.showAttribution !== false} onChange={(e) => set({ showAttribution: e.target.checked })} />
+                출처(사이트 이름·원문 링크) 표시
               </label>
             </div>
             {policy === "summary_link" ? (

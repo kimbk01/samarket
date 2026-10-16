@@ -25,9 +25,31 @@ export function defaultOperatorDraftEdit(article: OperatorNormalizedArticle): Op
   };
 }
 
+/**
+ * Source date as the editable 「표시 날짜」 text, in Manila wall-clock time — publish reads this text
+ * back as +08:00, so a zoned ISO date must be converted (not sliced) or it shifts by the zone offset.
+ */
 export function formatSourceDateForDisplay(raw: string | null | undefined): string {
   const s = String(raw || "").trim();
   if (!s) return "";
+  const zoned = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(s);
+  const t = zoned ? Date.parse(s) : NaN;
+  if (!Number.isNaN(t)) {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(new Date(t))
+        .map((x) => [x.type, x.value]),
+    );
+    return `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}`;
+  }
   const m = s.match(/(\d{4})-(\d{2})-(\d{2}).*?(\d{2}):(\d{2})/);
   if (m) return `${m[1]}.${m[2]}.${m[3]} ${m[4]}:${m[5]}`;
   return s.replace(/KST/g, " ").replace(/\s+/g, " ").trim();

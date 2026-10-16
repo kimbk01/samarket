@@ -65,8 +65,8 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const POLICY_LABEL: Record<ContentPolicy, string> = {
-  full: "전문 게시 (재게시 권한 있음)",
-  summary_link: "요약 + 원문 링크 (기본)",
+  full: "전문 게시 (본문·이미지 전체)",
+  summary_link: "요약 + 원문 링크",
   link_only: "제목 + 원문 링크",
 };
 

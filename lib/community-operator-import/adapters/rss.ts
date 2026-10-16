@@ -15,6 +15,7 @@ import {
   readPageMeta,
   selectBody,
 } from "../normalize";
+import { articleFetchUrl } from "../platforms";
 import type { OperatorContentBlock, OperatorListRow, OperatorNormalizedArticle, RuntimeBoard } from "../types";
 import {
   type AdapterContext,
@@ -174,8 +175,10 @@ export async function detailRss(
 
   if (cfg.fetchArticle !== false && canonicalUrl) {
     try {
-      const res = await fetchImportText(canonicalUrl);
-      canonicalUrl = res.finalUrl;
+      const fetchUrl = articleFetchUrl(canonicalUrl);
+      const res = await fetchImportText(fetchUrl);
+      // A platform reading page (e.g. Naver's mobile view) is not the article's address.
+      if (fetchUrl === canonicalUrl) canonicalUrl = res.finalUrl;
       const $ = cheerio.load(res.text);
       pageMeta = readPageMeta($);
       const body = selectBody($, [...(cfg.bodySelectors ?? []), ...GENERIC_BODY_SELECTORS]);

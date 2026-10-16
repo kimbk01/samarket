@@ -8,7 +8,7 @@ import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Inbox list (read-only). Filters: site, board, status (csv), quality, q, since, limit, offset. */
+/** Inbox list (read-only). Filters: site, board, status (csv), quality, lang (ko|other), q, since, limit, offset. */
 export async function GET(req: NextRequest) {
   const auth = await requireAdminApiUser();
   if (!auth.ok) return auth.response;
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       quality: quality === "FULL" || quality === "PARTIAL" || quality === "FAILED" || quality === "none" ? (quality as QualityVerdict | "none") : null,
       q: sp.get("q"),
       since: sp.get("since"),
+      lang: sp.get("lang") === "ko" ? "ko" : sp.get("lang") === "other" ? "other" : null,
       limit: Number(sp.get("limit")) || 50,
       offset: Number(sp.get("offset")) || 0,
     });
