@@ -84,6 +84,9 @@ type ScrollAnchorControllerOpts = {
   lastReadMessageId?: string | null;
 };
 
+/** 메시지로 이동 시 상단 여백(날짜 구분선·스티키 헤더에 가리지 않게) */
+const MESSENGER_JUMP_TO_MESSAGE_TOP_INSET_PX = 12;
+
 function isExplicitScrollReason(reason: CmScrollOwnerReason): boolean {
   return reason === "own_message_append" || reason === "explicit";
 }
@@ -388,6 +391,23 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         return;
       }
 
+      if (force && reason === "fab_jump_latest") {
+        /** ↓ 버튼 — 텔레그램처럼 부드럽게 맨 아래까지(매 프레임 하단 재계산). */
+        const reader = useMessengerRoomReaderStateStore.getState();
+        stickToBottomRef.current = true;
+        reader.setScrollPosition(roomId, "at-bottom");
+        const started = engine.animateScrollToBottom(buildCtx(), {
+          onDone: () => {
+            stickToBottomRef.current = engine.readStickToBottom();
+            const tip = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
+            if (tip) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, tip);
+          },
+        });
+        if (!started) engine.scrollToBottomExplicit(buildCtx());
+        markCmScrollRun(reason, "explicit");
+        return;
+      }
+
       if (force) {
         engine.scrollToBottomExplicit(buildCtx());
         stickToBottomRef.current = true;
@@ -410,6 +430,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       engine,
       markCmScrollRun,
       messageCount,
+      messagesViewportRef,
       roomId,
       roomMessages,
       stickToBottomRef,
@@ -426,7 +447,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   );
 
   const scrollMessengerToMessage = useCallback(
-    (messageId: string, scrollOpts?: { align?: ScrollToMessageAlign }): boolean => {
+    (messageId: string, scrollOpts?: { align?: ScrollToMessageAlign; animate?: boolean }): boolean => {
       const mid = messageId.trim();
       if (!mid) return false;
       /** Index must match virtualizer count (`displayRoomMessages`), not raw seed list. */
@@ -434,6 +455,30 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (index < 0 || index >= messageCount) return false;
       const align = scrollOpts?.align ?? "center";
       const ctx = buildCtx();
+
+      if (scrollOpts?.animate) {
+        /** ↓ 버튼(첫 안 읽음) — 실제 DOM 위치로 부드럽게 이동(추정 높이 미사용). */
+        const vpA = messagesViewportRef.current;
+        const rowA =
+          typeof document !== "undefined"
+            ? (document.getElementById(`cm-room-msg-${mid}`) as HTMLElement | null)
+            : null;
+        if (vpA && rowA && vpA.contains(rowA)) {
+          stickToBottomRef.current = false;
+          const reader = useMessengerRoomReaderStateStore.getState();
+          reader.setScrollPosition(roomId, "reading-history");
+          reader.setLastVisibleMessageId(roomId, mid);
+          engine.animateScrollToElement(ctx, rowA, align, {
+            topInsetPx: MESSENGER_JUMP_TO_MESSAGE_TOP_INSET_PX,
+            onDone: () => {
+              stickToBottomRef.current = engine.readStickToBottom();
+              const resolved = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
+              if (resolved) useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, resolved);
+            },
+          });
+          return true;
+        }
+      }
       /** Empty stub reports size 0 — do not treat no-op scrollToIndex as success. */
       const virtualizerReady =
         messageCount > 0 && (ctx.virtualizer?.getTotalSize?.() ?? 0) > 0 && Boolean(ctx.virtualizer?.scrollToIndex);
@@ -450,14 +495,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         const inView =
           rowRect.bottom > vpRect.top + 8 && rowRect.top < vpRect.bottom - 8;
         if (!inView || !applied) {
-          const rowTop = rowRect.top - vpRect.top + vp.scrollTop;
-          if (align === "center") {
-            vp.scrollTop = Math.max(0, rowTop - vp.clientHeight / 2 + rowRect.height / 2);
-          } else if (align === "end") {
-            vp.scrollTop = Math.max(0, rowTop - vp.clientHeight + rowRect.height);
-          } else {
-            vp.scrollTop = Math.max(0, rowTop);
-          }
+          engine.scrollToElementExplicit(ctx, row, align);
           applied = true;
         }
       } else if (virtualizerReady && applied) {
@@ -483,6 +521,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
+    /** 부드러운 이동 중 발생한 scroll 이벤트는 사용자 스크롤이 아니다 — 끝나면 onDone 이 상태를 맞춘다. */
+    if (engine.isAnimating()) return;
     engine.notifyUserScroll(buildCtx());
     stickToBottomRef.current = engine.readStickToBottom();
     syncMessengerRoomStickToBottomFromViewport({

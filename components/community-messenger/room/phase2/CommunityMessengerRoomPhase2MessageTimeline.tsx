@@ -2226,12 +2226,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         remainingUnreadCount={remainingUnreadCount}
         onJumpToUnread={() => {
           if (jumpLatestFabAction.kind === "first_unread") {
-            vm.scrollToRoomMessage(jumpLatestFabAction.messageId, { align: "start" });
+            vm.scrollToRoomMessage(jumpLatestFabAction.messageId, { align: "start", animate: true });
             return;
           }
-          vm.scrollMessengerToBottom({ reason: "explicit", force: true });
+          vm.scrollMessengerToBottom({ reason: "fab_jump_latest", force: true });
         }}
-        onJumpToLatest={() => vm.scrollMessengerToBottom({ reason: "explicit", force: true })}
+        onJumpToLatest={() => vm.scrollMessengerToBottom({ reason: "fab_jump_latest", force: true })}
       />
       <MessengerImageLightbox
         open={imageLightbox != null}

@@ -1,4 +1,7 @@
-import { CHAT_THREAD_STICK_THRESHOLD_PX } from "@/lib/chat-thread-scroll/constants";
+import {
+  CHAT_THREAD_ANIMATED_SCROLL_MS,
+  CHAT_THREAD_STICK_THRESHOLD_PX,
+} from "@/lib/chat-thread-scroll/constants";
 import {
   chatThreadDistanceFromBottom,
   isChatThreadNearBottomFromMetrics,
@@ -48,6 +51,8 @@ export class ChatThreadScrollEngine {
   };
   private restoreSnapshot: ChatThreadScrollRestoreSnapshot | null = null;
   private lastGeom: { sh: number; st: number; ch: number } | null = null;
+  /** 진행 중인 부드러운 이동(↓ 버튼 등) — 하나만. */
+  private animation: { raf: number | null; cleanup: () => void } | null = null;
 
   constructor(config: ChatThreadScrollEngineConfig = {}) {
     this.config = {
@@ -58,6 +63,7 @@ export class ChatThreadScrollEngine {
   }
 
   reset(): void {
+    this.cancelAnimation();
     this.state = {
       phase: "idle",
       stickToBottom: true,
@@ -80,6 +86,7 @@ export class ChatThreadScrollEngine {
   }
 
   notifyEntry(input: NotifyEntryInput = {}): void {
+    this.cancelAnimation();
     this.state.forceBottomOnEntry = input.forceBottom !== false;
     this.restoreSnapshot = input.restoreSnapshot ?? null;
     this.state.layoutReady = false;
@@ -106,6 +113,8 @@ export class ChatThreadScrollEngine {
   }
 
   notifyUserScroll(ctx: ChatThreadScrollViewportContext): void {
+    /** 프로그램 이동 중 발생한 scroll 이벤트로 stick 을 뒤집지 않는다(사용자 개입은 touch/wheel 로 애니메이션을 먼저 취소). */
+    if (this.animation) return;
     const metrics = readChatThreadNearBottom(ctx.viewport, this.config.stickThresholdPx);
     if (!metrics) return;
     this.state.stickToBottom = metrics.nearBottom;
@@ -113,6 +122,7 @@ export class ChatThreadScrollEngine {
   }
 
   scrollToBottomExplicit(ctx: ChatThreadScrollViewportContext): boolean {
+    this.cancelAnimation();
     this.state.stickToBottom = true;
     return this.applyScrollToBottom(ctx, { force: true });
   }
@@ -124,6 +134,7 @@ export class ChatThreadScrollEngine {
   ): boolean {
     if (!Number.isInteger(index) || index < 0 || index >= ctx.messageCount) return false;
     if (!ctx.virtualizer?.scrollToIndex) return false;
+    this.cancelAnimation();
     this.state.stickToBottom = false;
     ctx.virtualizer.scrollToIndex(index, { align });
     this.captureGeom(ctx.viewport);
@@ -133,6 +144,8 @@ export class ChatThreadScrollEngine {
   /** append tail — near bottom 일 때만 follow */
   notifyAppend(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase !== "settled" || this.state.prependInFlight) return false;
+    /** 하단으로 이동 중이면 애니메이션이 매 프레임 새 하단을 다시 읽어 따라간다. */
+    if (this.animation) return this.state.stickToBottom;
     if (!this.state.stickToBottom) return false;
     return this.applyScrollToBottom(ctx, { force: false });
   }
@@ -143,6 +156,7 @@ export class ChatThreadScrollEngine {
   ): boolean {
     const vp = ctx.viewport;
     if (!vp) return false;
+    this.cancelAnimation();
     restoreChatThreadPrependAnchor({
       viewport: vp,
       virtualizer: ctx.virtualizer,
@@ -166,6 +180,8 @@ export class ChatThreadScrollEngine {
       return this.tryCompleteEntry(ctx);
     }
     if (this.state.phase !== "settled") return false;
+    /** 부드러운 이동 중 — 목표를 매 프레임 다시 읽으므로 여기서 즉시 쓰지 않는다(애니메이션이 끊기며 순간이동되지 않게). */
+    if (this.animation) return true;
 
     const vp = ctx.viewport;
     if (this.state.prependInFlight) {
@@ -187,6 +203,7 @@ export class ChatThreadScrollEngine {
    * when paint becomes ready, or force one end/preserve write if stick is already set.
    */
   correctLayoutPreserve(ctx: ChatThreadScrollViewportContext): boolean {
+    if (this.animation && this.state.phase === "settled") return true;
     if (this.state.prependInFlight) {
       if (ctx.viewport) this.captureGeom(ctx.viewport);
       return false;
@@ -320,6 +337,173 @@ export class ChatThreadScrollEngine {
       st: viewport.scrollTop,
       ch: viewport.clientHeight,
     };
+  }
+
+  /** 실제 DOM 위치 기준 즉시 이동(메시지 찾기·답장 원문 등) — stick 해제. */
+  scrollToElementExplicit(
+    ctx: ChatThreadScrollViewportContext,
+    element: HTMLElement,
+    align: "start" | "center" | "end" | "auto"
+  ): boolean {
+    const vp = ctx.viewport;
+    if (!vp) return false;
+    this.cancelAnimation();
+    const vpRect = vp.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
+    const rowTop = rect.top - vpRect.top + vp.scrollTop;
+    const top =
+      align === "center"
+        ? rowTop - vp.clientHeight / 2 + rect.height / 2
+        : align === "end"
+          ? rowTop - vp.clientHeight + rect.height
+          : rowTop;
+    vp.scrollTop = Math.max(0, top);
+    this.state.stickToBottom = false;
+    this.captureGeom(vp);
+    return true;
+  }
+
+  isAnimating(): boolean {
+    return this.animation != null;
+  }
+
+  cancelAnimation(): void {
+    const a = this.animation;
+    if (!a) return;
+    this.animation = null;
+    if (a.raf != null && typeof cancelAnimationFrame === "function") cancelAnimationFrame(a.raf);
+    a.cleanup();
+  }
+
+  /**
+   * ↓ 버튼(최신으로) — 텔레그램·카톡처럼 부드럽게 맨 아래까지. 매 프레임 하단을 다시 읽어
+   * 사진 로드 등으로 높이가 바뀌어도 정확히 맨 아래에 도착한다. 끝나면 stick 유지.
+   */
+  animateScrollToBottom(
+    ctx: ChatThreadScrollViewportContext,
+    opts?: { onDone?: () => void }
+  ): boolean {
+    return this.animateScrollTo(ctx, (vp) => vp.scrollHeight - vp.clientHeight, {
+      stickToBottom: true,
+      onDone: opts?.onDone,
+    });
+  }
+
+  /**
+   * 특정 메시지(첫 안 읽음 등)로 부드럽게 이동 — 목표는 매 프레임 실제 DOM 위치로 다시 계산한다(추정 높이 미사용).
+   */
+  animateScrollToElement(
+    ctx: ChatThreadScrollViewportContext,
+    element: HTMLElement,
+    align: "start" | "center" | "end" | "auto",
+    opts?: { onDone?: () => void; topInsetPx?: number }
+  ): boolean {
+    const inset = Math.max(0, opts?.topInsetPx ?? 0);
+    let lastTarget: number | null = null;
+    return this.animateScrollTo(
+      ctx,
+      (vp) => {
+        if (!element.isConnected) return lastTarget ?? vp.scrollTop;
+        const vpRect = vp.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        const rowTop = rect.top - vpRect.top + vp.scrollTop;
+        const target =
+          align === "center"
+            ? rowTop - vp.clientHeight / 2 + rect.height / 2
+            : align === "end"
+              ? rowTop - vp.clientHeight + rect.height
+              : rowTop - inset;
+        lastTarget = target;
+        return target;
+      },
+      { stickToBottom: false, onDone: opts?.onDone }
+    );
+  }
+
+  private animateScrollTo(
+    ctx: ChatThreadScrollViewportContext,
+    resolveTarget: (vp: HTMLElement) => number,
+    opts: { stickToBottom: boolean; onDone?: () => void }
+  ): boolean {
+    const vp = ctx.viewport;
+    if (!vp) return false;
+    this.cancelAnimation();
+    this.state.stickToBottom = opts.stickToBottom;
+    const clampTop = (v: number) => Math.max(0, Math.min(Math.max(0, vp.scrollHeight - vp.clientHeight), v));
+
+    if (typeof requestAnimationFrame !== "function") {
+      vp.scrollTop = clampTop(resolveTarget(vp));
+      this.captureGeom(vp);
+      opts.onDone?.();
+      return true;
+    }
+
+    /**
+     * iOS WKWebView: 관성 스크롤이 남아 있으면 scrollTop 쓰기가 무시·덮어써진다 —
+     * 한 프레임 overflow 를 막아 관성을 멈춘 뒤 이동한다.
+     */
+    const prevOverflowY = vp.style.overflowY;
+    vp.style.overflowY = "hidden";
+    let overflowRestored = false;
+    const restoreOverflow = () => {
+      if (overflowRestored) return;
+      overflowRestored = true;
+      vp.style.overflowY = prevOverflowY;
+    };
+    /** 사용자가 손대면 즉시 멈추고 사용자에게 넘긴다(이후 stick 은 일반 scroll 판정). */
+    const onUserTakeover = () => this.cancelAnimation();
+    vp.addEventListener("touchstart", onUserTakeover, { passive: true });
+    vp.addEventListener("wheel", onUserTakeover, { passive: true });
+    vp.addEventListener("mousedown", onUserTakeover, { passive: true });
+    const cleanup = () => {
+      restoreOverflow();
+      vp.removeEventListener("touchstart", onUserTakeover);
+      vp.removeEventListener("wheel", onUserTakeover);
+      vp.removeEventListener("mousedown", onUserTakeover);
+    };
+
+    const durationMs = CHAT_THREAD_ANIMATED_SCROLL_MS;
+    let startTop: number | null = null;
+    let t0 = 0;
+    let settleFrames = 0;
+    const anim: { raf: number | null; cleanup: () => void } = { raf: null, cleanup };
+    const step = (now: number) => {
+      if (this.animation !== anim) return;
+      restoreOverflow();
+      const target = clampTop(resolveTarget(vp));
+      if (startTop == null) {
+        let from = vp.scrollTop;
+        const ch = vp.clientHeight;
+        /** 멀리 떨어져 있으면 목표 한 화면 앞까지 먼저 건너뛴 뒤 부드럽게(텔레그램 방식). */
+        if (Math.abs(target - from) > ch * 1.5) {
+          from = target > from ? target - ch : target + ch;
+          vp.scrollTop = from;
+        }
+        startTop = from;
+        t0 = now;
+      }
+      const p = Math.min(1, (now - t0) / durationMs);
+      if (p < 1) {
+        const eased = 1 - Math.pow(1 - p, 3);
+        vp.scrollTop = startTop + (target - startTop) * eased;
+        anim.raf = requestAnimationFrame(step);
+        return;
+      }
+      vp.scrollTop = target;
+      /** 도착 후 2프레임 동안 목표 재확인 — 늦은 레이아웃 변화까지 맞춘다. */
+      settleFrames += 1;
+      if (settleFrames < 3) {
+        anim.raf = requestAnimationFrame(step);
+        return;
+      }
+      this.animation = null;
+      cleanup();
+      this.captureGeom(vp);
+      opts.onDone?.();
+    };
+    this.animation = anim;
+    anim.raf = requestAnimationFrame(step);
+    return true;
   }
 
   /** @internal test helper */

@@ -61,7 +61,7 @@ export function useMessengerRoomReaderScrollBottom({
   scrollMessengerToBottom: (opts?: { reason?: string; force?: boolean }) => void;
   scrollMessengerToMessage: (
     messageId: string,
-    opts?: { align?: "start" | "center" | "end" | "auto" }
+    opts?: { align?: "start" | "center" | "end" | "auto"; animate?: boolean }
   ) => boolean;
   updateStickToBottomFromScroll: () => void;
 } {

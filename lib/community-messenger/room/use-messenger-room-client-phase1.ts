@@ -1835,7 +1835,7 @@ export function useMessengerRoomClientPhase1({
   }, [snapshot, roomMembersDisplay, phase1EntryLightPass, phase1PerfTrack]);
   if (phase1PerfTrack) endTradePhase1BreakdownSection("participants_normalize");
   const scrollToRoomMessage = useCallback(
-    (messageId: string, opts?: { align?: "start" | "center" | "end" | "auto" }) => {
+    (messageId: string, opts?: { align?: "start" | "center" | "end" | "auto"; animate?: boolean }) => {
       dismissRoomSheet();
       scrollMessengerToMessage(messageId, opts);
     },
