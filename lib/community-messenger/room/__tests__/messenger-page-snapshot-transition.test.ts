@@ -28,9 +28,9 @@ afterEach(() => {
 });
 
 describe("room entry/exit snapshot (no white screen)", () => {
-  it("entry: copies the list on top, strips query markers/ids, keeps the original", () => {
+  it("entry: copies the list on top with styling markers intact, ids removed, clone flagged", () => {
     mountShell(
-      `<div data-cm-messenger-home-root><main data-main-hub-scroll-body id="x"><p>목록</p></main></div>`
+      `<div data-messenger-shell data-cm-messenger-home-root><main data-main-hub-scroll-body id="x"><p>목록</p></main></div>`
     );
     beginMessengerRoomEntrySnapshot();
     expect(hasMessengerRoomEntrySnapshot()).toBe(true);
@@ -39,10 +39,12 @@ describe("room entry/exit snapshot (no white screen)", () => {
     expect(layer!.getAttribute("aria-hidden")).toBe("true");
     expect(layer!.style.pointerEvents).toBe("none");
     expect(layer!.textContent).toContain("목록");
-    // only the real screen keeps markers / ids
-    expect(document.querySelectorAll("[data-cm-messenger-home-root]").length).toBe(1);
-    expect(document.querySelectorAll("[data-main-hub-scroll-body]").length).toBe(1);
+    // styling markers stay on the copy (colour tokens depend on [data-messenger-shell])
+    expect(layer!.querySelector("[data-messenger-shell]")).toBeTruthy();
+    expect(layer!.querySelector("[data-cm-snapshot-clone]")).toBeTruthy();
+    // ids only on the real screen; the real screen is still the first match
     expect(document.querySelectorAll("#x").length).toBe(1);
+    expect(document.querySelector(".app-shell")!.hasAttribute("data-cm-snapshot-clone")).toBe(false);
   });
 
   it("entry: spinner appears if the room is slow, layer always removed by the time limit", () => {

@@ -9,7 +9,7 @@
  *   (= 방이 목록 위로 밀고 들어오는 모습). 방 준비가 늦으면 복사본 위에 작은 로딩 표시.
  * - 퇴장: 방 화면 복사본을 최상단에 고정한 채 즉시 목록으로 이동 → 목록이 그려지면 복사본을 오른쪽으로 밀어낸다.
  *
- * 복사본은 pointer-events 없음·inert·aria-hidden. 스크립트가 찾는 표식(data-*)과 id 는 제거해 실제 화면과 혼동 없음.
+ * 복사본은 pointer-events 없음·inert·aria-hidden. 모양(data-*·class)은 그대로, id 만 제거. 루트에 복사본 표식.
  * 어떤 경우에도 시간 제한으로 반드시 제거된다.
  */
 
@@ -22,18 +22,14 @@ const ENTRY_SPINNER_DELAY_MS = 450;
 /** 퇴장: 목록이 그려지기를 기다리는 최대 시간 */
 const EXIT_WAIT_LIST_MAX_MS = 1500;
 
-/** 복사본에서 제거하는 표식 — 문서 전역 querySelector 로 실제 화면을 찾는 코드가 복사본에 걸리지 않게 */
-const STRIP_ATTRS = [
-  "id",
-  "data-main-hub-scroll-body",
-  "data-cm-timeline-message-row",
-  "data-cm-message-id",
-  "data-messenger-room-animation-phase",
-  "data-cm-messenger-home-root",
-  "data-messenger-shell",
-  "data-app-sticky-header",
-  "data-cm-room-segment-layout",
-] as const;
+/**
+ * 복사본 루트 표식 — 실제 화면 탐색(`REAL_SHELL`)에서 복사본을 제외한다.
+ * data-* 속성은 지우지 않는다: 색상 토큰·배경 등 CSS 가 의존한다(`[data-messenger-shell]` 등).
+ * 지웠을 때 목록 줄 배경이 투명해져 숨은 스와이프 버튼(보관·알림·나가기)이 드러났다.
+ * 문서 순서상 실제 화면이 먼저라 `querySelector` 는 실제 화면을 찾는다. id 만 중복 방지로 제거.
+ */
+const CLONE_ROOT_ATTR = "data-cm-snapshot-clone";
+const REAL_SHELL = `.app-shell:not([${CLONE_ROOT_ATTR}])`;
 
 type Layer = {
   el: HTMLDivElement;
@@ -52,7 +48,7 @@ function canRun(): boolean {
 }
 
 function buildLayer(kind: "entry" | "exit"): Layer | null {
-  const root = document.querySelector<HTMLElement>(".app-shell");
+  const root = document.querySelector<HTMLElement>(REAL_SHELL);
   if (!root) return null;
   let clone: HTMLElement;
   try {
@@ -77,6 +73,7 @@ function buildLayer(kind: "entry" | "exit"): Layer | null {
     background: bg && bg !== "rgba(0, 0, 0, 0)" ? bg : "#fff",
     contain: "layout paint",
   } satisfies Partial<CSSStyleDeclaration>);
+  clone.setAttribute(CLONE_ROOT_ATTR, "");
   Object.assign(clone.style, {
     position: "absolute",
     top: `${rect.top}px`,
@@ -107,12 +104,8 @@ function buildLayer(kind: "entry" | "exit"): Layer | null {
   }
   try {
     clone.querySelectorAll("video, audio, iframe, script, object, embed").forEach((n) => n.remove());
-    const all = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>("*"))];
-    for (const el of all) {
-      for (const a of STRIP_ATTRS) {
-        if (el.hasAttribute(a)) el.removeAttribute(a);
-      }
-    }
+    if (clone.hasAttribute("id")) clone.removeAttribute("id");
+    clone.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
   } catch {
     /* noop */
   }
@@ -198,7 +191,7 @@ export function revealMessengerRoomEntrySnapshot(args: {
   entryLayer = null;
   for (const t of layer.timers) window.clearTimeout(t);
   layer.timers = [];
-  layer.el.querySelectorAll(":scope > div:not(.app-shell)").forEach((n) => n.remove());
+  layer.el.querySelectorAll(`:scope > div:not([${CLONE_ROOT_ATTR}])`).forEach((n) => n.remove());
   const el = layer.el;
   const rightInsetStart = Math.max(0, Math.min(100, (1 - args.startOffsetRatio) * 100));
   el.style.clipPath = `inset(0 ${rightInsetStart}% 0 0)`;
@@ -244,11 +237,11 @@ export function runMessengerRoomExitWithSnapshot(args: {
   const waitForList = () => {
     if (layer.removed) return;
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const roomGone = !document.querySelector(".app-shell [data-messenger-room-animation-phase]");
+    const roomGone = !document.querySelector(`${REAL_SHELL} [data-messenger-room-animation-phase]`);
     /** 메신저 목록이면 목록 루트가 그려질 때까지, 다른 화면이면 잠시 뒤 본문(main) 기준 */
     const listPainted =
-      Boolean(document.querySelector(".app-shell [data-cm-messenger-home-root]")) ||
-      (now - startedAt > 400 && Boolean(document.querySelector(".app-shell main")));
+      Boolean(document.querySelector(`${REAL_SHELL} [data-cm-messenger-home-root]`)) ||
+      (now - startedAt > 400 && Boolean(document.querySelector(`${REAL_SHELL} main`)));
     if (roomGone && listPainted) stableFrames += 1;
     if (stableFrames >= 2 || now - startedAt > EXIT_WAIT_LIST_MAX_MS) {
       slideOut();
