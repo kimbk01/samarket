@@ -16,15 +16,15 @@ export type MessengerImageVariantBuffers =
       thumb: Buffer;
       preview: Buffer;
       /** 표시 방향(EXIF 회전 반영) 기준 픽셀 크기 — 말풍선 자리를 미리 잡는 데 쓴다. 못 읽으면 null. */
-      width: number | null;
-      height: number | null;
+      width?: number | null;
+      height?: number | null;
     }
   | {
       kind: "original_only";
       original: Buffer;
       originalMime: string;
-      width: number | null;
-      height: number | null;
+      width?: number | null;
+      height?: number | null;
     }
   | {
       /** SEC-09: sharp 가 원본을 처리/소독하지 못하면 업로드 거부(원본 raw 저장 금지) */
