@@ -6,6 +6,7 @@
  * against the exact filter strings sent to PostgREST.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { computeSearchText } from "@/lib/trade/marketplace/search-candidate-sql";
 
 export type FakeRow = Record<string, unknown>;
 type Tri = boolean | null;
@@ -39,6 +40,10 @@ function unquote(v: string): string {
 }
 
 function columnValue(row: FakeRow, column: string): unknown {
+  /** Generated column on posts (migration 20270506120000) — derived when the fixture lacks it. */
+  if (column === "search_text" && !("search_text" in row) && "title" in row) {
+    return computeSearchText(row);
+  }
   const textPath = column.split("->>");
   if (textPath.length === 2) {
     const base = row[textPath[0]] as Record<string, unknown> | null | undefined;

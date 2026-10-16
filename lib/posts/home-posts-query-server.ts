@@ -19,14 +19,21 @@ import {
   applyResolvedTradeFeedLocationToQuery,
   type TradeFeedQueryExtras,
 } from "@/lib/posts/trade-posts-range-query";
-import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import {
+  resolveTradeFeedLocationConstraint,
+  type TradeFeedLocationConstraint,
+} from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import {
   shouldUseRegionAllBrowsePriority,
   tradeFeedLocationSqlExtras,
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import type { MarketplaceSearchDiscoveryContext } from "@/lib/trade/marketplace/load-marketplace-search-discovery-context";
-import { rankMarketplaceDiscoveryBatch } from "@/lib/trade/marketplace/marketplace-discovery-rank";
+import {
+  classifyDiscoveryBand,
+  rankMarketplaceDiscoveryBatch,
+} from "@/lib/trade/marketplace/marketplace-discovery-rank";
+import { buildSearchCandidateSqlFilter } from "@/lib/trade/marketplace/search-candidate-sql";
 import type { SearchTopicGraphContext } from "@/lib/trade/marketplace/search-topic-graph-context";
 import {
   applyCompositionFilterClausesToPostgrest,
@@ -39,14 +46,20 @@ import {
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 import {
   inferBodyTypesFromListings,
+  type SearchCandidateTailState,
   type SearchExpansionCursor,
 } from "@/lib/trade/marketplace/search-candidate-expansion";
-import { sortBrowseListingsWithinLocationBlock } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
+import {
+  compareBrowseListingsInBlock,
+  sortBrowseListingsWithinLocationBlock,
+} from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
 import {
   BROWSE_LOCATION_TIER_ORDER,
+  classifyListingBrowseTier,
   resolveBrowseLocationTiers,
   tierLocationQueryExtras,
 } from "@/lib/trade/location/national/browse-location-tiers";
+import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -155,6 +168,8 @@ type HomePostsRangeFilterOpts = {
   applyTitleQuery?: boolean;
   applyLocation?: boolean;
   relatedOr?: string | null;
+  /** Extra `.or()` groups, each ANDed (e.g. NULL-safe complement of the search candidate filter). */
+  extraOrGroups?: string[] | null;
   excludeLguIds?: string[] | null;
   excludeTradeCategoryIds?: string[] | null;
 };
@@ -205,6 +220,9 @@ async function fetchHomePostsMappedRange(
     });
     if (filterOpts?.relatedOr) {
       q = q.or(filterOpts.relatedOr);
+    }
+    for (const group of filterOpts?.extraOrGroups ?? []) {
+      q = q.or(group);
     }
     const compositionFilters = [
       ...(queryExtras?.compositionFilters ?? []),
@@ -426,20 +444,304 @@ export async function loadSearchExpansionRound(
   }
 
   const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
-  /**
-   * Rank the whole eligible pool in one round (up to MARKETPLACE_SEARCH_RANK_POOL_CAP) so
-   * band → LOCAL → NEARBY → NATIONWIDE order is global across pages, not per DB batch.
-   * Pages are slices of this single ranking (ranked window) — duplicate 0 / missing 0.
-   */
-  const poolFetch = await fetchHomePostsMappedRangeChunked(
+  const ctx: SearchRoundContext = {
     sb,
     table,
     sort,
     type,
     tradeCategoryIds,
     statusOr,
-    feedLocExtras,
     queryExtras,
+    feedConstraint,
+    feedLocExtras,
+    discovery,
+  };
+
+  if (cursor.searchMode === "candidate") return loadSearchCandidateTailRound(ctx, cursor);
+  if (cursor.searchMode !== "fullpool") {
+    const candidate = await loadSearchCandidateFirstRound(ctx, cursor);
+    if (candidate !== "fallback") return candidate;
+  }
+  return loadSearchFullPoolRound(ctx, cursor);
+}
+
+type SearchRoundContext = {
+  sb: SupabaseClient<any>;
+  table: string;
+  sort: HomePostsQuerySort;
+  type: HomePostsQueryType;
+  tradeCategoryIds: string[] | null;
+  statusOr: string;
+  queryExtras: HomePostsQueryExtras | undefined;
+  feedConstraint: Exclude<TradeFeedLocationConstraint, { kind: "invalid" }>;
+  feedLocExtras: TradeFeedQueryExtras["tradeFeedLocation"];
+  discovery: MarketplaceSearchDiscoveryContext;
+};
+
+type SearchRoundResult = { posts: PostWithMeta[]; cursor: SearchExpansionCursor; queryCount: number };
+
+/** Rows emitted per tail round (several PostgREST chunks may be merged into one round). */
+const SEARCH_TAIL_ROUND_ROWS = POSTGREST_LIST_CHUNK_ROWS;
+
+/**
+ * Location blocks of the band-5 tail, in final order — same partition the ranker uses:
+ * soft anchor → LOCAL / NEARBY / NATIONWIDE; explicit radius → inside only; ALL → one block.
+ */
+function resolveSearchTailBlocks(constraint: SearchRoundContext["feedConstraint"]): {
+  blocks: Array<TradeFeedQueryExtras["tradeFeedLocation"] | null>;
+  anchorCanonicalId: string | null;
+  blockOf: (row: PostWithMeta) => number;
+} {
+  if (constraint.kind !== "lgu") {
+    return { blocks: [undefined], anchorCanonicalId: null, blockOf: () => 0 };
+  }
+  const tiers = resolveBrowseLocationTiers(constraint);
+  if (!tiers) {
+    return {
+      blocks: [tradeFeedLocationToQueryExtras(constraint)],
+      anchorCanonicalId: constraint.canonicalId,
+      blockOf: () => 0,
+    };
+  }
+  return {
+    blocks: BROWSE_LOCATION_TIER_ORDER.map((tier) => tierLocationQueryExtras(tiers, tier)),
+    anchorCanonicalId: tiers.anchorCanonicalId,
+    blockOf: (row) => BROWSE_LOCATION_TIER_ORDER.indexOf(classifyListingBrowseTier(row, tiers)),
+  };
+}
+
+function dedupeAgainstSeen(rows: PostWithMeta[], seen: Set<string>): PostWithMeta[] {
+  const out: PostWithMeta[] = [];
+  for (const row of rows) {
+    const id = (row.id ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
+  }
+  return out;
+}
+
+/**
+ * Round 1 (candidate mode): rank only rows matching the SQL candidate filter (superset of
+ * bands 0–4). Emits bands 0–4; band-5 candidates wait to be merged into the lazy tail.
+ * "fallback" = filter not expressible or candidate set above the cap → full-pool path.
+ */
+async function loadSearchCandidateFirstRound(
+  ctx: SearchRoundContext,
+  cursor: SearchExpansionCursor
+): Promise<SearchRoundResult | null | "fallback"> {
+  const filter = buildSearchCandidateSqlFilter(ctx.discovery, cursor.inferredBodyTypes);
+  if (!filter) return "fallback";
+  const fetched = await fetchHomePostsMappedRangeChunked(
+    ctx.sb,
+    ctx.table,
+    ctx.sort,
+    ctx.type,
+    ctx.tradeCategoryIds,
+    ctx.statusOr,
+    ctx.feedLocExtras,
+    ctx.queryExtras,
+    0,
+    MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
+    {
+      applyTitleQuery: false,
+      applyLocation: false,
+      selectFields: MARKETPLACE_SEARCH_RANK_SELECT,
+      relatedOr: filter.orBody,
+    }
+  );
+  /**
+   * Failure here (e.g. `search_text` not migrated yet) → previous full-pool path, which
+   * reports a real DB outage as an error itself. Overflow above the cap → same fallback.
+   */
+  if (!fetched || !fetched.exhausted) return "fallback";
+
+  const ranked = rankMarketplaceDiscoveryBatch({
+    rows: fetched.rows,
+    intent: ctx.discovery.intent,
+    rootExpandedIdsByParent: ctx.discovery.rootExpandedIdsByParent,
+    topicGraph: ctx.discovery.topicGraph,
+    feedConstraint: ctx.feedConstraint,
+    userSort: ctx.sort,
+    inferredBodyTypes: cursor.inferredBodyTypes,
+  });
+  const { blockOf } = resolveSearchTailBlocks(ctx.feedConstraint);
+  const matched: PostWithMeta[] = [];
+  const pending: SearchCandidateTailState["pending"] = [];
+  for (const row of ranked) {
+    const band = classifyDiscoveryBand(
+      row,
+      ctx.discovery.intent,
+      ctx.discovery.rootExpandedIdsByParent,
+      ctx.discovery.topicGraph,
+      cursor.inferredBodyTypes
+    );
+    if (band < 5) matched.push(row);
+    else pending.push({ block: blockOf(row), row });
+  }
+
+  const seen = new Set(cursor.seenIds);
+  const posts = dedupeAgainstSeen(matched, seen);
+  return {
+    posts,
+    cursor: {
+      ...cursor,
+      searchMode: "candidate",
+      candidateTail: { negations: filter.negations, pending, blockIdx: 0, blockOffset: 0 },
+      exactExhausted: true,
+      relatedInExhausted: true,
+      relatedOutExhausted: true,
+      tailExhausted: false,
+      seenIds: [...seen],
+    },
+    queryCount: Math.max(1, Math.ceil(fetched.rows.length / POSTGREST_LIST_CHUNK_ROWS)),
+  };
+}
+
+function mergeSortedRows(
+  a: PostWithMeta[],
+  b: PostWithMeta[],
+  sort: "latest" | "popular"
+): PostWithMeta[] {
+  const out: PostWithMeta[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (compareBrowseListingsInBlock(a[i], b[j], sort) <= 0) out.push(a[i++]);
+    else out.push(b[j++]);
+  }
+  while (i < a.length) out.push(a[i++]);
+  while (j < b.length) out.push(b[j++]);
+  return out;
+}
+
+/**
+ * Tail rounds (candidate mode): band 5 = (band-5 candidates) ∪ (rows NOT matching the
+ * candidate filter), per location block, in the same order the ranker would give.
+ * NOT-filter rows stream from SQL in that order; candidates are merged in by comparator.
+ */
+async function loadSearchCandidateTailRound(
+  ctx: SearchRoundContext,
+  cursor: SearchExpansionCursor
+): Promise<SearchRoundResult | null> {
+  const state = cursor.candidateTail;
+  const { blocks, anchorCanonicalId } = resolveSearchTailBlocks(ctx.feedConstraint);
+  if (!state) {
+    return { posts: [], cursor: { ...cursor, tailExhausted: true }, queryCount: 0 };
+  }
+  const fullBlockSort = ctx.sort === "distance" && anchorCanonicalId != null;
+  const mergeSort: "latest" | "popular" = ctx.sort === "popular" ? "popular" : "latest";
+  let pending = state.pending;
+  let blockIdx = state.blockIdx;
+  let blockOffset = state.blockOffset;
+  const out: PostWithMeta[] = [];
+  let queryCount = 0;
+
+  while (out.length < SEARCH_TAIL_ROUND_ROWS && blockIdx < blocks.length) {
+    const loc = blocks[blockIdx];
+    const here = pending.filter((p) => p.block === blockIdx).map((p) => p.row as PostWithMeta);
+    const rest = () => pending.filter((p) => p.block !== blockIdx);
+    if (loc === null) {
+      /** Empty tier (e.g. no nearby LGU) — nothing can live here. */
+      out.push(...here);
+      pending = rest();
+      blockIdx += 1;
+      blockOffset = 0;
+      continue;
+    }
+    const opts: HomePostsRangeFilterOpts = {
+      applyTitleQuery: false,
+      applyLocation: true,
+      selectFields: MARKETPLACE_SEARCH_RANK_SELECT,
+      extraOrGroups: state.negations,
+    };
+    if (fullBlockSort) {
+      const all = await fetchHomePostsMappedRangeChunked(
+        ctx.sb,
+        ctx.table,
+        ctx.sort,
+        ctx.type,
+        ctx.tradeCategoryIds,
+        ctx.statusOr,
+        loc,
+        ctx.queryExtras,
+        0,
+        MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
+        opts
+      );
+      if (!all) return null;
+      queryCount += Math.max(1, Math.ceil(all.rows.length / POSTGREST_LIST_CHUNK_ROWS));
+      out.push(...sortBrowseListingsWithinLocationBlock([...here, ...all.rows], "distance", anchorCanonicalId));
+      pending = rest();
+      blockIdx += 1;
+      blockOffset = 0;
+      continue;
+    }
+    const chunk = await fetchHomePostsMappedRange(
+      ctx.sb,
+      ctx.table,
+      ctx.sort,
+      ctx.type,
+      ctx.tradeCategoryIds,
+      ctx.statusOr,
+      loc,
+      ctx.queryExtras,
+      blockOffset,
+      blockOffset + POSTGREST_LIST_CHUNK_ROWS - 1,
+      opts
+    );
+    if (!chunk) return null;
+    queryCount += 1;
+    if (chunk.length < POSTGREST_LIST_CHUNK_ROWS) {
+      out.push(...mergeSortedRows(here, chunk, mergeSort));
+      pending = rest();
+      blockIdx += 1;
+      blockOffset = 0;
+      continue;
+    }
+    /** Only candidates that sort before the last streamed row are final for this round. */
+    const last = chunk[chunk.length - 1];
+    const take = here.filter((row) => compareBrowseListingsInBlock(row, last, mergeSort) < 0);
+    const takeIds = new Set(take.map((r) => r.id));
+    out.push(...mergeSortedRows(take, chunk, mergeSort));
+    pending = pending.filter((p) => !(p.block === blockIdx && takeIds.has((p.row as PostWithMeta).id)));
+    blockOffset += chunk.length;
+  }
+
+  const seen = new Set(cursor.seenIds);
+  const posts = dedupeAgainstSeen(out, seen);
+  const done = blockIdx >= blocks.length;
+  return {
+    posts,
+    cursor: {
+      ...cursor,
+      candidateTail: { ...state, pending, blockIdx, blockOffset },
+      tailExhausted: done,
+      seenIds: [...seen],
+    },
+    queryCount,
+  };
+}
+
+/** Previous path (fallback): rank the whole eligible pool up to the cap. */
+async function loadSearchFullPoolRound(
+  ctx: SearchRoundContext,
+  cursor: SearchExpansionCursor
+): Promise<SearchRoundResult | null> {
+  /**
+   * Rank the whole eligible pool in one round (up to MARKETPLACE_SEARCH_RANK_POOL_CAP) so
+   * band → LOCAL → NEARBY → NATIONWIDE order is global across pages, not per DB batch.
+   * Pages are slices of this single ranking (ranked window) — duplicate 0 / missing 0.
+   */
+  const poolFetch = await fetchHomePostsMappedRangeChunked(
+    ctx.sb,
+    ctx.table,
+    ctx.sort,
+    ctx.type,
+    ctx.tradeCategoryIds,
+    ctx.statusOr,
+    ctx.feedLocExtras,
+    ctx.queryExtras,
     cursor.tailOffset,
     cursor.tailOffset + MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
     { applyTitleQuery: false, applyLocation: false, selectFields: MARKETPLACE_SEARCH_RANK_SELECT }
@@ -451,25 +753,20 @@ export async function loadSearchExpansionRound(
 
   const ranked = rankMarketplaceDiscoveryBatch({
     rows: pool,
-    intent: discovery.intent,
-    rootExpandedIdsByParent: discovery.rootExpandedIdsByParent,
-    topicGraph: discovery.topicGraph,
-    feedConstraint,
-    userSort: sort,
+    intent: ctx.discovery.intent,
+    rootExpandedIdsByParent: ctx.discovery.rootExpandedIdsByParent,
+    topicGraph: ctx.discovery.topicGraph,
+    feedConstraint: ctx.feedConstraint,
+    userSort: ctx.sort,
     inferredBodyTypes: cursor.inferredBodyTypes,
   });
 
   const seen = new Set(cursor.seenIds);
-  const posts: PostWithMeta[] = [];
-  for (const row of ranked) {
-    const id = (row.id ?? "").trim();
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    posts.push(row);
-  }
+  const posts = dedupeAgainstSeen(ranked, seen);
 
   const nextCursor: SearchExpansionCursor = {
     ...cursor,
+    searchMode: "fullpool",
     exactExhausted: true,
     relatedInExhausted: true,
     relatedOutExhausted: true,

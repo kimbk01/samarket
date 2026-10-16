@@ -464,3 +464,156 @@ describe("search page hydration (slim ranking rows → full rows for one page)",
     for (const u of poolReqs) expect(u.searchParams.get("select")).toBe(MARKETPLACE_SEARCH_RANK_SELECT);
   });
 });
+
+describe("search step 2 — SQL candidate filter + lazy tail ≡ full-pool ranking", () => {
+  const TITLES = [
+    "Toyota Vios 2019 for sale",
+    "selling  toyota   corolla",
+    "아이폰 팝니다",
+    "iPhone 13 pro 판매",
+    "condo for rent Makati",
+    "임대 콘도 마카티",
+    "USD to PHP exchange",
+    "페소 삽니다",
+    "sofa chair",
+    "Honda city sedan",
+    "used laptop (good)",
+    "bike, almost new",
+  ];
+  const METAS = [
+    { car_model: "vios", car_body_type: "sedan", car_trade: "sell" },
+    { car_model: "corolla altis", car_body_type: "sedan" },
+    null,
+    { exchange_direction: "buy" },
+    { deal_type: "rent", estate_type: "condo" },
+    { listing_kind: "hire", work_category: "it" },
+    {},
+  ];
+
+  function searchRows(n: number): FakeRow[] {
+    const base = Date.parse("2026-03-01T00:00:00.000Z");
+    return Array.from({ length: n }, (_, i) => {
+      const { loc } = LOCS[(i * 7) % LOCS.length];
+      return {
+        id: `s${String(i).padStart(5, "0")}`,
+        type: "trade",
+        title: `${TITLES[i % TITLES.length]} #${i}`,
+        price: 100 + (i % 50),
+        status: i % 23 === 0 ? "sold" : "active",
+        trade_category_id: i % 3 === 0 ? CAT_B : CAT_A,
+        view_count: (i * 37) % 97,
+        created_at: new Date(base + i * 60_000).toISOString(),
+        meta: METAS[i % METAS.length],
+        ...loc,
+      };
+    });
+  }
+
+  const categories = [
+    { id: CAT_A, name: "중고거래", name_en: "general", slug: "general", type: "trade", is_active: true, parent_id: null, sort_order: 0, show_in_home_chips: true, icon_key: "general" },
+    { id: CAT_B, name: "중고차", name_en: "cars", slug: "vehicle", type: "trade", is_active: true, parent_id: null, sort_order: 1, show_in_home_chips: true, icon_key: "used-car" },
+  ];
+
+  async function runWindow(
+    sb: ReturnType<typeof createFakePostgrestClient>,
+    q: string,
+    lgu: string | null,
+    radius: number | null,
+    sort: "latest" | "popular" | "distance",
+    mode: "candidate" | "fullpool"
+  ): Promise<string[]> {
+    const { resolveSearchExpansionRound } = await import("@/lib/posts/home-posts-query-server");
+    const { takeSearchRankedWindowPage, resetSearchRankedWindowCacheForTests } = await import(
+      "@/lib/trade/marketplace/search-ranked-window-cache"
+    );
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    resetSearchRankedWindowCacheForTests();
+    const disc = await loadMarketplaceSearchDiscoveryContext(sb, null, q, null);
+    const extras = { q, searchDiscoveryContext: disc, mixedDiscoverySellIntent: true };
+    const ids: string[] = [];
+    for (let page = 1; page <= 80; page++) {
+      const res = await takeSearchRankedWindowPage({
+        key: `eq-${mode}`,
+        page,
+        pageSize: 50,
+        loadNext: (cursor) =>
+          resolveSearchExpansionRound(
+            sb, null, sort, "trade", null, STATUS_OR, lgu, radius, extras,
+            mode === "fullpool" ? { ...cursor, searchMode: cursor.searchMode ?? "fullpool" } : cursor
+          ),
+      });
+      if (!res) throw new Error(`window failed (${mode})`);
+      ids.push(...res.posts.map((p) => String(p.id)));
+      if (!res.hasMore) return ids;
+    }
+    throw new Error("did not terminate");
+  }
+
+  const rows = searchRows(1300);
+  /** "a" / "임대": all tokens < 3 chars → full-pool fallback (vacuous strongRelated) — still identical. */
+  const QUERIES = ["toyota", "Toyota Vios", "팝니다", "sedan", "condo rent", "usd", "laptop (good)", "zzqx-nomatch", "a", "임대", "iphone 판매"];
+  const LOCATIONS: Array<[string | null, number | null, string]> = [
+    [QC, null, "QC 전체"],
+    [QC, 32, "QC 32km"],
+    [null, null, "ALL"],
+  ];
+
+  for (const q of QUERIES) {
+    for (const [lgu, radius, label] of LOCATIONS) {
+      for (const sort of ["latest", "popular", "distance"] as const) {
+        it(`q="${q}" ${label} sort=${sort}: identical full sequence`, async () => {
+          const sb = createFakePostgrestClient({ rows, tables: { categories }, maxRows: 1000 });
+          const viaCandidate = await runWindow(sb, q, lgu, radius, sort, "candidate");
+          const viaFullPool = await runWindow(sb, q, lgu, radius, sort, "fullpool");
+          expect(new Set(viaCandidate).size).toBe(viaCandidate.length);
+          expect(viaCandidate).toEqual(viaFullPool);
+        });
+      }
+    }
+  }
+
+  it("candidate mode reads far fewer rows than the full pool for a selective query", async () => {
+    const log: URL[] = [];
+    const sb = createFakePostgrestClient({ rows, tables: { categories }, maxRows: 1000, log });
+    const { resolveSearchExpansionRound } = await import("@/lib/posts/home-posts-query-server");
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    const { emptySearchExpansionCursor } = await import("@/lib/trade/marketplace/search-candidate-expansion");
+    const disc = await loadMarketplaceSearchDiscoveryContext(sb, null, "condo rent", null);
+    const first = await resolveSearchExpansionRound(
+      sb, null, "latest", "trade", null, STATUS_OR, QC, null,
+      { q: "condo rent", searchDiscoveryContext: disc }, emptySearchExpansionCursor()
+    );
+    expect(first?.cursor.searchMode).toBe("candidate");
+    // first round returns only matches, not the 1,300-row universe
+    expect(first!.posts.length).toBeLessThan(400);
+    expect(first!.posts.length).toBeGreaterThan(0);
+  });
+});
+
+describe("search step 2 — safe when search_text is not migrated", () => {
+  it("candidate query failure falls back to the full-pool path (same results, no error)", async () => {
+    const { resolveSearchExpansionRound } = await import("@/lib/posts/home-posts-query-server");
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    const { emptySearchExpansionCursor } = await import("@/lib/trade/marketplace/search-candidate-expansion");
+    const rows = makeRows(120).map((r, i) => ({ ...r, title: i % 4 === 0 ? `toyota ${i}` : `chair ${i}` }));
+    const noColumn = createFakePostgrestClient({
+      rows,
+      tables: { categories: [] },
+      failWhen: (u) => u.search.includes("search_text"),
+    });
+    const disc = await loadMarketplaceSearchDiscoveryContext(noColumn, null, "toyota", null);
+    const res = await resolveSearchExpansionRound(
+      noColumn, null, "latest", "trade", null, STATUS_OR, QC, null,
+      { q: "toyota", searchDiscoveryContext: disc }, emptySearchExpansionCursor()
+    );
+    expect(res).not.toBeNull();
+    expect(res!.cursor.searchMode).toBe("fullpool");
+    expect(res!.posts.length).toBe(eligible(rows).length);
+  });
+});

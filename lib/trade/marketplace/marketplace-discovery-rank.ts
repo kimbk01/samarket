@@ -46,7 +46,7 @@ function asExpansionListing(row: DiscoveryRankListing): SearchExpansionListing {
   };
 }
 
-function classifyDiscoveryBand(
+export function classifyDiscoveryBand(
   listing: DiscoveryRankListing,
   intent: MarketplaceSearchIntent,
   rootExpandedIdsByParent: Record<string, string[]>,

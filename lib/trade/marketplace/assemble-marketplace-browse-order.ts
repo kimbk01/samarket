@@ -33,6 +33,24 @@ function createdAtMs(raw: string | undefined): number {
   return Date.parse(raw ?? "") || 0;
 }
 
+/**
+ * Comparator identical to `sortBrowseListingsWithinLocationBlock` for latest / popular
+ * (distance needs the whole block — not mergeable). Used to merge an in-memory sorted list
+ * with an SQL stream ordered the same way (`created_at desc` / `view_count desc, created_at desc`).
+ */
+export function compareBrowseListingsInBlock(
+  a: MarketplaceBrowseListing,
+  b: MarketplaceBrowseListing,
+  sort: Exclude<MarketplaceBrowseSort, "distance">
+): number {
+  if (sort === "popular") {
+    const av = Number(a.view_count ?? 0);
+    const bv = Number(b.view_count ?? 0);
+    if (bv !== av) return bv - av;
+  }
+  return createdAtMs(b.created_at) - createdAtMs(a.created_at);
+}
+
 /** Sort rows inside one browse location block (within or outside). */
 export function sortBrowseListingsWithinLocationBlock<T extends MarketplaceBrowseListing>(
   rows: T[],
