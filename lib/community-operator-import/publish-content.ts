@@ -6,8 +6,8 @@
  * else, so headings, quotes, lists and links are flattened to readable text here. The source is
  * credited only through public_attribution_name/url (the detail page's 출처 block) — never inline.
  *
- *  - full          : edited body + all included images (default)
- *  - summary_link  : thumbnail + short summary
+ *  - full          : edited body + all included images (only with recorded rights — see rights.ts)
+ *  - summary_link  : thumbnail + short summary (default)
  *  - link_only     : one line naming the source (the 출처 block carries the link)
  * Summary order: operator text → the publisher's own per-item summary (feed/excerpt) → the body's
  * leading sentences. Nothing is generated; a site-wide page description is never used.
@@ -15,6 +15,8 @@
 import { blockPlainText, buildAppliedContentBlocks, collectOrderedImageUrlsForFeed } from "./draft-apply";
 
 export { blockPlainText } from "./draft-apply";
+import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
+import { attributionShown, capPolicyByRights, type SourceRights } from "./rights";
 import { applyRulesToBlocks, applyRulesToText, type ImportRule } from "./rules";
 import type { ContentPolicy, OperatorContentBlock, OperatorDraftEdit, OperatorNormalizedArticle } from "./types";
 
@@ -23,6 +25,40 @@ const POLICIES: ReadonlySet<ContentPolicy> = new Set(["full", "summary_link", "l
 /** The source policy is the default; an explicit per-article / bulk choice by the operator wins. */
 export function effectivePolicy(sourcePolicy: ContentPolicy, requested?: ContentPolicy | null): ContentPolicy {
   return requested && POLICIES.has(requested) ? requested : sourcePolicy;
+}
+
+/**
+ * Editor blocks → structured detail blocks (`community_posts.content_blocks`). Image URLs are still
+ * source URLs here; publish remaps them to DIBAY copies and the sanitizer drops any that were not copied.
+ */
+export function toImportedRichBlocks(blocks: OperatorContentBlock[]): ImportedContentBlock[] {
+  const out: ImportedContentBlock[] = [];
+  for (const b of blocks) {
+    switch (b.type) {
+      case "paragraph":
+        if (b.text.trim()) out.push({ t: "p", text: b.text });
+        break;
+      case "heading":
+        if (b.text.trim()) out.push({ t: "h", level: b.level <= 2 ? 2 : 3, text: b.text });
+        break;
+      case "list":
+        if (b.items.length) out.push({ t: b.ordered ? "ol" : "ul", items: b.items });
+        break;
+      case "quote":
+        if (b.text.trim()) out.push({ t: "quote", text: b.text });
+        break;
+      case "table":
+        if (b.rows.length) out.push({ t: "table", rows: b.rows, header: b.header });
+        break;
+      case "image":
+        out.push({ t: "img", url: b.url, alt: b.alt, caption: b.caption });
+        break;
+      case "link":
+        if (b.href) out.push({ t: "link", href: b.href, text: b.text || b.href });
+        break;
+    }
+  }
+  return out;
 }
 
 /** Flatten editor blocks to the community body contract: paragraphs + images only. */
@@ -71,7 +107,15 @@ export type PublishContent = {
   imageUrls: string[];
   attributionName: string;
   attributionUrl: string;
+  /** Public 출처 block after the rights rule (hiding is refused where attribution is a duty). */
+  attributionVisible: boolean;
+  /** The operator asked for more than the rights allow (e.g. full without rights) — capped. */
+  cappedByRights: boolean;
+  /** Structured detail body (full policy only; source image URLs until publish remaps them). */
+  richBlocks: ImportedContentBlock[] | null;
 };
+
+const UNVERIFIED: SourceRights = { rightsBasis: "unverified", attributionRequired: true };
 
 export function buildPublishContent(input: {
   article: OperatorNormalizedArticle;
@@ -79,9 +123,15 @@ export function buildPublishContent(input: {
   sourcePolicy: ContentPolicy;
   sourceName: string;
   rules: ImportRule[];
+  /** Missing = unverified: summary + link, 출처 always shown. */
+  rights?: SourceRights;
 }): PublishContent {
   const { article, edit, rules } = input;
-  const policy = effectivePolicy(input.sourcePolicy, edit.contentPolicy);
+  const rights = input.rights ?? UNVERIFIED;
+  const requested = effectivePolicy(input.sourcePolicy, edit.contentPolicy);
+  const policy = capPolicyByRights(requested, rights);
+  const cappedByRights = policy !== requested;
+  const attributionVisible = attributionShown(edit.showAttribution, rights);
   const applied = applyRulesToBlocks(buildAppliedContentBlocks(article, edit), rules);
   const title = applyRulesToText(String(edit.displayTitle || article.title || "").trim(), rules).trim();
   const attributionName = input.sourceName.trim() || article.sourceSite;
@@ -89,7 +139,17 @@ export function buildPublishContent(input: {
   const feedImages = collectOrderedImageUrlsForFeed(article, edit, applied);
 
   if (policy === "full") {
-    return { policy, title, blocks: toCommunityBlocks(applied), imageUrls: feedImages, attributionName, attributionUrl };
+    return {
+      policy,
+      title,
+      blocks: toCommunityBlocks(applied),
+      imageUrls: feedImages,
+      attributionName,
+      attributionUrl,
+      attributionVisible,
+      cappedByRights,
+      richBlocks: toImportedRichBlocks(applied),
+    };
   }
   if (policy === "link_only") {
     return {
@@ -99,6 +159,9 @@ export function buildPublishContent(input: {
       imageUrls: [],
       attributionName,
       attributionUrl,
+      attributionVisible: true,
+      cappedByRights,
+      richBlocks: null,
     };
   }
   const summary = applyRulesToText(
@@ -113,5 +176,6 @@ export function buildPublishContent(input: {
   const blocks: OperatorContentBlock[] = [];
   if (thumb) blocks.push({ type: "image", url: thumb, displaySrc: thumb, alt: null, caption: null });
   if (summary) blocks.push({ type: "paragraph", text: summary });
-  return { policy, title, blocks, imageUrls: thumb ? [thumb] : [], attributionName, attributionUrl };
+  // Summary + link: the link to the original is the point, so the 출처 block always shows.
+  return { policy, title, blocks, imageUrls: thumb ? [thumb] : [], attributionName, attributionUrl, attributionVisible: true, cappedByRights, richBlocks: null };
 }

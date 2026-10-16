@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
 import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/community-public-region-label";
+import { sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
@@ -109,7 +110,10 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     sourcePolicy: source.contentPolicy,
     sourceName: source.displayName,
     rules: rulesFor(input.rules, article.sourceSite, article.sourceBoard),
+    rights: source.rights,
   });
+  if (content.cappedByRights) warnings.push("policy_capped_by_rights: 재게시 권한 미확인 → 요약·링크로 게시");
+  if (edit.showAttribution === false && content.attributionVisible) warnings.push("attribution_required: 출처 표시 의무 → 출처 표시 유지");
   if (!content.title) return fail("empty_content", "제목이 필요합니다.");
 
   // The same original collected through another board/key must never become a second post. The RPC
@@ -130,7 +134,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       if (live) return fail("published_under_other_key", `이미 같은 원문이 게시되어 있습니다 (게시물 ${dup.post_id}).`);
     }
   }
-  const showAttribution = edit.showAttribution !== false;
+  const showAttribution = content.attributionVisible;
 
   // Images become DIBAY-owned copies; a failed image is dropped, never hot-linked.
   const ingested = await ingestOperatorImageUrlList({
@@ -156,6 +160,12 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
 
   const markdown = blocksToCommunityMarkdown(blocks);
   if (!markdown) return fail("empty_content", "본문이 비어 있습니다.");
+  // Detail structure: only DIBAY copies survive the sanitizer (a failed image is dropped, never hot-linked).
+  const contentBlocks = content.richBlocks
+    ? sanitizeImportedContentBlocks(
+        content.richBlocks.map((b) => (b.t === "img" ? { ...b, url: ingestedUrls.get(b.url) ?? "" } : b)),
+      )
+    : null;
 
   let regionLabel = "동네";
   try {
@@ -188,6 +198,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       display_date: toIsoDisplayDate(edit, article),
       public_attribution_name: showAttribution ? content.attributionName : null,
       public_attribution_url: showAttribution ? content.attributionUrl : null,
+      content_blocks: contentBlocks && contentBlocks.length ? contentBlocks : null,
     },
     image_rows: imageRows,
     draft: { original: article, edit: { ...edit, topicId: meta.id, topicSlug } },

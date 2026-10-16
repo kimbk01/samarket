@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
       article,
       edit,
       sourcePolicy: source.contentPolicy,
+      rights: source.rights,
       sourceName: source.displayName,
       rules: rulesFor(rules, key.sourceSite, key.sourceBoard),
     });
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       edit,
       draft: draft ? { status: draft.status, publishedPostId: draft.publishedPostId, updatedAt: draft.updatedAt } : null,
       inbox,
-      source: { id: source.id, displayName: source.displayName, contentPolicy: source.contentPolicy, baseUrl: source.baseUrl },
+      source: { id: source.id, displayName: source.displayName, contentPolicy: source.contentPolicy, baseUrl: source.baseUrl, rights: source.rights },
       board: { boardId: board.boardId, displayName: board.displayName, defaultTopicId: board.defaultTopicId },
       preview,
       post: postRow

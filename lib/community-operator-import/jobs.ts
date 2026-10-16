@@ -358,13 +358,16 @@ export async function runJobChunk(
   let nextDueAt: string | null = null;
   while (Date.now() - t0 < budget) {
     const { data: pending } = await sb.from(JOB_ITEMS_TABLE).select("*").eq("job_id", jobId).eq("status", "pending").limit(MAX_JOB_ITEMS);
-    const next = pickNextItem((pending ?? []) as Record<string, unknown>[], params, createdAt);
+    const free = ((pending ?? []) as Record<string, unknown>[]).filter((r) => !isClaimFresh(r, Date.now()));
+    const next = pickNextItem(free, params, createdAt);
     if (!next) break;
     if (next.dueAt > Date.now()) {
       nextDueAt = new Date(next.dueAt).toISOString();
       break;
     }
     const item = next.item;
+    // Another runner (a chunk that outlived its lease, or the cron) may hold this item: claim it atomically.
+    if (!(await claimItem(sb, String(item.id), String(item.updated_at || "")))) continue;
     const key: InboxKey = {
       sourceSite: String(item.source_site),
       sourceBoard: String(item.source_board),
@@ -387,6 +390,17 @@ export async function runJobChunk(
   const c = { pending: 0, done: 0, failed: 0, skipped: 0 } as Record<string, number>;
   for (const r of counts || []) c[String((r as { status: string }).status)] = (c[String((r as { status: string }).status)] || 0) + 1;
   const finished = c.pending === 0;
+  // A cancel that landed while this chunk ran keeps its status (counts are still refreshed).
+  const { data: cancelled } = await sb.from(JOBS_TABLE).select("status").eq("id", jobId).eq("status", "cancelled").maybeSingle();
+  if (cancelled) {
+    const { data: kept } = await sb
+      .from(JOBS_TABLE)
+      .update({ done_count: c.done, failed_count: c.failed, skipped_count: c.skipped, locked_until: null })
+      .eq("id", jobId)
+      .select("*")
+      .single();
+    return mapJob((kept || job) as Record<string, unknown>);
+  }
   const { data: saved } = await sb
     .from(JOBS_TABLE)
     .update({
@@ -399,9 +413,36 @@ export async function runJobChunk(
       last_error: lastError ?? (job.last_error as string | null) ?? null,
     })
     .eq("id", jobId)
+    .neq("status", "cancelled")
     .select("*")
-    .single();
+    .maybeSingle();
   return mapJob((saved || job) as Record<string, unknown>, finished ? null : nextDueAt);
+}
+
+const CLAIM_MESSAGE = "processing";
+/** A claim older than this is from a runner that died mid-item; the item may be taken again. */
+export const CLAIM_STALE_MS = 10 * 60_000;
+
+/** Pending item currently claimed by a live runner. Pure. */
+export function isClaimFresh(r: Record<string, unknown>, now: number): boolean {
+  if (r.message !== CLAIM_MESSAGE) return false;
+  const at = Date.parse(String(r.updated_at || ""));
+  return !Number.isNaN(at) && now - at < CLAIM_STALE_MS;
+}
+
+/**
+ * Compare-and-set on (status, message, updated_at) as read: exactly one runner wins an item.
+ * Returns false when another runner changed the row first.
+ */
+async function claimItem(sb: SupabaseClient, itemId: string, seenUpdatedAt: string): Promise<boolean> {
+  let q = sb
+    .from(JOB_ITEMS_TABLE)
+    .update({ message: CLAIM_MESSAGE, updated_at: new Date().toISOString() })
+    .eq("id", itemId)
+    .eq("status", "pending");
+  q = seenUpdatedAt ? q.eq("updated_at", seenUpdatedAt) : q.is("updated_at", null);
+  const { data } = await q.select("id");
+  return Boolean(data?.length);
 }
 
 /**
@@ -433,14 +474,21 @@ export async function retryFailedItems(sb: SupabaseClient, jobId: string): Promi
     .select("id");
   if (error) throw new Error(error.message);
   const n = data?.length ?? 0;
-  if (n) await sb.from(JOBS_TABLE).update({ status: "running", finished_at: null, locked_until: null }).eq("id", jobId);
+  if (n) await sb.from(JOBS_TABLE).update({ status: "running", finished_at: null, locked_until: null, last_error: null }).eq("id", jobId);
   return n;
 }
 
 /** Cancel the job's pending items (done items stay published). */
 export async function cancelJob(sb: SupabaseClient, jobId: string): Promise<void> {
+  // Job first: a runner that leases after this sees `cancelled` and does not start (lease needs queued/running).
+  const { data } = await sb
+    .from(JOBS_TABLE)
+    .update({ status: "cancelled", finished_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .in("status", ["queued", "running"])
+    .select("id");
+  if (!data?.length) throw new Error("job_not_cancellable");
   await sb.from(JOB_ITEMS_TABLE).update({ status: "skipped", message: "cancelled", updated_at: new Date().toISOString() }).eq("job_id", jobId).eq("status", "pending");
-  await sb.from(JOBS_TABLE).update({ status: "cancelled", finished_at: new Date().toISOString(), locked_until: null }).eq("id", jobId);
 }
 
 /** Cron: continue every unfinished job whose next item is due (spread jobs wait for their slot). */

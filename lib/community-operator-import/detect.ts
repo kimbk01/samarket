@@ -5,7 +5,7 @@
  */
 import * as cheerio from "cheerio";
 import { adapterFor } from "./adapters";
-import { type AdapterContext, boardUrl, type DiscoveredBoard, slugBoardId, sourceBase } from "./adapters/common";
+import { type AdapterContext, boardUrl, type DiscoveredBoard, parseFeed, slugBoardId, sourceBase } from "./adapters/common";
 import { discoverGnuboardBoards } from "./adapters/gnuboard";
 import { discoverHtmlBoards, rankItemTemplates } from "./adapters/html";
 import { discoverRssBoards, FEED_PATH_CANDIDATES, readFeed } from "./adapters/rss";
@@ -182,12 +182,15 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
   const $home = cheerio.load(home.text);
   const html = home.text;
   const finalUrl = home.finalUrl;
-  const siteName =
-    cleanText($home('meta[property="og:site_name"]').attr("content")) || cleanText($home("title").text()).slice(0, 60);
+  // The admin may paste the feed itself (e.g. `https://x.tistory.com/rss`) instead of the site.
+  const inputIsFeed = parseFeed(html).isFeed;
+  const siteName = inputIsFeed
+    ? cleanText($home("title").first().text()).slice(0, 60)
+    : cleanText($home('meta[property="og:site_name"]').attr("content")) || cleanText($home("title").text()).slice(0, 60);
 
   // Base: gnuboard sites may live in a sub-directory (…/madang/bbs/…).
   let base = new URL("./", finalUrl).toString();
-  const bbsHref = $home("a[href*='bbs/board.php']").first().attr("href");
+  const bbsHref = inputIsFeed ? undefined : $home("a[href*='bbs/board.php']").first().attr("href");
   if (bbsHref) {
     const abs = absUrl(finalUrl, bbsHref);
     if (abs) base = abs.replace(/bbs\/board\.php.*$/, "");
@@ -206,7 +209,7 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     baseUrl: base,
     engine,
     enabled: true,
-    contentPolicy: "full",
+    contentPolicy: "summary_link",
     adapterConfig,
     verification: "NOT_PROVEN",
   });
@@ -216,7 +219,10 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
   let adapterConfig: AdapterConfig = {};
   const isTistory = /tistory\.com|tistory_|daumcdn|kakaocdn/i.test(html.slice(0, 300000)) && /\/(entry|category)\//.test(html);
 
-  if (bbsHref || /bo_table=/.test(finalUrl)) {
+  if (inputIsFeed) {
+    engine = "rss_atom";
+    boards = await discoverRssBoards({ source: draftSource(engine) }, [{ url: finalUrl, title: siteName || null }]);
+  } else if (bbsHref || /bo_table=/.test(finalUrl)) {
     engine = "gnuboard";
     boards = await discoverGnuboardBoards({ source: draftSource(engine) }, html);
   } else if (!isTistory && /wp-content|wp-json|wp-includes/i.test(html) && (await probeWordpressApi({ source: draftSource("wordpress_rest") }))) {
@@ -422,7 +428,7 @@ export async function probeBoard(input: {
     baseUrl: input.baseUrl,
     engine: input.engine,
     enabled: true,
-    contentPolicy: "full",
+    contentPolicy: "summary_link",
     adapterConfig: input.adapterConfig ?? {},
     verification: "NOT_PROVEN",
   };
