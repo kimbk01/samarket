@@ -56,7 +56,8 @@ jobs:
         run: echo "$ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
       - name: Assemble Debug APK
         working-directory: android
-        run: ./gradlew --no-daemon assembleDebug
+        # gradle.properties 의 org.gradle.java.home(로컬 Mac Android Studio 경로)를 CI JDK 로 덮어쓴다.
+        run: ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" assembleDebug
       - name: Assemble Release APK (only when signing secrets exist)
         if: ${{ env.HAS_RELEASE_KEY == 'true' }}
         env:
@@ -67,7 +68,7 @@ jobs:
         working-directory: android
         run: |
           echo "$DIBAY_PLAY_STORE_FILE_B64" | base64 -d > "$RUNNER_TEMP/dibay-release.jks"
-          DIBAY_PLAY_STORE_FILE="$RUNNER_TEMP/dibay-release.jks" ./gradlew --no-daemon assembleRelease
+          DIBAY_PLAY_STORE_FILE="$RUNNER_TEMP/dibay-release.jks" ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" assembleRelease
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
@@ -90,7 +91,7 @@ jobs:
         run: npm run cap:sync:vercel:ios
       - name: Build for iOS Simulator (no code signing — compile verification)
         run: |
-          set -o pipefail
+          set +e
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
@@ -99,4 +100,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            build | tail -200
+            build > "$RUNNER_TEMP/xcodebuild.log" 2>&1
+          code=$?
+          echo "xcodebuild exit=$code"
+          grep -nE "error:|\*\* BUILD (SUCCEEDED|FAILED)" "$RUNNER_TEMP/xcodebuild.log" | head -120
+          exit $code
