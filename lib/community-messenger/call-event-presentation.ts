@@ -43,7 +43,11 @@ function kindLabel(kind: CommunityMessengerCallKind): string {
 
 /**
  * 세션 해석 이벤트 + viewer 역할 → canonical.
- * `cancelled` 는 발신자 기준 취소; 수신 viewer 는 incoming_missed 로 본다.
+ * 종료 결과는 **보는 사람과 무관하게 통화 결과 기준**(제품 결정 2026-10-16):
+ * - 수신자가 받지 않음(시간 초과) → 부재중 (`incoming_missed`) — 발신자·수신자 동일
+ * - 수신자가 거절 → 거절 (`remote_rejected`) — 동일
+ * - 발신자가 취소 → 취소 (`outgoing_cancelled`) — 동일
+ * 진행 중(발신 중/수신 중)만 역할로 구분한다.
  */
 export function resolveCallEventCanonical(input: {
   resolvedEvent: CallSessionResolvedEvent | null;
@@ -67,15 +71,9 @@ export function resolveCallEventCanonical(input: {
   if (ev === "failed") return "failed";
   if (ev === "disconnected") return "interrupted";
   if (ev === "ended" || fs === "ended") return "connected_ended";
-  if (ev === "rejected_by_callee" || fs === "rejected") {
-    return role === "callee" ? "local_rejected" : "remote_rejected";
-  }
-  if (ev === "missed" || fs === "missed") {
-    return role === "caller" ? "unanswered" : "incoming_missed";
-  }
-  if (ev === "cancelled_by_caller" || fs === "cancelled") {
-    return role === "callee" ? "incoming_missed" : "outgoing_cancelled";
-  }
+  if (ev === "rejected_by_callee" || fs === "rejected") return "remote_rejected";
+  if (ev === "missed" || fs === "missed") return "incoming_missed";
+  if (ev === "cancelled_by_caller" || fs === "cancelled") return "outgoing_cancelled";
   if (fs === "failed") return "failed";
   return role === "callee" ? "incoming_missed" : "outgoing_cancelled";
 }
@@ -110,8 +108,8 @@ export function buildCallEventPresentation(input: {
       listPreview = durationText ? `${kind} · ${durationText}` : `${kind} · 통화 종료`;
       break;
     case "outgoing_cancelled":
-      resultLabel = "취소됨";
-      listPreview = `${kind} · 취소됨`;
+      resultLabel = "취소";
+      listPreview = `${kind} · 취소`;
       break;
     case "incoming_missed":
       resultLabel = "부재중";
@@ -119,20 +117,18 @@ export function buildCallEventPresentation(input: {
       isMissed = true;
       break;
     case "remote_rejected":
-      resultLabel = "거절됨";
-      listPreview = `${kind} · 거절됨`;
-      break;
     case "local_rejected":
-      resultLabel = "거절함";
-      listPreview = `${kind} · 거절함`;
+      resultLabel = "거절";
+      listPreview = `${kind} · 거절`;
       break;
     case "remote_busy":
       resultLabel = "통화 중";
       listPreview = `${kind} · 통화 중`;
       break;
     case "unanswered":
-      resultLabel = "응답 없음";
-      listPreview = `${kind} · 응답 없음`;
+      resultLabel = "부재중";
+      listPreview = kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
+      isMissed = true;
       break;
     case "failed":
       resultLabel = "연결 실패";
@@ -206,8 +202,8 @@ export function formatCallEventSharedListLabel(
   if (resolvedEvent === "missed" || status === "missed") {
     return kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
   }
-  if (resolvedEvent === "rejected_by_callee" || status === "rejected") return `${kind} · 거절됨`;
-  if (resolvedEvent === "cancelled_by_caller" || status === "cancelled") return `${kind} · 취소됨`;
+  if (resolvedEvent === "rejected_by_callee" || status === "rejected") return `${kind} · 거절`;
+  if (resolvedEvent === "cancelled_by_caller" || status === "cancelled") return `${kind} · 취소`;
   if (resolvedEvent === "ended" || status === "ended") return `${kind} · 통화 종료`;
   if (status === "incoming") return `${kind} · 수신 중`;
   return `${kind} · 발신 중`;

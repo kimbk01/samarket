@@ -8,8 +8,8 @@ import { formatCallEventSharedListLabel } from "@/lib/community-messenger/call-e
 
 export function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
   if (status === "missed") return "부재중";
-  if (status === "rejected") return "거절됨";
-  if (status === "cancelled") return "취소됨";
+  if (status === "rejected") return "거절";
+  if (status === "cancelled") return "취소";
   if (status === "ended") return "통화 종료";
   if (status === "incoming") return "수신 중";
   return "발신 중";

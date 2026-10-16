@@ -162,6 +162,9 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
     ? `${kindLabel} · ${resultLabel}`
     : item.content.trim() || `${kindLabel} · ${resultLabel || ""}`;
   const isMissed = item.callStatus === "missed" || /부재중/.test(resultLabel);
+  /** 결과별 색 구분(정상·부재중·거절·취소) — 보는 사람과 무관하게 통화 결과 기준 */
+  const isRejected = !isMissed && (item.callStatus === "rejected" || /거절/.test(resultLabel));
+  const isCancelled = !isMissed && !isRejected && (item.callStatus === "cancelled" || /취소/.test(resultLabel));
   const isMine = Boolean(item.isMine);
 
   /**
@@ -172,6 +175,14 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
     ? isMine
       ? "border-[#c45c5c]/35 bg-[#c45c5c] text-white shadow-[0_1px_0_rgba(0,0,0,0.08)]"
       : "border-[#c45c5c]/40 bg-[#fde8e8] text-[#8b1e1e] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+    : isRejected
+      ? isMine
+        ? "border-[#c27a1a]/35 bg-[#c27a1a] text-white shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+        : "border-[#c27a1a]/40 bg-[#fdf1e1] text-[#7a4a0c] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+    : isCancelled
+      ? isMine
+        ? "border-[#7c828c]/35 bg-[#7c828c] text-white shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+        : "border-[#9aa0a8]/40 bg-[#eef0f2] text-[#4b5058] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
     : isMine
       ? "border-transparent bg-[color:var(--cm-room-bubble-outgoing)] text-[color:var(--cm-room-bubble-outgoing-fg)] shadow-[0_1px_0_rgba(0,0,0,0.08)]"
       : "border-[color:var(--cm-room-border,#d0d3d8)] bg-[color:var(--cm-room-surface,#fff)] text-[color:var(--cm-room-bubble-incoming-fg)] shadow-[0_1px_0_rgba(0,0,0,0.04)]";
@@ -179,6 +190,14 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
     ? isMine
       ? "bg-white/22 text-white"
       : "bg-[#c45c5c]/15 text-[#8b1e1e]"
+    : isRejected
+      ? isMine
+        ? "bg-white/22 text-white"
+        : "bg-[#c27a1a]/15 text-[#7a4a0c]"
+    : isCancelled
+      ? isMine
+        ? "bg-white/22 text-white"
+        : "bg-[#9aa0a8]/20 text-[#4b5058]"
     : isMine
       ? "bg-white/22 text-[color:var(--cm-room-bubble-outgoing-fg)]"
       : "bg-[color:var(--cm-room-primary,#006B43)]/12 text-[color:var(--cm-room-primary,#006B43)]";
