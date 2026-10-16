@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import {
@@ -27,6 +28,8 @@ type Props = ChatsProps & {
   friendStateModel: MessengerFriendStateModel;
   onToggleHiddenFriend: (userId: string) => void;
   onToggleBlock: (userId: string) => void;
+  privacyListsStatus: MessengerPrivacyListsStatus;
+  onRetryPrivacyLists: () => void;
   selectedArchiveSection?: MessengerArchiveSection | null;
   onSelectArchiveSection?: (section: MessengerArchiveSection | null) => void;
   /**
@@ -44,6 +47,8 @@ export function MessengerArchiveScreen({
   busyId,
   onToggleHiddenFriend,
   onToggleBlock,
+  privacyListsStatus,
+  onRetryPrivacyLists,
   selectedArchiveSection = null,
   onSelectArchiveSection,
   detailExternal = false,
@@ -57,6 +62,9 @@ export function MessengerArchiveScreen({
   const showInlinePanel = isWide && !detailExternal && sectionOpen;
 
   const chatsPanelProps: ChatsProps = { ...chatsProps, busyId };
+  /** 숨김·차단 목록을 아직 못 불러왔으면 0 대신 미확정(null) — "없음" 으로 오해하지 않게. */
+  const privacyCount = (n: number): number | null =>
+    n === 0 && privacyListsStatus !== "ready" ? null : n;
 
   return (
     <section className="space-y-2 pt-0" data-cm-archive-screen="">
@@ -71,21 +79,25 @@ export function MessengerArchiveScreen({
       <div className="grid grid-cols-2 gap-1.5">
         <ArchiveSectionCard
           title={t("cm_ui_hidden_friends")}
+          count={privacyCount(friendStateModel.hidden.length)}
           active={selectedArchiveSection === "hidden_friends"}
           onClick={() => onSelectArchiveSection?.("hidden_friends")}
         />
         <ArchiveSectionCard
           title={t("cm_ui_blocked_friends")}
+          count={privacyCount(friendStateModel.blocked.length)}
           active={selectedArchiveSection === "blocked_friends"}
           onClick={() => onSelectArchiveSection?.("blocked_friends")}
         />
         <ArchiveSectionCard
           title={t("cm_ui_notifications_off")}
+          count={mutedItems.length}
           active={selectedArchiveSection === "muted_chats"}
           onClick={() => onSelectArchiveSection?.("muted_chats")}
         />
         <ArchiveSectionCard
           title={t("cm_ui_archived_chats")}
+          count={items.length}
           active={selectedArchiveSection === "archived_chats"}
           onClick={() => onSelectArchiveSection?.("archived_chats")}
         />
@@ -101,6 +113,8 @@ export function MessengerArchiveScreen({
             busyId={busyId}
             onToggleHiddenFriend={onToggleHiddenFriend}
             onToggleBlock={onToggleBlock}
+            privacyListsStatus={privacyListsStatus}
+            onRetryPrivacyLists={onRetryPrivacyLists}
             chatsProps={chatsPanelProps}
             showTitle
           />
@@ -123,6 +137,8 @@ export function MessengerArchiveScreen({
             busyId={busyId}
             onToggleHiddenFriend={onToggleHiddenFriend}
             onToggleBlock={onToggleBlock}
+            privacyListsStatus={privacyListsStatus}
+            onRetryPrivacyLists={onRetryPrivacyLists}
             chatsProps={chatsPanelProps}
             showTitle
           />
@@ -134,10 +150,13 @@ export function MessengerArchiveScreen({
 
 function ArchiveSectionCard({
   title,
+  count,
   active,
   onClick,
 }: {
   title: string;
+  /** null = 아직 모름(불러오는 중) */
+  count: number | null;
   active: boolean;
   onClick: () => void;
 }) {
@@ -152,8 +171,11 @@ function ArchiveSectionCard({
           : "border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       }`}
     >
-      <p className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
-        {title}
+      <p className="flex items-baseline justify-between gap-1 sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
+        <span className="min-w-0 truncate">{title}</span>
+        <span className="shrink-0 tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          {count == null ? "…" : count}
+        </span>
       </p>
       <p className="mt-1 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
         {t("cm_ui_go_to_detail_management")}

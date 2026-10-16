@@ -639,6 +639,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
     hydrateMessengerPrivacyLists,
+    privacyListsStatus,
     shadowDispatch,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   const dataRef = useRef(data);
@@ -1934,6 +1935,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     searchSheetRoomItems,
     primaryListItems,
     mutedListItems,
+    archiveListItems,
     friendStateModel,
     tradePillarSummary,
     deliveryPillarSummary,
@@ -2650,6 +2652,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const friendHasDirectRoomStable = useCallback((userId: string) => Boolean(directRoomByPeerId.get(userId)), [directRoomByPeerId]);
 
+  /** 채팅 목록 상단 「보관된 채팅 (N)」 — 카톡처럼 목록에서 바로 보관함 채팅으로. */
+  const openArchivedChatsStable = useCallback(() => {
+    resetMessengerTransientUi();
+    setMainSection("archive");
+    setSelectedArchiveSection("archived_chats");
+  }, [resetMessengerTransientUi]);
+
+  const retryPrivacyListsStable = useCallback(() => {
+    void hydrateMessengerPrivacyLists();
+  }, [hydrateMessengerPrivacyLists]);
+
   const onOpenFriendsPrivacySummaryStable = useCallback(() => {
     resetMessengerTransientUi();
     openHomeOverlay("friends-privacy");
@@ -3055,6 +3068,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         toggleHiddenFriend={onListPaneToggleHiddenFriend}
         removeFriend={onListPaneRemoveFriend}
         toggleBlock={onListPaneToggleBlock}
+        privacyListsStatus={privacyListsStatus}
+        retryPrivacyLists={retryPrivacyListsStable}
+        archivedChatsCount={archiveListItems.length}
+        onOpenArchivedChats={openArchivedChatsStable}
         startDirectRoom={onListPaneStartDirectRoom}
         onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}
         onFriendRowVideoCallStable={onFriendRowVideoCallStable}
@@ -3284,6 +3301,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             closeHomeOverlay("friends-privacy");
             void startDirectRoom(userId);
           }}
+          privacyListsStatus={privacyListsStatus}
+          onRetryPrivacyLists={retryPrivacyListsStable}
         />
       ) : null}
 
@@ -3408,8 +3427,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }}
           localSettings={localSettings}
           updateLocalSetting={updateLocalSetting}
-          onToggleBlock={(userId) => void toggleBlock(userId)}
-          onToggleHiddenFriend={(userId) => void toggleHiddenFriend(userId)}
+          onOpenFriendManage={onOpenFriendsPrivacySummaryStable}
           onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
           exportSettingsBackup={exportSettingsBackup}
           backupInputRef={backupInputRef}

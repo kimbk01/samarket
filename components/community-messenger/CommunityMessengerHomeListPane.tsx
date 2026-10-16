@@ -1,5 +1,6 @@
 "use client";
 
+import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import {
   bumpMessengerRenderPerf,
   recordMessengerBootstrapFirstInteractive,
@@ -81,6 +82,10 @@ type Props = {
   toggleHiddenFriend: (userId: string) => void;
   removeFriend: (userId: string) => void;
   toggleBlock: (userId: string) => void;
+  privacyListsStatus: MessengerPrivacyListsStatus;
+  retryPrivacyLists: () => void;
+  archivedChatsCount: number;
+  onOpenArchivedChats: () => void;
   startDirectRoom: (userId: string) => void;
   onFriendRowVoiceCallStable: (userId: string) => void;
   onFriendRowVideoCallStable: (userId: string) => void;
@@ -206,6 +211,10 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.toggleHiddenFriend !== next.toggleHiddenFriend) reasons.push("toggleHiddenFriend");
   if (prev.removeFriend !== next.removeFriend) reasons.push("removeFriend");
   if (prev.toggleBlock !== next.toggleBlock) reasons.push("toggleBlock");
+  if (prev.privacyListsStatus !== next.privacyListsStatus) reasons.push("privacyListsStatus");
+  if (prev.retryPrivacyLists !== next.retryPrivacyLists) reasons.push("retryPrivacyLists");
+  if (prev.archivedChatsCount !== next.archivedChatsCount) reasons.push("archivedChatsCount");
+  if (prev.onOpenArchivedChats !== next.onOpenArchivedChats) reasons.push("onOpenArchivedChats");
   if (prev.startDirectRoom !== next.startDirectRoom) reasons.push("startDirectRoom");
   if (prev.onFriendRowVoiceCallStable !== next.onFriendRowVoiceCallStable) {
     reasons.push("onFriendRowVoiceCallStable");
@@ -403,6 +412,10 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 onFriendSwipeHide={props.toggleHiddenFriend}
                 onFriendSwipeRemove={props.removeFriend}
                 onFriendSwipeBlock={props.toggleBlock}
+                privacyListsStatus={props.privacyListsStatus}
+                onRetryPrivacyLists={props.retryPrivacyLists}
+                archivedChatsCount={props.archivedChatsCount}
+                onOpenArchivedChats={props.onOpenArchivedChats}
                 onFriendRowChat={props.startDirectRoom}
                 onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
                 onFriendRowVideoCall={props.onFriendRowVideoCallStable}
@@ -452,6 +465,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                     busyId={props.busyId}
                     onToggleHiddenFriend={props.toggleHiddenFriend}
                     onToggleBlock={props.toggleBlock}
+                    privacyListsStatus={props.privacyListsStatus}
+                    onRetryPrivacyLists={props.retryPrivacyLists}
                     chatsProps={{
                       viewerUserId: props.data.me?.id ?? null,
                       favoriteFriendIds: props.favoriteFriendIds,
@@ -503,6 +518,10 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               onFriendSwipeHide={props.toggleHiddenFriend}
               onFriendSwipeRemove={props.removeFriend}
               onFriendSwipeBlock={props.toggleBlock}
+                privacyListsStatus={props.privacyListsStatus}
+                onRetryPrivacyLists={props.retryPrivacyLists}
+                archivedChatsCount={props.archivedChatsCount}
+                onOpenArchivedChats={props.onOpenArchivedChats}
               onFriendRowChat={props.startDirectRoom}
               onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
               onFriendRowVideoCall={props.onFriendRowVideoCallStable}

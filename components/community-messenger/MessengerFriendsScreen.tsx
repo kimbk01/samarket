@@ -138,6 +138,29 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
+        {/* 친구 관리(숨김친구·차단친구·알림 끈 친구) — 목록 맨 아래가 아니라 위에 둬 바로 찾게 한다. */}
+        <div data-cm-friend-manage-entry="">
+          <button
+            type="button"
+            onClick={onOpenPrivacySummary}
+            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
+            style={{ color: "var(--messenger-text)" }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="sam-text-body font-medium">{t("cm_ui_friend_manage")}</p>
+              <div className="mt-0.5">
+                <MessengerFriendsPrivacySummaryIcons
+                  hiddenCount={friendStateModel.hidden.length}
+                  blockedCount={friendStateModel.blocked.length}
+                  mutedCount={friendStateModel.muted.length}
+                />
+              </div>
+            </div>
+            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
+              ›
+            </span>
+          </button>
+        </div>
         <CommunityMessengerFriendList
           me={me}
           sortedFriends={sortedFriends}
@@ -160,28 +183,6 @@ export function MessengerFriendsScreen({
           </div>
         ) : null}
 
-        <div>
-          <button
-            type="button"
-            onClick={onOpenPrivacySummary}
-            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            <div className="min-w-0 flex-1">
-              <p className="sam-text-body font-medium">{t("cm_ui_hidden_blocked_notifications_off")}</p>
-              <div className="mt-0.5">
-                <MessengerFriendsPrivacySummaryIcons
-                  hiddenCount={friendStateModel.hidden.length}
-                  blockedCount={friendStateModel.blocked.length}
-                  mutedCount={friendStateModel.muted.length}
-                />
-              </div>
-            </div>
-            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
-              ›
-            </span>
-          </button>
-        </div>
       </section>
       {quickProfile ? (
         <MessengerFriendRowQuickPopup

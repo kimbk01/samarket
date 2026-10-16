@@ -4,6 +4,8 @@ import type { ComponentProps } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerChatsScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import type { MessengerArchiveSection } from "@/lib/community-messenger/messenger-ia";
+import { MessengerPrivacyPeopleList } from "@/components/community-messenger/MessengerPrivacyPeopleList";
+import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 
@@ -20,6 +22,8 @@ type Props = {
   busyId: string | null;
   onToggleHiddenFriend: (userId: string) => void;
   onToggleBlock: (userId: string) => void;
+  privacyListsStatus: MessengerPrivacyListsStatus;
+  onRetryPrivacyLists: () => void;
   chatsProps: ChatsProps;
   /** 시트/우측 패널 상단 제목 표시 */
   showTitle?: boolean;
@@ -53,6 +57,8 @@ export function MessengerArchiveSectionPanel({
   busyId,
   onToggleHiddenFriend,
   onToggleBlock,
+  privacyListsStatus,
+  onRetryPrivacyLists,
   chatsProps,
   showTitle = true,
 }: Props) {
@@ -62,9 +68,6 @@ export function MessengerArchiveSectionPanel({
   if (section === "hidden_friends" || section === "blocked_friends") {
     const entries =
       section === "hidden_friends" ? friendStateModel.hidden : friendStateModel.blocked;
-    const emptyLabel =
-      section === "hidden_friends" ? t("cm_ui_no_hidden_friends") : t("cm_ui_no_blocked_users");
-    const busyPrefix = section === "hidden_friends" ? "hidden" : "block";
     const onRelease = section === "hidden_friends" ? onToggleHiddenFriend : onToggleBlock;
 
     return (
@@ -76,49 +79,15 @@ export function MessengerArchiveSectionPanel({
             </p>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
-          {entries.length ? (
-            <div className="space-y-0">
-              {entries.map((entry) => {
-                const profile = entry.profile;
-                return (
-                  <div
-                    key={profile.id}
-                    className="flex items-center justify-between gap-2 border-b border-[color:var(--messenger-divider)] py-2.5 last:border-0"
-                  >
-                    <div className="min-w-0">
-                      <p
-                        className="truncate sam-text-body-secondary font-medium"
-                        style={{ color: "var(--messenger-text)" }}
-                      >
-                        {profile.label}
-                      </p>
-                      {profile.subtitle ? (
-                        <p
-                          className="truncate sam-text-xxs"
-                          style={{ color: "var(--messenger-text-secondary)" }}
-                        >
-                          {profile.subtitle}
-                        </p>
-                      ) : null}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onRelease(profile.id)}
-                      disabled={busyId === `${busyPrefix}:${profile.id}`}
-                      className="shrink-0 sam-text-xxs font-semibold text-sam-primary disabled:opacity-50"
-                    >
-                      {t("cm_ui_release")}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="py-6 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
-              {emptyLabel}
-            </p>
-          )}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <MessengerPrivacyPeopleList
+            kind={section === "hidden_friends" ? "hidden" : "blocked"}
+            people={entries.map((entry) => entry.profile)}
+            status={privacyListsStatus}
+            busyId={busyId}
+            onRelease={onRelease}
+            onRetry={onRetryPrivacyLists}
+          />
         </div>
       </div>
     );

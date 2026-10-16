@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { MessengerPrivacyPeopleList } from "@/components/community-messenger/MessengerPrivacyPeopleList";
+import type { MessengerPrivacyListsStatus } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 
 type Tab = "hidden" | "blocked" | "muted";
 
@@ -18,6 +20,9 @@ type Props = {
   onToggleMute: (userId: string) => void;
   friendNotificationsBusy: (userId: string) => boolean;
   onOpenChat: (userId: string) => void;
+  /** 숨김·차단 목록 불러오기 상태 — 불러오는 중/실패/없음 구분 */
+  privacyListsStatus: MessengerPrivacyListsStatus;
+  onRetryPrivacyLists: () => void;
 };
 
 export function MessengerFriendsPrivacySheet({
@@ -29,6 +34,8 @@ export function MessengerFriendsPrivacySheet({
   onToggleMute,
   friendNotificationsBusy,
   onOpenChat,
+  privacyListsStatus,
+  onRetryPrivacyLists,
 }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("hidden");
@@ -40,13 +47,13 @@ export function MessengerFriendsPrivacySheet({
     <MessengerHomeBottomSheetShell
       onClose={onClose}
       closeAriaLabel={t("nav_close")}
-      dialogAriaLabel={t("cm_ui_hidden_blocked_notifications")}
+      dialogAriaLabel={t("cm_ui_friend_manage")}
       anchor="above-bottom-nav"
       panelClassName="flex max-h-[min(78dvh,600px)] flex-col overflow-hidden rounded-t-[12px]"
     >
       <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
         <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-          {t("cm_ui_hidden_blocked_notifications")}
+          {t("cm_ui_friend_manage")}
         </p>
         <button
           type="button"
@@ -63,8 +70,8 @@ export function MessengerFriendsPrivacySheet({
       <div className="flex shrink-0 border-b border-[color:var(--messenger-divider)]">
         {(
           [
-            { id: "hidden" as const, label: t("common_hide"), count: model.hidden.length },
-            { id: "blocked" as const, label: t("common_block"), count: model.blocked.length },
+            { id: "hidden" as const, label: t("cm_ui_hidden_friends"), count: model.hidden.length },
+            { id: "blocked" as const, label: t("cm_ui_blocked_friends"), count: model.blocked.length },
             { id: "muted" as const, label: t("cm_ui_notifications_off"), count: model.muted.length },
           ] as const
         ).map((seg) => (
@@ -86,7 +93,16 @@ export function MessengerFriendsPrivacySheet({
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {list.length === 0 ? (
+        {tab === "hidden" || tab === "blocked" ? (
+          <MessengerPrivacyPeopleList
+            kind={tab}
+            people={list.map((entry) => entry.profile)}
+            status={privacyListsStatus}
+            busyId={busyId}
+            onRelease={tab === "hidden" ? onToggleHidden : onToggleBlock}
+            onRetry={onRetryPrivacyLists}
+          />
+        ) : list.length === 0 ? (
           <p className="px-4 py-8 text-center sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {t("cm_ui_list_is_empty")}
           </p>
@@ -124,28 +140,6 @@ export function MessengerFriendsPrivacySheet({
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {tab === "hidden" ? (
-                      <button
-                        type="button"
-                        onClick={() => onToggleHidden(p.id)}
-                        disabled={busyId === `hidden:${p.id}`}
-                        className="rounded-ui-rect border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-helper font-medium disabled:opacity-50"
-                        style={{ color: "var(--messenger-text)" }}
-                      >
-                        {busyId === `hidden:${p.id}` ? "…" : t("cm_ui_release")}
-                      </button>
-                    ) : null}
-                    {tab === "blocked" ? (
-                      <button
-                        type="button"
-                        onClick={() => onToggleBlock(p.id)}
-                        disabled={busyId === `block:${p.id}`}
-                        className="rounded-ui-rect border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-helper font-medium disabled:opacity-50"
-                        style={{ color: "var(--messenger-text)" }}
-                      >
-                        {busyId === `block:${p.id}` ? "…" : t("cm_ui_release")}
-                      </button>
-                    ) : null}
                     {tab === "muted" ? (
                       <>
                         <button
@@ -201,12 +195,12 @@ export function MessengerFriendsPrivacySummaryIcons({
 
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-      <span className={itemClass} title={t("common_hide")}>
+      <span className={itemClass} title={t("cm_ui_hidden_friends")}>
         <EyeOffIcon className={iconClass} />
         {hiddenCount}
       </span>
       <span aria-hidden>·</span>
-      <span className={itemClass} title={t("common_block")}>
+      <span className={itemClass} title={t("cm_ui_blocked_friends")}>
         <BanIcon className={iconClass} />
         {blockedCount}
       </span>

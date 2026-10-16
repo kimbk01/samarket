@@ -39,8 +39,8 @@ export type MessengerSettingsSheetProps = {
   onIncomingCallBannerChange: (next: boolean) => void;
   localSettings: CommunityMessengerLocalSettings;
   updateLocalSetting: (key: keyof CommunityMessengerLocalSettings, value: boolean) => void;
-  onToggleBlock: (userId: string) => void | Promise<void>;
-  onToggleHiddenFriend: (userId: string) => void | Promise<void>;
+  /** 「친구 관리」(숨김친구·차단친구) 화면 열기 */
+  onOpenFriendManage: () => void;
   onToggleFavoriteFriend: (userId: string) => void | Promise<void>;
   exportSettingsBackup: () => void;
   backupInputRef: RefObject<HTMLInputElement | null>;
@@ -66,8 +66,7 @@ export function MessengerSettingsSheet({
   onIncomingCallBannerChange,
   localSettings,
   updateLocalSetting,
-  onToggleBlock,
-  onToggleHiddenFriend,
+  onOpenFriendManage,
   onToggleFavoriteFriend,
   exportSettingsBackup,
   backupInputRef,
@@ -184,53 +183,23 @@ export function MessengerSettingsSheet({
                 checked={localSettings.contactAutoAddEnabled}
                 onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
               />
-              <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">{t("common_block")}</p>
-                {blocked.length ? (
-                  <div className="mt-1.5 space-y-1">
-                    {blocked.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between gap-2 border-b border-ui-border py-1.5 last:border-0">
-                        <span className="truncate sam-text-body-secondary text-ui-fg">{user.label}</span>
-                        <button
-                          type="button"
-                          onClick={() => void onToggleBlock(user.id)}
-                          disabled={busyId === `block:${user.id}`}
-                          className="shrink-0 sam-text-xxs font-medium text-ui-muted"
-                        >
-                          {t("cm_ui_release")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_blocked_users")}</p>
-                )}
-              </div>
-              <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">{t("cm_ui_hidden_friends")}</p>
-                {hidden.length ? (
-                  <div className="mt-1.5 space-y-1">
-                    {hidden.map((friend) => (
-                      <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-ui-border py-1.5 last:border-0">
-                        <div className="min-w-0">
-                          <p className="truncate sam-text-body-secondary text-ui-fg">{friend.label}</p>
-                          <p className="truncate sam-text-xxs text-ui-muted">{friend.subtitle ?? t("cm_ui_hidden_only_in_list")}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void onToggleHiddenFriend(friend.id)}
-                          disabled={busyId === `hidden:${friend.id}`}
-                          className="shrink-0 sam-text-xxs font-medium text-ui-muted"
-                        >
-                          {t("cm_ui_release")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_hidden_friends")}</p>
-                )}
-              </div>
+              {/* 숨김친구·차단친구 — 카톡 「친구 관리」 단일 화면으로 이동(목록·해제는 그 화면 한 곳에서). */}
+              <button
+                type="button"
+                onClick={onOpenFriendManage}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:bg-ui-hover"
+                data-cm-settings-friend-manage=""
+              >
+                <span className="min-w-0">
+                  <span className="block sam-text-body-secondary font-medium text-ui-fg">{t("cm_ui_friend_manage")}</span>
+                  <span className="block sam-text-xxs text-ui-muted">
+                    {t("cm_ui_hidden_friends")} {hidden.length} · {t("cm_ui_blocked_friends")} {blocked.length}
+                  </span>
+                </span>
+                <svg className="h-4 w-4 shrink-0 text-ui-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               <div className="px-3 py-2">
                 <p className="sam-text-helper font-medium text-ui-fg">{t("cm_ui_manage_favorites")}</p>
                 {favoriteManageFriends.length ? (

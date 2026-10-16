@@ -271,6 +271,11 @@ export type UseCommunityMessengerHomeBootstrapResult = {
    * 개인정보 시트·보관함 숨김/차단 섹션 진입, 차단/해제·숨김/해제 성공 직후 호출.
    */
   hydrateMessengerPrivacyLists: () => Promise<void>;
+  /**
+   * 숨김·차단 목록 불러오기 상태 — 화면이 "불러오는 중 / 실패(다시 시도) / 비어 있음" 을 구분해 보여 준다
+   * (모르는 상태를 "없음" 으로 보여 차단 친구가 사라진 것처럼 보이던 문제).
+   */
+  privacyListsStatus: MessengerPrivacyListsStatus;
   /** Phase2 shadow-only canonical pipeline dispatcher — UI render 입력으로 사용 금지 */
   shadowDispatch: MessengerHomeShadowDispatch;
 };
@@ -317,6 +322,7 @@ export function useCommunityMessengerHomeBootstrap({
   const friendsHydrateRequestIdRef = useRef(0);
   const friendsHydrateAbortRef = useRef<AbortController | null>(null);
   const privacyListsHydrateRequestIdRef = useRef(0);
+  const [privacyListsStatus, setPrivacyListsStatus] = useState<MessengerPrivacyListsStatus>("idle");
   const privacyListsHydrateAbortRef = useRef<AbortController | null>(null);
   /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
   const silentFullSupplementTimerRef = useRef<number | null>(null);
@@ -1682,6 +1688,7 @@ export function useCommunityMessengerHomeBootstrap({
     privacyListsHydrateAbortRef.current?.abort();
     const controller = new AbortController();
     privacyListsHydrateAbortRef.current = controller;
+    setPrivacyListsStatus((prev) => (prev === "ready" ? prev : "loading"));
     try {
       const res = await fetch("/api/community-messenger/relations/privacy-lists", {
         cache: "no-store",
@@ -1694,7 +1701,11 @@ export function useCommunityMessengerHomeBootstrap({
         blocked?: CommunityMessengerBootstrap["blocked"];
         hidden?: CommunityMessengerBootstrap["hidden"];
       };
-      if (!res.ok || !json.ok) return;
+      if (!res.ok || !json.ok) {
+        setPrivacyListsStatus((prev) => (prev === "ready" ? prev : "error"));
+        return;
+      }
+      setPrivacyListsStatus("ready");
       setData((prev) => {
         if (!prev) return prev;
         const next = applyHomeListPatch(
@@ -1714,7 +1725,9 @@ export function useCommunityMessengerHomeBootstrap({
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      /* ignore */
+      if (requestId === privacyListsHydrateRequestIdRef.current) {
+        setPrivacyListsStatus((prev) => (prev === "ready" ? prev : "error"));
+      }
     } finally {
       if (privacyListsHydrateAbortRef.current === controller) {
         privacyListsHydrateAbortRef.current = null;
@@ -1736,6 +1749,9 @@ export function useCommunityMessengerHomeBootstrap({
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
     hydrateMessengerPrivacyLists,
+    privacyListsStatus,
     shadowDispatch,
   };
 }
+
+export type MessengerPrivacyListsStatus = "idle" | "loading" | "ready" | "error";
