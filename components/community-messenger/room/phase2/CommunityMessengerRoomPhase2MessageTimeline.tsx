@@ -15,6 +15,7 @@ import {
   communityMessengerMessageSearchText,
   formatRoomCallStatus,
   formatTime,
+  messengerTimelineVirtualRowKey,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { GroupPinnedMessageBanner } from "@/components/community-messenger/group/GroupPinnedMessageBanner";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -2067,7 +2068,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
                 return (
                   <MessengerTimelineVirtualRow
-                    key={item.id}
+                    /**
+                     * virtualizer getItemKey 와 같은 키(cid 우선) — 보내는 중 행이 서버 행으로 바뀌어도(id 변경)
+                     * 같은 말풍선을 유지해 사진이 다시 로드되며 빈 칸이 번쩍이지 않는다.
+                     */
+                    key={messengerTimelineVirtualRowKey(item) || item.id}
                     item={item}
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}

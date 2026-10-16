@@ -17148,15 +17148,25 @@ async function appendCommunityMessengerSystemMessage(input: {
 
 const COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX = 10;
 
+/** 표시 픽셀 크기 — 양의 정수만(상한 100000), 그 외 null. */
+function messengerImagePixelDimension(v: unknown): number | null {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
+}
+
 function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
   if (items.length === 1) {
     const f = items[0]!;
+    const w = messengerImagePixelDimension(f.width);
+    const h = messengerImagePixelDimension(f.height);
     return {
       storagePath: f.originalStoragePath,
       mimeType: f.originalMimeType,
       image_thumb_url: f.chatPublicUrl,
       image_preview_url: f.previewPublicUrl,
       image_original_url: f.originalPublicUrl,
+      // 말풍선 자리를 처음부터 고정(로드 후 커지며 하단이 잘리는 현상 방지) — 둘 다 있을 때만 저장.
+      ...(w != null && h != null ? { image_width: w, image_height: h } : {}),
     };
   }
   return {
@@ -17165,6 +17175,8 @@ function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSe
     image_urls: items.map((i) => i.originalPublicUrl),
     storage_paths: items.map((i) => i.originalStoragePath),
     mime_types: items.map((i) => i.originalMimeType),
+    image_widths: items.map((i) => messengerImagePixelDimension(i.width)),
+    image_heights: items.map((i) => messengerImagePixelDimension(i.height)),
     storagePath: items[0]!.originalStoragePath,
     mimeType: items[0]!.originalMimeType,
   };
@@ -17198,10 +17210,13 @@ function communityMessengerBuiltImageClientMessage(
       imageAlbumOriginalUrls: items.map((i) => i.originalPublicUrl),
     };
   }
+  const w = messengerImagePixelDimension(first.width);
+  const h = messengerImagePixelDimension(first.height);
   return {
     ...base,
     imagePreviewUrl: first.previewPublicUrl,
     imageOriginalUrl: first.originalPublicUrl,
+    ...(w != null && h != null ? { imageWidth: w, imageHeight: h } : {}),
   };
 }
 
@@ -17226,6 +17241,8 @@ export async function sendCommunityMessengerImageMessage(input: {
       originalPublicUrl: trimText(it.originalPublicUrl),
       originalStoragePath: trimText(it.originalStoragePath),
       originalMimeType: trimText(it.originalMimeType) || "image/jpeg",
+      width: messengerImagePixelDimension(it.width),
+      height: messengerImagePixelDimension(it.height),
     }))
     .filter(
       (it) =>

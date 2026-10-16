@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -59,7 +59,16 @@ export function MessengerChatImageBubble(props: {
     );
   }
 
-  return <SingleChatImage src={item.content.trim()} pending={pending} isMine={item.isMine} onOpen={() => openFrom(0)} />;
+  return (
+    <SingleChatImage
+      src={item.content.trim()}
+      width={item.imageWidth ?? null}
+      height={item.imageHeight ?? null}
+      pending={pending}
+      isMine={item.isMine}
+      onOpen={() => openFrom(0)}
+    />
+  );
 }
 
 function AlbumLayout({
@@ -157,11 +166,16 @@ function AlbumLayout({
 
 function SingleChatImage({
   src,
+  width,
+  height,
   pending,
   isMine,
   onOpen,
 }: {
   src: string;
+  /** 서버가 저장한 표시 크기 — 있으면 로드 전부터 말풍선 비율을 고정한다(로드 후 커지며 하단이 잘리지 않게). */
+  width: number | null;
+  height: number | null;
   pending?: boolean;
   isMine: boolean;
   onOpen: () => void;
@@ -172,11 +186,23 @@ function SingleChatImage({
     if (!cmRenderAnalysisEnabled()) return;
     imgDecodeStartRef.current = typeof performance !== "undefined" ? performance.now() : null;
   }, [src]);
-  const [ar, setAr] = useState<number | null>(null);
-  useEffect(() => {
-    setAr((prev) => (prev == null ? prev : null));
-  }, [src]);
+  /** 같은 말풍선의 src 교체(보내는 중 로컬 미리보기 → 서버 사진)는 같은 사진이므로 측정 비율을 유지한다. */
+  const [loadedAr, setLoadedAr] = useState<number | null>(null);
+  const knownAr = width != null && height != null && width > 0 && height > 0 ? width / height : null;
+  const ar = knownAr ?? loadedAr;
   const ratio = ar != null ? clampAspectRatio(ar) : 4 / 5;
+
+  /**
+   * src 가 바뀌면 새 사진이 디코드될 때까지 직전에 그려진 사진을 아래에 깔아 둔다 —
+   * 빈 칸(말풍선 배경색)이 번쩍이지 않게(텔레그램·카톡과 동일하게 끊김 없이 교체).
+   */
+  const lastPaintedSrcRef = useRef<string | null>(null);
+  const [underlaySrc, setUnderlaySrc] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    const painted = lastPaintedSrcRef.current;
+    setUnderlaySrc(painted && painted !== src ? painted : null);
+  }, [src]);
+
   return (
     <div className={BUBBLE_MAX}>
       <button
@@ -190,12 +216,22 @@ function SingleChatImage({
           className="relative max-h-[360px] w-full overflow-hidden"
           style={{ aspectRatio: ratio, contain: "layout" }}
         >
+          {underlaySrc ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={underlaySrc}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full object-cover"
+              decoding="async"
+            />
+          ) : null}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt=""
-            className={`h-full w-full object-cover ${pending ? "scale-105 blur-sm opacity-75" : ""}`}
-            loading="lazy"
+            className={`relative h-full w-full object-cover ${pending ? "scale-105 blur-sm opacity-75" : ""}`}
+            loading={underlaySrc ? "eager" : "lazy"}
             decoding="async"
             onLoad={(e) => {
               const el = e.currentTarget;
@@ -207,9 +243,11 @@ function SingleChatImage({
                 recordCmPolishAttachmentDecodeMs(decodeMs);
                 imgDecodeStartRef.current = null;
               }
+              lastPaintedSrcRef.current = src;
+              setUnderlaySrc(null);
               if (w > 0 && h > 0) {
                 const nextAr = w / h;
-                setAr((prev) => (prev === nextAr ? prev : nextAr));
+                setLoadedAr((prev) => (prev === nextAr ? prev : nextAr));
               }
             }}
           />

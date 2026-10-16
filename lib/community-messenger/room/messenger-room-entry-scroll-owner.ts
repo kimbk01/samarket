@@ -17,6 +17,7 @@ export type CmScrollOwnerReason =
   | "explicit"
   | "viewport_resize_restore"
   | "viewport_resize_keep_bottom"
+  | "content_resize_keep_bottom"
   | "keyboard_resize_keep_bottom"
   | "composer_resize_keep_bottom"
   | "virtualizer_scroll_anchor"
@@ -109,6 +110,7 @@ export function canRunMessengerRoomScrollOwner(
   if (
     reason === "viewport_resize_restore" ||
     reason === "viewport_resize_keep_bottom" ||
+    reason === "content_resize_keep_bottom" ||
     reason === "keyboard_resize_keep_bottom" ||
     reason === "composer_resize_keep_bottom" ||
     reason === "push_entry_tail_settle" ||

@@ -112,6 +112,8 @@ export async function processMessengerImageUploads(input: {
           originalPublicUrl: bucket.getPublicUrl(originalPath).data.publicUrl,
           originalStoragePath: originalPath,
           originalMimeType: variants.originalContentType,
+          width: variants.width ?? null,
+          height: variants.height ?? null,
         });
       } else {
         await uploadBinary(originalPath, variants.original, variants.originalMime);
@@ -122,6 +124,8 @@ export async function processMessengerImageUploads(input: {
           originalPublicUrl: publicUrl,
           originalStoragePath: originalPath,
           originalMimeType: variants.originalMime,
+          width: variants.width ?? null,
+          height: variants.height ?? null,
         });
       }
     } catch (e) {

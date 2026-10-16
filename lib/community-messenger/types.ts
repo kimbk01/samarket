@@ -348,6 +348,9 @@ export type CommunityMessengerMessage = {
   imagePreviewUrl?: string | null;
   /** 단일 이미지: 원본 URL (`metadata.image_original_url`). */
   imageOriginalUrl?: string | null;
+  /** 단일 이미지: 표시 픽셀 크기 (`metadata.image_width`/`image_height`) — 말풍선 비율을 로드 전에 고정. */
+  imageWidth?: number | null;
+  imageHeight?: number | null;
   /** 답장 대상 메시지 id — 서버 `reply_to_message_id` */
   replyToMessageId?: string | null;
   replyPreviewText?: string | null;
@@ -383,6 +386,9 @@ export type CommunityMessengerImageSendItem = {
   originalPublicUrl: string;
   originalStoragePath: string;
   originalMimeType: string;
+  /** 표시 기준 픽셀 크기(서버 sharp 판독). 못 읽으면 null. */
+  width?: number | null;
+  height?: number | null;
 };
 
 export type CommunityMessengerReadReceipt = {

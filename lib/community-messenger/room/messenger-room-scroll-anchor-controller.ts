@@ -103,6 +103,7 @@ function isLayoutPreserveReason(reason: CmScrollOwnerReason): boolean {
   return (
     reason === "viewport_resize_restore" ||
     reason === "viewport_resize_keep_bottom" ||
+    reason === "content_resize_keep_bottom" ||
     reason === "keyboard_resize_keep_bottom" ||
     reason === "composer_resize_keep_bottom" ||
     reason === "virtualizer_scroll_anchor" ||
@@ -689,6 +690,25 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     const roTimeline = new ResizeObserver(onViewportResize);
     roTimeline.observe(el);
 
+    /**
+     * 내용 높이 변화(사진·미리보기 로드 등으로 행이 늦게 커짐) — 스크롤 창 크기는 그대로라 위 observer 로는 못 잡는다.
+     * 하단 고정(stick) 상태일 때만 맨 아래를 다시 맞춘다. 과거 읽는 중(stick=false)이면 손대지 않는다
+     * (뷰포트 위 행의 크기 변화는 virtualizer 가 스크롤을 보정한다).
+     */
+    const onContentResize = () => {
+      if (loadingOlderMessages) return;
+      if (engine.getPhase() !== "settled" || !engine.readStickToBottom()) return;
+      applyLayoutPreserve("content_resize_keep_bottom");
+    };
+    const roContent = new ResizeObserver(onContentResize);
+    const observeContentChildren = () => {
+      for (const child of Array.from(el.children)) roContent.observe(child);
+    };
+    observeContentChildren();
+    const moContent =
+      typeof MutationObserver !== "undefined" ? new MutationObserver(observeContentChildren) : null;
+    moContent?.observe(el, { childList: true });
+
     const onLayoutViewport = () => onViewportResize();
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
@@ -704,6 +724,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
     return () => {
       roTimeline.disconnect();
+      roContent.disconnect();
+      moContent?.disconnect();
       vv?.removeEventListener("resize", onVv);
       vv?.removeEventListener("scroll", onVv);
       window.removeEventListener("resize", onLayoutViewport);

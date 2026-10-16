@@ -174,6 +174,8 @@ const MESSENGER_MESSAGE_SENT_EVENT_KEY = "messenger_message_sent";
 
 /** `viewerUserId` 비어 있을 때만 — 확정 메시지가 오면 교체. 서버 POST 와 무관(세션 auth). */
 const CM_OPTIMISTIC_SENDER_FALLBACK_ID = "__cm_shell_self__";
+/** 전송 완료 후 로컬 미리보기(blob) 해제 지연 — 서버 사진 디코드 전 빈 칸 방지용 바닥 이미지 수명 */
+const MESSENGER_SENT_PREVIEW_RELEASE_DELAY_MS = 60_000;
 
 function optimisticOutboundSender(
   snapshot: { viewerUserId: string },
@@ -1427,7 +1429,11 @@ export function useMessengerRoomPhase2Controller() {
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       }
-      releasePreviews();
+      /**
+       * 말풍선은 서버 사진이 디코드될 때까지 로컬 미리보기를 아래에 깔아 둔다(MessengerChatImageBubble).
+       * 그 동안 blob 이 살아 있어야 하므로 즉시 해제하지 않고 늦춰 해제한다.
+       */
+      setTimeout(releasePreviews, MESSENGER_SENT_PREVIEW_RELEASE_DELAY_MS);
       return true;
     }
     if (outcome.res && redirectIfMessengerAuthBlocked(outcome.res, outcome.json)) {

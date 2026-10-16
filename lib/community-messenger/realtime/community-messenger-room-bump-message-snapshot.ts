@@ -78,6 +78,11 @@ export function serializeCommunityMessengerMessageForBump(
     const u = msg.imageOriginalUrl.trim();
     if (/^https?:\/\//i.test(u) && u.length <= 800) row.imageOriginalUrl = u;
   }
+  const bumpDims = messengerBumpImageDimensions(msg.imageWidth, msg.imageHeight);
+  if (msg.messageType === "image" && bumpDims) {
+    row.imageWidth = bumpDims.w;
+    row.imageHeight = bumpDims.h;
+  }
   return row;
 }
 
@@ -179,5 +184,20 @@ export function parseCommunityMessengerBumpMessageSnapshot(
     const u = m.imageOriginalUrl.trim();
     if (/^https?:\/\//i.test(u)) out.imageOriginalUrl = u.slice(0, 800);
   }
+  const dims = messageType === "image" ? messengerBumpImageDimensions(m.imageWidth, m.imageHeight) : null;
+  if (dims) {
+    out.imageWidth = dims.w;
+    out.imageHeight = dims.h;
+  }
   return out;
+}
+
+/** 단일 이미지 표시 크기 — 양의 정수 쌍(상한 100000)만. */
+function messengerBumpImageDimensions(w: unknown, h: unknown): { w: number; h: number } | null {
+  const wi = Math.floor(Number(w));
+  const hi = Math.floor(Number(h));
+  if (!Number.isFinite(wi) || !Number.isFinite(hi) || wi <= 0 || hi <= 0 || wi > 100_000 || hi > 100_000) {
+    return null;
+  }
+  return { w: wi, h: hi };
 }

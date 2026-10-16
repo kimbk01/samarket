@@ -60,21 +60,40 @@ function parseMessengerImageUrlArray(
   return out;
 }
 
+type MessengerImageSingleClientFields = Partial<
+  Pick<CommunityMessengerMessage, "imagePreviewUrl" | "imageOriginalUrl" | "imageWidth" | "imageHeight">
+>;
+
+/** `metadata.image_width`/`image_height` — 양의 정수 쌍일 때만. */
+function messengerImageDimensionsFromMetadata(
+  metadata: Record<string, unknown>
+): Pick<CommunityMessengerMessage, "imageWidth" | "imageHeight"> | null {
+  const w = Math.floor(Number(metadata.image_width ?? metadata.imageWidth));
+  const h = Math.floor(Number(metadata.image_height ?? metadata.imageHeight));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+  return { imageWidth: w, imageHeight: h };
+}
+
 function messengerImageSingleClientFields(
   metadata: Record<string, unknown>,
   content: string
-): Partial<Pick<CommunityMessengerMessage, "imagePreviewUrl" | "imageOriginalUrl">> {
+): MessengerImageSingleClientFields {
   const pv = t(metadata.image_preview_url ?? metadata.imagePreviewUrl);
   const ov = t(metadata.image_original_url ?? metadata.imageOriginalUrl);
   const pvOk = pv.length > 0 && isHttpOrBlobUrl(pv);
   const ovOk = ov.length > 0 && isHttpOrBlobUrl(ov);
   /** 메타에 유효 단일 URL이 둘 다 있으면 content 폴백 미사용. `content` 는 호출부에서 이미 trim 됨 — `t(content)` 이중 정규화 생략 */
   const c = pvOk && ovOk ? "" : content;
-  const out: Partial<Pick<CommunityMessengerMessage, "imagePreviewUrl" | "imageOriginalUrl">> = {};
+  const out: MessengerImageSingleClientFields = {};
   if (pvOk) out.imagePreviewUrl = pv;
   else if (c) out.imagePreviewUrl = c;
   if (ovOk) out.imageOriginalUrl = ov;
   else if (c) out.imageOriginalUrl = c;
+  const dims = messengerImageDimensionsFromMetadata(metadata);
+  if (dims) {
+    out.imageWidth = dims.imageWidth;
+    out.imageHeight = dims.imageHeight;
+  }
   return out;
 }
 
@@ -89,7 +108,13 @@ export function messengerImageClientFieldsFromMetadata(
 ): Partial<
   Pick<
     CommunityMessengerMessage,
-    "imageAlbumUrls" | "imageAlbumPreviewUrls" | "imageAlbumOriginalUrls" | "imagePreviewUrl" | "imageOriginalUrl"
+    | "imageAlbumUrls"
+    | "imageAlbumPreviewUrls"
+    | "imageAlbumOriginalUrls"
+    | "imagePreviewUrl"
+    | "imageOriginalUrl"
+    | "imageWidth"
+    | "imageHeight"
   >
 > {
   messengerImageMetaDiag.imageMetaCallCount += 1;
