@@ -104,4 +104,8 @@ jobs:
           code=$?
           echo "xcodebuild exit=$code"
           grep -nE "error:|\*\* BUILD (SUCCEEDED|FAILED)" "$RUNNER_TEMP/xcodebuild.log" | head -120
+          echo "---- linker detail ----"
+          grep -nE -B2 -A12 "^ld: |Undefined symbols|ld: warning: ignoring|building for 'iOS-simulator'|linker command failed" "$RUNNER_TEMP/xcodebuild.log" | head -200
+          echo "---- swift compile of App target sources ----"
+          grep -cE "SwiftCompile .*MessengerPhotoLibraryPlugin.swift" "$RUNNER_TEMP/xcodebuild.log" || true
           exit $code
