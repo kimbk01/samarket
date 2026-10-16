@@ -29,10 +29,10 @@ describe("call-log-display-type (통화 기록 viewer SSOT)", () => {
     }
   });
 
-  it("maps viewer-aware display types", () => {
+  it("maps outcome display types (same for caller and callee)", () => {
     expect(computeCallLogDisplayType("cancelled", null, true)).toBe("cancelled");
-    expect(computeCallLogDisplayType("cancelled", null, false)).toBe("missed_incoming");
-    expect(computeCallLogDisplayType("missed", "missed_timeout", true)).toBe("missed_outgoing");
+    expect(computeCallLogDisplayType("cancelled", null, false)).toBe("cancelled");
+    expect(computeCallLogDisplayType("missed", "missed_timeout", true)).toBe("missed_incoming");
     expect(computeCallLogDisplayType("missed", "missed_timeout", false)).toBe("missed_incoming");
     expect(computeCallLogDisplayType("rejected", null, true)).toBe("rejected");
     expect(computeCallLogDisplayType("rejected", null, false)).toBe("rejected");
@@ -43,18 +43,18 @@ describe("call-log-display-type (통화 기록 viewer SSOT)", () => {
     expect(computeCallLogDisplayType("incoming", null, false)).toBe("incoming");
   });
 
-  it("badge keys distinguish 거절함 / 거절됨 and 응답 없음 / 부재중", () => {
+  it("badge keys are outcome-based: 거절 / 부재중 / 취소 identical for both sides", () => {
     const badge = (status: CommunityMessengerCallStatus, isOutgoing: boolean) =>
       resolveCallLogBadgeMessageKey(
         resolveCallLogViewerCanonical({ status, endedReason: null, isOutgoing }),
         isOutgoing
       );
-    expect(badge("rejected", false)).toBe("cm_call_status_rejected_by_me");
+    expect(badge("rejected", false)).toBe("cm_call_status_rejected_by_peer");
     expect(badge("rejected", true)).toBe("cm_call_status_rejected_by_peer");
-    expect(badge("missed", true)).toBe("cm_call_status_no_answer");
+    expect(badge("missed", true)).toBe("cm_call_status_missed");
     expect(badge("missed", false)).toBe("cm_call_status_missed");
     expect(badge("cancelled", true)).toBe("cm_call_status_cancelled");
-    expect(badge("cancelled", false)).toBe("cm_call_status_missed");
+    expect(badge("cancelled", false)).toBe("cm_call_status_cancelled");
     expect(badge("ended", true)).toBe("cm_call_status_outgoing_answered");
     expect(badge("ended", false)).toBe("cm_call_status_incoming_answered");
   });

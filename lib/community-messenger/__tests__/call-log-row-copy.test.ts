@@ -78,7 +78,7 @@ describe("call-log-row-copy", () => {
     expect(cancelled.durationLabel).toBeNull();
   });
 
-  it("normalize recomputes viewer-aware displayType from status (callee of caller-cancel → missed_incoming)", () => {
+  it("normalize recomputes outcome displayType from status (callee of caller-cancel → cancelled, same as caller)", () => {
     const normalized = normalizeCommunityMessengerCallLog({
       id: "3",
       sessionId: null,
@@ -96,10 +96,10 @@ describe("call-log-row-copy", () => {
       endedAt: null,
       isOutgoing: false,
       endedReason: null,
-      displayType: "cancelled",
+      displayType: "missed_incoming",
       peerAvatarUrl: null,
     });
-    expect(normalized.displayType).toBe("missed_incoming");
+    expect(normalized.displayType).toBe("cancelled");
     expect(buildCallHistorySubtitle(normalized).messageKey).toBe("cm_ui_call_log_kind_video");
   });
 

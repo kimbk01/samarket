@@ -19,8 +19,8 @@ import {
 } from "@/lib/community-messenger/chat-list/chat-list-sorter";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
-describe("call-event-presentation viewer phrases", () => {
-  it("caller cancel → 취소됨; callee sees 부재중", () => {
+describe("call-event-presentation outcome phrases (caller = callee)", () => {
+  it("caller cancel → 취소 for both caller and callee", () => {
     const caller = formatCallEventForViewer({
       callKind: "voice",
       resolvedEvent: "cancelled_by_caller",
@@ -31,31 +31,32 @@ describe("call-event-presentation viewer phrases", () => {
       resolvedEvent: "cancelled_by_caller",
       viewerRole: "callee",
     });
-    expect(caller.resultLabel).toBe("취소됨");
-    expect(caller.listPreview).toBe("음성 통화 · 취소됨");
-    expect(callee.resultLabel).toBe("부재중");
-    expect(callee.listPreview).toBe("부재중 음성 통화");
-    expect(callee.isMissed).toBe(true);
+    expect(caller.resultLabel).toBe("취소");
+    expect(caller.listPreview).toBe("음성 통화 · 취소");
+    expect(callee.resultLabel).toBe("취소");
+    expect(callee.listPreview).toBe("음성 통화 · 취소");
+    expect(caller.isMissed).toBe(false);
+    expect(callee.isMissed).toBe(false);
   });
 
-  it("remote reject → caller 거절됨; callee 거절함", () => {
+  it("remote reject → 거절 for both caller and callee", () => {
     expect(
       formatCallEventForViewer({
         callKind: "video",
         resolvedEvent: "rejected_by_callee",
         viewerRole: "caller",
       }).resultLabel
-    ).toBe("거절됨");
+    ).toBe("거절");
     expect(
       formatCallEventForViewer({
         callKind: "video",
         resolvedEvent: "rejected_by_callee",
         viewerRole: "callee",
       }).resultLabel
-    ).toBe("거절함");
+    ).toBe("거절");
   });
 
-  it("missed → callee 부재중; caller 응답 없음", () => {
+  it("missed → 부재중 for both callee and caller", () => {
     expect(
       formatCallEventForViewer({
         callKind: "voice",
@@ -68,8 +69,15 @@ describe("call-event-presentation viewer phrases", () => {
         callKind: "voice",
         resolvedEvent: "missed",
         viewerRole: "caller",
+      }).listPreview
+    ).toBe("부재중 음성 통화");
+    expect(
+      formatCallEventForViewer({
+        callKind: "voice",
+        resolvedEvent: "missed",
+        viewerRole: "caller",
       }).resultLabel
-    ).toBe("응답 없음");
+    ).toBe("부재중");
   });
 
   it("connected_ended shows duration", () => {
@@ -82,7 +90,7 @@ describe("call-event-presentation viewer phrases", () => {
     expect(p.resultLabel).toMatch(/\d/);
   });
 
-  it("busy / unanswered / failed are distinct", () => {
+  it("busy / missed / failed are distinct", () => {
     expect(resolveCallEventCanonical({ resolvedEvent: "peer_busy", viewerRole: "caller" })).toBe(
       "remote_busy"
     );
@@ -99,7 +107,7 @@ describe("call-event-presentation viewer phrases", () => {
         resolvedEvent: "missed",
         viewerRole: "caller",
       }).resultLabel
-    ).toBe("응답 없음");
+    ).toBe("부재중");
     expect(
       buildCallEventPresentation({ callKind: "voice", canonical: "failed" }).resultLabel
     ).toBe("연결 실패");
@@ -107,11 +115,12 @@ describe("call-event-presentation viewer phrases", () => {
 
   it("shared list label does not invent viewer phrases", () => {
     expect(formatCallEventSharedListLabel("voice", "missed")).toBe("부재중 음성 통화");
-    expect(formatCallEventSharedListLabel("video", "cancelled")).toBe("영상 통화 · 취소됨");
+    expect(formatCallEventSharedListLabel("video", "cancelled")).toBe("영상 통화 · 취소");
+    expect(formatCallEventSharedListLabel("video", "rejected")).toBe("영상 통화 · 거절");
     expect(formatCallEventSharedListLabel("voice", "ended", 65)).toMatch(/음성 통화 · /);
   });
 
-  it("getCallMessageText is viewer-aware", () => {
+  it("getCallMessageText gives the same outcome text to caller and callee", () => {
     expect(
       getCallMessageText({
         callKind: "voice",
@@ -119,7 +128,7 @@ describe("call-event-presentation viewer phrases", () => {
         viewerUserId: "caller",
         initiatorUserId: "caller",
       })
-    ).toContain("취소됨");
+    ).toBe("음성 통화 · 취소");
     expect(
       getCallMessageText({
         callKind: "voice",
@@ -127,7 +136,7 @@ describe("call-event-presentation viewer phrases", () => {
         viewerUserId: "callee",
         initiatorUserId: "caller",
       })
-    ).toContain("부재중");
+    ).toBe("음성 통화 · 취소");
   });
 
   it("timeline status line for ended uses duration", () => {

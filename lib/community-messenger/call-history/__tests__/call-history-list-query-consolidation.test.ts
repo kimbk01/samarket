@@ -272,7 +272,7 @@ describe("CUT-2A call history list query consolidation", () => {
     if (!listed.ok) return;
     const logs = listed.calls;
     const byId = Object.fromEntries(logs.map((c) => [c.id, c]));
-    expect(byId["c-missed"]?.displayType).toBe("missed_outgoing");
+    expect(byId["c-missed"]?.displayType).toBe("missed_incoming");
     expect(byId["c-missed"]?.endedReason).toBe("missed_timeout");
     expect(byId["c-rej"]?.displayType).toBe("rejected");
     expect(byId["c-cancel"]?.displayType).toBe("cancelled");

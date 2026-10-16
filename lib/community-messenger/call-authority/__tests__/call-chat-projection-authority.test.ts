@@ -52,8 +52,8 @@ function devState(): DevState {
 describe("call-chat-projection-authority CUT4", () => {
   it("C1–C7 maps canonical → resolved + shared labels", () => {
     const cases = [
-      ["caller_cancelled", "cancelled_by_caller", "cancelled", "음성 통화 · 취소됨"],
-      ["callee_rejected", "rejected_by_callee", "rejected", "음성 통화 · 거절됨"],
+      ["caller_cancelled", "cancelled_by_caller", "cancelled", "음성 통화 · 취소"],
+      ["callee_rejected", "rejected_by_callee", "rejected", "음성 통화 · 거절"],
       ["missed_timeout", "missed", "missed", "부재중 음성 통화"],
       ["ended_by_caller", "ended", "ended", "음성 통화 · 1m 00s"],
       ["ended_by_callee", "ended", "ended", "음성 통화 · 1m 00s"],
@@ -112,7 +112,7 @@ describe("call-chat-projection-authority CUT4", () => {
     expect(formatCallEventSharedListLabel("video", "missed", 0, "missed")).toBe("부재중 영상 통화");
   });
 
-  it("C13–C14 viewer-relative presentation uses initiator metadata not sender", () => {
+  it("C13–C14 terminal outcome label is identical for both sides; role still comes from initiator metadata not sender", () => {
     const meta = buildCallStubProjectionMetadata({
       callKind: "voice",
       callStatus: "rejected",
@@ -134,7 +134,7 @@ describe("call-chat-projection-authority CUT4", () => {
         initiatorUserId: meta.initiatorUserId,
         recipientUserId: meta.recipientUserId,
       }),
-    ).toBe("거절됨");
+    ).toBe("거절");
     expect(
       getCallStubTimelineStatusLine({
         callKind: "voice",
@@ -145,7 +145,30 @@ describe("call-chat-projection-authority CUT4", () => {
         initiatorUserId: meta.initiatorUserId,
         recipientUserId: meta.recipientUserId,
       }),
-    ).toBe("거절함");
+    ).toBe("거절");
+    // in-progress wording is still role-based: sender=callee must not flip caller's role
+    expect(
+      getCallStubTimelineStatusLine({
+        callKind: "voice",
+        resolvedEvent: null,
+        callStatusFallback: "dialing",
+        viewerUserId: "caller",
+        senderUserId: "callee",
+        initiatorUserId: meta.initiatorUserId,
+        recipientUserId: meta.recipientUserId,
+      }),
+    ).toBe("발신 중");
+    expect(
+      getCallStubTimelineStatusLine({
+        callKind: "voice",
+        resolvedEvent: null,
+        callStatusFallback: "dialing",
+        viewerUserId: "callee",
+        senderUserId: "callee",
+        initiatorUserId: meta.initiatorUserId,
+        recipientUserId: meta.recipientUserId,
+      }),
+    ).toBe("수신 중");
   });
 
   it("C15 room binding stays on session room — idempotency key is session scoped", () => {

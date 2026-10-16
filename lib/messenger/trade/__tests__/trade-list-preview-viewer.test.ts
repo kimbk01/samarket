@@ -59,8 +59,8 @@ function vmFor(viewer: string, room: TradeRoomInput) {
   return { vm: buildTradeListViewModel(rows[0]!), hub: buildTradeHubViewModel(rows) };
 }
 
-describe("B-3 trade row-model preview — viewer-aware + real message type", () => {
-  it("call_stub token resolves per viewer (caller vs callee), never raw token; hub matches row", () => {
+describe("B-3 trade row-model preview — viewer-resolved + real message type", () => {
+  it("call_stub token resolves to the same outcome label for caller and callee, never raw token; hub matches row", () => {
     const room = tradeRoom({ lastMessage: CALL_TOKEN, lastMessageType: "call_stub", lastMessageIsSystem: true });
     const seller = vmFor(SELLER, room);
     const buyer = vmFor(BUYER, room);
@@ -72,7 +72,8 @@ describe("B-3 trade row-model preview — viewer-aware + real message type", () 
     expect(buyer.vm.previewText).toBe(
       formatCmListPreviewTextForViewer({ lastMessage: CALL_TOKEN, lastMessageType: "call_stub" }, BUYER)
     );
-    expect(seller.vm.previewText).not.toBe(buyer.vm.previewText);
+    expect(seller.vm.previewText).toBe("음성 통화 · 취소");
+    expect(buyer.vm.previewText).toBe(seller.vm.previewText);
     expect(seller.vm.previewIsSystemEvent).toBe(true);
     expect(seller.hub.previewText).toBe(seller.vm.previewText);
   });

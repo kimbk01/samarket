@@ -30,23 +30,23 @@ function tipFor(meta: Record<string, unknown>, label: string) {
   return callStubRoomTipFromMessage({ content: label, metadata: meta });
 }
 
-describe("call stub room tip — 발신자·수신자별 리스트 문구 (F5)", () => {
-  it("발신 취소: 발신자 '취소됨' / 수신자 '부재중'", () => {
+describe("call stub room tip — 결과 기준 리스트 문구, 발신자·수신자 동일 (F5)", () => {
+  it("발신 취소: 발신자·수신자 모두 '취소' (레거시 '취소됨' 원문도 재계산)", () => {
     const tip = tipFor(cancelledMeta, "음성 통화 · 취소됨");
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 취소됨");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("부재중 음성 통화");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 취소");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("음성 통화 · 취소");
   });
-  it("거절: 발신자 '거절됨' / 수신자 '거절함'", () => {
+  it("거절: 발신자·수신자 모두 '거절' (레거시 '거절됨' 원문도 재계산)", () => {
     const tip = tipFor(
       { ...cancelledMeta, callStatus: "rejected", callResolvedEvent: "rejected_by_callee" },
       "음성 통화 · 거절됨"
     );
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 거절됨");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("음성 통화 · 거절함");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 거절");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("음성 통화 · 거절");
   });
-  it("무응답: 발신자 '응답 없음' / 수신자 '부재중'", () => {
+  it("무응답: 발신자·수신자 모두 '부재중'", () => {
     const tip = tipFor({ ...cancelledMeta, callStatus: "missed", callResolvedEvent: "missed" }, "부재중 음성 통화");
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 응답 없음");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("부재중 음성 통화");
     expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("부재중 음성 통화");
   });
   it("연결 후 종료: 양쪽 통화 시간, 0초면 '통화 종료'(시간 미표시)", () => {
@@ -107,8 +107,8 @@ describe("call stub room tip — 발신자·수신자별 리스트 문구 (F5)",
       lastMessageType: "call_stub",
       lastMessageAt: "2026-10-15T06:29:50.715Z",
     } as CommunityMessengerRoomSummary;
-    expect(getRoomPreviewText(room, CALLEE)).toContain("부재중");
-    expect(getRoomPreviewText(room, CALLER)).toContain("취소됨");
+    expect(getRoomPreviewText(room, CALLEE)).toBe("음성 통화 · 취소");
+    expect(getRoomPreviewText(room, CALLER)).toBe("음성 통화 · 취소");
     expect(getRoomPreviewText(room, CALLER)).not.toContain("cmcall1");
   });
 });

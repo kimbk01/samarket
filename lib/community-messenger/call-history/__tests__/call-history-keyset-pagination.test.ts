@@ -334,7 +334,7 @@ describe("CUT-2B call history keyset pagination", () => {
     expect(ok?.peerUserId).toBe(CALLEE);
     expect(ok?.roomId).toBe(ROOM);
     expect(ok?.displayType).toBe("outgoing");
-    expect(listed.calls.find((c) => c.id === "mix-missed")?.displayType).toBe("missed_outgoing");
+    expect(listed.calls.find((c) => c.id === "mix-missed")?.displayType).toBe("missed_incoming");
     expect(listed.calls.find((c) => c.id === "mix-rej")?.displayType).toBe("rejected");
     expect(listed.calls.find((c) => c.id === "mix-cancel")?.displayType).toBe("cancelled");
   });

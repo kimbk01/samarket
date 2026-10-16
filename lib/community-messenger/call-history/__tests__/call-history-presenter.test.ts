@@ -69,28 +69,28 @@ describe("call-history-presenter", () => {
     expect(incoming.badgeLabelKey).toBe("cm_call_status_incoming_answered");
   });
 
-  it("caller cancel: caller sees 취소됨, callee sees 부재중 (viewer-aware, timeline 과 동일)", () => {
+  it("caller cancel: caller and callee both see 취소 (outcome-based, timeline 과 동일)", () => {
     const caller = presentCallHistoryRow(baseCall({ status: "cancelled", isOutgoing: true }));
     expect(caller.displayType).toBe("cancelled");
     expect(caller.badgeLabelKey).toBe("cm_call_status_cancelled");
     expect(caller.isMissed).toBe(false);
 
-    /** 구 캐시 payload 의 viewer 비인지 displayType("cancelled") 도 교정 */
+    /** 구 캐시 payload 의 viewer 기준 displayType("missed_incoming") 도 결과 기준으로 교정 */
     const callee = presentCallHistoryRow(
-      baseCall({ status: "cancelled", isOutgoing: false, displayType: "cancelled" })
+      baseCall({ status: "cancelled", isOutgoing: false, displayType: "missed_incoming" })
     );
-    expect(callee.displayType).toBe("missed_incoming");
-    expect(callee.badgeLabelKey).toBe("cm_call_status_missed");
-    expect(callee.isMissed).toBe(true);
-    expect(callee.avatarOverlayKind).toBe("missed");
+    expect(callee.displayType).toBe("cancelled");
+    expect(callee.badgeLabelKey).toBe("cm_call_status_cancelled");
+    expect(callee.isMissed).toBe(false);
+    expect(callee.avatarOverlayKind).toBeNull();
   });
 
-  it("missed: caller sees 응답 없음 (not missed), callee sees 부재중", () => {
+  it("missed: caller and callee both see 부재중", () => {
     const caller = presentCallHistoryRow(baseCall({ status: "missed", isOutgoing: true }));
-    expect(caller.displayType).toBe("missed_outgoing");
-    expect(caller.badgeLabelKey).toBe("cm_call_status_no_answer");
-    expect(caller.isMissed).toBe(false);
-    expect(caller.avatarOverlayKind).toBe("outgoing");
+    expect(caller.displayType).toBe("missed_incoming");
+    expect(caller.badgeLabelKey).toBe("cm_call_status_missed");
+    expect(caller.isMissed).toBe(true);
+    expect(caller.avatarOverlayKind).toBe("missed");
 
     const callee = presentCallHistoryRow(baseCall({ status: "missed", isOutgoing: false }));
     expect(callee.displayType).toBe("missed_incoming");
@@ -98,10 +98,10 @@ describe("call-history-presenter", () => {
     expect(callee.isMissed).toBe(true);
   });
 
-  it("rejected: callee sees 거절함, caller sees 거절됨", () => {
+  it("rejected: callee and caller both see 거절", () => {
     const callee = presentCallHistoryRow(baseCall({ status: "rejected", isOutgoing: false }));
     expect(callee.displayType).toBe("rejected");
-    expect(callee.badgeLabelKey).toBe("cm_call_status_rejected_by_me");
+    expect(callee.badgeLabelKey).toBe("cm_call_status_rejected_by_peer");
     const caller = presentCallHistoryRow(baseCall({ status: "rejected", isOutgoing: true }));
     expect(caller.displayType).toBe("rejected");
     expect(caller.badgeLabelKey).toBe("cm_call_status_rejected_by_peer");
