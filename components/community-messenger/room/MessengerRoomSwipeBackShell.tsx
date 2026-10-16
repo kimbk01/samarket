@@ -23,6 +23,12 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
+  dismissMessengerRoomEntrySnapshot,
+  hasMessengerRoomEntrySnapshot,
+  revealMessengerRoomEntrySnapshot,
+  runMessengerRoomExitWithSnapshot,
+} from "@/lib/community-messenger/room/messenger-page-snapshot-transition";
+import {
   MESSENGER_LIST_ROOM_ENTER_EASING,
   MESSENGER_LIST_ROOM_ENTER_MS,
   MESSENGER_LIST_ROOM_EXIT_EASING,
@@ -33,6 +39,8 @@ const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
 const THRESHOLD_RATIO = 0.3;
 const MIN_COMMIT_PX = 56;
+/** `.messenger-enter` 시작 위치(translate 90%) — 목록 복사본 잘라 내기 시작점과 일치해야 한다 */
+const MESSENGER_ROOM_ENTER_START_OFFSET_RATIO = 0.9;
 
 /**
  * PAGE_HIERARCHY: mount enter RIGHT→LEFT; swipe/UI back snap-away LEFT→RIGHT.
@@ -115,6 +123,11 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
    * useLayoutEffect: 첫 커밋(idle = 제자리)이 화면에 그려지기 전에 "enter"(화면 밖)로 바꾼다.
    * passive useEffect 였을 때는 방이 제자리에 한 프레임 보였다가 화면 밖으로 튄 뒤 들어오는 깜빡임이 있었다.
    */
+  /** 진입 애니메이션 없이 열리는 경우(분할 화면·축소 모션) — 목록 복사본 즉시 제거 */
+  useLayoutEffect(() => {
+    if (splitPaneMode || reducedMotion) dismissMessengerRoomEntrySnapshot();
+  }, [splitPaneMode, reducedMotion]);
+
   useLayoutEffect(() => {
     if (splitPaneMode || reducedMotion) return;
     if (enterStartedRef.current) return;
@@ -131,6 +144,20 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       window.cancelAnimationFrame(raf2);
     };
   }, [splitPaneMode, reducedMotion]);
+
+  /**
+   * 방이 들어오기 시작하는 커밋(그리기 전)에 목록 복사본을 같은 시간·곡선으로 잘라 낸다 —
+   * 방이 목록 위로 밀고 들어오는 모습(흰 화면 없음). 복사본이 없으면(알림 진입 등) 아무것도 안 함.
+   */
+  useLayoutEffect(() => {
+    if (phase !== "enter-active") return;
+    if (!hasMessengerRoomEntrySnapshot()) return;
+    revealMessengerRoomEntrySnapshot({
+      durationMs: MESSENGER_LIST_ROOM_ENTER_MS,
+      easing: MESSENGER_LIST_ROOM_ENTER_EASING,
+      startOffsetRatio: MESSENGER_ROOM_ENTER_START_OFFSET_RATIO,
+    });
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "enter-active") return;
@@ -176,19 +203,59 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     );
   }, [router, backPlan, roomType, roomId, splitPaneMode]);
 
+  /**
+   * 방 화면 복사본을 고정한 채 즉시 목록으로 이동하고, 목록이 그려지면 복사본을 오른쪽으로 밀어낸다
+   * (방이 빠지는 동안 뒤에 흰 화면 대신 목록). 복사본을 못 만들면 false → 기존 snap-away.
+   */
+  const exitWithSnapshot = useCallback((): boolean => {
+    if (reducedMotion || splitPaneMode) return false;
+    if (committedNavRef.current) return true;
+    return runMessengerRoomExitWithSnapshot({
+      navigate: commitNavigation,
+      durationMs: MESSENGER_LIST_ROOM_EXIT_MS,
+      easing: MESSENGER_LIST_ROOM_EXIT_EASING,
+    });
+  }, [commitNavigation, reducedMotion, splitPaneMode]);
+
+  /**
+   * 안드로이드 뒤로가기·history.back — popstate 시점에는 아직 방 화면이 그려져 있으므로 복사본을 고정하고
+   * 목록이 그려지면 오른쪽으로 밀어낸다. 방 안 시트 닫기(같은 방 URL 유지)는 대상 아님.
+   */
+  useEffect(() => {
+    if (reducedMotion || splitPaneMode) return;
+    const rid = roomId?.trim();
+    if (!rid) return;
+    const onPopState = () => {
+      if (committedNavRef.current || pendingNavRef.current) return;
+      const path = window.location.pathname;
+      if (path.includes(`/community-messenger/rooms/${encodeURIComponent(rid)}`) || path.includes(`/community-messenger/rooms/${rid}`)) {
+        return;
+      }
+      committedNavRef.current = true;
+      runMessengerRoomExitWithSnapshot({
+        navigate: () => {},
+        durationMs: MESSENGER_LIST_ROOM_EXIT_MS,
+        easing: MESSENGER_LIST_ROOM_EXIT_EASING,
+      });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [reducedMotion, roomId, splitPaneMode]);
+
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;
     if (reducedMotion || splitPaneMode) {
       commitNavigation();
       return;
     }
+    if (exitWithSnapshot()) return;
     markCommunityMessengerHomeReturn({ roomId });
     /** Same LEFT→RIGHT path as edge swipe — ONE return presentation owner. */
     pendingNavRef.current = true;
     const w = widthRef.current || (typeof window !== "undefined" ? window.innerWidth : 400);
     setPhase("snap-away");
     setDragPx(w);
-  }, [commitNavigation, roomId, reducedMotion, splitPaneMode]);
+  }, [commitNavigation, exitWithSnapshot, roomId, reducedMotion, splitPaneMode]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -256,6 +323,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     const x = dragPxRef.current;
     const threshold = Math.max(MIN_COMMIT_PX, w * THRESHOLD_RATIO);
     if (x >= threshold) {
+      if (exitWithSnapshot()) return;
       pendingNavRef.current = true;
       setPhase("snap-away");
       setDragPx(w);
@@ -263,7 +331,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       setPhase("snap-back");
       setDragPx(0);
     }
-  }, []);
+  }, [exitWithSnapshot]);
 
   const onEdgePointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {

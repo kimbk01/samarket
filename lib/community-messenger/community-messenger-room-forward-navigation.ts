@@ -32,6 +32,11 @@ import { noteR2M11DRouterPrefetchCalled } from "@/lib/community-messenger/room/c
 import { beginRoomDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
+import {
+  beginMessengerRoomEntrySnapshot,
+  dismissMessengerRoomEntrySnapshot,
+} from "@/lib/community-messenger/room/messenger-page-snapshot-transition";
+import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
 import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { isRoomEntryInFlight, markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 
@@ -113,8 +118,15 @@ export async function runCommunityMessengerRoomForwardNavigation(
         }
       : undefined
   );
+  /**
+   * 모바일: 이동 직전 현재 화면(목록) 복사본을 고정 — 라우트가 바뀌는 동안 흰 화면 대신 목록이 보이고,
+   * 방이 마운트되면 방이 그 위로 밀고 들어온다(`MessengerRoomSwipeBackShell`). 분할 화면은 대상 아님.
+   */
+  const entrySnapshot = !matchesMessengerSplitViewport();
+  if (entrySnapshot) beginMessengerRoomEntrySnapshot();
   runMessengerViewTransition(() => {
-    guardedClientNavigate(args.router.push.bind(args.router), dest, "room_forward");
+    const allowed = guardedClientNavigate(args.router.push.bind(args.router), dest, "room_forward");
+    if (!allowed && entrySnapshot) dismissMessengerRoomEntrySnapshot();
   }, "room-forward");
   noteR2M10RouterPushDone(id);
 
