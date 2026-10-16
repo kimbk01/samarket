@@ -64,7 +64,10 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const { open, busy, roomUnavailable, snapshot, onClose } = props;
   const { item, anchorRect } = open;
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight?: number }>({
+    top: anchorRect.top,
+    left: anchorRect.left,
+  });
   const [shareExpanded, setShareExpanded] = useState(false);
   /**
    * 사진 저장 — 메뉴 구성은 `buildMessengerPhotoSaveMenu` 단일 정의.
@@ -166,14 +169,26 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
     if (!el) return;
     const layout = () => {
       const vw = typeof window !== "undefined" ? window.innerWidth : 400;
-      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-      const pw = el.offsetWidth || 260;
-      const ph = el.offsetHeight || 200;
+      /** 실제 보이는 높이(키보드·시스템 바 제외) + 상·하단 safe-area — 메뉴가 하단 내비 뒤로 잘리지 않게. */
+      const vh =
+        typeof window !== "undefined" ? (window.visualViewport?.height ?? window.innerHeight) : 800;
+      const readSafe = (name: string): number => {
+        if (typeof document === "undefined") return 0;
+        const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+        return Number.isFinite(v) && v > 0 ? v : 0;
+      };
       const margin = 8;
+      const topLimit = readSafe("--safe-top") + margin;
+      const bottomLimit = vh - readSafe("--safe-bottom") - margin;
+      const available = Math.max(160, bottomLimit - topLimit);
+      const pw = el.offsetWidth || 260;
+      /** 메뉴 전체 높이(scrollHeight) — 화면보다 길면 available 로 줄이고 내부 스크롤. */
+      const ph = Math.min(el.scrollHeight || el.offsetHeight || 200, available);
       let top = anchorRect.top - ph - margin;
-      if (top < margin) {
-        top = Math.min(anchorRect.bottom + margin, vh - ph - margin);
+      if (top < topLimit) {
+        top = Math.min(anchorRect.bottom + margin, bottomLimit - ph);
       }
+      top = Math.max(topLimit, Math.min(top, bottomLimit - ph));
       let left: number;
       if (item.isMine) {
         left = anchorRect.right - pw - margin;
@@ -181,7 +196,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
         left = anchorRect.left;
       }
       left = Math.max(margin, Math.min(left, vw - pw - margin));
-      setPos({ top, left });
+      setPos({ top, left, maxHeight: available });
     };
     layout();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => layout()) : null;
@@ -300,8 +315,8 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       />
       <div
         ref={panelRef}
-        className="absolute z-[221] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
-        style={{ top: pos.top, left: pos.left }}
+        className="absolute z-[221] w-[min(92vw,280px)] overflow-y-auto overscroll-contain rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        style={{ top: pos.top, left: pos.left, ...(pos.maxHeight ? { maxHeight: pos.maxHeight } : {}) }}
         role="dialog"
         aria-modal="true"
         onPointerDown={(e) => e.stopPropagation()}
