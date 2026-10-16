@@ -53,7 +53,7 @@ type Body = {
  *  detect   {url}                                   → type, real boards, per-board sample (nothing saved)
  *  probe    {baseUrl, engine, adapterConfig, engineKey, articleIndex?} → board list + one full article (nothing saved)
  *  register {url, sourceId?, displayName?, contentPolicy?, selectedBoardIds?} → re-detect server-side + save
- *  update   {sourceId, patch}                       → name / enabled / content policy / adapter config
+ *  update   {sourceId, patch}                       → name / enabled / content policy / rights / adapter config
  *  board    {sourceId, boardId, patch}              → enabled / collectEnabled / defaultTopicId / kind / name
  *  verify   {sourceId}                              → re-sample stored boards, store verdicts
  *  rescan   {sourceId}                              → re-discover boards from the site (adds new ones)
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     const sourceId = String(b.sourceId || "").trim();
     if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
     if (action === "update") {
-      return jsonOk({ source: await updateSource(sb, sourceId, b.patch || {}) });
+      return jsonOk({ source: await updateSource(sb, sourceId, b.patch || {}, auth.userId) });
     }
     if (action === "addBoard") {
       return jsonOk({ board: await addCustomBoard(sb, sourceId, { displayName: String(b.displayName || ""), engineKey: String(b.engineKey || "") }) });

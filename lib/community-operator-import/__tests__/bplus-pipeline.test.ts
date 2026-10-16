@@ -15,6 +15,10 @@ import { dueBoards, isBoardDue } from "@/lib/community-operator-import/scheduler
 import type { ManagedBoard, ManagedSource } from "@/lib/community-operator-import/source-store";
 import type { OperatorContentBlock, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { combineBoardVerdicts } from "@/lib/community-operator-import/verify";
+import type { SourceRights } from "@/lib/community-operator-import/rights";
+
+/** Full-content tests need recorded rights (unverified sources are capped to summary + link). */
+const PERMITTED: SourceRights = { rightsBasis: "permission", attributionRequired: true };
 
 function article(blocks: OperatorContentBlock[], extra: Partial<OperatorNormalizedArticle> = {}): OperatorNormalizedArticle {
   return {
@@ -158,30 +162,39 @@ describe("content policy", () => {
   const a = article(blocks, { summary: null });
   const edit = { ...defaultOperatorDraftEdit(a), topicId: "t", topicSlug: "news" };
 
-  it("policy can only narrow", () => {
-    expect(effectivePolicy("summary_link", "full")).toBe("summary_link");
+  it("source policy is the default; the operator's explicit choice wins", () => {
+    expect(effectivePolicy("summary_link", "full")).toBe("full");
     expect(effectivePolicy("full", "link_only")).toBe("link_only");
     expect(effectivePolicy("summary_link", null)).toBe("summary_link");
+    expect(effectivePolicy("full", "bogus" as never)).toBe("full");
   });
 
-  it("summary_link publishes thumbnail + lead only; the source is credited by attribution columns", () => {
+  it("summary_link publishes thumbnail + lead, then the source as the last line", () => {
     const c = buildPublishContent({ article: a, edit, sourcePolicy: "summary_link", sourceName: "출처", rules: [] });
     expect(c.policy).toBe("summary_link");
     expect(c.imageUrls).toEqual(["https://e.com/1.jpg"]);
-    expect(c.blocks.map((b) => b.type)).toEqual(["image", "paragraph"]);
+    expect(c.blocks.map((b) => b.type)).toEqual(["image", "paragraph", "paragraph"]);
+    expect(c.blocks.at(-1)).toEqual({ type: "paragraph", text: `출처: 출처 ${a.canonicalUrl}` });
     expect(c.blocks[1]).toMatchObject({ type: "paragraph", text: "첫 문장입니다. 둘째 문장입니다." });
     expect(c.attributionUrl).toBe(a.canonicalUrl);
     expect(c.attributionName).toBe("출처");
   });
 
-  it("full keeps all images and never appends an inline source link", () => {
-    const c = buildPublishContent({ article: a, edit, sourcePolicy: "full", sourceName: "출처", rules: [] });
+  it("full keeps all images and ends the body with the source line (plain + structured)", () => {
+    const c = buildPublishContent({ article: a, edit, sourcePolicy: "full", sourceName: "출처", rules: [], rights: PERMITTED });
     expect(c.imageUrls).toHaveLength(2);
     expect(c.blocks.every((b) => b.type === "paragraph" || b.type === "image")).toBe(true);
+    expect(c.blocks.at(-1)).toEqual({ type: "paragraph", text: `출처: 출처 ${a.canonicalUrl}` });
+    expect(c.richBlocks?.at(-1)).toEqual({ t: "link", href: a.canonicalUrl, text: "출처: 출처" });
+  });
+
+  it("no source line when the 출처 is hidden (rights without attribution duty)", () => {
+    const c = buildPublishContent({ article: a, edit: { ...edit, showAttribution: false }, sourcePolicy: "full", sourceName: "출처", rules: [], rights: { rightsBasis: "own", attributionRequired: false } });
+    expect(c.blocks.some((b) => b.type === "paragraph" && b.text.startsWith("출처:"))).toBe(false);
   });
 
   it("link_only has no images and one plain line", () => {
-    const c = buildPublishContent({ article: a, edit: { ...edit, contentPolicy: "link_only" }, sourcePolicy: "full", sourceName: "출처", rules: [] });
+    const c = buildPublishContent({ article: a, edit: { ...edit, contentPolicy: "link_only" }, sourcePolicy: "full", sourceName: "출처", rules: [], rights: PERMITTED });
     expect(c.imageUrls).toEqual([]);
     expect(c.blocks).toHaveLength(1);
     expect(c.blocks[0]!.type).toBe("paragraph");
@@ -198,9 +211,9 @@ describe("content policy", () => {
       ],
       { summary: null },
     );
-    const c = buildPublishContent({ article: rich, edit: { ...defaultOperatorDraftEdit(rich), contentPolicy: "full" }, sourcePolicy: "full", sourceName: "S", rules: [] });
+    const c = buildPublishContent({ article: rich, edit: { ...defaultOperatorDraftEdit(rich), contentPolicy: "full" }, sourcePolicy: "full", sourceName: "S", rules: [], rights: PERMITTED });
     const md = blocksToCommunityMarkdown(c.blocks);
-    expect(md).toBe("소제목\n\n인용문\n\n• 하나\n• 둘\n\n▶ YouTube 영상 보기 https://youtu.be/x\n\n![](https://e.com/1.jpg)");
+    expect(md).toBe(`소제목\n\n인용문\n\n• 하나\n• 둘\n\n▶ YouTube 영상 보기 https://youtu.be/x\n\n![](https://e.com/1.jpg)\n\n출처: S ${rich.canonicalUrl}`);
     // images are the only markup the community body supports; nothing else may remain
     expect(md.replace(/!\[[^\]]*\]\([^)]*\)/g, "")).not.toMatch(/^#|^>|\]\(https?:/m);
   });
@@ -209,7 +222,7 @@ describe("content policy", () => {
     const withItemSummary = article(blocks, { summary: "피드가 준 요약" });
     expect(buildPublishContent({ article: withItemSummary, edit, sourcePolicy: "summary_link", sourceName: "S", rules: [] }).blocks[1]).toMatchObject({ text: "피드가 준 요약" });
     const noText = article([{ type: "image", url: "https://e.com/1.jpg", displaySrc: null, alt: null, caption: null }], { summary: null, title: "제목만" });
-    expect(buildPublishContent({ article: noText, edit: defaultOperatorDraftEdit(noText), sourcePolicy: "summary_link", sourceName: "S", rules: [] }).blocks.at(-1)).toMatchObject({ text: "제목만" });
+    expect(buildPublishContent({ article: noText, edit: defaultOperatorDraftEdit(noText), sourcePolicy: "summary_link", sourceName: "S", rules: [] }).blocks.at(-2)).toMatchObject({ text: "제목만" });
   });
 
   it("lead summary cuts on a sentence boundary without inventing text", () => {
@@ -257,6 +270,7 @@ describe("rules", () => {
       sourcePolicy: "full",
       sourceName: "S",
       rules: [rule({ findText: "광고문구 ", replaceText: "" })],
+      rights: PERMITTED,
     });
     expect(c.blocks[0]).toMatchObject({ type: "paragraph", text: "본문" });
   });

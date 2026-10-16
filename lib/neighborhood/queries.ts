@@ -29,7 +29,7 @@ import {
   isSameCommunityImportPrincipal,
   loadCommunityImportPrincipalUserId,
 } from "@/lib/community/community-import-principal";
-import { loadPublicSourceAttributionFromPost } from "@/lib/community/public-source-attribution";
+import { loadPostAttributionAndBlocks } from "@/lib/community/public-source-attribution";
 import {
   communityFeedKeysetOrFilter,
   communityPostPublicPublishedAt,
@@ -1005,18 +1005,19 @@ export async function getNeighborhoodPostDetail(
   // Feed/Detail identity is community_posts.id — align with like/comment eligibility.
 
   const uid = String(row.user_id ?? "");
-  const [blocked, profileMap, topics, meetLink, locationCityById, sourceAttribution, importPrincipalId] =
+  const [blocked, profileMap, topics, meetLink, locationCityById, postExtras, importPrincipalId] =
     await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
     fetchMeetingLinkByPostId(sb, postId),
     loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
-    // Explicit attribution policy columns on community_posts — NOT origin_kind.
-    loadPublicSourceAttributionFromPost(sb, postId),
+    // Explicit attribution policy columns on community_posts — NOT origin_kind (+ imported structured body, same read).
+    loadPostAttributionAndBlocks(sb, postId),
     loadCommunityImportPrincipalUserId(sb),
   ]);
   if (v && blocked.has(uid)) return null;
+  const sourceAttribution = postExtras.attribution;
 
   const locationId = String(row.location_id ?? "").trim();
   const locationLabel = formatCommunityPublicRegionLabel({
@@ -1107,6 +1108,7 @@ export async function getNeighborhoodPostDetail(
             sourcePublishedAt: String(row.display_date),
           }
         : null,
+    content_blocks: postExtras.contentBlocks,
     meeting_id: meetLink?.id ?? null,
     community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
     meeting_date:

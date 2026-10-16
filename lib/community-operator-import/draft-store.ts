@@ -145,6 +145,8 @@ export function carryEditToArticle(
     topicSlug: prevEdit.topicSlug,
     summaryText: prevEdit.summaryText,
     contentPolicy: prevEdit.contentPolicy,
+    showAttribution: prevEdit.showAttribution,
+    dateMode: prevEdit.dateMode,
     replaceFrom: prevEdit.replaceFrom,
     replaceTo: prevEdit.replaceTo,
   };

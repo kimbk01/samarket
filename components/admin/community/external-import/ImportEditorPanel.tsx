@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { allowsFullContent, allowsHiddenAttribution, RIGHTS_LABEL } from "@/lib/community-operator-import/rights";
 import type { OperatorContentBlock, OperatorDraftEdit } from "@/lib/community-operator-import/types";
 import { VerdictBadge } from "./ImportSourcesPanel";
 import { call, type ContentPolicy, type DetailPayload, fmtDate, type InboxRow, POLICY_LABEL, type PublishContent, STATUS_LABEL, type TopicOption } from "./api";
@@ -13,8 +14,33 @@ export function Blocks({ blocks }: { blocks: OperatorContentBlock[] }) {
       {blocks.map((b, i) => {
         if (b.type === "image")
           return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={b.displaySrc || b.url} alt={b.alt || ""} referrerPolicy="no-referrer" loading="lazy" className="block max-h-72 w-auto max-w-full rounded-ui-rect border border-sam-border bg-sam-app" />
+            <figure key={i}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={b.displaySrc || b.url} alt={b.alt || ""} referrerPolicy="no-referrer" loading="lazy" className="block max-h-72 w-auto max-w-full rounded-ui-rect border border-sam-border bg-sam-app" />
+              {b.caption ? <figcaption className="text-[11px] text-sam-muted">{b.caption}</figcaption> : null}
+            </figure>
+          );
+        if (b.type === "table")
+          return (
+            <table key={i} className="w-full border-collapse text-xs">
+              <tbody>
+                {b.rows.map((r, ri) => (
+                  <tr key={ri} className="border-b border-sam-border">
+                    {r.map((c, ci) =>
+                      ri === 0 && b.header ? (
+                        <th key={ci} className="px-1.5 py-1 text-left font-semibold">
+                          {c}
+                        </th>
+                      ) : (
+                        <td key={ci} className="px-1.5 py-1">
+                          {c}
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           );
         if (b.type === "heading") return <p key={i} className="font-semibold">{b.text}</p>;
         if (b.type === "quote") return <blockquote key={i} className="border-l-2 border-sam-border pl-2 text-sam-muted">{b.text}</blockquote>;
@@ -283,8 +309,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                   onChange={(e) => set({ contentPolicy: e.target.value as ContentPolicy })}
                 >
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
-                    <option key={p} value={p} disabled={p === "full" && data.source.contentPolicy !== "full"}>
+                    <option key={p} value={p} disabled={p === "full" && !allowsFullContent(data.source.rights)}>
                       {POLICY_LABEL[p]}
+                      {p === data.source.contentPolicy ? " · 출처 기본값" : ""}
                     </option>
                   ))}
                 </select>
@@ -295,8 +322,31 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </label>
               <label className="block text-xs text-sam-muted">
                 표시 날짜
-                <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayDate} onChange={(e) => set({ displayDate: e.target.value })} />
+                <input
+                  className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5 disabled:opacity-50"
+                  value={edit.displayDate}
+                  disabled={edit.dateMode === "publish"}
+                  onChange={(e) => set({ displayDate: e.target.value })}
+                />
               </label>
+              <label className="flex items-center gap-1.5 text-xs text-sam-muted">
+                <input type="checkbox" checked={edit.dateMode === "publish"} onChange={(e) => set({ dateMode: e.target.checked ? "publish" : "original" })} />
+                원문 날짜 대신 DIBAY 게시 시각 표시
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-sam-muted">
+                <input
+                  type="checkbox"
+                  checked={edit.showAttribution !== false || !allowsHiddenAttribution(data.source.rights)}
+                  disabled={!allowsHiddenAttribution(data.source.rights)}
+                  onChange={(e) => set({ showAttribution: e.target.checked })}
+                />
+                출처(사이트 이름·원문 링크) 표시
+                {!allowsHiddenAttribution(data.source.rights) ? " — 이 출처는 표시 의무" : ""}
+              </label>
+              <p className="col-span-2 text-[11px] text-sam-muted">
+                재게시 권한: {RIGHTS_LABEL[data.source.rights.rightsBasis]}
+                {data.preview.cappedByRights ? " · 권한이 없어 요약+링크로 게시됩니다" : ""}
+              </p>
             </div>
             {policy === "summary_link" ? (
               <label className="block text-xs text-sam-muted">

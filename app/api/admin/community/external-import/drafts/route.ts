@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       article,
       edit,
       sourcePolicy: source.contentPolicy,
+      rights: source.rights,
       sourceName: source.displayName,
       rules: rulesFor(rules, article.sourceSite, article.sourceBoard),
     });

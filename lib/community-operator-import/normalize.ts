@@ -10,6 +10,7 @@
  * No site-specific selectors live here. Site/skin differences are adapter config.
  */
 import * as cheerio from "cheerio";
+import { fullSizePlatformImage, PLATFORM_BODY_SELECTORS } from "./platforms";
 import type { OperatorContentBlock } from "./types";
 
 type CheerioAPI = ReturnType<typeof cheerio.load>;
@@ -103,7 +104,7 @@ export function imageUrlOf($img: CheerioSel, base: string): string | null {
 
 /** Gnuboard / generic "thumb-xxx_400x300.jpg" → original file when the pattern is unambiguous. */
 export function unthumbnailUrl(url: string): string {
-  return url.replace(/\/thumb-([^/]+?)_\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, "/$1$2");
+  return fullSizePlatformImage(url.replace(/\/thumb-([^/]+?)_\d+x\d+(\.[a-z0-9]+)(\?.*)?$/i, "/$1$2"));
 }
 
 export type NormalizeOptions = {
@@ -229,7 +230,37 @@ function walkBlocks($: CheerioAPI, root: CheerioSel, base: string): OperatorCont
     if (tag === "figcaption") {
       flush();
       const t = cleanText($el.text());
-      if (t) blocks.push({ type: "paragraph", text: t });
+      const prev = blocks[blocks.length - 1];
+      // A caption belongs to the image right before it; otherwise it is ordinary text.
+      if (t && prev?.type === "image" && !prev.caption) prev.caption = t;
+      else if (t) blocks.push({ type: "paragraph", text: t });
+      return;
+    }
+    if (tag === "table") {
+      flush();
+      const rows: string[][] = [];
+      let header = false;
+      $el.find("tr").each((ri, tr) => {
+        const cells = $(tr)
+          .children("th, td")
+          .map((_, c) => cleanText($(c).text()))
+          .get();
+        if (ri === 0 && $(tr).children("th").length > 0) header = true;
+        if (cells.some(Boolean)) rows.push(cells);
+      });
+      // Layout tables (one cell per row) are just text; real tables keep their grid.
+      if (rows.length && Math.max(...rows.map((r) => r.length)) > 1) blocks.push({ type: "table", rows: rows.slice(0, 60), header });
+      else {
+        $el.find("td, th").each((_, c) => {
+          $(c)
+            .contents()
+            .each((__, child) => {
+              visit(child as unknown as DomNode);
+            });
+        });
+      }
+      $el.find("img").each((_, img) => pushImage($(img) as CheerioSel));
+      flush();
       return;
     }
     if (tag === "a" && $el.attr("data-nrm-video")) {
@@ -287,7 +318,11 @@ export function blockStats(blocks: OperatorContentBlock[]): BlockStats {
       continue;
     }
     const text =
-      b.type === "list" ? b.items.join(" ") : b.type === "link" ? String(b.text ?? "") : String(b.text ?? "");
+      b.type === "list"
+        ? b.items.join(" ")
+        : b.type === "table"
+          ? b.rows.map((r) => r.join(" ")).join(" ")
+          : String(b.text ?? "");
     textChars += text.length;
     if (b.type === "paragraph") paragraphCount += 1;
     if (/&(?:nbsp|amp|lt|gt|quot|#\d+|#x[0-9a-f]+);/i.test(text)) entityLeak = true;
@@ -391,6 +426,7 @@ export const GENERIC_BODY_SELECTORS = [
   "[itemprop='articleBody']",
   ".tt_article_useless_p_margin",
   ".contents_style",
+  ...PLATFORM_BODY_SELECTORS,
   "article .entry-content",
   ".entry-content",
   ".article_view",

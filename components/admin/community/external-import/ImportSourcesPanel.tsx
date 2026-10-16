@@ -5,6 +5,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { DetectResult } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-operator-import/types";
 import { labelReasons } from "@/lib/community-operator-import/quality-labels";
+import { allowsFullContent, RIGHTS_BASES, RIGHTS_LABEL, type RightsBasis } from "@/lib/community-operator-import/rights";
 import { BoardProbePanel } from "./BoardProbePanel";
 import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE } from "./api";
 
@@ -249,7 +250,8 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                   게시 정책
                   <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={policy} onChange={(e) => setPolicy(e.target.value as ContentPolicy)}>
                     {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
-                      <option key={p} value={p}>
+                      // A new source has no recorded rights yet: record them on the source card first.
+                      <option key={p} value={p} disabled={p === "full"}>
                         {POLICY_LABEL[p]}
                       </option>
                     ))}
@@ -295,7 +297,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       onChange={(e) => void sourceAction(s.id, "update", { patch: { contentPolicy: e.target.value } })}
                     >
                       {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
-                        <option key={p} value={p}>
+                        <option key={p} value={p} disabled={p === "full" && !allowsFullContent(s.rights)}>
                           {POLICY_LABEL[p]}
                         </option>
                       ))}
@@ -314,6 +316,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                       {s.enabled ? "출처 끄기" : "출처 켜기"}
                     </AdminActionButton>
                   </div>
+                  <RightsForm
+                    key={`rights:${s.id}:${s.rights.rightsBasis}:${s.rights.attributionRequired}:${s.rights.note ?? ""}`}
+                    source={s}
+                    busy={!!busy}
+                    onSave={(rights) => void sourceAction(s.id, "update", { patch: { rights } })}
+                  />
                   <AdapterConfigForm
                     key={`${s.id}:${JSON.stringify(s.adapterConfig)}`}
                     source={s}
@@ -472,6 +480,58 @@ function KeywordBoardForm({
           게시판으로 추가
         </AdminActionButton>
       </div>
+    </div>
+  );
+}
+
+/** Republication rights of a source: full body + images and hiding the 출처 block depend on them. */
+function RightsForm({
+  source,
+  busy,
+  onSave,
+}: {
+  source: ManagedSource;
+  busy: boolean;
+  onSave: (rights: { rightsBasis: RightsBasis; attributionRequired: boolean; note: string }) => void;
+}) {
+  const [basis, setBasis] = useState<RightsBasis>(source.rights.rightsBasis);
+  const [attribution, setAttribution] = useState(source.rights.attributionRequired);
+  const [note, setNote] = useState(source.rights.note ?? "");
+  const ccOrNone = basis === "unverified" || basis.startsWith("cc_");
+  const dirty = basis !== source.rights.rightsBasis || attribution !== source.rights.attributionRequired || note !== (source.rights.note ?? "");
+  return (
+    <div data-testid="import-source-rights" className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
+      <div className="text-[11px] font-semibold">
+        재게시 권한 — 현재: {RIGHTS_LABEL[source.rights.rightsBasis]}
+        {source.rights.confirmedAt ? ` (확인 ${fmtDate(source.rights.confirmedAt)})` : ""}
+      </div>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        <select aria-label="재게시 권한" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={basis} onChange={(e) => setBasis(e.target.value as RightsBasis)}>
+          {RIGHTS_BASES.map((b) => (
+            <option key={b} value={b}>
+              {RIGHTS_LABEL[b]}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-[11px] text-sam-muted">
+          <input type="checkbox" checked={ccOrNone || attribution} disabled={ccOrNone} onChange={(e) => setAttribution(e.target.checked)} />
+          출처 표시 의무 있음 (해제 시 글별로 출처 숨김 가능)
+        </label>
+        <input
+          aria-label="권한 근거"
+          className="sm:col-span-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs"
+          placeholder="근거 (예: 2026-10-16 운영자 카톡 허락, 라이선스 URL) — 권한 확인 시 필수"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+      <AdminActionButton
+        variant="secondary"
+        disabled={busy || !dirty || (basis !== "unverified" && !note.trim())}
+        onClick={() => onSave({ rightsBasis: basis, attributionRequired: ccOrNone || attribution, note })}
+      >
+        권한 저장
+      </AdminActionButton>
     </div>
   );
 }

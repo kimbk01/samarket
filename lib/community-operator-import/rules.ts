@@ -87,6 +87,7 @@ export function applyRulesToBlocks(blocks: OperatorContentBlock[], rules: Import
         return { ...b, text: applyRulesToText(b.text, rules) };
       }
       if (b.type === "list") return { ...b, items: b.items.map((it) => applyRulesToText(it, rules)) };
+      if (b.type === "table") return { ...b, rows: b.rows.map((r) => r.map((c) => applyRulesToText(c, rules))) };
       if (b.type === "link") return { ...b, text: b.text ? applyRulesToText(b.text, rules) : b.text };
       if (b.type === "image") {
         return { ...b, caption: b.caption ? applyRulesToText(b.caption, rules) : b.caption };

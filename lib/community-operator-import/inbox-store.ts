@@ -156,6 +156,8 @@ export type InboxQuery = {
   quality?: QualityVerdict | "none" | null;
   q?: string | null;
   since?: string | null;
+  /** `ko`: titles with Hangul only · `other`: titles without Hangul. */
+  lang?: "ko" | "other" | null;
   limit?: number;
   offset?: number;
 };
@@ -170,6 +172,8 @@ export async function listInbox(sb: SupabaseClient, query: InboxQuery): Promise<
   if (query.quality === "none") q = q.is("quality", null);
   else if (query.quality) q = q.eq("quality", query.quality);
   if (query.since) q = q.gte("first_seen_at", query.since);
+  if (query.lang === "ko") q = q.filter("title", "match", "[가-힣]");
+  else if (query.lang === "other") q = q.not("title", "match", "[가-힣]");
   const text = String(query.q || "").trim();
   if (text) q = q.ilike("title", `%${text.replace(/[%_,()]/g, " ").slice(0, 80)}%`);
   const { data, error, count } = await q

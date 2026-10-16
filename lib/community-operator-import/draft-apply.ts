@@ -25,9 +25,31 @@ export function defaultOperatorDraftEdit(article: OperatorNormalizedArticle): Op
   };
 }
 
+/**
+ * Source date as the editable 「표시 날짜」 text, in Manila wall-clock time — publish reads this text
+ * back as +08:00, so a zoned ISO date must be converted (not sliced) or it shifts by the zone offset.
+ */
 export function formatSourceDateForDisplay(raw: string | null | undefined): string {
   const s = String(raw || "").trim();
   if (!s) return "";
+  const zoned = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(s);
+  const t = zoned ? Date.parse(s) : NaN;
+  if (!Number.isNaN(t)) {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(new Date(t))
+        .map((x) => [x.type, x.value]),
+    );
+    return `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}`;
+  }
   const m = s.match(/(\d{4})-(\d{2})-(\d{2}).*?(\d{2}):(\d{2})/);
   if (m) return `${m[1]}.${m[2]}.${m[3]} ${m[4]}:${m[5]}`;
   return s.replace(/KST/g, " ").replace(/\s+/g, " ").trim();
@@ -94,6 +116,11 @@ export function buildAppliedContentBlocks(
       });
       return;
     }
+    if (b.type === "table") {
+      const r = (s: string) => applyReplace(s, edit.replaceFrom || "", edit.replaceTo || "");
+      out.push({ ...b, rows: b.rows.map((row) => row.map(r)) });
+      return;
+    }
     if (b.type === "list") {
       const override = edit.textOverrides?.[String(i)];
       if (override != null) {
@@ -142,6 +169,8 @@ export function blockPlainText(b: OperatorContentBlock): string {
       return b.text.trim();
     case "list":
       return b.items.map((it, i) => (b.ordered ? `${i + 1}. ${it}` : `• ${it}`)).join("\n");
+    case "table":
+      return b.rows.map((r) => r.join(" | ")).join("\n");
     case "link": {
       const text = String(b.text || "").trim();
       const href = String(b.href || "").trim();
@@ -160,8 +189,10 @@ export function blockPlainText(b: OperatorContentBlock): string {
 export function blocksToCommunityMarkdown(blocks: OperatorContentBlock[]): string {
   const parts: string[] = [];
   for (const b of blocks) {
-    if (b.type === "image") parts.push(`![](${b.url})`);
-    else {
+    if (b.type === "image") {
+      parts.push(`![](${b.url})`);
+      if (b.caption) parts.push(b.caption);
+    } else {
       const t = blockPlainText(b);
       if (t) parts.push(t);
     }

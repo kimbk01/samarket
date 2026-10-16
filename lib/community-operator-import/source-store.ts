@@ -4,6 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DetectResult } from "./detect";
+import { capPolicyByRights, parseRightsBasis, RIGHTS_BASES, type RightsBasis, type SourceRights } from "./rights";
 import type {
   AdapterConfig,
   BoardKind,
@@ -46,7 +47,8 @@ export type BoardStatus = {
 };
 
 export type ManagedBoard = RuntimeBoard & { status: BoardStatus };
-export type ManagedSource = RuntimeSource & { status: SourceStatus; boards: ManagedBoard[] };
+export type ManagedRights = SourceRights & { note: string | null; confirmedAt: string | null };
+export type ManagedSource = RuntimeSource & { status: SourceStatus; rights: ManagedRights; boards: ManagedBoard[] };
 
 const ENGINES = new Set<SourceEngine>(["gnuboard", "wordpress_rest", "rss_atom", "html"]);
 const POLICIES = new Set<ContentPolicy>(["full", "summary_link", "link_only"]);
@@ -63,13 +65,21 @@ function strOrNull(v: unknown): string | null {
 export function mapSourceRow(row: Record<string, unknown>): Omit<ManagedSource, "boards"> {
   const engine = str(row.engine) as SourceEngine;
   const policy = str(row.content_policy) as ContentPolicy;
+  // Before the rights migration the columns are absent → unverified (summary + link only).
+  const rights: ManagedRights = {
+    rightsBasis: parseRightsBasis(row.rights_basis),
+    attributionRequired: row.attribution_required !== false,
+    note: strOrNull(row.rights_note),
+    confirmedAt: strOrNull(row.rights_confirmed_at),
+  };
   return {
     id: str(row.id),
     displayName: str(row.display_name) || str(row.id),
     baseUrl: str(row.base_url),
     engine: ENGINES.has(engine) ? engine : "html",
     enabled: Boolean(row.enabled),
-    contentPolicy: POLICIES.has(policy) ? policy : "summary_link",
+    contentPolicy: capPolicyByRights(POLICIES.has(policy) ? policy : "summary_link", rights),
+    rights,
     adapterConfig: (row.adapter_config && typeof row.adapter_config === "object" ? row.adapter_config : {}) as AdapterConfig,
     verification: str(row.verification) || "NOT_PROVEN",
     status: {
@@ -195,9 +205,11 @@ export async function saveDetectedSource(
   const id = normalizeSourceId(input.sourceId || d.sourceIdSuggestion);
   if (!id) throw new Error("source_id_required");
   const now = new Date().toISOString();
-  const policy = input.contentPolicy && POLICIES.has(input.contentPolicy) ? input.contentPolicy : "summary_link";
+  const { data: existing } = await sb.from(SOURCES_TABLE).select("*").eq("id", id).maybeSingle();
+  // A new source has no recorded rights → summary + link; full needs rights recorded first (updateSource).
+  const rights = existing ? mapSourceRow(existing as Record<string, unknown>).rights : { rightsBasis: "unverified" as const, attributionRequired: true };
+  const policy = capPolicyByRights(input.contentPolicy && POLICIES.has(input.contentPolicy) ? input.contentPolicy : "summary_link", rights);
 
-  const { data: existing } = await sb.from(SOURCES_TABLE).select("id, origin, enabled").eq("id", id).maybeSingle();
   const payload: Record<string, unknown> = {
     id,
     display_name: (input.displayName || d.displayNameSuggestion || id).trim().slice(0, 120) || id,
@@ -286,16 +298,43 @@ export type SourcePatch = {
   enabled?: boolean;
   contentPolicy?: ContentPolicy;
   adapterConfig?: AdapterConfig;
+  /** Republication rights recorded by an admin (who/when is stored with them). */
+  rights?: { rightsBasis: RightsBasis; attributionRequired: boolean; note?: string | null };
 };
 
-export async function updateSource(sb: SupabaseClient, sourceId: string, patch: SourcePatch): Promise<ManagedSource> {
+export async function updateSource(
+  sb: SupabaseClient,
+  sourceId: string,
+  patch: SourcePatch,
+  adminUserId?: string,
+): Promise<ManagedSource> {
   const current = await loadManagedSource(sb, sourceId);
   if (!current) throw new Error("source_not_found");
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.displayName != null) row.display_name = String(patch.displayName).trim().slice(0, 120) || current.displayName;
+  let rights: SourceRights = current.rights;
+  if (patch.rights) {
+    if (!(RIGHTS_BASES as readonly string[]).includes(patch.rights.rightsBasis)) throw new Error("invalid_rights_basis");
+    const note = String(patch.rights.note ?? "").trim().slice(0, 1000);
+    if (patch.rights.rightsBasis !== "unverified" && !note) throw new Error("rights_note_required");
+    rights = {
+      rightsBasis: patch.rights.rightsBasis,
+      // CC licences always carry the attribution duty.
+      attributionRequired: patch.rights.rightsBasis.startsWith("cc_") || patch.rights.rightsBasis === "unverified" ? true : Boolean(patch.rights.attributionRequired),
+    };
+    row.rights_basis = rights.rightsBasis;
+    row.attribution_required = rights.attributionRequired;
+    row.rights_note = note || null;
+    row.rights_confirmed_by = rights.rightsBasis === "unverified" ? null : adminUserId ?? null;
+    row.rights_confirmed_at = rights.rightsBasis === "unverified" ? null : row.updated_at;
+  }
   if (patch.contentPolicy != null) {
     if (!POLICIES.has(patch.contentPolicy)) throw new Error("invalid_content_policy");
+    if (capPolicyByRights(patch.contentPolicy, rights) !== patch.contentPolicy) throw new Error("full_requires_rights");
     row.content_policy = patch.contentPolicy;
+  } else if (patch.rights && current.contentPolicy === "full" && capPolicyByRights("full", rights) !== "full") {
+    // Rights withdrawn → the source falls back to summary + link.
+    row.content_policy = "summary_link";
   }
   if (patch.adapterConfig != null) row.adapter_config = sanitizeAdapterConfig(patch.adapterConfig);
   if (patch.enabled != null) {

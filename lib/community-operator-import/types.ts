@@ -6,7 +6,9 @@ export type OperatorContentBlock =
   | { type: "image"; url: string; displaySrc: string | null; alt: string | null; caption: string | null }
   | { type: "link"; href: string | null; text: string | null }
   | { type: "list"; ordered: boolean; items: string[] }
-  | { type: "quote"; text: string };
+  | { type: "quote"; text: string }
+  /** Plain-text cells; `header` = first row is a header row (<th>). */
+  | { type: "table"; rows: string[][]; header: boolean };
 
 export type OperatorListRow = {
   articleKey: string;
@@ -73,6 +75,13 @@ export type OperatorDraftEdit = {
   summaryText?: string;
   /** Per-article policy; may only be equal to or stricter than the source policy. */
   contentPolicy?: ContentPolicy;
+  /**
+   * Public 출처 block on the post (name + original URL). Missing = shown.
+   * Provenance (community_import_post_links) is always kept, whatever this says.
+   */
+  showAttribution?: boolean;
+  /** `original` (default): post shows the source date · `publish`: post shows its DIBAY publish time. */
+  dateMode?: "original" | "publish";
 };
 
 export type OperatorDraftRecord = {

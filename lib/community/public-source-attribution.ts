@@ -7,6 +7,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { type ImportedContentBlock, sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
 
 export type PublicSourceAttribution = {
   sourceName: string;
@@ -46,6 +47,39 @@ export async function loadPublicSourceAttributionFromPost(
     sourceName: name || "출처",
     canonicalUrl: url,
     sourcePublishedAt: null,
+  };
+}
+
+/**
+ * Detail-page extras of one post in a single read: the public 출처 block and, for imported posts,
+ * the structured body (`content_blocks`). Before that column exists the attribution read still works.
+ */
+export async function loadPostAttributionAndBlocks(
+  sb: SupabaseClient,
+  communityPostId: string
+): Promise<{ attribution: PublicSourceAttribution | null; contentBlocks: ImportedContentBlock[] | null }> {
+  const postId = communityPostId.trim();
+  if (!postId) return { attribution: null, contentBlocks: null };
+  const { data, error } = await sb
+    .from("community_posts")
+    .select("public_attribution_name, public_attribution_url, origin_kind, content_blocks")
+    .eq("id", postId)
+    .maybeSingle();
+  if (error) {
+    return { attribution: await loadPublicSourceAttributionFromPost(sb, postId), contentBlocks: null };
+  }
+  const row = (data ?? {}) as {
+    public_attribution_name?: string | null;
+    public_attribution_url?: string | null;
+    origin_kind?: string | null;
+    content_blocks?: unknown;
+  };
+  const name = String(row.public_attribution_name ?? "").trim();
+  const url = row.public_attribution_url != null && String(row.public_attribution_url).trim() ? String(row.public_attribution_url).trim() : null;
+  const blocks = row.origin_kind === "imported" ? sanitizeImportedContentBlocks(row.content_blocks) : [];
+  return {
+    attribution: name || url ? { sourceName: name || "출처", canonicalUrl: url, sourcePublishedAt: null } : null,
+    contentBlocks: blocks.length ? blocks : null,
   };
 }
 

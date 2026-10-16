@@ -4,7 +4,7 @@ import type { InboxKey, InboxRow, InboxStatus } from "@/lib/community-operator-i
 import type { JobSummary } from "@/lib/community-operator-import/jobs";
 import type { PublishContent } from "@/lib/community-operator-import/publish-content";
 import type { ImportRule } from "@/lib/community-operator-import/rules";
-import type { ManagedSource } from "@/lib/community-operator-import/source-store";
+import type { ManagedRights, ManagedSource } from "@/lib/community-operator-import/source-store";
 import type { ContentPolicy, OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 
 export const API = "/api/admin/community/external-import";
@@ -42,7 +42,7 @@ export type DetailPayload = {
   edit: OperatorDraftEdit;
   draft: { status: string; publishedPostId: string | null; updatedAt: string } | null;
   inbox: InboxRow | null;
-  source: { id: string; displayName: string; contentPolicy: ContentPolicy; baseUrl: string };
+  source: { id: string; displayName: string; contentPolicy: ContentPolicy; baseUrl: string; rights: ManagedRights };
   board: { boardId: string; displayName: string; defaultTopicId: string | null };
   preview: PublishContent;
   /** The community post this article is published as (null = not published). */
@@ -65,7 +65,7 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const POLICY_LABEL: Record<ContentPolicy, string> = {
-  full: "전문 게시 (재게시 권한 있음)",
+  full: "전문 게시 (재게시 권한 확인된 출처만)",
   summary_link: "요약 + 원문 링크 (기본)",
   link_only: "제목 + 원문 링크",
 };
