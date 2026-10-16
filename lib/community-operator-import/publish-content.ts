@@ -4,11 +4,12 @@
  * CONTRACT — community post body = plain-text paragraphs + images only. The community renderer
  * (NeighborhoodInterleavedContent / feed preview) understands `![](url)` and plain text, nothing
  * else, so headings, quotes, lists and links are flattened to readable text here. The source is
- * credited only through public_attribution_name/url (the detail page's 출처 block) — never inline.
+ * credited through public_attribution_name/url (the detail page's 출처 block) and the body's last line.
  *
  *  - full          : edited body + all included images (only with recorded rights — see rights.ts)
  *  - summary_link  : thumbnail + short summary (default)
  *  - link_only     : one line naming the source (the 출처 block carries the link)
+ * Whenever the 출처 is shown, full and summary bodies also end with `출처: <name> <url>`.
  * Summary order: operator text → the publisher's own per-item summary (feed/excerpt) → the body's
  * leading sentences. Nothing is generated; a site-wide page description is never used.
  */
@@ -138,17 +139,22 @@ export function buildPublishContent(input: {
   const attributionUrl = article.canonicalUrl;
   const feedImages = collectOrderedImageUrlsForFeed(article, edit, applied);
 
+  // The source is written as the last line of the body whenever it is shown (Owner rule 2026-10-16).
+  const sourceLine = `출처: ${attributionName} ${attributionUrl}`.trim();
   if (policy === "full") {
     return {
       policy,
       title,
-      blocks: toCommunityBlocks(applied),
+      blocks: [...toCommunityBlocks(applied), ...(attributionVisible ? [{ type: "paragraph" as const, text: sourceLine }] : [])],
       imageUrls: feedImages,
       attributionName,
       attributionUrl,
       attributionVisible,
       cappedByRights,
-      richBlocks: toImportedRichBlocks(applied),
+      richBlocks: [
+        ...toImportedRichBlocks(applied),
+        ...(attributionVisible && attributionUrl ? [{ t: "link" as const, href: attributionUrl, text: `출처: ${attributionName}` }] : []),
+      ],
     };
   }
   if (policy === "link_only") {
@@ -176,6 +182,7 @@ export function buildPublishContent(input: {
   const blocks: OperatorContentBlock[] = [];
   if (thumb) blocks.push({ type: "image", url: thumb, displaySrc: thumb, alt: null, caption: null });
   if (summary) blocks.push({ type: "paragraph", text: summary });
+  blocks.push({ type: "paragraph", text: sourceLine });
   // Summary + link: the link to the original is the point, so the 출처 block always shows.
   return { policy, title, blocks, imageUrls: thumb ? [thumb] : [], attributionName, attributionUrl, attributionVisible: true, cappedByRights, richBlocks: null };
 }
