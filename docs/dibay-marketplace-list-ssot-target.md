@@ -34,7 +34,7 @@ order    = LOCAL → NEARBY → NATIONWIDE; inside each tier the user sort (late
 - Tiers are **disjoint SQL partitions** whose union is the full eligible set — pagination keeps tier order with no duplicate / missing row (`lib/trade/location/national/browse-location-tiers.ts`).
 - Explicit `radius=N` remains the **only** hard location boundary. `location=all` (guest · no master · unmappable master) = nationwide user sort, no tiers.
 - A failed tier query is an **error** (HTTP 503 → list error + retry), never an empty list.
-- Search (`q`) keeps T1–T5 relevance bands; inside each band the same LOCAL → NEARBY → NATIONWIDE order. The eligible pool is ranked **once per ranked window** (up to `MARKETPLACE_SEARCH_RANK_POOL_CAP`), so the order is global across pages (duplicate 0 / missing 0); a failed fill is an error, never a truncated list.
+- Search (`q`) keeps T1–T5 relevance bands; inside each band the same LOCAL → NEARBY → NATIONWIDE order. The eligible pool is ranked **once per ranked window** (up to `MARKETPLACE_SEARCH_RANK_POOL_CAP`), so the order is global across pages (duplicate 0 / missing 0); a failed fill is an error, never a truncated list. Ranking reads only `MARKETPLACE_SEARCH_RANK_SELECT` (slim columns, no images / no per-row masking function); full rows are loaded for the visible page only (`hydrateHomePostsByIds`, ranked order kept).
 
 ---
 

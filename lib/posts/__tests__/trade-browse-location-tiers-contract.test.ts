@@ -425,3 +425,42 @@ describe("PostgREST max-rows cannot truncate a tier", () => {
     expect(ids.length).toBe(1500);
   });
 });
+
+describe("search page hydration (slim ranking rows → full rows for one page)", () => {
+  it("keeps ranked order, drops rows deleted since ranking, null on DB failure", async () => {
+    const { hydrateHomePostsByIds, MARKETPLACE_SEARCH_RANK_SELECT } = await import(
+      "@/lib/posts/home-posts-query-server"
+    );
+    const rows = makeRows(30).map((r) => ({ ...r, images: [`https://img/${r.id}.jpg`] }));
+    const log: URL[] = [];
+    const sb = createFakePostgrestClient({ rows, log });
+    const order = ["p0007", "p0002", "p9999", "p0011"];
+    const out = await hydrateHomePostsByIds(sb, null, order);
+    expect(out?.map((p) => p.id)).toEqual(["p0007", "p0002", "p0011"]);
+    expect(out?.every((p) => Array.isArray(p.images) && p.images.length === 1)).toBe(true);
+    expect(log.length).toBe(1);
+    expect(log[0].searchParams.get("id")).toContain("in.(");
+
+    const failing = createFakePostgrestClient({ rows, failWhen: () => true });
+    expect(await hydrateHomePostsByIds(failing, null, order)).toBeNull();
+    expect(MARKETPLACE_SEARCH_RANK_SELECT).not.toContain("images");
+  });
+
+  it("search pool request uses the slim column list", async () => {
+    const { resolveSearchExpansionRound, MARKETPLACE_SEARCH_RANK_SELECT } = await import(
+      "@/lib/posts/home-posts-query-server"
+    );
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    const { emptySearchExpansionCursor } = await import("@/lib/trade/marketplace/search-candidate-expansion");
+    const rows = makeRows(40);
+    const log: URL[] = [];
+    const sb = createFakePostgrestClient({ rows, log, tables: { categories: [] } });
+    const disc = await loadMarketplaceSearchDiscoveryContext(sb, null, "item", null);
+    await resolveSearchExpansionRound(sb, null, "latest", "trade", null, STATUS_OR, QC, null, { q: "item", searchDiscoveryContext: disc }, emptySearchExpansionCursor());
+    const poolReqs = log.filter((u) => /posts/.test(u.pathname));
+    expect(poolReqs.length).toBeGreaterThan(0);
+    for (const u of poolReqs) expect(u.searchParams.get("select")).toBe(MARKETPLACE_SEARCH_RANK_SELECT);
+  });
+});

@@ -17,6 +17,7 @@ import {
   resolveHomePostsStatusOrByTradeState,
   resolveHomePostsPayload,
   resolveSearchExpansionRound,
+  hydrateHomePostsByIds,
   type HomePostsQuerySort,
   type HomePostsTradeStateFilter,
   type HomePostsQueryType,
@@ -676,11 +677,7 @@ export async function resolveHomePostsGetData(
                 },
                 cursor
               );
-              if (!round) return null;
-              await enrichPostsAuthorNicknamesFromProfiles(
-                readSb as SupabaseClient<any>,
-                round.posts
-              );
+              /** Slim ranking rows only — the visible page is hydrated below. */
               return round;
             },
           })
@@ -704,16 +701,29 @@ export async function resolveHomePostsGetData(
               categoryPriorityTopicTradeCategoryIds,
             }
           );
-      if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
+        if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
         return null;
       }
+      let pagePosts = pack.posts;
+      if (useSearchExpansion) {
+        /** Search window holds slim ranking rows — load full rows for this page only. */
+        const hydrated = await hydrateHomePostsByIds(
+          readSb as SupabaseClient<any>,
+          serviceSb as SupabaseClient<any> | null,
+          pack.posts.map((p) => p.id)
+        );
+        if (!hydrated) {
+          if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
+          return null;
+        }
+        pagePosts = hydrated;
+      }
+      if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
 
       /** 캐시에 넣기 전 닉네임 보강 — TTL 동안 요청마다 `profiles` 재조회하지 않음 */
       if (diagnostics && diagnostics.relatedFetchStartMs === 0) diagnostics.relatedFetchStartMs = elapsedMs();
-      if (!useSearchExpansion) {
-        await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
-      }
+      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pagePosts);
       if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
 
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
@@ -721,7 +731,7 @@ export async function resolveHomePostsGetData(
       // tradeCategoryIds is the same membership/HOME-union set as the list IN query.
       const projected = await applyTradeHomePromotionProjection(promoSb, {
         pageIndex: tradePromotionPageIndexFromRequestPage(page),
-        posts: pack.posts,
+        posts: pagePosts,
         tradeCategoryIds,
         pinPromoted: !q,
         promotionSurface: hasRootSelection ? "category" : "home",
