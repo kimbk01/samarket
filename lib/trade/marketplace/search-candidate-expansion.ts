@@ -252,7 +252,12 @@ function strongRelated(
   const haystack = `${title} ${carModel}`.trim();
   if (hints.models.some((model) => haystack.includes(model))) return true;
   if (hints.makes.some((make) => haystack.includes(make))) return true;
-  if (hints.tokens.length > 0 && hints.tokens.filter((t) => t.length >= 3).every((token) => haystack.includes(token))) {
+  /**
+   * All ≥3-char tokens present. Only when such tokens exist — with none, `every` on an empty
+   * list was vacuously true and put EVERY listing in band 2 for short queries (e.g. 「임대」).
+   */
+  const longTokens = hints.tokens.filter((t) => t.length >= 3);
+  if (longTokens.length > 0 && longTokens.every((token) => haystack.includes(token))) {
     return true;
   }
   if (hints.tokens.some((token) => token.length >= 3 && haystack.includes(token))) return true;

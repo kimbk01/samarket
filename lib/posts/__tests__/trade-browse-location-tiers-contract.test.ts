@@ -552,7 +552,7 @@ describe("search step 2 — SQL candidate filter + lazy tail ≡ full-pool ranki
   }
 
   const rows = searchRows(1300);
-  /** "a" / "임대": all tokens < 3 chars → full-pool fallback (vacuous strongRelated) — still identical. */
+  /** "a" / "임대": short-token queries — candidate path too (strongRelated vacuous rule fixed). */
   const QUERIES = ["toyota", "Toyota Vios", "팝니다", "sedan", "condo rent", "usd", "laptop (good)", "zzqx-nomatch", "a", "임대", "iphone 판매"];
   const LOCATIONS: Array<[string | null, number | null, string]> = [
     [QC, null, "QC 전체"],
@@ -615,5 +615,47 @@ describe("search step 2 — safe when search_text is not migrated", () => {
     expect(res).not.toBeNull();
     expect(res!.cursor.searchMode).toBe("fullpool");
     expect(res!.posts.length).toBe(eligible(rows).length);
+  });
+});
+
+describe("strongRelated — short queries no longer make every listing 'related'", () => {
+  it("「임대」: title match = band 1, unrelated listing = band 5 (tail), candidate path used", async () => {
+    const { classifyDiscoveryBand } = await import("@/lib/trade/marketplace/marketplace-discovery-rank");
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    const { buildSearchCandidateSqlFilter } = await import("@/lib/trade/marketplace/search-candidate-sql");
+    const sb = createFakePostgrestClient({ rows: [], tables: { categories: [] } });
+    const disc = (await loadMarketplaceSearchDiscoveryContext(sb, null, "임대", null))!;
+    const band = (title: string, meta: Record<string, unknown> | null = null) =>
+      classifyDiscoveryBand(
+        { id: "x", title, trade_category_id: CAT_A, meta } as never,
+        disc.intent,
+        disc.rootExpandedIdsByParent,
+        disc.topicGraph,
+        []
+      );
+    expect(band("콘도 임대 합니다")).toBe(1);
+    expect(band("아이폰 팝니다")).toBe(5);
+    expect(buildSearchCandidateSqlFilter(disc, [])).not.toBeNull();
+  });
+
+  it("queries with ≥3-char tokens keep the 'all long tokens present' rule", async () => {
+    const { classifyDiscoveryBand } = await import("@/lib/trade/marketplace/marketplace-discovery-rank");
+    const { loadMarketplaceSearchDiscoveryContext } = await import(
+      "@/lib/trade/marketplace/load-marketplace-search-discovery-context"
+    );
+    const sb = createFakePostgrestClient({ rows: [], tables: { categories: [] } });
+    const disc = (await loadMarketplaceSearchDiscoveryContext(sb, null, "honda city", null))!;
+    const band = (title: string) =>
+      classifyDiscoveryBand(
+        { id: "x", title, trade_category_id: CAT_A, meta: null } as never,
+        disc.intent,
+        disc.rootExpandedIdsByParent,
+        disc.topicGraph,
+        []
+      );
+    expect(band("city honda sedan")).toBe(2);
+    expect(band("sofa chair")).toBe(5);
   });
 });

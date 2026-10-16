@@ -73,12 +73,6 @@ export function buildSearchCandidateSqlFilter(
   inferredBodyTypes: string[] = []
 ): SearchCandidateSqlFilter | null {
   const hints = discovery.intent.expansionHints;
-  /**
-   * `strongRelated` tests `tokens.filter(len ≥ 3).every(...)`: when every token is shorter than
-   * 3 chars that list is empty and `every` is true for ALL rows (whole pool = band 2), so no
-   * SQL filter can be a superset — use the full-pool path for these queries.
-   */
-  if (hints.tokens.length > 0 && hints.tokens.every((t) => t.length < 3)) return null;
   const needles = [
     hints.phrase,
     ...hints.tokens,
