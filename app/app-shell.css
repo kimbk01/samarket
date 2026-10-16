@@ -169,4 +169,13 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
   .main-hub-scroll-body.main-hub-scroll-body--child-scroll-lock {
     overflow-y: hidden;
   }
+
+  /**
+   * 메신저 채팅방 호스트 — 허브와 같은 요소 유지(리마운트 방지). 방 화면이 스크롤·레이어를 소유하므로
+   * 바깥 스크롤 잠금 + 스택 컨텍스트 없음(z-index auto) — 기존 방 래퍼(flex·overflow hidden)와 동일.
+   */
+  .main-hub-scroll-body.main-hub-scroll-body--room-host {
+    overflow: hidden;
+    z-index: auto;
+  }
 }

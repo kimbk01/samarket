@@ -29,13 +29,23 @@ export function MainHubScrollColumn({
 /** 허브 본문 `<main>` — `ConditionalAppShell` 전용 */
 export function MainHubScrollBody({
   className,
+  roomHost = false,
   children,
 }: {
   className?: string;
+  /**
+   * 메신저 채팅방 — 허브와 같은 요소를 유지(목록↔방 이동 시 리마운트 방지)하되 스크롤은 방이 소유한다.
+   * 스크롤 잠금·z-index 해제, `data-main-hub-scroll-body` 표식 없음.
+   */
+  roomHost?: boolean;
   children: ReactNode;
 }) {
   return (
-    <main data-main-hub-scroll-body className={`${MAIN_HUB_SCROLL_BODY_CLASS} ${className ?? ""}`}>
+    <main
+      data-main-hub-scroll-body={roomHost ? undefined : ""}
+      data-main-hub-room-host={roomHost ? "" : undefined}
+      className={`${MAIN_HUB_SCROLL_BODY_CLASS}${roomHost ? " main-hub-scroll-body--room-host" : ""} ${className ?? ""}`}
+    >
       {children}
     </main>
   );

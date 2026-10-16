@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,7 +55,13 @@ type Props = {
 };
 
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
+  /** 첫 렌더부터 실제 값 — 진입 애니메이션 시작(layout effect) 판단이 늦게 바뀌지 않게. */
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -104,8 +111,11 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
    * roomType may be null on cold BootstrapGate shell — still enter so PAGE MOTION OWNER
    * owns first paint (EntryEmpty is content inside shell, not a pre-motion full-page flash).
    * Gestures / animated back remain disabled until roomType is known.
+   *
+   * useLayoutEffect: 첫 커밋(idle = 제자리)이 화면에 그려지기 전에 "enter"(화면 밖)로 바꾼다.
+   * passive useEffect 였을 때는 방이 제자리에 한 프레임 보였다가 화면 밖으로 튄 뒤 들어오는 깜빡임이 있었다.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (splitPaneMode || reducedMotion) return;
     if (enterStartedRef.current) return;
     enterStartedRef.current = true;

@@ -347,11 +347,28 @@ export function ConditionalAppShell({
         ) : null
       }
     >
-      {hubScrollColumn ? (
+      {hubScrollColumn || f.isCommunityMessengerRoom ? (
+        /**
+         * 메신저 목록↔채팅방 — 같은 요소 타입(MainHubScrollBody)을 유지해 이동할 때마다 메신저 레이아웃 전체
+         * (게스트 게이트·스낵바·프레즌스 등)가 다시 만들어지며 깜빡이지 않게 한다. 방에서는 roomHost 로
+         * 스크롤 잠금·스택 컨텍스트 없음·허브 스크롤 표식 없음(다른 화면 스크롤 탐색에 잡히지 않게).
+         */
         <MainHubScrollBody
-          className={`${mainSurfaceClass}${
-            f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
-          }`}
+          roomHost={!hubScrollColumn}
+          className={
+            hubScrollColumn
+              ? `${mainSurfaceClass}${
+                  f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
+                }`
+              : /** 방: 기존 방 래퍼(div)와 같은 클래스 — 하단 여백·배경 변화 없음 */
+                `min-h-0 min-w-0 flex-1 flex-col ${
+                  f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+                    ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
+                    : mainScrollInMainColumn
+                      ? MAIN_COLUMN_SCROLL_CLASS
+                      : "flex overflow-x-hidden"
+                }`
+          }
         >
           {mainInnerColumn}
         </MainHubScrollBody>
