@@ -218,6 +218,20 @@ public class NativeCallServicePlugin extends Plugin {
     call.resolve(result);
   }
 
+  /**
+   * 통화 중 다시 발신 버튼(1회 통화) — 새 통화 대신 진행 중인 네이티브 통화 화면을 앞으로.
+   * result.shown=false 면 진행 중인 네이티브 통화 없음(호출부가 기존 안내 사용).
+   */
+  @PluginMethod
+  public void bringActiveCallToFront(PluginCall call) {
+    Context ctx = getContext();
+    boolean shown =
+        NativeVoiceCallRuntime.bringLiveCallToFront(ctx) || NativeVideoCallRuntime.bringLiveCallToFront(ctx);
+    JSObject result = new JSObject();
+    result.put("shown", shown);
+    call.resolve(result);
+  }
+
   @PluginMethod
   public void getActiveCallId(PluginCall call) {
     JSObject result = new JSObject();

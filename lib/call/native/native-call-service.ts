@@ -46,6 +46,8 @@ export type NativeCallServicePlugin = {
   startCall(options: { callId: string; callKind?: string; phase?: string }): Promise<{ ok: boolean }>;
   endCall(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   getActiveCallId(): Promise<{ callId: string | null }>;
+  /** 통화 중 다시 발신 버튼 — 진행 중인 네이티브 통화 화면을 앞으로 (앱 1.2+) */
+  bringActiveCallToFront(): Promise<{ shown: boolean }>;
   heartbeat(options: { callId: string }): Promise<{ ok: boolean }>;
   reportAppState(options: { callId: string; state: NativeCallAppState }): Promise<{ ok: boolean }>;
   getActiveCallSnapshot(): Promise<NativeActiveCallSnapshot>;
@@ -117,6 +119,35 @@ export function invokeNativeCallServicePlugin<T>(
     return fn(options ?? {});
   }
   return Promise.resolve(null);
+}
+
+function nativeCallServiceHeaderHasMethod(method: string): boolean {
+  const cap = (typeof window !== "undefined" ? window : undefined) as
+    | (Window & { Capacitor?: { PluginHeaders?: ReadonlyArray<{ name?: unknown; methods?: unknown }> } })
+    | undefined;
+  const headers = cap?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return false;
+  const header = headers.find((h) => h && typeof h === "object" && h.name === NATIVE_CALL_SERVICE_PLUGIN_ID);
+  const methods = Array.isArray(header?.methods) ? (header!.methods as ReadonlyArray<{ name?: unknown }>) : [];
+  return methods.some((m) => m && typeof m === "object" && m.name === method);
+}
+
+/**
+ * 통화 중 다시 발신 버튼(1회 통화) — 진행 중인 네이티브 통화 화면을 앞으로 가져온다.
+ * 이 기능이 없는 이전 앱(헤더에 메서드 없음)·웹·실패·시간 초과는 false (호출부가 「통화 중」 안내).
+ */
+export async function bringNativeActiveCallToFront(): Promise<boolean> {
+  if (!isCapacitorNativePlatform()) return false;
+  if (!nativeCallServiceHeaderHasMethod("bringActiveCallToFront")) return false;
+  try {
+    const result = await Promise.race([
+      invokeNativeCallServicePlugin<{ shown?: boolean }>("bringActiveCallToFront"),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    return result?.shown === true;
+  } catch {
+    return false;
+  }
 }
 
 function invokeNative<T>(

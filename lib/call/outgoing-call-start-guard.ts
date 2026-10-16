@@ -8,6 +8,8 @@ import {
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { isOutgoingCallStartBlocked } from "@/lib/call/call-action-lock";
 import { readOwnLiveCall } from "@/lib/call/own-live-call";
+import { bringNativeActiveCallToFront } from "@/lib/call/native/native-call-service";
+import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
 import { isDibayCallTerminalConsumedLocal } from "@/lib/community-messenger/incoming-call-state";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -63,7 +65,12 @@ export function guardInstantOutgoingCallStart(
       roomId: _input?.roomId,
       peerId: _input?.peerUserId,
     });
-    return { ok: false, blockedCallId: "", userMessage: alreadyInProgressMessage() };
+    /** 진행 중인 네이티브 통화 화면을 앞으로(앱 1.2+). 못 띄우면(이전 앱 등) 「통화 중」 안내. */
+    const message = alreadyInProgressMessage();
+    void bringNativeActiveCallToFront().then((shown) => {
+      if (!shown) alertOutgoingCallFailure(message);
+    });
+    return { ok: false, blockedCallId: "", userMessage: "" };
   }
   if (isOutgoingCallStartBlocked()) {
     logCallButtonState({

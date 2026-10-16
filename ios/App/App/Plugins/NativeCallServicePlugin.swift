@@ -19,6 +19,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "startCall", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "endCall", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getActiveCallId", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "bringActiveCallToFront", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "heartbeat", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportAppState", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getActiveCallSnapshot", returnType: CAPPluginReturnPromise),
@@ -244,6 +245,43 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     guard !sid.isEmpty else { return false }
     return NativeVideoCallOwner.isNativeOwned(callId: sid)
       || NativeVideoCallRuntime.shared.getSession(sessionId: sid) != nil
+  }
+
+  /**
+   * 통화 중 다시 발신 버튼(1회 통화) — 새 통화 대신 진행 중인 네이티브 통화 화면을 앞으로.
+   * 같은 세션을 다시 보여 줄 뿐 통화 상태·Agora 는 건드리지 않는다. shown=false 면 진행 중 통화 없음.
+   */
+  @objc func bringActiveCallToFront(_ call: CAPPluginCall) {
+    DispatchQueue.main.async {
+      let voice = NativeVoiceCallRuntime.shared.snapshot()
+      if let session = voice.session, Self.isLiveVoicePhase(voice.phase) {
+        NativeVoiceCallUiHost.ensurePresented(callId: session.sessionId, session: session, bypassLockCheck: true)
+        call.resolve(["shown": true])
+        return
+      }
+      let video = NativeVideoCallRuntime.shared.snapshot()
+      if let session = video.session {
+        switch video.state {
+        case .ringing, .accepting, .connecting, .connected:
+          NativeVideoCallUiHost.restoreFullscreenFromPip(callId: session.sessionId) { ok in
+            call.resolve(["shown": ok])
+          }
+          return
+        case .ending, .ended, .failed:
+          break
+        }
+      }
+      call.resolve(["shown": false])
+    }
+  }
+
+  private static func isLiveVoicePhase(_ phase: NativeVoiceCallPhase) -> Bool {
+    switch phase {
+    case .incomingPresented, .outgoingStarting, .accepting, .accepted, .tokenPending, .joining, .connected:
+      return true
+    case .idle, .rejecting, .ending, .ended, .failed:
+      return false
+    }
   }
 
   @objc func getActiveCallId(_ call: CAPPluginCall) {

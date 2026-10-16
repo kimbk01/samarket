@@ -170,6 +170,52 @@ public final class NativeVideoCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /**
+   * 통화 중 다시 발신 버튼(1회 통화) — 진행 중인 영상 통화 화면(준비 중 포함)을 앞으로 가져온다.
+   * 같은 통화 id 로 다시 여는 것이라 통화 상태는 바뀌지 않는다(onNewIntent → applyState). 없으면 false.
+   */
+  public static boolean bringLiveCallToFront(Context context) {
+    if (context == null) return false;
+    android.content.Intent intent = new android.content.Intent(context, NativeVideoCallActivity.class);
+    intent.addFlags(
+        android.content.Intent.FLAG_NativeVideoCallActivityIVITY_NEW_TASK
+            | android.content.Intent.FLAG_NativeVideoCallActivityIVITY_SINGLE_TOP
+            | android.content.Intent.FLAG_NativeVideoCallActivityIVITY_CLEAR_TOP);
+    PreparingState prep = preparingState;
+    String key;
+    if (prep != null && prep.attemptId != null && !prep.attemptId.isEmpty()) {
+      key = prep.attemptId;
+      intent.putExtra(NativeVideoCallActivity.EXTRA_ATTEMPT_ID, prep.attemptId);
+      intent.putExtra(NativeVideoCallActivity.EXTRA_PREPARING, true);
+      intent.putExtra(NativeVideoCallActivity.EXTRA_PEER_NAME, prep.peerName != null ? prep.peerName : "");
+      intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, prep.attemptId);
+      intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_OUTGOING);
+    } else {
+      Session live = null;
+      for (Session session : SESSIONS.values()) {
+        if (session.state == State.RINGING
+            || session.state == State.ACCEPTING
+            || session.state == State.CONNECTING
+            || session.state == State.CONNECTED) {
+          live = session;
+          break;
+        }
+      }
+      if (live == null) return false;
+      key = live.callId;
+      intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, live.callId);
+      intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, live.initiator ? NativeVideoCallActivity.UI_MODE_OUTGOING : NativeVideoCallActivity.UI_MODE_INCOMING);
+    }
+    intent.putExtra("source", "bring_to_front");
+    try {
+      context.startActivity(intent);
+    } catch (RuntimeException e) {
+      return false;
+    }
+    NativeVideoCallLog.info("bring_live_call_to_front", key);
+    return true;
+  }
+
   /** Guard-only: another callId with live session state (ringing through connected). */
   public static String findOtherLiveSessionCallId(String incomingCallId) {
     if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
