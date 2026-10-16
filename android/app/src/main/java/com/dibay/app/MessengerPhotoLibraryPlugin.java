@@ -228,7 +228,29 @@ public class MessengerPhotoLibraryPlugin extends Plugin {
   public void getSaveCapabilities(PluginCall call) {
     JSObject result = new JSObject();
     result.put("saveImages", true);
-    result.put("version", 1);
+    result.put("version", 2);
+    /** Android 는 항상 Pictures/DIBAY (10+ MediaStore RELATIVE_PATH, 9 이하 공용 Pictures/DIBAY). */
+    result.put("album", SAVE_ALBUM_DIR);
+    result.put("openAppSettings", true);
+    call.resolve(result);
+  }
+
+  /**
+   * 앱 상세 설정 화면 열기 (사진 권한 거부 후 안내용). 권한 요청 없음.
+   * resolve {opened: boolean} — 실패해도 reject 하지 않는다.
+   */
+  @PluginMethod
+  public void openAppSettings(PluginCall call) {
+    JSObject result = new JSObject();
+    try {
+      Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+      intent.setData(Uri.fromParts("package", getContext().getPackageName(), null));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(intent);
+      result.put("opened", true);
+    } catch (Exception e) {
+      result.put("opened", false);
+    }
     call.resolve(result);
   }
 

@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  messengerImageSaveNotice,
+  pickMessengerHttpUrl,
   resolveMessengerImageSaveMode,
-  saveMessengerImages,
   type MessengerImageSaveMode,
 } from "@/lib/community-messenger/attachment/messenger-image-save";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackIcon } from "@/components/navigation/AppBackButton";
@@ -40,7 +39,8 @@ export function MessengerImageLightbox(props: {
   }, []);
 
   const safeIndex = Math.max(0, Math.min(Math.max(urls.length - 1, 0), index));
-  const orig = originals[safeIndex] ?? urls[safeIndex] ?? "";
+  /** 원본이 빈 문자열이어도 표시 URL 로 대체한다(`??` 는 "" 를 대체하지 못함). */
+  const orig = pickMessengerHttpUrl(originals[safeIndex], urls[safeIndex]) || (urls[safeIndex] ?? "");
   /** 원본 보기 — 앱 안에서 원본 화질로 전환(외부 브라우저·다운로드로 대체하지 않음). */
   const [showOriginal, setShowOriginal] = useState(false);
   const src = showOriginal ? orig : (urls[safeIndex] ?? "");
@@ -62,16 +62,19 @@ export function MessengerImageLightbox(props: {
     setShowOriginal(false);
   }, [safeIndex, open]);
 
+  /**
+   * 「저장」은 지금 보이는 사진(원본) 1장만, 「모두 저장 (N)」은 누를 때만 전체.
+   * 뷰어는 열린 채로 둔다(native·web 저장은 화면 이동 없음).
+   */
   const runSave = useCallback(
     async (scope: "one" | "all") => {
       if (saving) return;
-      const all = urls.map((u, i) => originals[i] ?? u);
-      const targets = scope === "one" ? [orig] : all;
+      const all = urls.map((u, i) => pickMessengerHttpUrl(originals[i], u)).filter(Boolean);
+      const targets = scope === "one" ? [pickMessengerHttpUrl(orig)].filter(Boolean) : all;
+      if (targets.length === 0) return;
       setSaving(scope);
       try {
-        const outcome = await saveMessengerImages(targets);
-        const notice = messengerImageSaveNotice(outcome);
-        showMessengerSnackbar(t(notice.key, notice.params), { variant: notice.variant });
+        await saveMessengerPhotosWithFeedback(targets, { t });
       } finally {
         setSaving(null);
       }

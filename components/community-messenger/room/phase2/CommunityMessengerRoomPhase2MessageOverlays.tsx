@@ -2,6 +2,7 @@
 
 import { MessageLongPressPopover } from "@/components/community-messenger/room/message/MessageLongPressPopover";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { MessengerPhotoSelectSaveSheet } from "@/components/community-messenger/room/MessengerPhotoSelectSaveSheet";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
@@ -81,6 +82,8 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           }}
         />
       ) : null}
+      {/* 「사진 선택해서 저장」 — 길게 누르기 메뉴가 닫힌 뒤에도 방 위에 유지 */}
+      <MessengerPhotoSelectSaveSheet />
       {vm.leaveRoomConfirmOpen ? (
         <MobileConfirmBottomSheet
           open

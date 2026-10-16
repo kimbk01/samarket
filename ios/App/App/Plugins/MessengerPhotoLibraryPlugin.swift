@@ -22,20 +22,60 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
     CAPPluginMethod(name: "resolvePhotos", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getSaveCapabilities", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "saveImages", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
   ]
 
   private var pendingPickCall: CAPPluginCall?
   private let thumbMaxPx: CGFloat = 256
   private let fullMaxEdge: CGFloat = 1920
+  /// 전체 접근(.readWrite == .authorized)이 이미 있을 때만 쓰는 사용자 앨범 이름.
+  private static let saveAlbumTitle = "DIBAY"
+  /// 동시 저장(수동 저장 + 자동 저장)이 앨범을 두 번 만들지 않도록 앨범 경로를 직렬화.
+  private let saveAlbumLock = NSLock()
 
   /// JS feature probe — 구버전 바이너리는 이 메서드가 없어 reject → 저장 버튼을 숨긴다.
   @objc func getSaveCapabilities(_ call: CAPPluginCall) {
-    call.resolve(["saveImages": true, "version": 1])
+    call.resolve([
+      "saveImages": true,
+      "version": 2,
+      "album": canUseSaveAlbum() ? MessengerPhotoLibraryPlugin.saveAlbumTitle : "camera_roll",
+      "openAppSettings": true,
+    ])
+  }
+
+  /// 앱 설정 화면 열기(사진 권한 거부 안내용). 권한 요청 없음. resolve {opened: Bool}.
+  @objc func openAppSettings(_ call: CAPPluginCall) {
+    DispatchQueue.main.async {
+      guard let url = URL(string: UIApplication.openSettingsURLString) else {
+        call.resolve(["opened": false])
+        return
+      }
+      UIApplication.shared.open(url, options: [:]) { opened in
+        call.resolve(["opened": opened])
+      }
+    }
+  }
+
+  /**
+   * 앨범(DIBAY) 사용 가능 = 사용자가 이미 **전체 사진 접근(.readWrite == .authorized)** 을 허용한 경우만.
+   * 이 판정은 권한을 요청하지 않는다(추가 팝업 없음). addOnly / limited / 미결정 → 카메라 롤에만 저장.
+   */
+  private func canUseSaveAlbum() -> Bool {
+    return PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized
+  }
+
+  /// 기존 사용자 앨범 "DIBAY" 조회(전체 접근일 때만 호출). 없으면 nil.
+  private func fetchSaveAlbum() -> PHAssetCollection? {
+    let options = PHFetchOptions()
+    options.predicate = NSPredicate(format: "localizedTitle = %@", MessengerPhotoLibraryPlugin.saveAlbumTitle)
+    let result = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: options)
+    return result.firstObject
   }
 
   /**
    * 메신저 사진을 사진첩(Photo Library)에 원본 바이트 그대로 저장한다 (재인코딩 없음 → 화질·EXIF 방향 유지).
-   * 권한: add-only. 결과는 index 별 saved / failed(reason) 로 돌려준다(부분 실패 표시용).
+   * 권한: add-only (readWrite 는 절대 요청하지 않는다). 전체 접근(.readWrite == .authorized)이 이미 있으면
+   * "DIBAY" 앨범에도 넣고, 아니면 카메라 롤에만 저장. 결과는 index 별 saved / failed(reason) 로 돌려준다.
    */
   @objc func saveImages(_ call: CAPPluginCall) {
     let rawUrls = call.getArray("urls", String.self) ?? []
@@ -54,6 +94,8 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       DispatchQueue.global(qos: .userInitiated).async {
         var saved: [Int] = []
         var failed: [[String: Any]] = []
+        /** 배치 시작 시 1회 판정 — 전체 접근이 이미 있을 때만 앨범 사용(권한 요청 없음). */
+        let useAlbum = self.canUseSaveAlbum()
         for (index, raw) in urls.enumerated() {
           guard let url = URL(string: raw), let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
             failed.append(["index": index, "reason": "invalid_url"])
@@ -67,7 +109,7 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
             failed.append(["index": index, "reason": "not_image"])
             continue
           }
-          let reason = self.addImageDataToLibrary(data, fileName: url.lastPathComponent)
+          let reason = self.addImageDataToLibrary(data, fileName: url.lastPathComponent, useAlbum: useAlbum)
           if let reason = reason {
             failed.append(["index": index, "reason": reason])
           } else {
@@ -75,7 +117,12 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
           }
         }
         DispatchQueue.main.async {
-          call.resolve(["saved": saved, "failed": failed, "permission": permission])
+          call.resolve([
+            "saved": saved,
+            "failed": failed,
+            "permission": permission,
+            "album": useAlbum ? MessengerPhotoLibraryPlugin.saveAlbumTitle : "camera_roll",
+          ])
         }
       }
     }
@@ -119,9 +166,26 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
   }
 
   /// 원본 데이터를 그대로 자산으로 추가. 실패 시 reason, 성공 시 nil.
-  private func addImageDataToLibrary(_ data: Data, fileName: String) -> String? {
+  /// useAlbum 이면 같은 performChanges 안에서 "DIBAY" 앨범(없으면 생성)에도 넣는다.
+  /// 앨범 단계가 실패하면 자산만 카메라 롤에 저장하는 기본 경로로 1회 재시도한다(저장 성공으로 집계).
+  private func addImageDataToLibrary(_ data: Data, fileName: String, useAlbum: Bool) -> String? {
+    if useAlbum {
+      saveAlbumLock.lock()
+      let albumResult = performAssetCreation(data, fileName: fileName, useAlbum: true)
+      saveAlbumLock.unlock()
+      if albumResult == nil || albumResult == "save_timeout" {
+        /** 성공, 또는 타임아웃(커밋 여부 불명 — 재시도하면 중복 저장 위험) → 그대로 반환. */
+        return albumResult
+      }
+      /** performChanges 는 원자적: 실패 시 자산도 추가되지 않았다 → 카메라 롤 전용으로 재시도. */
+    }
+    return performAssetCreation(data, fileName: fileName, useAlbum: false)
+  }
+
+  private func performAssetCreation(_ data: Data, fileName: String, useAlbum: Bool) -> String? {
     let semaphore = DispatchSemaphore(value: 0)
     var failure: String? = "save_failed"
+    let existingAlbum: PHAssetCollection? = useAlbum ? fetchSaveAlbum() : nil
     PHPhotoLibrary.shared().performChanges({
       let request = PHAssetCreationRequest.forAsset()
       let options = PHAssetResourceCreationOptions()
@@ -129,6 +193,16 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
         options.originalFilename = fileName
       }
       request.addResource(with: .photo, data: data, options: options)
+      guard useAlbum, let placeholder = request.placeholderForCreatedAsset else { return }
+      let albumRequest: PHAssetCollectionChangeRequest?
+      if let album = existingAlbum {
+        albumRequest = PHAssetCollectionChangeRequest(for: album)
+      } else {
+        albumRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(
+          withTitle: MessengerPhotoLibraryPlugin.saveAlbumTitle
+        )
+      }
+      albumRequest?.addAssets([placeholder] as NSArray)
     }, completionHandler: { success, _ in
       failure = success ? nil : "save_failed"
       semaphore.signal()

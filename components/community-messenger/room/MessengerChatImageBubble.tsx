@@ -8,6 +8,7 @@ import {
   recordCmRenderImageDecodeSample,
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/monitoring/cm-polish-analysis";
+import { MESSENGER_ALBUM_REST_TILE_INDEX } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 
 const BUBBLE_MAX =
   "mx-auto w-full min-w-[140px] max-w-[min(62vw,280px)] sm:max-w-[min(62vw,320px)] md:max-w-[min(62vw,360px)]";
@@ -80,6 +81,7 @@ function AlbumLayout({
       type="button"
       className={`relative overflow-hidden bg-black/10 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)] ${className}`}
       onClick={() => onOpenCell(i)}
+      data-album-index={i}
       aria-label={`${t("cm_ui_photo")} ${i + 1} ${t("cm_ui_view_photo_large")}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,15 +130,17 @@ function AlbumLayout({
         {cell(urls[0]!, 0, "")}
         {cell(urls[1]!, 1, "")}
         {cell(urls[2]!, 2, "")}
+        {/* 「+N」 칸: urls[3] 을 보여 주므로 탭하면 같은 사진(3)부터 뷰어를 연다. 특정 사진 길게 누르기 대상 아님. */}
         <button
           type="button"
           className="relative overflow-hidden bg-black/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
-          onClick={() => onOpenCell(4)}
+          onClick={() => onOpenCell(MESSENGER_ALBUM_REST_TILE_INDEX)}
+          data-album-rest="1"
           aria-label={`${t("cm_ui_view")} ${restCount + 1}`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={urls[3]!}
+            src={urls[MESSENGER_ALBUM_REST_TILE_INDEX]!}
             alt=""
             className={`h-full w-full object-cover ${pending ? "blur-sm opacity-70" : ""}`}
             loading="lazy"
@@ -178,6 +182,7 @@ function SingleChatImage({
       <button
         type="button"
         onClick={onOpen}
+        data-album-index={0}
         className="relative block w-full overflow-hidden rounded-[16px] border-0 bg-transparent text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
         aria-label={t("cm_ui_view_photo_large")}
       >

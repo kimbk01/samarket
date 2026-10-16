@@ -50,7 +50,6 @@ import { logCallPermission, type DirectCallDenyCode } from "@/lib/community-mess
 import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { autoSaveIncomingMessengerImages } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
 import { readMessengerSendAsAlbumPreference } from "@/lib/community-messenger/attachment/messenger-send-as-album-preference";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -309,7 +308,6 @@ export function useMessengerRoomPhase2Controller() {
     roomMessages,
     roomMessagesRef,
     roomOpenMarkReadRef,
-    roomPreferences,
     roomReadyForRealtime,
     roomSearchQuery,
     router,
@@ -930,28 +928,10 @@ export function useMessengerRoomPhase2Controller() {
   }, [activeSheet, infoSheetFocus]);
 
   /**
-   * '미디어 자동 저장' ON 일 때만 — 받은 사진을 기기 사진첩에 원본으로 저장.
-   * 중복·재조회·재실행 방지 원장과 기준 시각은 messenger-image-auto-save 가 관리한다.
+   * '미디어 자동 저장' 은 방 범위가 아니라 앱 전역(포그라운드)에서 처리한다 —
+   * `useMessengerImageAutoSaveGlobal` (MainShellMessengerParticipantBridge 에 1회 마운트).
+   * 열린 방의 Realtime 수신도 `cm.room.incoming_message` 버스로 그 훅에 합류하므로 여기서 중복 실행하지 않는다.
    */
-  const autoSaveViewerId = snapshot?.viewerUserId?.trim() ?? "";
-  const mediaAutoSaveOn = roomPreferences.mediaAutoSaveEnabled === true;
-  useEffect(() => {
-    if (!mediaAutoSaveOn || !autoSaveViewerId) return;
-    autoSaveIncomingMessengerImages({
-      enabled: true,
-      viewerUserId: autoSaveViewerId,
-      messages: roomMessages,
-      onNotice: (notice) => {
-        const key =
-          notice.key === "cm_ui_photo_saved" || notice.key === "cm_ui_photo_saved_count"
-            ? "cm_ui_photo_auto_saved_count"
-            : notice.key;
-        const params =
-          key === "cm_ui_photo_auto_saved_count" ? { count: notice.params?.count ?? 1 } : notice.params;
-        showMessengerSnackbar(translateCmUi(key, params), { variant: notice.variant });
-      },
-    });
-  }, [autoSaveViewerId, mediaAutoSaveOn, roomMessages]);
 
   /**
    * 응답 유실(네트워크 예외) 후 같은 내용 재전송은 같은 clientMessageId 로 보낸다 —

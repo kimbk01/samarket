@@ -56,3 +56,20 @@ describe("messenger image save — result notice", () => {
     );
   });
 });
+
+describe("messenger image save — notice actions", () => {
+  const base = { mode: "native" as const, total: 3, permissionDenied: false };
+  const P2 = "https://x/y";
+  it("partial with failedUrls → retry action; without failedUrls → none", () => {
+    expect(
+      messengerImageSaveNotice({ ...base, savedCount: 1, failedCount: 2, failedUrls: [`${P2}/a`, `${P2}/c`] }).action
+    ).toBe("retry");
+    expect(messengerImageSaveNotice({ ...base, savedCount: 1, failedCount: 2 }).action).toBeUndefined();
+  });
+  it("permission denied → open_settings; success never carries an action", () => {
+    expect(
+      messengerImageSaveNotice({ ...base, savedCount: 0, failedCount: 3, permissionDenied: true, failedUrls: [P2] })
+    ).toMatchObject({ key: "cm_ui_photo_save_permission_denied", action: "open_settings" });
+    expect(messengerImageSaveNotice({ ...base, savedCount: 3, failedCount: 0, failedUrls: [] }).action).toBeUndefined();
+  });
+});

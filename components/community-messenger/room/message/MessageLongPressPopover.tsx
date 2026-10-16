@@ -24,18 +24,21 @@ import {
 import { MessageActionMenu } from "@/components/community-messenger/room/message/MessageActionMenu";
 import { MessageReactionBar } from "@/components/community-messenger/room/message/MessageReactionBar";
 import {
-  messengerImageOriginalUrls,
-  messengerImageSaveNotice,
+  messengerImageOriginalUrlSlots,
   resolveMessengerImageSaveMode,
-  saveMessengerImages,
   type MessengerImageSaveMode,
 } from "@/lib/community-messenger/attachment/messenger-image-save";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  buildMessengerPhotoSaveMenu,
+  type MessengerPhotoSaveMenuRow,
+} from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
+import { openMessengerPhotoSelectSave } from "@/lib/community-messenger/stores/messenger-photo-select-save-store";
+import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
 
 type Item = CommunityMessengerMessage & { pending?: boolean };
 
 export type MessageLongPressPopoverProps = {
-  open: { item: Item; anchorRect: CommunityMessengerMessageActionAnchorRect };
+  open: { item: Item; anchorRect: CommunityMessengerMessageActionAnchorRect; albumIndex?: number };
   busy: string | null;
   roomUnavailable: boolean;
   snapshot: CommunityMessengerRoomSnapshot;
@@ -63,11 +66,14 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
   const [shareExpanded, setShareExpanded] = useState(false);
-  /** 사진 저장 — 개별(앨범은 하나씩 펼침)·모두 저장. 저장 미지원 바이너리는 행을 숨긴다. */
-  const photoUrls = item.pending ? [] : messengerImageOriginalUrls(item);
+  /**
+   * 사진 저장 — 메뉴 구성은 `buildMessengerPhotoSaveMenu` 단일 정의.
+   * 단일 「사진 저장」 · 앨범 「이 사진 저장」(눌린 칸) · 「사진 모두 저장 (N장)」 · 「사진 선택해서 저장」.
+   * 구버전 앱(브라우저 모드)은 한 장씩만, 저장 미지원 바이너리는 행을 숨긴다.
+   */
+  const photoSlots = item.pending ? [] : messengerImageOriginalUrlSlots(item);
   const [photoSaveMode, setPhotoSaveMode] = useState<MessengerImageSaveMode>("none");
-  const [photoListExpanded, setPhotoListExpanded] = useState(false);
-  const hasPhotos = photoUrls.length > 0;
+  const hasPhotos = photoSlots.some((u) => u.length > 0);
   useEffect(() => {
     if (!hasPhotos) return;
     let cancelled = false;
@@ -78,44 +84,44 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       cancelled = true;
     };
   }, [hasPhotos]);
-  const savePhotos = (urls: string[]) => {
+  const runPhotoSaveRow = (row: MessengerPhotoSaveMenuRow) => {
     onClose();
-    void saveMessengerImages(urls).then((outcome) => {
-      const notice = messengerImageSaveNotice(outcome);
-      showMessengerSnackbar(t(notice.key, notice.params), { variant: notice.variant });
-    });
+    if (row.kind === "select") {
+      const album = item.imageAlbumUrls ?? [];
+      const previews =
+        item.imageAlbumPreviewUrls && item.imageAlbumPreviewUrls.length === album.length
+          ? item.imageAlbumPreviewUrls
+          : album;
+      openMessengerPhotoSelectSave({
+        messageId: item.id,
+        thumbs: photoSlots.map((slot, i) => String(previews[i] ?? "").trim() || slot),
+        slots: photoSlots,
+        ...(row.preselectIndex !== undefined ? { preselectIndex: row.preselectIndex } : {}),
+      });
+      return;
+    }
+    void saveMessengerPhotosWithFeedback(row.urls, { t });
   };
+  const photoSaveMenu = buildMessengerPhotoSaveMenu({
+    slots: photoSlots,
+    mode: photoSaveMode,
+    albumIndex: open.albumIndex,
+  });
   const photoSaveRows =
-    photoSaveMode === "none" || !hasPhotos
+    photoSaveMenu.length === 0
       ? undefined
-      : photoUrls.length === 1
-        ? [{ key: "photo-save", label: t("cm_ui_photo_save_menu"), onClick: () => savePhotos(photoUrls) }]
-        : photoSaveMode === "browser"
-          ? /** 구버전 앱(브라우저 모드): 여러 장을 한 번에 넘길 수 없어 사진별 행만 노출 */
-            photoUrls.map((url, i) => ({
-              key: `photo-save-${i}`,
-              label: t("cm_ui_photo_save_index", { index: i + 1 }),
-              onClick: () => savePhotos([url]),
-            }))
-          : [
-            {
-              key: "photo-save-all",
-              label: t("cm_ui_photo_save_all_menu", { count: photoUrls.length }),
-              onClick: () => savePhotos(photoUrls),
-            },
-            {
-              key: "photo-save-each",
-              label: `${t("cm_ui_photo_save_one_by_one")} ${photoListExpanded ? "▾" : "▸"}`,
-              onClick: () => setPhotoListExpanded((v) => !v),
-            },
-            ...(photoListExpanded
-              ? photoUrls.map((url, i) => ({
-                  key: `photo-save-${i}`,
-                  label: `· ${t("cm_ui_photo_save_index", { index: i + 1 })}`,
-                  onClick: () => savePhotos([url]),
-                }))
-              : []),
-            ];
+      : photoSaveMenu.map((row) => ({
+          key: row.key,
+          label:
+            row.kind === "single"
+              ? t("cm_ui_photo_save_menu")
+              : row.kind === "this"
+                ? t("cm_ui_photo_save_this")
+                : row.kind === "all"
+                  ? t("cm_ui_photo_save_all_menu", { count: row.count })
+                  : t("cm_ui_photo_save_select_menu"),
+          onClick: () => runPhotoSaveRow(row),
+        }));
   /**
    * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
    * backdrop에 전달되어 팝오버가 즉시 닫히는 현상을 막는다.

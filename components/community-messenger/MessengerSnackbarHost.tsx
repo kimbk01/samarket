@@ -64,6 +64,19 @@ export function MessengerSnackbarHost() {
         className={`pointer-events-auto flex max-w-[min(100%,24rem)] items-start gap-3 rounded-ui-rect border px-3.5 py-2.5 sam-text-body-secondary leading-snug shadow-sam-elevated backdrop-blur-sm ${surface}`}
       >
         <p className="min-w-0 flex-1">{current.message}</p>
+        {current.action ? (
+          <button
+            type="button"
+            onClick={() => {
+              const action = current.action;
+              dismiss();
+              action?.onPress();
+            }}
+            className="shrink-0 rounded-ui-rect px-1.5 py-0.5 sam-text-helper font-bold text-white underline underline-offset-2"
+          >
+            {current.action.label}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={dismiss}

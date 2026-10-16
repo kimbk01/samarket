@@ -13,7 +13,12 @@
  *   앱 재실행 시 재저장하지 않는다. 전체 실패는 일정 시간 뒤 1회만 재시도(상한, 루프 없음).
  * - 권한 거부: 같은 ON 구간에서는 재시도하지 않는다(설정을 껐다 켜면 다시 시도).
  * - 구버전 앱(저장 미지원)·일반 웹 브라우저: 자동 저장하지 않는다(사진첩 없음/브라우저 다운로드 폭주 방지).
- * - 범위: 열린 방 타임라인에서만(백그라운드/전역 저장 없음 — 카카오톡과 동일).
+ * - 범위: **앱 포그라운드 전역** — `use-messenger-image-auto-save-global` 이 (1) Realtime 버스
+ *   `cm.room.incoming_message` 행, (2) 참여자 unread 증가 신호(`cm.room.bump`) 후 catch-up,
+ *   (3) 포그라운드 복귀·마운트 catch-up(`GET /api/community-messenger/media/auto-save-candidates`)을
+ *   모두 이 함수로 보낸다. 원장·inflight 가 출처 간 중복 저장을 막는다. 백그라운드(앱 비활성) 저장은 없다.
+ * - 권한: 설정을 켤 때 권한을 미리 요청하지 않는다(네이티브는 저장 시점에만 add-only 를 요청) —
+ *   첫 자동 저장 때 OS 팝업이 1회 뜬다.
  */
 import {
   messengerImageOriginalUrls,
@@ -36,6 +41,10 @@ const LEDGER_MAX_IDS = 600;
 export const MESSENGER_IMAGE_AUTO_SAVE_MAX_ATTEMPTS = 2;
 export const MESSENGER_IMAGE_AUTO_SAVE_RETRY_DELAY_MS = 30_000;
 const FAILED_MAX_ENTRIES = 100;
+
+const CATCH_UP_PREFIX = "cm:image-auto-save:catchup:v1:";
+/** catch-up 커서 계산용으로 기억하는 마지막 페이지 항목 상한(= API limit). */
+const CATCH_UP_PAGE_MAX = 50;
 
 type FailedEntry = { attempts: number; lastAt: number };
 type Ledger = { ids: string[]; deniedAt: number | null; failed: Record<string, FailedEntry> };
@@ -221,15 +230,18 @@ function retryBlockedIds(ledger: Ledger, nowMs: number): string[] {
   return out;
 }
 
+/** 배치 결과 요약 — 전역 훅이 여러 배치(실시간·catch-up)를 한 번의 알림으로 합칠 때 쓴다. */
+export type MessengerImageAutoSaveBatchSummary = { saved: number; failed: number; denied: boolean };
+
 /**
- * 방 타임라인 갱신 시 호출. 설정 OFF 면 아무것도 하지 않는다.
+ * 받은 사진 자동 저장(전역 훅·호환 호출부 공용). 설정 OFF 면 아무것도 하지 않는다.
  * 저장은 직렬 큐로 처리(동시 다발 권한 팝업·중복 방지).
  */
 export function autoSaveIncomingMessengerImages(input: {
   enabled: boolean;
   viewerUserId: string;
   messages: ReadonlyArray<CommunityMessengerMessage & { pending?: boolean }>;
-  onNotice?: (notice: MessengerImageSaveNotice & { auto: true }) => void;
+  onNotice?: (notice: MessengerImageSaveNotice & { auto: true; summary: MessengerImageAutoSaveBatchSummary }) => void;
   nowMs?: number;
 }): void {
   const viewer = input.viewerUserId.trim();
@@ -296,11 +308,57 @@ export function autoSaveIncomingMessengerImages(input: {
         failedCount: failed,
         permissionDenied: denied,
       });
-      if (saved + failed > 0 || denied) input.onNotice?.({ ...notice, auto: true });
+      if (saved + failed > 0 || denied) {
+        input.onNotice?.({ ...notice, auto: true, summary: { saved, failed, denied } });
+      }
     } finally {
       for (const m of targets) inflightIds.delete(m.id);
     }
   });
+}
+
+/**
+ * catch-up 조회 기준(`since`) — 계정별 기준 시각과 마지막 catch-up 페이지 커서 중 늦은 쪽.
+ * 커서 = 마지막 페이지에서 **아직 처리 원장에 없는 첫 항목**의 시각(재시도·권한 거부 항목을 건너뛰지 않음),
+ * 모두 처리됐으면 페이지 마지막 항목 시각(gte 이므로 그 1건은 다시 오지만 원장으로 무시).
+ * 설정 OFF→ON 으로 기준 시각이 새로 잡히면 그 이후만 본다(옛 커서가 더 이르면 기준 시각이 이긴다).
+ */
+export function messengerImageAutoSaveCatchUpSinceMs(viewerUserId: string, nowMs = Date.now()): number {
+  const viewer = viewerUserId.trim();
+  const enabledAtMs = readMessengerImageAutoSaveEnabledAt(viewer, nowMs);
+  let page: Array<[string, number]> = [];
+  try {
+    const parsed = JSON.parse(safeGet(CATCH_UP_PREFIX + viewer) ?? "null") as { items?: unknown } | null;
+    if (parsed && Array.isArray(parsed.items)) {
+      page = parsed.items.filter(
+        (x): x is [string, number] => Array.isArray(x) && typeof x[0] === "string" && typeof x[1] === "number",
+      );
+    }
+  } catch {
+    page = [];
+  }
+  if (page.length === 0) return enabledAtMs;
+  const settled = new Set(readLedger(viewer).ids);
+  const firstOpen = page.find(([id]) => !settled.has(id));
+  const cursor = firstOpen ? firstOpen[1] : page[page.length - 1]![1];
+  return Math.max(enabledAtMs, cursor);
+}
+
+/** catch-up 응답 페이지 기록(오름차순). 다음 `messengerImageAutoSaveCatchUpSinceMs` 가 커서로 쓴다. */
+export function noteMessengerImageAutoSaveCatchUpPage(
+  viewerUserId: string,
+  messages: ReadonlyArray<Pick<CommunityMessengerMessage, "id" | "createdAt">>,
+): void {
+  const viewer = viewerUserId.trim();
+  if (!viewer || messages.length === 0) return;
+  const items: Array<[string, number]> = [];
+  for (const m of messages.slice(-CATCH_UP_PAGE_MAX)) {
+    const t = new Date(m.createdAt).getTime();
+    const id = String(m.id ?? "").trim();
+    if (id && Number.isFinite(t)) items.push([id, t]);
+  }
+  if (items.length === 0) return;
+  safeSet(CATCH_UP_PREFIX + viewer, JSON.stringify({ items }));
 }
 
 /** 테스트 전용 — 모듈 메모리 초기화 */

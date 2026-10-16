@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { GlobalCommunityMessengerUnreadSound } from "@/components/community-messenger/GlobalCommunityMessengerUnreadSound";
+import { GlobalMessengerImageAutoSave } from "@/components/community-messenger/GlobalMessengerImageAutoSave";
 import { DomainRoomStateRealtimeHost } from "@/components/messenger/DomainRoomStateRealtimeHost";
 import { resolveMessagingGlobalChromeFromPath } from "@/lib/layout/messaging-global-chrome-policy";
 
@@ -11,6 +12,7 @@ import { resolveMessagingGlobalChromeFromPath } from "@/lib/layout/messaging-glo
  * 구독이 끊겨 하단 「메신저」뱃지·`cm.room.bump` 가 멈춘다.
  * 메인 앱 트리에서 **항상 1개**만 마운트하고, 인앱 사운드·배너 모드만 경로에 맞춘다.
  * Phase R: DomainRoomStateRealtimeHost 도 동일 전역 트리에 상주 (Home 마운트 비의존).
+ * 미디어 자동 저장(받은 사진 → 사진첩)도 같은 전역 버스 신호를 쓰므로 여기서 1회 마운트한다.
  */
 export function MainShellMessengerParticipantBridge({
   regionBarInLayout = true,
@@ -28,6 +30,7 @@ export function MainShellMessengerParticipantBridge({
     <>
       <DomainRoomStateRealtimeHost />
       <GlobalCommunityMessengerUnreadSound enabled playback={playback} />
+      <GlobalMessengerImageAutoSave />
     </>
   );
 }

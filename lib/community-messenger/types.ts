@@ -372,6 +372,8 @@ export type CommunityMessengerMessageActionAnchorRect = {
 export type CommunityMessengerMessageActionOpenState = {
   item: CommunityMessengerMessage & { pending?: boolean };
   anchorRect: CommunityMessengerMessageActionAnchorRect;
+  /** 사진 앨범에서 길게 누른 칸(앨범 표시 순서). 「+N」 칸·여백·사진 외 메시지는 없음. */
+  albumIndex?: number;
 };
 
 /** `POST .../images` → `sendCommunityMessengerImageMessage` 전달 형식 */

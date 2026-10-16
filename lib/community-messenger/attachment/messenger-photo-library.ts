@@ -63,13 +63,25 @@ export type MessengerPhotoLibraryPlugin = {
     failed?: MessengerPhotoLibraryFailure[];
   }>;
   /** 신규 바이너리 전용 — 구버전은 메서드 없음(raw nativePromise 는 reject 없이 pending → 헤더로 선판정) */
-  getSaveCapabilities(): Promise<{ saveImages?: boolean; version?: number }>;
+  getSaveCapabilities(): Promise<{
+    saveImages?: boolean;
+    version?: number;
+    /** v2+: iOS 는 전체 접근 시 "DIBAY", 아니면 "camera_roll". Android 는 항상 "DIBAY". */
+    album?: MessengerNativeSaveAlbum;
+    openAppSettings?: boolean;
+  }>;
   saveImages(options: { urls: string[] }): Promise<{
     saved?: number[];
     failed?: MessengerPhotoLibraryFailure[];
     permission?: string;
+    album?: MessengerNativeSaveAlbum;
   }>;
+  /** 신규 바이너리 전용 — 앱 설정 화면 열기(권한 요청 없음). */
+  openAppSettings(): Promise<{ opened?: boolean }>;
 };
+
+/** 저장 위치 — "DIBAY" 앨범 또는 카메라 롤(앨범 없이 최근 항목). */
+export type MessengerNativeSaveAlbum = "DIBAY" | "camera_roll";
 
 const MessengerPhotoLibrary = registerPlugin<MessengerPhotoLibraryPlugin>(
   MESSENGER_PHOTO_LIBRARY_PLUGIN_ID,
@@ -165,6 +177,9 @@ function invokeMessengerPhotoLibraryPlugin<T>(
   if (method === "saveImages") {
     const urls = Array.isArray(options?.urls) ? options.urls.filter((u): u is string => typeof u === "string") : [];
     return MessengerPhotoLibrary.saveImages({ urls }) as Promise<T>;
+  }
+  if (method === "openAppSettings") {
+    return MessengerPhotoLibrary.openAppSettings() as Promise<T>;
   }
   throw new Error("Messenger photo library bridge unavailable");
 }
@@ -390,5 +405,48 @@ export async function saveImagesToNativePhotoLibrary(urls: string[]): Promise<Me
       failed: list.map((_, index) => ({ index, reason })),
       permission: "unknown",
     };
+  }
+}
+
+
+/** openAppSettings 상한 — 네이티브는 즉시 resolve 하지만 브리지 이상 시 UI 가 멈추지 않도록. */
+export const MESSENGER_OPEN_APP_SETTINGS_TIMEOUT_MS = 3_000;
+
+/**
+ * 앱 설정 화면 열기 (사진 권한 거부 후 「설정에서 허용」 안내용). 권한을 요청하지 않는다.
+ * 플러그인 헤더에 `openAppSettings` 가 **있을 때만** 호출한다(구버전 바이너리는 raw nativePromise 가
+ * 영원히 pending → 헤더 미확정·없음이면 호출하지 않고 false). 타임아웃·reject → false.
+ */
+export async function openMessengerAppSettings(): Promise<boolean> {
+  if (!isCapacitorNativePlatform()) return false;
+  if (messengerPhotoLibraryHeaderHasMethod("openAppSettings") !== true) return false;
+  try {
+    const result = await withTimeout(
+      invokeMessengerPhotoLibraryPlugin<{ opened?: unknown }>("openAppSettings"),
+      MESSENGER_OPEN_APP_SETTINGS_TIMEOUT_MS,
+      "openAppSettings",
+    );
+    return result?.opened === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 네이티브 저장 위치 조회(v2 바이너리). 헤더에 `getSaveCapabilities` 가 확정일 때만 호출, 타임아웃 → null.
+ * 구버전(v1)은 album 필드가 없어 null — UI 는 일반 「사진첩」 문구를 쓴다.
+ */
+export async function getMessengerNativeSaveAlbum(): Promise<MessengerNativeSaveAlbum | null> {
+  if (!isCapacitorNativePlatform()) return null;
+  if (messengerPhotoLibraryHeaderHasMethod("getSaveCapabilities") !== true) return null;
+  try {
+    const caps = await withTimeout(
+      invokeMessengerPhotoLibraryPlugin<{ album?: unknown }>("getSaveCapabilities"),
+      MESSENGER_SAVE_CAPABILITIES_TIMEOUT_MS,
+      "getSaveCapabilities",
+    );
+    return caps?.album === "DIBAY" || caps?.album === "camera_roll" ? caps.album : null;
+  } catch {
+    return null;
   }
 }

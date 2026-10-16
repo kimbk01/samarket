@@ -53,6 +53,7 @@ import {
   resolveStoreOrderOpsTitleText,
 } from "@/lib/store-order-chat/store-order-ops-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { extractMessengerAlbumIndexFromTarget } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 
 function bumpCmR9Counter(roomId: string, key: "avatarRenderCount" | "mediaDeferCount" | "linkPreviewDeferCount"): void {
   if (typeof window === "undefined") return;
@@ -75,6 +76,11 @@ function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMes
     width: r.width,
     height: r.height,
   };
+}
+
+/** 사진 메시지에서 길게 누른 앨범 칸 — 사진이 아니면 undefined. */
+function messengerLongPressAlbumIndex(item: { messageType: string }, target: EventTarget | null): number | undefined {
+  return item.messageType === "image" ? extractMessengerAlbumIndexFromTarget(target) : undefined;
 }
 
 export type MessengerTimelineVirtualRowProps = {
@@ -317,6 +323,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
               setLongPressHolding(true);
+              // 앨범 칸 식별은 캡처 전에 시작 지점(target)에서 한다 — 캡처 후 target 이 말풍선으로 바뀌어도 무관.
+              const albumIndex = messengerLongPressAlbumIndex(item, e.target);
               // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
               // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
@@ -328,6 +336,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 setMessageActionItem({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
+                  ...(albumIndex !== undefined ? { albumIndex } : {}),
                 });
               }, 520);
             },
@@ -341,9 +350,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             onPointerCancel: cancelLongPress,
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
+              const albumIndex = messengerLongPressAlbumIndex(item, e.target);
               setMessageActionItem({
                 item,
                 anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
+                ...(albumIndex !== undefined ? { albumIndex } : {}),
               });
             },
           };
