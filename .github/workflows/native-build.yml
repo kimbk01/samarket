@@ -1,0 +1,102 @@
+name: Native build (APK · iOS)
+
+# 네이티브 바이너리 컴파일 검증 + 설치용 산출물.
+# - Android: Debug APK (debug 키 서명 — 스토어 release 키 아님. 기존 release 서명 앱 위에는 덮어쓸 수 없어
+#   기존 앱 삭제 후 설치해야 한다) + 서명 시크릿이 있으면 Release APK.
+# - iOS: 시뮬레이터용 빌드(코드 서명 없음)로 Swift 컴파일 검증. 실기기 IPA 는 Apple 서명 인증서 필요.
+# 서버 URL 은 Production origin(https://samarket.vercel.app) — scripts/sync-capacitor-vercel.mjs.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "claude/**"]
+    paths:
+      - "android/**"
+      - "ios/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/native-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # 운영 동등 빌드 값 — 저장소 Secrets 가 있으면 주입(없으면 빌드는 되지만 푸시·구글 로그인·네이티브 Realtime 미동작).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+      HAS_GOOGLE_SERVICES: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_B64 != '' }}
+      HAS_RELEASE_KEY: ${{ secrets.DIBAY_PLAY_STORE_FILE_B64 != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install dependencies
+        run: npm ci
+      - name: Capacitor sync (Production server URL)
+        run: npm run cap:sync:vercel
+      - name: google-services.json (FCM) from secret
+        if: ${{ env.HAS_GOOGLE_SERVICES == 'true' }}
+        env:
+          ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_B64 }}
+        run: echo "$ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+      - name: Assemble Debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Assemble Release APK (only when signing secrets exist)
+        if: ${{ env.HAS_RELEASE_KEY == 'true' }}
+        env:
+          DIBAY_PLAY_STORE_FILE_B64: ${{ secrets.DIBAY_PLAY_STORE_FILE_B64 }}
+          DIBAY_PLAY_STORE_PASSWORD: ${{ secrets.DIBAY_PLAY_STORE_PASSWORD }}
+          DIBAY_PLAY_KEY_ALIAS: ${{ secrets.DIBAY_PLAY_KEY_ALIAS }}
+          DIBAY_PLAY_KEY_PASSWORD: ${{ secrets.DIBAY_PLAY_KEY_PASSWORD }}
+        working-directory: android
+        run: |
+          echo "$DIBAY_PLAY_STORE_FILE_B64" | base64 -d > "$RUNNER_TEMP/dibay-release.jks"
+          DIBAY_PLAY_STORE_FILE="$RUNNER_TEMP/dibay-release.jks" ./gradlew --no-daemon assembleRelease
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dibay-android-apk-${{ github.sha }}
+          path: android/app/build/outputs/apk/**/*.apk
+          retention-days: 14
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Capacitor sync iOS (Production server URL)
+        run: npm run cap:sync:vercel:ios
+      - name: Build for iOS Simulator (no code signing — compile verification)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build | tail -200

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * 사진 저장 결과 스낵바 — 「다시 시도」는 실패한 장만, 권한 거부는 「설정 열기」,
- * 구버전 앱(browser)은 확인 후에만 원본 열기.
+ * 구버전 앱(browser)은 업데이트 팝업 없이 바로 원본 hand-off.
  */
 let mode: "native" | "browser" | "web" | "none" = "native";
 const nativeCalls: string[][] = [];
@@ -145,36 +145,14 @@ describe("messenger photo save feedback", () => {
     expect(lib.openMessengerAppSettings).toHaveBeenCalled();
   });
 
-  it("old app (browser mode): cancel on update sheet → nothing opened", async () => {
+  it("old app (browser mode): no update popup — hands off directly, guidance notice (no false success)", async () => {
     mode = "browser";
     const dl = await import("@/lib/community-messenger/messenger-file-download");
     const { saveMessengerPhotosWithFeedback } = await import(
       "@/components/community-messenger/room/messenger-photo-save-feedback"
     );
     const { notified, deps } = setup();
-    const confirm = vi.fn(async () => false);
-    const r = await saveMessengerPhotosWithFeedback([A], { ...deps, confirm });
-    expect(r).toBeNull();
-    expect(confirm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "cm_ui_photo_save_update_title",
-        description: "cm_ui_photo_save_update_body",
-        confirmLabel: "cm_ui_photo_save_open_original",
-        cancelLabel: "common_cancel",
-      })
-    );
-    expect(dl.openMessengerFileInNativeShellIfNeeded).not.toHaveBeenCalled();
-    expect(notified).toEqual([]);
-  });
-
-  it("old app (browser mode): 원본 열기 → existing hand-off, guidance notice", async () => {
-    mode = "browser";
-    const dl = await import("@/lib/community-messenger/messenger-file-download");
-    const { saveMessengerPhotosWithFeedback } = await import(
-      "@/components/community-messenger/room/messenger-photo-save-feedback"
-    );
-    const { notified, deps } = setup();
-    const r = await saveMessengerPhotosWithFeedback([A], { ...deps, confirm: async () => true });
+    const r = await saveMessengerPhotosWithFeedback([A], deps);
     expect(r?.handedOff).toBe("android");
     expect(dl.openMessengerFileInNativeShellIfNeeded).toHaveBeenCalledTimes(1);
     expect(notified[0]!.message).toBe("cm_ui_photo_save_browser_android");
