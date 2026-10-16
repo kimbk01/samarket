@@ -5,7 +5,11 @@
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
-import { fetchTradeFeedPage, type TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
+import {
+  fetchTradeFeedPage,
+  TradeFeedQueryError,
+  type TradeFeedPageSort,
+} from "@/lib/posts/fetch-trade-feed-page";
 import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-server-cache";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
@@ -51,7 +55,7 @@ export async function resolveTradeFeedOpenPayload(
 ): Promise<TradeFeedOpenPayload> {
   const { readSb, serviceSb, favoritesSb } = clients;
 
-  let result = await fetchTradeFeedPage(readSb, categoryIds, {
+  const pageOpts = {
     page: opts.page,
     sort: opts.sort,
     jobsListingKind: opts.jobsListingKind,
@@ -67,30 +71,23 @@ export async function resolveTradeFeedOpenPayload(
     priceMin: opts.priceMin,
     priceMax: opts.priceMax,
     compositionFilters: opts.compositionFilters,
-  });
-  if (
-    result.posts.length === 0 &&
-    serviceSb &&
-    serviceSb !== readSb
-  ) {
-    const alt = await fetchTradeFeedPage(serviceSb, categoryIds, {
-      page: opts.page,
-      sort: opts.sort,
-      jobsListingKind: opts.jobsListingKind,
-      restrictTradeTypeJob: opts.restrictTradeTypeJob,
-      jobEmploymentType: opts.jobEmploymentType,
-      todayAvailable: opts.todayAvailable,
-      jobRegionSlug: opts.jobRegionSlug,
-      jobIndustrySlug: opts.jobIndustrySlug,
-      statusOr: opts.statusOr,
-      lguCityId: opts.lguCityId,
-      radiusKm: opts.radiusKm,
-      q: opts.q,
-      priceMin: opts.priceMin,
-      priceMax: opts.priceMax,
-      compositionFilters: opts.compositionFilters,
+  };
+  const hasAltClient = Boolean(serviceSb && serviceSb !== readSb);
+
+  /** Region-priority query failure on read client → service client; both failing → throw (error response). */
+  let result: { posts: PostWithMeta[]; hasMore: boolean };
+  try {
+    result = await fetchTradeFeedPage(readSb, categoryIds, pageOpts);
+  } catch (e) {
+    if (!(e instanceof TradeFeedQueryError) || !hasAltClient) throw e;
+    result = await fetchTradeFeedPage(serviceSb, categoryIds, pageOpts);
+  }
+  if (result.posts.length === 0 && hasAltClient) {
+    const alt = await fetchTradeFeedPage(serviceSb, categoryIds, pageOpts).catch((e) => {
+      if (e instanceof TradeFeedQueryError) return null;
+      throw e;
     });
-    if (alt.posts.length > 0) {
+    if (alt && alt.posts.length > 0) {
       result = alt;
     }
   }

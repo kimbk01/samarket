@@ -149,6 +149,8 @@ export type HomePostsOpenResult = {
   posts: PostWithMeta[];
   hasMore: boolean;
   favoriteMap: Record<string, boolean>;
+  /** DB query failed on every read client — route must answer with an error, not an empty list. */
+  queryFailed?: true;
 };
 
 export type ResolveHomePostsGetDataOptions = {
@@ -277,7 +279,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
     });
 
     if (!loaded) {
-      return { posts: [], hasMore: false, favoriteMap: {} };
+      return { posts: [], hasMore: false, favoriteMap: {}, queryFailed: true };
     }
 
     posts = loaded.posts;
@@ -734,7 +736,7 @@ export async function resolveHomePostsGetData(
     });
 
     if (!loaded) {
-      return { posts: [], hasMore: false, favoriteMap: {} };
+      return { posts: [], hasMore: false, favoriteMap: {}, queryFailed: true };
     }
 
     posts = loaded.posts;

@@ -153,7 +153,8 @@ describe("marketplace browse SSOT wiring contract", () => {
 
   it("L5 — unset hydrate uses address-book master CITY before reset; no force refresh", () => {
     const hydrate = read("lib/trade/location/use-trade-marketplace-location-hydrate.ts");
-    expect(hydrate).toContain("resolveTradeMarketplaceMasterHydrateScope");
+    /** Owner SSOT 2026-10-16: hydrate consumes the outcome (resolved / pending_auth / transient_error). */
+    expect(hydrate).toContain("resolveTradeMarketplaceMasterHydrateOutcome");
     expect(hydrate).toContain("tradeMarketplaceCityScopeFromMasterAddress");
     const seedAt = hydrate.indexOf("peekMasterCityScopeFromAddressCache");
     const resetCallAt = hydrate.lastIndexOf("resolveTradeMarketplaceMasterAddressResetHref");

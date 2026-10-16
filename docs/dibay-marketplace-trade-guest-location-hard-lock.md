@@ -22,8 +22,18 @@ location=all nationwide fetch enabled
 LOGGED-IN UNSET HYDRATE:
 master CITY first; no master → ALL; LGU fail → ALL
 
-TRANSIENT address-defaults !ok (not 401/403):
-UNSET + boot retry — no silent ALL
+TRANSIENT address-defaults !ok (not 401/403), network error, timeout, national-lgu 5xx:
+UNSET + bounded retry (1s, 2s, 4s) → then hydrate `failed` → list error + 다시 시도
+— no silent ALL, no endless loading (OWNER 2026-10-16)
+
+AUTH STILL RESTORING (401/403 without guest proof):
+before boot settles → boot-ready retry; after boot settled → same bounded retry → `failed`
+
+CATEGORY SURFACE (/market?category=…) without location:
+same hydrate as HOME (PostListByCategory) — no endless loading on deep link / refresh
+
+RESET (↺ / 필터 전체 초기화) while address lookup fails:
+UNSET href (hydrate retries) — never a fake ALL
 
 MIGRATION:
 NO
@@ -55,6 +65,8 @@ but confirmed guest hydrate MUST commit ALL onto the URL on first entry.
 - `lib/trade/location/resolve-trade-marketplace-default-city.ts` — hydrate caller
 - `lib/trade/location/use-trade-marketplace-location-hydrate.ts` — URL replace
 - `lib/trade/marketplace/client-location-fetch.ts` — unset blocks fetch until hydrate commits
+- `resolveTradeMarketplaceMasterHydrateOutcome` — `resolved` (CITY | ALL) · `pending_auth` · `transient_error` (OWNER 2026-10-16)
+- `TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS` + hook `failed` / `retry` — bounded recovery, then error UI
 
 ## DO NOT (without a new cut)
 
@@ -62,6 +74,8 @@ but confirmed guest hydrate MUST commit ALL onto the URL on first entry.
 - Treat raw 401 as ALL during recoverable boot (logged-in master seed regression)
 - Show "지역을 확인하는 중…" as the steady guest browse state
 - Block guest feed fetch while UNSET without committing ALL
+- Map a transient address/LGU lookup failure to ALL ("no address") or leave UNSET loading forever
+- Unbounded polling of address-defaults (retry stays bounded; then explicit error + user retry)
 - Remove or bypass `tradeMarketplaceHydrateScopeBeforeMasterResolution` in hydrate
 - Reopen master-seed work (13daf285b) to break guest ALL parity
 
@@ -70,4 +84,6 @@ but confirmed guest hydrate MUST commit ALL onto the URL on first entry.
 ```bash
 npx vitest run lib/trade/location/__tests__/trade-marketplace-guest-location-hydrate.test.ts
 npx vitest run lib/trade/marketplace/__tests__/marketplace-browse-wiring-contract.test.ts
+npx vitest run lib/trade/location/__tests__/trade-marketplace-hydrate-outcome.test.tsx
+npx vitest run lib/posts/__tests__/trade-browse-location-tiers-contract.test.ts
 ```

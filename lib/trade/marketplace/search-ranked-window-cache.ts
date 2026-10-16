@@ -10,6 +10,11 @@ import {
 
 export const SEARCH_RANKED_WINDOW_TTL_MS = 30_000;
 const SEARCH_RANKED_WINDOW_CACHE_MAX = 80;
+/**
+ * Total rows held across all sessions. A window can hold the whole ranked pool (up to the
+ * search pool cap), so the session count alone does not bound memory — evict oldest first.
+ */
+export const SEARCH_RANKED_WINDOW_ROW_BUDGET = 20_000;
 
 export type SearchRankedWindowBatch<T> = {
   posts: T[];
@@ -50,6 +55,24 @@ function pruneExpired(): void {
     if (k === undefined) break;
     sessions.delete(k);
   }
+}
+
+/** Evict oldest sessions (never `keepKey`) until total held rows fit the budget. */
+function enforceRowBudget(keepKey: string): void {
+  let total = 0;
+  for (const entry of sessions.values()) total += entry.posts.length;
+  for (const [key, entry] of sessions) {
+    if (total <= SEARCH_RANKED_WINDOW_ROW_BUDGET) break;
+    if (key === keepKey) continue;
+    total -= entry.posts.length;
+    sessions.delete(key);
+  }
+}
+
+export function searchRankedWindowHeldRowsForTests(): number {
+  let total = 0;
+  for (const entry of sessions.values()) total += entry.posts.length;
+  return total;
 }
 
 export function resetSearchRankedWindowCacheForTests(): void {
@@ -114,6 +137,7 @@ export async function takeSearchRankedWindowPage<T>(input: {
       session.loadCount += 1;
       session.queryCount += batch.queryCount;
       session.expiresAt = Date.now() + SEARCH_RANKED_WINDOW_TTL_MS;
+      enforceRowBudget(input.key);
       /** Empty assemble ≠ all tiers exhausted. Duplicates can make a round yield 0 new rows. */
     })().finally(() => {
       if (session.fill === fill) session.fill = null;
@@ -122,7 +146,11 @@ export async function takeSearchRankedWindowPage<T>(input: {
     await fill;
     rounds += 1;
   }
-  if (failed && session.posts.length === 0) return null;
+  /** A failed fill must not look like the natural end of results (never a silently truncated list). */
+  if (failed) {
+    sessions.delete(input.key);
+    return null;
+  }
 
   const posts = session.posts.slice(start, end);
   const hasMore = session.posts.length > end || !session.sourcesExhausted;

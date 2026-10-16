@@ -26,6 +26,7 @@ import { NotInterestedCard } from "./NotInterestedCard";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
+import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import {
   buildTradeLocationHref,
@@ -137,6 +138,13 @@ export function PostListByCategory({
     () => parseTradeLocationScopeFromSearchParams(searchParams),
     [searchParams]
   );
+  /**
+   * Category surface owns the same UNSET hydrate as HOME (`HomeProductList`) — deep links /
+   * refresh without `location` must resolve (guest·no master → ALL, master → CITY) instead of
+   * waiting forever. Shared flight dedupes when both lists mount.
+   */
+  const { failed: locationHydrateFailed, retry: retryLocationHydrate } =
+    useTradeMarketplaceLocationHydrate();
   const locationInvalid = locationScope.mode === "invalid";
   const locationUnset = locationScope.mode === "unset";
   const locExtras = marketplaceFeedLocationExtras(locationScope);
@@ -879,6 +887,15 @@ export function PostListByCategory({
             {t("trade_location_view_all")}
           </button>
         </div>
+      </>
+    );
+  }
+
+  if (locationUnset && locationHydrateFailed && posts.length === 0) {
+    return (
+      <>
+        {tradePullRefreshRegister}
+        <TradeListErrorState onRetry={retryLocationHydrate} />
       </>
     );
   }

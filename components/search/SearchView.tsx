@@ -19,6 +19,7 @@ import { SearchResultList } from "./SearchResultList";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
+import { TradeListErrorState } from "@/components/trade/TradeListErrorState";
 import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
 import {
   applyTradeLocationScopeToSearchParams,
@@ -38,7 +39,12 @@ export function SearchView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const { scope, unresolved } = useTradeMarketplaceLocationHydrate();
+  const {
+    scope,
+    unresolved,
+    failed: locationHydrateFailed,
+    retry: retryLocationHydrate,
+  } = useTradeMarketplaceLocationHydrate();
   const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
   const queryFromUrl = searchParams.get("q") ?? "";
   const currentUserId = getViewerUserId();
@@ -84,6 +90,8 @@ export function SearchView() {
     [blockedIds]
   );
 
+  const [searchFailed, setSearchFailed] = useState(false);
+
   const fetchPage = useCallback(
     async (pageNum: number, append: boolean) => {
       const q = keyword.trim();
@@ -118,6 +126,12 @@ export function SearchView() {
               )
             : {},
         });
+        if (res.failed) {
+          /** 조회 실패를 「결과 없음」으로 보이지 않음 — 기존 목록 유지 + 재시도 UI */
+          setSearchFailed(true);
+          return;
+        }
+        setSearchFailed(false);
         const next = applyBlocked(postsToSearchProducts(res.posts ?? []));
         setProducts((prev) => (append ? [...prev, ...next] : next));
         setHasMore(res.hasMore === true);
@@ -208,7 +222,17 @@ export function SearchView() {
 
   return (
     <div className="mx-auto max-w-lg pb-24">
-      {showResults ? (
+      {showResults && (searchFailed || locationHydrateFailed) && products.length === 0 ? (
+        <TradeListErrorState
+          onRetry={() => {
+            if (locationHydrateFailed) {
+              retryLocationHydrate();
+              return;
+            }
+            void fetchPage(1, false);
+          }}
+        />
+      ) : showResults ? (
         <>
           <SearchResultList products={products} />
           {hasMore ? (

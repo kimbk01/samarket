@@ -1,6 +1,6 @@
 # DIBAY Marketplace — LIST SSOT TARGET CONTRACT
 
-**STATUS: OWNER CONFIRMED (2026-08-20).**  
+**STATUS: OWNER CONFIRMED (2026-08-20). L-SOFT AMENDED BY OWNER (2026-10-16) — LOCAL → NEARBY → NATIONWIDE.**  
 **Audit close:** CURRENT AUDIT PASS · LEGACY NOT PROVEN · IMPLEMENTATION unblocked for CUT-SSOT-*.
 
 Parent audit: SSOT AUDIT CLOSE (2026-08-20).  
@@ -16,8 +16,25 @@ Implementation plan: `docs/dibay-marketplace-cut-ssot-implementation-plan.md`.
 | 2 | ROOT/TOPIC membership | browse + search **HARD** `trade_category_id IN` | **M-HARD** |
 | 3 | TOPIC ↔ composition | **COMP-ONLY** — SUV = `body_type` composition; TOPIC child not used for SUV semantic (CUT A) | **TC-B** |
 | 4 | Similarity authority | **BOTH** — TOPIC id graph → composition proximity ladder | **SIM-BOTH** |
-| 5 | Browse location | nationwide eligible + **LGU boost** (soft), not block-only | **L-SOFT** |
+| 5 | Browse location | nationwide eligible + **LOCAL → NEARBY → NATIONWIDE** priority (soft), never region-only (2026-10-16) | **L-SOFT** |
 | 6 | Default sort | tier/block internal **newest**; distance **only** `sort=distance` | **S-CURRENT** |
+
+### 1.1 L-SOFT location tiers (OWNER 2026-10-16 — supersedes "LGU boost = anchor only")
+
+Default browse (anchor City + 거리 「전체」, `radiusKm == null`) is a **priority/ranking** system, not a filter:
+
+```text
+LOCAL    = anchor City (trade_lgu_id = anchor, or legacy region/city mapped to anchor)
+NEARBY   = LGUs whose centroid is within TRADE_BROWSE_NEARBY_TIER_RADIUS_KM of the anchor centroid, anchor excluded
+NATIONWIDE (rest) = every other eligible listing, incl. listings without a resolvable location
+order    = LOCAL → NEARBY → NATIONWIDE; inside each tier the user sort (latest · popular · distance)
+```
+
+- Nearby radius = **the service recommended radius** (`TRADE_BROWSE_NEARBY_TIER_RADIUS_KM = TRADE_BROWSE_RECOMMENDED_RADIUS_KM`, 64 km — "Metro Manila city-grain browse default"). Same centroid matcher as explicit `radius=`; no second distance policy.
+- Tiers are **disjoint SQL partitions** whose union is the full eligible set — pagination keeps tier order with no duplicate / missing row (`lib/trade/location/national/browse-location-tiers.ts`).
+- Explicit `radius=N` remains the **only** hard location boundary. `location=all` (guest · no master · unmappable master) = nationwide user sort, no tiers.
+- A failed tier query is an **error** (HTTP 503 → list error + retry), never an empty list.
+- Search (`q`) keeps T1–T5 relevance bands; inside each band the same LOCAL → NEARBY → NATIONWIDE order. The eligible pool is ranked **once per ranked window** (up to `MARKETPLACE_SEARCH_RANK_POOL_CAP`), so the order is global across pages (duplicate 0 / missing 0); a failed fill is an error, never a truncated list.
 
 ---
 
@@ -82,7 +99,7 @@ T5  same ROOT only — expanded listings not in T1–T4; NO cross-ROOT unrelated
 Each tier internal (S-CURRENT + L-SOFT where applicable):
 
 ```text
-within selected LGU → outside LGU → newest
+LOCAL (selected LGU) → NEARBY → NATIONWIDE → newest
 (sort=distance → distance within tier only)
 ```
 
@@ -117,9 +134,9 @@ same trade_category_id TOPIC
 
 | Mode | Location (L-SOFT) | Sort (S-CURRENT) |
 |------|-------------------|------------------|
-| Default browse | LGU boost on nationwide eligible | newest |
-| ROOT/TOPIC browse | LGU boost; no SQL hard city wall | newest |
-| Text search | per-tier within→outside LGU | newest in tier |
+| Default browse | LOCAL → NEARBY → NATIONWIDE on nationwide eligible | newest |
+| ROOT/TOPIC browse | LOCAL → NEARBY → NATIONWIDE; no SQL hard city wall | newest |
+| Text search | per-band LOCAL → NEARBY → NATIONWIDE | newest in tier |
 | Explicit `sort=distance` | distance within tier/block | distance |
 
 **Remove:** `trade/feed` hard location SQL empty-set behavior (align with philife soft boost).
@@ -156,7 +173,9 @@ LEGACY column: **NOT PROVEN** (all modes).
 
 ## 9. OWNER one-liner (TARGET intent)
 
-Search ordering target: **exact → similar (composition + TOPIC graph within ROOT) → location boost within tier → newest**; **no cross-ROOT unrelated**; distance only when user selects distance sort.
+Search ordering target: **exact → similar (composition + TOPIC graph within ROOT) → location tier (LOCAL → NEARBY → NATIONWIDE) within band → newest**; **no cross-ROOT unrelated**; distance only when user selects distance sort.
+
+Browse ordering target (2026-10-16): **내 지역 → 주변 지역 → 그 외 전국** — 특정 지역만 보여주는 구조 금지 (명시 거리 `radius=` 제외).
 
 ---
 
@@ -166,3 +185,6 @@ Search ordering target: **exact → similar (composition + TOPIC graph within RO
 - SOFT-only category membership when ROOT/TOPIC selected (M-SOFT)
 - SUV as Admin TOPIC semantic duplicate of `body_type` (TC-B violation)
 - Label-only TOPIC search without id graph (SIM-BOTH)
+- Anchor-only boost without the NEARBY tier, or any default-browse SQL location wall (L-SOFT 2026-10-16)
+- Hard-coded nearby km outside `TRADE_BROWSE_NEARBY_TIER_RADIUS_KM`
+- Presenting a failed tier query as an empty list

@@ -21,17 +21,12 @@ import {
 } from "@/lib/posts/trade-posts-range-query";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import {
-  filterPostsOutsideBrowseAnchor,
   shouldUseRegionAllBrowsePriority,
   tradeFeedLocationSqlExtras,
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
-import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import type { MarketplaceSearchDiscoveryContext } from "@/lib/trade/marketplace/load-marketplace-search-discovery-context";
-import {
-  MARKETPLACE_DISCOVERY_POOL_BATCH,
-  rankMarketplaceDiscoveryBatch,
-} from "@/lib/trade/marketplace/marketplace-discovery-rank";
+import { rankMarketplaceDiscoveryBatch } from "@/lib/trade/marketplace/marketplace-discovery-rank";
 import type { SearchTopicGraphContext } from "@/lib/trade/marketplace/search-topic-graph-context";
 import {
   applyCompositionFilterClausesToPostgrest,
@@ -46,9 +41,19 @@ import {
   inferBodyTypesFromListings,
   type SearchExpansionCursor,
 } from "@/lib/trade/marketplace/search-candidate-expansion";
-import { assembleMarketplaceBrowseOrder } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
+import { sortBrowseListingsWithinLocationBlock } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
+import {
+  BROWSE_LOCATION_TIER_ORDER,
+  resolveBrowseLocationTiers,
+  tierLocationQueryExtras,
+} from "@/lib/trade/location/national/browse-location-tiers";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
+
+/** Search ranks the eligible pool once per ranked window up to this many rows (same cap as distance scan). */
+export const MARKETPLACE_SEARCH_RANK_POOL_CAP = MARKETPLACE_DISTANCE_SCAN_CAP;
+/** One PostgREST request never asks for more than this (Supabase `max-rows` default is 1000). */
+const POSTGREST_LIST_CHUNK_ROWS = 500;
 
 /**
  * 컬럼 집합은 `POST_TRADE_LIST_SELECT`(OpenAPI `posts` 정의)와 동일 계열.
@@ -234,6 +239,48 @@ async function fetchHomePostsMappedRange(
   );
 }
 
+/**
+ * `fetchHomePostsMappedRange` for [rangeFrom, rangeTo] in ≤ POSTGREST_LIST_CHUNK_ROWS requests,
+ * so PostgREST `max-rows` can never silently truncate a long range. `exhausted` = source ended.
+ */
+async function fetchHomePostsMappedRangeChunked(
+  sb: SupabaseClient<any>,
+  table: string,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
+  tradeCategoryIds: string[] | null,
+  statusOr: string,
+  feedLocExtras: TradeFeedQueryExtras["tradeFeedLocation"],
+  queryExtras: HomePostsQueryExtras | undefined,
+  rangeFrom: number,
+  rangeTo: number,
+  filterOpts?: HomePostsRangeFilterOpts
+): Promise<{ rows: PostWithMeta[]; exhausted: boolean } | null> {
+  const rows: PostWithMeta[] = [];
+  let offset = rangeFrom;
+  while (offset <= rangeTo) {
+    const end = Math.min(offset + POSTGREST_LIST_CHUNK_ROWS - 1, rangeTo);
+    const chunk = await fetchHomePostsMappedRange(
+      sb,
+      table,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      feedLocExtras,
+      queryExtras,
+      offset,
+      end,
+      filterOpts
+    );
+    if (!chunk) return null;
+    rows.push(...chunk);
+    if (chunk.length < end - offset + 1) return { rows, exhausted: true };
+    offset = end + 1;
+  }
+  return { rows, exhausted: false };
+}
+
 function partitionPostsByCategoryPriority(
   posts: PostWithMeta[],
   rootSet: Set<string> | null | undefined,
@@ -279,7 +326,7 @@ export async function loadHomePostsPage(
   const rangeTo = useDistance
     ? MARKETPLACE_DISTANCE_SCAN_CAP - 1
     : from + HOME_POSTS_PAGE_SIZE - 1;
-  const mapped = await fetchHomePostsMappedRange(
+  const fetched = await fetchHomePostsMappedRangeChunked(
     sb,
     table,
     sort,
@@ -291,7 +338,8 @@ export async function loadHomePostsPage(
     rangeFrom,
     rangeTo
   );
-  if (!mapped) return null;
+  if (!fetched) return null;
+  const mapped = fetched.rows;
   if (useDistance && feedConstraint.kind === "lgu") {
     const sorted = sortListingsByLguDistance(mapped, feedConstraint.canonicalId);
     const page = sorted.slice(from, from + HOME_POSTS_PAGE_SIZE);
@@ -364,7 +412,12 @@ export async function loadSearchExpansionRound(
   }
 
   const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
-  const poolBatch = await fetchHomePostsMappedRange(
+  /**
+   * Rank the whole eligible pool in one round (up to MARKETPLACE_SEARCH_RANK_POOL_CAP) so
+   * band → LOCAL → NEARBY → NATIONWIDE order is global across pages, not per DB batch.
+   * Pages are slices of this single ranking (ranked window) — duplicate 0 / missing 0.
+   */
+  const poolFetch = await fetchHomePostsMappedRangeChunked(
     sb,
     table,
     sort,
@@ -374,13 +427,16 @@ export async function loadSearchExpansionRound(
     feedLocExtras,
     queryExtras,
     cursor.tailOffset,
-    cursor.tailOffset + MARKETPLACE_DISCOVERY_POOL_BATCH - 1,
+    cursor.tailOffset + MARKETPLACE_SEARCH_RANK_POOL_CAP - 1,
     { applyTitleQuery: false, applyLocation: false }
   );
-  if (!poolBatch) return null;
+  if (!poolFetch) return null;
+  const pool = poolFetch.rows;
+  const poolOffset = cursor.tailOffset + pool.length;
+  const tailExhausted = poolFetch.exhausted;
 
   const ranked = rankMarketplaceDiscoveryBatch({
-    rows: poolBatch,
+    rows: pool,
     intent: discovery.intent,
     rootExpandedIdsByParent: discovery.rootExpandedIdsByParent,
     topicGraph: discovery.topicGraph,
@@ -398,13 +454,12 @@ export async function loadSearchExpansionRound(
     posts.push(row);
   }
 
-  const tailExhausted = poolBatch.length < MARKETPLACE_DISCOVERY_POOL_BATCH;
   const nextCursor: SearchExpansionCursor = {
     ...cursor,
     exactExhausted: true,
     relatedInExhausted: true,
     relatedOutExhausted: true,
-    tailOffset: cursor.tailOffset + poolBatch.length,
+    tailOffset: poolOffset,
     tailExhausted,
     seenIds: [...seen],
     inferredBodyTypes: [
@@ -552,12 +607,20 @@ export async function resolveHomePostsPayload(
     return null;
   }
 
-  async function resolveBrowsePriorityPayloadForSb(sb: SupabaseClient<any>) {
+  /**
+   * Default browse (anchor + 거리 전체): LOCAL → NEARBY → NATIONWIDE.
+   * Each tier is an exact SQL partition (`tierLocationQueryExtras`) — disjoint, union = eligible.
+   * Returns null on DB failure so callers fall back / surface an error (never an empty list).
+   */
+  async function resolveBrowsePriorityPayloadForSb(
+    sb: SupabaseClient<any>
+  ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
     const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
     if (feedConstraint.kind === "invalid") {
       return { posts: [], hasMore: false };
     }
-    if (feedConstraint.kind !== "lgu") {
+    const tiers = resolveBrowseLocationTiers(feedConstraint);
+    if (!tiers) {
       return loadHomePostsPage(
         sb,
         POSTS_TABLE_READ,
@@ -572,171 +635,68 @@ export async function resolveHomePostsPayload(
       );
     }
 
-    /** region+전체 within: anchor SQL. Outside: nationwide scan + legacy-disjoint filter (not global top-N trim). */
-    const anchorLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
     const targetInclusive = from + pageSize;
-    const rangeFrom = 0;
-    const rangeTo = targetInclusive;
+    const canSortByDistance = sort === "distance";
+    /** distance: tier scan up to cap, then centroid re-sort; latest/popular: SQL order is final. */
+    const rangeTo = canSortByDistance ? MARKETPLACE_DISTANCE_SCAN_CAP - 1 : targetInclusive;
+    const anchorCanonicalId = tiers.anchorCanonicalId;
 
     const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
     const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
-
     const rootArr = rootIds && rootIds.length > 0 ? rootIds : null;
     const topicArr = topicIds && topicIds.length > 0 ? topicIds : [];
-
-    const canSortByDistance = sort === "distance";
-    const canonicalId = feedConstraint.canonicalId;
     const lSoftMode = resolveLSoftBrowseAssemblyMode(tradeCategoryIds, rootArr);
 
-    const fetchRegionAllOutsidePrefix = async (args: {
-      tradeCatIds: string[] | null;
-      excludeTradeCatIds?: string[] | null;
-    }): Promise<PostWithMeta[]> => {
-      const batchSize = pageSize;
-      const collected: PostWithMeta[] = [];
-      const seen = new Set<string>();
-      let dbOffset = 0;
-      while (collected.length <= targetInclusive && dbOffset < MARKETPLACE_DISTANCE_SCAN_CAP) {
-        const batchEnd = Math.min(dbOffset + batchSize - 1, MARKETPLACE_DISTANCE_SCAN_CAP - 1);
-        const batch = await fetchHomePostsMappedRange(
+    type CategorySegment = { tradeCatIds: string[] | null; excludeTradeCatIds: string[] | null };
+    /** Category order inside one location tier (M-HARD / nationwide = single segment). */
+    const categorySegments: CategorySegment[] =
+      lSoftMode === "mhard_location"
+        ? [{ tradeCatIds: tradeCategoryIds!, excludeTradeCatIds: null }]
+        : lSoftMode === "nationwide"
+          ? [{ tradeCatIds: null, excludeTradeCatIds: null }]
+          : [
+              ...(topicArr.length > 0
+                ? [{ tradeCatIds: topicArr, excludeTradeCatIds: null }]
+                : []),
+              { tradeCatIds: rootArr, excludeTradeCatIds: topicArr.length > 0 ? topicArr : null },
+              { tradeCatIds: null, excludeTradeCatIds: rootArr },
+            ];
+
+    const assembled: PostWithMeta[] = [];
+    let scanCapHit = false;
+    for (const tier of BROWSE_LOCATION_TIER_ORDER) {
+      const loc = tierLocationQueryExtras(tiers, tier);
+      if (!loc) continue;
+      for (const seg of categorySegments) {
+        if (assembled.length > targetInclusive) break;
+        /** Chunked (≤ PostgREST max-rows) so a large tier is never silently truncated. */
+        const fetched = await fetchHomePostsMappedRangeChunked(
           sb,
           POSTS_TABLE_READ,
           sort,
           type,
-          args.tradeCatIds,
+          seg.tradeCatIds,
           statusOr,
-          undefined,
+          loc,
           queryExtras,
-          dbOffset,
-          batchEnd,
+          0,
+          rangeTo,
           {
-            applyLocation: false,
-            excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
+            applyLocation: true,
+            excludeTradeCategoryIds: seg.excludeTradeCatIds,
           }
         );
-        if (!batch || batch.length === 0) break;
-        for (const row of filterPostsOutsideBrowseAnchor(batch, feedConstraint)) {
-          const id = (row.id ?? "").trim();
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
-          collected.push(row);
-          if (collected.length > targetInclusive) break;
-        }
-        if (batch.length < batchSize) break;
-        dbOffset += batchSize;
+        if (!fetched) return null;
+        const rows = fetched.rows;
+        if (!fetched.exhausted) scanCapHit = true;
+        assembled.push(...sortBrowseListingsWithinLocationBlock(rows, sort, anchorCanonicalId));
       }
-      if (canSortByDistance) {
-        return sortListingsByLguDistance(collected, canonicalId);
-      }
-      return collected;
-    };
-
-    const fetchTier = async (args: {
-      tradeCatIds: string[] | null;
-      tier: "within" | "outside";
-      excludeTradeCatIds?: string[] | null;
-    }): Promise<PostWithMeta[]> => {
-      if (args.tier === "outside") {
-        return fetchRegionAllOutsidePrefix(args);
-      }
-      const mapped = await fetchHomePostsMappedRange(
-        sb,
-        POSTS_TABLE_READ,
-        sort,
-        type,
-        args.tradeCatIds,
-        statusOr,
-        anchorLocExtras,
-        queryExtras,
-        rangeFrom,
-        rangeTo,
-        {
-          applyLocation: true,
-          excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
-        }
-      );
-      if (!mapped) return [];
-      if (canSortByDistance) {
-        return sortListingsByLguDistance(mapped, canonicalId);
-      }
-      return mapped;
-    };
-
-    /** M-HARD: every L-SOFT segment uses membership IN — location boost only (Case H). */
-    if (lSoftMode === "mhard_location") {
-      const membershipIds = tradeCategoryIds!;
-      const withinAll = await fetchTier({ tradeCatIds: membershipIds, tier: "within" });
-      const outsideAll = await fetchTier({ tradeCatIds: membershipIds, tier: "outside" });
-      const assembled = assembleMarketplaceBrowseOrder(
-        withinAll,
-        outsideAll,
-        sort,
-        canonicalId
-      );
-      return {
-        posts: assembled.slice(from, from + pageSize),
-        hasMore: assembled.length > targetInclusive,
-      };
+      if (assembled.length > targetInclusive) break;
     }
-
-    if (lSoftMode === "nationwide") {
-      const withinAll = await fetchTier({ tradeCatIds: null, tier: "within" });
-      const outsideAll = await fetchTier({ tradeCatIds: null, tier: "outside" });
-      const assembled = assembleMarketplaceBrowseOrder(
-        withinAll,
-        outsideAll,
-        sort,
-        canonicalId
-      );
-      return {
-        posts: assembled.slice(from, from + pageSize),
-        hasMore: assembled.length > targetInclusive,
-      };
-    }
-
-    // legacy_priority — pre-M-HARD category tier ordering (no M-HARD scope)
-    const withinTopicMatch =
-      topicArr.length > 0
-        ? await fetchTier({ tradeCatIds: topicArr, tier: "within" })
-        : [];
-    const withinRootOnly = await fetchTier({
-      tradeCatIds: rootArr,
-      tier: "within",
-      excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
-    });
-    const withinOthers = await fetchTier({
-      tradeCatIds: null,
-      tier: "within",
-      excludeTradeCatIds: rootArr,
-    });
-
-    const outsideTopicMatch =
-      topicArr.length > 0
-        ? await fetchTier({ tradeCatIds: topicArr, tier: "outside" })
-        : [];
-    const outsideRootOnly = await fetchTier({
-      tradeCatIds: rootArr,
-      tier: "outside",
-      excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
-    });
-    const outsideOthers = await fetchTier({
-      tradeCatIds: null,
-      tier: "outside",
-      excludeTradeCatIds: rootArr,
-    });
-
-    const assembled = [
-      ...withinTopicMatch,
-      ...withinRootOnly,
-      ...withinOthers,
-      ...outsideTopicMatch,
-      ...outsideRootOnly,
-      ...outsideOthers,
-    ];
 
     return {
       posts: assembled.slice(from, from + pageSize),
-      hasMore: assembled.length > targetInclusive,
+      hasMore: assembled.length > targetInclusive || scanCapHit,
     };
   }
 

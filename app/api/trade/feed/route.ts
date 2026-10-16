@@ -11,6 +11,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
+import { TradeFeedQueryError } from "@/lib/posts/fetch-trade-feed-page";
 import type { TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
 import {
   resolveHomePostsStatusOrByTradeState,
@@ -144,28 +145,37 @@ export async function GET(req: NextRequest) {
   );
 
   const viewerId = await getOptionalAuthenticatedUserId();
-  const open = await resolveTradeFeedOpenPayload(
-    clients,
-    categoryIds,
-    {
-      page,
-      sort,
-      jobsListingKind,
-      restrictTradeTypeJob,
-      jobEmploymentType,
-      todayAvailable,
-      jobRegionSlug,
-      jobIndustrySlug,
-      statusOr,
-      lguCityId,
-      radiusKm,
-      q,
-      priceMin,
-      priceMax,
-      compositionFilters,
-    },
-    viewerId
-  );
+  let open: Awaited<ReturnType<typeof resolveTradeFeedOpenPayload>>;
+  try {
+    open = await resolveTradeFeedOpenPayload(
+      clients,
+      categoryIds,
+      {
+        page,
+        sort,
+        jobsListingKind,
+        restrictTradeTypeJob,
+        jobEmploymentType,
+        todayAvailable,
+        jobRegionSlug,
+        jobIndustrySlug,
+        statusOr,
+        lguCityId,
+        radiusKm,
+        q,
+        priceMin,
+        priceMax,
+        compositionFilters,
+      },
+      viewerId
+    );
+  } catch (e) {
+    /** Region-priority query failure must surface as an error, not an empty list. */
+    if (e instanceof TradeFeedQueryError) {
+      return jsonErrorWithRequest(req, "trade_feed_query_failed", 503);
+    }
+    throw e;
+  }
 
   return jsonOkWithRequest(
     req,

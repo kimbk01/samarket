@@ -25,19 +25,29 @@ import {
 import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import {
-  resolveTradeMarketplaceMasterHydrateScope,
+  resolveTradeMarketplaceMasterHydrateOutcome,
   tradeMarketplaceCityScopeFromMasterAddress,
+  type TradeMarketplaceHydrateOutcome,
 } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import { isAppBootReady } from "@/lib/app-boot/app-boot-store";
 
-let sharedHydrateFlight: Promise<TradeLocationScope> | null = null;
+let sharedHydrateFlight: Promise<TradeMarketplaceHydrateOutcome> | null = null;
 
-function runSharedMarketplaceLocationHydrate(): Promise<TradeLocationScope> {
+function runSharedMarketplaceLocationHydrate(): Promise<TradeMarketplaceHydrateOutcome> {
   if (sharedHydrateFlight) return sharedHydrateFlight;
-  sharedHydrateFlight = resolveTradeMarketplaceMasterHydrateScope().finally(() => {
+  sharedHydrateFlight = resolveTradeMarketplaceMasterHydrateOutcome().finally(() => {
     sharedHydrateFlight = null;
   });
   return sharedHydrateFlight;
 }
+
+/**
+ * Bounded retry for an UNSET hydrate that could not resolve (address API error/timeout, or
+ * auth still restoring after boot already settled — no further boot event will arrive).
+ * After the last attempt the hook reports `failed` (error + retry UI) — never endless loading,
+ * never a fake ALL.
+ */
+export const TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS = [1_000, 2_000, 4_000] as const;
 
 function peekMasterCityScopeFromAddressCache(): Extract<TradeLocationScope, { mode: "city" }> | null {
   const snapshot = peekFreshAddressDefaultsSnapshot();
@@ -61,6 +71,9 @@ export function useTradeMarketplaceLocationHydrate(): {
   scope: TradeLocationScope;
   ready: boolean;
   unresolved: boolean;
+  /** UNSET hydrate gave up after bounded retries — show error + `retry` (not loading). */
+  failed: boolean;
+  retry: () => void;
 } {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -71,11 +84,15 @@ export function useTradeMarketplaceLocationHydrate(): {
     [searchParams]
   );
   const [hydrating, setHydrating] = useState(() => scopeNeedsMarketplaceLocationHydrate(scope));
+  const [failed, setFailed] = useState(false);
+  const retryAttemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runHydrateRef = useRef<() => Promise<void>>(async () => {});
   const runIdRef = useRef(0);
   const lastCommittedScopeRef = useRef<TradeLocationScope | null>(null);
   const onLocationStack = isTradeBrowseLocationPath(pathname);
   const needsHydrate = scopeNeedsMarketplaceLocationHydrate(scope);
-  const unresolved = !onLocationStack && (needsHydrate || hydrating);
+  const unresolved = !onLocationStack && !failed && (needsHydrate || hydrating);
   const ready =
     onLocationStack ||
     (!needsHydrate &&
@@ -91,6 +108,20 @@ export function useTradeMarketplaceLocationHydrate(): {
     },
     [pathname, router, searchKey]
   );
+
+  const scheduleHydrateRetry = useCallback(() => {
+    if (retryTimerRef.current) return;
+    const attempt = retryAttemptRef.current;
+    if (attempt >= TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS.length) {
+      setFailed(true);
+      return;
+    }
+    retryAttemptRef.current = attempt + 1;
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      void runHydrateRef.current();
+    }, TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS[attempt]);
+  }, []);
 
   const runHydrate = useCallback(async () => {
     if (onLocationStack) return;
@@ -111,9 +142,21 @@ export function useTradeMarketplaceLocationHydrate(): {
          */
         const cachedCity =
           !authExitGuestAll && !memberReseed ? peekMasterCityScopeFromAddressCache() : null;
-        const next = cachedCity ?? (await runSharedMarketplaceLocationHydrate());
+        const outcome: TradeMarketplaceHydrateOutcome = cachedCity
+          ? { kind: "resolved", scope: cachedCity }
+          : await runSharedMarketplaceLocationHydrate();
         if (runId !== runIdRef.current) return;
-        if (next.mode === "unset") return;
+        if (outcome.kind !== "resolved") {
+          /**
+           * pending_auth before boot settles → boot-ready retry (below) owns the next run.
+           * transient_error, or pending_auth after boot settled → bounded timed retry, then failed.
+           */
+          const waitForBootEvent = outcome.kind === "pending_auth" && !isAppBootReady();
+          if (!waitForBootEvent) scheduleHydrateRetry();
+          return;
+        }
+        retryAttemptRef.current = 0;
+        const next = outcome.scope;
 
         if (authExitGuestAll) {
           /** One-shot invalidation of leaked member CITY — target is ALL only. */
@@ -144,7 +187,25 @@ export function useTradeMarketplaceLocationHydrate(): {
     if (scope.mode === "city" || scope.mode === "all") {
       writeTradeBrowseCommittedScope(scope);
     }
-  }, [commitScopeToUrl, onLocationStack, pathname, router, scope, searchKey]);
+  }, [commitScopeToUrl, onLocationStack, pathname, router, scheduleHydrateRetry, scope, searchKey]);
+  runHydrateRef.current = runHydrate;
+
+  const retry = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    retryAttemptRef.current = 0;
+    setFailed(false);
+    void runHydrateRef.current();
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    },
+    []
+  );
 
   const shouldBootRetryHydrate = useCallback(() => {
     if (onLocationStack) return false;
@@ -166,6 +227,10 @@ export function useTradeMarketplaceLocationHydrate(): {
 
   useEffect(() => {
     setHydrating(scopeNeedsMarketplaceLocationHydrate(scope));
+    if (!scopeNeedsMarketplaceLocationHydrate(scope)) {
+      retryAttemptRef.current = 0;
+      setFailed(false);
+    }
   }, [scope]);
 
   useLayoutEffect(() => {
@@ -181,5 +246,5 @@ export function useTradeMarketplaceLocationHydrate(): {
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [onLocationStack, runHydrate]);
 
-  return { scope, ready, unresolved };
+  return { scope, ready, unresolved, failed: failed && !onLocationStack, retry };
 }

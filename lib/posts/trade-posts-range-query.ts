@@ -200,7 +200,31 @@ export async function fetchPostsRangeForTradeCategories(
   rangeToInclusive: number,
   extras?: TradeFeedQueryExtras
 ): Promise<PostWithMeta[]> {
-  if (!supabase) return [];
+  return (
+    (await fetchPostsRangeForTradeCategoriesOrNull(
+      supabase,
+      ids,
+      sort,
+      rangeFrom,
+      rangeToInclusive,
+      extras
+    )) ?? []
+  );
+}
+
+/**
+ * Same query as `fetchPostsRangeForTradeCategories`, but DB/PostgREST failure → `null`
+ * (callers that must not present a failed query as an empty list).
+ */
+export async function fetchPostsRangeForTradeCategoriesOrNull(
+  supabase: unknown,
+  ids: string[],
+  sort: TradePostSort,
+  rangeFrom: number,
+  rangeToInclusive: number,
+  extras?: TradeFeedQueryExtras
+): Promise<PostWithMeta[] | null> {
+  if (!supabase) return null;
   const sb = supabase as {
     from: (t: string) => {
       select: (c: string) => unknown;
@@ -301,9 +325,9 @@ export async function fetchPostsRangeForTradeCategories(
       data = res.data;
       error = res.error;
     }
-    if (error || !Array.isArray(data)) return [];
+    if (error || !Array.isArray(data)) return null;
     return mapPostRowsToTradeList(data);
   } catch {
-    return [];
+    return null;
   }
 }

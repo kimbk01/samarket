@@ -6,7 +6,7 @@ alwaysApply: false
 # DIBAY Marketplace Browse — SINGLE CONTRACT (Implementation Gate)
 
 **STATUS: REGION/RANGE radius hard path REPAIRED (code). PTR additive gaps may remain.**
-**L-SOFT (radiusKm==null nationwide + anchor priority) PRESERVED.**
+**L-SOFT (radiusKm==null nationwide + LOCAL → NEARBY → NATIONWIDE priority) — OWNER 2026-10-16.**
 
 Full design thread: marketplace REGION / RANGE / SEARCH / FILTER / RESET audit (2026-08-20).
 
@@ -20,15 +20,21 @@ Full design thread: marketplace REGION / RANGE / SEARCH / FILTER / RESET audit (
 
 ---
 
-## 1. REGION / RANGE (unchanged)
+## 1. REGION / RANGE
 
 | State | Candidate universe | Ordering priority |
 |---|---|---|
-| **anchor + 전체** (`radiusKm==null`) | Nationwide — **no SQL location WHERE** | Anchor LGU first → other regions |
+| **anchor + 전체** (`radiusKm==null`) | Nationwide — **no location membership wall** | **LOCAL (anchor) → NEARBY (≤ `TRADE_BROWSE_NEARBY_TIER_RADIUS_KM`, anchor excluded) → NATIONWIDE rest**; user sort inside each tier |
 | **anchor + N km** (`radiusKm!=null`) | **Within N km only** — hard EXCLUDE outside | User sort within boundary |
 | **`location=all`** | Nationwide — **no anchor, no region priority** | User sort only |
 
+Tier SSOT: `lib/trade/location/national/browse-location-tiers.ts` (disjoint SQL partitions — pagination keeps order, duplicate 0 / missing 0).
+Consumers: `resolveHomePostsPayload` (HOME + category, `/api/philife/posts`), `fetchTradeFeedPage` (`/api/trade/feed`, incl. job feeds with `trade_type=job` filters), `rankMarketplaceDiscoveryBatch` (search bands).
+Nearby km = service recommended radius (no second distance policy, no ad-hoc km literals).
+Tier query failure → `null` / `TradeFeedQueryError` → HTTP 503 → list error + retry (never an empty 200).
+
 Mandatory feed fixes (prior gate): flip `wantsBrowsePriority` to `radiusKm==null`; legacy row disjoint outside partition; SEARCH `relatedOut` OFF when `radiusKm!=null`.
+`/api/trade/feed` delegate must keep the user sort (`popular` ≠ newest) — `tradeFeedSortToHomePostsSort`.
 
 ---
 
@@ -67,7 +73,7 @@ Pagination **internal window** may reset to fresh page 1 / first ranked window �
 
 ### 4.2 REGION / RANGE on PTR
 
-- **Pasay + 전체**: Pasay priority + nationwide refresh — no URL change.
+- **Pasay + 전체**: Pasay → nearby → nationwide priority refresh — no URL change.
 - **Pasay + 5km**: 5km hard boundary — no outside leakage on refresh.
 - **`location=all`**: nationwide, no anchor priority.
 
@@ -146,7 +152,7 @@ Surfaces: `/market`, `/market/[slug]` (excludes `trade-meet-spot`). Not Philife/
 ### Browse / search / reset (1–12 — prior gate)
 
 1. DEFAULT hydrate = master + range 전체  
-2. Pasay + 전체 = nationwide + Pasay priority  
+2. Pasay + 전체 = nationwide + Pasay → nearby → rest priority (every page, dup 0 / miss 0)  
 3. Pasay + 5km = within only, 0 outside  
 4. `location=all` ≠ Pasay + 전체  
 5. q + Pasay + 전체 = tiers + anchor  

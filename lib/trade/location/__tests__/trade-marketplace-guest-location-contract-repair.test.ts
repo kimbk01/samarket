@@ -89,7 +89,12 @@ describe("marketplace guest location contract repair", () => {
     expect(hydrate).toContain("isTradeMarketplaceGuestAllAfterAuthExitPending");
     expect(hydrate).toContain("isTradeMarketplaceMemberBrowseReseedPending");
     expect(hydrate).toContain("runSharedMarketplaceLocationHydrate");
-    expect(hydrate).not.toContain("setTimeout");
+    /**
+     * Owner SSOT 2026-10-16: transient address errors get a BOUNDED retry then `failed`
+     * (error + retry UI) — no unbounded polling, no endless loading.
+     */
+    expect(hydrate).toContain("TRADE_MARKETPLACE_HYDRATE_RETRY_DELAYS_MS");
+    expect(hydrate).toContain("setFailed(true)");
   });
 
   it("G3 — location=all stays fetchable nationwide", () => {
