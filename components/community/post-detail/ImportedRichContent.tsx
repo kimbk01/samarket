@@ -1,23 +1,49 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
+import { isImportedVideoLabel, parsePostVideoUrl } from "@/lib/community/post-media-embed";
 import { PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { PostVideoEmbed } from "@/components/common/media/PostVideoEmbed";
+import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
+import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+
+/** Import keeps a video as "thumbnail image (alt video) + ▶ link"; the link now plays in place. */
+function isVideoThumbnailBlock(blocks: ImportedContentBlock[], i: number): boolean {
+  const b = blocks[i];
+  const next = blocks[i + 1];
+  return (
+    b?.t === "img" &&
+    next?.t === "link" &&
+    parsePostVideoUrl(next.href) !== null &&
+    (b.alt === "video" || isImportedVideoLabel(next.text))
+  );
+}
 
 /**
  * Imported Detail only — the source's structure (headings, lists, quotes, tables, captions, links)
  * rendered as React elements in DIBAY styling. Blocks are sanitized server-side; no HTML is injected.
  */
 export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[] }) {
+  /** Body images in order (the viewer pages through these) and each block's position in that list. */
+  const { imageUrls, imageIndexByBlock } = useMemo(() => {
+    const urls: string[] = [];
+    const byBlock = new Map<number, number>();
+    blocks.forEach((b, i) => {
+      if (b.t !== "img" || isVideoThumbnailBlock(blocks, i)) return;
+      byBlock.set(i, urls.length);
+      urls.push(b.url);
+    });
+    return { imageUrls: urls, imageIndexByBlock: byBlock };
+  }, [blocks]);
+  const { openAt, viewer } = usePostImageViewer();
+
   return (
     <div className="mt-4 min-w-0 space-y-3" data-testid="imported-rich-content">
       {blocks.map((b, i) => {
         switch (b.t) {
           case "p":
-            return (
-              <p key={i} className={PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS}>
-                {b.text}
-              </p>
-            );
+            return <PostTextWithVideos key={i} text={b.text} className={PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS} />;
           case "h":
             return b.level === 2 ? (
               <h2 key={i} className="pt-2 text-[17px] font-bold leading-snug text-sam-fg">
@@ -78,17 +104,28 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
               </div>
             );
           }
-          case "img":
+          case "img": {
+            const at = imageIndexByBlock.get(i);
+            if (at === undefined) return null;
             return (
               <figure key={i} className="my-0.5">
-                <a href={b.url} target="_blank" rel="noreferrer" className="block overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => openAt(imageUrls, at)}
+                  className="block w-full cursor-zoom-in overflow-hidden"
+                  aria-label={`이미지 ${at + 1} 크게 보기`}
+                  data-testid="post-body-image"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element -- same plain <img> as the interleaved imported body */}
                   <img src={b.url} alt={b.alt ?? ""} className="h-auto w-full max-h-[min(40vh,320px)] object-contain" loading="lazy" decoding="async" />
-                </a>
+                </button>
                 {b.caption ? <figcaption className="mt-1 text-center text-[13px] text-sam-muted">{b.caption}</figcaption> : null}
               </figure>
             );
-          case "link":
+          }
+          case "link": {
+            const video = parsePostVideoUrl(b.href);
+            if (video) return <PostVideoEmbed key={i} video={video} label={b.text === b.href ? "" : b.text} />;
             return (
               <p key={i} className="text-[15px]">
                 <a href={b.href} target="_blank" rel="noreferrer noopener" className="text-sam-primary underline underline-offset-2 break-all">
@@ -96,10 +133,12 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
                 </a>
               </p>
             );
+          }
           default:
             return null;
         }
       })}
+      {viewer}
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { MeetingCard } from "@/components/community/MeetingCard";
 import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { CM_BODY_CLASS, CM_TITLE_CLASS } from "@/lib/community/community-ui-classes";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { usePostImageViewer } from "@/components/common/media/PostImageViewer";
+import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
 
 type Props = {
   post: NeighborhoodFeedPostDTO;
@@ -25,6 +27,8 @@ export function CommunityPostDetailBody({
   const richBlocks = !meeting && post.origin_kind === "imported" && post.content_blocks?.length ? post.content_blocks : null;
   const isInterleavedBody = !meeting && !richBlocks && hasInterleavedMarkdownImageSyntax(post.content);
   const showImageGallery = !isInterleavedBody && !richBlocks && post.images.length > 0;
+  const galleryUrls = showImageGallery ? post.images.filter(Boolean) : [];
+  const { openAt, viewer } = usePostImageViewer();
 
   return (
     <div className="mt-4">
@@ -41,33 +45,33 @@ export function CommunityPostDetailBody({
           />
         </div>
       ) : (
-        <div className={CM_BODY_CLASS}>{post.content}</div>
+        <PostTextWithVideos text={post.content} className={CM_BODY_CLASS} />
       )}
 
       {showImageGallery ? (
         <div className="mt-4 space-y-2">
-          {post.images.map((url, i) =>
-            url ? (
-              <a
-                key={`${url}-${i}`}
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full overflow-hidden rounded-2xl bg-[var(--cm-page-bg)] ring-1 ring-[var(--cm-border)]"
-              >
-                <SamarketThumbnail
-                  src={url}
-                  fill
-                  roundedClassName="rounded-2xl"
-                  className="bg-[var(--cm-page-bg)]"
-                  imageClassName="object-contain"
-                  priority={i === 0}
-                />
-              </a>
-            ) : null
-          )}
+          {galleryUrls.map((url, i) => (
+            <button
+              key={`${url}-${i}`}
+              type="button"
+              onClick={() => openAt(galleryUrls, i)}
+              aria-label={`이미지 ${i + 1} 크게 보기`}
+              data-testid="post-body-image"
+              className="relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full cursor-zoom-in overflow-hidden rounded-2xl bg-[var(--cm-page-bg)] ring-1 ring-[var(--cm-border)]"
+            >
+              <SamarketThumbnail
+                src={url}
+                fill
+                roundedClassName="rounded-2xl"
+                className="bg-[var(--cm-page-bg)]"
+                imageClassName="object-contain"
+                priority={i === 0}
+              />
+            </button>
+          ))}
         </div>
       ) : null}
+      {viewer}
 
       {meeting ? (
         <div className="mt-5">
