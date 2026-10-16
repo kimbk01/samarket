@@ -5,7 +5,7 @@
  */
 import * as cheerio from "cheerio";
 import { adapterFor } from "./adapters";
-import { type AdapterContext, boardUrl, type DiscoveredBoard, slugBoardId, sourceBase } from "./adapters/common";
+import { type AdapterContext, boardUrl, type DiscoveredBoard, parseFeed, slugBoardId, sourceBase } from "./adapters/common";
 import { discoverGnuboardBoards } from "./adapters/gnuboard";
 import { discoverHtmlBoards, rankItemTemplates } from "./adapters/html";
 import { discoverRssBoards, FEED_PATH_CANDIDATES, readFeed } from "./adapters/rss";
@@ -13,6 +13,7 @@ import { discoverWordpressBoards, probeWordpressApi } from "./adapters/wordpress
 import { describeFetchError, fetchImportText, ImportFetchError } from "./http";
 import { absUrl, blockStats, cleanText } from "./normalize";
 import { assessArticleQuality } from "./quality";
+import { knownFeedFor, naverBlogId } from "./platforms";
 import { assertRobotsAllows, isPathAllowed, loadRobotsPolicy } from "./robots";
 import type {
   AdapterConfig,
@@ -123,6 +124,8 @@ export function feedDirectoryLinks($page: ReturnType<typeof cheerio.load>, pageU
 }
 
 async function findFeeds(base: string, $home: ReturnType<typeof cheerio.load>, homeUrl: string) {
+  const platformFeed = knownFeedFor(homeUrl) ?? knownFeedFor(base);
+  if (platformFeed) return [{ url: platformFeed, title: null }];
   const directory = feedDirectoryLinks($home, homeUrl);
   if (directory.length) return directory;
   const feeds: Array<{ url: string; title: string | null }> = [];
@@ -179,17 +182,23 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
   const $home = cheerio.load(home.text);
   const html = home.text;
   const finalUrl = home.finalUrl;
-  const siteName =
-    cleanText($home('meta[property="og:site_name"]').attr("content")) || cleanText($home("title").text()).slice(0, 60);
+  // The admin may paste the feed itself (e.g. `https://x.tistory.com/rss`) instead of the site.
+  const inputIsFeed = parseFeed(html).isFeed;
+  const siteName = inputIsFeed
+    ? cleanText($home("title").first().text()).slice(0, 60)
+    : cleanText($home('meta[property="og:site_name"]').attr("content")) || cleanText($home("title").text()).slice(0, 60);
 
   // Base: gnuboard sites may live in a sub-directory (…/madang/bbs/…).
   let base = new URL("./", finalUrl).toString();
-  const bbsHref = $home("a[href*='bbs/board.php']").first().attr("href");
+  const bbsHref = inputIsFeed ? undefined : $home("a[href*='bbs/board.php']").first().attr("href");
   if (bbsHref) {
     const abs = absUrl(finalUrl, bbsHref);
     if (abs) base = abs.replace(/bbs\/board\.php.*$/, "");
   } else if (/\/bbs\//.test(finalUrl)) {
     base = finalUrl.replace(/bbs\/.*$/, "");
+  } else if (naverBlogId(inputUrl)) {
+    // One Naver blog = one source (the host alone would merge every blog into one id).
+    base = `https://blog.naver.com/${naverBlogId(inputUrl)}/`;
   } else {
     base = `${new URL(finalUrl).origin}/`;
   }
@@ -210,7 +219,10 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
   let adapterConfig: AdapterConfig = {};
   const isTistory = /tistory\.com|tistory_|daumcdn|kakaocdn/i.test(html.slice(0, 300000)) && /\/(entry|category)\//.test(html);
 
-  if (bbsHref || /bo_table=/.test(finalUrl)) {
+  if (inputIsFeed) {
+    engine = "rss_atom";
+    boards = await discoverRssBoards({ source: draftSource(engine) }, [{ url: finalUrl, title: siteName || null }]);
+  } else if (bbsHref || /bo_table=/.test(finalUrl)) {
     engine = "gnuboard";
     boards = await discoverGnuboardBoards({ source: draftSource(engine) }, html);
   } else if (!isTistory && /wp-content|wp-json|wp-includes/i.test(html) && (await probeWordpressApi({ source: draftSource("wordpress_rest") }))) {
@@ -223,7 +235,7 @@ export async function detectSource(inputRaw: string, opts: { sampleBoards?: numb
     const isSectionPage = (entered.pathname !== "/" && entered.pathname !== new URL(base).pathname) || entered.search.length > 1;
     // An RSS directory page wins over its own link list: each listed feed is a real board.
     const isFeedDirectory = feedDirectoryLinks($home, finalUrl).length > 0;
-    const inputTemplate = !isTistory && isSectionPage && !isFeedDirectory ? rankItemTemplates(html, finalUrl)[0] : undefined;
+    const inputTemplate = !isTistory && !knownFeedFor(inputUrl) && isSectionPage && !isFeedDirectory ? rankItemTemplates(html, finalUrl)[0] : undefined;
     const feeds = inputTemplate && inputTemplate.items >= 5 ? [] : await findFeeds(base, $home, finalUrl);
     if (inputTemplate && inputTemplate.items >= 5) {
       engine = "html";

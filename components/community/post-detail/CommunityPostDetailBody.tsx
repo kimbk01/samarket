@@ -3,6 +3,7 @@
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { hasInterleavedMarkdownImageSyntax } from "@/lib/philife/interleaved-body-markdown";
 import { NeighborhoodInterleavedContent } from "@/components/community/NeighborhoodInterleavedContent";
+import { ImportedRichContent } from "@/components/community/post-detail/ImportedRichContent";
 import { MeetingCard } from "@/components/community/MeetingCard";
 import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { CM_BODY_CLASS, CM_TITLE_CLASS } from "@/lib/community/community-ui-classes";
@@ -21,14 +22,17 @@ export function CommunityPostDetailBody({
   meetingHostDisplay,
   viewerJoinedMeeting,
 }: Props) {
-  const isInterleavedBody = !meeting && hasInterleavedMarkdownImageSyntax(post.content);
-  const showImageGallery = !isInterleavedBody && post.images.length > 0;
+  const richBlocks = !meeting && post.origin_kind === "imported" && post.content_blocks?.length ? post.content_blocks : null;
+  const isInterleavedBody = !meeting && !richBlocks && hasInterleavedMarkdownImageSyntax(post.content);
+  const showImageGallery = !isInterleavedBody && !richBlocks && post.images.length > 0;
 
   return (
     <div className="mt-4">
       <h1 className={CM_TITLE_CLASS}>{post.title}</h1>
       {meeting ? (
         <div className={CM_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
+      ) : richBlocks ? (
+        <ImportedRichContent blocks={richBlocks} />
       ) : isInterleavedBody ? (
         <div className="mt-3">
           <NeighborhoodInterleavedContent

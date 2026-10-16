@@ -20,7 +20,7 @@ export function AdminExternalImportOperatorPage() {
   const [sources, setSources] = useState<ManagedSource[]>([]);
   const [topics, setTopics] = useState<TopicOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<InboxFilter>({ site: "", board: "", status: "new,draft,source_updated,failed", quality: "", q: "" });
+  const [filter, setFilter] = useState<InboxFilter>({ site: "", board: "", status: "new,draft,source_updated,failed", quality: "", lang: "ko", q: "" });
   const [active, setActive] = useState<InboxRow | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 

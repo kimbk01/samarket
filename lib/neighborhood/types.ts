@@ -56,6 +56,8 @@ export type NeighborhoodFeedPostDTO = {
     canonicalUrl: string | null;
     sourcePublishedAt: string | null;
   } | null;
+  /** Imported posts only: sanitized structured body for the detail page (null = render `content`). */
+  content_blocks?: import("@/lib/community/imported-content-blocks").ImportedContentBlock[] | null;
   meeting_id: string | null;
   /** 모임 연결 메신저 오픈그룹 방(있으면 목록에서 바로 `/community-messenger/rooms/...` 링크) */
   community_messenger_room_id: string | null;

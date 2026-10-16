@@ -2,12 +2,27 @@ import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { InboxKey } from "@/lib/community-operator-import/inbox-store";
-import { createJob, JOB_KINDS, type JobKind, type JobParams, listRecentJobs, loadJob, runJobChunk } from "@/lib/community-operator-import/jobs";
+import {
+  type AuthorMode,
+  cancelJob,
+  createJob,
+  type DateMode,
+  JOB_KINDS,
+  type JobKind,
+  type JobParams,
+  listRecentJobs,
+  loadJob,
+  retryFailedItems,
+  runJobChunk,
+} from "@/lib/community-operator-import/jobs";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+const AUTHOR_MODES: AuthorMode[] = ["keep", "original", "source", "custom"];
+const DATE_MODES: DateMode[] = ["keep", "original", "publish"];
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdminApiUser();
@@ -38,12 +53,20 @@ export async function POST(req: NextRequest) {
     const sb = getSupabaseServer();
     if (b.action === "create") {
       if (!b.kind || !JOB_KINDS.includes(b.kind)) return jsonError("kind 오류", 400, { code: "invalid_job_kind" });
+      const p = b.params ?? {};
       const params: JobParams = {
-        topicId: b.params?.topicId || null,
-        topicSlug: b.params?.topicSlug || null,
-        acceptPartial: b.params?.acceptPartial === true,
-        contentPolicy: b.params?.contentPolicy || null,
+        topicId: p.topicId || null,
+        topicSlug: p.topicSlug || null,
+        acceptPartial: p.acceptPartial === true,
+        contentPolicy: p.contentPolicy || null,
+        showAttribution: p.showAttribution === true || p.showAttribution === false ? p.showAttribution : null,
+        authorMode: p.authorMode && AUTHOR_MODES.includes(p.authorMode) ? p.authorMode : null,
+        customAuthor: typeof p.customAuthor === "string" ? p.customAuthor.trim().slice(0, 60) : null,
+        dateMode: p.dateMode && DATE_MODES.includes(p.dateMode) ? p.dateMode : null,
+        shuffle: p.shuffle === true,
+        schedule: p.schedule?.mode === "spread" ? { mode: "spread", startAt: p.schedule.startAt ?? null, intervalMinutes: p.schedule.intervalMinutes ?? null } : null,
       };
+      if (params.authorMode === "custom" && !params.customAuthor) return jsonError("표시 작성자를 입력하세요.", 400, { code: "custom_author_required" });
       const job = await createJob(sb, { kind: b.kind, items: Array.isArray(b.items) ? b.items : [], params, adminUserId: auth.userId });
       const after = await runJobChunk(sb, job.id, { budgetMs: 40_000, adminUserId: auth.userId });
       return jsonOk({ job: after });
@@ -52,7 +75,19 @@ export async function POST(req: NextRequest) {
       if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
       return jsonOk({ job: await runJobChunk(sb, b.jobId, { budgetMs: 40_000, adminUserId: auth.userId }) });
     }
-    return jsonError("지원 action: create | run", 400, { code: "unsupported_action" });
+    if (b.action === "retry_failed") {
+      if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      const n = await retryFailedItems(sb, b.jobId);
+      if (!n) return jsonError("다시 시도할 실패 항목이 없습니다.", 400, { code: "no_failed_items" });
+      return jsonOk({ retried: n, job: await runJobChunk(sb, b.jobId, { budgetMs: 40_000, adminUserId: auth.userId }) });
+    }
+    if (b.action === "cancel") {
+      if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      await cancelJob(sb, b.jobId);
+      const cur = await loadJob(sb, b.jobId);
+      return jsonOk({ job: cur?.job ?? null });
+    }
+    return jsonError("지원 action: create | run | retry_failed | cancel", 400, { code: "unsupported_action" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "job_failed";
     return jsonError(msg, 400, { code: msg.split(":")[0] || "job_failed" });
