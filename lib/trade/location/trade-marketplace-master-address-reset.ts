@@ -18,7 +18,7 @@ import {
 } from "@/lib/trade/location/trade-browse-committed-session";
 import {
   resolveTradeMarketplaceCityScopeFromMasterRow,
-  resolveTradeMarketplaceDefaultCityFromMaster,
+  resolveTradeMarketplaceMasterHydrateOutcome,
 } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import { buildTradeLocationHref, type TradeLocationScope } from "@/lib/trade/location/trade-location-scope";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -56,16 +56,22 @@ function stripMarketBrowseResetSearchParams(currentSearch: string): URLSearchPar
   return sp;
 }
 
-/** Default browse = master CITY + distance 전체; fallback nationwide ALL. */
+/**
+ * Default browse = master CITY + distance 전체; confirmed guest / no master / unmappable → ALL.
+ * Auth still restoring or address lookup failed → UNSET href (location hydrate retries) —
+ * never a fake ALL for a transient failure.
+ */
 export async function buildTradeMarketplaceDefaultBrowseHref(
   pathname: string,
   currentSearch: string
 ): Promise<string> {
   const sp = stripMarketBrowseResetSearchParams(currentSearch);
-  const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
-  const scope: TradeLocationScope = masterCity ?? { mode: "all" };
+  const outcome = await resolveTradeMarketplaceMasterHydrateOutcome();
+  const scope: TradeLocationScope =
+    outcome.kind === "resolved" ? outcome.scope : { mode: "unset" };
   clearTradeBrowseLocationDraftSession();
-  writeTradeBrowseCommittedScope(scope);
+  if (outcome.kind === "resolved") writeTradeBrowseCommittedScope(scope);
+  else clearTradeBrowseCommittedScope();
   return buildTradeLocationHref(pathname, sp.toString(), scope);
 }
 

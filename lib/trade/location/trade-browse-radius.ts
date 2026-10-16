@@ -8,6 +8,14 @@
 /** Mid Facebook PH preset — Metro Manila city-grain browse default. Not FB algorithm. */
 export const TRADE_BROWSE_RECOMMENDED_RADIUS_KM = 64;
 
+/**
+ * Default browse (distance 「전체」) nearby tier — LOCAL → NEARBY → NATIONWIDE.
+ * Same km as the service's recommended radius (no second distance policy):
+ * nearby = LGU centroid within this radius of the anchor City, anchor excluded.
+ * Ranking only — never a membership wall (explicit `radius=` is the only hard boundary).
+ */
+export const TRADE_BROWSE_NEARBY_TIER_RADIUS_KM = TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
+
 export const TRADE_BROWSE_RADIUS_PRESET_KM = [32, 64, 96, 160] as const;
 
 export const TRADE_BROWSE_RADIUS_MIN_KM = 1;

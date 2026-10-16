@@ -1,13 +1,20 @@
 /**
  * CUT-SSOT-4 — browse LIST order assembler (L-SOFT location boost).
  *
- * Nationwide eligible set + within-anchor LGU boost before outside rows.
+ * Nationwide eligible set: LOCAL (anchor City) → NEARBY → NATIONWIDE rest.
  * Sort within each block: newest (default) · popular · distance (explicit).
+ * Tier model: `lib/trade/location/national/browse-location-tiers.ts`.
  */
 import {
   filterPostsOutsideBrowseAnchor,
   filterPostsWithinBrowseAnchor,
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
+import {
+  BROWSE_LOCATION_TIER_ORDER,
+  partitionListingsByBrowseTier,
+  resolveBrowseLocationTiers,
+  type BrowseLocationTiers,
+} from "@/lib/trade/location/national/browse-location-tiers";
 import type { TradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { sortListingsByLguDistance } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 
@@ -24,6 +31,24 @@ export type MarketplaceBrowseListing = {
 
 function createdAtMs(raw: string | undefined): number {
   return Date.parse(raw ?? "") || 0;
+}
+
+/**
+ * Comparator identical to `sortBrowseListingsWithinLocationBlock` for latest / popular
+ * (distance needs the whole block — not mergeable). Used to merge an in-memory sorted list
+ * with an SQL stream ordered the same way (`created_at desc` / `view_count desc, created_at desc`).
+ */
+export function compareBrowseListingsInBlock(
+  a: MarketplaceBrowseListing,
+  b: MarketplaceBrowseListing,
+  sort: Exclude<MarketplaceBrowseSort, "distance">
+): number {
+  if (sort === "popular") {
+    const av = Number(a.view_count ?? 0);
+    const bv = Number(b.view_count ?? 0);
+    if (bv !== av) return bv - av;
+  }
+  return createdAtMs(b.created_at) - createdAtMs(a.created_at);
 }
 
 /** Sort rows inside one browse location block (within or outside). */
@@ -58,13 +83,29 @@ export function assembleMarketplaceBrowseOrder<T extends MarketplaceBrowseListin
   ];
 }
 
-/** Partition a nationwide batch then assemble L-SOFT browse order. */
+/** Partition a nationwide batch then assemble L-SOFT browse order (local → nearby → outside). */
 export function assembleMarketplaceBrowseLocationOrder<T extends MarketplaceBrowseListing>(
   rows: T[],
   withinConstraint: Extract<TradeFeedLocationConstraint, { kind: "lgu" }>,
   sort: MarketplaceBrowseSort = "latest"
 ): T[] {
+  const tiers = resolveBrowseLocationTiers(withinConstraint);
+  if (tiers) return assembleMarketplaceBrowseTierOrder(rows, tiers, sort);
   const within = filterPostsWithinBrowseAnchor(rows, withinConstraint);
   const outside = filterPostsOutsideBrowseAnchor(rows, withinConstraint);
   return assembleMarketplaceBrowseOrder(within, outside, sort, withinConstraint.canonicalId);
+}
+
+/** Three-tier L-SOFT order — each tier block sorted independently by user sort. */
+export function assembleMarketplaceBrowseTierOrder<T extends MarketplaceBrowseListing>(
+  rows: T[],
+  tiers: BrowseLocationTiers,
+  sort: MarketplaceBrowseSort = "latest"
+): T[] {
+  const parts = partitionListingsByBrowseTier(rows, tiers);
+  const out: T[] = [];
+  for (const tier of BROWSE_LOCATION_TIER_ORDER) {
+    out.push(...sortBrowseListingsWithinLocationBlock(parts[tier], sort, tiers.anchorCanonicalId));
+  }
+  return out;
 }

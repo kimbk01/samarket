@@ -48,7 +48,13 @@ async function fetchNationalLguCityScope(
     credentials: "same-origin",
     cache: "no-store",
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    /** 5xx/429 = could not ask (transient) — not "address unmappable". Network errors throw too. */
+    if (res.status >= 500 || res.status === 429) {
+      throw new Error(`national_lgu_transient_${res.status}`);
+    }
+    return null;
+  }
 
   const json = (await res.json()) as {
     resolution?: {
@@ -94,30 +100,56 @@ export async function resolveTradeMarketplaceCityScopeFromMasterRow(
 }
 
 /**
+ * UNSET URL hydrate outcome — distinguishes "no location" from "could not ask".
+ * - `resolved`: CITY (master maps) or ALL (confirmed guest · no master · master unmappable)
+ * - `pending_auth`: address-defaults 401/403 while auth may still restore (not guest proof)
+ * - `transient_error`: network/timeout/5xx — NOT "no address"; caller retries, then shows error
+ */
+export type TradeMarketplaceHydrateOutcome =
+  | { kind: "resolved"; scope: Extract<TradeLocationScope, { mode: "city" } | { mode: "all" }> }
+  | { kind: "pending_auth" }
+  | { kind: "transient_error"; status: number | null };
+
+export async function resolveTradeMarketplaceMasterHydrateOutcome(): Promise<TradeMarketplaceHydrateOutcome> {
+  let snapshot: Awaited<ReturnType<typeof fetchAddressDefaultsSnapshot>>;
+  try {
+    snapshot = await fetchAddressDefaultsSnapshot({
+      caller: "trade_location_scope",
+      reason: "trade_location_seed",
+    });
+  } catch {
+    return { kind: "transient_error", status: null };
+  }
+  if (!snapshot) return { kind: "transient_error", status: null };
+
+  const beforeMaster = tradeMarketplaceHydrateScopeBeforeMasterResolution(snapshot);
+  if (beforeMaster) {
+    if (beforeMaster.mode === "all") return { kind: "resolved", scope: { mode: "all" } };
+    if (snapshot.status === 401 || snapshot.status === 403) return { kind: "pending_auth" };
+    return { kind: "transient_error", status: snapshot.status };
+  }
+
+  const master = pickUserAddressMasterRow(snapshot.defaults);
+  if (!master) return { kind: "resolved", scope: { mode: "all" } };
+
+  try {
+    const city = await resolveTradeMarketplaceCityScopeFromMasterRow(master);
+    return { kind: "resolved", scope: city ?? { mode: "all" } };
+  } catch {
+    /** national-lgu resolve request failed — retry, do not fake "unmappable → ALL". */
+    return { kind: "transient_error", status: null };
+  }
+}
+
+/**
  * UNSET URL hydrate — current address-book master is authority.
  * CITY + distance 전체. No master → ALL. Do not write ALL while master exists and maps.
  * Guest confirmed (anonymous boot | terminal guest) + address-defaults 401/403 → ALL.
  * Other !ok → UNSET (no URL write).
  */
 export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<TradeLocationScope> {
-  try {
-    const snapshot = await fetchAddressDefaultsSnapshot({
-      caller: "trade_location_scope",
-      reason: "trade_location_seed",
-    });
-
-    const beforeMaster = tradeMarketplaceHydrateScopeBeforeMasterResolution(snapshot);
-    if (beforeMaster) return beforeMaster;
-    if (!snapshot?.ok) return { mode: "unset" };
-
-    const master = pickUserAddressMasterRow(snapshot.defaults);
-    if (!master) return { mode: "all" };
-
-    const city = await resolveTradeMarketplaceCityScopeFromMasterRow(master);
-    return city ?? { mode: "all" };
-  } catch {
-    return { mode: "unset" };
-  }
+  const outcome = await resolveTradeMarketplaceMasterHydrateOutcome();
+  return outcome.kind === "resolved" ? outcome.scope : { mode: "unset" };
 }
 
 export async function resolveTradeMarketplaceDefaultCityFromMaster(): Promise<

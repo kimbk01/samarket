@@ -67,6 +67,22 @@ export type SearchExpansionCursor = {
   tailExhausted: boolean;
   seenIds: string[];
   inferredBodyTypes: string[];
+  /**
+   * Discovery search mode (step 2). undefined = not started; "candidate" = SQL candidate
+   * filter + lazy tail; "fullpool" = rank the whole eligible pool (fallback, previous path).
+   */
+  searchMode?: "candidate" | "fullpool";
+  /** Candidate mode tail state (band-5 candidates not yet emitted + SQL tail position). */
+  candidateTail?: SearchCandidateTailState | null;
+};
+
+export type SearchCandidateTailState = {
+  /** NULL-safe complement of the candidate filter — one `.or()` group each. */
+  negations: string[];
+  /** Band-5 candidate rows in final order, tagged with their location block index. */
+  pending: Array<{ block: number; row: SearchExpansionListing & { view_count?: number | null } }>;
+  blockIdx: number;
+  blockOffset: number;
 };
 
 export const SEARCH_EXPANSION_TAIL_BATCH = 50;
@@ -236,7 +252,12 @@ function strongRelated(
   const haystack = `${title} ${carModel}`.trim();
   if (hints.models.some((model) => haystack.includes(model))) return true;
   if (hints.makes.some((make) => haystack.includes(make))) return true;
-  if (hints.tokens.length > 0 && hints.tokens.filter((t) => t.length >= 3).every((token) => haystack.includes(token))) {
+  /**
+   * All ≥3-char tokens present. Only when such tokens exist — with none, `every` on an empty
+   * list was vacuously true and put EVERY listing in band 2 for short queries (e.g. 「임대」).
+   */
+  const longTokens = hints.tokens.filter((t) => t.length >= 3);
+  if (longTokens.length > 0 && longTokens.every((token) => haystack.includes(token))) {
     return true;
   }
   if (hints.tokens.some((token) => token.length >= 3 && haystack.includes(token))) return true;

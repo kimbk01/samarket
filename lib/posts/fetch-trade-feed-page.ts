@@ -1,6 +1,8 @@
 /**
  * 거래 마켓 피드 페이지 조회 — 브라우저·Route Handler 공용 ("use client" 없음)
  * CUT-SSOT-4: city browse + no q → philife L-SOFT path (`resolveHomePostsPayload`).
+ * Default browse order LOCAL → NEARBY → NATIONWIDE (`browse-location-tiers`); job feeds keep
+ * their trade_type=job filters on the same tiers (`fetchTieredJobTradeFeedPage`).
  */
 import type { PostWithMeta } from "./schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,6 +12,7 @@ import {
 } from "@/lib/jobs/matches-job-listing-kind";
 import {
   fetchPostsRangeForTradeCategories,
+  fetchPostsRangeForTradeCategoriesOrNull,
   MAX_JOB_LISTING_KIND_CHUNKS,
   PAGE_SIZE_TRADE_FEED,
   type TradeFeedQueryExtras,
@@ -19,6 +22,12 @@ import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { shouldUseRegionAllBrowsePriority } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
+import {
+  BROWSE_LOCATION_TIER_ORDER,
+  resolveBrowseLocationTiers,
+  tierLocationQueryExtras,
+  type BrowseLocationTiers,
+} from "@/lib/trade/location/national/browse-location-tiers";
 import {
   parseMarketplacePriceBound,
   parseMarketplaceSort,
@@ -112,6 +121,107 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   };
 }
 
+/** Region-priority / tiered trade feed query failed — never presented as an empty list. */
+export class TradeFeedQueryError extends Error {
+  constructor(message = "trade_feed_query_failed") {
+    super(message);
+    this.name = "TradeFeedQueryError";
+  }
+}
+
+/** Trade feed sort → philife browse sort (popular must survive; near/distance → distance). */
+export function tradeFeedSortToHomePostsSort(sort: TradeFeedPageSort | undefined): HomePostsQuerySort {
+  if (sort === "popular") return "popular";
+  if (parseMarketplaceSort(sort) === "distance") return "distance";
+  return "latest";
+}
+
+function hasJobQueryExtras(opts: TradeFeedPageOptions): boolean {
+  return (
+    opts.restrictTradeTypeJob === true ||
+    Boolean(opts.jobEmploymentType?.trim()) ||
+    opts.todayAvailable === true ||
+    Boolean(opts.jobRegionSlug) ||
+    Boolean(opts.jobIndustrySlug)
+  );
+}
+
+function rowMatchesJobKind(p: PostWithMeta, jobKind: JobListingKindFilter | undefined): boolean {
+  if (jobKind !== "hire" && jobKind !== "work") return true;
+  const meta =
+    p.meta && typeof p.meta === "object" && !Array.isArray(p.meta)
+      ? (p.meta as Record<string, unknown>)
+      : undefined;
+  return postMetaMatchesJobListingKind(meta, jobKind);
+}
+
+/**
+ * Jobs (trade_type=job filters, hire/work kind) default browse: LOCAL → NEARBY → NATIONWIDE
+ * on the trade-feed query (job filters live only here). Per tier: SQL partition, chunked scan
+ * with row-level job-kind filter, user sort inside tier.
+ */
+async function fetchTieredJobTradeFeedPage(
+  supabase: unknown,
+  ids: string[],
+  sort: TradeFeedPageSort,
+  page: number,
+  queryExtras: TradeFeedQueryExtras | undefined,
+  tiers: BrowseLocationTiers,
+  jobKind: JobListingKindFilter | undefined
+): Promise<{ posts: PostWithMeta[]; hasMore: boolean }> {
+  const PAGE_SIZE = PAGE_SIZE_TRADE_FEED;
+  const targetStart = (page - 1) * PAGE_SIZE;
+  const targetInclusive = targetStart + PAGE_SIZE;
+  const useDistance = parseMarketplaceSort(sort) === "distance";
+  const dbSort: TradePostSort = useDistance ? "latest" : sort;
+  const maxChunks = useDistance
+    ? Math.ceil(MARKETPLACE_DISTANCE_SCAN_CAP / PAGE_SIZE)
+    : MAX_JOB_LISTING_KIND_CHUNKS;
+
+  const assembled: PostWithMeta[] = [];
+  let truncated = false;
+  for (const tier of BROWSE_LOCATION_TIER_ORDER) {
+    if (assembled.length > targetInclusive) break;
+    const loc = tierLocationQueryExtras(tiers, tier);
+    if (!loc) continue;
+    const extras: TradeFeedQueryExtras = { ...(queryExtras ?? {}), tradeFeedLocation: loc };
+    const tierRows: PostWithMeta[] = [];
+    let dbOffset = 0;
+    let chunks = 0;
+    let exhausted = false;
+    const need = () => (useDistance ? Number.POSITIVE_INFINITY : targetInclusive + 1 - assembled.length);
+    while (tierRows.length < need() && chunks < maxChunks) {
+      const chunk = await fetchPostsRangeForTradeCategoriesOrNull(
+        supabase,
+        ids,
+        dbSort,
+        dbOffset,
+        dbOffset + PAGE_SIZE - 1,
+        extras
+      );
+      if (!chunk) throw new TradeFeedQueryError();
+      chunks++;
+      for (const p of chunk) if (rowMatchesJobKind(p, jobKind)) tierRows.push(p);
+      dbOffset += chunk.length;
+      if (chunk.length < PAGE_SIZE) {
+        exhausted = true;
+        break;
+      }
+    }
+    if (!exhausted && tierRows.length < need()) truncated = true;
+    assembled.push(
+      ...(useDistance ? sortListingsByLguDistance(tierRows, tiers.anchorCanonicalId) : tierRows)
+    );
+  }
+  return {
+    posts: assembled.slice(targetStart, targetStart + PAGE_SIZE),
+    hasMore: assembled.length > targetInclusive || truncated,
+  };
+}
+
+/**
+ * Throws `TradeFeedQueryError` when a region-priority query fails (caller → error response).
+ */
 export async function fetchTradeFeedPage(
   supabase: unknown,
   categoryIds: string[],
@@ -140,15 +250,28 @@ export async function fetchTradeFeedPage(
   const useBrowseSoft =
     Boolean(options.lguCityId?.trim()) &&
     shouldUseRegionAllBrowsePriority(options.lguCityId, options.radiusKm, qAbsent);
+  const browseTiers = useBrowseSoft ? resolveBrowseLocationTiers(feedConstraint) : null;
 
-  if (jobKind !== "hire" && jobKind !== "work" && useBrowseSoft) {
+  if (browseTiers) {
+    const isJobFeed = jobKind === "hire" || jobKind === "work" || hasJobQueryExtras(options);
+    if (isJobFeed) {
+      return fetchTieredJobTradeFeedPage(
+        supabase,
+        ids,
+        sort,
+        page,
+        queryExtras,
+        browseTiers,
+        jobKind
+      );
+    }
+    /** Non-job: same L-SOFT assembler as `/api/philife/posts` (display parity). */
     const from = (page - 1) * PAGE_SIZE;
-    const browseSort = parseMarketplaceSort(sort) as HomePostsQuerySort;
     const soft = await resolveHomePostsPayload(
       supabase as SupabaseClient<any>,
       null,
       from,
-      browseSort,
+      tradeFeedSortToHomePostsSort(sort),
       "trade",
       ids,
       options.statusOr?.trim() || resolveHomePostsStatusOrByTradeState("latest"),
@@ -157,7 +280,8 @@ export async function fetchTradeFeedPage(
       queryExtras,
       PAGE_SIZE
     );
-    if (soft) return soft;
+    if (!soft) throw new TradeFeedQueryError();
+    return soft;
   }
 
   if (jobKind === "hire" || jobKind === "work") {
@@ -182,11 +306,7 @@ export async function fetchTradeFeedPage(
         lastChunkLen = chunk.length;
         chunks++;
         for (const p of chunk) {
-          const meta =
-            p.meta && typeof p.meta === "object" && !Array.isArray(p.meta)
-              ? (p.meta as Record<string, unknown>)
-              : undefined;
-          if (!postMetaMatchesJobListingKind(meta, jobKind)) continue;
+          if (!rowMatchesJobKind(p, jobKind)) continue;
           if (matchIndex >= targetStart && matchIndex < targetEnd) {
             out.push(p);
           }

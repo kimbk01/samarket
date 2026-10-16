@@ -45,6 +45,14 @@ export async function GET(req: NextRequest) {
     precomputedViewerUserId: viewerUserId,
     diagnostics,
   });
+  if (data.queryFailed) {
+    /** 목록 DB 조회 실패 — 빈 목록 200 으로 위장하지 않음 (클라 `failed` → 재시도 UI). */
+    return jsonWithRequestIdHeader(
+      req,
+      { ok: false, error: "posts_query_failed", posts: [], hasMore: false, favoriteMap: {} },
+      { status: 503 }
+    );
+  }
   if (homeDiag && diagnostics) {
     const relMs = () =>
       Math.max(

@@ -167,7 +167,11 @@ export function HomeProductList({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { unresolved: locationUnresolved } = useTradeMarketplaceLocationHydrate();
+  const {
+    unresolved: locationUnresolved,
+    failed: locationHydrateFailed,
+    retry: retryLocationHydrate,
+  } = useTradeMarketplaceLocationHydrate();
   const { propsForCategoryId } = useTradeListCompositionMap();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const q = sanitizeMarketplaceQueryText(searchParams.get("q")) ?? null;
@@ -994,9 +998,12 @@ export function HomeProductList({
     locationUnresolved ||
     listState === "empty" ||
     (!locationUnset && posts.length === 0);
-  const showError = listState === "error";
+  /** Location hydrate gave up (address API error) — error + retry, not endless loading. */
+  const showLocationHydrateError = locationUnset && locationHydrateFailed;
+  const showError = listState === "error" || showLocationHydrateError;
   const showLoading =
     !locationInvalid &&
+    !showLocationHydrateError &&
     (locationUnresolved || listState === "loading" || locationUnset);
   const rootClass = "min-w-0 w-full max-w-full";
   /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
@@ -1042,7 +1049,9 @@ export function HomeProductList({
       <>
         {tradePullRefreshRegister}
         <div className={rootClass}>
-          <TradeListErrorState onRetry={handleRetry} />
+          <TradeListErrorState
+            onRetry={showLocationHydrateError ? retryLocationHydrate : handleRetry}
+          />
         </div>
       </>
     );

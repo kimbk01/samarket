@@ -42,7 +42,7 @@ export type TradeFeedLocationConstraint =
       legacyMembers: TradeFeedLegacyRegionMembers[];
     };
 
-function legacyMembersForCanonicalIds(
+export function legacyMembersForCanonicalIds(
   canonicalIds: string[]
 ): TradeFeedLegacyRegionMembers[] {
   const idSet = new Set(canonicalIds);

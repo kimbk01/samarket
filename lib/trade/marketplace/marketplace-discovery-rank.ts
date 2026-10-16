@@ -2,17 +2,15 @@
  * SEARCH-LOCATION-FRESH-1 — discovery rank (intent + location preference + sort).
  *
  * LOCK-1: search intent = boost only.
- * LOCK-2: location — L-SOFT preference when radiusKm==null (within→outside);
+ * LOCK-2: location — L-SOFT preference when radiusKm==null (local→nearby→outside);
  *         explicit radiusKm → hard EXCLUDE outside matchingCanonicalIds (browse-single-contract).
  * LOCK-3: unresolved intent → band D (eligible tail), not empty.
  */
-import {
-  filterPostsOutsideBrowseAnchor,
-  filterPostsWithinBrowseAnchor,
-} from "@/lib/trade/location/national/trade-feed-location-sql-extras";
+import { filterPostsWithinBrowseAnchor } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
+import { resolveBrowseLocationTiers } from "@/lib/trade/location/national/browse-location-tiers";
 import type { TradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import {
-  assembleMarketplaceBrowseOrder,
+  assembleMarketplaceBrowseTierOrder,
   sortBrowseListingsWithinLocationBlock,
   type MarketplaceBrowseSort,
 } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
@@ -29,6 +27,7 @@ import {
   type MarketplaceSearchIntent,
 } from "@/lib/trade/marketplace/search-intent-resolver";
 
+/** Legacy per-batch pool size (tests / diagnostics). Live search ranks the whole pool — `MARKETPLACE_SEARCH_RANK_POOL_CAP`. */
 export const MARKETPLACE_DISCOVERY_POOL_BATCH = 50;
 
 export type DiscoveryRankListing = SearchExpansionListing & {
@@ -47,7 +46,7 @@ function asExpansionListing(row: DiscoveryRankListing): SearchExpansionListing {
   };
 }
 
-function classifyDiscoveryBand(
+export function classifyDiscoveryBand(
   listing: DiscoveryRankListing,
   intent: MarketplaceSearchIntent,
   rootExpandedIdsByParent: Record<string, string[]>,
@@ -84,8 +83,8 @@ function partitionAndSortBlock<T extends DiscoveryRankListing>(
 }
 
 /**
- * Rank one eligible pool batch: intent bands × within/outside anchor × user sort.
- * Soft (radius null): every input row appears (within then outside).
+ * Rank one eligible pool batch: intent bands × local/nearby/outside × user sort.
+ * Soft (radius null): every input row appears (local → nearby → outside).
  * Hard radius: outside matchingCanonicalIds dropped.
  */
 export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(input: {
@@ -129,6 +128,8 @@ export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(in
     lguConstraint.radiusKm != null &&
     Number.isFinite(Number(lguConstraint.radiusKm));
 
+  const softTiers = lguConstraint && !hardRadius ? resolveBrowseLocationTiers(lguConstraint) : null;
+
   const order: MarketplaceDiscoveryBand[] = [0, 1, 2, 3, 4, 5];
   const out: T[] = [];
 
@@ -141,15 +142,12 @@ export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(in
       continue;
     }
 
-    const within = filterPostsWithinBrowseAnchor(bandRows, lguConstraint);
-    if (hardRadius) {
+    if (hardRadius || !softTiers) {
+      const within = filterPostsWithinBrowseAnchor(bandRows, lguConstraint);
       out.push(...partitionAndSortBlock(within, browseSort, lguConstraint.canonicalId));
       continue;
     }
-    const outside = filterPostsOutsideBrowseAnchor(bandRows, lguConstraint);
-    out.push(
-      ...assembleMarketplaceBrowseOrder(within, outside, browseSort, lguConstraint.canonicalId)
-    );
+    out.push(...assembleMarketplaceBrowseTierOrder(bandRows, softTiers, browseSort));
   }
 
   return out;
