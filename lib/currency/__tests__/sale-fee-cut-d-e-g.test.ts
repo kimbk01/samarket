@@ -55,8 +55,11 @@ describe("three-currency order boundary", () => {
     expect(SRC).not.toContain("charge_store_points_on_order_accept");
   });
 
-  it("calls reverseSaleFeeForOrder on refunded path", () => {
-    expect(SRC).toContain("reverseSaleFeeForOrder");
+  it("commission charge / review is the DB trigger's job; TS never auto-reverses", () => {
+    expect(SRC).toContain("trg_store_orders_commission_lifecycle");
+    expect(SRC).toContain("store_commission_(charge_failed|policy_missing)");
+    expect(SRC).not.toContain("reverseSaleFeeForOrder");
+    expect(SRC).not.toContain("chargeStoreCommissionForOrder");
   });
 
   it("reads only deployed store_orders revenue columns", () => {

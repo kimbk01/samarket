@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ensureStoreSettlementForCompletedOrder = vi.fn(async () => undefined);
 const recognizeOrderCurrencyOnCompleted = vi.fn(async () => ({ ok: true }));
 const reverseCoinCreditsForOrder = vi.fn(async () => ({ ok: true }));
-const reverseSaleFeeForOrder = vi.fn(async () => ({ ok: true }));
+const flagStoreCommissionReview = vi.fn(async () => ({ ok: true, flagged: true }));
 
 vi.mock("@/lib/stores/ensure-store-settlement", () => ({
   ensureStoreSettlementForCompletedOrder: (...a: unknown[]) =>
@@ -14,14 +14,17 @@ vi.mock("@/lib/stores/ensure-store-settlement", () => ({
 vi.mock("@/lib/currency/recognize-order-currency-on-completed", () => ({
   recognizeOrderCurrencyOnCompleted: (...a: unknown[]) =>
     (recognizeOrderCurrencyOnCompleted as (...x: unknown[]) => unknown)(...a),
+  platformHeldSaleAmountPhp: (o: { gift_redemption_amount?: unknown; platform_funded_amount?: unknown }) =>
+    (Number(o.gift_redemption_amount) || 0) + (Number(o.platform_funded_amount) || 0),
 }));
 vi.mock("@/lib/currency/coin-reversal-writer", () => ({
   coinReversalIdempotencyKeyForOrder: (id: string) => `coin_reversal:order:${id.trim()}`,
   reverseCoinCreditsForOrder: (...a: unknown[]) =>
     (reverseCoinCreditsForOrder as (...x: unknown[]) => unknown)(...a),
 }));
-vi.mock("@/lib/currency/sale-fee-writer", () => ({
-  reverseSaleFeeForOrder: (...a: unknown[]) => (reverseSaleFeeForOrder as (...x: unknown[]) => unknown)(...a),
+vi.mock("@/lib/stores/commission/store-commission-writer", () => ({
+  flagStoreCommissionReview: (...a: unknown[]) =>
+    (flagStoreCommissionReview as (...x: unknown[]) => unknown)(...a),
 }));
 
 let tryGetSb: unknown = null;
@@ -115,14 +118,14 @@ const NEW = "2026-10-01T00:00:00.000Z";
 function fixture() {
   return {
     store_orders: [
-      // (a) completed without sale_coin
-      { id: "c1", order_status: "completed", created_at: NEW, payment_amount: 500 },
+      // (a) completed without sale_coin (gift = platform-held → Coin owed)
+      { id: "c1", order_status: "completed", created_at: NEW, payment_amount: 0, gift_redemption_amount: 500 },
       // completed with sale_coin — ok
-      { id: "c2", order_status: "completed", created_at: NEW, payment_amount: 500 },
-      // completed zero revenue — skipped
-      { id: "c3", order_status: "completed", created_at: NEW, payment_amount: 0 },
+      { id: "c2", order_status: "completed", created_at: NEW, payment_amount: 0, platform_funded_amount: 500 },
+      // completed, paid directly to the store (COD) — no Coin owed → skipped
+      { id: "c3", order_status: "completed", created_at: NEW, payment_amount: 500 },
       // (a) but settlement paid → excluded
-      { id: "c4", order_status: "completed", created_at: NEW, payment_amount: 500 },
+      { id: "c4", order_status: "completed", created_at: NEW, payment_amount: 0, gift_redemption_amount: 500 },
       // (b) refunded with sale_coin, no reversal
       { id: "r1", order_status: "refunded", created_at: NEW, payment_amount: 500 },
       // (b) refunded with open obligation
@@ -141,8 +144,11 @@ function fixture() {
       { idempotency_key: "coin_reversal:order:r3" },
     ],
     store_sale_fee_obligations: [
-      { order_id: "r2", status: "open" },
-      { order_id: "r3", status: "waived" },
+      // r2: commission never sent to review → candidate
+      { order_id: "r2", status: "open", adjustment_status: "none" },
+      { order_id: "r3", status: "waived", adjustment_status: "none" },
+      // r3b-style: already in the manual review queue → not a candidate
+      { order_id: "r1", status: "open", adjustment_status: "review_required" },
     ],
     gift_certificate_redemptions: [
       { order_id: "x1", reversed: false },
@@ -175,7 +181,7 @@ describe("reconcile report (read-only)", () => {
     expect(ensureStoreSettlementForCompletedOrder).not.toHaveBeenCalled();
     expect(recognizeOrderCurrencyOnCompleted).not.toHaveBeenCalled();
     expect(reverseCoinCreditsForOrder).not.toHaveBeenCalled();
-    expect(reverseSaleFeeForOrder).not.toHaveBeenCalled();
+    expect(flagStoreCommissionReview).not.toHaveBeenCalled();
   });
 });
 
@@ -233,7 +239,7 @@ describe("write path status re-check (approved gate simulated)", () => {
     expect(res.ok).toBe(true);
     expect(reverseCoinCreditsForOrder).not.toHaveBeenCalled();
     // r2 is before cutoff → untouched
-    expect(reverseSaleFeeForOrder).not.toHaveBeenCalled();
+    expect(flagStoreCommissionReview).not.toHaveBeenCalled();
     // completed c1 recognized via existing idempotent writers
     expect(ensureStoreSettlementForCompletedOrder).toHaveBeenCalledWith(sb, "c1");
     expect(recognizeOrderCurrencyOnCompleted).toHaveBeenCalledWith(sb, "c1");
@@ -288,7 +294,7 @@ describe("cron route", () => {
     expect(sb.mutations.filter((m) => !m.endsWith(":audit_logs"))).toEqual([]);
     expect(recognizeOrderCurrencyOnCompleted).not.toHaveBeenCalled();
     expect(reverseCoinCreditsForOrder).not.toHaveBeenCalled();
-    expect(reverseSaleFeeForOrder).not.toHaveBeenCalled();
+    expect(flagStoreCommissionReview).not.toHaveBeenCalled();
   });
 
   it("apply=1 + env cutoff is still refused while the constant is false", async () => {
@@ -307,7 +313,7 @@ describe("cron route", () => {
     expect(ensureStoreSettlementForCompletedOrder).not.toHaveBeenCalled();
     expect(recognizeOrderCurrencyOnCompleted).not.toHaveBeenCalled();
     expect(reverseCoinCreditsForOrder).not.toHaveBeenCalled();
-    expect(reverseSaleFeeForOrder).not.toHaveBeenCalled();
+    expect(flagStoreCommissionReview).not.toHaveBeenCalled();
   });
 
   it("route never passes approvedConstant (cannot bypass the hardcoded gate)", () => {

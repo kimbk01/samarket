@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ORPHAN residual — settlement hold UI not wired to live AdminStoreSettlementsPage.
+ * ORPHAN residual — per-order settlement hold is retired (direct-pay model); see AdminStoreCommissionLedgerPage.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryReasonModal } from "./DeliveryReasonModal";

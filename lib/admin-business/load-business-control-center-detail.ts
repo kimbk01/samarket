@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-business/load-business-cc-kpi";
 import {
   presentSettlementKind,
+  storeCommissionAttentionSignals,
   presentStoreOpenKind,
   resolveBusinessOpsOwnerIdentity,
   taxonomyName,
@@ -298,10 +299,10 @@ export async function loadBusinessControlCenterDetail(
         .eq("store_id", id)
         .maybeSingle(),
       sb
-        .from("store_settlements")
-        .select("settlement_status")
+        .from("store_sale_fee_obligations")
+        .select("fee_outstanding_minor, adjustment_status")
         .eq("store_id", id)
-        .in("settlement_status", ["held", "pending", "processing", "scheduled"])
+        .or("fee_outstanding_minor.gt.0,adjustment_status.eq.review_required")
         .limit(20),
       sb
         .from("store_orders")
@@ -478,8 +479,8 @@ export async function loadBusinessControlCenterDetail(
     }
   }
 
-  const settleStatuses = (settleStatusRes.data ?? []).map((r) =>
-    String((r as { settlement_status?: unknown }).settlement_status ?? "")
+  const settleStatuses = (settleStatusRes.data ?? []).flatMap((r) =>
+    storeCommissionAttentionSignals(r as Record<string, unknown>)
   );
   const openKind = presentStoreOpenKind(row.business_hours_json, dbIsOpen).kind;
 

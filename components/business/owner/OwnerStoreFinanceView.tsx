@@ -13,10 +13,11 @@ import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
-import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
-import { mapFinancialSummaryToOwner } from "@/lib/business/summarize-owner-store-settlements";
-import type { OwnerStoreSettlementSummary } from "@/lib/business/summarize-owner-store-settlements";
-import type { OwnerStoreSettlementsServerSummary } from "@/lib/business/owner-store-settlement-types";
+import type {
+  StoreCommissionLedgerSummary,
+  StorePlatformPayableSummary,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+import { buildStoreCommissionLedgerSearch } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
   COIN_TO_CASH_LABEL_KO,
   COIN_WITHDRAWAL_LABEL_KO,
@@ -58,6 +59,7 @@ type FinancePayload = {
     rows?: Array<{
       id: string;
       orderId: string;
+      orderNo?: string;
       confirmedRevenuePhp: number;
       feeDueMinor: number;
       feePaidMinor: number;
@@ -150,7 +152,11 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const [coinLedger, setCoinLedger] = useState<LedgerRow[]>([]);
   const [coinRecentWindow, setCoinRecentWindow] = useState<CoinRecentWindow | null>(null);
   const [cashLedger, setCashLedger] = useState<LedgerRow[]>([]);
-  const [settleSummary, setSettleSummary] = useState<OwnerStoreSettlementSummary | null>(null);
+  /** This month (Asia/Manila) — same SQL readers as the settlement screen (commission SSOT). */
+  const [commissionMonth, setCommissionMonth] = useState<{
+    summary: StoreCommissionLedgerSummary;
+    payable: StorePlatformPayableSummary | null;
+  } | null>(null);
 
   const settlementsHref = OwnerRoutes.settlements(storeId);
   const convertHref = ownerFinanceSectionHref(storeId, "convert");
@@ -160,11 +166,14 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const [financeRes, settleRes] = await Promise.all([
+      const [financeRes, ledgerRes] = await Promise.all([
         fetch(`/api/me/stores/${encodeURIComponent(storeId)}/finance`, {
           credentials: "include",
         }),
-        fetchOwnerStoreSettlementsDeduped(storeId),
+        fetch(
+          `/api/me/stores/${encodeURIComponent(storeId)}/commission-ledger?${buildStoreCommissionLedgerSearch({ period: "this_month", limit: 1 })}`,
+          { credentials: "include" }
+        ).catch(() => null),
       ]);
       const json = (await financeRes.json()) as FinancePayload & { ok?: boolean; error?: string };
       if (!financeRes.ok || json.ok === false) {
@@ -179,19 +188,16 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCoinRecentWindow(json.storePointsRecentWindow ?? null);
       setCashLedger(json.businessCashLedger ?? []);
 
-      if (settleRes.status === 200 && settleRes.json && typeof settleRes.json === "object") {
-        const body = settleRes.json as {
-          ok?: boolean;
-          summary?: OwnerStoreSettlementsServerSummary | null;
-        };
-        if (body.ok !== false && body.summary) {
-          setSettleSummary(mapFinancialSummaryToOwner(body.summary));
-        } else {
-          setSettleSummary(null);
-        }
-      } else {
-        setSettleSummary(null);
-      }
+      const ledger = ledgerRes?.ok
+        ? ((await ledgerRes.json().catch(() => null)) as {
+            ok?: boolean;
+            summary?: StoreCommissionLedgerSummary;
+            payableSummary?: StorePlatformPayableSummary;
+          } | null)
+        : null;
+      setCommissionMonth(
+        ledger?.ok && ledger.summary ? { summary: ledger.summary, payable: ledger.payableSummary ?? null } : null
+      );
     } catch {
       setError(t("common_error"));
     } finally {
@@ -259,40 +265,47 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
       {section === "transactions" || section === "orders" ? (
         <section className="space-y-3" data-owner-finance-section={section}>
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+          <p className="text-xs text-sam-muted">
+            {ownerUiCopy(language, "이번 달 (필리핀 시간 기준)", "This month (Philippine time)")}
+          </p>
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "건수", "Count")}</dt>
-              <dd className="font-semibold">{settleSummary?.count ?? "—"}</dd>
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "수수료 부과 건수", "Charged orders")}</dt>
+              <dd className="font-semibold">{commissionMonth?.summary.count ?? "—"}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">Gross</dt>
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "수수료 기준 매출", "Commission base")}</dt>
               <dd className="font-semibold">
-                {settleSummary
-                  ? formatFinanceAmount({ wallet: "CASH", amount: settleSummary.gross * 100, isMinor: true })
+                {commissionMonth
+                  ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.summary.commissionBasePhp * 100, isMinor: true })
                   : "—"}
               </dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "플랫폼 수수료", "Platform fee")}</dt>
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "순수수료", "Net commission")}</dt>
               <dd className="font-semibold">
-                {settleSummary
-                  ? formatFinanceAmount({
-                      wallet: "CASH",
-                      amount: settleSummary.platformFee * 100,
-                      isMinor: true,
-                    })
+                {commissionMonth
+                  ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.summary.netCommissionMinor, isMinor: true })
+                  : "—"}
+              </dd>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "플랫폼 지급 의무", "Platform owes you")}</dt>
+              <dd className="font-semibold">
+                {commissionMonth?.payable
+                  ? formatFinanceAmount({ wallet: "CASH", amount: commissionMonth.payable.payablePhp * 100, isMinor: true })
                   : "—"}
               </dd>
             </div>
           </dl>
           <Link href={settlementsHref} className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}>
-            {ownerUiCopy(language, "주문별 정산 열기", "Open order settlements")}
+            {ownerUiCopy(language, "수수료·캐시 원장 열기", "Open commission & Cash ledger")}
           </Link>
           <p className="text-xs text-sam-muted">
             {ownerUiCopy(
               language,
-              "주문별 Money Chain은 정산 화면의 주문 행에서 확인합니다.",
-              "Per-order Money Chain opens from settlement order rows."
+              "주문 대금은 고객에게 직접 받습니다. 주문별 수수료·환급 내역은 원장에서 확인합니다.",
+              "You collect order payments directly. Per-order commission and refunds are in the ledger."
             )}
           </p>
         </section>
@@ -315,10 +328,13 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               {obligationRows.map((r) => (
                 <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
                   <Link
-                    href={`${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}orderId=${encodeURIComponent(r.orderId)}`}
+                    href={`${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}${new URLSearchParams({
+                      order_no: r.orderNo || "",
+                      open: r.id,
+                    }).toString()}`}
                     className="font-semibold text-signature hover:underline"
                   >
-                    {ownerUiCopy(language, "주문 상세", "Order detail")} · {r.orderId.slice(0, 8)}…
+                    {ownerUiCopy(language, "수수료 상세", "Fee detail")} · {r.orderNo || `${r.orderId.slice(0, 8)}…`}
                   </Link>
                   <p className="mt-1 tabular-nums text-sam-muted">
                     {formatFinanceAmount({ wallet: "CASH", amount: r.feeOutstandingMinor, isMinor: true })}{" "}

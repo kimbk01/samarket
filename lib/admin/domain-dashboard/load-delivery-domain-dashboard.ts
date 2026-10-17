@@ -96,15 +96,15 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
     },
     {
       id: "settlements",
-      labelKo: "정산 확인 필요",
-      labelEn: "Settlement review needed",
+      labelKo: "수수료 취소·환불 검토",
+      labelEn: "Commission cancel/refund review",
       count: qUnavailable(unavailable, "settlements_actionable")
         ? null
-        : (queue?.settlements_actionable ?? kpi?.settlementNeedsCheck ?? null),
-      href: "/admin/store-settlements?settlement_status=scheduled",
-      source: "admin_action_queue.settlements_actionable|business_ops_kpi",
-      owner: "store_settlements",
-      filter: "scheduled",
+        : (queue?.settlements_actionable ?? null),
+      href: "/admin/store-settlements?state=review_required",
+      source: "admin_action_queue.settlements_actionable",
+      owner: "store_sale_fee_obligations",
+      filter: "review_required",
     },
     {
       id: "store_applications",

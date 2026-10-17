@@ -74,7 +74,7 @@ Fee **due** lives on `store_sale_fee_obligations`, never as a second meaning of 
 |---|---|
 | Balance | `store_economic_point_accounts.balance` |
 | Ledger | `store_economic_point_ledger` |
-| Inflows | **Confirmed sale revenue** via `sale_coin:{orderId}` (`credit_coin_from_confirmed_sale`) |
+| Inflows | **Platform-held sale amount** (gift redemption + platform-funded coupon) via `sale_coin:{orderId}` (`credit_coin_from_confirmed_sale`). Buyer `payment_amount` is paid to the store directly and is **never** minted — see `docs/store-commission-cash-settlement-ssot.md` |
 | Recharge | **NO** |
 | Withdraw | YES — `coin_withdrawal_requests` (+ merged gift cash-out rail) |
 | Cash conversion | YES — `convert_store_economic_points_to_business_cash` |
@@ -109,8 +109,10 @@ Code anchors: `COIN_REFUND_ECONOMIC_UNWIND_CONTRACT` in `lib/currency/currency-s
 | Balance | `business_cash_accounts.balance_minor` |
 | Ledger | `business_cash_ledger` |
 | Top-up | YES — `business_cash_charge_requests` |
-| Sale fee | YES — `SALE_FEE` / `SALE_FEE_SETTLEMENT` on completed orders |
-| Outstanding fee | YES — `store_sale_fee_obligations` (Decision #1) |
+| Sale fee | YES — `SALE_FEE` charged inside the order status UPDATE (trigger `trg_store_orders_commission_lifecycle`) at the first cooking-or-later status; `SALE_FEE_SETTLEMENT` on inflow |
+| Outstanding fee | YES — `store_sale_fee_obligations` (Decision #1); NET = balance − outstanding may be negative |
+| Fee refund | Admin decision only — `admin_decide_store_commission_adjustment` (approve full/partial, reject), immutable `store_commission_adjustments`; `reverse_sale_fee_for_order` not executable |
+| Order gate | `store_cash_order_gate` → DB trigger blocks new orders when NET <= 0 |
 | Withdraw | **NO** |
 | Ads/Partner spend | AST-005 RPCs only |
 | Module | `lib/stores/advertising/canonical-business-cash-contract.ts` |

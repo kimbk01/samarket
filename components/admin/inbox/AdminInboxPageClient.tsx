@@ -6,8 +6,22 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   ADMIN_INBOX_CHANGED_EVENT,
+  isSettlementAdminNotificationKind,
   type AdminNotificationDto,
+  type AdminNotificationWorkState,
 } from "@/lib/admin/notifications/admin-notification-kinds";
+
+/** Settlement alerts: work state colour + text (light/dark tokens). Read state is shown separately. */
+const WORK_STATE_ROW: Record<AdminNotificationWorkState, string> = {
+  pending: "border-l-4 border-l-sam-warning",
+  done: "border-l-4 border-l-sam-success",
+  attention: "border-l-4 border-l-sam-danger",
+};
+const WORK_STATE_BADGE: Record<AdminNotificationWorkState, string> = {
+  pending: "bg-sam-warning-soft text-sam-warning",
+  done: "bg-sam-success-soft text-sam-success",
+  attention: "bg-sam-danger-soft text-sam-danger",
+};
 
 type ListPayload = { ok?: boolean; items?: AdminNotificationDto[]; unread?: number; hasMore?: boolean; error?: string };
 
@@ -162,17 +176,35 @@ export function AdminInboxPageClient() {
           {items.map((n) => (
             <li
               key={n.id}
-              className={`flex flex-col gap-1 px-4 py-3 ${n.readAt ? "" : "bg-sam-app"}`}
+              className={`flex flex-col gap-1 px-4 py-3 ${n.readAt ? "" : "bg-sam-app"} ${
+                n.workStatus ? WORK_STATE_ROW[n.workStatus.state] : ""
+              }`}
               data-admin-inbox-item={n.id}
               data-read={n.readAt ? "1" : "0"}
+              data-kind={n.kind}
+              data-work-state={n.workStatus?.state ?? ""}
             >
+              {isSettlementAdminNotificationKind(n.kind) ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {n.workStatus ? (
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${WORK_STATE_BADGE[n.workStatus.state]}`} data-work-label="1">
+                      {language === "en" ? n.workStatus.labelEn : n.workStatus.labelKo}
+                    </span>
+                  ) : null}
+                  <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[11px] text-sam-muted" data-read-label="1">
+                    {n.readAt ? (language === "en" ? "Read" : "읽음") : language === "en" ? "Unread" : "안 읽음"}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex items-start justify-between gap-3">
-                <p className={`text-sm text-sam-fg ${n.readAt ? "" : "font-semibold"}`}>{n.title}</p>
+                <p className={`break-words text-sm text-sam-fg ${n.readAt ? "" : "font-semibold"}`}>{n.title}</p>
                 <time className="shrink-0 text-xs tabular-nums text-sam-muted" dateTime={n.createdAt}>
                   {new Date(n.createdAt).toLocaleString(locale)}
                 </time>
               </div>
-              {n.body ? <p className="line-clamp-2 text-sm text-sam-muted">{n.body}</p> : null}
+              {n.body ? (
+                <p className={`text-sm text-sam-muted ${isSettlementAdminNotificationKind(n.kind) ? "break-words" : "line-clamp-2"}`}>{n.body}</p>
+              ) : null}
               <div className="flex gap-3 text-xs">
                 {n.linkUrl ? (
                   <Link

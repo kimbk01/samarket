@@ -1,261 +1,197 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
-import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
-import {
-  ownerSettlementFilterLabel,
-  ownerSettlementStatusLabel,
-  OWNER_STORE_SETTLEMENT_STATUS_FILTERS_I18N,
-} from "@/lib/business/owner-store-settlement-i18n";
-import {
-  ownerStoreSettlementStatusChipClass,
-  type OwnerStoreSettlementStatusFilter,
-} from "@/lib/business/owner-store-settlement-labels";
-import type {
-  OwnerStoreSettlementRow,
-  OwnerStoreSettlementsMeta,
-  OwnerStoreSettlementsServerSummary,
-} from "@/lib/business/owner-store-settlement-types";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { OwnerCta } from "@/lib/business/owner-cta-classes";
+import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { buildOwnerSupportContext } from "@/lib/support/support-context";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import {
-  mapFinancialSummaryToOwner,
-} from "@/lib/business/summarize-owner-store-settlements";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { formatMoneyPhp } from "@/lib/utils/format";
+import type {
+  BusinessCashLedgerKind,
+  StoreCashPosition,
+  StoreCommissionLedgerFilterState,
+} from "@/lib/stores/commission/store-commission-contract";
+import type {
+  StoreCashLedgerPage,
+  StoreCommissionBreakdownRow,
+  StoreCommissionLedgerRow,
+  StoreCommissionLedgerSummary,
+  StorePlatformPayablePage,
+  StorePlatformPayableSummary,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+import {
+  buildStoreCommissionLedgerSearch,
+  type StoreCommissionPeriod,
+} from "@/lib/stores/commission/store-commission-ledger-query";
+import {
+  CashLedgerKindChips,
+  CashLedgerView,
+  COMMISSION_TAB_LABEL,
+  CommissionBreakdownTable,
+  CommissionFilterChips,
+  CommissionPeriodFilter,
+  CommissionReviewFilterChips,
+  CommissionSummaryGrid,
+  chipClass,
+  LedgerPager,
+  pickCommissionCopy,
+  PlatformPayableSummaryGrid,
+  PlatformPayableTable,
+  StoreCashPositionCard,
+  tabLedgerState,
+  type CommissionBreakdownGroup,
+  type CommissionLang,
+  type CommissionReviewFilter,
+  type CommissionTab,
+} from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { CommissionLedgerTable, CommissionOrderDetailPanel } from "@/components/stores/commission/StoreCommissionLedgerTable";
 
-function formatSettlementDate(iso: string | null | undefined): string {
-  const t = typeof iso === "string" ? iso.trim() : "";
-  if (!t) return "—";
-  const d = t.slice(0, 10);
-  return d.replace(/-/g, ". ");
-}
+const PAGE_SIZE = 100;
+/** Same tabs as Admin minus the admin-only financial exceptions view. */
+const OWNER_TABS: CommissionTab[] = ["ledger", "review", "cash", "payable"];
+const OWNER_BREAKDOWN_GROUPS: readonly CommissionBreakdownGroup[] = ["day", "month"];
 
-function SettlementRowCard({
-  row,
-  t,
-  language,
-}: {
-  row: OwnerStoreSettlementRow;
-  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
-  language: "ko" | "en";
-}) {
-  const status = String(row.settlement_status ?? "");
-  const net = Number(row.net_settlement_amount ?? row.settlement_amount) || 0;
-  return (
-    <li className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-sam-fg">
-            {t("store_owner_settlement_row_order", {
-              no: row.order_no || row.order_id.slice(0, 8),
-            })}
-          </p>
-          <p className="mt-0.5 sam-text-xxs text-sam-muted">
-            {t("store_owner_settlement_due_date", {
-              date: formatSettlementDate(row.settlement_due_date),
-            })}
-            {row.paid_at
-              ? ` · ${t("store_owner_settlement_paid_at", { date: formatSettlementDate(row.paid_at) })}`
-              : ""}
-          </p>
-        </div>
-        <span
-          className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 sam-text-xxs font-semibold ${ownerStoreSettlementStatusChipClass(status)}`}
-        >
-          {ownerSettlementStatusLabel(language, status)}
-        </span>
-      </div>
-      <p className="mt-2 text-lg font-bold tabular-nums text-sam-fg">{formatMoneyPhp(net)}</p>
-      {(Number(row.discount_amount ?? 0) > 0 ||
-        Number(row.store_funded_amount ?? 0) > 0 ||
-        Number(row.platform_funded_amount ?? 0) > 0) ? (
-        <div className="mt-2 space-y-0.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-2 py-1.5">
-          <p className="sam-text-xxs text-sam-fg">
-            {t("store_owner_settlement_coupon_discount", {
-              amount: formatMoneyPhp(Number(row.discount_amount ?? 0) || 0),
-            })}
-          </p>
-          <p className="sam-text-xxs text-sam-fg">
-            {t("store_owner_settlement_store_funded", {
-              amount: formatMoneyPhp(Number(row.store_funded_amount ?? 0) || 0),
-            })}
-          </p>
-          <p className="sam-text-xxs text-sam-fg">
-            {t("store_owner_settlement_platform_funded", {
-              amount: formatMoneyPhp(Number(row.platform_funded_amount ?? 0) || 0),
-            })}
-          </p>
-          <p className="sam-text-xxs font-medium text-sam-fg">
-            {status === "paid"
-              ? t("store_owner_settlement_coupon_reflected_done")
-              : t("store_owner_settlement_coupon_reflected_pending")}
-          </p>
-        </div>
-      ) : null}
-      <p className="mt-1 sam-text-xxs text-sam-muted">
-        {t("store_owner_settlement_amount_line", {
-          gross: formatMoneyPhp(Number(row.gross_amount) || 0),
-          fee: formatMoneyPhp(Number(row.fee_amount) || 0),
-          refund: formatMoneyPhp(Number(row.refund_amount ?? 0) || 0),
-        })}
-      </p>
-      <p className="mt-0.5 sam-text-xxs text-sam-meta">
-        {t("store_owner_settlement_fee_line", {
-          platform: formatMoneyPhp(Number(row.platform_fee_amount ?? 0) || 0),
-          fixed: formatMoneyPhp(Number(row.fixed_fee_amount ?? 0) || 0),
-          delivery: formatMoneyPhp(Number(row.delivery_income_amount ?? 0) || 0),
-        })}
-      </p>
-      <p className="mt-0.5 sam-text-xxs text-sam-meta">
-        {t("store_owner_settlement_rate_line", {
-          rate: `${Number(row.platform_fee_percent ?? 0) || 0}% + ${Math.round(Number(row.fixed_fee_amount ?? 0) || 0)} PHP`,
-          base: formatMoneyPhp(Number(row.commission_base_amount ?? row.gross_amount) || 0),
-          revenue: formatMoneyPhp(Number(row.platform_commission_revenue ?? 0) || 0),
-          reversal: formatMoneyPhp(Number(row.commission_reversal_amount ?? 0) || 0),
-        })}
-      </p>
-      {row.order_status ? (
-        <p className="mt-0.5 sam-text-xxs text-sam-muted">
-          {t("store_owner_settlement_order_status_line", {
-            status: row.order_status,
-            paid: formatMoneyPhp(Number(row.payment_amount ?? row.gross_amount) || 0),
-          })}
-        </p>
-      ) : null}
-      {row.hold_reason ? (
-        <p className="mt-2 rounded-ui-rect bg-amber-50 px-2 py-1.5 sam-text-xxs text-amber-950">
-          {t("store_owner_settlement_hold", { reason: row.hold_reason })}
-        </p>
-      ) : null}
-      {row.payout_confirmed_at ? (
-        <p className="mt-2 sam-text-xxs text-sam-muted">
-          {t("store_owner_settlement_payout", {
-            date: formatSettlementDate(row.payout_confirmed_at),
-          })}
-          {row.payout_method ? ` · ${row.payout_method}` : ""}
-          {row.payout_reference ? ` · ${row.payout_reference}` : ""}
-        </p>
-      ) : null}
-      <Link
-        href={buildStoreOrdersHref({
-          storeId: row.store_id,
-          orderId: row.order_id,
-        })}
-        className="mt-2 inline-block sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
-      >
-        {t("store_owner_settlement_view_order")}
-      </Link>
-    </li>
-  );
-}
+type LedgerResponse = {
+  ok?: boolean;
+  error?: string;
+  position?: StoreCashPosition | null;
+  rows?: StoreCommissionLedgerRow[];
+  totalRows?: number;
+  summary?: StoreCommissionLedgerSummary;
+  breakdown?: { group: CommissionBreakdownGroup; rows: StoreCommissionBreakdownRow[] };
+  payableSummary?: StorePlatformPayableSummary;
+};
 
-/** 매장 어드민 — 정산 내역 (`/stores/owner/settlements?storeId=`) */
+type CashResponse = StoreCashLedgerPage & { ok?: boolean; error?: string };
+type PayableResponse = StorePlatformPayablePage & { ok?: boolean; error?: string };
+
+/**
+ * 매장 어드민 — 정산 (`/stores/owner/settlements?storeId=`). 조회 전용.
+ * Admin `/admin/store-settlements` 와 같은 SQL 함수·표·상세 패널 → 숫자·상태·이력 일치.
+ */
 export function OwnerStoreSettlementsView() {
-  const { t, safeT, language } = useI18n();
+  const { t, language } = useI18n();
+  const lang: CommissionLang = language === "ko" ? "ko" : "en";
   const searchParams = useOwnerAdminUrlSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
 
-  const [rows, setRows] = useState<OwnerStoreSettlementRow[]>([]);
-  const [meta, setMeta] = useState<OwnerStoreSettlementsMeta>({});
-  const [serverSummary, setServerSummary] = useState<OwnerStoreSettlementsServerSummary | null>(null);
+  const [tab, setTab] = useState<CommissionTab>("ledger");
+  const [ledgerState, setLedgerState] = useState<StoreCommissionLedgerFilterState>("all");
+  const [reviewFilter, setReviewFilter] = useState<CommissionReviewFilter>("review_required");
+  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
+    period: "this_month",
+    fromDay: "",
+    toDay: "",
+  });
+  const [orderNo, setOrderNo] = useState("");
+  // Deep link (owner finance outstanding rows): ?order_no=…&open=<obligation id> → all periods, that order, detail open.
+  const linkOrderNo = searchParams.get("order_no")?.trim() ?? "";
+  const openParam = searchParams.get("open")?.trim() ?? "";
+  const appliedLinkRef = useRef<string | null>(null);
+  const openedFromLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkOrderNo || appliedLinkRef.current === linkOrderNo) return;
+    appliedLinkRef.current = linkOrderNo;
+    setTab("ledger");
+    setPeriod({ period: "all", fromDay: "", toDay: "" });
+    setOrderNo(linkOrderNo);
+    setOffset(0);
+  }, [linkOrderNo]);
+  const [kinds, setKinds] = useState<BusinessCashLedgerKind[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [data, setData] = useState<LedgerResponse | null>(null);
+  const [cash, setCash] = useState<CashResponse | null>(null);
+  const [payable, setPayable] = useState<PayableResponse | null>(null);
+  const [payableAll, setPayableAll] = useState(false);
+  const [group, setGroup] = useState<CommissionBreakdownGroup>("day");
+  const [selected, setSelected] = useState<StoreCommissionLedgerRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<OwnerStoreSettlementStatusFilter>("all");
-  const [fromDay, setFromDay] = useState("");
-  const [toDay, setToDay] = useState("");
-  const [orderNoQuery, setOrderNoQuery] = useState("");
-
-  const filteredRows = rows;
-
-  /** Authority: server summary only — client page reduce is not financial SSOT. */
-  const summary = useMemo(() => {
-    if (!serverSummary) return null;
-    return mapFinancialSummaryToOwner(serverSummary);
-  }, [serverSummary]);
-
-  const resolveErrorMessage = useCallback(
-    (code: string) => {
-      if (code === "login_required") return t("mypage_comp_login_required");
-      if (code === "forbidden") return t("store_owner_no_permission");
-      if (code === "table_missing") return t("store_owner_settlement_err_table_missing");
-      if (code === "network_error") return t("store_owner_err_network");
-      if (code === "load_failed") return t("store_owner_err_load_list");
-      return code;
-    },
-    [t]
-  );
 
   const load = useCallback(async () => {
     if (!storeId) {
       setLoading(false);
-      setRows([]);
-      setServerSummary(null);
-      setError(null);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const { status, json } = await fetchOwnerStoreSettlementsDeduped({
-        storeId,
-        from: fromDay || null,
-        to: toDay || null,
-        orderNo: orderNoQuery || null,
-        settlementStatus: statusFilter === "all" ? null : statusFilter,
+      const base = `/api/me/stores/${encodeURIComponent(storeId)}/commission-ledger`;
+      const common = { period: period.period, fromDay: period.fromDay, toDay: period.toDay };
+      const listTab = tab === "ledger" || tab === "review";
+      const ledgerQs = buildStoreCommissionLedgerSearch({
+        ...common,
+        state: tabLedgerState(tab, ledgerState, reviewFilter),
+        orderNo: orderNo || null,
+        group,
+        limit: listTab ? PAGE_SIZE : 1,
+        offset: listTab ? offset : 0,
       });
-      const body = json as {
-        ok?: boolean;
-        error?: string;
-        settlements?: OwnerStoreSettlementRow[];
-        meta?: OwnerStoreSettlementsMeta;
-        summary?: OwnerStoreSettlementsServerSummary | null;
-      };
-      if (status === 401) {
-        setError("login_required");
-        setRows([]);
-        setServerSummary(null);
+      const pagedQs = buildStoreCommissionLedgerSearch({ ...common, limit: PAGE_SIZE, offset });
+      const [res, cashRes, payableRes] = await Promise.all([
+        fetch(`${base}?${ledgerQs}`, { credentials: "include" }),
+        tab === "cash"
+          ? fetch(`${base}/cash-ledger?${buildStoreCommissionLedgerSearch({ ...common, kinds, limit: PAGE_SIZE, offset })}`, {
+              credentials: "include",
+            })
+          : Promise.resolve(null),
+        tab === "payable"
+          ? fetch(`${base}/payable?${pagedQs}&view=${payableAll ? "all" : "payable"}`, { credentials: "include" })
+          : Promise.resolve(null),
+      ]);
+      if (res.status === 401) {
+        setError(t("mypage_comp_login_required"));
+        setData(null);
         return;
       }
-      if (status === 403) {
-        setError("forbidden");
-        setRows([]);
-        setServerSummary(null);
+      if (res.status === 403) {
+        setError(t("store_owner_no_permission"));
+        setData(null);
         return;
       }
-      if (!body?.ok) {
-        setError(
-          body?.error === "table_missing"
-            ? "table_missing"
-            : typeof body?.error === "string"
-              ? body.error
-              : "load_failed"
-        );
-        setRows([]);
-        setServerSummary(null);
+      const json = (await res.json()) as LedgerResponse;
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? t("store_owner_err_load_list"));
+        setData(null);
         return;
       }
-      setRows(body.settlements ?? []);
-      setMeta(body.meta ?? {});
-      setServerSummary(body.summary ?? null);
+      setData(json);
+      if (cashRes) {
+        const cj = (await cashRes.json()) as CashResponse;
+        if (!cashRes.ok || !cj.ok) setError(cj.error ?? t("store_owner_err_load_list"));
+        else setCash(cj);
+      }
+      if (payableRes) {
+        const pj = (await payableRes.json()) as PayableResponse;
+        if (!payableRes.ok || !pj.ok) setError(pj.error ?? t("store_owner_err_load_list"));
+        else setPayable(pj);
+      }
     } catch {
-      setError("network_error");
-      setRows([]);
-      setServerSummary(null);
+      setError(t("store_owner_err_network"));
+      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [fromDay, orderNoQuery, statusFilter, storeId, toDay]);
+  }, [group, kinds, ledgerState, offset, orderNo, payableAll, period, reviewFilter, storeId, t, tab]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!openParam || openedFromLinkRef.current === openParam) return;
+    const hit = data?.rows?.find((r) => r.obligationId === openParam);
+    if (hit) {
+      openedFromLinkRef.current = openParam;
+      setSelected(hit);
+    }
+  }, [data?.rows, openParam]);
 
   if (!storeId) {
     return (
@@ -270,210 +206,225 @@ export function OwnerStoreSettlementsView() {
     );
   }
 
+  const rows = data?.rows ?? [];
+  const totalRows = data?.totalRows ?? 0;
+
   return (
-    <div className={`mx-auto max-w-4xl min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
-      <OwnerStoreAdminDashSection title={t("store_owner_settlement_guide_title")}>
-        <p
-          className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted"
-          data-owner-settlement-readonly="1"
-        >
-          {ownerUiCopy(language, "조회 전용", "Read only")}
+    <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
+      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "캐시 · 수수료 현황", "Cash & commission")}>
+        <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
+          {pickCommissionCopy(lang, "조회 전용", "Read only")}
         </p>
-        <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_intro")}</p>
-        {meta.truncated ? (
-          <p
-            className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950"
-            data-owner-settlement-truncated="1"
-            role="status"
-          >
-            {ownerUiCopy(
-              language,
-              "목록이 일부만 표시됩니다. 기간·상태 필터로 범위를 좁혀 전체 행을 확인하세요.",
-              "This list is truncated. Narrow the date or status filters to see the full set."
-            )}
-          </p>
-        ) : null}
-        {meta.settlement_delay_days != null || meta.settlement_fee_percent != null ? (
-          <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-muted">
-            {meta.settlement_delay_days != null ? (
-              <li>
-                {t("store_owner_settlement_delay_days", {
-                  days: String(meta.settlement_delay_days),
-                })}
-              </li>
-            ) : null}
-            {meta.settlement_fee_percent != null ? (
-              <li>
-                {t("store_owner_settlement_fee_rate", {
-                  rate: `${meta.settlement_fee_percent}% + ${Math.round(Number(meta.settlement_fixed_fee) || 0)} PHP`,
-                })}
-              </li>
-            ) : null}
-            <li>{t("store_owner_settlement_fee_current_hint")}</li>
-            {meta.settlement_fee_scope ? (
-              <li>
-                {t("store_owner_settlement_fee_source", {
-                  source: t(
-                    (
-                      {
-                        store: "store_owner_settlement_fee_source_store",
-                        topic: "store_owner_settlement_fee_source_topic",
-                        category: "store_owner_settlement_fee_source_category",
-                        default: "store_owner_settlement_fee_source_default",
-                        missing_policy: "store_owner_settlement_fee_source_default",
-                        commerce_settings: "store_owner_settlement_fee_source_commerce_settings",
-                      } as Record<string, MessageKey>
-                    )[String(meta.settlement_fee_scope)] ??
-                      "store_owner_settlement_fee_source_default"
-                  ),
-                })}
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
+        <p className="sam-text-body text-sam-muted">
+          {pickCommissionCopy(
+            lang,
+            "주문 대금은 고객에게 직접 받습니다. 플랫폼 수수료는 주문이 조리 시작으로 바뀌는 순간 캐시에서 자동 차감되며, 캐시가 부족하면 미납으로 남아 순잔액이 마이너스가 됩니다. 조리 시작 전 취소는 수수료가 없고, 조리 시작 후 취소·환불된 주문의 수수료는 운영팀이 확인 후 환급 여부를 결정합니다.",
+            "You collect payment from buyers directly. Commission is auto-charged from Cash when an order starts cooking; any shortfall stays unpaid and your net goes negative. No fee if cancelled before cooking; for orders cancelled/refunded after cooking starts, operations decides whether to refund the fee."
+          )}
+        </p>
+        <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} /> : null}</div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            type="date"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
-            value={fromDay}
-            onChange={(e) => setFromDay(e.target.value)}
-            aria-label={t("store_owner_settlement_filter_from")}
-          />
-          <input
-            type="date"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
-            value={toDay}
-            onChange={(e) => setToDay(e.target.value)}
-            aria-label={t("store_owner_settlement_filter_to")}
-          />
-          <input
-            className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
-            value={orderNoQuery}
-            onChange={(e) => setOrderNoQuery(e.target.value)}
-            placeholder={t("store_owner_settlement_filter_order_no")}
-          />
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
-          >
-            {loading ? t("store_owner_settlement_refreshing") : t("store_owner_refresh")}
-          </button>
           <Link
-            href={OwnerRoutes.orders(storeId)}
-            className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-2 sam-text-helper font-medium text-signature"
+            href={ownerFinanceSectionHref(storeId, "convert")}
+            className={OwnerCta.primary}
+            data-owner-cash-topup="1"
           >
+            {pickCommissionCopy(lang, "캐시 충전", "Top up Cash")}
+          </Link>
+          <Link href={OwnerRoutes.orders(storeId)} className={OwnerCta.secondary} data-owner-orders-link="1">
             {t("store_owner_settlement_manage_orders")}
           </Link>
         </div>
-        <p className="mt-2 sam-text-xxs text-sam-muted">{t("store_owner_settlement_period_hint")}</p>
       </OwnerStoreAdminDashSection>
 
-      {error ? (
-        <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-800">
-          {resolveErrorMessage(error)}
-        </p>
-      ) : null}
+      {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body text-sam-danger" role="alert">{error}</p> : null}
 
-      {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_loading")}</p>
-      ) : rows.length === 0 && !error ? (
-        <OwnerStoreAdminDashSection title={t("store_owner_settlement_list_title")}>
-          <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_empty")}</p>
+      <nav className="flex flex-wrap gap-1.5" aria-label="tabs">
+        {OWNER_TABS.map((x) => (
+          <button
+            key={x}
+            type="button"
+            className={chipClass(tab === x)}
+            aria-current={tab === x ? "page" : undefined}
+            onClick={() => {
+              setOffset(0);
+              setSelected(null);
+              setTab(x);
+            }}
+          >
+            {COMMISSION_TAB_LABEL[x][lang]}
+          </button>
+        ))}
+      </nav>
+
+      <CommissionPeriodFilter
+        period={period.period}
+        fromDay={period.fromDay}
+        toDay={period.toDay}
+        lang={lang}
+        onChange={(p) => {
+          setOffset(0);
+          setPeriod(p);
+        }}
+      />
+
+      {tab === "payable" ? (
+        <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL.payable[lang]}>
+          {data?.payableSummary ? <PlatformPayableSummaryGrid summary={data.payableSummary} lang={lang} /> : null}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className={chipClass(!payableAll)}
+              onClick={() => {
+                setOffset(0);
+                setPayableAll(false);
+              }}
+            >
+              {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
+            </button>
+            <button
+              type="button"
+              className={chipClass(payableAll)}
+              onClick={() => {
+                setOffset(0);
+                setPayableAll(true);
+              }}
+            >
+              {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
+            </button>
+          </div>
+          <div className="mt-3">{payable ? <PlatformPayableTable page={payable} lang={lang} showStore={false} /> : null}</div>
+          {payable ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={payable.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
+        </OwnerStoreAdminDashSection>
+      ) : tab === "cash" ? (
+        <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL.cash[lang]}>
+          <CashLedgerKindChips
+            value={kinds}
+            lang={lang}
+            onChange={(k) => {
+              setOffset(0);
+              setKinds(k);
+            }}
+          />
+          <div className="mt-3">{cash ? <CashLedgerView page={cash} lang={lang} showStore={false} /> : null}</div>
+          {cash ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={cash.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
         </OwnerStoreAdminDashSection>
       ) : (
         <>
-          <OwnerStoreAdminDashSection title={t("store_owner_settlement_summary_title")}>
-            {summary ? (
-              <>
-            <p className="sam-text-xxs text-sam-muted">
-              {meta.store_name ? `${meta.store_name} · ` : ""}
-              {t("store_owner_settlement_summary_count", {
-                label: ownerSettlementFilterLabel(language, statusFilter),
-                count: String(summary.count),
-              })}
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <SummaryCell label={t("store_owner_settlement_summary_gross")} value={formatMoneyPhp(summary.gross)} />
-              <SummaryCell
-                label={t("store_owner_settlement_summary_platform_fee")}
-                value={formatMoneyPhp(summary.platformFee)}
-              />
-              <SummaryCell
-                label={t("store_owner_settlement_summary_delivery")}
-                value={formatMoneyPhp(summary.deliveryIncome)}
-              />
-              <SummaryCell
-                label={t("store_owner_settlement_summary_refund")}
-                value={formatMoneyPhp(summary.refund)}
-              />
-              <SummaryCell
-                label={t("store_owner_settlement_summary_pending")}
-                value={formatMoneyPhp(summary.pendingNet)}
-              />
-              <SummaryCell
-                label={t("store_owner_settlement_summary_paid")}
-                value={formatMoneyPhp(summary.paidNet)}
-                valueClassName="text-emerald-800"
-              />
-            </div>
-            <p className="mt-2 sam-text-xxs text-sam-muted">{t("store_owner_settlement_summary_basis")}</p>
-              </>
+          <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료 합계", "Commission totals")}>
+            {data?.summary ? (
+              <CommissionSummaryGrid summary={data.summary} lang={lang} />
             ) : (
               <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_loading")}</p>
             )}
+            {tab === "ledger" && data?.breakdown ? (
+              <div className="mt-3">
+                <CommissionBreakdownTable rows={data.breakdown.rows} group={group} groups={OWNER_BREAKDOWN_GROUPS} onGroupChange={setGroup} lang={lang} />
+              </div>
+            ) : null}
           </OwnerStoreAdminDashSection>
 
-          <OwnerStoreAdminDashSection title={t("store_owner_settlement_filter_title")}>
-            <div className="flex flex-wrap gap-1.5">
-              {OWNER_STORE_SETTLEMENT_STATUS_FILTERS_I18N.map((id) => {
-                const active = statusFilter === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setStatusFilter(id)}
-                    className={
-                      active
-                        ? "rounded-full bg-signature px-3 py-1.5 sam-text-xxs font-semibold text-white"
-                        : "rounded-full border border-sam-border-soft bg-sam-app px-3 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted"
-                    }
-                  >
-                    {ownerSettlementFilterLabel(language, id)}
-                  </button>
-                );
-              })}
+          <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL[tab][lang]}>
+            <div className="flex flex-wrap items-center gap-2">
+              {tab === "ledger" ? (
+                <CommissionFilterChips
+                  value={ledgerState}
+                  lang={lang}
+                  onChange={(s) => {
+                    setOffset(0);
+                    setLedgerState(s);
+                  }}
+                />
+              ) : (
+                <CommissionReviewFilterChips
+                  value={reviewFilter}
+                  lang={lang}
+                  onChange={(f) => {
+                    setOffset(0);
+                    setReviewFilter(f);
+                  }}
+                />
+              )}
+              <input
+                className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
+                value={orderNo}
+                onChange={(e) => {
+                  setOffset(0);
+                  setOrderNo(e.target.value);
+                }}
+                placeholder={t("store_owner_settlement_filter_order_no")}
+                aria-label="order no"
+              />
+              <button
+                type="button"
+                onClick={() => void load()}
+                disabled={loading}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
+              >
+                {loading ? t("store_owner_settlement_refreshing") : t("store_owner_refresh")}
+              </button>
             </div>
-            {filteredRows.length === 0 ? (
-              <p className="mt-3 sam-text-body text-sam-muted">{t("store_owner_settlement_filter_empty")}</p>
+
+            <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
+            {loading && !data ? (
+              <p className="mt-3 sam-text-body text-sam-muted" data-state="loading">{t("store_owner_settlement_loading")}</p>
+            ) : rows.length === 0 ? (
+              <p className="mt-3 sam-text-body text-sam-muted" data-state="empty">{t("store_owner_settlement_empty")}</p>
             ) : (
-              <ul className="mt-3 space-y-2">
-                {filteredRows.map((r) => (
-                  <SettlementRowCard key={r.id} row={r} t={t} language={language} />
-                ))}
-              </ul>
+              <div className="mt-3">
+                <CommissionLedgerTable
+                  rows={rows}
+                  lang={lang}
+                  showStore={false}
+                  onOpen={setSelected}
+                  selectedObligationId={selected?.obligationId ?? null}
+                />
+              </div>
             )}
+            <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
           </OwnerStoreAdminDashSection>
         </>
       )}
-    </div>
-  );
-}
 
-function SummaryCell({
-  label,
-  value,
-  valueClassName = "text-sam-fg",
-}: {
-  label: string;
-  value: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
-      <p className="sam-text-xxs text-sam-muted">{label}</p>
-      <p className={`text-base font-semibold tabular-nums ${valueClassName}`}>{value}</p>
+      {selected ? (
+        <CommissionOrderDetailPanel
+          row={selected}
+          lang={lang}
+          onClose={() => setSelected(null)}
+          orderHref={buildStoreOrdersHref({ storeId: selected.storeId, orderId: selected.orderId })}
+          footer={
+            <div className="space-y-2">
+              <p className="sam-text-xxs text-sam-muted">
+                {selected.state === "review_required"
+                  ? pickCommissionCopy(lang, "운영팀이 수수료 환급 여부를 검토 중입니다. 결정되면 이 화면에 사유와 금액이 표시됩니다.", "Operations is reviewing this fee. The decision and reason will appear here.")
+                  : pickCommissionCopy(lang, "조회 전용 — 금액 정정은 운영팀 결정 기록으로만 이루어집니다.", "Read only — corrections only via an operations decision record.")}
+              </p>
+              <button
+                type="button"
+                className={`${OwnerCta.tertiary} ${OwnerCta.block}`}
+                data-owner-fee-inquiry="1"
+                onClick={() => {
+                  const orderId = selected.orderId;
+                  // close the detail panel first so the support sheet is never stacked under it
+                  setSelected(null);
+                  navigateToSupportCenter(
+                    buildOwnerSupportContext({
+                      enabled: true,
+                      category: "SETTLEMENT",
+                      sourceSurface: "owner_commission_order",
+                      storeId,
+                      referenceType: "STORE_ORDER",
+                      referenceId: orderId,
+                    })
+                  );
+                }}
+              >
+                {pickCommissionCopy(lang, "이 주문 수수료 문의·이의 제기", "Ask about / dispute this fee")}
+              </button>
+            </div>
+          }
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * finance-ssot-19 — admin payout routes:
- * - PATCH /api/admin/store-settlements/[id]: business permission gate, paid requires
- *   payout_reference + payout_method, DB trigger settlement_paid_blocked_coin_recognized → 409.
+ * - PATCH /api/admin/store-settlements/[id]: business permission gate, then 410 — per-order payout
+ *   is retired (buyers pay stores directly; docs/store-commission-cash-settlement-ssot.md).
  * - POST /api/admin/coin-withdrawals mark_paid: payout reference required, RPC error mapped.
  * - point-charges approve: snapshot_invalid → 400.
  */
@@ -32,40 +32,7 @@ vi.mock("@/lib/currency/coin-withdrawal-writer", () => ({
   rejectCoinWithdrawal: (...args: unknown[]) => rejectCoinWithdrawal(...args),
 }));
 
-function settlementsSb(updateResult: { data: unknown; error: unknown }) {
-  const updates: Record<string, unknown>[] = [];
-  const sb = {
-    from: vi.fn(() => {
-      const api: Record<string, unknown> = {
-        select: () => api,
-        eq: () => api,
-        in: () => api,
-        update: (patch: Record<string, unknown>) => {
-          updates.push(patch);
-          return api;
-        },
-        maybeSingle: async () =>
-          updates.length > 0
-            ? updateResult
-            : { data: { settlement_status: "scheduled", order_id: "o1", store_id: "s1" }, error: null },
-      };
-      return api;
-    }),
-  };
-  return { sb, updates };
-}
-
-function patchReq(body: unknown) {
-  return new Request("http://x/api/admin/store-settlements/st1", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  }) as unknown as import("next/server").NextRequest;
-}
-
-const ctx = { params: Promise.resolve({ settlementId: "st1" }) };
-
-describe("PATCH /api/admin/store-settlements/[settlementId]", () => {
+describe("PATCH /api/admin/store-settlements/[settlementId] (retired — direct-pay model)", () => {
   beforeEach(() => {
     requireAdminPermission.mockReset();
     tryGetSupabaseForStores.mockReset();
@@ -78,65 +45,17 @@ describe("PATCH /api/admin/store-settlements/[settlementId]", () => {
       response: NextResponse.json({ ok: false, error: "permission_denied" }, { status: 403 }),
     });
     const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH(patchReq({ settlement_status: "paid" }), ctx);
+    const res = await PATCH();
     expect(res.status).toBe(403);
     expect(requireAdminPermission).toHaveBeenCalledWith("business");
+  });
+
+  it("per-order payout is retired → 410 and never touches the DB", async () => {
+    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
+    const res = await PATCH();
+    expect(res.status).toBe(410);
+    expect(await res.json()).toMatchObject({ ok: false, error: "settlement_payout_retired" });
     expect(tryGetSupabaseForStores).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [{ settlement_status: "paid" }],
-    [{ settlement_status: "paid", payout_method: "gcash" }],
-    [{ settlement_status: "paid", payout_reference: "REF-1" }],
-    [{ settlement_status: "paid", payout_method: "  ", payout_reference: "REF-1" }],
-    [{ settlement_status: "paid", payout_method: "bank", payout_reference: "   " }],
-  ])("paid without reference+method → 400 payout_reference_required (%j)", async (body) => {
-    const { sb, updates } = settlementsSb({ data: { id: "st1" }, error: null });
-    tryGetSupabaseForStores.mockReturnValue(sb);
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH(patchReq(body), ctx);
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ ok: false, error: "payout_reference_required" });
-    expect(updates).toHaveLength(0);
-  });
-
-  it("DB trigger settlement_paid_blocked_coin_recognized → 409 settlement_coin_recognized", async () => {
-    const { sb } = settlementsSb({
-      data: null,
-      error: { code: "P0001", message: "settlement_paid_blocked_coin_recognized: order o1" },
-    });
-    tryGetSupabaseForStores.mockReturnValue(sb);
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH(
-      patchReq({ settlement_status: "paid", payout_method: "gcash", payout_reference: "REF-1" }),
-      ctx
-    );
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ ok: false, error: "settlement_coin_recognized" });
-  });
-
-  it("paid with reference+method persists trimmed values", async () => {
-    const { sb, updates } = settlementsSb({ data: { id: "st1" }, error: null });
-    tryGetSupabaseForStores.mockReturnValue(sb);
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH(
-      patchReq({ settlement_status: "paid", payout_method: " gcash ", payout_reference: " REF-9 " }),
-      ctx
-    );
-    expect(res.status).toBe(200);
-    expect(updates[0]).toMatchObject({
-      settlement_status: "paid",
-      payout_method: "gcash",
-      payout_reference: "REF-9",
-    });
-  });
-
-  it("held still works without payout reference", async () => {
-    const { sb } = settlementsSb({ data: { id: "st1" }, error: null });
-    tryGetSupabaseForStores.mockReturnValue(sb);
-    const { PATCH } = await import("@/app/api/admin/store-settlements/[settlementId]/route");
-    const res = await PATCH(patchReq({ settlement_status: "held", hold_reason: "check" }), ctx);
-    expect(res.status).toBe(200);
   });
 
   it("route no longer uses isRouteAdmin", () => {
@@ -204,16 +123,13 @@ describe("POST /api/admin/coin-withdrawals mark_paid", () => {
 describe("admin UIs require payout reference before submit (static)", () => {
   const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
 
-  it("AdminStoreSettlementsPage blocks paid submit without method+reference and maps 409", () => {
-    const src = read("components/admin/stores/AdminStoreSettlementsPage.tsx");
-    expect(src).toContain('settlementErrMessage("payout_reference_required")');
-    expect(src).toContain('case "settlement_coin_recognized"');
-  });
-
-  it("AdminOpsConsolePage sends payout_method + payout_reference on paid", () => {
-    const src = read("components/admin/ops-console/AdminOpsConsolePage.tsx");
-    expect(src).toContain("payout_reference: safeTrim(modal.payoutReference)");
-    expect(src).toContain("payout_method: safeTrim(modal.payoutMethod)");
+  it("store settlement UIs have no per-order payout CTA (commission review only)", () => {
+    const ledger = read("components/admin/stores/AdminStoreCommissionLedgerPage.tsx");
+    expect(ledger).toContain("/api/admin/store-commission-ledger/adjustments");
+    expect(ledger).not.toContain("payout_reference");
+    const ops = read("components/admin/ops-console/AdminOpsConsolePage.tsx");
+    expect(ops).not.toContain("/api/admin/store-settlements/");
+    expect(ops).not.toContain('settlement_status: "paid"');
   });
 
   it("AdminCoinWithdrawalsPanel collects reference in confirm step", () => {

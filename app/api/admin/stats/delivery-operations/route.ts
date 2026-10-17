@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  loadStoreCommissionBreakdown,
+  loadStorePlatformPayable,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,10 +83,31 @@ export async function GET(req: Request) {
     healthPatch = { health: null };
   }
 
-  const payload =
-    data != null && typeof data === "object"
-      ? { ...(data as Record<string, unknown>), ...healthPatch, query: { days } }
-      : { ...healthPatch, query: { days } };
+  // Money KPIs come from the commission/payable SSOT (Asia/Manila "today"), not legacy
+  // store_settlements snapshots — those are store-collected money, not platform revenue or payables.
+  const today = resolveStoreCommissionPeriod("today", null, null);
+  let ssotKpis: Record<string, number | null> = {};
+  try {
+    const [bd, pay] = await Promise.all([
+      loadStoreCommissionBreakdown(sb, { storeIds: null, fromIso: today.fromIso, toIso: today.toIso, group: "day" }),
+      loadStorePlatformPayable(sb, { storeIds: null, fromIso: today.fromIso, toIso: today.toIso, view: "payable", limit: 1, offset: 0 }),
+    ]);
+    ssotKpis = {
+      platform_revenue_today: bd.reduce((sum, r) => sum + r.netCommissionMinor, 0) / 100,
+      settlement_pending_amount_today: pay.summary.payablePhp,
+    };
+  } catch {
+    // SSOT RPC not deployed yet → show unavailable rather than the misleading legacy figure.
+    ssotKpis = { platform_revenue_today: null, settlement_pending_amount_today: null };
+  }
+  const base = data != null && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const baseKpis = base.kpis != null && typeof base.kpis === "object" ? (base.kpis as Record<string, unknown>) : null;
+  const payload = {
+    ...base,
+    ...(baseKpis ? { kpis: { ...baseKpis, ...ssotKpis } } : {}),
+    ...healthPatch,
+    query: { days },
+  };
 
   return NextResponse.json(payload);
 }

@@ -3,6 +3,7 @@
  * Finance list/detail destinations own to `lib/finance/routes.ts`.
  */
 
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import {
   financeOrderHref,
   financeTransactionDetailHref,
@@ -90,8 +91,9 @@ export function ownerFinanceLedgerHref(input: {
   });
 }
 
+/** Owner order detail = the orders hub with the order expanded (there is no /stores/owner/orders/[id] route). */
 export function ownerOrderFinanceHref(storeId: string, orderId: string): string {
-  return `/stores/owner/orders/${encodeURIComponent(orderId)}?storeId=${encodeURIComponent(storeId)}&focus=finance`;
+  return buildStoreOrdersHref({ storeId, orderId });
 }
 
 export function adminOrderFinanceHref(orderId: string, storeId?: string | null): string {

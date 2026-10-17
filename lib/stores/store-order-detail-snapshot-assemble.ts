@@ -1,6 +1,7 @@
 /**
  * SOD1 store order detail — CPU-only assemble + shared buyer GET body builder.
  */
+import { stripStoreInternalOrderFields } from "@/lib/stores/buyer-store-order-money";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import {
   mapBuyerStoreOrderReviewRow,
@@ -115,7 +116,7 @@ export function buildBuyerStoreOrderDetailResponseBody(
   return {
     ok: true,
     order: {
-      ...order,
+      ...stripStoreInternalOrderFields(order),
       store_name: (store.store_name as string) ?? "",
       store_slug: (store.slug as string) ?? "",
       owner_user_id: (store.owner_user_id as string) ?? "",

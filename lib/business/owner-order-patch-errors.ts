@@ -8,6 +8,8 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   cancel_reason_required: "store_biz_patch_err_cancel_reason_required",
   cancel_not_allowed_for_status: "store_owner_cancel_not_allowed",
   store_points_insufficient: "store_biz_patch_err_points_insufficient",
+  store_commission_policy_missing: "store_biz_patch_err_commission_policy_missing",
+  store_commission_charge_failed: "store_biz_patch_err_commission_failed",
 };
 
 export function formatOwnerOrderPatchErr(code: string, lang: AppLanguageCode): string {

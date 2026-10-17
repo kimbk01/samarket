@@ -87,9 +87,10 @@ export const ARO_AC_001_SOURCE_MATRIX: readonly AroAc001SourceRow[] = [
   },
   {
     item: "SETTLEMENT",
-    canonicalSource: "store_settlements",
-    countQuery: "settlement_status in scheduled|held",
-    deeplink: "/admin/store-settlements?settlement_status=scheduled",
+    // Direct-pay model: the admin's settlement work is the cancel/refund commission review queue.
+    canonicalSource: "store_sale_fee_obligations",
+    countQuery: "adjustment_status = review_required",
+    deeplink: "/admin/store-settlements?state=review_required",
     actionable: true,
     errorSemantics: "unavailable_not_zero",
   },

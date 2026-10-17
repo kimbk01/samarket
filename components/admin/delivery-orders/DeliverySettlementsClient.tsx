@@ -2,7 +2,7 @@
 
 /**
  * ORPHAN / QUARANTINE (Slice 4 Delivery vertical).
- * Not mounted by any route. Real settlement authority = AdminStoreSettlementsPage
+ * Not mounted by any route. Real settlement authority = AdminStoreCommissionLedgerPage
  * at /admin/store-settlements. Do not rewire this hollow store_orders projection
  * as settlement ops. Legacy path stores/orders/settlements redirects permanently.
  */

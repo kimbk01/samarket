@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ValidatedStoreOrderLine } from "@/lib/stores/validate-store-order-checkout";
+import { STORE_CASH_INSUFFICIENT_ERROR } from "@/lib/stores/commission/store-commission-contract";
 
 export type CreateStoreOrderAtomicLineInput = ValidatedStoreOrderLine & {
   /** validate 시점 options_json — TX 내 변경 시 price_changed */
@@ -113,6 +114,10 @@ export async function createStoreOrderAtomic(
   if (error) {
     if (isMissingRpc(error.message)) {
       return { ok: false, error: "create_store_order_atomic_missing", httpStatus: 503 };
+    }
+    // DB trigger trg_store_orders_cash_order_gate — store NET Cash <= 0 while the gate is on.
+    if (String(error.message ?? "").includes(STORE_CASH_INSUFFICIENT_ERROR)) {
+      return { ok: false, error: STORE_CASH_INSUFFICIENT_ERROR, httpStatus: 409 };
     }
     console.error("[createStoreOrderAtomic]", error);
     return { ok: false, error: error.message, httpStatus: 500 };

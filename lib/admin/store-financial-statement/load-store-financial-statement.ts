@@ -1,6 +1,9 @@
 /**
  * ARO-OPS-UX-002-B3 — Store Financial Statement loader.
- * Composes existing Coin/Cash ledgers, settlements, obligations. No new tables.
+ * Composes existing Coin/Cash ledgers, commission ledger, platform payable, obligations. No new tables.
+ * Sales / fee / payable figures come from the commission SSOT SQL readers (same as Admin & Owner
+ * settlement screens). Legacy store_settlements rows are shown as reference only — they are
+ * store-collected money, never a payout obligation. Periods are Asia/Manila business days.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -12,10 +15,12 @@ import {
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import { loadStoreSettlementFinancialFacts } from "@/lib/stores/load-store-settlement-financial-facts";
 import {
-  loadStoreSettlementFinancialFacts,
-  settlementPeriodDayToIso,
-} from "@/lib/stores/load-store-settlement-financial-facts";
+  loadStoreCommissionLedgerPage,
+  loadStorePlatformPayable,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
   businessCcBackToStoreHref,
   businessCcCashChargesHref,
@@ -26,6 +31,7 @@ import {
   businessCcSupportHref,
 } from "@/lib/admin-business/business-control-center-links";
 import type {
+  StoreFinancialFeeRow,
   StoreFinancialObligationRow,
   StoreFinancialPeriodKey,
   StoreFinancialStatementEvent,
@@ -67,13 +73,14 @@ export function resolveStoreFinancialPeriod(input: {
     fromDay = String(input.fromDay).trim();
     toDay = String(input.toDay).trim();
   }
-  const bounds = settlementPeriodDayToIso(fromDay, toDay);
+  // Manila calendar days → [fromIso, toIso) UTC instants (same resolver as the commission ledger).
+  const bounds = resolveStoreCommissionPeriod("custom", fromDay, toDay);
   return {
     key,
     fromDay,
     toDay,
-    fromIso: bounds.fromIso ?? `${fromDay}T00:00:00.000Z`,
-    toIso: bounds.toIso ?? `${toDay}T23:59:59.999Z`,
+    fromIso: bounds.fromIso ?? `${fromDay}T00:00:00.000+08:00`,
+    toIso: bounds.toIso ?? new Date(Date.parse(`${toDay}T00:00:00.000+08:00`) + 86_400_000).toISOString(),
   };
 }
 
@@ -90,7 +97,7 @@ function minorLabel(minor: number | null): string | null {
 function inPeriod(iso: string, fromIso: string, toIso: string): boolean {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return false;
-  return t >= new Date(fromIso).getTime() && t <= new Date(toIso).getTime();
+  return t >= new Date(fromIso).getTime() && t < new Date(toIso).getTime();
 }
 
 function hrefForRelated(relatedType: string, relatedId: string, storeId: string): string | null {
@@ -108,15 +115,6 @@ function hrefForRelated(relatedType: string, relatedId: string, storeId: string)
   }
   if (t.includes("partner")) return "/admin/delivery-ads/partner";
   return null;
-}
-
-function normalizeFeePercent(rate: number): number | null {
-  if (!Number.isFinite(rate) || rate < 0) return null;
-  if (rate === 0) return 0;
-  // Historical: some rows used fraction (0.05); product writers store percent (5).
-  // Never treat exact 1 as fraction — that would turn a real 1% into 100%.
-  if (rate > 0 && rate < 1) return Math.round(rate * 10000) / 100;
-  return rate;
 }
 
 export async function loadStoreFinancialStatement(
@@ -168,12 +166,18 @@ export async function loadStoreFinancialStatement(
     sectionErrors.push("cash_balance");
   }
 
-  const [settlements, coinLedgerRes, cashLedgerRes, topUpsRes, obligationsRes, cancelCountRes] =
+  const settled = <T,>(p: Promise<T>) =>
+    p.then(
+      (value) => ({ value, error: null as string | null }),
+      (e: unknown) => ({ value: null as T | null, error: e instanceof Error ? e.message : "load_failed" })
+    );
+  const [settlements, coinLedgerRes, cashLedgerRes, topUpsRes, obligationsRes, cancelCountRes, ledgerRes, payableRes] =
     await Promise.all([
       loadStoreSettlementFinancialFacts(sb, {
         storeIds: [storeId],
         fromIso: period.fromIso,
-        toIso: period.toIso,
+        // legacy reader uses an inclusive upper bound
+        toIso: new Date(Date.parse(period.toIso) - 1).toISOString(),
         periodBasis: "settlement_created",
         authorityLimit: 500,
         pageLimit: 80,
@@ -184,7 +188,7 @@ export async function loadStoreFinancialStatement(
         .select("id, entry_kind, amount, balance_after, related_type, related_id, meta, created_at")
         .eq("store_id", storeId)
         .gte("created_at", period.fromIso)
-        .lte("created_at", period.toIso)
+        .lt("created_at", period.toIso)
         .order("created_at", { ascending: false })
         .limit(100),
       (sb as any)
@@ -194,7 +198,7 @@ export async function loadStoreFinancialStatement(
         )
         .eq("store_id", storeId)
         .gte("created_at", period.fromIso)
-        .lte("created_at", period.toIso)
+        .lt("created_at", period.toIso)
         .order("created_at", { ascending: false })
         .limit(100),
       (sb as any)
@@ -202,7 +206,7 @@ export async function loadStoreFinancialStatement(
         .select("id, amount_minor, status, created_at, decided_at")
         .eq("store_id", storeId)
         .gte("created_at", period.fromIso)
-        .lte("created_at", period.toIso)
+        .lt("created_at", period.toIso)
         .order("created_at", { ascending: false })
         .limit(40),
       (sb as any)
@@ -219,13 +223,38 @@ export async function loadStoreFinancialStatement(
         .eq("store_id", storeId)
         .eq("order_status", "cancelled")
         .gte("updated_at", period.fromIso)
-        .lte("updated_at", period.toIso),
+        .lt("updated_at", period.toIso),
+      settled(
+        loadStoreCommissionLedgerPage(sb, {
+          storeIds: [storeId],
+          fromIso: period.fromIso,
+          toIso: period.toIso,
+          state: "all",
+          orderNo: null,
+          limit: 80,
+          offset: 0,
+        })
+      ),
+      settled(
+        loadStorePlatformPayable(sb, {
+          storeIds: [storeId],
+          fromIso: period.fromIso,
+          toIso: period.toIso,
+          view: "payable",
+          limit: 1,
+          offset: 0,
+        })
+      ),
     ]);
 
   const settlementsUnavailable = !settlements.ok;
   if (!settlements.ok) sectionErrors.push(`settlements:${settlements.error}`);
   const settlementFacts = settlements.ok ? settlements.facts : [];
   const settlementSummary = settlements.ok ? settlements.summary : null;
+  if (ledgerRes.error) sectionErrors.push(`commission_ledger:${ledgerRes.error}`);
+  if (payableRes.error) sectionErrors.push(`payable:${payableRes.error}`);
+  const ledger = ledgerRes.value;
+  const payable = payableRes.value?.summary ?? null;
 
   if (coinLedgerRes.error) sectionErrors.push(`coin_ledger:${coinLedgerRes.error.message}`);
   if (cashLedgerRes.error) sectionErrors.push(`cash_ledger:${cashLedgerRes.error.message}`);
@@ -299,18 +328,20 @@ export async function loadStoreFinancialStatement(
     });
   }
 
-  const feeRows = settlementFacts.map((f) => ({
-    settlementId: f.settlement_id,
-    orderId: f.order_id,
-    orderNo: f.order_no,
-    saleAmount: f.confirmed_sale_revenue_php || f.gross_amount,
-    feeRatePercent: normalizeFeePercent(f.commission_rate),
-    feeAmount: f.commission_amount,
-    fixedFeeAmount: f.fixed_fee_amount,
-    settlementStatus: f.settlement_status,
-    orderHref: `/admin/store-orders?store_id=${encodeURIComponent(storeId)}&q=${encodeURIComponent(f.order_id)}`,
-    settlementHref: businessCcSettlementsHref(storeId),
-    source: "store_settlements",
+  // Per-order fee = the commission actually charged at cooking start (frozen policy snapshot).
+  const feeRows: StoreFinancialFeeRow[] = (ledger?.rows ?? []).map((r) => ({
+    obligationId: r.obligationId,
+    orderId: r.orderId,
+    orderNo: r.orderNo,
+    saleAmount: r.commissionBasePhp,
+    feeRatePercent: r.feePercent,
+    feeChargedMinor: r.feeChargedMinor,
+    feePaidMinor: r.feePaidMinor,
+    feeOutstandingMinor: r.feeOutstandingMinor,
+    state: r.state,
+    orderHref: `/admin/store-orders?order_id=${encodeURIComponent(r.orderId)}`,
+    ledgerHref: `/admin/store-settlements?store_id=${encodeURIComponent(storeId)}&tab=ledger`,
+    source: "store_commission_ledger_page",
   }));
 
   const obligationRows: StoreFinancialObligationRow[] = ((obligationsRes.error ? [] : obligationsRes.data) ?? []).map(
@@ -379,7 +410,7 @@ export async function loadStoreFinancialStatement(
     id: `stl:${f.settlement_id}`,
     at: f.settlement_created_at,
     domain: "settlement",
-    type: `SETTLEMENT_${String(f.settlement_status).toUpperCase()}`,
+    type: `LEGACY_SNAPSHOT_${String(f.settlement_status).toUpperCase()}`,
     direction: "info",
     currency: "PHP",
     amount: f.net_settlement_amount,
@@ -417,8 +448,9 @@ export async function loadStoreFinancialStatement(
   const cancelledCount =
     cancelCountRes.error || typeof cancelCountRes.count !== "number" ? null : cancelCountRes.count;
 
-  const periodSales = settlementSummary?.gross ?? null;
-  const periodFee = settlementSummary?.commission_gross ?? null;
+  // Sales = completed orders in period (store-collected + platform-held); fee = net commission charged.
+  const periodSales = payable ? payable.directCollectedPhp + payable.platformHeldPhp : null;
+  const periodFee = ledger ? ledger.summary.netCommissionMinor / 100 : null;
 
   const flow = [
     {
@@ -486,13 +518,10 @@ export async function loadStoreFinancialStatement(
     },
     {
       id: "settlement",
-      labelKo: "정산(대기/지급)",
-      labelEn: "Settlement",
-      amountLabel:
-        settlementSummary == null
-          ? null
-          : `pending ${phpLabel(settlementSummary.pending_net) ?? "—"} / paid ${phpLabel(settlementSummary.paid_net) ?? "—"}`,
-      unavailable: settlementSummary == null,
+      labelKo: "플랫폼 지급 의무",
+      labelEn: "Platform payable",
+      amountLabel: payable == null ? null : phpLabel(payable.payablePhp),
+      unavailable: payable == null,
     },
     {
       id: "balances",
@@ -531,8 +560,8 @@ export async function loadStoreFinancialStatement(
       cashCharges: businessCcCashChargesHref(),
     },
     summary: {
-      periodSales: { amount: periodSales, source: "store_settlements.summary.gross" },
-      periodFee: { amount: periodFee, source: "store_settlements.summary.commission_gross" },
+      periodSales: { amount: periodSales, source: "store_platform_payable_page (completed: direct + held)" },
+      periodFee: { amount: periodFee, source: "store_commission_ledger_page.net_commission" },
       coinBalance: {
         amount: coinBalance,
         source: "store_economic_point_accounts.balance",
@@ -544,8 +573,8 @@ export async function loadStoreFinancialStatement(
         pointInTime: true,
       },
       settlementPendingNet: {
-        amount: settlementSummary?.pending_net ?? null,
-        source: "store_settlements.summary.pending_net",
+        amount: payable?.payablePhp ?? null,
+        source: "store_platform_payable_page.payable",
       },
       unpaidFeeObligationMinor: {
         amountMinor: obligationsRes.error ? null : openOutstanding,
@@ -553,18 +582,18 @@ export async function loadStoreFinancialStatement(
       },
     },
     sales: {
-      orderCount: settlementSummary?.order_count ?? null,
-      completedCount: settlementSummary?.order_count ?? null,
+      orderCount: payable?.orders ?? null,
+      completedCount: payable?.orders ?? null,
       cancelledCount,
       gross: periodSales,
       refund: settlementSummary?.refund ?? null,
-      source: "store_settlements + store_orders.cancelled",
-      unavailable: settlementsUnavailable,
+      source: "store_platform_payable_page + store_orders.cancelled",
+      unavailable: payable == null,
     },
     fees: {
       rows: feeRows,
-      unavailable: settlementsUnavailable,
-      source: "store_settlements.platform_fee_percent/amount",
+      unavailable: ledger == null,
+      source: "store_commission_ledger_page (charged at cooking start)",
     },
     obligations: {
       rows: obligationRows,
@@ -594,11 +623,16 @@ export async function loadStoreFinancialStatement(
       source: "business_cash_accounts + business_cash_ledger",
     },
     settlements: {
-      rows: settlementRows,
-      pendingNet: settlementSummary?.pending_net ?? null,
-      paidNet: settlementSummary?.paid_net ?? null,
-      unavailable: settlementsUnavailable,
-      source: "store_settlements",
+      payablePhp: payable?.payablePhp ?? null,
+      payableOrders: payable?.payableOrders ?? null,
+      directCollectedPhp: payable?.directCollectedPhp ?? null,
+      platformHeldPhp: payable?.platformHeldPhp ?? null,
+      heldPaidByCoinPhp: payable?.heldPaidByCoinPhp ?? null,
+      giftRailPhp: payable?.giftRailPhp ?? null,
+      payableUnavailable: payable == null,
+      legacyRows: settlementRows,
+      legacyUnavailable: settlementsUnavailable,
+      source: "store_platform_payable_page (legacy rows: store_settlements, reference only)",
     },
     flow,
     timeline,

@@ -21,11 +21,18 @@ describe("F-04 atomic order currency recognition", () => {
     expect(MIG).toContain("service_role");
   });
 
-  it("TS uses atomic RPC only (no sequential dual writers)", () => {
-    expect(TS).toContain("recognize_order_currency_on_completed");
-    expect(TS).not.toContain("creditConfirmedSaleCoin");
-    expect(TS).not.toContain("chargeSaleFeeForOrder");
+  /**
+   * Superseded by the store-commission SSOT: commission is charged at 조리 시작 (preparing),
+   * Coin at completion — two different events, so the F-04 pairing no longer applies.
+   * Each writer is still a single idempotent DB RPC.
+   */
+  it("TS: completion = platform-held Coin only (commission is the DB status trigger's job)", () => {
+    expect(TS).not.toContain("chargeStoreCommissionForOrder");
+    expect(TS).toContain("credit_coin_from_confirmed_sale");
     expect(TS).toContain("saleCoinIdempotencyKeyForOrder");
-    expect(TS).toContain("saleFeeIdempotencyKeyForOrder");
+    expect(TS).toContain("platformHeldSaleAmountPhp");
+    // Buyer payment goes to the store directly — never part of the Coin mint read.
+    expect(TS).not.toMatch(/\.select\([^)]*payment_amount/);
+    expect(TS).not.toContain("chargeSaleFeeForOrder");
   });
 });

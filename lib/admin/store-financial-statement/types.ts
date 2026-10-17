@@ -2,6 +2,7 @@
  * ARO-OPS-UX-002-B3 — Store Financial Statement read-model contract.
  * Composition only — no new ledger / mutation.
  */
+import type { StoreCommissionRowState } from "@/lib/stores/commission/store-commission-contract";
 
 export type StoreFinancialPeriodKey = "today" | "7d" | "30d" | "custom";
 
@@ -33,17 +34,20 @@ export type StoreFinancialStatementEvent = {
   source: string;
 };
 
+/** One charged commission (store_commission_ledger_page row). */
 export type StoreFinancialFeeRow = {
-  settlementId: string;
+  obligationId: string;
   orderId: string;
   orderNo: string;
+  /** Commission base (PHP) frozen at cooking start. */
   saleAmount: number;
   feeRatePercent: number | null;
-  feeAmount: number;
-  fixedFeeAmount: number;
-  settlementStatus: string;
+  feeChargedMinor: number;
+  feePaidMinor: number;
+  feeOutstandingMinor: number;
+  state: StoreCommissionRowState;
   orderHref: string;
-  settlementHref: string;
+  ledgerHref: string;
   source: string;
 };
 
@@ -153,11 +157,18 @@ export type StoreFinancialStatementModel = {
     unavailable: boolean;
     source: string;
   };
+  /** Platform payout obligation (commission SSOT) + legacy snapshots kept for reference only. */
   settlements: {
-    rows: StoreFinancialSettlementRow[];
-    pendingNet: number | null;
-    paidNet: number | null;
-    unavailable: boolean;
+    payablePhp: number | null;
+    payableOrders: number | null;
+    directCollectedPhp: number | null;
+    platformHeldPhp: number | null;
+    heldPaidByCoinPhp: number | null;
+    /** Gift redemptions owed on the gift-certificate rail — not part of payable. */
+    giftRailPhp: number | null;
+    payableUnavailable: boolean;
+    legacyRows: StoreFinancialSettlementRow[];
+    legacyUnavailable: boolean;
     source: string;
   };
   flow: Array<{

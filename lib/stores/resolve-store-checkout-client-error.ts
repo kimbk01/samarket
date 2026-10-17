@@ -10,6 +10,8 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   cannot_order_own_store: "store_err_own_store_block",
   store_closed: "store_err_preparing",
   store_point_blocked: "store_err_point_blocked",
+  /** Store NET Cash <= 0 — buyer sees the neutral "preparing" copy, never the store's finances. */
+  store_cash_insufficient: "store_err_point_blocked",
   below_min_order: "store_err_below_minimum_cart",
   delivery_address_required: "store_err_delivery_address_required",
   delivery_detail_address_required: "addr_ui_detail_required",

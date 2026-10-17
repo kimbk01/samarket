@@ -356,12 +356,12 @@ export function DeliveryOperationsDashboardPage() {
     { labelKey: "admin_del_ops_kpi_unassigned", value: kpis ? fmtInt(kpis.unassigned_delivery_orders) : null },
     {
       labelKey: "admin_del_ops_kpi_revenue_today",
-      value: kpis ? formatMoneyPhp(kpis.platform_revenue_today) : null,
+      value: kpis?.platform_revenue_today != null ? formatMoneyPhp(kpis.platform_revenue_today) : null,
     },
     { labelKey: "admin_del_ops_kpi_refund_today", value: kpis ? formatMoneyPhp(kpis.refund_amount_today) : null },
     {
       labelKey: "admin_del_ops_kpi_settlement_today",
-      value: kpis ? formatMoneyPhp(kpis.settlement_pending_amount_today) : null,
+      value: kpis?.settlement_pending_amount_today != null ? formatMoneyPhp(kpis.settlement_pending_amount_today) : null,
     },
     { labelKey: "admin_del_ops_kpi_online_riders", value: kpis ? fmtInt(kpis.online_riders) : null },
   ];

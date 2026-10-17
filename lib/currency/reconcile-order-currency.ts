@@ -3,8 +3,8 @@
  *
  * Finds orders whose terminal status and money side effects disagree:
  *  (a) completed  — no Coin sale credit (store_economic_point_ledger idempotency_key = sale_coin:{id})
- *  (b) refunded   — sale_coin exists but no coin_reversal:order:{id}, OR a sale-fee obligation
- *                   exists whose status is not 'waived'
+ *  (b) refunded   — sale_coin exists but no coin_reversal:order:{id}, OR a commission obligation
+ *                   that was neither waived nor sent to manual review (adjustment_status = 'none')
  *  (c) cancelled  — gift_certificate_redemptions still reversed = false
  * Orders whose store_settlements.settlement_status = 'paid' are excluded from candidates and
  * reported separately (money already left the platform — manual review only).
@@ -18,10 +18,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { coinReversalIdempotencyKeyForOrder, reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
-import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
-import { reverseSaleFeeForOrder } from "@/lib/currency/sale-fee-writer";
+import {
+  platformHeldSaleAmountPhp,
+  recognizeOrderCurrencyOnCompleted,
+} from "@/lib/currency/recognize-order-currency-on-completed";
+import { flagStoreCommissionReview } from "@/lib/stores/commission/store-commission-writer";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
-import { confirmedSaleRevenuePhp, saleCoinIdempotencyKeyForOrder } from "@/lib/stores/confirmed-sale-revenue";
+import { saleCoinIdempotencyKeyForOrder } from "@/lib/stores/confirmed-sale-revenue";
 
 /**
  * HARD GATE — must stay `false` until an approved commit flips it. No env var, header or query
@@ -65,7 +68,7 @@ export type ReconcileReport = {
   scanLimitPerStatus: number;
   scanTruncated: { completed: boolean; refunded: boolean; cancelled: boolean };
   completedMissingSaleCoin: ReconcileBucket;
-  /** Completed orders with confirmed revenue 0 — recognition legitimately skips them. */
+  /** Completed orders with no platform-held amount (paid directly to the store) — no Coin owed. */
   completedZeroRevenueSkipped: number;
   refundedUnreversed: ReconcileBucket & {
     missingCoinReversal: number;
@@ -142,7 +145,8 @@ async function nonWaivedObligationOrderIds(sb: SupabaseClient, orderIds: string[
       .from(SALE_FEE_OBLIGATIONS)
       .select("order_id, status")
       .in("order_id", part)
-      .neq("status", "waived");
+      .neq("status", "waived")
+      .eq("adjustment_status", "none");
     if (error) throw new Error(`obligation_lookup_failed:${error.message}`);
     for (const r of (data ?? []) as Array<{ order_id?: string }>) {
       if (r.order_id) found.add(String(r.order_id));
@@ -196,8 +200,8 @@ export async function buildOrderCurrencyReconcileReport(
     scanOrdersByStatus(sb, "cancelled"),
   ]);
 
-  // (a) completed lacking sale_coin
-  const completedWithRevenue = completed.rows.filter((o) => confirmedSaleRevenuePhp(o) > 0);
+  // (a) completed lacking sale_coin — Coin is minted only for the platform-held portion
+  const completedWithRevenue = completed.rows.filter((o) => platformHeldSaleAmountPhp(o) > 0);
   const completedZeroRevenueSkipped = completed.rows.length - completedWithRevenue.length;
   const saleKeys = await existingLedgerKeys(
     sb,
@@ -366,11 +370,12 @@ export async function applyOrderCurrencyReconcileWrites(
       });
     }
     if (o.saleFeeNotWaived) {
-      const r = await reverseSaleFeeForOrder(sb, o.id);
+      // Commission refunds are an admin decision — reconcile only queues the review.
+      const r = await flagStoreCommissionReview(sb, o.id, "refunded");
       outcomes.push({
         orderId: o.id,
         kind: "refunded",
-        action: "reverse_sale_fee_for_order",
+        action: "flag_store_commission_review",
         ok: r.ok,
         detail: r.ok ? undefined : r.error,
       });

@@ -320,7 +320,7 @@ export const SUPPORT_CATEGORY_REGISTRY: readonly SupportCategoryDefinition[] = [
       ["STATEMENT", "support_issue_settlement_statement"],
       ["OTHER", "support_issue_other", "none"],
     ]),
-    allowedReferenceTypes: ["STORE_SETTLEMENT"],
+    allowedReferenceTypes: ["STORE_SETTLEMENT", "STORE_ORDER"],
     allowedSourceSurfaces: "*",
     guidanceEligible: "yes",
   },

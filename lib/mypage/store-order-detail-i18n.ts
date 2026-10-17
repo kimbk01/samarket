@@ -223,7 +223,8 @@ export function lineDiscountDisplayI18n(
   return t("mypage_comp_line_discount_pct", { pct, amount: formatMoneyPhp(off) });
 }
 
-export function paymentMethodLabel(t: MypageT, paymentStatus: string): string {
+/** Payment STATUS (paid / pending / failed / cancelled / refunded) — not the payment method. */
+export function paymentStatusLabel(t: MypageT, paymentStatus: string): string {
   switch (paymentStatus) {
     case "paid":
       return t("mypage_comp_pay_method_paid");

@@ -20,6 +20,8 @@ import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed }
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_NOTIFICATION_RETENTION_DAYS,
+  isSettlementAdminNotificationKind,
+  settlementWorkStatusFromAdjustment,
   type AdminNotificationDto,
   type AdminNotificationSeverity,
 } from "@/lib/admin/notifications/admin-notification-kinds";
@@ -544,7 +546,40 @@ export async function listAdminNotifications(
   const hasMore = (data ?? []).length > limit;
   const unread = await countUnreadAdminNotifications(sb, input);
   if (!unread.ok) return unread;
-  return { ok: true, items: rows.slice(0, limit).map(toAdminNotificationDto), unread: unread.unread, hasMore };
+  const items = await withSettlementWorkStatus(sb, rows.slice(0, limit).map(toAdminNotificationDto));
+  return { ok: true, items, unread: unread.unread, hasMore };
+}
+
+/**
+ * Settlement alerts: attach the LIVE work state of the linked review (store_sale_fee_obligations
+ * .adjustment_status) — the queue is the single source, so the alert can never show a stale state.
+ * A decision therefore updates the alert's status without creating a new notification.
+ * Financial exceptions have no automatic resolution → "확인 필요" until an admin acts on the source.
+ */
+export async function withSettlementWorkStatus(
+  sb: SupabaseClient,
+  items: AdminNotificationDto[]
+): Promise<AdminNotificationDto[]> {
+  const ids = [
+    ...new Set(
+      items
+        .filter((n) => isSettlementAdminNotificationKind(n.kind) && n.workRefTable === "store_sale_fee_obligations" && n.workRefId)
+        .map((n) => n.workRefId as string)
+    ),
+  ];
+  const status = new Map<string, string>();
+  if (ids.length) {
+    const { data, error } = await sb.from("store_sale_fee_obligations").select("id, adjustment_status").in("id", ids);
+    if (error) console.error("[admin-notification] settlement_work_status", error.message);
+    for (const r of (data ?? []) as Array<{ id: string; adjustment_status: string | null }>) status.set(String(r.id), String(r.adjustment_status ?? ""));
+  }
+  return items.map((n) => {
+    if (!isSettlementAdminNotificationKind(n.kind)) return n;
+    if (n.kind === "settlement_commission_review" && n.workRefId) {
+      return { ...n, workStatus: status.has(n.workRefId) ? settlementWorkStatusFromAdjustment(status.get(n.workRefId)) : null };
+    }
+    return { ...n, workStatus: { state: "attention", labelKo: "확인 필요", labelEn: "Needs attention" } };
+  });
 }
 
 /** Unread inbox count — its own number, never mixed with the Action Queue total. */
