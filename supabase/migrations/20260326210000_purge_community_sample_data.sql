@@ -8,19 +8,48 @@ BEGIN
     RETURN;
   END IF;
 
+  -- is_sample_data 는 이후 마이그레이션(20260328100000)에서 추가됨.
+  -- 빈 DB 재적용 시 컬럼 없으면 샘플도 없으므로 안전하게 건너뜀.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'meetings'
+      AND column_name = 'is_sample_data'
+  ) OR NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'community_posts'
+      AND column_name = 'is_sample_data'
+  ) THEN
+    RAISE NOTICE 'purge_community_sample_data: is_sample_data 컬럼 없음 — 건너뜀';
+    RETURN;
+  END IF;
+
   -- 모임에 묶인 채팅방 + 부가 방(linked_chat_room_id)
   CREATE TEMP TABLE tmp_sample_meeting_ids ON COMMIT DROP AS
   SELECT id FROM public.meetings WHERE is_sample_data = true;
 
-  CREATE TEMP TABLE tmp_sample_room_ids ON COMMIT DROP AS
-  SELECT DISTINCT cr.id AS room_id
-  FROM public.chat_rooms cr
-  WHERE cr.meeting_id IN (SELECT id FROM tmp_sample_meeting_ids)
-  UNION
-  SELECT DISTINCT mcr.linked_chat_room_id AS room_id
-  FROM public.meeting_chat_rooms mcr
-  WHERE mcr.meeting_id IN (SELECT id FROM tmp_sample_meeting_ids)
-    AND mcr.linked_chat_room_id IS NOT NULL;
+  CREATE TEMP TABLE tmp_sample_room_ids (
+    room_id uuid
+  ) ON COMMIT DROP;
+
+  IF to_regclass('public.chat_rooms') IS NOT NULL THEN
+    INSERT INTO tmp_sample_room_ids (room_id)
+    SELECT DISTINCT cr.id
+    FROM public.chat_rooms cr
+    WHERE cr.meeting_id IN (SELECT id FROM tmp_sample_meeting_ids);
+  END IF;
+
+  -- meeting_chat_rooms 는 이후 마이그레이션에서 생성될 수 있음
+  IF to_regclass('public.meeting_chat_rooms') IS NOT NULL THEN
+    INSERT INTO tmp_sample_room_ids (room_id)
+    SELECT DISTINCT mcr.linked_chat_room_id
+    FROM public.meeting_chat_rooms mcr
+    WHERE mcr.meeting_id IN (SELECT id FROM tmp_sample_meeting_ids)
+      AND mcr.linked_chat_room_id IS NOT NULL;
+  END IF;
 
   IF to_regclass('public.chat_messages') IS NOT NULL AND EXISTS (SELECT 1 FROM tmp_sample_room_ids) THEN
     DELETE FROM public.chat_messages cm
@@ -37,8 +66,16 @@ BEGIN
     WHERE meeting_id IN (SELECT id FROM tmp_sample_meeting_ids);
   END IF;
 
-  UPDATE public.meetings SET chat_room_id = NULL
-  WHERE id IN (SELECT id FROM tmp_sample_meeting_ids);
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'meetings'
+      AND column_name = 'chat_room_id'
+  ) THEN
+    UPDATE public.meetings SET chat_room_id = NULL
+    WHERE id IN (SELECT id FROM tmp_sample_meeting_ids);
+  END IF;
 
   IF to_regclass('public.chat_rooms') IS NOT NULL AND EXISTS (SELECT 1 FROM tmp_sample_room_ids) THEN
     DELETE FROM public.chat_rooms cr
@@ -79,7 +116,14 @@ BEGIN
 
   DELETE FROM public.community_posts WHERE is_sample_data = true;
 
-  IF to_regclass('public.locations') IS NOT NULL THEN
+  IF to_regclass('public.locations') IS NOT NULL
+     AND EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'locations'
+         AND column_name = 'is_sample_data'
+     ) THEN
     DELETE FROM public.locations WHERE is_sample_data = true;
   END IF;
 

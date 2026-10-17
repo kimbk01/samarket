@@ -33,6 +33,16 @@ Build machine: **Enhanced 8c / 16GB** (`resourceConfig.buildMachineType=enhanced
 
 Next production build: **Vercel ONLY**.
 
+## Regular deploy path (Owner 2026-10-15)
+
+**정규 웹 배포:** 수정 → 로컬/CI 검증 → 기존 승인 절차 → `main` 반영 → Vercel Production 자동 배포 → 운영 확인.
+
+- **TEST / Preview는 정규 배포의 필수 단계가 아니다.** Owner가 필요할 때만 사용한다.
+- Vercel 기본 Preview(PR 브랜치)는 플랫폼 기본 기능이며, 정규 경로에 승인 게이트로 끼워 넣지 않는다.
+- Custom Environment `test` · `dibay-test` 브랜치 · TEST Supabase/Firebase/Android flavor는 **보존**한다 (삭제·리버트 금지).
+- Admin `/admin/system/deploy`의 TEST 검증·Promote UI는 **선택/보조**이며, Promote 실행은 별도 unlock 전까지 BLOCKED.
+- Android/iOS 스토어 제출은 웹 Production과 **별도** 절차다.
+
 GitHub CI: `npm run ci` = source typecheck + test typecheck + lint + vitest + contracts + i18n. **No `next build`.**
 
 TypeScript:

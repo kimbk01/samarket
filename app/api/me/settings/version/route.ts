@@ -22,6 +22,8 @@ export async function GET() {
       ok: true,
       version: FALLBACK_VERSION,
       build: null,
+      androidMinVersionCode: null,
+      androidImmediateUpdate: false,
       source: "fallback",
     });
   }
@@ -29,7 +31,13 @@ export async function GET() {
   const { data, error } = await sb
     .from("app_meta")
     .select("key, value")
-    .in("key", ["app_version", "app_build"]);
+    .in("key", [
+      "app_version",
+      "app_build",
+      // Android Play In-App Updates policy (optional). Absent → FLEXIBLE default, no force.
+      "android_min_version_code",
+      "android_immediate_update",
+    ]);
 
   if (error) {
     if (isMissingTableError(error.message ?? "")) {
@@ -37,6 +45,8 @@ export async function GET() {
         ok: true,
         version: FALLBACK_VERSION,
         build: null,
+        androidMinVersionCode: null,
+        androidImmediateUpdate: false,
         source: "missing_table",
       });
     }
@@ -50,10 +60,16 @@ export async function GET() {
     meta.set(key, String(row.value ?? "").trim());
   }
 
+  const immediateRaw = (meta.get("android_immediate_update") || "").trim().toLowerCase();
+  const androidImmediateUpdate =
+    immediateRaw === "1" || immediateRaw === "true" || immediateRaw === "yes" || immediateRaw === "on";
+
   return NextResponse.json({
     ok: true,
     version: meta.get("app_version") || FALLBACK_VERSION,
     build: meta.get("app_build") || null,
+    androidMinVersionCode: meta.get("android_min_version_code") || null,
+    androidImmediateUpdate,
     source: "db",
   });
 }
