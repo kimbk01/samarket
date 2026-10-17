@@ -1,7 +1,10 @@
 "use client";
 
 import { syncMessengerImageAutoSaveEnabled } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
-import { resolveMessengerImageSaveMode } from "@/lib/community-messenger/attachment/messenger-image-save";
+import {
+  getMessengerPhotoSaveDiagnostics,
+  type MessengerPhotoSaveDiagnostics,
+} from "@/lib/community-messenger/attachment/messenger-image-save";
 import { useEffect, useState, type RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import {
@@ -74,17 +77,31 @@ export function MessengerSettingsSheet({
   onOpenOpenChatDiscovery,
 }: MessengerSettingsSheetProps) {
   const { t } = useI18n();
-  /** 자동 저장은 네이티브 사진첩 저장(saveImages)이 있는 앱에서만 동작 — 아니면 설명에 업데이트 안내 */
-  const [autoSaveNativeSupported, setAutoSaveNativeSupported] = useState<boolean | null>(null);
+  /**
+   * 자동 저장은 네이티브 사진첩 저장(saveImages)이 있는 앱에서만 동작 — 아니면 설명에 업데이트 안내.
+   * 앱 셸이면 설치된 바이너리 버전·빌드와 저장 엔진 상태를 함께 보여 준다(Android·iOS 실기기 검증용).
+   */
+  const [photoSaveDiag, setPhotoSaveDiag] = useState<MessengerPhotoSaveDiagnostics | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void resolveMessengerImageSaveMode().then((mode) => {
-      if (!cancelled) setAutoSaveNativeSupported(mode === "native");
+    void getMessengerPhotoSaveDiagnostics().then((diag) => {
+      if (!cancelled) setPhotoSaveDiag(diag);
     });
     return () => {
       cancelled = true;
     };
   }, []);
+  const autoSaveNativeSupported = photoSaveDiag ? photoSaveDiag.mode === "native" : null;
+  const photoSaveDiagText =
+    photoSaveDiag && (photoSaveDiag.mode === "native" || photoSaveDiag.mode === "update_required")
+      ? [
+          t(photoSaveDiag.mode === "native" ? "cm_ui_photo_save_diag_native" : "cm_ui_photo_save_diag_update_required"),
+          t("cm_ui_photo_save_diag_app", {
+            version: photoSaveDiag.appVersion ?? "?",
+            build: photoSaveDiag.appBuild ?? "?",
+          }),
+        ].join(" · ")
+      : null;
   return (
     <MessengerHomeBottomSheetShell
       onClose={onClose}
@@ -238,11 +255,14 @@ export function MessengerSettingsSheet({
               />
               <SettingsToggleRow
                 title={t("cm_ui_media_auto_save")}
-                description={
+                description={[
                   autoSaveNativeSupported === false
                     ? `${t("cm_ui_open_files_images_with_save_focus")} ${t("cm_ui_media_auto_save_requires_update")}`
-                    : t("cm_ui_open_files_images_with_save_focus")
-                }
+                    : t("cm_ui_open_files_images_with_save_focus"),
+                  photoSaveDiagText,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 checked={localSettings.mediaAutoSaveEnabled}
                 onChange={(next) => {
                   /** 켠 시각 이후 받은 사진만 자동 저장(과거 사진 일괄 저장 방지), 끄면 기준·권한 재시도 초기화 */

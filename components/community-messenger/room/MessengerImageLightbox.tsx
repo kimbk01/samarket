@@ -192,7 +192,7 @@ export function MessengerImageLightbox(props: {
           >
             {saving === "one" ? t("cm_ui_photo_saving") : t("cm_ui_photo_save")}
           </button>
-          {urls.length > 1 && saveMode !== "browser" ? (
+          {urls.length > 1 ? (
             <button
               type="button"
               disabled={saving !== null}
