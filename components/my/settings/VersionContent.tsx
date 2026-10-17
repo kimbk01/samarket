@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
@@ -36,7 +36,38 @@ import {
   resolveVersionScreenCta,
   resolveVersionScreenCtaVisual,
   type VersionScreenCtaModel,
+  type VersionScreenCtaVisual,
 } from "@/lib/platform/android-play-version-screen-cta";
+
+/** Inline colors beat WebView/Tailwind cascade so disabled gray is always visible. */
+function versionCtaInlineStyle(visual: VersionScreenCtaVisual): CSSProperties {
+  switch (visual) {
+    case "disabled":
+      return {
+        backgroundColor: "#D1D5DB",
+        color: "#6B7280",
+        opacity: 1,
+        borderWidth: 0,
+      };
+    case "busy":
+    case "active":
+      return {
+        backgroundColor: "var(--sam-primary)",
+        color: "var(--sam-text-on-primary)",
+        opacity: 1,
+        borderWidth: 0,
+      };
+    case "retry":
+      return {
+        backgroundColor: "var(--sam-primary-soft)",
+        color: "var(--sam-primary)",
+        opacity: 1,
+        border: "1px solid var(--sam-primary-border)",
+      };
+    default:
+      return {};
+  }
+}
 
 type InstallProgress = {
   installStatus: PlayInstallStatus;
@@ -546,7 +577,8 @@ export function VersionContent() {
             aria-busy={ctaBusy}
             onClick={onPrimaryClick}
             data-cta-visual={ctaVisual}
-            className={`version-update-cta sam-btn sam-btn--block mt-10 w-full max-w-sm`}
+            style={versionCtaInlineStyle(ctaVisual)}
+            className="version-update-cta sam-btn sam-btn--block mt-10 w-full max-w-sm"
           >
             {primaryLabel}
           </button>
