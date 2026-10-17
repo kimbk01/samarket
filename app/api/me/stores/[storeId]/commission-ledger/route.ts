@@ -3,13 +3,16 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
-import { loadStoreCommissionLedger } from "@/lib/stores/commission/load-store-commission-ledger";
+import {
+  loadStoreCashOverview,
+  loadStoreCommissionLedgerPage,
+} from "@/lib/stores/commission/load-store-commission-ledger";
 import { parseStoreCommissionLedgerQuery } from "@/lib/stores/commission/store-commission-ledger-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 매장 오너: 수수료 원장 — Admin 과 동일 loader·summary·row state. */
+/** 매장 오너: 자기 매장 수수료 원장 — Admin 과 동일 SQL 함수, store_id 는 경로·소유 검증으로 고정. */
 export async function GET(req: NextRequest, context: { params: Promise<{ storeId: string }> }) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -28,8 +31,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
 
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
-    const ledger = await loadStoreCommissionLedger(sb, { ...q, storeIds: [sid] });
-    return NextResponse.json({ ok: true, position: ledger.positions[0] ?? null, ...ledger });
+    const [ledger, overview] = await Promise.all([
+      loadStoreCommissionLedgerPage(sb, {
+        storeIds: [sid],
+        fromIso: q.fromIso,
+        toIso: q.toIso,
+        state: q.state,
+        orderNo: q.orderNo,
+        limit: q.limit,
+        offset: q.offset,
+      }),
+      loadStoreCashOverview(sb, [sid]),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      position: overview.positions[0] ?? null,
+      period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: "UTC" },
+      ...ledger,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "load_failed";
     console.error("[me/commission-ledger]", message);

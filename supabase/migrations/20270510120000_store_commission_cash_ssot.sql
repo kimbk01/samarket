@@ -2,22 +2,37 @@
 -- Doc: docs/store-commission-cash-settlement-ssot.md
 --
 -- Payment model: buyers pay the store directly (COD / store GCash / bank transfer).
--- The platform never holds payment_amount, so there is no per-order payout to a store.
--- The platform's revenue (commission) is collected from the store's prepaid Business Cash.
+-- The platform never holds payment_amount → no per-order payout to stores.
+-- Platform commission is collected from the store's prepaid Business Cash.
 --
--- 1. Commission is charged when the order enters `preparing` (조리 시작), not at `completed`.
---    Same idempotency key `sale_fee:order:{id}` → one charge per order regardless of stage.
--- 2. Shortfall stays an open obligation (business_cash_accounts.balance_minor >= 0 is kept);
---    the store's NET cash position = balance − outstanding, which is negative when short.
--- 3. Cancel / refund after the charge never auto-reverses. The obligation is flagged
---    `review_required` and an admin decides `refunded` (fee back to Cash) or `kept`.
--- 4. Order gate: when admin_settings.store_cash_order_gate = block_when_not_positive,
---    a store whose NET position is <= 0 cannot receive new orders (DB trigger, atomic).
+-- A. Commission is charged INSIDE the store_orders status UPDATE transaction (trigger):
+--    entering any cooking-or-later status (preparing, ready_for_pickup, delivering, arrived,
+--    completed) charges once per order. No app path, admin tool, webhook or direct SQL
+--    can move an order past 조리 시작 without the charge; a charge failure aborts the move.
+-- B. Shortfall → open obligation; balance_minor stays >= 0; NET = balance − outstanding.
+-- C. cancelled / refunded after a charge → review_required (same transaction). No auto refund.
+-- D. Admin decision (approve full/partial | reject) is the ONLY commission refund path and is
+--    recorded once, immutably, in store_commission_adjustments.
+-- E. Order gate (admin_settings.store_cash_order_gate): NET <= 0 → new store_orders INSERT fails.
+-- F. Financial history: obligations/adjustments can no longer be cascade-deleted with orders.
+--
+-- This migration moves NO money. Data changes are limited to:
+--   * original_fee_due_minor backfill (from fee_due_minor, or from the immutable reversal ledger row)
+--   * legacy automatic reversals recorded as `legacy_auto` adjustments (from ledger evidence only)
+--   * already-closed orders with a live fee moved to the review queue
 
 BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- store_sale_fee_obligations — charge stage, frozen fee snapshot, manual adjustment
+-- 0. Privilege hardening — writes only through SECURITY DEFINER functions
+-- ═══════════════════════════════════════════════════════════════════════════
+
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.store_sale_fee_obligations FROM anon, authenticated, service_role;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.business_cash_ledger FROM anon, authenticated, service_role;
+REVOKE TRUNCATE ON public.business_cash_accounts FROM anon, authenticated, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 1. store_sale_fee_obligations — stage, frozen snapshot, review status, audit amount
 -- ═══════════════════════════════════════════════════════════════════════════
 
 ALTER TABLE public.store_sale_fee_obligations
@@ -26,44 +41,638 @@ ALTER TABLE public.store_sale_fee_obligations
   ADD COLUMN IF NOT EXISTS adjustment_status text NOT NULL DEFAULT 'none',
   ADD COLUMN IF NOT EXISTS adjustment_trigger text NULL,
   ADD COLUMN IF NOT EXISTS review_flagged_at timestamptz NULL,
-  ADD COLUMN IF NOT EXISTS adjustment_note text NULL,
-  ADD COLUMN IF NOT EXISTS adjusted_by uuid NULL,
-  ADD COLUMN IF NOT EXISTS adjusted_at timestamptz NULL,
-  ADD COLUMN IF NOT EXISTS adjustment_cash_refunded_minor bigint NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS adjustment_outstanding_cancelled_minor bigint NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS original_fee_due_minor bigint NULL;
-
-UPDATE public.store_sale_fee_obligations
-   SET original_fee_due_minor = fee_due_minor
- WHERE original_fee_due_minor IS NULL AND status <> 'waived';
 
 ALTER TABLE public.store_sale_fee_obligations
   DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_charge_stage_chk,
   ADD CONSTRAINT store_sale_fee_obligations_charge_stage_chk
-    CHECK (charge_stage IN ('preparing', 'completed')),
+    CHECK (charge_stage IN ('preparing', 'ready_for_pickup', 'delivering', 'arrived', 'completed')),
   DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_adjustment_status_chk,
   ADD CONSTRAINT store_sale_fee_obligations_adjustment_status_chk
     CHECK (adjustment_status IN ('none', 'review_required', 'refunded', 'kept')),
   DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_adjustment_trigger_chk,
   ADD CONSTRAINT store_sale_fee_obligations_adjustment_trigger_chk
-    CHECK (adjustment_trigger IS NULL OR adjustment_trigger IN ('cancelled', 'refunded'));
+    CHECK (adjustment_trigger IS NULL OR adjustment_trigger IN ('cancelled', 'refunded')),
+  DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_original_chk,
+  ADD CONSTRAINT store_sale_fee_obligations_original_chk
+    CHECK (original_fee_due_minor IS NULL OR original_fee_due_minor >= fee_due_minor);
+
+-- Financial history must survive order/store deletion attempts.
+ALTER TABLE public.store_sale_fee_obligations
+  DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_order_id_fkey,
+  ADD CONSTRAINT store_sale_fee_obligations_order_id_fkey
+    FOREIGN KEY (order_id) REFERENCES public.store_orders (id) ON DELETE RESTRICT,
+  DROP CONSTRAINT IF EXISTS store_sale_fee_obligations_store_id_fkey,
+  ADD CONSTRAINT store_sale_fee_obligations_store_id_fkey
+    FOREIGN KEY (store_id) REFERENCES public.stores (id) ON DELETE RESTRICT;
 
 CREATE INDEX IF NOT EXISTS store_sale_fee_obligations_review_idx
   ON public.store_sale_fee_obligations (review_flagged_at)
   WHERE adjustment_status = 'review_required';
-
 CREATE INDEX IF NOT EXISTS store_sale_fee_obligations_store_created_idx
   ON public.store_sale_fee_obligations (store_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS business_cash_ledger_store_created_idx
+  ON public.business_cash_ledger (store_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS business_cash_ledger_related_idx
+  ON public.business_cash_ledger (related_type, related_id);
 
 COMMENT ON COLUMN public.store_sale_fee_obligations.charge_stage IS
-  'Order status at which the commission was charged. preparing = 조리 시작 (canonical); completed = legacy / safety net.';
-COMMENT ON COLUMN public.store_sale_fee_obligations.adjustment_status IS
-  'none | review_required (order cancelled/refunded after charge) | refunded (admin returned fee to Cash) | kept (admin kept fee).';
+  'Order status that triggered the commission charge (first cooking-or-later status).';
 COMMENT ON COLUMN public.store_sale_fee_obligations.original_fee_due_minor IS
-  'Fee charged at charge time. reverse_sale_fee_for_order zeroes fee_due_minor; this keeps the audit amount.';
+  'Commission as charged. fee_due_minor shrinks on approved refunds; this never changes.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- Order gate mode (admin_settings) + NET cash position
+-- 2. store_commission_adjustments — one immutable decision per obligation
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS public.store_commission_adjustments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  obligation_id uuid NOT NULL REFERENCES public.store_sale_fee_obligations (id) ON DELETE RESTRICT,
+  order_id uuid NOT NULL REFERENCES public.store_orders (id) ON DELETE RESTRICT,
+  store_id uuid NOT NULL REFERENCES public.stores (id) ON DELETE RESTRICT,
+  decision text NOT NULL CHECK (decision IN ('approve', 'reject', 'legacy_auto')),
+  trigger_status text NOT NULL CHECK (trigger_status IN ('cancelled', 'refunded')),
+  fee_charged_minor bigint NOT NULL CHECK (fee_charged_minor >= 0),
+  fee_paid_minor_before bigint NOT NULL CHECK (fee_paid_minor_before >= 0),
+  fee_outstanding_minor_before bigint NOT NULL CHECK (fee_outstanding_minor_before >= 0),
+  approved_minor bigint NOT NULL CHECK (approved_minor >= 0),
+  cash_refund_minor bigint NOT NULL CHECK (cash_refund_minor >= 0),
+  outstanding_cancel_minor bigint NOT NULL CHECK (outstanding_cancel_minor >= 0),
+  reason text NOT NULL CHECK (char_length(btrim(reason)) >= 2),
+  admin_user_id uuid NULL,
+  cash_ledger_id uuid NULL REFERENCES public.business_cash_ledger (id) ON DELETE RESTRICT,
+  idempotency_key text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT store_commission_adjustments_one_per_obligation UNIQUE (obligation_id),
+  CONSTRAINT store_commission_adjustments_idem_uq UNIQUE (idempotency_key),
+  CONSTRAINT store_commission_adjustments_split_chk
+    CHECK (approved_minor = cash_refund_minor + outstanding_cancel_minor),
+  CONSTRAINT store_commission_adjustments_cash_le_paid_chk
+    CHECK (cash_refund_minor <= fee_paid_minor_before),
+  CONSTRAINT store_commission_adjustments_cancel_le_outstanding_chk
+    CHECK (outstanding_cancel_minor <= fee_outstanding_minor_before),
+  CONSTRAINT store_commission_adjustments_decision_amount_chk
+    CHECK (
+      (decision = 'reject' AND approved_minor = 0)
+      OR (decision IN ('approve', 'legacy_auto') AND approved_minor > 0)
+    ),
+  CONSTRAINT store_commission_adjustments_admin_chk
+    CHECK (decision = 'legacy_auto' OR admin_user_id IS NOT NULL),
+  CONSTRAINT store_commission_adjustments_ledger_chk
+    CHECK ((cash_refund_minor > 0) = (cash_ledger_id IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS store_commission_adjustments_store_created_idx
+  ON public.store_commission_adjustments (store_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION public.store_commission_adjustments_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'store_commission_adjustments_immutable' USING ERRCODE = 'P0001';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS store_commission_adjustments_no_mutation ON public.store_commission_adjustments;
+CREATE TRIGGER store_commission_adjustments_no_mutation
+  BEFORE UPDATE OR DELETE ON public.store_commission_adjustments
+  FOR EACH ROW EXECUTE FUNCTION public.store_commission_adjustments_immutable();
+
+ALTER TABLE public.store_commission_adjustments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS store_commission_adjustments_owner_select ON public.store_commission_adjustments;
+CREATE POLICY store_commission_adjustments_owner_select
+  ON public.store_commission_adjustments FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.stores s WHERE s.id = store_commission_adjustments.store_id AND s.owner_user_id = auth.uid())
+    OR public.is_platform_admin(auth.uid())
+  );
+REVOKE ALL ON TABLE public.store_commission_adjustments FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON TABLE public.store_commission_adjustments TO authenticated, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 3. Backfill (evidence only, no money)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+UPDATE public.store_sale_fee_obligations
+   SET original_fee_due_minor = fee_due_minor
+ WHERE original_fee_due_minor IS NULL AND status <> 'waived';
+
+-- Legacy automatic reversals (reverse_sale_fee_for_order) zeroed fee_due_minor; the immutable
+-- reversal ledger row carries the reversed paid amount and the cancelled outstanding amount.
+WITH ev AS (
+  SELECT ob.id AS obligation_id, ob.order_id, ob.store_id, o.order_status,
+         l.id AS ledger_id,
+         coalesce((l.meta->>'fee_paid_minor_reversed')::bigint, 0) AS paid_rev,
+         coalesce((l.meta->>'fee_outstanding_cancelled')::bigint, 0) AS out_cancel,
+         l.created_at
+    FROM public.store_sale_fee_obligations ob
+    JOIN public.store_orders o ON o.id = ob.order_id
+    JOIN public.business_cash_ledger l
+      ON l.idempotency_key = 'sale_fee_reversal:order:' || ob.order_id::text
+   WHERE ob.status = 'waived' AND ob.original_fee_due_minor IS NULL
+     AND o.order_status IN ('cancelled', 'refunded')
+)
+INSERT INTO public.store_commission_adjustments (
+  obligation_id, order_id, store_id, decision, trigger_status,
+  fee_charged_minor, fee_paid_minor_before, fee_outstanding_minor_before,
+  approved_minor, cash_refund_minor, outstanding_cancel_minor,
+  reason, admin_user_id, cash_ledger_id, idempotency_key, created_at
+)
+SELECT obligation_id, order_id, store_id, 'legacy_auto', order_status,
+       paid_rev + out_cancel, paid_rev, out_cancel,
+       paid_rev + out_cancel, paid_rev, out_cancel,
+       'legacy automatic reversal (reverse_sale_fee_for_order) — recorded from ledger',
+       NULL, CASE WHEN paid_rev > 0 THEN ledger_id END,
+       'legacy_auto:' || obligation_id::text, created_at
+  FROM ev
+ WHERE paid_rev + out_cancel > 0
+ON CONFLICT DO NOTHING;
+
+UPDATE public.store_sale_fee_obligations ob
+   SET original_fee_due_minor = a.fee_charged_minor,
+       adjustment_status = 'refunded',
+       adjustment_trigger = a.trigger_status
+  FROM public.store_commission_adjustments a
+ WHERE a.obligation_id = ob.id AND a.decision = 'legacy_auto' AND ob.original_fee_due_minor IS NULL;
+
+UPDATE public.store_sale_fee_obligations ob
+   SET adjustment_status = 'review_required',
+       adjustment_trigger = o.order_status,
+       review_flagged_at = now()
+  FROM public.store_orders o
+ WHERE o.id = ob.order_id
+   AND o.order_status IN ('cancelled', 'refunded')
+   AND ob.adjustment_status = 'none'
+   AND ob.status <> 'waived'
+   AND ob.fee_due_minor > 0;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 4. Commission policy + calculation (SQL is the charge authority)
+--    Mirrors lib/stores/store-fee-policy-resolve.ts precedence and calculator.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.store_commission_resolve_policy(p_store_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cat uuid;
+  v_topic uuid;
+  v_row public.store_fee_policies%ROWTYPE;
+  v_scope text;
+BEGIN
+  SELECT store_category_id, store_topic_id INTO v_cat, v_topic FROM public.stores WHERE id = p_store_id;
+
+  SELECT * INTO v_row FROM public.store_fee_policies p
+   WHERE p.is_active AND NOT coalesce(p.is_archived, false)
+     AND (p.starts_at IS NULL OR p.starts_at <= now()) AND (p.ends_at IS NULL OR p.ends_at > now())
+     AND p.store_id = p_store_id
+   ORDER BY p.priority ASC, p.starts_at DESC NULLS FIRST, p.created_at DESC LIMIT 1;
+  IF FOUND THEN v_scope := 'store'; END IF;
+
+  IF v_scope IS NULL AND v_topic IS NOT NULL THEN
+    SELECT * INTO v_row FROM public.store_fee_policies p
+     WHERE p.is_active AND NOT coalesce(p.is_archived, false)
+       AND (p.starts_at IS NULL OR p.starts_at <= now()) AND (p.ends_at IS NULL OR p.ends_at > now())
+       AND p.store_id IS NULL AND p.topic_id = v_topic
+     ORDER BY p.priority ASC, p.starts_at DESC NULLS FIRST, p.created_at DESC LIMIT 1;
+    IF FOUND THEN v_scope := 'topic'; END IF;
+  END IF;
+
+  IF v_scope IS NULL AND v_cat IS NOT NULL THEN
+    SELECT * INTO v_row FROM public.store_fee_policies p
+     WHERE p.is_active AND NOT coalesce(p.is_archived, false)
+       AND (p.starts_at IS NULL OR p.starts_at <= now()) AND (p.ends_at IS NULL OR p.ends_at > now())
+       AND p.store_id IS NULL AND p.topic_id IS NULL AND p.category_id = v_cat
+     ORDER BY p.priority ASC, p.starts_at DESC NULLS FIRST, p.created_at DESC LIMIT 1;
+    IF FOUND THEN v_scope := 'category'; END IF;
+  END IF;
+
+  IF v_scope IS NULL THEN
+    SELECT * INTO v_row FROM public.store_fee_policies p
+     WHERE p.is_active AND NOT coalesce(p.is_archived, false)
+       AND (p.starts_at IS NULL OR p.starts_at <= now()) AND (p.ends_at IS NULL OR p.ends_at > now())
+       AND p.store_id IS NULL AND p.topic_id IS NULL AND p.category_id IS NULL
+     ORDER BY p.priority ASC, p.starts_at DESC NULLS FIRST, p.created_at DESC LIMIT 1;
+    IF FOUND THEN v_scope := 'default'; END IF;
+  END IF;
+
+  IF v_scope IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'policy_id', v_row.id,
+    'policy_name', v_row.policy_name,
+    'fee_percent', LEAST(100, GREATEST(0, coalesce(v_row.fee_percent, 0))),
+    'fixed_fee', GREATEST(0, round(coalesce(v_row.fixed_fee, 0))),
+    'delivery_fee_mode', coalesce(v_row.delivery_fee_mode, 'none'),
+    'delivery_fee_percent', LEAST(100, GREATEST(0, coalesce(v_row.delivery_fee_percent, 0))),
+    'scope', v_scope,
+    'source', 'store_fee_policies',
+    'raw', to_jsonb(v_row)
+  );
+END;
+$$;
+
+-- Internal Cash debit + obligation (no role gate; callers are gated).
+CREATE OR REPLACE FUNCTION public.store_commission_debit_internal(
+  p_store_id uuid,
+  p_order_id uuid,
+  p_settlement_id uuid,
+  p_commission_base_php bigint,
+  p_fee_due_minor bigint,
+  p_idempotency_key text,
+  p_charge_stage text,
+  p_fee_snapshot jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_existing public.store_sale_fee_obligations%ROWTYPE;
+  v_cash_avail bigint := 0;
+  v_cash_paid bigint := 0;
+  v_outstanding bigint := 0;
+  v_bc_bal bigint;
+  v_ledger uuid;
+  v_ob uuid;
+BEGIN
+  IF p_store_id IS NULL OR p_order_id IS NULL OR nullif(btrim(coalesce(p_idempotency_key, '')), '') IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
+  END IF;
+
+  SELECT * INTO v_existing FROM public.store_sale_fee_obligations
+   WHERE idempotency_key = p_idempotency_key OR order_id = p_order_id
+   LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'ok', true, 'idempotent', true, 'obligation_id', v_existing.id,
+      'fee_due_minor', v_existing.fee_due_minor, 'fee_paid_minor', v_existing.fee_paid_minor,
+      'fee_outstanding_minor', v_existing.fee_outstanding_minor
+    );
+  END IF;
+
+  IF coalesce(p_fee_due_minor, 0) <= 0 THEN
+    RETURN jsonb_build_object('ok', true, 'skipped', true, 'fee_due_minor', 0);
+  END IF;
+
+  PERFORM public.ensure_business_cash_account(p_store_id);
+  SELECT balance_minor INTO v_cash_avail FROM public.business_cash_accounts WHERE store_id = p_store_id FOR UPDATE;
+
+  v_cash_paid := LEAST(GREATEST(coalesce(v_cash_avail, 0), 0), p_fee_due_minor);
+  v_outstanding := p_fee_due_minor - v_cash_paid;
+
+  INSERT INTO public.store_sale_fee_obligations (
+    store_id, order_id, settlement_id, confirmed_revenue_php,
+    fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, idempotency_key, settled_at,
+    charge_stage, fee_snapshot, original_fee_due_minor
+  ) VALUES (
+    p_store_id, p_order_id, p_settlement_id, GREATEST(0, coalesce(p_commission_base_php, 0))::integer,
+    p_fee_due_minor, v_cash_paid, v_outstanding,
+    CASE WHEN v_outstanding <= 0 THEN 'settled' ELSE 'open' END,
+    p_idempotency_key,
+    CASE WHEN v_outstanding <= 0 THEN now() ELSE NULL END,
+    coalesce(p_charge_stage, 'completed'), p_fee_snapshot, p_fee_due_minor
+  ) RETURNING id INTO v_ob;
+
+  IF v_cash_paid > 0 THEN
+    UPDATE public.business_cash_accounts
+       SET balance_minor = balance_minor - v_cash_paid, updated_at = now()
+     WHERE store_id = p_store_id
+     RETURNING balance_minor INTO v_bc_bal;
+
+    INSERT INTO public.business_cash_ledger (
+      store_id, entry_kind, direction, amount_minor, balance_after_minor,
+      related_type, related_id, idempotency_key, actor_type, meta
+    ) VALUES (
+      p_store_id, 'SALE_FEE', 'debit', v_cash_paid, v_bc_bal,
+      'store_order', p_order_id::text, p_idempotency_key || ':cash', 'system',
+      jsonb_build_object('order_id', p_order_id, 'obligation_id', v_ob, 'settlement_id', p_settlement_id,
+                         'confirmed_revenue_php', p_commission_base_php, 'charge_stage', p_charge_stage,
+                         'fee_due_minor', p_fee_due_minor, 'fee_outstanding_minor', v_outstanding)
+    ) RETURNING id INTO v_ledger;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'ok', true, 'idempotent', false, 'obligation_id', v_ob,
+    'fee_due_minor', p_fee_due_minor, 'fee_paid_minor', v_cash_paid,
+    'fee_outstanding_minor', v_outstanding, 'cash_ledger_id', v_ledger
+  );
+END;
+$$;
+
+-- Existing service_role entry point keeps its signature; it now uses the shared internal writer.
+CREATE OR REPLACE FUNCTION public.charge_sale_fee_for_order(
+  p_store_id uuid,
+  p_order_id uuid,
+  p_settlement_id uuid,
+  p_confirmed_revenue_php integer,
+  p_fee_due_php integer,
+  p_idempotency_key text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
+  END IF;
+  RETURN public.store_commission_debit_internal(
+    p_store_id, p_order_id, p_settlement_id, p_confirmed_revenue_php,
+    GREATEST(0, coalesce(p_fee_due_php, 0))::bigint * 100,
+    nullif(btrim(coalesce(p_idempotency_key, '')), ''), 'completed', NULL
+  );
+END;
+$$;
+
+-- Commission charge for one order (policy + calculator + debit). Idempotent per order.
+CREATE OR REPLACE FUNCTION public.store_commission_charge_order_internal(p_order_id uuid, p_stage text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order record;
+  v_existing uuid;
+  v_policy jsonb;
+  v_base bigint;
+  v_delivery bigint;
+  v_pct numeric;
+  v_fixed bigint;
+  v_percent_fee bigint;
+  v_platform bigint;
+  v_delivery_income bigint := 0;
+  v_fee_php bigint;
+BEGIN
+  SELECT id INTO v_existing FROM public.store_sale_fee_obligations WHERE order_id = p_order_id;
+  IF FOUND THEN
+    RETURN jsonb_build_object('ok', true, 'idempotent', true, 'obligation_id', v_existing);
+  END IF;
+
+  SELECT id, store_id, payment_amount, gift_redemption_amount, platform_funded_amount, delivery_fee_amount
+    INTO v_order FROM public.store_orders WHERE id = p_order_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'order_not_found');
+  END IF;
+
+  v_base := GREATEST(0, trunc(coalesce(v_order.payment_amount, 0)))::bigint
+          + GREATEST(0, trunc(coalesce(v_order.gift_redemption_amount, 0)))::bigint
+          + GREATEST(0, trunc(coalesce(v_order.platform_funded_amount, 0)))::bigint;
+  IF v_base <= 0 THEN
+    RETURN jsonb_build_object('ok', true, 'skipped', true, 'reason', 'zero_base');
+  END IF;
+
+  v_policy := public.store_commission_resolve_policy(v_order.store_id);
+  IF v_policy IS NULL THEN
+    RAISE EXCEPTION 'store_commission_policy_missing store=%', v_order.store_id USING ERRCODE = 'P0001';
+  END IF;
+
+  v_delivery := GREATEST(0, trunc(coalesce(v_order.delivery_fee_amount, 0)))::bigint;
+  v_pct := (v_policy->>'fee_percent')::numeric;
+  v_fixed := (v_policy->>'fixed_fee')::bigint;
+  v_percent_fee := LEAST(v_base, floor(v_base * v_pct / 100))::bigint;
+  v_platform := LEAST(v_base, v_percent_fee + v_fixed);
+  IF v_policy->>'delivery_fee_mode' = 'percent' THEN
+    v_delivery_income := LEAST(v_delivery, floor(v_delivery * (v_policy->>'delivery_fee_percent')::numeric / 100))::bigint;
+  END IF;
+  v_fee_php := v_platform + v_delivery_income;
+
+  RETURN public.store_commission_debit_internal(
+    v_order.store_id, p_order_id, NULL, v_base, v_fee_php * 100,
+    'sale_fee:order:' || p_order_id::text, p_stage,
+    jsonb_build_object(
+      'policy_id', v_policy->'policy_id',
+      'policy', v_policy - 'policy_id',
+      'commission_base_php', v_base,
+      'delivery_fee_php', v_delivery,
+      'fee_percent', v_pct,
+      'platform_fee_php', v_percent_fee,
+      'fixed_fee_php', v_platform - v_percent_fee,
+      'delivery_income_php', v_delivery_income,
+      'fee_due_php', v_fee_php,
+      'charged_on_status', p_stage
+    )
+  );
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 5. Lifecycle trigger — charge / review flag inside the status transaction
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.store_orders_commission_lifecycle()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_res jsonb;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.order_status IS NOT DISTINCT FROM OLD.order_status THEN
+    RETURN NULL;
+  END IF;
+
+  IF NEW.order_status IN ('preparing', 'ready_for_pickup', 'delivering', 'arrived', 'completed') THEN
+    v_res := public.store_commission_charge_order_internal(NEW.id, NEW.order_status);
+    IF coalesce(v_res->>'ok', 'false') IS DISTINCT FROM 'true' THEN
+      RAISE EXCEPTION 'store_commission_charge_failed:%', coalesce(v_res->>'error', 'unknown')
+        USING ERRCODE = 'P0001';
+    END IF;
+  ELSIF NEW.order_status IN ('cancelled', 'refunded') THEN
+    UPDATE public.store_sale_fee_obligations
+       SET adjustment_status = 'review_required',
+           adjustment_trigger = NEW.order_status,
+           review_flagged_at = now()
+     WHERE order_id = NEW.id
+       AND adjustment_status = 'none'
+       AND status <> 'waived'
+       AND fee_due_minor > 0;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_store_orders_commission_lifecycle ON public.store_orders;
+CREATE TRIGGER trg_store_orders_commission_lifecycle
+  AFTER INSERT OR UPDATE OF order_status ON public.store_orders
+  FOR EACH ROW EXECUTE FUNCTION public.store_orders_commission_lifecycle();
+
+-- Kept for reconcile write path (legacy rows); the trigger is the runtime authority.
+CREATE OR REPLACE FUNCTION public.flag_store_commission_review(p_order_id uuid, p_trigger text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
+  END IF;
+  IF p_order_id IS NULL OR p_trigger IS NULL OR p_trigger NOT IN ('cancelled', 'refunded') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
+  END IF;
+  UPDATE public.store_sale_fee_obligations ob
+     SET adjustment_status = 'review_required', adjustment_trigger = p_trigger, review_flagged_at = now()
+    FROM public.store_orders o
+   WHERE ob.order_id = p_order_id AND o.id = ob.order_id AND o.order_status = p_trigger
+     AND ob.adjustment_status = 'none' AND ob.status <> 'waived' AND ob.fee_due_minor > 0
+  RETURNING ob.id INTO v_id;
+  IF v_id IS NULL THEN
+    RETURN jsonb_build_object('ok', true, 'skipped', true);
+  END IF;
+  RETURN jsonb_build_object('ok', true, 'obligation_id', v_id);
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 6. Admin decision — the ONLY commission refund path
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.admin_decide_store_commission_adjustment(
+  p_admin_user_id uuid,
+  p_order_id uuid,
+  p_decision text,
+  p_approved_minor bigint,
+  p_reason text,
+  p_idempotency_key text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_key text := nullif(btrim(coalesce(p_idempotency_key, '')), '');
+  v_reason text := nullif(btrim(coalesce(p_reason, '')), '');
+  v_prev public.store_commission_adjustments%ROWTYPE;
+  v_store uuid;
+  v_ob public.store_sale_fee_obligations%ROWTYPE;
+  v_order_status text;
+  v_total bigint;
+  v_approved bigint := 0;
+  v_cancel bigint := 0;
+  v_refund bigint := 0;
+  v_bal bigint;
+  v_ledger uuid;
+  v_adj uuid := gen_random_uuid();
+  v_new_due bigint;
+  v_new_out bigint;
+BEGIN
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
+  END IF;
+  IF p_admin_user_id IS NULL OR NOT public.is_platform_admin(p_admin_user_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'admin_required');
+  END IF;
+  IF p_order_id IS NULL OR v_key IS NULL OR p_decision IS NULL OR p_decision NOT IN ('approve', 'reject') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
+  END IF;
+  IF v_reason IS NULL OR char_length(v_reason) < 2 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'reason_required');
+  END IF;
+
+  -- Replay of the same request (double click / retry) returns the recorded decision.
+  SELECT * INTO v_prev FROM public.store_commission_adjustments WHERE idempotency_key = v_key;
+  IF FOUND THEN
+    IF v_prev.order_id IS DISTINCT FROM p_order_id THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'idempotency_key_reused');
+    END IF;
+    RETURN jsonb_build_object('ok', true, 'idempotent', true, 'adjustment_id', v_prev.id,
+      'decision', v_prev.decision, 'approved_minor', v_prev.approved_minor,
+      'cash_refund_minor', v_prev.cash_refund_minor, 'outstanding_cancel_minor', v_prev.outstanding_cancel_minor);
+  END IF;
+
+  SELECT store_id INTO v_store FROM public.store_sale_fee_obligations WHERE order_id = p_order_id;
+  IF v_store IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'obligation_not_found');
+  END IF;
+
+  -- Lock order: cash account → obligation (same as charge / settle).
+  PERFORM public.ensure_business_cash_account(v_store);
+  PERFORM 1 FROM public.business_cash_accounts WHERE store_id = v_store FOR UPDATE;
+  SELECT * INTO v_ob FROM public.store_sale_fee_obligations WHERE order_id = p_order_id FOR UPDATE;
+
+  IF v_ob.adjustment_status IS DISTINCT FROM 'review_required' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_in_review', 'adjustment_status', v_ob.adjustment_status);
+  END IF;
+  SELECT order_status INTO v_order_status FROM public.store_orders WHERE id = p_order_id;
+  IF v_order_status IS NULL OR v_order_status NOT IN ('cancelled', 'refunded') THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'order_not_closed', 'order_status', v_order_status);
+  END IF;
+
+  v_total := v_ob.fee_paid_minor + v_ob.fee_outstanding_minor;
+  IF p_decision = 'approve' THEN
+    v_approved := coalesce(p_approved_minor, v_total);
+    IF v_approved <= 0 OR v_approved > v_total THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_amount', 'max_minor', v_total);
+    END IF;
+    -- Unpaid commission is cancelled first; Cash is refunded only for what was actually paid.
+    v_cancel := LEAST(v_approved, v_ob.fee_outstanding_minor);
+    v_refund := v_approved - v_cancel;
+  END IF;
+
+  IF v_refund > 0 THEN
+    UPDATE public.business_cash_accounts
+       SET balance_minor = balance_minor + v_refund, updated_at = now()
+     WHERE store_id = v_store
+     RETURNING balance_minor INTO v_bal;
+    INSERT INTO public.business_cash_ledger (
+      store_id, entry_kind, direction, amount_minor, balance_after_minor,
+      related_type, related_id, idempotency_key, actor_type, actor_user_id, meta
+    ) VALUES (
+      v_store, 'SALE_FEE_REVERSAL', 'credit', v_refund, v_bal,
+      'store_commission_adjustment', v_adj::text, 'commission_adj:' || v_adj::text, 'admin', p_admin_user_id,
+      jsonb_build_object('order_id', p_order_id, 'obligation_id', v_ob.id, 'adjustment_id', v_adj,
+                         'approved_minor', v_approved, 'outstanding_cancel_minor', v_cancel)
+    ) RETURNING id INTO v_ledger;
+  END IF;
+
+  v_new_due := v_ob.fee_due_minor - v_approved;
+  v_new_out := v_ob.fee_outstanding_minor - v_cancel;
+  UPDATE public.store_sale_fee_obligations
+     SET fee_due_minor = v_new_due,
+         fee_paid_minor = fee_paid_minor - v_refund,
+         fee_outstanding_minor = v_new_out,
+         status = CASE WHEN v_new_due = 0 THEN 'waived' WHEN v_new_out = 0 THEN 'settled' ELSE 'open' END,
+         settled_at = CASE WHEN v_new_out = 0 THEN coalesce(settled_at, now()) ELSE settled_at END,
+         adjustment_status = CASE WHEN p_decision = 'approve' THEN 'refunded' ELSE 'kept' END
+   WHERE id = v_ob.id;
+
+  INSERT INTO public.store_commission_adjustments (
+    id, obligation_id, order_id, store_id, decision, trigger_status,
+    fee_charged_minor, fee_paid_minor_before, fee_outstanding_minor_before,
+    approved_minor, cash_refund_minor, outstanding_cancel_minor,
+    reason, admin_user_id, cash_ledger_id, idempotency_key
+  ) VALUES (
+    v_adj, v_ob.id, p_order_id, v_store, p_decision, v_order_status,
+    coalesce(v_ob.original_fee_due_minor, v_ob.fee_due_minor), v_ob.fee_paid_minor, v_ob.fee_outstanding_minor,
+    v_approved, v_refund, v_cancel,
+    v_reason, p_admin_user_id, v_ledger, v_key
+  );
+
+  RETURN jsonb_build_object(
+    'ok', true, 'idempotent', false, 'adjustment_id', v_adj, 'decision', p_decision,
+    'approved_minor', v_approved, 'cash_refund_minor', v_refund, 'outstanding_cancel_minor', v_cancel,
+    'cash_ledger_id', v_ledger
+  );
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 7. Order gate (NET <= 0 → no new orders)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 INSERT INTO public.admin_settings (key, value_json)
@@ -98,11 +707,9 @@ DECLARE
   v_mode text := public.store_cash_order_gate_mode();
   v_net bigint;
 BEGIN
-  SELECT coalesce(balance_minor, 0) INTO v_balance
-    FROM public.business_cash_accounts WHERE store_id = p_store_id;
+  SELECT coalesce(balance_minor, 0) INTO v_balance FROM public.business_cash_accounts WHERE store_id = p_store_id;
   SELECT coalesce(sum(fee_outstanding_minor), 0) INTO v_outstanding
-    FROM public.store_sale_fee_obligations
-   WHERE store_id = p_store_id AND status = 'open';
+    FROM public.store_sale_fee_obligations WHERE store_id = p_store_id AND status = 'open';
   v_net := coalesce(v_balance, 0) - coalesce(v_outstanding, 0);
   RETURN jsonb_build_object(
     'store_id', p_store_id,
@@ -115,12 +722,6 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.store_cash_order_gate_mode() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.store_cash_position(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.store_cash_order_gate_mode() TO service_role;
-GRANT EXECUTE ON FUNCTION public.store_cash_position(uuid) TO service_role;
-
--- Atomic gate: every store_orders INSERT (create_store_order_atomic) passes here.
 CREATE OR REPLACE FUNCTION public.store_orders_enforce_cash_order_gate()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -136,14 +737,11 @@ BEGIN
   v_pos := public.store_cash_position(NEW.store_id);
   IF coalesce((v_pos->>'orderable')::boolean, true) IS NOT TRUE THEN
     RAISE EXCEPTION 'store_cash_insufficient'
-      USING ERRCODE = 'P0001',
-            DETAIL = 'net_minor=' || coalesce(v_pos->>'net_minor', '0');
+      USING ERRCODE = 'P0001', DETAIL = 'net_minor=' || coalesce(v_pos->>'net_minor', '0');
   END IF;
   RETURN NEW;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.store_orders_enforce_cash_order_gate() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_store_orders_cash_order_gate ON public.store_orders;
 CREATE TRIGGER trg_store_orders_cash_order_gate
@@ -151,215 +749,259 @@ CREATE TRIGGER trg_store_orders_cash_order_gate
   FOR EACH ROW EXECUTE FUNCTION public.store_orders_enforce_cash_order_gate();
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- charge_store_commission_for_order — canonical charge (stage + frozen snapshot)
--- Callee charge_sale_fee_for_order stays the single Cash debit writer.
+-- 8. Read SSOT — one server computation for Admin and Owner (no row caps on totals)
 -- ═══════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE FUNCTION public.charge_store_commission_for_order(
-  p_store_id uuid,
-  p_order_id uuid,
-  p_charge_stage text,
-  p_commission_base_php integer,
-  p_fee_due_php integer,
-  p_fee_snapshot jsonb,
-  p_idempotency_key text
+CREATE OR REPLACE FUNCTION public.store_commission_ledger_page(
+  p_store_ids uuid[],
+  p_from timestamptz,
+  p_to timestamptz,
+  p_state text,
+  p_order_no text,
+  p_limit integer,
+  p_offset integer
 )
 RETURNS jsonb
-LANGUAGE plpgsql
+LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  v_fee jsonb;
-BEGIN
-  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
-  END IF;
-  IF p_charge_stage IS NULL OR p_charge_stage NOT IN ('preparing', 'completed') THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'invalid_charge_stage');
-  END IF;
-
-  -- Serialize per order so a concurrent preparing/completed pair charges once.
-  PERFORM 1 FROM public.store_orders WHERE id = p_order_id FOR UPDATE;
-
-  v_fee := public.charge_sale_fee_for_order(
-    p_store_id,
-    p_order_id,
-    NULL,
-    GREATEST(0, coalesce(p_commission_base_php, 0)),
-    GREATEST(0, coalesce(p_fee_due_php, 0)),
-    p_idempotency_key
+  WITH base AS (
+    SELECT ob.*, o.order_no, o.order_status, o.buyer_payment_method, s.store_name,
+           a.id AS adj_id, a.decision AS adj_decision, a.approved_minor AS adj_approved,
+           a.cash_refund_minor AS adj_cash, a.outstanding_cancel_minor AS adj_cancel,
+           a.reason AS adj_reason, a.admin_user_id AS adj_admin, a.created_at AS adj_at,
+           coalesce(ob.original_fee_due_minor, ob.fee_due_minor + coalesce(a.approved_minor, 0)) AS fee_charged,
+           -- Debt first: a partially refunded or rejected row that still owes shows as outstanding.
+           CASE
+             WHEN ob.adjustment_status = 'review_required' THEN 'review_required'
+             WHEN ob.fee_outstanding_minor > 0 THEN 'outstanding'
+             WHEN ob.adjustment_status = 'refunded' OR ob.status = 'waived' THEN 'refunded'
+             WHEN ob.adjustment_status = 'kept' THEN 'kept'
+             ELSE 'charged'
+           END AS state
+      FROM public.store_sale_fee_obligations ob
+      JOIN public.store_orders o ON o.id = ob.order_id
+      JOIN public.stores s ON s.id = ob.store_id
+      LEFT JOIN public.store_commission_adjustments a ON a.obligation_id = ob.id
+     WHERE (p_store_ids IS NULL OR ob.store_id = ANY (p_store_ids))
+       AND (p_from IS NULL OR ob.created_at >= p_from)
+       AND (p_to IS NULL OR ob.created_at < p_to)
+       AND (nullif(btrim(coalesce(p_order_no, '')), '') IS NULL OR o.order_no ILIKE '%' || btrim(p_order_no) || '%')
+  ),
+  filtered AS (
+    SELECT * FROM base
+     WHERE p_state IS NULL OR p_state = 'all' OR state = p_state
+        OR (p_state = 'decided' AND adj_id IS NOT NULL)
+  ),
+  sums AS (
+    SELECT count(*) AS n,
+           coalesce(sum(confirmed_revenue_php), 0) AS base_php,
+           coalesce(sum(fee_charged), 0) AS charged,
+           coalesce(sum(fee_paid_minor), 0) AS paid,
+           coalesce(sum(fee_outstanding_minor), 0) AS outstanding,
+           coalesce(sum(adj_cash), 0) AS refunded,
+           coalesce(sum(adj_cancel), 0) AS cancelled,
+           count(*) FILTER (WHERE state = 'review_required') AS review_n,
+           coalesce(sum(fee_charged) FILTER (WHERE state = 'review_required'), 0) AS review_fee
+      FROM filtered
+  )
+  SELECT jsonb_build_object(
+    'total', (SELECT n FROM sums),
+    'summary', (
+      SELECT jsonb_build_object(
+        'count', n,
+        'commission_base_php', base_php,
+        'fee_charged_minor', charged,
+        'fee_paid_minor', paid,
+        'fee_outstanding_minor', outstanding,
+        'cash_refunded_minor', refunded,
+        'outstanding_cancelled_minor', cancelled,
+        'net_commission_minor', charged - refunded - cancelled,
+        'review_count', review_n,
+        'review_fee_minor', review_fee,
+        'reconciles', charged = paid + outstanding + refunded + cancelled
+      ) FROM sums
+    ),
+    'rows', coalesce((
+      SELECT jsonb_agg(r ORDER BY r.created_at DESC, r.id) FROM (
+        SELECT id, store_id, store_name, order_id, order_no, order_status, buyer_payment_method,
+               charge_stage, created_at, confirmed_revenue_php, fee_snapshot, fee_charged,
+               fee_paid_minor, fee_outstanding_minor, status, adjustment_status, adjustment_trigger,
+               review_flagged_at, state, adj_id, adj_decision, adj_approved, adj_cash, adj_cancel,
+               adj_reason, adj_admin, adj_at
+          FROM filtered
+         ORDER BY created_at DESC, id
+         LIMIT LEAST(500, GREATEST(1, coalesce(p_limit, 100)))
+        OFFSET GREATEST(0, coalesce(p_offset, 0))
+      ) r
+    ), '[]'::jsonb)
   );
-
-  IF coalesce(v_fee->>'ok', 'false') = 'true'
-     AND coalesce((v_fee->>'idempotent')::boolean, false) IS NOT TRUE
-     AND coalesce((v_fee->>'skipped')::boolean, false) IS NOT TRUE THEN
-    UPDATE public.store_sale_fee_obligations
-       SET charge_stage = p_charge_stage,
-           fee_snapshot = p_fee_snapshot,
-           original_fee_due_minor = fee_due_minor
-     WHERE order_id = p_order_id;
-  END IF;
-
-  RETURN v_fee;
-END;
 $$;
 
-REVOKE ALL ON FUNCTION public.charge_store_commission_for_order(uuid, uuid, text, integer, integer, jsonb, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.charge_store_commission_for_order(uuid, uuid, text, integer, integer, jsonb, text)
-  TO service_role;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- flag_store_commission_review — cancel/refund after charge → manual review
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE OR REPLACE FUNCTION public.flag_store_commission_review(
-  p_order_id uuid,
-  p_trigger text
+CREATE OR REPLACE FUNCTION public.store_cash_ledger_page(
+  p_store_ids uuid[],
+  p_from timestamptz,
+  p_to timestamptz,
+  p_kinds text[],
+  p_limit integer,
+  p_offset integer
 )
 RETURNS jsonb
-LANGUAGE plpgsql
+LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  v_id uuid;
-BEGIN
-  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
-  END IF;
-  IF p_order_id IS NULL OR p_trigger IS NULL OR p_trigger NOT IN ('cancelled', 'refunded') THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
-  END IF;
-
-  UPDATE public.store_sale_fee_obligations
-     SET adjustment_status = 'review_required',
-         adjustment_trigger = p_trigger,
-         review_flagged_at = now()
-   WHERE order_id = p_order_id
-     AND adjustment_status = 'none'
-     AND status <> 'waived'
-     AND fee_due_minor > 0
-  RETURNING id INTO v_id;
-
-  IF v_id IS NULL THEN
-    RETURN jsonb_build_object('ok', true, 'skipped', true);
-  END IF;
-  RETURN jsonb_build_object('ok', true, 'obligation_id', v_id);
-END;
+  -- Opening/closing are ledger sums (order-independent: rows written in one transaction share
+  -- created_at, so "last balance_after" is ambiguous). `ledger_reconciles` says whether the
+  -- ledger sum equals the live account balance for the selected stores.
+  WITH opening AS (
+    SELECT coalesce(sum(CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END), 0) AS v
+      FROM public.business_cash_ledger
+     WHERE (p_store_ids IS NULL OR store_id = ANY (p_store_ids))
+       AND p_from IS NOT NULL AND created_at < p_from
+  ),
+  closing AS (
+    SELECT coalesce(sum(CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END), 0) AS v
+      FROM public.business_cash_ledger
+     WHERE (p_store_ids IS NULL OR store_id = ANY (p_store_ids))
+       AND (p_to IS NULL OR created_at < p_to)
+  ),
+  recon AS (
+    SELECT coalesce(jsonb_agg(a.store_id) FILTER (
+             WHERE a.balance_minor <> coalesce((
+               SELECT sum(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END)
+                 FROM public.business_cash_ledger l WHERE l.store_id = a.store_id), 0)), '[]'::jsonb) AS mismatched
+      FROM public.business_cash_accounts a
+     WHERE p_store_ids IS NULL OR a.store_id = ANY (p_store_ids)
+  ),
+  period AS (
+    SELECT l.* FROM public.business_cash_ledger l
+     WHERE (p_store_ids IS NULL OR l.store_id = ANY (p_store_ids))
+       AND (p_from IS NULL OR l.created_at >= p_from)
+       AND (p_to IS NULL OR l.created_at < p_to)
+  ),
+  filtered AS (
+    SELECT * FROM period WHERE p_kinds IS NULL OR entry_kind = ANY (p_kinds)
+  )
+  SELECT jsonb_build_object(
+    'opening_minor', (SELECT v FROM opening),
+    'closing_minor', (SELECT v FROM closing),
+    'ledger_mismatch_store_ids', (SELECT mismatched FROM recon),
+    'credit_minor', (SELECT coalesce(sum(amount_minor) FILTER (WHERE direction = 'credit'), 0) FROM period),
+    'debit_minor', (SELECT coalesce(sum(amount_minor) FILTER (WHERE direction = 'debit'), 0) FROM period),
+    'by_kind', coalesce((SELECT jsonb_object_agg(entry_kind, total) FROM (
+        SELECT entry_kind, sum(CASE WHEN direction = 'credit' THEN amount_minor ELSE -amount_minor END) AS total
+          FROM period GROUP BY entry_kind) k), '{}'::jsonb),
+    'total', (SELECT count(*) FROM filtered),
+    'rows', coalesce((
+      SELECT jsonb_agg(r ORDER BY r.created_at DESC, r.id DESC) FROM (
+        SELECT f.id, f.store_id, s.store_name, f.entry_kind, f.direction, f.amount_minor,
+               f.balance_after_minor, f.related_type, f.related_id, f.actor_type, f.created_at,
+               f.meta->>'order_id' AS order_id
+          FROM filtered f JOIN public.stores s ON s.id = f.store_id
+         ORDER BY f.created_at DESC, f.id DESC
+         LIMIT LEAST(500, GREATEST(1, coalesce(p_limit, 100)))
+        OFFSET GREATEST(0, coalesce(p_offset, 0))
+      ) r
+    ), '[]'::jsonb)
+  );
 $$;
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 9. Integrity report — invariants over the real ledgers (read-only)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.store_commission_integrity_report(p_store_ids uuid[] DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH ob AS (
+    SELECT * FROM public.store_sale_fee_obligations
+     WHERE p_store_ids IS NULL OR store_id = ANY (p_store_ids)
+  ),
+  i1 AS (  -- charged = remaining due + approved adjustments
+    SELECT ob.id FROM ob LEFT JOIN public.store_commission_adjustments a ON a.obligation_id = ob.id
+     WHERE ob.original_fee_due_minor IS NOT NULL
+       AND ob.original_fee_due_minor <> ob.fee_due_minor + coalesce(a.approved_minor, 0)
+  ),
+  i2 AS (  -- Cash actually taken for the order = fee_paid_minor
+    SELECT ob.id FROM ob
+     WHERE ob.fee_paid_minor <> (
+       coalesce((SELECT sum(l.amount_minor) FROM public.business_cash_ledger l
+                  WHERE l.entry_kind = 'SALE_FEE' AND l.related_type = 'store_order' AND l.related_id = ob.order_id::text), 0)
+     + coalesce((SELECT sum(l.amount_minor) FROM public.business_cash_ledger l
+                  WHERE l.entry_kind = 'SALE_FEE_SETTLEMENT' AND l.related_id = ob.id::text), 0)
+     - coalesce((SELECT sum(l.amount_minor) FROM public.business_cash_ledger l
+                  WHERE l.entry_kind = 'SALE_FEE_REVERSAL'
+                    AND (l.related_id = ob.order_id::text
+                         OR l.related_id IN (SELECT a.id::text FROM public.store_commission_adjustments a WHERE a.obligation_id = ob.id))), 0))
+  ),
+  i3 AS (  -- status matches amounts
+    SELECT ob.id FROM ob
+     WHERE (ob.status = 'open' AND ob.fee_outstanding_minor = 0)
+        OR (ob.status = 'settled' AND ob.fee_outstanding_minor <> 0)
+        OR (ob.status = 'waived' AND ob.fee_due_minor <> 0)
+  ),
+  i4 AS (  -- closed order with a live fee must be in review or decided
+    SELECT ob.id FROM ob JOIN public.store_orders o ON o.id = ob.order_id
+     WHERE o.order_status IN ('cancelled', 'refunded') AND ob.adjustment_status = 'none'
+       AND ob.status <> 'waived' AND ob.fee_due_minor > 0
+  ),
+  acct AS (
+    SELECT a.store_id, a.balance_minor,
+           (SELECT coalesce(sum(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END), 0)
+              FROM public.business_cash_ledger l WHERE l.store_id = a.store_id) AS ledger_sum
+      FROM public.business_cash_accounts a
+     WHERE p_store_ids IS NULL OR a.store_id = ANY (p_store_ids)
+  ),
+  i6 AS (SELECT store_id FROM acct WHERE balance_minor <> ledger_sum),
+  i7 AS (SELECT id FROM ob WHERE original_fee_due_minor IS NULL)
+  SELECT jsonb_build_object(
+    'obligations', (SELECT count(*) FROM ob),
+    'charged_eq_due_plus_adjustments', jsonb_build_object('violations', (SELECT count(*) FROM i1), 'ids', (SELECT coalesce(jsonb_agg(id), '[]') FROM (SELECT id FROM i1 LIMIT 50) x)),
+    'cash_ledger_eq_fee_paid', jsonb_build_object('violations', (SELECT count(*) FROM i2), 'ids', (SELECT coalesce(jsonb_agg(id), '[]') FROM (SELECT id FROM i2 LIMIT 50) x)),
+    'status_matches_amounts', jsonb_build_object('violations', (SELECT count(*) FROM i3), 'ids', (SELECT coalesce(jsonb_agg(id), '[]') FROM (SELECT id FROM i3 LIMIT 50) x)),
+    'closed_orders_reviewed', jsonb_build_object('violations', (SELECT count(*) FROM i4), 'ids', (SELECT coalesce(jsonb_agg(id), '[]') FROM (SELECT id FROM i4 LIMIT 50) x)),
+    'balance_eq_ledger_sum', jsonb_build_object('violations', (SELECT count(*) FROM i6), 'ids', (SELECT coalesce(jsonb_agg(store_id), '[]') FROM (SELECT store_id FROM i6 LIMIT 50) x)),
+    'original_unknown', jsonb_build_object('count', (SELECT count(*) FROM i7), 'ids', (SELECT coalesce(jsonb_agg(id), '[]') FROM (SELECT id FROM i7 LIMIT 50) x))
+  );
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 10. Execute grants
+-- ═══════════════════════════════════════════════════════════════════════════
+
+REVOKE ALL ON FUNCTION public.store_commission_resolve_policy(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_commission_debit_internal(uuid, uuid, uuid, bigint, bigint, text, text, jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.store_commission_charge_order_internal(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.store_orders_commission_lifecycle() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.store_orders_enforce_cash_order_gate() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.store_commission_adjustments_immutable() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.charge_sale_fee_for_order(uuid, uuid, uuid, integer, integer, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.flag_store_commission_review(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.admin_decide_store_commission_adjustment(uuid, uuid, text, bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_cash_order_gate_mode() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_cash_position(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_commission_ledger_page(uuid[], timestamptz, timestamptz, text, text, integer, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_cash_ledger_page(uuid[], timestamptz, timestamptz, text[], integer, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_commission_integrity_report(uuid[]) FROM PUBLIC, anon, authenticated;
+-- Legacy automatic full reversal would bypass the manual review → no caller may execute it.
+REVOKE ALL ON FUNCTION public.reverse_sale_fee_for_order(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+
+GRANT EXECUTE ON FUNCTION public.store_commission_resolve_policy(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.charge_sale_fee_for_order(uuid, uuid, uuid, integer, integer, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.flag_store_commission_review(uuid, text) TO service_role;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- admin_resolve_store_commission_adjustment — the ONLY fee refund path
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE OR REPLACE FUNCTION public.admin_resolve_store_commission_adjustment(
-  p_admin_user_id uuid,
-  p_order_id uuid,
-  p_decision text,
-  p_note text
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_ob public.store_sale_fee_obligations%ROWTYPE;
-  v_order_status text;
-  v_note text := nullif(btrim(coalesce(p_note, '')), '');
-  v_rev jsonb;
-  v_refunded bigint := 0;
-  v_cancelled bigint := 0;
-BEGIN
-  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
-  END IF;
-  IF p_admin_user_id IS NULL OR NOT public.is_platform_admin(p_admin_user_id) THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'admin_required');
-  END IF;
-  IF p_order_id IS NULL OR p_decision IS NULL OR p_decision NOT IN ('refund', 'keep') THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
-  END IF;
-  IF v_note IS NULL OR char_length(v_note) < 2 THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'note_required');
-  END IF;
-
-  SELECT * INTO v_ob
-    FROM public.store_sale_fee_obligations
-   WHERE order_id = p_order_id
-   FOR UPDATE;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'obligation_not_found');
-  END IF;
-  IF v_ob.adjustment_status IS DISTINCT FROM 'review_required' THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'not_in_review', 'adjustment_status', v_ob.adjustment_status);
-  END IF;
-
-  SELECT order_status INTO v_order_status FROM public.store_orders WHERE id = p_order_id;
-  IF v_order_status IS NULL OR v_order_status NOT IN ('cancelled', 'refunded') THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'order_not_closed', 'order_status', v_order_status);
-  END IF;
-
-  IF p_decision = 'refund' THEN
-    v_rev := public.reverse_sale_fee_for_order(p_order_id, 'sale_fee_reversal:order:' || p_order_id::text);
-    IF coalesce(v_rev->>'ok', 'false') IS DISTINCT FROM 'true' THEN
-      RAISE EXCEPTION 'store_commission_refund_failed:%', coalesce(v_rev->>'error', 'reverse_failed')
-        USING ERRCODE = 'P0001';
-    END IF;
-    v_refunded := coalesce((v_rev->>'cash_credited_minor')::bigint, 0);
-    v_cancelled := coalesce((v_rev->>'outstanding_cancelled_minor')::bigint, 0);
-    UPDATE public.store_sale_fee_obligations
-       SET adjustment_status = 'refunded',
-           adjustment_note = v_note,
-           adjusted_by = p_admin_user_id,
-           adjusted_at = now(),
-           adjustment_cash_refunded_minor = v_refunded,
-           adjustment_outstanding_cancelled_minor = v_cancelled
-     WHERE id = v_ob.id;
-  ELSE
-    UPDATE public.store_sale_fee_obligations
-       SET adjustment_status = 'kept',
-           adjustment_note = v_note,
-           adjusted_by = p_admin_user_id,
-           adjusted_at = now()
-     WHERE id = v_ob.id;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'ok', true,
-    'order_id', p_order_id,
-    'obligation_id', v_ob.id,
-    'decision', p_decision,
-    'cash_refunded_minor', v_refunded,
-    'outstanding_cancelled_minor', v_cancelled
-  );
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.admin_resolve_store_commission_adjustment(uuid, uuid, text, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_resolve_store_commission_adjustment(uuid, uuid, text, text)
-  TO service_role;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- Backfill: already-closed orders whose fee was never reversed → review queue
--- (no money moves here; an admin decides each one).
--- ═══════════════════════════════════════════════════════════════════════════
-
-UPDATE public.store_sale_fee_obligations ob
-   SET adjustment_status = 'review_required',
-       adjustment_trigger = o.order_status,
-       review_flagged_at = now()
-  FROM public.store_orders o
- WHERE o.id = ob.order_id
-   AND o.order_status IN ('cancelled', 'refunded')
-   AND ob.adjustment_status = 'none'
-   AND ob.status <> 'waived'
-   AND ob.fee_due_minor > 0;
+GRANT EXECUTE ON FUNCTION public.admin_decide_store_commission_adjustment(uuid, uuid, text, bigint, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_cash_order_gate_mode() TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_cash_position(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_commission_ledger_page(uuid[], timestamptz, timestamptz, text, text, integer, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_cash_ledger_page(uuid[], timestamptz, timestamptz, text[], integer, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_commission_integrity_report(uuid[]) TO service_role;
 
 COMMIT;

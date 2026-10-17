@@ -1,16 +1,12 @@
 /**
- * Store commission writers — the ONLY TS entry points that move commission money.
+ * Store commission — server entry points. Money moves ONLY inside DB functions:
+ *   - charge / review flag: trigger `trg_store_orders_commission_lifecycle` (status transaction)
+ *   - refund decision: `admin_decide_store_commission_adjustment`
+ * This module never computes or writes commission money itself.
  * Contract: lib/stores/commission/store-commission-contract.ts
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { saleFeeIdempotencyKeyForOrder } from "@/lib/stores/confirmed-sale-revenue";
-import {
-  buildAppliedFeePolicySnapshot,
-  calculateOrderCommission,
-  isMissingStoreFeePolicy,
-  resolveEffectiveStoreFeePolicy,
-  type EffectiveStoreFeePolicy,
-} from "@/lib/stores/store-fee-policy-resolve";
+import type { EffectiveStoreFeePolicy } from "@/lib/stores/store-fee-policy-resolve";
 import {
   computeStoreCashPosition,
   normalizeStoreCashOrderGateMode,
@@ -18,8 +14,7 @@ import {
   STORE_COMMISSION_RPC,
   type StoreCashOrderGateMode,
   type StoreCashPosition,
-  type StoreCommissionAdjustmentDecision,
-  type StoreCommissionChargeStage,
+  type StoreCommissionDecision,
 } from "@/lib/stores/commission/store-commission-contract";
 
 function isMissingRpc(message: string | undefined): boolean {
@@ -31,107 +26,10 @@ function money(n: unknown): number {
   return Number.isFinite(v) ? Math.max(0, v) : 0;
 }
 
-export type StoreCommissionQuote = {
-  storeId: string;
-  orderId: string;
-  /** payment + gift redemption + platform-funded coupon (PHP). Store-funded coupon is not revenue. */
-  commissionBasePhp: number;
-  feeDuePhp: number;
-  snapshot: Record<string, unknown>;
-};
-
 /**
- * Commission base and fee for an order — frozen at charge time.
- * Policy precedence follows `resolveEffectiveStoreFeePolicy`; a legacy settlement snapshot wins
- * so an order that already has a settlement row is charged with the same numbers.
- */
-export async function quoteStoreCommissionForOrder(
-  sb: SupabaseClient,
-  orderId: string
-): Promise<{ ok: true; quote: StoreCommissionQuote } | { ok: false; error: string }> {
-  const oid = orderId.trim();
-  if (!oid) return { ok: false, error: "missing_order_id" };
-
-  const { data: order, error } = await sb
-    .from("store_orders")
-    .select("id, store_id, payment_amount, gift_redemption_amount, platform_funded_amount, delivery_fee_amount")
-    .eq("id", oid)
-    .maybeSingle();
-  if (error || !order) return { ok: false, error: "order_not_found" };
-
-  const storeId = String(order.store_id ?? "").trim();
-  if (!storeId) return { ok: false, error: "missing_store_id" };
-
-  const commissionBasePhp =
-    money(order.payment_amount) + money(order.gift_redemption_amount) + money(order.platform_funded_amount);
-  const deliveryFeeAmount = money(order.delivery_fee_amount);
-
-  const { data: settlement } = await sb
-    .from("store_settlements")
-    .select("applied_fee_policy_id, applied_fee_policy_snapshot")
-    .eq("order_id", oid)
-    .maybeSingle();
-  const legacySnap = settlement?.applied_fee_policy_snapshot as Record<string, unknown> | null | undefined;
-
-  let policyId: string | null;
-  let policySnapshot: Record<string, unknown>;
-  let feePercent: number;
-  let fixedFee: number;
-  let deliveryFeeMode: string;
-  let deliveryFeePercent: number;
-  if (legacySnap && typeof legacySnap === "object") {
-    policyId = settlement?.applied_fee_policy_id ? String(settlement.applied_fee_policy_id) : null;
-    policySnapshot = legacySnap;
-    feePercent = Number(legacySnap.fee_percent ?? 0) || 0;
-    fixedFee = money(legacySnap.fixed_fee);
-    deliveryFeeMode = String(legacySnap.delivery_fee_mode ?? "none");
-    deliveryFeePercent = Number(legacySnap.delivery_fee_percent ?? 0) || 0;
-  } else {
-    const policy = await resolveEffectiveStoreFeePolicy(sb, { storeId });
-    if (isMissingStoreFeePolicy(policy)) return { ok: false, error: "missing_fee_policy" };
-    policyId = policy.policyId;
-    policySnapshot = buildAppliedFeePolicySnapshot(policy);
-    feePercent = policy.feePercent;
-    fixedFee = policy.fixedFee;
-    deliveryFeeMode = policy.deliveryFeeMode;
-    deliveryFeePercent = policy.deliveryFeePercent;
-  }
-
-  const calc = calculateOrderCommission({
-    commissionBaseAmount: commissionBasePhp,
-    deliveryFeeAmount,
-    feePercent,
-    fixedFee,
-    deliveryFeeMode,
-    deliveryFeePercent,
-  });
-  const feeDuePhp = calc.totalPlatformFeeAmount + calc.deliveryIncomeAmount;
-
-  return {
-    ok: true,
-    quote: {
-      storeId,
-      orderId: oid,
-      commissionBasePhp,
-      feeDuePhp,
-      snapshot: {
-        policy_id: policyId,
-        policy: policySnapshot,
-        commission_base_php: calc.commissionBaseAmount,
-        delivery_fee_php: deliveryFeeAmount,
-        fee_percent: calc.platformFeePercent,
-        platform_fee_php: calc.platformFeeAmount,
-        fixed_fee_php: calc.fixedFeeAmount,
-        delivery_income_php: calc.deliveryIncomeAmount,
-        fee_due_php: feeDuePhp,
-      },
-    },
-  };
-}
-
-/**
- * Policy frozen on the order's commission row (charged at 조리 시작), or null when the order
- * has no commission row yet. Shape matches `resolveEffectiveStoreFeePolicy`.
+ * Policy frozen on the order's commission row when it was charged, or null when the order has
+ * no commission row. Shape matches `resolveEffectiveStoreFeePolicy` (used by the settlement
+ * snapshot so it never re-resolves a different policy).
  */
 export async function loadFrozenCommissionPolicyForOrder(
   sb: SupabaseClient,
@@ -158,57 +56,7 @@ export async function loadFrozenCommissionPolicyForOrder(
   };
 }
 
-export type ChargeStoreCommissionResult =
-  | {
-      ok: true;
-      skipped?: boolean;
-      idempotent?: boolean;
-      feeDueMinor?: number;
-      feePaidMinor?: number;
-      feeOutstandingMinor?: number;
-    }
-  | { ok: false; error: string };
-
-/**
- * Charge the order's commission from Business Cash. Idempotent per order
- * (`sale_fee:order:{id}`): calling at `preparing` and again at `completed` charges once.
- */
-export async function chargeStoreCommissionForOrder(
-  sb: SupabaseClient,
-  orderId: string,
-  stage: StoreCommissionChargeStage
-): Promise<ChargeStoreCommissionResult> {
-  const q = await quoteStoreCommissionForOrder(sb, orderId);
-  if (!q.ok) return q;
-  const { quote } = q;
-  if (quote.commissionBasePhp <= 0 || quote.feeDuePhp <= 0) return { ok: true, skipped: true };
-
-  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.charge, {
-    p_store_id: quote.storeId,
-    p_order_id: quote.orderId,
-    p_charge_stage: stage,
-    p_commission_base_php: quote.commissionBasePhp,
-    p_fee_due_php: quote.feeDuePhp,
-    p_fee_snapshot: quote.snapshot,
-    p_idempotency_key: saleFeeIdempotencyKeyForOrder(quote.orderId),
-  });
-  if (error) {
-    if (isMissingRpc(error.message)) return { ok: false, error: "rpc_missing" };
-    return { ok: false, error: error.message };
-  }
-  const row = (data ?? {}) as Record<string, unknown>;
-  if (row.ok === false) return { ok: false, error: String(row.error ?? "charge_failed") };
-  return {
-    ok: true,
-    skipped: row.skipped === true,
-    idempotent: row.idempotent === true,
-    feeDueMinor: Number(row.fee_due_minor) || 0,
-    feePaidMinor: Number(row.fee_paid_minor) || 0,
-    feeOutstandingMinor: Number(row.fee_outstanding_minor) || 0,
-  };
-}
-
-/** Cancel / refund after charge → manual review queue. Never moves money. */
+/** Reconcile-only: queue a legacy closed order whose live commission was never reviewed. */
 export async function flagStoreCommissionReview(
   sb: SupabaseClient,
   orderId: string,
@@ -229,57 +77,101 @@ export async function flagStoreCommissionReview(
   return { ok: true, flagged: row.skipped !== true };
 }
 
-export type ResolveStoreCommissionAdjustmentResult =
-  | { ok: true; cashRefundedMinor: number; outstandingCancelledMinor: number }
-  | { ok: false; error: string };
+export type DecideStoreCommissionResult =
+  | {
+      ok: true;
+      idempotent: boolean;
+      adjustmentId: string;
+      decision: StoreCommissionDecision;
+      approvedMinor: number;
+      cashRefundMinor: number;
+      outstandingCancelMinor: number;
+    }
+  | { ok: false; error: string; maxMinor?: number };
 
-/** Admin decision on a `review_required` commission — the only fee refund path. */
-export async function resolveStoreCommissionAdjustment(
+/** Admin decision on a `review_required` commission — the only commission refund path. */
+export async function decideStoreCommissionAdjustment(
   sb: SupabaseClient,
   input: {
     adminUserId: string;
     orderId: string;
-    decision: StoreCommissionAdjustmentDecision;
-    note: string;
+    decision: StoreCommissionDecision;
+    /** null = full amount (approve). Ignored for reject. */
+    approvedMinor: number | null;
+    reason: string;
+    idempotencyKey: string;
   }
-): Promise<ResolveStoreCommissionAdjustmentResult> {
-  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.resolveAdjustment, {
+): Promise<DecideStoreCommissionResult> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.decide, {
     p_admin_user_id: input.adminUserId,
     p_order_id: input.orderId.trim(),
     p_decision: input.decision,
-    p_note: input.note,
+    p_approved_minor: input.decision === "approve" ? input.approvedMinor : null,
+    p_reason: input.reason,
+    p_idempotency_key: input.idempotencyKey,
   });
   if (error) {
     if (isMissingRpc(error.message)) return { ok: false, error: "rpc_missing" };
     return { ok: false, error: error.message };
   }
   const row = (data ?? {}) as Record<string, unknown>;
-  if (row.ok === false) return { ok: false, error: String(row.error ?? "resolve_failed") };
+  if (row.ok === false) {
+    return {
+      ok: false,
+      error: String(row.error ?? "decide_failed"),
+      maxMinor: row.max_minor != null ? Number(row.max_minor) : undefined,
+    };
+  }
   return {
     ok: true,
-    cashRefundedMinor: Number(row.cash_refunded_minor) || 0,
-    outstandingCancelledMinor: Number(row.outstanding_cancelled_minor) || 0,
+    idempotent: row.idempotent === true,
+    adjustmentId: String(row.adjustment_id ?? ""),
+    decision: row.decision === "reject" ? "reject" : "approve",
+    approvedMinor: Number(row.approved_minor) || 0,
+    cashRefundMinor: Number(row.cash_refund_minor) || 0,
+    outstandingCancelMinor: Number(row.outstanding_cancel_minor) || 0,
   };
 }
 
-export async function loadStoreCashOrderGateMode(sb: SupabaseClient): Promise<StoreCashOrderGateMode> {
+export type StoreCashOrderGateSetting = {
+  mode: StoreCashOrderGateMode;
+  reason: string | null;
+  changedBy: string | null;
+  changedAt: string | null;
+};
+
+export async function loadStoreCashOrderGateSetting(sb: SupabaseClient): Promise<StoreCashOrderGateSetting> {
   const { data, error } = await sb
     .from("admin_settings")
     .select("value_json")
     .eq("key", STORE_CASH_ORDER_GATE_SETTING_KEY)
     .maybeSingle();
-  if (error || !data) return "off";
-  return normalizeStoreCashOrderGateMode((data.value_json as { value?: unknown } | null)?.value);
+  const v = (error || !data ? null : data.value_json) as Record<string, unknown> | null;
+  return {
+    mode: normalizeStoreCashOrderGateMode(v?.value),
+    reason: typeof v?.reason === "string" ? v.reason : null,
+    changedBy: typeof v?.by === "string" ? v.by : null,
+    changedAt: typeof v?.at === "string" ? v.at : null,
+  };
 }
 
-export async function saveStoreCashOrderGateMode(
+export async function loadStoreCashOrderGateMode(sb: SupabaseClient): Promise<StoreCashOrderGateMode> {
+  return (await loadStoreCashOrderGateSetting(sb)).mode;
+}
+
+export async function saveStoreCashOrderGateSetting(
   sb: SupabaseClient,
-  mode: StoreCashOrderGateMode
+  input: { mode: StoreCashOrderGateMode; reason: string; adminUserId: string }
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await sb.from("admin_settings").upsert(
     {
       key: STORE_CASH_ORDER_GATE_SETTING_KEY,
-      value_json: { value: mode },
+      value_json: {
+        value: input.mode,
+        reason: input.reason,
+        by: input.adminUserId,
+        at: new Date().toISOString(),
+      },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "key" }
@@ -307,7 +199,7 @@ export async function selectAllPages<T>(
   return rows;
 }
 
-/** Cash positions for many stores (Admin list / Owner single) — same math as the DB gate. */
+/** Cash positions for many stores (Admin list / Owner single) — same rule as the DB gate. */
 export async function loadStoreCashPositions(
   sb: SupabaseClient,
   storeIds: readonly string[]

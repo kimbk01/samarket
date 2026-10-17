@@ -37,11 +37,7 @@ import {
 import { restoreStockForOrder } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
 import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
-import {
-  chargeStoreCommissionForOrder,
-  flagStoreCommissionReview,
-} from "@/lib/stores/commission/store-commission-writer";
-import { STORE_COMMISSION_CHARGE_STATUS } from "@/lib/stores/commission/store-commission-contract";
+import { STORE_COMMISSION_CHARGE_FAILED_ERROR } from "@/lib/stores/commission/store-commission-contract";
 import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
@@ -267,6 +263,17 @@ export async function applyStoreOrderStatusTransition(
     }
   }
 
+  // DB trigger refused the status change (commission could not be charged, e.g. no fee policy).
+  // The order did NOT move — the whole UPDATE rolled back.
+  if (uErr && /store_commission_(charge_failed|policy_missing)/.test(String(uErr.message ?? ""))) {
+    console.error("[applyStoreOrderStatusTransition] commission_charge_refused", uErr.message);
+    return {
+      ok: false,
+      error: /policy_missing/.test(String(uErr.message)) ? "store_commission_policy_missing" : STORE_COMMISSION_CHARGE_FAILED_ERROR,
+      httpStatus: 409,
+    };
+  }
+
   if (uErr) {
     const missingEtaCol =
       /estimated_prep_minutes|estimated_ready_at|accepted_at/i.test(String(uErr.message)) &&
@@ -348,11 +355,8 @@ export async function applyStoreOrderStatusTransition(
     if (!coinReversal.ok && coinReversal.error !== "rpc_missing") {
       console.error("[applyStoreOrderStatusTransition] coin_reversal", coinReversal.error);
     }
-    // Commission is never auto-reversed — admin decides refund/keep (store-commission-contract).
-    const feeReview = await flagStoreCommissionReview(sb, oid, "refunded");
-    if (!feeReview.ok && feeReview.error !== "rpc_missing") {
-      console.error("[applyStoreOrderStatusTransition] commission_review", feeReview.error);
-    }
+    // Commission: never auto-reversed. The DB trigger already queued it for admin review
+    // in the same transaction as the status change (store-commission-contract).
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,
       p_allow_after_completed: true,
@@ -360,19 +364,10 @@ export async function applyStoreOrderStatusTransition(
     // Gift reverse already committed inside gift_certificate_refund_order_atomic.
   }
 
-  if (nextStatus === "preparing") {
-    // 조리 시작 = commission charge point (Cash debit; shortfall → outstanding).
-    const charge = await chargeStoreCommissionForOrder(sb, oid, STORE_COMMISSION_CHARGE_STATUS);
-    if (!charge.ok) {
-      console.error("[applyStoreOrderStatusTransition] commission_charge", charge.error);
-    }
-  }
+  // 조리 시작 commission charge / cancel-refund review run inside the CAS UPDATE
+  // (DB trigger trg_store_orders_commission_lifecycle) — nothing to do here.
 
   if (nextStatus === "cancelled") {
-    const feeReview = await flagStoreCommissionReview(sb, oid, "cancelled");
-    if (!feeReview.ok && feeReview.error !== "rpc_missing") {
-      console.error("[applyStoreOrderStatusTransition] commission_review", feeReview.error);
-    }
     await cancelScheduledSettlementForOrder(sb, oid);
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,

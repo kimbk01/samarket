@@ -26,8 +26,8 @@ describe("F-04 atomic order currency recognition", () => {
    * Coin at completion — two different events, so the F-04 pairing no longer applies.
    * Each writer is still a single idempotent DB RPC.
    */
-  it("TS: completion = idempotent commission safety net + platform-held Coin only", () => {
-    expect(TS).toContain('chargeStoreCommissionForOrder(sb, oid, "completed")');
+  it("TS: completion = platform-held Coin only (commission is the DB status trigger's job)", () => {
+    expect(TS).not.toContain("chargeStoreCommissionForOrder");
     expect(TS).toContain("credit_coin_from_confirmed_sale");
     expect(TS).toContain("saleCoinIdempotencyKeyForOrder");
     expect(TS).toContain("platformHeldSaleAmountPhp");

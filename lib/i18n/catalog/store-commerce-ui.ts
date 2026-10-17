@@ -1284,6 +1284,9 @@ export const storeCommerceUiMessages = {
     store_biz_sla_admin_attention: "운영 확인중",
     store_biz_sla_level: "SLA {level}",
     store_biz_patch_err_prep_minutes: "예상 준비 시간(1–180분)을 선택해 주세요.",
+    store_biz_patch_err_commission_policy_missing:
+      "수수료 정책이 설정되지 않아 조리를 시작할 수 없습니다. 운영팀에 문의해 주세요.",
+    store_biz_patch_err_commission_failed: "수수료 처리에 실패해 상태를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.",
     store_biz_patch_err_invalid_transition: "지금 단계에서는 해당 처리를 할 수 없습니다.",
     store_biz_patch_err_stale_reconciled: "이미 처리된 주문입니다. 화면을 맞췄습니다.",
     store_biz_patch_err_admin_locked: "플랫폼에서 이 주문을 잠갔습니다. 운영센터로 문의해 주세요.",
@@ -3052,6 +3055,9 @@ export const storeCommerceUiMessages = {
     store_biz_sla_admin_attention: "Ops review",
     store_biz_sla_level: "SLA {level}",
     store_biz_patch_err_prep_minutes: "Select prep time between 1–180 minutes.",
+    store_biz_patch_err_commission_policy_missing:
+      "No commission policy is set, so cooking cannot start. Please contact support.",
+    store_biz_patch_err_commission_failed: "Commission processing failed, so the status was not changed. Please retry.",
     store_biz_patch_err_invalid_transition: "This action is not allowed at the current step.",
     store_biz_patch_err_stale_reconciled: "This order was already updated. The screen is now in sync.",
     store_biz_patch_err_admin_locked: "This order is locked by the platform. Contact support.",

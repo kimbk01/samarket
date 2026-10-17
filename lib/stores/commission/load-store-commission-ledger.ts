@@ -1,20 +1,20 @@
 /**
- * Store commission ledger — ONE loader for Admin (/admin/store-settlements) and
- * Owner (/stores/owner/settlements). Same rows, same summary, same labels.
- * Source of truth: store_sale_fee_obligations (+ business_cash_accounts for position).
+ * Store commission + Cash ledger readers — ONE server computation for Admin
+ * (/admin/store-settlements) and Owner (/stores/owner/settlements).
+ * Rows, states, totals and period balances are computed in SQL; this module only maps them.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  resolveStoreCommissionRowState,
+  STORE_COMMISSION_RPC,
+  type BusinessCashLedgerKind,
   type StoreCashPosition,
+  type StoreCommissionAdjustmentRecordDecision,
   type StoreCommissionAdjustmentStatus,
   type StoreCommissionChargeStage,
+  type StoreCommissionLedgerFilterState,
   type StoreCommissionRowState,
 } from "@/lib/stores/commission/store-commission-contract";
-import { loadStoreCashPositions, selectAllPages } from "@/lib/stores/commission/store-commission-writer";
-
-export const STORE_COMMISSION_LEDGER_SCAN_LIMIT = 5000;
-const IN_CHUNK = 150;
+import { loadStoreCashPositions } from "@/lib/stores/commission/store-commission-writer";
 
 export type StoreCommissionLedgerRow = {
   obligationId: string;
@@ -33,14 +33,20 @@ export type StoreCommissionLedgerRow = {
   /** Paid from Cash and still kept by the platform. */
   feePaidMinor: number;
   feeOutstandingMinor: number;
-  cashRefundedMinor: number;
-  outstandingCancelledMinor: number;
   state: StoreCommissionRowState;
   adjustmentStatus: StoreCommissionAdjustmentStatus;
   adjustmentTrigger: "cancelled" | "refunded" | null;
   reviewFlaggedAt: string | null;
-  adjustmentNote: string | null;
-  adjustedAt: string | null;
+  decision: null | {
+    id: string;
+    decision: StoreCommissionAdjustmentRecordDecision;
+    approvedMinor: number;
+    cashRefundMinor: number;
+    outstandingCancelMinor: number;
+    reason: string;
+    adminUserId: string | null;
+    decidedAt: string;
+  };
 };
 
 export type StoreCommissionLedgerSummary = {
@@ -51,227 +57,243 @@ export type StoreCommissionLedgerSummary = {
   feeOutstandingMinor: number;
   cashRefundedMinor: number;
   outstandingCancelledMinor: number;
-  /** charged − refunded − cancelled = platform commission revenue. */
+  /** charged − cash refunded − outstanding cancelled. */
   netCommissionMinor: number;
   reviewCount: number;
   reviewFeeMinor: number;
-  /** charged = paid + outstanding + refunded + cancelled (rows with a known charge). */
+  /** charged = paid + outstanding + refunded + cancelled (computed in SQL). */
   reconciles: boolean;
 };
 
-export type StoreCommissionLedgerFilter = {
-  storeIds: readonly string[];
-  from?: string | null;
-  to?: string | null;
-  state?: StoreCommissionRowState | "all" | null;
-  orderNo?: string | null;
-  limit?: number;
-  offset?: number;
-};
-
-export type StoreCommissionLedgerResult = {
+export type StoreCommissionLedgerPage = {
   rows: StoreCommissionLedgerRow[];
   totalRows: number;
   summary: StoreCommissionLedgerSummary;
-  positions: StoreCashPosition[];
-  storeNames: Record<string, string>;
-  truncated: boolean;
 };
 
-type ObligationDbRow = {
+export type StoreCashLedgerRow = {
   id: string;
-  store_id: string;
-  order_id: string;
-  confirmed_revenue_php: number | null;
-  fee_due_minor: number | null;
-  fee_paid_minor: number | null;
-  fee_outstanding_minor: number | null;
-  status: string;
-  created_at: string;
-  charge_stage?: string | null;
-  fee_snapshot?: Record<string, unknown> | null;
-  adjustment_status?: string | null;
-  adjustment_trigger?: string | null;
-  review_flagged_at?: string | null;
-  adjustment_note?: string | null;
-  adjusted_at?: string | null;
-  adjustment_cash_refunded_minor?: number | null;
-  adjustment_outstanding_cancelled_minor?: number | null;
-  original_fee_due_minor?: number | null;
+  storeId: string;
+  storeName: string;
+  kind: BusinessCashLedgerKind | string;
+  direction: "credit" | "debit";
+  amountMinor: number;
+  balanceAfterMinor: number;
+  relatedType: string;
+  relatedId: string;
+  orderId: string | null;
+  actorType: string;
+  createdAt: string;
 };
 
-const OBLIGATION_SELECT =
-  "id, store_id, order_id, confirmed_revenue_php, fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, created_at, charge_stage, fee_snapshot, adjustment_status, adjustment_trigger, review_flagged_at, adjustment_note, adjusted_at, adjustment_cash_refunded_minor, adjustment_outstanding_cancelled_minor, original_fee_due_minor";
+export type StoreCashLedgerPage = {
+  rows: StoreCashLedgerRow[];
+  totalRows: number;
+  openingMinor: number;
+  closingMinor: number;
+  creditMinor: number;
+  debitMinor: number;
+  byKind: Record<string, number>;
+  /**
+   * Stores whose live balance ≠ Σ ledger (balance changed outside the ledger in the past).
+   * For these stores opening/closing (ledger sums) do not equal the account balance.
+   */
+  ledgerMismatchStoreIds: string[];
+};
+
+type Range = { fromIso: string | null; toIso: string | null };
 
 function int(n: unknown): number {
   const v = Math.trunc(Number(n) || 0);
   return Number.isFinite(v) ? v : 0;
 }
 
-function chunk<T>(arr: readonly T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
+function num(n: unknown): number | null {
+  if (n == null) return null;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : null;
 }
 
-function dayStartIso(day: string): string | null {
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? `${day}T00:00:00.000Z` : null;
-}
-
-function dayEndIso(day: string): string | null {
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? `${day}T23:59:59.999Z` : null;
-}
-
-function normalizeAdjustment(raw: unknown): StoreCommissionAdjustmentStatus {
-  return raw === "review_required" || raw === "refunded" || raw === "kept" ? raw : "none";
-}
-
-export function projectStoreCommissionRow(
-  r: ObligationDbRow,
-  order: { order_no?: string | null; order_status?: string | null; buyer_payment_method?: string | null } | undefined,
-  storeName: string
-): StoreCommissionLedgerRow {
-  const adjustmentStatus = normalizeAdjustment(r.adjustment_status);
-  const feePaidMinor = int(r.fee_paid_minor);
-  const feeOutstandingMinor = int(r.fee_outstanding_minor);
-  const cashRefundedMinor = int(r.adjustment_cash_refunded_minor);
-  const outstandingCancelledMinor = int(r.adjustment_outstanding_cancelled_minor);
-  const feeChargedMinor =
-    r.original_fee_due_minor != null
-      ? int(r.original_fee_due_minor)
-      : int(r.fee_due_minor) + cashRefundedMinor + outstandingCancelledMinor;
+function projectRow(r: Record<string, unknown>): StoreCommissionLedgerRow {
   const snap = (r.fee_snapshot ?? null) as Record<string, unknown> | null;
-  const feePercentRaw = snap?.fee_percent;
+  const stage = String(r.charge_stage ?? "completed") as StoreCommissionChargeStage;
   return {
     obligationId: String(r.id),
     orderId: String(r.order_id),
-    orderNo: String(order?.order_no ?? "").trim() || String(r.order_id).slice(0, 8),
-    orderStatus: String(order?.order_status ?? ""),
-    paymentMethod: order?.buyer_payment_method ? String(order.buyer_payment_method) : null,
+    orderNo: String(r.order_no ?? "").trim() || String(r.order_id).slice(0, 8),
+    orderStatus: String(r.order_status ?? ""),
+    paymentMethod: r.buyer_payment_method ? String(r.buyer_payment_method) : null,
     storeId: String(r.store_id),
-    storeName,
-    chargeStage: r.charge_stage === "preparing" ? "preparing" : "completed",
-    chargedAt: String(r.created_at),
+    storeName: String(r.store_name ?? ""),
+    chargeStage: stage,
+    chargedAt: String(r.created_at ?? ""),
     commissionBasePhp: int(r.confirmed_revenue_php),
-    feePercent: feePercentRaw == null ? null : Number(feePercentRaw) || 0,
-    feeChargedMinor,
-    feePaidMinor,
-    feeOutstandingMinor,
-    cashRefundedMinor,
-    outstandingCancelledMinor,
-    state: resolveStoreCommissionRowState({ status: r.status, adjustmentStatus, feeOutstandingMinor }),
-    adjustmentStatus,
+    feePercent: num(snap?.fee_percent),
+    feeChargedMinor: int(r.fee_charged),
+    feePaidMinor: int(r.fee_paid_minor),
+    feeOutstandingMinor: int(r.fee_outstanding_minor),
+    state: String(r.state) as StoreCommissionRowState,
+    adjustmentStatus: String(r.adjustment_status ?? "none") as StoreCommissionAdjustmentStatus,
     adjustmentTrigger:
       r.adjustment_trigger === "cancelled" || r.adjustment_trigger === "refunded" ? r.adjustment_trigger : null,
-    reviewFlaggedAt: r.review_flagged_at ?? null,
-    adjustmentNote: r.adjustment_note ?? null,
-    adjustedAt: r.adjusted_at ?? null,
+    reviewFlaggedAt: r.review_flagged_at ? String(r.review_flagged_at) : null,
+    decision: r.adj_id
+      ? {
+          id: String(r.adj_id),
+          decision: String(r.adj_decision) as StoreCommissionAdjustmentRecordDecision,
+          approvedMinor: int(r.adj_approved),
+          cashRefundMinor: int(r.adj_cash),
+          outstandingCancelMinor: int(r.adj_cancel),
+          reason: String(r.adj_reason ?? ""),
+          adminUserId: r.adj_admin ? String(r.adj_admin) : null,
+          decidedAt: String(r.adj_at ?? ""),
+        }
+      : null,
   };
 }
 
-export function summarizeStoreCommissionRows(rows: readonly StoreCommissionLedgerRow[]): StoreCommissionLedgerSummary {
-  const s: StoreCommissionLedgerSummary = {
-    count: rows.length,
-    commissionBasePhp: 0,
-    feeChargedMinor: 0,
-    feePaidMinor: 0,
-    feeOutstandingMinor: 0,
-    cashRefundedMinor: 0,
-    outstandingCancelledMinor: 0,
-    netCommissionMinor: 0,
-    reviewCount: 0,
-    reviewFeeMinor: 0,
-    reconciles: true,
-  };
-  for (const r of rows) {
-    s.commissionBasePhp += r.commissionBasePhp;
-    s.feeChargedMinor += r.feeChargedMinor;
-    s.feePaidMinor += r.feePaidMinor;
-    s.feeOutstandingMinor += r.feeOutstandingMinor;
-    s.cashRefundedMinor += r.cashRefundedMinor;
-    s.outstandingCancelledMinor += r.outstandingCancelledMinor;
-    if (r.state === "review_required") {
-      s.reviewCount += 1;
-      s.reviewFeeMinor += r.feeChargedMinor;
-    }
-  }
-  s.netCommissionMinor = s.feeChargedMinor - s.cashRefundedMinor - s.outstandingCancelledMinor;
-  s.reconciles =
-    s.feeChargedMinor ===
-    s.feePaidMinor + s.feeOutstandingMinor + s.cashRefundedMinor + s.outstandingCancelledMinor;
-  return s;
-}
-
-export async function loadStoreCommissionLedger(
-  sb: SupabaseClient,
-  filter: StoreCommissionLedgerFilter
-): Promise<StoreCommissionLedgerResult> {
-  const storeIds = [...new Set(filter.storeIds.map((s) => s.trim()).filter(Boolean))];
-  const emptySummary = summarizeStoreCommissionRows([]);
-  if (!storeIds.length) {
-    return { rows: [], totalRows: 0, summary: emptySummary, positions: [], storeNames: {}, truncated: false };
-  }
-
-  const fromIso = filter.from ? dayStartIso(filter.from) : null;
-  const toIso = filter.to ? dayEndIso(filter.to) : null;
-
-  const dbRows: ObligationDbRow[] = [];
-  for (const part of chunk(storeIds, IN_CHUNK)) {
-    const pageRows = await selectAllPages<ObligationDbRow>((from, to) => {
-      let q = sb
-        .from("store_sale_fee_obligations")
-        .select(OBLIGATION_SELECT)
-        .in("store_id", part)
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: true });
-      if (fromIso) q = q.gte("created_at", fromIso);
-      if (toIso) q = q.lte("created_at", toIso);
-      return q.range(from, to);
-    }, STORE_COMMISSION_LEDGER_SCAN_LIMIT);
-    dbRows.push(...pageRows);
-  }
-  dbRows.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
-  const truncated = dbRows.length >= STORE_COMMISSION_LEDGER_SCAN_LIMIT;
-  const scanned = dbRows.slice(0, STORE_COMMISSION_LEDGER_SCAN_LIMIT);
-
-  const orderIds = [...new Set(scanned.map((r) => String(r.order_id)))];
-  const orders = new Map<string, { order_no?: string | null; order_status?: string | null; buyer_payment_method?: string | null }>();
-  for (const part of chunk(orderIds, IN_CHUNK)) {
-    const { data } = await sb
-      .from("store_orders")
-      .select("id, order_no, order_status, buyer_payment_method")
-      .in("id", part);
-    for (const o of (data ?? []) as Array<{ id: string; order_no?: string; order_status?: string; buyer_payment_method?: string }>) {
-      orders.set(String(o.id), o);
-    }
-  }
-
-  const names = new Map<string, string>();
-  for (const part of chunk(storeIds, IN_CHUNK)) {
-    const { data } = await sb.from("stores").select("id, store_name").in("id", part);
-    for (const s of (data ?? []) as Array<{ id: string; store_name?: string | null }>) {
-      names.set(String(s.id), String(s.store_name ?? "").trim());
-    }
-  }
-
-  let projected = scanned.map((r) =>
-    projectStoreCommissionRow(r, orders.get(String(r.order_id)), names.get(String(r.store_id)) ?? "")
-  );
-  const state = filter.state && filter.state !== "all" ? filter.state : null;
-  if (state) projected = projected.filter((r) => r.state === state);
-  const orderNo = String(filter.orderNo ?? "").trim().toLowerCase();
-  if (orderNo) projected = projected.filter((r) => r.orderNo.toLowerCase().includes(orderNo));
-
-  const positionsMap = await loadStoreCashPositions(sb, storeIds);
-  const offset = Math.max(0, Math.trunc(filter.offset ?? 0));
-  const limit = Math.min(500, Math.max(1, Math.trunc(filter.limit ?? 100)));
-
+function projectSummary(s: Record<string, unknown> | null | undefined): StoreCommissionLedgerSummary {
+  const v = s ?? {};
   return {
-    rows: projected.slice(offset, offset + limit),
-    totalRows: projected.length,
-    summary: summarizeStoreCommissionRows(projected),
-    positions: storeIds.map((id) => positionsMap.get(id)!).filter(Boolean),
-    storeNames: Object.fromEntries(names),
-    truncated,
+    count: int(v.count),
+    commissionBasePhp: int(v.commission_base_php),
+    feeChargedMinor: int(v.fee_charged_minor),
+    feePaidMinor: int(v.fee_paid_minor),
+    feeOutstandingMinor: int(v.fee_outstanding_minor),
+    cashRefundedMinor: int(v.cash_refunded_minor),
+    outstandingCancelledMinor: int(v.outstanding_cancelled_minor),
+    netCommissionMinor: int(v.net_commission_minor),
+    reviewCount: int(v.review_count),
+    reviewFeeMinor: int(v.review_fee_minor),
+    reconciles: v.reconciles !== false,
   };
+}
+
+/** `storeIds = null` → every store (Admin only). */
+export async function loadStoreCommissionLedgerPage(
+  sb: SupabaseClient,
+  input: Range & {
+    storeIds: readonly string[] | null;
+    state: StoreCommissionLedgerFilterState;
+    orderNo: string | null;
+    limit: number;
+    offset: number;
+  }
+): Promise<StoreCommissionLedgerPage> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.ledgerPage, {
+    p_store_ids: input.storeIds ? [...input.storeIds] : null,
+    p_from: input.fromIso,
+    p_to: input.toIso,
+    p_state: input.state,
+    p_order_no: input.orderNo,
+    p_limit: input.limit,
+    p_offset: input.offset,
+  });
+  if (error) throw new Error(error.message);
+  const body = (data ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(body.rows) ? (body.rows as Record<string, unknown>[]) : [];
+  return {
+    rows: rows.map(projectRow),
+    totalRows: int(body.total),
+    summary: projectSummary(body.summary as Record<string, unknown>),
+  };
+}
+
+export async function loadStoreCashLedgerPage(
+  sb: SupabaseClient,
+  input: Range & {
+    storeIds: readonly string[] | null;
+    kinds: readonly string[];
+    limit: number;
+    offset: number;
+  }
+): Promise<StoreCashLedgerPage> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.cashLedgerPage, {
+    p_store_ids: input.storeIds ? [...input.storeIds] : null,
+    p_from: input.fromIso,
+    p_to: input.toIso,
+    p_kinds: input.kinds.length ? [...input.kinds] : null,
+    p_limit: input.limit,
+    p_offset: input.offset,
+  });
+  if (error) throw new Error(error.message);
+  const b = (data ?? {}) as Record<string, unknown>;
+  const opening = int(b.opening_minor);
+  const closing = int(b.closing_minor);
+  const credit = int(b.credit_minor);
+  const debit = int(b.debit_minor);
+  const byKindRaw = (b.by_kind ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(b.rows) ? (b.rows as Record<string, unknown>[]) : [];
+  return {
+    rows: rows.map((r) => ({
+      id: String(r.id),
+      storeId: String(r.store_id),
+      storeName: String(r.store_name ?? ""),
+      kind: String(r.entry_kind),
+      direction: r.direction === "credit" ? "credit" : "debit",
+      amountMinor: int(r.amount_minor),
+      balanceAfterMinor: int(r.balance_after_minor),
+      relatedType: String(r.related_type ?? ""),
+      relatedId: String(r.related_id ?? ""),
+      orderId: r.order_id ? String(r.order_id) : null,
+      actorType: String(r.actor_type ?? ""),
+      createdAt: String(r.created_at ?? ""),
+    })),
+    totalRows: int(b.total),
+    openingMinor: opening,
+    closingMinor: closing,
+    creditMinor: credit,
+    debitMinor: debit,
+    byKind: Object.fromEntries(Object.entries(byKindRaw).map(([k, v]) => [k, int(v)])),
+    ledgerMismatchStoreIds: Array.isArray(b.ledger_mismatch_store_ids)
+      ? (b.ledger_mismatch_store_ids as unknown[]).map(String)
+      : [],
+  };
+}
+
+export type StoreCommissionIntegrityReport = {
+  obligations: number;
+  checks: Record<string, { violations: number; ids: string[] }>;
+  originalUnknown: { count: number; ids: string[] };
+};
+
+export async function loadStoreCommissionIntegrity(
+  sb: SupabaseClient,
+  storeIds: readonly string[] | null
+): Promise<StoreCommissionIntegrityReport> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.integrity, {
+    p_store_ids: storeIds ? [...storeIds] : null,
+  });
+  if (error) throw new Error(error.message);
+  const b = (data ?? {}) as Record<string, unknown>;
+  const checks: StoreCommissionIntegrityReport["checks"] = {};
+  for (const [k, v] of Object.entries(b)) {
+    if (k === "obligations" || k === "original_unknown" || !v || typeof v !== "object") continue;
+    const c = v as { violations?: unknown; ids?: unknown };
+    checks[k] = { violations: int(c.violations), ids: Array.isArray(c.ids) ? c.ids.map(String) : [] };
+  }
+  const ou = (b.original_unknown ?? {}) as { count?: unknown; ids?: unknown };
+  return {
+    obligations: int(b.obligations),
+    checks,
+    originalUnknown: { count: int(ou.count), ids: Array.isArray(ou.ids) ? ou.ids.map(String) : [] },
+  };
+}
+
+/** Positions + names for the stores in scope (Admin overview / Owner header). */
+export async function loadStoreCashOverview(
+  sb: SupabaseClient,
+  storeIds: readonly string[]
+): Promise<{ positions: StoreCashPosition[]; storeNames: Record<string, string> }> {
+  const ids = [...new Set(storeIds.map((s) => s.trim()).filter(Boolean))];
+  if (!ids.length) return { positions: [], storeNames: {} };
+  const [positions, names] = await Promise.all([
+    loadStoreCashPositions(sb, ids),
+    sb.from("stores").select("id, store_name").in("id", ids),
+  ]);
+  const storeNames: Record<string, string> = {};
+  for (const s of (names.data ?? []) as Array<{ id: string; store_name?: string | null }>) {
+    storeNames[String(s.id)] = String(s.store_name ?? "").trim();
+  }
+  return { positions: ids.map((id) => positions.get(id)!).filter(Boolean), storeNames };
 }

@@ -109,9 +109,9 @@ Code anchors: `COIN_REFUND_ECONOMIC_UNWIND_CONTRACT` in `lib/currency/currency-s
 | Balance | `business_cash_accounts.balance_minor` |
 | Ledger | `business_cash_ledger` |
 | Top-up | YES — `business_cash_charge_requests` |
-| Sale fee | YES — `SALE_FEE` at **조리 시작 (`preparing`)**, `SALE_FEE_SETTLEMENT` on inflow (`charge_store_commission_for_order`) |
+| Sale fee | YES — `SALE_FEE` charged inside the order status UPDATE (trigger `trg_store_orders_commission_lifecycle`) at the first cooking-or-later status; `SALE_FEE_SETTLEMENT` on inflow |
 | Outstanding fee | YES — `store_sale_fee_obligations` (Decision #1); NET = balance − outstanding may be negative |
-| Fee refund | Admin decision only — `admin_resolve_store_commission_adjustment` (no auto reversal on cancel/refund) |
+| Fee refund | Admin decision only — `admin_decide_store_commission_adjustment` (approve full/partial, reject), immutable `store_commission_adjustments`; `reverse_sale_fee_for_order` not executable |
 | Order gate | `store_cash_order_gate` → DB trigger blocks new orders when NET <= 0 |
 | Withdraw | **NO** |
 | Ads/Partner spend | AST-005 RPCs only |

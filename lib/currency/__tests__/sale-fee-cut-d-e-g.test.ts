@@ -55,11 +55,11 @@ describe("three-currency order boundary", () => {
     expect(SRC).not.toContain("charge_store_points_on_order_accept");
   });
 
-  it("charges commission at preparing; cancel/refund only queues a manual review", () => {
-    expect(SRC).toContain("chargeStoreCommissionForOrder(sb, oid, STORE_COMMISSION_CHARGE_STATUS)");
-    expect(SRC).toContain('flagStoreCommissionReview(sb, oid, "refunded")');
-    expect(SRC).toContain('flagStoreCommissionReview(sb, oid, "cancelled")');
+  it("commission charge / review is the DB trigger's job; TS never auto-reverses", () => {
+    expect(SRC).toContain("trg_store_orders_commission_lifecycle");
+    expect(SRC).toContain("store_commission_(charge_failed|policy_missing)");
     expect(SRC).not.toContain("reverseSaleFeeForOrder");
+    expect(SRC).not.toContain("chargeStoreCommissionForOrder");
   });
 
   it("reads only deployed store_orders revenue columns", () => {

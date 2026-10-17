@@ -1,20 +1,19 @@
 /**
- * Order completed — money recognition.
+ * Order completed — Coin recognition.
  *
- * 1. Commission: safety-net charge with the canonical key `sale_fee:order:{id}`.
- *    The real charge point is `preparing` (조리 시작); this only charges orders that reached
- *    `completed` without passing through it. Never double-charges (idempotent per order).
- * 2. Coin: mint ONLY the platform-held portion of the sale (gift certificate redemption +
- *    platform-funded coupon). `payment_amount` is paid by the buyer directly to the store
- *    (COD / store GCash / bank transfer) — minting Coin for it would pay the store twice.
- *    Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
+ * Commission is NOT handled here: the DB trigger `trg_store_orders_commission_lifecycle`
+ * charges it inside the status UPDATE when the order first reaches a cooking-or-later status.
+ *
+ * Coin: mint ONLY the platform-held portion of the sale (gift certificate redemption +
+ * platform-funded coupon). `payment_amount` is paid by the buyer directly to the store
+ * (COD / store GCash / bank transfer) — minting Coin for it would pay the store twice.
+ * Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
  *
  * Contract: lib/stores/commission/store-commission-contract.ts
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCurrencySaleRecognitionLive } from "@/lib/currency/currency-cutover-flags";
 import { saleCoinIdempotencyKeyForOrder } from "@/lib/stores/confirmed-sale-revenue";
-import { chargeStoreCommissionForOrder } from "@/lib/stores/commission/store-commission-writer";
 
 export const CREDIT_COIN_FROM_CONFIRMED_SALE_RPC = "credit_coin_from_confirmed_sale" as const;
 
@@ -25,9 +24,7 @@ export type RecognizeOrderCurrencyResult =
       /** Platform-held sale amount minted as Coin (PHP). */
       platformHeldPhp?: number;
       coinCredited?: boolean;
-      feeCharged?: boolean;
       coinIdempotent?: boolean;
-      feeIdempotent?: boolean;
     }
   | { ok: false; error: string };
 
@@ -50,6 +47,7 @@ export async function recognizeOrderCurrencyOnCompleted(
 ): Promise<RecognizeOrderCurrencyResult> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id" };
+  if (!isCurrencySaleRecognitionLive()) return { ok: true, skipped: true };
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
@@ -63,23 +61,8 @@ export async function recognizeOrderCurrencyOnCompleted(
   const sid = String(order.store_id ?? "").trim();
   if (!sid) return { ok: false, error: "missing_store_id" };
 
-  const fee = await chargeStoreCommissionForOrder(sb, oid, "completed");
-  if (!fee.ok) {
-    console.error("[recognizeOrderCurrencyOnCompleted] commission_charge", fee.error);
-  }
-
-  if (!isCurrencySaleRecognitionLive()) {
-    return fee.ok
-      ? { ok: true, skipped: true, feeCharged: true, feeIdempotent: fee.idempotent === true }
-      : { ok: false, error: fee.error };
-  }
-
   const platformHeldPhp = platformHeldSaleAmountPhp(order);
-  if (platformHeldPhp <= 0) {
-    return fee.ok
-      ? { ok: true, platformHeldPhp: 0, feeCharged: true, feeIdempotent: fee.idempotent === true }
-      : { ok: false, error: fee.error };
-  }
+  if (platformHeldPhp <= 0) return { ok: true, skipped: true, platformHeldPhp: 0 };
 
   const { data: settlement } = await sb.from("store_settlements").select("id").eq("order_id", oid).maybeSingle();
 
@@ -99,14 +82,6 @@ export async function recognizeOrderCurrencyOnCompleted(
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === false) return { ok: false, error: String(row.error ?? "coin_credit_failed") };
-  if (!fee.ok) return { ok: false, error: fee.error };
 
-  return {
-    ok: true,
-    platformHeldPhp,
-    coinCredited: true,
-    coinIdempotent: row.idempotent === true,
-    feeCharged: true,
-    feeIdempotent: fee.idempotent === true,
-  };
+  return { ok: true, platformHeldPhp, coinCredited: true, coinIdempotent: row.idempotent === true };
 }
