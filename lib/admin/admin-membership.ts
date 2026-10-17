@@ -222,7 +222,54 @@ export async function revokeActiveAdminMembership(
   }
 
   await sb.from("admin_staff_permissions").delete().eq("user_id", userId);
+  // Follow-up side effect: a failure here never un-revokes. Admin notification delivery
+  // re-checks authority, so a lingering assignment cannot reach a revoked admin anyway.
+  try {
+    await releaseSupportAssignmentsOnRevoke(sb, { userId, revokedBy: input.revokedBy });
+  } catch (e) {
+    console.error("[admin-membership] support_release_threw", { userId, error: (e as Error).message });
+  }
   return { ok: true };
+}
+
+/**
+ * R13: a revoked admin must not keep receiving customer replies (support_customer_replied
+ * targets `assigned_admin_id`). Open cases return to the unassigned queue (support_actionable
+ * still counts them) with an audit event per case. Closed cases keep their history untouched.
+ */
+export async function releaseSupportAssignmentsOnRevoke(
+  sb: SupabaseClient,
+  input: { userId: string; revokedBy: string | null }
+): Promise<{ released: number; error?: string }> {
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("support_cases")
+    .update({ assigned_admin_id: null, updated_at: now })
+    .eq("assigned_admin_id", input.userId)
+    .not("status", "in", "(RESOLVED,ARCHIVED)")
+    .select("id");
+  if (error) {
+    if (/support_cases/i.test(error.message) && /does not exist|schema cache/i.test(error.message)) {
+      return { released: 0 };
+    }
+    console.error("[admin-membership] support_release_failed", { userId: input.userId, error: error.message });
+    return { released: 0, error: error.message };
+  }
+  const ids = (data ?? []).map((r) => String((r as { id?: unknown }).id ?? "")).filter(Boolean);
+  if (ids.length > 0) {
+    const { error: evErr } = await sb.from("support_case_events").insert(
+      ids.map((caseId) => ({
+        case_id: caseId,
+        event_type: "assignee_released_admin_revoked",
+        actor_user_id: input.revokedBy,
+        payload: { previous_assignee: input.userId },
+      }))
+    );
+    if (evErr) {
+      console.error("[admin-membership] support_release_event_failed", { error: evErr.message });
+    }
+  }
+  return { released: ids.length };
 }
 
 export function membershipToUiRole(membership: AdminMembershipRow | null, profileRole: string | null): AdminRole {

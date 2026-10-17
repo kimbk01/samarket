@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
       : "settlement_created";
   const rawLimit = Number(sp.get("limit") ?? "500");
   const pageLimit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.round(rawLimit), 1), 500) : 500;
+  const rawOffset = Number(sp.get("offset") ?? "0");
+  const pageOffset = Number.isFinite(rawOffset) ? Math.max(0, Math.round(rawOffset)) : 0;
 
   let storeIds: string[] = [];
   if (storeId) {
@@ -68,6 +70,7 @@ export async function GET(req: NextRequest) {
     includeBuyerDisplay: true,
     authorityLimit: 5000,
     pageLimit,
+    pageOffset,
   });
 
   if (!loaded.ok) {
@@ -79,6 +82,8 @@ export async function GET(req: NextRequest) {
     summary: loaded.summary,
     total_matched: loaded.total_matched,
     truncated: loaded.truncated,
+    page_offset: pageOffset,
+    page_limit: pageLimit,
     period_basis: periodBasis,
     period_field:
       periodBasis === "order_completed"

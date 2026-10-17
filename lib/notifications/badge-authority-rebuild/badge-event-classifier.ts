@@ -87,10 +87,9 @@ export const MEMBER_NOTIFICATION_A_KINDS = [
   // Phase 3 A2 — Support Center events. Server already classifies them A via DB category
   // (inquiry_answered | admin_notice); the inbox DTO has no category, so the client needs the
   // type itself here or rows are counted in the digit but dropped from every list (ghost unread).
+  // R13: support_customer_replied / support_case_assigned are ADMIN-recipient → admin_notifications.
   "support_case_created",
   "support_admin_replied",
-  "support_customer_replied",
-  "support_case_assigned",
   "support_case_resolved",
   "support_case_reopened",
 ] as const;

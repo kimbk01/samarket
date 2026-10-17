@@ -1,3 +1,4 @@
+import { isAdminRecipientNotificationType } from "@/lib/admin/notifications/admin-notification-kinds";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { shouldSkipPushForEventDedupe } from "@/lib/notifications/core/notification-dedupe";
@@ -124,6 +125,16 @@ export async function dispatchNotificationPushIfAllowed(
   row: NotificationEventRow,
   opts?: { callPushKind?: "missed_call" }
 ): Promise<DispatchPushOutcome> {
+  // R13: admin-recipient work notices are pushed only by the admin notification service
+  // (authority re-verified at send time). A legacy/queued member-store row never pushes.
+  if (isAdminRecipientNotificationType(row.type)) {
+    logNotifyMessage("push_dispatch_done", {
+      userId: row.user_id,
+      eventId: row.id,
+      skipped: "admin_recipient_type",
+    });
+    return "noop";
+  }
   if (row.push_suppressed_reason) {
     logNotifyMessage("push_dispatch_done", {
       userId: row.user_id,

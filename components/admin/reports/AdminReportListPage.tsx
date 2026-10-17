@@ -52,6 +52,8 @@ export function AdminReportListPage() {
   );
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  /** A source failed to load — the list is partial and must not read as "nothing pending". */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     setFilters((prev) => {
@@ -64,18 +66,22 @@ export function AdminReportListPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [list, feedRes] = await Promise.all([
-      getReportsForAdminFromDb(),
-      fetch("/api/admin/community-reports", { credentials: "include", cache: "no-store" }).then((r) =>
-        r.json()
+    const [tradeRes, feedRes] = await Promise.all([
+      getReportsForAdminFromDb().then(
+        (list) => ({ ok: true as const, list }),
+        () => ({ ok: false as const, list: [] as Report[] })
       ),
+      fetch("/api/admin/community-reports", { credentials: "include", cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null),
     ]);
-    const feedList: Report[] =
-      feedRes?.ok && Array.isArray(feedRes.reports) ? (feedRes.reports as Report[]) : [];
-    const merged = [...list, ...feedList].sort(
+    const feedOk = Boolean(feedRes?.ok && Array.isArray(feedRes.reports));
+    const feedList: Report[] = feedOk ? (feedRes.reports as Report[]) : [];
+    const merged = [...tradeRes.list, ...feedList].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     setReports(merged);
+    setLoadFailed(!tradeRes.ok || !feedOk);
     setLoading(false);
   }, []);
 
@@ -113,6 +119,18 @@ export function AdminReportListPage() {
           {safeT("admin_report_domain_all_hint", {
             fallbackKo: "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
             fallbackEn: "Domain filter is All. Narrow to Trade or Community before acting.",
+          })}
+        </div>
+      ) : null}
+      {loadFailed ? (
+        <div
+          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-800"
+          role="alert"
+          data-testid="admin-report-load-failed"
+        >
+          {safeT("admin_report_list_load_failed", {
+            fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
+            fallbackEn: "Some reports could not be loaded. Refresh and check again.",
           })}
         </div>
       ) : null}

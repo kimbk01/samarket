@@ -20,14 +20,16 @@ import { resolveWebPushPreferenceEventType } from "@/lib/notifications/web-push-
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
-/** Production (type, category) pairs written by notifySupportEvent (DB verified 2026-10-05). */
+/**
+ * Production (type, category) pairs written by notifySupportEvent to MEMBERS (DB verified 2026-10-05).
+ * R13: support_customer_replied / support_case_assigned are ADMIN-recipient → admin_notifications,
+ * never Member A (see admin-recipient-member-exclusion.test.ts).
+ */
 const SUPPORT_EVENTS: ReadonlyArray<[string, string]> = [
   ["support_admin_replied", "inquiry_answered"],
   ["support_case_resolved", "admin_notice"],
   ["support_case_reopened", "admin_notice"],
-  ["support_customer_replied", "admin_notice"],
   ["support_case_created", "admin_notice"],
-  ["support_case_assigned", "admin_notice"],
 ];
 
 function supportEvent(type: string, category: string, id = `e-${type}`) {
@@ -90,7 +92,7 @@ describe("Phase 3A A2 — support notifications: server digit = client list", ()
     ).toBeNull();
   });
 
-  it("A-kind list only gains the six support types (no other kind added)", () => {
+  it("A-kind list only gains the four member-facing support types (no other kind added)", () => {
     const support = MEMBER_NOTIFICATION_A_KINDS.filter((k) => k.startsWith("support_"));
     expect([...support].sort()).toEqual(SUPPORT_EVENTS.map(([t]) => t).sort());
   });

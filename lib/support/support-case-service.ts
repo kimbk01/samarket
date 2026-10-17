@@ -1,3 +1,8 @@
+import {
+  createAdminNotification,
+  markAdminNotificationsRead,
+  resolveAdminRecipientAuthority,
+} from "@/lib/admin/notifications/admin-notification-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { SupportContext } from "@/lib/support/support-context";
@@ -119,7 +124,6 @@ async function notifySupportEvent(
     type:
       | "support_case_created"
       | "support_admin_replied"
-      | "support_customer_replied"
       | "support_case_assigned"
       | "support_case_resolved"
       | "support_case_reopened";
@@ -131,7 +135,7 @@ async function notifySupportEvent(
     storeId?: string | null;
     dedupeKey: string;
     actorUserId?: string;
-    /** Override canonical deeplink (e.g. admin detail for support_customer_replied). */
+    /** Override canonical deeplink. */
     routeUrl?: string;
   }
 ): Promise<void> {
@@ -683,23 +687,30 @@ export async function postRequesterSupportMessage(
   });
   if (!res.ok) return res;
 
-  // CUT2 contract: support_customer_replied notifies assigned admin (admin deeplink).
+  // CUT2 contract: support_customer_replied notifies the assigned admin.
+  // R13: delivered through the ADMIN notification store (admin_notifications), never the
+  // Member notification_events pipeline. Recipient authority is re-checked at create + push.
   // Unassigned cases rely on admin_unread_count + Support Admin list wake-up only.
   const assignee = gate.case.assigned_admin_id ? String(gate.case.assigned_admin_id) : "";
   if (assignee) {
-    await notifySupportEvent(sb, {
-      userId: assignee,
-      type: "support_customer_replied",
+    const notified = await createAdminNotification(sb, {
+      recipientAdminIds: [assignee],
+      kind: "support_customer_replied",
       title: `문의 ${gate.case.public_case_no}`,
       body: input.body,
-      caseId: gate.case.id,
-      publicCaseNo: gate.case.public_case_no,
-      audience: gate.case.audience,
-      storeId: gate.case.owner_store_id,
+      linkUrl: buildAdminSupportCaseRoute(gate.case.id),
+      workRef: { table: "support_cases", id: gate.case.id },
       dedupeKey: `support_customer_replied:${res.message.id}`,
       actorUserId: input.userId,
-      routeUrl: buildAdminSupportCaseRoute(gate.case.id),
+      push: true,
     });
+    if (!notified.ok) {
+      console.error("[support] admin_notification_failed", {
+        caseId: gate.case.id,
+        type: "support_customer_replied",
+        error: notified.error,
+      });
+    }
   }
 
   return res;
@@ -1074,6 +1085,14 @@ export async function adminAssignSupportCase(
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
 
+  // R13: only an ACTIVE admin can be the assignee (assignee receives admin notifications).
+  if (input.assigneeAdminId) {
+    const authority = await resolveAdminRecipientAuthority(sb, input.assigneeAdminId).catch(
+      () => ({ active: false }) as const
+    );
+    if (!authority.active) return { ok: false, error: "assignee_not_active_admin" };
+  }
+
   const { data, error } = await sb
     .from("support_cases")
     .update({
@@ -1234,7 +1253,15 @@ export async function markSupportCaseNotificationsRead(
   }
   const count = data?.length ?? 0;
   if (count > 0) invalidateNotificationBadgeCache(uid);
-  return count;
+  // R13: the admin's support reply notifications for this case (admin store).
+  const adminRead = await markAdminNotificationsRead(sb, {
+    adminUserId: uid,
+    workRef: { table: "support_cases", id: caseId },
+  });
+  if (!adminRead.ok && adminRead.error !== "nothing_to_mark") {
+    console.warn("[support] admin_notification_read_sync_failed", { caseId, error: adminRead.error });
+  }
+  return count + (adminRead.ok ? adminRead.updated : 0);
 }
 
 /**

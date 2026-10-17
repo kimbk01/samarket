@@ -25,7 +25,8 @@ export type DeliveryAdOperationsCaseError =
   | "owner_missing"
   | "db_error"
   | "invalid_status"
-  | "case_not_found";
+  | "case_not_found"
+  | "status_conflict";
 
 type CaseResult =
   | { ok: true; case: DeliveryAdOperationsCaseRow }
@@ -231,7 +232,15 @@ export async function getDeliveryAdOperationsCase(
  */
 export async function updateDeliveryAdOperationsCaseStatus(
   sb: SupabaseClient,
-  input: { caseId: string; status: DeliveryAdOperationsCaseStatus }
+  input: {
+    caseId: string;
+    status: DeliveryAdOperationsCaseStatus;
+    /**
+     * Status the caller observed. When set, the write is a CAS (row lock + compare): a concurrent
+     * Owner/Admin message that already moved the Case wins and this effect is skipped.
+     */
+    expectedStatus?: DeliveryAdOperationsCaseStatus;
+  }
 ): Promise<CaseResult> {
   const caseId = String(input.caseId ?? "").trim();
   if (!caseId) return { ok: false, error: "case_not_found" };
@@ -239,15 +248,26 @@ export async function updateDeliveryAdOperationsCaseStatus(
     return { ok: false, error: "invalid_status" };
   }
 
-  const { data, error } = await sb.rpc("delivery_ad_ops_apply_case_status", {
-    p_case_id: caseId,
-    p_status: input.status,
-  });
+  const useCas = input.expectedStatus !== undefined;
+  let { data, error } = await sb.rpc(
+    "delivery_ad_ops_apply_case_status",
+    useCas
+      ? { p_case_id: caseId, p_status: input.status, p_expected_status: input.expectedStatus }
+      : { p_case_id: caseId, p_status: input.status }
+  );
+  if (error && useCas && isMissingCasOverload(error)) {
+    // Migration 20270508130000 not applied yet — keep the previous (non-CAS) behavior, loudly.
+    console.warn("[updateDeliveryAdOperationsCaseStatus] CAS overload missing; applying without CAS", caseId);
+    ({ data, error } = await sb.rpc("delivery_ad_ops_apply_case_status", {
+      p_case_id: caseId,
+      p_status: input.status,
+    }));
+  }
   if (error) return { ok: false, error: "db_error" };
   const payload = data as { ok?: boolean; error?: string; case?: Record<string, unknown> } | null;
   if (!payload?.ok || !payload.case) {
     const err = payload?.error;
-    if (err === "case_not_found" || err === "invalid_status") {
+    if (err === "case_not_found" || err === "invalid_status" || err === "status_conflict") {
       return { ok: false, error: err };
     }
     return { ok: false, error: "db_error" };
@@ -257,6 +277,13 @@ export async function updateDeliveryAdOperationsCaseStatus(
   const mapped = mapCaseRow(payload.case, threadId);
   if (!mapped) return { ok: false, error: "db_error" };
   return { ok: true, case: mapped };
+}
+
+function isMissingCasOverload(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === "PGRST202" ||
+    /could not find the function[\s\S]*delivery_ad_ops_apply_case_status/i.test(String(error.message ?? ""))
+  );
 }
 
 /** Test/helper: resolve owner from campaign without creating a case. */

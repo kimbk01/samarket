@@ -1,3 +1,4 @@
+import { ADMIN_RECIPIENT_NOTIFICATION_TYPES } from "@/lib/admin/notifications/admin-notification-kinds";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
@@ -79,9 +80,11 @@ export type NotificationEventInboxSource = Pick<
   | "room_id"
 >;
 
-const INBOX_EXCLUDED_EVENT_TYPES = new Set([
+const INBOX_EXCLUDED_EVENT_TYPES = new Set<string>([
   "incoming_call_signal",
   "admin_test",
+  // R13: admin-recipient types live in admin_notifications; legacy member-store rows stay hidden.
+  ...ADMIN_RECIPIENT_NOTIFICATION_TYPES,
 ]);
 
 function trimText(v: unknown): string {
