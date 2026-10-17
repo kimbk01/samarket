@@ -1,7 +1,9 @@
 /**
  * Single-flight Android Play In-App Update orchestration.
  * Default FLEXIBLE. Skips during calls. No infinite retry loops.
+ * Auto FLEXIBLE start requires Host confirm (`confirmStart`).
  * Flexible install completion requires explicit user confirmation (`confirmComplete`).
+ * IMMEDIATE may start without soft prompt when server policy requires it (still call-blocked).
  */
 import {
   completeAndroidFlexibleUpdate,
@@ -13,6 +15,7 @@ import {
   decideAndroidPlayUpdateFlow,
   parseAndroidImmediateUpdateFlag,
   parseAndroidMinVersionCode,
+  type AndroidUpdateFlowChoice,
   type AndroidUpdateServerPolicy,
 } from "@/lib/platform/android-play-in-app-update-policy";
 import {
@@ -31,11 +34,24 @@ let lastDecisionReason: string | null = null;
 type DownloadedListener = () => void;
 const downloadedListeners = new Set<DownloadedListener>();
 
+type AvailableListener = (payload: { choice: "flexible"; reason: string }) => void;
+const availableListeners = new Set<AvailableListener>();
+
 export type AndroidPlayUpdateOrchestratorResult = {
   ran: boolean;
   reason: string;
   choice?: string;
 };
+
+/** Pure gate: auto FLEXIBLE must wait for Host "지금 업데이트" confirm. */
+export function shouldAwaitUserConfirmToStart(opts: {
+  manual: boolean;
+  confirmStart: boolean;
+  choice: AndroidUpdateFlowChoice;
+}): boolean {
+  if (opts.manual || opts.confirmStart) return false;
+  return opts.choice === "flexible";
+}
 
 function isAndroidNative(): boolean {
   return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android";
@@ -107,6 +123,11 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
    * Without this flag, DOWNLOADED only notifies UI listeners (no auto-restart).
    */
   confirmComplete?: boolean;
+  /**
+   * User confirmed starting FLEXIBLE download (Host "지금 업데이트").
+   * Without this on auto-check, FLEXIBLE only notifies available listeners.
+   */
+  confirmStart?: boolean;
 }): Promise<AndroidPlayUpdateOrchestratorResult> {
   if (!isAndroidNative()) {
     return { ran: false, reason: "not_android" };
@@ -117,8 +138,9 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
 
   const manual = opts?.manual === true;
   const confirmComplete = opts?.confirmComplete === true;
+  const confirmStart = opts?.confirmStart === true;
 
-  if (!manual && !confirmComplete) {
+  if (!manual && !confirmComplete && !confirmStart) {
     if (autoPromptCount >= MAX_AUTO_PROMPTS_PER_SESSION) {
       return { ran: false, reason: "session_prompt_cap" };
     }
@@ -165,6 +187,16 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
     }
 
     if (decision.choice === "flexible") {
+      if (
+        shouldAwaitUserConfirmToStart({
+          manual,
+          confirmStart,
+          choice: "flexible",
+        })
+      ) {
+        notifyAvailableListeners({ choice: "flexible", reason: decision.reason });
+        return { ran: false, reason: "awaiting_start_confirmation", choice: "flexible" };
+      }
       const started = await startAndroidFlexibleUpdate();
       if (!started.ok) {
         return { ran: false, reason: started.code ?? started.error, choice: "flexible" };
@@ -203,6 +235,12 @@ export async function runAndroidPlayInAppUpdateCheck(opts?: {
   }
 }
 
+/** User chose "나중에" on the available-update dialog — apply session cooldown. */
+export function acknowledgeAndroidPlayUpdateDeferred(): void {
+  autoPromptCount += 1;
+  writeLastPromptAt(Date.now());
+}
+
 export function getLastAndroidPlayUpdateDecisionReason(): string | null {
   return lastDecisionReason;
 }
@@ -217,10 +255,28 @@ function notifyDownloadedListeners(): void {
   }
 }
 
+function notifyAvailableListeners(payload: { choice: "flexible"; reason: string }): void {
+  for (const listener of availableListeners) {
+    try {
+      listener(payload);
+    } catch {
+      // UI listeners must not break the orchestrator.
+    }
+  }
+}
+
 /** Host registers to show install-confirm dialog when flexible download is ready. */
 export function subscribeAndroidFlexibleInstallReady(listener: DownloadedListener): () => void {
   downloadedListeners.add(listener);
   return () => {
     downloadedListeners.delete(listener);
+  };
+}
+
+/** Host registers to show "새 업데이트 / 지금·나중에" before FLEXIBLE download starts. */
+export function subscribeAndroidFlexibleUpdateAvailable(listener: AvailableListener): () => void {
+  availableListeners.add(listener);
+  return () => {
+    availableListeners.delete(listener);
   };
 }
