@@ -3,6 +3,7 @@ import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import {
   countUnreadAdminNotifications,
   listAdminNotifications,
+  loadAdminNotificationDeliveryHealth,
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
 
@@ -31,7 +32,13 @@ export async function GET(req: NextRequest) {
   if (sp.get("summary") === "1") {
     const r = await countUnreadAdminNotifications(gate.sb, { adminUserId: gate.actor.userId, authority });
     if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
-    return NextResponse.json({ ok: true, unread: r.unread });
+    // Delivery health (dead letters / backlog) is an operational surface — super admins only.
+    let delivery: unknown = undefined;
+    if (gate.actor.isSuperAdmin) {
+      const h = await loadAdminNotificationDeliveryHealth(gate.sb);
+      delivery = h.ok ? h.health : { unavailable: true };
+    }
+    return NextResponse.json({ ok: true, unread: r.unread, ...(delivery !== undefined ? { delivery } : {}) });
   }
 
   const before = sp.get("before")?.trim() || null;

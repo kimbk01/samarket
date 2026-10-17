@@ -30,6 +30,7 @@ import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge
 import { getSiteOrigin } from "@/lib/env/runtime";
 
 export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
+export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
 
 export type AdminRecipientAuthority =
   | { active: false }
@@ -145,18 +146,140 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
   return result.outcome ?? "noop";
 }
 
+export type CreateAdminNotificationResult =
+  | { ok: true; created: number; skippedRecipients: number; pushed: number }
+  | {
+      ok: false;
+      error: string;
+      /** true → the event is durable in admin_notification_outbox and will be retried by the worker. */
+      queued: boolean;
+    };
+
+function isMissingRelation(message: string | undefined, relation: string): boolean {
+  const m = String(message ?? "");
+  return new RegExp(relation, "i").test(m) && /does not exist|schema cache|could not find/i.test(m);
+}
+
+/** Durable fallback: record the EVENT so the worker can re-create it (idempotent per source key). */
+async function enqueueOutbox(
+  sb: SupabaseClient,
+  input: CreateAdminNotificationInput,
+  error: string
+): Promise<boolean> {
+  const { error: qErr } = await sb.rpc("admin_notification_outbox_enqueue", {
+    p_source_key: input.dedupeKey,
+    p_kind: input.kind,
+    p_payload: input as unknown as Record<string, unknown>,
+    p_error: error.slice(0, 1000),
+  });
+  if (qErr) {
+    // Last line of defence: source replay (e.g. support_messages) re-derives the event.
+    console.error("[admin-notification] outbox_enqueue_failed", { dedupeKey: input.dedupeKey, error: qErr.message });
+    return false;
+  }
+  return true;
+}
+
+type PushResult = "sent" | "retryable" | "permanent" | "skipped_revoked" | "skipped_permission" | "skipped_disabled";
+
+function outcomeToResult(outcome: string | undefined): PushResult {
+  if (outcome === "sent") return "sent";
+  if (outcome === "noop") return "skipped_disabled";
+  if (outcome === "retryable") return "retryable";
+  return "permanent";
+}
+
+/** One push attempt for a claimed delivery: authority re-verified immediately before sending. */
+async function attemptPush(
+  sb: SupabaseClient,
+  row: AdminNotificationRow,
+  resolveAuthority: NonNullable<AdminNotificationDeps["resolveAuthority"]>,
+  sendPush: NonNullable<AdminNotificationDeps["sendPush"]>
+): Promise<{ result: PushResult; error: string | null }> {
+  const authority = await resolveAuthority(sb, row.recipient_admin_id).catch(() => ({ active: false }) as const);
+  if (!authority.active) return { result: "skipped_revoked", error: null };
+  if (!authorityAllows(authority, row.required_permission as AdminPermissionKey | null)) {
+    return { result: "skipped_permission", error: null };
+  }
+  try {
+    const outcome = await sendPush(row, sb);
+    return { result: outcomeToResult(outcome), error: outcome === "sent" ? null : `push_outcome:${outcome}` };
+  } catch (e) {
+    return { result: "retryable", error: (e as Error).message };
+  }
+}
+
+/**
+ * Inline first push for a freshly inserted notification. The delivery row is created already
+ * claimed ('sending'); if the process dies mid-send the worker marks it unknown_outcome and does
+ * NOT resend (at-most-once push; the inbox row is the guaranteed delivery).
+ */
+async function pushNewNotification(
+  sb: SupabaseClient,
+  row: AdminNotificationRow,
+  resolveAuthority: NonNullable<AdminNotificationDeps["resolveAuthority"]>,
+  sendPush: NonNullable<AdminNotificationDeps["sendPush"]>
+): Promise<boolean> {
+  const claimToken = crypto.randomUUID();
+  const { error: dErr } = await sb.from(ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE).insert({
+    notification_id: row.id,
+    recipient_admin_id: row.recipient_admin_id,
+    status: "sending",
+    attempts: 1,
+    claim_token: claimToken,
+    claimed_at: new Date().toISOString(),
+  });
+
+  const attempt = async () => attemptPush(sb, row, resolveAuthority, sendPush);
+
+  if (dErr) {
+    if (!isMissingRelation(dErr.message, ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE)) {
+      // Delivery bookkeeping unavailable → do not push blind (no way to prevent a duplicate later).
+      console.error("[admin-notification] push_delivery_insert_failed", { id: row.id, error: dErr.message });
+      return false;
+    }
+    // Pre-recovery schema (20270509 not applied): single attempt, status on the row.
+    const { result } = await attempt();
+    await sb
+      .from(ADMIN_NOTIFICATIONS_TABLE)
+      .update({
+        push_status: result === "sent" ? "sent" : result.startsWith("skipped") ? result : "failed",
+        push_attempted_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+    return result === "sent";
+  }
+
+  const { result, error } = await attempt();
+  const { error: fErr } = await sb.rpc("admin_notification_push_finish", {
+    p_notification_id: row.id,
+    p_claim_token: claimToken,
+    p_result: result,
+    p_error: error,
+  });
+  if (fErr) console.error("[admin-notification] push_finish_failed", { id: row.id, error: fErr.message });
+  return result === "sent";
+}
+
 /**
  * Create admin notifications (fan-out). Recipients are filtered by CURRENT authority;
  * duplicates (same recipient + dedupeKey) are skipped and never re-pushed.
+ * A failed write is recorded in admin_notification_outbox (unless replaying from it).
  */
 export async function createAdminNotification(
   sb: SupabaseClient,
   input: CreateAdminNotificationInput,
-  deps: AdminNotificationDeps = {}
-): Promise<{ ok: true; created: number; skippedRecipients: number; pushed: number } | { ok: false; error: string }> {
+  deps: AdminNotificationDeps = {},
+  opts: { fromOutbox?: boolean } = {}
+): Promise<CreateAdminNotificationResult> {
   const resolveAuthority = deps.resolveAuthority ?? resolveAdminRecipientAuthority;
   const sendPush = deps.sendPush ?? defaultSendPush;
   const requiredPermission = input.requiredPermission ?? null;
+  const fail = async (error: string): Promise<CreateAdminNotificationResult> => ({
+    ok: false,
+    error,
+    queued: opts.fromOutbox ? true : await enqueueOutbox(sb, input, error),
+  });
 
   let candidates: string[];
   try {
@@ -167,15 +290,24 @@ export async function createAdminNotification(
           ? await listActiveAdminUserIds(sb)
           : [];
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    return fail((e as Error).message);
   }
 
   const gatePermission = input.broadcastPermission ?? requiredPermission;
   const recipients: string[] = [];
+  let authorityErrors = 0;
   for (const uid of candidates) {
-    const authority = await resolveAuthority(sb, uid).catch(() => ({ active: false }) as const);
+    let authority: AdminRecipientAuthority;
+    try {
+      authority = await resolveAuthority(sb, uid);
+    } catch {
+      // Transient lookup failure ≠ revoked: retry the whole event rather than drop the recipient.
+      authorityErrors += 1;
+      continue;
+    }
     if (authorityAllows(authority, gatePermission)) recipients.push(uid);
   }
+  if (authorityErrors > 0) return fail("authority_lookup_failed");
   const skippedRecipients = candidates.length - recipients.length;
   if (recipients.length === 0) return { ok: true, created: 0, skippedRecipients, pushed: 0 };
 
@@ -197,31 +329,167 @@ export async function createAdminNotification(
     .from(ADMIN_NOTIFICATIONS_TABLE)
     .upsert(rows, { onConflict: "recipient_admin_id,dedupe_key", ignoreDuplicates: true })
     .select(ROW_COLUMNS);
-  if (error) return { ok: false, error: error.message };
+  if (error) return fail(error.message);
   const inserted = (data ?? []) as AdminNotificationRow[];
 
   let pushed = 0;
   if (input.push) {
     for (const row of inserted) {
-      // Re-verify immediately before sending: authority may have changed since resolution.
-      const authority = await resolveAuthority(sb, row.recipient_admin_id).catch(() => ({ active: false }) as const);
-      const allowed = authorityAllows(authority, row.required_permission as AdminPermissionKey | null);
-      let status: string;
-      if (!authority.active) status = "skipped_revoked";
-      else if (!allowed) status = "skipped_permission";
-      else {
-        const outcome = await sendPush(row, sb).catch(() => "permanent" as const);
-        status = outcome === "sent" ? "sent" : outcome === "noop" ? "skipped_disabled" : "failed";
-        if (outcome === "sent") pushed += 1;
-      }
-      await sb
-        .from(ADMIN_NOTIFICATIONS_TABLE)
-        .update({ push_status: status, push_attempted_at: new Date().toISOString() })
-        .eq("id", row.id);
+      if (await pushNewNotification(sb, row, resolveAuthority, sendPush)) pushed += 1;
     }
   }
 
   return { ok: true, created: inserted.length, skippedRecipients, pushed };
+}
+
+type OutboxRow = { id: string; claim_token: string; source_key: string; payload: unknown };
+type PushDeliveryRow = { notification_id: string; claim_token: string };
+
+function parseOutboxPayload(payload: unknown): CreateAdminNotificationInput | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  if (typeof p.kind !== "string" || typeof p.title !== "string" || typeof p.dedupeKey !== "string") return null;
+  const ids = Array.isArray(p.recipientAdminIds) ? p.recipientAdminIds.map(String) : undefined;
+  if ((!ids || ids.length === 0) && p.broadcastPermission === undefined) return null;
+  return {
+    recipientAdminIds: ids,
+    broadcastPermission: (p.broadcastPermission ?? undefined) as AdminPermissionKey | null | undefined,
+    requiredPermission: (p.requiredPermission ?? null) as AdminPermissionKey | null,
+    kind: p.kind,
+    severity: (p.severity as AdminNotificationSeverity | undefined) ?? "info",
+    title: p.title,
+    body: typeof p.body === "string" ? p.body : null,
+    linkUrl: typeof p.linkUrl === "string" ? p.linkUrl : null,
+    workRef:
+      p.workRef && typeof p.workRef === "object"
+        ? { table: String((p.workRef as { table?: unknown }).table), id: String((p.workRef as { id?: unknown }).id) }
+        : null,
+    dedupeKey: p.dedupeKey,
+    actorUserId: typeof p.actorUserId === "string" ? p.actorUserId : null,
+    push: p.push === true,
+  };
+}
+
+export type AdminNotificationDeliveryRunSummary = {
+  replayed: number;
+  outboxClaimed: number;
+  outboxDelivered: number;
+  outboxRetry: number;
+  outboxDead: number;
+  pushClaimed: number;
+  pushSent: number;
+  pushSkipped: number;
+  pushRetry: number;
+  pushDead: number;
+  errors: string[];
+};
+
+/**
+ * Delivery worker (cron, service role): source replay → outbox claim/replay → push retries.
+ * Every step is idempotent and concurrency-safe (DB claims with SKIP LOCKED + claim-token CAS).
+ */
+export async function runAdminNotificationDeliveryWorker(
+  sb: SupabaseClient,
+  deps: AdminNotificationDeps = {},
+  opts: { lookbackHours?: number; batch?: number } = {}
+): Promise<AdminNotificationDeliveryRunSummary> {
+  const resolveAuthority = deps.resolveAuthority ?? resolveAdminRecipientAuthority;
+  const sendPush = deps.sendPush ?? defaultSendPush;
+  const batch = Math.min(Math.max(opts.batch ?? 20, 1), 100);
+  const sum: AdminNotificationDeliveryRunSummary = {
+    replayed: 0,
+    outboxClaimed: 0,
+    outboxDelivered: 0,
+    outboxRetry: 0,
+    outboxDead: 0,
+    pushClaimed: 0,
+    pushSent: 0,
+    pushSkipped: 0,
+    pushRetry: 0,
+    pushDead: 0,
+    errors: [],
+  };
+
+  const replay = await sb.rpc("admin_notification_replay_support_replies", {
+    p_lookback: `${Math.min(Math.max(opts.lookbackHours ?? 72, 1), 24 * 14)} hours`,
+    p_limit: 200,
+  });
+  if (replay.error) sum.errors.push(`replay:${replay.error.message}`);
+  else sum.replayed = Number(replay.data) || 0;
+
+  const claimed = await sb.rpc("admin_notification_outbox_claim", { p_limit: batch });
+  if (claimed.error) sum.errors.push(`outbox_claim:${claimed.error.message}`);
+  for (const row of (claimed.data ?? []) as OutboxRow[]) {
+    sum.outboxClaimed += 1;
+    const input = parseOutboxPayload(row.payload);
+    const res = input
+      ? await createAdminNotification(sb, input, { resolveAuthority, sendPush }, { fromOutbox: true })
+      : ({ ok: false, error: "invalid_payload", queued: true } as const);
+    const fin = await sb.rpc("admin_notification_outbox_finish", {
+      p_id: row.id,
+      p_claim_token: row.claim_token,
+      p_ok: res.ok,
+      p_error: res.ok ? null : res.error,
+    });
+    const state = String(fin.data ?? "");
+    if (fin.error) sum.errors.push(`outbox_finish:${fin.error.message}`);
+    else if (state === "delivered") sum.outboxDelivered += 1;
+    else if (state === "retry") sum.outboxRetry += 1;
+    else if (state === "dead") sum.outboxDead += 1;
+  }
+
+  const pushClaimed = await sb.rpc("admin_notification_push_claim", { p_limit: batch });
+  if (pushClaimed.error) sum.errors.push(`push_claim:${pushClaimed.error.message}`);
+  for (const d of (pushClaimed.data ?? []) as PushDeliveryRow[]) {
+    sum.pushClaimed += 1;
+    const { data: nRow } = await sb
+      .from(ADMIN_NOTIFICATIONS_TABLE)
+      .select(ROW_COLUMNS)
+      .eq("id", d.notification_id)
+      .maybeSingle();
+    const attempt = nRow
+      ? await attemptPush(sb, nRow as AdminNotificationRow, resolveAuthority, sendPush)
+      : { result: "permanent" as const, error: "notification_missing" };
+    const fin = await sb.rpc("admin_notification_push_finish", {
+      p_notification_id: d.notification_id,
+      p_claim_token: d.claim_token,
+      p_result: attempt.result,
+      p_error: attempt.error,
+    });
+    const state = String(fin.data ?? "");
+    if (fin.error) sum.errors.push(`push_finish:${fin.error.message}`);
+    else if (state === "sent") sum.pushSent += 1;
+    else if (state.startsWith("skipped")) sum.pushSkipped += 1;
+    else if (state === "retry") sum.pushRetry += 1;
+    else if (state === "dead") sum.pushDead += 1;
+  }
+
+  return sum;
+}
+
+export type AdminNotificationDeliveryHealth = {
+  outboxDead: number;
+  outboxPending: number;
+  pushDead: number;
+  pushUnknown: number;
+};
+
+/** Dead letters / backlog — shown to super admins (operational failure surface). */
+export async function loadAdminNotificationDeliveryHealth(
+  sb: SupabaseClient
+): Promise<{ ok: true; health: AdminNotificationDeliveryHealth } | { ok: false; error: string }> {
+  const { data, error } = await sb.rpc("admin_notification_delivery_health");
+  if (error) return { ok: false, error: error.message };
+  const h = (data ?? {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    health: {
+      outboxDead: Number(h.outbox_dead) || 0,
+      outboxPending: Number(h.outbox_pending) || 0,
+      pushDead: Number(h.push_dead) || 0,
+      pushUnknown: Number(h.push_unknown) || 0,
+    },
+  };
 }
 
 function retentionCutoffIso(now: Date = new Date()): string {

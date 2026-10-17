@@ -42,9 +42,21 @@ export function AdminInboxPageClient() {
     [unreadOnly]
   );
 
+  const [delivery, setDelivery] = useState<{
+    outboxDead?: number;
+    outboxPending?: number;
+    pushDead?: number;
+    pushUnknown?: number;
+    unavailable?: boolean;
+  } | null>(null);
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
+      void fetch("/api/admin/inbox?summary=1", { credentials: "include", cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { delivery?: typeof delivery }) => setDelivery(j?.delivery ?? null))
+        .catch(() => setDelivery(null));
       const json = await fetchPage(null);
       setItems(json.items ?? []);
       setUnread(json.unread ?? 0);
@@ -126,6 +138,18 @@ export function AdminInboxPageClient() {
         <p className="text-sm text-red-600" role="alert">
           {t("admin_inbox_load_error")}
         </p>
+      ) : null}
+      {delivery &&
+      (delivery.unavailable || (delivery.outboxDead ?? 0) > 0 || (delivery.pushDead ?? 0) > 0) ? (
+        <div
+          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          role="alert"
+          data-testid="admin-inbox-delivery-failure"
+        >
+          {delivery.unavailable
+            ? t("admin_inbox_delivery_health_unavailable")
+            : `${t("admin_inbox_delivery_failed")} · outbox ${delivery.outboxDead ?? 0} · push ${delivery.pushDead ?? 0}`}
+        </div>
       ) : null}
       {loading ? (
         <p className="text-sm text-sam-muted">…</p>

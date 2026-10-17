@@ -26,13 +26,19 @@ export function AdminInboxLink() {
         dedupeKey: "admin:inbox:summary",
         cacheTtlMs: 0,
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; unread?: number };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        unread?: number;
+        delivery?: { outboxDead?: number; pushDead?: number; unavailable?: boolean };
+      };
       if (!res.ok || !json.ok) {
         setFailed(true);
         return;
       }
       setUnread(Math.max(0, Math.floor(Number(json.unread) || 0)));
-      setFailed(false);
+      // Super admins: permanent delivery failures (dead letters) also raise "!".
+      const d = json.delivery;
+      setFailed(Boolean(d && (d.unavailable || (d.outboxDead ?? 0) > 0 || (d.pushDead ?? 0) > 0)));
     } catch {
       setFailed(true);
     }

@@ -6,6 +6,8 @@ import {
   countUnreadAdminNotifications,
   createAdminNotification,
   listAdminNotifications,
+  loadAdminNotificationDeliveryHealth,
+  runAdminNotificationDeliveryWorker,
   markAdminNotificationsRead,
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
@@ -19,7 +21,7 @@ type Row = Record<string, unknown>;
  * In-memory PostgREST fake (subset): select/eq/is/in/not/gte/lt/order/limit, upsert with
  * onConflict + ignoreDuplicates, update, insert. Enough to exercise the service end to end.
  */
-function memoryDb(seed: Record<string, Row[]> = {}) {
+function memoryDb(seed: Record<string, Row[]> = {}, opts: { failInsertInto?: Set<string> } = {}) {
   const tables: Record<string, Row[]> = Object.fromEntries(
     Object.entries(seed).map(([k, v]) => [k, v.map((r) => ({ ...r }))])
   );
@@ -49,6 +51,8 @@ function memoryDb(seed: Record<string, Row[]> = {}) {
         lt: (c: string, v: string) => (preds.push((r) => String(r[c]) < v), b),
         order: (col: string, o: { ascending: boolean }) => ((order = { col, asc: o.ascending }), b),
         limit: (n: number) => ((limitN = n), b),
+        maybeSingle: () =>
+          Promise.resolve({ data: tables[table].find((r) => preds.every((p) => p(r))) ?? null, error: null }),
         update: (p: Row) => ((mode = "update"), (patch = p), b),
         insert: (rows: Row | Row[]) => ((mode = "insert"), (upsertRows = Array.isArray(rows) ? rows : [rows]), b),
         upsert: (rows: Row[], o: { onConflict: string }) => (
@@ -57,6 +61,9 @@ function memoryDb(seed: Record<string, Row[]> = {}) {
         then: (resolve: (r: unknown) => unknown) => {
           const t = tables[table];
           if (mode === "upsert" || mode === "insert") {
+            if (opts.failInsertInto?.has(table)) {
+              return resolve({ data: null, error: { message: "canceling statement due to statement timeout" } });
+            }
             const inserted: Row[] = [];
             for (const r of upsertRows) {
               const dup =
@@ -82,6 +89,66 @@ function memoryDb(seed: Record<string, Row[]> = {}) {
         },
       };
       return b;
+    },
+    /** SQL-equivalent fakes of the 20270509 delivery RPCs (claim = token CAS, dead after max). */
+    rpc(fn: string, args: Record<string, unknown> = {}) {
+      const outbox = (tables.admin_notification_outbox ??= []);
+      const pushes = (tables.admin_notification_push_deliveries ??= []);
+      const ok = (data: unknown) => Promise.resolve({ data, error: null });
+      switch (fn) {
+        case "admin_notification_outbox_enqueue": {
+          if (outbox.some((o) => o.source_key === args.p_source_key)) return ok(false);
+          outbox.push({
+            id: `ob-${++seq}`, source_key: args.p_source_key, kind: args.p_kind,
+            payload: JSON.parse(JSON.stringify(args.p_payload)), status: "pending",
+            attempts: args.p_error ? 1 : 0, max_attempts: 8, last_error: args.p_error ?? null,
+          });
+          return ok(true);
+        }
+        case "admin_notification_replay_support_replies":
+          return ok(0);
+        case "admin_notification_outbox_claim": {
+          const due = outbox.filter((o) => o.status === "pending");
+          for (const o of due) Object.assign(o, { status: "processing", claim_token: `ct-${++seq}`, attempts: Number(o.attempts) + 1 });
+          return ok(due.map((o) => ({ ...o })));
+        }
+        case "admin_notification_outbox_finish": {
+          const o = outbox.find((x) => x.id === args.p_id && x.claim_token === args.p_claim_token && x.status === "processing");
+          if (!o) return ok("stale_claim");
+          o.claim_token = null;
+          if (args.p_ok) return (o.status = "delivered"), (o.last_error = null), ok("delivered");
+          o.last_error = args.p_error;
+          if (Number(o.attempts) >= Number(o.max_attempts)) return (o.status = "dead"), ok("dead");
+          return (o.status = "pending"), ok("retry");
+        }
+        case "admin_notification_push_claim": {
+          for (const d of pushes) if (d.status === "sending" && d.stale === true) Object.assign(d, { status: "unknown_outcome", claim_token: null });
+          const due = pushes.filter((d) => d.status === "pending" || d.status === "retry");
+          for (const d of due) Object.assign(d, { status: "sending", claim_token: `pt-${++seq}`, attempts: Number(d.attempts ?? 0) + 1 });
+          return ok(due.map((d) => ({ ...d })));
+        }
+        case "admin_notification_push_finish": {
+          const d = pushes.find((x) => x.notification_id === args.p_notification_id && x.claim_token === args.p_claim_token && x.status === "sending");
+          if (!d) return ok("stale_claim");
+          const r = String(args.p_result);
+          const max = Number(d.max_attempts ?? 5);
+          const status =
+            r === "sent" || r.startsWith("skipped_") ? r : r === "retryable" && Number(d.attempts) < max ? "retry" : "dead";
+          Object.assign(d, { status, claim_token: null, last_error: status === "sent" ? null : args.p_error });
+          const n = (tables.admin_notifications ?? []).find((x) => x.id === args.p_notification_id);
+          if (n) n.push_status = status === "retry" ? "none" : status === "dead" ? "failed" : status;
+          return ok(status);
+        }
+        case "admin_notification_delivery_health":
+          return ok({
+            outbox_dead: outbox.filter((o) => o.status === "dead").length,
+            outbox_pending: outbox.filter((o) => o.status === "pending" || o.status === "processing").length,
+            push_dead: pushes.filter((d) => d.status === "dead").length,
+            push_unknown: pushes.filter((d) => d.status === "unknown_outcome").length,
+          });
+        default:
+          return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
+      }
     },
   };
   return sb;
@@ -245,5 +312,149 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(inbox).toContain("/api/admin/inbox?summary=1");
     const queue = read("lib/admin/admin-action-queue.ts");
     expect(queue).not.toContain("admin_notifications");
+  });
+});
+
+describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () => {
+  const input = {
+    recipientAdminIds: ["admin-a"],
+    kind: "support_customer_replied",
+    title: "문의 S-9",
+    workRef: { table: "support_cases", id: "case-9" },
+    dedupeKey: "support_customer_replied:msg-9",
+    push: true,
+  };
+
+  it("transient inbox write failure → event queued durably → worker re-creates it exactly once", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    const sendPush = vi.fn(async () => "sent" as const);
+    const deps = { resolveAuthority: async () => SUPER, sendPush };
+    const r = await createAdminNotification(sb as never, input, deps);
+    expect(r).toMatchObject({ ok: false, queued: true });
+    // a second failing attempt for the same event never adds a second outbox row
+    await createAdminNotification(sb as never, input, deps);
+    expect(sb.tables.admin_notification_outbox).toHaveLength(1);
+    expect(sb.tables.admin_notification_outbox[0]).toMatchObject({ status: "pending", attempts: 1 });
+    expect(sb.tables.admin_notification_outbox[0]?.last_error).toMatch(/timeout/);
+
+    // DB recovers
+    const healed = memoryDb({ admin_notification_outbox: sb.tables.admin_notification_outbox });
+    const run = await runAdminNotificationDeliveryWorker(healed as never, deps);
+    expect(run).toMatchObject({ outboxClaimed: 1, outboxDelivered: 1, errors: [] });
+    expect(healed.tables.admin_notifications).toHaveLength(1);
+    expect(sendPush).toHaveBeenCalledTimes(1);
+
+    // the source path succeeding later (or a second worker) is a no-op: UNIQUE(recipient, dedupe_key)
+    const again = await createAdminNotification(healed as never, input, deps);
+    expect(again).toMatchObject({ ok: true, created: 0, pushed: 0 });
+    const rerun = await runAdminNotificationDeliveryWorker(healed as never, deps);
+    expect(rerun).toMatchObject({ outboxClaimed: 0, pushClaimed: 0 });
+    expect(healed.tables.admin_notifications).toHaveLength(1);
+    expect(sendPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("authority lookup error is a retryable failure (queued), not a silent skip", async () => {
+    const sb = memoryDb();
+    const r = await createAdminNotification(sb as never, input, {
+      resolveAuthority: async () => {
+        throw new Error("network");
+      },
+      sendPush: vi.fn(),
+    });
+    expect(r).toMatchObject({ ok: false, error: "authority_lookup_failed", queued: true });
+    expect(sb.tables.admin_notifications ?? []).toHaveLength(0);
+  });
+
+  it("recipient revoked while the event waits in the outbox → no row, no push, outbox closed", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    await createAdminNotification(sb as never, input, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+    const healed = memoryDb({ admin_notification_outbox: sb.tables.admin_notification_outbox });
+    const sendPush = vi.fn(async () => "sent" as const);
+    const run = await runAdminNotificationDeliveryWorker(healed as never, { resolveAuthority: async () => REVOKED, sendPush });
+    expect(run).toMatchObject({ outboxDelivered: 1 });
+    expect(healed.tables.admin_notifications ?? []).toHaveLength(0);
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it("persistent failure is bounded: dead after max attempts and surfaced by health", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    const deps = { resolveAuthority: async () => SUPER, sendPush: vi.fn() };
+    await createAdminNotification(sb as never, input, deps);
+    let dead = 0;
+    for (let i = 0; i < 20; i += 1) dead += (await runAdminNotificationDeliveryWorker(sb as never, deps)).outboxDead;
+    expect(dead).toBe(1);
+    expect(sb.tables.admin_notification_outbox[0]).toMatchObject({ status: "dead", attempts: 8 });
+    const h = await loadAdminNotificationDeliveryHealth(sb as never);
+    expect(h).toEqual({ ok: true, health: { outboxDead: 1, outboxPending: 0, pushDead: 0, pushUnknown: 0 } });
+  });
+
+  it("push: retryable failure retried; a send with unknown outcome is never resent", async () => {
+    const sb = memoryDb();
+    const sendPush = vi.fn(async (): Promise<"sent" | "retryable"> => "retryable");
+    const deps = { resolveAuthority: async () => SUPER, sendPush };
+    await createAdminNotification(sb as never, input, deps);
+    expect(sb.tables.admin_notification_push_deliveries[0]).toMatchObject({ status: "retry", attempts: 1 });
+    sendPush.mockImplementation(async () => "sent" as const);
+    const run = await runAdminNotificationDeliveryWorker(sb as never, deps);
+    expect(run).toMatchObject({ pushClaimed: 1, pushSent: 1 });
+    expect(sb.tables.admin_notifications[0]?.push_status).toBe("sent");
+
+    // a delivery stuck in 'sending' (worker died mid-send) → unknown_outcome, not re-pushed
+    sb.tables.admin_notification_push_deliveries.push({ notification_id: "ghost", status: "sending", stale: true, attempts: 1 });
+    const calls = sendPush.mock.calls.length;
+    const run2 = await runAdminNotificationDeliveryWorker(sb as never, deps);
+    expect(run2.pushClaimed).toBe(0);
+    expect(sendPush.mock.calls.length).toBe(calls);
+    expect((await loadAdminNotificationDeliveryHealth(sb as never)).ok && (await loadAdminNotificationDeliveryHealth(sb as never))).toMatchObject({ health: { pushUnknown: 1 } });
+  });
+
+  it("push retry re-verifies authority: revoked before the retry → skipped, never sent", async () => {
+    const sb = memoryDb();
+    const sendPush = vi.fn(async (): Promise<"sent" | "retryable"> => "retryable");
+    let authority: AdminRecipientAuthority = SUPER;
+    const deps = { resolveAuthority: async () => authority, sendPush };
+    await createAdminNotification(sb as never, input, deps);
+    authority = REVOKED;
+    const run = await runAdminNotificationDeliveryWorker(sb as never, deps);
+    expect(run).toMatchObject({ pushClaimed: 1, pushSkipped: 1, pushSent: 0 });
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(sb.tables.admin_notifications[0]?.push_status).toBe("skipped_revoked");
+  });
+
+  it("delivery bookkeeping write failure → no blind push (duplicate risk avoided)", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notification_push_deliveries"]) });
+    const sendPush = vi.fn(async () => "sent" as const);
+    const r = await createAdminNotification(sb as never, input, { resolveAuthority: async () => SUPER, sendPush });
+    expect(r).toMatchObject({ ok: true, created: 1, pushed: 0 });
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("R13-D migration / route contracts", () => {
+  it("delivery migration: non-destructive, RLS on, functions service_role only, SKIP LOCKED claims", () => {
+    const mig = read("supabase/migrations/20270509120000_admin_notification_delivery_recovery.sql");
+    expect(mig).not.toMatch(/^\s*drop\s/im);
+    expect(mig).not.toMatch(/create policy/i);
+    expect(mig).toContain("enable row level security");
+    expect(mig).toContain("revoke all on public.admin_notification_outbox from anon, authenticated");
+    expect(mig).toContain("revoke all on function %s from anon, authenticated");
+    expect(mig).toContain("grant execute on function %s to service_role");
+    expect(mig.match(/for update skip locked/g)?.length).toBe(2);
+    expect(mig).toContain("constraint admin_notification_outbox_source_key unique (source_key)");
+    expect(mig).toContain("status = 'unknown_outcome'");
+  });
+
+  it("cron route requires CRON_SECRET and keeps the 90-day archive behind a separate flag", () => {
+    const route = read("app/api/cron/admin-notification-delivery/route.ts");
+    expect(route).toContain("verifyCronRequestAuthorization(req, secret)");
+    expect(route).toContain('cron_secret_not_configured');
+    expect(route).toContain('process.env.ADMIN_NOTIFICATION_ARCHIVE_ENABLED === "1"');
+    const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string }[] };
+    expect(vercel.crons.some((c) => c.path === "/api/cron/admin-notification-delivery")).toBe(true);
+  });
+
+  it("delivery health is exposed to super admins only", () => {
+    const route = read("app/api/admin/inbox/route.ts");
+    expect(route).toMatch(/if \(gate\.actor\.isSuperAdmin\) \{\s*const h = await loadAdminNotificationDeliveryHealth/);
   });
 });

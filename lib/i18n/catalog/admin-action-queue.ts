@@ -6,6 +6,8 @@
 export const adminActionQueueMessages = {
   ko: {
     admin_report_list_load_failed: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
+    admin_inbox_delivery_failed: "관리자 알림 전달이 영구 실패한 건이 있습니다 (재시도 한도 초과). 운영 점검이 필요합니다",
+    admin_inbox_delivery_health_unavailable: "관리자 알림 전달 상태를 확인하지 못했습니다",
     admin_inbox_title: "관리자 알림함",
     admin_inbox_desc:
       "관리자에게 전달된 운영 알림입니다. 읽음 처리는 알림에만 적용되며 업무 처리 상태는 바뀌지 않습니다. 처리 대기 업무는 벨(액션 큐)에서 확인하세요.",
@@ -36,6 +38,8 @@ export const adminActionQueueMessages = {
   },
   en: {
     admin_report_list_load_failed: "Some reports could not be loaded. Refresh and check again.",
+    admin_inbox_delivery_failed: "Some admin notifications permanently failed to deliver (retry limit reached). Operations check needed",
+    admin_inbox_delivery_health_unavailable: "Could not check admin notification delivery health",
     admin_inbox_title: "Admin inbox",
     admin_inbox_desc:
       "Operational notices sent to admins. Marking read affects only the notice, never the work status. Pending work lives in the bell (Action Queue).",
