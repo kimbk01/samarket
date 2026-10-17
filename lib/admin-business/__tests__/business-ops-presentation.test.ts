@@ -26,9 +26,11 @@ describe("business-ops-presentation", () => {
   });
 
   it("maps settlement statuses", () => {
-    expect(presentSettlementKind(["held"])).toBe("held");
-    expect(presentSettlementKind(["pending"])).toBe("needs_check");
-    expect(presentSettlementKind(["scheduled"])).toBe("needs_check");
+    expect(presentSettlementKind(["outstanding"])).toBe("held");
+    expect(presentSettlementKind(["review_required"])).toBe("needs_check");
+    expect(presentSettlementKind(["outstanding", "review_required"])).toBe("held");
+    // Legacy store_settlements statuses are store-collected money — never an attention signal.
+    expect(presentSettlementKind(["scheduled", "pending", "held"])).toBe("ok");
     expect(presentSettlementKind([])).toBe("ok");
   });
 

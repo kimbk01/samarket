@@ -85,5 +85,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, ...res });
+  // `res.ok` is already `true` here — return it as-is (no duplicate `ok` key).
+  return NextResponse.json(res);
 }

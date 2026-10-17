@@ -1,5 +1,6 @@
 "use client";
 
+import { buyerPaidAmountPhp } from "@/lib/stores/buyer-store-order-money";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -72,8 +73,6 @@ type OrderRow = {
   total_amount: number;
   discount_amount?: number;
   gift_redemption_amount?: number;
-  platform_funded_amount?: number;
-  merchant_revenue_amount?: number;
   payment_amount: number;
   payment_status: string;
   order_status: string;
@@ -100,15 +99,7 @@ function resolveBuyerStoreOrderChatHref(args: {
   ordersHubPaths: boolean;
   returnHref: string;
 }): string {
-  const contextPaymentAmount = Math.max(
-    0,
-    Math.round(
-      Number(args.order.merchant_revenue_amount) ||
-        Number(args.order.payment_amount) +
-          Number(args.order.gift_redemption_amount ?? 0) +
-          Number(args.order.platform_funded_amount ?? 0)
-    )
-  );
+  const contextPaymentAmount = buyerPaidAmountPhp(args.order);
   const roomId = args.order.community_messenger_room_id?.trim() ?? "";
   if (roomId) {
     return buildStoreOrderMessengerRoomHref(roomId, {
@@ -327,15 +318,8 @@ function MyStoreOrderCard({
   const storeHref = o.store_slug?.trim()
     ? `/stores/${encodeURIComponent(o.store_slug.trim())}`
     : null;
-  const displayOrderAmount = Math.max(
-    0,
-    Math.round(
-      Number(o.merchant_revenue_amount) ||
-        Number(o.payment_amount) +
-          Number(o.gift_redemption_amount ?? 0) +
-          Number(o.platform_funded_amount ?? 0)
-    )
-  );
+  // Customer-facing amount only (same as the detail 총액) — never store revenue / coupon funding.
+  const displayOrderAmount = buyerPaidAmountPhp(o);
 
   const summaryInner = (
     <div className="flex items-start justify-between gap-3">

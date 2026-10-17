@@ -267,6 +267,18 @@ export async function applyStoreOrderStatusTransition(
   // The order did NOT move — the whole UPDATE rolled back.
   if (uErr && /store_commission_(charge_failed|policy_missing)/.test(String(uErr.message ?? ""))) {
     console.error("[applyStoreOrderStatusTransition] commission_charge_refused", uErr.message);
+    // Financial exception → one admin alert per (order, target status); best effort, never blocks the 409.
+    const notified = await sb
+      .rpc("store_commission_notify_charge_failure", {
+        p_order_id: oid,
+        p_target_status: nextStatus,
+        p_error: String(uErr.message ?? ""),
+      })
+      .then(
+        (r) => r,
+        (e: unknown) => ({ error: { message: e instanceof Error ? e.message : String(e) } })
+      );
+    if (notified.error) console.error("[applyStoreOrderStatusTransition] charge_failure_alert", notified.error.message);
     return {
       ok: false,
       error: /policy_missing/.test(String(uErr.message)) ? "store_commission_policy_missing" : STORE_COMMISSION_CHARGE_FAILED_ERROR,

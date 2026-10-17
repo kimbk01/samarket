@@ -102,9 +102,17 @@ export type FinanceControlPlaneModel = {
     unavailable: boolean;
     source: string;
   };
+  /**
+   * Platform payout obligation (store_platform_payable_page). Legacy store_settlements
+   * "scheduled" snapshots are store-collected money and are NOT counted here.
+   */
   settlements: {
     rows: FinanceSectionRow[];
     pendingCount: number | null;
+    payablePhp: number | null;
+    directCollectedPhp: number | null;
+    legacyOpenSettlementPhp: number | null;
+    legacyOpenSettlementCount: number | null;
     unavailable: boolean;
     source: string;
     queueHref: string;

@@ -1,6 +1,7 @@
 /**
  * SOL1 buyer store orders list — CPU-only assemble (same shape as legacy GET).
  */
+import { stripStoreInternalOrderFields } from "@/lib/stores/buyer-store-order-money";
 import {
   mapBuyerStoreOrderReviewRow,
   type BuyerStoreOrderReviewSummary,
@@ -70,7 +71,7 @@ export function buyerStoreOrdersListFromPayload(
         ? (rawItems as Record<string, unknown>[])
         : [];
       return {
-        ...orderRest,
+        ...stripStoreInternalOrderFields(orderRest),
         id,
         order_status: status,
         store_name: String(o.store_name ?? ""),

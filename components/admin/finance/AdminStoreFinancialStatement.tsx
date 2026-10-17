@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreFinancialStatementModel } from "@/lib/admin/store-financial-statement/types";
+import { STORE_COMMISSION_ROW_STATE_LABEL } from "@/lib/stores/commission/store-commission-contract";
 
 function php(n: number | null | undefined): string {
   if (n == null) return "UNAVAILABLE";
@@ -213,7 +214,7 @@ export function AdminStoreFinancialStatement({
             },
             {
               id: "stl",
-              label: ko ? "정산 대기" : "Settlement pending",
+              label: ko ? "플랫폼 지급 의무" : "Platform payable",
               value: php(s.summary.settlementPendingNet.amount),
               hint: s.summary.settlementPendingNet.source,
             },
@@ -267,17 +268,17 @@ export function AdminStoreFinancialStatement({
         )}
       </Section>
 
-      <Section title={ko ? "수수료 (주문별 적용)" : "Fees (applied per order)"} testId="fees">
+      <Section title={ko ? "수수료 (조리 시작 시 부과 · 주문별)" : "Commission (charged at cooking start)"} testId="fees">
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[44rem] table-fixed text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
                 <th className="px-3 py-2">{ko ? "주문" : "Order"}</th>
-                <th className="px-3 py-2">{ko ? "판매액" : "Sale"}</th>
+                <th className="px-3 py-2">{ko ? "수수료 기준액" : "Base"}</th>
                 <th className="px-3 py-2">{ko ? "요율" : "Rate"}</th>
-                <th className="px-3 py-2">{ko ? "수수료" : "Fee"}</th>
-                <th className="px-3 py-2">{ko ? "고정" : "Fixed"}</th>
-                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">{ko ? "부과" : "Charged"}</th>
+                <th className="px-3 py-2">{ko ? "미납" : "Unpaid"}</th>
+                <th className="px-3 py-2">{ko ? "상태" : "State"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
@@ -289,7 +290,7 @@ export function AdminStoreFinancialStatement({
                 </tr>
               ) : (
                 s.fees.rows.map((r) => (
-                  <tr key={r.settlementId}>
+                  <tr key={r.obligationId}>
                     <td className="truncate px-3 py-2">
                       <Link href={r.orderHref} className="text-signature hover:underline">
                         {r.orderNo || r.orderId.slice(0, 8)}
@@ -299,9 +300,13 @@ export function AdminStoreFinancialStatement({
                     <td className="px-3 py-2 tabular-nums">
                       {r.feeRatePercent == null ? "—" : `${r.feeRatePercent}%`}
                     </td>
-                    <td className="px-3 py-2 tabular-nums">{php(r.feeAmount)}</td>
-                    <td className="px-3 py-2 tabular-nums">{php(r.fixedFeeAmount)}</td>
-                    <td className="px-3 py-2">{r.settlementStatus}</td>
+                    <td className="px-3 py-2 tabular-nums">{cashMinor(r.feeChargedMinor)}</td>
+                    <td className="px-3 py-2 tabular-nums">{cashMinor(r.feeOutstandingMinor)}</td>
+                    <td className="px-3 py-2">
+                      <Link href={r.ledgerHref} className="hover:underline">
+                        {STORE_COMMISSION_ROW_STATE_LABEL[r.state]?.[ko ? "ko" : "en"] ?? r.state}
+                      </Link>
+                    </td>
                   </tr>
                 ))
               )}
@@ -375,7 +380,43 @@ export function AdminStoreFinancialStatement({
         </Section>
       </div>
 
-      <Section title={ko ? "정산" : "Settlement"} testId="settlements">
+      <Section title={ko ? "플랫폼 지급 의무" : "Platform payable"} testId="settlements">
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "주문 대금은 매장이 직접 받습니다. 지급 의무 = 플랫폼 보유(선물·플랫폼 쿠폰) − 상품권 정산 레일분 − 코인 지급분."
+            : "Stores collect order money directly. Payable = platform-held (gift / platform coupon) − gift-certificate rail − paid as Coin."}
+        </p>
+        {s.settlements.payableUnavailable ? (
+          <Unavail ko={ko} />
+        ) : (
+          <dl className="grid gap-2 sam-text-body-secondary sm:grid-cols-5">
+            <div>
+              <dt className="text-sam-muted">{ko ? "지급 의무" : "Payable"}</dt>
+              <dd className="font-semibold tabular-nums">
+                {php(s.settlements.payablePhp)} · {s.settlements.payableOrders ?? 0}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "매장 직접 수령 (지급 대상 아님)" : "Collected by store (no payout)"}</dt>
+              <dd className="tabular-nums">{php(s.settlements.directCollectedPhp)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "플랫폼 보유" : "Platform-held"}</dt>
+              <dd className="tabular-nums">{php(s.settlements.platformHeldPhp)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "상품권 정산 레일 (여기서 지급 안 함)" : "Gift rail (not paid here)"}</dt>
+              <dd className="tabular-nums">{php(s.settlements.giftRailPhp)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "코인으로 지급됨" : "Paid via Coin"}</dt>
+              <dd className="tabular-nums">{php(s.settlements.heldPaidByCoinPhp)}</dd>
+            </div>
+          </dl>
+        )}
+        <p className="mt-3 sam-text-helper font-medium text-sam-fg">
+          {ko ? "과거 정산 스냅샷 (참고 · 지급 의무 아님 · 원본 보존)" : "Legacy settlement snapshots (reference only · not payable)"}
+        </p>
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[44rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
@@ -390,14 +431,14 @@ export function AdminStoreFinancialStatement({
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
-              {s.settlements.rows.length === 0 ? (
+              {s.settlements.legacyRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-6 text-center text-sam-muted">
-                    {s.settlements.unavailable ? <Unavail ko={ko} /> : "0"}
+                    {s.settlements.legacyUnavailable ? <Unavail ko={ko} /> : "0"}
                   </td>
                 </tr>
               ) : (
-                s.settlements.rows.map((r) => (
+                s.settlements.legacyRows.map((r) => (
                   <tr key={r.settlementId}>
                     <td className="truncate px-3 py-2">
                       <Link href={r.href} className="text-signature hover:underline">

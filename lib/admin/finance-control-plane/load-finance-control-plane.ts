@@ -1,6 +1,8 @@
 /**
  * ARO-OPS-UX-002-B4 — Common Finance Control Plane loader.
- * Composes Point/Coin/Cash/Settlement/Obligation sources. No new tables/mutations.
+ * Composes Point/Coin/Cash/Payable/Obligation sources. No new tables/mutations.
+ * "Settlement" = platform payout obligation from the commission SSOT (store_platform_payable_page);
+ * legacy store_settlements scheduled rows are store-collected money and never a payout queue.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -17,6 +19,12 @@ import type {
   FinanceSectionRow,
 } from "@/lib/admin/finance-control-plane/types";
 import { loadFinanceTodaySummary } from "@/lib/finance/today-summary/load-finance-today-summary";
+import {
+  loadStorePlatformPayable,
+  type StorePlatformPayablePage,
+} from "@/lib/stores/commission/load-store-commission-ledger";
+
+const PAYABLE_QUEUE_HREF = "/admin/store-settlements?tab=payable";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -85,14 +93,10 @@ export async function loadFinanceControlPlane(
       .eq("status", "REQUESTED")
       .order("created_at", { ascending: false })
       .limit(40),
-    sb
-      .from("store_settlements")
-      .select(
-        "id, store_id, order_id, gross_amount, platform_fee_amount, fixed_fee_amount, net_settlement_amount, settlement_amount, settlement_status, created_at, paid_at"
-      )
-      .in("settlement_status", ["scheduled", "held", "processing"])
-      .order("created_at", { ascending: false })
-      .limit(40),
+    loadStorePlatformPayable(sb, { storeIds: null, fromIso: null, toIso: null, view: "payable", limit: 40, offset: 0 }).then(
+      (page): { page: StorePlatformPayablePage | null; error: { message: string } | null } => ({ page, error: null }),
+      (e: unknown) => ({ page: null, error: { message: e instanceof Error ? e.message : "payable_failed" } })
+    ),
     sb
       .from("store_sale_fee_obligations")
       .select(
@@ -131,8 +135,8 @@ export async function loadFinanceControlPlane(
   ) {
     sectionErrors.push(`coin_withdraw:${coinWithdrawRes.error.message}`);
   }
-  if (settlementRes.error && !isMissing(settlementRes.error, /store_settlements|schema cache|does not exist/i)) {
-    sectionErrors.push(`settlement:${settlementRes.error.message}`);
+  if (settlementRes.error) {
+    sectionErrors.push(`payable:${settlementRes.error.message}`);
   }
   if (
     obligationRes.error &&
@@ -160,8 +164,10 @@ export async function loadFinanceControlPlane(
   const coinWdUnavailable =
     !!coinWithdrawRes.error &&
     !isMissing(coinWithdrawRes.error, /coin_withdrawal_requests|schema cache|does not exist/i);
-  const stlUnavailable =
-    !!settlementRes.error && !isMissing(settlementRes.error, /store_settlements|schema cache|does not exist/i);
+  // RPC missing / failed → UNAVAILABLE (never fall back to legacy scheduled snapshots).
+  const stlUnavailable = !!settlementRes.error || !settlementRes.page;
+  const payableRows = settlementRes.page?.rows ?? [];
+  const payableSummary = settlementRes.page?.summary ?? null;
   const oblUnavailable =
     !!obligationRes.error &&
     !isMissing(obligationRes.error, /store_sale_fee_obligations|schema cache|does not exist/i);
@@ -181,7 +187,7 @@ export async function loadFinanceControlPlane(
       [
         ...((cashPendingRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
         ...((coinWithdrawRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
-        ...((settlementRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
+        ...payableRows.map((r) => r.storeId),
         ...((obligationRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
         ...((coinLedgerRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
         ...((cashLedgerRes.data ?? []) as Record<string, unknown>[]).map((r) => String(r.store_id ?? "")),
@@ -299,31 +305,29 @@ export async function loadFinanceControlPlane(
     });
   }
 
-  for (const r of stlUnavailable ? [] : ((settlementRes.data ?? []) as Record<string, unknown>[]).slice(0, 12)) {
-    const id = String(r.id ?? "");
-    const storeId = String(r.store_id ?? "");
-    const at = String(r.created_at ?? "");
-    const net = Number(r.net_settlement_amount ?? r.settlement_amount) || 0;
+  for (const r of payableRows.slice(0, 12)) {
+    const storeId = r.storeId;
+    const at = r.createdAt;
     actionRequired.push({
-      id: `stl:${id}`,
+      id: `payable:${r.orderId}`,
       type: "settlement",
       currency: "PHP_SETTLEMENT",
       actorKind: "store",
       actorId: storeId,
-      actorLabel: storeNameById[storeId] || storeId.slice(0, 8),
-      amount: net,
+      actorLabel: r.storeName || storeNameById[storeId] || storeId.slice(0, 8),
+      amount: r.payablePhp,
       amountMinor: null,
-      amountLabel: phpMajor(net),
-      status: String(r.settlement_status ?? ""),
+      amountLabel: phpMajor(r.payablePhp),
+      status: "payable",
       at,
       ageHours: ageHours(at),
-      source: "store_settlements",
-      href: `/admin/store-settlements?store_id=${encodeURIComponent(storeId)}&settlement_status=${encodeURIComponent(String(r.settlement_status ?? "scheduled"))}`,
+      source: "store_platform_payable_page",
+      href: `${PAYABLE_QUEUE_HREF}&store_id=${encodeURIComponent(storeId)}`,
       statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
       memberHref: null,
-      referenceType: "store_settlement",
-      referenceId: id,
-      referenceHref: `/admin/store-settlements?store_id=${encodeURIComponent(storeId)}`,
+      referenceType: "store_order",
+      referenceId: r.orderId,
+      referenceHref: `/admin/store-orders?order_id=${encodeURIComponent(r.orderId)}`,
     });
   }
 
@@ -439,29 +443,21 @@ export async function loadFinanceControlPlane(
     };
   });
 
-  const settlementRows: FinanceSectionRow[] = (
-    stlUnavailable ? [] : ((settlementRes.data ?? []) as Record<string, unknown>[])
-  ).map((r) => {
-    const storeId = String(r.store_id ?? "");
-    const gross = Number(r.gross_amount) || 0;
-    const fee =
-      (Number(r.platform_fee_amount) || 0) + (Number(r.fixed_fee_amount) || 0);
-    const net = Number(r.net_settlement_amount ?? r.settlement_amount) || 0;
-    return {
-      id: String(r.id ?? ""),
-      storeId,
-      memberId: null,
-      label: storeNameById[storeId] || storeId.slice(0, 8),
-      type: `SETTLEMENT_${String(r.settlement_status ?? "").toUpperCase()}`,
-      amountLabel: `gross ${phpMajor(gross)} · fee ${phpMajor(fee)} · net ${phpMajor(net)}`,
-      status: String(r.settlement_status ?? ""),
-      at: String(r.created_at ?? ""),
-      href: `/admin/store-settlements?store_id=${encodeURIComponent(storeId)}`,
-      statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-      memberHref: null,
-      meta: r.order_id ? `order=${String(r.order_id).slice(0, 8)}` : null,
-    };
-  });
+  const settlementRows: FinanceSectionRow[] = payableRows.map((r) => ({
+    id: r.orderId,
+    storeId: r.storeId,
+    memberId: null,
+    label: r.storeName || storeNameById[r.storeId] || r.storeId.slice(0, 8),
+    type: "PLATFORM_PAYABLE",
+    amountLabel: `held ${phpMajor(r.heldPhp)} · gift rail ${phpMajor(r.giftRailPhp)} · coin ${phpMajor(r.heldPaidByCoinPhp)} · payable ${phpMajor(r.payablePhp)}`,
+    status: "payable",
+    at: r.createdAt,
+    href: `${PAYABLE_QUEUE_HREF}&store_id=${encodeURIComponent(r.storeId)}`,
+    statementHref: r.storeId ? businessCcFinancialStatementHref(r.storeId) : null,
+    memberHref: null,
+    meta: `order=${r.orderNo}`,
+  }));
+  const payableCount = stlUnavailable ? null : (payableSummary?.payableOrders ?? null);
 
   const obligationSectionRows: FinanceSectionRow[] = [...oblByStore.entries()].slice(0, 20).map(
     ([storeId, agg]) => ({
@@ -625,10 +621,10 @@ export async function loadFinanceControlPlane(
         href: "/admin/finance#coin-withdrawals",
       },
       settlement: {
-        count: stlUnavailable ? null : settlementRows.length,
+        count: payableCount,
         unavailable: stlUnavailable,
-        source: "store_settlements scheduled|held|processing",
-        href: "/admin/store-settlements?settlement_status=scheduled",
+        source: "store_platform_payable_page payable",
+        href: PAYABLE_QUEUE_HREF,
       },
       obligationStores: {
         count: oblUnavailable ? null : oblByStore.size,
@@ -667,12 +663,12 @@ export async function loadFinanceControlPlane(
       },
       {
         id: "settlement_pending",
-        labelKo: "정산 검토",
-        labelEn: "Settlements to review",
-        value: stlUnavailable ? null : settlementRows.length,
-        href: "/admin/store-settlements?settlement_status=scheduled",
-        source: "store_settlements",
-        currencyNote: "SETTLEMENT",
+        labelKo: "플랫폼 지급 의무",
+        labelEn: "Platform payable orders",
+        value: payableCount,
+        href: PAYABLE_QUEUE_HREF,
+        source: "store_platform_payable_page",
+        currencyNote: "PHP payable (gift/coupon held by platform)",
       },
       {
         id: "obligation_stores",
@@ -714,10 +710,14 @@ export async function loadFinanceControlPlane(
     },
     settlements: {
       rows: settlementRows,
-      pendingCount: stlUnavailable ? null : settlementRows.length,
+      pendingCount: payableCount,
+      payablePhp: payableSummary?.payablePhp ?? null,
+      directCollectedPhp: payableSummary?.directCollectedPhp ?? null,
+      legacyOpenSettlementPhp: payableSummary?.legacyOpenSettlementPhp ?? null,
+      legacyOpenSettlementCount: payableSummary?.legacyOpenSettlementCount ?? null,
       unavailable: stlUnavailable,
-      source: "store_settlements",
-      queueHref: "/admin/store-settlements?settlement_status=scheduled",
+      source: "store_platform_payable_page",
+      queueHref: PAYABLE_QUEUE_HREF,
     },
     refunds: {
       rows: refundRows.slice(0, 20),
@@ -742,9 +742,9 @@ export async function loadFinanceControlPlane(
       },
       {
         id: "settlements",
-        labelKo: "정산 큐",
-        labelEn: "Settlement queue",
-        href: "/admin/store-settlements?settlement_status=scheduled",
+        labelKo: "플랫폼 지급 의무",
+        labelEn: "Platform payable",
+        href: PAYABLE_QUEUE_HREF,
         frequency: "DAILY",
       },
       {

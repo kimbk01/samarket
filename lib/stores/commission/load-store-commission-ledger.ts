@@ -13,6 +13,7 @@ import {
   type StoreCommissionChargeStage,
   type StoreCommissionLedgerFilterState,
   type StoreCommissionRowState,
+  type StorePayoutClass,
 } from "@/lib/stores/commission/store-commission-contract";
 import { loadStoreCashPositions } from "@/lib/stores/commission/store-commission-writer";
 
@@ -28,6 +29,14 @@ export type StoreCommissionLedgerRow = {
   chargedAt: string;
   commissionBasePhp: number;
   feePercent: number | null;
+  /** Frozen policy snapshot at charge time (null for legacy rows charged before snapshots). */
+  feeBreakdown: {
+    policyName: string | null;
+    scope: string | null;
+    percentFeePhp: number;
+    fixedFeePhp: number;
+    deliveryIncomePhp: number;
+  } | null;
   /** Fee as charged (never rewritten by a refund). */
   feeChargedMinor: number;
   /** Paid from Cash and still kept by the platform. */
@@ -114,6 +123,10 @@ function num(n: unknown): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
+function snapString(v: unknown): string | null {
+  return v == null || v === "" ? null : String(v);
+}
+
 function projectRow(r: Record<string, unknown>): StoreCommissionLedgerRow {
   const snap = (r.fee_snapshot ?? null) as Record<string, unknown> | null;
   const stage = String(r.charge_stage ?? "completed") as StoreCommissionChargeStage;
@@ -129,6 +142,15 @@ function projectRow(r: Record<string, unknown>): StoreCommissionLedgerRow {
     chargedAt: String(r.created_at ?? ""),
     commissionBasePhp: int(r.confirmed_revenue_php),
     feePercent: num(snap?.fee_percent),
+    feeBreakdown: snap
+      ? {
+          policyName: snapString(snap.policy_name ?? (snap.policy as Record<string, unknown> | undefined)?.policy_name),
+          scope: snapString(snap.scope ?? (snap.policy as Record<string, unknown> | undefined)?.scope),
+          percentFeePhp: int(snap.platform_fee_php),
+          fixedFeePhp: int(snap.fixed_fee_php),
+          deliveryIncomePhp: int(snap.delivery_income_php),
+        }
+      : null,
     feeChargedMinor: int(r.fee_charged),
     feePaidMinor: int(r.fee_paid_minor),
     feeOutstandingMinor: int(r.fee_outstanding_minor),
@@ -248,6 +270,152 @@ export async function loadStoreCashLedgerPage(
     ledgerMismatchStoreIds: Array.isArray(b.ledger_mismatch_store_ids)
       ? (b.ledger_mismatch_store_ids as unknown[]).map(String)
       : [],
+  };
+}
+
+export type StoreCommissionBreakdownRow = {
+  bucket: string;
+  label: string | null;
+  count: number;
+  commissionBasePhp: number;
+  feeChargedMinor: number;
+  feePaidMinor: number;
+  feeOutstandingMinor: number;
+  cashRefundedMinor: number;
+  outstandingCancelledMinor: number;
+  netCommissionMinor: number;
+};
+
+/** Day / month buckets are Asia/Manila calendar dates (computed in SQL). */
+export async function loadStoreCommissionBreakdown(
+  sb: SupabaseClient,
+  input: Range & { storeIds: readonly string[] | null; group: "day" | "month" | "store" }
+): Promise<StoreCommissionBreakdownRow[]> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.breakdown, {
+    p_store_ids: input.storeIds ? [...input.storeIds] : null,
+    p_from: input.fromIso,
+    p_to: input.toIso,
+    p_group: input.group,
+  });
+  if (error) throw new Error(error.message);
+  const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+  return rows.map((r) => ({
+    bucket: String(r.bucket ?? ""),
+    label: r.label != null ? String(r.label) : null,
+    count: int(r.count),
+    commissionBasePhp: int(r.commission_base_php),
+    feeChargedMinor: int(r.fee_charged_minor),
+    feePaidMinor: int(r.fee_paid_minor),
+    feeOutstandingMinor: int(r.fee_outstanding_minor),
+    cashRefundedMinor: int(r.cash_refunded_minor),
+    outstandingCancelledMinor: int(r.outstanding_cancelled_minor),
+    netCommissionMinor: int(r.net_commission_minor),
+  }));
+}
+
+export type StorePlatformPayableSummary = {
+  orders: number;
+  directCollectedPhp: number;
+  platformHeldPhp: number;
+  heldPaidByCoinPhp: number;
+  /** Gift redemptions owed on the gift-certificate revenue rail — excluded from payable. */
+  giftRailPhp: number;
+  giftRailNetPhp: number;
+  giftRailOrders: number;
+  payablePhp: number;
+  payableOrders: number;
+  coinOverCredit: number;
+  legacyOpenSettlementPhp: number;
+  legacyOpenSettlementCount: number;
+  legacyManualPaidPhp: number;
+  legacyManualPaidCount: number;
+};
+
+export type StorePlatformPayableRow = {
+  orderId: string;
+  orderNo: string;
+  storeId: string;
+  storeName: string;
+  createdAt: string;
+  paymentMethod: string | null;
+  directPhp: number;
+  heldPhp: number;
+  coinMinted: number;
+  heldPaidByCoinPhp: number;
+  giftRailPhp: number;
+  payablePhp: number;
+  coinOverCredit: number;
+  legacySettlementStatus: string | null;
+  legacyNetPhp: number;
+  payoutClass: StorePayoutClass;
+};
+
+/** payable = this rail's obligations · exceptions = Coin over-credit / legacy manual payouts · all = every completed order. */
+export type StorePayableView = "payable" | "exceptions" | "all";
+
+export function parseStorePayableView(raw: string | null | undefined): StorePayableView {
+  return raw === "all" || raw === "exceptions" ? raw : "payable";
+}
+
+export type StorePlatformPayablePage = {
+  summary: StorePlatformPayableSummary;
+  totalRows: number;
+  rows: StorePlatformPayableRow[];
+};
+
+/** Completed orders classified by who holds the money (SQL `store_platform_payable_page`). */
+export async function loadStorePlatformPayable(
+  sb: SupabaseClient,
+  input: Range & { storeIds: readonly string[] | null; view: StorePayableView; limit: number; offset: number }
+): Promise<StorePlatformPayablePage> {
+  const { data, error } = await sb.rpc(STORE_COMMISSION_RPC.payable, {
+    p_store_ids: input.storeIds ? [...input.storeIds] : null,
+    p_from: input.fromIso,
+    p_to: input.toIso,
+    p_view: input.view,
+    p_limit: input.limit,
+    p_offset: input.offset,
+  });
+  if (error) throw new Error(error.message);
+  const b = (data ?? {}) as Record<string, unknown>;
+  const s = (b.summary ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(b.rows) ? (b.rows as Record<string, unknown>[]) : [];
+  return {
+    summary: {
+      orders: int(s.orders),
+      directCollectedPhp: int(s.direct_collected_php),
+      platformHeldPhp: int(s.platform_held_php),
+      heldPaidByCoinPhp: int(s.held_paid_by_coin_php),
+      giftRailPhp: int(s.gift_rail_php),
+      giftRailNetPhp: int(s.gift_rail_net_php),
+      giftRailOrders: int(s.gift_rail_orders),
+      payablePhp: int(s.payable_php),
+      payableOrders: int(s.payable_orders),
+      coinOverCredit: int(s.coin_over_credit),
+      legacyOpenSettlementPhp: int(s.legacy_open_settlement_php),
+      legacyOpenSettlementCount: int(s.legacy_open_settlement_count),
+      legacyManualPaidPhp: int(s.legacy_manual_paid_php),
+      legacyManualPaidCount: int(s.legacy_manual_paid_count),
+    },
+    totalRows: int(b.total),
+    rows: rows.map((r) => ({
+      orderId: String(r.order_id),
+      orderNo: String(r.order_no ?? ""),
+      storeId: String(r.store_id),
+      storeName: String(r.store_name ?? ""),
+      createdAt: String(r.created_at ?? ""),
+      paymentMethod: r.buyer_payment_method ? String(r.buyer_payment_method) : null,
+      directPhp: int(r.direct_php),
+      heldPhp: int(r.held_php),
+      coinMinted: int(r.coin_minted),
+      heldPaidByCoinPhp: int(r.held_paid_by_coin_php),
+      giftRailPhp: int(r.gift_rail_php),
+      payablePhp: int(r.payable_php),
+      coinOverCredit: int(r.coin_over_credit),
+      legacySettlementStatus: r.settlement_status ? String(r.settlement_status) : null,
+      legacyNetPhp: int(r.legacy_net_php),
+      payoutClass: String(r.class) as StorePayoutClass,
+    })),
   };
 }
 

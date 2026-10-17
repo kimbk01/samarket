@@ -480,7 +480,7 @@ export function AdminBusinessCcKpiPanel({
 }) {
   const { t } = useI18n();
   const oc = kpi.orderStatusCounts;
-  const sc = kpi.settlementStatusCounts;
+  const sc = kpi.commissionCounts;
 
   return (
     <div className="space-y-4">
@@ -510,8 +510,11 @@ export function AdminBusinessCcKpiPanel({
         <div>
           <dt className="text-sam-muted">{t("admin_biz_kpi_settlement_status")}</dt>
           <dd className="sam-text-helper">
-            pending {sc.pending} · processing {sc.processing} · held {sc.held} · paid {sc.paid} ·
-            cancelled {sc.cancelled}
+            {t("admin_biz_ops_settle_counts", {
+              c: String(sc.charged),
+              o: String(sc.outstanding),
+              r: String(sc.reviewRequired),
+            })}
           </dd>
         </div>
         <div>
@@ -563,17 +566,15 @@ export function AdminBusinessCcKpiPanel({
               {t("admin_biz_cta_settlements")}
             </Link>
           </div>
-          {kpi.recentSettlements.length === 0 ? (
+          {kpi.recentCommissions.length === 0 ? (
             <p className="sam-text-helper text-sam-muted">{t("admin_biz_kpi_empty")}</p>
           ) : (
             <ul className="space-y-1.5">
-              {kpi.recentSettlements.map((s) => (
+              {kpi.recentCommissions.map((s) => (
                 <li key={s.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
-                  <span className="font-mono text-sam-fg">{s.id.slice(0, 8)}</span>
-                  <span className="text-sam-muted">{s.settlementStatus}</span>
-                  <span className="text-sam-fg">
-                    {s.netAmount == null ? "—" : formatMoneyPhp(s.netAmount)}
-                  </span>
+                  <span className="font-mono text-sam-fg">{s.orderId.slice(0, 8)}</span>
+                  <span className="text-sam-muted">{s.adjustmentStatus === "review_required" ? t("admin_biz_ops_settle_needs_check") : s.feeOutstandingMinor > 0 ? t("admin_biz_ops_settle_held") : t("admin_biz_ops_settle_ok")}</span>
+                  <span className="text-sam-fg">{formatMoneyPhp(s.feeDueMinor / 100)}</span>
                 </li>
               ))}
             </ul>

@@ -300,7 +300,7 @@ export function AdminBusinessOpsOverviewGrid({
 }) {
   const { t, safeT } = useI18n();
   const oc = kpi.orderStatusCounts;
-  const sc = kpi.settlementStatusCounts;
+  const sc = kpi.commissionCounts;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -360,10 +360,9 @@ export function AdminBusinessOpsOverviewGrid({
         <div className="font-semibold">{t(businessOpsSettlementLabelKey(ops.settlementKind))}</div>
         <div className="text-sam-muted">
           {t("admin_biz_ops_settle_counts", {
-            p: String(sc.pending),
-            g: String(sc.processing),
-            h: String(sc.held),
-            d: String(sc.paid),
+            c: String(sc.charged),
+            o: String(sc.outstanding),
+            r: String(sc.reviewRequired),
           })}
         </div>
       </StatCard>

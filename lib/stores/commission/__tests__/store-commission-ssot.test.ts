@@ -10,6 +10,7 @@ import {
   STORE_COMMISSION_CHARGED_ORDER_STATUSES,
 } from "@/lib/stores/commission/store-commission-contract";
 import {
+  formatManilaDateTime,
   parseStoreCommissionLedgerQuery,
   resolveStoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
@@ -219,7 +220,13 @@ describe("E. ledger integrity, privileges, history", () => {
     ]) {
       expect(read(p)).toContain("loadStoreCashLedgerPage(");
     }
-    expect(read("app/api/me/stores/[storeId]/commission-ledger/route.ts")).toContain("storeIds: [sid]");
+    const ownerLedger = read("app/api/me/stores/[storeId]/commission-ledger/route.ts");
+    expect(ownerLedger).toContain("const scope = [sid]");
+    expect(ownerLedger).toContain("getStoreIfOwner(sb, userId, sid)");
+    for (const p of ["app/api/admin/store-commission-ledger/route.ts", "app/api/me/stores/[storeId]/commission-ledger/route.ts"]) {
+      expect(read(p)).toContain("loadStoreCommissionBreakdown(");
+      expect(read(p)).toContain("loadStorePlatformPayable(");
+    }
     expect(read("components/admin/stores/AdminStoreCommissionLedgerPage.tsx")).toContain("CommissionSummaryGrid");
     expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain("CommissionSummaryGrid");
   });
@@ -230,19 +237,36 @@ describe("E. ledger integrity, privileges, history", () => {
   });
 });
 
-describe("F. periods (server-side, UTC)", () => {
-  const now = new Date("2026-10-15T10:00:00Z"); // Thursday
-  it("today / this week (Mon) / this month / custom → [from, to)", () => {
+describe("F. periods (server-side, Asia/Manila business days, UTC storage)", () => {
+  const now = new Date("2026-10-15T10:00:00Z"); // Thursday 18:00 in Manila
+  it("today / this week (Mon) / this month / custom → [from, to) as Manila midnights", () => {
     expect(resolveStoreCommissionPeriod("today", null, null, now)).toEqual({
-      fromIso: "2026-10-15T00:00:00.000Z",
-      toIso: "2026-10-16T00:00:00.000Z",
+      fromIso: "2026-10-14T16:00:00.000Z",
+      toIso: "2026-10-15T16:00:00.000Z",
     });
-    expect(resolveStoreCommissionPeriod("this_week", null, null, now).fromIso).toBe("2026-10-12T00:00:00.000Z");
-    expect(resolveStoreCommissionPeriod("this_month", null, null, now).fromIso).toBe("2026-10-01T00:00:00.000Z");
+    expect(resolveStoreCommissionPeriod("this_week", null, null, now).fromIso).toBe("2026-10-11T16:00:00.000Z");
+    expect(resolveStoreCommissionPeriod("this_month", null, null, now).fromIso).toBe("2026-09-30T16:00:00.000Z");
     expect(resolveStoreCommissionPeriod("custom", "2026-10-01", "2026-10-10", now)).toEqual({
-      fromIso: "2026-10-01T00:00:00.000Z",
-      toIso: "2026-10-11T00:00:00.000Z",
+      fromIso: "2026-09-30T16:00:00.000Z",
+      toIso: "2026-10-10T16:00:00.000Z",
     });
+  });
+
+  it("an order at 00:30 Manila belongs to that Manila day, not the previous UTC day", () => {
+    const lateUtc = new Date("2026-10-15T17:00:00Z"); // 2026-10-16 01:00 Manila (Friday)
+    expect(resolveStoreCommissionPeriod("today", null, null, lateUtc).fromIso).toBe("2026-10-15T16:00:00.000Z");
+    expect(resolveStoreCommissionPeriod("this_month", null, null, new Date("2026-10-31T16:30:00Z")).fromIso).toBe(
+      "2026-10-31T16:00:00.000Z"
+    );
+    expect(formatManilaDateTime("2026-10-15T16:30:00Z")).toBe("2026-10-16 00:30");
+    expect(formatManilaDateTime(null)).toBe("—");
+  });
+
+  it("SQL buckets use the same Manila calendar", () => {
+    const body = fn("store_commission_breakdown");
+    expect(body).toContain("AT TIME ZONE 'Asia/Manila'");
+    expect(body).toContain("'YYYY-MM-DD'");
+    expect(body).toContain("'YYYY-MM'");
   });
 
   it("parser clamps paging and filters kinds to known ledger kinds", () => {
@@ -258,5 +282,154 @@ describe("G. Coin = platform-held only (buyer pays the store directly)", () => {
   it("COD/GCash payment_amount is never minted", () => {
     expect(platformHeldSaleAmountPhp({ gift_redemption_amount: 0, platform_funded_amount: 0 })).toBe(0);
     expect(platformHeldSaleAmountPhp({ gift_redemption_amount: 300, platform_funded_amount: 50 })).toBe(350);
+  });
+});
+
+describe("H. platform payable = only platform-held money (legacy snapshots are not payouts)", () => {
+  it("payable = held − gift rail − coin; direct (COD/GCash) is never payable", () => {
+    const body = fn("store_platform_payable_page");
+    // gift redemptions with a live redemption row are owed on the gift-certificate rail, not here
+    expect(body).toContain("held_php - gift_rail_php AS rail_free_held_php");
+    expect(body).toContain("NOT coalesce(r.reversed, false)");
+    expect(body).toContain("rail_free_held_php - LEAST(rail_free_held_php, coin_minted) AS payable_php");
+    expect(body).toContain("'gift_rail'");
+    expect(body).toContain("class IN ('payable', 'legacy_manual_paid')");
+    expect(body).toContain("'direct_collected'");
+    expect(body).toContain("'legacy_manual_paid'");
+    expect(body).toContain("legacy_open_settlement_php");
+  });
+
+  it("new read functions are service_role only", () => {
+    for (const f of ["store_commission_breakdown", "store_platform_payable_page"]) {
+      expect(MIG).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${f}\\([^)]*\\) FROM PUBLIC`));
+      expect(MIG).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${f}\\([^)]*\\) TO service_role`));
+    }
+  });
+
+  it("legacy waived rows on non-cancelled orders keep a distinct trigger (no fake cancel/refund)", () => {
+    expect(MIG).toContain("'legacy_other'");
+    expect(MIG).toContain("store_commission_adjustments_legacy_trigger_chk");
+  });
+
+  it("no admin/owner screen treats legacy scheduled settlements as a payout queue", () => {
+    for (const p of [
+      "lib/admin/finance-control-plane/load-finance-control-plane.ts",
+      "lib/admin/domain-dashboard/load-delivery-domain-dashboard.ts",
+      "lib/admin-business/load-admin-business-list.ts",
+      "lib/admin-business/load-business-control-center-detail.ts",
+      "lib/admin-business/load-business-cc-kpi.ts",
+    ]) {
+      const src = read(p);
+      expect(src, p).not.toContain("settlement_status=scheduled");
+      expect(src, p).not.toMatch(/\.in\("settlement_status", \[[^\]]*"scheduled"/);
+    }
+    expect(read("lib/admin/finance-control-plane/load-finance-control-plane.ts")).toContain("loadStorePlatformPayable(");
+    expect(read("app/api/admin/stats/delivery-operations/route.ts")).toContain("loadStorePlatformPayable(");
+  });
+
+  it("payable routes: admin permission gate / owner store gate", () => {
+    expect(read("app/api/admin/store-commission-ledger/payable/route.ts")).toContain('requireAdminPermission("business")');
+    const owner = read("app/api/me/stores/[storeId]/commission-ledger/payable/route.ts");
+    expect(owner).toContain("getStoreIfOwner(sb, userId, sid)");
+    expect(owner).toContain("storeIds: [sid]");
+  });
+
+  it("Admin and Owner render the same payable + breakdown components", () => {
+    for (const p of ["components/admin/stores/AdminStoreCommissionLedgerPage.tsx", "components/business/owner/OwnerStoreSettlementsView.tsx"]) {
+      const src = read(p);
+      expect(src, p).toContain("PlatformPayableSummaryGrid");
+      expect(src, p).toContain("PlatformPayableTable");
+      expect(src, p).toContain("CommissionBreakdownTable");
+    }
+  });
+});
+
+describe("I. settlement UI/CTA SSOT (Admin = Owner components, exceptions-only manual work)", () => {
+  const baseRow = {
+    obligationId: "ob1",
+    orderId: "o1",
+    orderNo: "S0QA1",
+    orderStatus: "cancelled",
+    paymentMethod: "gcash",
+    storeId: "s1",
+    storeName: "QA",
+    chargeStage: "preparing" as const,
+    chargedAt: "2026-10-10T03:05:00Z",
+    commissionBasePhp: 3000,
+    feePercent: 7,
+    feeBreakdown: null,
+    feeChargedMinor: 21000,
+    feePaidMinor: 0,
+    feeOutstandingMinor: 21000,
+    state: "outstanding" as const,
+    adjustmentStatus: "kept" as const,
+    adjustmentTrigger: "cancelled" as const,
+    reviewFlaggedAt: "2026-10-10T03:06:00Z",
+    decision: null,
+  };
+  const decision = (d: "approve" | "reject") => ({
+    id: "a1",
+    decision: d,
+    approvedMinor: d === "approve" ? 1000 : 0,
+    cashRefundMinor: 0,
+    outstandingCancelMinor: d === "approve" ? 1000 : 0,
+    reason: "qa",
+    adminUserId: "u1",
+    decidedAt: "2026-10-17T00:00:00Z",
+  });
+
+  it("row tone: decision outranks state (a rejected row that still owes fee is 'rejected', not plain unpaid)", async () => {
+    const { commissionRowTone } = await import("@/components/stores/commission/StoreCommissionLedgerTable");
+    expect(commissionRowTone({ ...baseRow, state: "review_required", adjustmentStatus: "review_required" })).toBe("review");
+    expect(commissionRowTone({ ...baseRow, decision: decision("reject") })).toBe("rejected");
+    expect(commissionRowTone({ ...baseRow, decision: decision("approve") })).toBe("approved");
+    expect(commissionRowTone({ ...baseRow, state: "charged", adjustmentStatus: "none", adjustmentTrigger: null })).toBe("normal");
+    expect(commissionRowTone({ ...baseRow, decision: decision("approve") }, new Set(["ob1"]))).toBe("anomaly");
+  });
+
+  it("tabs: A 전체 거래 · B 취소·환불 검토 · C 매장 캐시 · D 금융 예외 · 플랫폼 지급 의무; legacy tab names still resolve", async () => {
+    const { resolveCommissionTab, tabLedgerState } = await import("@/components/stores/commission/StoreCommissionLedgerParts");
+    const all = ["ledger", "review", "cash", "exceptions", "payable"] as const;
+    expect(resolveCommissionTab("decided", all)).toEqual({ tab: "review", review: "decided" });
+    expect(resolveCommissionTab("overview", all)).toEqual({ tab: "cash", review: null });
+    expect(resolveCommissionTab("exceptions", ["ledger", "review", "cash", "payable"])).toEqual({ tab: null, review: null });
+    expect(tabLedgerState("review", "all", "rejected")).toBe("rejected");
+    expect(tabLedgerState("ledger", "outstanding", "rejected")).toBe("outstanding");
+  });
+
+  it("decision views are SQL filters (approved incl. legacy auto reversal / rejected)", () => {
+    const body = fn("store_commission_ledger_page");
+    expect(body).toContain("p_state = 'approved' AND adj_decision IN ('approve', 'legacy_auto')");
+    expect(body).toContain("p_state = 'rejected' AND adj_decision = 'reject'");
+    expect(fn("store_platform_payable_page")).toContain("WHEN 'exceptions' THEN coin_over_credit > 0 OR class = 'legacy_manual_paid'");
+  });
+
+  it("no manual settle/pay CTA on normal orders; decide only on rows in review; legacy queue links land on payable with a notice", () => {
+    const admin = read("components/admin/stores/AdminStoreCommissionLedgerPage.tsx");
+    expect(admin).toContain('r.state === "review_required" ? (');
+    // no CTA label for per-order settlement (the legacy notice may *mention* the retired queue)
+    expect(admin).not.toMatch(/pickCommissionCopy\(\s*lang,\s*"(정산 검토|정산 완료|지급 완료|지급 처리)"/);
+    expect(admin).not.toMatch(/markPaid|mark_paid|settlement_status: "paid"/);
+    expect(admin).toContain('const LEGACY_QUEUE_PARAMS = ["unpaid_only", "settlement_status", "id"] as const;');
+    expect(admin).toContain('legacyQueueLink ? "payable"');
+    expect(admin).toContain("idempotencyKey: newKey()");
+    expect(admin).toContain("busyRef.current");
+  });
+
+  it("Owner uses the same table + detail panel, read-only (no decision endpoint, no CTA)", () => {
+    const owner = read("components/business/owner/OwnerStoreSettlementsView.tsx");
+    expect(owner).toContain("CommissionLedgerTable");
+    expect(owner).toContain("CommissionOrderDetailPanel");
+    expect(owner).not.toContain("renderAction");
+    expect(owner).not.toContain("/adjustments");
+    const admin = read("components/admin/stores/AdminStoreCommissionLedgerPage.tsx");
+    expect(admin).toContain("CommissionLedgerTable");
+    expect(admin).toContain("CommissionOrderDetailPanel");
+  });
+
+  it("row colours use design tokens (light + dark), never raw palette classes", () => {
+    const table = read("components/stores/commission/StoreCommissionLedgerTable.tsx");
+    for (const t of ["bg-sam-warning-soft", "bg-sam-success-soft", "bg-sam-danger-soft"]) expect(table).toContain(t);
+    expect(table).not.toMatch(/bg-(amber|emerald|red|green|yellow)-\d/);
   });
 });

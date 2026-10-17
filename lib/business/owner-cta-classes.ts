@@ -5,23 +5,34 @@
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const BASE =
-  "inline-flex min-h-11 min-w-0 touch-manipulation select-none items-center justify-center gap-1.5 rounded-ui-rect px-4 text-sm font-semibold leading-none transition-[background-color,border-color,color,opacity] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
+  "inline-flex min-h-11 min-w-0 touch-manipulation select-none items-center justify-center gap-1.5 rounded-ui-rect px-4 text-sm font-semibold leading-none transition-[background-color,border-color,color,opacity,filter] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
 
 /** Force readable on-primary text even when parent cards set inherited color. */
 const PRIMARY_TEXT = "text-[color:var(--sam-text-on-primary)]";
 
+/**
+ * Pressed states — same intent as the legacy `.sam-btn*:not(:disabled):active` rules
+ * (app/samarket-components.css). Those live in `@layer components`, so the `bg-*` utilities
+ * below always beat them; the press feedback therefore has to be a utility too.
+ * Rest styles are unchanged.
+ */
+const PRESS_PRIMARY = "not-disabled:active:bg-sam-primary-hover";
+const PRESS_SECONDARY = "not-disabled:active:brightness-[0.97]";
+const PRESS_OUTLINE = "not-disabled:active:bg-sam-primary-soft";
+const PRESS_DANGER = "not-disabled:active:brightness-95";
+
 export const OwnerCta = {
-  primary: `${BASE} border border-transparent bg-sam-primary ${PRIMARY_TEXT} ${Sam.btn.primary}`,
+  primary: `${BASE} border border-transparent bg-sam-primary ${PRIMARY_TEXT} ${Sam.btn.primary} ${PRESS_PRIMARY}`,
   primaryCombo: `${BASE} ${Sam.btn.primaryCombo} ${PRIMARY_TEXT}`,
-  secondary: `${BASE} border border-sam-primary-border bg-sam-primary-soft text-sam-primary`,
+  secondary: `${BASE} border border-sam-primary-border bg-sam-primary-soft text-sam-primary ${PRESS_SECONDARY}`,
   secondaryCombo: `${BASE} ${Sam.btn.secondaryCombo}`,
-  tertiary: `${BASE} border border-sam-border bg-sam-surface text-sam-fg`,
-  danger: `${BASE} border border-sam-danger/30 bg-sam-surface text-sam-danger`,
-  dangerSoft: `${BASE} border border-sam-danger/20 bg-sam-danger-soft text-sam-danger`,
-  ghost: `${BASE} border border-transparent bg-transparent text-sam-muted`,
+  tertiary: `${BASE} border border-sam-border bg-sam-surface text-sam-fg ${PRESS_OUTLINE}`,
+  danger: `${BASE} border border-sam-danger/30 bg-sam-surface text-sam-danger ${PRESS_DANGER}`,
+  dangerSoft: `${BASE} border border-sam-danger/20 bg-sam-danger-soft text-sam-danger ${PRESS_DANGER}`,
+  ghost: `${BASE} border border-transparent bg-transparent text-sam-muted ${PRESS_OUTLINE}`,
   /** Inline form row CTA — never shrink/wrap labels */
-  formPrimary: `${BASE} shrink-0 whitespace-nowrap border border-transparent bg-sam-primary ${PRIMARY_TEXT}`,
-  formSecondary: `${BASE} shrink-0 whitespace-nowrap border border-sam-primary-border bg-sam-primary-soft text-sam-primary`,
+  formPrimary: `${BASE} shrink-0 whitespace-nowrap border border-transparent bg-sam-primary ${PRIMARY_TEXT} ${PRESS_PRIMARY}`,
+  formSecondary: `${BASE} shrink-0 whitespace-nowrap border border-sam-primary-border bg-sam-primary-soft text-sam-primary ${PRESS_SECONDARY}`,
   block: "w-full",
 } as const;
 

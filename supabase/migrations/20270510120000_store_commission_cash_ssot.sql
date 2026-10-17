@@ -91,7 +91,9 @@ CREATE TABLE IF NOT EXISTS public.store_commission_adjustments (
   order_id uuid NOT NULL REFERENCES public.store_orders (id) ON DELETE RESTRICT,
   store_id uuid NOT NULL REFERENCES public.stores (id) ON DELETE RESTRICT,
   decision text NOT NULL CHECK (decision IN ('approve', 'reject', 'legacy_auto')),
-  trigger_status text NOT NULL CHECK (trigger_status IN ('cancelled', 'refunded')),
+  -- legacy_other: a legacy automatic reversal on an order that is NOT cancelled/refunded
+  -- (production evidence: QA scripts reversed fees of completed orders on 2026-09-01).
+  trigger_status text NOT NULL CHECK (trigger_status IN ('cancelled', 'refunded', 'legacy_other')),
   fee_charged_minor bigint NOT NULL CHECK (fee_charged_minor >= 0),
   fee_paid_minor_before bigint NOT NULL CHECK (fee_paid_minor_before >= 0),
   fee_outstanding_minor_before bigint NOT NULL CHECK (fee_outstanding_minor_before >= 0),
@@ -118,6 +120,8 @@ CREATE TABLE IF NOT EXISTS public.store_commission_adjustments (
     ),
   CONSTRAINT store_commission_adjustments_admin_chk
     CHECK (decision = 'legacy_auto' OR admin_user_id IS NOT NULL),
+  CONSTRAINT store_commission_adjustments_legacy_trigger_chk
+    CHECK (trigger_status <> 'legacy_other' OR decision = 'legacy_auto'),
   CONSTRAINT store_commission_adjustments_ledger_chk
     CHECK ((cash_refund_minor > 0) = (cash_ledger_id IS NOT NULL))
 );
@@ -171,7 +175,6 @@ WITH ev AS (
     JOIN public.business_cash_ledger l
       ON l.idempotency_key = 'sale_fee_reversal:order:' || ob.order_id::text
    WHERE ob.status = 'waived' AND ob.original_fee_due_minor IS NULL
-     AND o.order_status IN ('cancelled', 'refunded')
 )
 INSERT INTO public.store_commission_adjustments (
   obligation_id, order_id, store_id, decision, trigger_status,
@@ -179,7 +182,8 @@ INSERT INTO public.store_commission_adjustments (
   approved_minor, cash_refund_minor, outstanding_cancel_minor,
   reason, admin_user_id, cash_ledger_id, idempotency_key, created_at
 )
-SELECT obligation_id, order_id, store_id, 'legacy_auto', order_status,
+SELECT obligation_id, order_id, store_id, 'legacy_auto',
+       CASE WHEN order_status IN ('cancelled', 'refunded') THEN order_status ELSE 'legacy_other' END,
        paid_rev + out_cancel, paid_rev, out_cancel,
        paid_rev + out_cancel, paid_rev, out_cancel,
        'legacy automatic reversal (reverse_sale_fee_for_order) — recorded from ledger',
@@ -192,7 +196,7 @@ ON CONFLICT DO NOTHING;
 UPDATE public.store_sale_fee_obligations ob
    SET original_fee_due_minor = a.fee_charged_minor,
        adjustment_status = 'refunded',
-       adjustment_trigger = a.trigger_status
+       adjustment_trigger = CASE WHEN a.trigger_status IN ('cancelled', 'refunded') THEN a.trigger_status END
   FROM public.store_commission_adjustments a
  WHERE a.obligation_id = ob.id AND a.decision = 'legacy_auto' AND ob.original_fee_due_minor IS NULL;
 
@@ -467,6 +471,147 @@ END;
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 4b. Admin financial notifications — exceptions only (reuses R13 admin_notification_outbox)
+--     Normal orders / cooking-start charge / completion / top-ups never notify.
+--     One outbox row per financial event (source_key UNIQUE) → retries never duplicate.
+--     Work status is NOT stored on the notification: the inbox reads the live review queue.
+-- ═══════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.store_commission_php_text(p_minor bigint)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT '₱' || to_char(coalesce(p_minor, 0) / 100.0, 'FM999,999,999,990.00');
+$$;
+
+CREATE OR REPLACE FUNCTION public.store_commission_notify_admin(
+  p_source_key text,
+  p_kind text,
+  p_severity text,
+  p_title text,
+  p_body text,
+  p_link text,
+  p_work_table text,
+  p_work_id text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF to_regprocedure('public.admin_notification_outbox_enqueue(text,text,jsonb,text)') IS NULL THEN
+    RETURN false;
+  END IF;
+  -- Best effort inside the caller's transaction: a notification failure must never block the
+  -- order status change (the review queue row itself is the durable record; the scan replays it).
+  BEGIN
+    -- Go-live baseline (section 12 only): financial exceptions that already exist when alerts go live
+    -- are recorded under their source_key as handled ('delivered', payload.baseline) — never pushed to
+    -- admins, and the same event can never alert later. They stay visible on the 금융 예외 tab.
+    -- delivered_at stays NULL: no send happened, so delivery history is not inflated.
+    IF p_kind = 'settlement_financial_exception'
+       AND current_setting('dibay.settlement_alert_baseline', true) = 'on' THEN
+      INSERT INTO public.admin_notification_outbox (source_key, kind, payload, status, delivered_at, last_error)
+      VALUES (p_source_key, p_kind,
+              jsonb_build_object('baseline', true, 'title', p_title, 'body', p_body, 'linkUrl', p_link),
+              'delivered', NULL, 'baseline_preexisting')
+      ON CONFLICT (source_key) DO NOTHING;
+      RETURN false;
+    END IF;
+    RETURN public.admin_notification_outbox_enqueue(
+      p_source_key,
+      p_kind,
+      jsonb_build_object(
+        'broadcastPermission', 'business',
+        'requiredPermission', 'business',
+        'kind', p_kind,
+        'severity', p_severity,
+        'title', p_title,
+        'body', p_body,
+        'linkUrl', p_link,
+        'workRef', CASE WHEN p_work_id IS NULL THEN NULL ELSE jsonb_build_object('table', p_work_table, 'id', p_work_id) END,
+        'dedupeKey', p_source_key,
+        'push', true
+      ),
+      NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'store_commission_notify_admin failed: % (%)', SQLERRM, p_source_key;
+    RETURN false;
+  END;
+END;
+$$;
+
+-- Status change refused because the commission could not be charged (e.g. no fee policy).
+-- Called by the app after the rolled-back UPDATE (the trigger transaction itself is gone).
+CREATE OR REPLACE FUNCTION public.store_commission_notify_charge_failure(p_order_id uuid, p_target_status text, p_error text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v record;
+BEGIN
+  SELECT o.id, o.order_no, o.store_id, o.order_status, s.store_name INTO v
+    FROM public.store_orders o JOIN public.stores s ON s.id = o.store_id WHERE o.id = p_order_id;
+  -- Only a refused (rolled-back) transition is a failure: if the order is in the target status, no alert.
+  IF NOT FOUND OR v.order_status IS NOT DISTINCT FROM p_target_status THEN
+    RETURN false;
+  END IF;
+  RETURN public.store_commission_notify_admin(
+    'settlement_exception:charge_failed:' || v.id::text || ':' || coalesce(p_target_status, ''),
+    'settlement_financial_exception',
+    'critical',
+    '[수수료 부과 실패] ' || coalesce(v.store_name, '') || ' · #' || coalesce(v.order_no, v.id::text),
+    '주문 상태 변경(' || coalesce(p_target_status, '') || ')이 거부됨 · ' || left(coalesce(p_error, 'unknown'), 120)
+      || ' · 매장 수수료 정책 확인 필요',
+    '/admin/store-settlements?tab=exceptions&store_id=' || v.store_id::text,
+    'store_orders',
+    v.id::text
+  );
+END;
+$$;
+
+-- Cancel / refund after cooking → exactly one "commission review" alert per obligation.
+CREATE OR REPLACE FUNCTION public.store_commission_notify_review(p_obligation_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v record;
+BEGIN
+  SELECT ob.id, ob.order_id, ob.fee_paid_minor, ob.fee_outstanding_minor, ob.adjustment_trigger,
+         coalesce(ob.original_fee_due_minor, ob.fee_due_minor) AS charged,
+         o.order_no, s.store_name
+    INTO v
+    FROM public.store_sale_fee_obligations ob
+    JOIN public.store_orders o ON o.id = ob.order_id
+    JOIN public.stores s ON s.id = ob.store_id
+   WHERE ob.id = p_obligation_id AND ob.adjustment_status = 'review_required';
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  RETURN public.store_commission_notify_admin(
+    'settlement_review:' || v.id::text,
+    'settlement_commission_review',
+    'warning',
+    '[취소·환불 수수료 검토] ' || coalesce(v.store_name, '') || ' · #' || coalesce(v.order_no, v.order_id::text),
+    CASE WHEN v.adjustment_trigger = 'refunded' THEN '환불' ELSE '조리 후 취소' END
+      || ' · 부과 ' || public.store_commission_php_text(v.charged)
+      || ' (캐시 차감 ' || public.store_commission_php_text(v.fee_paid_minor)
+      || ' · 미납 ' || public.store_commission_php_text(v.fee_outstanding_minor) || ') · 환급 승인·거절 검토 대상',
+    '/admin/store-settlements?tab=ledger&order_no=' || coalesce(v.order_no, '') || '&open=' || v.id::text,
+    'store_sale_fee_obligations',
+    v.id::text
+  );
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- 5. Lifecycle trigger — charge / review flag inside the status transaction
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -478,6 +623,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_res jsonb;
+  v_flagged uuid;
 BEGIN
   IF TG_OP = 'UPDATE' AND NEW.order_status IS NOT DISTINCT FROM OLD.order_status THEN
     RETURN NULL;
@@ -497,7 +643,12 @@ BEGIN
      WHERE order_id = NEW.id
        AND adjustment_status = 'none'
        AND status <> 'waived'
-       AND fee_due_minor > 0;
+       AND fee_due_minor > 0
+    RETURNING id INTO v_flagged;
+    -- Admin alert only when a review was actually opened (a charged order cancelled/refunded).
+    IF v_flagged IS NOT NULL THEN
+      PERFORM public.store_commission_notify_review(v_flagged);
+    END IF;
   END IF;
   RETURN NULL;
 END;
@@ -533,6 +684,7 @@ BEGIN
   IF v_id IS NULL THEN
     RETURN jsonb_build_object('ok', true, 'skipped', true);
   END IF;
+  PERFORM public.store_commission_notify_review(v_id);
   RETURN jsonb_build_object('ok', true, 'obligation_id', v_id);
 END;
 $$;
@@ -794,6 +946,9 @@ AS $$
     SELECT * FROM base
      WHERE p_state IS NULL OR p_state = 'all' OR state = p_state
         OR (p_state = 'decided' AND adj_id IS NOT NULL)
+        -- decision-based views (a rejected row can still carry unpaid fee → state 'outstanding')
+        OR (p_state = 'approved' AND adj_decision IN ('approve', 'legacy_auto'))
+        OR (p_state = 'rejected' AND adj_decision = 'reject')
   ),
   sums AS (
     SELECT count(*) AS n,
@@ -911,6 +1066,154 @@ AS $$
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 8b. Breakdown (day / month in Asia/Manila, or store) — same rows as the ledger page
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.store_commission_breakdown(
+  p_store_ids uuid[],
+  p_from timestamptz,
+  p_to timestamptz,
+  p_group text
+)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH base AS (
+    SELECT ob.store_id, s.store_name, ob.created_at,
+           coalesce(ob.original_fee_due_minor, ob.fee_due_minor + coalesce(a.approved_minor, 0)) AS charged,
+           ob.fee_paid_minor AS paid, ob.fee_outstanding_minor AS outstanding,
+           coalesce(a.cash_refund_minor, 0) AS refunded, coalesce(a.outstanding_cancel_minor, 0) AS cancelled,
+           ob.confirmed_revenue_php AS base_php,
+           CASE coalesce(p_group, 'day')
+             WHEN 'month' THEN to_char(ob.created_at AT TIME ZONE 'Asia/Manila', 'YYYY-MM')
+             WHEN 'store' THEN ob.store_id::text
+             ELSE to_char(ob.created_at AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD')
+           END AS bucket
+      FROM public.store_sale_fee_obligations ob
+      JOIN public.stores s ON s.id = ob.store_id
+      LEFT JOIN public.store_commission_adjustments a ON a.obligation_id = ob.id
+     WHERE (p_store_ids IS NULL OR ob.store_id = ANY (p_store_ids))
+       AND (p_from IS NULL OR ob.created_at >= p_from)
+       AND (p_to IS NULL OR ob.created_at < p_to)
+  )
+  SELECT coalesce(jsonb_agg(b ORDER BY b.bucket DESC), '[]'::jsonb) FROM (
+    SELECT bucket,
+           max(store_name) FILTER (WHERE coalesce(p_group, 'day') = 'store') AS label,
+           count(*) AS count, sum(base_php) AS commission_base_php,
+           sum(charged) AS fee_charged_minor, sum(paid) AS fee_paid_minor,
+           sum(outstanding) AS fee_outstanding_minor, sum(refunded) AS cash_refunded_minor,
+           sum(cancelled) AS outstanding_cancelled_minor,
+           sum(charged) - sum(refunded) - sum(cancelled) AS net_commission_minor
+      FROM base GROUP BY bucket
+  ) b;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 8c. Platform payout obligation — classification of completed orders (read-only).
+--     Buyers pay the store directly; the platform owes the store ONLY the amount it
+--     actually holds (gift certificate redemption + platform-funded coupon).
+--     Legacy store_settlements 'scheduled/processing/held' amounts are NOT payouts.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.store_platform_payable_page(
+  p_store_ids uuid[],
+  p_from timestamptz,
+  p_to timestamptz,
+  p_view text,
+  p_limit integer,
+  p_offset integer
+)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH base AS (
+    SELECT o.id AS order_id, o.order_no, o.store_id, s.store_name, o.created_at, o.buyer_payment_method,
+           GREATEST(0, trunc(coalesce(o.payment_amount, 0)))::bigint AS direct_php,
+           (GREATEST(0, trunc(coalesce(o.gift_redemption_amount, 0)))
+            + GREATEST(0, trunc(coalesce(o.platform_funded_amount, 0))))::bigint AS held_php,
+           coalesce((SELECT e.amount FROM public.store_economic_point_ledger e
+                      WHERE e.idempotency_key = 'sale_coin:' || o.id::text), 0)::bigint AS coin_minted,
+           -- Gift redemptions with a live gift_certificate_redemptions row are owed on the gift
+           -- revenue rail (gift_certificate_revenue_ledger → conversion / cash-out), never here.
+           LEAST(GREATEST(0, trunc(coalesce(o.gift_redemption_amount, 0)))::bigint,
+                 coalesce((SELECT sum(r.redeemed_amount) FROM public.gift_certificate_redemptions r
+                            WHERE r.order_id = o.id AND NOT coalesce(r.reversed, false)), 0)::bigint) AS gift_rail_php,
+           coalesce((SELECT sum(r.merchant_net_amount) FROM public.gift_certificate_redemptions r
+                      WHERE r.order_id = o.id AND NOT coalesce(r.reversed, false)), 0)::bigint AS gift_rail_net_php,
+           st.settlement_status, coalesce(st.net_settlement_amount, st.settlement_amount, 0)::bigint AS legacy_net_php
+      FROM public.store_orders o
+      JOIN public.stores s ON s.id = o.store_id
+      LEFT JOIN public.store_settlements st ON st.order_id = o.id
+     WHERE o.order_status = 'completed'
+       AND (p_store_ids IS NULL OR o.store_id = ANY (p_store_ids))
+       AND (p_from IS NULL OR o.created_at >= p_from)
+       AND (p_to IS NULL OR o.created_at < p_to)
+  ),
+  resid AS (
+    SELECT *, held_php - gift_rail_php AS rail_free_held_php FROM base
+  ),
+  cls AS (
+    SELECT *,
+           LEAST(rail_free_held_php, coin_minted) AS held_paid_by_coin_php,
+           rail_free_held_php - LEAST(rail_free_held_php, coin_minted) AS payable_php,
+           -- Coin above the platform-held money not already owed on the gift rail (incl. gift paid twice).
+           GREATEST(0, coin_minted - rail_free_held_php) AS coin_over_credit,
+           CASE
+             WHEN rail_free_held_php - LEAST(rail_free_held_php, coin_minted) > 0 THEN 'payable'
+             WHEN gift_rail_php > 0 THEN 'gift_rail'
+             WHEN settlement_status = 'paid' THEN 'legacy_manual_paid'
+             ELSE 'direct_collected'
+           END AS class
+      FROM resid
+  ),
+  filtered AS (
+    -- payable: what this rail owes (+ legacy manual payouts to review); exceptions: financial
+    -- anomalies (Coin above platform-held money, legacy manual payouts); all: every completed order.
+    SELECT * FROM cls
+     WHERE CASE coalesce(p_view, 'payable')
+             WHEN 'all' THEN true
+             WHEN 'exceptions' THEN coin_over_credit > 0 OR class = 'legacy_manual_paid'
+             ELSE class IN ('payable', 'legacy_manual_paid')
+           END
+  )
+  SELECT jsonb_build_object(
+    'summary', (SELECT jsonb_build_object(
+        'orders', count(*),
+        'direct_collected_php', coalesce(sum(direct_php), 0),
+        'platform_held_php', coalesce(sum(held_php), 0),
+        'held_paid_by_coin_php', coalesce(sum(held_paid_by_coin_php), 0),
+        'gift_rail_php', coalesce(sum(gift_rail_php), 0),
+        'gift_rail_net_php', coalesce(sum(gift_rail_net_php), 0),
+        'gift_rail_orders', count(*) FILTER (WHERE gift_rail_php > 0),
+        'payable_php', coalesce(sum(payable_php), 0),
+        'payable_orders', count(*) FILTER (WHERE payable_php > 0),
+        'coin_over_credit', coalesce(sum(coin_over_credit), 0),
+        'legacy_open_settlement_php', coalesce(sum(legacy_net_php) FILTER (WHERE settlement_status IN ('scheduled', 'processing', 'held')), 0),
+        'legacy_open_settlement_count', count(*) FILTER (WHERE settlement_status IN ('scheduled', 'processing', 'held')),
+        'legacy_manual_paid_php', coalesce(sum(legacy_net_php) FILTER (WHERE settlement_status = 'paid'), 0),
+        'legacy_manual_paid_count', count(*) FILTER (WHERE settlement_status = 'paid')
+      ) FROM cls),
+    'total', (SELECT count(*) FROM filtered),
+    'rows', coalesce((
+      SELECT jsonb_agg(r ORDER BY r.created_at DESC, r.order_id) FROM (
+        SELECT order_id, order_no, store_id, store_name, created_at, buyer_payment_method, direct_php, held_php,
+               coin_minted, gift_rail_php, held_paid_by_coin_php, payable_php, coin_over_credit, settlement_status, legacy_net_php, class
+          FROM filtered
+         ORDER BY created_at DESC, order_id
+         LIMIT LEAST(500, GREATEST(1, coalesce(p_limit, 100)))
+        OFFSET GREATEST(0, coalesce(p_offset, 0))
+      ) r
+    ), '[]'::jsonb)
+  );
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- 9. Integrity report — invariants over the real ledgers (read-only)
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -974,6 +1277,126 @@ AS $$
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 9b. Financial-exception alert scan (cron, service_role) — idempotent by source_key.
+--     Detects only states that need an admin decision; never corrects anything.
+-- ═══════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.store_commission_enqueue_exception_notifications()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_review integer := 0;
+  v_mismatch integer := 0;
+  v_integrity integer := 0;
+  v_payout integer := 0;
+  v_report jsonb;
+  v_check text;
+  v_label text;
+  r record;
+BEGIN
+  IF to_regclass('public.admin_notification_outbox') IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'skipped', 'admin_notification_outbox_missing');
+  END IF;
+
+  -- 1) Open reviews whose alert never reached the outbox (e.g. enqueue failed in the trigger).
+  FOR r IN
+    SELECT ob.id FROM public.store_sale_fee_obligations ob
+     WHERE ob.adjustment_status = 'review_required'
+       AND NOT EXISTS (SELECT 1 FROM public.admin_notification_outbox x WHERE x.source_key = 'settlement_review:' || ob.id::text)
+     ORDER BY ob.review_flagged_at NULLS LAST
+     LIMIT 500
+  LOOP
+    IF public.store_commission_notify_review(r.id) THEN v_review := v_review + 1; END IF;
+  END LOOP;
+
+  -- 2) Cash balance ≠ ledger sum (keyed by store + current difference: a new difference = a new event).
+  FOR r IN
+    SELECT a.store_id, s.store_name, a.balance_minor,
+           coalesce((SELECT sum(CASE WHEN l.direction = 'credit' THEN l.amount_minor ELSE -l.amount_minor END)
+                       FROM public.business_cash_ledger l WHERE l.store_id = a.store_id), 0)::bigint AS ledger_sum
+      FROM public.business_cash_accounts a
+      JOIN public.stores s ON s.id = a.store_id
+  LOOP
+    CONTINUE WHEN r.balance_minor = r.ledger_sum;
+    IF public.store_commission_notify_admin(
+         'settlement_exception:balance_mismatch:' || r.store_id::text || ':' || (r.balance_minor - r.ledger_sum)::text,
+         'settlement_financial_exception', 'critical',
+         '[원장 불일치] ' || coalesce(r.store_name, r.store_id::text),
+         '캐시 잔액 ' || public.store_commission_php_text(r.balance_minor) || ' ≠ 원장 합계 ' || public.store_commission_php_text(r.ledger_sum)
+           || ' (차이 ' || public.store_commission_php_text(r.balance_minor - r.ledger_sum) || ') · 근거 확인 전 임의 정정 금지',
+         '/admin/store-settlements?tab=exceptions&store_id=' || r.store_id::text,
+         'stores', r.store_id::text) THEN
+      v_mismatch := v_mismatch + 1;
+    END IF;
+  END LOOP;
+
+  -- 3) Obligation-level integrity violations (cash ledger ≠ fee paid = double charge / double refund suspect).
+  v_report := public.store_commission_integrity_report(NULL);
+  FOREACH v_check IN ARRAY ARRAY['charged_eq_due_plus_adjustments', 'cash_ledger_eq_fee_paid', 'status_matches_amounts', 'closed_orders_reviewed']
+  LOOP
+    v_label := CASE v_check
+      WHEN 'cash_ledger_eq_fee_paid' THEN '이중 차감·환급 의심 (캐시 원장 ≠ 수수료 납부액)'
+      WHEN 'charged_eq_due_plus_adjustments' THEN '부과액 ≠ 잔여 부과 + 승인 환급'
+      WHEN 'status_matches_amounts' THEN '상태와 금액 불일치'
+      ELSE '취소·환불 주문 수수료 검토 누락'
+    END;
+    FOR r IN
+      SELECT ob.id, ob.store_id, o.order_no, st.store_name
+        FROM jsonb_array_elements_text(coalesce(v_report -> v_check -> 'ids', '[]'::jsonb)) AS x(id)
+        JOIN public.store_sale_fee_obligations ob ON ob.id = x.id::uuid
+        JOIN public.store_orders o ON o.id = ob.order_id
+        JOIN public.stores st ON st.id = ob.store_id
+    LOOP
+      IF public.store_commission_notify_admin(
+           'settlement_exception:' || v_check || ':' || r.id::text,
+           'settlement_financial_exception', 'critical',
+           '[금융 예외] ' || coalesce(r.store_name, '') || ' · #' || coalesce(r.order_no, ''),
+           v_label || ' · 근거 확인 전 임의 정정 금지',
+           '/admin/store-settlements?tab=ledger&order_no=' || coalesce(r.order_no, '') || '&open=' || r.id::text,
+           'store_sale_fee_obligations', r.id::text) THEN
+        v_integrity := v_integrity + 1;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+  -- 4) Payout suspects: Coin above platform-held money (duplicate payout) / legacy manual payouts.
+  FOR r IN
+    SELECT x->>'order_id' AS order_id, x->>'order_no' AS order_no, x->>'store_id' AS store_id, x->>'store_name' AS store_name,
+           (x->>'coin_over_credit')::bigint AS over, x->>'class' AS cls, (x->>'legacy_net_php')::bigint AS legacy_php
+      FROM jsonb_array_elements(public.store_platform_payable_page(NULL, NULL, NULL, 'exceptions', 500, 0) -> 'rows') AS x
+  LOOP
+    IF r.over > 0 THEN
+      IF public.store_commission_notify_admin(
+           'settlement_exception:coin_over_credit:' || r.order_id,
+           'settlement_financial_exception', 'critical',
+           '[중복 지급 의심] ' || coalesce(r.store_name, '') || ' · #' || coalesce(r.order_no, ''),
+           '플랫폼 보유분(상품권 레일 제외)보다 코인 ' || r.over::text || ' 초과 지급 · 근거 확인 전 회수 금지',
+           '/admin/store-settlements?tab=exceptions&store_id=' || r.store_id,
+           'store_orders', r.order_id) THEN
+        v_payout := v_payout + 1;
+      END IF;
+    END IF;
+    IF r.cls = 'legacy_manual_paid' THEN
+      IF public.store_commission_notify_admin(
+           'settlement_exception:legacy_manual_paid:' || r.order_id,
+           'settlement_financial_exception', 'warning',
+           '[과거 수동 지급 확인] ' || coalesce(r.store_name, '') || ' · #' || coalesce(r.order_no, ''),
+           '직접 결제 주문에 수동 지급 기록 ₱' || r.legacy_php::text || ' · 이중 지급 여부 확인 필요',
+           '/admin/store-settlements?tab=exceptions&store_id=' || r.store_id,
+           'store_orders', r.order_id) THEN
+        v_payout := v_payout + 1;
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object('ok', true, 'review_replayed', v_review, 'balance_mismatch', v_mismatch,
+                            'integrity', v_integrity, 'payout_suspects', v_payout);
+END;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- 10. Execute grants
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -1003,5 +1426,33 @@ GRANT EXECUTE ON FUNCTION public.store_cash_position(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.store_commission_ledger_page(uuid[], timestamptz, timestamptz, text, text, integer, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.store_cash_ledger_page(uuid[], timestamptz, timestamptz, text[], integer, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.store_commission_integrity_report(uuid[]) TO service_role;
+REVOKE ALL ON FUNCTION public.store_commission_breakdown(uuid[], timestamptz, timestamptz, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_platform_payable_page(uuid[], timestamptz, timestamptz, text, integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.store_commission_breakdown(uuid[], timestamptz, timestamptz, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_platform_payable_page(uuid[], timestamptz, timestamptz, text, integer, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.store_commission_php_text(bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_commission_notify_admin(text, text, text, text, text, text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.store_commission_notify_review(uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.store_commission_enqueue_exception_notifications() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.store_commission_php_text(bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_commission_notify_admin(text, text, text, text, text, text, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.store_commission_enqueue_exception_notifications() TO service_role;
+REVOKE ALL ON FUNCTION public.store_commission_notify_charge_failure(uuid, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.store_commission_notify_charge_failure(uuid, text, text) TO service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 12. Alert go-live baseline — exceptions that exist NOW (documented, OWNER decision pending:
+--     ₱225 balance gap, Coin over-credit, legacy manual payouts) are not re-announced as new alerts.
+--     Review alerts are not baselined. Only outbox keys are written; no money, no source rows.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- One statement, so the transaction-local flag holds whether or not the runner wraps the file in BEGIN/COMMIT.
+DO $$
+BEGIN
+  PERFORM set_config('dibay.settlement_alert_baseline', 'on', true);
+  PERFORM public.store_commission_enqueue_exception_notifications();
+  PERFORM set_config('dibay.settlement_alert_baseline', 'off', true);
+END;
+$$;
 
 COMMIT;

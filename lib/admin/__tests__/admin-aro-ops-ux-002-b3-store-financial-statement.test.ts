@@ -75,11 +75,19 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
     expect(d30.key).toBe("30d");
   });
 
-  it("fee rows use settlement snapshot fields — not live policy multiply", () => {
+  it("fee rows = commission actually charged (frozen snapshot via SQL ledger) — not live policy multiply", () => {
     const loader = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
-    expect(loader).toContain("platform_fee_percent/amount");
-    expect(loader).toContain("f.commission_rate");
-    expect(loader).toContain("f.commission_amount");
+    expect(loader).toContain("loadStoreCommissionLedgerPage(");
+    expect(loader).toContain("r.feeChargedMinor");
+    expect(loader).toContain("r.feePercent");
     expect(loader).not.toMatch(/defaultFeeRate|DEFAULT_FEE|fee_rate\s*\*\s*sale/i);
+  });
+
+  it("payable = platform payable SSOT; legacy store_settlements pending is never shown as payout", () => {
+    const loader = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
+    expect(loader).toContain("loadStorePlatformPayable(");
+    expect(loader).toContain('source: "store_platform_payable_page.payable"');
+    expect(loader).not.toContain("summary.pending_net");
+    expect(loader).toContain("resolveStoreCommissionPeriod(");
   });
 });

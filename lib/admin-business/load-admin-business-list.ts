@@ -10,6 +10,7 @@ import {
   formatOpsListCityLine,
   hoursLabelFromBusinessHoursJson,
   presentSettlementKind,
+  storeCommissionAttentionSignals,
   presentStoreOpenKind,
   resolveBusinessOpsOwnerIdentity,
   taxonomyName,
@@ -213,9 +214,9 @@ export async function loadAdminBusinessListOps(
       .select("store_id, allowed_to_sell, sales_status")
       .limit(10_000),
     sb
-      .from("store_settlements")
-      .select("store_id, settlement_status")
-      .in("settlement_status", ["held", "pending", "processing", "scheduled"])
+      .from("store_sale_fee_obligations")
+      .select("store_id, fee_outstanding_minor, adjustment_status")
+      .or("fee_outstanding_minor.gt.0,adjustment_status.eq.review_required")
       .limit(10_000),
     sb
       .from("store_reports")
@@ -247,10 +248,10 @@ export async function loadAdminBusinessListOps(
   if (!settleRes.error) {
     for (const r of settleRes.data ?? []) {
       const sid = String((r as { store_id?: unknown }).store_id ?? "");
-      const st = String((r as { settlement_status?: unknown }).settlement_status ?? "");
-      if (!sid || !st) continue;
+      const signals = storeCommissionAttentionSignals(r as Record<string, unknown>);
+      if (!sid || signals.length === 0) continue;
       const arr = settleStatusesByStore.get(sid) ?? [];
-      arr.push(st);
+      arr.push(...signals);
       settleStatusesByStore.set(sid, arr);
     }
   }

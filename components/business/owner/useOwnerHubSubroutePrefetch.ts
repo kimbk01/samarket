@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
 import {
   OWNER_HUB_SECONDARY_AFTER_MS,
@@ -15,7 +14,10 @@ import {
   trackOwnerDashboardApiStart,
 } from "@/lib/business/owner-dashboard-waterfall";
 
-/** 허브 대시보드 — 라우트 prefetch 만 즉시, orders/settlements API 는 background */
+/**
+ * 허브 대시보드 — 라우트 prefetch 만 즉시, orders API 는 background.
+ * 정산 화면은 수수료 원장(commission-ledger)을 직접 조회하므로 레거시 store-settlements API 는 미리 받지 않는다.
+ */
 export function useOwnerHubSubroutePrefetch(storeId: string | null | undefined) {
   const router = useRouter();
 
@@ -41,20 +43,11 @@ export function useOwnerHubSubroutePrefetch(storeId: string | null | undefined) 
       async () => {
         markOwnerDashboardBackgroundStart();
         trackOwnerDashboardApiStart("orders_list", { priority: "background" });
-        trackOwnerDashboardApiStart("settlements", { priority: "background" });
         const t0 = performance.now();
-        await Promise.all([
-          fetchStoreOrdersListDeduped(sid).catch(() => null),
-          fetchOwnerStoreSettlementsDeduped(sid).catch(() => null),
-        ]);
-        const ms = Math.round(performance.now() - t0);
+        await fetchStoreOrdersListDeduped(sid).catch(() => null);
         trackOwnerDashboardApiDone("orders_list", {
           priority: "background",
-          client_duration_ms: ms,
-        });
-        trackOwnerDashboardApiDone("settlements", {
-          priority: "background",
-          client_duration_ms: ms,
+          client_duration_ms: Math.round(performance.now() - t0),
         });
       },
       {

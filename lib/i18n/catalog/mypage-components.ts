@@ -487,8 +487,8 @@ export const mypageComponentsMessages = {
     mypage_comp_order_review_prompt_write: "주문이 완료되었습니다. 리뷰를 작성해 주세요.",
     mypage_comp_order_review_checking: "리뷰 상태를 확인 중입니다.",
 
-    // Payment status labels (paymentMethodLabel)
-    mypage_comp_pay_method_paid: "배달 주문 · 결제 완료(현장·직접 정산)",
+    // Payment status labels (paymentStatusLabel)
+    mypage_comp_pay_method_paid: "배달 주문 · 결제 완료(매장에 직접 결제)",
     mypage_comp_pay_method_pending: "결제 대기",
     mypage_comp_pay_method_failed: "결제 실패",
     mypage_comp_pay_method_cancelled: "결제 취소",
@@ -532,7 +532,7 @@ export const mypageComponentsMessages = {
     mypage_comp_auto_complete_notice:
       "아래 시각이 지나면 주문이 자동으로 \"완료\" 처리될 수 있습니다. {datetime}",
     mypage_comp_cancel_before_accept_hint:
-      "매장이 접수하기 전이면 아래에서 주문을 취소할 수 있습니다. 금액 정산은 매장과 직접 하시면 됩니다.",
+      "매장이 접수하기 전이면 아래에서 주문을 취소할 수 있습니다. 결제 금액은 매장과 직접 주고받으시면 됩니다.",
     mypage_comp_payment_method_label: "결제 방법: {method}",
     mypage_comp_buyer_note_label: "요청 사항: {note}",
     mypage_comp_timeline_section: "진행 단계",
@@ -560,7 +560,8 @@ export const mypageComponentsMessages = {
     mypage_comp_currency_zero: "₱0",
     mypage_comp_courier_hint: "배달 업체(안내): {label} · 안내 목적이며 청구 금액과 다를 수 있음",
     mypage_comp_grand_total: "총액",
-    mypage_comp_payment_method_section: "결제 방법",
+    mypage_comp_payment_method_section: "결제 수단",
+    mypage_comp_payment_status_section: "결제 상태",
 
     mypage_comp_review_posted_private:
       "리뷰를 등록했습니다. 사장님에게만 공유된 글로, 다른 고객이 보는 매장 리뷰 목록에는 나오지 않을 수 있어요.",
@@ -1346,7 +1347,7 @@ export const mypageComponentsMessages = {
     mypage_comp_order_review_prompt_write: "Order completed. Please leave a review.",
     mypage_comp_order_review_checking: "Checking review status…",
 
-    mypage_comp_pay_method_paid: "Delivery order · paid (settle with the store directly)",
+    mypage_comp_pay_method_paid: "Delivery order · paid (paid to the store directly)",
     mypage_comp_pay_method_pending: "Payment pending",
     mypage_comp_pay_method_failed: "Payment failed",
     mypage_comp_pay_method_cancelled: "Payment cancelled",
@@ -1387,7 +1388,7 @@ export const mypageComponentsMessages = {
     mypage_comp_auto_complete_notice:
       "After the time below, the order may be automatically marked completed. {datetime}",
     mypage_comp_cancel_before_accept_hint:
-      "You can cancel before the store accepts. Settle payment directly with the store.",
+      "You can cancel before the store accepts. Pay the store directly.",
     mypage_comp_payment_method_label: "Payment method: {method}",
     mypage_comp_buyer_note_label: "Requests: {note}",
     mypage_comp_timeline_section: "Progress",
@@ -1419,6 +1420,7 @@ export const mypageComponentsMessages = {
     mypage_comp_grand_total: "Total",
 
     mypage_comp_payment_method_section: "Payment method",
+    mypage_comp_payment_status_section: "Payment status",
 
     mypage_comp_review_posted_private:
       "Review submitted. Shared with the owner only; it may not appear on the public store review list.",

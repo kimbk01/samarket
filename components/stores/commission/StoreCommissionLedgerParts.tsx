@@ -16,6 +16,7 @@ import {
   STORE_COMMISSION_FILTER_LABEL,
   STORE_COMMISSION_ROW_STATE_CHIP,
   STORE_COMMISSION_ROW_STATE_LABEL,
+  STORE_PAYOUT_CLASS_LABEL,
   type BusinessCashLedgerKind,
   type StoreCashPosition,
   type StoreCommissionLedgerFilterState,
@@ -23,10 +24,17 @@ import {
 } from "@/lib/stores/commission/store-commission-contract";
 import type {
   StoreCashLedgerPage,
+  StoreCommissionBreakdownRow,
   StoreCommissionLedgerRow,
   StoreCommissionLedgerSummary,
+  StorePlatformPayablePage,
+  StorePlatformPayableSummary,
 } from "@/lib/stores/commission/load-store-commission-ledger";
-import { STORE_COMMISSION_PERIODS, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+import {
+  formatManilaDateTime,
+  STORE_COMMISSION_PERIODS,
+  type StoreCommissionPeriod,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 
 export type CommissionLang = "ko" | "en";
 
@@ -38,15 +46,23 @@ export function formatCashMinor(minor: number): string {
   return formatCashMinorSigned(minor, (php) => formatMoneyPhp(php));
 }
 
+/** Stored times are UTC; every screen shows Asia/Manila (same as period buckets). */
 function formatTs(iso: string | null | undefined): string {
-  const t = String(iso ?? "").trim();
-  return t ? `${t.slice(0, 16).replace("T", " ")} UTC` : "—";
+  const t = formatManilaDateTime(iso);
+  return t === "—" ? t : `${t} PHT`;
 }
+
+/** Shared touch feedback for settlement controls (legacy pattern: active:scale + touch-manipulation). */
+export const COMMISSION_PRESS =
+  "touch-manipulation select-none transition-[background-color,border-color,transform,opacity] duration-150 active:scale-[0.97] disabled:scale-100";
 
 export const chipClass = (active: boolean) =>
   active
-    ? "rounded-full bg-signature px-3 py-1.5 sam-text-xxs font-semibold text-white"
-    : "rounded-full border border-sam-border-soft bg-sam-app px-3 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted";
+    ? `inline-flex min-h-8 items-center rounded-full border border-signature bg-signature px-3 py-1.5 sam-text-xxs font-semibold text-white ${COMMISSION_PRESS}`
+    : `inline-flex min-h-8 items-center rounded-full border border-sam-border-soft bg-sam-app px-3 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted disabled:opacity-45 ${COMMISSION_PRESS}`;
+
+/** Small secondary button inside table rows (상세 / 원장 보기). */
+export const ROW_ACTION_BTN = `inline-flex min-h-9 items-center whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted ${COMMISSION_PRESS}`;
 
 export function CommissionStateChip({ state, lang }: { state: StoreCommissionRowState; lang: CommissionLang }) {
   return (
@@ -73,7 +89,7 @@ function Tile({
     <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
       <p className="sam-text-xxs text-sam-muted">{label}</p>
       <p className={`text-base font-semibold tabular-nums ${toneClass}`}>{value}</p>
-      {hint ? <p className="mt-0.5 sam-text-xxs text-sam-meta">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 sam-text-xxs text-sam-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -262,7 +278,7 @@ export function CommissionPeriodFilter({
           />
         </>
       ) : null}
-      <span className="sam-text-xxs text-sam-meta">{pickCommissionCopy(lang, "기준: UTC", "Basis: UTC")}</span>
+      <span className="sam-text-xxs text-sam-muted">{pickCommissionCopy(lang, "기준: 필리핀 시간 (UTC+8)", "Basis: Philippine time (UTC+8)")}</span>
     </div>
   );
 }
@@ -346,7 +362,7 @@ export function CashLedgerView({
                     {formatCashMinor(r.direction === "credit" ? r.amountMinor : -r.amountMinor)}
                   </td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">{formatCashMinor(r.balanceAfterMinor)}</td>
-                  <td className="py-1.5 sam-text-xxs text-sam-meta">{r.id.slice(0, 8)}</td>
+                  <td className="py-1.5 sam-text-xxs text-sam-muted">{r.id.slice(0, 8)}</td>
                 </tr>
               ))}
             </tbody>
@@ -372,45 +388,277 @@ export function LedgerPager({
   onChange: (offset: number) => void;
   lang: CommissionLang;
 }) {
-  if (total <= pageSize) return null;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(pages, Math.floor(offset / pageSize) + 1);
+  const shown = total === 0 ? 0 : Math.min(offset + pageSize, total) - offset;
+  const btn = `inline-flex min-h-9 min-w-9 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg active:bg-sam-surface-muted disabled:opacity-40 ${COMMISSION_PRESS}`;
   return (
-    <div className="mt-3 flex items-center justify-between sam-text-helper">
-      <button
-        type="button"
-        className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-50"
-        disabled={offset === 0 || loading}
-        onClick={() => onChange(Math.max(0, offset - pageSize))}
-      >
-        {pickCommissionCopy(lang, "이전", "Prev")}
-      </button>
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sam-text-helper" data-commission-pager="1">
       <span className="text-sam-muted">
-        {offset + 1}–{Math.min(offset + pageSize, total)} / {total}
+        {pickCommissionCopy(
+          lang,
+          `전체 ${total.toLocaleString()}건 중 ${total === 0 ? 0 : offset + 1}–${offset + shown} (이 페이지 ${shown}건)`,
+          `${total === 0 ? 0 : offset + 1}–${offset + shown} of ${total.toLocaleString()} (${shown} on this page)`
+        )}
       </span>
-      <button
-        type="button"
-        className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-50"
-        disabled={offset + pageSize >= total || loading}
-        onClick={() => onChange(offset + pageSize)}
-      >
-        {pickCommissionCopy(lang, "다음", "Next")}
-      </button>
+      {pages > 1 ? (
+        <div className="flex items-center gap-1.5">
+          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(0)} aria-label="first page">
+            «
+          </button>
+          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(Math.max(0, offset - pageSize))}>
+            {pickCommissionCopy(lang, "이전", "Prev")}
+          </button>
+          <span className="px-1 tabular-nums text-sam-fg">
+            {page} / {pages}
+          </span>
+          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange(offset + pageSize)}>
+            {pickCommissionCopy(lang, "다음", "Next")}
+          </button>
+          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange((pages - 1) * pageSize)} aria-label="last page">
+            »
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export type CommissionTab = "overview" | "ledger" | "review" | "decided" | "cash";
+export type CommissionTab = "ledger" | "review" | "cash" | "exceptions" | "payable";
 
+/** A: 전체 거래 · B: 취소·환불 검토 · C: 매장 캐시 · D: 금융 예외 · 별도 레일: 플랫폼 지급 의무 */
 export const COMMISSION_TAB_LABEL: Record<CommissionTab, { ko: string; en: string }> = {
-  overview: { ko: "매장별 현황", en: "Stores" },
-  ledger: { ko: "수수료 원장", en: "Commission ledger" },
+  ledger: { ko: "전체 거래", en: "All transactions" },
   review: { ko: "취소·환불 검토", en: "Cancel/refund review" },
-  decided: { ko: "조정 이력", en: "Decision history" },
-  cash: { ko: "캐시 거래", en: "Cash transactions" },
+  cash: { ko: "매장 캐시", en: "Store Cash" },
+  exceptions: { ko: "금융 예외", en: "Financial exceptions" },
+  payable: { ko: "플랫폼 지급 의무", en: "Platform payable" },
 };
 
-/** Tab → ledger filter state (review/decided tabs are fixed filters of the same ledger). */
-export function tabLedgerState(tab: CommissionTab, chosen: StoreCommissionLedgerFilterState): StoreCommissionLedgerFilterState {
-  if (tab === "review") return "review_required";
-  if (tab === "decided") return "decided";
-  return chosen;
+export type CommissionReviewFilter = "review_required" | "approved" | "rejected" | "decided";
+export const COMMISSION_REVIEW_FILTERS: readonly CommissionReviewFilter[] = ["review_required", "approved", "rejected", "decided"];
+
+const REVIEW_FILTER_LABEL: Record<CommissionReviewFilter, { ko: string; en: string }> = {
+  review_required: { ko: "검토 대기", en: "Awaiting review" },
+  approved: { ko: "환급 승인", en: "Refund approved" },
+  rejected: { ko: "환급 거절", en: "Refund rejected" },
+  decided: { ko: "전체 결정", en: "All decisions" },
+};
+
+/** Tab → ledger filter state (the review tab is a fixed decision view of the same ledger). */
+export function tabLedgerState(
+  tab: CommissionTab,
+  chosen: StoreCommissionLedgerFilterState,
+  review: CommissionReviewFilter = "review_required"
+): StoreCommissionLedgerFilterState {
+  return tab === "review" ? review : chosen;
+}
+
+/** Current + legacy `?tab=` values (overview / decided) → tab + review filter. */
+export function resolveCommissionTab(
+  raw: string | null | undefined,
+  allowed: readonly CommissionTab[]
+): { tab: CommissionTab | null; review: CommissionReviewFilter | null } {
+  const t = String(raw ?? "").trim();
+  if (t === "decided") return { tab: allowed.includes("review") ? "review" : null, review: "decided" };
+  if (t === "overview") return { tab: allowed.includes("cash") ? "cash" : null, review: null };
+  return { tab: (allowed as readonly string[]).includes(t) ? (t as CommissionTab) : null, review: null };
+}
+
+export function CommissionReviewFilterChips({
+  value,
+  onChange,
+  lang,
+  reviewCount,
+}: {
+  value: CommissionReviewFilter;
+  onChange: (v: CommissionReviewFilter) => void;
+  lang: CommissionLang;
+  reviewCount?: number;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="review filter">
+      {COMMISSION_REVIEW_FILTERS.map((f) => (
+        <button key={f} type="button" role="tab" aria-selected={value === f} className={chipClass(value === f)} onClick={() => onChange(f)}>
+          {REVIEW_FILTER_LABEL[f][lang]}
+          {f === "review_required" && reviewCount ? ` ${reviewCount}` : ""}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export type CommissionBreakdownGroup = "day" | "month" | "store";
+
+const BREAKDOWN_GROUP_LABEL: Record<CommissionBreakdownGroup, { ko: string; en: string }> = {
+  day: { ko: "일별", en: "Daily" },
+  month: { ko: "월별", en: "Monthly" },
+  store: { ko: "매장별", en: "By store" },
+};
+
+/** Day / month / store totals — buckets computed in SQL (Asia/Manila calendar). */
+export function CommissionBreakdownTable({
+  rows,
+  group,
+  groups,
+  onGroupChange,
+  lang,
+}: {
+  rows: StoreCommissionBreakdownRow[];
+  group: CommissionBreakdownGroup;
+  groups: readonly CommissionBreakdownGroup[];
+  onGroupChange: (g: CommissionBreakdownGroup) => void;
+  lang: CommissionLang;
+}) {
+  // Collapsed by default so the order ledger stays near the top; totals above already cover the period.
+  return (
+    <details className="group rounded-ui-rect border border-sam-border-soft bg-sam-surface" data-commission-breakdown="1">
+      <summary className="cursor-pointer select-none px-3 py-2 sam-text-helper font-medium text-sam-fg">
+        {pickCommissionCopy(
+          lang,
+          `기간별 합계 (${BREAKDOWN_GROUP_LABEL[group].ko} · ${rows.length}개 구간) — 펼치기`,
+          `Period totals (${BREAKDOWN_GROUP_LABEL[group].en} · ${rows.length} buckets) — expand`
+        )}
+      </summary>
+      <div className="border-t border-sam-border-soft p-3">
+      <div className="flex flex-wrap gap-1.5">
+        {groups.map((g) => (
+          <button key={g} type="button" className={chipClass(group === g)} onClick={() => onGroupChange(g)}>
+            {BREAKDOWN_GROUP_LABEL[g][lang]}
+          </button>
+        ))}
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 sam-text-body text-sam-muted">{pickCommissionCopy(lang, "기간 내 부과 내역이 없습니다.", "No charges in this period.")}</p>
+      ) : (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="sam-text-xxs text-sam-muted">
+              <tr>
+                <th className="py-1.5 pr-3">{BREAKDOWN_GROUP_LABEL[group][lang]}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "건수", "Orders")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "수수료 기준 매출", "Commission base")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "부과", "Charged")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "캐시 차감", "Paid from Cash")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "미납", "Outstanding")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "환급·미납취소", "Refunded/cancelled")}</th>
+                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "순수수료", "Net commission")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.bucket} className="border-t border-sam-border-soft tabular-nums">
+                  <td className="py-1.5 pr-3">{group === "store" ? r.label || r.bucket.slice(0, 8) : r.bucket}</td>
+                  <td className="py-1.5 pr-3 text-right">{r.count}</td>
+                  <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.commissionBasePhp)}</td>
+                  <td className="py-1.5 pr-3 text-right">{formatCashMinor(r.feeChargedMinor)}</td>
+                  <td className="py-1.5 pr-3 text-right">{formatCashMinor(r.feePaidMinor)}</td>
+                  <td className="py-1.5 pr-3 text-right text-red-700">{formatCashMinor(r.feeOutstandingMinor)}</td>
+                  <td className="py-1.5 pr-3 text-right">{formatCashMinor(r.cashRefundedMinor + r.outstandingCancelledMinor)}</td>
+                  <td className="py-1.5 pr-3 text-right font-semibold">{formatCashMinor(r.netCommissionMinor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Who holds the money for completed orders. Only `payable` is a platform payout obligation;
+ * legacy `store_settlements` "scheduled" amounts are shown for reference, never as payable.
+ */
+export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePlatformPayableSummary; lang: CommissionLang }) {
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Tile
+          label={pickCommissionCopy(lang, "플랫폼 지급 의무", "Platform owes stores")}
+          value={formatMoneyPhp(summary.payablePhp)}
+          tone={summary.payablePhp > 0 ? "warn" : "default"}
+          hint={pickCommissionCopy(lang, `${summary.payableOrders}건`, `${summary.payableOrders} orders`)}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "매장 직접 수령", "Collected by stores")}
+          value={formatMoneyPhp(summary.directCollectedPhp)}
+          hint={pickCommissionCopy(lang, "지급 대상 아님", "Not a payout")}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "플랫폼 보유 (선물·쿠폰)", "Platform-held (gift/coupon)")}
+          value={formatMoneyPhp(summary.platformHeldPhp)}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "상품권 정산 레일", "Gift-certificate rail")}
+          value={formatMoneyPhp(summary.giftRailPhp)}
+          hint={pickCommissionCopy(
+            lang,
+            `${summary.giftRailOrders}건 · 매장 순액 ${formatMoneyPhp(summary.giftRailNetPhp)} · 여기서 지급 안 함`,
+            `${summary.giftRailOrders} orders · store net ${formatMoneyPhp(summary.giftRailNetPhp)} · not paid here`
+          )}
+        />
+        <Tile
+          label={pickCommissionCopy(lang, "코인으로 지급됨", "Paid via Coin")}
+          value={formatMoneyPhp(summary.heldPaidByCoinPhp)}
+        />
+      </div>
+      <p className="sam-text-xxs text-sam-muted">
+        {pickCommissionCopy(
+          lang,
+          `완료 주문 ${summary.orders}건 기준. 과거 정산 스냅샷 ${summary.legacyOpenSettlementCount}건 (${formatMoneyPhp(summary.legacyOpenSettlementPhp)})은 매장이 이미 직접 받은 금액이라 지급 의무가 아닙니다 (원본 보존). 과거 수동 지급 ${summary.legacyManualPaidCount}건 (${formatMoneyPhp(summary.legacyManualPaidPhp)})은 검토 대상입니다.`,
+          `${summary.orders} completed orders. ${summary.legacyOpenSettlementCount} legacy settlement snapshots (${formatMoneyPhp(summary.legacyOpenSettlementPhp)}) were already collected by stores and are not payable (originals kept). ${summary.legacyManualPaidCount} legacy manual payouts (${formatMoneyPhp(summary.legacyManualPaidPhp)}) need review.`
+        )}
+        {summary.coinOverCredit > 0
+          ? pickCommissionCopy(
+              lang,
+              ` 플랫폼 보유분을 초과해 지급된 코인 ${summary.coinOverCredit}.`,
+              ` Coin credited above platform-held amount: ${summary.coinOverCredit}.`
+            )
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+export function PlatformPayableTable({ page, lang, showStore }: { page: StorePlatformPayablePage; lang: CommissionLang; showStore: boolean }) {
+  if (page.rows.length === 0) {
+    return <p className="sam-text-body text-sam-muted">{pickCommissionCopy(lang, "해당 주문이 없습니다.", "No orders.")}</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-sm">
+        <thead className="sam-text-xxs text-sam-muted">
+          <tr>
+            <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "주문", "Order")}</th>
+            {showStore ? <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "매장", "Store")}</th> : null}
+            <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "분류", "Class")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "직접 수령", "Direct")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "플랫폼 보유", "Held")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "상품권 레일", "Gift rail")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "코인 지급", "Coin")}</th>
+            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "지급 의무", "Payable")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {page.rows.map((r) => (
+            <tr key={r.orderId} className="border-t border-sam-border-soft tabular-nums">
+              <td className="py-1.5 pr-3">
+                <div className="font-medium">{r.orderNo}</div>
+                <div className="sam-text-xxs text-sam-muted">{formatTs(r.createdAt)}</div>
+              </td>
+              {showStore ? <td className="py-1.5 pr-3">{r.storeName}</td> : null}
+              <td className="py-1.5 pr-3 sam-text-xxs">{STORE_PAYOUT_CLASS_LABEL[r.payoutClass]?.[lang] ?? r.payoutClass}</td>
+              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.directPhp)}</td>
+              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.heldPhp)}</td>
+              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.giftRailPhp)}</td>
+              <td className="py-1.5 pr-3 text-right">{formatMoneyPhp(r.heldPaidByCoinPhp)}</td>
+              <td className={`py-1.5 pr-3 text-right font-semibold ${r.payablePhp > 0 ? "text-amber-800" : ""}`}>{formatMoneyPhp(r.payablePhp)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }

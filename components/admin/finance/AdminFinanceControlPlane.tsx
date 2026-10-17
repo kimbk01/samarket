@@ -300,7 +300,7 @@ export function AdminFinanceControlPlane() {
               [ko ? "Point 충전" : "Point", "point", q.point],
               [ko ? "Cash 충전" : "Cash", "cash", q.cash],
               [ko ? "Coin 출금" : "Coin withdraw", "coin", q.coinWithdraw],
-              [ko ? "정산" : "Settlement", "settlement", q.settlement],
+              [ko ? "플랫폼 지급 의무" : "Platform payable", "settlement", q.settlement],
               [ko ? "미납 수수료" : "Fees", "obligation", q.obligationStores],
             ] as const
           ).map(([label, k, s]) => (
@@ -393,12 +393,34 @@ export function AdminFinanceControlPlane() {
         />
       </Section>
 
-      <Section id="settlements" title={ko ? "정산 (일자·매장 통제 · 카드≠정산 전체)" : "Settlement (daily / store control)"}>
+      <Section id="settlements" title={ko ? "플랫폼 지급 의무 (선물·쿠폰 보유분)" : "Platform payable (gift/coupon held)"}>
         <p className="sam-text-helper text-sam-muted">
           {ko
-            ? "아래는 지금 검토가 필요한 정산 요약입니다. 일자별·주문별 상세는 정산 큐에서 확인하세요."
-            : "Summary of settlements needing review. Open the settlement queue for daily/order detail."}
+            ? "매장 직접 결제 모델: 주문 대금은 매장이 직접 받습니다. 플랫폼이 매장에 지급할 의무는 플랫폼이 보유한 선물·플랫폼 쿠폰 금액 중 상품권 정산 레일과 코인으로 지급되지 않은 부분뿐입니다. 과거 정산 스냅샷(scheduled)은 지급 의무가 아닙니다."
+            : "Direct-pay model: stores collect order money themselves. The platform only owes the gift / platform-coupon money it holds that is not on the gift-certificate rail or already paid as Coin. Legacy scheduled settlement snapshots are not payables."}
         </p>
+        {!model.settlements.unavailable ? (
+          <dl className="grid grid-cols-2 gap-2 sam-text-helper sm:grid-cols-4">
+            <div>
+              <dt className="text-sam-muted">{ko ? "지급 의무" : "Payable"}</dt>
+              <dd className="font-semibold tabular-nums">₱{(model.settlements.payablePhp ?? 0).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "건수" : "Orders"}</dt>
+              <dd className="font-semibold tabular-nums">{model.settlements.pendingCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "매장 직접 수령 (지급 대상 아님)" : "Collected by stores (no payout)"}</dt>
+              <dd className="tabular-nums">₱{(model.settlements.directCollectedPhp ?? 0).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "과거 정산 스냅샷 (참고·원본 보존)" : "Legacy snapshots (reference)"}</dt>
+              <dd className="tabular-nums">
+                ₱{(model.settlements.legacyOpenSettlementPhp ?? 0).toLocaleString()} · {model.settlements.legacyOpenSettlementCount ?? 0}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
         <RowTable
           rows={model.settlements.rows}
           ko={ko}
@@ -406,15 +428,15 @@ export function AdminFinanceControlPlane() {
             model.settlements.unavailable
               ? "UNAVAILABLE"
               : ko
-                ? "검토 대상 정산 0건"
-                : "0 settlements to review"
+                ? "플랫폼 지급 의무 0건"
+                : "0 payable orders"
           }
         />
         <Link
           href={model.settlements.queueHref}
           className="inline-block sam-text-body font-semibold text-signature hover:underline"
         >
-          {ko ? "정산 큐 열기" : "Open settlement queue"}
+          {ko ? "지급 의무 상세" : "Open payable detail"}
         </Link>
       </Section>
 

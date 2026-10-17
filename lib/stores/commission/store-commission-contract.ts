@@ -43,8 +43,11 @@ export type StoreCommissionAdjustmentRecordDecision = StoreCommissionDecision | 
 /** Row state — computed in SQL (`store_commission_ledger_page`), labelled here. */
 export type StoreCommissionRowState = "charged" | "outstanding" | "review_required" | "refunded" | "kept";
 
-/** Ledger filter: a row state, every row, or rows that carry a recorded decision. */
-export type StoreCommissionLedgerFilterState = StoreCommissionRowState | "all" | "decided";
+/**
+ * Ledger filter: a row state, every row, rows with a recorded decision, or rows by decision
+ * (approved = refund approved incl. legacy auto reversal · rejected = refund rejected).
+ */
+export type StoreCommissionLedgerFilterState = StoreCommissionRowState | "all" | "decided" | "approved" | "rejected";
 
 export const STORE_COMMISSION_FILTER_STATES: readonly StoreCommissionLedgerFilterState[] = [
   "all",
@@ -52,6 +55,8 @@ export const STORE_COMMISSION_FILTER_STATES: readonly StoreCommissionLedgerFilte
   "outstanding",
   "charged",
   "decided",
+  "approved",
+  "rejected",
   "refunded",
   "kept",
 ] as const;
@@ -83,7 +88,24 @@ export const STORE_COMMISSION_RPC = {
   ledgerPage: "store_commission_ledger_page",
   cashLedgerPage: "store_cash_ledger_page",
   integrity: "store_commission_integrity_report",
+  breakdown: "store_commission_breakdown",
+  payable: "store_platform_payable_page",
 } as const;
+
+/**
+ * Completed-order payout class (`store_platform_payable_page`):
+ * - direct_collected: buyer paid the store directly — the platform owes nothing
+ * - payable: platform holds gift/platform-coupon money not yet paid as Coin
+ * - legacy_manual_paid: an old per-order "paid" settlement for money the store already collected
+ */
+export type StorePayoutClass = "direct_collected" | "payable" | "gift_rail" | "legacy_manual_paid";
+
+export const STORE_PAYOUT_CLASS_LABEL: Record<StorePayoutClass, { ko: string; en: string }> = {
+  direct_collected: { ko: "매장 직접 수령 (지급 대상 아님)", en: "Collected by store (no payout)" },
+  payable: { ko: "플랫폼 지급 의무", en: "Platform owes store" },
+  gift_rail: { ko: "상품권 정산 레일 (여기서 지급 안 함)", en: "Gift-certificate rail (not paid here)" },
+  legacy_manual_paid: { ko: "과거 수동 지급 (검토 필요)", en: "Legacy manual payout (review)" },
+};
 
 export type StoreCashPosition = {
   storeId: string;
@@ -145,14 +167,17 @@ export const STORE_COMMISSION_ROW_STATE_LABEL: Record<StoreCommissionRowState, {
 
 export const STORE_COMMISSION_FILTER_LABEL: Record<StoreCommissionLedgerFilterState, { ko: string; en: string }> = {
   all: { ko: "전체", en: "All" },
-  decided: { ko: "조정 이력", en: "Decisions" },
+  decided: { ko: "전체 결정", en: "All decisions" },
+  approved: { ko: "환급 승인", en: "Refund approved" },
+  rejected: { ko: "환급 거절", en: "Refund rejected" },
   ...STORE_COMMISSION_ROW_STATE_LABEL,
 };
 
+/** Design tokens (light + dark via prefers-color-scheme) — never raw palette colors. */
 export const STORE_COMMISSION_ROW_STATE_CHIP: Record<StoreCommissionRowState, string> = {
-  charged: "bg-emerald-100 text-emerald-950",
-  outstanding: "bg-red-100 text-red-900",
-  review_required: "bg-amber-100 text-amber-950",
+  charged: "bg-sam-success-soft text-sam-success",
+  outstanding: "bg-sam-danger-soft text-sam-danger",
+  review_required: "bg-sam-warning-soft text-sam-warning",
   refunded: "bg-signature/10 text-signature",
   kept: "bg-sam-surface-muted text-sam-muted",
 };

@@ -13,9 +13,11 @@ export type DeliveryOperationsKpis = {
   orders_in_progress: number;
   sla_attention_orders: number;
   unassigned_delivery_orders: number;
-  platform_revenue_today: number;
+  /** Net commission charged today (Asia/Manila) — commission SSOT; null = unavailable. */
+  platform_revenue_today: number | null;
   refund_amount_today: number;
-  settlement_pending_amount_today: number;
+  /** Platform payout obligation created today (Asia/Manila) — payable SSOT; null = unavailable. */
+  settlement_pending_amount_today: number | null;
   held_settlements_count: number;
   online_riders: number;
 };
@@ -144,9 +146,9 @@ export function parseDeliveryOperationsPayload(v: unknown): DeliveryOperationsPa
     orders_in_progress: num(k.orders_in_progress),
     sla_attention_orders: num(k.sla_attention_orders),
     unassigned_delivery_orders: num(k.unassigned_delivery_orders),
-    platform_revenue_today: num(k.platform_revenue_today),
+    platform_revenue_today: numOrNull(k.platform_revenue_today),
     refund_amount_today: num(k.refund_amount_today),
-    settlement_pending_amount_today: num(k.settlement_pending_amount_today),
+    settlement_pending_amount_today: numOrNull(k.settlement_pending_amount_today),
     held_settlements_count: num(k.held_settlements_count),
     online_riders: num(k.online_riders),
   };

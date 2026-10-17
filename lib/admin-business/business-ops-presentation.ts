@@ -50,14 +50,28 @@ export function businessOpsOpenLabelKey(kind: BusinessOpsOpenKind): MessageKey {
 }
 
 /**
- * Settlement attention from existing settlement_status values.
- * held → 보류; pending|processing → 확인 필요; else 정상.
+ * Commission attention from fee-obligation signals (commission SSOT — not legacy
+ * `store_settlements` snapshots, which are store-collected money and never a payout queue).
+ * outstanding (미납 수수료) → "held"; review_required (취소·환불 수수료 검토) → "needs_check"; else 정상.
  */
-export function presentSettlementKind(statuses: string[]): BusinessOpsSettlementKind {
-  const set = new Set(statuses.map((s) => s.trim().toLowerCase()).filter(Boolean));
-  if (set.has("held")) return "held";
-  if (set.has("pending") || set.has("processing") || set.has("scheduled")) return "needs_check";
+export type StoreCommissionAttentionSignal = "outstanding" | "review_required";
+
+export function presentSettlementKind(signals: readonly string[]): BusinessOpsSettlementKind {
+  const set = new Set(signals.map((s) => s.trim().toLowerCase()).filter(Boolean));
+  if (set.has("outstanding")) return "held";
+  if (set.has("review_required")) return "needs_check";
   return "ok";
+}
+
+/** Fee-obligation row → attention signals (same rule for list + detail). */
+export function storeCommissionAttentionSignals(row: {
+  fee_outstanding_minor?: unknown;
+  adjustment_status?: unknown;
+}): StoreCommissionAttentionSignal[] {
+  const out: StoreCommissionAttentionSignal[] = [];
+  if ((Number(row.fee_outstanding_minor) || 0) > 0) out.push("outstanding");
+  if (String(row.adjustment_status ?? "") === "review_required") out.push("review_required");
+  return out;
 }
 
 /** Display hours line from business_hours_json (Owner SSOT). */

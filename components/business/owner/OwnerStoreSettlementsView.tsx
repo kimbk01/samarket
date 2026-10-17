@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { OwnerCta } from "@/lib/business/owner-cta-classes";
+import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { buildOwnerSupportContext } from "@/lib/support/support-context";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type {
@@ -15,8 +19,11 @@ import type {
 } from "@/lib/stores/commission/store-commission-contract";
 import type {
   StoreCashLedgerPage,
+  StoreCommissionBreakdownRow,
   StoreCommissionLedgerRow,
   StoreCommissionLedgerSummary,
+  StorePlatformPayablePage,
+  StorePlatformPayableSummary,
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
   buildStoreCommissionLedgerSearch,
@@ -26,22 +33,29 @@ import {
   CashLedgerKindChips,
   CashLedgerView,
   COMMISSION_TAB_LABEL,
+  CommissionBreakdownTable,
   CommissionFilterChips,
   CommissionPeriodFilter,
-  CommissionRowMoney,
-  CommissionStateChip,
+  CommissionReviewFilterChips,
   CommissionSummaryGrid,
   chipClass,
   LedgerPager,
   pickCommissionCopy,
+  PlatformPayableSummaryGrid,
+  PlatformPayableTable,
   StoreCashPositionCard,
   tabLedgerState,
+  type CommissionBreakdownGroup,
   type CommissionLang,
+  type CommissionReviewFilter,
   type CommissionTab,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
+import { CommissionLedgerTable, CommissionOrderDetailPanel } from "@/components/stores/commission/StoreCommissionLedgerTable";
 
 const PAGE_SIZE = 100;
-const OWNER_TABS: CommissionTab[] = ["ledger", "review", "decided", "cash"];
+/** Same tabs as Admin minus the admin-only financial exceptions view. */
+const OWNER_TABS: CommissionTab[] = ["ledger", "review", "cash", "payable"];
+const OWNER_BREAKDOWN_GROUPS: readonly CommissionBreakdownGroup[] = ["day", "month"];
 
 type LedgerResponse = {
   ok?: boolean;
@@ -50,13 +64,16 @@ type LedgerResponse = {
   rows?: StoreCommissionLedgerRow[];
   totalRows?: number;
   summary?: StoreCommissionLedgerSummary;
+  breakdown?: { group: CommissionBreakdownGroup; rows: StoreCommissionBreakdownRow[] };
+  payableSummary?: StorePlatformPayableSummary;
 };
 
 type CashResponse = StoreCashLedgerPage & { ok?: boolean; error?: string };
+type PayableResponse = StorePlatformPayablePage & { ok?: boolean; error?: string };
 
 /**
  * 매장 어드민 — 정산 (`/stores/owner/settlements?storeId=`). 조회 전용.
- * Admin `/admin/store-settlements` 와 같은 SQL 함수·컴포넌트 → 숫자·상태 문구 일치.
+ * Admin `/admin/store-settlements` 와 같은 SQL 함수·표·상세 패널 → 숫자·상태·이력 일치.
  */
 export function OwnerStoreSettlementsView() {
   const { t, language } = useI18n();
@@ -66,16 +83,34 @@ export function OwnerStoreSettlementsView() {
 
   const [tab, setTab] = useState<CommissionTab>("ledger");
   const [ledgerState, setLedgerState] = useState<StoreCommissionLedgerFilterState>("all");
+  const [reviewFilter, setReviewFilter] = useState<CommissionReviewFilter>("review_required");
   const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
     period: "this_month",
     fromDay: "",
     toDay: "",
   });
   const [orderNo, setOrderNo] = useState("");
+  // Deep link (owner finance outstanding rows): ?order_no=…&open=<obligation id> → all periods, that order, detail open.
+  const linkOrderNo = searchParams.get("order_no")?.trim() ?? "";
+  const openParam = searchParams.get("open")?.trim() ?? "";
+  const appliedLinkRef = useRef<string | null>(null);
+  const openedFromLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkOrderNo || appliedLinkRef.current === linkOrderNo) return;
+    appliedLinkRef.current = linkOrderNo;
+    setTab("ledger");
+    setPeriod({ period: "all", fromDay: "", toDay: "" });
+    setOrderNo(linkOrderNo);
+    setOffset(0);
+  }, [linkOrderNo]);
   const [kinds, setKinds] = useState<BusinessCashLedgerKind[]>([]);
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<LedgerResponse | null>(null);
   const [cash, setCash] = useState<CashResponse | null>(null);
+  const [payable, setPayable] = useState<PayableResponse | null>(null);
+  const [payableAll, setPayableAll] = useState(false);
+  const [group, setGroup] = useState<CommissionBreakdownGroup>("day");
+  const [selected, setSelected] = useState<StoreCommissionLedgerRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,19 +124,25 @@ export function OwnerStoreSettlementsView() {
     try {
       const base = `/api/me/stores/${encodeURIComponent(storeId)}/commission-ledger`;
       const common = { period: period.period, fromDay: period.fromDay, toDay: period.toDay };
+      const listTab = tab === "ledger" || tab === "review";
       const ledgerQs = buildStoreCommissionLedgerSearch({
         ...common,
-        state: tabLedgerState(tab, ledgerState),
+        state: tabLedgerState(tab, ledgerState, reviewFilter),
         orderNo: orderNo || null,
-        limit: PAGE_SIZE,
-        offset: tab === "cash" ? 0 : offset,
+        group,
+        limit: listTab ? PAGE_SIZE : 1,
+        offset: listTab ? offset : 0,
       });
-      const [res, cashRes] = await Promise.all([
+      const pagedQs = buildStoreCommissionLedgerSearch({ ...common, limit: PAGE_SIZE, offset });
+      const [res, cashRes, payableRes] = await Promise.all([
         fetch(`${base}?${ledgerQs}`, { credentials: "include" }),
         tab === "cash"
           ? fetch(`${base}/cash-ledger?${buildStoreCommissionLedgerSearch({ ...common, kinds, limit: PAGE_SIZE, offset })}`, {
               credentials: "include",
             })
+          : Promise.resolve(null),
+        tab === "payable"
+          ? fetch(`${base}/payable?${pagedQs}&view=${payableAll ? "all" : "payable"}`, { credentials: "include" })
           : Promise.resolve(null),
       ]);
       if (res.status === 401) {
@@ -126,17 +167,31 @@ export function OwnerStoreSettlementsView() {
         if (!cashRes.ok || !cj.ok) setError(cj.error ?? t("store_owner_err_load_list"));
         else setCash(cj);
       }
+      if (payableRes) {
+        const pj = (await payableRes.json()) as PayableResponse;
+        if (!payableRes.ok || !pj.ok) setError(pj.error ?? t("store_owner_err_load_list"));
+        else setPayable(pj);
+      }
     } catch {
       setError(t("store_owner_err_network"));
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [kinds, ledgerState, offset, orderNo, period, storeId, t, tab]);
+  }, [group, kinds, ledgerState, offset, orderNo, payableAll, period, reviewFilter, storeId, t, tab]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!openParam || openedFromLinkRef.current === openParam) return;
+    const hit = data?.rows?.find((r) => r.obligationId === openParam);
+    if (hit) {
+      openedFromLinkRef.current = openParam;
+      setSelected(hit);
+    }
+  }, [data?.rows, openParam]);
 
   if (!storeId) {
     return (
@@ -155,7 +210,7 @@ export function OwnerStoreSettlementsView() {
   const totalRows = data?.totalRows ?? 0;
 
   return (
-    <div className={`mx-auto max-w-4xl min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
+    <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
       <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "캐시 · 수수료 현황", "Cash & commission")}>
         <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
           {pickCommissionCopy(lang, "조회 전용", "Read only")}
@@ -169,19 +224,20 @@ export function OwnerStoreSettlementsView() {
         </p>
         <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} /> : null}</div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link href={OwnerRoutes.finance(storeId)} className="rounded-ui-rect bg-signature px-3 py-2 sam-text-helper font-semibold text-white">
+          <Link
+            href={ownerFinanceSectionHref(storeId, "convert")}
+            className={OwnerCta.primary}
+            data-owner-cash-topup="1"
+          >
             {pickCommissionCopy(lang, "캐시 충전", "Top up Cash")}
           </Link>
-          <Link
-            href={OwnerRoutes.orders(storeId)}
-            className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-2 sam-text-helper font-medium text-signature"
-          >
+          <Link href={OwnerRoutes.orders(storeId)} className={OwnerCta.secondary} data-owner-orders-link="1">
             {t("store_owner_settlement_manage_orders")}
           </Link>
         </div>
       </OwnerStoreAdminDashSection>
 
-      {error ? <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-800">{error}</p> : null}
+      {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body text-sam-danger" role="alert">{error}</p> : null}
 
       <nav className="flex flex-wrap gap-1.5" aria-label="tabs">
         {OWNER_TABS.map((x) => (
@@ -189,8 +245,10 @@ export function OwnerStoreSettlementsView() {
             key={x}
             type="button"
             className={chipClass(tab === x)}
+            aria-current={tab === x ? "page" : undefined}
             onClick={() => {
               setOffset(0);
+              setSelected(null);
               setTab(x);
             }}
           >
@@ -210,7 +268,35 @@ export function OwnerStoreSettlementsView() {
         }}
       />
 
-      {tab === "cash" ? (
+      {tab === "payable" ? (
+        <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL.payable[lang]}>
+          {data?.payableSummary ? <PlatformPayableSummaryGrid summary={data.payableSummary} lang={lang} /> : null}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className={chipClass(!payableAll)}
+              onClick={() => {
+                setOffset(0);
+                setPayableAll(false);
+              }}
+            >
+              {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
+            </button>
+            <button
+              type="button"
+              className={chipClass(payableAll)}
+              onClick={() => {
+                setOffset(0);
+                setPayableAll(true);
+              }}
+            >
+              {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
+            </button>
+          </div>
+          <div className="mt-3">{payable ? <PlatformPayableTable page={payable} lang={lang} showStore={false} /> : null}</div>
+          {payable ? <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={payable.totalRows} loading={loading} onChange={setOffset} lang={lang} /> : null}
+        </OwnerStoreAdminDashSection>
+      ) : tab === "cash" ? (
         <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL.cash[lang]}>
           <CashLedgerKindChips
             value={kinds}
@@ -231,6 +317,11 @@ export function OwnerStoreSettlementsView() {
             ) : (
               <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_loading")}</p>
             )}
+            {tab === "ledger" && data?.breakdown ? (
+              <div className="mt-3">
+                <CommissionBreakdownTable rows={data.breakdown.rows} group={group} groups={OWNER_BREAKDOWN_GROUPS} onGroupChange={setGroup} lang={lang} />
+              </div>
+            ) : null}
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection title={COMMISSION_TAB_LABEL[tab][lang]}>
@@ -244,7 +335,16 @@ export function OwnerStoreSettlementsView() {
                     setLedgerState(s);
                   }}
                 />
-              ) : null}
+              ) : (
+                <CommissionReviewFilterChips
+                  value={reviewFilter}
+                  lang={lang}
+                  onChange={(f) => {
+                    setOffset(0);
+                    setReviewFilter(f);
+                  }}
+                />
+              )}
               <input
                 className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
                 value={orderNo}
@@ -253,6 +353,7 @@ export function OwnerStoreSettlementsView() {
                   setOrderNo(e.target.value);
                 }}
                 placeholder={t("store_owner_settlement_filter_order_no")}
+                aria-label="order no"
               />
               <button
                 type="button"
@@ -264,41 +365,66 @@ export function OwnerStoreSettlementsView() {
               </button>
             </div>
 
+            <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
             {loading && !data ? (
-              <p className="mt-3 sam-text-body text-sam-muted">{t("store_owner_settlement_loading")}</p>
+              <p className="mt-3 sam-text-body text-sam-muted" data-state="loading">{t("store_owner_settlement_loading")}</p>
             ) : rows.length === 0 ? (
-              <p className="mt-3 sam-text-body text-sam-muted">{t("store_owner_settlement_empty")}</p>
+              <p className="mt-3 sam-text-body text-sam-muted" data-state="empty">{t("store_owner_settlement_empty")}</p>
             ) : (
-              <ul className="mt-3 space-y-2">
-                {rows.map((r) => (
-                  <li key={r.obligationId} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sm:p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-sam-fg">{t("store_owner_settlement_row_order", { no: r.orderNo })}</p>
-                        <p className="mt-0.5 sam-text-xxs text-sam-muted">
-                          {r.orderStatus}
-                          {r.paymentMethod ? ` · ${r.paymentMethod}` : ""}
-                        </p>
-                      </div>
-                      <CommissionStateChip state={r.state} lang={lang} />
-                    </div>
-                    <div className="mt-2">
-                      <CommissionRowMoney row={r} lang={lang} />
-                    </div>
-                    <Link
-                      href={buildStoreOrdersHref({ storeId: r.storeId, orderId: r.orderId })}
-                      className="mt-2 inline-block sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
-                    >
-                      {t("store_owner_settlement_view_order")}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-3">
+                <CommissionLedgerTable
+                  rows={rows}
+                  lang={lang}
+                  showStore={false}
+                  onOpen={setSelected}
+                  selectedObligationId={selected?.obligationId ?? null}
+                />
+              </div>
             )}
             <LedgerPager offset={offset} pageSize={PAGE_SIZE} total={totalRows} loading={loading} onChange={setOffset} lang={lang} />
           </OwnerStoreAdminDashSection>
         </>
       )}
+
+      {selected ? (
+        <CommissionOrderDetailPanel
+          row={selected}
+          lang={lang}
+          onClose={() => setSelected(null)}
+          orderHref={buildStoreOrdersHref({ storeId: selected.storeId, orderId: selected.orderId })}
+          footer={
+            <div className="space-y-2">
+              <p className="sam-text-xxs text-sam-muted">
+                {selected.state === "review_required"
+                  ? pickCommissionCopy(lang, "운영팀이 수수료 환급 여부를 검토 중입니다. 결정되면 이 화면에 사유와 금액이 표시됩니다.", "Operations is reviewing this fee. The decision and reason will appear here.")
+                  : pickCommissionCopy(lang, "조회 전용 — 금액 정정은 운영팀 결정 기록으로만 이루어집니다.", "Read only — corrections only via an operations decision record.")}
+              </p>
+              <button
+                type="button"
+                className={`${OwnerCta.tertiary} ${OwnerCta.block}`}
+                data-owner-fee-inquiry="1"
+                onClick={() => {
+                  const orderId = selected.orderId;
+                  // close the detail panel first so the support sheet is never stacked under it
+                  setSelected(null);
+                  navigateToSupportCenter(
+                    buildOwnerSupportContext({
+                      enabled: true,
+                      category: "SETTLEMENT",
+                      sourceSurface: "owner_commission_order",
+                      storeId,
+                      referenceType: "STORE_ORDER",
+                      referenceId: orderId,
+                    })
+                  );
+                }}
+              >
+                {pickCommissionCopy(lang, "이 주문 수수료 문의·이의 제기", "Ask about / dispute this fee")}
+              </button>
+            </div>
+          }
+        />
+      ) : null}
     </div>
   );
 }

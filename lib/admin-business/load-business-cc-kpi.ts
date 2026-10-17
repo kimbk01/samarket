@@ -16,10 +16,13 @@ export type BusinessCcKpiRecentOrder = {
   createdAt: string;
 };
 
-export type BusinessCcKpiRecentSettlement = {
+/** Recent commission charges (store_sale_fee_obligations — commission SSOT, CASH minor units). */
+export type BusinessCcKpiRecentCommission = {
   id: string;
-  settlementStatus: string;
-  netAmount: number | null;
+  orderId: string;
+  feeDueMinor: number;
+  feeOutstandingMinor: number;
+  adjustmentStatus: string;
   createdAt: string;
 };
 
@@ -35,13 +38,12 @@ export type BusinessCcKpiSummary = {
   recentOrders: BusinessCcKpiRecentOrder[];
   soldOutProductCount: number;
   productCount: number;
-  recentSettlements: BusinessCcKpiRecentSettlement[];
-  settlementStatusCounts: {
-    pending: number;
-    processing: number;
-    held: number;
-    paid: number;
-    cancelled: number;
+  recentCommissions: BusinessCcKpiRecentCommission[];
+  /** Commission attention counts — legacy store_settlements snapshots are not counted (store-collected money). */
+  commissionCounts: {
+    charged: number;
+    outstanding: number;
+    reviewRequired: number;
   };
   openReportCount: number;
   reviewCount: number;
@@ -68,6 +70,22 @@ async function countEq(
   return Math.max(0, Math.floor(Number(count) || 0));
 }
 
+async function countWhere(
+  sb: SupabaseClient,
+  storeId: string,
+  where: (q: any) => any
+): Promise<number> {
+  const { count, error } = await where(
+    sb.from("store_sale_fee_obligations").select("id", { count: "exact", head: true }).eq("store_id", storeId)
+  );
+  if (error) {
+    if (/does not exist/i.test(String(error.message))) return 0;
+    console.error("[business-cc-kpi] store_sale_fee_obligations", error.message);
+    return 0;
+  }
+  return Math.max(0, Math.floor(Number(count) || 0));
+}
+
 export async function loadBusinessCcKpiSummary(
   sb: SupabaseClient,
   storeId: string,
@@ -86,14 +104,8 @@ export async function loadBusinessCcKpiSummary(
     recentOrders: [],
     soldOutProductCount: 0,
     productCount: base.productCount,
-    recentSettlements: [],
-    settlementStatusCounts: {
-      pending: 0,
-      processing: 0,
-      held: 0,
-      paid: 0,
-      cancelled: 0,
-    },
+    recentCommissions: [],
+    commissionCounts: { charged: 0, outstanding: 0, reviewRequired: 0 },
     openReportCount: 0,
     reviewCount: base.reviewCount,
     hiddenReviewCount: 0,
@@ -108,12 +120,10 @@ export async function loadBusinessCcKpiSummary(
     cancelledOrders,
     refundRequested,
     recentOrdersRes,
-    settlePending,
-    settleProcessing,
-    settleHeld,
-    settlePaid,
-    settleCancelled,
-    recentSettlementsRes,
+    feeCharged,
+    feeOutstanding,
+    feeReview,
+    recentCommissionsRes,
     openReports,
     hiddenReviews,
   ] = await Promise.all([
@@ -129,14 +139,12 @@ export async function loadBusinessCcKpiSummary(
       .eq("store_id", sid)
       .order("created_at", { ascending: false })
       .limit(5),
-    countEq(sb, "store_settlements", sid, "settlement_status", "pending"),
-    countEq(sb, "store_settlements", sid, "settlement_status", "processing"),
-    countEq(sb, "store_settlements", sid, "settlement_status", "held"),
-    countEq(sb, "store_settlements", sid, "settlement_status", "paid"),
-    countEq(sb, "store_settlements", sid, "settlement_status", "cancelled"),
+    countWhere(sb, sid, (q) => q.gt("fee_due_minor", 0)),
+    countWhere(sb, sid, (q) => q.gt("fee_outstanding_minor", 0)),
+    countEq(sb, "store_sale_fee_obligations", sid, "adjustment_status", "review_required"),
     sb
-      .from("store_settlements")
-      .select("id, settlement_status, net_settlement_amount, settlement_amount, created_at")
+      .from("store_sale_fee_obligations")
+      .select("id, order_id, fee_due_minor, fee_outstanding_minor, adjustment_status, created_at")
       .eq("store_id", sid)
       .order("created_at", { ascending: false })
       .limit(3),
@@ -158,25 +166,20 @@ export async function loadBusinessCcKpiSummary(
     console.error("[business-cc-kpi] recent orders", recentOrdersRes.error.message);
   }
 
-  const recentSettlements: BusinessCcKpiRecentSettlement[] = (
-    recentSettlementsRes.data ?? []
-  ).map((r: Record<string, unknown>) => {
-    const netRaw =
-      r.net_settlement_amount != null && r.net_settlement_amount !== ""
-        ? r.net_settlement_amount
-        : r.settlement_amount;
-    return {
+  const recentCommissions: BusinessCcKpiRecentCommission[] = (recentCommissionsRes.data ?? []).map(
+    (r: Record<string, unknown>) => ({
       id: String(r.id ?? ""),
-      settlementStatus: String(r.settlement_status ?? ""),
-      netAmount:
-        netRaw == null || netRaw === "" ? null : Math.round(Number(netRaw) || 0),
+      orderId: String(r.order_id ?? ""),
+      feeDueMinor: Math.trunc(Number(r.fee_due_minor) || 0),
+      feeOutstandingMinor: Math.trunc(Number(r.fee_outstanding_minor) || 0),
+      adjustmentStatus: String(r.adjustment_status ?? "none"),
       createdAt: String(r.created_at ?? ""),
-    };
-  });
+    })
+  );
 
-  if (recentSettlementsRes.error) {
-    if (!/does not exist/i.test(String(recentSettlementsRes.error.message))) {
-      console.error("[business-cc-kpi] recent settlements", recentSettlementsRes.error.message);
+  if (recentCommissionsRes.error) {
+    if (!/does not exist/i.test(String(recentCommissionsRes.error.message))) {
+      console.error("[business-cc-kpi] recent commissions", recentCommissionsRes.error.message);
     }
   }
 
@@ -192,13 +195,11 @@ export async function loadBusinessCcKpiSummary(
     recentOrders,
     soldOutProductCount: soldOut,
     productCount: base.productCount,
-    recentSettlements,
-    settlementStatusCounts: {
-      pending: settlePending,
-      processing: settleProcessing,
-      held: settleHeld,
-      paid: settlePaid,
-      cancelled: settleCancelled,
+    recentCommissions,
+    commissionCounts: {
+      charged: feeCharged,
+      outstanding: feeOutstanding,
+      reviewRequired: feeReview,
     },
     openReportCount: openReports,
     reviewCount: base.reviewCount,

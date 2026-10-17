@@ -58,7 +58,7 @@ export async function GET(
     sb
       .from("store_sale_fee_obligations")
       .select(
-        "id, order_id, confirmed_revenue_php, fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, created_at"
+        "id, order_id, confirmed_revenue_php, fee_due_minor, fee_paid_minor, fee_outstanding_minor, status, created_at, store_orders(order_no)"
       )
       .eq("store_id", sid)
       .eq("status", "open")
@@ -110,6 +110,7 @@ export async function GET(
       rows: openObligations.map((r) => ({
         id: String((r as { id: string }).id),
         orderId: String((r as { order_id?: string }).order_id ?? ""),
+        orderNo: String((r as { store_orders?: { order_no?: string } | null }).store_orders?.order_no ?? ""),
         confirmedRevenuePhp: Math.trunc(Number((r as { confirmed_revenue_php?: number }).confirmed_revenue_php) || 0),
         feeDueMinor: Math.trunc(Number((r as { fee_due_minor?: number }).fee_due_minor) || 0),
         feePaidMinor: Math.trunc(Number((r as { fee_paid_minor?: number }).fee_paid_minor) || 0),

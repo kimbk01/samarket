@@ -5,8 +5,14 @@ import {
   type StoreCommissionLedgerFilterState,
 } from "@/lib/stores/commission/store-commission-contract";
 
-/** Period presets. Boundaries are UTC days — same axis as `store-order-financial-contract`. */
+/**
+ * Period presets — business days in Asia/Manila (UTC+8, no DST). Stored times stay UTC;
+ * a Manila day D is [D 00:00 +08:00, D+1 00:00 +08:00) = [D-1 16:00Z, D 16:00Z).
+ */
 export type StoreCommissionPeriod = "all" | "today" | "this_week" | "this_month" | "custom";
+
+export const STORE_COMMISSION_TIMEZONE = "Asia/Manila" as const;
+const MANILA_OFFSET_MS = 8 * 3_600_000;
 
 export const STORE_COMMISSION_PERIODS: readonly StoreCommissionPeriod[] = [
   "all",
@@ -29,6 +35,8 @@ export type StoreCommissionLedgerQuery = {
   state: StoreCommissionLedgerFilterState;
   orderNo: string | null;
   kinds: BusinessCashLedgerKind[];
+  /** Breakdown grouping: Manila day / Manila month / store. */
+  group: "day" | "month" | "store";
   limit: number;
   offset: number;
 };
@@ -38,40 +46,58 @@ function day(v: string | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
 }
 
-function utcDayStart(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+/** Manila calendar date (y, m, d) of an instant — computed on the shifted UTC clock. */
+function manilaYmd(d: Date): { y: number; m: number; d: number; dow: number } {
+  const shifted = new Date(d.getTime() + MANILA_OFFSET_MS);
+  return { y: shifted.getUTCFullYear(), m: shifted.getUTCMonth(), d: shifted.getUTCDate(), dow: shifted.getUTCDay() };
 }
 
-/** Server-side period → [fromIso, toIso) — the browser never computes boundaries. */
+/** Instant of Manila midnight for calendar date (y, m, d). */
+function manilaMidnight(y: number, m: number, d: number): Date {
+  return new Date(Date.UTC(y, m, d) - MANILA_OFFSET_MS);
+}
+
+function manilaDayStartFromString(day: string): Date {
+  const [y, m, d] = day.split("-").map(Number);
+  return manilaMidnight(y, m - 1, d);
+}
+
+/** Server-side period → [fromIso, toIso) in UTC instants — the browser never computes boundaries. */
 export function resolveStoreCommissionPeriod(
   period: StoreCommissionPeriod,
   fromDay: string | null,
   toDay: string | null,
   now: Date = new Date()
 ): { fromIso: string | null; toIso: string | null } {
-  const today = utcDayStart(now);
+  const t = manilaYmd(now);
+  const today = manilaMidnight(t.y, t.m, t.d);
   const nextDay = (d: Date) => new Date(d.getTime() + 86_400_000);
   switch (period) {
     case "today":
       return { fromIso: today.toISOString(), toIso: nextDay(today).toISOString() };
     case "this_week": {
-      // ISO week (Monday start)
-      const dow = (today.getUTCDay() + 6) % 7;
+      // ISO week (Monday start), Manila calendar
+      const dow = (t.dow + 6) % 7;
       const start = new Date(today.getTime() - dow * 86_400_000);
       return { fromIso: start.toISOString(), toIso: nextDay(today).toISOString() };
     }
-    case "this_month": {
-      const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-      return { fromIso: start.toISOString(), toIso: nextDay(today).toISOString() };
-    }
+    case "this_month":
+      return { fromIso: manilaMidnight(t.y, t.m, 1).toISOString(), toIso: nextDay(today).toISOString() };
     case "custom":
       return {
-        fromIso: fromDay ? `${fromDay}T00:00:00.000Z` : null,
-        toIso: toDay ? nextDay(new Date(`${toDay}T00:00:00.000Z`)).toISOString() : null,
+        fromIso: fromDay ? manilaDayStartFromString(fromDay).toISOString() : null,
+        toIso: toDay ? nextDay(manilaDayStartFromString(toDay)).toISOString() : null,
       };
     default:
       return { fromIso: null, toIso: null };
   }
+}
+
+/** Display an UTC instant as Manila local time "YYYY-MM-DD HH:mm". */
+export function formatManilaDateTime(iso: string | null | undefined): string {
+  const ms = Date.parse(String(iso ?? ""));
+  if (!Number.isFinite(ms)) return "—";
+  return new Date(ms + MANILA_OFFSET_MS).toISOString().slice(0, 16).replace("T", " ");
 }
 
 /** Same query contract for every Admin and Owner ledger route. */
@@ -104,6 +130,7 @@ export function parseStoreCommissionLedgerQuery(sp: URLSearchParams, now: Date =
       : "all",
     orderNo: String(sp.get("order_no") ?? "").trim() || null,
     kinds,
+    group: sp.get("group") === "month" ? "month" : sp.get("group") === "store" ? "store" : "day",
     limit: Number.isFinite(limit) ? Math.min(500, Math.max(1, Math.round(limit))) : 100,
     offset: Number.isFinite(offset) ? Math.max(0, Math.round(offset)) : 0,
   };
@@ -117,6 +144,7 @@ export function buildStoreCommissionLedgerSearch(q: {
   state?: StoreCommissionLedgerFilterState;
   orderNo?: string | null;
   kinds?: readonly string[];
+  group?: "day" | "month" | "store";
   limit?: number;
   offset?: number;
 }): string {
@@ -130,6 +158,7 @@ export function buildStoreCommissionLedgerSearch(q: {
   if (q.state && q.state !== "all") sp.set("state", q.state);
   if (q.orderNo) sp.set("order_no", q.orderNo);
   if (q.kinds?.length) sp.set("kinds", q.kinds.join(","));
+  if (q.group && q.group !== "day") sp.set("group", q.group);
   if (q.limit) sp.set("limit", String(q.limit));
   if (q.offset) sp.set("offset", String(q.offset));
   return sp.toString();

@@ -5,9 +5,14 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import {
   loadStoreCashOverview,
+  loadStoreCommissionBreakdown,
   loadStoreCommissionLedgerPage,
+  loadStorePlatformPayable,
 } from "@/lib/stores/commission/load-store-commission-ledger";
-import { parseStoreCommissionLedgerQuery } from "@/lib/stores/commission/store-commission-ledger-query";
+import {
+  parseStoreCommissionLedgerQuery,
+  STORE_COMMISSION_TIMEZONE,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +35,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
+  const scope = [sid];
   try {
-    const [ledger, overview] = await Promise.all([
+    const [ledger, overview, breakdown, payable] = await Promise.all([
       loadStoreCommissionLedgerPage(sb, {
-        storeIds: [sid],
+        storeIds: scope,
         fromIso: q.fromIso,
         toIso: q.toIso,
         state: q.state,
@@ -41,12 +47,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
         limit: q.limit,
         offset: q.offset,
       }),
-      loadStoreCashOverview(sb, [sid]),
+      loadStoreCashOverview(sb, scope),
+      loadStoreCommissionBreakdown(sb, { storeIds: scope, fromIso: q.fromIso, toIso: q.toIso, group: q.group === "store" ? "day" : q.group }),
+      loadStorePlatformPayable(sb, { storeIds: scope, fromIso: q.fromIso, toIso: q.toIso, view: "payable", limit: 1, offset: 0 }),
     ]);
     return NextResponse.json({
       ok: true,
       position: overview.positions[0] ?? null,
-      period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: "UTC" },
+      period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: STORE_COMMISSION_TIMEZONE },
+      breakdown: { group: q.group === "store" ? "day" : q.group, rows: breakdown },
+      payableSummary: payable.summary,
       ...ledger,
     });
   } catch (e) {

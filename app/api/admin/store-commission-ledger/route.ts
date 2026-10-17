@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   loadStoreCashOverview,
+  loadStoreCommissionBreakdown,
   loadStoreCommissionLedgerPage,
+  loadStorePlatformPayable,
 } from "@/lib/stores/commission/load-store-commission-ledger";
-import { parseStoreCommissionLedgerQuery } from "@/lib/stores/commission/store-commission-ledger-query";
+import {
+  parseStoreCommissionLedgerQuery,
+  STORE_COMMISSION_TIMEZONE,
+} from "@/lib/stores/commission/store-commission-ledger-query";
 import { loadStoreCashOrderGateSetting } from "@/lib/stores/commission/store-commission-writer";
 
 export const runtime = "nodejs";
@@ -37,9 +42,10 @@ export async function GET(req: NextRequest) {
         ]),
       ];
     }
-    const [ledger, overview, gateSetting] = await Promise.all([
+    const scope = q.storeId ? [q.storeId] : null;
+    const [ledger, overview, gateSetting, breakdown, payable] = await Promise.all([
       loadStoreCommissionLedgerPage(sb, {
-        storeIds: q.storeId ? [q.storeId] : null,
+        storeIds: scope,
         fromIso: q.fromIso,
         toIso: q.toIso,
         state: q.state,
@@ -49,11 +55,15 @@ export async function GET(req: NextRequest) {
       }),
       loadStoreCashOverview(sb, overviewIds),
       loadStoreCashOrderGateSetting(sb),
+      loadStoreCommissionBreakdown(sb, { storeIds: scope, fromIso: q.fromIso, toIso: q.toIso, group: q.group }),
+      loadStorePlatformPayable(sb, { storeIds: scope, fromIso: q.fromIso, toIso: q.toIso, view: "payable", limit: 1, offset: 0 }),
     ]);
     return NextResponse.json({
       ok: true,
       gate: gateSetting,
-      period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: "UTC" },
+      period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: STORE_COMMISSION_TIMEZONE },
+      breakdown: { group: q.group, rows: breakdown },
+      payableSummary: payable.summary,
       ...overview,
       ...ledger,
     });

@@ -54,7 +54,7 @@ import {
   buyerStoreOrderProgressCopy,
   formatStoreOrderCheckoutEtaSummaryI18n,
   lineDiscountDisplayI18n,
-  paymentMethodLabel,
+  paymentStatusLabel,
   storeOrderEventActorLabel,
   storeOrderEventLabels,
 } from "@/lib/mypage/store-order-detail-i18n";
@@ -583,7 +583,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           <p className="mt-2 sam-text-helper leading-relaxed text-white/75">
             {t("mypage_comp_order_standard_step", {
               status: orderStatusLabel(order.order_status),
-              payment: paymentMethodLabel(t, order.payment_status),
+              payment: paymentStatusLabel(t, order.payment_status),
             })}
           </p>
           <p className="mt-1 sam-text-xxs leading-relaxed text-white/70">{t("mypage_comp_order_chat_notice")}</p>
@@ -976,12 +976,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </div>
         </div>
 
-        <div className="mt-4 border-t border-sam-border-soft pt-4">
-          <h3 className="sam-text-xxs font-semibold text-sam-muted">{t("mypage_comp_payment_method_section")}</h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-sam-fg">
-            {paymentMethodLabel(t, order.payment_status)}
-          </p>
-        </div>
+        <dl className="mt-4 space-y-2 border-t border-sam-border-soft pt-4 text-sm" data-buyer-payment-facts="1">
+          <div className="flex justify-between gap-3">
+            <dt className="shrink-0 text-sam-muted">{t("mypage_comp_payment_method_section")}</dt>
+            <dd className="min-w-0 break-words text-right font-medium text-sam-fg" data-buyer-payment-method="1">
+              {payDisplay !== dash ? payDisplay : dash}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="shrink-0 text-sam-muted">{t("mypage_comp_payment_status_section")}</dt>
+            <dd className="min-w-0 break-words text-right text-sam-fg" data-buyer-payment-status="1">
+              {paymentStatusLabel(t, order.payment_status)}
+            </dd>
+          </div>
+        </dl>
       </div>
 
       {order.order_status === "completed" && reorderPayload ? (
