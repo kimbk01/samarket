@@ -53,7 +53,7 @@ export type MessengerPhotoSaveMenuRow =
  * - 단일 사진: 「사진 저장」
  * - 앨범 + 눌린 사진: 「이 사진 저장」·「사진 모두 저장 (N장)」·「사진 선택해서 저장」
  * - 앨범 + 인덱스 없음(「+N」 칸·여백): 「사진 모두 저장 (N장)」·「사진 선택해서 저장」
- * - 브라우저 모드(구버전 앱): 한 장씩만 — 단일 「사진 저장」 또는 「이 사진 저장」만.
+ * - Android·iOS·구버전 앱(update_required) 모두 같은 메뉴 — 구버전은 누르면 업데이트 안내.
  * - 저장 미지원(none)·저장할 사진 없음: 행 없음.
  *
  * @param slots 앨범 칸별 원본 URL(`messengerImageOriginalUrlSlots`) — 저장 불가 칸은 "".
@@ -77,7 +77,6 @@ export function buildMessengerPhotoSaveMenu(input: {
 
   const rows: MessengerPhotoSaveMenuRow[] = [];
   if (pressed !== undefined) rows.push({ key: "photo-save-this", kind: "this", urls: [slots[pressed]!], index: pressed });
-  if (mode === "browser") return rows;
   rows.push({ key: "photo-save-all", kind: "all", urls: savable, count: savable.length });
   rows.push({ key: "photo-save-select", kind: "select", ...(pressed !== undefined ? { preselectIndex: pressed } : {}) });
   return rows;

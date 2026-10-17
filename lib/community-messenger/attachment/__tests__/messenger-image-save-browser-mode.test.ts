@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * 구버전 앱 바이너리(설치된 앱에 saveImages 없음) — 저장 UI 가 사라지던 회귀(14d528dd) 방지.
- * Browser 플러그인이 있으면 mode "browser": 원본을 인앱 브라우저로 넘기고(이전 저장 경로), 성공 문구는 내지 않는다.
+ * 구버전 앱 바이너리(설치된 앱에 saveImages 없음) — Android·iOS 동일:
+ * 저장 UI 는 유지(14d528dd 회귀 방지)하되 저장을 눌러도 화면 이동(Safari/Custom Tabs) 없이 업데이트 안내만.
+ * 「원본 열기」는 사용자가 안내에서 직접 누를 때만.
  */
 const opened: string[] = [];
 let ios = false;
@@ -34,7 +35,7 @@ function setBrowserPlugin(available: boolean) {
   };
 }
 
-describe("messenger image save — old binary browser mode", () => {
+describe("messenger image save — old binary (update_required)", () => {
   beforeEach(() => {
     opened.length = 0;
     ios = false;
@@ -43,44 +44,46 @@ describe("messenger image save — old binary browser mode", () => {
     delete (globalThis as unknown as { window?: unknown }).window;
   });
 
-  it("no saveImages + Browser plugin → mode browser (save UI stays visible)", async () => {
-    setBrowserPlugin(true);
+  it("no saveImages → update_required regardless of Browser plugin (save UI stays visible)", async () => {
     const { resolveMessengerImageSaveMode } = await import("@/lib/community-messenger/attachment/messenger-image-save");
-    expect(await resolveMessengerImageSaveMode()).toBe("browser");
-  });
-
-  it("no saveImages + no Browser plugin → none", async () => {
+    setBrowserPlugin(true);
+    expect(await resolveMessengerImageSaveMode()).toBe("update_required");
     setBrowserPlugin(false);
-    const { resolveMessengerImageSaveMode } = await import("@/lib/community-messenger/attachment/messenger-image-save");
-    expect(await resolveMessengerImageSaveMode()).toBe("none");
+    expect(await resolveMessengerImageSaveMode()).toBe("update_required");
   });
 
-  it("Android: opens attachment download URL; notice is guidance, never success", async () => {
-    setBrowserPlugin(true);
+  for (const platform of ["android", "ios"] as const) {
+    it(`${platform}: save never navigates — update notice with manual 「원본 열기」`, async () => {
+      setBrowserPlugin(true);
+      ios = platform === "ios";
+      const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
+      const outcome = await m.saveMessengerImages([URL1]);
+      expect(opened).toEqual([]);
+      expect(outcome).toMatchObject({ mode: "update_required", savedCount: 0, updateRequired: true, manualOpenUrl: URL1 });
+      const notice = m.messengerImageSaveNotice(outcome);
+      expect(notice).toMatchObject({ key: "cm_ui_photo_save_update_required", action: "open_original" });
+      expect(notice.variant).not.toBe("success");
+    });
+  }
+
+  it("manual open: iOS inline original, Android attachment download", async () => {
     const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
-    const outcome = await m.saveMessengerImages([URL1]);
-    expect(opened).toEqual([`${URL1}?download=a.jpg`]);
-    expect(outcome).toMatchObject({ mode: "browser", savedCount: 0, failedCount: 0, handedOff: "android" });
-    const notice = m.messengerImageSaveNotice(outcome);
-    expect(notice.key).toBe("cm_ui_photo_save_browser_android");
-    expect(notice.variant).not.toBe("success");
-  });
-
-  it("iOS: opens inline original (long-press Add to Photos)", async () => {
-    setBrowserPlugin(true);
     ios = true;
-    const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
-    const outcome = await m.saveMessengerImages([URL1]);
-    expect(opened).toEqual([URL1]);
-    expect(m.messengerImageSaveNotice(outcome).key).toBe("cm_ui_photo_save_browser_ios");
+    m.openMessengerImageOriginalForManualSave(URL1);
+    ios = false;
+    m.openMessengerImageOriginalForManualSave(URL1);
+    expect(opened).toEqual([URL1, `${URL1}?download=a.jpg`]);
   });
 
-  it("multiple photos at once are not handed off in browser mode (no false success)", async () => {
+  it("multiple photos / no Browser plugin → update notice without manual open", async () => {
     setBrowserPlugin(true);
     const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
-    const outcome = await m.saveMessengerImages([URL1, URL1]);
+    const multi = await m.saveMessengerImages([URL1, URL1]);
+    expect(multi.manualOpenUrl).toBeUndefined();
+    expect(m.messengerImageSaveNotice(multi)).toEqual({ key: "cm_ui_photo_save_update_required", variant: "error" });
+    setBrowserPlugin(false);
+    const single = await m.saveMessengerImages([URL1]);
+    expect(single.manualOpenUrl).toBeUndefined();
     expect(opened).toEqual([]);
-    expect(outcome.savedCount).toBe(0);
-    expect(m.messengerImageSaveNotice(outcome).variant).toBe("error");
   });
 });

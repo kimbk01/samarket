@@ -109,7 +109,7 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
             failed.append(["index": index, "reason": "not_image"])
             continue
           }
-          let reason = self.addImageDataToLibrary(data, fileName: url.lastPathComponent, useAlbum: useAlbum)
+          let reason = self.addImageToLibrary(data, source: source, fileName: url.lastPathComponent, useAlbum: useAlbum)
           if let reason = reason {
             failed.append(["index": index, "reason": reason])
           } else {
@@ -163,6 +163,58 @@ public class MessengerPhotoLibraryPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerV
       return nil
     }
     return result
+  }
+
+  /// Photos 가 원본 바이트 그대로 받는 형식(UTI). 메신저 썸네일·프리뷰(원본 없는 옛 메시지의 저장 대상)와
+  /// WebP 원본은 여기 없다 — PHAssetCreationRequest 가 WebP 리소스를 거부할 수 있어(OS 버전별 상이)
+  /// JPEG/PNG 로 변환해 저장한다. Android(MediaStore)는 WebP 를 그대로 저장한다.
+  private static let photosDirectTypes: Set<String> = [
+    "public.jpeg", "public.png", "public.heic", "public.heif", "com.compuserve.gif",
+  ]
+
+  /**
+   * 사진첩 저장 진입점 — 직접 지원 형식은 원본 바이트 그대로(화질·메타데이터 유지),
+   * 그 외(WebP 등)는 JPEG(알파 있으면 PNG)로 변환해 저장. 직접 저장이 save_failed 면 변환본으로 1회 재시도.
+   * 타임아웃은 커밋 여부를 알 수 없으므로 재시도하지 않는다(중복 저장 방지).
+   */
+  private func addImageToLibrary(_ data: Data, source: CGImageSource, fileName: String, useAlbum: Bool) -> String? {
+    let type = CGImageSourceGetType(source) as String? ?? ""
+    if MessengerPhotoLibraryPlugin.photosDirectTypes.contains(type) {
+      let direct = addImageDataToLibrary(data, fileName: fileName, useAlbum: useAlbum)
+      if direct == nil || direct == "save_timeout" { return direct }
+    }
+    guard let converted = transcodeForPhotos(source) else { return "encode_failed" }
+    let base = (fileName as NSString).deletingPathExtension
+    let name = (base.isEmpty ? "DIBAY_\(Int(Date().timeIntervalSince1970))" : base) + "." + converted.ext
+    return addImageDataToLibrary(converted.data, fileName: name, useAlbum: useAlbum)
+  }
+
+  /// 첫 프레임을 JPEG(불투명) / PNG(알파) 로 인코딩. EXIF 방향은 원본 속성에서 그대로 옮긴다.
+  private func transcodeForPhotos(_ source: CGImageSource) -> (data: Data, ext: String)? {
+    guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+    let hasAlpha: Bool
+    switch image.alphaInfo {
+    case .none, .noneSkipFirst, .noneSkipLast:
+      hasAlpha = false
+    default:
+      hasAlpha = true
+    }
+    let type = hasAlpha ? UTType.png : UTType.jpeg
+    let out = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(out as CFMutableData, type.identifier as CFString, 1, nil) else {
+      return nil
+    }
+    var props: [CFString: Any] = [:]
+    if !hasAlpha {
+      props[kCGImageDestinationLossyCompressionQuality] = 0.95
+    }
+    if let sourceProps = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+       let orientation = sourceProps[kCGImagePropertyOrientation] {
+      props[kCGImagePropertyOrientation] = orientation
+    }
+    CGImageDestinationAddImage(destination, image, props as CFDictionary)
+    guard CGImageDestinationFinalize(destination), out.length > 0 else { return nil }
+    return (out as Data, hasAlpha ? "png" : "jpg")
   }
 
   /// 원본 데이터를 그대로 자산으로 추가. 실패 시 reason, 성공 시 nil.

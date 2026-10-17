@@ -4,14 +4,10 @@
  * 메신저 사진 저장 SSOT — 사진 보기(개별·모두 저장), 길게 누르기 메뉴, 자동 저장이 모두 이 모듈만 쓴다.
  *
  * - 앱(Capacitor): 네이티브 `MessengerPhotoLibrary.saveImages` → iOS Photo Library / Android MediaStore.
- *   웹 다운로드·외부 브라우저로 대체하지 않는다.
- * - 구버전 앱 바이너리(saveImages 없음): mode "browser" — 기존(18816653 이전) 저장 경로를 유지한다.
- *   원본을 `@capacitor/browser`(SFSafariViewController / Custom Tabs)로 연다:
- *     · iOS: 인라인 원본 → 사진 길게 누르기 「사진 앱에 추가」(앱이 NSPhotoLibraryAddUsageDescription 보유)
- *     · Android: `?download=` 첨부 URL → OS 다운로드(갤러리 「Download」 앨범)
- *   실제 저장 완료를 앱이 알 수 없으므로 성공 문구를 내지 않고 안내 문구만 낸다(거짓 성공 금지).
- *   한 번에 여러 장은 열 수 없으므로 브라우저 모드는 사진 1장 단위로만 노출한다.
- * - Browser 플러그인도 없는 바이너리: mode "none" → 저장 UI 미표시.
+ *   Android·iOS 모두 같은 메뉴·같은 결과 문구, 저장 후 현재 화면 유지. 웹 다운로드·외부 브라우저로 대체하지 않는다.
+ * - 구버전 앱 바이너리(saveImages 없음): mode "update_required" — 메뉴는 동일하게 보이되 저장을 누르면
+ *   화면 이동 없이 「앱 업데이트 필요」 안내만 낸다(조용한 Safari/Custom Tabs 이동 금지).
+ *   사용자가 안내의 「원본 열기」를 직접 누를 때만(1장, Browser 플러그인 있을 때) 원본을 인앱 브라우저로 연다.
  * - 일반 웹 브라우저: 사진첩이 없으므로 `saveChatImagesToDevice`(공유 시트 1회/순차 다운로드)로 저장.
  *   공유 시트 취소는 실패가 아니라 `cancelled` 로 구분한다(다운로드로 대체하지 않음).
  */
@@ -27,7 +23,7 @@ import {
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
-export type MessengerImageSaveMode = "native" | "browser" | "web" | "none";
+export type MessengerImageSaveMode = "native" | "update_required" | "web" | "none";
 
 export type MessengerImageSaveOutcome = {
   mode: MessengerImageSaveMode;
@@ -37,8 +33,9 @@ export type MessengerImageSaveOutcome = {
   permissionDenied: boolean;
   /** 사용자가 웹 공유 시트를 취소함(실패 아님). */
   cancelled?: boolean;
-  /** 브라우저 모드: 인앱 브라우저로 원본을 넘김(저장 완료 여부는 OS 가 처리 — 성공 아님). */
-  handedOff?: "ios" | "android";
+  /** 구버전 앱: 저장하지 않고 업데이트 안내. `manualOpenUrl` 이 있으면 안내에 「원본 열기」를 붙인다. */
+  updateRequired?: boolean;
+  manualOpenUrl?: string;
   /**
    * 저장하지 못한 원본 URL(요청 순서 유지) — 「다시 시도」는 이 목록만 재요청한다.
    * 어떤 장이 실패했는지 알 수 없는 경우(웹 공유 시트 일부 실패 등)는 생략한다.
@@ -56,18 +53,20 @@ function isBrowserPluginAvailable(): boolean {
   }
 }
 
-/** 브라우저 모드에서 사진 1장을 OS 저장 경로로 넘긴다(iOS 인라인 · Android 첨부 다운로드). */
-function handOffImageToNativeBrowser(url: string): "ios" | "android" | null {
+/**
+ * 구버전 앱 — 사용자가 업데이트 안내의 「원본 열기」를 **직접** 눌렀을 때만 원본 1장을 인앱 브라우저로 연다
+ * (iOS 인라인 → 길게 눌러 「사진 앱에 추가」 · Android 첨부 다운로드). 저장 버튼에서 자동으로 부르지 않는다.
+ */
+export function openMessengerImageOriginalForManualSave(url: string): boolean {
   const ios = hasIosCapacitorBridge();
   const leaf = decodeURIComponent(url.split("?")[0]?.split("/").pop() ?? "") || "dibay-photo.jpg";
   const target = ios ? url : buildMessengerFileDownloadUrl(url, leaf);
-  return openMessengerFileInNativeShellIfNeeded(target) ? (ios ? "ios" : "android") : null;
+  return openMessengerFileInNativeShellIfNeeded(target);
 }
 
 export async function resolveMessengerImageSaveMode(): Promise<MessengerImageSaveMode> {
   if (isCapacitorNativePlatform()) {
-    if (await probeMessengerNativeImageSaveSupport()) return "native";
-    return isBrowserPluginAvailable() ? "browser" : "none";
+    return (await probeMessengerNativeImageSaveSupport()) ? "native" : "update_required";
   }
   return typeof window === "undefined" ? "none" : "web";
 }
@@ -115,17 +114,21 @@ export async function saveMessengerImages(urls: string[]): Promise<MessengerImag
   const mode = await resolveMessengerImageSaveMode();
   const empty = { mode, total: list.length, savedCount: 0, failedCount: list.length, permissionDenied: false };
   if (list.length === 0 || mode === "none") return empty;
-  if (mode === "browser") {
-    /** 여러 장은 한 번에 열 수 없다 — 호출부는 브라우저 모드에서 1장 단위만 노출한다. */
-    if (list.length !== 1) return empty;
-    const handedOff = handOffImageToNativeBrowser(list[0]!);
-    if (!handedOff) return empty;
-    return { mode, total: 1, savedCount: 0, failedCount: 0, permissionDenied: false, handedOff };
+  if (mode === "update_required") {
+    /** 화면 이동 없음 — 업데이트 안내만. 1장일 때만 사용자가 고를 수 있는 「원본 열기」를 둔다. */
+    const manual = list.length === 1 && isBrowserPluginAvailable() ? { manualOpenUrl: list[0]! } : {};
+    return { ...empty, updateRequired: true, ...manual };
   }
   if (mode === "native") {
     const r = await saveImagesToNativePhotoLibrary(list);
     const savedIdx = new Set(r.saved.filter((i) => i >= 0 && i < list.length));
     const savedCount = savedIdx.size;
+    /** 실기기 검증용(Safari Web Inspector / chrome://inspect) — URL·개인정보 없이 결과만. */
+    console.info(
+      `[DIBAY_PHOTO_SAVE] native total=${list.length} saved=${savedCount} permission=${r.permission} failed=${JSON.stringify(
+        r.failed.map((f) => f.reason),
+      )}`,
+    );
     return {
       mode,
       total: list.length,
@@ -158,22 +161,27 @@ export type MessengerImageSaveNotice = {
     | "cm_ui_photo_save_permission_denied"
     | "cm_ui_photo_save_unsupported"
     | "cm_ui_photo_save_cancelled"
-    | "cm_ui_photo_save_browser_ios"
-    | "cm_ui_photo_save_browser_android";
+    | "cm_ui_photo_save_update_required";
   params?: Record<string, number>;
   variant: "success" | "error" | "default";
   /**
-   * 스낵바 액션 — `retry`: 실패한 장만 다시 저장(outcome.failedUrls), `open_settings`: OS 앱 설정 열기.
+   * 스낵바 액션 — `retry`: 실패한 장만 다시 저장(outcome.failedUrls), `open_settings`: OS 앱 설정 열기,
+   * `open_original`: 구버전 앱에서 사용자가 직접 원본 열기(outcome.manualOpenUrl).
    * 호출부가 실행 수단을 갖고 있을 때만 버튼을 붙인다(`presentMessengerImageSaveOutcome`).
    */
-  action?: "retry" | "open_settings";
+  action?: "retry" | "open_settings" | "open_original";
 };
 
 /** 성공·실패·일부 실패·권한 거부를 정확히 구분한 결과 문구 키. */
 export function messengerImageSaveNotice(outcome: MessengerImageSaveOutcome): MessengerImageSaveNotice {
   if (outcome.mode === "none") return { key: "cm_ui_photo_save_unsupported", variant: "error" };
-  if (outcome.handedOff === "ios") return { key: "cm_ui_photo_save_browser_ios", variant: "default" };
-  if (outcome.handedOff === "android") return { key: "cm_ui_photo_save_browser_android", variant: "default" };
+  if (outcome.updateRequired) {
+    return {
+      key: "cm_ui_photo_save_update_required",
+      variant: "error",
+      ...(outcome.manualOpenUrl ? { action: "open_original" as const } : {}),
+    };
+  }
   if (outcome.cancelled && outcome.savedCount === 0) return { key: "cm_ui_photo_save_cancelled", variant: "default" };
   const canRetry = (outcome.failedUrls?.length ?? 0) > 0;
   if (outcome.savedCount === 0 && outcome.permissionDenied) {
@@ -192,4 +200,27 @@ export function messengerImageSaveNotice(outcome: MessengerImageSaveOutcome): Me
   }
   if (outcome.savedCount === 1) return { key: "cm_ui_photo_saved", variant: "success" };
   return { key: "cm_ui_photo_saved_count", params: { count: outcome.savedCount }, variant: "success" };
+}
+
+export type MessengerPhotoSaveDiagnostics = {
+  mode: MessengerImageSaveMode;
+  /** 설치된 앱 바이너리 버전·빌드(Capacitor App.getInfo) — 웹·조회 실패 시 null. */
+  appVersion: string | null;
+  appBuild: string | null;
+};
+
+/** 설정 화면 진단 줄 — 설치된 앱이 사진첩 바로 저장(saveImages)을 갖췄는지 기기에서 바로 확인한다. */
+export async function getMessengerPhotoSaveDiagnostics(): Promise<MessengerPhotoSaveDiagnostics> {
+  const mode = await resolveMessengerImageSaveMode();
+  if (!isCapacitorNativePlatform()) return { mode, appVersion: null, appBuild: null };
+  try {
+    const { App } = await import("@capacitor/app");
+    const info = await Promise.race([
+      App.getInfo(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
+    ]);
+    return { mode, appVersion: info?.version?.trim() || null, appBuild: info?.build?.trim() || null };
+  } catch {
+    return { mode, appVersion: null, appBuild: null };
+  }
 }
