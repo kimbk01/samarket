@@ -31,7 +31,12 @@ import { adminDeliveryAdsMessages } from "./admin-delivery-ads";
 import { adminPlatformPopupMessages } from "./admin-platform-popup";
 import { deliveryAdsPerformanceMessages } from "./delivery-ads-performance";
 
-export const adminMessages = {
+/**
+ * Inline admin copy. Intentionally NOT `as const`: values widen to `string`, so the
+ * emitted declaration only carries keys (Korean literal types are serialized escaped
+ * and would push the aggregate past TS7056).
+ */
+const adminCoreMessages = {
   ko: {
     admin_brand: "dibaY 관리자",
     admin_back_to_list: "목록으로",
@@ -3027,38 +3032,6 @@ export const adminMessages = {
     admin_settings_notification_match_sound_desc:
       "주문 확인, 배달채팅 일치 확인 등 매장·배달 대화 흐름에서 쓰는 전용 연결음입니다.",
     admin_stores_reports_err_table_missing: "store_reports 테이블을 적용해 주세요.",
-    ...adminTradeMessages.ko,
-    ...adminCommunityMessengerMessages.ko,
-    ...adminDeliveryOrdersMessages.ko,
-    ...adminDeliveryOperationsMessages.ko,
-    ...adminDeliveryAdminMessages.ko,
-    ...adminProductsMessages.ko,
-    ...adminPostsManagementMessages.ko,
-    ...adminTradeConsoleMessages.ko,
-    ...adminSystemUsageMessages.ko,
-    ...adminPointsNotificationsMessages.ko,
-    ...adminSettingsMessages.ko,
-    ...adminBoardsMessages.ko,
-    ...adminMenusMessages.ko,
-    ...adminBusinessMessages.ko,
-    ...adminCategoriesMessages.ko,
-    ...adminReleaseMessages.ko,
-    ...adminOpsDocsMessages.ko,
-    ...adminProductBacklogMessages.ko,
-    ...adminRecommendationMessages.ko,
-    ...adminOpsConsoleMessages.ko,
-    ...adminOpsToolsMessages.ko,
-    ...adminDeliveryAlertsMessages.ko,
-    ...adminDevSprintMessages.ko,
-    ...adminOperationsHubMessages.ko,
-    ...adminMiscMessages.ko,
-    ...adminStoreDiscoveryMessages.ko,
-    ...adminStoreInsertionsMessages.ko,
-    ...adminStoresCompositionMessages.ko,
-    ...adminStoresProductRecoveryMessages.ko,
-    ...adminDeliveryAdsMessages.ko,
-    ...adminPlatformPopupMessages.ko,
-    ...deliveryAdsPerformanceMessages.ko,
   },
   en: {
     admin_brand: "dibaY Admin",
@@ -6028,6 +6001,128 @@ export const adminMessages = {
     admin_settings_notification_match_sound_desc:
       "Dedicated tone for order confirmation and delivery-chat match flows between store and delivery conversations.",
     admin_stores_reports_err_table_missing: "Apply the store_reports table migration.",
+  },
+} satisfies { ko: Record<string, string>; en: Record<string, string> };
+
+type KeyOf<T> = keyof T & string;
+
+type AdminKoMessageKey =
+  | KeyOf<typeof adminCoreMessages.ko>
+  | KeyOf<typeof adminTradeMessages.ko>
+  | KeyOf<typeof adminCommunityMessengerMessages.ko>
+  | KeyOf<typeof adminDeliveryOrdersMessages.ko>
+  | KeyOf<typeof adminDeliveryOperationsMessages.ko>
+  | KeyOf<typeof adminDeliveryAdminMessages.ko>
+  | KeyOf<typeof adminProductsMessages.ko>
+  | KeyOf<typeof adminPostsManagementMessages.ko>
+  | KeyOf<typeof adminTradeConsoleMessages.ko>
+  | KeyOf<typeof adminSystemUsageMessages.ko>
+  | KeyOf<typeof adminPointsNotificationsMessages.ko>
+  | KeyOf<typeof adminSettingsMessages.ko>
+  | KeyOf<typeof adminBoardsMessages.ko>
+  | KeyOf<typeof adminMenusMessages.ko>
+  | KeyOf<typeof adminBusinessMessages.ko>
+  | KeyOf<typeof adminCategoriesMessages.ko>
+  | KeyOf<typeof adminReleaseMessages.ko>
+  | KeyOf<typeof adminOpsDocsMessages.ko>
+  | KeyOf<typeof adminProductBacklogMessages.ko>
+  | KeyOf<typeof adminRecommendationMessages.ko>
+  | KeyOf<typeof adminOpsConsoleMessages.ko>
+  | KeyOf<typeof adminOpsToolsMessages.ko>
+  | KeyOf<typeof adminDeliveryAlertsMessages.ko>
+  | KeyOf<typeof adminDevSprintMessages.ko>
+  | KeyOf<typeof adminOperationsHubMessages.ko>
+  | KeyOf<typeof adminMiscMessages.ko>
+  | KeyOf<typeof adminStoreDiscoveryMessages.ko>
+  | KeyOf<typeof adminStoreInsertionsMessages.ko>
+  | KeyOf<typeof adminStoresCompositionMessages.ko>
+  | KeyOf<typeof adminStoresProductRecoveryMessages.ko>
+  | KeyOf<typeof adminDeliveryAdsMessages.ko>
+  | KeyOf<typeof adminPlatformPopupMessages.ko>
+  | KeyOf<typeof deliveryAdsPerformanceMessages.ko>;
+
+type AdminEnMessageKey =
+  | KeyOf<typeof adminCoreMessages.en>
+  | KeyOf<typeof adminTradeMessages.en>
+  | KeyOf<typeof adminCommunityMessengerMessages.en>
+  | KeyOf<typeof adminDeliveryOrdersMessages.en>
+  | KeyOf<typeof adminDeliveryOperationsMessages.en>
+  | KeyOf<typeof adminDeliveryAdminMessages.en>
+  | KeyOf<typeof adminProductsMessages.en>
+  | KeyOf<typeof adminPostsManagementMessages.en>
+  | KeyOf<typeof adminTradeConsoleMessages.en>
+  | KeyOf<typeof adminSystemUsageMessages.en>
+  | KeyOf<typeof adminPointsNotificationsMessages.en>
+  | KeyOf<typeof adminSettingsMessages.en>
+  | KeyOf<typeof adminBoardsMessages.en>
+  | KeyOf<typeof adminMenusMessages.en>
+  | KeyOf<typeof adminBusinessMessages.en>
+  | KeyOf<typeof adminCategoriesMessages.en>
+  | KeyOf<typeof adminReleaseMessages.en>
+  | KeyOf<typeof adminOpsDocsMessages.en>
+  | KeyOf<typeof adminProductBacklogMessages.en>
+  | KeyOf<typeof adminRecommendationMessages.en>
+  | KeyOf<typeof adminDeliveryAlertsMessages.en>
+  | KeyOf<typeof adminOpsConsoleMessages.en>
+  | KeyOf<typeof adminOpsToolsMessages.en>
+  | KeyOf<typeof adminDevSprintMessages.en>
+  | KeyOf<typeof adminOperationsHubMessages.en>
+  | KeyOf<typeof adminMiscMessages.en>
+  | KeyOf<typeof adminStoreDiscoveryMessages.en>
+  | KeyOf<typeof adminStoreInsertionsMessages.en>
+  | KeyOf<typeof adminStoresCompositionMessages.en>
+  | KeyOf<typeof adminStoresProductRecoveryMessages.en>
+  | KeyOf<typeof adminDeliveryAdsMessages.en>
+  | KeyOf<typeof adminPlatformPopupMessages.en>
+  | KeyOf<typeof deliveryAdsPerformanceMessages.en>;
+
+/**
+ * Explicit annotation (keys from sub-catalog `keyof` unions, values `string`) keeps
+ * `MessageKey` / `t()` key checking while avoiding TS7056 on declaration emit.
+ */
+export type AdminMessagesTable = {
+  readonly ko: { readonly [K in AdminKoMessageKey]: string };
+  readonly en: { readonly [K in AdminEnMessageKey]: string };
+};
+
+export const adminMessages: AdminMessagesTable = {
+  ko: {
+    ...adminCoreMessages.ko,
+    ...adminTradeMessages.ko,
+    ...adminCommunityMessengerMessages.ko,
+    ...adminDeliveryOrdersMessages.ko,
+    ...adminDeliveryOperationsMessages.ko,
+    ...adminDeliveryAdminMessages.ko,
+    ...adminProductsMessages.ko,
+    ...adminPostsManagementMessages.ko,
+    ...adminTradeConsoleMessages.ko,
+    ...adminSystemUsageMessages.ko,
+    ...adminPointsNotificationsMessages.ko,
+    ...adminSettingsMessages.ko,
+    ...adminBoardsMessages.ko,
+    ...adminMenusMessages.ko,
+    ...adminBusinessMessages.ko,
+    ...adminCategoriesMessages.ko,
+    ...adminReleaseMessages.ko,
+    ...adminOpsDocsMessages.ko,
+    ...adminProductBacklogMessages.ko,
+    ...adminRecommendationMessages.ko,
+    ...adminOpsConsoleMessages.ko,
+    ...adminOpsToolsMessages.ko,
+    ...adminDeliveryAlertsMessages.ko,
+    ...adminDevSprintMessages.ko,
+    ...adminOperationsHubMessages.ko,
+    ...adminMiscMessages.ko,
+    ...adminStoreDiscoveryMessages.ko,
+    ...adminStoreInsertionsMessages.ko,
+    ...adminStoresCompositionMessages.ko,
+    ...adminStoresProductRecoveryMessages.ko,
+    ...adminDeliveryAdsMessages.ko,
+    ...adminPlatformPopupMessages.ko,
+    ...deliveryAdsPerformanceMessages.ko,
+  },
+  en: {
+    ...adminCoreMessages.en,
     ...adminTradeMessages.en,
     ...adminCommunityMessengerMessages.en,
     ...adminDeliveryOrdersMessages.en,
@@ -6061,6 +6156,4 @@ export const adminMessages = {
     ...adminPlatformPopupMessages.en,
     ...deliveryAdsPerformanceMessages.en,
   },
-  
-} as const;
-
+};
