@@ -44,6 +44,16 @@ describe("call-multi-device-authority", () => {
     expect(CALL_ANSWERED_ELSEWHERE_ERROR).toBe("answered_elsewhere");
   });
 
+  it("ringing accept with null request device still classifies claim_new (service fails closed)", () => {
+    expect(
+      evaluateAcceptDeviceClaim({
+        sessionStatus: "ringing",
+        claimedDeviceId: null,
+        requestDeviceId: null,
+      }),
+    ).toEqual({ kind: "claim_new", answeredDeviceId: null });
+  });
+
   it("missed evidence requires sent or native ack", () => {
     expect(hasMissedCallPresentationEvidence([])).toBe(false);
     expect(hasMissedCallPresentationEvidence([{ status: "failed" }])).toBe(false);
