@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Play In-App Updates (App Update API) — keep when minify is enabled later.
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
