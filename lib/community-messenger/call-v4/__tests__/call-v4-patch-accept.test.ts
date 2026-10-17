@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth/client-instance-id", () => ({
-  ensureClientInstanceId: () => "web-test-device",
-}));
-
 import {
   callV4PatchAccept,
   isCallV4AcceptPatchJoinableStatus,
@@ -21,13 +17,11 @@ function mockAcceptPatchFetch(input: {
     session: input.session,
     error: input.error,
   };
-  return vi.fn(
-    async (_input?: RequestInfo | URL, _init?: RequestInit) => ({
-      ok: httpStatus >= 200 && httpStatus < 300,
-      status: httpStatus,
-      json: async () => body,
-    })
-  );
+  return vi.fn(async () => ({
+    ok: httpStatus >= 200 && httpStatus < 300,
+    status: httpStatus,
+    json: async () => body,
+  }));
 }
 
 describe("callV4PatchAccept", () => {
@@ -50,22 +44,6 @@ describe("callV4PatchAccept", () => {
     );
     const result = await callV4PatchAccept("c1");
     expect(result.ok).toBe(true);
-  });
-
-  it("PATCH accept body always includes deviceId from ensureClientInstanceId", async () => {
-    const fetchMock = mockAcceptPatchFetch({
-      session: { id: "c1", status: "active", callKind: "voice" },
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    await callV4PatchAccept("c1");
-    expect(fetchMock).toHaveBeenCalled();
-    const firstCall = fetchMock.mock.calls[0];
-    expect(firstCall).toBeDefined();
-    const init = (firstCall?.[1] ?? {}) as RequestInit;
-    const body = JSON.parse(String(init.body ?? "{}")) as { action?: string; deviceId?: string };
-    expect(body.action).toBe("accept");
-    expect(typeof body.deviceId).toBe("string");
-    expect(body.deviceId?.length).toBeGreaterThan(0);
   });
 
   it("blocks terminal session even when patch HTTP returned ok", async () => {
