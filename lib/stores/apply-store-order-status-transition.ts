@@ -23,6 +23,7 @@ import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-set
 import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
+import { STORE_ORDER_CLOSED_STATUSES } from "@/lib/admin/admin-ops-actionable-status";
 import {
   ADMIN_CANCEL_REQUEST_RESTORE_STATUSES,
   ADMIN_REFUND_REQUEST_RESTORE_STATUSES,
@@ -184,6 +185,11 @@ export async function applyStoreOrderStatusTransition(
     updatePayload.needs_admin_attention = false;
   }
 
+  // Admin Q (R3): a closed order is never admin workload — clear the attention flag on close.
+  if ((STORE_ORDER_CLOSED_STATUSES as readonly string[]).includes(nextStatus)) {
+    updatePayload.needs_admin_attention = false;
+  }
+
   if (nextStatus === "completed" || nextStatus === "cancelled" || nextStatus === "refund_requested") {
     updatePayload.auto_complete_at = null;
   } else if (nextStatus === "ready_for_pickup" && !deliveryLike) {
@@ -246,6 +252,15 @@ export async function applyStoreOrderStatusTransition(
     }
     updated = { id: oid };
     uErr = null;
+    // RPC owns the money transition; clear the Admin Q flag separately (non-financial column).
+    const { error: flagErr } = await sb
+      .from("store_orders")
+      .update({ needs_admin_attention: false })
+      .eq("id", oid)
+      .eq("order_status", "refunded");
+    if (flagErr && !/needs_admin_attention/i.test(flagErr.message)) {
+      console.error("[applyStoreOrderStatusTransition] clear needs_admin_attention", flagErr);
+    }
   }
 
   if (uErr) {

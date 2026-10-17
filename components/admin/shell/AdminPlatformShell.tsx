@@ -15,6 +15,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminShellToolbar } from "@/components/admin/AdminShellToolbar";
 import { AdminTestSwitcher } from "@/components/admin/AdminTestSwitcher";
 import { AdminNotificationBell } from "@/components/admin/order-notifications/AdminNotificationBell";
+import { AdminInboxLink } from "@/components/admin/inbox/AdminInboxLink";
 import { AdminStorePointPendingProvider } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import { AdminShellProvider, useAdminShell } from "@/components/admin/AdminShellContext";
 import { AdminWorkspaceNav } from "@/components/admin/shell/AdminWorkspaceNav";
@@ -212,6 +213,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
               <Link href="/philife" className="sam-btn sam-btn--outline sam-btn--sm">
                 {t("common_homepage")}
               </Link>
+              <AdminInboxLink />
               <AdminNotificationBell />
             </div>
           </div>

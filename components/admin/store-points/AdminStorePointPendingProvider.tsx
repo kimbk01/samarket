@@ -76,6 +76,8 @@ import {
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type { AdminActionQueueCategoryResult } from "@/lib/admin/admin-action-queue-registry";
+import { ADMIN_QUEUE_CHANGED_EVENT } from "@/lib/admin/admin-queue-events";
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 import type { NormalizedNotificationPreferenceSnapshot } from "@/lib/notifications/policy/notification-preference-normalized-snapshot";
 
@@ -125,10 +127,16 @@ type Ctx = {
   platformPopupPendingCount: number;
   partnerPendingCount: number;
   deliveryAlertsCount: number;
-  /** Messenger Action Required — CM + trade chat reports. */
+  /** Messenger reports (community_messenger_reports). Trade chat_room reports are owned by `reports`. */
   messengerActionableCount: number;
   queueUnavailable: string[];
   adminBellCount: number;
+  /** Registry-ordered category results from /api/admin/admin-bell (status-aware). */
+  queueCategories: AdminActionQueueCategoryResult[];
+  /** false → some visible total category could not be counted; Bell must not show a clean digit. */
+  queueTotalComplete: boolean;
+  /** loading (no data yet) · ok · error (last refresh failed; values are from the previous success). */
+  queueLoadState: "loading" | "ok" | "error";
   refresh: () => Promise<void>;
 };
 
@@ -157,6 +165,9 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   messengerActionableCount: 0,
   queueUnavailable: [],
   adminBellCount: 0,
+  queueCategories: [],
+  queueTotalComplete: true,
+  queueLoadState: "loading",
   refresh: async () => {},
 });
 
@@ -213,6 +224,9 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [messengerActionableCount, setMessengerActionableCount] = useState(0);
   const [queueUnavailable, setQueueUnavailable] = useState<string[]>([]);
   const [adminBellCount, setAdminBellCount] = useState(0);
+  const [queueCategories, setQueueCategories] = useState<AdminActionQueueCategoryResult[]>([]);
+  const [queueTotalComplete, setQueueTotalComplete] = useState(true);
+  const [queueLoadState, setQueueLoadState] = useState<"loading" | "ok" | "error">("loading");
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
   const awarenessToastTimeoutRef = useRef<number | null>(null);
   const rtTimeoutRef = useRef<number | null>(null);
@@ -821,6 +835,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           total?: number;
+          total_complete?: boolean;
+          categories?: AdminActionQueueCategoryResult[];
           unavailable?: string[];
           by_category?: {
             charges?: number;
@@ -850,8 +866,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         };
         return { resOk: res.ok, json };
       });
+      if (!resOk || !json.ok) {
+        // Keep last good values but mark them stale — never silently present them as current.
+        setQueueLoadState("error");
+        return;
+      }
       if (resOk && json.ok) {
         setAdminBellCount(Math.max(0, Math.floor(Number(json.total) || 0)));
+        setQueueTotalComplete(json.total_complete !== false);
+        setQueueCategories(Array.isArray(json.categories) ? json.categories : []);
+        setQueueLoadState("ok");
         const storeCharges = Math.max(0, Math.floor(Number(json.by_category?.store_charges) || 0));
         const cashCharges = Math.max(0, Math.floor(Number(json.by_category?.cash_charges) || 0));
         const userCharges = Math.max(0, Math.floor(Number(json.by_category?.user_charges) || 0));
@@ -941,7 +965,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         prevFeedCountRef.current = feedAds;
       }
     } catch {
-      /* ignore */
+      setQueueLoadState("error");
     }
   }, [
     detectNewFeedAds,
@@ -959,8 +983,19 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (document.visibilityState === "visible") void refresh();
     };
     const onUpdated = () => void refresh();
+    let queueChangedTimer: number | null = null;
+    /** Admin mutation in this tab → re-read now, and once more after in-flight reads settle. */
+    const onQueueChanged = () => {
+      void refresh();
+      if (queueChangedTimer) window.clearTimeout(queueChangedTimer);
+      queueChangedTimer = window.setTimeout(() => {
+        queueChangedTimer = null;
+        void refresh();
+      }, 800);
+    };
     window.addEventListener("visibilitychange", onVis);
     window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    window.addEventListener(ADMIN_QUEUE_CHANGED_EVENT, onQueueChanged);
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, NOTIFICATION_SYNC_POLL_MS);
@@ -968,6 +1003,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     return () => {
       window.removeEventListener("visibilitychange", onVis);
       window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+      window.removeEventListener(ADMIN_QUEUE_CHANGED_EVENT, onQueueChanged);
+      if (queueChangedTimer) window.clearTimeout(queueChangedTimer);
       window.clearInterval(id);
     };
   }, [refresh]);
@@ -1375,10 +1412,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       messengerActionableCount,
       queueUnavailable,
       adminBellCount,
+      queueCategories,
+      queueTotalComplete,
+      queueLoadState,
       refresh,
     }),
     [
       adminBellCount,
+      queueCategories,
+      queueTotalComplete,
+      queueLoadState,
       pendingCount,
       cashChargePendingCount,
       userChargePendingCount,

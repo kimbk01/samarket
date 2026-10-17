@@ -5,6 +5,11 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 import { ADMIN_DASHBOARD_REPORT_REASON_LABELS as REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Report, ReportStatus } from "@/lib/types/report";
+import { TRADE_REPORT_ADMIN_ACTIONABLE } from "@/lib/admin/admin-ops-actionable-status";
+
+/** Upper bound for the actionable set (Bell `reports` category); history is capped separately. */
+const REPORT_ACTIONABLE_LIMIT = 2000;
+const REPORT_HISTORY_LIMIT = 300;
 
 export interface ReportRow {
   id: string;
@@ -52,14 +57,36 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
   if (!supabase) return [];
 
   try {
-    const { data: rows, error } = await (supabase as any)
-      .from("reports")
-      .select("id, reporter_id, target_type, target_id, room_id, product_id, reason_code, reason_text, status, admin_note, created_at, resolved_at, resolved_by")
-      .order("created_at", { ascending: false })
-      .limit(300);
+    const cols =
+      "id, reporter_id, target_type, target_id, room_id, product_id, reason_code, reason_text, status, admin_note, created_at, resolved_at, resolved_by";
+    // Admin Action Queue rows (pending|reviewing) are loaded in full so the list always covers
+    // the Bell count; processed history is the latest REPORT_HISTORY_LIMIT rows.
+    const [actionableRes, historyRes] = await Promise.all([
+      (supabase as any)
+        .from("reports")
+        .select(cols)
+        .in("status", [...TRADE_REPORT_ADMIN_ACTIONABLE])
+        .order("created_at", { ascending: false })
+        .limit(REPORT_ACTIONABLE_LIMIT),
+      (supabase as any)
+        .from("reports")
+        .select(cols)
+        .not("status", "in", `(${TRADE_REPORT_ADMIN_ACTIONABLE.join(",")})`)
+        .order("created_at", { ascending: false })
+        .limit(REPORT_HISTORY_LIMIT),
+    ]);
 
-    if (error || !Array.isArray(rows)) return [];
-    const list = rows as ReportRow[];
+    if (actionableRes.error || !Array.isArray(actionableRes.data)) {
+      // Never present a failed load as "no reports".
+      throw new Error(actionableRes.error?.message ?? "reports_load_failed");
+    }
+    if (actionableRes.data.length >= REPORT_ACTIONABLE_LIMIT) {
+      console.warn("[getReportsForAdminFromDb] actionable reports reached the load cap", REPORT_ACTIONABLE_LIMIT);
+    }
+    const history = !historyRes.error && Array.isArray(historyRes.data) ? historyRes.data : [];
+    const list = [...(actionableRes.data as ReportRow[]), ...(history as ReportRow[])].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at))
+    );
 
     const reporterIds = [...new Set(list.map((r) => r.reporter_id))];
     const resolvedByIds = [...new Set(list.map((r) => r.resolved_by).filter(Boolean))] as string[];
@@ -138,8 +165,9 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
     });
 
     return reports;
-  } catch {
-    return [];
+  } catch (e) {
+    // Surface the failure to the page — an empty list would read as "no pending reports".
+    throw e instanceof Error ? e : new Error("reports_load_failed");
   }
 }
 

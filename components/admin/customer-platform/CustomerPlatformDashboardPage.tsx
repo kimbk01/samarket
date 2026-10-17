@@ -4,42 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
+import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 
+/** Overview supplies Monitoring only; Action Queue reads the same Bell payload (provider). */
 type OverviewPayload = {
   ok?: boolean;
-  action_queue?: {
-    support_actionable?: number;
-    member_inquiry_open: number;
-    store_inquiry_open: number;
-    platform_inquiry_open: number;
-    member_charge_pending: number;
-    store_charge_pending: number;
-    cash_charge_pending?: number;
-    delivery_ad_ops_pending?: number;
-    feed_ad_pending?: number;
-    reports_pending?: number;
-    delivery_alerts?: number;
-    community_reports_pending?: number;
-    total: number;
-  };
   monitoring?: {
-    member_inbox_threads: number;
-    app_notices_active: number;
-    notification_campaigns: number;
+    /** null = could not load */
+    member_inbox_threads: number | null;
+    app_notices_active: number | null;
+    notification_campaigns: number | null;
   };
 };
 
 type LoadState = "loading" | "ready" | "error";
-
-type QueueCard = {
-  href: string;
-  count: number;
-  titleKey: MessageKey;
-  titleKo: string;
-  titleEn: string;
-  domain: "member" | "store";
-};
 
 export function CustomerPlatformDashboardPage() {
   const { safeT } = useI18n();
@@ -71,83 +50,16 @@ export function CustomerPlatformDashboardPage() {
     void load();
   }, [load]);
 
-  const aq = payload?.action_queue;
   const mon = payload?.monitoring;
-
-  const queueCards: QueueCard[] = [
-    {
-      href: "/admin/support?filter=ACTIONABLE#action-required",
-      count: aq?.support_actionable ?? 0,
-      titleKey: "admin_cp_queue_support_actionable",
-      titleKo: "고객센터 조치 필요",
-      titleEn: "Support actionable",
-      domain: "member",
-    },
-    {
-      href: "/admin/store-inquiries",
-      count: aq?.store_inquiry_open ?? 0,
-      titleKey: "admin_cp_queue_store_inquiry",
-      titleKo: "매장 문의 (open)",
-      titleEn: "Store inquiry (open)",
-      domain: "store",
-    },
-    {
-      href: "/admin/point-charges",
-      count: aq?.member_charge_pending ?? 0,
-      titleKey: "admin_cp_queue_member_deposit",
-      titleKo: "회원 입금 승인 대기",
-      titleEn: "Member deposit pending",
-      domain: "member",
-    },
-    {
-      href: "/admin/delivery-ads/cash-charges",
-      count: aq?.cash_charge_pending ?? aq?.store_charge_pending ?? 0,
-      titleKey: "admin_cp_queue_store_deposit",
-      titleKo: "Cash 충전 승인 대기",
-      titleEn: "Cash top-up pending",
-      domain: "store",
-    },
-    {
-      href: "/admin/delivery-ads/manage?view=actionable",
-      count: aq?.delivery_ad_ops_pending ?? 0,
-      titleKey: "admin_menu_delivery_ads_control",
-      titleKo: "배달 광고 운영 대기",
-      titleEn: "Delivery ads ops waiting",
-      domain: "store",
-    },
-    {
-      href: "/admin/ad-applications?domain=feed",
-      count: aq?.feed_ad_pending ?? 0,
-      titleKey: "admin_menu_ads_feed_applications",
-      titleKo: "피드 배너 광고 심사 (Growth)",
-      titleEn: "Feed banner ad review (Growth)",
-      domain: "member",
-    },
-    {
-      href: "/admin/reports",
-      count: aq?.reports_pending ?? 0,
-      titleKey: "admin_menu_reports_observation",
-      titleKo: "신고 표시 큐 (관찰)",
-      titleEn: "Reports display queue (observation)",
-      domain: "member",
-    },
-    {
-      href: "/admin/delivery-operations",
-      count: aq?.delivery_alerts ?? 0,
-      titleKey: "admin_menu_delivery_operations_stats",
-      titleKo: "배달 운영 알림",
-      titleEn: "Delivery operation alerts",
-      domain: "store",
-    },
-    {
-      href: "/admin/community/reports",
-      count: aq?.community_reports_pending ?? 0,
-      titleKey: "admin_menu_community_reports",
-      titleKo: "커뮤니티 신고",
-      titleEn: "Community reports",
-      domain: "member",
-    },
-  ];
+  const {
+    adminBellCount,
+    queueCategories,
+    queueTotalComplete,
+    queueLoadState,
+  } = useAdminStorePointPendingCount();
+  const queueLoading = queueLoadState === "loading";
+  const monValue = (n: number | null | undefined) =>
+    loadState === "loading" ? "…" : n == null ? "—" : n;
 
   return (
     <div className="sam-page-stack">
@@ -190,39 +102,38 @@ export function CustomerPlatformDashboardPage() {
               fallbackEn: "Action Queue",
             })}
           </h2>
-          <p className="sam-text-helper text-sam-muted tabular-nums">
-            {loadState === "loading"
+          <p className="sam-text-helper text-sam-muted tabular-nums" data-testid="admin-cp-action-queue-total">
+            {queueLoading
               ? "…"
               : `${safeT("admin_cp_action_queue_total", {
                   fallbackKo: "대기",
                   fallbackEn: "Pending",
-                })} ${aq?.total ?? 0}`}
+                })} ${queueTotalComplete ? adminBellCount : `${adminBellCount}+`}`}
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {queueCards.map((card) => (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 transition-colors hover:border-signature/40 hover:bg-sam-app"
-            >
-              <p className="sam-text-helper text-sam-muted">
-                {card.domain === "member"
-                  ? safeT("admin_menu_cp_points_member", { fallbackKo: "Member", fallbackEn: "Member" })
-                  : safeT("admin_menu_store_points", { fallbackKo: "Store", fallbackEn: "Store" })}
-              </p>
-              <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-                {safeT(card.titleKey, {
-                  fallbackKo: card.titleKo,
-                  fallbackEn: card.titleEn,
-                })}
-              </p>
-              <p className="mt-2 text-2xl font-bold tabular-nums text-signature">
-                {loadState === "loading" ? "…" : card.count}
-              </p>
-            </Link>
-          ))}
-        </div>
+        <p className="sam-text-helper text-sam-muted">
+          {safeT("admin_cp_action_queue_meaning", {
+            fallbackKo: "벨 숫자 = 관리자가 지금 처리해야 할 업무 건수입니다 (알림 미읽음 수가 아닙니다).",
+            fallbackEn: "Bell number = admin tasks to handle now (not unread notifications).",
+          })}
+        </p>
+        {!queueTotalComplete ? (
+          <p className="sam-text-helper text-sam-warning" role="status">
+            {safeT("admin_cp_action_queue_incomplete", {
+              fallbackKo: "일부 항목을 불러오지 못해 합계가 불완전합니다.",
+              fallbackEn: "Some categories failed to load, so the total is incomplete.",
+            })}
+          </p>
+        ) : null}
+        {queueLoadState === "error" ? (
+          <p className="sam-text-helper text-sam-warning" role="status">
+            {safeT("admin_cp_action_queue_stale", {
+              fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
+              fallbackEn: "The latest refresh failed. Showing the last loaded values.",
+            })}
+          </p>
+        ) : null}
+        <AdminActionQueueCardGrid categories={queueCategories} loading={queueLoading} />
       </section>
 
       <section id="monitoring" className="space-y-3 scroll-mt-20">
@@ -241,7 +152,7 @@ export function CustomerPlatformDashboardPage() {
               {safeT("admin_menu_notices", { fallbackKo: "공지", fallbackEn: "Notices" })}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
-              {loadState === "loading" ? "…" : (mon?.app_notices_active ?? 0)}
+              {monValue(mon?.app_notices_active)}
             </p>
             <p className="sam-text-helper text-sam-muted">
               {safeT("admin_cp_mon_notices_hint", {
@@ -261,7 +172,7 @@ export function CustomerPlatformDashboardPage() {
               })}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
-              {loadState === "loading" ? "…" : (mon?.member_inbox_threads ?? 0)}
+              {monValue(mon?.member_inbox_threads)}
             </p>
           </Link>
           <Link
@@ -275,7 +186,7 @@ export function CustomerPlatformDashboardPage() {
               })}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
-              {loadState === "loading" ? "…" : (mon?.notification_campaigns ?? 0)}
+              {monValue(mon?.notification_campaigns)}
             </p>
           </Link>
         </div>

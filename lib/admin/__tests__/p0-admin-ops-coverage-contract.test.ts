@@ -5,6 +5,7 @@ import {
   ADMIN_ACTION_QUEUE_META,
 } from "@/lib/admin/admin-action-queue";
 import { ADMIN_ACTIONABLE_STORE_APPROVAL } from "@/lib/admin/admin-ops-actionable-status";
+import { sumAdminQueueCountsForMenuKey } from "@/lib/admin/admin-action-queue-registry";
 import { BUSINESS_OPS_PENDING_APPROVAL } from "@/lib/admin-business/business-ops-presentation";
 import {
   parseAdminStoreReportFocusRequestId,
@@ -108,17 +109,22 @@ describe("P0-D exact deeplink + consumer", () => {
 describe("P0-D section badge source map", () => {
   it("sidebar uses bridge Q projections from admin-bell by_category", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('"global-reports"');
-    expect(sidebar).toContain("globalReportsCount");
-    expect(sidebar).toContain('"reports-posts"');
-    expect(sidebar).toContain("tradeReportsCount");
-    expect(sidebar).toContain('"community-feed-reports"');
-    expect(sidebar).toContain("communityReportsCount");
-    expect(sidebar).toContain('"store-reports-admin"');
-    expect(sidebar).toContain("storeReportsCount");
-    expect(sidebar).toContain('"stores-commerce"');
-    expect(sidebar).toContain("storeApplicationsCount");
+    expect(sidebar).toContain("sumAdminQueueCountsForMenuKey(item.key, queueCategories)");
     expect(sidebar).not.toContain("from(\"");
+    const ok = (key: string, count: number) =>
+      ({ key, count, status: "ok", inTotal: true, nextActor: "admin", listHref: "/admin" }) as never;
+    const cats = [
+      ok("reports", 2),
+      ok("community_reports", 3),
+      ok("store_reports", 4),
+      ok("store_applications", 5),
+    ];
+    // global = trade + community; leaves bind their own category
+    expect(sumAdminQueueCountsForMenuKey("global-reports", cats)).toBe(5);
+    expect(sumAdminQueueCountsForMenuKey("reports-posts", cats)).toBe(2);
+    expect(sumAdminQueueCountsForMenuKey("community-feed-reports", cats)).toBe(3);
+    expect(sumAdminQueueCountsForMenuKey("store-reports-admin", cats)).toBe(4);
+    expect(sumAdminQueueCountsForMenuKey("stores-commerce", cats)).toBe(5);
   });
 });
 

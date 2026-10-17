@@ -15,6 +15,7 @@ import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type ChargeRequest = {
   id: string;
@@ -122,6 +123,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         );
         return;
       }
+      emitAdminQueueChanged("cash_charges");
       if (op === "approve") {
         setSuccess(
           safeT("admin_delivery_ads_cash_charges_approve_ok", {

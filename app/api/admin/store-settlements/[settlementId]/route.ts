@@ -176,6 +176,7 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ ok: false, error: "invalid_state" }, { status: 409 });
     }
+    await logSettlement({ settlement_status: "processing" });
     return NextResponse.json({ ok: true, settlement_status: "processing" });
   }
 

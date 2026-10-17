@@ -107,6 +107,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "cp-support": "admin_menu_cp_support",
   "cp-support-center": "admin_menu_cp_support_center",
   "cp-support-archive": "admin_menu_cp_support_archive",
+  "admin-inbox": "admin_inbox_title",
   "cp-store-inquiry": "admin_menu_store_inquiries",
   "cp-member-assets": "admin_menu_cp_points_member",
   "cp-store-assets": "admin_menu_store_points",
@@ -1136,6 +1137,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "cp-support-archive",
         title: "",
         path: "/admin/support/archive",
+        status: "done",
+      },
+      // R13 — Admin notification inbox (admin_notifications). ≠ Action Queue bell.
+      {
+        key: "admin-inbox",
+        title: "",
+        path: "/admin/inbox",
         status: "done",
       },
     ],

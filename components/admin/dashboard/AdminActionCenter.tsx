@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
+import { AdminActionQueueCardGrid } from "@/components/admin/action-queue/AdminActionQueueCardGrid";
 import {
   ADMIN_ACTION_CENTER_HASH,
   withAdminReturnTo,
@@ -89,194 +90,10 @@ export function AdminActionCenter() {
   const unavailable = new Set(q.queueUnavailable ?? []);
   const returnTo = "/admin";
 
-  const actionCards: QueueCard[] = [
-    {
-      id: "orders",
-      href: withAdminReturnTo("/admin/store-orders?order_status=refund_requested", returnTo),
-      count: q.ordersAttentionCount,
-      unavailable: unavailable.has("orders_attention"),
-      titleKo: "주문 처리 필요",
-      titleEn: "Orders need attention",
-      domainKo: "배달",
-      domainEn: "Delivery",
-      primaryCtaKo: "주문 큐 열기",
-      primaryCtaEn: "Open order queue",
-    },
-    {
-      id: "settlement",
-      href: withAdminReturnTo("/admin/store-settlements?settlement_status=scheduled", returnTo),
-      count: q.settlementsActionableCount,
-      unavailable: unavailable.has("settlements_actionable"),
-      titleKo: "정산 요청 / 보류",
-      titleEn: "Settlement scheduled / held",
-      domainKo: "재무",
-      domainEn: "Finance",
-      primaryCtaKo: "정산 큐",
-      primaryCtaEn: "Settlement queue",
-    },
-    {
-      id: "community-reports",
-      href: withAdminReturnTo("/admin/community/reports", returnTo),
-      count: q.communityReportsCount,
-      unavailable: unavailable.has("community_reports"),
-      titleKo: "커뮤니티 일반 신고",
-      titleEn: "Community reports",
-      domainKo: "커뮤니티",
-      domainEn: "Community",
-      primaryCtaKo: "신고 큐",
-      primaryCtaEn: "Reports queue",
-    },
-    {
-      id: "meeting-reports",
-      href: withAdminReturnTo("/admin/philife/meeting-reports", returnTo),
-      count: q.meetingReportsCount,
-      unavailable: unavailable.has("meeting_reports"),
-      titleKo: "모임 신고",
-      titleEn: "Meeting reports",
-      domainKo: "커뮤니티",
-      domainEn: "Community",
-      primaryCtaKo: "모임 신고 큐",
-      primaryCtaEn: "Meeting reports",
-    },
-    {
-      id: "trade-reports",
-      href: withAdminReturnTo("/admin/reports?domain=trade", returnTo),
-      count: q.tradeReportsCount,
-      titleKo: "거래 신고",
-      titleEn: "Trade reports",
-      domainKo: "거래",
-      domainEn: "Trade",
-      primaryCtaKo: "거래 신고 큐",
-      primaryCtaEn: "Trade reports",
-    },
-    {
-      id: "point",
-      href: withAdminReturnTo("/admin/point-charges", returnTo),
-      count: q.userChargePendingCount,
-      titleKo: "Point 충전 승인 대기",
-      titleEn: "Point top-up pending",
-      domainKo: "재무 · Point",
-      domainEn: "Finance · Point",
-      primaryCtaKo: "Point 대기열",
-      primaryCtaEn: "Point queue",
-    },
-    {
-      id: "cash",
-      href: withAdminReturnTo(DELIVERY_AD_ADMIN_ROUTES.cashCharges, returnTo),
-      count: q.cashChargePendingCount,
-      titleKo: "Cash 충전 승인 대기",
-      titleEn: "Cash top-up pending",
-      domainKo: "재무 · Cash",
-      domainEn: "Finance · Cash",
-      primaryCtaKo: "Cash 대기열",
-      primaryCtaEn: "Cash queue",
-    },
-    {
-      id: "coin-withdraw",
-      href: withAdminReturnTo("/admin/finance#coin-withdrawals", returnTo),
-      count: q.coinWithdrawalsCount,
-      unavailable: unavailable.has("coin_withdrawals"),
-      titleKo: "Coin 출금 요청",
-      titleEn: "Coin withdrawals",
-      domainKo: "재무 · Coin",
-      domainEn: "Finance · Coin",
-      primaryCtaKo: "Coin 출금 큐",
-      primaryCtaEn: "Coin withdraw queue",
-    },
-    {
-      id: "ads-review",
-      href: withAdminReturnTo(`${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable`, returnTo),
-      count: q.deliveryAdOpsPendingCount,
-      titleKo: "배달 광고 운영 대기",
-      titleEn: "Delivery ads waiting",
-      domainKo: "광고 · 배달",
-      domainEn: "Ads · Delivery",
-      primaryCtaKo: "광고 운영 열기",
-      primaryCtaEn: "Open ads ops",
-    },
-    {
-      id: "feed-ads",
-      href: withAdminReturnTo("/admin/ad-applications?domain=feed", returnTo),
-      count: q.feedAdPendingCount,
-      titleKo: "피드 광고 심사",
-      titleEn: "Feed ad review",
-      domainKo: "광고 · 피드",
-      domainEn: "Ads · Feed",
-      primaryCtaKo: "피드 신청 열기",
-      primaryCtaEn: "Open feed requests",
-    },
-    {
-      id: "popup",
-      href: withAdminReturnTo("/admin/platform-popup", returnTo),
-      count: q.platformPopupPendingCount,
-      unavailable: unavailable.has("platform_popup_pending"),
-      titleKo: "팝업 승인 대기",
-      titleEn: "Popup review pending",
-      domainKo: "광고 · 팝업",
-      domainEn: "Ads · Popup",
-      primaryCtaKo: "팝업 허브",
-      primaryCtaEn: "Popup hub",
-    },
-    {
-      id: "partner",
-      href: withAdminReturnTo(DELIVERY_AD_ADMIN_ROUTES.partnerMemberships, returnTo),
-      count: q.partnerPendingCount,
-      unavailable: unavailable.has("partner_pending"),
-      titleKo: "Partner 가입 심사",
-      titleEn: "Partner membership review",
-      domainKo: "Partner",
-      domainEn: "Partner",
-      primaryCtaKo: "Partner 관리",
-      primaryCtaEn: "Manage Partner",
-    },
-    {
-      id: "support",
-      href: withAdminReturnTo("/admin/support?filter=ACTIONABLE#action-required", returnTo),
-      count: q.supportActionableCount,
-      titleKo: "고객지원 답변 대기",
-      titleEn: "Support waiting on admin",
-      domainKo: "고객지원",
-      domainEn: "Support",
-      primaryCtaKo: "고객센터 열기",
-      primaryCtaEn: "Open Support",
-    },
-    {
-      id: "store-apps",
-      href: withAdminReturnTo("/admin/stores?status=actionable", returnTo),
-      count: q.storeApplicationsCount,
-      unavailable: unavailable.has("store_applications"),
-      titleKo: "입점 검토",
-      titleEn: "Store applications",
-      domainKo: "매장",
-      domainEn: "Store",
-      primaryCtaKo: "입점 대기 목록",
-      primaryCtaEn: "Actionable stores",
-    },
-    {
-      id: "trade-promo",
-      href: withAdminReturnTo("/admin/ad-applications?domain=trade", returnTo),
-      count: q.tradePromoPendingCount,
-      titleKo: "거래 프로모 심사",
-      titleEn: "Trade promo review",
-      domainKo: "거래",
-      domainEn: "Trade",
-      primaryCtaKo: "신청 열기",
-      primaryCtaEn: "Open applications",
-    },
-    {
-      id: "delivery-alerts",
-      href: withAdminReturnTo("/admin/delivery-alerts", returnTo),
-      count: q.deliveryAlertsCount,
-      titleKo: "배달 운영 알림",
-      titleEn: "Delivery ops alerts",
-      domainKo: "배달",
-      domainEn: "Delivery",
-      primaryCtaKo: "알림 큐",
-      primaryCtaEn: "Alerts queue",
-    },
-  ];
-
-  const actionRequired = actionCards.filter((c) => c.unavailable || c.count > 0);
+  /** ACTION REQUIRED = registry cards from the same Bell payload (Σ in-total cards == Bell). */
+  const actionRequiredCount = q.queueCategories.filter(
+    (c) => c.listHref && c.status !== "forbidden" && (c.status === "unavailable" || (c.count ?? 0) > 0)
+  ).length;
   const unavailableLabel = ko ? "확인 불가" : "UNAVAILABLE";
 
   const topSummary = [
@@ -490,10 +307,10 @@ export function AdminActionCenter() {
               fallbackKo: "Bell 합계",
               fallbackEn: "Bell total",
             })}{" "}
-            {q.adminBellCount}
+            {q.queueTotalComplete ? q.adminBellCount : `${q.adminBellCount}+`}
           </p>
         </div>
-        {actionRequired.length === 0 ? (
+        {actionRequiredCount === 0 && q.queueLoadState !== "loading" ? (
           <p
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[13px] text-sam-muted"
             data-aro-ac-action-empty="1"
@@ -503,7 +320,12 @@ export function AdminActionCenter() {
               : "No actionable queues right now (0 · may be healthy)."}
           </p>
         ) : (
-          <CardGrid cards={actionRequired} ko={ko} unavailableLabel={unavailableLabel} />
+          <AdminActionQueueCardGrid
+            categories={q.queueCategories}
+            loading={q.queueLoadState === "loading"}
+            hideZero
+            hrefDecorator={(href) => withAdminReturnTo(href, returnTo)}
+          />
         )}
       </div>
 

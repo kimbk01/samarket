@@ -14,6 +14,7 @@ import {
 } from "@/components/admin/stores/AdminDeliveryAdPartnerConfigForm";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { supportInboxHrefForStore } from "@/lib/support/support-reference-admin-href";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type MembershipRow = {
   id: string;
@@ -131,6 +132,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         setError(j.error ?? "action_failed");
         return;
       }
+      emitAdminQueueChanged("partner_pending");
       await load();
     } finally {
       setBusy(false);

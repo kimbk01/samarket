@@ -243,8 +243,15 @@ export async function fanOutDeliveryAdLifecycleAudit(
     const statusRes = await updateDeliveryAdOperationsCaseStatus(sb, {
       caseId: ensured.case.id,
       status: mapped.caseEffect,
+      // CAS: a concurrent human message (e.g. Owner → WAITING_ADMIN) must not be overwritten.
+      expectedStatus: ensured.case.status,
     });
-    if (!statusRes.ok) {
+    if (!statusRes.ok && statusRes.error === "status_conflict") {
+      console.warn(
+        "[fanOutDeliveryAdLifecycleAudit] case status changed concurrently; lifecycle effect skipped",
+        ensured.case.id
+      );
+    } else if (!statusRes.ok) {
       console.error(
         "[fanOutDeliveryAdLifecycleAudit] case status update failed",
         ensured.case.id,

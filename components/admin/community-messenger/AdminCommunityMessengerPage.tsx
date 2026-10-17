@@ -23,6 +23,7 @@ import type { CommunityMessengerRoomStatus } from "@/lib/community-messenger/typ
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { cmForceEndReasonLabel, useCmAdminLabels } from "./useCmAdminLabels";
 import type { CmAdminTranslate } from "./useCmAdminLabels";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 const ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT = "admin:community-messenger:overview:silent";
 /** Coalesce burst postgres_changes into one overview GET. */
@@ -1486,6 +1487,7 @@ function ReportRow({
         await dibayAlert({ title: json.error ?? t("admin_cm_err_report_action_failed") });
         return;
       }
+      emitAdminQueueChanged("messenger_actionable");
       await onRefresh();
     } finally {}
   };

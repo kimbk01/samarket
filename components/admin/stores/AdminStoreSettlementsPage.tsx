@@ -21,6 +21,7 @@ import {
   type SettlementDailyGroup,
   type SettlementStoreGroup,
 } from "@/lib/admin/settlement-control/aggregate-settlement-ops";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type OpsView = "daily" | "store" | "orders";
 
@@ -131,6 +132,8 @@ export function AdminStoreSettlementsPage() {
   const searchParams = useSearchParams();
   const storeIdFromUrl = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
+  /** Server authority cap (5000) hit — list/aggregates are incomplete; never present as full. */
+  const [truncated, setTruncated] = useState(false);
   const [summary, setSummary] = useState<ServerSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +162,15 @@ export function AdminStoreSettlementsPage() {
   useEffect(() => {
     if (statusFromUrl) setFilterSettlementStatus(statusFromUrl);
   }, [statusFromUrl]);
+
+  /** Admin Action Queue deep-link (SETTLEMENT_ADMIN_ACTIONABLE_STATUSES = unpaid_only). */
+  const unpaidFromUrl = searchParams.get("unpaid_only") === "1";
+  useEffect(() => {
+    if (unpaidFromUrl) {
+      setFilterUnpaidOnly(true);
+      setOpsView("orders");
+    }
+  }, [unpaidFromUrl]);
 
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [opsRow, setOpsRow] = useState<Row | null>(null);
@@ -307,22 +319,39 @@ export function AdminStoreSettlementsPage() {
     setError(null);
     try {
       const qs = buildQuery();
-      const res = await fetch(`/api/admin/store-settlements?${qs}`, { credentials: "include" });
-      const json = await res.json();
-      if (res.status === 403) {
-        setError("forbidden");
-        setRows([]);
-        setSummary(null);
-        return;
+      // Page through the whole matched set (server pages are 500 rows) so the Action Queue
+      // count, the list and the daily/store aggregates all cover the same rows.
+      const all: Row[] = [];
+      let offset = 0;
+      let total = Infinity;
+      let summaryOut: ServerSummary | null = null;
+      let truncatedOut = false;
+      while (all.length < total) {
+        const res = await fetch(`/api/admin/store-settlements?${qs}&offset=${offset}`, { credentials: "include" });
+        const json = await res.json();
+        if (res.status === 403) {
+          setError("forbidden");
+          setRows([]);
+          setSummary(null);
+          return;
+        }
+        if (!json?.ok) {
+          setError(json?.error === "table_missing" ? "table_missing" : json?.error ?? "load_failed");
+          setRows([]);
+          setSummary(null);
+          return;
+        }
+        const page = (json.settlements ?? []) as Row[];
+        all.push(...page);
+        summaryOut = (json.summary as ServerSummary) ?? summaryOut;
+        truncatedOut = Boolean(json.truncated);
+        total = Number(json.total_matched ?? all.length);
+        if (page.length === 0) break;
+        offset += page.length;
       }
-      if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "table_missing" : json?.error ?? "load_failed");
-        setRows([]);
-        setSummary(null);
-        return;
-      }
-      setRows(json.settlements ?? []);
-      setSummary((json.summary as ServerSummary) ?? null);
+      setRows(all);
+      setSummary(summaryOut);
+      setTruncated(truncatedOut);
     } catch {
       setError("network_error");
       setRows([]);
@@ -485,6 +514,7 @@ export function AdminStoreSettlementsPage() {
       }
       setOpsRow(null);
       setOpsError(null);
+      emitAdminQueueChanged("settlements_actionable");
       await load();
     } catch {
       setOpsError(t("common_network_error"));
@@ -536,6 +566,13 @@ export function AdminStoreSettlementsPage() {
               fallbackEn: "Open store financial statement",
             })}
           </Link>
+        </p>
+      ) : null}
+      {truncated ? (
+        <p className="sam-text-body-secondary text-sam-warning" role="status" data-admin-settlement-truncated="1">
+          {ko
+            ? "조회 조건에 맞는 정산이 5,000건을 넘어 일부만 표시됩니다. 기간·매장 필터로 범위를 좁혀 주세요."
+            : "More than 5,000 settlements match; only part is shown. Narrow the period or store filter."}
         </p>
       ) : null}
 

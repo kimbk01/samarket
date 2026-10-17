@@ -65,6 +65,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
   "approve",
@@ -424,6 +425,7 @@ export function AdminDeliveryAdDetailWorkspace({
       setConfirmAction(null);
       setPendingReviewConfirm(null);
       setReason("");
+      emitAdminQueueChanged("delivery_ad_ops");
       if (action === "approve" || action === "reject" || action === "request_changes") {
         setReviewSuccessKind(action);
       }

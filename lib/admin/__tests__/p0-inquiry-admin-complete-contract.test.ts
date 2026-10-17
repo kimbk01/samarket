@@ -11,6 +11,10 @@ import {
 } from "@/lib/admin/admin-inquiry-deeplink";
 import { isAdminSoundEligible } from "@/lib/notifications/admin-notification-sound-policy";
 import { ADMIN_ACTION_QUEUE_META } from "@/lib/admin/admin-action-queue";
+import {
+  ADMIN_ACTION_QUEUE_TOTAL_CATEGORIES,
+  getAdminActionQueueCategoryDef,
+} from "@/lib/admin/admin-action-queue-registry";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -19,8 +23,10 @@ describe("P0-C inquiry domain inventory (source)", () => {
     const queue = read("lib/admin/admin-action-queue.ts");
     expect(queue).toContain('from("support_cases")');
     expect(queue).toContain("support_actionable");
-    expect(queue).toMatch(/member_inquiry_open\s*=\s*0/);
-    expect(queue).toMatch(/platform_inquiry_open\s*=\s*0/);
+    expect(queue).toMatch(/member_inquiry_open: LEGACY_ZERO/);
+    expect(queue).toMatch(/platform_inquiry_open: LEGACY_ZERO/);
+    expect(ADMIN_ACTION_QUEUE_TOTAL_CATEGORIES).not.toContain("member_inquiry_open");
+    expect(ADMIN_ACTION_QUEUE_TOTAL_CATEGORIES).not.toContain("platform_inquiry_open");
   });
 });
 
@@ -106,10 +112,11 @@ describe("P0-C Owner platform reply", () => {
 describe("P0-C sidebar section badge from Q (T1)", () => {
   it("A2-2: cp-support-center uses supportActionableCount", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "cp-support-center"');
-    expect(sidebar).toContain("supportActionableCount");
-    expect(sidebar).not.toContain('item.key === "cp-member-inquiry"');
-    expect(sidebar).not.toContain('item.key === "cp-store-inbox"');
+    expect(sidebar).toContain("sumAdminQueueCountsForMenuKey(item.key, queueCategories)");
+    expect(getAdminActionQueueCategoryDef("support_actionable").sidebarMenuKeys).toEqual(["cp-support-center"]);
+    const registry = read("lib/admin/admin-action-queue-registry.ts");
+    expect(registry).not.toContain('"cp-member-inquiry"');
+    expect(registry).not.toContain('"cp-store-inbox"');
   });
 });
 

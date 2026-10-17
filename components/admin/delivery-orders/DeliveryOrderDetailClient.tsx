@@ -24,6 +24,7 @@ import {
   businessCcBackToStoreHref,
   businessCcPublicStoreHref,
 } from "@/lib/admin-business/business-control-center-links";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type AuditRow = {
   id: string;
@@ -126,6 +127,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
           await dibayAlert({ title: typeof j?.error === "string" ? j.error : `HTTP ${res.status}` });
           return;
         }
+        emitAdminQueueChanged("orders_attention");
         await reload({ silent: true });
         await loadAudit();
       } finally {

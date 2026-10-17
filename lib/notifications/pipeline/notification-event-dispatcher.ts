@@ -1,3 +1,4 @@
+import { isAdminRecipientNotificationType } from "@/lib/admin/notifications/admin-notification-kinds";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CreateNotificationEventInput,
@@ -30,6 +31,10 @@ export async function createAndDispatchNotificationEvent(
     deferPush?: boolean;
   }
 ): Promise<{ ok: true; row: NotificationEventRow; pushDeferred?: boolean } | { ok: false; error: string; duplicate?: boolean }> {
+  // R13: admin-recipient types must go through admin_notifications (never the Member store).
+  if (isAdminRecipientNotificationType(input.type)) {
+    return { ok: false, error: "admin_recipient_type_forbidden" };
+  }
   const created = await createNotificationEvent(sb, input);
   if (!created.ok) return created;
   if (opts?.deferPush) {

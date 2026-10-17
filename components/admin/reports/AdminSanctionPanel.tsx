@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 import type { ReportActionType } from "@/lib/types/daangn";
 import {
-  applyReportActionDaangn,
   looksLikeProfileUserId,
   TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY,
   TRADE_REPORT_CONTENT_ACTIONS,
   TRADE_REPORT_LEDGER_ACTIONS,
-} from "@/lib/admin-reports/applyReportActionDaangn";
+} from "@/lib/admin-reports/trade-report-action-policy";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -34,7 +34,7 @@ interface AdminSanctionPanelProps {
 
 /**
  * Trade report resolve panel.
- * Content writer = applyReportActionDaangn.
+ * Content writer = POST /api/admin/reports/[reportId]/action (server applyReportActionDaangn).
  * Account enforce = MCC only (link).
  * warn/chat_ban = sanctions ledger only (non-enforcing).
  */
@@ -82,14 +82,35 @@ export function AdminSanctionPanel({
       // Still allow writer to resolve author from product/comment when targetUserId empty.
     }
     setLoading(actionType);
-    const res = await applyReportActionDaangn(reportId, actionType, targetUserId, {
-      actionNote: note.trim() || null,
-    });
-    setLoading(null);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/reports/${encodeURIComponent(reportId)}/action`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action_type: actionType,
+          target_user_id: targetUserId,
+          action_note: note.trim() || null,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        warnings?: string[];
+      };
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? `request_failed_${res.status}`);
+        return;
+      }
+      emitAdminQueueChanged("reports");
+      if (json.warnings && json.warnings.length > 0) {
+        setError(json.warnings.join(" · "));
+      }
       onActionSuccess?.();
-    } else {
-      setError(res.error);
+    } catch {
+      setError("network_error");
+    } finally {
+      setLoading(null);
     }
   };
 

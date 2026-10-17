@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { sumAdminQueueCountsForMenuKey } from "@/lib/admin/admin-action-queue-registry";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -19,14 +20,14 @@ describe("Admin count semantic SSOT contract", () => {
 
   it("sidebar binds Trade leaf to tradePromoPending and Growth leaf to feedAdPending", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "ads-applications"');
-    expect(sidebar).toContain("tradePromoPendingCount");
-    expect(sidebar).toContain('item.key === "ads-feed-applications"');
-    expect(sidebar).toContain("feedAdPendingCount");
-    // Regression: Trade leaf must not use Feed count
-    expect(sidebar).not.toMatch(
-      /ads-applications"\s*&&\s*feedAdPendingCount/
-    );
+    expect(sidebar).toContain("sumAdminQueueCountsForMenuKey(item.key, queueCategories)");
+    const cats = [
+      { key: "trade_promo_pending", count: 3, status: "ok", inTotal: true, nextActor: "admin", listHref: "x" },
+      { key: "feed_ad_requests", count: 5, status: "ok", inTotal: true, nextActor: "admin", listHref: "y" },
+    ] as const;
+    // Regression: Trade leaf must not use Feed count (and vice versa)
+    expect(sumAdminQueueCountsForMenuKey("ads-applications", cats)).toBe(3);
+    expect(sumAdminQueueCountsForMenuKey("ads-feed-applications", cats)).toBe(5);
   });
 
   it("Listing report drill targets Trade product report queue", () => {

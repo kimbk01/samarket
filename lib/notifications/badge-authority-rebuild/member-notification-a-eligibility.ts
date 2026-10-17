@@ -1,6 +1,7 @@
 /**
  * Gate 3 Step 4 — Member Notification A eligibility (shared by authority + list).
  */
+import { isAdminRecipientNotificationType } from "@/lib/admin/notifications/admin-notification-kinds";
 import { isNotificationEventBadgeEligible } from "@/lib/notifications/core/notification-event-repository";
 import { resolveNotificationAttentionKey } from "@/lib/notifications/core/notification-attention-key";
 import { isInboxDismissedNotificationEvent } from "@/lib/notifications/inbox-events-merge";
@@ -72,6 +73,8 @@ function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   // Legacy inbox collapsed type ("chat") must not pass as A when event_type was omitted.
   if (type === "chat" || category === "chat") return false;
   if (type === "admin_test" || type === "incoming_call_signal" || type === "incoming_call") return false;
+  // R13: admin-recipient work notices (legacy rows) are never Member A — Bell, list, App Icon.
+  if (isAdminRecipientNotificationType(type)) return false;
 
   // Gate 2 missed: room-bound → B only; orphan → A
   if (isRoomBoundMissedCallEvent(row)) return false;

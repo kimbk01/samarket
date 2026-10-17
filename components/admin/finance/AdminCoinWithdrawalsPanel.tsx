@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { financeStoreHref } from "@/lib/finance/routes";
 import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type WithdrawalRow = {
   id: string;
@@ -151,6 +152,7 @@ export function AdminCoinWithdrawalsPanel() {
         return;
       }
       setPending(null);
+      emitAdminQueueChanged("coin_withdrawals");
       await load();
     } catch {
       setError(

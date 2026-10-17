@@ -3,6 +3,7 @@
  * Summary is computed from the full filtered set on the server (pagination-independent).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { SETTLEMENT_ADMIN_ACTIONABLE_STATUSES } from "@/lib/admin/admin-ops-actionable-status";
 import {
   projectStoreOrderFinancialFact,
   summarizeStoreOrderFinancialFacts,
@@ -114,7 +115,7 @@ export async function loadStoreSettlementFinancialFacts(
     if (filters.settlementStatus) {
       q = q.eq("settlement_status", filters.settlementStatus);
     } else if (filters.unpaidOnly) {
-      q = q.in("settlement_status", ["scheduled", "processing", "held"]);
+      q = q.in("settlement_status", [...SETTLEMENT_ADMIN_ACTIONABLE_STATUSES]);
     } else if (filters.payoutStatus === "paid") {
       q = q.eq("settlement_status", "paid");
     } else if (filters.payoutStatus === "unpaid") {

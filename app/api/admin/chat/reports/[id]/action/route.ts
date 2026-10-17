@@ -42,7 +42,20 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  await sbAny.from("chat_reports").update({ status: "actioned", updated_at: now, assigned_admin_id: adminId }).eq("id", reportId);
+  // CAS: only the first admin closes the report; a concurrent second action gets 409
+  // instead of writing a duplicate moderation_actions row.
+  const { data: closed, error: closeErr } = await sbAny
+    .from("chat_reports")
+    .update({ status: "actioned", updated_at: now, assigned_admin_id: adminId })
+    .eq("id", reportId)
+    .neq("status", "actioned")
+    .select("id");
+  if (closeErr) {
+    return NextResponse.json({ ok: false, error: closeErr.message }, { status: 500 });
+  }
+  if (!closed || closed.length === 0) {
+    return NextResponse.json({ ok: false, error: "already_actioned" }, { status: 409 });
+  }
 
   const targetType = (report as { message_id: string | null }).message_id ? "message" : "room";
   const targetId = (report as { message_id: string | null }).message_id ?? (report as { room_id: string }).room_id;

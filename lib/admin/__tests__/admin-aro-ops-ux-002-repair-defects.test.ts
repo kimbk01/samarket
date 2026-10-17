@@ -54,7 +54,7 @@ describe("ARO-OPS-UX-002 repair — DEF-002 Messenger count", () => {
 describe("ARO-OPS-UX-002 repair — DEF-003 error ≠ zero", () => {
   it("marks real queue errors unavailable instead of silent zero-only path for cash", () => {
     const src = read("lib/admin/admin-action-queue.ts");
-    expect(src).toContain('markUnavailable(\n    "cash_charges"');
+    expect(src).toContain('cash_charges: countOutcome(cashChargesRes, "business_cash_charge_requests")');
     expect(src).toContain("messenger_actionable");
   });
 });
