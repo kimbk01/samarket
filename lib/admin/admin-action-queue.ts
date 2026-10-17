@@ -25,7 +25,6 @@ import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentatio
 import {
   ADMIN_ACTIONABLE_STORE_APPROVAL,
   COMMUNITY_REPORT_ADMIN_ACTIONABLE,
-  SETTLEMENT_ADMIN_ACTIONABLE_STATUSES,
   STORE_ORDER_ADMIN_DECISION_STATUSES,
   STORE_ORDER_CLOSED_STATUSES,
   TRADE_REPORT_ADMIN_ACTIONABLE,
@@ -296,9 +295,9 @@ export async function loadAdminActionQueueCounts(input: {
       : NOT_CONFIGURED,
     storesSb
       ? storesSb
-          .from("store_settlements")
+          .from("store_sale_fee_obligations")
           .select("id", head)
-          .in("settlement_status", [...SETTLEMENT_ADMIN_ACTIONABLE_STATUSES])
+          .eq("adjustment_status", "review_required")
       : NOT_CONFIGURED,
     storesSb
       ? storesSb.from("coin_withdrawal_requests").select("id", head).eq("status", "REQUESTED")
@@ -365,7 +364,7 @@ export async function loadAdminActionQueueCounts(input: {
     store_applications: countOutcome(storeApplicationsRes, "stores"),
     meeting_reports: countOutcome(meetingReportsRes, "meeting_reports"),
     orders_attention: countOutcome(ordersAttentionRes, "store_orders"),
-    settlements_actionable: countOutcome(settlementsRes, "store_settlements"),
+    settlements_actionable: countOutcome(settlementsRes, "store_sale_fee_obligations"),
     coin_withdrawals: countOutcome(coinWithdrawRes, "coin_withdrawal_requests"),
     platform_popup_pending: countOutcome(popupPendingRes, "platform_popup_owner_requests"),
     partner_pending: countOutcome(partnerPendingRes, "delivery_ad_partner_memberships"),

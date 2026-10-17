@@ -51,7 +51,7 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
     expect(hub).toContain("businessCcFinancialStatementHref");
     expect(hub).toContain("data-store-hub-financial-statement");
 
-    const settlements = read("components/admin/stores/AdminStoreSettlementsPage.tsx");
+    const settlements = read("components/admin/stores/AdminStoreCommissionLedgerPage.tsx");
     expect(settlements).toContain("businessCcFinancialStatementHref");
 
     const delivery = read("lib/admin/domain-dashboard/load-delivery-domain-dashboard.ts");

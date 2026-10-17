@@ -56,7 +56,7 @@ describe("ARO-AC-001 Dashboard Action Center", () => {
       expect(ADMIN_ACTION_QUEUE_CARD_CATEGORIES).toContain(key);
     }
     expect(getAdminActionQueueCategoryDef("settlements_actionable").listHref).toBe(
-      "/admin/store-settlements?unpaid_only=1"
+      "/admin/store-settlements?state=review_required"
     );
     expect(getAdminActionQueueCategoryDef("community_reports").listHref).toContain("/admin/community/reports");
     expect(getAdminActionQueueCategoryDef("meeting_reports").listHref).toBe("/admin/philife/meeting-reports");

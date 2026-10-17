@@ -35,7 +35,8 @@ function fakeSb(results: Record<string, Result>, calls: { table: string; ops: st
 }
 
 const PROD_SNAPSHOT: Record<string, Result> = {
-  store_settlements: { count: 501, error: null },
+  // Direct-pay model: admin settlement work = cancel/refund commission reviews only.
+  store_sale_fee_obligations: { count: 1, error: null },
   store_orders: { count: 63, error: null },
   delivery_ad_operations_cases: { count: 8, error: null },
   reports: { count: 2, error: null },
@@ -62,8 +63,8 @@ describe("Admin Action Queue registry contract", () => {
     const calls: { table: string; ops: string[] }[] = [];
     const sb = fakeSb(PROD_SNAPSHOT, calls);
     const r = await loadAdminActionQueueCounts({ storesSb: sb, notesSb: sb });
-    // 501 + 63 + 8 + 2 (messenger 0, store_inquiry 4 is owner work)
-    expect(r.total).toBe(574);
+    // 1 + 63 + 8 + 2 (messenger 0, store_inquiry 4 is owner work)
+    expect(r.total).toBe(74);
     expect(r.total_complete).toBe(true);
     const sum = r.categories
       .filter((c) => c.inTotal && c.status === "ok")
@@ -83,14 +84,18 @@ describe("Admin Action Queue registry contract", () => {
     await loadAdminActionQueueCounts({ storesSb: fakeSb({}, calls), notesSb: fakeSb({}) });
     const orders = calls.find((c) => c.table === "store_orders");
     expect(orders?.ops.some((o) => o.startsWith("or:"))).toBe(true);
-    const settle = calls.find((c) => c.table === "store_settlements");
-    expect(settle?.ops).toContain('in:["settlement_status",["scheduled","processing","held"]]');
+    const settle = calls.find((c) => c.table === "store_sale_fee_obligations");
+    expect(settle?.ops).toContain('eq:["adjustment_status","review_required"]');
+    expect(calls.some((c) => c.table === "store_settlements")).toBe(false);
   });
 
   it("a real error is unavailable (count null, total incomplete) — never a silent 0", async () => {
     const sb = fakeSb({
       ...PROD_SNAPSHOT,
-      store_settlements: { count: null, error: { code: "42501", message: "permission denied for table store_settlements" } },
+      store_sale_fee_obligations: {
+        count: null,
+        error: { code: "42501", message: "permission denied for table store_sale_fee_obligations" },
+      },
       // column drift: names the relation but is NOT a missing relation
       reports: { count: null, error: { code: "42703", message: "column reports.status does not exist" } },
     });
@@ -137,14 +142,14 @@ describe("Admin Action Queue registry contract", () => {
       notesSb: sb,
       permissionScope: { isSuperAdmin: false, permissions: ["business", "reports"] },
     });
-    expect(finance.total).toBe(574);
+    expect(finance.total).toBe(74);
 
     const sup = await loadAdminActionQueueCounts({
       storesSb: sb,
       notesSb: sb,
       permissionScope: { isSuperAdmin: true, permissions: [] },
     });
-    expect(sup.total).toBe(574);
+    expect(sup.total).toBe(74);
   });
 
   it("sidebar badge sums mapped categories; unavailable mapped category flags the menu", () => {

@@ -244,14 +244,6 @@ type ModalState =
   | { kind: "alert_resolve"; eventId: string; orderId?: string; note: string }
   | { kind: "auto_approve"; actionId: string; note: string }
   | { kind: "auto_reject"; actionId: string; note: string }
-  | { kind: "settlement_hold"; settlementId: string; holdReason: string }
-  | {
-      kind: "settlement_paid";
-      settlementId: string;
-      payoutNote: string;
-      payoutMethod: string;
-      payoutReference: string;
-    }
   | { kind: "order_attention"; orderId: string; attention: boolean; adminNote: string }
   | { kind: "rider_release"; orderId: string; failureReason: string }
   | {
@@ -479,24 +471,6 @@ export function AdminOpsConsolePage() {
     });
     const j = (await r.json()) as { ok?: boolean; error?: string };
     if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
-  };
-
-  const patchSettlement = async (settlementId: string, body: Record<string, unknown>) => {
-    const r = await fetch(`/api/admin/store-settlements/${encodeURIComponent(settlementId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const j = (await r.json()) as { ok?: boolean; error?: string };
-    if (!r.ok || !j.ok) {
-      if (j.error === "settlement_coin_recognized") {
-        throw new Error(t("admin_stores_settlements_err_coin_recognized"));
-      }
-      if (j.error === "payout_reference_required") {
-        throw new Error(t("admin_stores_settlements_err_payout_reference_required"));
-      }
-      throw new Error(j.error ?? `HTTP ${r.status}`);
-    }
   };
 
   const patchAdminDelivery = async (orderId: string, body: Record<string, unknown>) => {
@@ -1057,35 +1031,7 @@ export function AdminOpsConsolePage() {
                                 </button>
                               ) : null}
 
-                              {settlementId && tab === "settlements" ? (
-                                <>
-                                  <button
-                                    className={Sam.btn.secondary}
-                                    disabled={!!actionBusyKey || !!modal}
-                                    onClick={() => setModal({ kind: "settlement_hold", settlementId, holdReason: "" })}
-                                    type="button"
-                                  >
-                                    {t("admin_ops_console_btn_hold")}
-                                  </button>
-                                  <button
-                                    className={Sam.btn.primary}
-                                    disabled={!!actionBusyKey || !!modal}
-                                    onClick={() =>
-                                      setModal({
-                                        kind: "settlement_paid",
-                                        settlementId,
-                                        payoutNote: "",
-                                        payoutMethod: "",
-                                        payoutReference: "",
-                                      })
-                                    }
-                                    type="button"
-                                  >
-                                    {t("admin_ops_console_btn_paid")}
-                                  </button>
-                                </>
-                              ) : null}
-
+                              {/* 매장 직접 결제 모델 — 주문별 지급/보류 CTA 없음. 수수료 처리는 /admin/store-settlements. */}
                               {oid && tab === "riders" ? (
                                 <>
                                   <button
@@ -1278,103 +1224,6 @@ export function AdminOpsConsolePage() {
                 type="button"
               >
                 {t("admin_ops_console_btn_reject")}
-              </button>
-            </div>
-          </ModalShell>
-        ) : modal.kind === "settlement_hold" ? (
-          <ModalShell titleKey="admin_ops_console_modal_settlement_hold_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
-            <input
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder={t("admin_ops_console_ph_hold_reason")}
-              value={modal.holdReason}
-              onChange={(e) => setModal({ ...modal, holdReason: e.target.value })}
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                {t("admin_ops_console_btn_cancel")}
-              </button>
-              <button
-                className={Sam.btn.primary}
-                disabled={!!actionBusyKey || safeTrim(modal.holdReason).length === 0}
-                onClick={() =>
-                  void execAction(`settle_hold:${modal.settlementId}`, async () => {
-                    await patchSettlement(modal.settlementId, {
-                      settlement_status: "held",
-                      hold_reason: safeTrim(modal.holdReason).slice(0, 500),
-                    });
-                    setModal(null);
-                    await load();
-                  })
-                }
-                type="button"
-              >
-                {t("admin_ops_console_btn_hold")}
-              </button>
-            </div>
-          </ModalShell>
-        ) : modal.kind === "settlement_paid" ? (
-          <ModalShell titleKey="admin_ops_console_modal_settlement_paid_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
-            <label className="block text-xs font-medium text-sam-muted">
-              {t("admin_stores_settlements_payout_method")}
-              <span className="text-red-600"> *</span>
-            </label>
-            <select
-              className="mt-1 mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              value={modal.payoutMethod}
-              required
-              onChange={(e) => setModal({ ...modal, payoutMethod: e.target.value })}
-            >
-              <option value="">{t("admin_stores_settlements_payout_method_select")}</option>
-              <option value="cash">{t("admin_stores_settlements_payout_method_cash")}</option>
-              <option value="gcash">{t("admin_stores_settlements_payout_method_gcash")}</option>
-              <option value="maya">{t("admin_stores_settlements_payout_method_maya")}</option>
-              <option value="bank">{t("admin_stores_settlements_payout_method_bank")}</option>
-              <option value="other">{t("admin_stores_settlements_payout_method_other")}</option>
-            </select>
-            <label className="block text-xs font-medium text-sam-muted">
-              {t("admin_stores_settlements_payout_reference")}
-              <span className="text-red-600"> *</span>
-            </label>
-            <input
-              className="mt-1 mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              value={modal.payoutReference}
-              required
-              placeholder={t("admin_stores_settlements_payout_ref_ph")}
-              onChange={(e) => setModal({ ...modal, payoutReference: e.target.value })}
-            />
-            <textarea
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder={t("admin_ops_console_ph_payout_note")}
-              value={modal.payoutNote}
-              onChange={(e) => setModal({ ...modal, payoutNote: e.target.value })}
-              rows={4}
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                {t("admin_ops_console_btn_cancel")}
-              </button>
-              <button
-                className={Sam.btn.primary}
-                disabled={
-                  !!actionBusyKey ||
-                  safeTrim(modal.payoutMethod).length === 0 ||
-                  safeTrim(modal.payoutReference).length === 0
-                }
-                onClick={() =>
-                  void execAction(`settle_paid:${modal.settlementId}`, async () => {
-                    await patchSettlement(modal.settlementId, {
-                      settlement_status: "paid",
-                      payout_method: safeTrim(modal.payoutMethod),
-                      payout_reference: safeTrim(modal.payoutReference).slice(0, 500),
-                      payout_note: safeTrim(modal.payoutNote).slice(0, 2000) || null,
-                    });
-                    setModal(null);
-                    await load();
-                  })
-                }
-                type="button"
-              >
-                {t("admin_ops_console_btn_paid")}
               </button>
             </div>
           </ModalShell>

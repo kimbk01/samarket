@@ -55,8 +55,11 @@ describe("three-currency order boundary", () => {
     expect(SRC).not.toContain("charge_store_points_on_order_accept");
   });
 
-  it("calls reverseSaleFeeForOrder on refunded path", () => {
-    expect(SRC).toContain("reverseSaleFeeForOrder");
+  it("charges commission at preparing; cancel/refund only queues a manual review", () => {
+    expect(SRC).toContain("chargeStoreCommissionForOrder(sb, oid, STORE_COMMISSION_CHARGE_STATUS)");
+    expect(SRC).toContain('flagStoreCommissionReview(sb, oid, "refunded")');
+    expect(SRC).toContain('flagStoreCommissionReview(sb, oid, "cancelled")');
+    expect(SRC).not.toContain("reverseSaleFeeForOrder");
   });
 
   it("reads only deployed store_orders revenue columns", () => {

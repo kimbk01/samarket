@@ -14,6 +14,8 @@ import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { isStorePointCommerceBlocked } from "@/lib/stores/store-point-commerce-block";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
 import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
+import { loadStoreCashPosition } from "@/lib/stores/commission/store-commission-writer";
+import { STORE_CASH_INSUFFICIENT_ERROR } from "@/lib/stores/commission/store-commission-contract";
 
 export type StoreOrderLineInput = {
   product_id: string;
@@ -169,6 +171,12 @@ export async function validateStoreOrderCheckout(params: {
 
   if (isStorePointCommerceBlocked(storeRow)) {
     return { ok: false, error: "store_point_blocked", status: 400 };
+  }
+
+  // Early, friendly check — the authority is the DB trigger on store_orders INSERT.
+  const cash = await loadStoreCashPosition(sb, storeId).catch(() => null);
+  if (cash && !cash.orderable) {
+    return { ok: false, error: STORE_CASH_INSUFFICIENT_ERROR, status: 409 };
   }
 
   const storePickupOff = storeRow.pickup_available === false;

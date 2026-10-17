@@ -37,7 +37,11 @@ import {
 import { restoreStockForOrder } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
 import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
-import { reverseSaleFeeForOrder } from "@/lib/currency/sale-fee-writer";
+import {
+  chargeStoreCommissionForOrder,
+  flagStoreCommissionReview,
+} from "@/lib/stores/commission/store-commission-writer";
+import { STORE_COMMISSION_CHARGE_STATUS } from "@/lib/stores/commission/store-commission-contract";
 import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
@@ -344,9 +348,10 @@ export async function applyStoreOrderStatusTransition(
     if (!coinReversal.ok && coinReversal.error !== "rpc_missing") {
       console.error("[applyStoreOrderStatusTransition] coin_reversal", coinReversal.error);
     }
-    const saleFeeReversal = await reverseSaleFeeForOrder(sb, oid);
-    if (!saleFeeReversal.ok && saleFeeReversal.error !== "rpc_missing") {
-      console.error("[applyStoreOrderStatusTransition] sale_fee_reversal", saleFeeReversal.error);
+    // Commission is never auto-reversed — admin decides refund/keep (store-commission-contract).
+    const feeReview = await flagStoreCommissionReview(sb, oid, "refunded");
+    if (!feeReview.ok && feeReview.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] commission_review", feeReview.error);
     }
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,
@@ -355,7 +360,19 @@ export async function applyStoreOrderStatusTransition(
     // Gift reverse already committed inside gift_certificate_refund_order_atomic.
   }
 
+  if (nextStatus === "preparing") {
+    // 조리 시작 = commission charge point (Cash debit; shortfall → outstanding).
+    const charge = await chargeStoreCommissionForOrder(sb, oid, STORE_COMMISSION_CHARGE_STATUS);
+    if (!charge.ok) {
+      console.error("[applyStoreOrderStatusTransition] commission_charge", charge.error);
+    }
+  }
+
   if (nextStatus === "cancelled") {
+    const feeReview = await flagStoreCommissionReview(sb, oid, "cancelled");
+    if (!feeReview.ok && feeReview.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] commission_review", feeReview.error);
+    }
     await cancelScheduledSettlementForOrder(sb, oid);
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,

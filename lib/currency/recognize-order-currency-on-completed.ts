@@ -1,28 +1,29 @@
 /**
- * CUT D / F-04 — order completed currency recognition (Coin gross + Cash sale fee).
- * Atomic boundary: recognize_order_currency_on_completed (single DB TX).
- * Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
+ * Order completed — money recognition.
+ *
+ * 1. Commission: safety-net charge with the canonical key `sale_fee:order:{id}`.
+ *    The real charge point is `preparing` (조리 시작); this only charges orders that reached
+ *    `completed` without passing through it. Never double-charges (idempotent per order).
+ * 2. Coin: mint ONLY the platform-held portion of the sale (gift certificate redemption +
+ *    platform-funded coupon). `payment_amount` is paid by the buyer directly to the store
+ *    (COD / store GCash / bank transfer) — minting Coin for it would pay the store twice.
+ *    Gated by DIBAY_CURRENCY_SALE_RECOGNITION_LIVE until Production cutover.
+ *
+ * Contract: lib/stores/commission/store-commission-contract.ts
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCurrencySaleRecognitionLive } from "@/lib/currency/currency-cutover-flags";
-import {
-  saleCoinIdempotencyKeyForOrder,
-  saleFeeIdempotencyKeyForOrder,
-  confirmedSaleRevenuePhp,
-} from "@/lib/stores/confirmed-sale-revenue";
-import {
-  calculateOrderCommission,
-  resolveEffectiveStoreFeePolicy,
-} from "@/lib/stores/store-fee-policy-resolve";
+import { saleCoinIdempotencyKeyForOrder } from "@/lib/stores/confirmed-sale-revenue";
+import { chargeStoreCommissionForOrder } from "@/lib/stores/commission/store-commission-writer";
 
-export const RECOGNIZE_ORDER_CURRENCY_ON_COMPLETED_RPC =
-  "recognize_order_currency_on_completed" as const;
+export const CREDIT_COIN_FROM_CONFIRMED_SALE_RPC = "credit_coin_from_confirmed_sale" as const;
 
 export type RecognizeOrderCurrencyResult =
   | {
       ok: true;
       skipped?: boolean;
-      confirmedRevenuePhp?: number;
+      /** Platform-held sale amount minted as Coin (PHP). */
+      platformHeldPhp?: number;
       coinCredited?: boolean;
       feeCharged?: boolean;
       coinIdempotent?: boolean;
@@ -30,109 +31,82 @@ export type RecognizeOrderCurrencyResult =
     }
   | { ok: false; error: string };
 
+function money(n: unknown): number {
+  const v = Math.trunc(Number(n) || 0);
+  return Number.isFinite(v) ? Math.max(0, v) : 0;
+}
+
+/** Sale amount the platform actually holds for the store (owed to the store as Coin). */
+export function platformHeldSaleAmountPhp(order: {
+  gift_redemption_amount?: unknown;
+  platform_funded_amount?: unknown;
+}): number {
+  return money(order.gift_redemption_amount) + money(order.platform_funded_amount);
+}
+
 export async function recognizeOrderCurrencyOnCompleted(
   sb: SupabaseClient,
   orderId: string
 ): Promise<RecognizeOrderCurrencyResult> {
-  if (!isCurrencySaleRecognitionLive()) {
-    return { ok: true, skipped: true };
-  }
-
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id" };
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select(
-      "id, store_id, order_status, payment_amount, gift_redemption_amount, platform_funded_amount, store_funded_amount, discount_amount, delivery_fee_amount"
-    )
+    .select("id, store_id, order_status, gift_redemption_amount, platform_funded_amount")
     .eq("id", oid)
     .maybeSingle();
 
   if (oErr || !order) return { ok: false, error: "order_not_found" };
   if ((order.order_status as string) !== "completed") return { ok: true, skipped: true };
 
-  const confirmed = confirmedSaleRevenuePhp(order);
-  if (confirmed <= 0) return { ok: true, skipped: true, confirmedRevenuePhp: 0 };
-
   const sid = String(order.store_id ?? "").trim();
   if (!sid) return { ok: false, error: "missing_store_id" };
 
-  const { data: settlement } = await sb
-    .from("store_settlements")
-    .select("id, applied_fee_policy_snapshot, platform_fee_percent, fixed_fee_amount, delivery_income_amount")
-    .eq("order_id", oid)
-    .maybeSingle();
-
-  const settlementId = settlement?.id ? String(settlement.id) : null;
-
-  let feePercent = 0;
-  let fixedFee = 0;
-  let deliveryFeeMode: string | null = "none";
-  let deliveryFeePercent: number | string | null = 0;
-
-  const snap = settlement?.applied_fee_policy_snapshot as Record<string, unknown> | null;
-  if (snap && typeof snap === "object" && settlement) {
-    feePercent = Number(snap.fee_percent ?? snap.feePercent ?? settlement.platform_fee_percent) || 0;
-    fixedFee = Math.trunc(Number(snap.fixed_fee ?? snap.fixedFee ?? settlement.fixed_fee_amount) || 0);
-    deliveryFeeMode = String(snap.delivery_fee_mode ?? snap.deliveryFeeMode ?? "none");
-    const dfp = snap.delivery_fee_percent ?? snap.deliveryFeePercent ?? 0;
-    deliveryFeePercent = typeof dfp === "number" || typeof dfp === "string" ? dfp : 0;
-  } else {
-    const policy = await resolveEffectiveStoreFeePolicy(sb, { storeId: sid });
-    feePercent = policy.feePercent;
-    fixedFee = policy.fixedFee;
-    deliveryFeeMode = policy.deliveryFeeMode;
-    deliveryFeePercent = policy.deliveryFeePercent;
+  const fee = await chargeStoreCommissionForOrder(sb, oid, "completed");
+  if (!fee.ok) {
+    console.error("[recognizeOrderCurrencyOnCompleted] commission_charge", fee.error);
   }
 
-  const deliveryFeeAmount = Math.trunc(Number(order.delivery_fee_amount) || 0);
-  const feeCalc = calculateOrderCommission({
-    commissionBaseAmount: confirmed,
-    deliveryFeeAmount,
-    feePercent,
-    fixedFee,
-    deliveryFeeMode,
-    deliveryFeePercent,
-  });
-  const feeDuePhp = feeCalc.totalPlatformFeeAmount + feeCalc.deliveryIncomeAmount;
+  if (!isCurrencySaleRecognitionLive()) {
+    return fee.ok
+      ? { ok: true, skipped: true, feeCharged: true, feeIdempotent: fee.idempotent === true }
+      : { ok: false, error: fee.error };
+  }
 
-  const { data, error } = await sb.rpc(RECOGNIZE_ORDER_CURRENCY_ON_COMPLETED_RPC, {
+  const platformHeldPhp = platformHeldSaleAmountPhp(order);
+  if (platformHeldPhp <= 0) {
+    return fee.ok
+      ? { ok: true, platformHeldPhp: 0, feeCharged: true, feeIdempotent: fee.idempotent === true }
+      : { ok: false, error: fee.error };
+  }
+
+  const { data: settlement } = await sb.from("store_settlements").select("id").eq("order_id", oid).maybeSingle();
+
+  const { data, error } = await sb.rpc(CREDIT_COIN_FROM_CONFIRMED_SALE_RPC, {
     p_store_id: sid,
     p_order_id: oid,
-    p_settlement_id: settlementId,
-    p_confirmed_revenue_php: confirmed,
-    p_fee_due_php: feeDuePhp,
-    p_coin_idempotency_key: saleCoinIdempotencyKeyForOrder(oid),
-    p_fee_idempotency_key: saleFeeIdempotencyKeyForOrder(oid),
+    p_settlement_id: settlement?.id ? String(settlement.id) : null,
+    p_amount: platformHeldPhp,
+    p_idempotency_key: saleCoinIdempotencyKeyForOrder(oid),
   });
-
   if (error) {
     if (/does not exist|Could not find the function/i.test(error.message)) {
       return { ok: false, error: "rpc_missing" };
     }
-    // Fee RAISE maps to PostgREST error — treat as failed atomic recognition (no half-commit).
-    console.error("[recognizeOrderCurrencyOnCompleted] atomic", error.message);
+    console.error("[recognizeOrderCurrencyOnCompleted] coin", error.message);
     return { ok: false, error: error.message };
   }
-
   const row = (data ?? {}) as Record<string, unknown>;
-  if (row.ok === false) {
-    return { ok: false, error: String(row.error ?? "recognize_failed") };
-  }
-  if (row.skipped === true) {
-    return { ok: true, skipped: true, confirmedRevenuePhp: confirmed };
-  }
-
-  const coin = (row.coin ?? {}) as Record<string, unknown>;
-  const fee = (row.fee ?? {}) as Record<string, unknown>;
+  if (row.ok === false) return { ok: false, error: String(row.error ?? "coin_credit_failed") };
+  if (!fee.ok) return { ok: false, error: fee.error };
 
   return {
     ok: true,
-    confirmedRevenuePhp: confirmed,
-    coinCredited: coin.ok === true || row.ok === true,
-    feeCharged: fee.ok === true || fee.skipped === true,
-    coinIdempotent: row.coin_idempotent === true || coin.idempotent === true,
-    feeIdempotent: row.fee_idempotent === true || fee.idempotent === true,
+    platformHeldPhp,
+    coinCredited: true,
+    coinIdempotent: row.idempotent === true,
+    feeCharged: true,
+    feeIdempotent: fee.idempotent === true,
   };
 }

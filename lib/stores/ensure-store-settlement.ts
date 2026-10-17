@@ -7,6 +7,7 @@ import {
   resolveEffectiveStoreFeePolicy,
 } from "@/lib/stores/store-fee-policy-resolve";
 import { confirmedSaleRevenuePhp } from "@/lib/stores/confirmed-sale-revenue";
+import { loadFrozenCommissionPolicyForOrder } from "@/lib/stores/commission/store-commission-writer";
 
 /**
  * 결제 완료 주문에 대해 정산 1건을 만든다. order_id UNIQUE로 멱등.
@@ -70,7 +71,9 @@ export async function ensureStoreSettlementForCompletedOrder(
     return;
   }
 
-  const policy = await resolveEffectiveStoreFeePolicy(sb, { storeId: sid });
+  // Commission charged at 조리 시작 froze its policy — the settlement snapshot must match it.
+  const frozen = await loadFrozenCommissionPolicyForOrder(sb, oid);
+  const policy = frozen ?? (await resolveEffectiveStoreFeePolicy(sb, { storeId: sid }));
   if (isMissingStoreFeePolicy(policy)) {
     console.error("[ensureStoreSettlementForCompletedOrder] missing_policy — settlement not created", {
       orderId: oid,
