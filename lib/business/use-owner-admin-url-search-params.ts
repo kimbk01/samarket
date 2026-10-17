@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useMemo, useSyncExternalStore } from "react";
+import { useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 
 /**
  * Owner Admin layout-safe URL search.
@@ -9,8 +9,10 @@ import { useMemo, useSyncExternalStore } from "react";
  * `useSearchParams()` in `OwnerHubRuntimeProvider` / `BusinessAdminShell` (layout tree)
  * suspends above page Suspense → hard nav can paint only `Loading…` with no `data-biz` shell.
  *
- * Same approach as messenger room URL reads: `window.location.search` + pathname,
- * plus popstate / `owner-admin-url-search` for `history.replaceState` query updates.
+ * `useSyncExternalStore` over `window.location.search` (server snapshot `""`), notified by
+ * popstate / `owner-admin-url-search` for `history.replaceState` query updates.
+ * Render reads only the store value — reading `location.search` directly during render
+ * made the hydration render differ from SSR (e.g. settlements guide vs ledger).
  *
  * @see lib/community-messenger/room/use-messenger-room-url-search-params.ts
  * @see lib/business/owner-orders-url.ts
@@ -48,12 +50,14 @@ export function useOwnerAdminUrlSearchParams(): URLSearchParams {
     getOwnerAdminUrlSearchSnapshot,
     getOwnerAdminUrlSearchServerSnapshot
   );
+  // Next soft navigations update location.search without popstate — re-sync on pathname tick.
+  // Layout effect runs after Next's history update (insertion effect) in the same commit.
+  useLayoutEffect(() => {
+    if (window.location.search !== search) notifyOwnerAdminUrlSearchChanged();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pathname tick only
+  }, [pathname]);
   return useMemo(() => {
-    void pathname;
-    // Next soft navigations update location.search without popstate — re-read on pathname tick.
-    const live =
-      typeof window !== "undefined" ? window.location.search : search;
-    const raw = live.startsWith("?") ? live.slice(1) : live;
+    const raw = search.startsWith("?") ? search.slice(1) : search;
     return new URLSearchParams(raw);
-  }, [pathname, search]);
+  }, [search]);
 }
