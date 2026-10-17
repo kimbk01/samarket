@@ -69,8 +69,8 @@ describe("buildMessengerPhotoSaveMenu", () => {
   const album = [`${P}/a.jpg`, `${P}/b.jpg`, `${P}/c.jpg`, `${P}/d.jpg`, `${P}/e.jpg`];
   const kinds = (rows: ReturnType<typeof buildMessengerPhotoSaveMenu>) => rows.map((r) => r.kind);
 
-  it("single photo → 「사진 저장」 (native, web, update_required)", () => {
-    for (const mode of ["native", "web", "update_required"] as const) {
+  it("single photo → 「사진 저장」 (native, web, browser)", () => {
+    for (const mode of ["native", "web", "browser"] as const) {
       const rows = buildMessengerPhotoSaveMenu({ slots: [`${P}/a.jpg`], mode, albumIndex: 0 });
       expect(rows).toEqual([{ key: "photo-save", kind: "single", urls: [`${P}/a.jpg`] }]);
     }
@@ -90,12 +90,9 @@ describe("buildMessengerPhotoSaveMenu", () => {
   it("out of range index is ignored", () => {
     expect(kinds(buildMessengerPhotoSaveMenu({ slots: album, mode: "native", albumIndex: 9 }))).toEqual(["all", "select"]);
   });
-  it("old app (update_required): same menu as native — Android/iOS identical", () => {
-    for (const albumIndex of [1, undefined]) {
-      expect(buildMessengerPhotoSaveMenu({ slots: album, mode: "update_required", albumIndex })).toEqual(
-        buildMessengerPhotoSaveMenu({ slots: album, mode: "native", albumIndex }),
-      );
-    }
+  it("browser mode (old app): one photo at a time only", () => {
+    expect(kinds(buildMessengerPhotoSaveMenu({ slots: album, mode: "browser", albumIndex: 1 }))).toEqual(["this"]);
+    expect(buildMessengerPhotoSaveMenu({ slots: album, mode: "browser" })).toEqual([]);
   });
   it("unsupported binary / nothing savable → no rows", () => {
     expect(buildMessengerPhotoSaveMenu({ slots: album, mode: "none", albumIndex: 1 })).toEqual([]);

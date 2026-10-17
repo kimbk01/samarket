@@ -183,10 +183,31 @@ describe("messenger-photo-library: Capacitor 8 header-based save support (D-1)",
     expect(nativePromise).not.toHaveBeenCalled();
   });
 
-  it("binary without the plugin header at all → false", async () => {
-    installBridge({ headers: [{ name: "App", methods: [] }] });
-    const { probeMessengerNativeImageSaveSupport } = await loadModule();
-    await expect(probeMessengerNativeImageSaveSupport()).resolves.toBe(false);
+  it("plugin missing from headers + native never answers → timeout → false", async () => {
+    vi.useFakeTimers();
+    const nativePromise = installBridge({ headers: [{ name: "App", methods: [] }] });
+    const mod = await loadModule();
+    const p = mod.probeMessengerNativeImageSaveSupport();
+    await vi.advanceTimersByTimeAsync(mod.MESSENGER_SAVE_CAPABILITIES_TIMEOUT_MS + 10);
+    await expect(p).resolves.toBe(false);
+    expect(nativePromise).toHaveBeenCalledWith("MessengerPhotoLibrary", "getSaveCapabilities", {});
+  });
+
+  it("plugin missing from headers but registered natively → asks native → true, saveImages goes native", async () => {
+    installBridge({
+      headers: [{ name: "App", methods: [] }],
+      impl: {
+        getSaveCapabilities: async () => ({ saveImages: true, version: 2 }),
+        saveImages: async () => ({ saved: [0], failed: [], permission: "granted" }),
+      },
+    });
+    const mod = await loadModule();
+    await expect(mod.probeMessengerNativeImageSaveSupport()).resolves.toBe(true);
+    await expect(mod.saveImagesToNativePhotoLibrary(["https://a/1.jpg"])).resolves.toEqual({
+      saved: [0],
+      failed: [],
+      permission: "granted",
+    });
   });
 
   it("new binary header with saveImages → true without a round trip", async () => {

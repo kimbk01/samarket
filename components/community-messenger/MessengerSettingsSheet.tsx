@@ -93,7 +93,7 @@ export function MessengerSettingsSheet({
   }, []);
   const autoSaveNativeSupported = photoSaveDiag ? photoSaveDiag.mode === "native" : null;
   const photoSaveDiagText =
-    photoSaveDiag && (photoSaveDiag.mode === "native" || photoSaveDiag.mode === "update_required")
+    photoSaveDiag && photoSaveDiag.headerState
       ? [
           t(photoSaveDiag.mode === "native" ? "cm_ui_photo_save_diag_native" : "cm_ui_photo_save_diag_update_required"),
           t("cm_ui_photo_save_diag_app", {

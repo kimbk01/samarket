@@ -137,6 +137,13 @@ export function readMessengerPhotoLibraryHeaderState(): MessengerPhotoLibraryHea
     : "no_plugin";
 }
 
+/** 헤더 목록에 MessengerPhotoLibrary 자체가 있는가 — null = 헤더 미주입. */
+function messengerPhotoLibraryPluginHeaderPresent(): boolean | null {
+  const headers = readCapacitorWindow()?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return null;
+  return headers.some((h) => h && typeof h === "object" && h.name === MESSENGER_PHOTO_LIBRARY_PLUGIN_ID);
+}
+
 class MessengerPhotoLibraryTimeoutError extends Error {
   constructor(method: string) {
     super(`MessengerPhotoLibrary.${method} timed out`);
@@ -164,8 +171,11 @@ function invokeMessengerPhotoLibraryPlugin<T>(
   method: MessengerPhotoLibraryMethod,
   options?: Record<string, unknown>,
 ): Promise<T> {
-  /** 헤더가 "메서드 없음"을 확정하면 즉시 reject — raw nativePromise 는 미지원 메서드에서 영원히 pending. */
-  if (messengerPhotoLibraryHeaderHasMethod(method) === false) {
+  /**
+   * 플러그인 헤더가 **있는데** 메서드가 없으면(구버전 바이너리) 즉시 reject — raw nativePromise 는 미지원 메서드에서
+   * 영원히 pending. 플러그인 헤더 자체가 없으면 판정 근거가 아니므로 네이티브로 보낸다(호출부 타임아웃이 상한).
+   */
+  if (messengerPhotoLibraryPluginHeaderPresent() === true && messengerPhotoLibraryHeaderHasMethod(method) === false) {
     return Promise.reject(new Error(`MessengerPhotoLibrary.${method} is not implemented in this binary`));
   }
   const nativePromise = readCapacitorWindow()?.Capacitor?.nativePromise;
@@ -346,8 +356,9 @@ let nativeSaveSupportProbe: Promise<boolean> | null = null;
 
 /**
  * 이 앱 바이너리가 사진첩 저장(saveImages)을 지원하는가 — 항상 유한 시간 안에 결정된다.
- * 1) 플러그인 헤더에 `saveImages` 가 있으면 즉시 true, 플러그인/메서드가 없으면 즉시 false (동기).
- * 2) 헤더가 없으면(드묾) 브리지 준비 후 getSaveCapabilities 를 타임아웃 레이스로 확인.
+ * 1) 헤더에 MessengerPhotoLibrary 가 있으면 그 메서드 목록으로 즉시 판정(`saveImages` 유무).
+ * 2) 헤더 미주입이거나 헤더에 플러그인이 없으면 브리지 준비 후 getSaveCapabilities 를 타임아웃 레이스로 직접 확인
+ *    (헤더 누락만으로 새 바이너리를 "구버전"으로 오판하지 않는다).
  * 구버전 바이너리에서 무반응 저장 버튼을 만들지 않고, 자동 저장 큐도 막히지 않는다.
  */
 export function probeMessengerNativeImageSaveSupport(): Promise<boolean> {
@@ -358,14 +369,20 @@ export function probeMessengerNativeImageSaveSupport(): Promise<boolean> {
     return v;
   };
   if (!isCapacitorNativePlatform()) return Promise.resolve(decide(false));
-  const fromHeader = messengerPhotoLibraryHeaderHasMethod("saveImages");
-  if (fromHeader !== null) return Promise.resolve(decide(fromHeader));
+  /** 플러그인 헤더가 있으면 메서드 목록이 확정 근거(구버전 = saveImages 없음). */
+  if (messengerPhotoLibraryPluginHeaderPresent() === true) {
+    return Promise.resolve(decide(messengerPhotoLibraryHeaderHasMethod("saveImages") === true));
+  }
+  /**
+   * 헤더 미주입 또는 헤더 목록에 플러그인이 없음 — 헤더만으로 "미지원" 확정하지 않는다.
+   * 네이티브에 등록된 플러그인은 헤더와 무관하게 nativePromise 로 응답하므로 getSaveCapabilities 를 직접 물어본다.
+   */
   const probe = (async (): Promise<boolean> => {
-    if (!isMessengerPhotoLibraryPluginRegistered()) return decide(false);
     /** 브리지 미준비 → 이번 호출만 false, 캐시 안 함(다음 호출에서 재시도). */
     if (!(await ensureMessengerPhotoLibraryBridgeReady())) return false;
-    const headerAfterReady = messengerPhotoLibraryHeaderHasMethod("saveImages");
-    if (headerAfterReady !== null) return decide(headerAfterReady);
+    if (messengerPhotoLibraryPluginHeaderPresent() === true) {
+      return decide(messengerPhotoLibraryHeaderHasMethod("saveImages") === true);
+    }
     try {
       const caps = await withTimeout(
         invokeMessengerPhotoLibraryPlugin<{ saveImages?: boolean }>("getSaveCapabilities"),

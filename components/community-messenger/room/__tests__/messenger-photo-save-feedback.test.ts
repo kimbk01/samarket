@@ -2,17 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * 사진 저장 결과 스낵바 — 「다시 시도」는 실패한 장만, 권한 거부는 「설정 열기」,
- * 구버전 앱(update_required)은 화면 이동 없이 업데이트 안내 + 직접 누르는 「원본 열기」.
+ * 구버전 앱(browser)은 업데이트 팝업 없이 바로 원본 hand-off.
  */
-let mode: "native" | "update_required" | "web" | "none" = "native";
-let ios = false;
+let mode: "native" | "browser" | "web" | "none" = "native";
 const nativeCalls: string[][] = [];
 let nativeImpl: (urls: string[]) => { saved: number[]; failed: { index: number; reason: string }[]; permission: string };
 const openSettings = vi.fn(async () => true);
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
-  isCapacitorNativePlatform: () => mode === "native" || mode === "update_required",
-  hasIosCapacitorBridge: () => ios,
+  isCapacitorNativePlatform: () => mode === "native" || mode === "browser",
+  hasIosCapacitorBridge: () => false,
 }));
 vi.mock("@/lib/community-messenger/attachment/messenger-photo-library", () => ({
   probeMessengerNativeImageSaveSupport: vi.fn(async () => mode === "native"),
@@ -146,31 +145,17 @@ describe("messenger photo save feedback", () => {
     expect(lib.openMessengerAppSettings).toHaveBeenCalled();
   });
 
-  it("old iOS app (update_required): no navigation — update notice; 「원본 열기」 only on tap", async () => {
-    mode = "update_required";
-    ios = true;
-    (globalThis as unknown as { window: unknown }).window = {
-      Capacitor: { isPluginAvailable: (name: string) => name === "Browser" },
-    };
-    try {
-      const dl = await import("@/lib/community-messenger/messenger-file-download");
-      const { saveMessengerPhotosWithFeedback } = await import(
-        "@/components/community-messenger/room/messenger-photo-save-feedback"
-      );
-      const { notified, deps } = setup();
-      const openOriginal = vi.fn(() => true);
-      const r = await saveMessengerPhotosWithFeedback([A], { ...deps, openOriginal });
-      expect(r?.updateRequired).toBe(true);
-      expect(dl.openMessengerFileInNativeShellIfNeeded).not.toHaveBeenCalled();
-      expect(openOriginal).not.toHaveBeenCalled();
-      expect(notified[0]!.message).toBe("cm_ui_photo_save_update_required");
-      expect(notified[0]!.opts?.variant).toBe("error");
-      expect(notified[0]!.opts?.action?.label).toBe("cm_ui_photo_save_open_original");
-      notified[0]!.opts!.action!.onPress();
-      expect(openOriginal).toHaveBeenCalledWith(A);
-    } finally {
-      ios = false;
-      delete (globalThis as unknown as { window?: unknown }).window;
-    }
+  it("old app (browser mode): no update popup — hands off directly, guidance notice (no false success)", async () => {
+    mode = "browser";
+    const dl = await import("@/lib/community-messenger/messenger-file-download");
+    const { saveMessengerPhotosWithFeedback } = await import(
+      "@/components/community-messenger/room/messenger-photo-save-feedback"
+    );
+    const { notified, deps } = setup();
+    const r = await saveMessengerPhotosWithFeedback([A], deps);
+    expect(r?.handedOff).toBe("android");
+    expect(dl.openMessengerFileInNativeShellIfNeeded).toHaveBeenCalledTimes(1);
+    expect(notified[0]!.message).toBe("cm_ui_photo_save_browser_android");
+    expect(notified[0]!.opts?.variant).not.toBe("success");
   });
 });
