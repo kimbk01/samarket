@@ -100,6 +100,8 @@ export function MessengerSettingsSheet({
             version: photoSaveDiag.appVersion ?? "?",
             build: photoSaveDiag.appBuild ?? "?",
           }),
+          /** 판정 근거 코드 — 실기기 캡처로 구버전/플러그인 누락/브리지 이상을 구분한다. */
+          `[${photoSaveDiag.headerState ?? "?"}]`,
         ].join(" · ")
       : null;
   return (

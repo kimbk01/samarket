@@ -5,13 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * 구버전 앱(update_required)은 화면 이동 없이 업데이트 안내 + 직접 누르는 「원본 열기」.
  */
 let mode: "native" | "update_required" | "web" | "none" = "native";
+let ios = false;
 const nativeCalls: string[][] = [];
 let nativeImpl: (urls: string[]) => { saved: number[]; failed: { index: number; reason: string }[]; permission: string };
 const openSettings = vi.fn(async () => true);
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: () => mode === "native" || mode === "update_required",
-  hasIosCapacitorBridge: () => false,
+  hasIosCapacitorBridge: () => ios,
 }));
 vi.mock("@/lib/community-messenger/attachment/messenger-photo-library", () => ({
   probeMessengerNativeImageSaveSupport: vi.fn(async () => mode === "native"),
@@ -145,8 +146,9 @@ describe("messenger photo save feedback", () => {
     expect(lib.openMessengerAppSettings).toHaveBeenCalled();
   });
 
-  it("old app (update_required): no navigation — update notice; 「원본 열기」 only on tap", async () => {
+  it("old iOS app (update_required): no navigation — update notice; 「원본 열기」 only on tap", async () => {
     mode = "update_required";
+    ios = true;
     (globalThis as unknown as { window: unknown }).window = {
       Capacitor: { isPluginAvailable: (name: string) => name === "Browser" },
     };
@@ -167,6 +169,7 @@ describe("messenger photo save feedback", () => {
       notified[0]!.opts!.action!.onPress();
       expect(openOriginal).toHaveBeenCalledWith(A);
     } finally {
+      ios = false;
       delete (globalThis as unknown as { window?: unknown }).window;
     }
   });

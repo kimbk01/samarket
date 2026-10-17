@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * 구버전 앱 바이너리(설치된 앱에 saveImages 없음) — Android·iOS 동일:
- * 저장 UI 는 유지(14d528dd 회귀 방지)하되 저장을 눌러도 화면 이동(Safari/Custom Tabs) 없이 업데이트 안내만.
- * 「원본 열기」는 사용자가 안내에서 직접 누를 때만.
+ * 구버전 앱 바이너리(설치된 앱에 saveImages 없음) — 저장 UI 는 유지(14d528dd 회귀 방지).
+ * Android: 1장은 기존처럼 OS 다운로드로 바로 넘긴다(되던 동작 보존).
+ * iOS: Safari 자동 이동 없이 업데이트 안내 — 「원본 열기」는 사용자가 직접 누를 때만.
  */
 const opened: string[] = [];
 let ios = false;
@@ -52,19 +52,28 @@ describe("messenger image save — old binary (update_required)", () => {
     expect(await resolveMessengerImageSaveMode()).toBe("update_required");
   });
 
-  for (const platform of ["android", "ios"] as const) {
-    it(`${platform}: save never navigates — update notice with manual 「원본 열기」`, async () => {
-      setBrowserPlugin(true);
-      ios = platform === "ios";
-      const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
-      const outcome = await m.saveMessengerImages([URL1]);
-      expect(opened).toEqual([]);
-      expect(outcome).toMatchObject({ mode: "update_required", savedCount: 0, updateRequired: true, manualOpenUrl: URL1 });
-      const notice = m.messengerImageSaveNotice(outcome);
-      expect(notice).toMatchObject({ key: "cm_ui_photo_save_update_required", action: "open_original" });
-      expect(notice.variant).not.toBe("success");
-    });
-  }
+  it("android: single photo → OS download hand-off as before (guidance, never success)", async () => {
+    setBrowserPlugin(true);
+    const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
+    const outcome = await m.saveMessengerImages([URL1]);
+    expect(opened).toEqual([`${URL1}?download=a.jpg`]);
+    expect(outcome).toMatchObject({ mode: "update_required", savedCount: 0, failedCount: 0, handedOff: "android" });
+    const notice = m.messengerImageSaveNotice(outcome);
+    expect(notice.key).toBe("cm_ui_photo_save_browser_android");
+    expect(notice.variant).not.toBe("success");
+  });
+
+  it("ios: save never navigates — update notice with manual 「원본 열기」", async () => {
+    setBrowserPlugin(true);
+    ios = true;
+    const m = await import("@/lib/community-messenger/attachment/messenger-image-save");
+    const outcome = await m.saveMessengerImages([URL1]);
+    expect(opened).toEqual([]);
+    expect(outcome).toMatchObject({ mode: "update_required", savedCount: 0, updateRequired: true, manualOpenUrl: URL1 });
+    const notice = m.messengerImageSaveNotice(outcome);
+    expect(notice).toMatchObject({ key: "cm_ui_photo_save_update_required", action: "open_original" });
+    expect(notice.variant).not.toBe("success");
+  });
 
   it("manual open: iOS inline original, Android attachment download", async () => {
     const m = await import("@/lib/community-messenger/attachment/messenger-image-save");

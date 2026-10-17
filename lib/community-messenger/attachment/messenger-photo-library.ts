@@ -120,6 +120,23 @@ export function messengerPhotoLibraryHeaderHasMethod(method: string): boolean | 
   return methods.some((m) => m && typeof m === "object" && m.name === method);
 }
 
+/**
+ * 실기기 진단용 — 이 바이너리의 MessengerPhotoLibrary 헤더 상태(설정 화면에 코드로 표시).
+ * - save_ready: 헤더에 saveImages 있음 · no_save_method: 플러그인은 있으나 saveImages 없음(구버전)
+ * - no_plugin: 헤더 목록에 플러그인 자체가 없음 · no_headers: PluginHeaders 미주입(브리지 이상)
+ */
+export type MessengerPhotoLibraryHeaderState = "save_ready" | "no_save_method" | "no_plugin" | "no_headers";
+
+export function readMessengerPhotoLibraryHeaderState(): MessengerPhotoLibraryHeaderState {
+  const headers = readCapacitorWindow()?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return "no_headers";
+  const has = messengerPhotoLibraryHeaderHasMethod("saveImages");
+  if (has) return "save_ready";
+  return headers.some((h) => h && typeof h === "object" && h.name === MESSENGER_PHOTO_LIBRARY_PLUGIN_ID)
+    ? "no_save_method"
+    : "no_plugin";
+}
+
 class MessengerPhotoLibraryTimeoutError extends Error {
   constructor(method: string) {
     super(`MessengerPhotoLibrary.${method} timed out`);
