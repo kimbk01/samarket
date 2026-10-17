@@ -71,6 +71,14 @@ const NativeBadgeSyncLazy = dynamic(
   () => import("@/components/push/NativeBadgeSync").then((mod) => mod.NativeBadgeSync),
   { ssr: false }
 );
+/** Android Play In-App Updates — Capacitor Android only; no-op on iOS/web. */
+const AndroidPlayInAppUpdateHostLazy = dynamic(
+  () =>
+    import("@/components/platform/AndroidPlayInAppUpdateHost").then(
+      (mod) => mod.AndroidPlayInAppUpdateHost
+    ),
+  { ssr: false }
+);
 
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
 
@@ -194,6 +202,7 @@ export function MainAppProviderTree({
           <PushRouteListener />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
+          <AndroidPlayInAppUpdateHostLazy />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <WriteCategoryProvider>
