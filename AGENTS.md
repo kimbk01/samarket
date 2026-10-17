@@ -10,6 +10,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 구조 확인: `npm run verify:routes`
 - **매장 사장님 운영 UI(섹션 카드·하단 저장/취소)** 참조·동일 적용: `.cursor/rules/samarket-store-admin-ui-shell.mdc` — 사용자가 **「매장 어드민 UI 적용」** 등으로 지시하면 해당 규칙을 읽고 `OwnerStoreProfileForm` / `OwnerStoreBasicInfoForm` 과 같은 셸을 맞춘다.
 
+## 네이티브 빌드·배포 규정 (필수 — 모든 작업)
+
+- 단일 정의: **`docs/native-build-release-process.md`** (Cursor: `.cursor/rules/dibay-native-build-release-process.mdc`).
+- **보고 첫 줄** = `npm run verify:native-version-bump` 의 `[배포 구분]` (웹만 → 배포 후 앱 재시작 / 네이티브 → 재빌드·재설치 필요 + 목표 버전).
+- **네이티브 변경**(`android/**`·`ios/**`·`capacitor.config.ts`·Capacitor 의존성)은 같은 PR 에서 Android `versionCode`·iOS `CURRENT_PROJECT_VERSION`(4곳) 증가 — CI `native-version-bump` 잡이 강제.
+- **Mac 빌드는 `npm run native:prepare` 성공 후에만** Run. 오래된 폴더·미커밋 변경·로컬 버전 수정으로 빌드 금지.
+- **설치 확인은 작업자가 `public.user_devices.app_version`(`버전 (빌드)`)으로 직접** 한다. "폰에서 안 된다" 보고 시 코드 수정 전에 설치 버전부터 확인(구 바이너리면 코드 수정 금지).
+
 ## 거래 글쓰기(임시저장·이어쓰기)
 
 - **분기 단일화**: `trade` 타입 카테고리 작성은 **`components/write/trade/TradeCategoryWriteForm.tsx`** 만 수정하면 `/write`·거래 시트·상품 수정이 함께 따라간다. 신규 전용 폼·저장소·`discardTradeWriteStashedDraft` 등록 절차는 `.cursor/rules/trade-write-draft-continuity.mdc` 참고.

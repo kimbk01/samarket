@@ -68,12 +68,20 @@ function projectEligibleAfterDeviceRegisterSuccess(
 let nativePushOrchestrationInflight: Promise<RegisterResult> | null = null;
 let nativePushOrchestrationKey = "";
 
+/**
+ * `user_devices.app_version` — 설치된 바이너리를 "버전 (빌드)" 로 기록한다(예: "1.2 (4)").
+ * 같은 버전에서 빌드만 올린 네이티브 수정도 설치 여부를 서버에서 구분하기 위함
+ * (docs/native-build-release-process.md §5). 빌드 번호가 없으면 버전만.
+ */
 async function getAppVersion(): Promise<string | undefined> {
   if (!isCapacitorNativePlatform()) return undefined;
   try {
     const { App } = await import("@capacitor/app");
     const info = await App.getInfo();
-    return info.version?.trim() || undefined;
+    const version = info.version?.trim();
+    if (!version) return undefined;
+    const build = info.build?.trim();
+    return build ? `${version} (${build})` : version;
   } catch {
     return undefined;
   }

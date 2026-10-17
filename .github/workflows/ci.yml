@@ -37,3 +37,20 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         run: npm run ci
 
+
+  # 네이티브(android/·ios/·Capacitor 설정·Capacitor 의존성) 변경 시 빌드 번호 증가 강제.
+  # 설치된 앱이 새 빌드인지 user_devices.app_version 으로 구분하기 위한 규정 — docs/native-build-release-process.md §2
+  native-version-bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (full history for merge-base)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Verify native build number bump
+        run: npm run verify:native-version-bump
