@@ -58,13 +58,24 @@ revoke all on public.admin_notifications from authenticated;
 grant select on public.admin_notifications to authenticated;
 grant all on public.admin_notifications to service_role;
 
-drop policy if exists admin_notifications_select_own_active_admin on public.admin_notifications;
-create policy admin_notifications_select_own_active_admin on public.admin_notifications
-  for select to authenticated
-  using (
-    recipient_admin_id = auth.uid()
-    and internal.is_platform_admin(auth.uid())
-  );
+-- Re-run safe without DROP (non-destructive): create only when missing.
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+     where schemaname = 'public'
+       and tablename = 'admin_notifications'
+       and policyname = 'admin_notifications_select_own_active_admin'
+  ) then
+    create policy admin_notifications_select_own_active_admin on public.admin_notifications
+      for select to authenticated
+      using (
+        recipient_admin_id = auth.uid()
+        and internal.is_platform_admin(auth.uid())
+      );
+  end if;
+end;
+$$;
 -- No INSERT / UPDATE / DELETE policies: client writes are impossible; server uses service role.
 
 -- 90-day archive (manual / scheduler-invoked; scheduling is a separate approval).

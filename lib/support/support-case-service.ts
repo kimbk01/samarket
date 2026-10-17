@@ -710,6 +710,23 @@ export async function postRequesterSupportMessage(
         type: "support_customer_replied",
         error: notified.error,
       });
+    } else if (notified.skippedRecipients > 0) {
+      // Self-heal: the assignee lost admin authority but the revoke-time release did not run
+      // (or failed). Return the case to the unassigned queue so it is not stranded.
+      const { data: released } = await sb
+        .from("support_cases")
+        .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
+        .eq("id", gate.case.id)
+        .eq("assigned_admin_id", assignee)
+        .select("id");
+      if (released && released.length > 0) {
+        await recordCaseEvent(sb, {
+          caseId: gate.case.id,
+          eventType: "assignee_released_admin_revoked",
+          actorUserId: null,
+          payload: { previous_assignee: assignee, trigger: "customer_reply" },
+        });
+      }
     }
   }
 

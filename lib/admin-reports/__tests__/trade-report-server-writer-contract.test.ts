@@ -88,12 +88,13 @@ describe("Trade report server writer (R6)", () => {
     expect(panel).not.toContain("applyReportActionDaangn(");
   });
 
-  it("RLS migration aligns admin reads to admin_memberships and drops client admin writes", () => {
+  it("RLS migration aligns admin reads to admin_memberships and pins client admin writes to false (non-destructive)", () => {
     const mig = read("supabase/migrations/20270507120000_trade_reports_admin_rls_membership_ssot.sql");
-    expect(mig).toContain("drop policy if exists reports_update_admin");
-    expect(mig).toContain("drop policy if exists report_actions_insert_admin");
-    expect(mig).toContain("drop policy if exists sanctions_insert_admin");
+    expect(mig).toContain("alter policy reports_update_admin on public.reports using (false) with check (false)");
+    expect(mig).toContain("alter policy report_actions_insert_admin on public.report_actions with check (false)");
+    expect(mig).toContain("alter policy sanctions_insert_admin on public.sanctions with check (false)");
     expect(mig).toContain("internal.is_platform_admin(auth.uid())");
+    expect(mig).not.toMatch(/^\s*drop\s/im);
     expect(mig).not.toMatch(/p\.role\s*=\s*any/i);
   });
 });

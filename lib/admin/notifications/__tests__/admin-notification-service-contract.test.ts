@@ -225,6 +225,7 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(mig).not.toMatch(/create policy[^;]*for (insert|update|delete)/i);
     expect(mig).toContain("admin_notifications_archive_expired");
     expect(mig).not.toMatch(/delete from public\.admin_notifications/i);
+    expect(mig).not.toMatch(/^\s*drop\s/im); // re-run safe without destructive DDL
   });
 
   it("support_customer_replied uses the admin store, never the member pipeline", () => {
@@ -232,6 +233,8 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(svc).toMatch(/createAdminNotification\(sb, \{\s*recipientAdminIds: \[assignee\],\s*kind: "support_customer_replied"/);
     expect(svc).not.toMatch(/notifySupportEvent\(sb, \{[^}]*type: "support_customer_replied"/);
     expect(svc).toContain('"assignee_not_active_admin"');
+    // self-heal when the assignee lost authority and the revoke-time release did not happen
+    expect(svc).toMatch(/notified\.skippedRecipients > 0[\s\S]{0,400}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
   });
 
   it("Bell (Action Queue) and inbox (notifications) never read each other's source", () => {
