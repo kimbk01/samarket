@@ -175,9 +175,9 @@ const builtAab = path.join(
 if (!fs.existsSync(builtAab)) fail(`missing built AAB at ${builtAab}`);
 
 run(
-  "verify-android-aab-capacitor-server-url",
+  "verify-android-aab-server-url",
   "node",
-  ["scripts/verify-android-aab-capacitor-server-url.mjs", builtAab]
+  ["scripts/verify-android-aab-server-url.mjs", builtAab]
 );
 
 const signedOk = jarsignerVerify(builtAab);

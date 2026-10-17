@@ -196,7 +196,7 @@
     "verify:notification-permission-ssot-contract": "node scripts/verify-notification-permission-ssot-contract.mjs",
     "verify:notification-sound-ssot-contract": "node scripts/verify-notification-sound-ssot-contract.mjs",
     "verify:android-vercel-capacitor-contract": "node scripts/verify-android-vercel-capacitor-contract.mjs",
-    "verify:android-aab-capacitor-server-url": "node scripts/verify-android-aab-capacitor-server-url.mjs",
+    "verify:android-aab-server-url": "node scripts/verify-android-aab-server-url.mjs",
     "android:play:release:aab": "node scripts/build-android-play-release-aab.mjs",
     "verify:ios-kakao-key-config": "node scripts/verify-ios-kakao-key-config.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",
