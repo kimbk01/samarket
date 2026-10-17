@@ -1,7 +1,4 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import { noteMessengerRoomTimelineGapFromWindows } from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
-import { getMessengerRealtimeRoomMessages } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
@@ -170,19 +167,6 @@ function applyPrimedTimelineSeed(
   const roomId = primed.room?.id?.trim() ?? "";
   if (msgs.length === 0 && roomId === "") return false;
   setRoomMessages((prev) => {
-    /**
-     * 기기에 남은 창(이전 방문·Realtime 스토어)과 받은 최신 창이 겹치지 않으면 합집합 사이가 비어 있다 —
-     * 이전 페이지 로드(가장 오래된 id 기준)도 `after=`(가장 최신 id 기준)도 못 메우는 영구 중간 갭.
-     * 갭 앵커를 등록하면 열린 방 catch-up 이 그 앵커부터 1회 메운다(이벤트 기반). 등록은 멱등.
-     */
-    if (roomId && msgs.length > 0) {
-      const local = mergeRoomMessages(getMessengerRealtimeRoomMessages(roomId), prev);
-      if (local.length > 0) {
-        queueMicrotask(() => {
-          noteMessengerRoomTimelineGapFromWindows(roomId, local, msgs);
-        });
-      }
-    }
     const next = mergePrimedTimelineSeedIntoExisting({
       roomId,
       prev,
