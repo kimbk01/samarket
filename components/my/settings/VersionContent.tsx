@@ -10,6 +10,7 @@ import {
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
 import {
+  addAndroidPlayInstallStatusListener,
   getAndroidInstalledVersion,
   getAndroidPlayUpdateInfo,
   getCapacitorAppInstalledVersion,
@@ -25,7 +26,62 @@ import {
   resolveAndroidVersionFreshness,
   type AndroidPlayUpdateInfo,
   type AndroidVersionFreshness,
+  type PlayInstallStatus,
 } from "@/lib/platform/android-play-in-app-update-policy";
+
+type InstallProgress = {
+  installStatus: PlayInstallStatus;
+  bytesDownloaded?: number;
+  totalBytesToDownload?: number;
+};
+
+function installProgressLabel(
+  progress: InstallProgress | null,
+  safeT: (key: MessageKey, fallbacks?: string | SafeTranslateOptions) => string
+): string | null {
+  if (!progress) return null;
+  const status = progress.installStatus;
+  if (status === "DOWNLOADING" || status === "PENDING") {
+    const downloaded = progress.bytesDownloaded;
+    const total = progress.totalBytesToDownload;
+    if (
+      typeof downloaded === "number" &&
+      typeof total === "number" &&
+      total > 0 &&
+      Number.isFinite(downloaded) &&
+      Number.isFinite(total)
+    ) {
+      const pct = Math.min(100, Math.max(0, Math.floor((downloaded / total) * 100)));
+      return safeT("settings_version_download_progress", {
+        fallbackKo: `다운로드 중… ${pct}%`,
+        fallbackEn: `Downloading… ${pct}%`,
+      });
+    }
+    return safeT("settings_version_downloading", {
+      fallbackKo: "업데이트 다운로드 중…",
+      fallbackEn: "Downloading update…",
+    });
+  }
+  if (status === "DOWNLOADED") {
+    return safeT("settings_version_install_ready_desc", {
+      fallbackKo: "다운로드가 완료되었습니다. 지금 설치하면 앱이 다시 시작됩니다.",
+      fallbackEn: "Download finished. Installing now will restart the app.",
+    });
+  }
+  if (status === "INSTALLING") {
+    return safeT("settings_version_installing", {
+      fallbackKo: "업데이트 설치 중…",
+      fallbackEn: "Installing update…",
+    });
+  }
+  if (status === "FAILED" || status === "CANCELED") {
+    return safeT("settings_version_start_failed", {
+      fallbackKo: "업데이트를 시작하지 못했습니다",
+      fallbackEn: "Could not start the update",
+    });
+  }
+  return null;
+}
 
 function freshnessLabel(
   freshness: AndroidVersionFreshness,
@@ -74,6 +130,7 @@ export function VersionContent() {
   const [updateInfo, setUpdateInfo] = useState<AndroidPlayUpdateInfo | null>(null);
   const [freshness, setFreshness] = useState<AndroidVersionFreshness>("unknown");
   const [webFallbackNote, setWebFallbackNote] = useState<string | null>(null);
+  const [installProgress, setInstallProgress] = useState<InstallProgress | null>(null);
 
   const loadInstalled = useCallback(async () => {
     setLoading(true);
@@ -281,9 +338,37 @@ export function VersionContent() {
     void checkForUpdate();
   }, [isAndroidNative, loading, checkForUpdate]);
 
+  useEffect(() => {
+    if (!isAndroidNative) return;
+    let removed = false;
+    let handle: { remove: () => Promise<void> } | null = null;
+    void (async () => {
+      const h = await addAndroidPlayInstallStatusListener((event) => {
+        if (removed) return;
+        setInstallProgress(event);
+        if (event.installStatus === "DOWNLOADED" || event.installStatus === "FAILED") {
+          void checkForUpdate();
+        }
+      });
+      if (removed) {
+        void h?.remove();
+        return;
+      }
+      handle = h;
+    })();
+    return () => {
+      removed = true;
+      void handle?.remove();
+    };
+  }, [isAndroidNative, checkForUpdate]);
+
   const showUpdateButton =
     isAndroidNative &&
-    (freshness === "update_available" || updateInfo?.installStatus === "DOWNLOADED");
+    (freshness === "update_available" ||
+      updateInfo?.installStatus === "DOWNLOADED" ||
+      installProgress?.installStatus === "DOWNLOADED");
+
+  const progressText = installProgressLabel(installProgress, safeT);
 
   return (
     <div className="space-y-3">
@@ -312,6 +397,12 @@ export function VersionContent() {
       >
         {error || webFallbackNote || freshnessLabel(freshness, safeT)}
       </p>
+
+      {progressText ? (
+        <p className="sam-text-body-secondary text-sam-muted" aria-live="polite">
+          {progressText}
+        </p>
+      ) : null}
 
       {isAndroidNative ? (
         <div className="flex flex-wrap gap-2 pt-1">
