@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>DIBAY 버전 정보 CTA — 시각 격리</title>
+    <style>
+      :root {
+        --sam-primary: #0b421a;
+        --sam-primary-active: color-mix(in srgb, #0b421a 78%, #000000);
+        --sam-primary-soft: color-mix(in srgb, #0b421a 9%, #fffcfc);
+        --sam-primary-border: color-mix(in srgb, #0b421a 22%, #ffffff);
+        --sam-text-on-primary: #fffcfc;
+        --sam-button-min-height: 46px;
+        --sam-tap-min: 44px;
+        --sam-fg: #1a1a1a;
+        --sam-muted: #6b7280;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #e8e8e8;
+        color: var(--sam-fg);
+      }
+      .phone {
+        width: 390px;
+        margin: 24px auto;
+        background: #fff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        height: 52px;
+        padding: 0 12px;
+        border-bottom: 1px solid #f0f0f0;
+        font-weight: 700;
+        font-size: 17px;
+      }
+      .header span { flex: 1; text-align: center; margin-right: 28px; }
+      .body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 520px;
+        padding: 32px 20px 40px;
+        text-align: center;
+      }
+      .logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 28px;
+        background: var(--sam-primary);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+      }
+      .version { font-size: 17px; margin: 0; }
+      .status { margin: 12px 0 0; min-height: 1.5rem; color: var(--sam-primary); font-size: 15px; }
+      .status.muted { color: var(--sam-muted); }
+      .status.danger { color: #b42318; }
+      .version-update-cta {
+        margin-top: 40px;
+        width: 100%;
+        max-width: 20rem;
+        min-height: max(var(--sam-button-min-height), var(--sam-tap-min));
+        border: 0;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        transition: background-color 150ms ease, color 150ms ease;
+        touch-action: manipulation;
+      }
+      .version-update-cta[data-cta-visual="disabled"],
+      .version-update-cta[data-cta-visual="disabled"]:disabled {
+        background: #d1d5db;
+        color: #6b7280;
+        opacity: 1;
+        cursor: not-allowed;
+      }
+      .version-update-cta[data-cta-visual="active"] {
+        background: var(--sam-primary);
+        color: var(--sam-text-on-primary);
+      }
+      .version-update-cta[data-cta-visual="active"]:not(:disabled):active {
+        background: var(--sam-primary-active);
+      }
+      .version-update-cta[data-cta-visual="busy"],
+      .version-update-cta[data-cta-visual="busy"]:disabled {
+        background: var(--sam-primary);
+        color: var(--sam-text-on-primary);
+        opacity: 1;
+        cursor: wait;
+      }
+      .version-update-cta[data-cta-visual="retry"] {
+        background: var(--sam-primary-soft);
+        color: var(--sam-primary);
+        border: 1px solid var(--sam-primary-border);
+      }
+      .label {
+        text-align: center;
+        font-size: 12px;
+        color: #666;
+        margin: 8px 0 0;
+      }
+      .grid { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; padding: 16px; }
+    </style>
+  </head>
+  <body>
+    <p class="label">격리 시각 검증 — Production 웹뷰와 동일 CTA 색상 계약 (다운로드 E2E = NOT_PROVEN)</p>
+    <div class="grid">
+      <div class="phone" data-state="latest">
+        <div class="header">←<span>버전 정보</span></div>
+        <div class="body">
+          <div class="logo">DIBAY</div>
+          <p class="version">버전 1.2.1</p>
+          <p class="status">최신 버전입니다.</p>
+          <button type="button" class="version-update-cta" data-cta-visual="disabled" disabled aria-disabled="true">업데이트</button>
+        </div>
+      </div>
+      <div class="phone" data-state="update_available">
+        <div class="header">←<span>버전 정보</span></div>
+        <div class="body">
+          <div class="logo">DIBAY</div>
+          <p class="version">현재 버전 1.2.1</p>
+          <p class="status">새 버전이 있습니다.</p>
+          <button type="button" class="version-update-cta" data-cta-visual="active" id="activeBtn">지금 업데이트</button>
+        </div>
+      </div>
+      <div class="phone" data-state="downloading">
+        <div class="header">←<span>버전 정보</span></div>
+        <div class="body">
+          <div class="logo">DIBAY</div>
+          <p class="version">현재 버전 1.2.1</p>
+          <p class="status muted">업데이트 다운로드 중… 42%</p>
+          <button type="button" class="version-update-cta" data-cta-visual="busy" disabled aria-busy="true">업데이트 다운로드 중…</button>
+        </div>
+      </div>
+      <div class="phone" data-state="check_failed">
+        <div class="header">←<span>버전 정보</span></div>
+        <div class="body">
+          <div class="logo">DIBAY</div>
+          <p class="version">버전 1.2.1</p>
+          <p class="status danger">업데이트 정보를 확인하지 못했습니다.</p>
+          <button type="button" class="version-update-cta" data-cta-visual="retry">다시 확인</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const btn = document.getElementById("activeBtn");
+      btn.addEventListener("pointerdown", () => { btn.dataset.pressed = "1"; });
+      btn.addEventListener("pointerup", () => { delete btn.dataset.pressed; });
+      btn.addEventListener("pointerleave", () => { delete btn.dataset.pressed; });
+    </script>
+  </body>
+</html>
