@@ -5,9 +5,10 @@
  *
  * - 앱(Capacitor): 네이티브 `MessengerPhotoLibrary.saveImages` → iOS Photo Library / Android MediaStore.
  *   Android·iOS 모두 같은 메뉴·같은 결과 문구, 저장 후 현재 화면 유지. 웹 다운로드·외부 브라우저로 대체하지 않는다.
- * - 구버전 앱 바이너리(saveImages 없음): mode "update_required" — 메뉴는 동일하게 보이되 저장을 누르면
- *   화면 이동 없이 「앱 업데이트 필요」 안내만 낸다(조용한 Safari/Custom Tabs 이동 금지).
- *   사용자가 안내의 「원본 열기」를 직접 누를 때만(1장, Browser 플러그인 있을 때) 원본을 인앱 브라우저로 연다.
+ * - 구버전 앱 바이너리(saveImages 없음): mode "update_required".
+ *   · Android: 사진 1장은 이전부터 쓰던 OS 다운로드(갤러리 「Download」 앨범)로 바로 넘긴다(기존 동작 유지).
+ *   · iOS: Safari 로 자동 이동하지 않고 「앱 업데이트 필요」 안내 — 사용자가 「원본 열기」를 직접 누를 때만 연다.
+ *   · 여러 장: 양쪽 모두 업데이트 안내(인앱 브라우저는 한 번에 한 장만 열 수 있음).
  * - 일반 웹 브라우저: 사진첩이 없으므로 `saveChatImagesToDevice`(공유 시트 1회/순차 다운로드)로 저장.
  *   공유 시트 취소는 실패가 아니라 `cancelled` 로 구분한다(다운로드로 대체하지 않음).
  */
@@ -19,7 +20,9 @@ import {
 import { saveChatImagesToDevice } from "@/lib/chats/save-chat-image";
 import {
   probeMessengerNativeImageSaveSupport,
+  readMessengerPhotoLibraryHeaderState,
   saveImagesToNativePhotoLibrary,
+  type MessengerPhotoLibraryHeaderState,
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
@@ -35,6 +38,8 @@ export type MessengerImageSaveOutcome = {
   cancelled?: boolean;
   /** 구버전 앱: 저장하지 않고 업데이트 안내. `manualOpenUrl` 이 있으면 안내에 「원본 열기」를 붙인다. */
   updateRequired?: boolean;
+  /** 구버전 Android: 원본을 OS 다운로드로 넘김(완료 여부는 OS 가 처리 — 성공 아님). */
+  handedOff?: "android";
   manualOpenUrl?: string;
   /**
    * 저장하지 못한 원본 URL(요청 순서 유지) — 「다시 시도」는 이 목록만 재요청한다.
@@ -116,8 +121,11 @@ export async function saveMessengerImages(urls: string[]): Promise<MessengerImag
   if (list.length === 0 || mode === "none") return empty;
   if (mode === "update_required") {
     /** 화면 이동 없음 — 업데이트 안내만. 1장일 때만 사용자가 고를 수 있는 「원본 열기」를 둔다. */
-    const manual = list.length === 1 && isBrowserPluginAvailable() ? { manualOpenUrl: list[0]! } : {};
-    return { ...empty, updateRequired: true, ...manual };
+    const single = list.length === 1 && isBrowserPluginAvailable();
+    if (single && !hasIosCapacitorBridge() && openMessengerImageOriginalForManualSave(list[0]!)) {
+      return { ...empty, failedCount: 0, handedOff: "android" };
+    }
+    return { ...empty, updateRequired: true, ...(single ? { manualOpenUrl: list[0]! } : {}) };
   }
   if (mode === "native") {
     const r = await saveImagesToNativePhotoLibrary(list);
@@ -161,7 +169,8 @@ export type MessengerImageSaveNotice = {
     | "cm_ui_photo_save_permission_denied"
     | "cm_ui_photo_save_unsupported"
     | "cm_ui_photo_save_cancelled"
-    | "cm_ui_photo_save_update_required";
+    | "cm_ui_photo_save_update_required"
+    | "cm_ui_photo_save_browser_android";
   params?: Record<string, number>;
   variant: "success" | "error" | "default";
   /**
@@ -175,6 +184,7 @@ export type MessengerImageSaveNotice = {
 /** 성공·실패·일부 실패·권한 거부를 정확히 구분한 결과 문구 키. */
 export function messengerImageSaveNotice(outcome: MessengerImageSaveOutcome): MessengerImageSaveNotice {
   if (outcome.mode === "none") return { key: "cm_ui_photo_save_unsupported", variant: "error" };
+  if (outcome.handedOff === "android") return { key: "cm_ui_photo_save_browser_android", variant: "default" };
   if (outcome.updateRequired) {
     return {
       key: "cm_ui_photo_save_update_required",
@@ -207,20 +217,25 @@ export type MessengerPhotoSaveDiagnostics = {
   /** 설치된 앱 바이너리 버전·빌드(Capacitor App.getInfo) — 웹·조회 실패 시 null. */
   appVersion: string | null;
   appBuild: string | null;
+  /** 앱 셸일 때 MessengerPhotoLibrary 헤더 판정 근거 — 웹은 null. */
+  headerState: MessengerPhotoLibraryHeaderState | null;
 };
 
 /** 설정 화면 진단 줄 — 설치된 앱이 사진첩 바로 저장(saveImages)을 갖췄는지 기기에서 바로 확인한다. */
 export async function getMessengerPhotoSaveDiagnostics(): Promise<MessengerPhotoSaveDiagnostics> {
   const mode = await resolveMessengerImageSaveMode();
-  if (!isCapacitorNativePlatform()) return { mode, appVersion: null, appBuild: null };
+  if (!isCapacitorNativePlatform()) return { mode, appVersion: null, appBuild: null, headerState: null };
+  const headerState = readMessengerPhotoLibraryHeaderState();
   try {
     const { App } = await import("@capacitor/app");
     const info = await Promise.race([
       App.getInfo(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_000)),
     ]);
-    return { mode, appVersion: info?.version?.trim() || null, appBuild: info?.build?.trim() || null };
+    const diag = { mode, appVersion: info?.version?.trim() || null, appBuild: info?.build?.trim() || null, headerState };
+    console.info(`[DIBAY_PHOTO_SAVE] diag ${JSON.stringify(diag)}`);
+    return diag;
   } catch {
-    return { mode, appVersion: null, appBuild: null };
+    return { mode, appVersion: null, appBuild: null, headerState };
   }
 }
