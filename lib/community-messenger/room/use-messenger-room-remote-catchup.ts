@@ -9,9 +9,14 @@ import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/mess
 import {
   buildCommunityMessengerMessagesAfterPath,
   buildCommunityMessengerMessagesLatestPath,
+  clearMessengerRoomTimelineGap,
   MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES,
+  messengerRoomTimelineGapKey,
+  noteMessengerRoomTimelineGap,
+  peekMessengerRoomTimelineGap,
   runMessengerRoomCatchUpSingleFlight,
   selectNewestConfirmedMessageAnchor,
+  subscribeMessengerRoomTimelineGap,
 } from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
 import { isOpenRoomTerminalCatchUpPendingForRoom } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 
@@ -71,8 +76,13 @@ export type MessengerRoomRemoteCatchupDeps = {
 
 export type MessengerRoomRemoteCatchupApi = {
   catchUpNewerMessages: () => Promise<boolean>;
-  /** 결과 구분형 — "새 메시지 없음"(none)과 실패를 가른다. */
-  catchUpNewerMessagesOutcome: () => Promise<MessengerRoomCatchUpOutcome>;
+  /**
+   * 결과 구분형 — "새 메시지 없음"(none)과 실패를 가른다.
+   * `anchorId` 를 주면 최신 확정 행 대신 그 앵커부터 `after=` (타임라인 갭 메우기).
+   */
+  catchUpNewerMessagesOutcome: (opts?: { anchorId?: string | null }) => Promise<MessengerRoomCatchUpOutcome>;
+  /** 등록된 타임라인 갭(`noteMessengerRoomTimelineGap`)을 그 앵커부터 메운다 — 없으면 "none". */
+  catchUpTimelineGap: (roomKey?: string) => Promise<MessengerRoomCatchUpOutcome>;
   reconcileLatestMessages: () => Promise<boolean>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
@@ -211,18 +221,16 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
 
   const reconcileLatestMessages = async (): Promise<boolean> => (await reconcileLatestOutcome()) === "merged";
 
-  const catchUpNewerMessagesOutcome = (): Promise<MessengerRoomCatchUpOutcome> => {
-    const id = resolveRoomId();
-    if (!id) return Promise.resolve("failed");
-    const confirmed = roomMessagesRef.current.filter(
-      (m) => !m.pending && !isUnusableAfterAnchor(id, String(m.id ?? "").trim())
-    );
-    const anchorId = confirmed.length > 0 ? selectNewestConfirmedMessageAnchor(confirmed) : null;
-    if (!anchorId) {
-      /** 빈 방 첫 메시지(비친구 첫 통화 기록 등) — 앵커가 없으면 최신 페이지로 받는다. */
-      return reconcileLatestOutcome();
-    }
-    return runOutcomeSingleFlight(id, anchorId, async () => {
+  /** `after=` 페이지 루프 결과 상세 — 갭 소비자가 완료 여부·진행 지점을 안다(리더 실행일 때만 ran). */
+  type AfterPagesDetail = { ran: boolean; complete: boolean; lastCursor: string; anchorUnusable: boolean };
+
+  const runAfterPagesFromAnchor = (
+    id: string,
+    anchorId: string,
+    detail: AfterPagesDetail
+  ): Promise<MessengerRoomCatchUpOutcome> =>
+    runOutcomeSingleFlight(id, anchorId, async () => {
+      detail.ran = true;
       let cursor = anchorId;
       let mergedAny = false;
       for (let page = 0; page < MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES; page++) {
@@ -244,17 +252,25 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
              * 앵커를 제외 목록에 넣고 최신 창 정합으로 대체(refresh 루프 금지).
              */
             markUnusableAfterAnchor(id, cursor);
+            detail.anchorUnusable = true;
             return reconcileLatestOutcome();
           }
           if (!res.ok || !json.ok || !Array.isArray(json.messages)) {
             return mergedAny ? "merged" : "failed";
           }
-          if (json.messages.length === 0) break;
+          if (json.messages.length === 0) {
+            detail.complete = true;
+            break;
+          }
           const incoming = json.messages;
           mergeCatchUpRows(id, incoming);
           mergedAny = true;
           const nextCursor = selectNewestConfirmedMessageAnchor(incoming);
-          if (!json.hasMore || !nextCursor || nextCursor === cursor) break;
+          if (nextCursor) detail.lastCursor = nextCursor;
+          if (!json.hasMore || !nextCursor || nextCursor === cursor) {
+            detail.complete = !json.hasMore;
+            break;
+          }
           cursor = nextCursor;
         } catch {
           return mergedAny ? "merged" : "failed";
@@ -262,6 +278,56 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
       }
       return mergedAny ? "merged" : "none";
     });
+
+  const catchUpNewerMessagesOutcome = (opts?: { anchorId?: string | null }): Promise<MessengerRoomCatchUpOutcome> => {
+    const id = resolveRoomId();
+    if (!id) return Promise.resolve("failed");
+    const requested = typeof opts?.anchorId === "string" ? opts.anchorId.trim() : "";
+    let anchorId: string | null =
+      requested && isUuidLikeString(requested) && !isUnusableAfterAnchor(id, requested) ? requested : null;
+    if (!anchorId) {
+      const confirmed = roomMessagesRef.current.filter(
+        (m) => !m.pending && !isUnusableAfterAnchor(id, String(m.id ?? "").trim())
+      );
+      anchorId = confirmed.length > 0 ? selectNewestConfirmedMessageAnchor(confirmed) : null;
+    }
+    if (!anchorId) {
+      /** 빈 방 첫 메시지(비친구 첫 통화 기록 등) — 앵커가 없으면 최신 페이지로 받는다. */
+      return reconcileLatestOutcome();
+    }
+    return runAfterPagesFromAnchor(id, anchorId, { ran: false, complete: false, lastCursor: "", anchorUnusable: false });
+  };
+
+  /** 이 방으로 등록된 갭 키들(라우트·스트림·스냅샷 id 가 다를 수 있다). */
+  const gapKeysForRoom = (): string[] =>
+    [...new Set([resolveRoomId(), streamRoomId, roomId].map((v) => messengerRoomTimelineGapKey(v ?? "")).filter(Boolean))];
+
+  /**
+   * 등록된 타임라인 갭을 그 앵커부터 메운다.
+   * - 끝까지 받음(hasMore false·빈 페이지) → 갭 해제
+   * - 페이지 상한에서 멈춤 → 진행 지점으로 갭 전진(다음 이벤트가 이어 받음, 폴링 아님)
+   * - 앵커가 viewer 기준 404(숨김/삭제) → 갭 해제(최신 창 정합으로 대체됨)
+   * - 429/실패 → 갭 유지(다음 bump·재입장 때 재시도)
+   */
+  const catchUpTimelineGap = async (roomKey?: string): Promise<MessengerRoomCatchUpOutcome> => {
+    const id = resolveRoomId();
+    if (!id) return "failed";
+    const keys = gapKeysForRoom();
+    const key = roomKey ? messengerRoomTimelineGapKey(roomKey) : keys.find((k) => peekMessengerRoomTimelineGap(k));
+    if (!key || !keys.includes(key)) return "none";
+    const gapAnchor = peekMessengerRoomTimelineGap(key);
+    if (!gapAnchor) return "none";
+    const detail: AfterPagesDetail = { ran: false, complete: false, lastCursor: "", anchorUnusable: false };
+    const outcome = await runAfterPagesFromAnchor(id, gapAnchor, detail);
+    if (!detail.ran) return outcome;
+    if (detail.anchorUnusable || detail.complete) {
+      clearMessengerRoomTimelineGap(key, gapAnchor);
+    } else if (outcome === "merged" && detail.lastCursor && detail.lastCursor !== gapAnchor) {
+      clearMessengerRoomTimelineGap(key, gapAnchor);
+      const row = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === detail.lastCursor);
+      noteMessengerRoomTimelineGap(key, detail.lastCursor, row?.createdAt ?? null, { notify: false });
+    }
+    return outcome;
   };
 
   const catchUpNewerMessages = async (): Promise<boolean> => (await catchUpNewerMessagesOutcome()) === "merged";
@@ -353,6 +419,8 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
   ): Promise<void> => {
     const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
     const alreadyMergedSnapshot = opts?.alreadyMergedSnapshot === true;
+    /** 앞선 bump 가 합침·취소로 버려졌거나 실패로 남은 갭 — 이번 이벤트에서 이어 메운다(폴링 아님). */
+    if (gapKeysForRoom().some((k) => peekMessengerRoomTimelineGap(k))) void catchUpTimelineGap();
     const single = hint ? await tryMergeSingleMessageFromBump(hint) : "failed";
     if (single === "merged") {
       const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
@@ -396,7 +464,13 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
     void refresh(true, { triggerReason: "realtime_bump_catchup" });
   };
 
-  return { catchUpNewerMessages, catchUpNewerMessagesOutcome, reconcileLatestMessages, catchUpAfterRemoteBump };
+  return {
+    catchUpNewerMessages,
+    catchUpNewerMessagesOutcome,
+    catchUpTimelineGap,
+    reconcileLatestMessages,
+    catchUpAfterRemoteBump,
+  };
 }
 
 /**
@@ -423,7 +497,7 @@ export function useMessengerRoomRemoteCatchup({
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
-  return useMemo(
+  const api = useMemo(
     () =>
       createMessengerRoomRemoteCatchup({
         roomId,
@@ -435,4 +509,16 @@ export function useMessengerRoomRemoteCatchup({
       }),
     [roomId, streamRoomId, snapshotRef, roomMessagesRef, setRoomMessages]
   );
+  /**
+   * 타임라인 갭 등록(bump 합침·취소, 재입장 창 불연속) → 열린 방이 그 앵커부터 1회 메운다.
+   * 마운트 시 이미 등록된 갭도 1회 처리. 이벤트 기반 — 폴링 아님.
+   */
+  useEffect(() => {
+    const unsub = subscribeMessengerRoomTimelineGap((key) => {
+      void api.catchUpTimelineGap(key);
+    });
+    void api.catchUpTimelineGap();
+    return unsub;
+  }, [api]);
+  return api;
 }
