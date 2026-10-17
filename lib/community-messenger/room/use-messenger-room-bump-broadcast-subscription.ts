@@ -15,6 +15,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { resolveOwnRoomBumpDecision } from "@/lib/community-messenger/room/own-room-bump-origin-policy";
+import { createRoomBumpBurstGapTracker } from "@/lib/community-messenger/room/room-bump-burst-gap";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -127,11 +128,21 @@ export function useMessengerRoomBumpBroadcastSubscription({
     let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingHint = "";
     let pendingAlreadyMergedSnapshot = false;
+    /** 버려지는 bump(합침·rAF 취소) → 타임라인 갭 등록 (`room-bump-burst-gap.ts`). */
+    const burst = createRoomBumpBurstGapTracker({
+      getMessages: () => roomMessagesRef.current,
+      getRoomId: () => snapshotRef.current?.room?.id?.trim() || stream || route,
+    });
+    const dispatchCatchUp = (hint: string, alreadyMergedSnapshot: boolean) => {
+      burst.endBurst();
+      void catchUpAfterRemoteBump(hint || undefined, { alreadyMergedSnapshot });
+    };
     const scheduleCatchUp = (hintMessageId: string, opts?: { alreadyMergedSnapshot?: boolean }) => {
       const now = Date.now();
       const elapsed = now - lastCatchUpAt;
       const minGap = 180;
       if (opts?.alreadyMergedSnapshot) pendingAlreadyMergedSnapshot = true;
+      if (hintMessageId && pendingHint && pendingHint !== hintMessageId) burst.onBumpDropped();
       if (elapsed < minGap) {
         if (hintMessageId) pendingHint = hintMessageId;
         if (catchUpTimer != null) return;
@@ -142,7 +153,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
           const alreadyMergedSnapshot = pendingAlreadyMergedSnapshot;
           pendingHint = "";
           pendingAlreadyMergedSnapshot = false;
-          void catchUpAfterRemoteBump(h || undefined, { alreadyMergedSnapshot });
+          dispatchCatchUp(h, alreadyMergedSnapshot);
         }, minGap - elapsed);
         return;
       }
@@ -151,7 +162,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
       const alreadyMergedSnapshot = Boolean(opts?.alreadyMergedSnapshot || pendingAlreadyMergedSnapshot);
       pendingHint = "";
       pendingAlreadyMergedSnapshot = false;
-      void catchUpAfterRemoteBump(h || undefined, { alreadyMergedSnapshot });
+      dispatchCatchUp(h, alreadyMergedSnapshot);
     };
     const onBump = (payload: Record<string, unknown>) => {
       const known = communityMessengerBumpKnownRoomIds({
@@ -227,8 +238,11 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
       lastRemoteBumpDedupeRef.current = dedupeKey;
 
+      burst.onBumpReceived();
       if (remoteBumpCatchUpRafRef.current != null) {
+        /** 앞선 bump 의 처리(스냅샷 병합·catch-up)가 취소된다 — 그 메시지는 갭으로 메운다. */
         cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
+        burst.onBumpDropped();
       }
       remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
         remoteBumpCatchUpRafRef.current = null;
@@ -272,8 +286,14 @@ export function useMessengerRoomBumpBroadcastSubscription({
          * 내 기기가 이미 가진 확정 행의 제자리 갱신 — 스냅샷을 병합했으면 HTTP catch-up 생략.
          * 스냅샷이 없으면(삭제·수정 등) messages/{id} 단건 정합으로 다른 기기 변경을 반영한다.
          */
-        if (ownDecision === "replace_pending" && !snapshotTruncated) return;
-        if (ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated) return;
+        if (
+          (ownDecision === "replace_pending" && !snapshotTruncated) ||
+          (ownDecision === "merge_only" && mergedSnapshot && !snapshotTruncated)
+        ) {
+          /** 이 bump 는 catch-up 없이 끝난다 — 버스트 앵커를 다음 버스트로 넘기지 않는다. */
+          if (pendingHint === "") burst.endBurst();
+          return;
+        }
         scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot && !snapshotTruncated });
       });
     };
