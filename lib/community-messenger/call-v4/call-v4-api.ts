@@ -2,7 +2,6 @@
  * V4 HTTP facade — shared call session APIs only (no V3 imports).
  */
 
-import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import {
   fetchCommunityMessengerCallSessionByIdClient,
   patchCommunityMessengerCallSession,
@@ -155,13 +154,12 @@ export async function callV4PatchAccept(
   logCallV4("call_v4_accept_patch_attempt", { callId: sid });
   logCallV4("accept_patch_http_start", { callId: sid });
 
-  const deviceId = ensureClientInstanceId();
   const patchUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`;
   const patchInit: RequestInit = {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ action: "accept", deviceId }),
+    body: JSON.stringify({ action: "accept" }),
   };
   logCallV4("fetch_request_created", { callId: sid, method: patchInit.method ?? "PATCH" });
   logCallV4("fetch_request_sent", { callId: sid });
