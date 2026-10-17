@@ -21,6 +21,7 @@ import {
   type SettlementDailyGroup,
   type SettlementStoreGroup,
 } from "@/lib/admin/settlement-control/aggregate-settlement-ops";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type OpsView = "daily" | "store" | "orders";
 
@@ -159,6 +160,15 @@ export function AdminStoreSettlementsPage() {
   useEffect(() => {
     if (statusFromUrl) setFilterSettlementStatus(statusFromUrl);
   }, [statusFromUrl]);
+
+  /** Admin Action Queue deep-link (SETTLEMENT_ADMIN_ACTIONABLE_STATUSES = unpaid_only). */
+  const unpaidFromUrl = searchParams.get("unpaid_only") === "1";
+  useEffect(() => {
+    if (unpaidFromUrl) {
+      setFilterUnpaidOnly(true);
+      setOpsView("orders");
+    }
+  }, [unpaidFromUrl]);
 
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [opsRow, setOpsRow] = useState<Row | null>(null);
@@ -485,6 +495,7 @@ export function AdminStoreSettlementsPage() {
       }
       setOpsRow(null);
       setOpsError(null);
+      emitAdminQueueChanged("settlements_actionable");
       await load();
     } catch {
       setOpsError(t("common_network_error"));

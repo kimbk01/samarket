@@ -11,6 +11,7 @@ import type { AdminCommunityMessengerRoomDetail } from "@/lib/admin-community-me
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { useCmAdminLabels } from "./useCmAdminLabels";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type DetailResponse = AdminCommunityMessengerRoomDetail & { ok?: boolean };
 type RoomAction =
@@ -270,6 +271,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           await dibayAlert({ title: json.error ?? t("admin_cm_err_report_failed") });
           return;
         }
+        emitAdminQueueChanged("messenger_actionable");
         await refresh();
       } finally {
         setBusy(null);

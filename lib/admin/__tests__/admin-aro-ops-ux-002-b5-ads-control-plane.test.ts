@@ -69,6 +69,6 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
     expect(listAllPlacementMapRows().length).toBeGreaterThan(0);
     const ac = read("components/admin/dashboard/AdminActionCenter.tsx");
     expect(ac).toContain("#action-required");
-    expect(ac).toContain("/admin/ad-applications?domain=feed");
+    expect(read("lib/admin/admin-action-queue-registry.ts")).toContain("/admin/ad-applications?domain=feed");
   });
 });

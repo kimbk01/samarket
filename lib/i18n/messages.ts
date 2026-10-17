@@ -76,6 +76,7 @@ import { supportUiMessages } from "./catalog/support-ui";
 import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
+import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -163,6 +164,7 @@ const KO_MESSAGES = {
   ...platformPopupUiMessages.ko,
   ...platformPopupOwnerMessages.ko,
   ...platformEventsUiMessages.ko,
+  ...adminActionQueueMessages.ko,
   ...adminMessages.ko,
   ...adminOsLaunchMessages.ko,
   ...adminFinanceSsot19Messages.ko,
@@ -244,6 +246,7 @@ const EN_MESSAGES = {
   ...platformPopupUiMessages.en,
   ...platformPopupOwnerMessages.en,
   ...platformEventsUiMessages.en,
+  ...adminActionQueueMessages.en,
   ...adminMessages.en,
   ...adminOsLaunchMessages.en,
   ...adminFinanceSsot19Messages.en,

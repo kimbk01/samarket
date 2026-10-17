@@ -996,13 +996,9 @@ export async function adminUpdateSupportCaseStatus(
     status: input.status,
     updated_at: now,
   };
-  if (input.status === "RESOLVED" && !unarchive) {
+  const closing = input.status === "RESOLVED" && !unarchive;
+  if (closing) {
     patch.resolved_at = now;
-    await sb
-      .from("support_sessions")
-      .update({ closed_at: now, last_seen_at: now })
-      .eq("case_id", input.caseId)
-      .is("closed_at", null);
   }
   if (input.status === "ARCHIVED") {
     patch.archived_at = now;
@@ -1011,19 +1007,38 @@ export async function adminUpdateSupportCaseStatus(
     patch.archived_at = null;
   }
 
+  // CAS on the status we validated — two admins acting at once: exactly one transition,
+  // one status_changed event, one customer notification.
   const { data, error } = await sb
     .from("support_cases")
     .update(patch)
     .eq("id", input.caseId)
+    .eq("status", gate.case.status)
     .select("*")
-    .single();
+    .maybeSingle();
   if (error || !data) {
     // DEF-14: moving a closed case back to active collides with another active case on the
     // same key (customer already opened a new one) — surface a stable code.
     if ((error as { code?: string } | null)?.code === "23505") {
       return { ok: false, error: "active_case_exists" };
     }
-    return { ok: false, error: error?.message ?? "update_failed" };
+    if (!error) {
+      // Lost the race: another admin changed the status first.
+      const latest = await getSupportCaseForAdmin(sb, input.caseId);
+      if (latest.ok && latest.case.status === input.status) {
+        return { ok: true, case: latest.case };
+      }
+      return { ok: false, error: "status_conflict" };
+    }
+    return { ok: false, error: error.message ?? "update_failed" };
+  }
+
+  if (closing) {
+    await sb
+      .from("support_sessions")
+      .update({ closed_at: now, last_seen_at: now })
+      .eq("case_id", input.caseId)
+      .is("closed_at", null);
   }
 
   await recordCaseEvent(sb, {
@@ -1033,7 +1048,7 @@ export async function adminUpdateSupportCaseStatus(
     payload: { status: input.status },
   });
 
-  if (input.status === "RESOLVED" && !unarchive) {
+  if (closing) {
     await notifySupportEvent(sb, {
       userId: gate.case.requester_user_id,
       type: "support_case_resolved",

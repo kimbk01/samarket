@@ -7,6 +7,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MeetingReportRow, MeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import { ARO_IA_001_OWNERS } from "@/lib/admin/aro-ia-001-community-common-links";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 const MEETING_REPORT_STATUS_KEYS = {
   pending: "admin_dashboard_report_pending",
@@ -226,6 +227,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
     });
     const j = (await res.json()) as { ok?: boolean };
     if (!j.ok) return;
+    emitAdminQueueChanged("meeting_reports");
     setRows((prev) =>
       prev.map((r) =>
         r.id === id

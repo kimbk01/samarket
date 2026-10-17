@@ -21,6 +21,7 @@ import {
   adminSurfacesSelectionLabel,
   previewSurfaceFromAdminSelection,
 } from "@/lib/platform-popup/admin-surface-target-mode";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
   const { safeT, language } = useI18n();
@@ -105,6 +106,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
       return;
     }
     if (json.item) setItem(json.item);
+    emitAdminQueueChanged("platform_popup_pending");
     if (action === "approve" && json.campaignId) {
       router.push(`/admin/platform-popup/${json.campaignId}`);
     } else {

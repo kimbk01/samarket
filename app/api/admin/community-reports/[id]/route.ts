@@ -83,17 +83,24 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const prevStatus = String((before as { status?: string }).status ?? "");
   const done = status === "resolved" || status === "dismissed";
-  const { error } = await sb
+  // CAS on the status we read — a concurrent admin decision cannot double-apply side effects
+  // (e.g. point reclaim on resolve).
+  const { data: changed, error } = await sb
     .from("community_reports")
     .update({
       status,
       admin_memo: memo,
       processed_at: done ? new Date().toISOString() : null,
     })
-    .eq("id", rid);
+    .eq("id", rid)
+    .eq("status", prevStatus)
+    .select("id");
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!changed || changed.length === 0) {
+    return NextResponse.json({ ok: false, error: "status_conflict" }, { status: 409 });
   }
 
   if (status === "resolved" && prevStatus !== "resolved") {

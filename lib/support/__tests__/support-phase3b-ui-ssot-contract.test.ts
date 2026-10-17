@@ -150,8 +150,10 @@ describe("B4/B5/B6 lists and badges", () => {
     expect(archive).toContain("legacyStatusLabel(n.status, ko)");
     expect(archive).not.toMatch(/method:\s*"(POST|PATCH)"/);
     const tiles = read("components/admin/order-notifications/AdminOrderNotificationsPageClient.tsx");
-    expect(tiles).toContain("c?.support_actionable");
-    expect(tiles).not.toContain('href: "/admin/platform-inquiries"');
+    expect(tiles).toContain("AdminActionQueueCardGrid");
+    const registry = read("lib/admin/admin-action-queue-registry.ts");
+    expect(registry).toContain('listHref: "/admin/support?filter=ACTIONABLE#action-required"');
+    expect(registry).not.toContain('"/admin/platform-inquiries"');
   });
 });
 

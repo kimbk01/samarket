@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { loadAdminActionQueueCounts } from "@/lib/admin/admin-action-queue";
@@ -10,34 +10,40 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/customer-platform/overview
  *
- * Action Queue = same ADMIN ACTION QUEUE SSOT as /api/admin/admin-bell.
- * Monitoring remains informational (not Bell total).
+ * Action Queue = same ADMIN ACTION QUEUE SSOT as /api/admin/admin-bell
+ * (same permission scope → same total). Cards render from `action_queue.categories`.
+ * Monitoring remains informational (not Bell total); failures surface as null.
  */
 export async function GET() {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminApiActor();
+  if (!gate.ok) return gate.response;
 
   const storesSb = tryGetSupabaseForStores();
   const notesSb = tryCreateSupabaseServiceClient();
 
   const [counts, noticesRes, campaignsRes, memberInboxRes] = await Promise.all([
-    loadAdminActionQueueCounts({ storesSb, notesSb }),
+    loadAdminActionQueueCounts({
+      storesSb,
+      notesSb,
+      permissionScope: { isSuperAdmin: gate.actor.isSuperAdmin, permissions: gate.actor.permissions },
+    }),
     notesSb
       ? notesSb.from("app_notices").select("id", { count: "exact", head: true }).eq("is_active", true)
-      : Promise.resolve({ count: 0, error: null }),
+      : Promise.resolve({ count: null, error: { message: "supabase_client_unavailable" } }),
     notesSb
       ? notesSb.from("admin_notification_campaigns").select("id", { count: "exact", head: true })
-      : Promise.resolve({ count: 0, error: null }),
+      : Promise.resolve({ count: null, error: { message: "supabase_client_unavailable" } }),
     notesSb
       ? notesSb
           .from("member_admin_note_threads")
           .select("id", { count: "exact", head: true })
           .eq("started_by", "admin")
-      : Promise.resolve({ count: 0, error: null }),
+      : Promise.resolve({ count: null, error: { message: "supabase_client_unavailable" } }),
   ]);
 
+  /** null = could not load (never disguised as 0). */
   const safe = (res: { count?: number | null; error?: { message?: string } | null }) =>
-    res.error ? 0 : res.count ?? 0;
+    res.error ? null : res.count ?? 0;
 
   return NextResponse.json({
     ok: true,
@@ -61,6 +67,9 @@ export async function GET() {
       community_reports_pending: counts.community_reports,
       /** Same SSOT total as Admin Bell */
       total: counts.total,
+      total_complete: counts.total_complete,
+      categories: counts.categories,
+      unavailable: counts.unavailable,
     },
     monitoring: {
       member_inbox_threads: safe(memberInboxRes),

@@ -8,6 +8,7 @@ import {
   adsOpsStatusLabel,
   projectAdsEffectiveLifecycle,
 } from "@/lib/admin/ads-exposure/ops-status";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type OrderRow = {
   id: string;
@@ -94,6 +95,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
         setErr(j.error ?? "failed");
         return;
       }
+      emitAdminQueueChanged("trade_promo_pending");
       await load();
     } finally {
       setBusyId(null);

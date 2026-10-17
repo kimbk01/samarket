@@ -14,6 +14,7 @@ import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types
 import { RefundRequestTable } from "./RefundRequestTable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 export function DeliveryRefundsClient() {
   const { t } = useI18n();
@@ -75,6 +76,7 @@ export function DeliveryRefundsClient() {
         return;
       }
       show(t("admin_do_refunds_approve_ok"));
+      emitAdminQueueChanged("orders_attention");
       await load();
     } catch {
       show(t("admin_do_refunds_network_error"));

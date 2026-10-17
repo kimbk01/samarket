@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
 import { fetchAdminStoreOrdersQueryDeduped } from "@/lib/admin/fetch-admin-store-orders-query-deduped";
 import { useAdminQuery } from "@/hooks/useAdminQuery";
@@ -44,12 +45,17 @@ const ORDER_STATUS_LABEL_KEYS: Record<string, MessageKey> = {
   arrived: "admin_stores_orders_status_arrived",
   completed: "admin_stores_orders_status_completed",
   cancelled: "admin_stores_orders_status_cancelled",
+  cancel_requested: "admin_stores_orders_status_cancel_requested",
   refund_requested: "admin_stores_orders_status_refund_requested",
   refunded: "admin_stores_orders_status_refunded",
 };
 
+/** UI sentinel → `queue=admin_attention` (Admin Action Queue `orders_attention` predicate). */
+const ADMIN_ORDERS_QUEUE_FILTER_VALUE = "__admin_queue";
+
 const ORDER_FILTER_OPTIONS: { value: string; labelKey: MessageKey }[] = [
   { value: "", labelKey: "admin_stores_orders_filter_all" },
+  { value: ADMIN_ORDERS_QUEUE_FILTER_VALUE, labelKey: "admin_stores_orders_filter_admin_queue" },
   { value: "pending", labelKey: "admin_stores_orders_status_pending" },
   { value: "accepted", labelKey: "admin_stores_orders_status_accepted" },
   { value: "preparing", labelKey: "admin_stores_orders_status_preparing" },
@@ -57,6 +63,7 @@ const ORDER_FILTER_OPTIONS: { value: string; labelKey: MessageKey }[] = [
   { value: "delivering", labelKey: "admin_stores_orders_status_delivering" },
   { value: "arrived", labelKey: "admin_stores_orders_status_arrived" },
   { value: "completed", labelKey: "admin_stores_orders_status_completed" },
+  { value: "cancel_requested", labelKey: "admin_stores_orders_status_cancel_requested" },
   { value: "cancelled", labelKey: "admin_stores_orders_status_cancelled" },
   { value: "refund_requested", labelKey: "admin_stores_orders_status_refund_requested" },
   { value: "refunded", labelKey: "admin_stores_orders_status_refunded" },
@@ -89,7 +96,8 @@ function buildOrdersQueryString(f: OrderFilters) {
   const sid = f.storeId.trim();
   if (oid) params.set("order_id", oid);
   if (ono) params.set("order_no", ono);
-  if (os) params.set("order_status", os);
+  if (os === ADMIN_ORDERS_QUEUE_FILTER_VALUE) params.set("queue", "admin_attention");
+  else if (os) params.set("order_status", os);
   if (sid) params.set("store_id", sid);
   return params.toString();
 }
@@ -314,6 +322,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           return;
         }
         invalidateAdminFetchCache("admin:store-orders:");
+        emitAdminQueueChanged("orders_attention");
         await revalidateOrders({ force: true });
       } catch {
         setError("network_error");
@@ -346,6 +355,41 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           return;
         }
         invalidateAdminFetchCache("admin:store-orders:");
+        emitAdminQueueChanged("orders_attention");
+        await revalidateOrders({ force: true });
+      } catch {
+        setError("network_error");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [revalidateOrders, t]
+  );
+
+  /** Admin decision on an owner cancel request (cancel_requested → cancelled | restore). */
+  const decideCancelRequest = useCallback(
+    async (id: string, action: "approve" | "reject") => {
+      const title =
+        action === "approve"
+          ? t("admin_store_orders_confirm_cancel_request_approve")
+          : t("admin_store_orders_confirm_cancel_request_reject");
+      if (!(await dibayConfirm({ title, confirmTone: action === "approve" ? "destructive" : undefined }))) return;
+      setBusyId(id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}/cancel-request`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!json?.ok) {
+          setError(json?.error ?? `cancel_request_${action}_failed`);
+          return;
+        }
+        invalidateAdminFetchCache("admin:store-orders:");
+        emitAdminQueueChanged("orders_attention");
         await revalidateOrders({ force: true });
       } catch {
         setError("network_error");
@@ -614,6 +658,26 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         {t("admin_stores_orders_link_detail")}
                       </Link>
                     </div>
+                    {r.order_status === "cancel_requested" ? (
+                      <div className="mt-2 flex flex-col gap-1" data-testid="admin-order-cancel-request-actions">
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={() => void decideCancelRequest(r.id, "approve")}
+                          className="block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
+                        >
+                          {busyId === r.id ? "…" : t("admin_store_orders_cancel_request_approve")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={() => void decideCancelRequest(r.id, "reject")}
+                          className="block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
+                        >
+                          {busyId === r.id ? "…" : t("admin_store_orders_cancel_request_reject")}
+                        </button>
+                      </div>
+                    ) : null}
                     {r.order_status === "refund_requested" ? (
                       <div className="mt-2 flex flex-col gap-1">
                         <button

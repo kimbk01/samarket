@@ -7,14 +7,17 @@ import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import {
+  formatAdminBellBadge,
+  menuKeyHasUnavailableAdminQueue,
+  sumAdminQueueCountsForMenuKey,
+} from "@/lib/admin/admin-action-queue-registry";
+import {
   collectMenuPathEntries,
   hasActiveDescendantInMenu,
   isLeafMenuActive,
   menuPathMatchScore,
 } from "./admin-sidebar-active-path";
 
-const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
-const USER_POINT_CHARGES_MENU_KEY = "points-charge";
 
 function itemOrChildMatches(item: AdminMenuItem, currentPath: string): boolean {
   if (
@@ -54,36 +57,11 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { cashChargePendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, deliveryAdOpsPendingCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
-    useAdminStorePointPendingCount();
+  const { queueCategories } = useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
-  /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
-  const menuBadge =
-    item.key === STORE_POINT_CHARGES_MENU_KEY && cashChargePendingCount > 0
-      ? cashChargePendingCount
-      : item.key === "store-finance-admin" && cashChargePendingCount + userChargePendingCount > 0
-        ? cashChargePendingCount + userChargePendingCount
-        : item.key === "delivery-ads-control" && deliveryAdOpsPendingCount > 0
-          ? deliveryAdOpsPendingCount
-      : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
-        ? userChargePendingCount
-        : item.key === "ads-applications" && tradePromoPendingCount > 0
-          ? tradePromoPendingCount
-          : item.key === "ads-feed-applications" && feedAdPendingCount > 0
-            ? feedAdPendingCount
-            : item.key === "cp-support-center" && supportActionableCount > 0
-              ? supportActionableCount
-              : item.key === "global-reports" && globalReportsCount > 0
-                ? globalReportsCount
-                : item.key === "reports-posts" && tradeReportsCount > 0
-                  ? tradeReportsCount
-                  : item.key === "community-feed-reports" && communityReportsCount > 0
-                    ? communityReportsCount
-                    : item.key === "store-reports-admin" && storeReportsCount > 0
-                      ? storeReportsCount
-                      : item.key === "stores-commerce" && storeApplicationsCount > 0
-                        ? storeApplicationsCount
-                        : 0;
+  /** COUNT SSOT: badge = Σ registry categories mapped to this menu key (admin-action-queue-registry). */
+  const menuBadge = sumAdminQueueCountsForMenuKey(item.key, queueCategories);
+  const menuBadgeUnavailable = menuKeyHasUnavailableAdminQueue(item.key, queueCategories);
 
   const childActive = hasChildren
     ? hasActiveDescendantInMenu(item.children ?? [], currentPath)
@@ -196,12 +174,18 @@ export function AdminSidebarItem({
 
   if (!item.path) return null;
 
-  const badge =
-    menuBadge > 0 ? (
-      <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
-        {menuBadge > 99 ? "99+" : menuBadge}
-      </span>
-    ) : null;
+  const badge = menuBadgeUnavailable ? (
+    <span
+      className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+      data-admin-menu-badge="unavailable"
+    >
+      !
+    </span>
+  ) : menuBadge > 0 ? (
+    <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+      {formatAdminBellBadge(menuBadge)}
+    </span>
+  ) : null;
 
   if (pending) {
     return (

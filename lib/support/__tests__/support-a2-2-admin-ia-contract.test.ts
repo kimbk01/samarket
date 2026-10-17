@@ -31,9 +31,10 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     expect(svc).toContain("getAdminSupportSummary");
     expect(svc).toContain('in("status", ["OPEN", "WAITING_ADMIN"])');
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "cp-support-center"');
-    expect(sidebar).toContain("supportActionableCount");
-    expect(sidebar).not.toContain('item.key === "cp-member-inquiry"');
+    expect(sidebar).toContain("sumAdminQueueCountsForMenuKey(item.key, queueCategories)");
+    const registry = read("lib/admin/admin-action-queue-registry.ts");
+    expect(registry).toMatch(/key: "support_actionable"[\s\S]*?sidebarMenuKeys: \["cp-support-center"\]/);
+    expect(registry).not.toContain('"cp-member-inquiry"');
   });
 
   it("AdminSupportPage wires assign and priority UI", () => {
@@ -68,7 +69,7 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     const q = read("lib/admin/admin-action-queue.ts");
     expect(q).toContain("support_actionable");
     expect(q).toContain('in("status", ["OPEN", "WAITING_ADMIN"])');
-    expect(q).toMatch(/member_inquiry_open\s*=\s*0/);
-    expect(q).toMatch(/platform_inquiry_open\s*=\s*0/);
+    expect(q).toMatch(/member_inquiry_open: LEGACY_ZERO/);
+    expect(q).toMatch(/platform_inquiry_open: LEGACY_ZERO/);
   });
 });

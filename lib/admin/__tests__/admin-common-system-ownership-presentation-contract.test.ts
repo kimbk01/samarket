@@ -74,9 +74,11 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
 
   it("Growth dashboard cards use Feed / observation titleKeys (not Trade promo)", () => {
     const dash = read("components/admin/customer-platform/CustomerPlatformDashboardPage.tsx");
-    expect(dash).toContain('titleKey: "admin_menu_ads_feed_applications"');
-    expect(dash).toContain('titleKey: "admin_menu_reports_observation"');
-    expect(dash).not.toMatch(/titleKey:\s*"admin_menu_ads_applications"/);
+    // Cards render from the Action Queue registry; Feed and Trade promo stay separate categories.
+    expect(dash).toContain("AdminActionQueueCardGrid");
+    const registry = read("lib/admin/admin-action-queue-registry.ts");
+    expect(registry).toMatch(/key: "feed_ad_requests"[\s\S]*?listHref: "\/admin\/ad-applications\?domain=feed"/);
+    expect(registry).toMatch(/key: "trade_promo_pending"[\s\S]*?listHref: "\/admin\/ad-applications\?domain=trade"/);
   });
 
   it("ko/en catalogs define Slice 6 ownership keys", () => {

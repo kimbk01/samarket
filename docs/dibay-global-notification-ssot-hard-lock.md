@@ -58,7 +58,7 @@ Static/unit Owner active-store authority remains **PASS** without 2-store UI.
 |---|---|---|---|
 | Member Bell / App Icon | `/api/me/notifications/badge-count` + Domain Badge Authority | GATE 2 sound decision | Kill badge-count to “fix” Admin |
 | Owner commerce inbox | `get_owner_store_commerce_notifications` / snapshot + `?owner_store_id=` | existing Owner surface | Bleed Owner kinds into Member inbox |
-| Platform Admin Action Queue | `loadAdminActionQueueCounts` → `/api/admin/admin-bell` (+ CP Overview same total) | Admin row PK + GATE 2 class · RT wake-up only | `/api/me/notifications` as Admin ops inbox |
+| Platform Admin Action Queue | Category contract `lib/admin/admin-action-queue-registry.ts` (ownership · nextActor · total membership · permission · listHref · sidebar keys) + COUNT predicates `loadAdminActionQueueCounts` → `/api/admin/admin-bell` `categories[]` (Bell · CP Action Queue · Action Center · order-notifications · sidebar render from the same payload) | Admin row PK + GATE 2 class · RT wake-up only · failure = `unavailable` (never 0) · caller permission scope | `/api/me/notifications` as Admin ops inbox · hand-listed cards/badges/total |
 | Admin RT | `supabase_realtime` + Admin SELECT RLS (`is_platform_admin`) | ingest on INSERT | Poll-only sound workaround · replica identity guess |
 | Push route CTA | Cap `pushNotificationActionPerformed` → `resolvePushRouteFromFcmData` | — | Fake CTA via deep-link launch in QA |
 

@@ -1,6 +1,7 @@
 /**
  * GET /api/admin/store-orders — 관리자 매장 주문 목록 (서비스 롤)
- * Query: order_id, order_no, store_id, buyer_user_id, payment_status, order_status, limit, include_items=1
+ * Query: order_id, order_no, store_id, buyer_user_id, payment_status, order_status, limit, include_items=1,
+ *        queue=admin_attention (Admin Action Queue `orders_attention` — same predicate as the Bell COUNT)
  *
  * ASO1: `get_admin_store_orders_list_snapshot` RPC 우선 — 미적용 시 legacy multi-query fallback.
  */
@@ -8,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryLoadAdminStoreOrdersListFromSnapshot } from "@/lib/admin/admin-store-orders-list-snapshot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { STORE_ORDER_ADMIN_QUEUE_OR_FILTER } from "@/lib/admin/admin-action-queue";
 import {
   mapStoreOrderToAdminDelivery,
   type StoreOrderItemRow,
@@ -52,6 +54,7 @@ async function loadLegacyAdminStoreOrders(
   if (buyerUserIdFilter) q = q.eq("buyer_user_id", buyerUserIdFilter);
   if (paymentStatus) q = q.eq("payment_status", paymentStatus);
   if (orderStatus) q = q.eq("order_status", orderStatus);
+  if (sp.get("queue") === "admin_attention") q = q.or(STORE_ORDER_ADMIN_QUEUE_OR_FILTER);
 
   const { data: orderRows, error } = await q;
   if (error) {
@@ -196,7 +199,11 @@ export async function GET(req: NextRequest) {
   const includeItems = sp.get("include_items") === "1";
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 500, 1), 2000);
 
-  const snapshot = await tryLoadAdminStoreOrdersListFromSnapshot(sb, {
+  // Snapshot RPC has no Admin Q predicate — the queue view reads the canonical table directly.
+  const adminQueueView = sp.get("queue") === "admin_attention";
+  const snapshot = adminQueueView
+    ? ({ ok: false, reason: "admin_queue_view" } as const)
+    : await tryLoadAdminStoreOrdersListFromSnapshot(sb, {
     orderId: sp.get("order_id")?.trim() || undefined,
     orderNo: sp.get("order_no")?.trim() || undefined,
     storeId: sp.get("store_id")?.trim() || undefined,
@@ -214,7 +221,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (snapshot.reason !== "rpc_missing") {
+  if (snapshot.reason !== "rpc_missing" && snapshot.reason !== "admin_queue_view") {
     console.warn("[admin store-orders GET] snapshot fallback", snapshot.reason);
   }
 

@@ -80,6 +80,7 @@ import { supportUiMessages } from "./catalog/support-ui";
 import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
+import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -158,6 +159,7 @@ export type MessageKey =
   | KeyOf<typeof platformPopupUiMessages.ko>
   | KeyOf<typeof platformPopupOwnerMessages.ko>
   | KeyOf<typeof platformEventsUiMessages.ko>
+  | KeyOf<typeof adminActionQueueMessages.ko>
   | KeyOf<typeof adminMessages.ko>
   | KeyOf<typeof adminOsLaunchMessages.ko>
   | KeyOf<typeof adminFinanceSsot19Messages.ko>
@@ -239,6 +241,7 @@ type EnMessageKey =
   | KeyOf<typeof platformPopupUiMessages.en>
   | KeyOf<typeof platformPopupOwnerMessages.en>
   | KeyOf<typeof platformEventsUiMessages.en>
+  | KeyOf<typeof adminActionQueueMessages.en>
   | KeyOf<typeof adminMessages.en>
   | KeyOf<typeof adminOsLaunchMessages.en>
   | KeyOf<typeof adminFinanceSsot19Messages.en>
