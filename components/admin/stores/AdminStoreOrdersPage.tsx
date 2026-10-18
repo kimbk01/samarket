@@ -16,7 +16,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -27,8 +26,6 @@ import {
   ROW_ACTION_BTN,
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
-import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
-import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import {
   ADMIN_STORE_ORDERS_FULFILLMENT_LABEL,
   ADMIN_STORE_ORDERS_FULFILLMENT_TYPES,
@@ -40,31 +37,17 @@ import {
   adminStoreOrderStatusChipClass,
   adminStoreOrdersQueryToParams,
   parseAdminStoreOrdersQuery,
-  type AdminStoreOrderListRow,
   type AdminStoreOrdersFulfillment,
   type AdminStoreOrdersPageResult,
   type AdminStoreOrdersPaymentStatus,
   type AdminStoreOrdersQuery,
   type AdminStoreOrdersTab,
 } from "@/lib/admin/store-orders/admin-store-orders-contract";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatManilaDateTime, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
-const ORDER_STATUS_LABEL_KEYS: Record<StoreOrderStatus, MessageKey> = {
-  pending: "admin_stores_orders_status_pending",
-  accepted: "admin_stores_orders_status_accepted",
-  preparing: "admin_stores_orders_status_preparing",
-  ready_for_pickup: "admin_stores_orders_status_ready_for_pickup",
-  delivering: "admin_stores_orders_status_delivering",
-  arrived: "admin_stores_orders_status_arrived",
-  completed: "admin_stores_orders_status_completed",
-  cancel_requested: "admin_stores_orders_status_cancel_requested",
-  cancelled: "admin_stores_orders_status_cancelled",
-  refund_requested: "admin_stores_orders_status_refund_requested",
-  refunded: "admin_stores_orders_status_refunded",
-};
 
 type SearchForm = {
   storeName: string;
@@ -207,15 +190,13 @@ export function AdminStoreOrdersPage() {
   const [result, setResult] = useState<AdminStoreOrdersPageResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<LoadMode | null>(null);
-  const [decisionBusyId, setDecisionBusyId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const lastUrlRef = useRef<string>(searchKey);
 
   const statusLabel = useCallback(
     (s: string) => {
-      const key = ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
+      const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
       return key ? t(key) : s;
     },
     [t]
@@ -302,82 +283,23 @@ export function AdminStoreOrdersPage() {
 
   const onSearch = (e?: FormEvent) => {
     e?.preventDefault();
-    setNotice(null);
     void load(applyForm(applied, form), "query");
   };
   const onRefresh = () => {
-    setNotice(null);
     void load({ ...applied, asOf: null }, "refresh");
   };
   const onTab = (tab: AdminStoreOrdersTab) => {
-    setNotice(null);
     void load({ ...applied, tab, page: 1, asOf: null }, "query");
   };
   const onPage = (page: number) => void load({ ...applied, page }, "page");
   const onReset = () => {
     const cleared = parseAdminStoreOrdersQuery(new URLSearchParams());
     setForm(formFromQuery(cleared));
-    setNotice(null);
     void load(cleared, "query");
   };
   const clearDeepLink = (key: "storeId" | "orderId" | "buyerUserId" | "adminQueue") => {
     void load({ ...applied, [key]: key === "adminQueue" ? false : null, page: 1, asOf: null }, "query");
   };
-
-  /** Existing admin decision paths (moved to order detail in the next step; kept until then). */
-  const decide = useCallback(
-    async (row: AdminStoreOrderListRow, kind: "cancel_approve" | "cancel_reject" | "refund_approve" | "refund_reject") => {
-      const title =
-        kind === "cancel_approve"
-          ? t("admin_store_orders_confirm_cancel_request_approve")
-          : kind === "cancel_reject"
-            ? t("admin_store_orders_confirm_cancel_request_reject")
-            : kind === "refund_approve"
-              ? t("admin_stores_orders_confirm_refund")
-              : t("admin_stores_orders_confirm_reject_refund");
-      const destructive = kind === "cancel_approve" || kind === "refund_approve";
-      if (!(await dibayConfirm({ title, confirmTone: destructive ? "destructive" : undefined }))) return;
-      setDecisionBusyId(row.id);
-      setNotice(null);
-      try {
-        const id = encodeURIComponent(row.id);
-        const res =
-          kind === "cancel_approve" || kind === "cancel_reject"
-            ? await fetch(`/api/admin/store-orders/${id}/cancel-request`, {
-                method: "PATCH",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: kind === "cancel_approve" ? "approve" : "reject" }),
-              })
-            : kind === "refund_approve"
-              ? await fetch(`/api/admin/store-orders/${id}/approve-refund`, { method: "POST", credentials: "include" })
-              : await fetch(`/api/admin/store-orders/${id}`, {
-                  method: "PATCH",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    reject_refund: true,
-                    restore_to_status: "completed",
-                    reject_reason: t("admin_stores_orders_reject_refund_default_reason"),
-                  }),
-                });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || json.ok !== true) {
-          setNotice(errorText(json.error ?? `http_${res.status}`));
-          return;
-        }
-        invalidateAdminFetchCache("admin:store-orders:");
-        emitAdminQueueChanged("orders_attention");
-        setNotice(ko ? `${row.order_no} 처리 완료` : `${row.order_no} updated`);
-        await load({ ...applied, asOf: null }, "refresh");
-      } catch {
-        setNotice(t("common_network_error"));
-      } finally {
-        setDecisionBusyId(null);
-      }
-    },
-    [applied, errorText, ko, load, t]
-  );
 
   const rows = result?.rows ?? [];
   const deepLinks = useMemo(() => {
@@ -550,9 +472,6 @@ export function AdminStoreOrdersPage() {
           {result ? (ko ? " · 직전 조회 결과를 표시하고 있습니다." : " · Showing the previous result.") : ""}
         </p>
       ) : null}
-      {notice ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-fg">{notice}</p>
-      ) : null}
 
       {result ? <Pager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} onGo={onPage} lang={lang} /> : null}
 
@@ -586,7 +505,6 @@ export function AdminStoreOrdersPage() {
                 const detailHref = `/admin/stores/orders/${encodeURIComponent(r.id)}`;
                 const fulfill = ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[r.fulfillment_type as AdminStoreOrdersFulfillment]?.[lang] ?? r.fulfillment_type;
                 const pay = ADMIN_STORE_ORDERS_PAYMENT_LABEL[r.payment_status as AdminStoreOrdersPaymentStatus]?.[lang] ?? r.payment_status;
-                const rowBusy = decisionBusyId === r.id;
                 return (
                   <tr key={r.id} className="border-b border-sam-border-soft align-top last:border-b-0 hover:bg-sam-app" data-order-row={r.order_no}>
                     <td className="whitespace-nowrap px-3 py-2.5">
@@ -630,32 +548,9 @@ export function AdminStoreOrdersPage() {
                           <span className="sam-text-xxs text-sam-warning">{ko ? "지연" : "Delayed"}</span>
                         ) : null}
                         {r.order_status === "cancel_requested" || r.order_status === "refund_requested" ? (
-                          <div className="flex gap-1" data-testid="admin-order-decision-actions">
-                            <button
-                              type="button"
-                              className={ROW_ACTION_BTN}
-                              disabled={decisionBusyId !== null || loadingAny}
-                              onClick={() => void decide(r, r.order_status === "cancel_requested" ? "cancel_approve" : "refund_approve")}
-                            >
-                              {rowBusy
-                                ? "…"
-                                : r.order_status === "cancel_requested"
-                                  ? t("admin_store_orders_cancel_request_approve")
-                                  : t("admin_stores_orders_approve_refund")}
-                            </button>
-                            <button
-                              type="button"
-                              className={ROW_ACTION_BTN}
-                              disabled={decisionBusyId !== null || loadingAny}
-                              onClick={() => void decide(r, r.order_status === "cancel_requested" ? "cancel_reject" : "refund_reject")}
-                            >
-                              {rowBusy
-                                ? "…"
-                                : r.order_status === "cancel_requested"
-                                  ? t("admin_store_orders_cancel_request_reject")
-                                  : t("admin_stores_orders_reject_refund")}
-                            </button>
-                          </div>
+                          <Link href={detailHref} className={ROW_ACTION_BTN} data-testid="admin-order-decision-link">
+                            {ko ? "상세에서 처리" : "Decide in detail"}
+                          </Link>
                         ) : null}
                       </div>
                     </td>

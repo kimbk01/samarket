@@ -1,6 +1,5 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -14,7 +13,6 @@ import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types
 import { RefundRequestTable } from "./RefundRequestTable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
-import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 export function DeliveryRefundsClient() {
   const { t } = useI18n();
@@ -23,13 +21,6 @@ export function DeliveryRefundsClient() {
   const [rows, setRows] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const show = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2400);
-  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,35 +49,9 @@ export function DeliveryRefundsClient() {
     void load();
   }, [load]);
 
-  const approve = async (orderId: string) => {
-    if (
-      !(await dibayConfirm({ title: t("admin_do_refunds_confirm"), confirmTone: "destructive" }))
-    ) {
-      return;
-    }
-    setBusyId(orderId);
-    try {
-      const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(orderId)}/approve-refund`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
-      if (!json?.ok) {
-        show(json.error ?? t("admin_do_refunds_approve_failed"));
-        return;
-      }
-      show(t("admin_do_refunds_approve_ok"));
-      emitAdminQueueChanged("orders_attention");
-      await load();
-    } catch {
-      show(t("admin_do_refunds_network_error"));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const reject = (orderId: string) => {
-    window.location.assign(`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`);
+  /** Refund decisions happen in the order detail 「관리자 개입」 (reason required, server re-check). */
+  const openDecision = (orderId: string) => {
+    window.location.assign(`/admin/stores/orders/${encodeURIComponent(orderId)}`);
   };
 
   return (
@@ -111,7 +76,6 @@ export function DeliveryRefundsClient() {
           </Link>
         </p>
       ) : null}
-      {toast ? <p className="mb-2 text-sm text-sam-fg">{toast}</p> : null}
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           {t("admin_do_common_load_failed", { error })}
@@ -133,9 +97,9 @@ export function DeliveryRefundsClient() {
         ) : (
           <RefundRequestTable
             rows={rows}
-            busyOrderId={busyId}
-            onApprove={(id) => void approve(id)}
-            onReject={reject}
+            busyOrderId={null}
+            onApprove={openDecision}
+            onReject={openDecision}
           />
         )}
       </AdminCard>

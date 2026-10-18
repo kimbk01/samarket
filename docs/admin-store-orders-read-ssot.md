@@ -66,16 +66,34 @@
 
 자동 보정·삭제 금지. 보정은 OWNER 승인 후 별도 작업.
 
-## 5. 관리자 개입 (이번 단계 범위 밖)
+## 5. 관리자 개입 (2단계 — 주문 상세)
 
-취소요청·환불요청 승인/반려 버튼은 기존 API 그대로 목록의 상태 칸에 유지한다. 주문 상세「관리자 개입」영역으로 이관(사유 필수·서버 재확인)한 뒤 목록에서 제거한다. 관리자 Bell/Action Center 의 일반 주문 알림 제거는 매장 처리 권한 정비 이후 단계.
+매장이 주문 처리의 주체이고 관리자 개입은 예외 경로다. 목록(`/admin/store-orders`)과 환불 큐(`/admin/stores/orders/refunds`)에는 결정 버튼이 없고 **주문 상세로 이동**한다.
+
+| 구성 | 내용 |
+|---|---|
+| 계약 | `lib/admin/store-orders/admin-store-order-intervention-contract.ts` — 동작 6종, 현재 상태별 허용 동작 = ADMIN 전이 그래프(`allowedOrderTransitionsForActor`)에서 계산 |
+| 서버 | `lib/stores/admin-store-order-intervention.ts` → `POST /api/admin/store-orders/[orderId]/intervene` `{ action, reason, expected_status }` |
+| 레거시 | `PATCH /[orderId]`(force_cancel·complete_refund·reject_refund·set_order_status), `POST /approve-refund`, `PATCH /cancel-request` 도 같은 서비스로 위임 — 요청 본문에 `reason` 필수(없으면 400 `reason_required`), `restore_to_status` 는 무시, 이미 종료된 주문은 409 `action_not_allowed_for_status`(이전의 `already: true` 응답 대신). 저장소 QA 스크립트는 `reason` 을 보내도록 갱신 |
+| 화면 | 주문 상세 「관리자 개입」 카드: 동작 버튼 → 사유 입력(필수) → 처리 중 표시 → 성공/실패 표시 → 주문·감사 로그·이력 재조회 |
+
+처리 규칙:
+1. **사유 필수** (2~500자). 관리자 사유는 **감사 로그(`store_order.admin_intervention`, 처리자·사유·전후 상태)에만** 저장 — 구매자 주문 이벤트 API 로 노출되지 않음. 반려 사유(취소요청 반려·환불 반려)는 기존대로 매장·구매자에게 전달.
+2. **서버 재확인**: 관리자가 본 상태(`expected_status`)와 현재 상태가 다르면 409 `status_changed` → 화면 재조회. 상태 쓰기는 `applyStoreOrderStatusTransition`(ADMIN 그래프 + CAS).
+3. **환불 반려 복원 상태는 서버가 결정**: 주문 상태 이벤트(`to_status` 가 주문 상태인 것만 — 배달 상태 제외) 최신순에서 ① 맨 앞이 `→ refund_requested` 이고 그 연속 구간이 정확히 1건(누락·중복 차단) ② 같은 시각의 다른 주문 상태 이벤트 없음(순서 모호 차단) ③ 바로 앞 이벤트의 결과 상태 = `from_status`(기록 일관성) ④ `from_status` 가 허용 복원 상태 — 모두 만족할 때만 복원, 아니면 409 `refund_restore_status_unknown` (반려 대신 취소/환불 승인으로 처리). 운영 열린 환불요청 2건은 `accepted` 로 판정. (이전 목록 UI 는 항상 `completed` 로 복원 → `accepted` 에서 들어온 요청을 반려하면 주문완료로 건너뛰는 결함이 있었음.)
+4. 취소요청 원장(`store_order_cancel_requests`)은 주문 CAS 성공 후 **여전히 `pending` 인 행만** 승인/반려로 닫는다.
+5. 매장 결정과의 동시성: 주문 상태 CAS + `expected_status` 로 한 쪽만 성공. (매장 쪽 결정 권한은 3단계.)
+
+상세 보조 정보: `GET /api/admin/store-orders/[orderId]/history` — 주문 상태 이력(`store_order_events`), 배달 진행(`store_order_deliveries`), 수수료 정산 행(정산 원장과 같은 `store_commission_ledger_page`) + 정산 원장 딥링크.
+
+관리자 Bell/Action Center 의 일반 주문 알림 제거는 매장 처리 권한 정비(3단계) 이후.
 
 ## 6. 검증
 
-- 단위·정적: `lib/admin/store-orders/__tests__/admin-store-orders-read-ssot.test.ts`
+- 단위·정적: `lib/admin/store-orders/__tests__/admin-store-orders-read-ssot.test.ts`, `lib/admin/store-orders/__tests__/admin-store-order-intervention.test.ts`
 - DB (dibay-test, 함수 적용 후): 10건 단위 페이지 순회 33/33 중복·누락 0 (순회 중 데이터 변동 없는 조건 — 변동 시 한계는 §3-1), 정렬 유지, 탭 합 = 전체, 필터별 RPC = 직접 집계, 수수료 상태 22/22 = 정산 원장, 원장 함수 출력 해시 적용 전후 동일.
 
-## 7. 운영 반영 절차 (승인 후 실행 — 아직 미실행)
+## 7. 운영 반영 절차 (1단계 — 2026-10-18 운영 DB 적용·PR #59 병합 완료, 원장 9개 상태 해시 적용 전후 동일)
 
 **순서: DB 마이그레이션 → 웹 배포.** 반대 순서면 새 화면이 "주문 조회 함수 미배포" 오류를 표시한다 (0건으로 위장하지 않음). 마이그레이션만 먼저 적용된 상태는 안전하다: 기존 웹은 새 함수를 쓰지 않고, 원장 함수는 결과가 같다.
 
@@ -118,6 +136,6 @@ select st, md5(public.store_commission_ledger_page(null,null,null,st,null,500,0)
 | 8 | 무결성 배지 | 취소 탭 | `cancelled`+`paid` 행에 "결제 상태 불일치" (보정 버튼 없음) |
 | 9 | CSV | 필터 적용 후 「CSV 내려받기」 | 행 수 = 화면 전체 건수, 같은 필터 |
 | 10 | 주문 상세 | 주문번호·「상세 보기」 | `/admin/stores/orders/{id}` 기존 상세 열림 |
-| 11 | 기존 결정 버튼 | 취소요청/환불요청 행 | 확인 팝업 → 처리 → 목록 자동 재조회 (기존 API 동일) |
+| 11 | 관리자 개입 | 취소요청/환불요청 행 → 「상세에서 처리」 → 「관리자 개입」 | 사유 입력 필수, 처리 중 버튼 잠금, 성공 시 상태 전환 표시·재조회, 다른 탭에서 먼저 처리하면 409 안내 후 재조회, 환불 반려는 요청 직전 상태로 복원 |
 | 12 | 기존 딥링크 | 액션센터 「주문 큐 열기」(`?queue=admin_attention`), `?order_id=` | 해당 조건 칩 + 결과 |
 | 13 | UI/UX/CTA | 버튼 hover·눌림·비활성·로딩, 요청 중 연타 | 요청 중 모든 조회 CTA 비활성, 중복 요청 0, 가로 스크롤은 표 내부만 |

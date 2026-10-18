@@ -375,14 +375,14 @@ async function cleanupPreviousSaleFixture(sb, adminCookie) {
     adminCookie,
     "PATCH",
     `/api/admin/store-orders/${CLEANUP_ORDER_ID}`,
-    { set_order_status: "refund_requested" }
+    { set_order_status: "refund_requested", reason: "QA runtime refund scenario" }
   );
   if (!refundRequest.ok) fail("CLEANUP_REFUND_REQUEST", refundRequest);
   const refundComplete = await request(
     adminCookie,
     "PATCH",
     `/api/admin/store-orders/${CLEANUP_ORDER_ID}`,
-    { complete_refund: true }
+    { complete_refund: true, reason: "QA runtime refund scenario" }
   );
   if (!refundComplete.ok) fail("CLEANUP_REFUND_COMPLETE", refundComplete);
   const obligation = await row(
@@ -731,14 +731,14 @@ async function saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, a
     adminCookie,
     "PATCH",
     `/api/admin/store-orders/${orderId}`,
-    { set_order_status: "refund_requested" }
+    { set_order_status: "refund_requested", reason: "QA runtime refund scenario" }
   );
   if (!refundRequest.ok) fail("REFUND_REQUEST", refundRequest);
   const refundComplete = await request(
     adminCookie,
     "PATCH",
     `/api/admin/store-orders/${orderId}`,
-    { complete_refund: true }
+    { complete_refund: true, reason: "QA runtime refund scenario" }
   );
   if (!refundComplete.ok) fail("REFUND_COMPLETE", refundComplete);
 
