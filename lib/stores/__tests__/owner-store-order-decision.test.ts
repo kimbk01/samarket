@@ -196,14 +196,17 @@ describe("routes and writer wiring (static)", () => {
     expect(route).not.toContain('nextStatus: "cancel_requested"');
   });
 
-  it("buyer request: reason required, ledger row first (requested_role buyer), removed if the status write fails", () => {
+  it("buyer request: reason required, ledger row + status via the atomic writer path only", () => {
     const buyer = read("app/api/me/store-orders/[orderId]/route.ts");
-    expect(buyer).toContain('requested_role: "buyer"');
     expect(buyer).toContain('nextStatus: "cancel_requested"');
     expect(buyer).toContain("cancel_reason_required");
-    expect(buyer.indexOf('requested_role: "buyer"')).toBeLessThan(buyer.indexOf('nextStatus: "cancel_requested"'));
-    expect(buyer).toContain('.delete().eq("id", String(reqRow.id)).eq("status", "pending")');
+    expect(buyer).toContain("buyerCancelRequestReason: reasonCheck.reason");
+    expect(buyer).not.toContain("store_order_cancel_requests");
     expect(buyer).not.toContain("void reason");
+    const sql = read("supabase/migrations/20270512120000_store_order_buyer_cancel_request_atomic.sql");
+    expect(sql).toContain("FOR UPDATE");
+    expect(sql).toContain("FOR SHARE");
+    expect(sql).toContain("'buyer'");
   });
 
   it("decide route gates ownership and requires expected_status", () => {

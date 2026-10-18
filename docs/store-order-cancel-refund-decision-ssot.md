@@ -21,14 +21,16 @@
 
 | 경로 | 내용 |
 |---|---|
-| `PATCH /api/me/store-orders/[orderId]` `{ request_cancel, cancel_reason }` | 구매자 취소 요청. 사유 2~500자, 픽업 이후 차단, **원장 행 먼저 → 상태 전이**, 전이 실패 시 원장 행 삭제 (근거 없는 `cancel_requested` 방지). 이전 키 `request_refund`/`refund_reason` 은 별칭 |
+| `PATCH /api/me/store-orders/[orderId]` `{ request_cancel, cancel_reason }` | 구매자 취소 요청. 사유 2~500자, 픽업 이후 차단, **원장 행 + 상태 전이를 DB 함수 한 트랜잭션으로** (아래). 이전 키 `request_refund`/`refund_reason` 은 별칭 |
 | `POST /api/me/stores/[storeId]/orders/[orderId]/cancel-request` | 매장 즉시 취소 (사유 필수, 픽업 이후 차단). 승인된 원장 행 기록 |
 | `POST /api/me/stores/[storeId]/orders/[orderId]/decide` `{ action, reason, expected_status }` | 매장 결정 (`lib/stores/owner-store-order-decision.ts`) |
 | `PATCH /api/me/stores/[storeId]/orders/[orderId]` | 진행 단계 전이만. `cancel_requested` 설정·요청 상태에서의 전이·조리 이후 `cancelled` 는 각각 `/decide`·`/cancel-request` 로만 (우회 차단) |
 
 상태 쓰기는 호출자가 판단한 상태로 CAS 한다(`expectedCurrentStatus`) — 그 사이 상태가 바뀌면 409 `transition_conflict` 이고 더 새로운 상태 위에서 적용되지 않는다 (원장 `previous_order_status` 와 실제 직전 상태가 어긋나지 않음).
 
-구매자 취소 요청의 원장 행 기록과 상태 전이는 **한 트랜잭션이 아니다**. 동시 요청은 미결 1건 유니크 인덱스(409 `cancel_request_pending`), 동시 상태 변경은 위 CAS 로 막고, 전이 실패 시 원장 행을 지운다. 그러나 두 쓰기 사이에서 요청이 중단되거나 삭제가 실패하면 `pending` 원장 행이 상태 변경 없이 남을 수 있고, 그 주문은 다시 취소 요청할 때 409 가 된다. 이 창을 없애려면 두 쓰기를 하나의 DB 함수로 묶어야 한다(마이그레이션 필요 — 미적용).
+구매자 취소 요청의 원장 행과 상태 전이는 **한 DB 트랜잭션**이다 — `store_order_buyer_cancel_request_atomic` (`supabase/migrations/20270512120000_…`), writer 가 CUSTOMER → `cancel_requested` 일 때만 호출 (TS 에서 원장 쓰기·사후 삭제 없음). 주문 행 `FOR UPDATE`·배달 행 `FOR SHARE` 아래에서 관리자 잠금·호출자가 본 상태·accepted~arrived·배달 픽업(`pickup_in_progress`·`delivering`·`delivered`·`delivery_failed`)·미결 1건을 다시 확인한다. 어느 단계든 실패하면 원장 행도 상태 변경도 남지 않는다.
+
+동시성 범위: 먼저 커밋된(또는 진행 중인) 픽업은 요청이 기다렸다가 보고 거절한다. 요청이 먼저 커밋되면 이후 픽업 UPDATE 는 그 커밋을 기다린다 — 그 뒤 픽업 차단은 배달 서비스의 기존 주문 상태 검사(`orderAllowsDispatch`, 잠금 없는 읽기 검사)가 맡는다. 함수가 배포되지 않았으면 503 이며 대체 쓰기는 없다.
 
 매장 결정 규칙: 소유 확인 → `admin_locked` 이면 409 → 매장이 본 상태와 다르면 409 `status_changed` → 반려 사유 필수 → 복원 상태는 서버 기록만(취소 요청: 원장 `previous_order_status`, 환불 요청: 엄격한 이벤트 근거, 불명확하면 409) → `applyStoreOrderStatusTransition`(OWNER, CAS) → 원장은 여전히 `pending` 인 행만 닫음 → 감사 로그 `store_order.owner_decision`.
 

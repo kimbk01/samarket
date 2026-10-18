@@ -71,6 +71,11 @@ export type ApplyStoreOrderStatusTransitionOpts = {
    * previous status elsewhere, e.g. the cancel-request ledger, must not apply on a newer one).
    */
   expectedCurrentStatus?: string | null;
+  /**
+   * CUSTOMER → cancel_requested only (required there): the buyer's reason. The ledger row and the
+   * status change are written by `store_order_buyer_cancel_request_atomic` in one transaction.
+   */
+  buyerCancelRequestReason?: string | null;
   /** SYSTEM cron: require auto_complete_at <= now */
   requireAutoCompleteDue?: boolean;
   /** SYSTEM external-delivery webhook uses OWNER graph; payment_failure cancels pending */
@@ -240,10 +245,45 @@ export async function applyStoreOrderStatusTransition(
     return { updated, error };
   };
 
+  const buyerCancelRequest = actor === "CUSTOMER" && nextStatus === "cancel_requested";
   let { updated, error: uErr } =
-    nextStatus === "refunded"
+    nextStatus === "refunded" || buyerCancelRequest
       ? { updated: null as { id?: string } | null, error: null as { message?: string } | null }
       : await runCasUpdate(updatePayload);
+
+  /** D1: ledger row + status in one DB TX, delivery pickup checked under row locks (never ledger-then-delete). */
+  if (buyerCancelRequest) {
+    const reason = opts.buyerCancelRequestReason?.trim() ?? "";
+    if (!reason) return { ok: false, error: "cancel_reason_required", httpStatus: 400 };
+    const { data: reqRaw, error: reqErr } = await sb.rpc("store_order_buyer_cancel_request_atomic", {
+      p_order_id: oid,
+      p_buyer_user_id: String(order.buyer_user_id ?? ""),
+      p_expected_status: current,
+      p_reason: reason,
+    });
+    if (reqErr) {
+      if (/store_order_buyer_cancel_request_atomic|schema cache|does not exist/i.test(reqErr.message)) {
+        return { ok: false, error: "store_order_buyer_cancel_request_atomic_missing", httpStatus: 503 };
+      }
+      console.error("[applyStoreOrderStatusTransition] store_order_buyer_cancel_request_atomic", reqErr);
+      return { ok: false, error: reqErr.message, httpStatus: 500 };
+    }
+    const reqRow = (reqRaw ?? {}) as Record<string, unknown>;
+    if (reqRow.ok !== true) {
+      const code = String(reqRow.error ?? "cancel_request_failed");
+      const mapped: Record<string, { error: string; httpStatus: number }> = {
+        order_admin_locked: { error: "order_admin_locked", httpStatus: 409 },
+        transition_conflict: { error: "transition_conflict", httpStatus: 409 },
+        cancel_request_pending: { error: "cancel_request_pending", httpStatus: 409 },
+        picked_up: { error: "cannot_request_cancel", httpStatus: 400 },
+        invalid_transition: { error: "invalid_transition", httpStatus: 400 },
+        order_not_found: { error: "order_not_found", httpStatus: 404 },
+      };
+      return { ok: false, ...(mapped[code] ?? { error: code, httpStatus: 500 }) };
+    }
+    updated = { id: oid };
+    uErr = null;
+  }
 
   /** G10: refund terminal + gift reverse in one DB TX (never after-the-fact reverse). */
   if (nextStatus === "refunded") {

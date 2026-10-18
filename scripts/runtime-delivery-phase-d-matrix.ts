@@ -466,6 +466,7 @@ async function main() {
         orderId: mid.order.id,
         nextStatus: "cancel_requested",
         actor: "CUSTOMER",
+        buyerCancelRequestReason: "phase_d_cancel_req",
         audit: { actor_type: "user", actor_id: fixture.buyerId, action: "phase_d_cancel_req" },
       });
       const { data: stockMid } = await sb

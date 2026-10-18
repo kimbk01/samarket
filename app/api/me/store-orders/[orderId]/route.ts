@@ -217,34 +217,15 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "cannot_request_cancel" }, { status: 400 });
     }
 
-    // Ledger first: the store decides from this row; a failed status write removes it again.
-    const { data: reqRow, error: insErr } = await sb
-      .from("store_order_cancel_requests")
-      .insert({
-        order_id: oid,
-        previous_order_status: status,
-        requested_by: buyerId,
-        requested_role: "buyer",
-        reason: reasonCheck.reason,
-        status: "pending",
-        refund_status: "pending",
-      })
-      .select("id")
-      .maybeSingle();
-    if (insErr || !reqRow?.id) {
-      const duplicate = String(insErr?.code ?? "") === "23505";
-      return NextResponse.json(
-        { ok: false, error: duplicate ? "cancel_request_pending" : "cancel_request_failed" },
-        { status: duplicate ? 409 : 500 }
-      );
-    }
-
+    // Ledger row + status change in one DB transaction (store_order_buyer_cancel_request_atomic),
+    // which re-checks status, admin lock and courier pickup under row locks.
     const applied = await applyStoreOrderStatusTransition(sb, {
       orderId: oid,
       nextStatus: "cancel_requested",
       actor: "CUSTOMER",
-      // The ledger row recorded `status` as previous_order_status — never apply on a newer status.
+      // previous_order_status is recorded as `status` — never apply on a newer status.
       expectedCurrentStatus: status,
+      buyerCancelRequestReason: reasonCheck.reason,
       audit: {
         actor_type: "user",
         actor_id: buyerId,
@@ -254,7 +235,6 @@ export async function PATCH(
       },
     });
     if (!applied.ok) {
-      await sb.from("store_order_cancel_requests").delete().eq("id", String(reqRow.id)).eq("status", "pending");
       return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
 
