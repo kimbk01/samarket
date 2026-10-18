@@ -96,7 +96,8 @@ describe("DATA RESET BLOCKER CLOSE B2 order→gift/finance", () => {
     const deliveryUi = read(
       "components/admin/delivery-orders/DeliveryOrdersDashboardClient.tsx"
     );
-    expect(storesUi).toContain("canHardDelete(ORDER_ENTITY_ACTION_POLICY)");
+    // Read-only oversight screen: no delete surface at all (stricter than the policy gate).
+    expect(storesUi).not.toContain("bulk-delete");
     expect(deliveryUi).toContain("canHardDelete(ORDER_ENTITY_ACTION_POLICY)");
 
     const sql = read(

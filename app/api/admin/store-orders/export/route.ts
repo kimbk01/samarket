@@ -1,8 +1,15 @@
 /**
  * GET /api/admin/store-orders/export — CSV (UTF-8 BOM)
+ * `view=list`: the `/admin/store-orders` list filters (same RPC, every page at one `as_of`).
+ * Otherwise: legacy limit-based export.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import {
+  ADMIN_STORE_ORDERS_MAX_PAGE_SIZE,
+  parseAdminStoreOrdersQuery,
+} from "@/lib/admin/store-orders/admin-store-orders-contract";
+import { loadAdminStoreOrdersPage } from "@/lib/admin/store-orders/load-admin-store-orders-page";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -12,6 +19,82 @@ function csvEscape(s: string) {
   const t = String(s ?? "");
   if (/[",\n\r]/.test(t)) return `"${t.replace(/"/g, '""')}"`;
   return t;
+}
+
+/** Hard cap for one CSV download (rows). */
+const LIST_EXPORT_MAX_ROWS = 20_000;
+
+function csvResponse(lines: string[]) {
+  return new NextResponse("\uFEFF" + lines.join("\n"), {
+    status: 200,
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="store-orders-${new Date().toISOString().slice(0, 10)}.csv"`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+async function exportListView(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  sp: URLSearchParams
+) {
+  const base = parseAdminStoreOrdersQuery(sp);
+  const header = [
+    "order_no",
+    "store_name",
+    "buyer",
+    "items",
+    "total_amount",
+    "payment_amount",
+    "fulfillment_type",
+    "order_status",
+    "payment_status",
+    "commission_state",
+    "integrity_flags",
+    "created_at",
+    "completed_at",
+  ];
+  const lines = [header.join(",")];
+  let asOf: string | null = base.asOf;
+  for (let page = 1; (page - 1) * ADMIN_STORE_ORDERS_MAX_PAGE_SIZE < LIST_EXPORT_MAX_ROWS; page += 1) {
+    const out = await loadAdminStoreOrdersPage(sb, {
+      ...base,
+      page,
+      pageSize: ADMIN_STORE_ORDERS_MAX_PAGE_SIZE,
+      asOf,
+    });
+    if (!out.ok) {
+      return NextResponse.json(
+        { ok: false, error: out.error },
+        { status: out.error === "rpc_missing" ? 503 : 500 }
+      );
+    }
+    asOf = out.result.asOf;
+    for (const r of out.result.rows) {
+      lines.push(
+        [
+          r.order_no,
+          r.store_name,
+          r.buyer_label,
+          r.first_title ? `${r.first_title}${r.line_count > 1 ? ` +${r.line_count - 1}` : ""}` : "",
+          String(r.total_amount),
+          String(r.payment_amount),
+          r.fulfillment_type,
+          r.order_status,
+          r.payment_status,
+          r.commission_state ?? "",
+          r.integrity_flags.join("|"),
+          r.created_at,
+          r.completed_at ?? "",
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    }
+    if (out.result.rows.length < ADMIN_STORE_ORDERS_MAX_PAGE_SIZE) break;
+  }
+  return csvResponse(lines);
 }
 
 export async function GET(req: NextRequest) {
@@ -24,6 +107,8 @@ export async function GET(req: NextRequest) {
   }
 
   const sp = req.nextUrl.searchParams;
+  if (sp.get("view") === "list") return exportListView(sb, sp);
+
   const orderId = sp.get("order_id")?.trim();
   const orderNo = sp.get("order_no")?.trim();
   const storeIdFilter = sp.get("store_id")?.trim();
@@ -110,12 +195,5 @@ export async function GET(req: NextRequest) {
       ].join(",")
     ),
   ];
-  const body = "\uFEFF" + lines.join("\n");
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="store-orders-${new Date().toISOString().slice(0, 10)}.csv"`,
-    },
-  });
+  return csvResponse(lines);
 }

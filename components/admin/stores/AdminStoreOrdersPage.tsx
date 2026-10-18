@@ -1,42 +1,56 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+/**
+ * /admin/store-orders — 관리자 매장 주문 조회·감독 화면.
+ * Read SSOT: lib/admin/store-orders/admin-store-orders-contract.ts · GET /api/admin/store-orders/list
+ * (rows + total + tab counts = one RPC). The store owner runs the order; this screen observes.
+ *
+ * CTA contract:
+ * - 조회: applies the search form → page 1, new snapshot (server re-query).
+ * - 새로고침: same filters and page, new snapshot (server re-query, no client cache).
+ * - Page moves keep the snapshot (`as_of`) so pages neither repeat nor skip rows.
+ * - A failed request keeps the previous result and shows the error (never "0 orders").
+ */
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import {
+  chipClass,
+  COMMISSION_PRESS,
+  CommissionPeriodFilter,
+  CommissionStateChip,
+  ROW_ACTION_BTN,
+  type CommissionLang,
+} from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
-import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
-import { fetchAdminStoreOrdersQueryDeduped } from "@/lib/admin/fetch-admin-store-orders-query-deduped";
-import { useAdminQuery } from "@/hooks/useAdminQuery";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
+import {
+  ADMIN_STORE_ORDERS_FULFILLMENT_LABEL,
+  ADMIN_STORE_ORDERS_FULFILLMENT_TYPES,
+  ADMIN_STORE_ORDERS_INTEGRITY_LABEL,
+  ADMIN_STORE_ORDERS_PAYMENT_LABEL,
+  ADMIN_STORE_ORDERS_PAYMENT_STATUSES,
+  ADMIN_STORE_ORDERS_TAB_LABEL,
+  ADMIN_STORE_ORDERS_TABS,
+  adminStoreOrderStatusChipClass,
+  adminStoreOrdersQueryToParams,
+  parseAdminStoreOrdersQuery,
+  type AdminStoreOrderListRow,
+  type AdminStoreOrdersFulfillment,
+  type AdminStoreOrdersPageResult,
+  type AdminStoreOrdersPaymentStatus,
+  type AdminStoreOrdersQuery,
+  type AdminStoreOrdersTab,
+} from "@/lib/admin/store-orders/admin-store-orders-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
+import { formatManilaDateTime, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { canHardDelete, ORDER_ENTITY_ACTION_POLICY } from "@/lib/admin/management";
 
-type Row = {
-  id: string;
-  order_no: string;
-  store_id: string;
-  store_name: string;
-  buyer_user_id: string;
-  total_amount?: number;
-  discount_amount?: number;
-  payment_amount: number;
-  amount_before_gift?: number;
-  gift_redemption_amount?: number;
-  platform_funded_amount?: number;
-  merchant_revenue_amount?: number;
-  community_messenger_room_id?: string | null;
-  payment_status: string;
-  order_status: string;
-  fulfillment_type: string;
-  created_at: string;
-};
-
-const ORDER_STATUS_LABEL_KEYS: Record<string, MessageKey> = {
+const ORDER_STATUS_LABEL_KEYS: Record<StoreOrderStatus, MessageKey> = {
   pending: "admin_stores_orders_status_pending",
   accepted: "admin_stores_orders_status_accepted",
   preparing: "admin_stores_orders_status_preparing",
@@ -44,667 +58,641 @@ const ORDER_STATUS_LABEL_KEYS: Record<string, MessageKey> = {
   delivering: "admin_stores_orders_status_delivering",
   arrived: "admin_stores_orders_status_arrived",
   completed: "admin_stores_orders_status_completed",
-  cancelled: "admin_stores_orders_status_cancelled",
   cancel_requested: "admin_stores_orders_status_cancel_requested",
+  cancelled: "admin_stores_orders_status_cancelled",
   refund_requested: "admin_stores_orders_status_refund_requested",
   refunded: "admin_stores_orders_status_refunded",
 };
 
-/** UI sentinel → `queue=admin_attention` (Admin Action Queue `orders_attention` predicate). */
-const ADMIN_ORDERS_QUEUE_FILTER_VALUE = "__admin_queue";
-
-const ORDER_FILTER_OPTIONS: { value: string; labelKey: MessageKey }[] = [
-  { value: "", labelKey: "admin_stores_orders_filter_all" },
-  { value: ADMIN_ORDERS_QUEUE_FILTER_VALUE, labelKey: "admin_stores_orders_filter_admin_queue" },
-  { value: "pending", labelKey: "admin_stores_orders_status_pending" },
-  { value: "accepted", labelKey: "admin_stores_orders_status_accepted" },
-  { value: "preparing", labelKey: "admin_stores_orders_status_preparing" },
-  { value: "ready_for_pickup", labelKey: "admin_stores_orders_status_ready_for_pickup" },
-  { value: "delivering", labelKey: "admin_stores_orders_status_delivering" },
-  { value: "arrived", labelKey: "admin_stores_orders_status_arrived" },
-  { value: "completed", labelKey: "admin_stores_orders_status_completed" },
-  { value: "cancel_requested", labelKey: "admin_stores_orders_status_cancel_requested" },
-  { value: "cancelled", labelKey: "admin_stores_orders_status_cancelled" },
-  { value: "refund_requested", labelKey: "admin_stores_orders_status_refund_requested" },
-  { value: "refunded", labelKey: "admin_stores_orders_status_refunded" },
-];
-
-type OrderFilters = {
-  orderId: string;
+type SearchForm = {
+  storeName: string;
   orderNo: string;
-  orderStatus: string;
-  storeId: string;
+  buyer: string;
+  orderStatus: StoreOrderStatus | "";
+  fulfillment: AdminStoreOrdersFulfillment | "";
+  paymentStatus: AdminStoreOrdersPaymentStatus | "";
+  period: StoreCommissionPeriod;
+  fromDay: string;
+  toDay: string;
 };
 
-const emptyFilters: OrderFilters = {
-  orderId: "",
-  orderNo: "",
-  orderStatus: "",
-  storeId: "",
-};
+type LoadMode = "query" | "refresh" | "page";
 
-type Props = {
-  /** URL 쿼리로 초기 필터 전달 */
-  initialFilters?: Partial<OrderFilters>;
-};
-
-function buildOrdersQueryString(f: OrderFilters) {
-  const params = new URLSearchParams();
-  const oid = f.orderId.trim();
-  const ono = f.orderNo.trim();
-  const os = f.orderStatus.trim();
-  const sid = f.storeId.trim();
-  if (oid) params.set("order_id", oid);
-  if (ono) params.set("order_no", ono);
-  if (os === ADMIN_ORDERS_QUEUE_FILTER_VALUE) params.set("queue", "admin_attention");
-  else if (os) params.set("order_status", os);
-  if (sid) params.set("store_id", sid);
-  return params.toString();
+function formFromQuery(q: AdminStoreOrdersQuery): SearchForm {
+  return {
+    storeName: q.storeName ?? "",
+    orderNo: q.orderNo ?? "",
+    buyer: q.buyer ?? "",
+    orderStatus: q.orderStatus ?? "",
+    fulfillment: q.fulfillment ?? "",
+    paymentStatus: q.paymentStatus ?? "",
+    period: q.period,
+    fromDay: q.fromDay ?? "",
+    toDay: q.toDay ?? "",
+  };
 }
 
-function CsvExportLink({ filters }: { filters: OrderFilters }) {
-  const { t } = useI18n();
-  const qs = buildOrdersQueryString(filters);
-  const href = `/api/admin/store-orders/export${qs ? `?${qs}` : ""}`;
+function applyForm(q: AdminStoreOrdersQuery, f: SearchForm): AdminStoreOrdersQuery {
+  return {
+    ...q,
+    storeName: f.storeName.trim() || null,
+    orderNo: f.orderNo.trim() || null,
+    buyer: f.buyer.trim() || null,
+    orderStatus: f.orderStatus || null,
+    fulfillment: f.fulfillment || null,
+    paymentStatus: f.paymentStatus || null,
+    period: f.period,
+    fromDay: f.period === "custom" ? f.fromDay || null : null,
+    toDay: f.period === "custom" ? f.toDay || null : null,
+    page: 1,
+    asOf: null,
+  };
+}
+
+/** Stored times are UTC; admin screens show Asia/Manila (same as settlement). */
+function manilaSeconds(iso: string | null | undefined): string {
+  const ms = Date.parse(String(iso ?? ""));
+  if (!Number.isFinite(ms)) return "—";
+  return `${new Date(ms + 8 * 3_600_000).toISOString().slice(0, 19).replace("T", " ")} PHT`;
+}
+
+const INPUT =
+  "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 sam-text-helper text-sam-fg placeholder:text-sam-meta focus:border-signature focus:outline-none";
+const PRIMARY_BTN = `inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-ui-rect bg-signature px-4 py-2 sam-text-helper font-semibold text-white hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${COMMISSION_PRESS}`;
+const SECONDARY_BTN = `inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${COMMISSION_PRESS}`;
+const PAGER_BTN = `inline-flex min-h-9 min-w-9 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted disabled:cursor-not-allowed disabled:opacity-40 ${COMMISSION_PRESS}`;
+
+function Pager({
+  page,
+  pageSize,
+  total,
+  busy,
+  onGo,
+  lang,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  busy: boolean;
+  onGo: (page: number) => void;
+  lang: CommissionLang;
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const [jump, setJump] = useState(String(page));
+  useEffect(() => setJump(String(page)), [page]);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const go = (p: number) => {
+    const next = Math.min(pages, Math.max(1, Math.floor(p) || 1));
+    if (next !== page) onGo(next);
+    else setJump(String(page));
+  };
   return (
-    <a
-      href={href}
-      className="inline-flex items-center rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg hover:bg-sam-surface-muted"
-      download
-    >
-      {t("admin_stores_orders_csv_export")}
-    </a>
+    <div className="flex flex-wrap items-center justify-between gap-2 sam-text-helper" data-admin-orders-pager="1">
+      <span className="text-sam-muted tabular-nums">
+        {lang === "ko"
+          ? `전체 ${total.toLocaleString()}건 · ${from.toLocaleString()}–${to.toLocaleString()}`
+          : `${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button type="button" className={PAGER_BTN} disabled={busy || page <= 1} onClick={() => go(1)} aria-label="first page">
+          «
+        </button>
+        <button type="button" className={PAGER_BTN} disabled={busy || page <= 1} onClick={() => go(page - 1)}>
+          {lang === "ko" ? "이전" : "Prev"}
+        </button>
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            go(Number(jump));
+          }}
+        >
+          <input
+            className="w-14 rounded-ui-rect border border-sam-border bg-sam-surface px-1.5 py-1.5 text-center tabular-nums text-sam-fg"
+            inputMode="numeric"
+            value={jump}
+            onChange={(e) => setJump(e.target.value.replace(/\D/g, ""))}
+            disabled={busy || pages <= 1}
+            aria-label={lang === "ko" ? "페이지 번호" : "Page number"}
+          />
+          <span className="tabular-nums text-sam-muted">/ {pages.toLocaleString()}</span>
+        </form>
+        <button type="button" className={PAGER_BTN} disabled={busy || page >= pages} onClick={() => go(page + 1)}>
+          {lang === "ko" ? "다음" : "Next"}
+        </button>
+        <button type="button" className={PAGER_BTN} disabled={busy || page >= pages} onClick={() => go(pages)} aria-label="last page">
+          »
+        </button>
+      </div>
+    </div>
   );
 }
 
-export function AdminStoreOrdersPage({ initialFilters }: Props) {
-  const { t, safeT, language } = useI18n();
-  const locale = catalogDateLocale(language);
+export function AdminStoreOrdersPage() {
+  const { t, language } = useI18n();
+  const lang: CommissionLang = language === "ko" ? "ko" : "en";
+  const ko = lang === "ko";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const lastUrlOrderIdRef = useRef<string | null>(null);
-  const headerSelectRef = useRef<HTMLInputElement>(null);
+  const searchKey = searchParams.toString();
 
-  const initial: OrderFilters = {
-    orderId: (initialFilters?.orderId ?? "").trim(),
-    orderNo: (initialFilters?.orderNo ?? "").trim(),
-    orderStatus: (initialFilters?.orderStatus ?? "").trim(),
-    storeId: (initialFilters?.storeId ?? "").trim(),
-  };
+  const [applied, setApplied] = useState<AdminStoreOrdersQuery>(() =>
+    parseAdminStoreOrdersQuery(new URLSearchParams(searchKey))
+  );
+  const [form, setForm] = useState<SearchForm>(() => formFromQuery(applied));
+  const [result, setResult] = useState<AdminStoreOrdersPageResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const hasUrlInitial =
-    Boolean(initial.orderId) ||
-    Boolean(initial.orderNo) ||
-    Boolean(initial.orderStatus) ||
-    Boolean(initial.storeId);
-  const [applied, setApplied] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
-  const [draft, setDraft] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
+  const [busy, setBusy] = useState<LoadMode | null>(null);
+  const [decisionBusyId, setDecisionBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const orderStatusLabel = useCallback(
-    (status: string) => {
-      const key = ORDER_STATUS_LABEL_KEYS[status];
-      return key ? t(key) : status;
+  const abortRef = useRef<AbortController | null>(null);
+  const lastUrlRef = useRef<string>(searchKey);
+
+  const statusLabel = useCallback(
+    (s: string) => {
+      const key = ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
+      return key ? t(key) : s;
     },
     [t]
   );
 
-  const syncDescParts = useMemo(() => {
-    const linkLabel = t("admin_stores_orders_sync_link");
-    const desc = t("admin_stores_orders_sync_desc");
-    const idx = desc.indexOf(linkLabel);
-    if (idx < 0) return { before: desc, after: "" };
-    return {
-      before: desc.slice(0, idx),
-      after: desc.slice(idx + linkLabel.length),
-    };
-  }, [t]);
-
-  const ordersQueryKey = useMemo(
-    () => `admin:store-orders:${buildOrdersQueryString(applied) || "_"}`,
-    [applied]
+  const errorText = useCallback(
+    (code: string) => {
+      if (code === "forbidden") return t("admin_audit_err_no_permission");
+      if (code === "network_error") return t("common_network_error");
+      if (code === "rpc_missing")
+        return ko
+          ? "주문 조회 함수가 아직 DB에 적용되지 않았습니다. 관리자에게 마이그레이션 적용을 요청하세요."
+          : "The order list function is not deployed to the database yet.";
+      return ko ? `조회에 실패했습니다. (${code})` : `Failed to load. (${code})`;
+    },
+    [ko, t]
   );
 
-  const {
-    data: rowsData,
-    loading,
-    refreshing,
-    error: ordersQueryError,
-    revalidate: revalidateOrders,
-    mutate: mutateOrders,
-  } = useAdminQuery<Row[]>({
-    queryKey: ordersQueryKey,
-    ttlMs: ADMIN_QUERY_TTL_FAST_MS,
-    pollIntervalMs: 30_000,
-    fetcher: async () => {
+  /** Every read goes to the server (`no-store`); the previous result stays on failure. */
+  const load = useCallback(
+    async (q: AdminStoreOrdersQuery, mode: LoadMode) => {
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setBusy(mode);
+      setError(null);
+
+      const urlParams = adminStoreOrdersQueryToParams(q);
+      if (q.page > 1) urlParams.set("page", String(q.page));
+      const urlQs = urlParams.toString();
+      if (urlQs !== lastUrlRef.current) {
+        lastUrlRef.current = urlQs;
+        router.replace(urlQs ? `${pathname}?${urlQs}` : pathname, { scroll: false });
+      }
+
       try {
-        const qs = buildOrdersQueryString(applied);
-        const { status, json: raw } = await fetchAdminStoreOrdersQueryDeduped(qs);
-        const json = raw as { ok?: boolean; error?: string; orders?: Row[] };
-        if (status === 403) throw new Error("forbidden");
-        if (!json?.ok) {
-          throw new Error(typeof json?.error === "string" ? json.error : "load_failed");
+        const qs = adminStoreOrdersQueryToParams(q, { includePaging: true }).toString();
+        const res = await fetch(`/api/admin/store-orders/list${qs ? `?${qs}` : ""}`, {
+          credentials: "include",
+          cache: "no-store",
+          signal: ac.signal,
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<AdminStoreOrdersPageResult>;
+        if (ac.signal.aborted) return;
+        if (res.status === 401 || res.status === 403) throw new Error("forbidden");
+        if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : `http_${res.status}`);
+        const next = json as AdminStoreOrdersPageResult;
+        // A page past the end (rows removed since the last look) → clamp to the last page.
+        const pages = Math.max(1, Math.ceil(next.total / next.pageSize));
+        if (next.rows.length === 0 && next.total > 0 && q.page > pages) {
+          const clamped = { ...q, page: pages, asOf: next.asOf };
+          setApplied(clamped);
+          void load(clamped, mode);
+          return;
         }
-        return json.orders ?? [];
+        setApplied({ ...q, asOf: next.asOf });
+        setResult(next);
       } catch (err) {
-        if (err instanceof Error && (err.message === "forbidden" || err.message === "load_failed")) {
-          throw err;
+        if (ac.signal.aborted) return;
+        const msg = err instanceof Error ? err.message : "network_error";
+        setError(msg === "Failed to fetch" ? "network_error" : msg);
+      } finally {
+        if (abortRef.current === ac) {
+          abortRef.current = null;
+          setBusy(null);
         }
-        throw new Error("network_error");
       }
     },
-  });
+    [pathname, router]
+  );
 
-  const rows = rowsData ?? [];
-
-  const errorText = useMemo(() => {
-    const code = error ?? ordersQueryError;
-    if (!code) return null;
-    if (code === "forbidden") return t("admin_audit_err_no_permission");
-    if (code === "network_error") return t("common_network_error");
-    return code;
-  }, [error, ordersQueryError, t]);
-
-  const urlOrderId = searchParams.get("order_id")?.trim() ?? "";
+  // First load + external URL changes (deep links into this screen while it is open).
   useEffect(() => {
-    if (urlOrderId === lastUrlOrderIdRef.current) return;
-    lastUrlOrderIdRef.current = urlOrderId || null;
-    if (!urlOrderId) return;
-    setDraft((d) => ({ ...d, orderId: urlOrderId }));
-    setApplied((d) => ({ ...d, orderId: urlOrderId }));
-  }, [urlOrderId]);
+    if (result !== null && searchKey === lastUrlRef.current) return;
+    lastUrlRef.current = searchKey;
+    const q = parseAdminStoreOrdersQuery(new URLSearchParams(searchKey));
+    setApplied(q);
+    setForm(formFromQuery(q));
+    void load(q, "query");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the URL changes
+  }, [searchKey]);
 
-  const applyFilters = useCallback(() => {
-    const next = { ...draft };
-    setApplied(next);
-    setActionMessage(null);
-    const qs = buildOrdersQueryString(next);
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [draft, pathname, router]);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
-  const refreshList = useCallback(() => {
-    invalidateAdminFetchCache("admin:store-orders:");
-    void revalidateOrders({ force: true });
-  }, [revalidateOrders]);
+  const onSearch = (e?: FormEvent) => {
+    e?.preventDefault();
+    setNotice(null);
+    void load(applyForm(applied, form), "query");
+  };
+  const onRefresh = () => {
+    setNotice(null);
+    void load({ ...applied, asOf: null }, "refresh");
+  };
+  const onTab = (tab: AdminStoreOrdersTab) => {
+    setNotice(null);
+    void load({ ...applied, tab, page: 1, asOf: null }, "query");
+  };
+  const onPage = (page: number) => void load({ ...applied, page }, "page");
+  const onReset = () => {
+    const cleared = parseAdminStoreOrdersQuery(new URLSearchParams());
+    setForm(formFromQuery(cleared));
+    setNotice(null);
+    void load(cleared, "query");
+  };
+  const clearDeepLink = (key: "storeId" | "orderId" | "buyerUserId" | "adminQueue") => {
+    void load({ ...applied, [key]: key === "adminQueue" ? false : null, page: 1, asOf: null }, "query");
+  };
 
-  const toggleSelect = useCallback((id: string, checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(
-    (checked: boolean) => {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (checked) rows.forEach((r) => next.add(r.id));
-        else rows.forEach((r) => next.delete(r.id));
-        return next;
-      });
-    },
-    [rows]
-  );
-
-  const deleteSelectedFromDb = useCallback(async () => {
-    if (selectedIds.size === 0) return;
-    const ids = [...selectedIds];
-    if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_delete", { count: ids.length }), confirmTone: "destructive" }))) {
-      return;
-    }
-    setBulkBusy(true);
-    setActionMessage(null);
-    try {
-      const res = await fetch("/api/admin/store-orders/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ orderIds: ids }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        deleted?: string[];
-        errors?: { id: string; message: string }[];
-        error?: string;
-      };
-      if (!res.ok) {
-        setActionMessage(data.error ?? t("admin_stores_orders_delete_failed"));
-        return;
-      }
-      const deleted: string[] = Array.isArray(data.deleted) ? data.deleted : [];
-      const deletedSet = new Set(deleted);
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        deleted.forEach((id) => next.delete(id));
-        return next;
-      });
-      mutateOrders((prev) => (prev ?? []).filter((r) => !deletedSet.has(r.id)));
-      if (data.errors?.length) {
-        setActionMessage(
-          deleted.length > 0
-            ? t("admin_stores_orders_delete_partial", {
-                deleted: deleted.length,
-                failed: data.errors.length,
-              })
-            : t("admin_stores_orders_delete_all_failed", { failed: data.errors.length })
-        );
-      } else {
-        setActionMessage(t("admin_stores_orders_deleted_count", { count: deleted.length }));
-      }
-      invalidateAdminFetchCache("admin:store-orders:");
-      await revalidateOrders({ force: true });
-    } catch {
-      setActionMessage(t("common_network_error"));
-    } finally {
-      setBulkBusy(false);
-    }
-  }, [mutateOrders, revalidateOrders, selectedIds, t]);
-
-  const approveRefund = useCallback(
-    async (id: string) => {
-      if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_refund"), confirmTone: "destructive" }))) return;
-      setBusyId(id);
-      setError(null);
-      try {
-        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}/approve-refund`, {
-          method: "POST",
-          credentials: "include",
-        });
-        const json = await res.json();
-        if (!json?.ok) {
-          setError(json?.error ?? "approve_refund_failed");
-          return;
-        }
-        invalidateAdminFetchCache("admin:store-orders:");
-        emitAdminQueueChanged("orders_attention");
-        await revalidateOrders({ force: true });
-      } catch {
-        setError("network_error");
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [revalidateOrders, t]
-  );
-
-  const rejectRefund = useCallback(
-    async (id: string) => {
-      if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_reject_refund") }))) return;
-      setBusyId(id);
-      setError(null);
-      try {
-        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reject_refund: true,
-            restore_to_status: "completed",
-            reject_reason: t("admin_stores_orders_reject_refund_default_reason"),
-          }),
-        });
-        const json = await res.json();
-        if (!json?.ok) {
-          setError(json?.error ?? "reject_refund_failed");
-          return;
-        }
-        invalidateAdminFetchCache("admin:store-orders:");
-        emitAdminQueueChanged("orders_attention");
-        await revalidateOrders({ force: true });
-      } catch {
-        setError("network_error");
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [revalidateOrders, t]
-  );
-
-  /** Admin decision on an owner cancel request (cancel_requested → cancelled | restore). */
-  const decideCancelRequest = useCallback(
-    async (id: string, action: "approve" | "reject") => {
+  /** Existing admin decision paths (moved to order detail in the next step; kept until then). */
+  const decide = useCallback(
+    async (row: AdminStoreOrderListRow, kind: "cancel_approve" | "cancel_reject" | "refund_approve" | "refund_reject") => {
       const title =
-        action === "approve"
+        kind === "cancel_approve"
           ? t("admin_store_orders_confirm_cancel_request_approve")
-          : t("admin_store_orders_confirm_cancel_request_reject");
-      if (!(await dibayConfirm({ title, confirmTone: action === "approve" ? "destructive" : undefined }))) return;
-      setBusyId(id);
-      setError(null);
+          : kind === "cancel_reject"
+            ? t("admin_store_orders_confirm_cancel_request_reject")
+            : kind === "refund_approve"
+              ? t("admin_stores_orders_confirm_refund")
+              : t("admin_stores_orders_confirm_reject_refund");
+      const destructive = kind === "cancel_approve" || kind === "refund_approve";
+      if (!(await dibayConfirm({ title, confirmTone: destructive ? "destructive" : undefined }))) return;
+      setDecisionBusyId(row.id);
+      setNotice(null);
       try {
-        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}/cancel-request`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!json?.ok) {
-          setError(json?.error ?? `cancel_request_${action}_failed`);
+        const id = encodeURIComponent(row.id);
+        const res =
+          kind === "cancel_approve" || kind === "cancel_reject"
+            ? await fetch(`/api/admin/store-orders/${id}/cancel-request`, {
+                method: "PATCH",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: kind === "cancel_approve" ? "approve" : "reject" }),
+              })
+            : kind === "refund_approve"
+              ? await fetch(`/api/admin/store-orders/${id}/approve-refund`, { method: "POST", credentials: "include" })
+              : await fetch(`/api/admin/store-orders/${id}`, {
+                  method: "PATCH",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    reject_refund: true,
+                    restore_to_status: "completed",
+                    reject_reason: t("admin_stores_orders_reject_refund_default_reason"),
+                  }),
+                });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || json.ok !== true) {
+          setNotice(errorText(json.error ?? `http_${res.status}`));
           return;
         }
         invalidateAdminFetchCache("admin:store-orders:");
         emitAdminQueueChanged("orders_attention");
-        await revalidateOrders({ force: true });
+        setNotice(ko ? `${row.order_no} 처리 완료` : `${row.order_no} updated`);
+        await load({ ...applied, asOf: null }, "refresh");
       } catch {
-        setError("network_error");
+        setNotice(t("common_network_error"));
       } finally {
-        setBusyId(null);
+        setDecisionBusyId(null);
       }
     },
-    [revalidateOrders, t]
+    [applied, errorText, ko, load, t]
   );
 
-  const allRowsSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
-  const someRowsSelected = rows.some((r) => selectedIds.has(r.id));
-  useEffect(() => {
-    const el = headerSelectRef.current;
-    if (el) el.indeterminate = someRowsSelected && !allRowsSelected;
-  }, [someRowsSelected, allRowsSelected]);
+  const rows = result?.rows ?? [];
+  const deepLinks = useMemo(() => {
+    const out: { key: "storeId" | "orderId" | "buyerUserId" | "adminQueue"; label: string }[] = [];
+    if (applied.storeId) {
+      const name = rows.find((r) => r.store_id === applied.storeId)?.store_name;
+      out.push({ key: "storeId", label: ko ? `매장: ${name || "지정 매장"}` : `Store: ${name || "selected"}` });
+    }
+    if (applied.orderId) {
+      const no = rows.find((r) => r.id === applied.orderId)?.order_no;
+      out.push({ key: "orderId", label: ko ? `주문: ${no || "지정 주문"}` : `Order: ${no || "selected"}` });
+    }
+    if (applied.buyerUserId) {
+      const b = rows.find((r) => r.buyer_user_id === applied.buyerUserId)?.buyer_label;
+      out.push({ key: "buyerUserId", label: ko ? `구매자: ${b || "지정 구매자"}` : `Buyer: ${b || "selected"}` });
+    }
+    if (applied.adminQueue) out.push({ key: "adminQueue", label: ko ? "관리자 처리 필요 (액션 큐)" : "Admin action queue" });
+    return out;
+  }, [applied, ko, rows]);
+
+  const exportHref = useMemo(() => {
+    const p = adminStoreOrdersQueryToParams(applied);
+    p.set("view", "list");
+    if (applied.asOf) p.set("as_of", applied.asOf);
+    return `/api/admin/store-orders/export?${p.toString()}`;
+  }, [applied]);
+
+  const loadingAny = busy !== null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-store-orders="1">
       <AdminPageHeader titleKey="admin_page_store_orders" />
-      <nav className="flex flex-wrap gap-2 sam-text-helper">
-        <Link
-          href="/admin/stores/orders"
-          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
-        >
-          {t("admin_stores_orders_nav_delivery")}
-        </Link>
-        <Link
-          href="/admin/order-chats"
-          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
-        >
-          {t("admin_stores_orders_nav_hub")}
-        </Link>
-        <Link
-          href="/admin/chats/messenger"
-          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
-        >
-          {t("admin_stores_orders_nav_messenger")}
-        </Link>
-        <Link
-          href="/admin/order-notifications"
-          className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
-        >
-          {t("admin_stores_orders_nav_notif")}
-        </Link>
-      </nav>
-      <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
-        {syncDescParts.before}
-        <Link href="/admin/stores/orders" className="font-medium text-signature underline">
-          {t("admin_stores_orders_sync_link")}
-        </Link>
-        {syncDescParts.after}
-      </p>
-      <p className="sam-text-helper text-sam-muted">{t("admin_stores_orders_refund_desc")}</p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary">
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">store_id</span>
-          <input
-            className="min-w-[220px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono sam-text-helper"
-            value={draft.storeId}
-            onChange={(ev) => setDraft((d) => ({ ...d, storeId: ev.target.value }))}
-            placeholder="UUID"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">order_id (UUID)</span>
-          <input
-            className="min-w-[220px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono sam-text-helper"
-            value={draft.orderId}
-            onChange={(ev) => setDraft((d) => ({ ...d, orderId: ev.target.value }))}
-            placeholder="UUID"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">{t("admin_stores_orders_filter_order_no")}</span>
-          <input
-            className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-2 py-1"
-            value={draft.orderNo}
-            onChange={(ev) => setDraft((d) => ({ ...d, orderNo: ev.target.value }))}
-            placeholder="SO-…"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">{t("admin_stores_orders_filter_status")}</span>
-          <select
-            className="min-w-[132px] rounded border border-sam-border bg-sam-surface px-2 py-1"
-            value={draft.orderStatus}
-            onChange={(ev) => setDraft((d) => ({ ...d, orderStatus: ev.target.value }))}
-          >
-            {ORDER_FILTER_OPTIONS.map((o) => (
-              <option key={o.value ? `ord-${o.value}` : "ord-all"} value={o.value}>
-                {t(o.labelKey)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="rounded bg-sam-ink px-3 py-1.5 text-white hover:bg-sam-surface-dark disabled:opacity-50"
-          onClick={() => applyFilters()}
-          disabled={loading}
-        >
-          {loading && rows.length === 0
-            ? t("admin_stores_orders_querying")
-            : refreshing
-              ? t("admin_do_common_list_refreshing")
-              : t("admin_audit_query_btn")}
-        </button>
-        <button
-          type="button"
-          className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg hover:bg-sam-app disabled:opacity-50"
-          onClick={() => refreshList()}
-          disabled={loading}
-        >
-          {t("admin_stores_orders_refresh_list")}
-        </button>
-        <CsvExportLink filters={applied} />
+      {/* 상단 현황 = 상태 탭 (서버 집계, 목록과 같은 조건) */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="tablist" aria-label={ko ? "주문 현황" : "Order status"}>
+        {ADMIN_STORE_ORDERS_TABS.map((tab) => {
+          const active = applied.tab === tab;
+          const count = result?.tabCounts[tab];
+          return (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              disabled={loadingAny && active}
+              onClick={() => onTab(tab)}
+              data-tab={tab}
+              className={`flex flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left ${COMMISSION_PRESS} ${
+                active
+                  ? "border-signature bg-signature/5"
+                  : "border-sam-border bg-sam-surface hover:bg-sam-surface-muted active:bg-sam-surface-muted"
+              }`}
+            >
+              <span className={`sam-text-xxs ${active ? "font-semibold text-signature" : "text-sam-muted"}`}>
+                {ADMIN_STORE_ORDERS_TAB_LABEL[tab][lang]}
+              </span>
+              <span className="text-lg font-semibold tabular-nums text-sam-fg">
+                {typeof count === "number" ? count.toLocaleString() : "—"}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <p className="sam-text-xxs text-sam-muted">{t("admin_stores_orders_csv_hint")}</p>
 
-      {errorText ? (
-        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{errorText}</p>
-      ) : null}
-      {actionMessage ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">
-          {actionMessage}
+      {/* 검색 */}
+      <form
+        onSubmit={onSearch}
+        className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4"
+        aria-label={ko ? "주문 검색" : "Search orders"}
+      >
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "매장명" : "Store"}</span>
+            <input className={INPUT} value={form.storeName} onChange={(e) => setForm((f) => ({ ...f, storeName: e.target.value }))} placeholder={ko ? "매장명 일부" : "Store name"} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "주문번호" : "Order no."}</span>
+            <input className={INPUT} value={form.orderNo} onChange={(e) => setForm((f) => ({ ...f, orderNo: e.target.value }))} placeholder="SO…" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "구매자" : "Buyer"}</span>
+            <input className={INPUT} value={form.buyer} onChange={(e) => setForm((f) => ({ ...f, buyer: e.target.value }))} placeholder={ko ? "닉네임" : "Nickname"} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "주문 상태" : "Order status"}</span>
+            <select className={INPUT} value={form.orderStatus} onChange={(e) => setForm((f) => ({ ...f, orderStatus: e.target.value as SearchForm["orderStatus"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {STORE_ORDER_STATUS_LIST.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabel(s)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "배달 / 픽업" : "Fulfillment"}</span>
+            <select className={INPUT} value={form.fulfillment} onChange={(e) => setForm((f) => ({ ...f, fulfillment: e.target.value as SearchForm["fulfillment"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {ADMIN_STORE_ORDERS_FULFILLMENT_TYPES.map((v) => (
+                <option key={v} value={v}>
+                  {ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[v][lang]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{ko ? "결제 상태" : "Payment"}</span>
+            <select className={INPUT} value={form.paymentStatus} onChange={(e) => setForm((f) => ({ ...f, paymentStatus: e.target.value as SearchForm["paymentStatus"] }))}>
+              <option value="">{ko ? "전체" : "All"}</option>
+              {ADMIN_STORE_ORDERS_PAYMENT_STATUSES.map((v) => (
+                <option key={v} value={v}>
+                  {ADMIN_STORE_ORDERS_PAYMENT_LABEL[v][lang]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CommissionPeriodFilter
+            period={form.period}
+            fromDay={form.fromDay}
+            toDay={form.toDay}
+            lang={lang}
+            onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={SECONDARY_BTN} onClick={onReset} disabled={loadingAny} data-cta="reset">
+              {ko ? "조건 초기화" : "Reset"}
+            </button>
+            <button type="submit" className={PRIMARY_BTN} disabled={loadingAny} data-cta="search">
+              {busy === "query" ? (ko ? "조회 중…" : "Searching…") : ko ? "조회" : "Search"}
+            </button>
+          </div>
+        </div>
+        {deepLinks.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {deepLinks.map((d) => (
+              <button key={d.key} type="button" className={chipClass(true)} onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
+                {d.label} ✕
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </form>
+
+      {/* 결과 상태 바: 조회 시각 · 새로고침 · CSV */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+        <span className="sam-text-helper text-sam-muted" data-fetched-at={result?.fetchedAt ?? ""}>
+          {result
+            ? ko
+              ? `조회 시각 ${manilaSeconds(result.fetchedAt)}`
+              : `Loaded ${manilaSeconds(result.fetchedAt)}`
+            : ko
+              ? "아직 조회하지 않았습니다"
+              : "Not loaded yet"}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={exportHref} className={ROW_ACTION_BTN} download data-cta="csv">
+            {ko ? "CSV 내려받기" : "Download CSV"}
+          </a>
+          <button type="button" className={ROW_ACTION_BTN} onClick={onRefresh} disabled={loadingAny || !result} data-cta="refresh">
+            {busy === "refresh" ? (ko ? "새로고침 중…" : "Refreshing…") : ko ? "새로고침" : "Refresh"}
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <p role="alert" className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger" data-state="error">
+          {errorText(error)}
+          {result ? (ko ? " · 직전 조회 결과를 표시하고 있습니다." : " · Showing the previous result.") : ""}
         </p>
       ) : null}
-
-      {!loading && rows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
-          <span className="text-sam-muted">
-            {t("admin_stores_orders_selected_count", { count: selectedIds.size })}
-          </span>
-          <button
-            type="button"
-            disabled={rows.length === 0 || bulkBusy}
-            onClick={() => toggleSelectAll(true)}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
-          >
-            {t("admin_stores_orders_select_all")}
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.size === 0 || bulkBusy}
-            onClick={() => setSelectedIds(new Set())}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
-          >
-            {t("admin_stores_orders_deselect")}
-          </button>
-          {canHardDelete(ORDER_ENTITY_ACTION_POLICY) ? (
-            <button
-              type="button"
-              disabled={selectedIds.size === 0 || bulkBusy}
-              onClick={() => void deleteSelectedFromDb()}
-              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
-            >
-              {bulkBusy ? t("admin_stores_orders_deleting") : t("admin_stores_orders_delete_db")}
-            </button>
-          ) : null}
-        </div>
+      {notice ? (
+        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-fg">{notice}</p>
       ) : null}
 
-      {loading && rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">{t("admin_stores_orders_empty")}</p>
-      ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="min-w-full text-left sam-text-body-secondary">
+      {result ? <Pager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} onGo={onPage} lang={lang} /> : null}
+
+      {!result && busy ? (
+        <p className="py-8 text-center sam-text-body text-sam-muted" data-state="loading">{t("common_loading")}</p>
+      ) : result && rows.length === 0 ? (
+        <p className="py-8 text-center sam-text-body text-sam-muted" data-state="empty">
+          {ko ? "조건에 맞는 주문이 없습니다." : "No orders match these filters."}
+        </p>
+      ) : result ? (
+        <div className={`overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface ${busy ? "opacity-70" : ""}`} aria-busy={busy !== null}>
+          <table className="min-w-[1180px] w-full text-left sam-text-helper">
             <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
               <tr>
-                <th className="w-10 px-2 py-2 text-center">
-                  <input
-                    ref={headerSelectRef}
-                    type="checkbox"
-                    checked={allRowsSelected}
-                    onChange={(e) => toggleSelectAll(e.target.checked)}
-                    className="rounded border-sam-border"
-                    aria-label={t("admin_stores_orders_select_all_aria")}
-                  />
-                </th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_order")}</th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_th_store")}</th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_amount")}</th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_order_status")}</th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_datetime")}</th>
-                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_links")}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "주문번호" : "Order no."}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "매장" : "Store"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "주문 상품" : "Items"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "구매자" : "Buyer"}</th>
+                <th className="px-3 py-2 text-right font-medium">{ko ? "주문 금액" : "Amount"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "배달/픽업" : "Type"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "주문 상태" : "Status"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "결제 상태" : "Payment"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "수수료 정산" : "Commission"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "주문 일시" : "Ordered"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "완료 일시" : "Completed"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "상세" : "Detail"}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-sam-border-soft">
-                  <td className="px-2 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(r.id)}
-                      onChange={(e) => toggleSelect(r.id, e.target.checked)}
-                      className="rounded border-sam-border"
-                      aria-label={t("admin_stores_orders_select_aria", { orderNo: r.order_no })}
-                    />
-                  </td>
-                  <td className="max-w-[200px] px-3 py-2 font-mono sam-text-helper text-sam-fg">
-                    <div>{r.order_no}</div>
-                    <div className="break-all sam-text-xxs font-normal text-sam-meta" title={r.id}>
-                      {r.id}
-                    </div>
-                  </td>
-                  <td className="max-w-[140px] truncate px-3 py-2 text-sam-fg">
-                    {r.store_name || r.store_id}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <div className="font-medium">
-                      {formatMoneyPhp(
-                        Math.max(
-                          0,
-                          Math.round(
-                            Number(r.merchant_revenue_amount) ||
-                              Number(r.payment_amount) +
-                                Number(r.gift_redemption_amount ?? 0) +
-                                Number(r.platform_funded_amount ?? 0)
-                          )
-                        )
+              {rows.map((r) => {
+                const detailHref = `/admin/stores/orders/${encodeURIComponent(r.id)}`;
+                const fulfill = ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[r.fulfillment_type as AdminStoreOrdersFulfillment]?.[lang] ?? r.fulfillment_type;
+                const pay = ADMIN_STORE_ORDERS_PAYMENT_LABEL[r.payment_status as AdminStoreOrdersPaymentStatus]?.[lang] ?? r.payment_status;
+                const rowBusy = decisionBusyId === r.id;
+                return (
+                  <tr key={r.id} className="border-b border-sam-border-soft align-top last:border-b-0 hover:bg-sam-app" data-order-row={r.order_no}>
+                    <td className="whitespace-nowrap px-3 py-2.5">
+                      <Link href={detailHref} className="font-mono font-medium text-sam-fg underline-offset-2 hover:underline">
+                        {r.order_no}
+                      </Link>
+                    </td>
+                    <td className="max-w-[160px] truncate px-3 py-2.5 text-sam-fg" title={r.store_name}>
+                      {r.store_name || "—"}
+                    </td>
+                    <td className="max-w-[200px] px-3 py-2.5 text-sam-fg">
+                      <span className="line-clamp-2">
+                        {r.first_title
+                          ? r.line_count > 1
+                            ? ko
+                              ? `${r.first_title} 외 ${r.line_count - 1}건`
+                              : `${r.first_title} +${r.line_count - 1}`
+                            : r.first_title
+                          : "—"}
+                      </span>
+                    </td>
+                    <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-fg" title={r.buyer_label}>
+                      {r.buyer_label || "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
+                      <div className="font-medium text-sam-fg">{formatMoneyPhp(r.total_amount)}</div>
+                      {r.payment_amount !== r.total_amount ? (
+                        <div className="sam-text-xxs text-sam-muted">
+                          {ko ? "고객 결제 " : "Paid "}
+                          {formatMoneyPhp(r.payment_amount)}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-sam-fg">{fulfill}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 sam-text-xxs font-semibold ${adminStoreOrderStatusChipClass(r.order_status)}`}>
+                          {statusLabel(r.order_status)}
+                        </span>
+                        {r.sla_warning_level ? (
+                          <span className="sam-text-xxs text-sam-warning">{ko ? "지연" : "Delayed"}</span>
+                        ) : null}
+                        {r.order_status === "cancel_requested" || r.order_status === "refund_requested" ? (
+                          <div className="flex gap-1" data-testid="admin-order-decision-actions">
+                            <button
+                              type="button"
+                              className={ROW_ACTION_BTN}
+                              disabled={decisionBusyId !== null || loadingAny}
+                              onClick={() => void decide(r, r.order_status === "cancel_requested" ? "cancel_approve" : "refund_approve")}
+                            >
+                              {rowBusy
+                                ? "…"
+                                : r.order_status === "cancel_requested"
+                                  ? t("admin_store_orders_cancel_request_approve")
+                                  : t("admin_stores_orders_approve_refund")}
+                            </button>
+                            <button
+                              type="button"
+                              className={ROW_ACTION_BTN}
+                              disabled={decisionBusyId !== null || loadingAny}
+                              onClick={() => void decide(r, r.order_status === "cancel_requested" ? "cancel_reject" : "refund_reject")}
+                            >
+                              {rowBusy
+                                ? "…"
+                                : r.order_status === "cancel_requested"
+                                  ? t("admin_store_orders_cancel_request_reject")
+                                  : t("admin_stores_orders_reject_refund")}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="whitespace-nowrap text-sam-fg">{pay}</span>
+                        {r.integrity_flags.map((f) => (
+                          <span key={f} className="whitespace-nowrap rounded-full bg-sam-danger-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-danger" data-integrity-flag={f}>
+                            {ADMIN_STORE_ORDERS_INTEGRITY_LABEL[f][lang]}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {r.commission_state ? (
+                        <CommissionStateChip state={r.commission_state} lang={lang} />
+                      ) : (
+                        <span className="sam-text-xxs text-sam-muted">{ko ? "부과 없음" : "Not charged"}</span>
                       )}
-                    </div>
-                    <div className="sam-text-xxs text-sam-muted">
-                      {safeT("admin_stores_orders_remaining_payment_line", {
-                        fallbackKo: "잔여 결제 {amount}",
-                        fallbackEn: "Remaining {amount}",
-                        vars: { amount: formatMoneyPhp(r.payment_amount) },
-                      })}
-                    </div>
-                    {Math.round(Number(r.gift_redemption_amount) || 0) > 0 ? (
-                      <div className="sam-text-xxs text-sam-muted">
-                        {safeT("admin_stores_orders_gift_line", {
-                          fallbackKo: "상품권 {amount}",
-                          fallbackEn: "Gift {amount}",
-                          vars: { amount: formatMoneyPhp(r.gift_redemption_amount ?? 0) },
-                        })}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2">{orderStatusLabel(r.order_status)}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                    {new Date(r.created_at).toLocaleString(locale)}
-                  </td>
-                  <td className="space-y-1 px-3 py-2 align-top">
-                    <div className="flex flex-col gap-1 sam-text-helper">
-                      <Link
-                        href={`/admin/stores/orders/${encodeURIComponent(r.id)}/chat`}
-                        className="font-medium text-signature underline"
-                      >
-                        {t("admin_stores_orders_link_chat")}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-sam-muted">{formatManilaDateTime(r.created_at)}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-sam-muted">{r.completed_at ? formatManilaDateTime(r.completed_at) : "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <Link href={detailHref} className={ROW_ACTION_BTN}>
+                        {ko ? "상세 보기" : "View"}
                       </Link>
-                      <Link
-                        href={`/admin/chats/messenger?q=${encodeURIComponent(r.buyer_user_id)}`}
-                        className="text-sam-muted underline"
-                      >
-                        {t("admin_stores_orders_link_messenger")}
-                      </Link>
-                      <Link
-                        href={`/admin/stores/orders/${encodeURIComponent(r.id)}`}
-                        className="text-sam-muted underline"
-                      >
-                        {t("admin_stores_orders_link_detail")}
-                      </Link>
-                    </div>
-                    {r.order_status === "cancel_requested" ? (
-                      <div className="mt-2 flex flex-col gap-1" data-testid="admin-order-cancel-request-actions">
-                        <button
-                          type="button"
-                          disabled={busyId !== null}
-                          onClick={() => void decideCancelRequest(r.id, "approve")}
-                          className="block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
-                        >
-                          {busyId === r.id ? "…" : t("admin_store_orders_cancel_request_approve")}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyId !== null}
-                          onClick={() => void decideCancelRequest(r.id, "reject")}
-                          className="block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
-                        >
-                          {busyId === r.id ? "…" : t("admin_store_orders_cancel_request_reject")}
-                        </button>
-                      </div>
-                    ) : null}
-                    {r.order_status === "refund_requested" ? (
-                      <div className="mt-2 flex flex-col gap-1">
-                        <button
-                          type="button"
-                          disabled={busyId !== null}
-                          onClick={() => void approveRefund(r.id)}
-                          className="block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
-                        >
-                          {busyId === r.id ? "…" : t("admin_stores_orders_approve_refund")}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyId !== null}
-                          onClick={() => void rejectRefund(r.id)}
-                          className="block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
-                        >
-                          {busyId === r.id ? "…" : t("admin_stores_orders_reject_refund")}
-                        </button>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
+
+      {result && rows.length > 0 ? (
+        <Pager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} onGo={onPage} lang={lang} />
+      ) : null}
+      <p className="sam-text-xxs text-sam-muted">{ko ? "시간: 필리핀 시간 (UTC+8)" : "Times: Philippine time (UTC+8)"}</p>
     </div>
   );
 }
