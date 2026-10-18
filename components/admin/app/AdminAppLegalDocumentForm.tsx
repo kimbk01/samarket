@@ -1,28 +1,74 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLegalDocumentRow, AppLegalKind, AppLegalLocale, AppLegalStatus } from "@/lib/legal/app-legal-documents";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import {
+  pickCurrentPublishedLegalDoc,
+  splitLegalBodyParagraphs,
+  type AppLegalDocumentRow,
+  type AppLegalKind,
+  type AppLegalLocale,
+  type AppLegalStatus,
+} from "@/lib/legal/app-legal-documents";
 
 type Props = {
   documentId?: string;
 };
 
+/** ISO (UTC) → `datetime-local` value in the admin's local time (B18: no UTC-as-local drift). */
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputToIso(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+type SaveResponse = {
+  ok?: boolean;
+  document?: AppLegalDocumentRow;
+  error?: string;
+  message?: string;
+};
+
 export function AdminAppLegalDocumentForm({ documentId }: Props) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
   const [loading, setLoading] = useState(Boolean(documentId));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [notice, setNotice] = useState("");
   const [kind, setKind] = useState<AppLegalKind>("terms");
   const [locale, setLocale] = useState<AppLegalLocale>("ko");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [version, setVersion] = useState("");
-  const [status, setStatus] = useState<AppLegalStatus>("draft");
+  const [loaded, setLoaded] = useState<AppLegalDocumentRow | null>(null);
   const [effectiveAt, setEffectiveAt] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [allDocs, setAllDocs] = useState<AppLegalDocumentRow[]>([]);
+
+  const isPublished = loaded?.status === "published";
+
+  const loadAll = useCallback(async () => {
+    const res = await fetch("/api/admin/app-legal-documents", { credentials: "include", cache: "no-store" });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; documents?: AppLegalDocumentRow[] };
+    if (res.ok && json.ok) setAllDocs(json.documents ?? []);
+  }, []);
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
     if (!documentId) return;
@@ -33,24 +79,20 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           credentials: "include",
           cache: "no-store",
         });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          document?: AppLegalDocumentRow;
-          error?: string;
-        };
+        const json = (await res.json().catch(() => ({}))) as SaveResponse;
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.document) {
-          setErr(json.error || t("admin_users_action_failed"));
+          setErr(json.message || json.error || t("admin_users_action_failed"));
           return;
         }
         const d = json.document;
+        setLoaded(d);
         setKind(d.kind);
         setLocale(d.locale);
         setTitle(d.title);
         setBody(d.body);
         setVersion(d.version);
-        setStatus(d.status);
-        setEffectiveAt(d.effective_at ? d.effective_at.slice(0, 16) : "");
+        setEffectiveAt(isoToLocalInput(d.effective_at));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -60,20 +102,18 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
     };
   }, [documentId, t]);
 
-  const save = useCallback(
-    async (nextStatus?: AppLegalStatus) => {
+  /** Version members currently consent against for this kind/locale (published + effective now). */
+  const currentPublished = useMemo(() => {
+    const rows = allDocs.filter((d) => d.kind === kind && d.locale === locale && d.status === "published");
+    return pickCurrentPublishedLegalDoc(rows);
+  }, [allDocs, kind, locale]);
+
+  const send = useCallback(
+    async (payload: Record<string, unknown>): Promise<SaveResponse | null> => {
       setSaving(true);
       setErr("");
+      setNotice("");
       try {
-        const payload = {
-          kind,
-          locale,
-          title,
-          body,
-          version,
-          status: nextStatus ?? status,
-          effective_at: effectiveAt ? new Date(effectiveAt).toISOString() : null,
-        };
         const res = await fetch(
           documentId
             ? `/api/admin/app-legal-documents/${encodeURIComponent(documentId)}`
@@ -85,31 +125,142 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
             body: JSON.stringify(payload),
           },
         );
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          document?: AppLegalDocumentRow;
-          error?: string;
-        };
+        const json = (await res.json().catch(() => ({}))) as SaveResponse;
         if (!res.ok || !json.ok || !json.document) {
-          setErr(json.error || t("admin_users_action_failed"));
-          return;
+          setErr(json.message || json.error || t("admin_users_action_failed"));
+          return null;
         }
-        if (!documentId) {
-          router.replace(`/admin/app/legal/${encodeURIComponent(json.document.id)}/edit`);
-          return;
-        }
-        setStatus(json.document.status);
-        router.push("/admin/app/legal");
+        return json;
+      } catch {
+        setErr(t("admin_users_action_failed"));
+        return null;
       } finally {
         setSaving(false);
       }
     },
-    [kind, locale, title, body, version, status, effectiveAt, documentId, router, t],
+    [documentId, t],
   );
+
+  const afterSaved = useCallback(
+    (json: SaveResponse, message: string) => {
+      if (!json.document) return;
+      if (!documentId) {
+        router.replace(`/admin/app/legal/${encodeURIComponent(json.document.id)}/edit`);
+        return;
+      }
+      const d = json.document;
+      setLoaded(d);
+      setEffectiveAt(isoToLocalInput(d.effective_at));
+      setNotice(message);
+      void loadAll();
+    },
+    [documentId, router, loadAll],
+  );
+
+  const draftPayload = useCallback(
+    () => ({ kind, locale, title, body, version, effective_at: localInputToIso(effectiveAt) }),
+    [kind, locale, title, body, version, effectiveAt],
+  );
+
+  const saveDraft = useCallback(async () => {
+    const json = await send({ ...draftPayload(), status: "draft" });
+    if (json) afterSaved(json, ko ? "임시저장했습니다. 회원에게는 노출되지 않습니다." : "Draft saved. Not visible to members.");
+  }, [send, draftPayload, afterSaved, ko]);
+
+  const publish = useCallback(async () => {
+    const effIso = localInputToIso(effectiveAt);
+    const future = effIso ? Date.parse(effIso) > Date.now() : false;
+    const reconsent =
+      kind === "terms" || kind === "privacy"
+        ? !currentPublished || currentPublished.version.trim() !== version.trim()
+        : false;
+    const consentLine =
+      locale === "ko"
+        ? reconsent
+          ? ko
+            ? `버전이 현재 적용 버전(${currentPublished?.version ?? "없음"})과 달라, 시행 시점부터 모든 회원이 새 약관에 다시 동의해야 합니다.`
+            : `Version differs from the current one (${currentPublished?.version ?? "none"}): every member must re-consent once it takes effect.`
+          : ko
+            ? "현재 적용 버전과 같아 회원 재동의는 발생하지 않습니다."
+            : "Same as the current version: no member re-consent."
+        : ko
+          ? "영문 문서는 표시용이며, 동의 기준 버전은 한국어(ko) 문서를 따릅니다."
+          : "English text is display-only; the consent version follows the Korean (ko) document.";
+    const ok = await dibayConfirm({
+      title: ko ? "약관 게시" : "Publish legal document",
+      description: [
+        `${kind} · ${locale} · ${ko ? "버전" : "version"} ${version || "-"}`,
+        future
+          ? ko
+            ? `시행일(${new Date(effIso!).toLocaleString()}) 전까지는 기존 문서가 계속 적용됩니다.`
+            : `The current document stays in effect until ${new Date(effIso!).toLocaleString()}.`
+          : ko
+            ? "게시 즉시 회원 앱에 적용됩니다."
+            : "Applies to the member app immediately.",
+        consentLine,
+      ].join("\n"),
+      confirmLabel: ko ? "게시" : "Publish",
+      cancelLabel: ko ? "취소" : "Cancel",
+    });
+    if (!ok) return;
+    const json = await send({ ...draftPayload(), status: "published", confirm: true });
+    if (json) afterSaved(json, ko ? "게시했습니다." : "Published.");
+  }, [effectiveAt, kind, locale, version, currentPublished, ko, send, draftPayload, afterSaved]);
+
+  const publishSameVersionEdit = useCallback(async () => {
+    const ok = await dibayConfirm({
+      title: ko ? "게시 문서 본문 수정" : "Edit published text",
+      description: ko
+        ? `같은 버전(${loaded?.version ?? ""})으로 본문을 수정합니다. 회원 재동의는 발생하지 않으므로 오탈자·표현 정리 등 경미한 수정에만 사용하세요. 법적 내용·필수 동의 항목·개인정보 처리 변경은 새 버전 문서로 게시해야 합니다. 수정 전후 본문 해시가 감사 로그에 남습니다.`
+        : `Edits the text under the same version (${loaded?.version ?? ""}). No member re-consent — use only for minor fixes. Material changes must be published as a new version. Before/after body hashes are audit-logged.`,
+      confirmLabel: ko ? "수정 게시" : "Publish edit",
+      cancelLabel: ko ? "취소" : "Cancel",
+    });
+    if (!ok) return;
+    const json = await send({ title, body, confirmNoReconsent: true });
+    if (json) afterSaved(json, ko ? "같은 버전으로 본문을 수정했습니다." : "Text updated under the same version.");
+  }, [ko, loaded?.version, send, title, body, afterSaved]);
+
+  const unpublish = useCallback(async () => {
+    const isCurrent = Boolean(currentPublished && loaded && currentPublished.id === loaded.id);
+    const ok = await dibayConfirm({
+      title: ko ? "게시 중단" : "Unpublish",
+      description: isCurrent
+        ? ko
+          ? "현재 회원에게 적용 중인 문서입니다. 게시를 중단하면 이전 게시 문서(없으면 기본 문구)가 적용되고, 동의 기준 버전이 바뀔 수 있습니다."
+          : "This is the document currently applied to members. Unpublishing falls back to the previous published document (or the built-in text) and may change the consent version."
+        : ko
+          ? "이 문서를 회원 화면에서 내립니다."
+          : "Removes this document from the member surface.",
+      confirmLabel: ko ? "게시 중단" : "Unpublish",
+      cancelLabel: ko ? "취소" : "Cancel",
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
+    const json = await send({ action: "unpublish", confirm: true });
+    if (json) afterSaved(json, ko ? "게시를 중단했습니다." : "Unpublished.");
+  }, [currentPublished, loaded, ko, send, afterSaved]);
 
   if (loading) {
     return <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>;
   }
+
+  const identityLocked = isPublished;
+  const statusLabel = loaded
+    ? loaded.status === "published"
+      ? currentPublished?.id === loaded.id
+        ? ko
+          ? "게시 · 현재 적용 중"
+          : "Published · in effect"
+        : ko
+          ? "게시 · 미적용(시행 전 또는 다른 게시본 적용 중)"
+          : "Published · not in effect"
+      : ko
+        ? "임시저장(회원 미노출)"
+        : "Draft (not visible to members)"
+    : ko
+      ? "새 문서"
+      : "New document";
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -130,15 +281,34 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         </Link>
       </div>
 
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg">
+        <span className="font-medium">{ko ? "상태" : "Status"}:</span> {statusLabel}
+        {currentPublished ? (
+          <span className="ml-2 text-sam-meta">
+            {ko ? "현재 적용 버전" : "Current version"} ({kind}/{locale}): {currentPublished.version}
+          </span>
+        ) : null}
+      </div>
+
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {notice ? <p className="text-sm text-signature">{notice}</p> : null}
+
+      {identityLocked ? (
+        <p className="text-xs text-sam-meta">
+          {ko
+            ? "게시된 문서의 종류·언어·버전·시행일은 바꿀 수 없습니다. 내용이 바뀌는 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
+            : "Kind, locale, version and effective time of a published document are fixed. Publish a revision as a new document (List → Add)."}
+        </p>
+      ) : null}
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
           {safeT("admin_app_legal_kind", { fallbackKo: "종류", fallbackEn: "Kind" })}
         </span>
         <select
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
           value={kind}
+          disabled={identityLocked}
           onChange={(e) => setKind(e.target.value as AppLegalKind)}
         >
           <option value="terms">terms</option>
@@ -151,8 +321,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           {safeT("admin_app_legal_locale", { fallbackKo: "언어", fallbackEn: "Locale" })}
         </span>
         <select
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
           value={locale}
+          disabled={identityLocked}
           onChange={(e) => setLocale(e.target.value as AppLegalLocale)}
         >
           <option value="ko">ko</option>
@@ -165,8 +336,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           {safeT("admin_app_legal_version", { fallbackKo: "버전", fallbackEn: "Version" })}
         </span>
         <input
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
           value={version}
+          disabled={identityLocked}
           onChange={(e) => setVersion(e.target.value)}
         />
         <p className="text-xs text-sam-meta">
@@ -188,8 +360,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         </span>
         <input
           type="datetime-local"
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
           value={effectiveAt}
+          disabled={identityLocked}
           onChange={(e) => setEffectiveAt(e.target.value)}
         />
       </label>
@@ -219,29 +392,75 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         />
       </label>
 
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowPreview((v) => !v)}
+          className="text-sm font-medium text-signature"
+        >
+          {showPreview ? (ko ? "미리보기 닫기" : "Hide preview") : ko ? "회원 화면 미리보기" : "Member preview"}
+        </button>
+        {showPreview ? (
+          <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-4 py-4">
+            <h2 className="text-xl font-semibold text-sam-fg">{title || "-"}</h2>
+            <p className="mt-1 text-xs text-sam-meta">
+              {ko ? "버전" : "Version"} {version || "-"}
+            </p>
+            <div className="mt-3 space-y-3 sam-text-body leading-relaxed text-sam-fg">
+              {splitLegalBodyParagraphs(body).map((p, i) => (
+                <p key={`${i}-${p.slice(0, 24)}`}>{p}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void save("draft")}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-semibold disabled:opacity-60"
-        >
-          {safeT("admin_app_legal_save_draft", {
-            fallbackKo: "임시저장",
-            fallbackEn: "Save draft",
-          })}
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void save("published")}
-          className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {safeT("admin_app_legal_publish", {
-            fallbackKo: "게시",
-            fallbackEn: "Publish",
-          })}
-        </button>
+        {isPublished ? (
+          <>
+            <button
+              type="button"
+              disabled={saving || (title === loaded?.title && body === loaded?.body)}
+              onClick={() => void publishSameVersionEdit()}
+              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {ko ? "본문 수정 게시(재동의 없음)" : "Publish text edit (no re-consent)"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void unpublish()}
+              className="rounded-ui-rect border border-red-300 bg-sam-surface px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-60"
+            >
+              {ko ? "게시 중단" : "Unpublish"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveDraft()}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-semibold disabled:opacity-60"
+            >
+              {safeT("admin_app_legal_save_draft", {
+                fallbackKo: "임시저장",
+                fallbackEn: "Save draft",
+              })}
+            </button>
+            <button
+              type="button"
+              disabled={saving || !title.trim() || !body.trim() || !version.trim()}
+              onClick={() => void publish()}
+              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {safeT("admin_app_legal_publish", {
+                fallbackKo: "게시",
+                fallbackEn: "Publish",
+              })}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

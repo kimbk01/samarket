@@ -24,6 +24,8 @@ import {
   resolveMemberLifecycleAuthority,
 } from "@/lib/auth/resolve-member-lifecycle-authority";
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
+import { resolveMemberConsentClassForApiMutation } from "@/lib/auth/member-consent-mutation-policy";
+import { resolveMemberConsentAuthority } from "@/lib/auth/resolve-member-consent-authority";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -37,6 +39,8 @@ function jsonDenied(status: number, code: string, message: string): NextResponse
       message,
       authenticated:
         code === "member_product_write_denied" ||
+        code === "signup_incomplete" ||
+        code === "consent_state_unavailable" ||
         code === MEMBER_ACCOUNT_STATE_UNAVAILABLE.code ||
         code === "account_blocked" ||
         code === "account_withdrawn",
@@ -124,6 +128,25 @@ export async function enforceApiMemberMutationPolicy(
   }
 
   const decision = assertMemberProductAction(authority.profile, "PRODUCT_WRITE");
-  if (decision.ok) return null;
-  return jsonDenied(decision.status, decision.code, decision.messageKo);
+  if (!decision.ok) return jsonDenied(decision.status, decision.code, decision.messageKo);
+
+  // B3: legal consent (CMS-required versions) for new member writes — explicit exemptions only.
+  if (resolveMemberConsentClassForApiMutation(method, pathname) === "CONSENT_EXEMPT") return null;
+  const consent = await resolveMemberConsentAuthority(userId);
+  if (consent.kind === "CONSENTED") return null;
+  if (consent.kind === "UNAVAILABLE") {
+    return jsonDenied(
+      MEMBER_CONSENT_STATE_UNAVAILABLE.status,
+      MEMBER_CONSENT_STATE_UNAVAILABLE.code,
+      MEMBER_CONSENT_STATE_UNAVAILABLE.messageKo
+    );
+  }
+  return jsonDenied(403, "signup_incomplete", "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.");
 }
+
+/** Consent could not be established — fail closed (never treated as consented). */
+export const MEMBER_CONSENT_STATE_UNAVAILABLE = {
+  status: 503,
+  code: "consent_state_unavailable",
+  messageKo: "약관 동의 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+} as const;

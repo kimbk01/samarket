@@ -4,6 +4,7 @@ import {
   deriveDibaySignupStatus,
   type DibaySignupProfileInput,
 } from "@/lib/auth/dibay-signup-status";
+import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 
 /** Profile 캐시 → deriveDibaySignupStatus 입력 (누락 필드는 false 쪽으로 수렴) */
 export function profileToDibaySignupInput(user: Profile): DibaySignupProfileInput {
@@ -30,5 +31,8 @@ export function profileToDibaySignupInput(user: Profile): DibaySignupProfileInpu
 /** 클라이언트 접근 게이트: 로그인 + 약관 동의. @id·프로필·전화·주소는 requireAuthAction / requireProfileCompletion. */
 export function isClientSignupComplete(user: Profile | null | undefined): boolean {
   if (!user?.id) return false;
-  return deriveDibaySignupStatus(profileToDibaySignupInput(user), { hasSession: true }).consentComplete;
+  return deriveDibaySignupStatus(profileToDibaySignupInput(user), {
+    hasSession: true,
+    requiredConsent: getClientRequiredConsentVersions(),
+  }).consentComplete;
 }

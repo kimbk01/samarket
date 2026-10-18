@@ -361,3 +361,11 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 | 전체 리버트 | **불필요** |
 | Commit / Push / Merge / Production Deploy | **미실행 · Owner 별도 승인 전 금지** |
 | 최종 판정 | **PARTIAL** |
+
+---
+
+## Amendment 2026-10-18 (FIRST ENTRY B1·B2)
+
+- §6-3 이행: restore / Safe Entry 는 auth·약관·온보딩 경로(`/auth/*`, `/login`, `/signup`, `/onboarding/*`)로 부팅된 문서를 **덮지 않는다** (`isLifecycleAuthSurfacePath`). 근거: 약관 화면이 `doc_reset` 으로 `/philife` 에 덮여 미동의 상태로 남는 경로(감사 B1).
+- §4 accountKey 이행: 세션은 `@supabase/ssr` 쿠키에 있으므로 accountKey 는 쿠키의 user id 로 읽는다(이전엔 항상 `guest`).
+- 상세: `docs/dibay-first-entry-legal-consent-ssot.md`.

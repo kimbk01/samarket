@@ -1,11 +1,14 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { DibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 
 export type SignupStatusApiResponse = {
   ok?: boolean;
   signup?: DibaySignupStatus;
   route?: string;
+  /** Server-required consent versions (CMS published ko) the `signup` verdict was judged against. */
+  requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
   error?: string;
 };
 
@@ -28,6 +31,9 @@ export async function fetchSignupStatusDeduped(next?: string | null): Promise<{
       cache: "no-store",
     })
   );
-  const json = (await res.json().catch(() => null)) as SignupStatusApiResponse | null;
+  const json = (await res.clone().json().catch(() => null)) as SignupStatusApiResponse | null;
+  if (res.status === 200 && json?.requiredConsent) {
+    setClientRequiredConsentVersions(json.requiredConsent);
+  }
   return { status: res.status, json };
 }

@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AppLegalDocumentRow } from "@/lib/legal/app-legal-documents";
+import { pickCurrentPublishedLegalDoc, type AppLegalDocumentRow } from "@/lib/legal/app-legal-documents";
 
 export function AdminAppLegalDocumentsPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [items, setItems] = useState<AppLegalDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -23,10 +25,12 @@ export function AdminAppLegalDocumentsPage() {
           ok?: boolean;
           documents?: AppLegalDocumentRow[];
           table_missing?: boolean;
+          error?: string;
         };
         if (cancelled) return;
         if (json.table_missing) setTableMissing(true);
         if (res.ok && json.ok && Array.isArray(json.documents)) setItems(json.documents);
+        else if (!json.table_missing) setLoadError(json.error || `HTTP ${res.status}`);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -35,6 +39,18 @@ export function AdminAppLegalDocumentsPage() {
       cancelled = true;
     };
   }, []);
+
+  /** Document actually applied to members per kind/locale (same pick as the member reader). */
+  const currentIds = new Set(
+    (["terms", "privacy"] as const).flatMap((kind) =>
+      (["ko", "en"] as const).map(
+        (locale) =>
+          pickCurrentPublishedLegalDoc(
+            items.filter((d) => d.kind === kind && d.locale === locale && d.status === "published"),
+          )?.id ?? "",
+      ),
+    ),
+  );
 
   return (
     <div>
@@ -54,6 +70,10 @@ export function AdminAppLegalDocumentsPage() {
       </div>
       {loading ? (
         <p className="text-sam-muted">{t("admin_dashboard_loading")}</p>
+      ) : loadError ? (
+        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-red-600">
+          {ko ? "목록을 불러오지 못했습니다" : "Could not load documents"}: {loadError}
+        </p>
       ) : tableMissing ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           {safeT("admin_app_legal_table_missing", {
@@ -78,7 +98,18 @@ export function AdminAppLegalDocumentsPage() {
               <div>
                 <span className="font-medium">{d.title}</span>
                 <span className="ml-2 sam-text-body-secondary text-sam-muted">
-                  {d.kind}/{d.locale} · {d.version} · {d.status}
+                  {d.kind}/{d.locale} · {d.version} ·{" "}
+                  {d.status === "published"
+                    ? currentIds.has(d.id)
+                      ? ko
+                        ? "게시 · 현재 적용"
+                        : "published · in effect"
+                      : ko
+                        ? "게시 · 미적용"
+                        : "published · not in effect"
+                    : ko
+                      ? "임시저장"
+                      : "draft"}
                 </span>
               </div>
               <Link href={`/admin/app/legal/${d.id}/edit`} className="sam-text-body text-signature">

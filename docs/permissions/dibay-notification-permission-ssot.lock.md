@@ -151,3 +151,11 @@ node scripts/qa/notification-receive-gate-adb-qa.mjs
 ```
 
 Manifest: `scripts/notification-permission-ssot-manifest.json`
+
+---
+
+## Amendment 2026-10-18 (FIRST ENTRY B4·B5 — 계약 이행, OS-first 유지)
+
+- Post-login notification OS prompt / Android FSI nudge / push·VoIP device registration start only after the member's **first legal consent** (first-entry order). Existing members needing re-consent after a version publish keep push delivery.
+- FSI nudge runs only when notifications are allowed (`receiveReady`) and at most **once per login** on the device (user-scoped localStorage; logout wipe resets). No DIBAY modal (unchanged).
+- Detail: `docs/dibay-first-entry-legal-consent-ssot.md`.

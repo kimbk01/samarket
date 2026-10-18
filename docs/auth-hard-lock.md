@@ -171,3 +171,15 @@ Product implementation under lock: FORBIDDEN without §4 reopen
 ```
 
 **AUTH HARD LOCK — DECLARED.**
+
+---
+
+## Amendment 2026-10-18 — consent version single authority (Reopen §4 trigger 3: Code First Break)
+
+OWNER execution approval 2026-10-18 (DIBAY FIRST ENTRY + ADMIN LEGAL CMS 계약 준수 복구).
+First Break (audit B11): `resolvePostLoginRoute` (Destination) and `/api/me/signup-status` re-derived consent
+with STORE_* constants while `getOnboardingStatus` used the CMS-required version — after an Admin publish of a
+new version the destination disagreed with the server gate.
+Contract delta: **none in meaning** — Destination still = consent-only gate; it now judges with
+`OnboardingStatus.requiredConsent` (the same CMS versions). Session / Completion / Profile writer unchanged.
+SSOT: `docs/dibay-first-entry-legal-consent-ssot.md`.

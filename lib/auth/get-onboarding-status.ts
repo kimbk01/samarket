@@ -40,6 +40,11 @@ export type OnboardingStatus = {
   onboardingStatus: DibayOnboardingStatusValue | null;
   displayName: string | null;
   avatarUrl: string | null;
+  /**
+   * Consent versions `consentComplete` was judged against (CMS published ko, STORE_* fallback).
+   * Downstream re-derivations (destination, signup-status) must reuse this — never STORE_* alone.
+   */
+  requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
 };
 
 type ProfileRowSubset = {
@@ -192,5 +197,6 @@ export async function getOnboardingStatus(
     onboardingStatus: signup.onboardingStatus,
     displayName: profile?.display_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
+    requiredConsent: { termsVersion: required.termsVersion, privacyVersion: required.privacyVersion },
   };
 }

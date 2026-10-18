@@ -28,11 +28,9 @@ export default async function AuthOnboardingTermsPage({
     redirect("/login");
   }
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
+  const required = await resolveRequiredConsentVersions();
   if (readSb) {
-    const [profile, required] = await Promise.all([
-      fetchProfileRowSafe(readSb, user.id),
-      resolveRequiredConsentVersions(),
-    ]);
+    const profile = await fetchProfileRowSafe(readSb, user.id);
     if (hasStoreTermsConsent(profile, required)) {
       const signup = deriveDibaySignupStatus(profile ?? undefined, {
         hasSession: true,
@@ -46,7 +44,9 @@ export default async function AuthOnboardingTermsPage({
   }
   return (
     <div className="min-h-screen bg-[#F2F0EB]">
-      <AuthConsentForm />
+      <AuthConsentForm
+        requiredVersions={{ termsVersion: required.termsVersion, privacyVersion: required.privacyVersion }}
+      />
     </div>
   );
 }

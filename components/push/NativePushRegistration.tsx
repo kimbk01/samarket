@@ -29,6 +29,11 @@ import {
   subscribeNotificationPermissionSnapshot,
 } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT } from "@/lib/permissions/dibay-post-login-onboarding-gate";
+import {
+  DIBAY_LEGAL_CONSENT_COMPLETED_EVENT,
+  resolveClientEverConsentedState,
+} from "@/lib/auth/client-consent-state";
+import { subscribeAppBoot } from "@/lib/app-boot/app-boot-store";
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
@@ -128,6 +133,14 @@ export function NativePushRegistration() {
     const attemptRegister = async (userAttempt: number, registerAttempt: number) => {
       if (cancelled || runId !== registerRunIdRef.current || registerInFlightRef.current) return;
 
+      // B4: first entry — no device registration before the member's first legal consent.
+      // Re-run on consent completion / boot profile arrival (listeners below).
+      const consentState = resolveClientEverConsentedState();
+      if (consentState !== "consented") {
+        logPushRegister("register_deferred_consent", { consent: consentState });
+        return;
+      }
+
       const cached = getCachedNotificationReceiveSnapshot();
       const pushCheck =
         cached?.receiveReady === true
@@ -207,11 +220,33 @@ export function NativePushRegistration() {
     };
     window.addEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
 
+    // B4: registration deferred until consent — resume when consent becomes known / completes.
+    let lastConsentState = resolveClientEverConsentedState();
+    const onConsentMaybeReady = () => {
+      const next = resolveClientEverConsentedState();
+      const becameConsented = next === "consented" && lastConsentState !== "consented";
+      lastConsentState = next;
+      if (!becameConsented) return;
+      registerFnRef.current?.();
+      if (resolveCapacitorShellPlatform() === "ios") {
+        const uid = getCurrentUser()?.id?.trim();
+        retryVoipTokenRegistration("consent_ready", uid || undefined);
+      }
+    };
+    window.addEventListener(DIBAY_LEGAL_CONSENT_COMPLETED_EVENT, onConsentMaybeReady);
+    const unsubBoot = subscribeAppBoot(onConsentMaybeReady);
+    if (lastConsentState === "consented" && resolveCapacitorShellPlatform() === "ios") {
+      // VoIP token may have arrived (and been deferred) before consent became known.
+      retryVoipTokenRegistration("consent_known_at_mount", getCurrentUser()?.id?.trim() || undefined);
+    }
+
     return () => {
       cancelled = true;
       unsubSnapshot();
       unsubAuth();
+      unsubBoot();
       window.removeEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
+      window.removeEventListener(DIBAY_LEGAL_CONSENT_COMPLETED_EVENT, onConsentMaybeReady);
     };
   }, [phase]);
 

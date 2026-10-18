@@ -17,8 +17,25 @@ export async function loadPublishedAppLegalDocument(
   kind: AppLegalKind,
   locale: AppLegalLocale,
 ): Promise<AppLegalDocumentRow | null> {
+  const result = await loadPublishedAppLegalDocumentResult(kind, locale);
+  return result.ok ? result.row : null;
+}
+
+/**
+ * Same read as `loadPublishedAppLegalDocument`, but a read failure is reported (`ok:false`)
+ * instead of being folded into "no published row". Consent authority must not treat a
+ * failed CMS read as "fallback version is current" (fail-open).
+ */
+export type PublishedLegalDocumentResult =
+  | { ok: true; row: AppLegalDocumentRow | null }
+  | { ok: false; reason: "service_unconfigured" | "read_failed" };
+
+export async function loadPublishedAppLegalDocumentResult(
+  kind: AppLegalKind,
+  locale: AppLegalLocale,
+): Promise<PublishedLegalDocumentResult> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return null;
+  if (!sb) return { ok: false, reason: "service_unconfigured" };
 
   const { data, error } = await sb
     .from("app_legal_documents")
@@ -30,12 +47,12 @@ export async function loadPublishedAppLegalDocument(
     .limit(20);
 
   if (error) {
-    if (isMissingAppLegalDocumentsTableError(error.message ?? "")) return null;
-    return null;
+    if (isMissingAppLegalDocumentsTableError(error.message ?? "")) return { ok: true, row: null };
+    return { ok: false, reason: "read_failed" };
   }
 
   const rows = (data ?? [])
     .map((row) => normalizeAppLegalDocumentRow(row as Record<string, unknown>))
     .filter(Boolean) as AppLegalDocumentRow[];
-  return pickCurrentPublishedLegalDoc(rows);
+  return { ok: true, row: pickCurrentPublishedLegalDoc(rows) };
 }
