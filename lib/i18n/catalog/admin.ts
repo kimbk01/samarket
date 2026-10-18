@@ -590,9 +590,9 @@ export const adminMessages = {
     admin_messenger_trade_reference_banner:
       "REFERENCE · Messenger 메뉴 진입입니다. Trade 채팅 Authority는 Trade Domain(/admin/chats/trade)입니다. Messenger는 소유·생성하지 않습니다.",
     admin_messenger_order_reference_banner:
-      "REFERENCE · Messenger 메뉴 진입입니다. 주문 채팅 Authority는 Delivery(/admin/order-chats · store_orders lookup)입니다. 방 생성·소유 이전 없음.",
+      "메신저 메뉴에서 들어왔습니다. 주문 채팅은 이 화면에서 조회합니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다.",
     admin_order_chats_foot_authority:
-      "주문 채팅 Authority = Delivery(store_orders lookup). CM room은 메시지 chrome 참조만 합니다. 주문 UUID는 매장 주문(액션)에서 확인하고, 연결된 방이 있을 때만 대화 UI를 엽니다(생성 없음).",
+      "주문 채팅은 주문에 연결된 채팅방이 있을 때만 열립니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다. 주문번호를 누르면 주문 상세가 열립니다.",
     admin_menu_chat_messenger: "커뮤니티 메신저",
     admin_menu_chat_messenger_performance: "메신저 성능",
     admin_menu_chat_reported: "신고채팅",
@@ -3617,9 +3617,9 @@ export const adminMessages = {
     admin_messenger_trade_reference_banner:
       "REFERENCE · Entered from Messenger menu. Trade chat authority stays on Trade (/admin/chats/trade). Messenger does not own or create rooms.",
     admin_messenger_order_reference_banner:
-      "REFERENCE · Entered from Messenger menu. Order-chat authority stays on Delivery (/admin/order-chats · store_orders lookup). No create or ownership move.",
+      "Opened from the Messenger menu. Order chats are looked up on this screen. Admin screens never create chat rooms.",
     admin_order_chats_foot_authority:
-      "Order-chat authority = Delivery (store_orders lookup). CM rooms are message chrome only. Resolve order UUIDs in store orders (actions) and open chat UI only when a room already exists (no create).",
+      "An order chat opens only when the order already has a chat room. Admin screens never create rooms. Tap an order number to open its detail.",
     admin_menu_chat_messenger: "Community messenger",
     admin_menu_chat_messenger_performance: "Messenger performance",
     admin_menu_chat_reported: "Reported chats",

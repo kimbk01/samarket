@@ -4,6 +4,7 @@ import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
 
 export type AdminStoreOrderChatListRow = {
   orderId: string;
+  orderNo: string;
   roomId: string;
   storeId: string;
   storeLabel: string;
@@ -17,6 +18,7 @@ export type AdminStoreOrderChatListRow = {
 
 type StoreOrderRow = {
   id: string;
+  order_no?: string | null;
   store_id: string | null;
   buyer_user_id: string | null;
   order_status: string | null;
@@ -47,7 +49,7 @@ export async function listAdminStoreOrderChats(limit = 200): Promise<AdminStoreO
   const { data: orders, error } = await (sb as any)
     .from("store_orders")
     .select(
-      "id, store_id, buyer_user_id, order_status, community_messenger_room_id, updated_at, created_at"
+      "id, order_no, store_id, buyer_user_id, order_status, community_messenger_room_id, updated_at, created_at"
     )
     .not("community_messenger_room_id", "is", null)
     .order("updated_at", { ascending: false, nullsFirst: false })
@@ -105,6 +107,7 @@ export async function listAdminStoreOrderChats(limit = 200): Promise<AdminStoreO
     const customerUserId = trim(order.buyer_user_id);
     return {
       orderId: order.id,
+      orderNo: trim(order.order_no),
       roomId,
       storeId,
       storeLabel: storeId ? storeNameById.get(storeId) ?? storeId : "-",

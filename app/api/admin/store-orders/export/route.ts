@@ -1,6 +1,7 @@
 /**
  * GET /api/admin/store-orders/export — CSV (UTF-8 BOM)
- * `view=list`: the `/admin/store-orders` list filters (same RPC, every page at one `as_of`).
+ * `view=ops&screen=…`: the order-ops screen filters (`admin_store_order_ops_page`, every page at one `as_of`).
+ * `view=list`: the 1단계 list filters (same RPC, every page at one `as_of`).
  * Otherwise: legacy limit-based export.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -10,6 +11,13 @@ import {
   parseAdminStoreOrdersQuery,
 } from "@/lib/admin/store-orders/admin-store-orders-contract";
 import { loadAdminStoreOrdersPage } from "@/lib/admin/store-orders/load-admin-store-orders-page";
+import {
+  ADMIN_ORDER_OPS_MAX_PAGE_SIZE,
+  ADMIN_ORDER_OPS_SCREENS,
+  parseAdminOrderOpsQuery,
+  type AdminOrderOpsScreen,
+} from "@/lib/admin/store-orders/admin-store-order-ops-contract";
+import { loadAdminOrderOpsPage } from "@/lib/admin/store-orders/load-admin-store-order-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -97,6 +105,69 @@ async function exportListView(
   return csvResponse(lines);
 }
 
+async function exportOpsView(sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>, sp: URLSearchParams) {
+  const screen = sp.get("screen") as AdminOrderOpsScreen;
+  if (!(ADMIN_ORDER_OPS_SCREENS as readonly string[]).includes(screen)) {
+    return NextResponse.json({ ok: false, error: "invalid_screen" }, { status: 400 });
+  }
+  const base = parseAdminOrderOpsQuery(screen, sp);
+  const header = [
+    "order_no",
+    "store_name",
+    "buyer",
+    "items",
+    "order_amount",
+    "coupon_discount",
+    "gift_amount",
+    "customer_paid",
+    "payment_method",
+    "payment_status",
+    "fulfillment_type",
+    "order_status",
+    "commission_state",
+    "money_mismatch",
+    "created_at",
+    "basis_at",
+    "completed_at",
+  ];
+  const lines = [header.join(",")];
+  let asOf: string | null = base.asOf;
+  for (let page = 1; (page - 1) * ADMIN_ORDER_OPS_MAX_PAGE_SIZE < LIST_EXPORT_MAX_ROWS; page += 1) {
+    const out = await loadAdminOrderOpsPage(sb, { ...base, page, pageSize: ADMIN_ORDER_OPS_MAX_PAGE_SIZE, asOf });
+    if (!out.ok) {
+      return NextResponse.json({ ok: false, error: out.error }, { status: out.error === "rpc_missing" ? 503 : 500 });
+    }
+    asOf = out.result.asOf;
+    for (const r of out.result.rows) {
+      lines.push(
+        [
+          r.order_no,
+          r.store_name,
+          r.buyer_label,
+          r.first_title ? `${r.first_title}${r.line_count > 1 ? ` +${r.line_count - 1}` : ""}` : "",
+          String(r.total_amount),
+          String(r.discount_amount),
+          String(r.gift_amount),
+          String(r.payment_amount),
+          r.buyer_payment_method ?? "",
+          r.payment_status,
+          r.fulfillment_type,
+          r.order_status,
+          r.commission_state ?? "",
+          r.money_mismatch ? "1" : "",
+          r.created_at,
+          r.basis_at,
+          r.completed_at ?? "",
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    }
+    if (out.result.rows.length < ADMIN_ORDER_OPS_MAX_PAGE_SIZE) break;
+  }
+  return csvResponse(lines);
+}
+
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -108,6 +179,7 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   if (sp.get("view") === "list") return exportListView(sb, sp);
+  if (sp.get("view") === "ops") return exportOpsView(sb, sp);
 
   const orderId = sp.get("order_id")?.trim();
   const orderNo = sp.get("order_no")?.trim();

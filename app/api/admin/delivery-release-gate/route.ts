@@ -142,7 +142,7 @@ export async function GET() {
         title: "delivery-proofs bucket private",
         description: `bucket 조회 실패: ${String(error.message ?? "").slice(0, 120)}`,
         howTo: "Supabase Storage buckets에서 delivery-proofs의 public=false 확인",
-        links: [{ label: "POD Admin(주문)", href: "/admin/delivery-orders" }],
+        links: [{ label: "주문 목록", href: "/admin/stores/orders" }],
       });
     } else {
       const isPublic = data?.public === true;

@@ -130,7 +130,7 @@ export function AdminActionCenter() {
   const domainHealth: QueueCard[] = [
     {
       id: "domain-delivery",
-      href: withAdminReturnTo("/admin/delivery-orders", returnTo),
+      href: withAdminReturnTo("/admin/stores/orders", returnTo),
       count: q.ordersAttentionCount + q.deliveryAlertsCount + q.storeApplicationsCount,
       titleKo: "배달 운영",
       titleEn: "Delivery ops",
