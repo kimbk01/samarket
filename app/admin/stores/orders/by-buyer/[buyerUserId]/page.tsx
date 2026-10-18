@@ -1,4 +1,6 @@
-import { DeliveryOrdersByBuyerClient } from "@/components/admin/delivery-orders/DeliveryOrdersByBuyerClient";
+import { Suspense } from "react";
+import { AdminLoadingFallbackSm } from "@/components/admin/AdminLoadingFallback";
+import { AdminOrderOpsScreen } from "@/components/admin/store-orders/AdminOrderOpsScreen";
 
 export default async function AdminStoreOrdersByBuyerPage({
   params,
@@ -6,6 +8,9 @@ export default async function AdminStoreOrdersByBuyerPage({
   params: Promise<{ buyerUserId: string }>;
 }) {
   const { buyerUserId } = await params;
-  return <DeliveryOrdersByBuyerClient buyerUserId={buyerUserId} />;
+  return (
+    <Suspense fallback={<AdminLoadingFallbackSm />}>
+      <AdminOrderOpsScreen screen="list" fixed={{ buyerUserId }} />
+    </Suspense>
+  );
 }
-

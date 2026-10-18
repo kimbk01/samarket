@@ -28,10 +28,8 @@ function AdminOrderChatsHubInner() {
           data-admin-entry="messenger-reference"
         >
           {safeT("admin_messenger_order_reference_banner", {
-            fallbackKo:
-              "REFERENCE · Messenger 메뉴 진입입니다. 주문 채팅 Authority는 Delivery(/admin/order-chats · store_orders lookup)입니다. 방 생성·소유 이전 없음.",
-            fallbackEn:
-              "REFERENCE · Entered from Messenger menu. Order-chat authority stays on Delivery (/admin/order-chats · store_orders lookup). No create or ownership move.",
+            fallbackKo: "메신저 메뉴에서 들어왔습니다. 주문 채팅은 이 화면에서 조회합니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다.",
+            fallbackEn: "Opened from the Messenger menu. Order chats are looked up on this screen. Admin screens never create chat rooms.",
           })}
         </div>
       ) : null}
@@ -48,19 +46,11 @@ function AdminOrderChatsHubInner() {
               <Link className="text-signature underline" href="/admin/store-orders">
                 {t("admin_order_chats_link_store_action")}
               </Link>
-              <span className="text-sam-muted"> · </span>
-              <code className="rounded bg-sam-app px-1 sam-text-xxs">?order_id=UUID</code>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/stores/orders">
                 {t("admin_order_chats_link_delivery_kpi")}
               </Link>
-            </li>
-            <li>
-              <span className="text-sam-fg">{t("admin_order_chats_order_chat_ui_label")}</span>
-              <code className="rounded bg-sam-app px-1 sam-text-xxs">
-                /admin/stores/orders/{"{"}주문UUID{"}"}/chat
-              </code>
             </li>
           </ul>
         </section>
@@ -93,10 +83,8 @@ function AdminOrderChatsHubInner() {
 
       <p className="sam-text-helper leading-relaxed text-sam-muted">
         {safeT("admin_order_chats_foot_authority", {
-          fallbackKo:
-            "주문 채팅 Authority = Delivery(store_orders lookup). CM room은 메시지 chrome 참조만 합니다. 주문 UUID는 매장 주문(액션)에서 확인하고, 연결된 방이 있을 때만 대화 UI를 엽니다(생성 없음).",
-          fallbackEn:
-            "Order-chat authority = Delivery (store_orders lookup). CM rooms are message chrome only. Resolve order UUIDs in store orders (actions) and open chat UI only when a room already exists (no create).",
+          fallbackKo: "주문 채팅은 주문에 연결된 채팅방이 있을 때만 열립니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다. 주문번호를 누르면 주문 상세가 열립니다.",
+          fallbackEn: "An order chat opens only when the order already has a chat room. Admin screens never create rooms. Tap an order number to open its detail.",
         })}
       </p>
     </div>

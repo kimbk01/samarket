@@ -859,7 +859,7 @@ export function AdminOpsConsolePage() {
                         <tr key={aid} className="border-t border-sam-border">
                           <td className="px-3 py-2 font-mono text-sam-fg">
                             {oid ? (
-                              <Link className="underline" href={`/admin/delivery-orders/${encodeURIComponent(oid)}`}>
+                              <Link className="underline" href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
                                 {orderNo}
                               </Link>
                             ) : (
@@ -1078,7 +1078,7 @@ export function AdminOpsConsolePage() {
                             <div className="flex flex-wrap gap-2">
                               {oid ? (
                                 <>
-                                  <Link className={Sam.btn.secondary} href={`/admin/delivery-orders/${encodeURIComponent(oid)}`}>
+                                  <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
                                     {t("admin_ops_console_link_order")}
                                   </Link>
                                   <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
