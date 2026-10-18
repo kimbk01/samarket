@@ -8,7 +8,9 @@
  * CTA contract:
  * - 조회: applies the search form → page 1, new snapshot (server re-query).
  * - 새로고침: same filters and page, new snapshot (server re-query, no client cache).
- * - Page moves keep the snapshot (`as_of`) so pages neither repeat nor skip rows.
+ * - Page moves keep `as_of` (orders created after it never shift pages). Rows whose
+ *   status/payment changes between page loads can still move in or out of a status-filtered
+ *   list — see docs/admin-store-orders-read-ssot.md §3-1 for the exact guarantee.
  * - A failed request keeps the previous result and shows the error (never "0 orders").
  */
 import Link from "next/link";
