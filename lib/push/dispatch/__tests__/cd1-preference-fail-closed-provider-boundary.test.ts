@@ -14,6 +14,12 @@ const tryCreateSupabaseServiceClient = vi.fn();
 vi.mock("@/lib/push/dispatch/load-active-push-targets", () => ({
   loadActivePushTargets: (...args: unknown[]) => loadActivePushTargets(...args),
   insertNotificationDelivery: (...args: unknown[]) => insertNotificationDelivery(...args),
+  insertNotificationDeliveryDetailed: async (...args: unknown[]) => {
+    const id = await insertNotificationDelivery(...args);
+    return id ? { kind: "inserted", id } : { kind: "conflict" };
+  },
+  reclaimNotificationDeliveryForRetry: vi.fn(async () => ({ kind: "already_sent" })),
+  isPermanentPushFailureResponse: () => false,
 }));
 
 vi.mock("@/lib/notifications/web-push-user-settings-gate", () => ({

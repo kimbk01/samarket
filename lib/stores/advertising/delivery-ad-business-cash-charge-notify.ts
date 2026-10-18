@@ -27,7 +27,8 @@ export async function safeNotifyOwnerBusinessCashChargeCompleted(
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
-      push_kind: "marketing",
+      // SRV-03: business notice to the owner, never marketing (no ad consent / quiet-hours gate).
+      push_kind: "notice",
       title: notifySafeT(language, "notify_delivery_ad_cash_charge_completed_title"),
       body: notifySafeT(language, "notify_delivery_ad_cash_charge_completed_body", {
         vars: { amount },
@@ -61,7 +62,8 @@ export async function safeNotifyOwnerBusinessCashChargeRejected(
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
-      push_kind: "marketing",
+      // SRV-03: business notice to the owner, never marketing (no ad consent / quiet-hours gate).
+      push_kind: "notice",
       title: notifySafeT(language, "notify_delivery_ad_cash_charge_rejected_title"),
       body: notifySafeT(language, "notify_delivery_ad_cash_charge_rejected_body"),
       link_url: DELIVERY_AD_OWNER_ROUTES.hub,

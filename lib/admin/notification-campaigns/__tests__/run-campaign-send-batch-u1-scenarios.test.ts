@@ -37,7 +37,8 @@ class Q {
   limit(n: number) { this.to_ = this.from_ + n - 1; return this; }
   maybeSingle() { this.single = true; return this; }
   update(p: Row) { this.op = "update"; this.patch = p; return this; }
-  upsert(p: Row | Row[]) { this.op = "upsert"; this.patch = p; return this; }
+  private upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } = {};
+  upsert(p: Row | Row[], opts?: { onConflict?: string; ignoreDuplicates?: boolean }) { this.op = "upsert"; this.patch = p; this.upsertOpts = opts ?? {}; return this; }
   insert(p: Row) { this.op = "insert"; this.patch = p; return this; }
   then(resolve: (v: unknown) => void) {
     const f = this.db.__fail?.[`${this.table}:${this.op}`];
@@ -45,9 +46,16 @@ class Q {
     const match = this.db[this.table].filter((r) => this.filters.every((fn) => fn(r)));
     if (this.op === "update") { for (const r of match) Object.assign(r, this.patch); return resolve({ data: match.map((r) => ({ id: r.id })), error: null }); }
     if (this.op === "upsert") {
+      // Honors onConflict keys; `db.__legacyUnique` simulates the pre-ADM-02 UNIQUE(campaign_id,user_id).
+      const keys = (this.upsertOpts.onConflict ?? "campaign_id,user_id").split(",");
+      const legacyUnique = (this.db as unknown as { __legacyUnique?: boolean }).__legacyUnique === true;
       for (const p of Array.isArray(this.patch) ? this.patch : [this.patch!]) {
-        const ex = this.db[this.table].find((r) => r.campaign_id === p.campaign_id && r.user_id === p.user_id);
-        if (ex) Object.assign(ex, p); else this.db[this.table].push({ ...p });
+        const ex = this.db[this.table].find((r) => keys.every((k) => r[k] === p[k]));
+        if (!ex && legacyUnique && this.table === "admin_notification_campaign_targets" &&
+            this.db[this.table].some((r) => r.campaign_id === p.campaign_id && r.user_id === p.user_id)) {
+          return resolve({ error: { code: "23505", message: "duplicate key campaign_id,user_id" } });
+        }
+        if (ex) { if (!this.upsertOpts.ignoreDuplicates) Object.assign(ex, p); } else this.db[this.table].push({ ...p });
       }
       return resolve({ error: null });
     }
@@ -274,6 +282,28 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
     const next = await scheduleNextRecurringOccurrence({ from: (t: string) => new Q(db, t), rpc } as never, "camp-1");
     expect(next?.id).toBe("occ-2");
+    expect(db.admin_notification_campaign_targets.every((t) => t.status === "pending" && t.occurrence_id === "occ-2")).toBe(true);
+  });
+
+  it("ADM-02: recurring selected_users with stored selection — next occurrence gets its OWN rows; occ-1 history kept", async () => {
+    const db = recurringSelectedDb();
+    camp(db).target_payload = { selected_user_ids: ["s0", "s1", "s2", "s3"] }; // s3 added after occ-1
+    const rpc = vi.fn(async () => ({ data: { id: "occ-2", campaign_id: "camp-1", sequence_number: 2, status: "queued" }, error: null }));
+    const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
+    await scheduleNextRecurringOccurrence({ from: (t: string) => new Q(db, t), rpc } as never, "camp-1");
+    const rows = db.admin_notification_campaign_targets;
+    expect(rows.filter((t) => t.occurrence_id === "occ-1").map((t) => t.status)).toEqual(["sent", "sent", "sent"]);
+    expect(rows.filter((t) => t.occurrence_id === "occ-2" && t.status === "pending").map((t) => t.user_id).sort()).toEqual(["s0", "s1", "s2", "s3"]);
+  });
+
+  it("ADM-02: before the unique migration (legacy UNIQUE campaign_id,user_id) falls back to U1-B re-arm", async () => {
+    const db = recurringSelectedDb();
+    (db as unknown as { __legacyUnique: boolean }).__legacyUnique = true;
+    camp(db).target_payload = { selected_user_ids: ["s0", "s1", "s2"] };
+    const rpc = vi.fn(async () => ({ data: { id: "occ-2", campaign_id: "camp-1", sequence_number: 2, status: "queued" }, error: null }));
+    const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
+    await scheduleNextRecurringOccurrence({ from: (t: string) => new Q(db, t), rpc } as never, "camp-1");
+    expect(db.admin_notification_campaign_targets).toHaveLength(3);
     expect(db.admin_notification_campaign_targets.every((t) => t.status === "pending" && t.occurrence_id === "occ-2")).toBe(true);
   });
 

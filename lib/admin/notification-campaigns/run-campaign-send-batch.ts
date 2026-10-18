@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  upsertCampaignTargetRows,
+  type CampaignTargetWriteMode,
+} from "@/lib/admin/notification-campaigns/campaign-target-rows";
+import {
   evaluateCampaignUserEligibility,
   loadCampaignSettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
@@ -23,20 +27,18 @@ export async function ensureCampaignTargetsForSelectedUsers(
   campaignId: string,
   occurrenceId: string,
   userIds: string[]
-): Promise<void> {
+): Promise<CampaignTargetWriteMode> {
   const rows = userIds.map((user_id) => ({
     campaign_id: campaignId,
     occurrence_id: occurrenceId,
     user_id,
     status: "pending" as const,
   }));
-  const { error } = await svc.from("admin_notification_campaign_targets").upsert(rows, {
-    onConflict: "campaign_id,user_id",
-    ignoreDuplicates: true,
-  });
+  const { mode, error } = await upsertCampaignTargetRows(svc, rows, { ignoreDuplicates: true });
   if (error && !error.message?.includes("does not exist")) {
     console.warn("[campaign targets upsert]", error.message);
   }
+  return mode;
 }
 
 export function assertOccurrenceSendAllowed(status: string): { ok: true } | { ok: false; error: string } {
@@ -234,7 +236,7 @@ export async function runNotificationCampaignSendBatch(
         status: "skipped",
         skipReason: reason,
       });
-      await svc.from("admin_notification_campaign_targets").upsert(
+      await upsertCampaignTargetRows(svc, [
         {
           campaign_id: campaign.id,
           occurrence_id: occurrenceId,
@@ -243,8 +245,7 @@ export async function runNotificationCampaignSendBatch(
           failure_reason: reason,
           skip_reason: reason,
         },
-        { onConflict: "campaign_id,user_id" }
-      );
+      ]);
       continue;
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { listCampaignOccurrences } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { validateCampaignLinkInput } from "@/lib/admin/notification-campaigns/campaign-link-target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,7 +133,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
   if (typeof body.target_type === "string" && TARGETS.has(body.target_type.trim())) {
     patch.target_type = body.target_type.trim();
   }
-  if (typeof body.target_url === "string") patch.target_url = body.target_url.trim() ? body.target_url.trim() : null;
+  if (typeof body.target_url === "string") {
+    const linkCheck = validateCampaignLinkInput(body.target_url);
+    if (!linkCheck.ok) {
+      return NextResponse.json({ ok: false, error: linkCheck.error }, { status: 400 });
+    }
+    patch.target_url = body.target_url.trim() ? body.target_url.trim() : null;
+  }
   if (typeof body.image_url === "string") patch.image_url = body.image_url.trim() ? body.image_url.trim() : null;
   if (body.scheduled_at === null) patch.scheduled_at = null;
   if (typeof body.scheduled_at === "string" && body.scheduled_at.trim()) patch.scheduled_at = body.scheduled_at.trim();

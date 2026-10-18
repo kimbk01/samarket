@@ -20,6 +20,7 @@ import {
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 type DetailRow = {
   id: string;
@@ -217,6 +218,28 @@ export default function NotificationDetailPage() {
     router.push("/notifications");
   };
 
+  // ADM-01: server-allowlisted external campaign link — opened outside the app shell.
+  const externalUrl =
+    typeof row?.meta?.external_url === "string" && row.meta.external_url.startsWith("https://")
+      ? row.meta.external_url
+      : null;
+  const onOpenExternal = () => {
+    if (!externalUrl) return;
+    if (!isCapacitorNativePlatform()) {
+      window.open(externalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    // Native shell: in-app browser (plugin already in installed binaries), never the app WebView.
+    void (async () => {
+      try {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: externalUrl });
+      } catch {
+        window.open(externalUrl, "_blank", "noopener,noreferrer");
+      }
+    })();
+  };
+
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
@@ -266,7 +289,16 @@ export default function NotificationDetailPage() {
               <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
                 {row.body ?? ""}
               </div>
-              <div className="mt-auto pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                {externalUrl ? (
+                  <button
+                    type="button"
+                    onClick={onOpenExternal}
+                    className="flex min-h-12 w-full items-center justify-center rounded-full border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg transition active:scale-[0.99]"
+                  >
+                    {t("notif_detail_open_external_link")}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={onConfirm}

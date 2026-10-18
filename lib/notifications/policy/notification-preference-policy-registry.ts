@@ -112,6 +112,22 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   store_order_buyer_cancelled: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
   store_order_sold_out: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
 
+  // SRV-03 — delivery-ad business cash (owner financial, mandatory)
+  // Writers: lib/stores/advertising/delivery-ad-business-cash-charge-notify.ts
+  delivery_ad_business_cash_charge_completed: row("owner", "owner_financial", "mandatory", MANDATORY),
+  delivery_ad_business_cash_charge_rejected: row("owner", "owner_financial", "mandatory", MANDATORY),
+
+  // SRV-03 — delivery-ad review / lifecycle / admin message to owner (operational, optional)
+  // Writers: lib/stores/advertising/delivery-ad-operations-notification-map.ts
+  delivery_ad_changes_requested: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_approved: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_rejected: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_paused_admin: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_resumed: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_terminated: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_ended: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+  delivery_ad_admin_message: row("owner", "owner_order_ops", "optional_operational", OPTIONAL),
+
   // Gift transfer lifecycle (writers: notify-gift-transfer.ts)
   gift_transfer_offered: row("member", "member_financial", "mandatory", MANDATORY),
   gift_transfer_accepted: row("member", "community_social", "optional_operational", OPTIONAL),

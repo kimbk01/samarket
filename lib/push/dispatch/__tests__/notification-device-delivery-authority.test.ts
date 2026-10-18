@@ -89,7 +89,7 @@ describe("notification device delivery authority", () => {
       "lib/push/dispatch/dispatch-push-for-user.ts"
     );
     const reserveAt = dispatch.indexOf(
-      "const deliveryId = await insertNotificationDelivery"
+      "const insertResult = await insertNotificationDeliveryDetailed"
     );
     const sendAt = dispatch.indexOf(
       "const result = await sendToTarget",
@@ -97,7 +97,7 @@ describe("notification device delivery authority", () => {
     );
     expect(reserveAt).toBeGreaterThan(-1);
     expect(sendAt).toBeGreaterThan(reserveAt);
-    expect(dispatch).toContain('reason: "duplicate_delivery"');
+    expect(dispatch).toContain('skipAudit("duplicate_delivery")');
     expect(dispatch).toContain('fcmMode: "multi_device_fcm"');
   });
 });

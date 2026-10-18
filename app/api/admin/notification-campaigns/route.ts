@@ -5,6 +5,7 @@ import { CAMPAIGN_CHANNELS } from "@/lib/admin/notification-campaigns/campaign-t
 import { CAMPAIGN_SEND_MODES } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { resolveCampaignTargetPayload } from "@/lib/admin/notification-campaigns/resolve-campaign-target-payload";
 import { validateOfficialCampaignSource } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import { validateCampaignLinkInput } from "@/lib/admin/notification-campaigns/campaign-link-target";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -176,6 +177,13 @@ export async function POST(req: NextRequest) {
 
   const deeplink_url = optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url);
   const web_url = optionalUrl(body.web_url);
+  // ADM-01: external hosts must be https + allowlisted; never silently rewritten to an in-app path.
+  for (const link of [deeplink_url, web_url]) {
+    const linkCheck = validateCampaignLinkInput(link);
+    if (!linkCheck.ok) {
+      return NextResponse.json({ ok: false, error: linkCheck.error }, { status: 400 });
+    }
+  }
   const source = validateOfficialCampaignSource({
     campaign_type: typ,
     app_notice_id: body.app_notice_id,

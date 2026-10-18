@@ -3,6 +3,7 @@ import {
   campaignNeedsPush,
   resolveCampaignInAppImageUrl,
   resolveCampaignPushImageUrl,
+  resolveCampaignExternalUrl,
   resolveCampaignRouteUrl,
   type AdminNotificationCampaignRow,
   type CampaignChannel,
@@ -110,6 +111,8 @@ export function buildAdminCampaignNotificationPresentation(
   const routeUrl = bind
     ? bind.canonical_route
     : resolveCampaignRouteUrl(campaign);
+  // ADM-01: allowlisted external link is shown on the notification detail, never routed in-app.
+  const externalUrl = bind ? null : resolveCampaignExternalUrl(campaign);
   const pushImageUrl = resolveCampaignPushImageUrl(campaign);
   const inAppImageUrl = resolveCampaignInAppImageUrl(campaign);
   const soundPolicyKey = definition.soundEventKey ?? "system_default";
@@ -129,6 +132,7 @@ export function buildAdminCampaignNotificationPresentation(
     previewKind: "admin_campaign",
     deeplinkUrl: campaign.deeplink_url,
     webUrl: campaign.web_url,
+    ...(externalUrl ? { externalUrl } : {}),
     ...(appNoticeId ? { appNoticeId, content_id: appNoticeId } : {}),
     ...(bind
       ? {

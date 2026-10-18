@@ -40,6 +40,8 @@ type ApnsHttp2RequestInput = {
   channel: "alert" | "voip";
   /** Extra provider_response fields merged on success/fail after transport wrap. */
   successExtras?: Record<string, unknown>;
+  /** SRV-01 — alert only: same id replaces the earlier banner so a retry cannot show twice. */
+  collapseId?: string | null;
 };
 
 /**
@@ -98,6 +100,10 @@ function apnsHttp2PostOnce(input: ApnsHttp2RequestInput): Promise<ApnsPostOnceRe
     };
     if (input.pushType === "voip") {
       headers["apns-expiration"] = "0";
+    }
+    const collapseId = input.pushType === "alert" ? input.collapseId?.trim() : "";
+    if (collapseId && Buffer.byteLength(collapseId, "utf8") <= 64) {
+      headers["apns-collapse-id"] = collapseId;
     }
 
     const req = client.request(headers);
@@ -228,6 +234,7 @@ export async function sendApnsAlertImpl(input: {
   title: string;
   body: string;
   data: Record<string, unknown>;
+  collapseId?: string | null;
 }): Promise<SendPushResult> {
   const topic = apnsTopic();
   if (!topic) {
@@ -242,6 +249,7 @@ export async function sendApnsAlertImpl(input: {
     topic,
     pushType: "alert",
     channel: "alert",
+    collapseId: input.collapseId ?? null,
   });
 }
 
