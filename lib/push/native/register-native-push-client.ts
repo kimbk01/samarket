@@ -359,6 +359,13 @@ async function runRegisterNativePushOrchestration(args: {
     }
     const appVersion = await getAppVersion();
     const pushProvider = platform === "android" ? "fcm" : "apns";
+    // PUSH-02 — iOS reports the token's APNs environment so the server picks the matching host.
+    const apnsEnvironment =
+      pushProvider === "apns"
+        ? await import("@/lib/push/native/apns-environment-native")
+            .then((m) => m.readNativeApnsEnvironment())
+            .catch(() => null)
+        : null;
 
     return await new Promise<RegisterResult>((resolve) => {
       let settled = false;
@@ -413,6 +420,7 @@ async function runRegisterNativePushOrchestration(args: {
               push_token: value,
               push_provider: pushProvider,
               app_version: appVersion,
+              ...(apnsEnvironment ? { apns_environment: apnsEnvironment } : {}),
             },
             {
               instrumentation: apiInstrumentation,

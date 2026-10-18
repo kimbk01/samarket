@@ -143,7 +143,15 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
         badge_count: memberAppIconTotal,
       },
     },
-    { event_type: row.kind, badge_count: memberAppIconTotal, notification_event_id: `admin:${row.id}` }
+    // SRV-10 — admin rows live in admin_notifications, never notification_events: no event id is passed
+    // (an `admin:` id failed the uuid event lookup and every admin push was skipped).
+    // At-most-once is owned by admin_notification_push_deliveries (PK notification_id + claim).
+    {
+      event_type: row.kind,
+      badge_count: memberAppIconTotal,
+      target_type: "admin_notification",
+      target_id: row.id,
+    }
   );
   return result.outcome ?? "noop";
 }

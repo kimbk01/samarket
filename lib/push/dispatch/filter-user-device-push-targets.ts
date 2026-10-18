@@ -1,5 +1,6 @@
 import type { PushTarget } from "@/lib/push/dispatch/push-payload-types";
 import type { PushEnvironment } from "@/lib/push/push-environment";
+import { normalizeApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 
 export type UserDevicePushRow = {
   id: string;
@@ -8,6 +9,8 @@ export type UserDevicePushRow = {
   push_token: string;
   push_provider: string;
   environment?: PushEnvironment | null;
+  /** PUSH-02 — absent until the column is migrated. */
+  apns_environment?: string | null;
   last_seen_at?: string | null;
   updated_at?: string | null;
 };
@@ -80,6 +83,7 @@ export function filterUserDevicePushTargets(
       platform: normalizePlatform(row.platform),
       device_id: row.device_id,
       environment: row.environment ?? undefined,
+      ...(provider === "apns" ? { apns_environment: normalizeApnsEnvironment(row.apns_environment) } : {}),
     });
   }
 

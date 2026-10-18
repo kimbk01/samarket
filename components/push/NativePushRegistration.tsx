@@ -38,6 +38,13 @@ import { subscribeAppBoot } from "@/lib/app-boot/app-boot-store";
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
 const VOIP_LISTENER_BRIDGE_READY_TIMEOUT_MS = 5_000;
+/**
+ * PUSH-01 — FCM/APNs may rotate the token while the app keeps running. Re-run registration on
+ * resume at most this often (same token → registerDeviceOnce skips the POST), and immediately when
+ * the native shell reports a rotation (DIBAY_PUSH_TOKEN_ROTATED_EVENT, Android 1.2.3+).
+ */
+export const PUSH_RESUME_REREGISTER_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const DIBAY_PUSH_TOKEN_ROTATED_EVENT = "dibay:push-token-rotated";
 
 /**
  * Native FCM/APNS — authenticated phase only.
@@ -52,6 +59,7 @@ export function NativePushRegistration() {
   const registerInFlightRef = useRef(false);
   const registerRunIdRef = useRef(0);
   const registerFnRef = useRef<(() => void) | null>(null);
+  const lastRegisterSuccessAtRef = useRef(0);
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
@@ -176,6 +184,7 @@ export function NativePushRegistration() {
 
       if (result.ok) {
         attemptedUserIdRef.current = userId;
+        lastRegisterSuccessAtRef.current = Date.now();
         logGuestAuthBootMarker("push_register_success_authenticated", { user_id: userId });
         logGuestAuthBootMarker("user_device_active_after_login", { user_id: userId });
         if (resolveCapacitorShellPlatform() === "ios") {
@@ -240,8 +249,31 @@ export function NativePushRegistration() {
       retryVoipTokenRegistration("consent_known_at_mount", getCurrentUser()?.id?.trim() || undefined);
     }
 
+    // PUSH-01 — re-register the current token after resume / native rotation (same user only).
+    const reRegisterCurrentUser = (reason: "resume" | "token_rotated") => {
+      const uid = sessionUserIdRef.current;
+      if (!uid || registerInFlightRef.current) return;
+      if (
+        reason === "resume" &&
+        Date.now() - lastRegisterSuccessAtRef.current < PUSH_RESUME_REREGISTER_MIN_INTERVAL_MS
+      ) {
+        return;
+      }
+      logPushRegister("reregister_current_token", { reason, user_id: uid });
+      attemptedUserIdRef.current = null;
+      registerFnRef.current?.();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reRegisterCurrentUser("resume");
+    };
+    const onTokenRotated = () => reRegisterCurrentUser("token_rotated");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener(DIBAY_PUSH_TOKEN_ROTATED_EVENT, onTokenRotated);
+
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener(DIBAY_PUSH_TOKEN_ROTATED_EVENT, onTokenRotated);
       unsubSnapshot();
       unsubAuth();
       unsubBoot();

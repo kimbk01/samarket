@@ -12,6 +12,7 @@ import {
 } from "@/lib/push/device-register/register-user-device-rpc";
 import { shouldActivateFcmDeviceRegister } from "@/lib/push/device-register/should-activate-fcm-device-register";
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
+import { normalizeApnsEnvironment, rememberDeviceApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -31,6 +32,8 @@ type RegisterBody = {
   push_token?: unknown;
   push_provider?: unknown;
   app_version?: unknown;
+  /** PUSH-02 — iOS builds that know their aps-environment report it (sandbox|production). */
+  apns_environment?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -74,6 +77,8 @@ export async function POST(req: NextRequest) {
     typeof body.app_version === "string" && body.app_version.trim()
       ? body.app_version.trim().slice(0, 64)
       : null;
+
+  const apnsEnvironment = pushProvider === "apns" ? normalizeApnsEnvironment(body.apns_environment) : null;
 
   if (!deviceId || !pushToken) {
     return NextResponse.json({ ok: false, error: "invalid_device" }, { status: 400 });
@@ -191,6 +196,10 @@ export async function POST(req: NextRequest) {
         last_seen_at: rpcResult.last_seen_at,
       });
       return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
+    }
+
+    if (apnsEnvironment && rpcResult.device_row_id) {
+      await rememberDeviceApnsEnvironment(svc, rpcResult.device_row_id, apnsEnvironment);
     }
 
     logDeviceRegisterAudit({
