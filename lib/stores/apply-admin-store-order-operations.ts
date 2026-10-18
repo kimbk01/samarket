@@ -149,7 +149,8 @@ export async function adminApproveStoreOrderCancelRequest(
   const force = await adminForceCancelStoreOrder(sb, oid, audit);
   if (!force.ok) return force;
 
-  await sb
+  // Ledger follows the order CAS; only a still-pending request is closed.
+  const { error: uReqErr } = await sb
     .from("store_order_cancel_requests")
     .update({
       status: "approved",
@@ -157,7 +158,9 @@ export async function adminApproveStoreOrderCancelRequest(
       approved_at: new Date().toISOString(),
       refund_status: "pending",
     })
-    .eq("id", reqRow.id as string);
+    .eq("id", reqRow.id as string)
+    .eq("status", "pending");
+  if (uReqErr) console.error("[adminApproveStoreOrderCancelRequest] ledger", uReqErr);
 
   // cancel_approved event emitted inside apply (cancel_requested → cancelled)
   return { ok: true };
@@ -229,7 +232,8 @@ export async function adminRejectStoreOrderCancelRequest(
       rejected_reason: reason,
       refund_status: "not_applicable",
     })
-    .eq("id", reqRow.id as string);
+    .eq("id", reqRow.id as string)
+    .eq("status", "pending");
   if (uReqErr) return { ok: false, error: uReqErr.message, httpStatus: 500 };
 
   const ownerId = await loadOwnerUserId(sb, order.store_id as string);

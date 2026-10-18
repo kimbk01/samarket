@@ -5,13 +5,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
-  adminCompleteRefundStoreOrder,
-  adminForceCancelStoreOrder,
   adminPatchStoreOrderMeta,
-  adminRejectRefundStoreOrder,
-  adminSetRefundRequestedStoreOrder,
   type AdminStoreOrderMetaPatch,
 } from "@/lib/stores/apply-admin-store-order-operations";
+import type { AdminStoreOrderInterventionAction } from "@/lib/admin/store-orders/admin-store-order-intervention-contract";
+import { runAdminStoreOrderIntervention } from "@/lib/stores/admin-store-order-intervention";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -22,10 +20,14 @@ type PatchBody = {
   /** 현재는 refund_requested 만 허용 */
   set_order_status?: string;
   complete_refund?: boolean;
-  /** Reject refund_requested → restore prior status (no money reverse) */
+  /** Reject refund_requested → restore the status recorded before the request (server-decided) */
   reject_refund?: boolean;
+  /** Ignored — the restore status is never client-chosen (kept for old callers). */
   restore_to_status?: string;
   reject_reason?: string;
+  /** Required for status decisions (force_cancel / complete_refund / reject_refund / set_order_status). */
+  reason?: string;
+  expected_status?: string;
   admin_locked?: boolean;
   admin_flagged?: boolean;
   admin_note?: string | null;
@@ -70,36 +72,25 @@ export async function PATCH(
   const rm = getAuditRequestMeta(req);
   const audit = { adminUserId: admin.userId, ip: rm.ip, user_agent: rm.userAgent };
 
-  let refundAlready: boolean | undefined;
-
-  if (body.force_cancel === true) {
-    const r = await adminForceCancelStoreOrder(sb, oid, audit);
-    if (!r.ok) {
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
-    }
-  } else if (body.complete_refund === true) {
-    const r = await adminCompleteRefundStoreOrder(sb, oid, audit);
-    if (!r.ok) {
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
-    }
-    refundAlready = r.already;
-  } else if (body.reject_refund === true) {
-    const r = await adminRejectRefundStoreOrder(
-      sb,
-      oid,
-      String(body.restore_to_status ?? "completed"),
-      String(body.reject_reason ?? ""),
-      audit
-    );
-    if (!r.ok) {
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
-    }
-  } else if (body.set_order_status != null && String(body.set_order_status).trim() !== "") {
-    const st = String(body.set_order_status).trim();
-    if (st !== "refund_requested") {
+  let decision: AdminStoreOrderInterventionAction | null = null;
+  if (body.force_cancel === true) decision = "force_cancel";
+  else if (body.complete_refund === true) decision = "refund_approve";
+  else if (body.reject_refund === true) decision = "refund_reject";
+  else if (body.set_order_status != null && String(body.set_order_status).trim() !== "") {
+    if (String(body.set_order_status).trim() !== "refund_requested") {
       return NextResponse.json({ ok: false, error: "unsupported_set_order_status" }, { status: 400 });
     }
-    const r = await adminSetRefundRequestedStoreOrder(sb, oid, audit);
+    decision = "refund_request_create";
+  }
+
+  if (decision) {
+    const r = await runAdminStoreOrderIntervention(sb, {
+      orderId: oid,
+      action: decision,
+      reason: body.reason ?? body.reject_reason,
+      expectedStatus: typeof body.expected_status === "string" ? body.expected_status : null,
+      audit,
+    });
     if (!r.ok) {
       return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
     }
@@ -123,8 +114,5 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "empty_body" }, { status: 400 });
   }
 
-  return NextResponse.json({
-    ok: true,
-    ...(refundAlready !== undefined ? { already: refundAlready } : {}),
-  });
+  return NextResponse.json({ ok: true });
 }

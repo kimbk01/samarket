@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -25,6 +25,10 @@ import {
   businessCcPublicStoreHref,
 } from "@/lib/admin-business/business-control-center-links";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
+import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
+import { AdminStoreOrderInterventionPanel } from "./AdminStoreOrderInterventionPanel";
+import { AdminStoreOrderHistoryPanel } from "./AdminStoreOrderHistoryPanel";
 
 type AuditRow = {
   id: string;
@@ -78,6 +82,15 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
+  const [historyKey, setHistoryKey] = useState(0);
+
+  const statusLabel = useCallback(
+    (status: string) => {
+      const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[status as StoreOrderStatus];
+      return key ? t(key) : status;
+    },
+    [t]
+  );
 
   const loadAudit = useCallback(async () => {
     const id = orderId.trim();
@@ -297,6 +310,26 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </AdminCard>
       )}
 
+      <AdminStoreOrderInterventionPanel
+        orderId={order.id}
+        orderNo={order.orderNo}
+        orderStatus={order.orderStatus}
+        paymentStatus={order.paymentStatus}
+        statusLabel={statusLabel}
+        onChanged={async () => {
+          await reload({ silent: true });
+          await loadAudit();
+          setHistoryKey((k) => k + 1);
+        }}
+      />
+
+      <AdminStoreOrderHistoryPanel
+        orderId={order.id}
+        orderNo={order.orderNo}
+        statusLabel={statusLabel}
+        reloadKey={historyKey}
+      />
+
       {order.settlement && (
         <AdminCard titleKey="admin_do_card_settlement">
           <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_do_settlement_snapshot_not_authority")}</p>
@@ -350,45 +383,6 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       <AdminCard titleKey="admin_do_card_platform_ops">
         <p className="sam-text-body-secondary text-sam-muted">{t("admin_do_ops_intro")}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={opBusy}
-            onClick={() => {
-              void (async () => {
-                if (!(await dibayConfirm({ title: t("admin_do_confirm_force_cancel"), confirmTone: "destructive" }))) return;
-                void runAdminPatch({ force_cancel: true });
-              })();
-            }}
-            className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900 disabled:opacity-50"
-          >
-            {t("admin_do_force_cancel")}
-          </button>
-          <button
-            type="button"
-            disabled={opBusy}
-            onClick={() => {
-              void (async () => {
-                if (!(await dibayConfirm({ title: t("admin_do_confirm_refund_request"), confirmTone: "destructive" }))) return;
-                void runAdminPatch({ set_order_status: "refund_requested" });
-              })();
-            }}
-            className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950 disabled:opacity-50"
-          >
-            {t("admin_do_refund_request")}
-          </button>
-          <button
-            type="button"
-            disabled={opBusy}
-            onClick={() => {
-              void (async () => {
-                if (!(await dibayConfirm({ title: t("admin_do_confirm_refund_complete"), confirmTone: "destructive" }))) return;
-                void runAdminPatch({ complete_refund: true });
-              })();
-            }}
-            className="rounded-ui-rect bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {t("admin_do_refund_complete")}
-          </button>
           <button
             type="button"
             disabled={opBusy}
