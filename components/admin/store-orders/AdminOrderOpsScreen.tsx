@@ -160,6 +160,8 @@ export function AdminOrderOpsScreen({
   const lastUrlRef = useRef<string>(listKey);
 
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  /** 주문 목록 only: same period, processing-date basis (cancel event time / refunded_at) — never the created cohort. */
+  const [procSummary, setProcSummary] = useState<{ cancel: Record<string, unknown> | null; refund: Record<string, unknown> | null } | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(true);
@@ -214,12 +216,22 @@ export function AdminOrderOpsScreen({
         if (q.toDay) p.set("to", q.toDay);
       }
       if (q.storeId) p.set("store_id", q.storeId);
-      try {
+      const fetchScope = async (scope: string) => {
+        p.set("scope", scope);
         const res = await fetch(`/api/admin/store-orders/ops/summary?${p.toString()}`, { credentials: "include", cache: "no-store" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; summary?: Record<string, unknown> };
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
         if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : `http_${res.status}`);
-        setSummary(j.summary ?? null);
+        return j.summary ?? null;
+      };
+      try {
+        if (cfg.summaryScope === "orders") {
+          const [orders, cancel, refund] = await Promise.all([fetchScope("orders"), fetchScope("cancel"), fetchScope("refund")]);
+          setSummary(orders);
+          setProcSummary({ cancel, refund });
+        } else {
+          setSummary(await fetchScope(cfg.summaryScope));
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : "network_error";
         setSummaryError(errorText(msg === "Failed to fetch" ? "network_error" : msg));
@@ -383,16 +395,31 @@ export function AdminOrderOpsScreen({
     const n = (b: Record<string, number | string | null> | null, k: string) => (b && b[k] != null ? Number(b[k]) : null);
     if (cfg.summaryScope === "orders") {
       const fee = blk("commission");
+      const proc = (scope: "cancel" | "refund", k: string) => {
+        const src = procSummary?.[scope] as Record<string, unknown> | null | undefined;
+        const b = src && typeof src[k] === "object" && src[k] ? (src[k] as Record<string, number | string | null>) : null;
+        return b;
+      };
+      const cohort = ko ? `① ${periodLabel}에 생성된 주문 — 주문 생성일 기준 · 상태는 현재 기준` : `① Orders created in ${periodLabel} — created date · current status`;
+      const work = ko ? `② ${periodLabel}의 요청·처리 실적 — 요청일·처리일 기준` : `② Requests and processing in ${periodLabel} — request / processing date`;
+      const cPending = proc("cancel", "pending");
+      const cDone = proc("cancel", "done");
+      const rPending = proc("refund", "pending");
+      const rDone = proc("refund", "done");
       return [
-        { key: "all", label: ko ? "전체 주문" : "All", count: n(blk("all"), "count"), amount: n(blk("all"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("all") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("all"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("all", { orderStatus: null, mismatchOnly: false }), active: tab.key === "all" && !applied.orderStatus && !applied.mismatchOnly },
-        { key: "in_progress", label: ko ? "진행 중" : "In progress", count: n(blk("in_progress"), "count"), amount: n(blk("in_progress"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", basis: "created", onClick: () => onTab("in_progress", { orderStatus: null }), active: tab.key === "in_progress" },
-        { key: "completed", label: ko ? "완료" : "Completed", count: n(blk("completed"), "count"), amount: n(blk("completed"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("completed") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("completed"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("completed", { orderStatus: null }), active: tab.key === "completed" },
-        { key: "cancelled", label: ko ? "취소 완료" : "Cancelled", count: n(blk("cancelled"), "count"), amount: n(blk("cancelled"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancelled" }), active: applied.orderStatus === "cancelled" },
-        { key: "cancel_requested", label: ko ? "취소 요청 대기" : "Cancel requests", count: n(blk("cancel_requested"), "count"), amount: n(blk("cancel_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "pending" }) },
-        { key: "refund_requested", label: ko ? "환불 요청 대기" : "Refund requests", count: n(blk("refund_requested"), "count"), amount: n(blk("refund_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "pending" }) },
-        { key: "refunded", label: ko ? "환불 완료" : "Refunded", count: n(blk("refunded"), "count"), amount: n(blk("refunded"), "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "created", onClick: () => onTab("refund", { orderStatus: "refunded" }), active: applied.orderStatus === "refunded" },
-        { key: "commission", label: ko ? "수수료 부과" : "Commission", count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: ko ? "기준액" : "Base", secondary: fee ? `${ko ? "부과 수수료" : "Fee"} ${formatMoneyPhp((n(fee, "fee_minor") ?? 0) / 100)}` : null, basis: "created", href: "/admin/store-settlements" },
-        { key: "mismatch", label: ko ? "⚠ 금액 불일치" : "⚠ Amount mismatch", count: s && s.mismatch != null ? Number(s.mismatch) : null, basis: "created", tone: "danger", onClick: () => onTab("all", { mismatchOnly: true, orderStatus: null }), active: applied.mismatchOnly },
+        { group: cohort, key: "all", label: ko ? "생성 주문" : "Created", count: n(blk("all"), "count"), amount: n(blk("all"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("all") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("all"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("all", { orderStatus: null, mismatchOnly: false }), active: tab.key === "all" && !applied.orderStatus && !applied.mismatchOnly },
+        { group: cohort, key: "in_progress", label: ko ? "진행 중" : "In progress", count: n(blk("in_progress"), "count"), amount: n(blk("in_progress"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", basis: "created", onClick: () => onTab("in_progress", { orderStatus: null }), active: tab.key === "in_progress" },
+        { group: cohort, key: "completed", label: ko ? "완료" : "Completed", count: n(blk("completed"), "count"), amount: n(blk("completed"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("completed") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("completed"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("completed", { orderStatus: null }), active: tab.key === "completed" },
+        { group: cohort, key: "cancel_requested", label: ko ? "현재 취소 요청 중" : "Now cancel-requested", count: n(blk("cancel_requested"), "count"), amount: n(blk("cancel_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancel_requested" }), active: applied.orderStatus === "cancel_requested" },
+        { group: cohort, key: "cancelled", label: ko ? "현재 취소 상태" : "Now cancelled", count: n(blk("cancelled"), "count"), amount: n(blk("cancelled"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancelled" }), active: applied.orderStatus === "cancelled" },
+        { group: cohort, key: "refund_requested", label: ko ? "현재 환불 요청 중" : "Now refund-requested", count: n(blk("refund_requested"), "count"), amount: n(blk("refund_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("refund", { orderStatus: "refund_requested" }), active: applied.orderStatus === "refund_requested" },
+        { group: cohort, key: "refunded", label: ko ? "현재 환불 상태" : "Now refunded", count: n(blk("refunded"), "count"), amount: n(blk("refunded"), "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "created", onClick: () => onTab("refund", { orderStatus: "refunded" }), active: applied.orderStatus === "refunded" },
+        { group: cohort, key: "commission", label: ko ? "수수료 부과" : "Commission", count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: ko ? "기준액" : "Base", secondary: fee ? `${ko ? "부과 수수료" : "Fee"} ${formatMoneyPhp((n(fee, "fee_minor") ?? 0) / 100)}` : null, basis: "created", href: "/admin/store-settlements" },
+        { group: cohort, key: "mismatch", label: ko ? "⚠ 금액 불일치" : "⚠ Amount mismatch", count: s && s.mismatch != null ? Number(s.mismatch) : null, basis: "created", tone: "danger", onClick: () => onTab("all", { mismatchOnly: true, orderStatus: null }), active: applied.mismatchOnly },
+        { group: work, key: "cancel_pending", label: ko ? "취소 요청 대기" : "Cancel requests waiting", count: n(cPending, "count"), amount: n(cPending, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancel_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "pending" }) },
+        { group: work, key: "cancel_done", label: ko ? "취소 처리" : "Cancelled (processed)", count: n(cDone, "count"), amount: n(cDone, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancelled", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "done" }) },
+        { group: work, key: "refund_pending", label: ko ? "환불 요청 대기" : "Refund requests waiting", count: n(rPending, "count"), amount: n(rPending, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "refund_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "pending" }) },
+        { group: work, key: "refund_done", label: ko ? "환불 처리" : "Refunded (processed)", count: n(rDone, "count"), amount: n(rDone, "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "refunded", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "done" }) },
       ];
     }
     if (cfg.summaryScope === "cancel" || cfg.summaryScope === "refund") {
@@ -410,7 +437,7 @@ export function AdminOrderOpsScreen({
     }
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onTab/linkWith read `applied`, listed
-  }, [summary, cfg.summaryScope, ko, applied, tab.key, periodParams]);
+  }, [summary, procSummary, cfg.summaryScope, ko, applied, tab.key, periodParams, periodLabel]);
 
   const deepLinks: { key: "storeId" | "orderId" | "buyerUserId"; label: string }[] = [];
   if (applied.storeId && !fixed?.storeId) {
@@ -705,8 +732,8 @@ export function AdminOrderOpsScreen({
 
   const basisNote = cfg.summaryScope === "orders"
     ? ko
-      ? `기준: 주문 생성 시각(마닐라) · 상태는 현재 기준 · ${periodLabel}`
-      : `Basis: order created (Manila) · current status · ${periodLabel}`
+      ? `${periodLabel} · 마닐라 날짜 · 「전체 기간」은 서비스 시작부터 누적`
+      : `${periodLabel} · Manila dates · "All time" = cumulative since launch`
     : ko
       ? `카드마다 기준 시각 표시 · ${periodLabel}`
       : `Each card states its basis · ${periodLabel}`;
@@ -753,7 +780,8 @@ export function AdminOrderOpsScreen({
         </p>
       ) : null}
 
-      {cfg.summaryScope ? (
+      {/* The summary RPC has no buyer filter, so a by-buyer page would show every buyer's figures — not shown there. */}
+      {cfg.summaryScope && !fixed?.buyerUserId ? (
         <OpsSummaryPanel
           title={ko ? "현황" : "Overview"}
           basisNote={basisNote}

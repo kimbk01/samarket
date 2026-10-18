@@ -135,16 +135,19 @@ export const ADMIN_ORDER_OPS_SCREEN: Record<AdminOrderOpsScreen, AdminOrderOpsSc
   },
 };
 
-export type AdminOrderOpsPeriod = "all" | "today" | "last_7_days" | "last_30_days" | "this_month" | "custom";
-export const ADMIN_ORDER_OPS_PERIODS: readonly AdminOrderOpsPeriod[] = ["today", "last_7_days", "last_30_days", "this_month", "custom", "all"];
+export type AdminOrderOpsPeriod = "all" | "today" | "last_7_days" | "last_30_days" | "this_month" | "this_year" | "custom";
+export const ADMIN_ORDER_OPS_PERIODS: readonly AdminOrderOpsPeriod[] = ["today", "last_7_days", "last_30_days", "this_month", "this_year", "custom", "all"];
 export const ADMIN_ORDER_OPS_PERIOD_LABEL: Record<AdminOrderOpsPeriod, { ko: string; en: string }> = {
   today: { ko: "오늘", en: "Today" },
   last_7_days: { ko: "최근 7일", en: "Last 7 days" },
   last_30_days: { ko: "최근 30일", en: "Last 30 days" },
   this_month: { ko: "이번 달", en: "This month" },
+  this_year: { ko: "올해", en: "This year" },
   custom: { ko: "기간 지정", en: "Custom" },
   all: { ko: "전체 기간", en: "All time" },
 };
+
+const MANILA_OFFSET_MS = 8 * 3_600_000;
 
 /** Manila business days (same calendar as the settlement ledger). Rolling N days include today. */
 export function resolveAdminOrderOpsPeriod(
@@ -159,6 +162,13 @@ export function resolveAdminOrderOpsPeriod(
     const start = new Date(Date.parse(String(today.fromIso)) - (days - 1) * 86_400_000);
     return { fromIso: start.toISOString(), toIso: today.toIso };
   }
+  if (period === "this_year") {
+    // Manila 1 Jan 00:00 → end of today. Today's Manila midnight is 16:00Z the previous UTC day.
+    const today = resolveStoreCommissionPeriod("today", null, null, now);
+    const manilaYear = new Date(Date.parse(String(today.fromIso)) + MANILA_OFFSET_MS).getUTCFullYear();
+    return { fromIso: new Date(Date.UTC(manilaYear, 0, 1) - MANILA_OFFSET_MS).toISOString(), toIso: today.toIso };
+  }
+  // 「전체 기간」 (`all`) = no bounds: every order since the service started, however many years.
   return resolveStoreCommissionPeriod(period, fromDay, toDay, now);
 }
 
