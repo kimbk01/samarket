@@ -205,8 +205,7 @@ export async function applyStoreOrderStatusTransition(
 
   if (nextStatus === "cancel_requested") {
     updatePayload.auto_complete_at = null;
-    // A buyer request is the store's work (it decides), not an admin queue item.
-    if (actor !== "CUSTOMER") updatePayload.needs_admin_attention = true;
+    // Cancel requests are the store owner's decision (3단계) — never flagged as admin workload.
   }
 
   if (current === "cancel_requested" && nextStatus !== "cancelled" && nextStatus !== "cancel_requested") {

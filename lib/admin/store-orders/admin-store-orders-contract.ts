@@ -9,8 +9,8 @@
  * settlement ledger). The browser never derives status or money.
  */
 import {
-  STORE_ORDER_ADMIN_DECISION_STATUSES,
-  STORE_ORDER_CLOSED_STATUSES,
+  STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
+  STORE_ORDER_OWNER_DECISION_STATUSES,
 } from "@/lib/admin/admin-ops-actionable-status";
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import {
@@ -52,7 +52,7 @@ export const ADMIN_STORE_ORDERS_TAB_LABEL: Record<AdminStoreOrdersTab, { ko: str
 };
 
 /** Waiting on a decision (owner request / buyer refund request). */
-const DECISION_PENDING_STATUSES = new Set<string>(STORE_ORDER_ADMIN_DECISION_STATUSES);
+const DECISION_PENDING_STATUSES = new Set<string>(STORE_ORDER_OWNER_DECISION_STATUSES);
 
 /** Order status chip — design tokens only (light + dark). */
 export function adminStoreOrderStatusChipClass(status: string): string {
@@ -232,8 +232,10 @@ export function adminStoreOrdersRpcArgs(q: AdminStoreOrdersQuery, now: Date = ne
     p_buyer_q: q.buyer,
     p_fulfillment_type: q.fulfillment,
     p_payment_status: q.paymentStatus,
-    p_queue_statuses: q.adminQueue ? [...STORE_ORDER_ADMIN_DECISION_STATUSES] : null,
-    p_queue_closed_statuses: q.adminQueue ? [...STORE_ORDER_CLOSED_STATUSES] : null,
+    // Admin Q (`orders_attention`): attention flag only, never closed or owner-decision rows.
+    // An empty status list keeps the SQL queue branch on (NULL would disable the queue filter).
+    p_queue_statuses: q.adminQueue ? [] : null,
+    p_queue_closed_statuses: q.adminQueue ? [...STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES] : null,
     p_limit: q.pageSize,
     p_offset: (q.page - 1) * q.pageSize,
   };

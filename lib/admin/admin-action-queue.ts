@@ -25,8 +25,7 @@ import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentatio
 import {
   ADMIN_ACTIONABLE_STORE_APPROVAL,
   COMMUNITY_REPORT_ADMIN_ACTIONABLE,
-  STORE_ORDER_ADMIN_DECISION_STATUSES,
-  STORE_ORDER_CLOSED_STATUSES,
+  STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
   TRADE_REPORT_ADMIN_ACTIONABLE,
 } from "@/lib/admin/admin-ops-actionable-status";
 import {
@@ -62,14 +61,12 @@ export const STORE_CHARGE_ACTIONABLE_STATUSES = [
 ] as const;
 
 /**
- * Store orders the ADMIN must act on:
- *   - admin decision statuses (cancel_requested / refund_requested), regardless of SLA flag;
- *   - SLA attention flag on a non-closed order.
- * Closed orders never count, even with a stale flag.
+ * Store orders the ADMIN must act on: operational exceptions only — the attention flag on an order
+ * that is neither closed nor waiting on the store owner's decision (cancel/refund requests are the
+ * store's work since 3단계). Same predicate as admin_store_orders_page `queue=admin_attention`.
  */
 export const STORE_ORDER_ADMIN_QUEUE_OR_FILTER =
-  `order_status.in.(${STORE_ORDER_ADMIN_DECISION_STATUSES.join(",")}),` +
-  `and(needs_admin_attention.eq.true,order_status.not.in.(${STORE_ORDER_CLOSED_STATUSES.join(",")}))`;
+  `and(needs_admin_attention.eq.true,order_status.not.in.(${STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES.join(",")}))`;
 
 /** feed_ad_requests are projected in JS; cap guards the scan and is surfaced when hit. */
 const FEED_AD_SCAN_LIMIT = 2000;

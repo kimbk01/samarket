@@ -76,9 +76,9 @@ describe("Admin Action Queue registry contract", () => {
     expect(r.categories.find((c) => c.key === "store_inquiry_open")?.inTotal).toBe(false);
   });
 
-  it("orders predicate = admin decision statuses OR attention flag on a non-closed order", async () => {
+  it("orders predicate = attention flag only, never closed or owner-decision (cancel/refund request) rows", async () => {
     expect(STORE_ORDER_ADMIN_QUEUE_OR_FILTER).toBe(
-      "order_status.in.(cancel_requested,refund_requested),and(needs_admin_attention.eq.true,order_status.not.in.(completed,cancelled,refunded))"
+      "and(needs_admin_attention.eq.true,order_status.not.in.(completed,cancelled,refunded,cancel_requested,refund_requested))"
     );
     const calls: { table: string; ops: string[] }[] = [];
     await loadAdminActionQueueCounts({ storesSb: fakeSb({}, calls), notesSb: fakeSb({}) });
