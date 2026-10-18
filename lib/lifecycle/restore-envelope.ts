@@ -25,9 +25,82 @@ export function isUsableRestorePath(path: string | null | undefined): path is st
   return true;
 }
 
-/** Best-effort sync account key from persisted Supabase session; guest if none. */
+function userIdFromSessionJson(raw: string): string | null {
+  try {
+    const j = JSON.parse(raw) as {
+      user?: { id?: unknown };
+      currentSession?: { user?: { id?: unknown } };
+    };
+    const id = j?.user?.id ?? j?.currentSession?.user?.id;
+    return typeof id === "string" && id.trim() ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeBase64UrlUtf8(input: string): string | null {
+  try {
+    const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const bin = atob(padded);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `@supabase/ssr` browser session cookie: `sb-<ref>-auth-token` (optionally chunked `.0`, `.1`, …),
+ * value `base64-<base64url JSON>` or raw JSON. Read-only parse — never writes cookies.
+ */
+export function readAccountKeyFromSupabaseCookies(cookieHeader: string): string | null {
+  const chunks = new Map<string, Array<{ index: number; value: string }>>();
+  for (const part of cookieHeader.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    const name = part.slice(0, eq).trim();
+    const m = /^(sb-.+-auth-token)(?:\.(\d+))?$/.exec(name);
+    if (!m) continue;
+    let value = part.slice(eq + 1).trim();
+    try {
+      value = decodeURIComponent(value);
+    } catch {
+      /* keep raw */
+    }
+    const list = chunks.get(m[1]) ?? [];
+    list.push({ index: m[2] === undefined ? -1 : Number(m[2]), value });
+    chunks.set(m[1], list);
+  }
+  for (const list of chunks.values()) {
+    const whole = list.find((c) => c.index === -1);
+    const joined = whole
+      ? whole.value
+      : list
+          .filter((c) => c.index >= 0)
+          .sort((a, b) => a.index - b.index)
+          .map((c) => c.value)
+          .join("");
+    const json = joined.startsWith("base64-") ? decodeBase64UrlUtf8(joined.slice("base64-".length)) : joined;
+    const id = json ? userIdFromSessionJson(json) : null;
+    if (id) return id;
+  }
+  return null;
+}
+
+/**
+ * Sync account key of the current Supabase session; guest if none.
+ * The browser client stores the session in cookies (`@supabase/ssr`), not localStorage — reading only
+ * localStorage made every key `guest`, so the SSOT §4 accountKey check could never invalidate (B2).
+ */
 export function readLifecycleAccountKey(): string {
   if (typeof window === "undefined") return RESTORE_ACCOUNT_GUEST;
+  try {
+    const fromCookie = readAccountKeyFromSupabaseCookies(document.cookie ?? "");
+    if (fromCookie) return fromCookie;
+  } catch {
+    /* fall through to legacy localStorage session */
+  }
   try {
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);

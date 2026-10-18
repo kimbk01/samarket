@@ -36,7 +36,8 @@ function onboardingStatusToDibaySignup(status: OnboardingStatus) {
       onboarding_status: status.onboardingStatus,
       role: status.isPrivilegedAdmin ? "admin" : "user",
     },
-    { hasSession: true }
+    // B11: judge against the same CMS versions getOnboardingStatus used (not STORE_* alone).
+    { hasSession: true, requiredConsent: status.requiredConsent ?? null }
   );
 }
 

@@ -2,7 +2,10 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
-import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import {
+  resolveRequiredConsentVersions,
+  resolveRequiredConsentVersionsStrict,
+} from "@/lib/legal/resolve-required-consent-versions";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -49,7 +52,7 @@ export async function PATCH(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
-  let body: { agreeTerms?: boolean; agreePrivacy?: boolean };
+  let body: { agreeTerms?: boolean; agreePrivacy?: boolean; termsVersion?: unknown; privacyVersion?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -65,7 +68,28 @@ export async function PATCH(req: NextRequest) {
     return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }
   const sb = tryCreateSupabaseServiceClient() ?? routeSb;
-  const required = await resolveRequiredConsentVersions();
+  // Record only a version the CMS actually requires now — never a fallback guessed on read failure.
+  let required: Awaited<ReturnType<typeof resolveRequiredConsentVersionsStrict>>;
+  try {
+    required = await resolveRequiredConsentVersionsStrict();
+  } catch {
+    return jsonError("약관 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.", 503, {
+      code: "consent_versions_unavailable",
+    });
+  }
+  // P7: the member agrees to the versions shown on screen. If an Admin published a newer version
+  // while the screen was open, do not record the newer version as agreed — ask to review again.
+  const seenTerms = typeof body.termsVersion === "string" ? body.termsVersion.trim() : "";
+  const seenPrivacy = typeof body.privacyVersion === "string" ? body.privacyVersion.trim() : "";
+  if (
+    (seenTerms && seenTerms !== required.termsVersion) ||
+    (seenPrivacy && seenPrivacy !== required.privacyVersion)
+  ) {
+    return jsonError("약관이 개정되었습니다. 변경된 약관을 확인한 뒤 다시 동의해 주세요.", 409, {
+      code: "consent_version_stale",
+      requiredConsent: { termsVersion: required.termsVersion, privacyVersion: required.privacyVersion },
+    });
+  }
 
   const existing = await fetchProfileRowSafe(sb, auth.userId);
   if (

@@ -12,6 +12,20 @@ import { writeRestoreEnvelope, readLifecycleAccountKey } from "@/lib/lifecycle/r
 
 const NAV_APPLIED_KEY = "dibay:lifecycle:nav-applied";
 
+/** Auth / consent / onboarding surfaces — owned by auth SSOT, never replaced by restore or Safe Entry. */
+export function isLifecycleAuthSurfacePath(pathname: string): boolean {
+  const p = (pathname.split("?")[0] || "/").trim();
+  return (
+    p === "/login" ||
+    p.startsWith("/login/") ||
+    p === "/signup" ||
+    p.startsWith("/signup/") ||
+    p.startsWith("/auth/") ||
+    p === "/onboarding" ||
+    p.startsWith("/onboarding/")
+  );
+}
+
 export function LifecycleRouteEffects(): null {
   const pathname = usePathname() || "/";
   const router = useRouter();
@@ -34,6 +48,12 @@ export function LifecycleRouteEffects(): null {
       /* ignore */
     }
     navigated.current = true;
+    // Lifecycle SSOT §6 — never bypass auth: a document that booted on a login / terms / onboarding
+    // surface keeps it (restore / Safe Entry would drop an unconsented member on a public page).
+    if (isLifecycleAuthSurfacePath(current)) {
+      console.info(`[dibay-lifecycle] navigate_skipped kind=${d.kind} reason=auth_surface path=${current}`);
+      return;
+    }
     if (current !== target) {
       console.info(`[dibay-lifecycle] navigate kind=${d.kind} → ${d.navigateTo}`);
       router.replace(d.navigateTo);

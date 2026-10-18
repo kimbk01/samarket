@@ -51,6 +51,8 @@ DB·서버 코드 기준. 자동 병합 **금지** — 운영자 수동 처리.
 
 **SNS OAuth 직후** Supabase session 생성 → 약관만 완료하면 앱 진입. mutation API는 [`requireSignupCompleteForUser`](../lib/auth/require-signup-complete-api.ts) 로 **약관 미동의** 403.
 
+**중앙 집행 (2026-10-18):** 회원 API 변이는 proxy 중앙 게이트(`enforceApiMemberMutationPolicy` → 동의 검사)가 **약관 미동의 403 `signup_incomplete`** 로 일괄 집행한다. 예외(프로필·주소 정정, 기존 주문 이행, 취소·환불, 신고·차단·지원 등)는 `lib/auth/member-consent-mutation-policy.ts` 의 명시 규칙만. 상세 `docs/dibay-first-entry-legal-consent-ssot.md`.
+
 @id·프로필·주소·전화는 [`requireProfileCompletion`](../lib/profile/require-profile-completion.ts) 기능 gate.
 
 ## 진단 SQL

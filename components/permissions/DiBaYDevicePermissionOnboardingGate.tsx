@@ -13,11 +13,16 @@ import {
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
 import { runPostLoginFullScreenIntentCheck } from "@/lib/permissions/permission-manager/post-login-full-screen-intent-check";
-import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import {
+  getCachedNotificationReceiveSnapshot,
+  syncNotificationState,
+} from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
+import { DIBAY_LEGAL_CONSENT_COMPLETED_EVENT } from "@/lib/auth/client-consent-state";
+import { subscribeAppBoot } from "@/lib/app-boot/app-boot-store";
 
 /** 로그인 후 notification OS flow 완료 전 NativePushRegistration 대기용 */
 let notificationOnboardingSettled = false;
@@ -72,7 +77,12 @@ export function DiBaYDevicePermissionOnboardingGate() {
       await syncNotificationState();
       if (isCapacitorNativePlatform()) {
         await runNotificationGuideFlow("first_login");
-        if (resolveCapacitorShellPlatform() === "android") {
+        // B5: FSI (lock-screen tier) only when notifications are actually allowed — never send a
+        // member who just declined notifications to the OS FSI settings screen.
+        if (
+          resolveCapacitorShellPlatform() === "android" &&
+          getCachedNotificationReceiveSnapshot()?.receiveReady === true
+        ) {
           await runPostLoginFullScreenIntentCheck();
         }
       }
@@ -142,6 +152,19 @@ export function DiBaYDevicePermissionOnboardingGate() {
     };
     window.addEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
     return () => window.removeEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
+  }, [tryOpen]);
+
+  // B4: gate waits for first consent — retry when consent completes or boot profile lands.
+  useEffect(() => {
+    const onConsentReady = () => {
+      if (!shownRef.current) tryOpen();
+    };
+    window.addEventListener(DIBAY_LEGAL_CONSENT_COMPLETED_EVENT, onConsentReady);
+    const unsubBoot = subscribeAppBoot(onConsentReady);
+    return () => {
+      window.removeEventListener(DIBAY_LEGAL_CONSENT_COMPLETED_EVENT, onConsentReady);
+      unsubBoot();
+    };
   }, [tryOpen]);
 
   useEffect(() => {

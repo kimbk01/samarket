@@ -5,6 +5,7 @@
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { shouldOfferDiBaYNotificationPrePrompt } from "@/lib/notifications/dibay-notification-prompt-storage";
+import { resolveClientEverConsentedState } from "@/lib/auth/client-consent-state";
 
 /** profile cache 하이드레이션 후 온보딩 gate 재시도 */
 export const DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT = "dibay:post-login-onboarding-profile-retry";
@@ -47,6 +48,8 @@ export function isPostLoginOnboardingPathEligible(pathname: string, deferStoresH
 export function canAttemptPostLoginOnboardingGate(pathname: string, deferStoresHomeLcp: boolean): boolean {
   if (!isPostLoginOnboardingPathEligible(pathname, deferStoresHomeLcp)) return false;
   if (!resolvePostLoginOnboardingUserId()) return false;
+  // B4: OS permission prompts / FSI nudge only after the member's first legal consent.
+  if (resolveClientEverConsentedState() !== "consented") return false;
   return true;
 }
 

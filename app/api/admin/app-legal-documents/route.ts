@@ -3,6 +3,9 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { isLegalVersionConflictError, legalDocAuditSnapshot } from "@/lib/legal/app-legal-document-edit-policy";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   APP_LEGAL_DOCUMENT_SELECT,
@@ -46,7 +49,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  // Legal text is member-facing contract: operations-settings permission (super admin passes).
+  const admin = await requireAdminPermission("settings");
   if (!admin.ok) return admin.response;
 
   const sb = tryCreateSupabaseServiceClient();
@@ -62,6 +66,7 @@ export async function POST(req: NextRequest) {
     version?: string;
     status?: string;
     effective_at?: string | null;
+    confirm?: boolean;
   };
 
   if (!isAppLegalKind(body.kind) || !isAppLegalLocale(body.locale)) {
@@ -75,6 +80,12 @@ export async function POST(req: NextRequest) {
   }
 
   const status: AppLegalStatus = body.status === "published" ? "published" : "draft";
+  if (status === "published" && body.confirm !== true) {
+    return NextResponse.json(
+      { ok: false, error: "confirm_required", message: "게시 확인이 필요합니다." },
+      { status: 400 },
+    );
+  }
   const now = new Date().toISOString();
   const effectiveAt = body.effective_at?.trim() || (status === "published" ? now : null);
 
@@ -102,6 +113,12 @@ export async function POST(req: NextRequest) {
         { status: 503 },
       );
     }
+    if (isLegalVersionConflictError(error)) {
+      return NextResponse.json(
+        { ok: false, error: "version_conflict", message: "같은 종류·언어에 이미 있는 버전입니다." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
@@ -110,8 +127,18 @@ export async function POST(req: NextRequest) {
   );
   clearRequiredConsentVersionsCache();
 
-  return NextResponse.json({
-    ok: true,
-    document: normalizeAppLegalDocumentRow(data as Record<string, unknown>),
-  });
+  const created = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  if (created) {
+    await appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: admin.actor.userId,
+      target_type: "app_legal_document",
+      target_id: created.id,
+      action: status === "published" ? "legal_document.create_published" : "legal_document.create_draft",
+      before_json: null,
+      after_json: legalDocAuditSnapshot(created),
+    });
+  }
+
+  return NextResponse.json({ ok: true, document: created });
 }

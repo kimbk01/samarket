@@ -25,6 +25,8 @@ import {
 } from "@/lib/brand/brand-asset-paths";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { RequiredConsentVersionsBootstrap } from "@/components/legal/RequiredConsentVersionsBootstrap";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -88,6 +90,10 @@ export default async function RootLayout({
     cookieValue: langCookie ?? null,
     acceptLanguage,
   });
+  // B11: client consent gates judge against the same CMS versions the server enforces.
+  const requiredConsent = await resolveRequiredConsentVersions()
+    .then((v) => ({ termsVersion: v.termsVersion, privacyVersion: v.privacyVersion }))
+    .catch(() => null);
 
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
@@ -95,6 +101,7 @@ export default async function RootLayout({
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Launch Intro (native, cached publication only): LaunchIntroRoot defers the route tree
             while the Intro owns the launch (DEFERRED MOUNT). Web / no launch epoch → HOME as before. */}
+        <RequiredConsentVersionsBootstrap versions={requiredConsent} />
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <DibayAppDialogProvider>
             <DibayAppDialogImperativeBridge />

@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveClientEverConsentedState } from "@/lib/auth/client-consent-state";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import {
@@ -478,6 +479,13 @@ async function registerVoipToken(token: string, userId?: string): Promise<Regist
     return { ok: false, error: "empty_voip_token" };
   }
   lastVoipPushToken = normalized;
+
+  // B4: no device registration before the member's first legal consent.
+  // Token is kept; NativePushRegistration retries after consent (retryVoipTokenRegistration).
+  if (resolveClientEverConsentedState() !== "consented") {
+    logPushRegister("voip_token_register_deferred_consent", { push_provider: "voip_apns" });
+    return { ok: false, error: "consent_pending" };
+  }
 
   const deviceId = ensureClientInstanceId();
   const appVersion = await getAppVersion();

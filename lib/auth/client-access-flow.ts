@@ -6,6 +6,7 @@ import type { Profile } from "@/lib/types/profile";
 import { isPhoneVerificationRequiredError } from "@/lib/auth/phone-verification-required-detect";
 import { isClientSignupComplete, profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
 import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
+import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -65,7 +66,10 @@ export function resolveClientSignupGateHref(
   user: Profile,
   next?: string
 ): string {
-  const status = deriveDibaySignupStatus(profileToDibaySignupInput(user), { hasSession: true });
+  const status = deriveDibaySignupStatus(profileToDibaySignupInput(user), {
+    hasSession: true,
+    requiredConsent: getClientRequiredConsentVersions(),
+  });
   return resolveDibaySignupRoute(status, next?.trim() || currentHrefFallback());
 }
 

@@ -41,11 +41,13 @@ export async function GET(req: NextRequest) {
         onboarding_status: onboarding.onboardingStatus,
         role: onboarding.isPrivilegedAdmin ? "admin" : "user",
       },
-      { hasSession: true }
+      // B11: same CMS versions as getOnboardingStatus — never STORE_* alone.
+      { hasSession: true, requiredConsent: onboarding.requiredConsent ?? null }
     );
     return jsonOk({
       signup,
       route: resolveDibaySignupRoute(signup, safeNext),
+      requiredConsent: onboarding.requiredConsent ?? null,
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "signup_status_failed", 500);

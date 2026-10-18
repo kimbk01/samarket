@@ -14,11 +14,19 @@ import { deriveDibaySignupStatus, isDibaySignupGateExcludedPath } from "@/lib/au
 import { shouldBlockUnauthenticatedHtmlRequest } from "@/lib/auth/guest-browse-access-policy";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import {
+  getClientRequiredConsentVersions,
+  subscribeClientRequiredConsentVersions,
+} from "@/lib/legal/client-required-consent";
+import {
   isSignupCompleteResolvedThisSession,
   markSignupCompleteResolvedSession,
+  resetSignupGateSessionFlags,
 } from "@/lib/auth/signup-gate-session";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
+
+/** Resume refresh of required consent versions — at most once per minute. */
+const CONSENT_VERSION_REFRESH_MIN_MS = 60_000;
 
 export function DibaySignupGate() {
   const pathname = usePathname() ?? "";
@@ -50,7 +58,10 @@ export function DibaySignupGate() {
       const boot = peekAppBootProfile();
       if (!boot?.id) return;
 
-      const bootSignup = deriveDibaySignupStatus(boot, { hasSession: true });
+      const bootSignup = deriveDibaySignupStatus(boot, {
+        hasSession: true,
+        requiredConsent: getClientRequiredConsentVersions(),
+      });
       /** SSOT_CONTRACT: dibay-signup-consent-only-gate DibaySignupGate consentComplete
        * 앱 접근 게이트 = consent only. @id·프로필 미완으로 방/통화 deep route 를 /mypage 로 덮지 않는다. */
       if (bootSignup.consentComplete) {
@@ -123,6 +134,36 @@ export function DibaySignupGate() {
     return () => {
       window.removeEventListener(APP_BOOT_READY_EVENT, onBoot);
       unsubBoot();
+    };
+  }, [checkSignupGate]);
+
+  /**
+   * B11 — running app: an Admin publish of new required versions must reach a session that
+   * already resolved consent. Resume re-reads signup-status (throttled); a version change resets
+   * the per-session verdict and re-runs the gate with the new versions.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const unsub = subscribeClientRequiredConsentVersions(() => {
+      resetSignupGateSessionFlags();
+      redirectInFlightTargetRef.current = null;
+      checkSignupGate();
+    });
+    let lastRefreshAt = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!peekAppBootProfile()?.id) return;
+      const now = Date.now();
+      if (now - lastRefreshAt < CONSENT_VERSION_REFRESH_MIN_MS) return;
+      lastRefreshAt = now;
+      void fetchSignupStatusDeduped().catch(() => {
+        /* next resume retries */
+      });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      unsub();
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [checkSignupGate]);
 
