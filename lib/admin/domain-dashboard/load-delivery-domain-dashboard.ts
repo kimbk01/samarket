@@ -74,15 +74,15 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
   const actionRequired = [
     {
       id: "orders_attention",
-      labelKo: "주문 처리 필요",
-      labelEn: "Orders need attention",
+      labelKo: "주문 운영 예외",
+      labelEn: "Order exceptions",
       count: qUnavailable(unavailable, "orders_attention")
         ? null
         : (queue?.orders_attention ?? null),
-      href: "/admin/store-orders?order_status=refund_requested",
+      href: "/admin/store-orders?queue=admin_attention",
       source: "admin_action_queue.orders_attention",
       owner: "store_orders",
-      filter: "refund_requested",
+      filter: "admin_attention",
     },
     {
       id: "pending_orders",

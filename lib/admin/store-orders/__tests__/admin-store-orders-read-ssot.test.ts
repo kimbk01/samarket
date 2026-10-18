@@ -12,8 +12,8 @@ import {
 } from "@/lib/admin/store-orders/admin-store-orders-contract";
 import { mapAdminStoreOrderRow } from "@/lib/admin/store-orders/load-admin-store-orders-page";
 import {
-  STORE_ORDER_ADMIN_DECISION_STATUSES,
-  STORE_ORDER_CLOSED_STATUSES,
+  STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
+  STORE_ORDER_OWNER_DECISION_STATUSES,
 } from "@/lib/admin/admin-ops-actionable-status";
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 
@@ -42,8 +42,10 @@ describe("A. tabs = order status contract", () => {
   it("tab groups and the admin queue predicate are passed to SQL from TS (not restated)", () => {
     const args = adminStoreOrdersRpcArgs(parseAdminStoreOrdersQuery(new URLSearchParams("queue=admin_attention")));
     expect(args.p_tab_groups).toBe(ADMIN_STORE_ORDERS_TAB_STATUSES);
-    expect(args.p_queue_statuses).toEqual([...STORE_ORDER_ADMIN_DECISION_STATUSES]);
-    expect(args.p_queue_closed_statuses).toEqual([...STORE_ORDER_CLOSED_STATUSES]);
+    // 5단계: owner-decision statuses are not admin work — the queue is the attention flag only.
+    expect(args.p_queue_statuses).toEqual([]);
+    expect(args.p_queue_closed_statuses).toEqual([...STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES]);
+    for (const s of STORE_ORDER_OWNER_DECISION_STATUSES) expect(args.p_queue_closed_statuses).toContain(s);
     const body = fnBody(MIG, "admin_store_orders_page");
     for (const s of STORE_ORDER_STATUS_LIST) expect(body).not.toContain(`'${s}'`);
   });

@@ -38,7 +38,7 @@
 
 - 상태 쓰기는 `applyStoreOrderStatusTransition` 하나. 수수료는 #58 DB 트리거(조리 이후 취소·환불 → 같은 트랜잭션에서 검토 대기, 반려로 조리 단계 복귀 → 그때 1회 부과·정책 없으면 거부)만 다룬다. 결정 서비스는 수수료·캐시 원장에 쓰지 않는다.
 - 환불 승인은 기존 원자적 환불 RPC(`gift_certificate_refund_order_atomic`, `refund_requested` 에서만, 행 잠금)를 그대로 쓴다.
-- 구매자 요청은 관리자 주의 플래그(`needs_admin_attention`)를 켜지 않는다 (매장 업무).
+- 취소·환불 요청은 관리자 주의 플래그(`needs_admin_attention`)를 켜지 않고, 관리자 주문 큐(`orders_attention`)에서도 제외된다 (매장 업무, 5단계). 3단계 이전 매장 요청 53건에 남은 플래그는 데이터 보정 없이 큐 조건에서 제외되며, 매장이 결정하면 기존 writer 규칙으로 해제된다.
 
 ## 4. 알림
 

@@ -32,8 +32,8 @@ export const ARO_AC_001_SOURCE_MATRIX: readonly AroAc001SourceRow[] = [
   {
     item: "ORDERS",
     canonicalSource: "store_orders",
-    countQuery: "needs_admin_attention=true OR order_status=refund_requested",
-    deeplink: "/admin/store-orders?order_status=refund_requested",
+    countQuery: "needs_admin_attention=true AND order_status not in closed|cancel_requested|refund_requested",
+    deeplink: "/admin/store-orders?queue=admin_attention",
     actionable: true,
     errorSemantics: "unavailable_not_zero",
   },

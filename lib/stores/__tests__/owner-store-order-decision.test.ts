@@ -233,7 +233,8 @@ describe("routes and writer wiring (static)", () => {
     for (const src of ["admin_refund_reject", "admin_cancel_request_reject", "owner_refund_reject", "owner_cancel_request_reject"]) {
       expect(w).toContain(`"${src}"`);
     }
-    expect(w).toContain('if (actor !== "CUSTOMER") updatePayload.needs_admin_attention = true;');
+    // 5단계: cancel requests are the store's decision — the writer never flags them for the admin.
+    expect(w).not.toMatch(/nextStatus === "cancel_requested"\) \{[^}]*needs_admin_attention = true/);
   });
 
   it("decision service writes no commission or cash rows (DB trigger owns commission)", () => {

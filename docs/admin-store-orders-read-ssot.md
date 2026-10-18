@@ -86,7 +86,7 @@
 
 상세 보조 정보: `GET /api/admin/store-orders/[orderId]/history` — 주문 상태 이력(`store_order_events`), 배달 진행(`store_order_deliveries`), 수수료 정산 행(정산 원장과 같은 `store_commission_ledger_page`) + 정산 원장 딥링크.
 
-관리자 Bell/Action Center 의 일반 주문 알림 제거는 매장 처리 권한 정비(3단계) 이후.
+관리자 주문 큐(5단계): Bell·사이드바 「주문 액션」·Action Center·배달 도메인 카드는 모두 `orders_attention` 한 집계(`STORE_ORDER_ADMIN_QUEUE_OR_FILTER` = SQL `queue=admin_attention`)를 읽는다. 이 집계는 **운영 예외만** — `needs_admin_attention` 플래그가 켜진 주문 중 종료(`completed`·`cancelled`·`refunded`)와 매장 결정 대기(`cancel_requested`·`refund_requested`)를 뺀 것. 취소·환불 요청은 매장 업무(`docs/store-order-cancel-refund-decision-ssot.md`)이며 writer 는 이를 관리자 플래그로 올리지 않는다. 관리자는 상세 「관리자 개입」으로 계속 개입할 수 있다. 수수료 검토(`settlements_actionable`)·금융 예외 알림은 별도 큐로 유지.
 
 ## 6. 검증
 

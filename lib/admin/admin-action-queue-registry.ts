@@ -106,8 +106,9 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     requiredPermission: null,
     listHref: "/admin/store-orders?queue=admin_attention",
     sidebarMenuKeys: ["delivery-orders-action-queue"],
-    titleKo: "주문 처리 필요 (취소요청·환불요청·운영 주의)",
-    titleEn: "Orders need admin action",
+    /** Operational exceptions only — cancel/refund requests are the store owner's decision (3단계). */
+    titleKo: "주문 운영 예외 (관리자 개입 필요)",
+    titleEn: "Order exceptions (admin action)",
     domainKo: "배달",
     domainEn: "Delivery",
     ctaKo: "주문 큐 열기",
