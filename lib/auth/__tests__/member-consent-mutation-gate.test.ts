@@ -112,6 +112,7 @@ describe("B3 central consent gate — enforce", () => {
       ["PATCH", "/api/me/stores/s1/orders/o1"],
       ["PATCH", "/api/me/stores/s1/orders/o1/delivery"],
       ["POST", "/api/me/stores/s1/orders/o1/cancel-request"],
+      ["POST", "/api/me/stores/s1/orders/o1/decide"],
       ["PATCH", "/api/me/rider/orders/o1"],
       ["POST", "/api/me/rider/orders/o1/pod-upload"],
       ["POST", "/api/me/rider/location"],
