@@ -206,6 +206,9 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
   if (contentType) base.content_type = contentType;
   const canonicalRoute = trimText(payload?.canonical_route);
   if (canonicalRoute) base.canonical_route = canonicalRoute;
+  // ADM-01: allowlisted external campaign link (server-validated) for the detail CTA.
+  const externalUrl = trimText(payload?.externalUrl);
+  if (externalUrl.startsWith("https://")) base.external_url = externalUrl;
 
   return Object.keys(base).length > 0 ? base : null;
 }

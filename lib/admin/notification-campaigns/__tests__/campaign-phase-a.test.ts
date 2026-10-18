@@ -41,11 +41,11 @@ describe("deeplink fallback", () => {
     ).toBe("/community");
   });
 
-  it("falls back to web_url pathname", () => {
+  it("ADM-01: an external web_url host is never rewritten into an in-app path", () => {
     expect(
       resolveCampaignRouteUrl({
         deeplink_url: null,
-        web_url: "https://example.com/notifications",
+        web_url: "https://example.com/market/123",
         target_url: null,
       })
     ).toBe("/notifications");

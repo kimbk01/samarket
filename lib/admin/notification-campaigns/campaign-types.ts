@@ -1,3 +1,5 @@
+import { classifyCampaignLink } from "@/lib/admin/notification-campaigns/campaign-link-target";
+
 export const CAMPAIGN_CHANNELS = [
   "push_only",
   "in_app_only",
@@ -71,16 +73,21 @@ export function campaignNeedsPush(channel: CampaignChannel): boolean {
   return channel === "push_only" || channel === "push_and_in_app" || channel === "test_only";
 }
 
+/** ADM-01: only DIBAY-host or relative links become in-app paths; external hosts never do. */
 function toInternalCampaignPath(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return null;
-  if (value.startsWith("/")) return value;
-  try {
-    const u = new URL(value);
-    return u.pathname + u.search + u.hash;
-  } catch {
-    return `/${value}`;
+  const c = classifyCampaignLink(raw);
+  return c.kind === "internal" ? c.path : null;
+}
+
+/** ADM-01: first allowlisted https external link (web_url → deeplink_url → target_url), else null. */
+export function resolveCampaignExternalUrl(
+  campaign: Pick<AdminNotificationCampaignRow, "deeplink_url" | "web_url" | "target_url">
+): string | null {
+  for (const raw of [campaign.web_url, campaign.deeplink_url, campaign.target_url]) {
+    const c = classifyCampaignLink(raw ?? "");
+    if (c.kind === "external" && c.allowed) return c.url;
   }
+  return null;
 }
 
 export function resolveCampaignRouteUrl(campaign: Pick<AdminNotificationCampaignRow, "deeplink_url" | "web_url" | "target_url">): string {

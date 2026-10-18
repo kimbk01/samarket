@@ -5,7 +5,10 @@ import { deactivateFailedPushTarget } from "@/lib/push/dispatch/deactivate-faile
 import { sendFcmToTarget } from "@/lib/push/dispatch/fcm-sender";
 import {
   insertNotificationDelivery,
+  insertNotificationDeliveryDetailed,
+  isPermanentPushFailureResponse,
   loadActivePushTargets,
+  reclaimNotificationDeliveryForRetry,
 } from "@/lib/push/dispatch/load-active-push-targets";
 import {
   isCallPush,
@@ -334,6 +337,9 @@ export async function dispatchPushForUser(
   const hasNativeCallTarget = targets.some(
     (t) => t.push_provider === "fcm" || t.push_provider === "voip_apns"
   );
+  // SRV-01 retry ledger (non-call event pushes only; call pushes keep the legacy path).
+  let alreadySentCount = 0;
+  let retryPendingCount = 0;
 
   for (const target of targets) {
     // SSOT: always gate voip_apns (even for non-call). Call web_push policy only when callPush.
@@ -377,7 +383,7 @@ export async function dispatchPushForUser(
       }
     }
 
-    const deliveryId = await insertNotificationDelivery(svc, {
+    const insertResult = await insertNotificationDeliveryDetailed(svc, {
       user_id: out.user_id,
       device_id: deviceIdForDelivery(target),
       event_type: eventType,
@@ -388,20 +394,66 @@ export async function dispatchPushForUser(
       notification_event_id: opts?.notification_event_id ?? null,
       environment: target.environment ?? resolvePushEnvironment(),
     });
+    let deliveryId: string | null = insertResult.kind === "inserted" ? insertResult.id : null;
+    let deliveryAttempt: number | null = null;
 
     if (!deliveryId && opts?.notification_event_id) {
-      audits.push({
-        id: null,
-        status: "skipped",
-        event_type: eventType,
-        device_id: deviceIdForDelivery(target),
-        push_provider: target.push_provider,
-        provider_response: {
-          ...baseDeliveryDiagnostics(target, enrichedOut, opts),
-          reason: "duplicate_delivery",
-        },
+      const skipAudit = (reason: string) =>
+        audits.push({
+          id: null,
+          status: "skipped",
+          event_type: eventType,
+          device_id: deviceIdForDelivery(target),
+          push_provider: target.push_provider,
+          provider_response: {
+            ...baseDeliveryDiagnostics(target, enrichedOut, opts),
+            reason,
+          },
+        });
+      const deviceId = deviceIdForDelivery(target);
+      if (callPush || !deviceId) {
+        // Call pushes (incl. missed call) keep the pre-SRV-01 behaviour untouched.
+        skipAudit("duplicate_delivery");
+        continue;
+      }
+      if (insertResult.kind === "error") {
+        // A DB hiccup is not a duplicate: do not send untracked, let the handoff retry.
+        retryPendingCount += 1;
+        skipAudit("delivery_insert_error");
+        continue;
+      }
+      const reclaim = await reclaimNotificationDeliveryForRetry(svc, {
+        notification_event_id: opts.notification_event_id,
+        device_id: deviceId,
+        provider_response: baseDeliveryDiagnostics(target, enrichedOut, opts),
       });
-      continue;
+      if (reclaim.kind === "reclaimed") {
+        deliveryId = reclaim.id;
+        deliveryAttempt = reclaim.attempt;
+        console.info("[dispatchPushForUser] delivery_retry_reclaimed", {
+          ...logCtx,
+          deliveryId,
+          attempt: reclaim.attempt,
+        });
+      } else if (reclaim.kind === "already_sent") {
+        alreadySentCount += 1;
+        skipAudit("already_sent");
+        continue;
+      } else if (reclaim.kind === "in_flight") {
+        retryPendingCount += 1;
+        skipAudit("delivery_in_flight");
+        continue;
+      } else if (reclaim.kind === "permanent") {
+        skipAudit("previous_permanent_failure");
+        continue;
+      } else if (reclaim.kind === "error") {
+        retryPendingCount += 1;
+        skipAudit("delivery_reclaim_error");
+        continue;
+      } else {
+        skipAudit("duplicate_delivery");
+        continue;
+      }
     }
 
     const result = await sendToTarget(target, enrichedOut, opts);
@@ -410,6 +462,7 @@ export async function dispatchPushForUser(
       ...baseDeliveryDiagnostics(target, enrichedOut, opts),
       ...(result.provider_response ?? {}),
       ...(result.error_message ? { error: result.error_message } : {}),
+      ...(deliveryAttempt ? { delivery_attempt: deliveryAttempt } : {}),
     };
 
     if (deliveryId) {
@@ -489,11 +542,25 @@ export async function dispatchPushForUser(
         (a.provider_response as { bad_device_token?: boolean; gone?: boolean } | null)?.gone === true
     );
   let outcome: "sent" | "noop" | "retryable" | "permanent";
-  if (targets.length === 0) outcome = "noop";
-  else if (sentCount > 0) outcome = "sent";
-  else if (failedAudits.length === 0) outcome = "noop"; // skipped 만 존재
-  else if (allFailedPermanent) outcome = "permanent";
-  else outcome = "retryable";
+  if (callPush || !opts?.notification_event_id) {
+    // Legacy classification — call pushes and untracked pushes are unchanged.
+    if (targets.length === 0) outcome = "noop";
+    else if (sentCount > 0) outcome = "sent";
+    else if (failedAudits.length === 0) outcome = "noop"; // skipped 만 존재
+    else if (allFailedPermanent) outcome = "permanent";
+    else outcome = "retryable";
+  } else {
+    // SRV-01: a device that failed transiently (or is still in flight) keeps the event retryable
+    // even when another device succeeded; already-sent devices are never resent on retry.
+    const retryableFailures = failedAudits.filter(
+      (a) => !isPermanentPushFailureResponse(a.provider_response as Record<string, unknown> | null)
+    ).length;
+    if (targets.length === 0) outcome = "noop";
+    else if (retryableFailures > 0 || retryPendingCount > 0) outcome = "retryable";
+    else if (sentCount > 0 || alreadySentCount > 0) outcome = "sent";
+    else if (failedAudits.length === 0) outcome = "noop";
+    else outcome = "permanent";
+  }
 
   console.info("[dispatchPushForUser] done", {
     ...logCtx,

@@ -41,7 +41,8 @@ export async function safeNotifyDeliveryAdLifecycleOwner(
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
-      push_kind: "marketing",
+      // SRV-03: business notice to the owner, never marketing (no ad consent / quiet-hours gate).
+      push_kind: "notice",
       title: notifySafeT(language, mapped.titleKey),
       body: notifySafeT(language, mapped.bodyKey),
       link_url: mapped.linkUrl,
@@ -88,7 +89,8 @@ export async function safeNotifyDeliveryAdHumanOwner(
     await appendUserNotification(sb, {
       user_id: ownerUserId,
       notification_type: "system",
-      push_kind: "marketing",
+      // SRV-03: business notice to the owner, never marketing (no ad consent / quiet-hours gate).
+      push_kind: "notice",
       title: notifySafeT(language, mapped.titleKey),
       body: notifySafeT(language, mapped.bodyKey),
       link_url: mapped.linkUrl,

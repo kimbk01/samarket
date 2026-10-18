@@ -1,6 +1,7 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { buildWebPushJsonPayload } from "@/lib/push/dispatch/build-web-push-json-payload";
 import {
+  isCallPush,
   resolveCallPushKindForProviderPolicy,
   type DispatchPushOptions,
   type PushTarget,
@@ -41,6 +42,8 @@ export async function sendApnsToTarget(
       title: out.title,
       body: out.body ?? "",
       data: payload.data,
+      // SRV-01: event-bound non-call alerts only (call alerts unchanged).
+      collapseId: !isCallPush(out, opts) ? opts?.notification_event_id ?? null : null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

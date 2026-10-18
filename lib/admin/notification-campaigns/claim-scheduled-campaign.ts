@@ -310,6 +310,10 @@ export async function scheduleNextRecurringOccurrence(
   const { buildCampaignContentSnapshot } = await import(
     "@/lib/admin/notification-campaigns/campaign-content-snapshot"
   );
+  const { ensureCampaignTargetsForSelectedUsers } = await import(
+    "@/lib/admin/notification-campaigns/run-campaign-send-batch"
+  );
+  const { normalizeSelectedUserIds } = await import("@/lib/admin/notification-campaigns/selected-user-ids");
 
   const seq = await getNextOccurrenceSequenceNumber(svc, campaignId);
   const lastSeq = seq - 1;
@@ -378,20 +382,32 @@ export async function scheduleNextRecurringOccurrence(
   // Only a freshly created (queued) occurrence re-arms targets; an existing row returned by the
   // idempotent RPC must not touch target state.
   if (ensured.ok && ensured.occurrence.status === "queued" && String(row.target_type) === "selected_users") {
-    // U1-B: recurring selected-users occurrences reuse the campaign's existing target rows
-    // (one row per campaign+user) — only rows still bound to an earlier occurrence are re-armed.
-    await svc
-      .from("admin_notification_campaign_targets")
-      .update({
-        occurrence_id: ensured.occurrence.id,
-        status: "pending",
-        failure_reason: null,
-        skip_reason: null,
-        notification_event_id: null,
-        sent_at: null,
-      })
-      .eq("campaign_id", campaignId)
-      .neq("occurrence_id", ensured.occurrence.id);
+    // ADM-02: each recurring occurrence gets its own pending rows from the campaign's
+    // selected_user_ids, so earlier occurrences keep their sent/skipped history.
+    const payload =
+      row.target_payload && typeof row.target_payload === "object"
+        ? (row.target_payload as { selected_user_ids?: string[] })
+        : null;
+    const selectedUserIds = normalizeSelectedUserIds(payload?.selected_user_ids);
+    const mode = selectedUserIds.length
+      ? await ensureCampaignTargetsForSelectedUsers(svc, campaignId, ensured.occurrence.id, selectedUserIds)
+      : "legacy";
+    if (mode === "legacy") {
+      // Pre-migration fallback (legacy unique campaign_id,user_id still present, or no stored
+      // selection): U1-B re-arm of the single per-campaign row, unchanged.
+      await svc
+        .from("admin_notification_campaign_targets")
+        .update({
+          occurrence_id: ensured.occurrence.id,
+          status: "pending",
+          failure_reason: null,
+          skip_reason: null,
+          notification_event_id: null,
+          sent_at: null,
+        })
+        .eq("campaign_id", campaignId)
+        .neq("occurrence_id", ensured.occurrence.id);
+    }
   }
 
   return ensured.ok ? ensured.occurrence : null;

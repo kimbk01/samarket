@@ -99,9 +99,9 @@ describe("Phase 3A A2 — support notifications: server digit = client list", ()
 });
 
 describe("Phase 3A A4 — support push is gated by the 공지(notice) toggle", () => {
-  it("dispatcher stamps meta.event_type for support_* only", () => {
+  it("dispatcher stamps meta.event_type (SRV-02: every event type, support_* included)", () => {
     const src = read("lib/notifications/pipeline/notify-push-dispatcher.ts");
-    expect(src).toContain('...(row.type.startsWith("support_") ? { event_type: row.type } : {})');
+    expect(src).toContain("event_type: row.type,");
   });
 
   it("resolves canonical support row → notice (never safe_fallback/order)", () => {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { upsertCampaignTargetRows } from "@/lib/admin/notification-campaigns/campaign-target-rows";
 import {
   evaluateCampaignPushGate,
   type SettingsMaps,
@@ -49,14 +50,7 @@ async function recordUserTargetStatus(
     sent_at: status === "sent" ? opts?.sentAt ?? new Date().toISOString() : null,
     occurrence_id: occurrenceId,
   };
-  await svc.from("admin_notification_campaign_targets").upsert(
-    {
-      campaign_id: campaign.id,
-      user_id: userId,
-      ...patch,
-    },
-    { onConflict: "campaign_id,user_id" }
-  );
+  await upsertCampaignTargetRows(svc, [{ campaign_id: campaign.id, user_id: userId, ...patch }]);
 }
 
 /**

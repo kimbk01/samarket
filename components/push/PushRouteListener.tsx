@@ -30,7 +30,7 @@ import {
   isCallPushRoutePath,
   pathsMatchForPushConsume,
 } from "@/lib/push/push-route-consume-contract";
-import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
+import { resolveSameOriginPushRoutePath, shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
@@ -283,8 +283,15 @@ export function PushRouteListener() {
       transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
       opts?: { skipNotificationDedupe?: boolean; recipientUserId?: string | null }
     ) => {
-      const path = rawPath.trim();
-      if (!path.startsWith("/")) return;
+      const path = resolveSameOriginPushRoutePath(rawPath);
+      if (!path) {
+        if (!rawPath.trim().startsWith("/")) return;
+        // LINK-01: off-origin (`//host`, `/\host`) — drop and disarm replay so it cannot loop.
+        console.warn("[push-route] unsafe_path_rejected", { notificationId: notificationId ?? null });
+        clearPendingPushRoute();
+        void clearNativePersistedPendingPushRoute();
+        return;
+      }
       if (!opts?.skipNotificationDedupe && isDuplicateNotification(notificationId)) return;
 
       suppressCmRoomEntryNotificationSound(path);

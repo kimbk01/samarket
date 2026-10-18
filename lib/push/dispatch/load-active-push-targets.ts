@@ -86,20 +86,28 @@ export async function loadActivePushTargets(
   return targets;
 }
 
-export async function insertNotificationDelivery(
+type NotificationDeliveryInsertRow = {
+  user_id: string;
+  device_id?: string | null;
+  event_type: string;
+  target_type?: string | null;
+  target_id?: string | null;
+  status: DeliveryStatus;
+  provider_response?: Record<string, unknown> | null;
+  notification_event_id?: string | null;
+  environment?: PushEnvironment;
+};
+
+export type NotificationDeliveryInsertResult =
+  | { kind: "inserted"; id: string }
+  /** 23505 on `notification_deliveries_event_device_uidx` — a row already exists for (event, device). */
+  | { kind: "conflict" }
+  | { kind: "error"; message: string };
+
+export async function insertNotificationDeliveryDetailed(
   svc: SupabaseClient,
-  row: {
-    user_id: string;
-    device_id?: string | null;
-    event_type: string;
-    target_type?: string | null;
-    target_id?: string | null;
-    status: DeliveryStatus;
-    provider_response?: Record<string, unknown> | null;
-    notification_event_id?: string | null;
-    environment?: PushEnvironment;
-  }
-): Promise<string | null> {
+  row: NotificationDeliveryInsertRow
+): Promise<NotificationDeliveryInsertResult> {
   const { data, error } = await svc
     .from("notification_deliveries")
     .insert({
@@ -117,14 +125,95 @@ export async function insertNotificationDelivery(
     .maybeSingle();
 
   if (error) {
-    if (error.code === "23505") {
-      return null;
+    if (error.code === "23505") return { kind: "conflict" };
+    if (!(error.message?.includes("does not exist") || error.code === "42P01")) {
+      console.error("[insertNotificationDelivery]", error.message);
     }
-    if (error.message?.includes("does not exist") || error.code === "42P01") {
-      return null;
-    }
-    console.error("[insertNotificationDelivery]", error.message);
-    return null;
+    return { kind: "error", message: error.message ?? String(error.code ?? "insert_failed") };
   }
-  return (data as { id?: string } | null)?.id ?? null;
+  const id = (data as { id?: string } | null)?.id ?? null;
+  return id ? { kind: "inserted", id } : { kind: "error", message: "insert_returned_no_id" };
+}
+
+export async function insertNotificationDelivery(
+  svc: SupabaseClient,
+  row: NotificationDeliveryInsertRow
+): Promise<string | null> {
+  const result = await insertNotificationDeliveryDetailed(svc, row);
+  return result.kind === "inserted" ? result.id : null;
+}
+
+/** Provider verdicts that mean "this token will never accept a resend". */
+export function isPermanentPushFailureResponse(resp: Record<string, unknown> | null | undefined): boolean {
+  if (!resp) return false;
+  if (resp.bad_device_token === true || resp.gone === true || resp.invalid_token === true) return true;
+  const msg = String(resp.error ?? "").toLowerCase();
+  return msg.includes("not_registered") || msg.includes("notregistered") || msg.includes("subscription_gone");
+}
+
+export type NotificationDeliveryReclaimResult =
+  | { kind: "reclaimed"; id: string; attempt: number }
+  /** Existing row already reached the provider (sent / opened / dismissed) — never resend. */
+  | { kind: "already_sent" }
+  /** Existing row is `pending`: another invocation is sending, or crashed mid-send. Never resend. */
+  | { kind: "in_flight" }
+  | { kind: "permanent" }
+  /** Existing row was a policy skip — keep the original decision. */
+  | { kind: "skipped_existing"; reason: string | null }
+  | { kind: "error"; message: string };
+
+/**
+ * SRV-01 — retry for (notification_event_id, device_id) after an insert conflict.
+ * Only a `failed` row with a non-permanent verdict is re-armed, via a conditional
+ * `failed → pending` update so two concurrent retries cannot both send.
+ */
+export async function reclaimNotificationDeliveryForRetry(
+  svc: SupabaseClient,
+  input: {
+    notification_event_id: string;
+    device_id: string;
+    provider_response: Record<string, unknown>;
+  }
+): Promise<NotificationDeliveryReclaimResult> {
+  const { data: existing, error } = await svc
+    .from("notification_deliveries")
+    .select("id, status, provider_response")
+    .eq("notification_event_id", input.notification_event_id)
+    .eq("device_id", input.device_id)
+    .maybeSingle();
+  if (error) return { kind: "error", message: error.message };
+  if (!existing) return { kind: "error", message: "conflict_row_not_found" };
+
+  const row = existing as { id: string; status: string; provider_response: Record<string, unknown> | null };
+  const prev = row.provider_response && typeof row.provider_response === "object" ? row.provider_response : {};
+  if (row.status === "sent" || row.status === "opened" || row.status === "dismissed") return { kind: "already_sent" };
+  if (row.status === "pending") return { kind: "in_flight" };
+  if (row.status === "skipped") {
+    return { kind: "skipped_existing", reason: typeof prev.reason === "string" ? prev.reason : null };
+  }
+  if (row.status !== "failed") return { kind: "skipped_existing", reason: `status_${row.status}` };
+  if (isPermanentPushFailureResponse(prev)) return { kind: "permanent" };
+
+  const prevAttempt = Number(prev.delivery_attempt);
+  const attempt = (Number.isFinite(prevAttempt) && prevAttempt > 0 ? Math.trunc(prevAttempt) : 1) + 1;
+  const { data: claimed, error: claimErr } = await svc
+    .from("notification_deliveries")
+    .update({
+      status: "pending",
+      provider_response: {
+        ...input.provider_response,
+        delivery_attempt: attempt,
+        previous_failure: {
+          error: prev.error ?? null,
+          http_status: prev.http_status ?? null,
+          code: prev.code ?? null,
+        },
+      },
+    })
+    .eq("id", row.id)
+    .eq("status", "failed")
+    .select("id");
+  if (claimErr) return { kind: "error", message: claimErr.message };
+  if (!claimed || (claimed as unknown[]).length === 0) return { kind: "in_flight" };
+  return { kind: "reclaimed", id: row.id, attempt };
 }

@@ -22,7 +22,8 @@ function absolutizeLink(link: string): string | null {
   return link.startsWith("/") ? `${base}${link}` : `${base}/${link}`;
 }
 
-function buildPushPayload(row: NotificationEventRow, badgeCount: number): NotificationSideEffectPayloadOut {
+/** Exported for SRV-02 table tests (payload → preference gate). */
+export function buildPushPayload(row: NotificationEventRow, badgeCount: number): NotificationSideEffectPayloadOut {
   const roomId = row.room_id ?? "";
   const display =
     row.display_payload && typeof row.display_payload === "object"
@@ -48,6 +49,9 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       : null;
   const legacyKind =
     typeof legacyMeta?.kind === "string" ? String(legacyMeta.kind).trim() : "";
+  // SRV-02 — store_order_message writers put receiverRole on display (owner | user).
+  const receiverRoleRaw = display?.receiverRole ?? legacyMeta?.receiverRole;
+  const receiverRole = typeof receiverRoleRaw === "string" && receiverRoleRaw.trim() ? receiverRoleRaw.trim() : null;
   const communityPushType =
     row.type === "community_activity" ||
     legacyKind === "community_comment" ||
@@ -78,9 +82,12 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: row.created_at,
     meta: {
-      // Phase 3 A4 — support pushes carry their canonical event type so the preference gate
-      // resolves the registry row (support_* → notice) instead of safe_fallback (order).
-      ...(row.type.startsWith("support_") ? { event_type: row.type } : {}),
+      // Phase 3 A4 / SRV-02 — every push carries its canonical event type (and receiver role) so the
+      // preference gate resolves the registry row (e.g. trade_message → trade_chat,
+      // community_activity → community_social, trade_status → trade_events) instead of the
+      // collapsed notification_type (system/chat) or safe_fallback (order).
+      event_type: row.type,
+      ...(receiverRole ? { receiverRole } : {}),
       kind: legacyKind || (communityPushType ? "community_comment" : row.type),
       category: row.category,
       room_id: roomId,
