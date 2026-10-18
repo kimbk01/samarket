@@ -67,11 +67,19 @@ if (!payment.includes("applyStoreOrderStatusTransition")) {
   fails.push("payment failure missing apply Recovery Chain");
 }
 
-// Owner cancel_requested: apply before ledger insert
-const reqIdx = ownerCancel.indexOf('nextStatus: "cancel_requested"');
-const insertIdx = ownerCancel.lastIndexOf('from("store_order_cancel_requests").insert');
-if (reqIdx < 0 || insertIdx < 0 || reqIdx > insertIdx) {
-  fails.push("owner cancel_requested must apply before cancel_requests insert");
+// 3단계: the owner cancels directly (never creates cancel_requested). A buyer request writes the
+// ledger row first, then the status; a failed status write removes the pending row (no orphan either way).
+if (ownerCancel.includes('nextStatus: "cancel_requested"')) {
+  fails.push("owner cancel route must not create cancel_requested (direct cancel only)");
+}
+const buyerOrder = read("app/api/me/store-orders/[orderId]/route.ts");
+const buyerInsertIdx = buyerOrder.indexOf('requested_role: "buyer"');
+const buyerApplyIdx = buyerOrder.indexOf('nextStatus: "cancel_requested"');
+if (buyerInsertIdx < 0 || buyerApplyIdx < 0 || buyerInsertIdx > buyerApplyIdx) {
+  fails.push("buyer cancel request must insert the ledger row before applying cancel_requested");
+}
+if (!buyerOrder.includes('.delete().eq("id", String(reqRow.id)).eq("status", "pending")')) {
+  fails.push("buyer cancel request must remove its pending ledger row when the status write fails");
 }
 
 if (fails.length) {

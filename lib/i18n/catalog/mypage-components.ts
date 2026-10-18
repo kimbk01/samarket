@@ -588,12 +588,15 @@ export const mypageComponentsMessages = {
 
     mypage_comp_refund_pending_notice:
       "환불 요청이 접수되었습니다. 매장·운영 확인 후 처리됩니다. 실제 금액 반환은 매장과 직접 조율하면 됩니다.",
-    mypage_comp_refund_section_title: "환불 요청",
-    mypage_comp_refund_section_body:
-      "매장이 이미 접수한 주문입니다. 환불이 필요하면 아래에서 요청해 주세요. 승인 시 재고는 자동으로 되돌아갑니다.",
-    mypage_comp_refund_reason_label: "사유 (선택, 최대 500자)",
-    mypage_comp_refund_reason_placeholder: "예: 단순 변심, 배송 지연 등",
-    mypage_comp_refund_submit: "환불 요청하기",
+    mypage_comp_cancel_req_section_title: "취소 요청",
+    mypage_comp_cancel_req_section_body:
+      "매장이 이미 접수한 주문입니다. 취소가 필요하면 아래에서 요청해 주세요. 매장이 확인한 뒤 승인 또는 반려하며, 결과는 알림으로 안내됩니다.",
+    mypage_comp_cancel_req_reason_label: "취소 사유 (필수, 최대 500자)",
+    mypage_comp_cancel_req_reason_placeholder: "예: 단순 변심, 배달 지연 등",
+    mypage_comp_cancel_req_submit: "취소 요청하기",
+    mypage_comp_cancel_req_pending_notice:
+      "취소 요청이 접수되었습니다. 매장이 확인한 뒤 승인 또는 반려하며, 결과는 알림으로 안내됩니다.",
+    mypage_comp_cancel_req_reason_required: "취소 사유를 2자 이상 입력해 주세요.",
     mypage_comp_processing: "처리 중…",
 
     mypage_comp_cancel_allowed_notice:
@@ -603,7 +606,8 @@ export const mypageComponentsMessages = {
     mypage_comp_order_chat_nav: "주문 채팅으로 이동",
     mypage_comp_back_to_list_full: "목록으로 돌아가기",
 
-    mypage_comp_refund_err_cannot: "이 단계에서는 환불 요청을 할 수 없습니다. (완료된 주문은 고객센터로 문의해 주세요.)",
+    mypage_comp_cancel_req_err_cannot:
+      "이 단계에서는 취소를 요청할 수 없습니다. (배달 픽업 이후·완료된 주문은 고객센터로 문의해 주세요.)",
     mypage_comp_request_failed_code: "요청에 실패했습니다. ({code})",
     mypage_comp_network_error: "네트워크 오류가 발생했습니다.",
     mypage_comp_cancel_err_after_accepted: "매장이 접수한 뒤에는 여기서 취소할 수 없습니다. 매장에 문의해 주세요.",
@@ -1447,12 +1451,15 @@ export const mypageComponentsMessages = {
 
     mypage_comp_refund_pending_notice:
       "Refund request received. The store/ops will process it. Coordinate the actual refund with the store.",
-    mypage_comp_refund_section_title: "Request a refund",
-    mypage_comp_refund_section_body:
-      "The store already accepted this order. Request a refund below. Stock is restored automatically if approved.",
-    mypage_comp_refund_reason_label: "Reason (optional, up to 500 characters)",
-    mypage_comp_refund_reason_placeholder: "e.g. changed mind, delayed delivery",
-    mypage_comp_refund_submit: "Submit refund request",
+    mypage_comp_cancel_req_section_title: "Request cancellation",
+    mypage_comp_cancel_req_section_body:
+      "The store already accepted this order. Request a cancellation below. The store reviews it and approves or rejects; you will be notified.",
+    mypage_comp_cancel_req_reason_label: "Reason (required, up to 500 characters)",
+    mypage_comp_cancel_req_reason_placeholder: "e.g. changed mind, delayed delivery",
+    mypage_comp_cancel_req_submit: "Request cancellation",
+    mypage_comp_cancel_req_pending_notice:
+      "Cancellation requested. The store will approve or reject it and you will be notified.",
+    mypage_comp_cancel_req_reason_required: "Enter a reason (2+ characters).",
     mypage_comp_processing: "Processing…",
 
     mypage_comp_cancel_allowed_notice:
@@ -1462,8 +1469,8 @@ export const mypageComponentsMessages = {
     mypage_comp_order_chat_nav: "Go to order chat",
     mypage_comp_back_to_list_full: "Back to list",
 
-    mypage_comp_refund_err_cannot:
-      "Refunds aren’t available at this stage. (For completed orders, contact support.)",
+    mypage_comp_cancel_req_err_cannot:
+      "Cancellation can’t be requested at this stage. (After courier pickup or completion, contact support.)",
     mypage_comp_request_failed_code: "Request failed. ({code})",
     mypage_comp_network_error: "A network error occurred.",
     mypage_comp_cancel_err_after_accepted: "After the store accepts, cancel here isn’t available. Contact the store.",

@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
+import { OwnerOrderRequestDecision } from "@/components/business/owner/OwnerOrderRequestDecision";
+import { ownerStoreOrderDecisionActions } from "@/lib/stores/owner-store-order-decision-contract";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
@@ -245,6 +247,20 @@ export function OwnerStoreOrderMockCard({
     [runPatch]
   );
 
+  /** After a store decision on a cancel/refund request — same refresh chain as a cancel. */
+  const afterDecision = useCallback(async () => {
+    dispatchOwnerHubBadgeRefresh({
+      source: "owner-order-ops-card-decision",
+      key: `${storeId}:${order.id}:decision`,
+    });
+    invalidateOwnerStoreOrdersListCache(storeId);
+    forgetSingleFlight(`me:store:${storeId}:orders:fresh`);
+    forgetSingleFlight(`me:store:${storeId}:orders`);
+    onOrderStatusPatched?.(order.id);
+    await onReconcileOrder?.(order.id);
+    await onUpdated();
+  }, [onOrderStatusPatched, onReconcileOrder, onUpdated, order.id, storeId]);
+
   const confirmReject = useCallback(
     (reason: string) => {
       const busyKey = cancelPolicy.kind === "request_cancel" ? "cancel_requested" : "cancelled";
@@ -427,6 +443,17 @@ export function OwnerStoreOrderMockCard({
           <p className="mt-2 rounded-[4px] bg-red-50 px-2 py-1.5 text-[12px] font-medium leading-[1.35] text-red-700">
             {err}
           </p>
+        ) : null}
+
+        {ownerStoreOrderDecisionActions(order.order_status).length > 0 ? (
+          <div className="mt-3">
+            <OwnerOrderRequestDecision
+              storeId={storeId}
+              orderId={order.id}
+              orderStatus={order.order_status}
+              onDone={afterDecision}
+            />
+          </div>
         ) : null}
 
         {(nextAction || cancelButtonKey) ? (

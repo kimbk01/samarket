@@ -6,7 +6,7 @@ import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-pay
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { fetchOwnerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
-import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
+import { isValidOrderStatus, OWNER_CANCEL_REQUEST_FROM } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -337,8 +337,11 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_order_status" }, { status: 400 });
   }
 
-  /** 구매자 PATCH·관리자 처리 전용 — 오너가 설정하면 안 되는 값 (허용 전이 밖이어도 명시 차단) */
-  if (nextStatus === "refund_requested" || nextStatus === "refunded") {
+  /**
+   * 오너가 PATCH 로 설정하면 안 되는 값 — 요청 상태는 구매자·관리자가 만들고, 요청 결정(승인·반려)은
+   * `/decide`(반려 사유·서버 재확인), 조리 이후 취소는 `/cancel-request`(사유·픽업 확인) 전용.
+   */
+  if (nextStatus === "refund_requested" || nextStatus === "refunded" || nextStatus === "cancel_requested") {
     return NextResponse.json({ ok: false, error: "owner_cannot_set_order_status" }, { status: 400 });
   }
 
@@ -354,7 +357,7 @@ export async function PATCH(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, admin_locked")
+    .select("id, store_id, admin_locked, order_status")
     .eq("id", oid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -365,6 +368,14 @@ export async function PATCH(
 
   if ((order as { admin_locked?: boolean }).admin_locked === true) {
     return NextResponse.json({ ok: false, error: "order_admin_locked" }, { status: 409 });
+  }
+
+  const currentStatus = String((order as { order_status?: unknown }).order_status ?? "");
+  if (currentStatus === "cancel_requested" || currentStatus === "refund_requested") {
+    return NextResponse.json({ ok: false, error: "owner_decision_route_required" }, { status: 409 });
+  }
+  if (nextStatus === "cancelled" && OWNER_CANCEL_REQUEST_FROM.has(currentStatus)) {
+    return NextResponse.json({ ok: false, error: "owner_cancel_route_required" }, { status: 400 });
   }
 
   const rm = getAuditRequestMeta(req);

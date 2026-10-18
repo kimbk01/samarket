@@ -9,7 +9,7 @@ import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import {
-  canBuyerRequestStoreRefund,
+  canBuyerRequestStoreCancel,
   isStoreOrderChatDisabledForBuyer,
 } from "@/lib/stores/order-status-transitions";
 import {
@@ -347,17 +347,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     setRefundErr(null);
     setRefundBusy(true);
     try {
+      // 진행 중 취소 요청 — 매장이 승인·반려 (사유 필수)
       const { json } = await patchMeStoreOrder(orderId, {
-        request_refund: true,
-        refund_reason: refundReason.trim() || undefined,
+        request_cancel: true,
+        cancel_reason: refundReason.trim(),
       });
       const j = json as { ok?: boolean; error?: string };
       if (!j?.ok) {
-        const code = typeof j.error === "string" ? j.error : "refund_request_failed";
+        const code = typeof j.error === "string" ? j.error : "cancel_request_failed";
         setRefundErr(
-          code === "cannot_request_refund"
-            ? t("mypage_comp_refund_err_cannot")
-            : t("mypage_comp_request_failed_code", { code })
+          code === "cannot_request_cancel"
+            ? t("mypage_comp_cancel_req_err_cannot")
+            : code === "cancel_reason_required"
+              ? t("mypage_comp_cancel_req_reason_required")
+              : t("mypage_comp_request_failed_code", { code })
         );
         return;
       }
@@ -496,8 +499,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const itemsSumPhp = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
   const deliveryFeePhp = Math.max(0, Math.round(Number(order.delivery_fee_amount) || 0));
   const canBuyerCancel = storeOrderAwaitingFirstPayment(order);
-  const canRefundRequest = canBuyerRequestStoreRefund(order.order_status, order.payment_status);
+  const canRefundRequest = canBuyerRequestStoreCancel(order.order_status, order.payment_status);
   const refundPending = order.order_status === "refund_requested";
+  const cancelRequestPending = order.order_status === "cancel_requested";
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
   const chatHref = canonicalOrderChatHref;
@@ -1001,35 +1005,37 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
       ) : null}
 
-      {refundPending ? (
+      {refundPending || cancelRequestPending ? (
         <div className="rounded-ui-rect border border-blue-100 bg-blue-50/80 p-4">
-          <p className="text-sm text-blue-950">{t("mypage_comp_refund_pending_notice")}</p>
+          <p className="text-sm text-blue-950">
+            {t(cancelRequestPending ? "mypage_comp_cancel_req_pending_notice" : "mypage_comp_refund_pending_notice")}
+          </p>
         </div>
       ) : null}
 
       {canRefundRequest ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-sam-fg">{t("mypage_comp_refund_section_title")}</h3>
-          <p className="mt-1 sam-text-helper text-sam-muted">{t("mypage_comp_refund_section_body")}</p>
+          <h3 className="text-sm font-semibold text-sam-fg">{t("mypage_comp_cancel_req_section_title")}</h3>
+          <p className="mt-1 sam-text-helper text-sam-muted">{t("mypage_comp_cancel_req_section_body")}</p>
           <label className="mt-3 block sam-text-helper text-sam-muted">
-            {t("mypage_comp_refund_reason_label")}
+            {t("mypage_comp_cancel_req_reason_label")}
             <textarea
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg"
               rows={3}
               maxLength={500}
               value={refundReason}
               onChange={(ev) => setRefundReason(ev.target.value)}
-              placeholder={t("mypage_comp_refund_reason_placeholder")}
+              placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
             />
           </label>
           {refundErr ? <p className="mt-2 text-sm text-red-600">{refundErr}</p> : null}
           <button
             type="button"
-            disabled={refundBusy}
+            disabled={refundBusy || refundReason.trim().length < 2}
             onClick={() => void requestRefund()}
             className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-sm font-medium text-sam-fg disabled:opacity-50"
           >
-            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_refund_submit")}
+            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_req_submit")}
           </button>
         </div>
       ) : null}

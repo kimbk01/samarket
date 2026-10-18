@@ -11,6 +11,7 @@ export type StoreOrderCancelPolicy = {
   reasonRequired: boolean;
   messageKey:
     | "store_owner_cancel_policy_direct"
+    | "store_owner_cancel_policy_direct_after_cooking"
     | "store_owner_cancel_policy_request"
     | "store_owner_cancel_policy_admin_review"
     | "store_owner_cancel_policy_picked_up"
@@ -29,9 +30,11 @@ function isDeliveryPickedUpOrLater(deliveryStatus: string | null | undefined): b
  *
  * CUSTOMER (buyer) PRODUCT CONTRACT (LOCKED):
  *   pending → direct_cancel
- *   accepted or later → DIRECT CANCEL FORBIDDEN (hidden)
+ *   accepted … arrived (before courier pickup) → request_cancel (store approves/rejects, reason required)
+ *   DIRECT CANCEL after acceptance stays FORBIDDEN
  *
- * Owner/Admin retain operational cancel/request graphs independently.
+ * OWNER: the store decides its own orders — direct cancel with a reason until courier pickup
+ * (no admin approval step). ADMIN: exception path (order detail intervention).
  */
 export function resolveStoreOrderCancelPolicy(input: {
   role: StoreOrderCancelActorRole;
@@ -52,10 +55,13 @@ export function resolveStoreOrderCancelPolicy(input: {
     return { kind: "direct_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_direct" };
   }
 
-  /** Buyer: pending-only. Do not widen to accepted. */
+  /** Buyer: direct cancel only while pending; afterwards a cancel request for the store to decide. */
   if (input.role === "buyer") {
     if (status === "pending") {
       return { kind: "direct_cancel", reasonRequired: false, messageKey: "store_owner_cancel_policy_direct" };
+    }
+    if (status === "accepted" || status === "preparing" || status === "ready_for_pickup" || status === "delivering" || status === "arrived") {
+      return { kind: "request_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_request" };
     }
     return { kind: "hidden", reasonRequired: false, messageKey: "store_owner_cancel_policy_admin_review" };
   }
@@ -69,7 +75,7 @@ export function resolveStoreOrderCancelPolicy(input: {
   }
 
   if (status === "preparing" || status === "ready_for_pickup" || status === "delivering" || status === "arrived") {
-    return { kind: "request_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_request" };
+    return { kind: "direct_cancel", reasonRequired: true, messageKey: "store_owner_cancel_policy_direct_after_cooking" };
   }
 
   return { kind: "hidden", reasonRequired: false, messageKey: "store_owner_cancel_policy_admin_review" };

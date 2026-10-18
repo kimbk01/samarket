@@ -3,7 +3,8 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
-import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
+import { normalizeOwnerDecisionReason } from "@/lib/stores/owner-store-order-decision-contract";
+import { resolveStoreOrderCancelPolicy } from "@/lib/stores/store-order-cancel-policy";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -127,12 +128,17 @@ export async function GET(
   );
 }
 
-type PatchBody = { cancel?: boolean; request_refund?: boolean; refund_reason?: string };
-
-const REFUND_REASON_MAX = 500;
+type PatchBody = {
+  cancel?: boolean;
+  /** 진행 중 취소 요청 (매장이 승인·반려). `request_refund`/`refund_reason` 은 이전 클라이언트 별칭. */
+  request_cancel?: boolean;
+  cancel_reason?: string;
+  request_refund?: boolean;
+  refund_reason?: string;
+};
 
 /**
- * 구매자: 접수 전 취소 | 진행 중 환불 요청
+ * 구매자: 접수 전 취소 | 진행 중(수락~배달 픽업 전) 취소 요청 — 매장이 결정
  */
 export async function PATCH(
   req: NextRequest,
@@ -158,7 +164,8 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  if (body.cancel && body.request_refund) {
+  const requestCancel = body.request_cancel === true || body.request_refund === true;
+  if (body.cancel && requestCancel) {
     return NextResponse.json({ ok: false, error: "conflicting_actions" }, { status: 400 });
   }
 
@@ -184,41 +191,82 @@ export async function PATCH(
 
   const rm = getAuditRequestMeta(req);
 
-  if (body.request_refund) {
-    if (order.order_status === "refund_requested") {
-      invalidateStoreOrderDetailSnapshot(oid, buyerId, "refund_requested");
-      invalidateBuyerStoreOrdersListSnapshot(buyerId, "refund_requested");
-      return NextResponse.json({ ok: true, order_status: "refund_requested" });
+  if (requestCancel) {
+    const status = String(order.order_status ?? "");
+    if (status === "cancel_requested" || status === "cancelled") {
+      invalidateStoreOrderDetailSnapshot(oid, buyerId, status);
+      invalidateBuyerStoreOrdersListSnapshot(buyerId, status);
+      return NextResponse.json({ ok: true, order_status: status });
     }
-    if (order.order_status === "refunded") {
-      return NextResponse.json({ ok: true, order_status: "refunded" });
+    const reasonCheck = normalizeOwnerDecisionReason(body.cancel_reason ?? body.refund_reason);
+    if (!reasonCheck.ok) {
+      return NextResponse.json({ ok: false, error: "cancel_reason_required" }, { status: 400 });
     }
-    if (!canBuyerRequestStoreRefund(order.order_status as string, order.payment_status as string)) {
-      return NextResponse.json({ ok: false, error: "cannot_request_refund" }, { status: 400 });
+    const { data: delivery } = await sb
+      .from("store_order_deliveries")
+      .select("delivery_status")
+      .eq("order_id", oid)
+      .maybeSingle();
+    const policy = resolveStoreOrderCancelPolicy({
+      role: "buyer",
+      orderStatus: status,
+      paymentStatus: String(order.payment_status ?? ""),
+      deliveryStatus: (delivery as { delivery_status?: string } | null)?.delivery_status ?? null,
+    });
+    if (policy.kind !== "request_cancel") {
+      return NextResponse.json({ ok: false, error: "cannot_request_cancel" }, { status: 400 });
     }
 
-    let reason = typeof body.refund_reason === "string" ? body.refund_reason.trim() : "";
-    if (reason.length > REFUND_REASON_MAX) {
-      reason = reason.slice(0, REFUND_REASON_MAX);
+    // Ledger first: the store decides from this row; a failed status write removes it again.
+    const { data: reqRow, error: insErr } = await sb
+      .from("store_order_cancel_requests")
+      .insert({
+        order_id: oid,
+        previous_order_status: status,
+        requested_by: buyerId,
+        requested_role: "buyer",
+        reason: reasonCheck.reason,
+        status: "pending",
+        refund_status: "pending",
+      })
+      .select("id")
+      .maybeSingle();
+    if (insErr || !reqRow?.id) {
+      const duplicate = String(insErr?.code ?? "") === "23505";
+      return NextResponse.json(
+        { ok: false, error: duplicate ? "cancel_request_pending" : "cancel_request_failed" },
+        { status: duplicate ? 409 : 500 }
+      );
     }
 
     const applied = await applyStoreOrderStatusTransition(sb, {
       orderId: oid,
-      nextStatus: "refund_requested",
+      nextStatus: "cancel_requested",
       actor: "CUSTOMER",
       audit: {
         actor_type: "user",
         actor_id: buyerId,
-        action: "store_order.buyer_refund_request",
+        action: "store_order.buyer_cancel_request",
         ip: rm.ip,
         user_agent: rm.userAgent,
       },
     });
     if (!applied.ok) {
+      await sb.from("store_order_cancel_requests").delete().eq("id", String(reqRow.id)).eq("status", "pending");
       return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
-    void reason;
-    return NextResponse.json({ ok: true, order_status: "refund_requested" });
+
+    const { data: stRow } = await sb
+      .from("stores")
+      .select("owner_user_id")
+      .eq("id", order.store_id as string)
+      .maybeSingle();
+    const ownerId = stRow?.owner_user_id ? String(stRow.owner_user_id) : null;
+    invalidateStoreOrderCountsCache(order.store_id as string, ownerId ?? undefined);
+    if (ownerId) invalidateOwnerHubBadgeCache(ownerId);
+    invalidateStoreOrderDetailSnapshot(oid, buyerId, "cancel_requested");
+    invalidateBuyerStoreOrdersListSnapshot(buyerId, "cancel_requested");
+    return NextResponse.json({ ok: true, order_status: "cancel_requested" });
   }
 
   if (!body.cancel) {

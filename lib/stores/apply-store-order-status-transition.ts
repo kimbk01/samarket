@@ -41,6 +41,17 @@ import { STORE_COMMISSION_CHARGE_FAILED_ERROR } from "@/lib/stores/commission/st
 import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
+/**
+ * Request rejections that notify the buyer with the reason (store or admin decision).
+ * The reject paths set `eventMetadata.source`; an admin-only reason never goes here.
+ */
+const REQUEST_REJECT_SOURCES = new Set([
+  "admin_refund_reject",
+  "admin_cancel_request_reject",
+  "owner_refund_reject",
+  "owner_cancel_request_reject",
+]);
+
 export type ApplyOrderStatusResult =
   | { ok: true; order_status: string; previous: string; idempotent?: boolean }
   | { ok: false; error: string; httpStatus: number };
@@ -178,7 +189,8 @@ export async function applyStoreOrderStatusTransition(
 
   if (nextStatus === "cancel_requested") {
     updatePayload.auto_complete_at = null;
-    updatePayload.needs_admin_attention = true;
+    // A buyer request is the store's work (it decides), not an admin queue item.
+    if (actor !== "CUSTOMER") updatePayload.needs_admin_attention = true;
   }
 
   if (current === "cancel_requested" && nextStatus !== "cancelled" && nextStatus !== "cancel_requested") {
@@ -551,6 +563,14 @@ export async function applyStoreOrderStatusTransition(
     } else if (!statusEv.ok) {
       await notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
     }
+  } else if (nextStatus === "cancel_requested" && actor === "CUSTOMER") {
+    // Buyer mid-flow cancel request → the store decides (approve / reject).
+    const cancelReqNotify = { storeId: sid, orderId: oid, orderNo, request: "cancel" as const };
+    if (statusEv.ok && statusEv.inserted) {
+      await notifyStoreOwnerRefundRequested(sb, { ...cancelReqNotify, storeOrderEventId: statusEv.row.id });
+    } else if (!statusEv.ok) {
+      await notifyStoreOwnerRefundRequested(sb, cancelReqNotify);
+    }
   } else if (nextStatus === "refund_requested") {
     const refundNotify = { storeId: sid, orderId: oid, orderNo };
     if (statusEv.ok && statusEv.inserted) {
@@ -579,10 +599,9 @@ export async function applyStoreOrderStatusTransition(
     }
   } else if (
     buyerId &&
-    current === "refund_requested" &&
-    ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(nextStatus) &&
-    String((opts.eventMetadata as { source?: string } | undefined)?.source ?? "") ===
-      "admin_refund_reject"
+    ((current === "refund_requested" && ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(nextStatus)) ||
+      (current === "cancel_requested" && ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(nextStatus))) &&
+    REQUEST_REJECT_SOURCES.has(String((opts.eventMetadata as { source?: string } | undefined)?.source ?? ""))
   ) {
     const rejectReason = String(
       (opts.eventMetadata as { rejected_reason?: string } | undefined)?.rejected_reason ??
@@ -597,6 +616,7 @@ export async function applyStoreOrderStatusTransition(
         storeId: sid,
         reason: rejectReason,
         storeOrderEventId: statusEv.row.id,
+        request: current === "cancel_requested" ? "cancel" : "refund",
       });
     } else if (!statusEv.ok) {
       await notifyBuyerStoreRefundRejected(sb, {
@@ -605,6 +625,7 @@ export async function applyStoreOrderStatusTransition(
         orderNo,
         storeId: sid,
         reason: rejectReason,
+        request: current === "cancel_requested" ? "cancel" : "refund",
       });
     }
   } else if (buyerId) {

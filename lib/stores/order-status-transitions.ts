@@ -23,7 +23,11 @@ export type StoreOrderSystemPurpose = "auto_complete" | "external_delivery" | "p
 
 const VALID = new Set<string>(STORE_ORDER_STATUS_LIST);
 
-/** Owner mid-flow cancel request (→ cancel_requested) */
+/**
+ * Owner mid-flow direct cancel (cooking or later, before courier pickup — the pickup block is
+ * in store-order-cancel-policy). The store decides; there is no admin approval step.
+ * (Legacy name: these statuses used to create an owner `cancel_requested`.)
+ */
 export const OWNER_CANCEL_REQUEST_FROM = new Set([
   "preparing",
   "ready_for_pickup",
@@ -31,8 +35,12 @@ export const OWNER_CANCEL_REQUEST_FROM = new Set([
   "arrived",
 ]);
 
-/** Admin reject cancel_requested may only restore to these */
+/**
+ * Rejecting a `cancel_requested` (store or admin) may only restore to these — the status
+ * recorded in `store_order_cancel_requests.previous_order_status`. Buyer requests start at `accepted`.
+ */
 export const ADMIN_CANCEL_REQUEST_RESTORE_STATUSES = new Set([
+  "accepted",
   "preparing",
   "ready_for_pickup",
   "delivering",
@@ -107,16 +115,31 @@ export function allowedOrderTransitionsForActor(
 ): string[] {
   switch (actor) {
     case "OWNER": {
+      // The store decides requests on its own orders (buyer cancel request, legacy owner
+      // request, refund request): approve, or restore the recorded previous status.
+      if (current === "cancel_requested") {
+        const out = ["cancelled"];
+        const restore = String(opts?.restoreToStatus ?? "").trim();
+        if (restore && ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(restore)) out.push(restore);
+        return out;
+      }
+      if (current === "refund_requested") {
+        const out = ["refunded"];
+        const restore = String(opts?.restoreToStatus ?? "").trim();
+        if (restore && ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(restore)) out.push(restore);
+        return out;
+      }
       const base = allowedOrderTransitions(current, fulfillment);
-      if (OWNER_CANCEL_REQUEST_FROM.has(current) && !base.includes("cancel_requested")) {
-        return [...base, "cancel_requested"];
+      if (OWNER_CANCEL_REQUEST_FROM.has(current) && !base.includes("cancelled")) {
+        return [...base, "cancelled"];
       }
       return base;
     }
     case "CUSTOMER": {
       if (current === "pending") return ["cancelled"];
-      if (canBuyerRequestStoreRefund(current, opts?.paymentStatus ?? "paid")) {
-        return ["refund_requested"];
+      // After acceptance the buyer asks; the store approves or rejects (D1).
+      if (canBuyerRequestStoreCancel(current, opts?.paymentStatus ?? "paid")) {
+        return ["cancel_requested"];
       }
       return [];
     }
@@ -208,6 +231,12 @@ const BUYER_REFUND_REQUEST_STATUSES = new Set([
   "arrived",
 ]);
 
+/** Buyer mid-flow cancel request (accepted … arrived; the pickup block is in the cancel policy). */
+export function canBuyerRequestStoreCancel(orderStatus: string, paymentStatus: string): boolean {
+  return canBuyerRequestStoreRefund(orderStatus, paymentStatus);
+}
+
+/** Mid-flow statuses where an ADMIN may open a refund request (buyers now send a cancel request). */
 export function canBuyerRequestStoreRefund(orderStatus: string, paymentStatus: string): boolean {
   if (!BUYER_REFUND_REQUEST_STATUSES.has(orderStatus)) return false;
   return paymentStatus !== "cancelled" && paymentStatus !== "refunded";
