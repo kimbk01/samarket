@@ -106,7 +106,7 @@ describe("owner decision service", () => {
     expect(r).toEqual({ ok: true, fromStatus: "cancel_requested", toStatus: "cancelled" });
     expect(apply.applyStoreOrderStatusTransition).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ orderId: "o1", nextStatus: "cancelled", actor: "OWNER" })
+      expect.objectContaining({ orderId: "o1", nextStatus: "cancelled", actor: "OWNER", expectedCurrentStatus: "cancel_requested" })
     );
     const ledger = calls.updates.find((u) => u.table === "store_order_cancel_requests");
     expect(ledger?.patch).toMatchObject({ status: "approved", approved_by: "owner-1" });

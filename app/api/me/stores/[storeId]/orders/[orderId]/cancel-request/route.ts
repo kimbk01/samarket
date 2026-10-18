@@ -88,6 +88,8 @@ export async function POST(
       orderId: oid,
       nextStatus: "cancelled",
       actor: "OWNER",
+      // Policy and the ledger's previous_order_status were decided on this status.
+      expectedCurrentStatus: String(order.order_status ?? ""),
       audit: {
         actor_type: "user",
         actor_id: userId,

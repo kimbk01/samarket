@@ -8,7 +8,8 @@
  * 4. restore targets come from server records only:
  *    cancel request → `store_order_cancel_requests.previous_order_status` (pending row)
  *    refund request → `pickRefundRequestRestoreStatus` (unambiguous event evidence, else 409)
- * 5. the status write is `applyStoreOrderStatusTransition` (OWNER graph, CAS); commission and
+ * 5. the status write is `applyStoreOrderStatusTransition` (OWNER graph, CAS on the status checked in
+ *    step 2 — a concurrent change is a 409, never applied on the newer status); commission and
  *    refunds follow its existing paths (DB trigger / atomic refund RPC) — nothing is written here.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -98,6 +99,7 @@ export async function runOwnerStoreOrderDecision(
         orderId: oid,
         nextStatus: toStatus,
         actor: "OWNER",
+        expectedCurrentStatus: current,
         eventMetadata: { source: "owner_cancel_request_approve" },
         audit: { ...audit, action: "store_order.owner_cancel_request_approve" },
       });
@@ -123,6 +125,7 @@ export async function runOwnerStoreOrderDecision(
         orderId: oid,
         nextStatus: toStatus,
         actor: "OWNER",
+        expectedCurrentStatus: current,
         restoreToStatus: toStatus,
         eventMessage: reason,
         eventMetadata: { source: "owner_cancel_request_reject", rejected_reason: reason },
@@ -147,6 +150,7 @@ export async function runOwnerStoreOrderDecision(
       orderId: oid,
       nextStatus: toStatus,
       actor: "OWNER",
+      expectedCurrentStatus: current,
       eventMetadata: { source: "owner_refund_approve" },
       audit: { ...audit, action: "store_order.owner_refund_approve" },
     });
@@ -159,6 +163,7 @@ export async function runOwnerStoreOrderDecision(
       orderId: oid,
       nextStatus: toStatus,
       actor: "OWNER",
+      expectedCurrentStatus: current,
       restoreToStatus: toStatus,
       eventMessage: reason,
       eventMetadata: { source: "owner_refund_reject", rejected_reason: reason },

@@ -26,6 +26,10 @@
 | `POST /api/me/stores/[storeId]/orders/[orderId]/decide` `{ action, reason, expected_status }` | 매장 결정 (`lib/stores/owner-store-order-decision.ts`) |
 | `PATCH /api/me/stores/[storeId]/orders/[orderId]` | 진행 단계 전이만. `cancel_requested` 설정·요청 상태에서의 전이·조리 이후 `cancelled` 는 각각 `/decide`·`/cancel-request` 로만 (우회 차단) |
 
+상태 쓰기는 호출자가 판단한 상태로 CAS 한다(`expectedCurrentStatus`) — 그 사이 상태가 바뀌면 409 `transition_conflict` 이고 더 새로운 상태 위에서 적용되지 않는다 (원장 `previous_order_status` 와 실제 직전 상태가 어긋나지 않음).
+
+구매자 취소 요청의 원장 행 기록과 상태 전이는 **한 트랜잭션이 아니다**. 동시 요청은 미결 1건 유니크 인덱스(409 `cancel_request_pending`), 동시 상태 변경은 위 CAS 로 막고, 전이 실패 시 원장 행을 지운다. 그러나 두 쓰기 사이에서 요청이 중단되거나 삭제가 실패하면 `pending` 원장 행이 상태 변경 없이 남을 수 있고, 그 주문은 다시 취소 요청할 때 409 가 된다. 이 창을 없애려면 두 쓰기를 하나의 DB 함수로 묶어야 한다(마이그레이션 필요 — 미적용).
+
 매장 결정 규칙: 소유 확인 → `admin_locked` 이면 409 → 매장이 본 상태와 다르면 409 `status_changed` → 반려 사유 필수 → 복원 상태는 서버 기록만(취소 요청: 원장 `previous_order_status`, 환불 요청: 엄격한 이벤트 근거, 불명확하면 409) → `applyStoreOrderStatusTransition`(OWNER, CAS) → 원장은 여전히 `pending` 인 행만 닫음 → 감사 로그 `store_order.owner_decision`.
 
 ## 3. 돈·수수료

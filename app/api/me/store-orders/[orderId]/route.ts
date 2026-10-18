@@ -243,6 +243,8 @@ export async function PATCH(
       orderId: oid,
       nextStatus: "cancel_requested",
       actor: "CUSTOMER",
+      // The ledger row recorded `status` as previous_order_status — never apply on a newer status.
+      expectedCurrentStatus: status,
       audit: {
         actor_type: "user",
         actor_id: buyerId,

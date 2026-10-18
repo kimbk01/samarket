@@ -65,6 +65,12 @@ export type ApplyStoreOrderStatusTransitionOpts = {
   ownerAcceptPrepMinutes?: number | null;
   /** ADMIN cancel_requested → previous_order_status */
   restoreToStatus?: string | null;
+  /**
+   * Status the caller read and decided on. When set, a different current status → 409
+   * `transition_conflict` and the CAS runs against this status (callers that recorded the
+   * previous status elsewhere, e.g. the cancel-request ledger, must not apply on a newer one).
+   */
+  expectedCurrentStatus?: string | null;
   /** SYSTEM cron: require auto_complete_at <= now */
   requireAutoCompleteDue?: boolean;
   /** SYSTEM external-delivery webhook uses OWNER graph; payment_failure cancels pending */
@@ -130,6 +136,11 @@ export async function applyStoreOrderStatusTransition(
   const fulfillment = order.fulfillment_type as string;
   const paymentStatus = order.payment_status as string;
   const sid = order.store_id as string;
+
+  const expectedCurrent = opts.expectedCurrentStatus?.trim();
+  if (expectedCurrent && expectedCurrent !== current) {
+    return { ok: false, error: "transition_conflict", httpStatus: 409 };
+  }
 
   if (current === nextStatus) {
     return { ok: true, order_status: current, previous: current, idempotent: true };
