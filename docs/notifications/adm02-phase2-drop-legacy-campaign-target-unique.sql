@@ -1,7 +1,7 @@
 -- ADM-02 phase 2 — drop legacy UNIQUE (campaign_id, user_id) on admin_notification_campaign_targets.
 --
 -- PRECONDITIONS (all required, Owner approval required):
---   1. supabase/migrations/20270513120000_admin_campaign_targets_occurrence_unique.sql applied.
+--   1. supabase/migrations/20270514120000_admin_campaign_targets_occurrence_unique.sql applied.
 --   2. The code that writes onConflict "occurrence_id,user_id" (campaign-target-rows.ts) is the
 --      version serving Production. Code deployed BEFORE that change still writes
 --      onConflict "campaign_id,user_id" and would fail with 42P10 after this script.

@@ -4,8 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * ADM-02 — `admin_notification_campaign_targets` keyed per occurrence.
  *
  * Target rows are history per occurrence (unique `occurrence_id,user_id`, migration
- * 20270513120000). Until the legacy unique `campaign_id,user_id` is dropped (migration
- * 20270513120100) the occurrence-keyed write can fail; we then fall back to the
+ * 20270514120000). Until the legacy unique `campaign_id,user_id` is dropped (phase 2,
+ * docs/notifications/adm02-phase2-drop-legacy-campaign-target-unique.sql) the
+ * occurrence-keyed write can fail; we then fall back to the
  * legacy key so behaviour is never worse than before either migration is applied.
  */
 export type CampaignTargetRow = {
