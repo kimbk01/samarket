@@ -135,8 +135,11 @@ public final class FcmPayloadResolver {
     String envelopeRoute = resolveEnvelopeRoute(data);
     if (envelopeRoute != null) return envelopeRoute;
 
-    String url = firstNonEmpty(data.get("url"), data.get("routeUrl"), data.get("route_url"));
-    if (url != null && url.startsWith("/")) return url;
+    // LINK-02: a legacy url is used only when it is a safe in-app path; otherwise fall through
+    // to the type-based routes below (never return "//host" or other off-origin values).
+    String rawUrl = firstNonEmpty(data.get("url"), data.get("routeUrl"), data.get("route_url"));
+    String url = DibayAppRouteGuard.safeAppPath(rawUrl);
+    if (url != null) return url;
 
     String type = resolveType(data);
     switch (type) {
@@ -194,7 +197,9 @@ public final class FcmPayloadResolver {
         break;
     }
 
-    if (url != null && !url.isEmpty()) return url;
+    // Absolute http(s) links keep the previous behaviour (MainActivity maps them to an app path,
+    // which DibayAppRouteGuard re-checks before navigation). Nothing else is returned raw.
+    if (rawUrl != null && (rawUrl.startsWith("https://") || rawUrl.startsWith("http://"))) return rawUrl;
     String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
     if (roomId != null) return "/community-messenger/rooms/" + encQuery(roomId);
     return null;

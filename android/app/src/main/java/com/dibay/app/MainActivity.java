@@ -2491,6 +2491,11 @@ public class MainActivity extends BridgeActivity {
     }
     String path = prefs.getString(PENDING_PATH_KEY, null);
     if (path == null || path.trim().isEmpty()) return;
+    // LINK-02: a route persisted by an older build is re-validated before replay.
+    if (DibayAppRouteGuard.safeAppPath(path) == null) {
+      clearPersistedPendingPushRoute(this);
+      return;
+    }
     if (suppressNativeOwnedCallRouteReplayIfNeeded(path.trim(), "restore_pending_push_route")) return;
     pendingAppPath = path.trim();
     String notificationId = prefs.getString(PENDING_NOTIFICATION_ID_KEY, null);
@@ -2499,6 +2504,11 @@ public class MainActivity extends BridgeActivity {
 
   private void queueNavigateWebViewToAppPath(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return;
+    // LINK-02: every intent-sourced path (push extras, dibay://, https App Link) passes here.
+    if (DibayAppRouteGuard.safeAppPath(appPath) == null) {
+      Log.w(ROUTE_LOG_TAG, "[push-route] unsafe_path_rejected");
+      return;
+    }
     if (suppressNativeOwnedCallRouteReplayIfNeeded(appPath, "queue_navigate_webview")) return;
     if (CallV4Lane.shouldSuppressV3CallReplay(this, appPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_route_nav_suppressed path=" + appPath);

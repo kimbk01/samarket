@@ -107,4 +107,27 @@ public class FcmPayloadResolverTest {
 
     assertEquals("/notifications", FcmPayloadResolver.resolveRouteUrl(data));
   }
+
+  @Test
+  public void resolveRouteUrl_legacyOffOriginUrlNeverReturned() {
+    String[] unsafe = {"//evil.com", "//evil.com/x", "/\\evil.com", "javascript:alert(1)"};
+    for (String raw : unsafe) {
+      Map<String, String> chat = new HashMap<>();
+      chat.put("type", "chat_message");
+      chat.put("roomId", "cm-1");
+      chat.put("url", raw);
+      assertEquals(raw, "/community-messenger/rooms/cm-1", FcmPayloadResolver.resolveRouteUrl(chat));
+
+      Map<String, String> bare = new HashMap<>();
+      bare.put("url", raw);
+      assertEquals(raw, null, FcmPayloadResolver.resolveRouteUrl(bare));
+    }
+  }
+
+  @Test
+  public void resolveRouteUrl_absoluteHttpsLinkKeptForAppLinkMapping() {
+    Map<String, String> data = new HashMap<>();
+    data.put("url", "https://samarket.vercel.app/mypage/notices/abc");
+    assertEquals("https://samarket.vercel.app/mypage/notices/abc", FcmPayloadResolver.resolveRouteUrl(data));
+  }
 }
