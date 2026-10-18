@@ -1,4 +1,4 @@
-import { DeliveryOrderDetailClient } from "@/components/admin/delivery-orders/DeliveryOrderDetailClient";
+import { AdminOrderDetailPage } from "@/components/admin/store-orders/AdminOrderDetailPage";
 
 export default async function AdminStoreOrderDetailPage({
   params,
@@ -6,6 +6,5 @@ export default async function AdminStoreOrderDetailPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  return <DeliveryOrderDetailClient orderId={orderId} />;
+  return <AdminOrderDetailPage orderId={orderId} />;
 }
-

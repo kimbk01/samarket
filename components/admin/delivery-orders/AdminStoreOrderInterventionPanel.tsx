@@ -23,6 +23,9 @@ import {
 /** Reject reasons reach the store and buyer (existing reject notifications); others stay in the audit log. */
 const BUYER_VISIBLE_REASON = new Set<AdminStoreOrderInterventionAction>(["cancel_request_reject", "refund_reject"]);
 
+/** Refund approval and admin cancel end the order / move money → order number typed again. */
+const DOUBLE_CONFIRM = new Set<AdminStoreOrderInterventionAction>(["refund_approve", "force_cancel"]);
+
 /** Errors after which the panel reloads the order (state moved under us). */
 const RELOAD_ERRORS = new Set(["status_changed", "transition_conflict", "action_not_allowed_for_status"]);
 
@@ -78,6 +81,24 @@ export function AdminStoreOrderInterventionPanel({
       setNotice({ tone: "error", text: errorText(reason.error) });
       return;
     }
+    // Money-moving / order-ending actions: type the order number again (double confirmation).
+    if (DOUBLE_CONFIRM.has(action)) {
+      const typed = await dibayPrompt({
+        title: ko ? "주문번호 확인" : "Confirm order number",
+        description: ko
+          ? `되돌릴 수 없는 처리입니다. 확인을 위해 주문번호 ${orderNo} 를 입력하세요.`
+          : `This cannot be undone. Type the order number ${orderNo} to confirm.`,
+        placeholder: orderNo,
+        confirmLabel: ko ? label.ko : label.en,
+        confirmTone: "destructive",
+        required: true,
+      });
+      if (typed == null) return;
+      if (typed.trim() !== orderNo) {
+        setNotice({ tone: "error", text: ko ? "주문번호가 일치하지 않아 처리하지 않았습니다." : "Order number did not match — nothing was done." });
+        return;
+      }
+    }
 
     setBusy(action);
     setNotice(null);
@@ -121,7 +142,7 @@ export function AdminStoreOrderInterventionPanel({
       <div className="space-y-3" data-admin-intervention-panel="1">
         <p className="sam-text-helper text-sam-muted">
           {ko
-            ? "주문 처리는 매장이 합니다. 분쟁·처리 불능 등 예외에만 사용하고, 모든 처리는 사유와 처리자가 기록됩니다."
+            ? "주문 처리와 취소·환불 결정은 매장이 합니다. 매장 결정을 관리자가 대신하는 예외(분쟁·처리 불능)에만 사용하고, 모든 처리는 사유와 처리자가 기록됩니다."
             : "The store runs the order. Use only for exceptions; every action records the reason and the admin."}
         </p>
         {actions.length === 0 ? (

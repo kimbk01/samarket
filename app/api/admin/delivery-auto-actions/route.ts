@@ -23,7 +23,7 @@ function enrichRpcActions(rows: unknown[]): Record<string, unknown>[] {
     return {
       ...a,
       order_no: orderNo,
-      admin_order_url: oid ? `/admin/delivery-orders/${encodeURIComponent(oid)}` : "",
+      admin_order_url: oid ? `/admin/stores/orders/${encodeURIComponent(oid)}` : "",
       admin_alerts_query: a.event_id ? `/admin/delivery-alerts` : "",
     };
   });
@@ -125,7 +125,7 @@ async function legacyList(
       event_status: ev ? String(ev.event_status ?? "") : "",
       rule_key: ru?.rule_key ?? "",
       rule_name: ru?.rule_name ?? "",
-      admin_order_url: oid ? `/admin/delivery-orders/${encodeURIComponent(oid)}` : "",
+      admin_order_url: oid ? `/admin/stores/orders/${encodeURIComponent(oid)}` : "",
       admin_alerts_query: eid ? `/admin/delivery-alerts` : "",
     };
   });

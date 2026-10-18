@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { AdminOrderDetailModal, useAdminOrderDetailParam } from "@/components/admin/store-orders/AdminOrderDetailModal";
+import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import type { AdminStoreOrderChatListRow } from "@/lib/admin-delivery-orders/list-admin-store-order-chats";
+import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 
 /**
  * P1-1 — Delivery order-chat LIVE (lookup-only).
@@ -16,6 +19,11 @@ export function AdminOrderChatList() {
   const [rows, setRows] = useState<AdminStoreOrderChatListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const modal = useAdminOrderDetailParam();
+  const statusLabel = (s: string) => {
+    const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
+    return key ? t(key) : s;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,7 +95,7 @@ export function AdminOrderChatList() {
           })}
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link href="/admin/store-orders" className="font-medium text-sam-fg underline">
+          <Link href="/admin/stores/orders" className="font-medium text-sam-fg underline">
             {t("admin_do_chat_store_orders")}
           </Link>
         </div>
@@ -138,13 +146,15 @@ export function AdminOrderChatList() {
                   })}
                 </Link>
                 <div className="mt-1">
-                  <Link
-                    href={`/admin/stores/orders/${encodeURIComponent(row.orderId)}`}
+                  <button
+                    type="button"
+                    onClick={() => modal.openOrder(row.orderId, "basic")}
                     className="inline-block rounded bg-sam-app px-1.5 py-0.5 font-mono sam-text-xxs text-sam-fg underline"
+                    data-open-order={row.orderNo || row.orderId}
                   >
-                    {row.orderId.slice(0, 8)}…
-                  </Link>
-                  <span className="ml-2 sam-text-xxs text-sam-muted">{row.orderStatus}</span>
+                    {row.orderNo || `${row.orderId.slice(0, 8)}…`}
+                  </button>
+                  <span className="ml-2 sam-text-xxs text-sam-muted">{statusLabel(row.orderStatus)}</span>
                 </div>
               </td>
               <td className="px-3 py-2.5 align-top text-sam-fg">{row.storeLabel}</td>
@@ -170,6 +180,7 @@ export function AdminOrderChatList() {
           ))}
         </tbody>
       </table>
+      <AdminOrderDetailModal orderId={modal.orderId} section={modal.section} onClose={modal.closeOrder} onChanged={() => void load()} />
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import { DeliveryOrdersByStoreClient } from "@/components/admin/delivery-orders/DeliveryOrdersByStoreClient";
+import { Suspense } from "react";
+import { AdminLoadingFallbackSm } from "@/components/admin/AdminLoadingFallback";
+import { AdminOrderOpsScreen } from "@/components/admin/store-orders/AdminOrderOpsScreen";
 
 export default async function AdminStoreOrdersByStorePage({
   params,
@@ -6,6 +8,9 @@ export default async function AdminStoreOrdersByStorePage({
   params: Promise<{ storeId: string }>;
 }) {
   const { storeId } = await params;
-  return <DeliveryOrdersByStoreClient storeId={storeId} />;
+  return (
+    <Suspense fallback={<AdminLoadingFallbackSm />}>
+      <AdminOrderOpsScreen screen="list" fixed={{ storeId }} />
+    </Suspense>
+  );
 }
-
