@@ -8,6 +8,7 @@ import {
   adminOrderOpsRpcArgs,
   legacyStoreOrdersRedirectTarget,
   parseAdminOrderOpsQuery,
+  resolveAdminOrderOpsPeriod,
   type AdminOrderOpsRow,
 } from "@/lib/admin/store-orders/admin-store-order-ops-contract";
 import { describeStoreOrderAudit, storeOrderAuditCategoryActions, STORE_ORDER_AUDIT_KNOWN_ACTIONS } from "@/lib/admin/store-orders/admin-store-order-audit-labels";
@@ -92,5 +93,42 @@ describe("D8 — audit categories", () => {
     expect(parseAdminOrderAuditQuery(sp("")).category).toBe("all");
     const src = read("lib/admin/store-orders/load-admin-store-order-audit.ts");
     expect(src).toContain('query = query.not("action", "like", p)');
+  });
+});
+
+describe("기간별 현황 — 생성일 현황 vs 처리일 실적", () => {
+  const now = new Date("2026-10-18T15:40:00Z"); // Manila 2026-10-18 23:40
+  it("전체 기간 is unbounded (cumulative since launch, any number of years)", () => {
+    expect(resolveAdminOrderOpsPeriod("all", null, null, now)).toEqual({ fromIso: null, toIso: null });
+  });
+  it("today / last 7 / last 30 / this month / this year / custom are Manila-day windows ending today", () => {
+    const end = "2026-10-18T16:00:00.000Z";
+    expect(resolveAdminOrderOpsPeriod("today", null, null, now)).toEqual({ fromIso: "2026-10-17T16:00:00.000Z", toIso: end });
+    expect(resolveAdminOrderOpsPeriod("last_7_days", null, null, now)).toEqual({ fromIso: "2026-10-11T16:00:00.000Z", toIso: end });
+    expect(resolveAdminOrderOpsPeriod("last_30_days", null, null, now)).toEqual({ fromIso: "2026-09-18T16:00:00.000Z", toIso: end });
+    expect(resolveAdminOrderOpsPeriod("this_month", null, null, now)).toEqual({ fromIso: "2026-09-30T16:00:00.000Z", toIso: end });
+    expect(resolveAdminOrderOpsPeriod("this_year", null, null, now)).toEqual({ fromIso: "2025-12-31T16:00:00.000Z", toIso: end });
+    expect(resolveAdminOrderOpsPeriod("custom", "2026-09-01", "2026-09-30", now)).toEqual({
+      fromIso: "2026-08-31T16:00:00.000Z",
+      toIso: "2026-09-30T16:00:00.000Z",
+    });
+  });
+  it("this year rolls over on Manila 1 Jan, not UTC", () => {
+    // 2026-12-31T17:00Z = Manila 2027-01-01 01:00
+    expect(resolveAdminOrderOpsPeriod("this_year", null, null, new Date("2026-12-31T17:00:00Z")).fromIso).toBe("2026-12-31T16:00:00.000Z");
+  });
+  it("list rows and summary use the same period (list tabs are created-basis)", () => {
+    const q = parseAdminOrderOpsQuery("list", sp("period=this_year"));
+    const args = adminOrderOpsRpcArgs(q, now);
+    expect(args.p_basis).toBe("created");
+    expect({ fromIso: args.p_from, toIso: args.p_to }).toEqual(resolveAdminOrderOpsPeriod("this_year", null, null, now));
+  });
+  it("list panel separates the created cohort from request / processing-date results", () => {
+    const src = read("components/admin/store-orders/AdminOrderOpsScreen.tsx");
+    expect(src).toContain('fetchScope("cancel"), fetchScope("refund")');
+    expect(src).toMatch(/key: "cancel_done"[^\n]*basis: "cancelled"[^\n]*cancellations, \{ tab: "done" \}/);
+    expect(src).toMatch(/key: "refund_done"[^\n]*basis: "refunded"[^\n]*refunds, \{ tab: "done" \}/);
+    expect(src).toMatch(/key: "cancel_pending"[^\n]*basis: "cancel_requested"/);
+    expect(src).toMatch(/key: "cancelled"[^\n]*basis: "created"/);
   });
 });

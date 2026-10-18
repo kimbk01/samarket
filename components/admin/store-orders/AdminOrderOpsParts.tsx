@@ -142,6 +142,8 @@ export type OpsSummaryCard = {
   /** Another screen */
   href?: string;
   active?: boolean;
+  /** Group heading — cards with different time bases are shown in separate groups. */
+  group?: string;
 };
 
 export function OpsSummaryPanel({
@@ -183,8 +185,11 @@ export function OpsSummaryPanel({
               {error}
             </p>
           ) : null}
+          {groupCards(cards).map(({ group, items }) => (
+            <div key={group ?? "_"} className="mt-3 first:mt-0">
+              {group ? <p className="mb-1.5 sam-text-helper font-semibold text-sam-fg">{group}</p> : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-busy={loading}>
-            {cards.map((c) => {
+            {items.map((c) => {
               const body = (
                 <>
                   <span className="sam-text-xxs text-sam-muted">{c.label}</span>
@@ -229,10 +234,22 @@ export function OpsSummaryPanel({
               );
             })}
           </div>
+            </div>
+          ))}
         </div>
       ) : null}
     </section>
   );
+}
+
+function groupCards(cards: OpsSummaryCard[]): { group: string | undefined; items: OpsSummaryCard[] }[] {
+  const out: { group: string | undefined; items: OpsSummaryCard[] }[] = [];
+  for (const c of cards) {
+    const last = out[out.length - 1];
+    if (last && last.group === c.group) last.items.push(c);
+    else out.push({ group: c.group, items: [c] });
+  }
+  return out;
 }
 
 /** "3일 4시간" since `iso` (display only). */
