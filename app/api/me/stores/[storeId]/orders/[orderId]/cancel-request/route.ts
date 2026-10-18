@@ -73,7 +73,8 @@ export async function POST(
     deliveryStatus: (delivery as { delivery_status?: string } | null)?.delivery_status ?? null,
   });
 
-  if (policy.kind === "hidden" || policy.kind === "admin_review") {
+  // The store cancels its own orders directly until courier pickup (no admin approval step).
+  if (policy.kind !== "direct_cancel") {
     return NextResponse.json({ ok: false, error: "cancel_not_allowed_for_status" }, { status: 400 });
   }
   if (policy.reasonRequired && !reason) {
@@ -82,11 +83,13 @@ export async function POST(
 
   const rm = getAuditRequestMeta(req);
 
-  if (policy.kind === "direct_cancel") {
+  {
     const applied = await applyStoreOrderStatusTransition(sb, {
       orderId: oid,
       nextStatus: "cancelled",
       actor: "OWNER",
+      // Policy and the ledger's previous_order_status were decided on this status.
+      expectedCurrentStatus: String(order.order_status ?? ""),
       audit: {
         actor_type: "user",
         actor_id: userId,
@@ -99,7 +102,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
 
-    await sb.from("store_order_cancel_requests").insert({
+    const { error: ledgerErr } = await sb.from("store_order_cancel_requests").insert({
       order_id: oid,
       previous_order_status: String(order.order_status ?? ""),
       requested_by: userId,
@@ -111,6 +114,7 @@ export async function POST(
       approved_at: new Date().toISOString(),
       refund_status: "not_applicable",
     });
+    if (ledgerErr) console.error("[owner cancel] ledger insert", ledgerErr);
 
     invalidateOwnerHubBadgeCache(userId);
     invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {
@@ -121,50 +125,4 @@ export async function POST(
     });
     return NextResponse.json({ ok: true, order_status: "cancelled", mode: "direct_cancel" });
   }
-
-  // Recovery Chain: apply first, then cancel_request ledger (no orphan pending on apply fail)
-  const applied = await applyStoreOrderStatusTransition(sb, {
-    orderId: oid,
-    nextStatus: "cancel_requested",
-    actor: "OWNER",
-    audit: {
-      actor_type: "user",
-      actor_id: userId,
-      action: "store_order.owner_cancel_request",
-      ip: rm.ip,
-      user_agent: rm.userAgent,
-    },
-  });
-  if (!applied.ok) {
-    return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
-  }
-
-  const { error: reqErr } = await sb.from("store_order_cancel_requests").insert({
-    order_id: oid,
-    previous_order_status: String(order.order_status ?? ""),
-    requested_by: userId,
-    requested_role: "owner",
-    reason,
-    detail_reason: detailReason || null,
-    status: "pending",
-    refund_status: "pending",
-  });
-  if (reqErr) {
-    const duplicate = String(reqErr.code ?? "") === "23505";
-    if (!duplicate) {
-      console.error("[owner cancel-request] insert", reqErr);
-      // Status already cancel_requested — surface ledger failure without rolling status back
-      return NextResponse.json({ ok: false, error: reqErr.message }, { status: 500 });
-    }
-  }
-
-  invalidateOwnerHubBadgeCache(userId);
-  invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {
-    route: "POST /api/me/stores/[storeId]/orders/[orderId]/cancel-request",
-    orderId: oid,
-    reason: "owner_cancel_request",
-    afterMutationSuccess: true,
-  });
-
-  return NextResponse.json({ ok: true, order_status: "cancel_requested", mode: "request_cancel" });
 }

@@ -67,11 +67,18 @@ if (!payment.includes("applyStoreOrderStatusTransition")) {
   fails.push("payment failure missing apply Recovery Chain");
 }
 
-// Owner cancel_requested: apply before ledger insert
-const reqIdx = ownerCancel.indexOf('nextStatus: "cancel_requested"');
-const insertIdx = ownerCancel.lastIndexOf('from("store_order_cancel_requests").insert');
-if (reqIdx < 0 || insertIdx < 0 || reqIdx > insertIdx) {
-  fails.push("owner cancel_requested must apply before cancel_requests insert");
+// 3단계: the owner cancels directly (never creates cancel_requested). A buyer request writes the
+// ledger row and the status in one DB transaction (no ledger-then-delete in TS).
+if (ownerCancel.includes('nextStatus: "cancel_requested"')) {
+  fails.push("owner cancel route must not create cancel_requested (direct cancel only)");
+}
+const buyerOrder = read("app/api/me/store-orders/[orderId]/route.ts");
+if (!buyerOrder.includes("buyerCancelRequestReason:") || /store_order_cancel_requests/.test(buyerOrder)) {
+  fails.push("buyer cancel request must go through the atomic writer path (no ledger writes in the route)");
+}
+const writer = read("lib/stores/apply-store-order-status-transition.ts");
+if (!writer.includes('sb.rpc("store_order_buyer_cancel_request_atomic"')) {
+  fails.push("writer must create buyer cancel requests via store_order_buyer_cancel_request_atomic");
 }
 
 if (fails.length) {

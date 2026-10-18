@@ -149,6 +149,9 @@ export const notificationMessages = {
     notify_commerce_refund_requested_title: "매장 주문 환불 요청",
     notify_commerce_refund_requested_body_named: "「{store}」 주문 {orderNo} — 고객이 환불을 요청했습니다.",
     notify_commerce_refund_requested_body: "주문 {orderNo} — 고객이 환불을 요청했습니다.",
+    notify_commerce_cancel_requested_title: "매장 주문 취소 요청",
+    notify_commerce_cancel_requested_body_named: "「{store}」 주문 {orderNo} — 고객이 취소를 요청했습니다. 승인 또는 반려해 주세요.",
+    notify_commerce_cancel_requested_body: "주문 {orderNo} — 고객이 취소를 요청했습니다. 승인 또는 반려해 주세요.",
     notify_commerce_owner_sold_out_title: "메뉴 품절",
     notify_commerce_owner_sold_out_body_named:
       "「{store}」 {productTitle} — 주문 {orderNo}으로 재고가 소진되어 품절 처리되었습니다.",
@@ -179,6 +182,10 @@ export const notificationMessages = {
       "「{store}」 {orderNo} 주문 환불 요청이 거절되었습니다. 주문 상태를 확인해 주세요.",
     notify_commerce_refund_rejected_body_reason:
       "「{store}」 {orderNo} 주문 환불 요청이 거절되었습니다. 사유: {reason}",
+    notify_commerce_cancel_rejected_title: "취소 요청이 반려됐어요",
+    notify_commerce_cancel_rejected_body: "「{store}」 {orderNo} 주문 취소 요청이 반려되어 주문이 계속 진행됩니다.",
+    notify_commerce_cancel_rejected_body_reason:
+      "「{store}」 {orderNo} 주문 취소 요청이 반려되어 주문이 계속 진행됩니다. 사유: {reason}",
     notify_commerce_auto_completed_title: "주문이 자동 완료됐어요",
     notify_commerce_auto_completed_body:
       "「{store}」 {orderNo} 주문이 기한에 따라 자동으로 완료 처리되었습니다.",
@@ -392,6 +399,9 @@ export const notificationMessages = {
     notify_commerce_refund_requested_title: "Store order refund requested",
     notify_commerce_refund_requested_body_named: "\"{store}\" order {orderNo} — The customer requested a refund.",
     notify_commerce_refund_requested_body: "Order {orderNo} — The customer requested a refund.",
+    notify_commerce_cancel_requested_title: "Store order cancellation requested",
+    notify_commerce_cancel_requested_body_named: "\"{store}\" order {orderNo} — The customer asked to cancel. Approve or reject it.",
+    notify_commerce_cancel_requested_body: "Order {orderNo} — The customer asked to cancel. Approve or reject it.",
     notify_commerce_owner_sold_out_title: "Item sold out",
     notify_commerce_owner_sold_out_body_named:
       "\"{store}\" {productTitle} — sold out after order {orderNo} used the last unit in stock.",
@@ -422,6 +432,10 @@ export const notificationMessages = {
       "\"{store}\" order {orderNo} refund request was declined. Please check the order status.",
     notify_commerce_refund_rejected_body_reason:
       "\"{store}\" order {orderNo} refund request was declined. Reason: {reason}",
+    notify_commerce_cancel_rejected_title: "Cancellation request declined",
+    notify_commerce_cancel_rejected_body: "\"{store}\" order {orderNo} — The cancellation request was declined and the order continues.",
+    notify_commerce_cancel_rejected_body_reason:
+      "\"{store}\" order {orderNo} — The cancellation request was declined and the order continues. Reason: {reason}",
     notify_commerce_auto_completed_title: "Order auto-completed",
     notify_commerce_auto_completed_body:
       "\"{store}\" order {orderNo} was automatically marked as completed when the time limit expired.",

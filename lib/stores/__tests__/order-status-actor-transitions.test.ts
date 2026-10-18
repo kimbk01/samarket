@@ -17,11 +17,13 @@ describe("allowedOrderTransitionsForActor CUSTOMER", () => {
     );
   });
 
-  it("accepted → refund_requested PASS when eligible", () => {
+  it("accepted … arrived → cancel_requested (the store decides) — never refund_requested (D1)", () => {
     expect(canBuyerRequestStoreRefund("accepted", "paid")).toBe(true);
-    expect(
-      allowedOrderTransitionsForActor("CUSTOMER", "accepted", "local_delivery", { paymentStatus: "paid" })
-    ).toContain("refund_requested");
+    for (const s of ["accepted", "preparing", "ready_for_pickup", "delivering", "arrived"]) {
+      const next = allowedOrderTransitionsForActor("CUSTOMER", s, "local_delivery", { paymentStatus: "paid" });
+      expect(next, s).toEqual(["cancel_requested"]);
+    }
+    expect(allowedOrderTransitionsForActor("CUSTOMER", "completed", "pickup", { paymentStatus: "paid" })).toEqual([]);
   });
 });
 
@@ -34,10 +36,26 @@ describe("allowedOrderTransitionsForActor OWNER", () => {
     expect(allowedOrderTransitionsForActor("OWNER", "accepted", "pickup")).toContain("preparing");
   });
 
-  it("preparing → cancel_requested PASS", () => {
-    expect(allowedOrderTransitionsForActor("OWNER", "preparing", "local_delivery")).toContain(
-      "cancel_requested"
-    );
+  it("cooking or later (before pickup) → direct cancelled; the owner never creates cancel_requested", () => {
+    for (const s of ["preparing", "ready_for_pickup", "delivering", "arrived"]) {
+      const next = allowedOrderTransitionsForActor("OWNER", s, "local_delivery");
+      expect(next, s).toContain("cancelled");
+      expect(next, s).not.toContain("cancel_requested");
+    }
+  });
+
+  it("owner decides requests: approve or restore only to the recorded previous status", () => {
+    expect(allowedOrderTransitionsForActor("OWNER", "cancel_requested", "pickup")).toEqual(["cancelled"]);
+    expect(
+      allowedOrderTransitionsForActor("OWNER", "cancel_requested", "pickup", { restoreToStatus: "accepted" })
+    ).toEqual(["cancelled", "accepted"]);
+    expect(
+      allowedOrderTransitionsForActor("OWNER", "cancel_requested", "pickup", { restoreToStatus: "completed" })
+    ).toEqual(["cancelled"]);
+    expect(allowedOrderTransitionsForActor("OWNER", "refund_requested", "pickup")).toEqual(["refunded"]);
+    expect(
+      allowedOrderTransitionsForActor("OWNER", "refund_requested", "pickup", { restoreToStatus: "accepted" })
+    ).toEqual(["refunded", "accepted"]);
   });
 
   it("completed → preparing FAIL", () => {

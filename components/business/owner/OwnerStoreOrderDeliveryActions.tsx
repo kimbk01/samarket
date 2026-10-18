@@ -12,6 +12,8 @@ import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-li
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
+import { OwnerOrderRequestDecision } from "@/components/business/owner/OwnerOrderRequestDecision";
+import { ownerStoreOrderDecisionActions } from "@/lib/stores/owner-store-order-decision-contract";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -220,6 +222,22 @@ export function OwnerStoreOrderDeliveryActionsAside({
     onReconcileOrder,
   });
 
+  if (ownerStoreOrderDecisionActions(order.order_status).length > 0) {
+    return (
+      <div className={variant === "rowBelow" ? "w-full min-w-0" : "min-w-0 max-w-[min(100%,13.25rem)] justify-self-end sm:max-w-none"}>
+        <OwnerOrderRequestDecision
+          storeId={storeId}
+          orderId={order.id}
+          orderStatus={order.order_status}
+          onDone={async () => {
+            await onReconcileOrder?.(order.id);
+            onUpdated();
+          }}
+        />
+      </div>
+    );
+  }
+
   if (!showTransitionButtons) return null;
 
   const wrapClass =
@@ -316,11 +334,14 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   } = usePatchOrder(storeId, order, onUpdated);
 
   const noticeEl: ReactNode = useMemo(() => {
-    if (order.order_status === "refund_requested") {
+    if (ownerStoreOrderDecisionActions(order.order_status).length > 0) {
       return (
-        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-helper leading-snug text-amber-950">
-          {t("store_owner_refund_requested_notice")}
-        </p>
+        <OwnerOrderRequestDecision
+          storeId={storeId}
+          orderId={order.id}
+          orderStatus={order.order_status}
+          onDone={onUpdated}
+        />
       );
     }
     if (order.order_status === "refunded") {
@@ -332,7 +353,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
       );
     }
     return null;
-  }, [order.order_status, showTransitionButtons, t]);
+  }, [onUpdated, order.id, order.order_status, showTransitionButtons, storeId, t]);
 
   const statusLabel = buyerOrderStatusLabel(order.order_status, language);
 
@@ -429,18 +450,22 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   const statusLabel = buyerOrderStatusLabel(order.order_status, language);
 
   const noticeEl: ReactNode = useMemo(() => {
-    if (order.order_status === "refund_requested") {
+    if (ownerStoreOrderDecisionActions(order.order_status).length > 0) {
       return (
-        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/90 px-2 py-1.5 sam-text-xxs leading-snug text-amber-950">
-          {t("store_owner_refund_requested_notice")}
-        </p>
+        <OwnerOrderRequestDecision
+          storeId={storeId}
+          orderId={order.id}
+          orderStatus={order.order_status}
+          compact
+          onDone={onUpdated}
+        />
       );
     }
     if (order.order_status === "refunded") {
       return <p className="sam-text-xxs leading-snug text-sam-muted">{t("business_phase7_331")}</p>;
     }
     return null;
-  }, [order.order_status, t]);
+  }, [onUpdated, order.id, order.order_status, storeId, t]);
 
   return (
     <>

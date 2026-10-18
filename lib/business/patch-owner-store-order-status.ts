@@ -61,3 +61,30 @@ export async function postOwnerStoreOrderCancelRequest(
     return { ok: false, error: "network_error" };
   }
 }
+
+/** 매장 결정 — 고객 취소·환불 요청 승인/반려 (`/decide`, 반려 사유 필수·서버 재확인) */
+export async function postOwnerStoreOrderDecision(
+  storeId: string,
+  orderId: string,
+  body: { action: string; reason?: string; expected_status: string }
+): Promise<{ ok: true; order_status: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(
+      `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}/decide`,
+      {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; order_status?: string };
+    if (!res.ok || !j?.ok) {
+      return { ok: false, error: typeof j?.error === "string" ? j.error : "decision_failed" };
+    }
+    return { ok: true, order_status: String(j.order_status ?? "") };
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
+}

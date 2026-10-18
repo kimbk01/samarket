@@ -461,11 +461,13 @@ async function main() {
       .eq("id", mid.order.id)
       .maybeSingle();
     if (cur?.order_status === "preparing") {
+      // 3단계: the buyer requests, the store decides (owner no longer creates cancel_requested).
       const req = await applyStoreOrderStatusTransition(sb, {
         orderId: mid.order.id,
         nextStatus: "cancel_requested",
-        actor: "OWNER",
-        audit: { actor_type: "user", actor_id: fixture.ownerId, action: "phase_d_cancel_req" },
+        actor: "CUSTOMER",
+        buyerCancelRequestReason: "phase_d_cancel_req",
+        audit: { actor_type: "user", actor_id: fixture.buyerId, action: "phase_d_cancel_req" },
       });
       const { data: stockMid } = await sb
         .from("store_products")
@@ -475,8 +477,8 @@ async function main() {
       const approve = await applyStoreOrderStatusTransition(sb, {
         orderId: mid.order.id,
         nextStatus: "cancelled",
-        actor: "ADMIN",
-        audit: { actor_type: "admin", actor_id: fixture.ownerId, action: "phase_d_admin_force_cancel" },
+        actor: "OWNER",
+        audit: { actor_type: "user", actor_id: fixture.ownerId, action: "phase_d_owner_cancel_approve" },
       });
       const { data: stockEnd } = await sb
         .from("store_products")
@@ -487,7 +489,7 @@ async function main() {
         req.ok &&
           approve.ok &&
           Number(stockEnd?.stock_qty) === Number(stockMid?.stock_qty) + 1
-          ? pass("J_cancel_requested_approve", "admin cancel restored stock")
+          ? pass("J_cancel_requested_approve", "store approved buyer cancel request, stock restored")
           : fail(
               "J_cancel_requested_approve",
               JSON.stringify({ req, approve, stockMid, stockEnd })
@@ -516,11 +518,12 @@ async function main() {
       ownerAcceptPrepMinutes: 10,
       audit: { actor_type: "user", actor_id: fixture.ownerId, action: "phase_d_accept" },
     });
+    // Buyers send cancel requests mid-flow now; a refund request is opened by the admin path.
     const rr = await applyStoreOrderStatusTransition(sb, {
       orderId: rf.order.id,
       nextStatus: "refund_requested",
-      actor: "CUSTOMER",
-      audit: { actor_type: "user", actor_id: fixture.buyerId, action: "phase_d_refund_req" },
+      actor: "ADMIN",
+      audit: { actor_type: "admin", actor_id: fixture.ownerId, action: "phase_d_refund_req" },
     });
     const { data: stockRf0 } = await sb
       .from("store_products")

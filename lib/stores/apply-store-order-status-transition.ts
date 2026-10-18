@@ -41,6 +41,17 @@ import { STORE_COMMISSION_CHARGE_FAILED_ERROR } from "@/lib/stores/commission/st
 import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
+/**
+ * Request rejections that notify the buyer with the reason (store or admin decision).
+ * The reject paths set `eventMetadata.source`; an admin-only reason never goes here.
+ */
+const REQUEST_REJECT_SOURCES = new Set([
+  "admin_refund_reject",
+  "admin_cancel_request_reject",
+  "owner_refund_reject",
+  "owner_cancel_request_reject",
+]);
+
 export type ApplyOrderStatusResult =
   | { ok: true; order_status: string; previous: string; idempotent?: boolean }
   | { ok: false; error: string; httpStatus: number };
@@ -54,6 +65,17 @@ export type ApplyStoreOrderStatusTransitionOpts = {
   ownerAcceptPrepMinutes?: number | null;
   /** ADMIN cancel_requested → previous_order_status */
   restoreToStatus?: string | null;
+  /**
+   * Status the caller read and decided on. When set, a different current status → 409
+   * `transition_conflict` and the CAS runs against this status (callers that recorded the
+   * previous status elsewhere, e.g. the cancel-request ledger, must not apply on a newer one).
+   */
+  expectedCurrentStatus?: string | null;
+  /**
+   * CUSTOMER → cancel_requested only (required there): the buyer's reason. The ledger row and the
+   * status change are written by `store_order_buyer_cancel_request_atomic` in one transaction.
+   */
+  buyerCancelRequestReason?: string | null;
   /** SYSTEM cron: require auto_complete_at <= now */
   requireAutoCompleteDue?: boolean;
   /** SYSTEM external-delivery webhook uses OWNER graph; payment_failure cancels pending */
@@ -120,6 +142,11 @@ export async function applyStoreOrderStatusTransition(
   const paymentStatus = order.payment_status as string;
   const sid = order.store_id as string;
 
+  const expectedCurrent = opts.expectedCurrentStatus?.trim();
+  if (expectedCurrent && expectedCurrent !== current) {
+    return { ok: false, error: "transition_conflict", httpStatus: 409 };
+  }
+
   if (current === nextStatus) {
     return { ok: true, order_status: current, previous: current, idempotent: true };
   }
@@ -178,7 +205,8 @@ export async function applyStoreOrderStatusTransition(
 
   if (nextStatus === "cancel_requested") {
     updatePayload.auto_complete_at = null;
-    updatePayload.needs_admin_attention = true;
+    // A buyer request is the store's work (it decides), not an admin queue item.
+    if (actor !== "CUSTOMER") updatePayload.needs_admin_attention = true;
   }
 
   if (current === "cancel_requested" && nextStatus !== "cancelled" && nextStatus !== "cancel_requested") {
@@ -217,10 +245,45 @@ export async function applyStoreOrderStatusTransition(
     return { updated, error };
   };
 
+  const buyerCancelRequest = actor === "CUSTOMER" && nextStatus === "cancel_requested";
   let { updated, error: uErr } =
-    nextStatus === "refunded"
+    nextStatus === "refunded" || buyerCancelRequest
       ? { updated: null as { id?: string } | null, error: null as { message?: string } | null }
       : await runCasUpdate(updatePayload);
+
+  /** D1: ledger row + status in one DB TX, delivery pickup checked under row locks (never ledger-then-delete). */
+  if (buyerCancelRequest) {
+    const reason = opts.buyerCancelRequestReason?.trim() ?? "";
+    if (!reason) return { ok: false, error: "cancel_reason_required", httpStatus: 400 };
+    const { data: reqRaw, error: reqErr } = await sb.rpc("store_order_buyer_cancel_request_atomic", {
+      p_order_id: oid,
+      p_buyer_user_id: String(order.buyer_user_id ?? ""),
+      p_expected_status: current,
+      p_reason: reason,
+    });
+    if (reqErr) {
+      if (/store_order_buyer_cancel_request_atomic|schema cache|does not exist/i.test(reqErr.message)) {
+        return { ok: false, error: "store_order_buyer_cancel_request_atomic_missing", httpStatus: 503 };
+      }
+      console.error("[applyStoreOrderStatusTransition] store_order_buyer_cancel_request_atomic", reqErr);
+      return { ok: false, error: reqErr.message, httpStatus: 500 };
+    }
+    const reqRow = (reqRaw ?? {}) as Record<string, unknown>;
+    if (reqRow.ok !== true) {
+      const code = String(reqRow.error ?? "cancel_request_failed");
+      const mapped: Record<string, { error: string; httpStatus: number }> = {
+        order_admin_locked: { error: "order_admin_locked", httpStatus: 409 },
+        transition_conflict: { error: "transition_conflict", httpStatus: 409 },
+        cancel_request_pending: { error: "cancel_request_pending", httpStatus: 409 },
+        picked_up: { error: "cannot_request_cancel", httpStatus: 400 },
+        invalid_transition: { error: "invalid_transition", httpStatus: 400 },
+        order_not_found: { error: "order_not_found", httpStatus: 404 },
+      };
+      return { ok: false, ...(mapped[code] ?? { error: code, httpStatus: 500 }) };
+    }
+    updated = { id: oid };
+    uErr = null;
+  }
 
   /** G10: refund terminal + gift reverse in one DB TX (never after-the-fact reverse). */
   if (nextStatus === "refunded") {
@@ -551,6 +614,14 @@ export async function applyStoreOrderStatusTransition(
     } else if (!statusEv.ok) {
       await notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
     }
+  } else if (nextStatus === "cancel_requested" && actor === "CUSTOMER") {
+    // Buyer mid-flow cancel request → the store decides (approve / reject).
+    const cancelReqNotify = { storeId: sid, orderId: oid, orderNo, request: "cancel" as const };
+    if (statusEv.ok && statusEv.inserted) {
+      await notifyStoreOwnerRefundRequested(sb, { ...cancelReqNotify, storeOrderEventId: statusEv.row.id });
+    } else if (!statusEv.ok) {
+      await notifyStoreOwnerRefundRequested(sb, cancelReqNotify);
+    }
   } else if (nextStatus === "refund_requested") {
     const refundNotify = { storeId: sid, orderId: oid, orderNo };
     if (statusEv.ok && statusEv.inserted) {
@@ -579,10 +650,9 @@ export async function applyStoreOrderStatusTransition(
     }
   } else if (
     buyerId &&
-    current === "refund_requested" &&
-    ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(nextStatus) &&
-    String((opts.eventMetadata as { source?: string } | undefined)?.source ?? "") ===
-      "admin_refund_reject"
+    ((current === "refund_requested" && ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(nextStatus)) ||
+      (current === "cancel_requested" && ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(nextStatus))) &&
+    REQUEST_REJECT_SOURCES.has(String((opts.eventMetadata as { source?: string } | undefined)?.source ?? ""))
   ) {
     const rejectReason = String(
       (opts.eventMetadata as { rejected_reason?: string } | undefined)?.rejected_reason ??
@@ -597,6 +667,7 @@ export async function applyStoreOrderStatusTransition(
         storeId: sid,
         reason: rejectReason,
         storeOrderEventId: statusEv.row.id,
+        request: current === "cancel_requested" ? "cancel" : "refund",
       });
     } else if (!statusEv.ok) {
       await notifyBuyerStoreRefundRejected(sb, {
@@ -605,6 +676,7 @@ export async function applyStoreOrderStatusTransition(
         orderNo,
         storeId: sid,
         reason: rejectReason,
+        request: current === "cancel_requested" ? "cancel" : "refund",
       });
     }
   } else if (buyerId) {

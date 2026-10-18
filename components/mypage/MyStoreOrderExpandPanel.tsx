@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
-import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
+import { canBuyerRequestStoreCancel } from "@/lib/stores/order-status-transitions";
 import {
   orderLineOptionsDetailLines,
   orderLineOptionsSummary,
@@ -400,8 +400,9 @@ export function MyStoreOrderExpandPanel({
   const itemsSumPhp = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
   const deliveryFeePhp = Math.max(0, Math.round(Number(order.delivery_fee_amount) || 0));
   const canBuyerCancel = storeOrderAwaitingFirstPayment(order);
-  const canRefundRequest = canBuyerRequestStoreRefund(order.order_status, order.payment_status);
+  const canRefundRequest = canBuyerRequestStoreCancel(order.order_status, order.payment_status);
   const refundPending = order.order_status === "refund_requested";
+  const cancelRequestPending = order.order_status === "cancel_requested";
   const eventLabels = storeOrderEventLabels(t);
   const hasDeliveryAddress =
     Boolean(order.delivery_address_summary?.trim()) || Boolean(order.delivery_address_detail?.trim());
@@ -427,13 +428,21 @@ export function MyStoreOrderExpandPanel({
     setRefundErr(null);
     setRefundBusy(true);
     try {
+      // 진행 중 취소 요청 — 매장이 승인·반려 (사유 필수)
       const { json } = await patchMeStoreOrder(orderId, {
-        request_refund: true,
-        refund_reason: refundReason.trim() || undefined,
+        request_cancel: true,
+        cancel_reason: refundReason.trim(),
       });
       const j = json as { ok?: boolean; error?: string };
       if (!j?.ok) {
-        setRefundErr(typeof j.error === "string" ? j.error : "refund_request_failed");
+        const code = typeof j.error === "string" ? j.error : "cancel_request_failed";
+        setRefundErr(
+          code === "cannot_request_cancel"
+            ? t("mypage_comp_cancel_req_err_cannot")
+            : code === "cancel_reason_required"
+              ? t("mypage_comp_cancel_req_reason_required")
+              : t("mypage_comp_request_failed_code", { code })
+        );
         return;
       }
       await load({ silent: true });
@@ -684,9 +693,9 @@ export function MyStoreOrderExpandPanel({
         </button>
       : null}
 
-      {refundPending ?
+      {refundPending || cancelRequestPending ?
         <p className="mt-2 rounded-[4px] bg-blue-50 px-3 py-2 text-sm text-blue-950">
-          {t("mypage_comp_refund_pending_notice")}
+          {t(cancelRequestPending ? "mypage_comp_cancel_req_pending_notice" : "mypage_comp_refund_pending_notice")}
         </p>
       : null}
 
@@ -698,16 +707,16 @@ export function MyStoreOrderExpandPanel({
             maxLength={500}
             value={refundReason}
             onChange={(ev) => setRefundReason(ev.target.value)}
-            placeholder={t("mypage_comp_refund_reason_placeholder")}
+            placeholder={t("mypage_comp_cancel_req_reason_placeholder")}
           />
           {refundErr ? <p className="mt-1 text-sm text-red-600">{refundErr}</p> : null}
           <button
             type="button"
-            disabled={refundBusy}
+            disabled={refundBusy || refundReason.trim().length < 2}
             onClick={() => void requestRefund()}
             className="mt-2 w-full rounded-[4px] border border-[#DDE5E0] py-2 text-sm font-medium disabled:opacity-50"
           >
-            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_refund_submit")}
+            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_req_submit")}
           </button>
         </div>
       : null}

@@ -7,9 +7,12 @@ describe("resolveStoreOrderCancelPolicy", () => {
     expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "accepted" }).kind).toBe("direct_cancel");
   });
 
-  it("requires owner cancel request after cooking starts", () => {
-    expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "preparing" }).kind).toBe("request_cancel");
-    expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "ready_for_pickup" }).kind).toBe("request_cancel");
+  it("owner cancels directly after cooking starts too (reason required, no admin approval)", () => {
+    for (const orderStatus of ["preparing", "ready_for_pickup", "delivering", "arrived"]) {
+      const p = resolveStoreOrderCancelPolicy({ role: "owner", orderStatus });
+      expect(p.kind, orderStatus).toBe("direct_cancel");
+      expect(p.reasonRequired, orderStatus).toBe(true);
+    }
   });
 
   it("hides cancellation after pickup or terminal states", () => {
@@ -24,10 +27,17 @@ describe("resolveStoreOrderCancelPolicy", () => {
     expect(resolveStoreOrderCancelPolicy({ role: "owner", orderStatus: "cancel_requested" }).kind).toBe("hidden");
   });
 
-  it("buyer may direct-cancel only while pending", () => {
+  it("buyer may direct-cancel only while pending; afterwards a cancel request (reason required)", () => {
     expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "pending" }).kind).toBe("direct_cancel");
-    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "accepted" }).kind).toBe("hidden");
-    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "preparing" }).kind).toBe("hidden");
+    for (const orderStatus of ["accepted", "preparing", "ready_for_pickup", "delivering", "arrived"]) {
+      const p = resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus });
+      expect(p.kind, orderStatus).toBe("request_cancel");
+      expect(p.reasonRequired, orderStatus).toBe(true);
+    }
+    expect(
+      resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "delivering", deliveryStatus: "pickup_in_progress" }).kind
+    ).toBe("hidden");
     expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "completed" }).kind).toBe("hidden");
+    expect(resolveStoreOrderCancelPolicy({ role: "buyer", orderStatus: "cancel_requested" }).kind).toBe("hidden");
   });
 });

@@ -454,7 +454,11 @@ export async function notifyStoreOwnerBuyerCancelled(
   });
 }
 
-/** 구매자 환불 요청 시 매장 오너에게 인앱 알림 */
+/**
+ * 매장 결정이 필요한 고객 요청(환불 요청 · 진행 중 취소 요청) — 매장 오너 인앱 알림.
+ * `request: "cancel"` 은 같은 알림 종류(`store_order_refund_requested`)에 취소 요청 문구와
+ * `meta.request_type` 을 싣는다 (배지·소리·링크 계약 재사용).
+ */
 export async function notifyStoreOwnerRefundRequested(
   sb: SupabaseClient,
   opts: {
@@ -463,6 +467,7 @@ export async function notifyStoreOwnerRefundRequested(
     orderNo: string;
     storeName?: string;
     storeOrderEventId?: string | null;
+    request?: "refund" | "cancel";
   }
 ): Promise<void> {
   const sid = opts.storeId.trim();
@@ -483,7 +488,11 @@ export async function notifyStoreOwnerRefundRequested(
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
   const evTrim = (opts.storeOrderEventId ?? "").trim();
-  const dedupe = `commerce:owner:refund_req:${oid}`;
+  const cancel = opts.request === "cancel";
+  // A rejected request may be sent again — one notification per request event.
+  const dedupe = cancel
+    ? `commerce:owner:cancel_req:${oid}:${evTrim || "x"}`
+    : `commerce:owner:refund_req:${oid}`;
 
   await appendUserNotification(sb, {
     user_id: ownerId,
@@ -492,10 +501,13 @@ export async function notifyStoreOwnerRefundRequested(
     ref_id: oid,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
-    title: nt(language, "notify_commerce_refund_requested_title"),
+    title: nt(language, cancel ? "notify_commerce_cancel_requested_title" : "notify_commerce_refund_requested_title"),
     body: name
-      ? nt(language, "notify_commerce_refund_requested_body_named", { store: name, orderNo })
-      : nt(language, "notify_commerce_refund_requested_body", { orderNo }),
+      ? nt(language, cancel ? "notify_commerce_cancel_requested_body_named" : "notify_commerce_refund_requested_body_named", {
+          store: name,
+          orderNo,
+        })
+      : nt(language, cancel ? "notify_commerce_cancel_requested_body" : "notify_commerce_refund_requested_body", { orderNo }),
     link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
@@ -504,6 +516,7 @@ export async function notifyStoreOwnerRefundRequested(
     }),
     meta: {
       kind: "store_order_refund_requested",
+      request_type: cancel ? "cancel" : "refund",
       store_id: sid,
       order_id: oid,
       order_no: orderNo,
@@ -724,7 +737,7 @@ export async function notifyBuyerStoreRefundApproved(
   });
 }
 
-/** 관리자 환불 요청 거절 후 구매자 — 금액/재고/상품권 복구 없음 */
+/** 환불 요청 · 취소 요청 반려(매장 또는 관리자) 후 구매자 — 금액/재고/상품권 복구 없음 */
 export async function notifyBuyerStoreRefundRejected(
   sb: SupabaseClient,
   opts: {
@@ -734,6 +747,7 @@ export async function notifyBuyerStoreRefundRejected(
     storeId: string;
     reason?: string | null;
     storeOrderEventId?: string | null;
+    request?: "refund" | "cancel";
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -747,7 +761,10 @@ export async function notifyBuyerStoreRefundRejected(
   const reason = truncateNote(opts.reason, 120);
 
   const evTrim = (opts.storeOrderEventId ?? "").trim();
-  const dedupe = `commerce:buyer:refund_rejected:${oid}`;
+  const cancel = opts.request === "cancel";
+  const dedupe = cancel
+    ? `commerce:buyer:cancel_rejected:${oid}:${evTrim || "x"}`
+    : `commerce:buyer:refund_rejected:${oid}`;
 
   await appendUserNotification(sb, {
     user_id: bid,
@@ -757,17 +774,21 @@ export async function notifyBuyerStoreRefundRejected(
     push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
-    title: nt(language, "notify_commerce_refund_rejected_title"),
+    title: nt(language, cancel ? "notify_commerce_cancel_rejected_title" : "notify_commerce_refund_rejected_title"),
     body: reason
-      ? nt(language, "notify_commerce_refund_rejected_body_reason", {
+      ? nt(language, cancel ? "notify_commerce_cancel_rejected_body_reason" : "notify_commerce_refund_rejected_body_reason", {
           store: label,
           orderNo,
           reason,
         })
-      : nt(language, "notify_commerce_refund_rejected_body", { store: label, orderNo }),
+      : nt(language, cancel ? "notify_commerce_cancel_rejected_body" : "notify_commerce_refund_rejected_body", {
+          store: label,
+          orderNo,
+        }),
     link_url: buyerStoreOrderDetailPath(oid),
     meta: {
       kind: "store_order_refund_rejected",
+      request_type: cancel ? "cancel" : "refund",
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId,
