@@ -30,7 +30,7 @@
 
 구매자 취소 요청의 원장 행과 상태 전이는 **한 DB 트랜잭션**이다 — `store_order_buyer_cancel_request_atomic` (`supabase/migrations/20270512120000_…`), writer 가 CUSTOMER → `cancel_requested` 일 때만 호출 (TS 에서 원장 쓰기·사후 삭제 없음). 주문 행 `FOR UPDATE`·배달 행 `FOR SHARE` 아래에서 관리자 잠금·호출자가 본 상태·accepted~arrived·배달 픽업(`pickup_in_progress`·`delivering`·`delivered`·`delivery_failed`)·미결 1건을 다시 확인한다. 어느 단계든 실패하면 원장 행도 상태 변경도 남지 않는다.
 
-동시성 범위: 먼저 커밋된(또는 진행 중인) 픽업은 요청이 기다렸다가 보고 거절한다. 요청이 먼저 커밋되면 이후 픽업 UPDATE 는 그 커밋을 기다린다 — 그 뒤 픽업 차단은 배달 서비스의 기존 주문 상태 검사(`orderAllowsDispatch`, 잠금 없는 읽기 검사)가 맡는다. 함수가 배포되지 않았으면 503 이며 대체 쓰기는 없다.
+동시성 범위 (DB 수준): 픽업이 먼저 커밋되면(진행 중이면 기다렸다가) 요청이 거절된다. 요청이 먼저 커밋되면 이후 픽업 진입(`pickup_in_progress`·`delivering`)은 같은 마이그레이션의 `trg_store_order_deliveries_pickup_requires_dispatch` 가 주문 행 잠금 아래에서 `orderAllowsDispatch` 와 같은 규칙(ready_for_pickup·delivering·arrived)으로 거절한다 → owner·rider·admin 경로 모두 409 `order_status_blocks_dispatch`. 잠금 순서는 배달 행 → 주문 행으로 통일(교착 없음). 함수·트리거가 배포되지 않았으면 요청은 503 이며 대체 쓰기는 없다.
 
 매장 결정 규칙: 소유 확인 → `admin_locked` 이면 409 → 매장이 본 상태와 다르면 409 `status_changed` → 반려 사유 필수 → 복원 상태는 서버 기록만(취소 요청: 원장 `previous_order_status`, 환불 요청: 엄격한 이벤트 근거, 불명확하면 409) → `applyStoreOrderStatusTransition`(OWNER, CAS) → 원장은 여전히 `pending` 인 행만 닫음 → 감사 로그 `store_order.owner_decision`.
 

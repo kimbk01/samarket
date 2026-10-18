@@ -209,6 +209,16 @@ describe("routes and writer wiring (static)", () => {
     expect(sql).toContain("'buyer'");
   });
 
+  it("pickup after a committed buyer request is refused in the DB and surfaced as 409 on every pickup path", () => {
+    const sql = read("supabase/migrations/20270512120000_store_order_buyer_cancel_request_atomic.sql");
+    expect(sql).toContain("CREATE TRIGGER trg_store_order_deliveries_pickup_requires_dispatch");
+    expect(sql).toContain("IN ('ready_for_pickup', 'delivering', 'arrived')");
+    // request function locks delivery before order (same order as pickup UPDATE + trigger → no deadlock)
+    expect(sql.indexOf("FROM public.store_order_deliveries")).toBeLessThan(sql.indexOf("FROM public.store_orders\n   WHERE id = p_order_id AND buyer_user_id"));
+    const svc = read("lib/stores/store-order-delivery-service.ts");
+    expect(svc.match(/isPickupBlockedByOrderStatus\(/g)?.length).toBe(4);
+  });
+
   it("decide route gates ownership and requires expected_status", () => {
     const route = read("app/api/me/stores/[storeId]/orders/[orderId]/decide/route.ts");
     expect(route).toContain("getStoreIfOwner");

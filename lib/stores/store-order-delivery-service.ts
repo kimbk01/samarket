@@ -232,6 +232,12 @@ function orderAllowsDispatch(orderStatus: string): boolean {
   return ["ready_for_pickup", "delivering", "arrived"].includes(orderStatus);
 }
 
+/** DB pickup guard (trg_store_order_deliveries_pickup_requires_dispatch): the order left the dispatch
+ * statuses after the read above (e.g. a buyer cancel request committed) → same 409 as the read check. */
+function isPickupBlockedByOrderStatus(message: unknown): boolean {
+  return /order_status_blocks_dispatch/.test(String(message ?? ""));
+}
+
 function deliveryMilestoneForStatus(status: string): StoreOrderDeliveryMilestone {
   switch (status) {
     case "rider_assigned":
@@ -451,6 +457,7 @@ export async function adminPatchStoreOrderDelivery(
 
   if (uErr || !updated) {
     const msg = String(uErr?.message ?? "");
+    if (isPickupBlockedByOrderStatus(msg)) return { ok: false, error: "order_status_blocks_dispatch", httpStatus: 409 };
     if (/failure_reason/i.test(msg) && /does not exist/i.test(msg)) {
       return { ok: false, error: "failure_reason_column_missing_apply_migration", httpStatus: 503 };
     }
@@ -591,6 +598,9 @@ export async function ownerPatchStoreOrderDelivery(
     patch,
     storeId: opts.storeId,
   });
+  if (isPickupBlockedByOrderStatus(uErr?.message)) {
+    return { ok: false, error: "order_status_blocks_dispatch", httpStatus: 409 };
+  }
   if (uErr || !updated) return { ok: false, error: uErr?.message ?? "update_failed", httpStatus: 500 };
 
   void appendAuditLog(sb, {
@@ -1031,6 +1041,7 @@ export async function riderPatchStoreOrderDelivery(
 
   if (uErr) {
     const msg = String(uErr.message ?? "");
+    if (isPickupBlockedByOrderStatus(msg)) return { ok: false, error: "order_status_blocks_dispatch", httpStatus: 409 };
     if (RIDER_APP_DELIVERY_COL_KEYS.test(msg) && /does not exist/i.test(msg)) {
       return { ok: false, error: "rider_delivery_columns_missing_apply_migration", httpStatus: 503 };
     }

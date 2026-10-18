@@ -8,7 +8,8 @@
 --   delivery picked up or later → picked_up (same set as store-order-cancel-policy.ts)
 --   another pending request → cancel_request_pending (one-pending unique index)
 -- Any failure leaves neither the ledger row nor the status change.
--- A courier pickup that commits first is seen here; one that starts later waits for this commit.
+-- A courier pickup that commits first is seen here; one that starts later waits for this commit and
+-- is then refused by trg_store_order_deliveries_pickup_requires_dispatch (below).
 
 CREATE OR REPLACE FUNCTION public.store_order_buyer_cancel_request_atomic(
   p_order_id uuid,
@@ -33,6 +34,13 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_args');
   END IF;
 
+  -- Lock order: delivery row first, then order row — the same order the pickup guard below takes
+  -- (pickup UPDATE locks the delivery row, then its trigger locks the order row), so no deadlock.
+  SELECT delivery_status INTO v_delivery_status
+    FROM public.store_order_deliveries
+   WHERE order_id = p_order_id
+   FOR SHARE;
+
   SELECT * INTO v_order
     FROM public.store_orders
    WHERE id = p_order_id AND buyer_user_id = p_buyer_user_id
@@ -50,11 +58,6 @@ BEGIN
   IF v_order.order_status NOT IN ('accepted', 'preparing', 'ready_for_pickup', 'delivering', 'arrived') THEN
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_transition', 'order_status', v_order.order_status);
   END IF;
-
-  SELECT delivery_status INTO v_delivery_status
-    FROM public.store_order_deliveries
-   WHERE order_id = p_order_id
-   FOR SHARE;
   IF v_delivery_status IN ('pickup_in_progress', 'delivering', 'delivered', 'delivery_failed') THEN
     RETURN jsonb_build_object('ok', false, 'error', 'picked_up', 'delivery_status', v_delivery_status);
   END IF;
@@ -93,3 +96,36 @@ REVOKE ALL ON FUNCTION public.store_order_buyer_cancel_request_atomic(uuid, uuid
 REVOKE ALL ON FUNCTION public.store_order_buyer_cancel_request_atomic(uuid, uuid, text, text) FROM anon;
 REVOKE ALL ON FUNCTION public.store_order_buyer_cancel_request_atomic(uuid, uuid, text, text) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.store_order_buyer_cancel_request_atomic(uuid, uuid, text, text) TO service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Pickup guard: entering pickup (pickup_in_progress / delivering) needs a dispatchable order,
+-- checked under the order row lock in the same UPDATE. Same rule as orderAllowsDispatch in
+-- lib/stores/store-order-delivery-service.ts (owner · rider · admin paths); that TS check is a
+-- read without a lock, so a cancel request committed after it could otherwise be followed by a pickup.
+-- ═══════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.store_order_deliveries_pickup_requires_dispatch()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF NEW.delivery_status IN ('pickup_in_progress', 'delivering')
+     AND OLD.delivery_status NOT IN ('pickup_in_progress', 'delivering', 'delivered', 'delivery_failed') THEN
+    SELECT order_status INTO v_status
+      FROM public.store_orders
+     WHERE id = NEW.order_id
+     FOR SHARE;
+    IF v_status IS NULL OR v_status NOT IN ('ready_for_pickup', 'delivering', 'arrived') THEN
+      RAISE EXCEPTION 'order_status_blocks_dispatch:%', coalesce(v_status, 'missing') USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_store_order_deliveries_pickup_requires_dispatch ON public.store_order_deliveries;
+CREATE TRIGGER trg_store_order_deliveries_pickup_requires_dispatch
+  BEFORE UPDATE OF delivery_status ON public.store_order_deliveries
+  FOR EACH ROW EXECUTE FUNCTION public.store_order_deliveries_pickup_requires_dispatch();
