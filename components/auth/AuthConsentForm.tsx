@@ -13,6 +13,8 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
+import { notifyLegalConsentCompleted } from "@/lib/auth/client-consent-state";
+import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import {
@@ -21,7 +23,12 @@ import {
   DIBAY_ONBOARDING_PRIMARY_BTN,
 } from "@/lib/ui/dibay-onboarding-starbucks-styles";
 
-export function AuthConsentForm() {
+export function AuthConsentForm({
+  requiredVersions,
+}: {
+  /** Versions the server required when this screen rendered — sent back so a stale screen cannot record a newer version (P7). */
+  requiredVersions?: { termsVersion: string; privacyVersion: string } | null;
+} = {}) {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,6 +39,7 @@ export function AuthConsentForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  const [shownVersions, setShownVersions] = useState(requiredVersions ?? null);
 
   const handleSubmit = async () => {
     if (inFlightRef.current || submitting) return;
@@ -48,9 +56,31 @@ export function AuthConsentForm() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ agreeTerms: true, agreePrivacy: true }),
+        body: JSON.stringify({
+          agreeTerms: true,
+          agreePrivacy: true,
+          ...(shownVersions
+            ? { termsVersion: shownVersions.termsVersion, privacyVersion: shownVersions.privacyVersion }
+            : {}),
+        }),
       });
-      const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        requiredConsent?: { termsVersion: string; privacyVersion: string };
+      } | null;
+      if (res.status === 409 && data?.code === "consent_version_stale") {
+        // Terms were revised while this screen was open — ask the member to review and agree again.
+        if (data.requiredConsent) {
+          setShownVersions(data.requiredConsent);
+          setClientRequiredConsentVersions(data.requiredConsent);
+        }
+        setAgreeTerms(false);
+        setAgreePrivacy(false);
+        setError(data.error || t("auth_consent_save_failed"));
+        return;
+      }
       if (!res.ok || !data?.ok) {
         setError(data?.error || t("auth_consent_save_failed"));
         return;
@@ -76,6 +106,7 @@ export function AuthConsentForm() {
       }
 
       markSignupConsentResolvedSession();
+      notifyLegalConsentCompleted();
 
       const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped(next);
       const target =
@@ -98,7 +129,6 @@ export function AuthConsentForm() {
 
   return (
     <DibayOnboardingOverlayShell
-      step={1}
       title={t("auth_consent_title")}
       description={t("auth_consent_intro")}
       titleId="dibay-onboarding-consent-title"

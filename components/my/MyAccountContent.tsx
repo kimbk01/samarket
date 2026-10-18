@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { getClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
 import {
   MYPAGE_ADDRESSES_HREF,
   MYPAGE_REQUIRED_DIBAY_ID_HREF,
@@ -121,7 +122,7 @@ export function MyAccountContent() {
     "";
   const contactVerified = isProfileContactVerified(profile);
   const storeMemberStatus = deriveStoreMemberStatus(profile);
-  const consentDone = hasStoreTermsConsent(profile);
+  const consentDone = hasStoreTermsConsent(profile, getClientRequiredConsentVersions());
   const profileCompleted = profile.profile_completed === true;
   const addressLine = addressState.status === "ready" ? addressState.line?.trim() ?? "" : "";
   const addressDone = Boolean(addressLine?.trim());

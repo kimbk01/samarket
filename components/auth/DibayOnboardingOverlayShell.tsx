@@ -10,7 +10,8 @@ import {
 } from "@/lib/ui/dibay-onboarding-starbucks-styles";
 
 type DibayOnboardingOverlayShellProps = {
-  step: 1 | 2;
+  /** Omit when the flow has no further step (consent-only signup — B6: no misleading "1/2"). */
+  step?: 1 | 2;
   title: string;
   description?: string;
   titleId: string;
@@ -33,9 +34,11 @@ export function DibayOnboardingOverlayShell({
       <div className="mx-auto flex justify-center" aria-hidden>
         <DibayAuthLogo size={52} />
       </div>
-      <div className="mt-3 flex justify-center">
-        <span className={DIBAY_ONBOARDING_STEP_BADGE_CLASS}>{step}/2</span>
-      </div>
+      {step ? (
+        <div className="mt-3 flex justify-center">
+          <span className={DIBAY_ONBOARDING_STEP_BADGE_CLASS}>{step}/2</span>
+        </div>
+      ) : null}
       <h1 id={titleId} className={`mt-3 ${DIBAY_ONBOARDING_TITLE_CLASS}`}>
         {title}
       </h1>

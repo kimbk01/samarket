@@ -57,6 +57,10 @@ function invalidPhoneResult(): ServiceResult<never> {
   );
 }
 
+function phoneDuplicateResult(): ServiceResult<never> {
+  return fail(409, "phone_duplicate", "이미 다른 계정에서 사용 중인 전화번호입니다.");
+}
+
 async function ensurePhoneUnique(
   sb: SupabaseClient,
   userId: string,
@@ -64,9 +68,7 @@ async function ensurePhoneUnique(
 ): Promise<ServiceResult<null>> {
   try {
     const duplicate = await findPhoneDuplicateOnOtherProfile(sb, userId, inputPhone);
-    if (duplicate) {
-      return fail(409, "phone_duplicate", "이미 다른 계정에서 사용 중인 전화번호입니다.");
-    }
+    if (duplicate) return phoneDuplicateResult();
     return { ok: true, data: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : "server_error";
@@ -234,26 +236,28 @@ export async function sendPhoneOtpForUser(
     return fail(502, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
 
+  // B7/B8: sending a code changes nothing the member already has. The requested number lives in
+  // phone_otp_challenges until verify succeeds — the profile phone / verified state are written only
+  // by verify. (Before: send cleared phone_verified and stored the unverified number on the profile,
+  // demoting verified members and reserving numbers through profiles_phone_unique_idx.)
   const nowIso = new Date().toISOString();
   const { error: profileError } = await sb
     .from("profiles")
     .update({
-      phone: phoneFields.phone,
-      phone_country_code: phoneFields.phone_country_code,
-      phone_number: phoneFields.phone_number,
-      phone_verified: false,
-      phone_verified_at: null,
-      phone_verification_status: "pending",
-      phone_verification_method: "semaphore_local",
       phone_verification_requested_at: nowIso,
       phone_verification_attempt_count: 0,
-      preferred_country: "PH",
       updated_at: nowIso,
     })
     .eq("id", userId);
   if (profileError) {
     return fail(500, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
+  // Unverified members show "pending" while a code is outstanding; verified members stay verified.
+  await sb
+    .from("profiles")
+    .update({ phone_verification_status: "pending" })
+    .eq("id", userId)
+    .or("phone_verified.is.null,phone_verified.eq.false");
 
   return { ok: true, data: { phone: phoneFields.phone ?? normalizedPhone, settings } };
 }
@@ -335,7 +339,11 @@ export async function verifyPhoneOtpForUser(
       updated_at: nowIso,
     })
     .eq("id", userId);
-  if (error) return fail(500, "server_error", error.message);
+  if (error) {
+    // profiles_phone_unique_idx — another member verified this number between check and write.
+    if ((error as { code?: string }).code === "23505") return phoneDuplicateResult();
+    return fail(500, "server_error", error.message);
+  }
   const marked = await markPhoneOtpChallengeVerified(sb, userId);
   if (!marked.ok) return marked;
 
