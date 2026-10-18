@@ -174,7 +174,6 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("POST", "/api/community-messenger/calls/[sessionId]/push-ack", "existing_call_session"),
   R("PATCH", "/api/community-messenger/calls/sessions/[sessionId]", "existing_call_session"),
   R("POST", "/api/community-messenger/calls/sessions/[sessionId]/signals", "existing_call_session"),
-  R("POST", "/api/community-messenger/calls/stub-message", "existing_call_session"),
   // guest analytics
   R("POST", "/api/community/posts/[postId]/view", "guest_analytics"),
   R("POST", "/api/philife/posts/[postId]/view", "guest_analytics"),
