@@ -499,9 +499,9 @@ async function completePickup(owner, orderId) {
 }
 
 async function adminRefund(admin, orderId) {
-  const req = await adminPatchOrder(admin, orderId, { set_order_status: "refund_requested" });
+  const req = await adminPatchOrder(admin, orderId, { set_order_status: "refund_requested", reason: "QA runtime refund scenario" });
   if (!req.body?.ok) throw new Error(`refund_requested:${JSON.stringify(req)}`);
-  const done = await adminPatchOrder(admin, orderId, { complete_refund: true });
+  const done = await adminPatchOrder(admin, orderId, { complete_refund: true, reason: "QA runtime refund scenario" });
   if (!done.body?.ok) throw new Error(`complete_refund:${JSON.stringify(done)}`);
   return done;
 }
@@ -515,7 +515,7 @@ async function revenueLedger(sb, redemptionId) {
 }
 
 async function adminCompleteRefundTwice(admin, orderId) {
-  return adminPatchOrder(admin, orderId, { complete_refund: true });
+  return adminPatchOrder(admin, orderId, { complete_refund: true, reason: "QA runtime refund scenario" });
 }
 
 loadEnv();

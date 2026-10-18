@@ -25,28 +25,51 @@ import {
   adminSetRefundRequestedStoreOrder,
   type AdminOrderOpsAudit,
 } from "@/lib/stores/apply-admin-store-order-operations";
-import { ADMIN_REFUND_REQUEST_RESTORE_STATUSES } from "@/lib/stores/order-status-transitions";
+import { ADMIN_REFUND_REQUEST_RESTORE_STATUSES, isValidOrderStatus } from "@/lib/stores/order-status-transitions";
 
 export type AdminStoreOrderInterventionResult =
   | { ok: true; fromStatus: string; toStatus: string }
   | { ok: false; error: string; httpStatus: number; currentStatus?: string };
 
-/** Status recorded right before the latest move into `refund_requested` (allowed restores only). */
+type OrderStatusEvent = { from_status: string | null; to_status: string | null; created_at: string };
+
+/**
+ * Restore target for a refund reject = the order status recorded right before the CURRENT
+ * refund request. Returns null (→ block, never guess) unless the record is unambiguous:
+ * - the latest order-status event is the move into `refund_requested`, and there is exactly
+ *   one such event in the current run (missing event → older cycle; duplicate → ambiguous)
+ * - no other order-status event shares its timestamp (ordering ambiguous)
+ * - the event before it ended in that same `from_status` (history consistent)
+ * - `from_status` is an allowed restore status
+ * Only order-status values count (`to_status` also carries delivery statuses).
+ */
+export function pickRefundRequestRestoreStatus(eventsNewestFirst: readonly OrderStatusEvent[]): string | null {
+  const events = eventsNewestFirst.filter((e) => isValidOrderStatus(String(e.to_status ?? "")));
+  let run = 0;
+  while (run < events.length && events[run].to_status === "refund_requested") run++;
+  if (run !== 1) return null;
+  const current = events[0];
+  if (events.slice(1).some((e) => e.created_at === current.created_at)) return null;
+  const from = String(current.from_status ?? "").trim();
+  if (!ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(from)) return null;
+  const before = events[1];
+  if (!before || before.to_status !== from) return null;
+  return from;
+}
+
 export async function resolveRefundRequestRestoreStatus(
   sb: SupabaseClient,
   orderId: string
 ): Promise<string | null> {
   const { data, error } = await sb
     .from("store_order_events")
-    .select("from_status")
+    .select("from_status, to_status, created_at")
     .eq("order_id", orderId)
-    .eq("to_status", "refund_requested")
+    .not("to_status", "is", null)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return null;
-  const from = String((data as { from_status?: unknown }).from_status ?? "").trim();
-  return ADMIN_REFUND_REQUEST_RESTORE_STATUSES.has(from) ? from : null;
+    .limit(50);
+  if (error || !Array.isArray(data)) return null;
+  return pickRefundRequestRestoreStatus(data as OrderStatusEvent[]);
 }
 
 export async function runAdminStoreOrderIntervention(

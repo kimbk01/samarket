@@ -74,13 +74,13 @@
 |---|---|
 | 계약 | `lib/admin/store-orders/admin-store-order-intervention-contract.ts` — 동작 6종, 현재 상태별 허용 동작 = ADMIN 전이 그래프(`allowedOrderTransitionsForActor`)에서 계산 |
 | 서버 | `lib/stores/admin-store-order-intervention.ts` → `POST /api/admin/store-orders/[orderId]/intervene` `{ action, reason, expected_status }` |
-| 레거시 | `PATCH /[orderId]`(force_cancel·complete_refund·reject_refund·set_order_status), `POST /approve-refund`, `PATCH /cancel-request` 도 같은 서비스로 위임 — 사유 없으면 400 |
+| 레거시 | `PATCH /[orderId]`(force_cancel·complete_refund·reject_refund·set_order_status), `POST /approve-refund`, `PATCH /cancel-request` 도 같은 서비스로 위임 — 요청 본문에 `reason` 필수(없으면 400 `reason_required`), `restore_to_status` 는 무시, 이미 종료된 주문은 409 `action_not_allowed_for_status`(이전의 `already: true` 응답 대신). 저장소 QA 스크립트는 `reason` 을 보내도록 갱신 |
 | 화면 | 주문 상세 「관리자 개입」 카드: 동작 버튼 → 사유 입력(필수) → 처리 중 표시 → 성공/실패 표시 → 주문·감사 로그·이력 재조회 |
 
 처리 규칙:
 1. **사유 필수** (2~500자). 관리자 사유는 **감사 로그(`store_order.admin_intervention`, 처리자·사유·전후 상태)에만** 저장 — 구매자 주문 이벤트 API 로 노출되지 않음. 반려 사유(취소요청 반려·환불 반려)는 기존대로 매장·구매자에게 전달.
 2. **서버 재확인**: 관리자가 본 상태(`expected_status`)와 현재 상태가 다르면 409 `status_changed` → 화면 재조회. 상태 쓰기는 `applyStoreOrderStatusTransition`(ADMIN 그래프 + CAS).
-3. **환불 반려 복원 상태는 서버가 결정**: 마지막 `→ refund_requested` 이벤트의 `from_status` (허용 복원 상태만). 알 수 없거나 `pending` 이면 409 — 반려 대신 취소/환불 승인으로 처리. (이전 목록 UI 는 항상 `completed` 로 복원 → `accepted` 에서 들어온 요청을 반려하면 주문완료로 건너뛰는 결함이 있었음.)
+3. **환불 반려 복원 상태는 서버가 결정**: 주문 상태 이벤트(`to_status` 가 주문 상태인 것만 — 배달 상태 제외) 최신순에서 ① 맨 앞이 `→ refund_requested` 이고 그 연속 구간이 정확히 1건(누락·중복 차단) ② 같은 시각의 다른 주문 상태 이벤트 없음(순서 모호 차단) ③ 바로 앞 이벤트의 결과 상태 = `from_status`(기록 일관성) ④ `from_status` 가 허용 복원 상태 — 모두 만족할 때만 복원, 아니면 409 `refund_restore_status_unknown` (반려 대신 취소/환불 승인으로 처리). 운영 열린 환불요청 2건은 `accepted` 로 판정. (이전 목록 UI 는 항상 `completed` 로 복원 → `accepted` 에서 들어온 요청을 반려하면 주문완료로 건너뛰는 결함이 있었음.)
 4. 취소요청 원장(`store_order_cancel_requests`)은 주문 CAS 성공 후 **여전히 `pending` 인 행만** 승인/반려로 닫는다.
 5. 매장 결정과의 동시성: 주문 상태 CAS + `expected_status` 로 한 쪽만 성공. (매장 쪽 결정 권한은 3단계.)
 

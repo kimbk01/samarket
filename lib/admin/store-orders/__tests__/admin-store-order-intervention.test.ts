@@ -19,25 +19,39 @@ import {
   adminStoreOrderInterventionActions,
   normalizeAdminInterventionReason,
 } from "@/lib/admin/store-orders/admin-store-order-intervention-contract";
-import { runAdminStoreOrderIntervention } from "@/lib/stores/admin-store-order-intervention";
+import {
+  pickRefundRequestRestoreStatus,
+  runAdminStoreOrderIntervention,
+} from "@/lib/stores/admin-store-order-intervention";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
 
-/** Minimal Supabase stub: per-table row returned by `.maybeSingle()`. */
+/** Minimal Supabase stub: `.maybeSingle()` → the table's row, awaiting the chain → the table's list. */
 function fakeSb(rows: Record<string, unknown>) {
   return {
     from(table: string) {
       const chain = {
         select: () => chain,
         eq: () => chain,
+        not: () => chain,
         order: () => chain,
         limit: () => chain,
         maybeSingle: async () => ({ data: rows[table] ?? null, error: null }),
+        then: (resolve: (v: { data: unknown; error: null }) => unknown) =>
+          resolve({ data: Array.isArray(rows[table]) ? rows[table] : [], error: null }),
       };
       return chain;
     },
   } as never;
 }
+
+const ev = (from: string | null, to: string, at: string) => ({ from_status: from, to_status: to, created_at: at });
+/** created → accepted → refund_requested (newest first), like the two open production refunds. */
+const ACCEPTED_THEN_REFUND = [
+  ev("accepted", "refund_requested", "2026-05-22T06:24:29Z"),
+  ev("pending", "accepted", "2026-05-22T06:14:15Z"),
+  ev(null, "pending", "2026-05-22T05:59:14Z"),
+];
 
 const AUDIT = { adminUserId: "admin-1", ip: null, user_agent: null };
 
@@ -131,7 +145,7 @@ describe("C. refund reject restores the server-recorded status (never client-cho
     const r = await runAdminStoreOrderIntervention(
       fakeSb({
         store_orders: { id: "o", order_status: "refund_requested", payment_status: "paid" },
-        store_order_events: { from_status: "accepted" },
+        store_order_events: ACCEPTED_THEN_REFUND,
       }),
       { orderId: "o", action: "refund_reject", reason: "구매자 오요청", expectedStatus: "refund_requested", audit: AUDIT }
     );
@@ -143,12 +157,69 @@ describe("C. refund reject restores the server-recorded status (never client-cho
     const r = await runAdminStoreOrderIntervention(
       fakeSb({
         store_orders: { id: "o", order_status: "refund_requested", payment_status: "paid" },
-        store_order_events: { from_status: "pending" },
+        store_order_events: [ev("pending", "refund_requested", "2026-05-22T06:24:29Z"), ev(null, "pending", "2026-05-22T05:59:14Z")],
       }),
       { orderId: "o", action: "refund_reject", reason: "구매자 오요청", expectedStatus: "refund_requested", audit: AUDIT }
     );
     expect(r).toMatchObject({ ok: false, error: "refund_restore_status_unknown", httpStatus: 409 });
     expect(ops.adminRejectRefundStoreOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("C-2. restore evidence must be unambiguous — otherwise block (null)", () => {
+  it("normal history → the recorded previous status", () => {
+    expect(pickRefundRequestRestoreStatus(ACCEPTED_THEN_REFUND)).toBe("accepted");
+  });
+
+  it("delivery-status events in to_status are ignored", () => {
+    expect(
+      pickRefundRequestRestoreStatus([ev("delivering", "delivered", "2026-05-22T06:30:00Z"), ...ACCEPTED_THEN_REFUND])
+    ).toBe("accepted");
+  });
+
+  it("current request's event missing (older cycle only) → block", () => {
+    // refund requested from completed, rejected back to completed, requested again — last event lost
+    expect(
+      pickRefundRequestRestoreStatus([
+        ev("refund_requested", "completed", "2026-06-02T00:00:00Z"),
+        ev("completed", "refund_requested", "2026-06-01T00:00:00Z"),
+        ev("arrived", "completed", "2026-05-31T00:00:00Z"),
+      ])
+    ).toBeNull();
+    expect(pickRefundRequestRestoreStatus([])).toBeNull();
+  });
+
+  it("duplicate move into refund_requested → block", () => {
+    expect(
+      pickRefundRequestRestoreStatus([
+        ev("accepted", "refund_requested", "2026-05-22T06:24:30Z"),
+        ...ACCEPTED_THEN_REFUND,
+      ])
+    ).toBeNull();
+  });
+
+  it("another order-status event at the same instant → block", () => {
+    expect(
+      pickRefundRequestRestoreStatus([
+        ev("accepted", "refund_requested", "2026-05-22T06:24:29Z"),
+        ev("pending", "accepted", "2026-05-22T06:24:29Z"),
+        ev(null, "pending", "2026-05-22T05:59:14Z"),
+      ])
+    ).toBeNull();
+  });
+
+  it("previous event does not end in from_status → block", () => {
+    expect(
+      pickRefundRequestRestoreStatus([
+        ev("preparing", "refund_requested", "2026-05-22T06:24:29Z"),
+        ev("pending", "accepted", "2026-05-22T06:14:15Z"),
+      ])
+    ).toBeNull();
+  });
+
+  it("not an allowed restore status (pending) or no previous event → block", () => {
+    expect(pickRefundRequestRestoreStatus([ev("pending", "refund_requested", "t2"), ev(null, "pending", "t1")])).toBeNull();
+    expect(pickRefundRequestRestoreStatus([ev("accepted", "refund_requested", "t2")])).toBeNull();
   });
 });
 

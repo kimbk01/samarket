@@ -50,8 +50,13 @@ if (!refundAlias.includes("adminCompleteRefundStoreOrder")) {
   fails.push("applyAdminStoreOrderRefund must alias adminCompleteRefundStoreOrder");
 }
 
-if (!approveRefund.includes("adminCompleteRefundStoreOrder")) {
-  fails.push("approve-refund route must use adminCompleteRefundStoreOrder");
+// approve-refund delegates to the admin intervention service (reason required), which owns the op.
+const intervention = read("lib/stores/admin-store-order-intervention.ts");
+if (!approveRefund.includes("runAdminStoreOrderIntervention") || !approveRefund.includes('"refund_approve"')) {
+  fails.push("approve-refund route must use runAdminStoreOrderIntervention(refund_approve)");
+}
+if (!/case "refund_approve":[\s\S]*?adminCompleteRefundStoreOrder\(/.test(intervention)) {
+  fails.push("intervention refund_approve must use adminCompleteRefundStoreOrder");
 }
 
 if (!payment.includes('systemPurpose: "payment_failure"')) {
