@@ -322,6 +322,25 @@ public class MainActivity extends BridgeActivity {
     return activeInstance;
   }
 
+  /**
+   * PUSH-01 — FCM rotated the token while the app process is alive: ask the web layer to
+   * re-register (NativePushRegistration listens for {@code dibay:push-token-rotated}). When no
+   * activity is alive the next resume / cold start registers the current token instead.
+   */
+  public static void notifyPushTokenRotated() {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    act.mainHandler.post(
+        () -> {
+          Bridge bridge = act.getBridge();
+          if (bridge == null) return;
+          WebView webView = bridge.getWebView();
+          if (webView == null) return;
+          webView.evaluateJavascript(
+              "window.dispatchEvent(new CustomEvent('dibay:push-token-rotated'));", null);
+        });
+  }
+
   /** Foreground native pill visibility — Web banner fallback gate. */
   public static void notifyForegroundIncomingUiState(String callId, boolean visible) {
     MainActivity act = activeInstance;
