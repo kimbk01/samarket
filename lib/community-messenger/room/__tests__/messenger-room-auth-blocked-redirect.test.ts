@@ -7,6 +7,17 @@ vi.mock("@/lib/auth/client-access-flow", () => ({
   redirectForBlockedAction: (...args: unknown[]) => redirectForBlockedAction(...args),
 }));
 
+const openPhoneVerificationRequiredSheet = vi.fn();
+const openProfileCompletionRequiredModal = vi.fn();
+
+vi.mock("@/lib/auth/phone-verification-required-client", () => ({
+  openPhoneVerificationRequiredSheet: (...args: unknown[]) => openPhoneVerificationRequiredSheet(...args),
+}));
+
+vi.mock("@/lib/profile/profile-completion-modal-client", () => ({
+  openProfileCompletionRequiredModal: (...args: unknown[]) => openProfileCompletionRequiredModal(...args),
+}));
+
 describe("tryRedirectMessengerRoomAuthBlocked", () => {
   const router = { push: vi.fn() };
 
@@ -30,6 +41,47 @@ describe("tryRedirectMessengerRoomAuthBlocked", () => {
       "PHONE_VERIFICATION_REQUIRED",
       "/community-messenger/rooms/room-1"
     );
+  });
+
+  it("send 403 profile_incomplete (phone_verified) opens phone verification sheet, not snackbar", () => {
+    const res = new Response(null, { status: 403 });
+    const ok = tryRedirectMessengerRoomAuthBlocked(
+      router,
+      res,
+      {
+        ok: false,
+        error: "profile_incomplete",
+        code: "profile_incomplete",
+        actionType: "messenger_send_message",
+        missingFields: ["phone_verified"],
+      } as { error?: unknown; code?: unknown },
+      { pathname: "/community-messenger/rooms/room-1", streamRoomId: "room-1" }
+    );
+    expect(ok).toBe(true);
+    expect(openPhoneVerificationRequiredSheet).toHaveBeenCalledWith({ next: "/community-messenger/rooms/room-1" });
+    expect(openProfileCompletionRequiredModal).not.toHaveBeenCalled();
+    expect(redirectForBlockedAction).not.toHaveBeenCalled();
+  });
+
+  it("send 403 profile_incomplete with other missing fields opens profile completion modal", () => {
+    const res = new Response(null, { status: 403 });
+    const ok = tryRedirectMessengerRoomAuthBlocked(
+      router,
+      res,
+      {
+        code: "profile_incomplete",
+        actionType: "messenger_send_message",
+        missingFields: ["phone_verified", "display_name"],
+      },
+      { pathname: "/community-messenger/rooms/room-1", streamRoomId: "room-1" }
+    );
+    expect(ok).toBe(true);
+    expect(openProfileCompletionRequiredModal).toHaveBeenCalledWith({
+      actionType: "messenger_send_message",
+      missingFields: ["phone_verified", "display_name"],
+      next: "/community-messenger/rooms/room-1",
+    });
+    expect(openPhoneVerificationRequiredSheet).not.toHaveBeenCalled();
   });
 
   it("passes login error text through single redirect handler", () => {
