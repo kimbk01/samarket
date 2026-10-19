@@ -253,10 +253,19 @@ export function adminOperatorErrorMessage(
     not_pending: { ko: "이미 처리된 자동 조치입니다. 새로고침 후 확인하세요.", en: "This auto action was already handled. Refresh." },
     event_not_open: { ko: "연결된 경고가 이미 종료되어 실행할 수 없습니다.", en: "The linked alert is already closed." },
     max_retries: { ko: "재실행 가능 횟수를 모두 사용했습니다.", en: "No retries left." },
+    auto_action_effect_failed: {
+      ko: "결정은 기록됐지만 조치 실행에 실패했습니다. 실패 목록에서 확인 후 재실행하세요.",
+      en: "The decision was recorded but the action failed to run. Check the failed list and re-run.",
+    },
+    not_failed: { ko: "실패한 자동 조치만 재실행할 수 있습니다. 새로고침 후 확인하세요.", en: "Only failed auto actions can be re-run. Refresh." },
     not_found: { ko: "대상을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Not found. Refresh and check again." },
     rpc_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
     schema_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
     bad_action: { ko: "지원하지 않는 복구 작업입니다.", en: "Unsupported recovery action." },
+    concurrent_recovery: {
+      ko: "같은 복구 작업이 이미 실행 중입니다. 잠시 후 다시 시도하세요.",
+      en: "The same recovery is already running. Try again shortly.",
+    },
     retype_required: { ko: "확인 문구가 일치하지 않아 실행하지 않았습니다.", en: "The confirmation text did not match." },
     stale_version: {
       ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
@@ -291,6 +300,10 @@ export function adminOperatorErrorMessage(
     rider_suspended: { ko: "정지된 라이더에게는 배정할 수 없습니다.", en: "Suspended riders cannot be assigned." },
     rider_paused: { ko: "배정이 일시 중지된 라이더입니다.", en: "This rider's assignments are paused." },
     invalid_rule_number: { ko: "분·단계 값은 1 이상의 숫자로 입력하세요.", en: "Minutes/levels must be numbers of 1 or more." },
+    invalid_price: { ko: "가격은 0 이상의 숫자로 입력하세요.", en: "Enter a price of 0 or more." },
+    invalid_name: { ko: "상품명은 1~120자로 입력하세요.", en: "Product name must be 1–120 characters." },
+    store_name_required: { ko: "매장 이름은 2자 이상 입력하세요.", en: "Store name must be at least 2 characters." },
+    invalid_phone: { ko: "전화번호 형식이 올바르지 않습니다.", en: "Invalid phone number." },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);

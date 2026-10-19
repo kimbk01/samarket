@@ -8,6 +8,7 @@ import {
   OWNER_ADMIN_FIELD_LABEL_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
 import { humanAdminStoreName } from "@/lib/stores/admin-coupon-control-view";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type StoreOpt = { id: string; name: string };
 
@@ -34,7 +35,7 @@ export function AdminStoreCouponAdminCreatePanel({
   stores: StoreOpt[];
   onCreated: (title: string) => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const now = useMemo(() => new Date(), []);
   const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
   const [title, setTitle] = useState("");
@@ -105,22 +106,27 @@ export function AdminStoreCouponAdminCreatePanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
           if (json.error === "admin_funding_forbidden") setErr(t("store_coupon_admin_funding_fail"));
           else if (json.error === "admin_shared_share_required") setErr(t("store_coupon_admin_share_fail"));
           else {
+            const code = res.status === 403 ? "forbidden" : json.error;
             setErr(
-              safeT("store_coupon_admin_act_fail", {
-                fallbackKo: "처리할 수 없습니다.",
-                fallbackEn: "Could not complete that action.",
-              })
+              code
+                ? adminOperatorErrorMessage(code, language !== "en")
+                : safeT("store_coupon_admin_act_fail", {
+                    fallbackKo: "처리할 수 없습니다.",
+                    fallbackEn: "Could not complete that action.",
+                  })
             );
           }
           return;
         }
         setTitle("");
         onCreated(issuedTitle);
+      } catch {
+        setErr(adminOperatorErrorMessage("network_error", language !== "en"));
       } finally {
         setBusy(false);
       }

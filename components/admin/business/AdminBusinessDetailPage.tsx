@@ -435,7 +435,6 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
   /** 빠른 조치 — 조치별 확인 문구 (L1 영업 스위치 · L2 판매 중지). */
   const runQuickAction = async (kind: "temp_close" | "resume_open" | "suspend_sales") => {
     if (!payload) return;
-    const d = payload.delivery;
     if (kind === "suspend_sales") {
       const c = ADMIN_STORE_ACTION_COPY.suspend_sales;
       const confirmed = await confirmAdminAction({
@@ -470,11 +469,8 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       destructive: closing,
     });
     if (!confirmed.ok) return;
-    await runStoreAction("set_delivery_flags", {
-      is_open: !closing,
-      delivery_available: d.deliveryAvailable ?? undefined,
-      pickup_available: d.pickupAvailable ?? undefined,
-    });
+    // 영업 스위치만 바꾼다 — 배달·포장 값을 같이 보내면 좌표 없는 매장에서 배달 검증(400)에 막힌다.
+    await runStoreAction("set_delivery_flags", { is_open: !closing });
   };
 
   const handleSaveMemo = async () => {

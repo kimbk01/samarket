@@ -153,7 +153,24 @@ export async function POST(req: Request) {
 
 
 
-  return NextResponse.json(data ?? { ok: false });
+  // RPC 는 실패도 200 + `{ ok: false, error | result: "error" }` 로 돌려준다 → HTTP 오류로 변환해
+  // 화면이 「완료」로 오인하지 않게 한다 (동시 실행 잠금·권한·내부 예외).
+  const out = data != null && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  if (!out || out.ok !== true) {
+    const rpcErr = typeof out?.error === "string" ? out.error : "";
+    if (rpcErr === "concurrent_recovery") {
+      return NextResponse.json({ ok: false, error: "concurrent_recovery" }, { status: 409 });
+    }
+    if (rpcErr === "not_platform_admin") {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+    if (rpcErr === "bad_action" || rpcErr === "unknown_action") {
+      return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
+    }
+    return NextResponse.json({ ok: false, error: "rpc_failed" }, { status: 500 });
+  }
+
+  return NextResponse.json(out);
 
 }
 

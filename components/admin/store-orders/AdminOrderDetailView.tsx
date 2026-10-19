@@ -648,6 +648,24 @@ function AdminOrderMetaControls({
     await patch({ admin_flagged: flagging }, ko ? "확인 필요 표시를 변경했습니다." : "Review mark updated.");
   };
 
+  /** 처리 필요 주문(운영 예외) 큐에서 내린다 — 서버 PATCH needs_admin_attention=false (CAS·감사). */
+  const clearAttention = async () => {
+    const c = await confirmAdminAction({
+      level: "L2",
+      ko,
+      title: ko ? "운영 예외 해제" : "Resolve order exception",
+      description: ko
+        ? "처리 필요 주문 목록에서 이 주문을 내립니다. 주문 상태는 바뀌지 않으며, 매장·구매자에게는 보이지 않습니다."
+        : "Removes this order from the exceptions queue. Order status does not change; not visible to the store or buyer.",
+      confirmLabel: ko ? "해제" : "Resolve",
+    });
+    if (!c.ok) return;
+    await patch(
+      { needs_admin_attention: false, reason: c.reason ?? "" },
+      ko ? "운영 예외를 해제했습니다." : "Exception resolved."
+    );
+  };
+
   const toggleUrgent = async () => {
     const urgent = o.disputeStatus !== "urgent";
     const c = await confirmAdminAction({
@@ -682,6 +700,11 @@ function AdminOrderMetaControls({
         >
           {o.adminFlagged ? (ko ? "확인 필요 해제" : "Clear review mark") : ko ? "확인 필요 표시" : "Mark for review"}
         </button>
+        {o.needsAdminAttention ? (
+          <button type="button" className={BTN} disabled={busy} onClick={() => void clearAttention()}>
+            {ko ? "운영 예외 해제" : "Resolve exception"}
+          </button>
+        ) : null}
         <button
           type="button"
           className={BTN}

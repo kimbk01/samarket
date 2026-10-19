@@ -369,6 +369,13 @@ function AdminDeliveryAutoActionsPageInner() {
           return;
         }
         setMemo((m) => ({ ...m, [actionId]: "" }));
+        // 승인·재실행은 결정은 기록됐어도 조치 실행이 실패하면 RPC 가 `{ ok: false }` 를 돌려준다 → 성공으로 표시하지 않는다.
+        const rpcResult = j != null && typeof j === "object" ? (j as { result?: { ok?: unknown } }).result : undefined;
+        if (path !== "reject" && rpcResult && rpcResult.ok === false) {
+          setResult({ ok: false, code: "auto_action_effect_failed" });
+          loadData();
+          return;
+        }
         setResult({
           ok: true,
           message:

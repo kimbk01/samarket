@@ -18,6 +18,7 @@ export type AdminDiscoveryCampaignRow = {
   store_name: string | null;
   campaign_type: string;
   title: string;
+  body_copy?: string | null;
   start_at: string;
   end_at: string;
   is_active: boolean;
@@ -109,7 +110,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       storeId: row.store_id,
       campaignType: row.campaign_type === "promo" ? "promo" : "event",
       title: row.title,
-      bodyCopy: "",
+      bodyCopy: row.body_copy ?? "",
       startAt: toDatetimeLocal(row.start_at),
       endAt: toDatetimeLocal(row.end_at),
       isActive: row.is_active,

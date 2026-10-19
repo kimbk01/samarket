@@ -49,6 +49,9 @@ export const adminDeliveryR4AMessages = {
     admin_r4a_risk_sales_blocked: "판매 불가 · {status}",
     admin_r4a_resubmitted_badge: "보완 재제출",
     admin_r4a_resubmitted_hint: "보완 요청 후 사장님이 신청 내용을 고쳐 다시 제출했습니다. 아래 보완 요청 내용과 비교해 심사하세요.",
+    admin_r4_cash_charge_approve_ok: "적립 완료 · 잔액 {balance}",
+    admin_r4_cash_charge_approve_idempotent: "이미 처리된 충전입니다. 중복 적립되지 않았습니다.",
+    admin_r4_cash_charge_not_pending: "이미 처리된 충전 신청입니다. 목록을 새로 불러왔습니다.",
   },
   en: {
     admin_r4_return_previous: "← Back to previous screen",
@@ -97,5 +100,8 @@ export const adminDeliveryR4AMessages = {
     admin_r4a_risk_sales_blocked: "Cannot sell · {status}",
     admin_r4a_resubmitted_badge: "Resubmitted",
     admin_r4a_resubmitted_hint: "The owner fixed and resubmitted the application after a change request. Compare with the change request below.",
+    admin_r4_cash_charge_approve_ok: "Credited · balance {balance}",
+    admin_r4_cash_charge_approve_idempotent: "Already processed. Not credited twice.",
+    admin_r4_cash_charge_not_pending: "This top-up was already handled. The list was refreshed.",
   },
 } as const;

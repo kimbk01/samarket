@@ -83,7 +83,9 @@ export async function PATCH(
   }
 
   const rm = getAuditRequestMeta(req);
-  const audit = { adminUserId: admin.userId, ip: rm.ip, user_agent: rm.userAgent };
+  const auditReason =
+    typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 500) : null;
+  const audit = { adminUserId: admin.userId, ip: rm.ip, user_agent: rm.userAgent, reason: auditReason };
 
   let decision: AdminStoreOrderInterventionAction | null = null;
   if (body.force_cancel === true) decision = "force_cancel";
@@ -120,6 +122,10 @@ export async function PATCH(
   if (body.admin_note !== undefined) meta.admin_note = body.admin_note;
   if (body.dispute_status !== undefined) meta.dispute_status = body.dispute_status;
   if (typeof body.needs_admin_attention === "boolean") meta.needs_admin_attention = body.needs_admin_attention;
+  // 운영 예외 해제는 사유 필수 (작업 기록)
+  if (meta.needs_admin_attention === false && (!auditReason || auditReason.length < 2)) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   if (prim === 0 && Object.keys(meta).length === 0) {
     return NextResponse.json({ ok: false, error: "empty_body" }, { status: 400 });

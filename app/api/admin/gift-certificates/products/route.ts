@@ -271,6 +271,10 @@ export async function POST(req: NextRequest) {
     if (appErr || !app) {
       return NextResponse.json({ ok: false, error: "application_not_found" }, { status: 404 });
     }
+    /** 반려·정지·초안 신청에서는 상품을 만들지 않는다 (승인 화면 노출 조건과 동일). */
+    if (!["submitted", "under_review", "approved"].includes(String(app.status ?? ""))) {
+      return NextResponse.json({ ok: false, error: "status_changed", current: app.status ?? null }, { status: 409 });
+    }
     storeId = String(app.store_id);
   }
 

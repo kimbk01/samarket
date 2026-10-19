@@ -8,6 +8,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DeliveryAlertLogTimeline } from "@/components/admin/delivery-alerts/DeliveryAlertLogTimeline";
 import { AUTO_ACTION_TYPE_KEYS } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
 import { fetchAdminDeliveryOperationAlertsDeduped } from "@/lib/admin/fetch-admin-delivery-operation-alerts-deduped";
+import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import {
   AdminErrorState,
   AdminResultBanner,
@@ -324,6 +325,8 @@ function AdminDeliveryAlertsPageInner() {
 
   const load = useCallback(() => {
     setLoading(true);
+    // 처리·동기화 직후 재조회가 10초 GET 캐시의 이전 목록을 받지 않도록 매번 무효화한다.
+    invalidateAdminFetchCache("admin:delivery-operation-alerts:");
     void fetchAdminDeliveryOperationAlertsDeduped(filter, assignment).then(({ status, json }) => {
       const parsed = parsePayload(json);
       if (status === 200 && parsed) {

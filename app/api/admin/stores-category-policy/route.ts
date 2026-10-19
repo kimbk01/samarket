@@ -29,7 +29,7 @@ import {
   isBrowseShelfSelectedSourceValid,
 } from "@/lib/stores/stores-browse-discovery-shelf";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -256,7 +256,8 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
-    invalidateStoresBrowseMemoryCache();
+    /** DEF-64 — 로컬 browse 캐시만 비우면 다른 인스턴스가 TTL(45s)까지 이전 정책 응답을 낸다. */
+    bumpStorePublicSharedCacheGeneration("stores_category_policy.update");
     await appendAdminRouteAudit(gate.sb, req, {
       actorId: userId,
       targetType: "stores_browse_scope_policy",

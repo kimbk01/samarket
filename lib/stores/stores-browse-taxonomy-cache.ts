@@ -46,6 +46,11 @@ export function peekBrowseTaxonomySlice(cacheKey: string): BrowseTaxonomySlice |
   return row.slice;
 }
 
+/** 관리자 업종(1·2차) 변경 후 — `purgeAllStorePublicServerMemoryCaches` 에서 호출 (10분 TTL 잔존 방지) */
+export function clearBrowseTaxonomySliceCache(): void {
+  cache.clear();
+}
+
 export function setBrowseTaxonomySlice(cacheKey: string, slice: BrowseTaxonomySlice): void {
   cache.set(cacheKey, { expiresAt: Date.now() + STORES_BROWSE_TAXONOMY_CACHE_TTL_MS, slice });
   if (cache.size > 120) {

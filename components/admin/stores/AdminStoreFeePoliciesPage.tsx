@@ -999,6 +999,7 @@ export function AdminStoreFeePoliciesPage() {
           onRequestConfirm={() => setConfirmOpen(true)}
           onCancelConfirm={() => setConfirmOpen(false)}
           onSubmit={() => void submitApply()}
+          errorText={error ? feePolicyErrorMessage(t, error) : null}
         />
       ) : null}
     </div>
@@ -1541,6 +1542,7 @@ function ApplyModal({
   onRequestConfirm,
   onCancelConfirm,
   onSubmit,
+  errorText,
 }: {
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
   busy: boolean;
@@ -1569,6 +1571,8 @@ function ApplyModal({
   onRequestConfirm: () => void;
   onCancelConfirm: () => void;
   onSubmit: () => void;
+  /** 저장 실패 사유 — 모달이 열린 채 남으므로 페이지 배너(오버레이 뒤) 대신 모달 안에도 표시한다. */
+  errorText: string | null;
 }) {
   const targetLabel =
     applyTarget.kind === "default"
@@ -1733,6 +1737,14 @@ function ApplyModal({
             </>
           )}
         </div>
+        {errorText ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          >
+            {errorText}
+          </p>
+        ) : null}
         <div className={`${OverlayUi.actionsRow} mt-4`}>
           {confirmOpen ? (
             <>

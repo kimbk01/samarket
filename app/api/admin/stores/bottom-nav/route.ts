@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
     await appendAdminRouteAudit(gate.sb, req, {
       actorId: gate.actor.userId,
       targetType: "delivery_bottom_nav_item",
@@ -156,7 +156,7 @@ export async function PUT(req: NextRequest) {
     }
     if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
-    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
     await appendAdminRouteAudit(gate.sb, req, {
       actorId: gate.actor.userId,
       targetType: "delivery_bottom_nav_item",
@@ -187,7 +187,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+  revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
   await appendAdminRouteAudit(gate.sb, req, {
     actorId: gate.actor.userId,
     targetType: "delivery_bottom_nav_item",
@@ -254,14 +254,14 @@ export async function PATCH(req: NextRequest) {
       .eq("id", aId)
       .eq("sort_order", bSort);
     if (revert.error) console.error("[PATCH admin stores bottom-nav swap revert]", revert.error);
-    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+    revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
     return NextResponse.json(
       { ok: false, error: second.error ? "update_failed" : "stale_updated_at", reverted: !revert.error },
       { status: second.error ? 500 : 409 }
     );
   }
 
-  revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+  revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
   await appendAdminRouteAudit(gate.sb, req, {
     actorId: gate.actor.userId,
     targetType: "delivery_bottom_nav_item",

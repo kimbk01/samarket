@@ -276,7 +276,32 @@ export function AdminDeliveryDistanceSettingsPage() {
       setRadiusSavingId(storeId);
       setError(null);
       try {
-        if (parsed && parsed.ok) {
+        if (modeDirty) {
+          /**
+           * 모드 변경은 매장 단위 CAS 액션 하나로 저장한다 — 전역 overrides JSON 전체를 PUT 하면
+           * 페이지를 연 뒤 다른 관리자가 바꾼 다른 매장 모드를 덮어쓴다. 반경도 같은 호출로 함께 반영.
+           */
+          const prevMode = modeOf(overridesSaved, storeId);
+          const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "set_store_delivery_distance",
+              distance_mode: nextMode,
+              expected_distance_mode: prevMode,
+              delivery_radius_km: parsed && parsed.ok ? parsed.value : store.delivery_radius_km ?? null,
+            }),
+          });
+          const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+          if (!res.ok || !j.ok) {
+            setError(adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko));
+            if (res.status === 409) void load();
+            return;
+          }
+          setOverridesSaved((prev) => withStoreMode(prev, storeId, nextMode));
+          setOverridesDraft((prev) => withStoreMode(prev, storeId, nextMode));
+        } else if (parsed && parsed.ok) {
           const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
             method: "PATCH",
             credentials: "include",
@@ -291,6 +316,8 @@ export function AdminDeliveryDistanceSettingsPage() {
             setError(adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko));
             return;
           }
+        }
+        if (parsed && parsed.ok) {
           setStores((prev) =>
             prev.map((s) =>
               s.id === storeId
@@ -304,37 +331,6 @@ export function AdminDeliveryDistanceSettingsPage() {
           );
           setRadiusDrafts((prev) => ({ ...prev, [storeId]: String(parsed.value) }));
         }
-        if (modeDirty) {
-          // 전역 정책은 저장된 값 그대로 보내고, 이 매장 모드만 반영한다.
-          const res = await fetch("/api/admin/delivery/settings", {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              distance_policy: { ...policySaved, overDistanceBehavior: "exclude" },
-              store_distance_overrides: withStoreMode(overridesSaved, storeId, nextMode),
-            }),
-          });
-          const j = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            error?: string;
-            store_distance_overrides?: unknown;
-          };
-          if (!res.ok || !j.ok) {
-            const msg = adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko);
-            setError(
-              parsed && parsed.ok
-                ? ko
-                  ? `배달 반경은 저장했지만 거리 제한 모드는 저장하지 못했습니다. ${msg}`
-                  : `Radius saved, but the distance limit mode was not. ${msg}`
-                : msg
-            );
-            return;
-          }
-          const savedOverrides = normalizeOverrides(j.store_distance_overrides);
-          setOverridesSaved(savedOverrides);
-          setOverridesDraft((prev) => withStoreMode(prev, storeId, modeOf(savedOverrides, storeId)));
-        }
         showMessage(ko ? `「${name}」 배달 설정을 저장했습니다.` : t("admin_delivery_distance_radius_saved"));
       } catch {
         setError(t("admin_delivery_distance_error_network"));
@@ -342,7 +338,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         setRadiusSavingId(null);
       }
     },
-    [radiusDrafts, overridesDraft, overridesSaved, policySaved, showMessage, t, ko]
+    [radiusDrafts, overridesDraft, overridesSaved, load, showMessage, t, ko]
   );
 
   const save = useCallback(async () => {
@@ -361,8 +357,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           distance_policy: nextPolicy,
-          // 매장별 모드는 각 행 「저장」으로만 반영 — 여기서는 저장된 값을 유지한다.
-          store_distance_overrides: overridesSaved,
+          // 매장별 모드는 각 행 「저장」(CAS)으로만 반영 — 여기서 overrides 를 보내면 다른 관리자 변경을 덮어쓴다.
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -386,7 +381,7 @@ export function AdminDeliveryDistanceSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [policyDraft, policySaved.defaultMaxKm, overridesSaved, showMessage, t, ko]);
+  }, [policyDraft, policySaved.defaultMaxKm, showMessage, t, ko]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

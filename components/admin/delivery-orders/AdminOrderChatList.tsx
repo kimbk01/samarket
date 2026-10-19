@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { AdminOrderDetailModal, useAdminOrderDetailParam } from "@/components/admin/store-orders/AdminOrderDetailModal";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import type { AdminStoreOrderChatListRow } from "@/lib/admin-delivery-orders/list-admin-store-order-chats";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
@@ -19,7 +20,7 @@ export function AdminOrderChatList() {
   const { t, safeT, language } = useI18n();
   const [rows, setRows] = useState<AdminStoreOrderChatListRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; status?: number } | null>(null);
   const modal = useAdminOrderDetailParam();
   const statusLabel = (s: string) => {
     const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
@@ -30,7 +31,7 @@ export function AdminOrderChatList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/order-chats", { credentials: "include" });
+      const res = await fetch("/api/admin/order-chats", { credentials: "include", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         rows?: AdminStoreOrderChatListRow[];
@@ -38,13 +39,13 @@ export function AdminOrderChatList() {
       } | null;
       if (!res.ok || !json?.ok) {
         setRows([]);
-        setError(json?.error || "load_failed");
+        setError({ code: res.status === 401 || res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
         return;
       }
       setRows(Array.isArray(json.rows) ? json.rows : []);
     } catch {
       setRows([]);
-      setError("load_failed");
+      setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -75,7 +76,13 @@ export function AdminOrderChatList() {
         {safeT("admin_do_chat_list_error", {
           fallbackKo: "주문 채팅 목록을 불러오지 못했습니다.",
           fallbackEn: "Could not load order chats.",
-        })}
+        })}{" "}
+        {adminOperatorErrorMessage(error.code, language !== "en")}
+        {error.code !== "forbidden" ? (
+          <button type="button" onClick={() => void load()} className="ml-2 font-medium underline">
+            {language === "en" ? "Retry" : "다시 시도"}
+          </button>
+        ) : null}
       </p>
     );
   }

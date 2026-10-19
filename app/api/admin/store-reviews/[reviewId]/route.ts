@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +69,15 @@ export async function PATCH(
   }
   if (!updated) {
     return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+  }
+
+  // 숨김/복구 → DB 트리거가 stores.rating_avg·review_count 를 다시 계산한다.
+  // 매장 카드·상세 공개 캐시(홈 피드·browse·slug)가 이전 별점을 내지 않도록 인스턴스 공통 무효화.
+  try {
+    clearStoreHomeFeedServerCache();
+    bumpStorePublicSharedCacheGeneration("admin_store_review.status");
+  } catch (e) {
+    console.error("[admin store-reviews PATCH] cache invalidate", e);
   }
 
   await appendAdminRouteAudit(sb, req, {

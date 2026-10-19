@@ -620,9 +620,10 @@ export function AdminStoresCategoryPolicyPage() {
         return;
       }
       if (typeof json.revision === "number") setRevision(json.revision);
-      setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
       setPreviewReloadToken((n) => n + 1);
       await load();
+      /** load() 가 시작 시 saveMsg 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
+      setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
     } catch {
       setSaveErr("save_fail");
     } finally {

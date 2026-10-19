@@ -42,7 +42,19 @@ export type AdminStoreProductActionInput = {
 export function buildAdminStoreProductPatch(
   input: AdminStoreProductActionInput
 ): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
-  const memo = input.memo;
+  const built = buildAdminStoreProductPatchRaw(input);
+  if (!built.ok) return built;
+  // 값이 없는 필드는 보내지 않는다 (기존 검수 메모 보존).
+  const patch = Object.fromEntries(Object.entries(built.patch).filter(([, v]) => v !== undefined));
+  return { ok: true, patch };
+}
+
+function buildAdminStoreProductPatchRaw(
+  input: AdminStoreProductActionInput
+): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
+  // 메모가 없는 조치(승인·품절·상품명/가격 수정 등)는 기존 검수 메모를 지우지 않는다.
+  const memoText = (input.memo ?? "").trim();
+  const memo = memoText.length > 0 ? memoText : undefined;
   switch (input.action) {
     case "block":
       return {

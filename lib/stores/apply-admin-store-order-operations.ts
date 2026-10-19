@@ -10,6 +10,8 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 
 export type AdminOrderOpsAudit = {
   adminUserId: string;
+  /** 운영자 처리 사유 (있으면 작업 기록에 남긴다) */
+  reason?: string | null;
   ip?: string | null;
   user_agent?: string | null;
 };
@@ -365,7 +367,7 @@ export async function adminPatchStoreOrderMeta(
     target_id: oid,
     action: "store_order.admin_patch_meta",
     before_json: before as Record<string, unknown>,
-    after_json: row,
+    after_json: audit.reason ? { ...row, reason: audit.reason } : row,
     ip: audit.ip ?? null,
     user_agent: audit.user_agent ?? null,
   });

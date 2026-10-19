@@ -25,6 +25,7 @@ import {
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { STORES_HOME_COMPOSITION_DEFAULT_POLICY } from "@/lib/stores/composition/stores-home-composition-default-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -225,6 +226,8 @@ export async function PUT(req: NextRequest) {
     }));
 
     await upsertHomeShelfProductFields(sb, productOverrides, userId);
+    /** DEF-64 — 선반 상품 설정(인기 메뉴 기준 등)이 담긴 홈 피드 응답 캐시를 인스턴스 공통 무효화 */
+    bumpStorePublicSharedCacheGeneration("stores_home_shelves.update");
 
     await appendAdminRouteAudit(gate.sb, req, {
       actorId: userId,

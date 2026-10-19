@@ -93,6 +93,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ riderId: 
   if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);
   if (body.suspend === true) q = q.is("suspended_at", null);
   if (body.resume === true) q = q.not("suspended_at", "is", null);
+  // 메모 CAS — 화면이 불러온 메모 내용과 같을 때만 덮어쓴다 (동시 저장 시 409 → 재조회).
+  if (body.admin_note !== undefined && "expected_admin_note" in body) {
+    const exp = typeof body.expected_admin_note === "string" ? body.expected_admin_note.trim() : "";
+    q = exp ? q.eq("admin_note", exp) : q.or("admin_note.is.null,admin_note.eq.");
+  }
   const { data: updated, error: uErr } = await q
     .select(
       "id, user_id, rider_status, is_online, admin_status, admin_note, suspended_at, suspended_by, last_active_at, current_lat, current_lng, updated_at"

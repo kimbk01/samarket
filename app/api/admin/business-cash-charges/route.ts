@@ -148,6 +148,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "reject") {
+    // L2 — 거절 사유는 사장님에게 전달된다. 화면 검증(2자)과 같은 기준을 서버에서도 강제.
+    if (String(body.reason ?? "").trim().length < 2) {
+      return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+    }
     const result = await rejectBusinessCashTopUpRequest(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,

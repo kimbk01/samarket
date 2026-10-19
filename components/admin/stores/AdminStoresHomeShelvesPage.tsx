@@ -444,10 +444,11 @@ export function AdminStoresHomeShelvesPage() {
         return;
       }
       if (typeof json.revision === "number") setRevision(json.revision);
-      setToast(t("admin_stores_home_shelves_save_ok"));
       invalidateStoreHomeFeedClientCache("");
       clearStoresHomeFeedLiveStore();
       await load();
+      /** load() 가 시작 시 toast 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
+      setToast(t("admin_stores_home_shelves_save_ok"));
     } catch {
       setSaveErr("save_fail");
     } finally {

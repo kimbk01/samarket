@@ -57,9 +57,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  /** 발행은 상태 전이(PATCH)와 같은 운영 권한 — 조회 권한만으로 쿠폰을 만들 수 없다. */
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -82,6 +82,12 @@ export async function POST(req: NextRequest) {
     );
   }
   bumpStorePublicSharedCacheGeneration("admin_coupon.create"); // DEF-64
+  await sb.from("coupon_audit_events").insert({
+    campaign_id: result.row.id,
+    actor_user_id: userId,
+    action: "admin_create",
+    payload: body && typeof body === "object" ? (body as Record<string, unknown>) : {},
+  });
   return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
 }
 
@@ -192,5 +198,11 @@ export async function PATCH(req: NextRequest) {
     );
   }
   bumpStorePublicSharedCacheGeneration("admin_coupon.update"); // DEF-64
+  await sb.from("coupon_audit_events").insert({
+    campaign_id: result.row.id,
+    actor_user_id: userId,
+    action: "admin_update",
+    payload: rec ?? {},
+  });
   return NextResponse.json({ ok: true, campaign: result.row });
 }

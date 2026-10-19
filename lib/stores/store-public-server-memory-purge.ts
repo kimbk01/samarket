@@ -14,8 +14,9 @@ import { clearStoreSummaryPublicServerCache } from "@/lib/stores/store-summary-p
 import { clearStoreMenusPublicServerCache } from "@/lib/stores/store-menus-public-server-cache";
 import { clearApprovedStoreSlugCache } from "@/lib/stores/get-approved-store-by-slug";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+import { clearBrowseTaxonomySliceCache } from "@/lib/stores/stores-browse-taxonomy-cache";
 
-/** 홈 피드 20s · browse 45s · summary 45s · slug 30s · menus 15/60s · 사장님 매장 목록 20s */
+/** 홈 피드 20s · browse 45s · summary 45s · slug 30s · menus 15/60s · 사장님 매장 목록 20s · browse 업종 slice 10min */
 export function purgeAllStorePublicServerMemoryCaches(): void {
   clearStoreHomeFeedServerCache();
   invalidateStoresBrowseMemoryCache();
@@ -23,4 +24,5 @@ export function purgeAllStorePublicServerMemoryCaches(): void {
   clearStoreMenusPublicServerCache();
   clearApprovedStoreSlugCache();
   invalidateMeStoresListServerCache();
+  clearBrowseTaxonomySliceCache();
 }

@@ -97,12 +97,15 @@ export function AdminBusinessCcTaxonomyEditor({
           store_topic_id: topicId || null,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -203,12 +206,15 @@ export function AdminBusinessCcContactEditor({
           description: description.trim() || null,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -341,12 +347,15 @@ export function AdminBusinessCcLocationEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -458,7 +467,7 @@ export function AdminBusinessCcFeeOverrideEditor({
             }),
           }
         );
-        const j = (await res.json()) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
           return;
@@ -479,13 +488,16 @@ export function AdminBusinessCcFeeOverrideEditor({
             priority: 10,
           }),
         });
-        const j = (await res.json()) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
           return;
         }
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -512,12 +524,15 @@ export function AdminBusinessCcFeeOverrideEditor({
           body: JSON.stringify({ is_active: false }),
         }
       );
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -620,6 +635,8 @@ export function AdminBusinessCcDeliveryOverrideEditor({
       }
       setResult(ko ? "배달 반경·거리 정책을 저장했습니다." : "Delivery radius and distance policy saved.");
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -725,12 +742,15 @@ export function AdminBusinessCcOpsFlagsEditor({
           is_open: openOn,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }

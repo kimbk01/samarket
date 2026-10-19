@@ -38,7 +38,7 @@ type ActionResult = {
 };
 
 export function AdminDeliveryAdCashChargeQueuePage() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -138,8 +138,14 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           reason: op === "reject" ? reason.trim() : undefined,
         }),
       });
-      const json = (await res.json()) as ActionResult;
+      const json = (await res.json().catch(() => ({ ok: false }))) as ActionResult;
       if (!res.ok || !json.ok) {
+        // 다른 관리자가 먼저 처리했거나 사라진 신청 — 안내 후 최신 목록으로 다시 불러온다.
+        if (json.error === "not_pending" || json.error === "not_found") {
+          setActionError(t("admin_r4_cash_charge_not_pending"));
+          await load();
+          return;
+        }
         setActionError(
           json.error || res.status === 403
             ? adminOperatorErrorMessage(res.status === 403 ? "forbidden" : String(json.error), ko)
@@ -153,15 +159,13 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       }
       emitAdminQueueChanged("cash_charges");
       if (op === "approve") {
+        // 카탈로그 「적립 완료」 키는 잔액·중복 여부를 담지 못해 결과 문구가 같아졌다 — 전용 키로 구분.
         setSuccess(
-          safeT("admin_delivery_ads_cash_charges_approve_ok", {
-            fallbackKo: json.idempotent
-              ? "이미 처리된 충전입니다. 중복 적립되지 않았습니다."
-              : `적립 완료 · 잔액 ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
-            fallbackEn: json.idempotent
-              ? "Already processed. Not credited twice."
-              : `Credited · balance ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
-          })
+          json.idempotent
+            ? t("admin_r4_cash_charge_approve_idempotent")
+            : t("admin_r4_cash_charge_approve_ok", {
+                balance: formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0),
+              })
         );
         setSuccessLedgerId(json.ledgerId ?? null);
       } else {

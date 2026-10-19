@@ -243,6 +243,8 @@ export function AdminDeliveryRidersPage() {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
           setResult({ ok: false, code: errCode(r.status, j, "update_failed") });
+          // 다른 관리자가 먼저 바꿈 (409) → 최신 값을 다시 불러온다
+          if (r.status === 409) load();
           return false;
         }
         setResult({ ok: true, message: successMsg ?? t("admin_r4d_rider_status_saved") });
@@ -488,7 +490,7 @@ export function AdminDeliveryRidersPage() {
                         onClick={async () => {
                           const ok = await patchRider(
                             r.id,
-                            { admin_note: (memoDraft[r.id] ?? "").trim() },
+                            { admin_note: (memoDraft[r.id] ?? "").trim(), expected_admin_note: r.admin_note ?? "" },
                             t("admin_r4d_rider_memo_saved")
                           );
                           if (ok) setMemoDraft(({ [r.id]: _done, ...rest }) => (void _done, rest));

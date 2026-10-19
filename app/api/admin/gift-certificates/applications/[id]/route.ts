@@ -116,10 +116,12 @@ export async function PATCH(
     rejection_reason: status === "rejected" ? rejectionReason : null,
   };
 
+  /** 상태 조건부 전이(CAS) — 이미 승인·반려된 신청을 다른 관리자 화면에서 다시 바꾸지 않는다. */
   const { data, error } = await gate.sb
     .from(GIFT_TABLES.applications)
     .update(patch)
     .eq("id", appId)
+    .in("status", ["submitted", "under_review"])
     .select(APP_SELECT)
     .maybeSingle();
 
@@ -127,6 +129,17 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   if (!data) {
+    const { data: exists } = await gate.sb
+      .from(GIFT_TABLES.applications)
+      .select("id, status")
+      .eq("id", appId)
+      .maybeSingle();
+    if (exists) {
+      return NextResponse.json(
+        { ok: false, error: "status_changed", current: (exists as { status?: string }).status ?? null },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ ok: false, error: "application_not_found" }, { status: 404 });
   }
   await recordGiftAdminEvent(gate.sb, {

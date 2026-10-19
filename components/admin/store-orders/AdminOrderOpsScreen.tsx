@@ -362,8 +362,18 @@ export function AdminOrderOpsScreen({
     void load(applyForm(applied, form), "query");
   };
   const onRefresh = () => void load({ ...applied, asOf: null }, "refresh");
-  const onTab = (tab: string, extra?: Partial<AdminOrderOpsQuery>) =>
+  const onTab = (tab: string, extra?: Partial<AdminOrderOpsQuery>) => {
+    // Tabs / summary cards change applied filters directly — keep the form in step so a later 조회
+    // never re-applies a status / mismatch filter the tab just cleared.
+    if (extra && ("orderStatus" in extra || "mismatchOnly" in extra)) {
+      setForm((f) => ({
+        ...f,
+        ...("orderStatus" in extra ? { orderStatus: extra.orderStatus ?? "" } : {}),
+        ...("mismatchOnly" in extra ? { mismatchOnly: extra.mismatchOnly === true } : {}),
+      }));
+    }
     void load({ ...applied, tab, page: 1, asOf: null, ...extra }, "query");
+  };
   const onPage = (page: number) => void load({ ...applied, page }, "page");
   const onReset = () => {
     const cleared = withFixed(parseAdminOrderOpsQuery(screen, new URLSearchParams()));
