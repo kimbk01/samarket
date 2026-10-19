@@ -26,6 +26,11 @@ export type DeliveryMetricId =
   | "delivery.stores_by_state.restricted"
   | "delivery.orders_new_today"
   | "delivery.orders_attention"
+  | "delivery.orders_attention_recent"
+  | "delivery.orders_stale_in_progress"
+  | "delivery.orders_stale_attention"
+  | "delivery.orders_stale_cancel_requested"
+  | "delivery.orders_stale_refund_requested"
   | "delivery.orders_in_progress"
   | "delivery.orders_delivering"
   | "delivery.cancel_refund_requests.cancel"
@@ -45,7 +50,8 @@ export type DeliveryMetricSource =
   | { kind: "queue"; categories: readonly AdminActionQueueCategory[] }
   | { kind: "direct"; description: string };
 
-export type DeliveryMetricSection = "action" | "state" | "health" | "risk";
+/** `global` = 전체 관제 Action Center 배달 카드 전용 (배달 대시보드 구역에는 그리지 않는다). */
+export type DeliveryMetricSection = "action" | "state" | "health" | "risk" | "global";
 
 export type DeliveryMetricDefinition = {
   id: DeliveryMetricId;
@@ -53,8 +59,12 @@ export type DeliveryMetricDefinition = {
   labelEn: string;
   section: DeliveryMetricSection;
   source: DeliveryMetricSource;
-  /** "now" = 현재 상태 스냅샷, "today_manila" = 마닐라 오늘 00:00~ */
-  period: "now" | "today_manila";
+  /**
+   * "now" = 현재 상태 스냅샷, "today_manila" = 마닐라 오늘 00:00~,
+   * "active_window" = 최근 7일(마닐라, 주문 목록 `period=last_7_days` 와 동일),
+   * "stale" = 활성 기간 이전에 생성되어 아직 종결되지 않은 주문 (운영 위험).
+   */
+  period: "now" | "today_manila" | "active_window" | "stale";
   /** null = 활성 관리자 누구나 (처리 대기 레지스트리 권한과 동일) */
   permission: AdminPermissionKey | null;
   /** 처리 화면 + 그 화면이 실제로 읽는 URL 필터 */
@@ -99,7 +109,19 @@ function queueMetric(
 
 export const DELIVERY_METRIC_DEFINITIONS: readonly DeliveryMetricDefinition[] = [
   // ── 지금 처리할 일 (처리 대기 레지스트리 — Bell 과 같은 값) ─────────────────
-  queueMetric("delivery.orders_attention", "처리 필요 주문", "Orders needing action", "action", "orders_attention"),
+  // Bell 처리 대기(전 기간) — Action Center 배달 카드 전용. 대시보드는 아래 최근 7일 값을 쓴다.
+  queueMetric("delivery.orders_attention", "처리 필요 주문", "Orders needing action", "global", "orders_attention"),
+  {
+    id: "delivery.orders_attention_recent",
+    labelKo: "처리 필요 주문 (최근 7일)",
+    labelEn: "Orders needing action (last 7 days)",
+    section: "action",
+    source: { kind: "direct", description: "store_orders.needs_admin_attention, open, created ∈ last 7 days (Manila)" },
+    period: "active_window",
+    permission: null,
+    href: "/admin/store-orders?queue=admin_attention&period=last_7_days",
+    showWhenZero: true,
+  },
   queueMetric(
     "delivery.store_applications_pending",
     "입점 심사 대기",
@@ -210,47 +232,94 @@ export const DELIVERY_METRIC_DEFINITIONS: readonly DeliveryMetricDefinition[] = 
   },
   {
     id: "delivery.orders_in_progress",
-    labelKo: "진행 중 주문",
-    labelEn: "In-progress orders",
+    labelKo: "진행 중 주문 (최근 7일)",
+    labelEn: "In-progress orders (last 7 days)",
     section: "health",
     source: { kind: "direct", description: "store_orders.order_status ∈ in_progress" },
-    period: "now",
+    period: "active_window",
     permission: null,
-    href: "/admin/stores/orders?tab=in_progress",
+    href: "/admin/stores/orders?tab=in_progress&period=last_7_days",
     showWhenZero: true,
   },
   {
     id: "delivery.orders_delivering",
-    labelKo: "배달 중",
-    labelEn: "Delivering",
+    labelKo: "배달 중 (최근 7일)",
+    labelEn: "Delivering (last 7 days)",
     section: "health",
     source: { kind: "direct", description: "store_orders.order_status=delivering" },
-    period: "now",
+    period: "active_window",
     permission: null,
-    href: "/admin/stores/orders?order_status=delivering",
+    href: "/admin/stores/orders?order_status=delivering&period=last_7_days",
     showWhenZero: true,
   },
   {
     id: "delivery.cancel_refund_requests.cancel",
-    labelKo: "취소 요청 (매장 결정 대기)",
-    labelEn: "Cancel requests (awaiting store)",
+    labelKo: "취소 요청 · 매장 결정 대기 (최근 7일)",
+    labelEn: "Cancel requests awaiting store (last 7 days)",
     section: "health",
     source: { kind: "direct", description: "store_orders.order_status=cancel_requested" },
-    period: "now",
+    period: "active_window",
     permission: null,
-    href: "/admin/stores/orders/cancellations?tab=pending",
+    href: "/admin/stores/orders?order_status=cancel_requested&period=last_7_days",
     showWhenZero: true,
   },
   {
     id: "delivery.cancel_refund_requests.refund",
-    labelKo: "환불 요청 (매장 결정 대기)",
-    labelEn: "Refund requests (awaiting store)",
+    labelKo: "환불 요청 · 매장 결정 대기 (최근 7일)",
+    labelEn: "Refund requests awaiting store (last 7 days)",
     section: "health",
     source: { kind: "direct", description: "store_orders.order_status=refund_requested" },
-    period: "now",
+    period: "active_window",
     permission: null,
-    href: "/admin/stores/orders/refunds?tab=pending",
+    href: "/admin/stores/orders?order_status=refund_requested&period=last_7_days",
     showWhenZero: true,
+  },
+
+  // ── 운영 위험: 활성 기간(최근 7일) 이전에 생성되어 아직 종결되지 않은 주문 ─────────
+  // 현재 처리 업무로 세지 않는다. 링크(`period=custom&to=`)는 로더가 기준일로 채운다.
+  {
+    id: "delivery.orders_stale_in_progress",
+    labelKo: "장기 미종결 주문 (7일 초과 · 접수 대기 포함)",
+    labelEn: "Stale open orders (over 7 days, incl. unaccepted)",
+    section: "risk",
+    source: { kind: "direct", description: "store_orders.order_status ∈ in_progress tab (incl. pending), created before last 7 days" },
+    period: "stale",
+    permission: null,
+    href: "/admin/stores/orders?tab=in_progress",
+    showWhenZero: false,
+  },
+  {
+    id: "delivery.orders_stale_attention",
+    labelKo: "장기 미처리 관리자 확인 주문 (7일 초과)",
+    labelEn: "Stale orders flagged for admin (over 7 days)",
+    section: "risk",
+    source: { kind: "direct", description: "store_orders.needs_admin_attention, open, created before last 7 days" },
+    period: "stale",
+    permission: null,
+    href: "/admin/store-orders?queue=admin_attention",
+    showWhenZero: false,
+  },
+  {
+    id: "delivery.orders_stale_cancel_requested",
+    labelKo: "장기 미결정 취소 요청 (7일 초과)",
+    labelEn: "Stale cancel requests (over 7 days)",
+    section: "risk",
+    source: { kind: "direct", description: "store_orders.order_status=cancel_requested, created before last 7 days" },
+    period: "stale",
+    permission: null,
+    href: "/admin/stores/orders?order_status=cancel_requested",
+    showWhenZero: false,
+  },
+  {
+    id: "delivery.orders_stale_refund_requested",
+    labelKo: "장기 미결정 환불 요청 (7일 초과)",
+    labelEn: "Stale refund requests (over 7 days)",
+    section: "risk",
+    source: { kind: "direct", description: "store_orders.order_status=refund_requested, created before last 7 days" },
+    period: "stale",
+    permission: null,
+    href: "/admin/stores/orders?order_status=refund_requested",
+    showWhenZero: false,
   },
 ];
 
@@ -320,10 +389,23 @@ export function resolveDeliveryQueueMetric(
 /** 직접 집계 값(서버 로더) → 지표 값. 숫자가 아니면 null. */
 export function resolveDeliveryDirectMetric(
   def: DeliveryMetricDefinition,
-  raw: number | null | undefined
+  raw: number | null | undefined,
+  hrefOverride?: string | null
 ): DeliveryMetricValue {
   const ok = typeof raw === "number" && Number.isFinite(raw) && raw >= 0;
-  return { id: def.id, value: ok ? Math.floor(raw as number) : null, href: def.href, forbidden: false };
+  return { id: def.id, value: ok ? Math.floor(raw as number) : null, href: hrefOverride || def.href, forbidden: false };
+}
+
+/**
+ * 장기 정체 지표 링크 — 활성 기간 시작(마닐라 자정) 전날까지의 주문만 보이도록 `period=custom&to=` 를 붙인다.
+ * 주문 목록의 `custom` 기간은 `to` 일자의 마닐라 하루 끝까지를 포함한다.
+ */
+export function deliveryStaleMetricHref(baseHref: string, activeWindowFromIso: string): string {
+  const startMs = Date.parse(activeWindowFromIso);
+  if (!Number.isFinite(startMs)) return baseHref;
+  const lastStaleManilaDay = new Date(startMs - 1 + 8 * 3_600_000).toISOString().slice(0, 10);
+  const sep = baseHref.includes("?") ? "&" : "?";
+  return `${baseHref}${sep}period=custom&to=${lastStaleManilaDay}`;
 }
 
 export type DeliveryActionCenterCardValue = {

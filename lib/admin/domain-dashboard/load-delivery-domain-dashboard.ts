@@ -46,7 +46,7 @@ function toActionItems(
       labelKo: def.labelKo,
       labelEn: def.labelEn,
       count: v.value,
-      href: def.href,
+      href: v.href || def.href,
       source: sourceLabel(def),
       owner: def.source.kind === "queue" ? def.source.categories.join("+") : "delivery_metrics",
     }));
@@ -64,7 +64,7 @@ function toMetrics(
       labelKo: def.labelKo,
       labelEn: def.labelEn,
       value: v.value,
-      href: def.href,
+      href: v.href || def.href,
       source: sourceLabel(def),
     }));
 }
@@ -78,9 +78,9 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
     titleKo: "배달 대시보드",
     titleEn: "Delivery dashboard",
     descriptionKo:
-      "입점 심사·처리 필요 주문·배달 경고를 먼저 처리합니다. 숫자를 누르면 해당 처리 화면이 필터된 상태로 열립니다. 기간 기준: 마닐라 시간.",
+      "지금 처리할 일은 최근 7일 기준입니다. 7일이 지나도 종결되지 않은 주문은 「운영 위험」에 따로 표시합니다. 숫자를 누르면 같은 조건으로 필터된 처리 화면이 열립니다. 기간 기준: 마닐라 시간.",
     descriptionEn:
-      "Handle store intake, orders needing action, and delivery alerts first. Each number opens its processing screen with the filter applied. Period basis: Manila time.",
+      "Work to do now covers the last 7 days. Orders still open after 7 days are listed separately under operational risk. Each number opens its processing screen with the same filter. Period basis: Manila time.",
     currentState: toMetrics(sectionDefs("state"), values),
     actionRequired: toActionItems(sectionDefs("action"), values),
     domainHealth: toMetrics(sectionDefs("health"), values),
