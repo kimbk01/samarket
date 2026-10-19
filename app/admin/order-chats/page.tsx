@@ -1,24 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOrderChatList } from "@/components/admin/delivery-orders/AdminOrderChatList";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ADMIN_STORE_ORDER_CHAT_LIST_LIMIT } from "@/lib/admin-delivery-orders/admin-order-chat-limits";
 
 /**
  * Delivery order-chat hub — lookup list + cross-links.
- * Authority = Delivery (store orders). Messenger may open this with ?from=messenger as REFERENCE only.
+ * Authority = Delivery (store orders). Chat workspace 「배달 주문」 = /admin/chats?type=store_order (J-AMD-4).
  * DEF-60/61: every 「주문 채팅 열기」 goes to /admin/stores/orders/{orderId}/chat — the single read-only
  * order-chat viewer (never the community messenger admin room screen).
  */
 function AdminOrderChatsHubInner() {
   const { safeT, t, language } = useI18n();
   const ko = language !== "en";
-  const searchParams = useSearchParams();
-  const fromMessenger = (searchParams.get("from") ?? "").trim().toLowerCase() === "messenger";
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -31,20 +29,7 @@ function AdminOrderChatsHubInner() {
         }
       />
 
-      {fromMessenger ? (
-        <div
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
-          data-testid="admin-messenger-order-reference-banner"
-          data-admin-entry="messenger-reference"
-        >
-          {safeT("admin_messenger_order_reference_banner", {
-            fallbackKo: "메신저 메뉴에서 들어왔습니다. 주문 채팅은 이 화면에서 조회합니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다.",
-            fallbackEn: "Opened from the Messenger menu. Order chats are looked up on this screen. Admin screens never create chat rooms.",
-          })}
-        </div>
-      ) : null}
-
-      <AdminCard title={ko ? "최근 주문 채팅 (최대 120건)" : "Recent order chats (up to 120)"}>
+      <AdminCard title={t("admin_chat_r1b_order_chats_card", { count: ADMIN_STORE_ORDER_CHAT_LIST_LIMIT })}>
         <AdminOrderChatList />
       </AdminCard>
 

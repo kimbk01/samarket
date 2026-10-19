@@ -9,6 +9,11 @@
  * 호출 순서 계약: **DB 갱신 성공 → purgeMessengerMediaStoragePaths**. 실패 경로는 로그만 남긴다.
  */
 
+import {
+  MESSENGER_PRIVATE_MEDIA_BUCKET,
+  type MessengerMediaBucket,
+} from "@/lib/community-messenger/media/messenger-media-ref";
+
 const POST_IMAGES_PUBLIC_KEY = "/storage/v1/object/public/post-images/";
 
 /** post-images 공개 URL → 스토리지 키. 레거시 메시지(콘텐츠에 공개 URL) 대응. */
@@ -93,18 +98,20 @@ type MinimalStorageClient = {
 };
 
 /**
- * 모은 키를 post-images 에서 제거한다. **DB 갱신이 성공한 뒤** 호출할 것.
+ * 모은 키를 메신저 버킷에서 제거한다. **DB 갱신이 성공한 뒤** 호출할 것.
+ * `ctx.bucket` — C-4 비공개 버킷(`messenger-media`) 업로드분이면 그 버킷, 미지정은 레거시 post-images.
  * 반환: 요청 수. 실패는 throw 하지 않고 로그만 남긴다(삭제 자체는 이미 DB 상 완료).
  */
 export async function purgeMessengerMediaStoragePaths(
   sb: MinimalStorageClient,
   paths: string[],
-  ctx?: { messageId?: string; roomId?: string }
+  ctx?: { messageId?: string; roomId?: string; bucket?: MessengerMediaBucket }
 ): Promise<{ requested: number }> {
   const unique = [...new Set(paths.filter((p) => isSafePostImagesPath(p)))];
   if (unique.length === 0) return { requested: 0 };
+  const bucket = ctx?.bucket === MESSENGER_PRIVATE_MEDIA_BUCKET ? MESSENGER_PRIVATE_MEDIA_BUCKET : "post-images";
   try {
-    const { error } = await sb.storage.from("post-images").remove(unique);
+    const { error } = await sb.storage.from(bucket).remove(unique);
     if (error) {
       console.error("[messenger-media-purge] remove_failed", {
         ...ctx,

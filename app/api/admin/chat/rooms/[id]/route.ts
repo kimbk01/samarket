@@ -4,14 +4,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/admin/chat/rooms/:id — 관리자 채팅방 상세 (관리자 세션)
+ * GET /api/admin/chat/rooms/:id — 관리자 채팅방 상세 (권한 `chats`)
+ * 거래 채팅(item_trade)만 반환 → 거래 연결 근거로 본문 열람, 서버에서 audit_logs `chat_room.content_view` 기록 (R1-A).
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import {
+  appendChatContentViewAudit,
+  readChatAdminReason,
+  requireChatAdmin,
+} from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { fetchModerationLogsForRoom } from "@/lib/admin-chats/fetch-moderation-logs-for-room";
+import { loadAdminTradeMessengerOverlay } from "@/lib/admin-chats/trade-messenger-admin-view";
 import { PRODUCT_CHAT_ADMIN_LIST_SELECT, REPORT_ROW_ADMIN_MIN_SELECT } from "@/lib/admin/product-chat-sql-select";
 import {
 
@@ -22,11 +28,12 @@ import {
 } from "@/lib/chat/chat-sql-selects";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
+  const viewReason = readChatAdminReason(req);
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -111,6 +118,17 @@ export async function GET(
     const roomStatus = roomRow.is_locked ? "archived" : roomRow.is_blocked ? "blocked" : "active";
     const moderationLogs = await fetchModerationLogsForRoom(sbAny, roomId);
     const adminMemo = String((room as { admin_memo?: string }).admin_memo ?? "");
+    // R1-B C-1: 사용자 방(CM) 메시지·참여자·상태로 덮는다. CM 방 없으면 messenger.legacyOnly.
+    const messengerOverlay = await loadAdminTradeMessengerOverlay(sbAny, roomId).catch(() => null);
+    await appendChatContentViewAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "chat_room",
+      roomId,
+      domain: "trade",
+      basis: "linked_trade",
+      reason: viewReason,
+      scope: { surface: "admin_trade_chat_detail", storage: "chat_rooms", messageCount: (messages.data ?? []).length },
+    });
     return NextResponse.json({
       room,
       adminMemo,
@@ -128,6 +146,7 @@ export async function GET(
       messageCount: (messages.data ?? []).length,
       reportCount: (reports.data ?? []).length,
       purposeKind: trade ? "trade" : roomRow.room_type ?? "general",
+      ...(messengerOverlay ?? { messenger: null }),
     });
   }
 
@@ -231,6 +250,17 @@ export async function GET(
     adminMemo = String(f?.admin_memo ?? "");
   }
   const roomForApi = { ...roomForRes, is_readonly: linkedReadonly };
+  // R1-B C-1: 사용자 방(CM) 메시지·참여자·상태로 덮는다. CM 방 없으면 messenger.legacyOnly.
+  const messengerOverlay = await loadAdminTradeMessengerOverlay(sbAny, roomId).catch(() => null);
+  await appendChatContentViewAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "product_chat",
+    roomId,
+    domain: "trade",
+    basis: "linked_trade",
+    reason: viewReason,
+    scope: { surface: "admin_trade_chat_detail", storage: "product_chats", messageCount: messagesForRes.length },
+  });
   return NextResponse.json({
     room: roomForApi,
     participants: [],
@@ -247,5 +277,6 @@ export async function GET(
     adminMemo,
     messageCount: messagesForRes.length,
     reportCount: reportsForRes.length,
+    ...(messengerOverlay ?? { messenger: null }),
   });
 }

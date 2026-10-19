@@ -18,6 +18,7 @@ import {
   buildMessengerFileDownloadUrl,
   openMessengerFileInNativeShellIfNeeded,
 } from "@/lib/community-messenger/messenger-file-download";
+import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 
 /** `sendFailed` — C-3/C-10 발신 실패(재전송 대기) 표시. pending 과 함께 true 이며 "전송 중" 라벨을 숨긴다. */
 export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean; sendFailed?: boolean };
@@ -75,7 +76,12 @@ export const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
       sentTimeLabel={undefined}
       mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
       fallbackSrc={
-        item.pending ? null : /^https?:\/\//i.test(item.content.trim()) ? item.content.trim() : null
+        /* C-4: 폴백도 원 저장 URL 대신 첨부 조회 라우트(참가자 확인 → 서명 URL). */
+        item.pending
+          ? null
+          : /^https?:\/\//i.test(item.content.trim())
+            ? messengerMediaRouteUrlFor({ roomId: item.roomId, messageId: item.id, src: item.content })
+            : null
       }
       mediaType={item.voiceMimeType ?? null}
     />
@@ -90,7 +96,10 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
   mediaAutoSaveEnabled: boolean;
 }) {
   const { t } = useI18n();
-  const fileUrl = item.content.trim();
+  /** C-4: 저장 URL → 첨부 조회 라우트(참가자 확인 → 서명 URL). 저장 모드는 라우트에 `download=` 를 붙인다. */
+  const fileUrl = item.pending
+    ? item.content.trim()
+    : messengerMediaRouteUrlFor({ roomId: item.roomId, messageId: item.id, src: item.content });
   const displayFileName = item.fileName?.trim() || "community-messenger-file";
   /* 저장 모드: Storage `?download=원본명` → Content-Disposition(cross-origin 에서 `download` 속성은 무시됨) */
   const fileHref = mediaAutoSaveEnabled ? buildMessengerFileDownloadUrl(fileUrl, displayFileName) : fileUrl;

@@ -1,9 +1,17 @@
 /**
  * POST /api/admin/chat/reports/:id/action — 신고 처리
- * Body: { action: string, note? }
+ * Body: { action: string, reason } (`note` 호환 별칭)
+ * R1-A: 권한 `chats` + 사유 2자 이상 + 상태 CAS(409) + audit_logs (before/after)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { chatAdminReasonRequired, requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import {
+  CHAT_ADMIN_ACTION_REASON_MIN_LENGTH,
+  CHAT_ADMIN_AUDIT_REPORT_ACTION,
+  isChatAdminReasonValid,
+  normalizeChatAdminReason,
+} from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -13,7 +21,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -23,20 +31,24 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
   const { id: reportId } = await params;
-  let body: { action?: string; note?: string };
+  let body: { action?: string; note?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
     body = {};
   }
-  const adminId = admin.userId;
+  const adminId = admin.actor.userId;
   const action = body.action?.trim();
   if (!reportId || !action) {
     return NextResponse.json({ ok: false, error: "reportId, action 필요" }, { status: 400 });
   }
+  const reason = normalizeChatAdminReason(body.reason ?? body.note);
+  if (!isChatAdminReasonValid(reason, CHAT_ADMIN_ACTION_REASON_MIN_LENGTH)) {
+    return chatAdminReasonRequired(CHAT_ADMIN_ACTION_REASON_MIN_LENGTH);
+  }
 
   const sbAny = sb;
-  const { data: report } = await sbAny.from("chat_reports").select("id, room_id, message_id").eq("id", reportId).maybeSingle();
+  const { data: report } = await sbAny.from("chat_reports").select("id, room_id, message_id, status").eq("id", reportId).maybeSingle();
   if (!report) {
     return NextResponse.json({ ok: false, error: "신고를 찾을 수 없습니다." }, { status: 404 });
   }
@@ -64,12 +76,20 @@ export async function POST(
       target_type: targetType,
       target_id: targetId,
       action_type: "close_report",
-      action_reason: body.note ?? undefined,
+      action_reason: reason,
       action_note: action,
       actor_admin_id: adminId,
     });
   } catch {
     /* ignore */
   }
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: adminId,
+    targetType: "chat_report",
+    targetId: reportId,
+    action: CHAT_ADMIN_AUDIT_REPORT_ACTION,
+    before: { status: (report as { status?: string | null }).status ?? null },
+    after: { status: "actioned", action, reason, targetType, targetId, assigned_admin_id: adminId },
+  });
   return NextResponse.json({ ok: true });
 }

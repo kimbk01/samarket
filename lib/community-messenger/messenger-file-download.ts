@@ -6,6 +6,11 @@
  * `@capacitor/browser`(SFSafariViewController / Custom Tabs)로 연다 — 신규 네이티브 코드 없음.
  */
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import {
+  isMessengerMediaRouteUrl,
+  withMessengerMediaRouteDownload,
+} from "@/lib/community-messenger/media/messenger-media-ref";
+import { resolveMessengerMediaUrlForExternalUse } from "@/lib/community-messenger/media/messenger-media-external-url";
 
 const SUPABASE_STORAGE_OBJECT_PATH = /\/storage\/v1\/object\/(public|sign|authenticated)\//;
 
@@ -13,6 +18,9 @@ const SUPABASE_STORAGE_OBJECT_PATH = /\/storage\/v1\/object\/(public|sign|authen
 export function buildMessengerFileDownloadUrl(publicUrl: string, fileName: string | null | undefined): string {
   const raw = String(publicUrl ?? "").trim();
   if (!raw) return raw;
+  /** C-4: 첨부 조회 라우트 — 라우트가 서명 URL 에 `download` 를 실어 302 한다. */
+  const routed = withMessengerMediaRouteDownload(raw, fileName);
+  if (routed) return routed;
   let u: URL;
   try {
     u = new URL(raw);
@@ -39,12 +47,14 @@ export function buildMessengerFileDownloadUrl(publicUrl: string, fileName: strin
 export function openMessengerFileInNativeShellIfNeeded(url: string): boolean {
   if (!url || !isCapacitorNativePlatform()) return false;
   void (async () => {
+    /** C-4: 인앱 브라우저(SFSafariViewController/Custom Tabs)는 WebView 쿠키가 없다 → 라우트는 서명 URL 로 먼저 바꾼다. */
+    const target = isMessengerMediaRouteUrl(url) ? await resolveMessengerMediaUrlForExternalUse(url) : url;
     try {
       const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url });
+      await Browser.open({ url: target });
     } catch {
       try {
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(target, "_blank", "noopener,noreferrer");
       } catch {
         /* ignore */
       }

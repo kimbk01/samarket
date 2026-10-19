@@ -19,6 +19,7 @@ export const dynamic = "force-dynamic";
 const SIGNED_URL_TTL_SEC = 60;
 
 async function streamVoiceFromStorageWithRange(input: {
+  storageBucket: string;
   storagePath: string;
   contentType: string;
   rangeHeader: string | null;
@@ -26,7 +27,7 @@ async function streamVoiceFromStorageWithRange(input: {
   try {
     const sb = getSupabaseServer();
     const { data, error } = await sb.storage
-      .from("post-images")
+      .from(input.storageBucket)
       .createSignedUrl(input.storagePath, SIGNED_URL_TTL_SEC);
     const signedUrl = data?.signedUrl;
     if (error || !signedUrl) return null;
@@ -98,6 +99,7 @@ export async function GET(
    * (Range 요청마다 객체 전체를 내려받지 않음.) 실패 시 아래 전체 다운로드 경로로 폴백.
    */
   const streamed = await streamVoiceFromStorageWithRange({
+    storageBucket: source.storageBucket,
     storagePath: source.storagePath,
     contentType: resolveVoicePlaybackContentType(source.contentType, source.storagePath),
     rangeHeader,

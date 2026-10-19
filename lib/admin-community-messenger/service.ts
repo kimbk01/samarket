@@ -11,6 +11,15 @@ import {
   isCommunityMessengerCallForceEndReasonCode,
   type CommunityMessengerCallForceEndReasonCode,
 } from "@/lib/admin-community-messenger/call-force-end-reasons";
+import {
+  buildAdminCmMessageDisplay,
+  type AdminCmMessageDisplay,
+} from "@/lib/admin-community-messenger/admin-message-display";
+import { queryAdminCmMessagePage } from "@/lib/admin-community-messenger/admin-message-page";
+import {
+  deriveAdminCmRoomDomainRef,
+  type AdminCmRoomDomainRef,
+} from "@/lib/admin-community-messenger/room-domain-links";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallStatus,
@@ -56,6 +65,7 @@ type RoomRow = {
   moderated_at?: string | null;
   chat_domain?: string | null;
   domain_identity_key?: string | null;
+  direct_key?: string | null;
 };
 
 type ParticipantRow = {
@@ -288,11 +298,29 @@ export type AdminCommunityMessengerCallAuditLog = {
   afterStatus: string;
 };
 
+export type AdminCommunityMessengerMessageItem = {
+  id: string;
+  senderId: string | null;
+  senderLabel: string;
+  messageType: string;
+  content: string;
+  createdAt: string;
+  isHiddenByAdmin: boolean;
+  reportCount: number;
+  /** R1-B: metadata 기반 표시 (이미지·파일·음성·시스템·주문 요약) */
+  display: AdminCmMessageDisplay;
+};
+
 export type AdminCommunityMessengerRoomDetail = {
   room: AdminCommunityMessengerRoomSummary & {
     moderatedByLabel: string;
     moderatedAt: string | null;
+    chatDomain: string;
+    domainIdentityKey: string;
+    directKey: string;
   };
+  /** R1-B: 주문·거래 도메인 역링크 (없으면 null 필드) */
+  domainRef: AdminCmRoomDomainRef;
   participants: Array<{
     id: string;
     userId: string;
@@ -302,16 +330,9 @@ export type AdminCommunityMessengerRoomDetail = {
     joinedAt: string | null;
     lastReadAt: string | null;
   }>;
-  messages: Array<{
-    id: string;
-    senderId: string | null;
-    senderLabel: string;
-    messageType: string;
-    content: string;
-    createdAt: string;
-    isHiddenByAdmin: boolean;
-    reportCount: number;
-  }>;
+  /** R1-B C-6: 최신 페이지 (오래된 → 최신). 이전 메시지는 `listAdminCommunityMessengerRoomMessages({ before })`. */
+  messages: AdminCommunityMessengerMessageItem[];
+  messagesHasMore: boolean;
   calls: AdminCommunityMessengerCallLog[];
   activeCalls: AdminCommunityMessengerActiveCallSession[];
   callAudits: AdminCommunityMessengerCallAuditLog[];
@@ -766,30 +787,132 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
   };
 }
 
+const ADMIN_CM_MESSAGE_SELECT =
+  "id, room_id, sender_id, message_type, content, metadata, created_at, is_hidden_by_admin";
+
+function mapAdminMessageItem(
+  message: MessageRow,
+  profileMap: Map<string, ProfileRow>,
+  reportCount: number
+): AdminCommunityMessengerMessageItem {
+  return {
+    id: message.id,
+    senderId: message.sender_id,
+    senderLabel: message.sender_id
+      ? labelForProfile(profileMap.get(message.sender_id), message.sender_id)
+      : "시스템",
+    messageType: message.message_type,
+    content: t(message.content),
+    createdAt: t(message.created_at),
+    isHiddenByAdmin: message.is_hidden_by_admin === true,
+    reportCount,
+    display: buildAdminCmMessageDisplay({
+      messageType: message.message_type,
+      content: message.content,
+      metadata: message.metadata,
+    }),
+  };
+}
+
+/**
+ * R1-B C-6 — 관리자 메시지 페이지 (사용자와 같은 id 커서: 앵커 없음 = 최신, `before` = 앵커 이전).
+ * 읽기 전용: 읽음·unread·참가자 행을 건드리지 않는다.
+ */
+export async function listAdminCommunityMessengerRoomMessages(input: {
+  roomId: string;
+  before?: string | null;
+  limit?: unknown;
+}): Promise<
+  | { ok: true; messages: AdminCommunityMessengerMessageItem[]; hasMore: boolean }
+  | { ok: false; error: string }
+> {
+  const roomId = t(input.roomId);
+  if (!roomId) return { ok: false, error: "bad_request" };
+  const page = await queryAdminCmMessagePage<MessageRow>(sb() as any, {
+    roomId,
+    select: ADMIN_CM_MESSAGE_SELECT,
+    before: input.before ?? null,
+    limit: input.limit,
+  });
+  if (!page.ok) return { ok: false, error: page.error };
+  const messageIds = page.rows.map((row) => row.id);
+  const reportCountByMessageId = new Map<string, number>();
+  if (messageIds.length) {
+    const { data: reportRows } = await (sb() as any)
+      .from("community_messenger_reports")
+      .select("message_id")
+      .eq("room_id", roomId)
+      .in("message_id", messageIds);
+    for (const row of (reportRows ?? []) as Array<{ message_id?: string | null }>) {
+      const mid = t(row.message_id);
+      if (mid) reportCountByMessageId.set(mid, (reportCountByMessageId.get(mid) ?? 0) + 1);
+    }
+  }
+  const profileMap = await getProfileMap(page.rows.map((row) => row.sender_id ?? ""));
+  return {
+    ok: true,
+    hasMore: page.hasMore,
+    messages: page.rows.map((row) => mapAdminMessageItem(row, profileMap, reportCountByMessageId.get(row.id) ?? 0)),
+  };
+}
+
+/** R1-B — CM 방 → 주문 / 거래 도메인 역참조 (키 우선, 없으면 FK 역조회). 읽기 전용. */
+async function resolveAdminCmRoomDomainRef(room: RoomRow): Promise<AdminCmRoomDomainRef> {
+  const ref = deriveAdminCmRoomDomainRef({
+    chatDomain: room.chat_domain,
+    domainIdentityKey: room.domain_identity_key,
+    directKey: room.direct_key,
+    roomType: room.room_type,
+  });
+  try {
+    if (ref.domain === "store_order" && !ref.storeOrderId) {
+      const { data } = await (sb() as any)
+        .from("store_orders")
+        .select("id")
+        .eq("community_messenger_room_id", room.id)
+        .limit(1)
+        .maybeSingle();
+      return { ...ref, storeOrderId: t((data as { id?: string } | null)?.id) || null };
+    }
+    if (ref.domain === "trade" && (!ref.tradeLegacyRoomId || !ref.tradePostId)) {
+      const { data } = await (sb() as any)
+        .from("product_chats")
+        .select("id, post_id")
+        .eq("community_messenger_room_id", room.id)
+        .limit(1)
+        .maybeSingle();
+      const pc = data as { id?: string; post_id?: string } | null;
+      return {
+        ...ref,
+        tradeLegacyRoomId: ref.tradeLegacyRoomId ?? (t(pc?.id) || null),
+        tradePostId: ref.tradePostId ?? (t(pc?.post_id) || null),
+      };
+    }
+  } catch {
+    /* 역링크는 보조 정보 — 실패해도 상세는 연다 */
+  }
+  return ref;
+}
+
 export async function getAdminCommunityMessengerRoomDetail(
   roomId: string
 ): Promise<AdminCommunityMessengerRoomDetail | null> {
   const { data: roomData } = await (sb() as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at"
+      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at, chat_domain, domain_identity_key, direct_key"
     )
     .eq("id", roomId)
     .maybeSingle();
   const room = roomData as RoomRow | null;
   if (!room) return null;
 
-  const [{ data: participantData }, { data: messageData }, { data: callData }, { data: reportData }, { data: sessionData }, { data: sessionParticipantData }, { data: auditData }] = await Promise.all([
+  const [{ data: participantData }, messagePage, { data: callData }, { data: reportData }, { data: sessionData }, { data: sessionParticipantData }, { data: auditData }] = await Promise.all([
     (sb() as any)
       .from("community_messenger_participants")
       .select("id, room_id, user_id, role, unread_count, joined_at, last_read_at")
       .eq("room_id", roomId),
-    (sb() as any)
-      .from("community_messenger_messages")
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at, is_hidden_by_admin")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: true })
-      .limit(300),
+    queryAdminCmMessagePage<MessageRow>(sb() as any, { roomId, select: ADMIN_CM_MESSAGE_SELECT }),
     (sb() as any)
       .from("community_messenger_call_logs")
       .select("id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at, created_at")
@@ -825,7 +948,7 @@ export async function getAdminCommunityMessengerRoomDetail(
   ]);
 
   const participants = (participantData ?? []) as ParticipantRow[];
-  const messages = (messageData ?? []) as MessageRow[];
+  const messages = messagePage.ok ? messagePage.rows : [];
   const calls = (callData ?? []) as CallRow[];
   const reports = (reportData ?? []) as ReportRow[];
   const sessions = (sessionData ?? []) as CallSessionRow[];
@@ -862,6 +985,7 @@ export async function getAdminCommunityMessengerRoomDetail(
     reportCountByMessageId.set(report.message_id, (reportCountByMessageId.get(report.message_id) ?? 0) + 1);
   }
 
+  const domainRef = await resolveAdminCmRoomDomainRef(room);
   const detail: AdminCommunityMessengerRoomDetail = {
     room: {
       ...summary,
@@ -869,7 +993,11 @@ export async function getAdminCommunityMessengerRoomDetail(
         ? labelForProfile(profileMap.get(room.moderated_by), room.moderated_by)
         : "-",
       moderatedAt: room.moderated_at ?? null,
+      chatDomain: t(room.chat_domain) || domainRef.domain,
+      domainIdentityKey: t(room.domain_identity_key),
+      directKey: t(room.direct_key),
     },
+    domainRef,
     participants: participants.map((participant) => ({
       id: participant.id,
       userId: participant.user_id,
@@ -879,18 +1007,10 @@ export async function getAdminCommunityMessengerRoomDetail(
       joinedAt: participant.joined_at ?? null,
       lastReadAt: participant.last_read_at ?? null,
     })),
-    messages: messages.map((message) => ({
-      id: message.id,
-      senderId: message.sender_id,
-      senderLabel: message.sender_id
-        ? labelForProfile(profileMap.get(message.sender_id), message.sender_id)
-        : "시스템",
-      messageType: message.message_type,
-      content: t(message.content),
-      createdAt: t(message.created_at),
-      isHiddenByAdmin: message.is_hidden_by_admin === true,
-      reportCount: reportCountByMessageId.get(message.id) ?? 0,
-    })),
+    messages: messages.map((message) =>
+      mapAdminMessageItem(message, profileMap, reportCountByMessageId.get(message.id) ?? 0)
+    ),
+    messagesHasMore: messagePage.ok ? messagePage.hasMore : false,
     calls: calls.map((call) => mapCallLog(call, roomMap, profileMap, sessionMap, participantsBySession)),
     activeCalls: sessions.map((session) =>
       mapActiveCallSession(session, roomMap, profileMap, participantsBySession.get(session.id) ?? [])

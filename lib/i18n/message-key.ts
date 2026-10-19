@@ -82,6 +82,11 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
+import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
+import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
+import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
+import { adminChatR1BMessages } from "./catalog/admin-chat-r1-data";
+import { adminChatR1AMessages } from "./catalog/admin-chat-r1-access";
 import { adminDeliveryR4EMessages } from "./catalog/admin-delivery-r4-app-sync";
 import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-monitoring";
 import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
@@ -95,6 +100,11 @@ type KeyOf<T> = keyof T & string;
 /** Canonical KO key authority (catalogs + ko.json). */
 export type MessageKey =
   | KeyOf<typeof adminDeliveryOpsUxMessages.ko>
+  | KeyOf<typeof adminChatR1EMessages.ko>
+  | KeyOf<typeof adminChatR1DMessages.ko>
+  | KeyOf<typeof adminChatR1CMessages.ko>
+  | KeyOf<typeof adminChatR1BMessages.ko>
+  | KeyOf<typeof adminChatR1AMessages.ko>
   | KeyOf<typeof adminDeliveryR4EMessages.ko>
   | KeyOf<typeof adminDeliveryR4DMessages.ko>
   | KeyOf<typeof adminDeliveryR4CMessages.ko>
@@ -261,6 +271,11 @@ type EnMessageKey =
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
   | KeyOf<typeof adminDeployMessages.en>
   | KeyOf<typeof adminDeliveryOpsUxMessages.en>
+  | KeyOf<typeof adminChatR1EMessages.en>
+  | KeyOf<typeof adminChatR1DMessages.en>
+  | KeyOf<typeof adminChatR1CMessages.en>
+  | KeyOf<typeof adminChatR1BMessages.en>
+  | KeyOf<typeof adminChatR1AMessages.en>
   | KeyOf<typeof adminDeliveryR4EMessages.en>
   | KeyOf<typeof adminDeliveryR4DMessages.en>
   | KeyOf<typeof adminDeliveryR4CMessages.en>

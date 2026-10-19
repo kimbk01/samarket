@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayAlert, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayPrompt, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -12,8 +12,42 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { useCmAdminLabels } from "./useCmAdminLabels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminErrorState, AdminForbiddenState, isAdminForbiddenCode } from "@/components/admin/ui/AdminStateViews";
+import Link from "next/link";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { adminUserDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
+import { confirmAdminAction, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-confirm-action";
+import {
+  CHAT_ADMIN_GHOST_REASON_MIN_LENGTH,
+  CHAT_ADMIN_REASON_QUERY_PARAM,
+  type ChatAdminContentBasis,
+  type ChatAdminContentDenial,
+} from "@/lib/admin/chat-admin/chat-content-access-policy";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminCmMessageBody, AdminCmMessageKindBadge } from "@/components/admin/chats/AdminCmMessageBody";
+import { useAdminOlderMessages } from "@/components/admin/chats/use-admin-older-messages";
+import { useAdminLocationReturnTo } from "@/components/admin/chats/use-admin-location-return-to";
+import { AdminCmRoomDomainLinksCard } from "./AdminCmRoomDomainLinksCard";
 
-type DetailResponse = AdminCommunityMessengerRoomDetail & { ok?: boolean };
+type CmMessageItem = AdminCommunityMessengerRoomDetail["messages"][number];
+
+/** R1-A: 서버가 본문 열람 판정을 함께 내려준다 (본문 열람 감사는 이 GET 내부에서 서버가 기록). */
+type ContentAccess =
+  | { granted: true; basis: ChatAdminContentBasis; ghost: boolean; domain: string }
+  | { granted: false; denial: ChatAdminContentDenial; ghost: true; domain: string; reasonMinLength?: number };
+type DetailResponse = AdminCommunityMessengerRoomDetail & {
+  ok?: boolean;
+  error?: string;
+  contentAccess?: ContentAccess;
+};
+
+const CONTENT_BASIS_KEYS: Record<ChatAdminContentBasis, MessageKey> = {
+  linked_report: "admin_chat_r1_content_basis_linked_report",
+  linked_trade: "admin_chat_r1_content_basis_linked_trade",
+  linked_store_order: "admin_chat_r1_content_basis_linked_store_order",
+  ghost: "admin_chat_r1_content_basis_ghost",
+};
 type RoomAction =
   | "block_room"
   | "unblock_room"
@@ -33,9 +67,19 @@ type PendingForceEndCall = NonNullable<AdminCommunityMessengerRoomDetail["active
 
 export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }) {
   const { t, formatDateTime, roomTypeLabel, forceEndReasonOptions, forceEndReasonLabel } = useCmAdminLabels();
+  const { language } = useI18n();
+  const ko = language !== "en";
   const [detail, setDetail] = useState<AdminCommunityMessengerRoomDetail | null>(null);
+  const [contentAccess, setContentAccess] = useState<ContentAccess | null>(null);
+  const [forbiddenCode, setForbiddenCode] = useState<string | null>(null);
+  /** 고스트 열람 사유 — 서버 GET 에 `?reason=` 으로 전달 (서버가 검증·감사). */
+  const viewReasonRef = useRef("");
   const [loading, setLoading] = useState(true);
+  /** C-10: 불러오기 실패(네트워크·서버) ≠ 「방 없음」(404). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** 신고·상태 조치 중복 클릭 방지 (상태 갱신 전 연속 클릭). */
+  const actionLockRef = useRef(false);
   const [note, setNote] = useState("");
   const [forceEndReasonCode, setForceEndReasonCode] = useState<CommunityMessengerCallForceEndReasonCode | "">("");
   const [pendingForceEndCall, setPendingForceEndCall] = useState<PendingForceEndCall | null>(null);
@@ -51,15 +95,26 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const reason = viewReasonRef.current;
+      const qs = reason ? `?${CHAT_ADMIN_REASON_QUERY_PARAM}=${encodeURIComponent(reason)}` : "";
+      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}${qs}`, {
         cache: "no-store",
       });
-      const json = (await res.json()) as DetailResponse;
+      const json = (await res.json().catch(() => ({}))) as DetailResponse;
       if (res.ok && json.ok) {
+        setForbiddenCode(null);
+        setLoadError(null);
         setDetail(json);
-      } else {
+        setContentAccess(json.contentAccess ?? null);
+      } else if (!silent) {
+        const forbidden = isAdminForbiddenCode(json.error, res.status);
+        setForbiddenCode(forbidden ? (json.error ?? "forbidden") : null);
+        setLoadError(forbidden || res.status === 404 ? null : { code: json.error || "load_failed", status: res.status });
         setDetail(null);
+        setContentAccess(null);
       }
+    } catch {
+      if (!silent) setLoadError({ code: "network_error" });
     } finally {
       if (!silent) setLoading(false);
     }
@@ -69,29 +124,86 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     void refresh();
   }, [refresh]);
 
-  // Phase3 S2-2: Ghost enter on Admin Console room open; exit on leave.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "enter", reason: "admin_console_detail" }),
-      });
-      if (!cancelled && res.ok) {
-        void refresh(true);
+  // R1-B C-6: 최신 페이지 + id 커서 「이전 메시지 더 보기」 (본문 열람 판정은 서버가 같은 정책으로 다시 한다)
+  const fetchOlderCm = useCallback(
+    async (beforeId: string) => {
+      const qs = new URLSearchParams({ before: beforeId, limit: "80" });
+      if (viewReasonRef.current) qs.set(CHAT_ADMIN_REASON_QUERY_PARAM, viewReasonRef.current);
+      const res = await fetch(
+        `/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/messages?${qs.toString()}`,
+        { cache: "no-store" }
+      );
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; messages?: CmMessageItem[]; hasMore?: boolean };
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "load_failed");
+      return { items: json.messages ?? [], hasMore: json.hasMore === true };
+    },
+    [roomId]
+  );
+  const contentGranted = contentAccess?.granted !== false;
+  const olderMsgs = useAdminOlderMessages<CmMessageItem>({
+    resetKey: roomId,
+    latest: contentGranted ? (detail?.messages ?? []) : [],
+    latestHasMore: contentGranted && detail?.messagesHasMore === true,
+    fetchOlder: fetchOlderCm,
+  });
+  const { patchOlder } = olderMsgs;
+  const returnCtx = useAdminLocationReturnTo();
+
+  // R1-A: 본문 열람 감사는 서버 GET 내부에서 기록한다 — 클라이언트 ghost enter/exit 호출에 의존하지 않는다.
+  const unlockContent = useCallback(async () => {
+    const raw = await dibayPrompt({
+      title: t("admin_chat_r1_content_reason_prompt_title"),
+      description: t("admin_chat_r1_content_reason_prompt_desc"),
+      placeholder: t("admin_chat_r1_content_reason_placeholder"),
+      confirmLabel: t("admin_chat_r1_content_unlock_cta"),
+      cancelLabel: ko ? "취소" : "Cancel",
+      required: true,
+    });
+    if (raw === null) return;
+    const reason = raw.trim();
+    if (reason.length < CHAT_ADMIN_GHOST_REASON_MIN_LENGTH) {
+      await dibayAlert({ title: t("admin_chat_r1_content_reason_too_short") });
+      return;
+    }
+    viewReasonRef.current = reason;
+    await refresh();
+  }, [ko, refresh, t]);
+
+  /** 조치 사유 — 운영 메모가 2자 이상이면 그대로, 아니면 L2 확인(사유 입력). */
+  const resolveActionReason = useCallback(
+    async (title: string): Promise<string | null> => {
+      const typed = note.trim();
+      if (typed.length >= ADMIN_REASON_MIN_LENGTH) {
+        // C-5: 운영 메모가 사유로 쓰여도 상태 조치는 확인 팝업을 거친다 (L1).
+        const ok = await confirmAdminAction({
+          level: "L1",
+          ko,
+          title,
+          description: ko ? `사유: ${typed}` : `Reason: ${typed}`,
+          confirmLabel: t("admin_chat_r1_action_confirm_cta"),
+        });
+        return ok.ok ? typed : null;
       }
-    })();
-    return () => {
-      cancelled = true;
-      void fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "exit", reason: "admin_console_leave" }),
-        keepalive: true,
-      }).catch(() => undefined);
-    };
-  }, [refresh, roomId]);
+      const c = await confirmAdminAction({
+        level: "L2",
+        ko,
+        title,
+        confirmLabel: t("admin_chat_r1_action_confirm_cta"),
+      });
+      return c.ok ? c.reason : null;
+    },
+    [ko, note, t]
+  );
+
+  const actionErrorTitle = useCallback(
+    (error: string | undefined, fallback: string) =>
+      error === "stale_state"
+        ? t("admin_chat_r1_stale_state")
+        : error === "reason_required"
+          ? t("admin_chat_r1_reason_required")
+          : (error ?? fallback),
+    [t]
+  );
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -142,8 +254,9 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         scheduleRefresh
       )
       .on(
+        // C-20: audit_logs 전체가 아니라 이 방을 대상으로 한 기록만 (통화 세션 기록은 call_sessions 구독이 갱신).
         "postgres_changes",
-        { event: "*", schema: "public", table: "audit_logs" },
+        { event: "INSERT", schema: "public", table: "audit_logs", filter: `target_id=eq.${roomId}` },
         scheduleRefresh
       )
       .on(
@@ -161,6 +274,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
 
   const runAction = useCallback(
     async (action: RoomAction) => {
+      const reason = await resolveActionReason(t("admin_chat_r1_action_confirm_title"));
+      if (!reason) return;
       setBusy(action);
       try {
         const res = await fetch(
@@ -168,12 +283,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, note }),
+            body: JSON.stringify({ action, reason }),
           }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_action_failed") });
+          await dibayAlert({ title: actionErrorTitle(json.error, t("admin_cm_err_action_failed")) });
+          if (json.error === "stale_state") await refresh();
           return;
         }
         setNote("");
@@ -182,11 +298,15 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         setBusy(null);
       }
     },
-    [note, refresh, roomId, t]
+    [actionErrorTitle, refresh, resolveActionReason, roomId, t]
   );
 
   const runMessageAction = useCallback(
     async (messageId: string, hidden: boolean) => {
+      const reason = await resolveActionReason(
+        hidden ? t("admin_cm_action_hide_message") : t("admin_cm_action_unhide_message")
+      );
+      if (!reason) return;
       const key = `${hidden ? "hide" : "unhide"}:${messageId}`;
       setBusy(key);
       try {
@@ -195,20 +315,22 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hidden }),
+            body: JSON.stringify({ hidden, reason }),
           }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_message_action_failed") });
+          await dibayAlert({ title: actionErrorTitle(json.error, t("admin_cm_err_message_action_failed")) });
+          if (json.error === "stale_state") await refresh();
           return;
         }
+        patchOlder(messageId, { isHiddenByAdmin: hidden });
         await refresh();
       } finally {
         setBusy(null);
       }
     },
-    [refresh, roomId, t]
+    [actionErrorTitle, patchOlder, refresh, resolveActionReason, roomId, t]
   );
 
   const runCallAction = useCallback(
@@ -258,26 +380,33 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
 
   const runReportAction = useCallback(
     async (reportId: string, action: ReportAction) => {
+      if (actionLockRef.current) return;
+      const reason = await resolveActionReason(t("admin_chat_r1_action_confirm_title"));
+      if (!reason) return;
+      if (actionLockRef.current) return;
+      actionLockRef.current = true;
       const key = `report:${reportId}:${action}`;
       setBusy(key);
       try {
         const res = await fetch(`/api/admin/community-messenger/reports/${encodeURIComponent(reportId)}/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, adminNote: note }),
+          body: JSON.stringify({ action, reason }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_report_failed") });
+          await dibayAlert({ title: actionErrorTitle(json.error, t("admin_cm_err_report_failed")) });
+          if (json.error === "stale_state") await refresh();
           return;
         }
         emitAdminQueueChanged("messenger_actionable");
         await refresh();
       } finally {
+        actionLockRef.current = false;
         setBusy(null);
       }
     },
-    [note, refresh, t]
+    [actionErrorTitle, refresh, resolveActionReason, t]
   );
 
   const filteredCalls = useMemo(() => {
@@ -324,6 +453,14 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     return <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</div>;
   }
 
+  if (forbiddenCode) {
+    return <AdminForbiddenState ko={ko} code={forbiddenCode} />;
+  }
+
+  if (loadError) {
+    return <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void refresh()} />;
+  }
+
   if (!detail) {
     return <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_room_not_found")}</div>;
   }
@@ -334,13 +471,16 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     <div className="space-y-4">
       <AdminPageHeader
         titleKey="admin_cm_page_detail_title"
-        backHref="/admin/chats/messenger"
+        backHref={returnCtx.returnTo ?? "/admin/chats/messenger"}
         descriptionKey="admin_cm_page_detail_desc"
       />
 
       <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3">
-        <p className="sam-text-body font-semibold text-amber-900">{t("admin_cm_ghost_banner_title")}</p>
-        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_cm_ghost_banner_body")}</p>
+        <p className="sam-text-body font-semibold text-amber-900">{t("admin_chat_r1_ghost_banner_title")}</p>
+        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_chat_r1_ghost_banner_body")}</p>
+        {contentAccess?.granted ? (
+          <p className="mt-1 sam-text-helper font-medium text-amber-900">{t(CONTENT_BASIS_KEYS[contentAccess.basis])}</p>
+        ) : null}
       </div>
 
       <AdminCard titleKey="admin_cm_card_room_info">
@@ -351,9 +491,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             label={t("admin_cm_th_type")}
             value={roomTypeLabel(room.roomType === "open_group" ? "open_group" : room.roomType === "private_group" ? "private_group" : "direct")}
           />
-          <Info label={t("admin_cm_th_status")} value={room.roomStatus} />
-          <Info label={t("admin_cm_label_visibility")} value={room.visibility === "public" ? "public" : "private"} />
-          <Info label={t("admin_cm_label_join_policy")} value={room.joinPolicy} />
+          <Info label={t("admin_cm_th_status")} value={adminChatLabel("room_status", room.roomStatus, ko).label} />
+          <Info label={t("admin_cm_label_visibility")} value={room.visibility === "public" ? (ko ? "공개" : "Public") : ko ? "비공개" : "Private"} />
+          <Info
+            label={t("admin_cm_label_join_policy")}
+            value={room.joinPolicy === "password" ? (ko ? "비밀번호 입장" : "Password") : ko ? "초대 전용" : "Invite only"}
+          />
           <Info label={t("admin_cm_label_readonly")} value={room.isReadonly ? t("admin_cm_common_on") : t("admin_cm_common_off")} />
           <Info label={t("admin_cm_th_creator")} value={room.createdByLabel} />
           <Info label={t("admin_cm_label_owner")} value={room.ownerLabel} />
@@ -370,6 +513,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
       </AdminCard>
 
+      <AdminCmRoomDomainLinksCard domainRef={detail.domainRef} here={returnCtx.here} />
+
       <AdminCard titleKey="admin_cm_ghost_audits_title">
         {(detail.ghostAudits?.length ?? 0) === 0 ? (
           <p className="sam-text-helper text-sam-muted">{t("admin_cm_ghost_audits_empty")}</p>
@@ -378,9 +523,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             {(detail.ghostAudits ?? []).slice(0, 20).map((row) => (
               <li key={row.id} className="rounded border border-sam-border-soft px-3 py-2 sam-text-helper text-sam-fg">
                 <span className="font-semibold">
-                  {row.action.includes("enter")
-                    ? t("admin_cm_ghost_action_enter")
-                    : t("admin_cm_ghost_action_exit")}
+                  {row.action === "chat_room.content_view"
+                    ? t("admin_chat_r1_ghost_action_view")
+                    : row.action.includes("enter")
+                      ? t("admin_cm_ghost_action_enter")
+                      : t("admin_cm_ghost_action_exit")}
                 </span>
                 {" · "}
                 {formatDateTime(row.createdAt)}
@@ -441,9 +588,18 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               <div key={participant.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="sam-text-body font-medium text-sam-fg">{participant.label}</p>
+                    <p className="sam-text-body font-medium text-sam-fg">
+                      {participant.userId ? (
+                        <Link href={adminUserDetailHref(participant.userId, returnCtx.here)} className="text-signature underline">
+                          {participant.label}
+                        </Link>
+                      ) : (
+                        participant.label
+                      )}
+                    </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      {participant.role} · unread {participant.unreadCount}
+                      {adminChatLabel("participant_role", participant.role, ko).label} ·{" "}
+                      {ko ? `안 읽음 ${participant.unreadCount}` : `Unread ${participant.unreadCount}`}
                     </p>
                   </div>
                   <div className="text-right sam-text-helper text-sam-meta">
@@ -620,13 +776,50 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
 
       <AdminCard titleKey="admin_cm_card_message_timeline">
         <div className="space-y-2">
-          {detail.messages.map((message) => (
+          {contentAccess && !contentAccess.granted ? (
+            <div
+              data-admin-chat-content-locked={contentAccess.denial}
+              className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-4 sam-text-body text-amber-950"
+            >
+              <p className="font-medium">{t("admin_chat_r1_content_locked_title")}</p>
+              <p className="mt-1 sam-text-helper">
+                {contentAccess.denial === "super_admin_only"
+                  ? t("admin_chat_r1_content_locked_super_admin")
+                  : t("admin_chat_r1_content_locked_reason")}
+              </p>
+              {contentAccess.denial === "ghost_reason_required" ? (
+                <button
+                  type="button"
+                  onClick={() => void unlockContent()}
+                  className="mt-3 rounded-ui-rect border border-amber-400 bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-amber-900"
+                >
+                  {t("admin_chat_r1_content_unlock_cta")}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {olderMsgs.hasMore ? (
+            <div className="flex flex-col items-center gap-1 py-1">
+              <button
+                type="button"
+                disabled={olderMsgs.loading}
+                onClick={() => void olderMsgs.loadOlder()}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
+              >
+                {olderMsgs.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
+              </button>
+              {olderMsgs.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+            </div>
+          ) : null}
+          {olderMsgs.messages.map((message) => (
             <div key={message.id} className="rounded border border-sam-border-soft px-3 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="sam-text-body-secondary font-medium text-sam-fg">
                     {message.senderLabel}
-                    <span className="ml-2 sam-text-helper font-normal text-sam-meta">{message.messageType}</span>
+                    <span className="ml-2 inline-flex align-middle">
+                      <AdminCmMessageKindBadge kind={message.display?.kind ?? "text"} />
+                    </span>
                     {message.isHiddenByAdmin ? (
                       <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_badge_hidden")}</span>
                     ) : null}
@@ -636,9 +829,9 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       </span>
                     ) : null}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap sam-text-body text-sam-fg">
-                    {message.content || t("admin_cm_empty_message")}
-                  </p>
+                  <div className="mt-1 sam-text-body">
+                    <AdminCmMessageBody display={message.display} fallbackText={message.content || t("admin_cm_empty_message")} />
+                  </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {message.isHiddenByAdmin ? (
                       <button
@@ -678,13 +871,15 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="sam-text-body font-medium text-sam-fg">
-                      {report.reportType} · {report.reporterLabel}
+                      {adminChatLabel("report_target", report.reportType, ko).label} · {report.reporterLabel}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      {t("admin_cm_common_status", { status: report.status })} · {formatDateTime(report.createdAt)}
+                      {t("admin_cm_common_status", { status: adminChatLabel("report_status", report.status, ko).label })} ·{" "}
+                      {formatDateTime(report.createdAt)}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-fg">
-                      {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
+                      {adminChatLabel("report_reason", report.reasonType, ko).label}
+                      {report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
                     </p>
                     {report.adminNote ? (
                       <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: report.adminNote })}</p>
@@ -693,7 +888,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
                       type="button"
-                      disabled={busy === `report:${report.id}:reviewing`}
+                      disabled={busy !== null}
                       onClick={() => void runReportAction(report.id, "reviewing")}
                       className="rounded border border-sam-border px-2.5 py-1 sam-text-helper text-sam-fg"
                     >
@@ -701,7 +896,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     </button>
                     <button
                       type="button"
-                      disabled={busy === `report:${report.id}:resolved`}
+                      disabled={busy !== null}
                       onClick={() => void runReportAction(report.id, "resolved")}
                       className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 sam-text-helper text-emerald-700"
                     >
@@ -709,7 +904,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     </button>
                     <button
                       type="button"
-                      disabled={busy === `report:${report.id}:rejected`}
+                      disabled={busy !== null}
                       onClick={() => void runReportAction(report.id, "rejected")}
                       className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg"
                     >
@@ -718,7 +913,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     {report.messageId ? (
                       <button
                         type="button"
-                        disabled={busy === `report:${report.id}:sanction_message_hide`}
+                        disabled={busy !== null}
                         onClick={() => void runReportAction(report.id, "sanction_message_hide")}
                         className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1 sam-text-helper text-orange-700"
                       >
@@ -728,7 +923,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     {report.roomId ? (
                       <button
                         type="button"
-                        disabled={busy === `report:${report.id}:sanction_room_block`}
+                        disabled={busy !== null}
                         onClick={() => void runReportAction(report.id, "sanction_room_block")}
                         className="rounded border border-red-200 bg-red-50 px-2.5 py-1 sam-text-helper text-red-700"
                       >

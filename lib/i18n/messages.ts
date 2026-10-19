@@ -57,6 +57,11 @@ import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
+import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
+import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
+import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
+import { adminChatR1BMessages } from "./catalog/admin-chat-r1-data";
+import { adminChatR1AMessages } from "./catalog/admin-chat-r1-access";
 import { adminDeliveryR4EMessages } from "./catalog/admin-delivery-r4-app-sync";
 import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-monitoring";
 import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
@@ -180,6 +185,11 @@ const KO_MESSAGES = {
   ...koJson,
   // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
   ...adminDeliveryOpsUxMessages.ko,
+  ...adminChatR1EMessages.ko,
+  ...adminChatR1DMessages.ko,
+  ...adminChatR1CMessages.ko,
+  ...adminChatR1BMessages.ko,
+  ...adminChatR1AMessages.ko,
   ...adminDeliveryR4EMessages.ko,
   ...adminDeliveryR4DMessages.ko,
   ...adminDeliveryR4CMessages.ko,
@@ -268,6 +278,11 @@ const EN_MESSAGES = {
   ...adminDeployMessages.en,
   ...enJson,
   ...adminDeliveryOpsUxMessages.en,
+  ...adminChatR1EMessages.en,
+  ...adminChatR1DMessages.en,
+  ...adminChatR1CMessages.en,
+  ...adminChatR1BMessages.en,
+  ...adminChatR1AMessages.en,
   ...adminDeliveryR4EMessages.en,
   ...adminDeliveryR4DMessages.en,
   ...adminDeliveryR4CMessages.en,

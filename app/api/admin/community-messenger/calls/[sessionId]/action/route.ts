@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { isCommunityMessengerCallForceEndReasonCode } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import { runAdminCommunityMessengerCallSessionAction } from "@/lib/admin-community-messenger/service";
 
@@ -12,7 +12,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   let body: { action?: CallAction; adminNote?: string; reasonCode?: string };
@@ -37,7 +37,7 @@ export async function POST(
   const { sessionId } = await params;
   const result = await runAdminCommunityMessengerCallSessionAction({
     sessionId,
-    adminUserId: admin.userId,
+    adminUserId: admin.actor.userId,
     action: body.action,
     reasonCode: body.reasonCode,
     adminNote: body.adminNote,

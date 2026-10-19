@@ -151,6 +151,11 @@ import {
   runMessengerSequentialSends,
   type MessengerUnconfirmedTextSend,
 } from "@/lib/community-messenger/room/messenger-outbound-failed-send";
+import {
+  isMessengerMediaRouteUrl,
+  messengerMediaRouteUrlFor,
+  withMessengerMediaRouteUrls,
+} from "@/lib/community-messenger/media/messenger-media-ref";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -2510,16 +2515,27 @@ export function useMessengerRoomPhase2Controller() {
     [redirectIfMessengerAuthBlocked, roomId]
   );
 
-  const getMessageCopyText = useCallback((item: CommunityMessengerMessage & { pending?: boolean }) => {
-    if (item.messageType === "text" || item.messageType === "call_stub") return item.content.trim();
+  const getMessageCopyText = useCallback((raw: CommunityMessengerMessage & { pending?: boolean }) => {
+    if (raw.messageType === "text" || raw.messageType === "call_stub") return raw.content.trim();
+    /** C-4: 첨부 링크 복사는 원 저장 URL 대신 참가자 확인 첨부 조회 라우트(절대 URL). */
+    const routed = withMessengerMediaRouteUrls(raw);
+    const item =
+      raw.messageType === "voice"
+        ? { ...raw, content: messengerMediaRouteUrlFor({ roomId: raw.roomId, messageId: raw.id, src: raw.content }) }
+        : routed;
+    const abs = (u: string) =>
+      isMessengerMediaRouteUrl(u) && typeof window !== "undefined" ? `${window.location.origin}${u}` : u;
     if (item.messageType === "image") {
       const originals = item.imageAlbumOriginalUrls?.filter(Boolean) ?? [];
-      if (originals.length > 1) return originals.map((u) => u.trim()).join("\n");
+      if (originals.length > 1) return originals.map((u) => abs(u.trim())).join("\n");
       const album = item.imageAlbumUrls?.filter(Boolean) ?? [];
-      if (album.length > 1) return album.map((u) => u.trim()).join("\n");
-      return (item.imageOriginalUrl || item.content).trim();
+      if (album.length > 1) return album.map((u) => abs(u.trim())).join("\n");
+      return abs((item.imageOriginalUrl || item.content).trim());
     }
-    if (item.messageType === "file" || item.messageType === "voice" || item.messageType === "sticker") {
+    if (item.messageType === "file" || item.messageType === "voice") {
+      return abs(item.content.trim());
+    }
+    if (item.messageType === "sticker") {
       return item.content.trim();
     }
     return "";

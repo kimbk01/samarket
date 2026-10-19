@@ -55,15 +55,18 @@ describe("ARO-OPS-UX-002-B2 domain dashboard contract", () => {
   });
 
   it("messenger authorities stay separate in read-model", () => {
+    // 채팅 설계 §6: 방 수는 CM chat_domain 단일 기준 (거래 = chat_domain=trade, 빈 레거시 product_chats 아님)
     const src = read("lib/admin/domain-dashboard/load-messenger-domain-dashboard.ts");
-    expect(src).toContain('chat_domain", "general_direct"');
-    expect(src).toContain('chat_domain", "group"');
-    expect(src).toContain('from("product_chats")');
-    expect(src).toContain("community_messenger_room_id");
-    expect(src).toContain("/admin/chats/general");
-    expect(src).toContain("/admin/chats/group");
-    expect(src).toContain("/admin/chats/trade");
-    expect(src).toContain("/admin/order-chats");
+    const loader = read("lib/admin/metrics/load-chat-metrics.ts");
+    const defs = read("lib/admin/metrics/chat-metrics.ts");
+    expect(src).toContain("loadChatMetrics");
+    expect(src).not.toContain('from("product_chats")');
+    expect(loader).toContain('"community_messenger_rooms"');
+    expect(loader).toContain('eq("chat_domain", domain)');
+    expect(defs).toContain("/admin/chats/general");
+    expect(defs).toContain("/admin/chats/group");
+    expect(defs).toContain("/admin/chats/trade");
+    expect(defs).toContain("/admin/order-chats");
   });
 
   it("reset context entries use B1R presets", () => {

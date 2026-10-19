@@ -149,7 +149,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "reviews-trade": "admin_menu_trade_reviews",
   "store-reports-admin": "admin_menu_store_reports",
   "store-reviews-admin": "admin_menu_store_reviews",
-  "chat-reported": "admin_menu_chat_reported",
+  "chat-reported": "admin_menu_chat_report_queue",
   "philife-meeting-reports": "admin_menu_meeting_reports",
   "manage-reports": "admin_menu_manage_reports",
 
@@ -255,13 +255,17 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   // Messenger
   "chat-all": "admin_menu_chat_all",
   "chat-trade": "admin_menu_chat_trade",
-  "chat-messenger": "admin_menu_chat_messenger",
+  // J-AMD-4 (Owner O-C12): chat workspace sections — 채팅방 / 신고·제재 / 통화 기록 / 시스템.
+  "chat-messenger": "admin_menu_chat_call_records",
   "chat-messenger-perf": "admin_menu_chat_messenger_performance",
-  "messenger-advanced": "admin_menu_messenger_advanced",
-  "chat-trade-messenger": "admin_menu_chat_trade_messenger_ref",
-  "delivery-order-chats-messenger": "admin_menu_order_chats_messenger_ref",
-  "chat-group": "admin_menu_chat_group",
-  "chat-general": "admin_menu_chat_general",
+  "messenger-section-rooms": "admin_menu_chat_section_rooms",
+  "messenger-section-reports": "admin_menu_chat_section_reports",
+  "messenger-section-calls": "admin_menu_chat_section_calls",
+  "messenger-section-system": "admin_menu_chat_section_system",
+  "chat-trade-messenger": "admin_menu_chat_rooms_trade",
+  "delivery-order-chats-messenger": "admin_menu_chat_rooms_store_order",
+  "chat-group": "admin_menu_chat_rooms_group",
+  "chat-general": "admin_menu_chat_rooms_general",
 
   // Trade family extras (Cut B)
   "trade-users": "admin_menu_users",
@@ -785,45 +789,68 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── MESSENGER ──────────────────────────────────
+  // J-AMD-4 (Owner-approved O-C12): sections 채팅 대시보드 · 채팅방 · 신고·제재 · 통화 기록 · 시스템.
+  // Keys / canonical pages unchanged; 거래·배달 주문 are type filters of 전체채팅 (no ?from= duplicates).
   {
     key: "messenger",
     title: "",
     children: [
       { key: "messenger-hub", title: "", path: "/admin/messenger", status: "done" },
       {
-        key: "chat-general",
+        key: "messenger-section-rooms",
         title: "",
-        path: "/admin/chats/general",
-        matchPaths: ["/admin/chats/community"],
-        status: "done",
-      },
-      { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
-      {
-        key: "chat-trade-messenger",
-        title: "",
-        path: "/admin/chats/trade?from=messenger",
-        status: "done",
-      },
-      {
-        key: "delivery-order-chats-messenger",
-        title: "",
-        path: "/admin/order-chats?from=messenger",
-        status: "done",
-      },
-      { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
-      {
-        key: "messenger-advanced",
-        title: "",
-        status: "partial",
         children: [
           { key: "chat-all", title: "", path: "/admin/chats", status: "done" },
+          {
+            key: "chat-general",
+            title: "",
+            path: "/admin/chats/general",
+            matchPaths: ["/admin/chats/community"],
+            status: "done",
+          },
+          { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
+          {
+            key: "chat-trade-messenger",
+            title: "",
+            path: "/admin/chats?type=trade",
+            matchPaths: ["/admin/chats/trade?from=messenger"],
+            status: "done",
+          },
+          {
+            key: "delivery-order-chats-messenger",
+            title: "",
+            path: "/admin/chats?type=store_order",
+            matchPaths: ["/admin/order-chats?from=messenger"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "messenger-section-reports",
+        title: "",
+        children: [
+          { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
+        ],
+      },
+      {
+        key: "messenger-section-calls",
+        title: "",
+        children: [
           { key: "chat-messenger", title: "", path: "/admin/chats/messenger", status: "done" },
+        ],
+      },
+      {
+        key: "messenger-section-system",
+        title: "",
+        children: [
           {
             key: "chat-messenger-perf",
             title: "",
             path: "/admin/chats/messenger-performance",
             status: "done",
           },
+          // J-AMD-4: moved from system › ops (same key / path).
+          { key: "ops-docs-chat", title: "", path: "/admin/docs/chat", status: "done" },
         ],
       },
     ],
@@ -1429,7 +1456,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
               },
               { key: "ops-launch-week", title: "", path: "/admin/launch-week", status: "done" },
               { key: "ops-docs-board", title: "", path: "/admin/docs/board", status: "done" },
-              { key: "ops-docs-chat", title: "", path: "/admin/docs/chat", status: "done" },
               { key: "ops-memo", title: "", path: "/admin/memo", status: "done" },
             ],
           },

@@ -1,7 +1,8 @@
 /**
  * Phase 3 S2-2 Ghost Admin — Invisible Read Only on Admin Console lane.
  * CONTRACT:
- * - Platform Admin only (caller must already pass requireAdminApiUser)
+ * - Caller must already pass requireChatAdmin (permission `chats`); message-content audit lives in
+ *   the server GET (`chat_room.content_view`) — enter/exit here is a supplementary session marker only.
  * - Never insert/update community_messenger_participants for the admin
  * - Never touch presence / typing / read cursor / badge / notification
  * - Audit only: community_messenger.ghost_enter | community_messenger.ghost_exit
@@ -13,6 +14,8 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 export const GHOST_AUDIT_ACTION_ENTER = "community_messenger.ghost_enter";
 export const GHOST_AUDIT_ACTION_EXIT = "community_messenger.ghost_exit";
 export const GHOST_AUDIT_TARGET_TYPE = "community_messenger_room";
+/** R1-A: 서버 GET 내부 본문 열람 감사 (lib/admin/chat-admin/chat-content-access-policy.ts 와 동일 문자열) */
+export const GHOST_AUDIT_ACTION_CONTENT_VIEW = "chat_room.content_view";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -139,7 +142,7 @@ export async function listGhostAuditsForRoom(roomId: string, limit = 40): Promis
     .select("id, actor_id, action, after_json, created_at")
     .eq("target_type", GHOST_AUDIT_TARGET_TYPE)
     .eq("target_id", rid)
-    .in("action", [GHOST_AUDIT_ACTION_ENTER, GHOST_AUDIT_ACTION_EXIT])
+    .in("action", [GHOST_AUDIT_ACTION_ENTER, GHOST_AUDIT_ACTION_EXIT, GHOST_AUDIT_ACTION_CONTENT_VIEW])
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 100));
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
@@ -150,7 +153,7 @@ export async function listGhostAuditsForRoom(roomId: string, limit = 40): Promis
       actorId: trimText(row.actor_id) || null,
       createdAt: trimText(row.created_at),
       reason: trimText(after.reason) || null,
-      enteredAt: trimText(after.enteredAt) || null,
+      enteredAt: trimText(after.enteredAt) || trimText(after.viewedAt) || null,
       exitedAt: trimText(after.exitedAt) || null,
     };
   });

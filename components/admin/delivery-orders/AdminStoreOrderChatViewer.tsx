@@ -17,9 +17,14 @@ import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import type {
+  AdminStoreOrderChatMessage,
   AdminStoreOrderChatSenderRole,
   AdminStoreOrderChatView,
 } from "@/lib/admin-delivery-orders/load-admin-store-order-chat";
+import { AdminCmMessageBody, AdminCmMessageKindBadge } from "@/components/admin/chats/AdminCmMessageBody";
+import { useAdminOlderMessages } from "@/components/admin/chats/use-admin-older-messages";
+import { adminCmRoomDetailHref } from "@/lib/admin-community-messenger/room-domain-links";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 
 const ROLE_KEY: Record<AdminStoreOrderChatSenderRole, MessageKey> = {
   buyer: "admin_r4b_chat_role_buyer",
@@ -69,11 +74,33 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
     void load();
   }, [load]);
 
+  // R1-B C-6: 최신 페이지 먼저 + id 커서 「이전 메시지 더 보기」
+  const fetchOlder = useCallback(
+    async (beforeId: string) => {
+      const res = await fetch(
+        `/api/admin/order-chats/${encodeURIComponent(orderId)}?before=${encodeURIComponent(beforeId)}`,
+        { credentials: "include", cache: "no-store" }
+      );
+      const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; chat?: AdminStoreOrderChatView } | null;
+      if (!res.ok || !j?.ok || !j.chat) throw new Error(j?.error || "load_failed");
+      return { items: j.chat.messages, hasMore: j.chat.hasMore === true };
+    },
+    [orderId]
+  );
+  const older = useAdminOlderMessages<AdminStoreOrderChatMessage>({
+    resetKey: `${orderId}:${chat?.roomId ?? ""}`,
+    latest: chat?.messages ?? [],
+    latestHasMore: chat?.hasMore === true,
+    fetchOlder,
+  });
+  /** 이 화면(returnTo 포함) — 통합 채팅 상세에서 돌아올 경로 */
+  const hereHref = withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(orderId)}/chat`, backHref);
+
   const statusLabel = (s: string) => {
     const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
     return key ? t(key) : "—";
   };
-  const orderHref = `/admin/stores/orders/${encodeURIComponent(orderId)}`;
+  const orderHref = withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(orderId)}`, hereHref);
 
   return (
     <div
@@ -107,11 +134,42 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
                 <dt className="text-sam-muted">{t("admin_r4b_chat_buyer")}</dt>
                 <dd className="text-sam-fg">{chat.buyerLabel}</dd>
               </div>
+              {chat.roomId ? (
+                <div>
+                  <dt className="text-sam-muted">{t("admin_chat_r1b_room_status")}</dt>
+                  <dd className="text-sam-fg" data-admin-room-status={chat.roomStatus ?? ""}>
+                    {chat.roomStatus === "blocked"
+                      ? t("admin_chat_r1b_status_blocked")
+                      : chat.roomStatus === "archived"
+                        ? t("admin_chat_r1b_status_archived")
+                        : t("admin_chat_r1b_status_active")}
+                  </dd>
+                </div>
+              ) : null}
+              {chat.roomId ? (
+                <div>
+                  <dt className="text-sam-muted">{t("admin_chat_r1b_readonly")}</dt>
+                  <dd className="text-sam-fg">{chat.isReadonly ? t("admin_chat_r1b_on") : t("admin_chat_r1b_off")}</dd>
+                </div>
+              ) : null}
             </dl>
+            {chat.roomId && chat.roomSource && chat.roomSource !== "linked" ? (
+              <p className="mt-2 sam-text-helper text-amber-800" data-admin-room-source={chat.roomSource}>
+                {t("admin_chat_r1b_room_fallback")}
+              </p>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href={orderHref} className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-fg hover:bg-sam-surface-muted">
                 {t("admin_r4b_chat_order_detail")}
               </Link>
+              {chat.roomId ? (
+                <Link
+                  href={adminCmRoomDetailHref(chat.roomId, hereHref)}
+                  className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-fg hover:bg-sam-surface-muted"
+                >
+                  {t("admin_chat_r1b_open_unified")}
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void load()}
@@ -132,13 +190,25 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
           <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3" aria-label={t("admin_r4b_chat_messages")}>
             {!chat.roomId ? (
               <AdminEmptyState ko={ko} message={t("admin_r4b_chat_no_room")} />
-            ) : chat.messages.length === 0 ? (
+            ) : older.messages.length === 0 ? (
               <AdminEmptyState ko={ko} message={t("admin_r4b_chat_empty")} />
             ) : (
               <>
-                {chat.truncated ? <p className="mb-2 sam-text-xxs text-sam-muted">{t("admin_r4b_chat_truncated")}</p> : null}
+                {older.hasMore ? (
+                  <div className="mb-2 flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={older.loading}
+                      onClick={() => void older.loadOlder()}
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
+                    >
+                      {older.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
+                    </button>
+                    {older.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+                  </div>
+                ) : null}
                 <ol className="flex flex-col gap-2">
-                  {chat.messages.map((m) => (
+                  {older.messages.map((m) => (
                     <li
                       key={m.id}
                       data-chat-sender-role={m.senderRole}
@@ -150,11 +220,12 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
                           {m.senderLabel && m.senderRole !== "system" ? ` · ${m.senderLabel}` : ""}
                         </span>
                         <span className="tabular-nums">{m.createdAt ? formatAdminDateTime(m.createdAt, language) : ""}</span>
+                        {m.display ? <AdminCmMessageKindBadge kind={m.display.kind} /> : null}
                       </div>
                       {m.hiddenByAdmin ? (
                         <p className="italic text-sam-muted">{t("admin_r4b_chat_hidden")}</p>
                       ) : (
-                        <p className="whitespace-pre-wrap text-sam-fg [overflow-wrap:anywhere]">{m.content}</p>
+                        <AdminCmMessageBody display={m.display} fallbackText={m.content} />
                       )}
                     </li>
                   ))}

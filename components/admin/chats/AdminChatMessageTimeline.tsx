@@ -3,12 +3,16 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import type { AdminChatMessage } from "@/lib/types/admin-chat";
+import { AdminCmMessageBody, AdminCmMessageKindBadge } from "./AdminCmMessageBody";
 
 interface AdminChatMessageTimelineProps {
   messages: AdminChatMessage[];
+  /** R1-B C-1: 사용자 방(CM) 메시지일 때만 — 메시지 숨김/해제 (CM 관리자 경로) */
+  onToggleHidden?: (message: AdminChatMessage, hidden: boolean) => void;
+  busyMessageId?: string | null;
 }
 
-export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineProps) {
+export function AdminChatMessageTimeline({ messages, onToggleHidden, busyMessageId = null }: AdminChatMessageTimelineProps) {
   const { t, language } = useI18n();
 
   if (messages.length === 0) {
@@ -32,6 +36,7 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
           <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
             <span className="font-medium text-sam-fg">{m.senderNickname}</span>
             <span>{formatAdminDateTime(m.createdAt, language)}</span>
+            {m.display ? <AdminCmMessageKindBadge kind={m.display.kind} /> : null}
             {m.isReported && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
                 {t("admin_chat_status_reported")}
@@ -43,7 +48,25 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
               </span>
             )}
           </div>
-          <p className="mt-1 whitespace-pre-wrap break-words">{m.message}</p>
+          <div className="mt-1 break-words">
+            {m.display ? (
+              <AdminCmMessageBody display={m.display} fallbackText={m.message} />
+            ) : (
+              <p className="whitespace-pre-wrap break-words">{m.message}</p>
+            )}
+          </div>
+          {onToggleHidden && m.messageType !== "system" ? (
+            <div className="mt-2">
+              <button
+                type="button"
+                disabled={busyMessageId === m.id}
+                onClick={() => onToggleHidden(m, !m.isHidden)}
+                className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg hover:bg-sam-app disabled:opacity-50"
+              >
+                {m.isHidden ? t("admin_chat_r1b_unhide_message") : t("admin_chat_r1b_hide_message")}
+              </button>
+            </div>
+          ) : null}
         </li>
       ))}
     </ul>

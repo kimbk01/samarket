@@ -34,6 +34,7 @@ import {
 } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 import { openMessengerPhotoSelectSave } from "@/lib/community-messenger/stores/messenger-photo-select-save-store";
 import { saveMessengerPhotosWithFeedback } from "@/components/community-messenger/room/messenger-photo-save-feedback";
+import { withMessengerMediaRouteUrls } from "@/lib/community-messenger/media/messenger-media-ref";
 
 type Item = CommunityMessengerMessage & { pending?: boolean };
 
@@ -90,10 +91,12 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const runPhotoSaveRow = (row: MessengerPhotoSaveMenuRow) => {
     onClose();
     if (row.kind === "select") {
-      const album = item.imageAlbumUrls ?? [];
+      /** C-4: 미리보기 썸네일도 첨부 조회 라우트로 투영 */
+      const routed = withMessengerMediaRouteUrls(item);
+      const album = routed.imageAlbumUrls ?? [];
       const previews =
-        item.imageAlbumPreviewUrls && item.imageAlbumPreviewUrls.length === album.length
-          ? item.imageAlbumPreviewUrls
+        routed.imageAlbumPreviewUrls && routed.imageAlbumPreviewUrls.length === album.length
+          ? routed.imageAlbumPreviewUrls
           : album;
       openMessengerPhotoSelectSave({
         messageId: item.id,
