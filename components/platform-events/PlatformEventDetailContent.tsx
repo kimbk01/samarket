@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { DestinationLink } from "@/components/destination/DestinationLink";
 import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
 import { resolvePlatformEventFinalCtaHref } from "@/lib/platform-events/destination";
 import type { PlatformEventRow, PlatformEventSection } from "@/lib/platform-events/types";
@@ -73,12 +73,13 @@ function SectionBlock({ section }: { section: PlatformEventSection }) {
     });
     if (!href.ok) return null;
     return (
-      <Link
-        href={href.href}
+      <DestinationLink
+        destination={href.href}
+        fallback={null}
         className="flex min-h-12 items-center justify-center rounded-ui-rect bg-[var(--sam-brand,#085c3f)] px-4 text-[15px] font-semibold text-white"
       >
         {section.label}
-      </Link>
+      </DestinationLink>
     );
   }
   if (section.type === "terms") {
@@ -143,13 +144,14 @@ export function PlatformEventDetailContent({
       ))}
 
       {primary && primary.ok ? (
-        <Link
-          href={primary.href}
+        <DestinationLink
+          destination={primary.href}
+          fallback={null}
           className="flex min-h-12 items-center justify-center rounded-ui-rect bg-[var(--sam-brand,#085c3f)] px-4 text-[16px] font-semibold text-white"
           data-platform-event-primary-cta="1"
         >
           {event.ctaLabel}
-        </Link>
+        </DestinationLink>
       ) : null}
 
       {event.terms ? (

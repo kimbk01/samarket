@@ -1,5 +1,7 @@
 "use client";
 
+import { resolvePlatformEventFinalCtaHref } from "@/lib/platform-events/destination";
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -740,6 +742,19 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             />
           </label>
         )}
+        {draft.ctaType ? (
+          <AdminDestinationResolvedHint
+            href={(() => {
+              const r = resolvePlatformEventFinalCtaHref({
+                ctaType: draft.ctaType,
+                ctaTarget: draft.ctaTarget,
+                externalUrl: draft.ctaExternalUrl,
+              });
+              return r.ok ? r.href : (isExternalCta ? draft.ctaExternalUrl : draft.ctaTarget) || "";
+            })()}
+            language={lang}
+          />
+        ) : null}
       </section>
 
       <section className={sectionClass} data-admin-event-section="schedule">

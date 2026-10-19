@@ -15,6 +15,9 @@ import {
   feedAdMediaHeightClass,
 } from "@/lib/ads/feed-ad-geometry";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
+import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
+import { destinationHref, eventDestinationPath } from "@/lib/destination/destination-contract";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 
@@ -633,6 +636,7 @@ export function AdminFeedAdCreatePage({
           <option value="trade_listing">Trade listing</option>
           <option value="community_post">Community post</option>
           <option value="store">Store</option>
+          <option value="event">Event</option>
           <option value="external_url">External URL</option>
         </select>
         {destinationType === "external_url" || destinationType === "internal_page" ? (
@@ -650,6 +654,19 @@ export function AdminFeedAdCreatePage({
             onChange={(e) => setDestinationId(e.target.value)}
           />
         )}
+        {destinationUrl.trim() || destinationId.trim() ? (
+          <AdminDestinationResolvedHint
+            href={(() => {
+              const ref = feedAdDestinationRef(
+                destinationType === "event"
+                  ? { destinationType: "internal_page", destinationUrl: eventDestinationPath(destinationId.trim()) }
+                  : { destinationType, destinationId, destinationUrl }
+              );
+              return ref ? destinationHref(ref) : destinationUrl.trim() || destinationId.trim();
+            })()}
+            language={langEn ? "en" : "ko"}
+          />
+        ) : null}
       </section>
 
       {/* 7 Schedule */}

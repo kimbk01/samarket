@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
@@ -69,6 +70,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "topic_not_targetable" }, { status: 400 });
   }
 
+  // EVT-05: destination validated by the shared DestinationRef contract (https only, event ok).
+  // Empty internal_page keeps the existing NONE contract (stored as empty id/url).
+  const destEmpty =
+    !String(body.destinationId ?? "").trim() &&
+    !String(body.destinationUrl ?? "").trim() &&
+    (!body.destinationType || body.destinationType === "internal_page");
+  const dest = normalizeFeedAdDestination({
+    destinationType: destEmpty ? "none" : (body.destinationType ?? "internal_page"),
+    destinationId: body.destinationId,
+    destinationUrl: body.destinationUrl,
+  });
+  if (!dest.ok) {
+    return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+  }
+
   const topicSlugNorm =
     placement === "COMMUNITY_TOPIC"
       ? normalizeFeedAdTopicSlug(String(body.targetTopicSlug ?? ""))
@@ -86,9 +102,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       priority: Number(body.priority ?? 100),
       start_at: body.startAt || null,
       end_at: body.endAt || null,
-      destination_type: body.destinationType ?? "internal_page",
-      destination_id: body.destinationId ?? "",
-      destination_url: body.destinationUrl ?? "",
+      destination_type: dest.value.destinationType,
+      destination_id: dest.value.destinationId,
+      destination_url: dest.value.destinationUrl,
       source: "ADMIN_DIRECT",
       created_by: admin.userId,
     })
