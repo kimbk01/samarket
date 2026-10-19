@@ -17,6 +17,10 @@ import type { AdminNotificationCampaignOccurrenceRow, CampaignContentSnapshot } 
 import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
 import { fetchCampaignProfileScanSlice } from "@/lib/admin/notification-campaigns/campaign-target-scan";
 import type { AdminNotificationCampaignRow, CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-types";
+import {
+  canTransitionCampaignStatus,
+  isCampaignHaltedStatus,
+} from "@/lib/admin/notification-campaigns/campaign-status-machine";
 
 export const NOTIFICATION_CAMPAIGN_BATCH_SIZE = 120;
 
@@ -44,6 +48,8 @@ export async function ensureCampaignTargetsForSelectedUsers(
 export function assertOccurrenceSendAllowed(status: string): { ok: true } | { ok: false; error: string } {
   if (status === "sending") return { ok: true };
   if (status === "queued" || status === "failed") return { ok: true };
+  // ADM-03: admin stop/cancel — the drain treats this as a clean stop, not a failure.
+  if (status === "cancelled") return { ok: false, error: "occurrence_cancelled" };
   if (TERMINAL_OCCURRENCE.has(status)) {
     return { ok: false, error: "occurrence_already_completed" };
   }
@@ -88,7 +94,7 @@ export async function runNotificationCampaignSendBatch(
   const { data: camp, error: cErr } = await svc
     .from("admin_notification_campaigns")
     .select(
-      "id, type, target_type, title, body, channel, target_url, image_url, deeplink_url, web_url, push_image_url, in_app_image_url, priority, visibility_policy, target_payload, segment_region_code"
+      "id, status, type, target_type, title, body, channel, target_url, image_url, deeplink_url, web_url, push_image_url, in_app_image_url, priority, visibility_policy, target_payload, segment_region_code"
     )
     .eq("id", occurrence.campaign_id)
     .maybeSingle();
@@ -98,6 +104,11 @@ export async function runNotificationCampaignSendBatch(
   }
 
   const campRow = camp as AdminNotificationCampaignRow;
+  const campaignStatus = String(campRow.status ?? "");
+  // ADM-03: 발송 중지 / 반복 중지 halts an in-flight occurrence at the next batch boundary.
+  if (isCampaignHaltedStatus(campaignStatus) && String(occurrence.trigger_type ?? "") !== "test") {
+    return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: true, error: "campaign_stopped" };
+  }
   const snap = occurrence.content_snapshot as CampaignContentSnapshot;
   const campaignFromSnapshot = campaignRowFromContentSnapshot(occurrence.campaign_id, {
     title: String(snap?.title ?? campRow.title),
@@ -160,10 +171,13 @@ export async function runNotificationCampaignSendBatch(
       .from("admin_notification_campaign_occurrences")
       .update({ status: "sending", started_at: occurrence.started_at ?? now, updated_at: now })
       .eq("id", occurrenceId);
-    await svc
-      .from("admin_notification_campaigns")
-      .update({ status: "sending", updated_at: now })
-      .eq("id", occurrence.campaign_id);
+    // ADM-09: only statuses whose transition table allows `sending` (recurring stays active).
+    if (canTransitionCampaignStatus(campaignStatus, "sending")) {
+      await svc
+        .from("admin_notification_campaigns")
+        .update({ status: "sending", updated_at: now })
+        .eq("id", occurrence.campaign_id);
+    }
   }
 
   let scannedRaw: string[] = [];

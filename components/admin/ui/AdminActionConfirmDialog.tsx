@@ -5,7 +5,7 @@
  * CUT R1: mutations only; never use for read-only navigation.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { AdminMutationConfirmTone } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
@@ -23,6 +23,7 @@ export function AdminActionConfirmDialog({
   pending = false,
   onCancel,
   onConfirm,
+  children,
 }: {
   open: boolean;
   title: string;
@@ -36,6 +37,8 @@ export function AdminActionConfirmDialog({
   pending?: boolean;
   onCancel: () => void;
   onConfirm: (reason: string) => void;
+  /** Optional extra body (e.g. fact lines) rendered above the reason field. */
+  children?: ReactNode;
 }) {
   const [reason, setReason] = useState("");
 
@@ -54,6 +57,7 @@ export function AdminActionConfirmDialog({
       description={description}
       ariaLabel={title}
     >
+      {children}
       {reasonRequired ? (
         <label className={`mt-3 block ${OverlayUi.caption}`}>
           {reasonLabel || "사유"}
