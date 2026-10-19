@@ -75,9 +75,11 @@ export function buildAdminStoreProductPatch(
         },
       };
     case "reject_review":
+      // 검수 반려 = 고객 메뉴 비노출 + 사장님에게 사유 표시 (DEF-65, Owner 승인).
       return {
         ok: true,
         patch: {
+          product_status: "hidden",
           admin_review_status: "rejected",
           admin_review_memo: memo,
         },

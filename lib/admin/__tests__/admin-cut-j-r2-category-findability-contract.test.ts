@@ -11,7 +11,7 @@ describe("CUT J-R2 category sidebar findability contract", () => {
   it("R2-1 Category leaf target is /admin/stores-category-policy under delivery", () => {
     const leaf = findAdminMenuByKey(adminMenu, "stores-browse-policy");
     expect(leaf?.path).toBe("/admin/stores-category-policy");
-    const ops = findAdminMenuByKey(adminMenu, "delivery-section-operations");
+    const ops = findAdminMenuByKey(adminMenu, "delivery-section-home-layout");
     const keys = (ops?.children ?? []).map((c) => c.key);
     expect(keys).toContain("stores-browse-policy");
     expect(keys).toContain("stores-home-shelves");
@@ -40,7 +40,7 @@ describe("CUT J-R2 category sidebar findability contract", () => {
     expect(leaf?.children).toBeUndefined();
     expect(leaf?.path).toBeTruthy();
     // Parent section has no path (header-only) — click expands, does not replace child href
-    const ops = findAdminMenuByKey(adminMenu, "delivery-section-operations");
+    const ops = findAdminMenuByKey(adminMenu, "delivery-section-home-layout");
     expect(ops?.path).toBeUndefined();
     expect(ops?.children?.length).toBeGreaterThan(0);
   });

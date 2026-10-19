@@ -193,6 +193,11 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-section-operations": "admin_menu_delivery_section_operations",
   "delivery-section-management": "admin_menu_delivery_section_management",
   "delivery-section-platform": "admin_menu_delivery_section_platform",
+  "delivery-section-stores": "admin_menu_delivery_section_stores",
+  "delivery-section-field": "admin_menu_delivery_section_field",
+  "delivery-section-fees": "admin_menu_delivery_section_fees",
+  "delivery-section-promotions": "admin_menu_delivery_section_promotions",
+  "delivery-section-home-layout": "admin_menu_delivery_section_home_layout",
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
   "store-insertions-control": "admin_menu_store_insertions_control",
@@ -388,7 +393,10 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── DELIVERY ───────────────────────────────────
-  // B7: Overview → Daily ops → Management → Config → Platform tools.
+  // J-AMD-3 (Owner-approved A-1): operator-task sections —
+  // 매장 → 주문 → 배달 현장 → 수수료·정산 → 혜택·프로모션 → 매장 홈 화면 구성 → 배달 설정.
+  // Developer tools (runtime-health · delivery-release-gate) live under system › platform-system.
+  // Global pending-work queue (delivery-order-notifications) lives under support.
   // delivery-ads primary ownership remains ads workspace (B5).
   {
     key: "delivery",
@@ -396,62 +404,159 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     children: [
       { key: "delivery-dashboard", title: "", path: "/admin/delivery", status: "done" },
       {
-        key: "delivery-section-operations",
+        key: "delivery-section-stores",
         title: "",
         status: "done",
         children: [
-          {
-            key: "delivery-orders",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "delivery-orders-list",
-                title: "",
-                path: "/admin/stores/orders",
-                matchPaths: ["/admin/delivery-orders"],
-                status: "done",
-              },
-              {
-                key: "delivery-orders-action-queue",
-                title: "",
-                path: "/admin/store-orders",
-                status: "partial",
-              },
-              {
-                key: "delivery-orders-cancel",
-                title: "",
-                path: "/admin/stores/orders/cancellations",
-                status: "done",
-              },
-              {
-                key: "delivery-orders-refund",
-                title: "",
-                path: "/admin/stores/orders/refunds",
-                status: "done",
-              },
-              {
-                key: "delivery-orders-logs",
-                title: "",
-                path: "/admin/stores/orders/logs",
-                status: "done",
-              },
-              {
-                key: "delivery-order-chats",
-                title: "",
-                path: "/admin/order-chats",
-                matchPaths: ["/admin/chats/business"],
-                status: "done",
-              },
-            ],
-          },
           { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
+          { key: "business-shops", title: "", path: "/admin/business", status: "done" },
           {
             key: "store-products-admin",
             title: "",
             path: "/admin/store-products",
             status: "partial",
           },
+          {
+            key: "store-inquiries-admin",
+            title: "",
+            path: "/admin/store-inquiries",
+            status: "done",
+          },
+          {
+            key: "store-reports-admin",
+            title: "",
+            path: "/admin/store-reports",
+            status: "partial",
+          },
+          {
+            key: "store-reviews-admin",
+            title: "",
+            path: "/admin/store-reviews",
+            status: "partial",
+          },
+        ],
+      },
+      {
+        key: "delivery-orders",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "delivery-orders-list",
+            title: "",
+            path: "/admin/stores/orders",
+            matchPaths: ["/admin/delivery-orders"],
+            status: "done",
+          },
+          {
+            key: "delivery-orders-action-queue",
+            title: "",
+            path: "/admin/store-orders",
+            status: "partial",
+          },
+          {
+            key: "delivery-orders-cancel",
+            title: "",
+            path: "/admin/stores/orders/cancellations",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-refund",
+            title: "",
+            path: "/admin/stores/orders/refunds",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-logs",
+            title: "",
+            path: "/admin/stores/orders/logs",
+            status: "done",
+          },
+          {
+            key: "delivery-order-chats",
+            title: "",
+            path: "/admin/order-chats",
+            matchPaths: ["/admin/chats/business"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "delivery-section-field",
+        title: "",
+        status: "done",
+        children: [
+          { key: "delivery-ops-console", title: "", path: "/admin/ops-console", status: "done" },
+          {
+            key: "delivery-operations-stats",
+            title: "",
+            path: "/admin/delivery-operations",
+            status: "done",
+          },
+          { key: "delivery-riders-ops", title: "", path: "/admin/delivery-riders", status: "done" },
+          {
+            key: "delivery-operation-alerts",
+            title: "",
+            path: "/admin/delivery-alerts",
+            status: "done",
+          },
+          {
+            key: "delivery-auto-actions",
+            title: "",
+            path: "/admin/delivery-auto-actions",
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "delivery-section-fees",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-fee-policies-admin",
+            title: "",
+            path: "/admin/store-fee-policies",
+            status: "done",
+          },
+          {
+            key: "store-settlements-admin",
+            title: "",
+            path: "/admin/store-settlements",
+            status: "partial",
+          },
+        ],
+      },
+      {
+        key: "delivery-section-promotions",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-coupon-control-center",
+            title: "",
+            path: "/admin/store-coupon-control",
+            status: "done",
+          },
+          {
+            key: "gift-certificates",
+            title: "",
+            path: "/admin/gift-certificates",
+            status: "done",
+          },
+          {
+            key: "store-promo-control",
+            title: "",
+            path: "/admin/store-discovery",
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "delivery-section-home-layout",
+        title: "",
+        status: "done",
+        children: [
           {
             key: "stores-home-shelves",
             title: "",
@@ -488,95 +593,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           {
-            key: "store-coupon-control-center",
+            key: "delivery-bottom-nav",
             title: "",
-            path: "/admin/store-coupon-control",
+            path: "/admin/stores/bottom-nav",
+            matchPaths: ["/admin/delivery/bottom-nav"],
             status: "done",
           },
-          {
-            key: "gift-certificates",
-            title: "",
-            path: "/admin/gift-certificates",
-            status: "done",
-          },
-          {
-            key: "store-promo-control",
-            title: "",
-            path: "/admin/store-discovery",
-            status: "done",
-          },
-          { key: "delivery-ops-console", title: "", path: "/admin/ops-console", status: "done" },
-          {
-            key: "delivery-operations-stats",
-            title: "",
-            path: "/admin/delivery-operations",
-            status: "done",
-          },
-          { key: "delivery-riders-ops", title: "", path: "/admin/delivery-riders", status: "done" },
-          {
-            key: "delivery-operation-alerts",
-            title: "",
-            path: "/admin/delivery-alerts",
-            status: "done",
-          },
-          {
-            key: "delivery-order-notifications",
-            title: "",
-            path: "/admin/order-notifications",
-            status: "done",
-          },
-          {
-            key: "delivery-auto-actions",
-            title: "",
-            path: "/admin/delivery-auto-actions",
-            status: "done",
-          },
-          {
-            key: "store-payment-events-admin",
-            title: "",
-            path: "/admin/store-payment-events",
-            status: "partial",
-          },
-        ],
-      },
-      {
-        key: "delivery-section-management",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "store-settlements-admin",
-            title: "",
-            path: "/admin/store-settlements",
-            status: "partial",
-          },
-          {
-            key: "store-reports-admin",
-            title: "",
-            path: "/admin/store-reports",
-            status: "partial",
-          },
-          {
-            key: "store-reviews-admin",
-            title: "",
-            path: "/admin/store-reviews",
-            status: "partial",
-          },
-        ],
-      },
-      { key: "business-shops", title: "", path: "/admin/business", status: "done" },
-      {
-        key: "delivery-section-policies",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "store-fee-policies-admin",
-            title: "",
-            path: "/admin/store-fee-policies",
-            status: "done",
-          },
-          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
         ],
       },
       {
@@ -584,6 +606,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         status: "done",
         children: [
+          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
           {
             key: "store-settings-alerts",
             title: "",
@@ -592,31 +615,16 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           {
-            key: "delivery-bottom-nav",
-            title: "",
-            path: "/admin/stores/bottom-nav",
-            matchPaths: ["/admin/delivery/bottom-nav"],
-            status: "done",
-          },
-          {
             key: "commerce-settings-admin",
             title: "",
             path: "/admin/commerce-settings",
             status: "partial",
           },
-        ],
-      },
-      {
-        key: "delivery-section-platform",
-        title: "",
-        status: "done",
-        children: [
-          { key: "runtime-health", title: "", path: "/admin/runtime-health", status: "done" },
           {
-            key: "delivery-release-gate",
+            key: "store-payment-events-admin",
             title: "",
-            path: "/admin/delivery-release-gate",
-            status: "done",
+            path: "/admin/store-payment-events",
+            status: "partial",
           },
         ],
       },
@@ -1122,7 +1130,9 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── SUPPORT ────────────────────────────────────
-  // B7: B6 Control Plane → archive. Legacy store-inquiries route KEEP, primary nav HIDE.
+  // B7: B6 Control Plane → archive.
+  // J-AMD-3: /admin/store-inquiries is a primary leaf under delivery › 매장 (not support).
+  // J-AMD-3: global pending-work queue (/admin/order-notifications) follows admin-inbox.
   {
     key: "support",
     title: "",
@@ -1144,6 +1154,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "admin-inbox",
         title: "",
         path: "/admin/inbox",
+        status: "done",
+      },
+      {
+        key: "delivery-order-notifications",
+        title: "",
+        path: "/admin/order-notifications",
         status: "done",
       },
     ],
@@ -1395,6 +1411,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
                     status: "done",
                   },
                   { key: "system-status", title: "", path: "/admin/system", status: "done" },
+                  // J-AMD-3: developer tools moved from delivery (keys/paths unchanged).
+                  { key: "runtime-health", title: "", path: "/admin/runtime-health", status: "done" },
+                  {
+                    key: "delivery-release-gate",
+                    title: "",
+                    path: "/admin/delivery-release-gate",
+                    status: "done",
+                  },
                 ],
               },
               {

@@ -14,6 +14,10 @@ import {
   assertAdminRealOperationCutJIaSeparationHardLock,
   CUT_I_CARRY_INTO_J,
   CUT_J_CONFIG_VS_OPERATION,
+  CUT_J_J_AMD_3_ADDED_LEAF,
+  CUT_J_J_AMD_3_DELIVERY_TREE,
+  CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY,
+  CUT_J_J_AMD_3_REMOVED_SECTIONS,
   CUT_J_LEGACY_PRIMARY_FORBIDDEN,
   CUT_J_NAV_SSOT,
   CUT_J_WORKSPACE_ORDER,
@@ -136,10 +140,39 @@ describe("CUT J IA separation hard lock", () => {
       CUT_J_CONFIG_VS_OPERATION.deliveryAdsOpsWorkspace
     );
     expect(CUT_J_CONFIG_VS_OPERATION.placementMapIsConfigWriter).toBe(false);
-    const deliveryOps = findAdminMenuByKey(adminMenu, "delivery-section-operations");
-    const opsKeys = (deliveryOps?.children ?? []).map((c) => c.key);
+    const deliveryPaths = collectAdminMenuPathEntries(
+      findAdminMenuByKey(adminMenu, "delivery")?.children ?? []
+    );
+    const opsKeys = deliveryPaths.map((e) => e.key);
+    expect(opsKeys.length).toBeGreaterThan(0);
     expect(opsKeys).not.toContain("delivery-ads-control");
     expect(opsKeys).not.toContain("store-ads-section");
+  });
+
+  it("J-AMD-3 delivery operator-task sections match live menu", () => {
+    const delivery = findAdminMenuByKey(adminMenu, "delivery");
+    const live = (delivery?.children ?? []).map((c) => ({
+      key: c.key,
+      children: (c.children ?? []).map((k) => k.key),
+    }));
+    expect(live).toEqual(
+      CUT_J_J_AMD_3_DELIVERY_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
+    );
+    for (const section of delivery?.children ?? []) {
+      if (section.children?.length) expect(section.path).toBeUndefined();
+    }
+    for (const k of CUT_J_J_AMD_3_REMOVED_SECTIONS) {
+      expect(findAdminMenuByKey(adminMenu, k)).toBeUndefined();
+    }
+    const added = findAdminMenuByKey(adminMenu, CUT_J_J_AMD_3_ADDED_LEAF.key);
+    expect(added?.path).toBe(CUT_J_J_AMD_3_ADDED_LEAF.path);
+    expect(workspaceOf(CUT_J_J_AMD_3_ADDED_LEAF.path)).toBe("delivery");
+    for (const moved of CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY) {
+      expect(findAdminMenuByKey(adminMenu, moved.key)?.path).toBe(moved.path);
+      const parent = findAdminMenuByKey(adminMenu, moved.parent);
+      expect((parent?.children ?? []).map((c) => c.key)).toContain(moved.key);
+      expect(workspaceOf(moved.path)).toBe(moved.workspace);
+    }
   });
 
   it("J21–J34 operational findability primary paths", () => {

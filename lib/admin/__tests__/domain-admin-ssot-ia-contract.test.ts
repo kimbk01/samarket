@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminMenu } from "@/components/admin/admin-menu";
+import { adminMenu, collectAdminMenuPathEntries } from "@/components/admin/admin-menu";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 
 /**
@@ -69,8 +69,11 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
   });
 
   it("CONFIG vs OPERATION: delivery-ads primary under ads, not delivery sidebar", () => {
-    const deliveryOps = findAdminMenuByKey(adminMenu, "delivery-section-operations");
-    const opsKeys = (deliveryOps?.children ?? []).map((c) => c.key);
+    // J-AMD-3: scan the whole delivery subtree (sections are operator-task groups).
+    const opsKeys = collectAdminMenuPathEntries(
+      findAdminMenuByKey(adminMenu, "delivery")?.children ?? []
+    ).map((e) => e.key);
+    expect(opsKeys.length).toBeGreaterThan(0);
     expect(opsKeys).not.toContain("store-ads-section");
     expect(opsKeys).not.toContain("delivery-ads-control");
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(

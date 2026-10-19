@@ -64,6 +64,42 @@ Separate Admin IA by operator work:
 
 See `docs/admin/dibay-admin-ia-owner-approved-amendment.md`: M1 labels · M2 deep-links · M3 IA doc · M5 dashboard shortcut. M4 held.
 
+## J-AMD-3 — Owner-approved (IMPLEMENTED)
+
+**Status:** `OWNER_APPROVED_IMPLEMENTED` (Owner decision **A-1**, limited CUT J amendment)
+**SSOT constants:** `CUT_J_J_AMD_3_DELIVERY_TREE` · `CUT_J_J_AMD_3_ADDED_LEAF` · `CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY` · `CUT_J_J_AMD_3_REMOVED_SECTIONS` in `lib/admin/admin-real-operation-cut-j-ia-separation-hard-lock.ts`
+**Contract test:** `lib/admin/__tests__/admin-real-operation-cut-j-ia-contract.test.ts` (`J-AMD-3 delivery operator-task sections match live menu`)
+
+### Clause
+
+1. **Workspace top-level order unchanged** (`CUT_J_WORKSPACE_ORDER`). J-AMD-1 `members` unchanged.
+2. **Every existing leaf `key` / `path` / `matchPaths` / `status` unchanged** — only parent sections and ordering change. Section nodes are header-only (no `path`).
+3. Delivery workspace restructured into operator-task sections:
+
+| # | Section key | Label (ko / en) | Children (in order) |
+|---|---|---|---|
+| — | `delivery-dashboard` (leaf `/admin/delivery`) | — | — |
+| 1 | `delivery-section-stores` (new) | 매장 / Stores | `stores-commerce` · `business-shops` · `store-products-admin` · **`store-inquiries-admin` (new leaf)** · `store-reports-admin` · `store-reviews-admin` |
+| 2 | `delivery-orders` (reused; retitled) | 주문 / Orders | `delivery-orders-list` · `delivery-orders-action-queue` · `delivery-orders-cancel` · `delivery-orders-refund` · `delivery-orders-logs` · `delivery-order-chats` |
+| 3 | `delivery-section-field` (new) | 배달 현장 / Field operations | `delivery-ops-console` · `delivery-operations-stats` · `delivery-riders-ops` · `delivery-operation-alerts` · `delivery-auto-actions` |
+| 4 | `delivery-section-fees` (new) | 수수료·정산 / Fees & settlement | `store-fee-policies-admin` · `store-settlements-admin` |
+| 5 | `delivery-section-promotions` (new) | 혜택·프로모션 / Benefits & promotions | `store-coupon-control-center` · `gift-certificates` · `store-promo-control` |
+| 6 | `delivery-section-home-layout` (new) | 매장 홈 화면 구성 / Store home layout | `stores-home-shelves` · `stores-industries-management` (2 children kept) · `stores-browse-policy` · `delivery-bottom-nav` |
+| 7 | `delivery-section-settings` (reused; retitled) | 배달 설정 / Delivery settings | `delivery-distance` · `store-settings-alerts` · `commerce-settings-admin` · `store-payment-events-admin` |
+
+4. **Added primary leaf:** `store-inquiries-admin` → `/admin/store-inquiries` (status `done`) under delivery › 매장. The route previously existed but was hidden from primary nav (B7); it is now the single primary leaf for that path. Support workspace still does **not** list `/admin/store-inquiries`.
+5. **Moved out of delivery (same keys / paths):**
+
+| key | path | new location |
+|---|---|---|
+| `runtime-health` | `/admin/runtime-health` | system › `platform-system` (master-only) › `system-manage` |
+| `delivery-release-gate` | `/admin/delivery-release-gate` | system › `platform-system` (master-only) › `system-manage` |
+| `delivery-order-notifications` | `/admin/order-notifications` | support, immediately after `admin-inbox` (label 「전체 처리 대기함」 / "All pending work") |
+
+6. **Removed (empty) section nodes:** `delivery-section-operations` · `delivery-section-management` · `delivery-section-policies` · `delivery-section-platform`. Their i18n keys are kept untouched.
+7. **Labels:** new/override keys live only in `lib/i18n/catalog/admin-delivery-ops-ux.ts` (spread last, ko+en parity): `admin_menu_delivery_section_stores`, `admin_menu_delivery_ops` (override → 주문 / Orders), `admin_menu_delivery_section_field`, `admin_menu_delivery_section_fees`, `admin_menu_delivery_section_promotions`, `admin_menu_delivery_section_home_layout`, `admin_menu_delivery_section_settings` (override → 배달 설정 / Delivery settings), `admin_menu_store_inquiries_admin` (매장 문의 / Store inquiries). New section keys are registered in `ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY`; `store-inquiries-admin` uses default derivation.
+8. **Invariants kept:** one primary leaf per path (invariant 3) · section headers have no path · delivery-ads primary remains ads workspace · HOME / Category config stay delivery · legacy `sidebarPublic:false` ads untouched · no API / DB / RLS / writer / permission change.
+
 ## Gate
 
 ```bash

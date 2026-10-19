@@ -62,7 +62,12 @@ export async function executeMemberManagementAction(input: {
       action,
       ok,
       error: typeof data.error === "string" ? data.error : undefined,
-      message: typeof data.message === "string" ? data.message : undefined,
+      message: [
+        typeof data.message === "string" ? data.message : null,
+        ownerStoreSalesWarning(data.owner_store_sales),
+      ]
+        .filter(Boolean)
+        .join("\n") || undefined,
     };
   }
 
@@ -132,4 +137,22 @@ export function summarizeBulkResults(results: readonly MemberManagementActionRes
     .map((r) => `${r.userId.slice(0, 8)}…: ${r.message ?? r.error ?? "실패"}`)
     .join("\n");
   return `성공 ${ok} / 실패 ${fail}\n${errs}`;
+}
+
+/** 회원 제재 ↔ 매장 판매 연동 결과 — 관리자 경고 문구 (DEF-68). */
+function ownerStoreSalesWarning(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as {
+    suspended?: { storeName?: string | null }[];
+    still_suspended?: { storeName?: string | null }[];
+  };
+  const names = (rows?: { storeName?: string | null }[]) =>
+    (rows ?? []).map((x) => x.storeName || "매장").join(", ");
+  if (r.suspended?.length) {
+    return `이 회원이 운영하는 매장의 판매를 자동 중지했습니다: ${names(r.suspended)}`;
+  }
+  if (r.still_suspended?.length) {
+    return `회원 제재로 중지된 매장 판매는 자동 재개되지 않습니다. 매장 상세에서 「판매 승인」하세요: ${names(r.still_suspended)}`;
+  }
+  return null;
 }
