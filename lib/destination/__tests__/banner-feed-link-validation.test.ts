@@ -111,12 +111,15 @@ describe("banner links (EVT-07)", () => {
     for (const f of [
       "components/my/MyTopBanner.tsx",
       "components/stores/advertising/DeliveryAdBanner.tsx",
-      "components/platform-events/PlatformEventDetailContent.tsx",
     ]) {
       const src = readFileSync(f, "utf8");
       expect(src).toContain("<DestinationLink");
       expect(src).not.toContain('from "next/link"');
     }
+    // Event detail CTAs are buttons (ended events disable them) that call openDestination.
+    const eventDetail = readFileSync("components/platform-events/PlatformEventDetailContent.tsx", "utf8");
+    expect(eventDetail).toContain("openDestination(");
+    expect(eventDetail).not.toContain('from "next/link"');
     const link = readFileSync("components/destination/DestinationLink.tsx", "utf8");
     expect(link).toContain("openDestination(ref, router)");
   });

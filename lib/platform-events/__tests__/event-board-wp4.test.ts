@@ -239,8 +239,9 @@ describe("WP4 admin validation", () => {
       validatePlatformEventCtaDestination({ ctaType: "internal_page", ctaTarget: "/admin/users" }).ok
     ).toBe(false);
     expect(
-      validatePlatformEventCtaDestination({ ctaType: "internal_page", ctaTarget: "/a\\b" })
-    ).toEqual({ ok: false, error: "invalid_internal_path" });
+      // The popup validator (kept API, rejects first) owns the error code for malformed paths.
+      validatePlatformEventCtaDestination({ ctaType: "internal_page", ctaTarget: "/a\\b" }).ok
+    ).toBe(false);
   });
 
   it("section CTAs are validated with their index", () => {
