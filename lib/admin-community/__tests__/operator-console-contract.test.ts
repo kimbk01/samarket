@@ -74,9 +74,7 @@ describe("admin community operator console contract", () => {
     expect(summary).toMatch(/todayPosts/);
     expect(summary).toMatch(/pendingReports/);
 
-    const home = read("components/admin/community/AdminCommunityHomePage.tsx");
-    expect(home).toMatch(/AdminCommunityHomeSummary/);
-    expect(home).toMatch(/admin_community_home_today_posts/);
+    // C-36: 미사용 AdminCommunityHomePage 제거 — 대시보드는 지표 레지스트리(community-metrics)를 쓴다.
   });
 
   it("admin post detail route and list hard-delete via W1 bulk bar (ARO-OPS-UX-001-W3)", () => {
@@ -84,15 +82,15 @@ describe("admin community operator console contract", () => {
     expect(detailPage).toMatch(/AdminCommunityPostDetailPage/);
     const detail = read("components/admin/community/AdminCommunityPostDetailPage.tsx");
     expect(detail).toMatch(/\/api\/admin\/community\/engine\/posts\//);
-    expect(detail).toMatch(/admin_community_system_info/);
+    expect(detail).toMatch(/AdminTechDetails/);
     expect(detail).toMatch(/admin_community_view_on_site/);
 
-    // W3: danger-zone dual selection removed — hard delete is selection → AdminManagementBulkBar.
+    // 설계 v2 §C-5: hard delete = 선택 → 일괄 처리 줄 「영구 삭제」(L3 시트, 최고 관리자).
     const postsUi = read("app/admin/community/posts/AdminPostsPageContent.tsx");
     expect(postsUi).not.toMatch(/admin_community_danger_zone/);
-    expect(postsUi).toMatch(/AdminManagementBulkBar/);
+    expect(postsUi).toMatch(/data-community-posts-bulk-bar/);
     expect(postsUi).toMatch(/\/api\/admin\/community\/engine\/posts\/bulk-delete/);
-    expect(postsUi).toMatch(/terminologyDisplay\("HARD_DELETE"/);
+    expect(postsUi).toMatch(/영구 삭제/);
     expect(postsUi).toMatch(/author_label/);
     expect(postsUi).toMatch(/\/admin\/community\/posts\//);
   });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useCommunityQueryState } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { call, type InboxRow, keyOf, type ManagedSource, type TopicOption } from "./external-import/api";
+import { call, type InboxRow, keyOf, type ManagedSource, type TopicOption, importErrorText } from "./external-import/api";
 import { ImportEditorPanel } from "./external-import/ImportEditorPanel";
 import { type InboxFilter, ImportInboxPanel } from "./external-import/ImportInboxPanel";
 import { ImportRulesPanel } from "./external-import/ImportRulesPanel";
@@ -15,12 +16,58 @@ type Tab = "inbox" | "sources" | "rules";
  * sources & real boards → inbox (collected, never auto-published) → compare editor → publish / update,
  * plus bulk jobs and replace rules.
  */
+const DEFAULT_STATUS = "new,draft,source_updated,failed";
+const DEFAULT_LANG = "ko";
+const TABS: Tab[] = ["inbox", "sources", "rules"];
+
+/** URL 값 ↔ 필터 — 비어 있으면 기본값, "all" 은 「전체」 */
+function fromUrl(v: string, fallback: string): string {
+  if (!v) return fallback;
+  return v === "all" ? "" : v;
+}
+function toUrl(v: string, fallback: string): string | null {
+  if (v === fallback) return null;
+  return v === "" ? "all" : v;
+}
+
 export function AdminExternalImportOperatorPage() {
-  const [tab, setTab] = useState<Tab>("inbox");
+  return (
+    <Suspense fallback={null}>
+      <ExternalImportOperatorInner />
+    </Suspense>
+  );
+}
+
+function ExternalImportOperatorInner() {
+  // 탭·수집함 필터는 URL 에 둔다 (새로고침·복귀 시 유지)
+  const { get, set } = useCommunityQueryState();
+  const tabRaw = get("tab") as Tab;
+  const tab: Tab = TABS.includes(tabRaw) ? tabRaw : "inbox";
+  const setTab = (t: Tab) => set({ tab: t === "inbox" ? null : t });
+  const site = get("site");
+  const board = get("board");
+  const status = fromUrl(get("status"), DEFAULT_STATUS);
+  const quality = get("quality");
+  const lang = fromUrl(get("lang"), DEFAULT_LANG);
+  const q = get("q");
+  // 수집함은 filter 객체가 바뀔 때만 다시 불러온다 — 값이 같으면 같은 객체 유지
+  const filter: InboxFilter = useMemo(
+    () => ({ site, board, status, quality, lang, q }),
+    [site, board, status, quality, lang, q]
+  );
+  const setFilter = (f: InboxFilter, extra: Record<string, string | null> = {}) =>
+    set({
+      site: f.site,
+      board: f.board,
+      status: toUrl(f.status, DEFAULT_STATUS),
+      quality: f.quality,
+      lang: toUrl(f.lang, DEFAULT_LANG),
+      q: f.q,
+      ...extra,
+    });
   const [sources, setSources] = useState<ManagedSource[]>([]);
   const [topics, setTopics] = useState<TopicOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<InboxFilter>({ site: "", board: "", status: "new,draft,source_updated,failed", quality: "", lang: "ko", q: "" });
   const [active, setActive] = useState<InboxRow | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -29,7 +76,7 @@ export function AdminExternalImportOperatorPage() {
       setSources((await call<{ sources: ManagedSource[] }>("/sources")).sources);
       setLoadError(null);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : String(e));
+      setLoadError(importErrorText(e));
     }
   }, []);
 
@@ -72,7 +119,7 @@ export function AdminExternalImportOperatorPage() {
           </button>
         ))}
       </div>
-      {loadError ? <p className="text-xs text-rose-600 break-words shrink-0">출처를 불러오지 못했습니다: {loadError}</p> : null}
+      {loadError ? <p role="alert" className="text-xs text-rose-600 break-words shrink-0">출처를 불러오지 못했습니다: {loadError}</p> : null}
 
       {tab === "inbox" ? (
         <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
@@ -107,9 +154,8 @@ export function AdminExternalImportOperatorPage() {
             topics={topics}
             onChanged={() => void loadSources()}
             onOpenBoard={(site, board) => {
-              setFilter({ ...filter, site, board, status: "" });
+              setFilter({ ...filter, site, board, status: "" }, { tab: null });
               setActive(null);
-              setTab("inbox");
               bump();
             }}
           />

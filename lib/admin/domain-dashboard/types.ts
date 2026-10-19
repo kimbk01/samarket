@@ -65,4 +65,27 @@ export type AdminDomainDashboardModel = {
   recent: AdminDomainRecentItem[];
   /** Partial load failures — surface, do not collapse whole board */
   sectionErrors: string[];
+  /** 집계 시각 (UTC ISO) — 화면은 PHT 로 표시 */
+  lastUpdatedAt?: string | null;
+  /** 기간 통계 기준 (마닐라 날짜, 포함) — 「기간 통계」 구역이 있는 대시보드만 */
+  periodRange?: { period: string; from: string | null; to: string | null; timezone: "Asia/Manila" } | null;
+  /** 기간 통계 지표 (선택 기간) */
+  periodStats?: AdminDomainMetric[];
+  /** 최근 신고 (최근 처리 아래 영역) */
+  recentReports?: AdminDomainRecentItem[];
+  /**
+   * 지표 레지스트리 원값 (id·구역·라벨 키·권한 숨김) — 재설계 화면이 직접 읽는다.
+   * value null = 확인 불가.
+   */
+  metricValues?: {
+    id: string;
+    section: string;
+    labelKey: string;
+    labelKo: string;
+    labelEn: string;
+    value: number | null;
+    href: string;
+    forbidden: boolean;
+    showWhenZero: boolean;
+  }[];
 };

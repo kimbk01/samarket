@@ -78,6 +78,7 @@ function buildNeighborhoodFeedListViewModel(
     imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
     hashtagTags,
+    topBadge: post.is_notice ? "notice" : post.is_pinned ? "pinned" : null,
   };
 }
 
@@ -106,6 +107,8 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.view_count === next.view_count &&
     prev.is_question === next.is_question &&
     prev.is_meetup === next.is_meetup &&
+    prev.is_notice === next.is_notice &&
+    prev.is_pinned === next.is_pinned &&
     (prev.images?.length ?? 0) === (next.images?.length ?? 0)
   );
 }

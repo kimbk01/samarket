@@ -26,21 +26,26 @@ describe("Admin Point adjust — ledger money authority (Admin Trace A)", () => 
       route.indexOf("export async function GET")
     );
     expect(postBlock).toContain("readCanonicalAdminPointBalance");
-    expect(postBlock).toContain('op === "debit"');
     expect(postBlock).toContain("insufficient_balance");
     expect(postBlock).not.toContain("readUserPointBalance");
+    // C-06: 잔액 판정은 원자 RPC 가 회원 행을 잠근 뒤 원장 합계로 한다 (M7).
+    const rpc = read("supabase/migrations/20270521120600_community_admin_m7_admin_point_adjust.sql");
+    expect(rpc).toMatch(/for update[\s\S]*sum_user_point_ledger[\s\S]*insufficient_balance/i);
     // Helper itself is ledger-only.
     expect(route).toMatch(
       /async function readCanonicalAdminPointBalance[\s\S]*sumUserPointLedger/
     );
   });
 
-  it("T3 — writer remains canonical adjustUserPoints", () => {
+  it("T3 — writer is the atomic RPC admin_adjust_user_points (actor + idempotency, C-04)", () => {
     const route = src();
-    expect(route).toContain("adjustUserPoints");
-    const ledger = read("lib/points/user-point-ledger.ts");
-    expect(ledger).toContain("export async function adjustUserPoints");
-    expect(ledger).toMatch(/admin_credit|admin_debit/);
+    expect(route).toContain('rpc("admin_adjust_user_points"');
+    expect(route).toContain("idempotency_key_required");
+    const rpc = read("supabase/migrations/20270521120600_community_admin_m7_admin_point_adjust.sql");
+    expect(rpc).toMatch(/admin_credit/);
+    expect(rpc).toMatch(/admin_debit/);
+    expect(rpc).toContain("uq_point_ledger_idempotency_key");
+    expect(rpc).toContain("actor_id");
   });
 
   it("stale-projection contract — Admin must choose ledger SUM over profiles.points", () => {

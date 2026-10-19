@@ -37,10 +37,14 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
   });
 
   it("T2/T4 — Community promotion owner stays point_promotion_orders; Ads hub is not writer", () => {
-    // Owner Policy LOCK: PUBLIC community promotions → 상위노출 관리; queue component KEEP
+    // 설계 v2 §B-3 · §C-12 (Owner 승인): 리다이렉트 → 커뮤니티 범위 화면. 전체 상위노출(거래 포함)은 링크로 유지.
     const promoPage = read("app/admin/community/promotions/page.tsx");
-    expect(promoPage).toContain("redirect");
+    expect(promoPage).not.toContain("redirect(");
+    expect(promoPage).toContain("AdminCommunityPromotionsPage");
     expect(promoPage).toContain("/admin/advertising/boosts");
+    const promoScreen = read("components/admin/community/promotions/AdminCommunityPromotionsPage.tsx");
+    expect(promoScreen).toContain("/api/admin/community-promotion-orders");
+    expect(promoScreen).toContain("/admin/advertising/boosts");
     const apps = read("components/admin/ads/AdminAdApplicationsPage.tsx");
     expect(apps).toContain('data-admin-domain="community"');
     expect(apps).toContain("AdminCommunityPromotionQueue");

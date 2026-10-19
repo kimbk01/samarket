@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
@@ -19,6 +20,9 @@ type ReportTargetType = "post" | "comment";
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "report");
+  if (restricted) return restricted;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "community_feed");
   if (!reportRl.ok) return reportRl.response;

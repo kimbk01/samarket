@@ -50,6 +50,10 @@ const REFERENCE_LABEL_KEYS: Record<SupportReferenceType, MessageKey> = {
   PARTNER_MEMBERSHIP: "support_ref_partner_membership",
   COIN_WITHDRAWAL_REQUEST: "support_ref_coin_withdrawal_request",
   POINT_PROMOTION_ORDER: "support_ref_point_promotion_order",
+  COMMUNITY_POST: "support_ref_community_post",
+  COMMUNITY_COMMENT: "support_ref_community_comment",
+  COMMUNITY_REPORT: "support_ref_community_report",
+  COMMUNITY_SANCTION: "support_ref_community_sanction",
 };
 
 export function supportReferenceLabel(safeT: SafeT, referenceType: string | null | undefined): string {

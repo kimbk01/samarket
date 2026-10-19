@@ -1,4 +1,5 @@
 import { after, NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
   if (isProductWriteDeniedMemberAccount(session.profile)) {
     return NextResponse.json({ ok: false, error: MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE, code: "member_activity_restricted" }, { status: 403 });
   }
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "post");
+  if (restricted) return restricted;
 
   let body: {
     locationKey?: string;

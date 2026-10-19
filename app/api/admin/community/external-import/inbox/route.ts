@@ -1,7 +1,8 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { INBOX_STATUSES, type InboxKey, type InboxStatus, listInbox, setInboxStatus } from "@/lib/community-operator-import/inbox-store";
+import { INBOX_STATUSES, INBOX_TABLE, type InboxKey, type InboxStatus, listInbox, setInboxStatus } from "@/lib/community-operator-import/inbox-store";
 import type { QualityVerdict } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 /** Inbox list (read-only). Filters: site, board, status (csv), quality, lang (ko|other), q, since, limit, offset. */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const sp = req.nextUrl.searchParams;
   const statuses = String(sp.get("status") || "")
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 /** {action:"status", keys:[...], status:"hidden"|"skipped"|"new"} — never changes published rows. */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{ action?: string; keys?: InboxKey[]; status?: InboxStatus }>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
@@ -48,8 +49,30 @@ export async function POST(req: NextRequest) {
   const list = (Array.isArray(keys) ? keys : []).slice(0, 200);
   if (!list.length) return jsonError("keys 필요", 400, { code: "keys_required" });
   try {
-    const updated = await setInboxStatus(getSupabaseServer(), list, status);
-    return jsonOk({ updated });
+    const sb = getSupabaseServer();
+    const articleKeys = [...new Set(list.map((k) => String(k?.sourceArticleKey ?? "")).filter(Boolean))];
+    const { data: beforeRows } = articleKeys.length
+      ? await sb
+          .from(INBOX_TABLE)
+          .select("source_site, source_board, source_article_key, status")
+          .in("source_article_key", articleKeys)
+      : { data: [] as Record<string, unknown>[] };
+    const want = new Set(list.map((k) => `${k.sourceSite}|${k.sourceBoard}|${k.sourceArticleKey}`));
+    const beforeStatuses = (beforeRows ?? [])
+      .map((r) => r as { source_site: string; source_board: string; source_article_key: string; status: string })
+      .filter((r) => want.has(`${r.source_site}|${r.source_board}|${r.source_article_key}`))
+      .map((r) => ({ key: `${r.source_site}/${r.source_board}/${r.source_article_key}`, status: r.status }));
+    const updated = await setInboxStatus(sb, list, status);
+    const single = list.length === 1 ? list[0] : null;
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: auth.userId,
+      targetType: "community_import_inbox",
+      targetId: single ? `${single.sourceSite}/${single.sourceBoard}/${single.sourceArticleKey}` : `bulk:${list.length}`,
+      action: "community_import.inbox_status",
+      before: { statuses: beforeStatuses },
+      after: { status, requested: list.length, updated },
+    });
+    return jsonOk({ updated, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "inbox_status_failed", 400, { code: "inbox_status_failed" });
   }

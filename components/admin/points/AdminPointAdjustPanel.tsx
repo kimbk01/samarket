@@ -13,6 +13,7 @@ type ConfirmState = {
   reason: string;
   memo: string;
   balanceBefore: number;
+  idempotencyKey: string;
 };
 
 /**
@@ -80,6 +81,8 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
         reason: why,
         memo: memo.trim(),
         balanceBefore,
+        // 확인 화면을 열 때 1회 생성 — 같은 확인에서 여러 번 눌러도 1건만 반영된다.
+        idempotencyKey: `admin_point:${crypto.randomUUID()}`,
       });
     } finally {
       setBusy(false);
@@ -101,7 +104,7 @@ export function AdminPointAdjustPanel({ onChanged }: { onChanged?: () => void })
           amount: confirm.amount,
           reason: confirm.reason,
           memo: confirm.memo,
-          idempotencyKey: `admin_point_${confirm.op}:${confirm.userId}:${confirm.amount}:${Date.now()}`,
+          idempotencyKey: confirm.idempotencyKey,
         }),
       });
       const json = (await res.json()) as {

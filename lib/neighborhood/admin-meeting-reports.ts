@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 
@@ -90,29 +91,55 @@ export async function listMeetingReportsForAdmin(limit = 100): Promise<MeetingRe
   });
 }
 
-export async function updateMeetingReportStatus(
-  reportId: string,
-  status: MeetingReportStatus,
-  reviewedBy: string,
-  actionResult?: string
-): Promise<{ ok: boolean; error?: string }> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return { ok: false, error: "server_config" };
-  }
-
-  const { error } = await sb
+/** 모임 신고 1건 (상태 전이 확인용) */
+export async function getMeetingReportStatusForAdmin(
+  sb: SupabaseClient,
+  reportId: string
+): Promise<{ ok: true; row: { status: MeetingReportStatus; action_result: string | null } | null } | { ok: false; error: string }> {
+  const { data, error } = await sb
     .from("meeting_reports")
-    .update({
-      status,
-      reviewed_by: reviewedBy,
-      reviewed_at: new Date().toISOString(),
-      action_result: actionResult ?? null,
-    })
-    .eq("id", reportId);
+    .select("status, action_result")
+    .eq("id", reportId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, row: null };
+  const r = data as { status?: string; action_result?: string | null };
+  return {
+    ok: true,
+    row: { status: String(r.status ?? "pending") as MeetingReportStatus, action_result: r.action_result ?? null },
+  };
+}
+
+/**
+ * 모임 신고 상태 변경 — CAS: 읽은 상태(expectedStatus)일 때만 반영, 0행이면 conflict.
+ * actionResult 를 넘기지 않으면 기존 처리 결과를 지우지 않는다.
+ */
+export async function updateMeetingReportStatus(
+  sb: SupabaseClient,
+  input: {
+    reportId: string;
+    expectedStatus: MeetingReportStatus;
+    status: MeetingReportStatus;
+    reviewedBy: string;
+    actionResult?: string | null;
+  }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const reopen = input.status === "pending";
+  const update: Record<string, unknown> = {
+    status: input.status,
+    reviewed_by: reopen ? null : input.reviewedBy,
+    reviewed_at: reopen ? null : new Date().toISOString(),
+  };
+  if (input.actionResult !== undefined) update.action_result = input.actionResult;
+
+  const { data, error } = await sb
+    .from("meeting_reports")
+    .update(update)
+    .eq("id", input.reportId)
+    .eq("status", input.expectedStatus)
+    .select("id");
 
   if (error) return { ok: false, error: error.message };
+  if (!Array.isArray(data) || data.length === 0) return { ok: false, error: "conflict" };
   return { ok: true };
 }

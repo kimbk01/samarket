@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
@@ -29,6 +30,9 @@ interface Ctx {
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "post");
+  if (restricted) return restricted;
 
   const { postId } = await ctx.params;
   const raw = postId?.trim();
@@ -169,6 +173,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     category: categoryForDb,
     images,
     updated_at: new Date().toISOString(),
+    // 리비전 트리거가 수정자·역할을 기록 (M3)
+    last_edited_by: auth.userId,
+    last_edited_role: "author",
   };
 
   const { error: upErr } = await sb

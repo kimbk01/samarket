@@ -341,6 +341,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const [extendDays, setExtendDays] = useState(1);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  /** 커뮤니티 홍보 종료 — 귀책(필수)·환급 미리보기 (설계 v2 §F-1-2) */
+  const [endFault, setEndFault] = useState<"operator" | "member" | null>(null);
+  const [endPreview, setEndPreview] = useState<
+    { fault: string; refundPoints: number } | { fault: string; error: string } | null
+  >(null);
 
   const load = useCallback(async () => {
     setErr("");
@@ -481,7 +486,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     async (
       action: WorkspaceDrawerAction,
       rowItem: AdsActionItem,
-      reasonFromConfirm?: string
+      reasonFromConfirm?: string,
+      fault?: "operator" | "member" | null
     ) => {
       const fam = resolveFamily(rowItem);
       if (!fam) {
@@ -525,16 +531,23 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             startAt:
               action === "change_period" ? new Date(periodStart).toISOString() : undefined,
             endAt: action === "change_period" ? new Date(periodEnd).toISOString() : undefined,
+            // 커뮤니티 홍보 종료: 귀책에 따라 서버가 환급(운영 사유) 또는 환급 없음(회원 사유)을 정한다.
+            fault: action === "end" && fam === "boost_community" ? fault ?? undefined : undefined,
           }),
         });
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
           result?: { refundWarning?: string | null; refundQueued?: boolean } | null;
+          refundPoints?: number | null;
         };
         if (!res.ok || !j.ok) {
           setActionMsg(
-            j.error === "capacity_full"
+            j.error === "fault_required"
+              ? ko
+                ? "귀책(운영 사유/회원 사유)을 선택해 주세요."
+                : "Choose who is at fault."
+              : j.error === "capacity_full"
               ? ko
                 ? ADS_FEEDBACK.capacityFull.ko
                 : ADS_FEEDBACK.capacityFull.en
@@ -551,8 +564,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           return;
         }
         const refundWarning = j.result?.refundWarning ?? null;
+        const communityRefund =
+          action === "end" && fam === "boost_community" && typeof j.refundPoints === "number"
+            ? ko
+              ? j.refundPoints > 0
+                ? ` 환급 ${j.refundPoints.toLocaleString()} P`
+                : " 환급 없음"
+              : ` Refund ${j.refundPoints.toLocaleString()} P`
+            : "";
         setActionMsg(
-          refundWarning
+          communityRefund
+            ? `${feedbackForAction(action, ko)}${communityRefund}`
+            : refundWarning
             ? `${feedbackForAction(action, ko)} ${adminOperatorErrorMessage(refundWarning, ko)} ${t(
                 j.result?.refundQueued ? "admin_r4c_ad_refund_queued" : "admin_r4c_ad_refund_not_queued"
               )}`
@@ -571,6 +594,58 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     },
     [publicMessage, internalMemo, extendDays, periodStart, periodEnd, load, ko, t]
   );
+
+  const communityEndPending =
+    pendingMutation?.action === "end" && resolveFamily(pendingMutation.item) === "boost_community"
+      ? pendingMutation
+      : null;
+  const communityEndEntityId = communityEndPending ? parseWorkspaceEntityId(communityEndPending.item.id) : null;
+
+  useEffect(() => {
+    setEndFault(null);
+    setEndPreview(null);
+  }, [pendingMutation]);
+
+  // 귀책을 고르면 서버 계산으로 환급 예정 포인트를 먼저 보여 준다 (preview: 기록·변경 없음).
+  useEffect(() => {
+    if (!communityEndEntityId || !endFault) return;
+    let alive = true;
+    setEndPreview(null);
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/advertising-workspace/action", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            family: "boost_community",
+            entityId: communityEndEntityId,
+            action: "end",
+            fault: endFault,
+            preview: true,
+            reason: "환급 미리보기",
+            publicMessage: "환급 미리보기",
+          }),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          preview?: { refundPoints?: number } | null;
+          refundPoints?: number;
+        };
+        if (!alive) return;
+        if (!res.ok || !j.ok) {
+          setEndPreview({ fault: endFault, error: j.error || `http_${res.status}` });
+          return;
+        }
+        setEndPreview({ fault: endFault, refundPoints: Number(j.preview?.refundPoints ?? j.refundPoints ?? 0) });
+      } catch {
+        if (alive) setEndPreview({ fault: endFault, error: "network_error" });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [communityEndEntityId, endFault]);
 
   const requestDrawerAction = useCallback(
     (action: WorkspaceDrawerAction, rowItem: AdsActionItem) => {
@@ -1535,7 +1610,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         confirmLabel={pendingMutation?.copy.confirmLabel ?? ""}
         cancelLabel={pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
         tone={pendingMutation?.copy.tone ?? "primary"}
-        reasonRequired={Boolean(pendingMutation?.copy.reasonRequired)}
+        reasonRequired={
+          Boolean(pendingMutation?.copy.reasonRequired) ||
+          (Boolean(pendingMutation) &&
+            resolveFamily(pendingMutation!.item) === "boost_community" &&
+            (pendingMutation!.action === "end" || pendingMutation!.action === "pause"))
+        }
         reasonLabel={pendingMutation?.copy.reasonLabel}
         reasonPlaceholder={
           ko ? "사유를 입력해 주세요." : "Enter a reason."
@@ -1547,13 +1627,57 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         }}
         onConfirm={(reason) => {
           if (!pendingMutation || busyAction != null) return;
+          if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
+            setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
+            return;
+          }
           void executeDrawerAction(
             pendingMutation.action,
             pendingMutation.item,
-            reason
+            reason,
+            communityEndPending ? endFault : null
           );
         }}
-      />
+      >
+        {communityEndPending ? (
+          <div className="mt-3 space-y-2 text-[13px]" data-admin-boost-community-end-fault="1">
+            <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="boost-community-end-fault"
+                checked={endFault === "operator"}
+                disabled={busyAction != null}
+                onChange={() => setEndFault("operator")}
+                className="mt-0.5"
+              />
+              <span>{ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"}</span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="boost-community-end-fault"
+                checked={endFault === "member"}
+                disabled={busyAction != null}
+                onChange={() => setEndFault("member")}
+                className="mt-0.5"
+              />
+              <span>{ko ? "회원 사유 — 환급 없음" : "Member — no refund"}</span>
+            </label>
+            {endFault && !endPreview ? (
+              <p className="opacity-70">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
+            ) : null}
+            {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
+              <p className="font-semibold">
+                {ko ? "환급 예정" : "Refund"} {endPreview.refundPoints.toLocaleString()} P
+              </p>
+            ) : null}
+            {endPreview && "error" in endPreview ? (
+              <p className="text-red-700">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </AdminActionConfirmDialog>
     </div>
   );
 }

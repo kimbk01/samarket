@@ -55,10 +55,10 @@ describe("P1-3 Admin orphan / menu finalization", () => {
     expect(boards).toContain('data-admin-quarantine="boards"');
     expect(boards).toContain("admin-legacy-boards-quarantine-banner");
     expect(boards).toContain("/admin/community/topics");
-    const comments = read("app/admin/comments/AdminCommentsPageContent.tsx");
-    expect(comments).toContain('data-admin-quarantine="comments"');
-    expect(comments).toContain("admin-legacy-comments-quarantine-banner");
-    expect(comments).toContain("/admin/community/comments");
+    // C-24: 레거시 댓글 화면(브라우저 직접 삭제)은 커뮤니티 댓글 관리로 이동만 한다.
+    const comments = read("app/admin/comments/page.tsx");
+    expect(comments).toContain('redirect("/admin/community/comments")');
+    expect(comments).not.toContain("getSupabaseClient");
   });
 
   it("stale chat-community/business title keys removed from menu map", () => {

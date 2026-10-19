@@ -15,7 +15,16 @@ export function memberCommunityReportsAdminHref(userId: string): string {
 }
 
 export function memberCommunityPostHref(postId: string): string {
-  return `/admin/community/posts?postId=${encodeURIComponent(postId)}`;
+  return `/admin/community/posts/${encodeURIComponent(postId)}`;
+}
+
+/** 이 회원이 받은 신고 (작성한 글·댓글 대상) */
+export function memberCommunityReceivedReportsAdminHref(userId: string): string {
+  return `/admin/community/reports?authorId=${encodeURIComponent(userId)}`;
+}
+
+export function memberCommunityAuthorAdminHref(userId: string): string {
+  return `/admin/community/members/${encodeURIComponent(userId)}`;
 }
 
 export function memberFeedAdsAdminHref(): string {

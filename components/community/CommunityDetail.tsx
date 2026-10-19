@@ -464,6 +464,7 @@ export function CommunityDetail({
           <CommunityPostCategoryRow
             label={meeting ? t("community_meeting_label") : postCategoryLabel}
             isQuestion={post.is_question && !meeting}
+            topBadge={post.is_notice ? "notice" : post.is_pinned ? "pinned" : null}
           />
           <CommunityPostDetailAuthorRow
             authorName={post.author_name}

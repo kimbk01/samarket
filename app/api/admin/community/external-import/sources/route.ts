@@ -1,5 +1,6 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { detectSource, probeBoard } from "@/lib/community-operator-import/detect";
 import {
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   try {
     const sources = await loadManagedSources(getSupabaseServer());
@@ -59,14 +60,37 @@ type Body = {
  *  rescan   {sourceId}                              → re-discover boards from the site (adds new ones)
  *  addBoard {sourceId, displayName, engineKey}      → operator board, e.g. feed#keyword=필리핀 (collection off)
  */
+function pickKeys(obj: unknown, keys: string[]): Record<string, unknown> | null {
+  if (!obj || typeof obj !== "object") return null;
+  const o = obj as Record<string, unknown>;
+  return Object.fromEntries(keys.map((k) => [k, o[k] ?? null]));
+}
+
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<Body>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
   const b = parsed.value;
   const action = String(b.action || "").trim();
   const sb = getSupabaseServer();
+  const audit = async (
+    targetType: string,
+    targetId: string,
+    act: string,
+    before: Record<string, unknown> | null,
+    after: Record<string, unknown> | null
+  ) => {
+    const r = await appendCommunityAdminAudit(sb, req, {
+      actorId: auth.userId,
+      targetType,
+      targetId,
+      action: act,
+      before,
+      after,
+    });
+    return r.ok ? {} : { audit_warning: "audit_failed" as const };
+  };
   try {
     if (action === "detect") {
       const result = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 45_000 });
@@ -101,31 +125,73 @@ export async function POST(req: NextRequest) {
         selectedBoardIds: Array.isArray(b.selectedBoardIds) ? b.selectedBoardIds.map(String) : undefined,
         adminUserId: auth.userId,
       });
-      return jsonOk({ source, detect });
+      const w = await audit("community_import_source", String(source.id), "community_import.source_register", null, {
+        url: String(b.url || ""),
+        display_name: b.displayName ?? null,
+        content_policy: b.contentPolicy ?? null,
+        selected_board_ids: Array.isArray(b.selectedBoardIds) ? b.selectedBoardIds.map(String) : null,
+      });
+      return jsonOk({ source, detect, ...w });
     }
     const sourceId = String(b.sourceId || "").trim();
     if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
     if (action === "update") {
-      return jsonOk({ source: await updateSource(sb, sourceId, b.patch || {}, auth.userId) });
+      const patch = b.patch || {};
+      const keys = Object.keys(patch);
+      const prev = await loadManagedSource(sb, sourceId);
+      const updatedSource = await updateSource(sb, sourceId, patch, auth.userId);
+      const w = await audit(
+        "community_import_source",
+        sourceId,
+        "community_import.source_update",
+        pickKeys(prev, keys),
+        pickKeys(updatedSource, keys) ?? (patch as Record<string, unknown>)
+      );
+      return jsonOk({ source: updatedSource, ...w });
     }
     if (action === "addBoard") {
-      return jsonOk({ board: await addCustomBoard(sb, sourceId, { displayName: String(b.displayName || ""), engineKey: String(b.engineKey || "") }) });
+      const input = { displayName: String(b.displayName || ""), engineKey: String(b.engineKey || "") };
+      const board = await addCustomBoard(sb, sourceId, input);
+      const w = await audit("community_import_source", sourceId, "community_import.board_add", null, {
+        display_name: input.displayName,
+        engine_key: input.engineKey,
+      });
+      return jsonOk({ board, ...w });
     }
     if (action === "board") {
       const boardId = String(b.boardId || "").trim();
       if (!boardId) return jsonError("boardId 필요", 400, { code: "board_id_required" });
-      return jsonOk({ board: await updateBoard(sb, sourceId, boardId, b.patch || {}) });
+      const patch = b.patch || {};
+      const keys = Object.keys(patch);
+      const prevSource = await loadManagedSource(sb, sourceId);
+      const prevBoard = prevSource?.boards.find((x) => x.boardId === boardId) ?? null;
+      const board = await updateBoard(sb, sourceId, boardId, patch);
+      const w = await audit(
+        "community_import_board",
+        `${sourceId}/${boardId}`,
+        "community_import.board_update",
+        pickKeys(prevBoard, keys),
+        pickKeys(board, keys) ?? (patch as Record<string, unknown>)
+      );
+      return jsonOk({ board, ...w });
     }
     const source = await loadManagedSource(sb, sourceId);
     if (!source) return jsonError("출처 없음", 404, { code: "source_not_found" });
     if (action === "verify") {
       const outcome = await verifyStoredSource(sb, source, { maxBoards: 8, budgetMs: 45_000 });
-      return jsonOk({ outcome, source: await loadManagedSource(sb, sourceId) });
+      const w = await audit("community_import_source", sourceId, "community_import.source_verify", null, {
+        outcome: outcome as unknown as Record<string, unknown>,
+      });
+      return jsonOk({ outcome, source: await loadManagedSource(sb, sourceId), ...w });
     }
     if (action === "rescan") {
       const detect = await detectSource(source.baseUrl, { sampleBoards: 6, budgetMs: 45_000 });
-      if (detect.engine && detect.engine === source.engine) await upsertDetectedBoards(sb, sourceId, detect);
-      return jsonOk({ detect, source: await loadManagedSource(sb, sourceId) });
+      const applied = Boolean(detect.engine && detect.engine === source.engine);
+      if (applied) await upsertDetectedBoards(sb, sourceId, detect);
+      const w = await audit("community_import_source", sourceId, "community_import.source_rescan", {
+        board_count: source.boards.length,
+      }, { applied, engine: detect.engine ?? null, verdict: detect.verdict ?? null });
+      return jsonOk({ detect, source: await loadManagedSource(sb, sourceId), ...w });
     }
     return jsonError("지원 action: detect | register | update | board | verify | rescan", 400, { code: "unsupported_action" });
   } catch (e) {

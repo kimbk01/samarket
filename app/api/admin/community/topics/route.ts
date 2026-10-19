@@ -1,6 +1,7 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 import {
   adminTopicCreateSortMetadata,
@@ -16,17 +17,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
   const topics = await listAllCommunityTopicsForAdmin();
   return NextResponse.json({ ok: true, topics });
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
 
   let body: {
     section_id?: string;
@@ -141,9 +140,18 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    const created = (data ?? null) as Record<string, unknown> | null;
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: gate.userId,
+      targetType: "community_topic",
+      targetId: String(created?.id ?? slug),
+      action: "community_topic.create",
+      before: null,
+      after: created,
+    });
     clearPhilifeDefaultSectionTopicsCache();
     revalidatePath("/philife", "page");
-    return NextResponse.json({ ok: true, topic: data });
+    return NextResponse.json({ ok: true, topic: data, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
   }

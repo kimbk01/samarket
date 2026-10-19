@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session-require";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
@@ -105,6 +106,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "comment");
+  if (restricted) return restricted;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

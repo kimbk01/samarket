@@ -1,26 +1,59 @@
 "use client";
 
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+/**
+ * 커뮤니티 댓글 (설계 §C-7 · §C-0-1 목록 화면 틀).
+ * 탭(공개/관리자 숨김/삭제됨/신고 있음/전체) · 카테고리 · 유형(댓글/답글) · 작성자 · 게시글 · 기간(PHT) — 모두 URL.
+ * 상태 select 즉시 반영 없음 (C-18). 버튼: 숨기기 L2 · 다시 공개 L1 · 삭제 L2 — expectedStatus(CAS)+사유 전송.
+ * 답글은 부모 댓글을 함께 보여 준다. 삭제는 상태 변경만(복구 가능) — 영구 삭제 없음.
+ */
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { formatTimeAgo } from "@/lib/utils/format";
+import { useAdminMe } from "@/hooks/useAdminMe";
 import {
-  AdminManagementBulkBar,
   AdminManagementSelectionCheckbox,
   AdminManagementSurfaceRoot,
-  AdminManagementTableViewport,
   useAdminManagementSelection,
 } from "@/components/admin/management";
+import { COMMUNITY_COMMENT_ENTITY_ACTION_POLICY, isBulkActionAllowed } from "@/lib/admin/management";
 import {
-  COMMUNITY_COMMENT_ENTITY_ACTION_POLICY,
-  computeTableMinWidthPx,
-  managementColumnStyle,
-  terminologyDisplay,
-  type ManagementColumnKind,
-} from "@/lib/admin/management";
+  COMMUNITY_TD,
+  CommunityActionSheet,
+  CommunityAuthorCell,
+  CommunityFilterField,
+  CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySelect,
+  CommunityStatusBadge,
+  CommunityTable,
+  CommunityTabs,
+  CommunityTimeCell,
+  communityDetailHref,
+  useCommunityQueryState,
+} from "@/components/admin/community/kit/CommunityAdminKit";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
+import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
+import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
+import {
+  COMMUNITY_PAGE_SIZE,
+  COMMUNITY_POSTS_LIST_PATH,
+  COMMUNITY_STALE_MESSAGE,
+  communityJsonFetch,
+  communityPostErrorText,
+  useCommunityTopicOptions,
+  useTopicNameOf,
+  type CommunityBanner,
+} from "@/components/admin/community/posts/community-post-admin-shared";
 
 type CommunityCommentRow = {
   id: string;
@@ -35,650 +68,479 @@ type CommunityCommentRow = {
   post_title?: string | null;
   topic_slug?: string | null;
   author_label?: string | null;
+  author_nickname?: string | null;
+  author_username?: string | null;
   kind?: "comment" | "reply" | null;
   parent_content_preview?: string | null;
   report_count?: number | null;
   reported?: boolean | null;
 };
 
-const COLUMN_KINDS: ManagementColumnKind[] = [
-  "SELECTION",
-  "METADATA",
-  "TITLE",
-  "METADATA",
-  "TITLE",
-  "IDENTITY",
-  "NUMERIC",
-  "NUMERIC",
-  "STATUS",
-  "DATE",
-  "ACTIONS",
-];
+type Action = { kind: "hide" | "restore" | "delete"; ids: string[] };
+
+const TABS = [
+  { value: "active", label: "공개" },
+  { value: "hidden", label: "관리자 숨김" },
+  { value: "deleted", label: "삭제됨" },
+  { value: "reported", label: "신고 있음" },
+  { value: "all", label: "전체" },
+] as const;
+
+const FILTER_KEYS = ["topicSlug", "type", "userId", "postId", "commentId", "period", "from", "to"];
+
+const NEXT_STATUS: Record<Action["kind"], "hidden" | "active" | "deleted"> = {
+  hide: "hidden",
+  restore: "active",
+  delete: "deleted",
+};
+const ACTION_LABEL: Record<Action["kind"], string> = { hide: "숨기기", restore: "다시 공개", delete: "삭제" };
 
 export function AdminCommunityCommentsPage() {
   const { t: tr, language } = useI18n();
-  const dash = tr("admin_users_empty_placeholder");
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const ko = language !== "en";
+  const { sp: searchParams, set, reset, selfHref, page } = useCommunityQueryState();
+  const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
+  const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
+  const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
   const policy = COMMUNITY_COMMENT_ENTITY_ACTION_POLICY;
-  const tableMinWidth = computeTableMinWidthPx(COLUMN_KINDS);
+  const { topics } = useCommunityTopicOptions();
+  const topicNameOf = useTopicNameOf(topics);
 
-  const statusOptions = useMemo(
-    () =>
-      [
-        { value: "active", label: tr("admin_community_post_status_active") },
-        { value: "hidden", label: terminologyDisplay("HIDE", language) },
-        { value: "deleted", label: terminologyDisplay("SOFT_DELETE", language) },
-      ] as const,
-    [language, tr]
-  );
+  const commentId = searchParams.get("commentId") ?? "";
+  const typeFilter = searchParams.get("type") ?? "";
+  const reportedParam = searchParams.get("reported") ?? "";
+  const tabParam = searchParams.get("tab") ?? "";
+  const statusParam = searchParams.get("status") ?? "";
+  const tab = TABS.some((t) => t.value === tabParam)
+    ? tabParam
+    : reportedParam === "only"
+      ? "reported"
+      : ["active", "hidden", "deleted"].includes(statusParam)
+        ? statusParam
+        : "all";
+  const postId = searchParams.get("postId") ?? "";
+  const topicSlug = searchParams.get("topicSlug") ?? "";
+  const userId = searchParams.get("userId") ?? "";
+  const from = searchParams.get("from") ?? "";
+  const to = searchParams.get("to") ?? "";
+  const period = searchParams.get("period") ?? (from || to ? "custom" : "");
 
   const [rows, setRows] = useState<CommunityCommentRow[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [postFilter, setPostFilter] = useState(() => searchParams.get("postId") ?? "");
-  const [topicFilter, setTopicFilter] = useState(() => searchParams.get("topicSlug") ?? "");
-  const [userFilter, setUserFilter] = useState(() => searchParams.get("userId") ?? "");
-  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "");
-  const [period, setPeriod] = useState(() => searchParams.get("period") ?? "");
-  const [typeFilter, setTypeFilter] = useState(() => searchParams.get("type") ?? "");
-  const [reportedFilter, setReportedFilter] = useState(() => searchParams.get("reported") ?? "");
-  const [commentIdFilter, setCommentIdFilter] = useState(() => searchParams.get("commentId") ?? "");
+  const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [topicFilterTruncated, setTopicFilterTruncated] = useState(false);
-  const skipUrlWriteRef = useRef(true);
+  const [banner, setBanner] = useState<CommunityBanner>(null);
+  const [action, setAction] = useState<Action | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
-  const queryScopeKey = useMemo(
-    () =>
-      [postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter].join(
-        "|"
-      ),
-    [postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter]
-  );
-  const selectableIds = useMemo(
-    () => rows.map((r) => String(r.id ?? "")).filter(Boolean),
-    [rows]
-  );
+  const queryScopeKey = [tab, typeFilter, postId, topicSlug, userId, commentId, period, from, to, page].join("|");
+  const selectableIds = useMemo(() => rows.map((r) => r.id).filter(Boolean), [rows]);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
+  const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
-  useEffect(() => {
-    if (skipUrlWriteRef.current) {
-      skipUrlWriteRef.current = false;
-      return;
-    }
-    const q = new URLSearchParams();
-    if (commentIdFilter.trim()) q.set("commentId", commentIdFilter.trim());
-    if (postFilter.trim()) q.set("postId", postFilter.trim());
-    if (topicFilter.trim()) q.set("topicSlug", topicFilter.trim().toLowerCase());
-    if (userFilter.trim()) q.set("userId", userFilter.trim());
-    if (statusFilter && ["active", "hidden", "deleted"].includes(statusFilter)) {
-      q.set("status", statusFilter);
-    }
-    if (period.trim()) q.set("period", period.trim());
+  const apiQuery = useMemo(() => {
+    const q = new URLSearchParams({
+      limit: String(COMMUNITY_PAGE_SIZE),
+      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+    });
+    if (commentId) q.set("commentId", commentId);
+    if (postId) q.set("postId", postId);
+    if (topicSlug) q.set("topicSlug", topicSlug);
+    if (userId) q.set("userId", userId);
+    if (tab === "reported") q.set("reported", "only");
+    else if (tab !== "all") q.set("status", tab);
     if (typeFilter === "comment" || typeFilter === "reply") q.set("type", typeFilter);
-    if (reportedFilter === "only") q.set("reported", "only");
-    const next = q.toString() ? `${pathname}?${q.toString()}` : pathname;
-    router.replace(next);
-  }, [
-    pathname,
-    router,
-    postFilter,
-    topicFilter,
-    userFilter,
-    statusFilter,
-    period,
-    typeFilter,
-    reportedFilter,
-    commentIdFilter,
-  ]);
-
-  const load = useCallback(async () => {
-    setErr("");
-    setLoading(true);
-    try {
-      const q = new URLSearchParams({ limit: "100" });
-      if (commentIdFilter.trim()) q.set("commentId", commentIdFilter.trim());
-      if (postFilter.trim()) q.set("postId", postFilter.trim());
-      if (topicFilter.trim()) q.set("topicSlug", topicFilter.trim().toLowerCase());
-      if (userFilter.trim()) q.set("userId", userFilter.trim());
-      if (statusFilter && ["active", "hidden", "deleted"].includes(statusFilter)) {
-        q.set("status", statusFilter);
+    // 기간: 마닐라 날짜 경계를 공용 파서로 UTC 로 바꿔 넘긴다 (브라우저 시간대·new Date("YYYY-MM-DD") 사용 안 함)
+    if (period) {
+      const range = parseCommunityAdminPeriod({ period, from, to });
+      if (range.ok && range.fromIso && range.toIso) {
+        q.set("createdFrom", range.fromIso);
+        q.set("createdTo", new Date(Date.parse(range.toIso) - 1).toISOString());
       }
-      if (period.trim()) q.set("period", period.trim());
-      if (typeFilter === "comment" || typeFilter === "reply") q.set("type", typeFilter);
-      if (reportedFilter === "only") q.set("reported", "only");
-      const res = await fetch(`/api/admin/community/engine/comments?${q.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        comments?: CommunityCommentRow[];
-        error?: string;
-        topicFilterTruncated?: boolean;
-      };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? tr("admin_community_comments_err_load"));
-        setRows([]);
-        setTopicFilterTruncated(false);
-        return;
-      }
-      setRows(j.comments ?? []);
-      setTopicFilterTruncated(j.topicFilterTruncated === true);
-    } catch (e) {
-      setErr((e as Error).message);
-      setRows([]);
-      setTopicFilterTruncated(false);
-    } finally {
-      setLoading(false);
     }
-  }, [tr, postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter]);
+    return q.toString();
+  }, [commentId, postId, topicSlug, userId, tab, typeFilter, period, from, to, page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancel = false;
+    setLoading(true);
+    void (async () => {
+      const r = await communityJsonFetch<{ comments?: CommunityCommentRow[]; topicFilterTruncated?: boolean }>(
+        `/api/admin/community/engine/comments?${apiQuery}`
+      );
+      if (cancel) return;
+      if (!r.ok) {
+        setLoadErr({ code: r.code, status: r.status });
+        setRows([]);
+        setHasMore(false);
+        setTopicFilterTruncated(false);
+      } else {
+        const list = r.json.comments ?? [];
+        setLoadErr(null);
+        setRows(list);
+        setHasMore(list.length >= COMMUNITY_PAGE_SIZE);
+        setTopicFilterTruncated(r.json.topicFilterTruncated === true);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [apiQuery, reloadKey]);
 
   useEffect(() => {
-    const id = commentIdFilter.trim();
-    if (!id || loading) return;
-    const el = rowRefs.current[id];
+    if (!commentId || loading) return;
+    const el = rowRefs.current[commentId];
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("bg-amber-50");
     const timeoutId = window.setTimeout(() => el.classList.remove("bg-amber-50"), 2500);
     return () => window.clearTimeout(timeoutId);
-  }, [commentIdFilter, loading, rows]);
+  }, [commentId, loading, rows]);
 
-  async function patchStatus(id: string, status: string): Promise<boolean> {
-    setBusyId(id);
-    try {
-      const res = await fetch(`/api/admin/community/engine/comments/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? tr("admin_topics_err_save") });
-        return false;
+  const runAction = useCallback(
+    async (a: Action, reason: string) => {
+      const status = NEXT_STATUS[a.kind];
+      const targets = rows.filter((r) => a.ids.includes(r.id));
+      let okCount = 0;
+      let stale = 0;
+      const fails: string[] = [];
+      for (const r of targets) {
+        const res = await communityJsonFetch(`/api/admin/community/engine/comments/${encodeURIComponent(r.id)}`, {
+          method: "PATCH",
+          body: { status, expectedStatus: r.status ?? "active", ...(reason ? { reason } : {}) },
+        });
+        if (res.ok) okCount += 1;
+        else if (res.code === "conflict") stale += 1;
+        else fails.push(communityPostErrorText(res.code));
       }
-      return true;
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  const hideLabel = terminologyDisplay("HIDE", language);
-  const restoreLabel = terminologyDisplay("RESTORE", language);
-  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
-  const selectAllLabel =
-    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
-  const selectedLabel =
-    language === "en"
-      ? `${selection.selectedCount} selected`
-      : `${selection.selectedCount}개 선택됨`;
-
-  const runSoftBulk = async (status: "hidden" | "active" | "deleted") => {
-    const ids = [...selection.selected];
-    if (ids.length === 0) return;
-    if (status === "deleted") {
-      const ok = await dibayConfirm({
-        title: softDeleteLabel,
-        description:
-          language === "en"
-            ? `Sets status=deleted for ${ids.length} comment(s). DB rows remain. This is not a permanent DB delete.`
-            : `${ids.length}건 댓글을 status=deleted 로 표시합니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.`,
-        confirmLabel: softDeleteLabel,
-        cancelLabel: language === "en" ? "Cancel" : "취소",
-        confirmTone: "destructive",
-      });
-      if (!ok) return;
-    } else if (status === "hidden") {
-      const ok = await dibayConfirm({
-        title: hideLabel,
-        description:
-          language === "en"
-            ? `Hide ${ids.length} comment(s) from public surfaces?`
-            : `${ids.length}건 댓글을 숨김 처리할까요?`,
-        confirmLabel: hideLabel,
-        cancelLabel: language === "en" ? "Cancel" : "취소",
-        confirmTone: "destructive",
-      });
-      if (!ok) return;
-    }
-    setBulkBusy(true);
-    const failed: string[] = [];
-    try {
-      for (const id of ids) {
-        const ok = await patchStatus(id, status);
-        if (!ok) failed.push(id);
+      // 한 건 처리에서 충돌이면 시트가 「다른 관리자가 먼저」로 정리한다
+      if (targets.length === 1 && stale === 1) return { ok: false as const, status: 409, code: "conflict" };
+      const label = ACTION_LABEL[a.kind];
+      if (okCount === targets.length) {
+        setBanner({ ok: true, message: `댓글 ${targets.length}건 ${label} 처리했습니다.` });
+      } else {
+        const parts = [
+          stale ? `${stale}건은 다른 관리자가 먼저 변경` : "",
+          fails.length ? `${fails.length}건 실패 (${[...new Set(fails)].join(", ")})` : "",
+        ].filter(Boolean);
+        setBanner({ ok: false, code: `${targets.length}건 중 ${okCount}건 ${label} 처리 · ${parts.join(" · ")}` });
       }
       selection.clear();
-      if (failed.length > 0) {
-        setErr(
-          language === "en"
-            ? `${failed.length} failed · others applied`
-            : `${failed.length}건 실패 · 나머지는 반영됨`
-        );
-      }
-      await load();
-    } finally {
-      setBulkBusy(false);
-    }
+      reload();
+      return { ok: true as const };
+    },
+    [reload, rows, selection]
+  );
+
+  const hasFilters = FILTER_KEYS.some((k) => searchParams.get(k));
+  const n = selection.selectedCount;
+  const postTitleChip = postId ? String(rows.find((r) => r.post_id === postId)?.post_title ?? "").trim() || "선택한 게시글" : "";
+  const authorChip = userId ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || "선택한 작성자" : "";
+
+  const chip = (label: string, onClear: () => void) => (
+    <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+      {label}
+      <button type="button" className="ml-1 text-sam-muted underline" onClick={onClear}>
+        해제
+      </button>
+    </span>
+  );
+
+  const filters = (
+    <>
+      <CommunityFilterField label="카테고리">
+        <CommunitySelect
+          value={topicSlug}
+          onChange={(v) => set({ topicSlug: v })}
+          options={[
+            { value: "", label: "전체 카테고리" },
+            ...topics.map((t) => ({ value: t.slug, label: t.name })),
+            ...(topicSlug && !topics.some((t) => t.slug === topicSlug) ? [{ value: topicSlug, label: topicSlug }] : []),
+          ]}
+        />
+      </CommunityFilterField>
+      <CommunityFilterField label="유형">
+        <CommunitySelect
+          value={typeFilter}
+          onChange={(v) => set({ type: v })}
+          options={[
+            { value: "", label: "전체" },
+            { value: "comment", label: tr("admin_community_target_type_comment") },
+            { value: "reply", label: tr("admin_community_target_type_reply") },
+          ]}
+        />
+      </CommunityFilterField>
+      <CommunityPeriodFilter period={period} from={from} to={to} onChange={(v) => set({ period: v.period, from: v.from, to: v.to })} />
+      {postId ? chip(`게시글: ${postTitleChip.slice(0, 24)}`, () => set({ postId: null })) : null}
+      {userId ? chip(`작성자: ${authorChip}`, () => set({ userId: null })) : null}
+      {commentId ? chip("특정 댓글 1건만 보기", () => set({ commentId: null })) : null}
+      {hasFilters ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
+    </>
+  );
+
+  const rowButtons = (r: CommunityCommentRow) => {
+    const status = String(r.status ?? "active");
+    return (
+      <span className="flex flex-wrap gap-1">
+        {status === "active" ? (
+          <AdminActionButton
+            variant="secondary"
+            className="border-amber-400 text-amber-900"
+            disabled={!canContent}
+            title={noPermTitle}
+            onClick={() => setAction({ kind: "hide", ids: [r.id] })}
+          >
+            숨기기
+          </AdminActionButton>
+        ) : (
+          <AdminActionButton
+            variant="secondary"
+            disabled={!canContent}
+            title={noPermTitle}
+            onClick={() => setAction({ kind: "restore", ids: [r.id] })}
+          >
+            다시 공개
+          </AdminActionButton>
+        )}
+        {status !== "deleted" ? (
+          <AdminActionButton
+            variant="danger"
+            disabled={!canContent}
+            title={noPermTitle}
+            onClick={() => setAction({ kind: "delete", ids: [r.id] })}
+            data-admin-mgmt-row-soft-delete="1"
+          >
+            삭제
+          </AdminActionButton>
+        ) : null}
+      </span>
+    );
   };
 
-  return (
-    <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments" className="space-y-4 text-sam-fg">
-      <AdminPageHeader
-        titleKey="admin_community_comments_page_title"
-        description={tr("admin_community_comments_page_desc")}
-      />
-
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_comment_id")}</span>
-          <input
-            value={commentIdFilter}
-            onChange={(e) => setCommentIdFilter(e.target.value)}
-            className="min-w-[12rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_post")}</span>
-          <input
-            value={postFilter}
-            onChange={(e) => setPostFilter(e.target.value)}
-            className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_topic")}</span>
-          <input
-            value={topicFilter}
-            onChange={(e) => setTopicFilter(e.target.value)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_author")}</span>
-          <input
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_type")}</span>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          >
-            <option value="">{tr("admin_community_comments_filter_type_all")}</option>
-            <option value="comment">{tr("admin_community_comments_filter_type_comment")}</option>
-            <option value="reply">{tr("admin_community_comments_filter_type_reply")}</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_reported")}</span>
-          <select
-            value={reportedFilter}
-            onChange={(e) => setReportedFilter(e.target.value)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          >
-            <option value="">{tr("admin_community_comments_filter_reported_all")}</option>
-            <option value="only">{tr("admin_community_comments_filter_reported_only")}</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              if (e.target.value) setPeriod("");
-            }}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          >
-            <option value="">{tr("admin_posts_filter_all_status")}</option>
-            {statusOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
-        >
-          {tr("admin_feed_posts_refresh")}
-        </button>
-      </div>
-
-      {topicFilterTruncated ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-          {tr("admin_community_topic_filter_truncated")}
-        </div>
-      ) : null}
-
-      {err ? (
-        <div
-          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800"
-          data-admin-mgmt-state="ERROR"
-        >
-          {err}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="py-12 text-center sam-text-body text-sam-muted" data-admin-mgmt-state="LOADING">
-          {tr("common_loading")}
-        </div>
-      ) : rows.length === 0 ? (
-        <div
-          className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"
-          data-admin-mgmt-state="EMPTY"
-        >
-          {tr("admin_community_comments_empty")}
-        </div>
-      ) : (
-        <AdminManagementTableViewport className="min-w-0">
-          <AdminManagementBulkBar
-            selectedCount={selection.selectedCount}
-            policy={policy}
-            selectedLabel={selectedLabel}
-            actions={[
-              {
-                id: "restore",
-                label: restoreLabel,
-                onClick: () => {
-                  if (bulkBusy) return;
-                  void runSoftBulk("active");
-                },
-              },
-              {
-                id: "hide",
-                label: hideLabel,
-                onClick: () => {
-                  if (bulkBusy) return;
-                  void runSoftBulk("hidden");
-                },
-              },
-              {
-                id: "soft_delete",
-                label: softDeleteLabel,
-                onClick: () => {
-                  if (bulkBusy) return;
-                  void runSoftBulk("deleted");
-                },
-              },
-            ]}
-          />
-          <table
-            className="w-full table-fixed text-left sam-text-body"
-            style={{ minWidth: tableMinWidth }}
-            data-admin-mgmt-table-min-width={String(tableMinWidth)}
-          >
-            <thead>
-              <tr className="border-b border-sam-border bg-sam-app">
-                <th className="p-3" style={managementColumnStyle("SELECTION")}>
-                  <AdminManagementSelectionCheckbox
-                    role="header"
-                    state={selection.headerState}
-                    onToggle={selection.toggleAll}
-                    aria-label={selectAllLabel}
-                  />
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("METADATA")}>
-                  {tr("admin_community_comments_col_type")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("TITLE")}>
-                  {tr("admin_community_comments_col_post")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("METADATA")}>
-                  {tr("admin_posts_col_topic")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("TITLE")}>
-                  {tr("admin_community_comments_col_body")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("IDENTITY")}>
-                  {tr("admin_posts_col_author")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("NUMERIC")}>
-                  {tr("admin_posts_col_likes")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("NUMERIC")}>
-                  {tr("admin_community_comments_col_reports")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("STATUS")}>
-                  {tr("admin_feed_posts_col_status")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("DATE")}>
-                  {tr("admin_posts_col_registered")}
-                </th>
-                <th className="p-3 font-medium" style={managementColumnStyle("ACTIONS")}>
-                  {tr("admin_posts_col_manage")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const id = String(r.id ?? "");
-                const postId = String(r.post_id ?? "");
-                const uid = String(r.user_id ?? "").trim();
-                const authorLabel = String(r.author_label ?? "").trim() || dash;
-                const topic = String(r.topic_slug ?? "").trim();
-                const busy = busyId === id;
-                const content = String(r.content ?? "");
-                const status = String(r.status ?? "active");
-                const kind =
-                  r.kind === "reply" || Boolean(String(r.parent_id ?? "").trim()) ? "reply" : "comment";
-                const reportCount = Number(r.report_count ?? 0);
-                return (
-                  <tr
-                    key={id}
-                    ref={(el) => {
-                      rowRefs.current[id] = el;
-                    }}
-                    className="border-b border-sam-border-soft align-top transition-colors duration-500"
-                    data-comment-id={id}
-                    data-comment-kind={kind}
+  let body: ReactNode;
+  if (loading) body = <AdminLoadingState ko={ko} />;
+  else if (loadErr)
+    body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
+  else if (rows.length === 0)
+    body = <AdminEmptyState ko={ko} message={hasFilters ? "조건에 맞는 댓글이 없습니다." : "댓글이 없습니다."} />;
+  else
+    body = (
+      <CommunityTable head={["", "유형", "댓글", "게시글", "작성자", "상태", "신고", "작성 시각", ""]}>
+        {rows.map((r) => {
+          const id = r.id;
+          const pid = String(r.post_id ?? "");
+          const content = String(r.content ?? "");
+          const kind = r.kind === "reply" || Boolean(String(r.parent_id ?? "").trim()) ? "reply" : "comment";
+          const reportCount = Number(r.report_count ?? 0);
+          return (
+            <tr
+              key={id}
+              ref={(el) => {
+                rowRefs.current[id] = el;
+              }}
+              className="border-b border-sam-border-soft transition-colors duration-500"
+              data-comment-id={id}
+              data-comment-kind={kind}
+            >
+              <td className={COMMUNITY_TD}>
+                <AdminManagementSelectionCheckbox
+                  role="row"
+                  checked={selection.isSelected(id)}
+                  onToggle={() => selection.toggleRow(id)}
+                  aria-label={`선택: ${content.slice(0, 24)}`}
+                />
+              </td>
+              <td className={COMMUNITY_TD}>
+                <AdminToneBadge tone={kind === "reply" ? "progress" : "neutral"}>
+                  {kind === "reply" ? tr("admin_community_target_type_reply") : tr("admin_community_target_type_comment")}
+                </AdminToneBadge>
+              </td>
+              <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
+                {kind === "reply" && r.parent_content_preview ? (
+                  <p className="mb-1 line-clamp-1 text-[12px] text-sam-muted" title={r.parent_content_preview}>
+                    ↳ 원댓글: {r.parent_content_preview}
+                  </p>
+                ) : null}
+                <p className="line-clamp-3 whitespace-pre-wrap text-sam-fg" title={content}>
+                  {content || "—"}
+                </p>
+              </td>
+              <td className={`${COMMUNITY_TD} max-w-[14rem]`}>
+                {pid ? (
+                  <Link
+                    href={communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(pid)}`, selfHref)}
+                    className="line-clamp-2 font-medium text-sky-800 hover:underline"
                   >
-                    <td className="p-3" style={managementColumnStyle("SELECTION")}>
-                      <AdminManagementSelectionCheckbox
-                        role="row"
-                        checked={selection.isSelected(id)}
-                        onToggle={() => selection.toggleRow(id)}
-                        disabled={bulkBusy}
-                        aria-label={selectAllLabel}
-                      />
-                    </td>
-                    <td className="p-3" style={managementColumnStyle("METADATA")}>
-                      <span
-                        className={`rounded px-1.5 py-0.5 sam-text-xxs ${
-                          kind === "reply" ? "bg-sky-50 text-sky-800" : "bg-sam-surface-muted text-sam-muted"
-                        }`}
-                      >
-                        {kind === "reply"
-                          ? tr("admin_community_target_type_reply")
-                          : tr("admin_community_target_type_comment")}
-                      </span>
-                      {kind === "reply" && r.parent_id ? (
-                        <div className="mt-1 sam-text-xxs text-sam-meta" title={String(r.parent_content_preview ?? "")}>
-                          ← {String(r.parent_content_preview ?? r.parent_id).slice(0, 40)}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="p-3" style={managementColumnStyle("TITLE")}>
-                      {postId ? (
-                        <Link
-                          href={`/admin/community/posts/${encodeURIComponent(postId)}`}
-                          className="block truncate font-medium text-signature hover:underline"
-                          title={String(r.post_title ?? "")}
-                        >
-                          {String(r.post_title ?? "").trim() || tr("admin_posts_no_title")}
-                        </Link>
-                      ) : (
-                        dash
-                      )}
-                    </td>
-                    <td className="p-3 text-sam-muted" style={managementColumnStyle("METADATA")}>
-                      {topic ? (
-                        <button
-                          type="button"
-                          className="text-signature hover:underline"
-                          onClick={() => setTopicFilter(topic)}
-                        >
-                          {topic}
-                        </button>
-                      ) : (
-                        dash
-                      )}
-                    </td>
-                    <td className="p-3 text-sam-fg" style={managementColumnStyle("TITLE")} title={content}>
-                      <span className="line-clamp-3">{content || dash}</span>
-                    </td>
-                    <td
-                      className="truncate p-3 text-sam-muted"
-                      style={managementColumnStyle("IDENTITY")}
-                      title={authorLabel}
-                    >
-                      {uid ? (
-                        <Link
-                          href={`/admin/users/${encodeURIComponent(uid)}`}
-                          className="text-signature hover:underline"
-                        >
-                          {authorLabel}
-                        </Link>
-                      ) : (
-                        authorLabel
-                      )}
-                    </td>
-                    <td className="p-3 text-sam-muted" style={managementColumnStyle("NUMERIC")}>
-                      {Number(r.like_count ?? 0)}
-                    </td>
-                    <td className="p-3" style={managementColumnStyle("NUMERIC")}>
-                      {reportCount > 0 ? (
-                        <Link
-                          href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
-                          className="font-medium text-amber-700 hover:underline"
-                        >
-                          {reportCount}
-                        </Link>
-                      ) : (
-                        <span className="text-sam-muted">0</span>
-                      )}
-                    </td>
-                    <td className="p-3" style={managementColumnStyle("STATUS")}>
-                      <select
-                        value={String(r.status ?? "active")}
-                        disabled={busy || bulkBusy}
-                        onChange={(e) =>
-                          void patchStatus(id, e.target.value).then((ok) => {
-                            if (ok) void load();
-                          })
-                        }
-                        className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
-                      >
-                        {statusOptions.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap p-3 text-sam-muted" style={managementColumnStyle("DATE")}>
-                      {r.created_at ? formatTimeAgo(r.created_at) : dash}
-                      {r.updated_at ? (
-                        <div className="sam-text-xxs text-sam-meta">
-                          {tr("admin_community_comments_updated")}: {formatTimeAgo(r.updated_at)}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="p-3" style={managementColumnStyle("ACTIONS")}>
-                      <div className="flex flex-wrap gap-1">
-                        {status !== "hidden" && status !== "deleted" ? (
-                          <button
-                            type="button"
-                            disabled={busy || bulkBusy}
-                            onClick={() =>
-                              void (async () => {
-                                const ok = await dibayConfirm({
-                                  title: hideLabel,
-                                  description:
-                                    language === "en"
-                                      ? "Hide this comment from public surfaces?"
-                                      : "이 댓글을 숨김 처리할까요?",
-                                  confirmLabel: hideLabel,
-                                  cancelLabel: language === "en" ? "Cancel" : "취소",
-                                  confirmTone: "destructive",
-                                });
-                                if (!ok) return;
-                                const patched = await patchStatus(id, "hidden");
-                                if (patched) void load();
-                              })()
-                            }
-                            className="sam-text-helper text-amber-700 hover:underline"
-                          >
-                            {hideLabel}
-                          </button>
-                        ) : null}
-                        {status !== "active" ? (
-                          <button
-                            type="button"
-                            disabled={busy || bulkBusy}
-                            onClick={() =>
-                              void patchStatus(id, "active").then((ok) => {
-                                if (ok) void load();
-                              })
-                            }
-                            className="sam-text-helper text-emerald-700 hover:underline"
-                          >
-                            {restoreLabel}
-                          </button>
-                        ) : null}
-                        {status !== "deleted" ? (
-                          <button
-                            type="button"
-                            disabled={busy || bulkBusy}
-                            onClick={() =>
-                              void (async () => {
-                                const ok = await dibayConfirm({
-                                  title: softDeleteLabel,
-                                  description:
-                                    language === "en"
-                                      ? "Sets status=deleted. The DB row remains. This is not a permanent DB delete."
-                                      : "status=deleted 로 표시됩니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.",
-                                  confirmLabel: softDeleteLabel,
-                                  cancelLabel: language === "en" ? "Cancel" : "취소",
-                                  confirmTone: "destructive",
-                                });
-                                if (!ok) return;
-                                const patched = await patchStatus(id, "deleted");
-                                if (patched) void load();
-                              })()
-                            }
-                            className="sam-text-helper text-red-700 hover:underline"
-                            data-admin-mgmt-row-soft-delete="1"
-                          >
-                            {softDeleteLabel}
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </AdminManagementTableViewport>
-      )}
+                    {String(r.post_title ?? "").trim() || "제목 없음"}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+                {r.topic_slug ? <span className="block text-[12px] text-sam-muted">{topicNameOf(r.topic_slug)}</span> : null}
+              </td>
+              <td className={COMMUNITY_TD}>
+                <CommunityAuthorCell userId={r.user_id} nickname={r.author_nickname ?? r.author_label} handle={r.author_username} />
+              </td>
+              <td className={COMMUNITY_TD}>
+                <CommunityStatusBadge domain="content_status" value={r.status ?? "active"} ko={ko} />
+              </td>
+              <td className={`${COMMUNITY_TD} tabular-nums`}>
+                {reportCount > 0 ? (
+                  <Link
+                    href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
+                    className="font-semibold text-amber-800 hover:underline"
+                  >
+                    {reportCount}
+                  </Link>
+                ) : (
+                  <span className="text-sam-muted">0</span>
+                )}
+              </td>
+              <td className={COMMUNITY_TD}>
+                <CommunityTimeCell iso={r.created_at} />
+              </td>
+              <td className={COMMUNITY_TD}>{rowButtons(r)}</td>
+            </tr>
+          );
+        })}
+      </CommunityTable>
+    );
+
+  const bulkBar =
+    n > 0 ? (
+      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+        <span className="text-[13px] font-semibold text-sam-fg">{n}개 선택됨</span>
+        <AdminActionButton
+          variant="secondary"
+          disabled={!canContent}
+          title={noPermTitle}
+          onClick={() => setAction({ kind: "restore", ids: [...selection.selected] })}
+        >
+          다시 공개
+        </AdminActionButton>
+        <AdminActionButton
+          variant="secondary"
+          className="border-amber-400 text-amber-900"
+          disabled={!canContent}
+          title={noPermTitle}
+          onClick={() => setAction({ kind: "hide", ids: [...selection.selected] })}
+        >
+          숨기기
+        </AdminActionButton>
+        {isBulkActionAllowed(policy, "soft_delete") ? (
+          <AdminActionButton
+            variant="danger"
+            disabled={!canContent}
+            title={noPermTitle}
+            onClick={() => setAction({ kind: "delete", ids: [...selection.selected] })}
+          >
+            삭제
+          </AdminActionButton>
+        ) : null}
+        <AdminActionButton variant="quiet" onClick={() => selection.clear()}>
+          선택 해제
+        </AdminActionButton>
+      </div>
+    ) : null;
+
+  const actionRows = action
+    ? (() => {
+        const targets = rows.filter((r) => action.ids.includes(r.id));
+        const first = targets[0];
+        return [
+          { label: "대상", value: targets.length === 1 ? "댓글 1건" : `선택한 댓글 ${targets.length}건` },
+          { label: "내용", value: `「${String(first?.content ?? "").slice(0, 60)}」${targets.length > 1 ? " 외" : ""}` },
+          ...(targets.length === 1 && first
+            ? [{ label: "현재 상태", value: adminCommunityLabel("content_status", first.status, ko).label }]
+            : []),
+        ];
+      })()
+    : [];
+
+  return (
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments">
+      <CommunityListShell
+        title="댓글"
+        description="게시글에 달린 댓글·답글을 찾아보고 숨김·삭제·복구합니다."
+        actions={
+          <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
+            새로고침
+          </AdminActionButton>
+        }
+        banner={
+          <>
+            <AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />
+            {topicFilterTruncated ? (
+              <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+                {tr("admin_community_topic_filter_truncated")}
+              </div>
+            ) : null}
+          </>
+        }
+        tabs={
+          <CommunityTabs
+            tabs={TABS.map((t) => ({ ...t }))}
+            value={tab}
+            onChange={(v) => set({ tab: v, status: null, reported: null })}
+          />
+        }
+        filters={filters}
+        bulkBar={
+          <>
+            {rows.length > 0 && !loading ? (
+              <label className="flex items-center gap-2 px-1 text-[12px] text-sam-muted">
+                <AdminManagementSelectionCheckbox
+                  role="header"
+                  state={selection.headerState}
+                  onToggle={selection.toggleAll}
+                  aria-label="현재 페이지 전체 선택"
+                />
+                현재 페이지 전체 선택
+              </label>
+            ) : null}
+            {bulkBar}
+          </>
+        }
+        footer={
+          !loading && !loadErr && (rows.length > 0 || page > 1) ? (
+            <CommunityPagination
+              page={page}
+              pageSize={COMMUNITY_PAGE_SIZE}
+              total={hasMore ? null : (page - 1) * COMMUNITY_PAGE_SIZE + rows.length}
+              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
+            />
+          ) : null
+        }
+      >
+        {body}
+      </CommunityListShell>
+
+      {action ? (
+        <CommunityActionSheet
+          title={`댓글 ${ACTION_LABEL[action.kind]}`}
+          rows={actionRows}
+          notice={
+            action.kind === "hide"
+              ? "숨긴 댓글은 작성자에게만 보입니다. 작성자에게 알림이 갑니다."
+              : action.kind === "delete"
+                ? "삭제한 댓글은 아무도 볼 수 없습니다(복구 가능). 작성자에게 알림이 갑니다."
+                : "댓글을 다시 모두에게 보이게 합니다."
+          }
+          reason={action.kind === "restore" ? null : { minLength: 2, placeholder: "예: 욕설, 개인정보 노출" }}
+          destructive={action.kind === "delete"}
+          confirmLabel={ACTION_LABEL[action.kind]}
+          onSubmit={(reason) => runAction(action, reason)}
+          onClose={() => setAction(null)}
+          onSettled={(k) => {
+            setAction(null);
+            if (k === "stale") setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
+            reload();
+          }}
+        />
+      ) : null}
     </AdminManagementSurfaceRoot>
   );
 }

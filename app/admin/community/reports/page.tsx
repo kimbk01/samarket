@@ -1,51 +1,67 @@
+import { Suspense } from "react";
 import {
   AdminCommunityReportsPage,
   type AdminCommunityReportsFilters,
 } from "@/components/admin/community/AdminCommunityReportsPage";
-import { listCommunityReportsForAdmin } from "@/lib/community-feed/admin-community-reports";
+import {
+  listCommunityReportGroupsForAdmin,
+  resolveCommunityReportInboxTab,
+  type CommunityReportTargetFilter,
+} from "@/lib/community-feed/admin-community-reports";
+import { parseCommunityAdminPeriod } from "@/lib/admin/community-admin/community-admin-period";
 
-export default async function AdminCommunityReportsRoute({
-  searchParams,
-}: {
-  searchParams?: Promise<{
-    rid?: string;
-    status?: string;
-    pending?: string;
-    targetId?: string;
-    topicSlug?: string;
-    reporterId?: string;
-    authorId?: string;
-  }>;
-}) {
+const PAGE_SIZE = 50;
+
+type Sp = Record<string, string | string[] | undefined>;
+
+function one(sp: Sp, k: string): string {
+  const v = sp[k];
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+}
+
+/** 신고 처리함 (설계 §C-2) — 대상별 묶음 · 서버 페이지네이션 · URL 필터 (service-role 서버 조회) */
+export default async function AdminCommunityReportsRoute({ searchParams }: { searchParams?: Promise<Sp> }) {
   const sp = searchParams ? await searchParams : {};
-  const statusRaw = sp.status?.trim() ?? "";
-  const pendingFlag = sp.pending === "1" || sp.pending === "true";
-  const isPending = statusRaw === "pending" || pendingFlag;
-  const status =
-    isPending ? "pending"
-    : statusRaw && ["open", "reviewing", "resolved", "dismissed"].includes(statusRaw) ? statusRaw
-    : "";
+  const tab = resolveCommunityReportInboxTab({ status: one(sp, "status"), pending: one(sp, "pending") });
+  const typeRaw = one(sp, "type");
+  const targetType: CommunityReportTargetFilter =
+    typeRaw === "post" || typeRaw === "comment" || typeRaw === "user" ? typeRaw : "";
+  const page = Math.max(1, Math.floor(Number(one(sp, "page") || 1)) || 1);
+  const period = parseCommunityAdminPeriod({ period: one(sp, "period"), from: one(sp, "from"), to: one(sp, "to") });
 
   const filters: AdminCommunityReportsFilters = {
-    status,
-    targetId: sp.targetId?.trim() ?? "",
-    topicSlug: sp.topicSlug?.trim() ?? "",
-    reporterId: sp.reporterId?.trim() ?? "",
-    authorId: sp.authorId?.trim() ?? "",
+    tab,
+    type: targetType,
+    q: one(sp, "q"),
+    targetId: one(sp, "targetId"),
+    topicSlug: one(sp, "topicSlug"),
+    reporterId: one(sp, "reporterId"),
+    authorId: one(sp, "authorId"),
+    periodError: period.ok ? null : period.error,
   };
 
-  const rows = await listCommunityReportsForAdmin({
-    limit: 200,
-    pending: isPending || undefined,
-    status: isPending || !status ? undefined : status,
+  const result = await listCommunityReportGroupsForAdmin({
+    tab,
+    targetType,
+    q: filters.q || undefined,
     targetId: filters.targetId || undefined,
     topicSlug: filters.topicSlug || undefined,
     reporterId: filters.reporterId || undefined,
     authorId: filters.authorId || undefined,
+    createdFromIso: period.ok ? period.fromIso : null,
+    createdToIso: period.ok ? period.toIso : null,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   });
 
-  const highlightId = sp.rid?.trim() ?? "";
   return (
-    <AdminCommunityReportsPage initialRows={rows} highlightId={highlightId} filters={filters} />
+    <Suspense fallback={null}>
+      <AdminCommunityReportsPage
+        result={result}
+        filters={filters}
+        pageSize={PAGE_SIZE}
+        highlightId={one(sp, "rid")}
+      />
+    </Suspense>
   );
 }

@@ -1,5 +1,5 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchArticleForInbox } from "@/lib/community-operator-import/collect";
 import { carryEditToArticle, ensureDraftEdit, loadOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 
 /** Source article (fresh fetch) + saved draft edit + publish link, for the compare editor. */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const sp = req.nextUrl.searchParams;
   const key = {

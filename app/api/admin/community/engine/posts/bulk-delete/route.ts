@@ -1,10 +1,18 @@
 /**
  * POST /api/admin/community/engine/posts/bulk-delete
- * body: { ids: string[] } — community_posts 행 영구 삭제 (연쇄 CASCADE는 DB 정책 따름)
+ * body: { ids: string[], reason: string } — 게시글 행 영구 삭제 (설계 O-2 · C-02).
+ *
+ * - 최고 관리자 전용, 사유 필수.
+ * - 조건: 삭제 상태로 30일 경과 · 처리 안 된 신고 없음 · 노출 중/중지 홍보 없음 · 연결된 모임 없음.
+ * - 삭제 전에 행 전체 스냅샷을 감사 기록에 남기고, 기록에 실패하면 그 글은 지우지 않는다.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireCommunitySuperAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
+import {
+  COMMUNITY_HARD_DELETE_MIN_DAYS,
+  normalizeCommunityAdminReason,
+} from "@/lib/admin/community-admin/community-admin-reason";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 import {
   collectCanonicalImagePublicUrls,
@@ -18,6 +26,16 @@ const MAX_BATCH = 50;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type HardDeleteBlockReason =
+  | "not_found"
+  | "not_deleted"
+  | "too_recent"
+  | "open_reports"
+  | "running_promotion"
+  | "has_meeting"
+  | "audit_failed"
+  | "delete_failed";
 
 function parseIds(body: unknown): string[] | null {
   if (!body || typeof body !== "object") return null;
@@ -35,8 +53,9 @@ function parseIds(body: unknown): string[] | null {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireCommunitySuperAdmin();
+  if (!gate.ok) return gate.response;
+  const { sb } = gate;
 
   let json: unknown;
   try {
@@ -47,51 +66,106 @@ export async function POST(req: NextRequest) {
 
   const ids = parseIds(json);
   if (!ids) {
-    return NextResponse.json({ ok: false, error: "ids: uuid[] 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "ids_required" }, { status: 400 });
   }
   if (ids.length > MAX_BATCH) {
-    return NextResponse.json(
-      { ok: false, error: `한 번에 최대 ${MAX_BATCH}개까지 삭제할 수 있습니다.` },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "too_many", max: MAX_BATCH }, { status: 400 });
+  }
+  const reason = normalizeCommunityAdminReason((json as { reason?: unknown }).reason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
+  const [postsRes, reportsRes, promoRes, meetingsRes, commentCountRes] = await Promise.all([
+    sb.from("community_posts").select("*").in("id", ids),
+    sb
+      .from("community_reports")
+      .select("target_id")
+      .eq("target_type", "post")
+      .in("target_id", ids)
+      .in("status", ["open", "reviewing"]),
+    sb
+      .from("point_promotion_orders")
+      .select("target_id")
+      .eq("domain", "community")
+      .in("target_id", ids)
+      .in("order_status", ["active", "paused", "pending_review"]),
+    sb.from("meetings").select("post_id").in("post_id", ids),
+    sb.from("community_comments").select("post_id").in("post_id", ids),
+  ]);
+  const firstErr = [postsRes, reportsRes, promoRes, meetingsRes, commentCountRes].find((r) => r.error);
+  if (firstErr?.error) {
+    return NextResponse.json({ ok: false, error: "preflight_failed" }, { status: 500 });
   }
 
-  const { data: imageRows } = await sb
-    .from("community_post_images")
-    .select("image_url")
-    .in("post_id", ids);
-  const imageUrlsToRemove = collectCanonicalImagePublicUrls(
-    (imageRows ?? []).map((r: { image_url?: string }) => r.image_url)
+  const openReports = new Set((reportsRes.data ?? []).map((r: { target_id: string }) => r.target_id));
+  const runningPromo = new Set((promoRes.data ?? []).map((r: { target_id: string }) => r.target_id));
+  const withMeeting = new Set((meetingsRes.data ?? []).map((r: { post_id: string }) => r.post_id));
+  const commentCount = new Map<string, number>();
+  for (const r of (commentCountRes.data ?? []) as { post_id: string }[]) {
+    commentCount.set(r.post_id, (commentCount.get(r.post_id) ?? 0) + 1);
+  }
+  const rows = new Map(
+    ((postsRes.data ?? []) as Record<string, unknown>[]).map((r) => [String(r.id), r])
   );
+  const minAgeMs = COMMUNITY_HARD_DELETE_MIN_DAYS * 86_400_000;
 
-  const { error, data } = await sb.from("community_posts").delete().in("id", ids).select("id");
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const blocked: { id: string; reason: HardDeleteBlockReason }[] = [];
+  const eligible: string[] = [];
+  for (const id of ids) {
+    const row = rows.get(id);
+    if (!row) blocked.push({ id, reason: "not_found" });
+    else if (row.status !== "deleted") blocked.push({ id, reason: "not_deleted" });
+    else if (Date.now() - new Date(String(row.updated_at ?? 0)).getTime() < minAgeMs)
+      blocked.push({ id, reason: "too_recent" });
+    else if (openReports.has(id)) blocked.push({ id, reason: "open_reports" });
+    else if (runningPromo.has(id)) blocked.push({ id, reason: "running_promotion" });
+    else if (withMeeting.has(id)) blocked.push({ id, reason: "has_meeting" });
+    else eligible.push(id);
   }
 
-  const deleted = (data ?? []).map((r: { id: string }) => r.id);
-  const deletedSet = new Set(deleted);
-  const missing = ids.filter((id) => !deletedSet.has(id));
-
-  for (const postId of deleted) {
-    await applyCommunityPointReclaimOnPostAdminRemove({ postId });
-  }
-
-  if (deleted.length > 0 && imageUrlsToRemove.length > 0) {
-    const removal = await removeCanonicalImagesFromPublicUrls({
-      sb,
-      urls: imageUrlsToRemove,
-      context: "admin/community/posts/bulk-delete",
+  const deleted: string[] = [];
+  for (const id of eligible) {
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: gate.userId,
+      targetType: "community_post",
+      targetId: id,
+      action: "community_post.hard_delete",
+      reason,
+      before: { ...rows.get(id), comment_count_snapshot: commentCount.get(id) ?? 0 },
+      after: null,
     });
-    if (removal.failed.length > 0) {
-      console.error("[admin/community/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+    if (!audit.ok) {
+      blocked.push({ id, reason: "audit_failed" });
+      continue;
+    }
+    const { data: imageRows } = await sb
+      .from("community_post_images")
+      .select("image_url")
+      .eq("post_id", id);
+    const imageUrls = collectCanonicalImagePublicUrls(
+      (imageRows ?? []).map((r: { image_url?: string }) => r.image_url)
+    );
+    const { error } = await sb
+      .from("community_posts")
+      .delete()
+      .eq("id", id)
+      .eq("status", "deleted");
+    if (error) {
+      blocked.push({ id, reason: "delete_failed" });
+      continue;
+    }
+    deleted.push(id);
+    await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
+    if (imageUrls.length > 0) {
+      const removal = await removeCanonicalImagesFromPublicUrls({
+        sb,
+        urls: imageUrls,
+        context: "admin/community/posts/bulk-delete",
+      });
+      if (removal.failed.length > 0) {
+        console.error("[admin/community/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+      }
     }
   }
 
@@ -99,6 +173,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     deleted,
     deletedCount: deleted.length,
-    notFoundOrSkipped: missing,
+    blocked,
+    minDeletedDays: COMMUNITY_HARD_DELETE_MIN_DAYS,
   });
 }

@@ -10,6 +10,7 @@ import {
 import { isAdminSupportListFilter, isAdminSupportTab } from "@/lib/support/support-case-types";
 import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
 import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
+import { parseSupportCaseKind, parseSupportCaseScope } from "@/lib/support/support-community-filter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export async function GET(req: NextRequest) {
   const audienceRaw = sp.get("audience")?.trim().toUpperCase() ?? "";
   const audience = audienceRaw === "MEMBER" || audienceRaw === "OWNER" ? audienceRaw : null;
   const group = getSupportCategoryGroup(sp.get("group"))?.id ?? null;
+  // 커뮤니티 문의(`?group=community`)·이의신청(`?type=appeal`) — 없으면 기존 동작 그대로.
+  const scope = parseSupportCaseScope(sp.get("group"));
+  const kind = parseSupportCaseKind(sp.get("type"));
   const assigneeRaw = sp.get("assignee")?.trim().toUpperCase() ?? "";
   const assignee = assigneeRaw === "ME" || assigneeRaw === "UNASSIGNED" ? assigneeRaw : null;
   const stale = sp.get("stale") === "1";
@@ -67,6 +71,8 @@ export async function GET(req: NextRequest) {
       referenceType,
       referenceId,
       ownerStoreId,
+      scope,
+      kind,
     }),
     countSupportCasesByTab(sb),
   ]);

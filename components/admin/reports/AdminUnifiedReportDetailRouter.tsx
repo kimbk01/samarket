@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReportByIdFromDb } from "@/lib/admin-reports/getReportsFromDb";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
 import { AdminCommunityReportDetailClient } from "@/components/admin/community/AdminCommunityReportDetailClient";
+import { AdminForbiddenState } from "@/components/admin/ui/AdminStateViews";
 import { AdminReportDetailPage } from "./AdminReportDetailPage";
 
-type Phase = "loading" | "legacy" | "community" | "none";
+type Phase = "loading" | "legacy" | "community" | "forbidden" | "none";
 
 /** 통합 신고 상세: `reports` 우선, 없으면 `community_reports` */
 export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [phase, setPhase] = useState<Phase>("loading");
   const [communityRow, setCommunityRow] = useState<CommunityReportAdminRow | null>(null);
 
@@ -33,11 +34,15 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
         credentials: "include",
         cache: "no-store",
       });
-      const j = (await res.json()) as { ok?: boolean; row?: CommunityReportAdminRow };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; row?: CommunityReportAdminRow };
       if (cancelled) return;
       if (j.ok && j.row) {
         setCommunityRow(j.row);
         setPhase("community");
+        return;
+      }
+      if (res.status === 403) {
+        setPhase("forbidden");
         return;
       }
       setPhase("none");
@@ -53,11 +58,19 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
   if (phase === "none") {
     return <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_report_not_found")}</div>;
   }
+  if (phase === "forbidden") {
+    return <AdminForbiddenState ko={language !== "en"} code="forbidden" />;
+  }
   if (phase === "legacy") {
     return <AdminReportDetailPage reportId={reportId.trim()} />;
   }
   if (phase === "community" && communityRow) {
-    return <AdminCommunityReportDetailClient initialRow={communityRow} />;
+    // 피드 신고 — 처리함 시트와 같은 처리 패널 (returnTo 읽기 위해 Suspense)
+    return (
+      <Suspense fallback={null}>
+        <AdminCommunityReportDetailClient initialRow={communityRow} />
+      </Suspense>
+    );
   }
   return <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>;
 }

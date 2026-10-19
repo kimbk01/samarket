@@ -72,14 +72,14 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
     expect(COMMUNITY_POST_ENTITY_ACTION_POLICY.softConfirmMode).toBe("danger_confirm");
     expect(COMMUNITY_POST_ENTITY_ACTION_POLICY.hardConfirmMode).toBe("strong_danger_confirm");
 
+    // 설계 v2 §C-0-2: 「삭제」 L2(사유) · 「영구 삭제」 L3(사유 + 재입력, 최고 관리자) — CommunityActionSheet
     const posts = read("app/admin/community/posts/AdminPostsPageContent.tsx");
-    expect(posts).toContain('terminologyDisplay("SOFT_DELETE"');
-    expect(posts).toContain('terminologyDisplay("HARD_DELETE"');
     expect(posts).toContain("data-admin-mgmt-row-soft-delete");
+    expect(posts).toContain("data-admin-mgmt-hard-delete");
     expect(posts).toContain("/api/admin/community/engine/posts/bulk-delete");
-    expect(posts).toContain("dibayPrompt");
-    expect(posts).toMatch(/Type DELETE|DELETE 를 입력/);
-    expect(posts).toMatch(/No soft-delete fallback/);
+    expect(posts).toContain('retypeValue="영구 삭제"');
+    expect(posts).toMatch(/disabled=\{!isSuperAdmin\}/);
+    expect(posts).toContain("COMMUNITY_HARD_DELETE_BLOCK_KO");
     expect(posts).not.toContain("admin_community_danger_zone");
   });
 
@@ -90,8 +90,9 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
       "hard_delete"
     );
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
-    expect(comments).toContain('terminologyDisplay("SOFT_DELETE"');
+    expect(comments).toContain("data-admin-mgmt-row-soft-delete");
     expect(comments).not.toMatch(/id:\s*"hard_delete"/);
+    expect(comments).not.toContain("retypeValue");
     expect(comments).not.toContain("bulk-delete");
   });
 

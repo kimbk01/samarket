@@ -186,6 +186,19 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-section-moderation": "admin_menu_community_section_moderation",
   "community-section-promo-point": "admin_menu_community_section_promo_point",
   "community-section-settings": "admin_menu_community_section_settings",
+  "community-section-members": "admin_menu_community_section_members",
+  "community-section-promotion": "admin_menu_community_section_promotion",
+  "community-section-support": "admin_menu_community_section_support",
+  "community-section-content-ops": "admin_menu_community_section_content_ops",
+  "community-restrictions": "admin_menu_community_restrictions",
+  "community-appeals": "admin_menu_community_appeals",
+  "community-members": "admin_menu_community_members",
+  "community-points": "admin_menu_community_points",
+  "community-point-charges": "admin_menu_community_point_charges",
+  "community-support": "admin_menu_community_support",
+  "community-notices": "admin_menu_community_notices",
+  "community-audit": "admin_menu_community_audit",
+  "community-stats": "admin_menu_community_stats",
 
   // Delivery — section headers (path 없음) + leaves
   "delivery-section-policies": "admin_menu_delivery_section_policies",
@@ -687,23 +700,18 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── COMMUNITY ──────────────────────────────────
-  // ARO-IA-001: section headers (path 없음) + domain leaves KEEP; Common은 page cross-link만.
+  // 커뮤니티 Admin 설계 v2 §B-2 (Owner 승인): 9 그룹 · 22 메뉴 — 운영 현황 → 신고·제재 → 게시물·댓글 →
+  // 회원·작성자 → 홍보 → 포인트·충전 → 문의 → 콘텐츠 운영 → 운영 기록·설정. 기존 URL·별칭(/admin/philife/*) 유지.
   {
     key: "community",
     title: "",
     children: [
-      // ARO-OPS-UX-001-W3: operator workflow — Overview → Daily moderation → Content → Occasional promo → Config
       {
         key: "community-section-ops",
         title: "",
         status: "done",
         children: [
-          {
-            key: "community-home",
-            title: "",
-            path: "/admin/community",
-            status: "done",
-          },
+          { key: "community-home", title: "", path: "/admin/community", status: "done" },
         ],
       },
       {
@@ -724,6 +732,18 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/philife/meeting-reports",
             status: "done",
           },
+          {
+            key: "community-restrictions",
+            title: "",
+            path: "/admin/community/restrictions",
+            status: "done",
+          },
+          {
+            key: "community-appeals",
+            title: "",
+            path: "/admin/community/support?type=appeal",
+            status: "done",
+          },
         ],
       },
       {
@@ -733,22 +753,42 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         children: [
           { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
           {
-            key: "community-external-import",
-            title: "",
-            path: "/admin/community/external-import",
-            status: "done",
-          },
-          {
             key: "community-comments",
             title: "",
             path: "/admin/community/comments",
             status: "done",
           },
           {
-            key: "community-topics",
+            key: "community-meetings",
             title: "",
-            path: "/admin/community/topics",
-            matchPaths: ["/admin/philife/topics", "/admin/philife"],
+            path: "/admin/community/meetings",
+            matchPaths: ["/admin/philife/meetings"],
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "community-section-members",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "community-members",
+            title: "",
+            path: "/admin/community/members",
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "community-section-promotion",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "community-promotions",
+            title: "",
+            path: "/admin/community/promotions",
             status: "done",
           },
         ],
@@ -759,9 +799,15 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           {
-            key: "community-promotions",
+            key: "community-points",
             title: "",
-            path: "/admin/community/promotions",
+            path: "/admin/community/points",
+            status: "done",
+          },
+          {
+            key: "community-point-charges",
+            title: "",
+            path: "/admin/community/point-charges",
             status: "done",
           },
           {
@@ -773,14 +819,79 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         ],
       },
       {
+        key: "community-section-support",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "community-support",
+            title: "",
+            path: "/admin/community/support",
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "community-section-content-ops",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "community-topics",
+            title: "",
+            path: "/admin/community/topics",
+            matchPaths: ["/admin/philife/topics"],
+            status: "done",
+          },
+          {
+            key: "community-sections",
+            title: "",
+            path: "/admin/community/sections",
+            matchPaths: ["/admin/philife/sections"],
+            status: "done",
+          },
+          {
+            key: "community-external-import",
+            title: "",
+            path: "/admin/community/external-import",
+            status: "done",
+          },
+          {
+            key: "community-notices",
+            title: "",
+            path: "/admin/community/notices",
+            status: "done",
+          },
+        ],
+      },
+      {
         key: "community-section-settings",
         title: "",
         status: "done",
         children: [
           {
+            key: "community-audit",
+            title: "",
+            path: "/admin/community/audit",
+            status: "done",
+          },
+          {
+            key: "community-meeting-events",
+            title: "",
+            path: "/admin/philife/meeting-events",
+            status: "done",
+          },
+          {
+            key: "community-stats",
+            title: "",
+            path: "/admin/community/stats",
+            status: "done",
+          },
+          {
             key: "community-feed-settings",
             title: "",
             path: "/admin/community/settings",
+            matchPaths: ["/admin/philife/settings"],
             status: "done",
           },
         ],

@@ -7,13 +7,14 @@ import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-ope
 import { labelReasons } from "@/lib/community-operator-import/quality-labels";
 import { allowsFullContent, RIGHTS_BASES, RIGHTS_LABEL, type RightsBasis } from "@/lib/community-operator-import/rights";
 import { BoardProbePanel } from "./BoardProbePanel";
-import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE } from "./api";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
 
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
   const key = String(v || "NOT_PROVEN");
   return (
     <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${VERDICT_TONE[key] || VERDICT_TONE.NOT_PROVEN}`}>
-      {key === "NOT_PROVEN" ? "미검증" : key}
+      {verdictLabel(key)}
     </span>
   );
 }
@@ -57,7 +58,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
     try {
       return await fn();
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
       return null;
     } finally {
       setBusy(null);
@@ -98,6 +99,25 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
     const r = await run(`${action}:${sourceId}`, () => call<{ source?: ManagedSource }>("/sources", { body: { action, sourceId, ...extra } }));
     if (r) onChanged();
     return r;
+  };
+
+  /** 출처 켜기·끄기 / 재검증 / 게시판 다시 찾기 — L1 확인 후 실행 */
+  const confirmedSourceAction = async (
+    source: ManagedSource,
+    kind: "verify" | "rescan" | "toggle",
+  ) => {
+    const meta =
+      kind === "verify"
+        ? { title: `「${source.displayName}」 재검증`, description: "출처 접근 가능 여부와 수집 품질을 다시 확인합니다.", confirmLabel: "재검증" }
+        : kind === "rescan"
+          ? { title: `「${source.displayName}」 게시판 다시 찾기`, description: "사이트의 게시판 목록을 다시 탐색합니다. 기존 게시판 설정은 유지됩니다.", confirmLabel: "다시 찾기" }
+          : source.enabled
+            ? { title: `「${source.displayName}」 출처 끄기`, description: "이 출처의 자동·수동 수집이 멈춥니다. 이미 게시한 글은 그대로입니다.", confirmLabel: "출처 끄기" }
+            : { title: `「${source.displayName}」 출처 켜기`, description: "이 출처에서 다시 수집할 수 있게 됩니다.", confirmLabel: "출처 켜기" };
+    const ok = await confirmAdminAction({ level: "L1", ko: true, destructive: kind === "toggle" && source.enabled, ...meta });
+    if (!ok.ok) return;
+    if (kind === "toggle") await sourceAction(source.id, "update", { patch: { enabled: !source.enabled } });
+    else await sourceAction(source.id, kind);
   };
 
   const boardPatch = async (sourceId: string, boardId: string, patch: Record<string, unknown>) => {
@@ -288,7 +308,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                   <div className="text-[11px] text-sam-muted break-all">
                     {s.baseUrl} · robots {s.status.robotsStatus ?? "미확인"}
                     {s.status.aiBotsBlocked ? " · AI 봇 차단 명시" : ""}
-                    {s.status.lastError ? <span className="block text-rose-600">최근 오류: {s.status.lastError}</span> : null}
+                    {s.status.lastError ? <span className="block text-rose-600">최근 오류: {importErrorText({ message: s.status.lastError })}</span> : null}
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <select
@@ -302,16 +322,16 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                         </option>
                       ))}
                     </select>
-                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void sourceAction(s.id, "verify")}>
+                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void confirmedSourceAction(s, "verify")}>
                       {busy === `verify:${s.id}` ? "검증 중…" : "재검증"}
                     </AdminActionButton>
-                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void sourceAction(s.id, "rescan")}>
+                    <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void confirmedSourceAction(s, "rescan")}>
                       {busy === `rescan:${s.id}` ? "탐색 중…" : "게시판 다시 찾기"}
                     </AdminActionButton>
                     <AdminActionButton
                       variant="neutral"
                       disabled={!!busy}
-                      onClick={() => void sourceAction(s.id, "update", { patch: { enabled: !s.enabled } })}
+                      onClick={() => void confirmedSourceAction(s, "toggle")}
                     >
                       {s.enabled ? "출처 끄기" : "출처 켜기"}
                     </AdminActionButton>

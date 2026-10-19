@@ -30,6 +30,10 @@ export type ReferenceAuthorityResult =
  * PARTNER_MEMBERSHIP           | delivery_ad_partner_memberships + store gate  | ACTIVE (CUT D)
  * COIN_WITHDRAWAL_REQUEST      | coin_withdrawal_requests + store gate         | ACTIVE (F-06)
  * POINT_PROMOTION_ORDER        | point_promotion_orders.user_id (MEMBER)       | ACTIVE (Boost)
+ * COMMUNITY_POST               | community_posts: own post or public (MEMBER)  | ACTIVE (Community C-23)
+ * COMMUNITY_COMMENT            | community_comments: own or public (MEMBER)    | ACTIVE (Community C-23)
+ * COMMUNITY_REPORT             | community_reports.user_id = reporter (MEMBER) | ACTIVE (Community C-23)
+ * COMMUNITY_SANCTION           | sanctions.user_id + scope=community (MEMBER)  | ACTIVE (Community appeal)
  *
  * Any other / unknown type → DENY (fail-closed). No default pass-through.
  * Support does NOT mutate Ads / Finance / Partner — references are read pointers only.
@@ -48,6 +52,10 @@ export const SUPPORT_REFERENCE_TYPES = [
   "PARTNER_MEMBERSHIP",
   "COIN_WITHDRAWAL_REQUEST",
   "POINT_PROMOTION_ORDER",
+  "COMMUNITY_POST",
+  "COMMUNITY_COMMENT",
+  "COMMUNITY_REPORT",
+  "COMMUNITY_SANCTION",
 ] as const;
 
 export type SupportReferenceType = (typeof SUPPORT_REFERENCE_TYPES)[number];
@@ -280,6 +288,52 @@ export async function assertSupportReferenceAuthority(
         .in("domain", ["trade", "community"])
         .maybeSingle();
       if (!data || String(data.user_id) !== input.userId) {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      return { ok: true };
+    }
+    case "COMMUNITY_POST":
+    case "COMMUNITY_COMMENT": {
+      // 본인 글·댓글(이의신청) 또는 공개 중인 글·댓글(신고 문의)만. 숨김·삭제된 남의 글은 거부.
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const table = referenceType === "COMMUNITY_POST" ? "community_posts" : "community_comments";
+      const { data } = await sb
+        .from(table)
+        .select("id, user_id, status")
+        .eq("id", referenceId)
+        .maybeSingle();
+      if (!data) return { ok: false, error: "reference_forbidden" };
+      const row = data as { user_id?: string | null; status?: string | null };
+      if (String(row.user_id ?? "") === input.userId || row.status === "active") return { ok: true };
+      return { ok: false, error: "reference_forbidden" };
+    }
+    case "COMMUNITY_REPORT": {
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("community_reports")
+        .select("id, user_id")
+        .eq("id", referenceId)
+        .maybeSingle();
+      if (!data || String((data as { user_id?: string }).user_id) !== input.userId) {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      return { ok: true };
+    }
+    case "COMMUNITY_SANCTION": {
+      if (input.audience !== "MEMBER") {
+        return { ok: false, error: "reference_forbidden" };
+      }
+      const { data } = await sb
+        .from("sanctions")
+        .select("id, user_id, scope")
+        .eq("id", referenceId)
+        .eq("scope", "community")
+        .maybeSingle();
+      if (!data || String((data as { user_id?: string }).user_id) !== input.userId) {
         return { ok: false, error: "reference_forbidden" };
       }
       return { ok: true };

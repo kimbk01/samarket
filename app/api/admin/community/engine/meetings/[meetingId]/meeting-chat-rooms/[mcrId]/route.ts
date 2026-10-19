@@ -1,7 +1,7 @@
 /**
  * DELETE — 모임 부가 채팅(meeting_chat_rooms) 및 연결된 chat_rooms 정리 (기본 전체 채팅은 불가)
  *
- * 채팅 Admin C-3 (증거 보존): super_admin 전용 · Body `{ reason (10자↑), confirmText: "DELETE" }` ·
+ * 채팅 Admin C-3 (증거 보존): super_admin 전용 · Body `{ reason (커뮤니티 공통 사유 규칙 2자↑ — C-30), confirmText: "DELETE" }` ·
  * 신고가 연결된 방은 409 `evidence_preserved` · 신고(`chat_reports`)·조치(`moderation_actions`)는 지우지 않음 ·
  * audit_logs `chat_room.hard_delete`.
  */
@@ -12,8 +12,11 @@ import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audi
 import {
   CHAT_ADMIN_AUDIT_HARD_DELETE,
   CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT,
-  CHAT_ROOM_HARD_DELETE_REASON_MIN_LENGTH,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import {
+  COMMUNITY_ADMIN_REASON_MIN_LENGTH,
+  normalizeCommunityAdminReason,
+} from "@/lib/admin/community-admin/community-admin-reason";
 import { lookupChatRoomEvidence } from "@/lib/admin/chat-admin/chat-room-evidence-lookup";
 
 export const runtime = "nodejs";
@@ -61,10 +64,10 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ meetingId: s
   } catch {
     body = {};
   }
-  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-  if (reason.length < CHAT_ROOM_HARD_DELETE_REASON_MIN_LENGTH) {
+  const reason = normalizeCommunityAdminReason(body.reason);
+  if (!reason) {
     return NextResponse.json(
-      { ok: false, error: "reason_required", reasonMinLength: CHAT_ROOM_HARD_DELETE_REASON_MIN_LENGTH },
+      { ok: false, error: "reason_required", reasonMinLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH },
       { status: 400 }
     );
   }

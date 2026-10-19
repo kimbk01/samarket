@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import {
-  adjustUserPoints,
-  sumUserPointLedger,
-} from "@/lib/points/user-point-ledger";
+import { sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +21,7 @@ async function readCanonicalAdminPointBalance(
 
 /**
  * POST /api/admin/points/adjust
- * Existing writer: adjustUserPoints (admin_credit / admin_debit).
+ * Writer: RPC admin_adjust_user_points (admin_credit / admin_debit · actor_id · idempotency_key unique).
  * op: "credit" | "debit"
  */
 export async function POST(req: NextRequest) {
@@ -58,51 +56,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: before.error }, { status: 500 });
   }
   const balanceBefore = before.balance;
-  if (op === "debit" && balanceBefore < amount) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "insufficient_balance",
-        messageKo: "보유 Point보다 많은 금액은 회수할 수 없습니다.",
-        messageEn: "Cannot reclaim more Point than the member holds.",
-        balance: balanceBefore,
-      },
-      { status: 400 }
-    );
+  // 잔액 부족 판정은 RPC 가 회원 행을 잠근 뒤 한다 (같은 키 재요청은 기존 결과를 돌려준다).
+
+  const idempotencyKey = String(body.idempotencyKey ?? "").trim();
+  if (idempotencyKey.length < 8 || idempotencyKey.length > 200) {
+    return NextResponse.json({ ok: false, error: "idempotency_key_required" }, { status: 400 });
   }
 
+  // 원자 RPC (M7): 회원 행 잠금 → 같은 키 재요청이면 기존 결과 → 잔액 확인 → 원장(actor_id) 기록.
   const delta = op === "credit" ? amount : -amount;
-  const res = await adjustUserPoints(gate.sb, {
-    userId,
-    delta,
-    description: description.slice(0, 500),
-    actorUserId: gate.actor.userId,
-    relatedId: body.idempotencyKey?.trim() || undefined,
+  const { data: rpc, error: rpcErr } = await gate.sb.rpc("admin_adjust_user_points", {
+    p_user_id: userId,
+    p_delta: delta,
+    p_description: description.slice(0, 500),
+    p_actor_id: gate.actor.userId,
+    p_idempotency_key: idempotencyKey,
   });
-
-  if (!res.ok) {
-    const status = res.code === "insufficient_balance" ? 400 : 500;
+  const res = (rpc ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    duplicate?: boolean;
+    ledger_id?: string;
+    balance_after?: number;
+    balance?: number;
+  };
+  if (rpcErr || res.ok !== true) {
+    const code = res.error ?? "adjust_failed";
+    const status = code === "insufficient_balance" || code === "invalid_input" ? 400 : code === "user_not_found" ? 404 : 500;
     return NextResponse.json(
       {
         ok: false,
-        error: res.error,
-        code: res.code,
+        error: code,
+        code,
+        balance: res.balance,
         messageKo:
-          res.code === "insufficient_balance"
-            ? "보유 Point보다 많은 금액은 회수할 수 없습니다."
-            : undefined,
+          code === "insufficient_balance" ? "보유 Point보다 많은 금액은 회수할 수 없습니다." : undefined,
       },
       { status }
     );
   }
+
+  await appendCommunityAdminAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "user_points",
+    targetId: userId,
+    action: op === "credit" ? "admin_point_credit" : "admin_point_debit",
+    reason,
+    before: { balance: balanceBefore },
+    after: {
+      amount: delta,
+      balance_after: res.balance_after ?? null,
+      ledger_id: res.ledger_id ?? null,
+      idempotency_key: idempotencyKey,
+      duplicate: res.duplicate === true,
+      memo: memo || null,
+    },
+  });
 
   return NextResponse.json({
     ok: true,
     op,
     amount,
     balanceBefore,
-    balanceAfter: res.balanceAfter,
-    ledgerId: res.ledgerId ?? null,
+    balanceAfter: res.balance_after ?? null,
+    ledgerId: res.ledger_id ?? null,
+    duplicate: res.duplicate === true,
   });
 }
 

@@ -2,6 +2,10 @@ import type { CommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin
 
 export type NeighborhoodFeedPostDTO = {
   id: string;
+  /** 운영팀 공지 (노출 기간 중) — 피드 상단·「공지」 배지 (§F-5-2) */
+  is_notice?: boolean;
+  /** 관리자 상단 고정 (현재 보는 피드 범위 기준) — 피드 상단·「고정」 배지 */
+  is_pinned?: boolean;
   /** `community_topics.slug` 와 동기(어드민 피드 주제) */
   category: string;
   category_label: string;

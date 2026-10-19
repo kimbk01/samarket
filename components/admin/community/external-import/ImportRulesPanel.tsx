@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { call, type ImportRule, type ManagedSource } from "./api";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { call, type ImportRule, type ManagedSource, importErrorText } from "./api";
 
 const EMPTY = { scope: "global" as ImportRule["scope"], sourceSite: "", sourceBoard: "", findText: "", replaceText: "", isRegex: false, note: "" };
 
@@ -15,7 +16,7 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
     try {
       setRules((await call<{ rules: ImportRule[] }>("/rules")).rules);
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
     }
   }, []);
   useEffect(() => {
@@ -45,15 +46,23 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
       setMsg({ tone: "ok", text: "규칙을 저장했습니다. 이후 미리보기·게시·업데이트에 적용됩니다." });
       await load();
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
     }
   };
 
   const toggle = async (r: ImportRule) => {
+    const ok = await confirmAdminAction({
+      level: "L1",
+      ko: true,
+      title: r.enabled ? "규칙 끄기" : "규칙 켜기",
+      description: r.enabled ? "이후 게시·업데이트에 이 규칙을 적용하지 않습니다." : "이후 게시·업데이트에 이 규칙을 적용합니다.",
+      confirmLabel: r.enabled ? "끄기" : "켜기",
+    });
+    if (!ok.ok) return;
     try {
       setRules((await call<{ rules: ImportRule[] }>("/rules", { body: { action: "toggle", id: r.id, enabled: !r.enabled } })).rules);
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
     }
   };
 
