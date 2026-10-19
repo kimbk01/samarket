@@ -20,7 +20,7 @@ import {
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { openExternalUrl } from "@/lib/destination/open-destination";
 
 type DetailRow = {
   id: string;
@@ -224,20 +224,7 @@ export default function NotificationDetailPage() {
       ? row.meta.external_url
       : null;
   const onOpenExternal = () => {
-    if (!externalUrl) return;
-    if (!isCapacitorNativePlatform()) {
-      window.open(externalUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    // Native shell: in-app browser (plugin already in installed binaries), never the app WebView.
-    void (async () => {
-      try {
-        const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: externalUrl });
-      } catch {
-        window.open(externalUrl, "_blank", "noopener,noreferrer");
-      }
-    })();
+    if (externalUrl) void openExternalUrl(externalUrl);
   };
 
   return (
