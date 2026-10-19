@@ -67,6 +67,11 @@ export function resolveDeletedMessagePlaceholder(_message?: CommunityMessengerMe
   return "삭제된 메시지입니다";
 }
 
+/** 관리자 숨김(`is_hidden_by_admin`) 메시지 — 사용자 앱 본문·방 목록 미리보기 대체 문구 (원문은 DB 에 보존, 해제 시 복원) */
+export function resolveAdminHiddenMessagePlaceholder(): string {
+  return "운영 정책에 따라 가려진 메시지입니다";
+}
+
 /** 답장 말풍선 상단 인용 블록 — `reply_to_message_id` 가 있을 때만 */
 export function formatReplyQuoteForMessage(
   item: Pick<

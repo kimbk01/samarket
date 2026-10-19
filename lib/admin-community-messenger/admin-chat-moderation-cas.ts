@@ -5,7 +5,7 @@
  * - 방 조치: 읽은 값과 같은 상태일 때만 갱신 (`eq(room_status, before)`·`eq(is_readonly, before)`), 아니면 409.
  * - 메시지 숨김/해제: `eq(is_hidden_by_admin, !hidden)` 조건, 0행이면 409.
  * - 신고 조치: 신고 상태 CAS 를 먼저 잡고(중복 클릭·동시 처리 409) 제재를 적용.
- * - 발송·참가자 생성·읽음 처리 없음.
+ * - 발송·참가자 생성·읽음 처리 없음. 메시지 숨김/해제 후 방 목록 미리보기·부트스트랩 캐시만 정합.
  */
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -20,6 +20,7 @@ import {
   type CmReportAdminAction,
   type CmRoomAdminAction,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
+import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
 
 export type CasResult = { ok: true } | { ok: false; error: string; status: number };
 
@@ -123,6 +124,7 @@ export async function runCmMessageHiddenCas(
       ? { ok: false, error: "stale_state", status: 409 }
       : { ok: false, error: "message_not_found", status: 404 };
   }
+  await syncRoomAfterAdminMessageVisibility(input.roomId);
   await appendAdminRouteAudit(sb, req, {
     actorId: input.adminUserId,
     targetType: "community_messenger_message",

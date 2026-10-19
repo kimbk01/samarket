@@ -1,6 +1,7 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
+import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   ADMIN_FORCE_END_REASON_PREFIX,
@@ -1240,6 +1241,7 @@ export async function runAdminCommunityMessengerMessageAction(input: {
     .eq("room_id", input.roomId)
     .eq("id", input.messageId);
   if (error) return { ok: false, error: error.message };
+  await syncRoomAfterAdminMessageVisibility(input.roomId);
   return { ok: true };
 }
 

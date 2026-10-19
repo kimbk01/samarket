@@ -75,7 +75,7 @@ export async function GET(
       loadMessage: async (messageId) => {
         const { data, error } = await sb
           .from("community_messenger_messages")
-          .select("id, room_id, content, metadata, deleted_at, deleted_for_everyone_at")
+          .select("id, room_id, content, metadata, deleted_at, deleted_for_everyone_at, is_hidden_by_admin")
           .eq("id", messageId)
           .maybeSingle();
         if (error || !data) return null;

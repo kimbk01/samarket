@@ -38,7 +38,10 @@ import {
   canReactToMessage,
   isMessengerQuickReactionKey,
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
-import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import {
+  resolveAdminHiddenMessagePlaceholder,
+  resolveDeletedMessagePlaceholder,
+} from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { isCommunityMessengerGroupRoomType, isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { buildProfileUserSearchOrFilter } from "@/lib/community-messenger/profile-user-search-filter";
 import {
@@ -550,11 +553,13 @@ type MessageRow = {
   reply_preview_type?: string | null;
   reply_sender_label_snapshot?: string | null;
   deleted_for_everyone_at?: string | null;
+  /** 관리자 숨김 — 사용자 응답에서 본문·미디어를 대체 문구로 가린다 (원문 DB 보존) */
+  is_hidden_by_admin?: boolean | null;
 };
 
 /** 목록·스냅샷·단건 조회 공통 SELECT — `deleted_at` 필터는 쿼리별로 별도 */
 const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT =
-  "id, room_id, sender_id, message_type, content, metadata, created_at, reply_to_message_id, reply_preview_text, reply_preview_type, reply_sender_label_snapshot, deleted_for_everyone_at";
+  "id, room_id, sender_id, message_type, content, metadata, created_at, reply_to_message_id, reply_preview_text, reply_preview_type, reply_sender_label_snapshot, deleted_for_everyone_at, is_hidden_by_admin";
 
 /** 마이그레이션 미적용 환경에서도 타임라인 조회가 깨지지 않도록 최소 컬럼만 요청 */
 const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT_LEGACY =
@@ -1512,8 +1517,14 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       : "text";
   const dfeAt = trimText(message.deleted_for_everyone_at);
   const deletedForEveryoneAt = dfeAt || undefined;
+  const hiddenByAdmin = !deletedForEveryoneAt && message.is_hidden_by_admin === true;
   const contentRaw = trimText(message.content);
-  const contentForUi = deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : contentRaw;
+  const contentForUi = deletedForEveryoneAt
+    ? resolveDeletedMessagePlaceholder()
+    : hiddenByAdmin
+      ? resolveAdminHiddenMessagePlaceholder()
+      : contentRaw;
+  const callMeta = hiddenByAdmin ? ({} as Record<string, unknown>) : metadata;
   const replyToMessageId = trimText(message.reply_to_message_id) || null;
   const replyPreviewText = trimText(message.reply_preview_text) || null;
   const replyPreviewTypeRaw = trimText(message.reply_preview_type);
@@ -1528,7 +1539,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
         : null;
 
   const voiceExtra =
-    deletedForEveryoneAt || safeMt !== "voice"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "voice"
       ? {}
       : {
           voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
@@ -1536,7 +1547,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
           voiceMimeType: trimText(metadata.mimeType as string) || null,
         };
   const fileExtra =
-    deletedForEveryoneAt || safeMt !== "file"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "file"
       ? {}
       : {
           fileName: trimText(metadata.fileName as string) || null,
@@ -1544,7 +1555,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
           fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
         };
   const imageExtra =
-    deletedForEveryoneAt || safeMt !== "image"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "image"
       ? {}
       : messengerImageClientFieldsFromMetadata(safeMt, metadata, contentRaw);
 
@@ -1557,16 +1568,16 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       : senderId
         ? trimText(input.profileById.get(senderId)?.label) || profileLabel(null, senderId)
         : cmServiceT("cm_svc_system"),
-    messageType: safeMt,
+    messageType: hiddenByAdmin ? "text" : safeMt,
     content: contentForUi,
     createdAt: trimText(message.created_at) || nowIso(),
-    metadata: message.metadata ?? null,
+    metadata: hiddenByAdmin ? null : (message.metadata ?? null),
     clientMessageId,
     isMine,
-    callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-    callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-    callSessionId: trimText(metadata.sessionId as string) || null,
-    callTmpSessionId: trimText(metadata.tmpSessionId as string) || null,
+    callKind: trimText(callMeta.callKind) as CommunityMessengerCallKind | null,
+    callStatus: trimText(callMeta.callStatus) as CommunityMessengerCallStatus | null,
+    callSessionId: trimText(callMeta.sessionId as string) || null,
+    callTmpSessionId: trimText(callMeta.tmpSessionId as string) || null,
     ...(replyToMessageId
       ? {
           replyToMessageId,
@@ -15596,9 +15607,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const rowDb = "sender_id" in message;
     const dfeAt = rowDb ? trimText((message as MessageRow).deleted_for_everyone_at) : "";
     const deletedForEveryone = dfeAt.length > 0;
+    const hiddenByAdmin = !deletedForEveryone && rowDb && (message as MessageRow).is_hidden_by_admin === true;
     const rawContent = trimText(message.content);
     let voiceExtra: object;
-    if (safeMt !== "voice" || deletedForEveryone) {
+    if (safeMt !== "voice" || deletedForEveryone || hiddenByAdmin) {
       voiceExtra = emptyVoiceEnvelopeExtra;
     } else {
       const dur = metadata.durationSeconds;
@@ -15614,13 +15626,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       mappedMsgAcc.voiceEnvelopeWhenVoice += performance.now() - tStep;
       tStep = performance.now();
     }
-    const contentTrimmed = deletedForEveryone ? resolveDeletedMessagePlaceholder() : rawContent;
+    const contentTrimmed = deletedForEveryone
+      ? resolveDeletedMessagePlaceholder()
+      : hiddenByAdmin
+        ? resolveAdminHiddenMessagePlaceholder()
+        : rawContent;
     /**
      * 이미지 앨범 필드는 모든 tier 필수 계약 — critical tier 에서 빠지면 말풍선이 content(첫 썸네일) 1장만 그리고
      * 이후 정합에서도 복구되지 않았다(iOS 2장 → 수신 1장). 메타 파싱 O(n) 이라 critical 비용 영향 미미.
      */
     const imageExtra =
-      safeMt === "image" && !deletedForEveryone
+      safeMt === "image" && !deletedForEveryone && !hiddenByAdmin
         ? messengerImageClientFieldsFromMetadata(safeMt, metadata, rawContent)
         : {};
     if (mappedMsgAcc) {
@@ -15643,20 +15659,21 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const rxList = snapshotRoomMessageReactionsById.get(message.id);
     const reactionPieces = !isCriticalTier && rxList?.length ? { reactions: rxList } : {};
     const dfeField = deletedForEveryone ? { deletedForEveryoneAt: dfeAt } : {};
+    const callMeta = hiddenByAdmin ? emptyMessageMetadata : metadata;
     return {
       id: message.id,
       roomId: messageRoomIdByMi[mi],
       senderId,
       senderLabel,
-      messageType: safeMt,
+      messageType: hiddenByAdmin ? "text" : safeMt,
       content: contentTrimmed,
       createdAt: trimText(messageCreatedAtRawByMi[mi]) || nowIso(),
-      metadata: rawMeta ?? null,
+      metadata: hiddenByAdmin ? null : (rawMeta ?? null),
       clientMessageId,
       isMine: senderId === userId,
-      callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-      callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-      callSessionId: trimText(metadata.sessionId as string) || null,
+      callKind: trimText(callMeta.callKind) as CommunityMessengerCallKind | null,
+      callStatus: trimText(callMeta.callStatus) as CommunityMessengerCallStatus | null,
+      callSessionId: trimText(callMeta.sessionId as string) || null,
       ...replyPieces,
       ...dfeField,
       ...voiceExtra,
@@ -18024,13 +18041,17 @@ function messengerLastPreviewFromRow(row: {
 async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, roomId: string) {
   const { data: rows } = await (sb as any)
     .from("community_messenger_messages")
-    .select("content, created_at, message_type, metadata")
+    .select("content, created_at, message_type, metadata, is_hidden_by_admin")
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
     .limit(1);
-  const latest = (rows ?? [])[0] as
-    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown }
+  const latestRow = (rows ?? [])[0] as
+    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown; is_hidden_by_admin?: boolean | null }
     | undefined;
+  const latest =
+    latestRow?.is_hidden_by_admin === true
+      ? { ...latestRow, content: resolveAdminHiddenMessagePlaceholder(), message_type: "text", metadata: {} }
+      : latestRow;
   const now = nowIso();
   if (!latest) {
     await (sb as any)
@@ -18055,6 +18076,26 @@ async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, room
       updated_at: now,
     })
     .eq("id", roomId);
+}
+
+/**
+ * 관리자 메시지 숨김/해제 직후 (서버 전용) — 방 목록 미리보기 재계산 + 방 부트스트랩 캐시·스냅샷 무효화.
+ * 열린 방 화면은 `community_messenger_messages` postgres_changes UPDATE 로 즉시 반영된다.
+ * 발송·unread·bump 없음 (관리자 조치는 새 메시지가 아니다).
+ */
+export async function syncCommunityMessengerRoomAfterAdminMessageVisibility(roomId: string): Promise<void> {
+  const rid = trimText(roomId);
+  const sb = getSupabaseOrNull();
+  if (!rid || !sb) return;
+  await recomputeCommunityMessengerRoomLastMessage(sb, rid);
+  const { data: parts } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("user_id")
+    .eq("room_id", rid);
+  const userIds = ((parts ?? []) as Array<{ user_id?: string | null }>)
+    .map((p) => trimText(p.user_id))
+    .filter(Boolean);
+  invalidateRoomBootstrapSnapshotCache(rid, userIds);
 }
 
 /** 보낸 사람만 — 음성 메시지 삭제(스토리지 파일 포함) 후 방 미리보기 갱신 */
@@ -18349,6 +18390,7 @@ export async function editCommunityMessengerTextMessage(input: {
 
   const msgRow = msg as MessageRow;
   if (trimText(msgRow.sender_id) !== userId) return { ok: false, error: "forbidden" };
+  if (msgRow.is_hidden_by_admin === true) return { ok: false, error: "forbidden" };
 
   const roomKind = messageRoomKindForActions({
     roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
