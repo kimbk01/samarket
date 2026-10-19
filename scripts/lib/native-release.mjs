@@ -44,7 +44,11 @@ export function readIosVersion(pbxprojText) {
 
 /** Info.plist 에서 빌드 지문 키(Dibay*) 를 뺀 본문 — 지문만 바뀐 Info.plist 는 "생성 변경"으로 본다. */
 export function stripInfoPlistFingerprint(plistText) {
-  return String(plistText ?? "").replace(/\s*<key>Dibay[A-Za-z]+<\/key>\s*<string>[^<]*<\/string>/g, "");
+  // Trailing whitespace is not content: `git show` output is trimmed by the caller while the
+  // working file keeps its final newline — comparing them raw made every stamped plist "human".
+  return String(plistText ?? "")
+    .replace(/\s*<key>Dibay[A-Za-z]+<\/key>\s*<string>[^<]*<\/string>/g, "")
+    .replace(/\s+$/, "");
 }
 
 /**

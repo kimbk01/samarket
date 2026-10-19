@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 import android.webkit.CookieManager;
 import com.dibay.app.DibayBoundPushTokenStore;
+import com.dibay.app.DibayPendingPushTokenStore;
 import com.dibay.app.DibayCallAuthEligibilityStore;
 import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.DibayServerOrigin;
@@ -160,6 +161,7 @@ public final class NativePushRegisterHelper {
       boolean ok = status >= 200 && status < 300 && responseOk;
       if (ok) {
         DibayBoundPushTokenStore.save(context, request.pushToken, request.pushProvider);
+        DibayPendingPushTokenStore.clearIfEquals(context, request.pushToken);
         // Transport success must not wipe durable identity when userId is absent.
         String uid = request.userId != null ? request.userId.trim() : "";
         if (!uid.isEmpty()) {

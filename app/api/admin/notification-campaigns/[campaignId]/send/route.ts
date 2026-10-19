@@ -17,6 +17,11 @@ import {
   evaluateOfficialCampaignSendEligibility,
   type CustomerCenterContentSendRow,
 } from "@/lib/admin/notification-campaigns/campaign-source-authority";
+import {
+  readAuditRequestIp,
+  writeCampaignAuditLog,
+} from "@/lib/admin/notification-campaigns/campaign-audit-log";
+import { CAMPAIGN_CLAIM_BLOCKED_STATUSES } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
@@ -51,11 +56,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
 
   const { data: campaignRow, error: campaignErr } = await svc
     .from("admin_notification_campaigns")
-    .select("id, type, target_payload, deeplink_url, web_url, target_url")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (campaignErr || !campaignRow) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  // ADM-09: same block list as the claim RPC (cancelled / ended / paused) + archived campaigns.
+  const campaignStatus = String((campaignRow as { status?: string }).status ?? "");
+  const archivedAt = (campaignRow as { archived_at?: string | null }).archived_at;
+  if (typeof archivedAt === "string" && archivedAt) {
+    return NextResponse.json({ ok: false, error: "campaign_archived" }, { status: 409 });
+  }
+  if ((CAMPAIGN_CLAIM_BLOCKED_STATUSES as readonly string[]).includes(campaignStatus)) {
+    return NextResponse.json(
+      { ok: false, error: "illegal_status_transition", from: campaignStatus, to: "sending" },
+      { status: 409 }
+    );
   }
   const sourceEligibility = await evaluateOfficialCampaignSendEligibility(
     {
@@ -201,6 +218,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
 
   if (claim.claimed) {
     await stampOccurrenceDueForRecovery(svc, occurrenceId);
+    const isResend = String(occurrence.status ?? "") === "failed";
+    await writeCampaignAuditLog(svc, {
+      actorId: admin.userId,
+      campaignId: id,
+      action: isResend ? "resend" : "send",
+      fromStatus: campaignStatus,
+      toStatus: "sending",
+      after: {
+        occurrence_id: occurrenceId,
+        sequence_number: occurrence.sequence_number,
+        trigger_type: occurrence.trigger_type,
+      },
+      targetCount: occurrence.target_member_count ?? null,
+      ip: readAuditRequestIp(req.headers),
+    });
   }
 
   const auditSend = (extra: Record<string, unknown>) =>
@@ -292,5 +324,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     batches: drained.batches,
     claimed: claim.claimed,
     continuing: !drained.done,
+    stopped: drained.stopped === true,
   });
 }

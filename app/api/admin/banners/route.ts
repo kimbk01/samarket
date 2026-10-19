@@ -7,6 +7,7 @@ import {
   listAdminBanners,
 } from "@/lib/admin-banners/admin-banners-db";
 import type { AdminBanner } from "@/lib/types/admin-banner";
+import { normalizeOptionalDestinationHref } from "@/lib/destination/optional-destination-href";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
@@ -32,6 +33,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!sb) return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
 
   const body = (await req.json().catch(() => ({}))) as Partial<AdminBanner>;
+  // EVT-07: link must be a valid DestinationRef (internal / event / https) — stored canonical.
+  if (body.targetUrl != null) {
+    const link = normalizeOptionalDestinationHref(body.targetUrl);
+    if (!link.ok) {
+      return NextResponse.json(
+        { ok: false, error: `invalid_target_url:${link.error}` },
+        { status: 400 }
+      );
+    }
+    body.targetUrl = link.href;
+  }
+
   try {
     const { data: prof } = await sb
       .from("profiles")

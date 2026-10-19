@@ -1,5 +1,6 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import type { PushEnvironment } from "@/lib/push/push-environment";
+import type { ApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 
 export type PushProvider = "fcm" | "apns" | "voip_apns" | "web_push";
 
@@ -18,6 +19,8 @@ export type PushTarget = {
   platform: PushPlatform;
   device_id?: string | null;
   environment?: PushEnvironment;
+  /** PUSH-02 — APNs sandbox/production of this token (apns only; null = unknown → server default). */
+  apns_environment?: ApnsEnvironment | null;
   /** Web Push VAPID keys (web_push only) */
   key_p256dh?: string;
   key_auth?: string;

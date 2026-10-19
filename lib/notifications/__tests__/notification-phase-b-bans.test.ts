@@ -29,7 +29,13 @@ describe("segment target must not fallback to all", () => {
     );
     // Segment gate lives on create + batch SSOT. Cron claims occurrences then drains batch.
     expect(batch).toContain("segment_unsupported");
-    expect(createApi).toContain("segment_unsupported");
+    // Create/edit share one input parser (WP1) — the segment gate lives there and the route uses it.
+    const campaignInput = readFileSync(
+      join(process.cwd(), "lib/admin/notification-campaigns/campaign-input.ts"),
+      "utf8"
+    );
+    expect(campaignInput).toContain("segment_unsupported");
+    expect(createApi).toContain("parseCampaignWriteInput(");
     expect(cron).toContain("drainNotificationCampaignSendBatches");
     expect(cron).not.toMatch(/target_type\s*===\s*["']all["']/);
     expect(batch).not.toMatch(/segment.*all/);

@@ -312,7 +312,10 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   public void onNewToken(String token) {
     Log.i(TAG, "[fcm] token_refresh length=" + (token != null ? token.length() : 0));
     if (token != null && !token.trim().isEmpty()) {
-      DibayBoundPushTokenStore.save(this, token.trim(), "fcm");
+      // PUSH-01 — never overwrite the bound (server-confirmed) token: it is the logout proof.
+      // Record as pending and let the web layer re-register it (no upload from this service).
+      DibayPendingPushTokenStore.save(this, token.trim());
+      MainActivity.notifyPushTokenRotated();
     }
   }
 

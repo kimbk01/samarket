@@ -19,7 +19,10 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
-import { classifyMemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
+import {
+  classifyMemberNotificationDomain,
+  type MemberNotificationDomain,
+} from "@/lib/notifications/member-notification-domain";
 import { buildOwnerCareAdminNoteRoute } from "@/lib/notifications/member-admin-notes";
 
 export type InboxNotificationRow = {
@@ -562,7 +565,26 @@ export type FetchNotificationEventsForInboxOpts = {
   excludeOwnerList?: boolean;
   excludeChatMessageList?: boolean;
   ownerStoreId?: string;
+  /** INAPP-02 — scan unread rows only (read_at IS NULL) for exact per-tab unread counts. */
+  unreadOnly?: boolean;
 };
+
+/**
+ * INAPP-02 — server-side Notification Center category for a mapped inbox row.
+ * Same classifier as tab filter / row label / category mark-all (ONE EVENT → ONE DOMAIN).
+ */
+export function classifyInboxRowMemberDomain(row: InboxNotificationRow): MemberNotificationDomain | null {
+  return classifyMemberNotificationDomain({
+    push_kind: row.push_kind,
+    notification_type: row.notification_type,
+    type: row.notification_type,
+    category: typeof row.meta?.category === "string" ? row.meta.category : null,
+    event_type: row.event_type,
+    bell_presentation_type: row.bell_presentation_type,
+    campaign_type: row.campaign_type,
+    meta_kind: typeof row.meta?.kind === "string" ? row.meta.kind : null,
+  });
+}
 
 function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKindFilter): boolean {
   if (pushKind === "all") return true;
@@ -579,20 +601,31 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
     pushKind === "marketing" ||
     pushKind === "system"
   ) {
-    return (
-      classifyMemberNotificationDomain({
-        push_kind: row.push_kind,
-        notification_type: row.notification_type,
-        type: row.notification_type,
-        category: typeof row.meta?.category === "string" ? row.meta.category : null,
-        event_type: row.event_type,
-        bell_presentation_type: row.bell_presentation_type,
-        campaign_type: row.campaign_type,
-        meta_kind: typeof row.meta?.kind === "string" ? row.meta.kind : null,
-      }) === pushKind
-    );
+    return classifyInboxRowMemberDomain(row) === pushKind;
   }
   return false;
+}
+
+/**
+ * INAPP-02 — narrow canonical A unread ids to one Notification Center category.
+ * Uses the same classifier as the list filter (`classifyInboxRowMemberDomain`).
+ */
+export function selectMemberAUnreadIdsInDomain(
+  rows: readonly { id?: unknown }[],
+  canonicalIds: readonly string[],
+  domain: MemberNotificationDomain
+): string[] {
+  const allow = new Set(canonicalIds);
+  const out: string[] = [];
+  for (const row of rows) {
+    const id = String(row.id ?? "").trim();
+    if (!id || !allow.has(id)) continue;
+    const mapped = mapNotificationEventToInboxRow(
+      row as unknown as Parameters<typeof mapNotificationEventToInboxRow>[0]
+    );
+    if (classifyInboxRowMemberDomain(mapped) === domain) out.push(id);
+  }
+  return out;
 }
 
 /**
@@ -714,10 +747,12 @@ export async function fetchNotificationEventsForInbox(
 
   while (filled.length < target && offset < INBOX_ELIGIBLE_FILL_SCAN_MAX) {
     const batchSize = Math.min(INBOX_ELIGIBLE_FILL_BATCH, INBOX_ELIGIBLE_FILL_SCAN_MAX - offset);
-    const { data, error } = await sb
+    let query = sb
       .from("notification_events")
       .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
-      .eq("user_id", uid)
+      .eq("user_id", uid);
+    if (opts.unreadOnly) query = query.is("read_at", null);
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + batchSize - 1);
 
@@ -754,4 +789,46 @@ export async function fetchNotificationEventsForInbox(
   }
 
   return filled.slice(0, target);
+}
+
+const NOTIFICATION_EVENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type MemberInboxNotificationByIdResult =
+  | { ok: true; notification: InboxNotificationRow }
+  | { ok: false; error: "not_found" }
+  | { ok: false; error: "load_failed"; message: string };
+
+/**
+ * INAPP-03 — Notification Center detail: one row by id, scoped to the viewer.
+ * Ownership is enforced in the query (`user_id = viewer`) so another member's id is
+ * indistinguishable from a missing one (both `not_found`, never leaked).
+ * Same eligibility as the member list: hidden types, soft-dismissed, owner commerce and
+ * chat message rows are `not_found` here too.
+ */
+export async function fetchMemberInboxNotificationById(
+  sb: SupabaseClient,
+  userId: string,
+  notificationId: string
+): Promise<MemberInboxNotificationByIdResult> {
+  const uid = userId.trim();
+  const id = String(notificationId ?? "").trim();
+  if (!uid || !NOTIFICATION_EVENT_ID_RE.test(id)) return { ok: false, error: "not_found" };
+
+  const { data, error } = await sb
+    .from("notification_events")
+    .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
+    .eq("user_id", uid)
+    .eq("id", id)
+    .limit(1);
+  if (error) return { ok: false, error: "load_failed", message: error.message };
+
+  const mapped = mapRawNotificationEventRows((data ?? []) as unknown[]);
+  const eligible = applyInboxEligibilityFilters(mapped, {
+    fetchUpper: 1,
+    excludeOwnerList: true,
+    excludeChatMessageList: true,
+  });
+  const row = eligible[0];
+  if (!row) return { ok: false, error: "not_found" };
+  return { ok: true, notification: row };
 }

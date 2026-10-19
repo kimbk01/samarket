@@ -63,7 +63,9 @@ async function runDispatchScheduled(req: Request) {
     });
     slowestBatchMs = Math.max(slowestBatchMs, drained.slowestBatchMs ?? 0);
 
-    if (!drained.ok) {
+    if (!drained.ok && drained.skippedReason) {
+      // ADM-08: skip already recorded on the occurrence (source_skipped:<reason>) — keep it.
+    } else if (!drained.ok) {
       await svc
         .from("admin_notification_campaign_occurrences")
         .update({

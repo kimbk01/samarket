@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
@@ -1238,6 +1239,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <p className="mt-1 text-xs text-sam-muted">
               {language === "en" ? "Landing" : "이동 경로"} → {ctaHrefPreview || "(invalid)"}
             </p>
+            {ctaHrefPreview ? (
+              <AdminDestinationResolvedHint
+                href={ctaHrefPreview}
+                language={language === "en" ? "en" : "ko"}
+              />
+            ) : null}
           </AdminCard>
 
           <AdminCard>

@@ -1,3 +1,5 @@
+import { CAMPAIGN_STATUSES } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+
 export const OCCURRENCE_STATUSES = [
   "queued",
   "sending",
@@ -25,19 +27,8 @@ export type CampaignSendMode = (typeof CAMPAIGN_SEND_MODES)[number];
 export const RECURRENCE_KINDS = ["none", "daily", "weekly", "monthly"] as const;
 export type RecurrenceKind = (typeof RECURRENCE_KINDS)[number];
 
-export const CAMPAIGN_LIFECYCLE_STATUSES = [
-  "draft",
-  "scheduled",
-  "active",
-  "paused",
-  "ended",
-  "cancelled",
-  // legacy execution statuses on campaign row (read-only after cutover)
-  "sending",
-  "sent",
-  "partially_failed",
-  "failed",
-] as const;
+/** ADM-09: same list as the DB CHECK — see campaign-status-machine. */
+export const CAMPAIGN_LIFECYCLE_STATUSES = CAMPAIGN_STATUSES;
 
 export type CampaignLifecycleStatus = (typeof CAMPAIGN_LIFECYCLE_STATUSES)[number];
 

@@ -55,6 +55,9 @@ test("sync-generated files and fingerprint-only Info.plist are not native change
   const b = a.replace("abc", "def");
   assert.equal(stripInfoPlistFingerprint(a), stripInfoPlistFingerprint(b));
   assert.notEqual(stripInfoPlistFingerprint(a), stripInfoPlistFingerprint(a.replace("DIBAY", "X")));
+  // native:prepare compares `git show HEAD:` (trimmed) with the working file (final newline kept).
+  assert.equal(stripInfoPlistFingerprint(`${a}\n`), stripInfoPlistFingerprint(b));
+  assert.equal(stripInfoPlistFingerprint(`${a}\r\n\n`), stripInfoPlistFingerprint(b));
 });
 
 test("native change without build bump fails; with bump passes", () => {

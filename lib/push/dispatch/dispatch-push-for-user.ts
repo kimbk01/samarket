@@ -1,3 +1,4 @@
+import { normalizeApnsEnvironment, rememberDeviceApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { shouldSendWebPushForUser } from "@/lib/notifications/web-push-user-settings-gate";
 import { sendApnsToTarget, sendVoipApnsToTarget } from "@/lib/push/dispatch/apns-sender";
@@ -519,6 +520,19 @@ export async function dispatchPushForUser(
         sentAt: new Date().toISOString(),
         tokenPrefix: tokenPrefix(target),
       });
+    }
+
+    // PUSH-02 — learn the token's APNs environment once (reported, or proven by the host that
+    // accepted it) so the next alert goes straight to the right host. Alert only; VoIP unchanged.
+    const provenApnsEnv = normalizeApnsEnvironment(result.provider_response?.apns_environment);
+    if (
+      result.status === "sent" &&
+      target.push_provider === "apns" &&
+      target.source === "user_devices" &&
+      provenApnsEnv &&
+      provenApnsEnv !== target.apns_environment
+    ) {
+      await rememberDeviceApnsEnvironment(svc, target.id, provenApnsEnv);
     }
 
     if (shouldDeactivateTarget(result, target)) {

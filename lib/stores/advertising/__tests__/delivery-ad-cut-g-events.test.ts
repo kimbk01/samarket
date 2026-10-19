@@ -150,8 +150,9 @@ describe("CUT G Delivery Ads events + attribution", () => {
       join(process.cwd(), "components/stores/advertising/DeliveryAdBanner.tsx"),
       "utf8"
     );
-    expect(src).toContain("onClick={onCustomerClick}");
-    expect(src).toContain("<Link");
+    // Scope B (EVT-07): click reporting runs before the shared openDestination navigation.
+    expect(src).toContain("onNavigate={onCustomerClick}");
+    expect(src).toContain("<DestinationLink");
   });
 
   it("G16–G22 attribution eligibility helpers", () => {

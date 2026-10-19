@@ -7,7 +7,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { NotificationInboxCategoryIcon } from "@/components/notifications/NotificationInboxCategoryIcon";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { fetchMeNotificationsListDeduped, invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
+import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
+import { fetchMeNotificationById } from "@/lib/me/fetch-me-notification-by-id";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
@@ -20,7 +21,8 @@ import {
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { openDestination } from "@/lib/destination/open-destination";
+import { NotificationContentUnavailableNotice } from "@/components/notifications/NotificationContentUnavailableNotice";
 
 type DetailRow = {
   id: string;
@@ -39,7 +41,8 @@ type DetailRow = {
 
 /**
  * Gate 3 Step 8 — persistent announcement / notification detail.
- * Recipient must match current member (list fetch is user-scoped).
+ * INAPP-03: loads the row by id from `GET /api/me/notifications/:id` (viewer-scoped on the
+ * server; works past the first list page). Missing / another member's id → standard notice.
  */
 export default function NotificationDetailPage() {
   const { t, language } = useI18n();
@@ -62,23 +65,20 @@ export default function NotificationDetailPage() {
       }
       setLoading(true);
       try {
-        const { status, json } = await fetchMeNotificationsListDeduped({
-          force: true,
-          excludeChatMessages: true,
-          excludeOwnerStoreCommerce: true,
-          limit: 100,
-        });
+        const { status, json } = await fetchMeNotificationById(notificationId);
         if (cancelled) return;
         if (status === 401) {
           setError("login_required");
           setLoading(false);
           return;
         }
-        const j = json as { ok?: boolean; notifications?: DetailRow[] };
-        const list = filterMemberNotificationAInboxRows(j.notifications ?? []) as DetailRow[];
+        const j = json as { ok?: boolean; notification?: DetailRow | null };
+        const list = filterMemberNotificationAInboxRows(
+          j?.ok && j.notification ? [j.notification] : []
+        ) as DetailRow[];
         const found = list.find((r) => r.id === notificationId) ?? null;
         if (!found) {
-          setError("not_found");
+          setError(status === 404 || j?.ok ? "not_found" : "load_failed");
           setLoading(false);
           return;
         }
@@ -93,6 +93,11 @@ export default function NotificationDetailPage() {
           const body = (await res.json().catch(() => ({}))) as { ok?: boolean };
           if (body?.ok) {
             setRow((prev) => (prev ? { ...prev, is_read: true } : prev));
+            // List reflects the read immediately on Back (no 20s TTL stale row).
+            invalidateMeNotificationsListDedupedCache();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+            }
             resyncBadgesAfterNotificationEventsRead("notification_opened");
           }
         }
@@ -223,22 +228,12 @@ export default function NotificationDetailPage() {
     typeof row?.meta?.external_url === "string" && row.meta.external_url.startsWith("https://")
       ? row.meta.external_url
       : null;
+  // Scope B — one opener: external https → in-app browser, internal → router.
   const onOpenExternal = () => {
-    if (!externalUrl) return;
-    if (!isCapacitorNativePlatform()) {
-      window.open(externalUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    // Native shell: in-app browser (plugin already in installed binaries), never the app WebView.
-    void (async () => {
-      try {
-        const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: externalUrl });
-      } catch {
-        window.open(externalUrl, "_blank", "noopener,noreferrer");
-      }
-    })();
+    if (externalUrl) openDestination(externalUrl, router);
   };
+  /** INAPP-04 — origin content deleted / unresolvable (detail stays, notice explains why). */
+  const originUnavailable = ctaDestination?.kind === "inbox_fallback";
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
@@ -266,6 +261,17 @@ export default function NotificationDetailPage() {
             <p className="text-sm text-sam-muted">{t("common_loading")}</p>
           ) : error === "login_required" ? (
             <p className="text-sm text-sam-muted">{t("notif_inbox_login_required")}</p>
+          ) : error === "not_found" ? (
+            <div className="flex flex-col gap-3">
+              <NotificationContentUnavailableNotice />
+              <button
+                type="button"
+                onClick={() => router.replace("/notifications")}
+                className="flex min-h-11 w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg"
+              >
+                {t("notif_center_back_to_inbox")}
+              </button>
+            </div>
           ) : error || !row ? (
             <p className="text-sm text-sam-muted">{t("common_content_unavailable")}</p>
           ) : ctaDestination?.kind === "canonical" ? (
@@ -289,6 +295,9 @@ export default function NotificationDetailPage() {
               <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
                 {row.body ?? ""}
               </div>
+              {originUnavailable ? (
+                <NotificationContentUnavailableNotice className="mt-5" />
+              ) : null}
               <div className="mt-auto flex flex-col gap-2 pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 {externalUrl ? (
                   <button

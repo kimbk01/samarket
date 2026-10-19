@@ -44,6 +44,7 @@ export async function sendApnsToTarget(
       data: payload.data,
       // SRV-01: event-bound non-call alerts only (call alerts unchanged).
       collapseId: !isCallPush(out, opts) ? opts?.notification_event_id ?? null : null,
+      apnsEnvironment: target.apns_environment ?? null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
