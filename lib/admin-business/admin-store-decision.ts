@@ -1,6 +1,6 @@
 /**
- * Admin 입점·운영·판매 결정 — 서버 상태 전이표 + 사장님 알림 (DEF-11 / DEF-17 / DEF-67).
- * 쓰기 권위: PATCH /api/admin/stores/[id] 만 사용한다.
+ * Admin 입점·운영·판매 결정 — 사장님 알림 (서버 전용, DEF-17 / DEF-67).
+ * 전이표는 admin-store-decision-rules.ts (클라이언트 안전). 쓰기 권위: PATCH /api/admin/stores/[id].
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,52 +10,13 @@ import { loadNotificationUserLanguage } from "@/lib/notifications/notification-u
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 
-export type AdminStoreApprovalAction =
-  | "start_review"
-  | "mark_under_review"
-  | "approve_store"
-  | "reject_store"
-  | "request_revision"
-  | "suspend_store"
-  | "resume_store";
-
-/** 현재 승인 상태 → 허용되는 결정. 목록에 없는 전이는 409 `invalid_store_transition`. */
-const ALLOWED_FROM: Record<AdminStoreApprovalAction, readonly string[]> = {
-  start_review: ["pending", "revision_requested"],
-  mark_under_review: ["pending", "revision_requested"],
-  approve_store: ["pending", "under_review", "revision_requested"],
-  reject_store: ["pending", "under_review", "revision_requested"],
-  request_revision: ["pending", "under_review"],
-  suspend_store: ["approved"],
-  resume_store: ["suspended"],
-};
-
-export function isAdminStoreTransitionAllowed(
-  action: AdminStoreApprovalAction,
-  currentStatus: string | null | undefined
-): boolean {
-  return ALLOWED_FROM[action].includes(String(currentStatus ?? "").trim());
-}
-
-export function allowedStoreApprovalActions(
-  currentStatus: string | null | undefined
-): AdminStoreApprovalAction[] {
-  const s = String(currentStatus ?? "").trim();
-  return (Object.keys(ALLOWED_FROM) as AdminStoreApprovalAction[]).filter((a) =>
-    ALLOWED_FROM[a].includes(s)
-  );
-}
-
-/** 사유가 필요한 결정 (L2): 거절·보완 요청·운영 중지·판매 거절·판매 중지 */
-export const ADMIN_STORE_ACTIONS_REQUIRING_REASON = new Set<string>([
-  "reject_store",
-  "request_revision",
-  "suspend_store",
-  "reject_sales",
-  "suspend_sales",
-]);
-
-export const ADMIN_STORE_REASON_MIN_LENGTH = 2;
+export {
+  ADMIN_STORE_ACTIONS_REQUIRING_REASON,
+  ADMIN_STORE_REASON_MIN_LENGTH,
+  allowedStoreApprovalActions,
+  isAdminStoreTransitionAllowed,
+  type AdminStoreApprovalAction,
+} from "@/lib/admin-business/admin-store-decision-rules";
 
 type DecisionKey =
   | "approved"

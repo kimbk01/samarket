@@ -11,7 +11,7 @@ import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labe
 import {
   allowedStoreApprovalActions,
   type AdminStoreApprovalAction,
-} from "@/lib/admin-business/admin-store-decision";
+} from "@/lib/admin-business/admin-store-decision-rules";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import {
