@@ -49,3 +49,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **채팅·Realtime·성능**: 임시 조치(폴링만 증가·임계값만 완화·클라만 우회 등)로 이슈를 끝내지 않는다. **근본**은 API·DB·구독·부트스트랩 계약을 바꾼다. 상시 규칙: `.cursor/rules/fundamental-fixes-only.mdc`.
 - Supabase 유지 vs 최적화 vs 분리: `docs/messenger-supabase-split-evaluation.md` (트래픽 단계별는 `messenger-service-split-criteria.md` 와 연동).
 <!-- END:nextjs-agent-rules -->
+
+## Claude 작업 효율 규정 (Owner 지시 · 예외 없음)
+
+1. **범위 고정**: 지시받은 범위만 구현한다. 다른 화면·정책·감사·문서로 넓히지 않는다. 범위 밖 결함은 보고만 한다.
+2. **검증은 1회**: 최종 트리에서 `npm run typecheck:build` + 변경 관련 `vitest` + 변경 파일 `eslint` 를 **한 번** 돌린다. 통과한 트리는 `git commit --no-verify` 로 커밋한다 (pre-commit 의 같은 tsc 재실행 금지). 전체 `npm run ci` 는 GitHub CI 에 맡기고 로컬에서 중복 실행하지 않는다.
+3. **대기 금지**: 10분 이상 걸리는 작업(빌드·CI·서브에이전트)은 백그라운드로 돌리고, 그동안 다음 작업을 한다. 결과를 기다리며 설명을 늘어놓지 않는다.
+4. **푸시 전 필수 확인**: `git show HEAD:<file>` 로 수정 파일이 실제 커밋에 들어갔는지 확인한다. `"use client"` 파일이 서버 전용 모듈(`next/server` after, 알림 append, web-push, service-role supabase, `lib/audit`)을 import 하지 않는지 확인한다.
+5. **결과 구분 보고**: 브랜치 코드 PASS / Preview PASS / Production PASS / 실기기 PASS 를 구분한다. 측정하지 않은 것은 NOT_PROVEN. 운영 주소(samarket.vercel.app)는 main 병합 전에는 바뀌지 않는다는 점을 명시한다.
+6. **데이터 먼저 확인**: 화면 숫자·지표를 고칠 때는 운영 DB 를 읽기 전용으로 조회해 실제 값이 맞는지 먼저 확인한다.
+7. **보고는 짧게**: 한 일·결과·남은 일만. 같은 계획·감사를 반복하지 않는다. 선택지(A/B/C)를 Owner 에게 떠넘기지 않는다.
