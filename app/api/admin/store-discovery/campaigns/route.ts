@@ -24,7 +24,10 @@ function writerErrorStatus(error: StoreDiscoveryCampaignWriterError): number {
     case "invalid_start_at":
     case "invalid_end_at":
     case "invalid_window":
+    case "expected_updated_at_required":
       return 400;
+    case "stale_updated_at":
+      return 409;
     case "store_not_found":
     case "campaign_not_found":
       return 404;

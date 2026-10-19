@@ -15,7 +15,11 @@ import {
   resolveEffectiveStoreDeliveryRadiusKm,
 } from "@/lib/delivery/store-delivery-radius";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 /** 코드 형태(snake_case)만 오류 코드로 사용 — 원문 메시지·HTTP 상태는 노출하지 않는다. */
 function errCode(status: number, j: { error?: unknown } | null | undefined, fallback: string): string {
@@ -113,6 +117,8 @@ export function AdminDeliveryDistanceSettingsPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
   const [policySaved, setPolicySaved] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
+  /** admin_settings 행 버전 (`settings_updated_at`) — 전역 저장 PUT expected_updated_at (CAS). */
+  const [settingsVersions, setSettingsVersions] = useState<Record<string, string | null> | null>(null);
   const [policyDraft, setPolicyDraft] = useState<DeliveryDistancePolicy>(DEFAULT_POLICY);
   const [overridesSaved, setOverridesSaved] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
   const [overridesDraft, setOverridesDraft] = useState<DeliveryStoreDistanceOverrides>(DEFAULT_OVERRIDES);
@@ -183,6 +189,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         error?: string;
         distance_policy?: unknown;
         store_distance_overrides?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!settingsRes.ok || !settingsJson.ok) {
         setError(adminOperatorErrorMessage(errCode(settingsRes.status, settingsJson, "load_failed"), ko));
@@ -194,6 +201,7 @@ export function AdminDeliveryDistanceSettingsPage() {
       setPolicyDraft(nextPolicy);
       setOverridesSaved(nextOverrides);
       setOverridesDraft(nextOverrides);
+      setSettingsVersions(settingsJson.settings_updated_at ?? null);
     } catch {
       setError(t("admin_delivery_distance_error_network"));
     } finally {
@@ -358,6 +366,7 @@ export function AdminDeliveryDistanceSettingsPage() {
         body: JSON.stringify({
           distance_policy: nextPolicy,
           // 매장별 모드는 각 행 「저장」(CAS)으로만 반영 — 여기서 overrides 를 보내면 다른 관리자 변경을 덮어쓴다.
+          expected_updated_at: settingsVersions ?? {},
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -365,9 +374,17 @@ export function AdminDeliveryDistanceSettingsPage() {
         error?: string;
         distance_policy?: unknown;
         store_distance_overrides?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j.ok) {
-        setError(adminOperatorErrorMessage(errCode(res.status, j, "update_failed"), ko));
+        const code = errCode(res.status, j, "update_failed");
+        if (isAdminConflictErrorCode(code) || code === "expected_updated_at_required") {
+          // 다른 관리자가 먼저 전역 정책을 저장 — 최신 값을 다시 불러온 뒤 안내 (초안은 최신 값으로 교체).
+          await load();
+          setError(adminConflictReloadedMessage(code, ko));
+          return;
+        }
+        setError(adminOperatorErrorMessage(code, ko));
         return;
       }
       const savedPolicy = normalizePolicy(j.distance_policy);
@@ -375,13 +392,14 @@ export function AdminDeliveryDistanceSettingsPage() {
       setPolicySaved(savedPolicy);
       setPolicyDraft(savedPolicy);
       setOverridesSaved(savedOverrides);
+      setSettingsVersions(j.settings_updated_at ?? null);
       showMessage(t("admin_delivery_distance_saved"));
     } catch {
       setError(t("admin_delivery_distance_error_network"));
     } finally {
       setSaving(false);
     }
-  }, [policyDraft, policySaved.defaultMaxKm, showMessage, t, ko]);
+  }, [policyDraft, policySaved.defaultMaxKm, settingsVersions, load, showMessage, t, ko]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

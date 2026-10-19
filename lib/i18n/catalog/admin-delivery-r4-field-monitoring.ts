@@ -114,7 +114,7 @@ export const adminDeliveryR4DMessages = {
     admin_r4d_stats_readonly:
       "읽기 전용 통계입니다. 일괄 복구·라이더 재배정 등 실시간 조치는 「실시간 상황판」에서 합니다.",
     admin_r4d_stats_open_console: "실시간 상황판 열기",
-    admin_r4d_stats_day_basis: "일별 차트의 날짜 구분은 UTC 자정(마닐라 오전 8시) 기준입니다.",
+    admin_r4d_stats_day_basis: "일별 차트·기간 날짜는 마닐라(Asia/Manila) 자정 기준입니다.",
     admin_r4d_rider_unnamed: "이름 없는 라이더",
     admin_r4d_store_unnamed: "이름 없는 매장",
 
@@ -260,7 +260,7 @@ export const adminDeliveryR4DMessages = {
     admin_r4d_stats_readonly:
       "Read-only statistics. Live actions such as bulk recovery or rider reassignment happen on the Live ops board.",
     admin_r4d_stats_open_console: "Open live ops board",
-    admin_r4d_stats_day_basis: "Daily charts split days at UTC midnight (8 AM Manila).",
+    admin_r4d_stats_day_basis: "Daily charts and periods use Manila (Asia/Manila) dates, split at Manila midnight.",
     admin_r4d_rider_unnamed: "Unnamed rider",
     admin_r4d_store_unnamed: "Unnamed store",
 

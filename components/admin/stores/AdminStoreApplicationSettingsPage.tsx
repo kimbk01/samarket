@@ -12,11 +12,20 @@ import {
   AdminStoreTaxonomyManager,
   type AdminStoreTaxonomyFocus,
 } from "@/components/admin/stores/AdminStoreTaxonomyManager";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 /** 오류 코드 → 운영자 문구 (원시 코드·HTTP 상태 노출 금지) */
 function settingsErrText(code: string, ko: boolean): string {
   return adminOperatorErrorMessage(/^[a-z][a-z0-9_]*$/i.test(code) ? code : "update_failed", ko);
+}
+
+/** 저장 충돌(409) 또는 버전 누락 — 최신 설정을 다시 불러와야 하는 코드. */
+function isSettingsConflict(code: string): boolean {
+  return isAdminConflictErrorCode(code) || code === "expected_updated_at_required";
 }
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
 import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
@@ -53,6 +62,8 @@ export function AdminStoreApplicationSettingsPage() {
   const [rideTimeSourceDraft, setRideTimeSourceDraft] = useState<"store" | "google">("store");
   const [rideTimeSourceSaving, setRideTimeSourceSaving] = useState(false);
   const [rideTimeSourceError, setRideTimeSourceError] = useState<string | null>(null);
+  /** admin_settings 행 버전 (`settings_updated_at`) — PUT expected_updated_at (CAS). */
+  const settingsVersionsRef = useRef<Record<string, string | null> | null>(null);
 
   const rideTimeSourceDirty = useMemo(
     () => rideTimeSourceDraft !== rideTimeSourceSaved,
@@ -89,11 +100,13 @@ export function AdminStoreApplicationSettingsPage() {
         error?: string;
         rider_location_enabled?: unknown;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
         setRiderLocationError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? null;
       setRiderLocationEnabled(j.rider_location_enabled === true);
       const src = j.ride_time_source === "google" ? "google" : "store";
       setRideTimeSourceSaved(src);
@@ -114,18 +127,29 @@ export function AdminStoreApplicationSettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rider_location_enabled: next }),
+        body: JSON.stringify({
+          rider_location_enabled: next,
+          expected_updated_at: settingsVersionsRef.current ?? {},
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         rider_location_enabled?: unknown;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
-        setRiderLocationError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
+        const code = typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+        if (isSettingsConflict(code)) {
+          await loadRiderLocationSetting();
+          setRiderLocationError(adminConflictReloadedMessage(code, ko));
+          return;
+        }
+        setRiderLocationError(settingsErrText(code, ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? settingsVersionsRef.current;
       setRiderLocationEnabled(j.rider_location_enabled === true);
       if (j.ride_time_source === "google" || j.ride_time_source === "store") {
         setRideTimeSourceSaved(j.ride_time_source);
@@ -137,7 +161,7 @@ export function AdminStoreApplicationSettingsPage() {
     } finally {
       setRiderLocationSaving(false);
     }
-  }, [showMessage, t, ko]);
+  }, [loadRiderLocationSetting, showMessage, t, ko]);
 
   const commitRideTimeSource = useCallback(async () => {
     const next = rideTimeSourceDraft;
@@ -148,17 +172,28 @@ export function AdminStoreApplicationSettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ride_time_source: next }),
+        body: JSON.stringify({
+          ride_time_source: next,
+          expected_updated_at: settingsVersionsRef.current ?? {},
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
-        setRideTimeSourceError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
+        const code = typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+        if (isSettingsConflict(code)) {
+          await loadRiderLocationSetting();
+          setRideTimeSourceError(adminConflictReloadedMessage(code, ko));
+          return;
+        }
+        setRideTimeSourceError(settingsErrText(code, ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? settingsVersionsRef.current;
       const src = j.ride_time_source === "google" ? "google" : "store";
       setRideTimeSourceSaved(src);
       setRideTimeSourceDraft(src);
@@ -168,7 +203,7 @@ export function AdminStoreApplicationSettingsPage() {
     } finally {
       setRideTimeSourceSaving(false);
     }
-  }, [rideTimeSourceDraft, showMessage, t, ko]);
+  }, [rideTimeSourceDraft, loadRiderLocationSetting, showMessage, t, ko]);
 
   useEffect(() => {
     void loadRiderLocationSetting();

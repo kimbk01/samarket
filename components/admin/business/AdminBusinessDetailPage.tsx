@@ -335,6 +335,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               missing: true,
               storeOverridePolicyId: null,
               storeOverrideFeePercent: null,
+              storeOverrideUpdatedAt: null,
             },
             delivery: j.delivery ?? {
               deliveryAvailable: null,

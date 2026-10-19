@@ -21,7 +21,7 @@ function fakeSb(results: Record<string, Result>, calls: { table: string; ops: st
       const rec = { table, ops: [] as string[] };
       calls.push(rec);
       const builder: Record<string, unknown> = {};
-      for (const op of ["select", "eq", "in", "or", "limit", "neq", "not"]) {
+      for (const op of ["select", "eq", "in", "or", "limit", "neq", "not", "gte"]) {
         builder[op] = (...args: unknown[]) => {
           rec.ops.push(`${op}:${JSON.stringify(args)}`);
           return builder;
@@ -84,6 +84,8 @@ describe("Admin Action Queue registry contract", () => {
     await loadAdminActionQueueCounts({ storesSb: fakeSb({}, calls), notesSb: fakeSb({}) });
     const orders = calls.find((c) => c.table === "store_orders");
     expect(orders?.ops.some((o) => o.startsWith("or:"))).toBe(true);
+    // 처리 필요 주문 = 최근 7일 (배달 대시보드와 같은 기준) — 장기 미종결은 운영 위험으로 분리.
+    expect(orders?.ops.some((o) => o.startsWith('gte:["created_at"'))).toBe(true);
     const settle = calls.find((c) => c.table === "store_sale_fee_obligations");
     expect(settle?.ops).toContain('eq:["adjustment_status","review_required"]');
     expect(calls.some((c) => c.table === "store_settlements")).toBe(false);

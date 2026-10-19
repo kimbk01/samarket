@@ -58,6 +58,8 @@ export type BusinessCcFeeSnapshot = {
   /** Active store-scoped override row (for clear), if any */
   storeOverridePolicyId: string | null;
   storeOverrideFeePercent: number | null;
+  /** 개별 수수료 정책 행 updated_at — PATCH expected_updated_at (CAS, 409 stale_policy) */
+  storeOverrideUpdatedAt: string | null;
 };
 
 export type BusinessCcDeliverySnapshot = {
@@ -255,7 +257,7 @@ export async function loadBusinessControlCenterDetail(
       }),
       sb
         .from("store_fee_policies")
-        .select("id, fee_percent, is_active, is_archived")
+        .select("id, fee_percent, is_active, is_archived, updated_at")
         .eq("store_id", id)
         .eq("is_active", true)
         .order("priority", { ascending: true })
@@ -360,7 +362,12 @@ export async function loadBusinessControlCenterDetail(
     : null;
 
   const overrideRow = storeFeeOverrideRes.data as
-    | { id?: string; fee_percent?: number | string; is_archived?: boolean | null }
+    | {
+        id?: string;
+        fee_percent?: number | string;
+        is_archived?: boolean | null;
+        updated_at?: string | null;
+      }
     | null;
   const overrideUsable =
     overrideRow &&
@@ -380,6 +387,10 @@ export async function loadBusinessControlCenterDetail(
     storeOverrideFeePercent: overrideUsable
       ? Number(overrideRow.fee_percent) || 0
       : null,
+    storeOverrideUpdatedAt:
+      overrideUsable && typeof overrideRow.updated_at === "string" && overrideRow.updated_at.trim()
+        ? overrideRow.updated_at
+        : null,
   };
 
   const override = svcCtx.overrides.stores[id] ?? null;

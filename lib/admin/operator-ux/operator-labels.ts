@@ -205,6 +205,15 @@ export function adminOperatorErrorMessage(
       ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
       en: "This screen is out of date. Refresh and try again.",
     },
+    stale_policy: {
+      ko: "다른 관리자가 먼저 수수료 정책을 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this fee policy first. Refresh and check again.",
+    },
+    /** 409 충돌 후 화면이 최신 데이터를 이미 다시 불러온 경우 (adminConflictReloadedMessage). */
+    stale_reloaded: {
+      ko: "다른 관리자가 먼저 수정해 저장하지 않았습니다. 최신 내용을 다시 불러왔으니 확인 후 다시 저장하세요.",
+      en: "Not saved: another admin edited this first. The latest data has been reloaded — review and save again.",
+    },
     legacy_endpoint_disabled: {
       ko: "더 이상 쓰지 않는 처리 경로입니다. 주문 상세의 「관리자 개입」에서 처리하세요.",
       en: "This path is retired. Use 「Admin intervention」 on the order detail.",
@@ -311,6 +320,21 @@ export function adminOperatorErrorMessage(
     return ko ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "Could not complete. Please try again.";
   }
   return key;
+}
+
+/** 충돌 코드(stale_updated_at / stale_policy) → "stale_reloaded", 그 외는 그대로. 결과 배너처럼 코드만 받는 UI 용. */
+export function adminConflictReloadedCode(raw: string | null | undefined): string {
+  const key = String(raw ?? "").trim();
+  return key === "stale_updated_at" || key === "stale_policy" ? "stale_reloaded" : key;
+}
+
+/**
+ * 저장 충돌(409 stale_updated_at / stale_policy) 후 화면이 최신 데이터를 이미 다시 불러온 경우의 안내.
+ * 그 외 코드는 adminOperatorErrorMessage 와 동일.
+ */
+export function adminConflictReloadedMessage(raw: string | null | undefined, ko: boolean): string {
+  const key = String(raw ?? "").trim();
+  return adminOperatorErrorMessage(adminConflictReloadedCode(key), ko);
 }
 
 export function adminAdsEligibilityNote(

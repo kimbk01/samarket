@@ -6,6 +6,11 @@ import {
   auditAdminFeePolicyWrite,
 } from "@/lib/stores/commission/admin-fee-policy-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import {
+  ADMIN_EXPECTED_UPDATED_AT_REQUIRED,
+  readExpectedUpdatedAt,
+  sameUpdatedAtInstant,
+} from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,13 +34,6 @@ type PatchBody = {
   /** 화면 로드 시점 updated_at — 다르면 409 stale_policy (CAS). */
   expected_updated_at?: string | null;
 };
-
-function sameInstant(a: string | null, b: string | null): boolean {
-  if (!a || !b) return a === b;
-  const ta = Date.parse(a);
-  const tb = Date.parse(b);
-  return Number.isFinite(ta) && Number.isFinite(tb) ? ta === tb : a === b;
-}
 
 function parseIsoOrNull(v: unknown): string | null | "invalid" {
   if (v === null) return null;
@@ -264,11 +262,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
   if (!current) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
-  const expectedUpdatedAt =
-    typeof body.expected_updated_at === "string" && body.expected_updated_at.trim()
-      ? body.expected_updated_at.trim()
-      : null;
-  if (expectedUpdatedAt && !sameInstant(expectedUpdatedAt, current.updated_at ?? null)) {
+  const expectedUpdatedAt = readExpectedUpdatedAt(body.expected_updated_at);
+  if (!expectedUpdatedAt) {
+    // 모든 Admin 화면(수수료 정책·매장 허브 개별 수수료)이 화면 로드 시점 updated_at 을 보낸다.
+    return NextResponse.json({ ok: false, error: ADMIN_EXPECTED_UPDATED_AT_REQUIRED }, { status: 400 });
+  }
+  if (!sameUpdatedAtInstant(expectedUpdatedAt, current.updated_at ?? null)) {
     return NextResponse.json({ ok: false, error: "stale_policy" }, { status: 409 });
   }
 
@@ -352,7 +351,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   });
   if (!conflict.ok) return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
 
-  const casUpdatedAt = expectedUpdatedAt && current.updated_at ? String(current.updated_at) : null;
+  const casUpdatedAt = current.updated_at ? String(current.updated_at) : null;
   const runUpdate = (values: Record<string, unknown>) => {
     const q = sb.from("store_fee_policies").update(values).eq("id", pid);
     return (casUpdatedAt ? q.eq("updated_at", casUpdatedAt) : q).select("id").maybeSingle();
@@ -376,10 +375,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
   if (!data) {
     // CAS 조건 불일치(그 사이 다른 관리자가 변경) 또는 삭제됨.
-    return NextResponse.json(
-      { ok: false, error: expectedUpdatedAt ? "stale_policy" : "not_found" },
-      { status: expectedUpdatedAt ? 409 : 404 }
-    );
+    return NextResponse.json({ ok: false, error: "stale_policy" }, { status: 409 });
   }
   await auditAdminFeePolicyWrite(sb, req, {
     actorId: gate.actor.userId,
