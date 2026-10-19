@@ -50,13 +50,17 @@ function applyOrderAndBound(rq: any, bound: Bound, asc: boolean): any {
 }
 
 async function fetchMessenger(sb: Sb, q: ChatReportQueueQuery, bound: Bound, size: number, scope: Scope, asc: boolean): Promise<Fetched> {
+  const cols =
+    "id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, handled_at, created_at";
   let rq = applyOrderAndBound(
     sb
       .from("community_messenger_reports")
-      .select("id, report_type, room_id, message_id, reported_user_id, reporter_user_id, reason_type, reason_detail, status, admin_note, handled_at, created_at"),
+      // 방 유형 필터 — 신고된 방의 chat_domain (FK room_id → community_messenger_rooms).
+      .select(q.domain ? `${cols}, community_messenger_rooms!inner(chat_domain)` : cols),
     bound,
     asc
   ).limit(size);
+  if (q.domain) rq = rq.eq("community_messenger_rooms.chat_domain", q.domain);
   const statuses = chatReportRawStatuses("messenger", q.status);
   if (statuses) rq = rq.in("status", statuses);
   if (q.target) rq = rq.or(`room_id.eq.${q.target},reported_user_id.eq.${q.target},reporter_user_id.eq.${q.target}`);
@@ -204,7 +208,8 @@ export async function listChatReportQueue(input: ChatReportQueueQuery, limit: nu
   const cursor = decodeAdminKeysetCursor(query.cursor);
   const bound = cursor ? boundOf(cursor.ts, asc) : null;
   const size = limit + 1 + FETCH_EXTRA;
-  const sources = chatReportSourcesFor(query.source);
+  const sources = chatReportSourcesFor(query.source, query.domain);
+  if (!sources.length) return { rows: [], nextCursor: null, failedSources: [] };
   const settled = await Promise.allSettled(sources.map((src) => FETCHERS[src](sb, query, bound, size, scope, asc)));
   const failedSources: ChatReportSource[] = [];
   const batches: ChatReportSourceBatch[] = [];

@@ -26,6 +26,16 @@ interface Row {
 
 export function AdminTradeCompletionPage({ embedded = false }: { embedded?: boolean }) {
   const { t, language } = useI18n();
+  const confirmSourceLabel = (v: string | null) =>
+    v === "user"
+      ? t("admin_trade_confirm_source_user")
+      : v === "system"
+        ? t("admin_trade_confirm_source_system")
+        : v === "admin"
+          ? t("admin_trade_confirm_source_admin")
+          : v
+            ? t("admin_trade_label_unknown")
+            : "—";
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +165,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   </td>
                   <td className="px-3 py-2 text-sam-muted">
                     {r.buyerConfirmedAt
-                      ? `${formatAdminDateTime(r.buyerConfirmedAt, language)} (${r.buyerConfirmSource ?? "—"})`
+                      ? `${formatAdminDateTime(r.buyerConfirmedAt, language)} (${confirmSourceLabel(r.buyerConfirmSource)})`
                       : "—"}
                   </td>
                   <td className="px-3 py-2">

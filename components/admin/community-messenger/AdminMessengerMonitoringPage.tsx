@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { MessengerMonitoringSummary } from "@/lib/community-messenger/monitoring/types";
 import {
   MESSENGER_PERF_REFERENCE_BOOTSTRAP_FETCH_CLIENT_MS,
@@ -55,6 +56,13 @@ export function AdminMessengerMonitoringPage() {
         titleKey="admin_menu_chat_messenger_performance"
         descriptionKey="admin_cm_page_monitoring_desc"
       />
+
+      {/* 설계 §3-7: 새로고침 (표본은 요청을 받은 인스턴스 기준 — 누를 때마다 값이 달라질 수 있다). */}
+      <div className="flex justify-end">
+        <AdminActionButton disabled={loading} onClick={() => void refresh()} data-admin-perf-refresh>
+          {loading ? t("admin_chat_perf_refreshing") : t("admin_chat_perf_refresh")}
+        </AdminActionButton>
+      </div>
 
       {/* C-12: 서버리스 인스턴스별 프로세스 메모리 표본 — 플랫폼 합계·SLO 판정 근거가 아님. */}
       <div

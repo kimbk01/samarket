@@ -13,7 +13,7 @@ export const adminTradeConsoleMessages = {
     admin_products_dt_registered: "등록",
     admin_trade_operations_title: "거래 운영",
     admin_trade_operations_desc:
-      "trade-flow + trade-complete — product_chats / chat_rooms authority 유지.",
+      "거래 진행 단계·구매자 확인·후기·신뢰 기록을 봅니다. 거래 되돌리기와 관리자 구매자 확인은 사유를 남겨 처리합니다.",
     admin_trade_ops_tab_flow: "거래 세션",
     admin_trade_ops_tab_complete: "구매자 확인",
     admin_trade_dashboard_title: "거래 운영",
@@ -47,7 +47,7 @@ export const adminTradeConsoleMessages = {
     admin_products_dt_registered: "Registered",
     admin_trade_operations_title: "Trade operations",
     admin_trade_operations_desc:
-      "trade-flow + trade-complete — keep product_chats / chat_rooms authority.",
+      "Trade stages, buyer confirmation, reviews and trust records. Reverting a trade and admin buyer confirmation require a reason.",
     admin_trade_ops_tab_flow: "Sessions",
     admin_trade_ops_tab_complete: "Buyer confirm",
     admin_trade_dashboard_title: "Trade operations",

@@ -87,6 +87,8 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [reloadToken, setReloadToken] = useState(0);
+  /** 설계 §3-4: 「CM 방이 없는 과거 거래 N건」 — 레거시 거래 기록 화면과 같은 서버 판정. */
+  const [legacyCount, setLegacyCount] = useState<number | null>(null);
 
   useEffect(() => {
     setSearchDraft(query.q);
@@ -159,6 +161,21 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
       (mode === "all" && query.type !== "all")
   );
   const effectiveType = fixedType ?? query.type;
+  useEffect(() => {
+    if (effectiveType !== "trade") return;
+    let cancelled = false;
+    fetch("/api/admin/chats/trade-legacy", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; count?: number }) => {
+        if (!cancelled) setLegacyCount(j?.ok ? Number(j.count ?? 0) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setLegacyCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveType]);
   const titleKey = TITLE_KEY_BY_TYPE[effectiveType];
   const showDomainBadge = effectiveType === "all";
 
@@ -317,9 +334,9 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
         </div>
       ) : null}
 
-      {effectiveType === "trade" ? (
-        <p className="sam-text-helper text-sam-muted" data-admin-trade-legacy-hint>
-          {t("admin_chat_rooms_trade_legacy_hint")}{" "}
+      {effectiveType === "trade" && legacyCount !== null && legacyCount > 0 ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-trade-legacy-hint={legacyCount}>
+          {t("admin_chat_rooms_trade_legacy_hint", { count: legacyCount })}{" "}
           <Link href={`${ADMIN_TRADE_LEGACY_LIST_PATH}?returnTo=${encodeURIComponent(returnTo)}`} className="font-medium text-signature underline">
             {t("admin_chat_rooms_trade_legacy_link")}
           </Link>

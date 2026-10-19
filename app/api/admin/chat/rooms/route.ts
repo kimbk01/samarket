@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
   if (roomType) q = q.eq("room_type", roomType);
   else q = q.eq("room_type", "item_trade");
   if (contextType) q = q.eq("context_type", contextType);
+  // 레거시 거래 기록(설계 §3-6): CM FK 없는 방만.
+  if (req.nextUrl.searchParams.get("legacyOnly") === "1") q = q.is("community_messenger_room_id", null);
   if (tradeStatus) q = q.eq("trade_status", tradeStatus);
   if (requestStatus) q = q.eq("request_status", requestStatus);
   if (blocked === "true") q = q.eq("is_blocked", true);
