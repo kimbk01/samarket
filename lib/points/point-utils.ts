@@ -85,11 +85,3 @@ export const POINT_PROMOTION_PLACEMENT_LABELS: Record<PointPromotionPlacement, s
 export interface AdminPointChargeFilters {
   requestStatus: PointChargeRequestStatus | "";
 }
-
-export function filterPointChargeRequests<T extends { requestStatus: PointChargeRequestStatus }>(
-  list: T[],
-  filters: AdminPointChargeFilters
-): T[] {
-  if (!filters.requestStatus) return [...list];
-  return list.filter((r) => r.requestStatus === filters.requestStatus);
-}

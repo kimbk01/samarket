@@ -593,7 +593,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const seedPendingChargeRowsSilent = useCallback(async () => {
     try {
       const [memberRes, storeRes] = await Promise.all([
-        adminFetch("/api/admin/point-charges", {
+        // 처리 대기 행만 시드 — 목록 API 는 페이지 단위(최대 200)라 오래된 종결 행으로 상한을 채우지 않는다.
+        adminFetch("/api/admin/point-charges?status=open&limit=200", {
           credentials: "include",
           cache: "no-store",
           dedupeKey: "admin:point-charges:hydrate-seed",

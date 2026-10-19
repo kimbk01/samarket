@@ -11,6 +11,7 @@ import { isAdminSupportListFilter, isAdminSupportTab } from "@/lib/support/suppo
 import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
 import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
 import { parseSupportCaseKind, parseSupportCaseScope } from "@/lib/support/support-community-filter";
+import { parseAdminListPage } from "@/lib/admin/pagination/parse-admin-list-page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
     v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim()) ? v.trim() : null;
   const referenceId = uuidOrNull(sp.get("reference_id"));
   const ownerStoreId = uuidOrNull(sp.get("store_id"));
+  // Server-side pagination — `total` is the exact count for the active filter set.
+  const page = parseAdminListPage(sp);
 
   let adminUserId: string | null = null;
   if (assignee === "ME") {
@@ -73,6 +76,8 @@ export async function GET(req: NextRequest) {
       ownerStoreId,
       scope,
       kind,
+      limit: page.limit,
+      offset: page.offset,
     }),
     countSupportCasesByTab(sb),
   ]);
@@ -80,7 +85,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
   }
   const cases = await enrichSupportCasesForAdminDisplay(sb, res.cases);
-  return NextResponse.json({ ok: true, cases, counts });
+  return NextResponse.json({ ok: true, cases, counts, total: res.total, limit: res.limit, offset: res.offset });
 }
 
 export async function POST(req: NextRequest) {

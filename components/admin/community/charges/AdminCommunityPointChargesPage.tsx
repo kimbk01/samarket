@@ -4,14 +4,19 @@
  * 충전 신청 (설계 §C-14 · §F-3) — 공통 충전 API 를 그대로 쓰는 전체 회원 충전 신청 목록.
  * 목록: 회원·요금제·포인트·결제 금액·상태·신청 시각. 입금자명·증빙·회원 메모는 상세 시트에서만.
  * 처리: 「입금 확인 후 승인」(확인 근거 필수 L2) · 「보류」(L1) · 「반려」(사유 필수 L2) — runPointChargeAction.
- * URL: status=pending|on_hold|approved|rejected|all · chargeId(시트 바로 열기) · page
+ * URL: status=pending|on_hold|approved|rejected|all · q(닉네임·입금자명·신청 번호) · chargeId(시트 바로 열기) · page
+ * 상태 필터·검색·페이지는 서버(`/api/admin/point-charges`)가 처리 — 300건 상한 없음, `total`·`statusCounts` 는 정확한 건수.
  */
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import {
   COMMUNITY_TD,
+  CommunityFilterField,
   CommunityListShell,
   CommunityPagination,
+  CommunityResetFilters,
+  CommunitySearchInput,
   CommunityStatusBadge,
   CommunitySummaryCard,
   CommunityTable,
@@ -59,7 +64,13 @@ const PAYMENT_METHOD: Record<string, string> = {
   manual_confirm: "관리자 확인",
 };
 
-type ListResponse = { ok?: boolean; error?: string; requests?: PointChargeRequest[] };
+type ListResponse = {
+  ok?: boolean;
+  error?: string;
+  requests?: PointChargeRequest[];
+  total?: number;
+  statusCounts?: Partial<Record<PointChargeRequest["requestStatus"], number>>;
+};
 type DetailResponse = { ok?: boolean; error?: string; request?: PointChargeRequest };
 
 const abs = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
@@ -70,18 +81,31 @@ export function AdminCommunityPointChargesPage() {
   const status = q.get("status") in TAB_STATUSES ? q.get("status") : "pending";
   const [openId, setOpenId] = useState<string | null>(() => q.get("chargeId") || null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
-  const { state, reload } = useCommunityAdminJson<ListResponse>("/api/admin/point-charges");
-
-  const all = useMemo(() => (state.status === "ok" ? state.data.requests ?? [] : []), [state]);
-  const countOf = (tab: string) => {
-    const st = TAB_STATUSES[tab];
-    return st ? all.filter((r) => st.includes(r.requestStatus)).length : all.length;
-  };
-  const filtered = useMemo(() => {
+  const search = q.get("q");
+  const page = q.page;
+  const listUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(adminListOffsetForPage(page, PAGE_SIZE)),
+      counts: "1",
+    });
     const st = TAB_STATUSES[status];
-    return st ? all.filter((r) => st.includes(r.requestStatus)) : all;
-  }, [all, status]);
-  const pageRows = filtered.slice((q.page - 1) * PAGE_SIZE, q.page * PAGE_SIZE);
+    params.set("status", st ? st.join(",") : "all");
+    if (search) params.set("q", search);
+    return `/api/admin/point-charges?${params.toString()}`;
+  }, [page, search, status]);
+  const { state, reload } = useCommunityAdminJson<ListResponse>(listUrl);
+
+  const pageRows = useMemo(() => (state.status === "ok" ? state.data.requests ?? [] : []), [state]);
+  const total = state.status === "ok" ? state.data.total ?? pageRows.length : 0;
+  const statusCounts = state.status === "ok" ? state.data.statusCounts ?? null : null;
+  /** 탭 배지 — 검색과 무관한 상태별 전체 건수 (서버 exact count). */
+  const countOf = (tab: string): number | null => {
+    if (!statusCounts) return null;
+    const st = TAB_STATUSES[tab];
+    const keys = st ?? (Object.keys(statusCounts) as PointChargeRequest["requestStatus"][]);
+    return keys.reduce((n, k) => n + (statusCounts[k as PointChargeRequest["requestStatus"]] ?? 0), 0);
+  };
   const loaded = state.status === "ok";
 
   return (
@@ -112,9 +136,21 @@ export function AdminCommunityPointChargesPage() {
           ]}
         />
       }
+      filters={
+        <>
+          <CommunityFilterField label="검색">
+            <CommunitySearchInput
+              value={q.get("q")}
+              onCommit={(v) => q.set({ q: v })}
+              placeholder="닉네임 · 입금자명 · 신청 번호"
+            />
+          </CommunityFilterField>
+          <CommunityResetFilters onReset={() => q.reset(["status"])} />
+        </>
+      }
       footer={
-        loaded && filtered.length > 0 ? (
-          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={filtered.length} onPage={(p) => q.set({ page: p })} />
+        loaded && (total > 0 || q.page > 1) ? (
+          <CommunityPagination page={q.page} pageSize={PAGE_SIZE} total={total} onPage={(p) => q.set({ page: p })} />
         ) : null
       }
     >
@@ -123,7 +159,7 @@ export function AdminCommunityPointChargesPage() {
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : pageRows.length === 0 ? (
-        <AdminEmptyState ko message="이 상태의 충전 신청이 없습니다." />
+        <AdminEmptyState ko message={q.get("q") ? "검색 결과가 없습니다." : "이 상태의 충전 신청이 없습니다."} />
       ) : (
         <CommunityTable head={["회원", "요금제 · 포인트", "결제 금액", "상태", "신청", ""]}>
           {pageRows.map((r) => (

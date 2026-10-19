@@ -1,29 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
 import {
   isMissingPointsTable,
   normalizeChargeRequest,
 } from "@/lib/points/admin-user-points-shared";
+import {
+  adminListRange,
+  escapeAdminIlike,
+  isAdminListUuid,
+  parseAdminListPage,
+  quotePostgrestOrValue,
+  sanitizeAdminListSearch,
+} from "@/lib/admin/pagination/parse-admin-list-page";
+import {
+  POINT_CHARGE_REQUEST_STATUSES,
+  parsePointChargeStatusFilter,
+} from "@/lib/points/admin-point-charge-list-query";
+import type { PointChargeRequestStatus } from "@/lib/types/point";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/point-charges */
-export async function GET(_req: NextRequest): Promise<NextResponse> {
+/**
+ * GET /api/admin/point-charges — server-side paginated.
+ *
+ * Query: `status` (all | open | pending,waiting_confirm,… whitelist) · `q` (닉네임 · 입금자명 · 신청/회원 UUID)
+ *        · `limit` (기본 50, 최대 200) · `offset` (기본 0) · `counts=1` (상태별 전체 건수 동봉)
+ * Response: `{ ok, requests, total, limit, offset, statusCounts? }` — `total` 은 현재 필터 기준 exact count.
+ */
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const gate = await requireAdminPermission("point");
   if (!gate.ok) return gate.response;
 
   const { sb } = gate;
-  const { data: rows, error } = await sb
+  const sp = req.nextUrl.searchParams;
+  const page = parseAdminListPage(sp);
+  const statuses = parsePointChargeStatusFilter(sp.get("status"));
+  const search = sanitizeAdminListSearch(sp.get("q"));
+  const withCounts = sp.get("counts") === "1";
+
+  const empty = (statusCounts?: Record<PointChargeRequestStatus, number>) =>
+    NextResponse.json({
+      ok: true,
+      requests: [],
+      total: 0,
+      limit: page.limit,
+      offset: page.offset,
+      ...(statusCounts ? { statusCounts } : {}),
+    });
+
+  // 닉네임 검색 — profiles 에서 먼저 id 해석 후 user_id IN.
+  let nicknameUserIds: string[] = [];
+  if (search && !isAdminListUuid(search)) {
+    const { data: hits } = await sb
+      .from("profiles")
+      .select("id")
+      .ilike("nickname", `%${escapeAdminIlike(search)}%`)
+      .limit(200);
+    nicknameUserIds = ((hits ?? []) as { id?: string }[]).map((p) => String(p.id ?? "")).filter(Boolean);
+  }
+
+  const [from, to] = adminListRange(page);
+  let query = sb
     .from("point_charge_requests")
-    .select(POINT_CHARGE_REQUEST_ROW_SELECT)
+    .select(POINT_CHARGE_REQUEST_ROW_SELECT, { count: "exact" })
     .order("requested_at", { ascending: false })
-    .limit(300);
+    .order("id", { ascending: false })
+    .range(from, to);
+  if (statuses) query = query.in("request_status", statuses);
+  if (search) {
+    if (isAdminListUuid(search)) {
+      query = query.or(`id.eq.${search},user_id.eq.${search}`);
+    } else {
+      const ors = [`depositor_name.ilike.${quotePostgrestOrValue(`%${escapeAdminIlike(search)}%`)}`];
+      if (nicknameUserIds.length) ors.push(`user_id.in.(${nicknameUserIds.join(",")})`);
+      query = query.or(ors.join(","));
+    }
+  }
+
+  const countsPromise = withCounts ? countPointChargesByStatus(sb) : Promise.resolve(undefined);
+  const [{ data: rows, error, count }, statusCounts] = await Promise.all([query, countsPromise]);
 
   if (error) {
     if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {
-      return NextResponse.json({ ok: true, requests: [] });
+      return empty(statusCounts);
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -47,5 +109,29 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     return normalizeChargeRequest(rec, userId, nickById[userId] ?? "");
   });
 
-  return NextResponse.json({ ok: true, requests });
+  return NextResponse.json({
+    ok: true,
+    requests,
+    total: count ?? requests.length,
+    limit: page.limit,
+    offset: page.offset,
+    ...(statusCounts ? { statusCounts } : {}),
+  });
+}
+
+/** 상태 탭 배지 — 검색과 무관한 상태별 전체 건수 (head + exact count). 실패 시 생략. */
+async function countPointChargesByStatus(
+  sb: SupabaseClient
+): Promise<Record<PointChargeRequestStatus, number> | undefined> {
+  const results = await Promise.all(
+    POINT_CHARGE_REQUEST_STATUSES.map(async (status) => {
+      const { count, error } = await sb
+        .from("point_charge_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("request_status", status);
+      return [status, error ? null : (count ?? 0)] as const;
+    })
+  );
+  if (results.some(([, n]) => n == null)) return undefined;
+  return Object.fromEntries(results) as Record<PointChargeRequestStatus, number>;
 }

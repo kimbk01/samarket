@@ -74,9 +74,11 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       filters: ((r: Row) => boolean)[];
       order: [string, boolean] | null;
       limit: number | null;
+      range: [number, number] | null;
+      count: boolean;
       patch: Row | null;
       rows: Row | Row[] | null;
-    } = { op: "select", filters: [], order: null, limit: null, patch: null, rows: null };
+    } = { op: "select", filters: [], order: null, limit: null, range: null, count: false, patch: null, rows: null };
     const apply = () => {
       let rows = db[table] ?? [];
       for (const f of st.filters) rows = rows.filter(f);
@@ -86,6 +88,12 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       }
       if (st.limit != null) rows = rows.slice(0, st.limit);
       return rows;
+    };
+    /** Filtered + ordered rows before range — emulates `count: "exact"` for the filter set. */
+    const applyFilteredCount = () => {
+      let rows = db[table] ?? [];
+      for (const f of st.filters) rows = rows.filter(f);
+      return rows.length;
     };
     const exec = () => {
       if (st.op === "insert" && table === "support_cases") {
@@ -120,10 +128,15 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         for (const r of rows) Object.assign(r, st.patch);
         return { data: rows, error: null };
       }
-      return { data: apply(), error: null };
+      const rows = apply();
+      const paged = st.range ? rows.slice(st.range[0], st.range[1] + 1) : rows;
+      return { data: paged, error: null, count: st.count ? applyFilteredCount() : null };
     };
     const b = {
-      select: () => b,
+      select: (_cols?: string, opts?: { count?: string }) => {
+        if (opts?.count === "exact") st.count = true;
+        return b;
+      },
       insert: (rows: Row | Row[]) => {
         st.op = "insert";
         st.rows = rows;
@@ -164,7 +177,12 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       ilike: () => b,
       or: () => b,
       order: (c: string, o?: { ascending?: boolean }) => {
-        st.order = [c, o?.ascending !== false];
+        // Primary sort only — later `.order()` calls are tie-breakers.
+        st.order ??= [c, o?.ascending !== false];
+        return b;
+      },
+      range: (from: number, to: number) => {
+        st.range = [from, to];
         return b;
       },
       limit: (n: number) => {
@@ -533,6 +551,26 @@ describe("support audit phase 1 — regression lock", () => {
     expect(await ids({ tab: "ACTIONABLE", stale: true })).toEqual(["A1"]);
     // Legacy ?filter= links keep their old meaning when no tab is sent.
     expect(await ids({ filter: "ACTIONABLE" })).toEqual(["A1", "A2"]);
+  });
+
+  it("Pagination: limit/offset page the filter set and total is the exact filtered count", async () => {
+    const rows: Row[] = [];
+    for (let i = 0; i < 7; i++) {
+      rows.push({ id: `p${i}`, status: "WAITING_ADMIN", audience: "MEMBER", last_message_at: `2026-10-0${i + 1}` });
+    }
+    rows.push({ id: "closed", status: "RESOLVED", audience: "MEMBER", last_message_at: "2026-10-09" });
+    const { sb } = makeDb({ support_cases: rows });
+    const first = await listSupportCasesForAdmin(sb, { tab: "ACTIONABLE", limit: 3, offset: 0 });
+    const last = await listSupportCasesForAdmin(sb, { tab: "ACTIONABLE", limit: 3, offset: 6 });
+    if (!first.ok || !last.ok) throw new Error("list failed");
+    expect(first.total).toBe(7);
+    expect(first.cases.map((c) => c.id)).toEqual(["p0", "p1", "p2"]);
+    expect([first.limit, first.offset]).toEqual([3, 0]);
+    expect(last.cases.map((c) => c.id)).toEqual(["p6"]);
+    expect(last.total).toBe(7);
+    const route = readFileSync(join(process.cwd(), "app/api/admin/support/cases/route.ts"), "utf8");
+    expect(route).toContain("parseAdminListPage(sp)");
+    expect(route).toMatch(/total: res\.total/);
   });
 
   it("Console: 보관 only from 종료; 보관 해제 is silent and keeps resolved_at", async () => {
