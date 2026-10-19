@@ -636,7 +636,9 @@ export function AdminFeedAdCreatePage({
           <option value="trade_listing">Trade listing</option>
           <option value="community_post">Community post</option>
           <option value="store">Store</option>
-          <option value="event">Event</option>
+          <option value="event">
+            {safeT("admin_feed_ad_destination_type_event", { fallbackKo: "Event", fallbackEn: "Event" })}
+          </option>
           <option value="external_url">External URL</option>
         </select>
         {destinationType === "external_url" || destinationType === "internal_page" ? (

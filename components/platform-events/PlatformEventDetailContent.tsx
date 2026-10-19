@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
 import { openDestination } from "@/lib/destination/open-destination";
 import { formatPlatformEventPeriod } from "@/lib/platform-events/board";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { resolvePlatformEventFinalCtaHref } from "@/lib/platform-events/destination";
 import type { PlatformEventRow, PlatformEventSection } from "@/lib/platform-events/types";
 
@@ -149,7 +150,7 @@ export function PlatformEventDetailContent({
           className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-3 text-center text-[14px] font-semibold text-sam-muted"
           data-platform-event-ended-band="1"
         >
-          {language === "en" ? "This event has ended." : "종료된 이벤트입니다"}
+          {safeTranslate(language, "platform_event_detail_ended_band", { fallbackKo: "종료된 이벤트입니다", fallbackEn: "This event has ended." })}
         </div>
       ) : null}
       {event.heroImageUrl && /^https?:\/\//i.test(event.heroImageUrl) ? (

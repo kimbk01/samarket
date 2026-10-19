@@ -169,9 +169,10 @@ export function AdminNotificationCampaignCreatePage() {
         setEditStatus(status);
         if (!Array.isArray(j.allowed_actions) || !j.allowed_actions.includes("edit")) {
           setEditBlocked(
-            lang === "en"
-              ? "This notification can no longer be edited. Duplicate it from the detail page instead."
-              : "이 알림은 더 이상 수정할 수 없습니다. 상세 화면에서 「복제」 후 새로 작성하세요."
+            safeT("admin_campaign_cms_edit_blocked", {
+              fallbackKo: "이 알림은 더 이상 수정할 수 없습니다. 상세 화면에서 「복제」 후 새로 작성하세요.",
+              fallbackEn: "This notification can no longer be edited. Duplicate it from the detail page instead.",
+            })
           );
         }
         const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -496,7 +497,7 @@ export function AdminNotificationCampaignCreatePage() {
   const confirmTimeLabel = () => {
     if (sendMode === "scheduled") {
       const iso = scheduledAt ? new Date(scheduledAt).toISOString() : null;
-      return `${formatCampaignTime(iso)} ${lang === "en" ? "(scheduled)" : "예약"}`;
+      return `${formatCampaignTime(iso)} ${safeT("admin_campaign_cms_time_scheduled_suffix", { fallbackKo: "예약", fallbackEn: "(scheduled)" })}`;
     }
     if (sendMode === "recurring") {
       const kind =
@@ -507,7 +508,7 @@ export function AdminNotificationCampaignCreatePage() {
             : t("admin_notif_recurrence_weekly");
       return `${kind} ${recurrenceTime}`;
     }
-    return lang === "en" ? "Immediately" : "즉시 발송";
+    return safeT("admin_campaign_cms_time_immediately", { fallbackKo: "즉시 발송", fallbackEn: "Immediately" });
   };
 
   const confirmFacts = (preview: CampaignAudiencePreview | null): CampaignConfirmFacts => ({
@@ -764,7 +765,7 @@ export function AdminNotificationCampaignCreatePage() {
       </Link>
       <h1 className="text-lg font-semibold text-sam-fg">
         {editId
-          ? `${lang === "en" ? "Edit notification" : "알림 수정"}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
+          ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
           : t("admin_notif_page_create")}
       </h1>
       {editBlocked ? (
@@ -1387,7 +1388,7 @@ export function AdminNotificationCampaignCreatePage() {
               }
               data-admin-notif-save-edit="1"
             >
-              {lang === "en" ? "Save changes" : "변경 저장"}
+              {safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })}
             </button>
             {editStatus === "draft" ? (
               <button

@@ -1,7 +1,10 @@
 /**
  * Confirm-dialog copy for admin notification campaign mutations (client-safe).
  * Every dialog re-shows 대상 수 · 채널 · 시각 before the action runs.
+ * Display text comes from the i18n catalog (`admin_campaign_cms_confirm_*`); KO/EN tables below are the fallbacks.
  */
+
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 
 export const CAMPAIGN_CONFIRM_ACTIONS = [
   "send",
@@ -137,7 +140,23 @@ const EN: Record<CampaignConfirmAction, CampaignConfirmCopy> = {
 };
 
 export function campaignConfirmCopy(action: CampaignConfirmAction, lang: "ko" | "en" = "ko"): CampaignConfirmCopy {
-  return (lang === "en" ? EN : KO)[action];
+  const ko = KO[action];
+  const en = EN[action];
+  return {
+    title: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_title`, {
+      fallbackKo: ko.title,
+      fallbackEn: en.title,
+    }),
+    description: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_desc`, {
+      fallbackKo: ko.description,
+      fallbackEn: en.description,
+    }),
+    confirmLabel: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_confirm`, {
+      fallbackKo: ko.confirmLabel,
+      fallbackEn: en.confirmLabel,
+    }),
+    tone: (lang === "en" ? en : ko).tone,
+  };
 }
 
 /** Fact lines (대상 수 · 채널 · 시각) shown in every confirm dialog. */
@@ -145,16 +164,44 @@ export function campaignConfirmFactLines(facts: CampaignConfirmFacts, lang: "ko"
   const n = (v: number | null | undefined) =>
     typeof v === "number" && Number.isFinite(v) ? v.toLocaleString(lang === "en" ? "en-US" : "ko-KR") : "—";
   const lines: string[] = [];
-  if (facts.title) lines.push(lang === "en" ? `Title: ${facts.title}` : `제목: ${facts.title}`);
+  if (facts.title) {
+    lines.push(
+      safeTranslate(lang, "admin_campaign_cms_confirm_fact_title", {
+        fallbackKo: `제목: ${facts.title}`,
+        fallbackEn: `Title: ${facts.title}`,
+        vars: { title: facts.title },
+      })
+    );
+  }
   const push =
     typeof facts.pushEligibleCount === "number"
-      ? lang === "en"
-        ? ` (push-eligible ${n(facts.pushEligibleCount)})`
-        : ` (푸시 수신 가능 ${n(facts.pushEligibleCount)}명)`
+      ? ` ${safeTranslate(lang, "admin_campaign_cms_confirm_fact_push_eligible", {
+          fallbackKo: `(푸시 수신 가능 ${n(facts.pushEligibleCount)}명)`,
+          fallbackEn: `(push-eligible ${n(facts.pushEligibleCount)})`,
+          vars: { count: n(facts.pushEligibleCount) },
+        })}`
       : "";
-  lines.push(lang === "en" ? `Audience: ${n(facts.targetCount)}${push}` : `대상: ${n(facts.targetCount)}명${push}`);
-  lines.push(lang === "en" ? `Channel: ${facts.channelLabel}` : `채널: ${facts.channelLabel}`);
-  lines.push(lang === "en" ? `Time: ${facts.timeLabel}` : `시각: ${facts.timeLabel}`);
+  lines.push(
+    `${safeTranslate(lang, "admin_campaign_cms_confirm_fact_audience", {
+      fallbackKo: `대상: ${n(facts.targetCount)}명`,
+      fallbackEn: `Audience: ${n(facts.targetCount)}`,
+      vars: { count: n(facts.targetCount) },
+    })}${push}`
+  );
+  lines.push(
+    safeTranslate(lang, "admin_campaign_cms_confirm_fact_channel", {
+      fallbackKo: `채널: ${facts.channelLabel}`,
+      fallbackEn: `Channel: ${facts.channelLabel}`,
+      vars: { channel: facts.channelLabel },
+    })
+  );
+  lines.push(
+    safeTranslate(lang, "admin_campaign_cms_confirm_fact_time", {
+      fallbackKo: `시각: ${facts.timeLabel}`,
+      fallbackEn: `Time: ${facts.timeLabel}`,
+      vars: { time: facts.timeLabel },
+    })
+  );
   return lines;
 }
 

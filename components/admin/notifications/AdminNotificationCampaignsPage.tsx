@@ -69,6 +69,7 @@ type NoticeLite = {
 };
 
 import type { MessageKey } from "@/lib/i18n/messages";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 
 type TFn = (key: MessageKey, params?: Record<string, string | number>) => string;
 
@@ -83,16 +84,14 @@ function formatDelivered(occ: LatestOccurrence | null | undefined, lang: "ko" | 
   if (!occ) return "—";
   const push = `${occ.push_sent ?? 0}/${occ.push_device_count ?? 0}`;
   const inApp = `${occ.in_app_sent ?? 0}/${occ.in_app_member_count ?? 0}`;
-  return lang === "en" ? `Push ${push} · In-app ${inApp}` : `푸시 ${push} · 인앱 ${inApp}`;
+  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${push} · 인앱 ${inApp}`, fallbackEn: `Push ${push} · In-app ${inApp}`, vars: { push, in_app: inApp } });
 }
 
 /** 「열람」 — deliveries marked opened (existing open tracking). */
 function formatOpened(row: CampaignRow, lang: "ko" | "en"): string {
   if (!row.opened) return "—";
   const suffix = row.opened.capped ? "+" : "";
-  return lang === "en"
-    ? `Push ${row.opened.push}${suffix} · In-app ${row.opened.in_app}${suffix}`
-    : `푸시 ${row.opened.push}${suffix} · 인앱 ${row.opened.in_app}${suffix}`;
+  return safeTranslate(lang, "admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${row.opened.push}${suffix} · 인앱 ${row.opened.in_app}${suffix}`, fallbackEn: `Push ${row.opened.push}${suffix} · In-app ${row.opened.in_app}${suffix}`, vars: { push: `${row.opened.push}${suffix}`, in_app: `${row.opened.in_app}${suffix}` } });
 }
 
 function formatRunTimes(t: TFn, row: CampaignRow): string {
@@ -253,7 +252,7 @@ export function AdminNotificationCampaignsPage() {
           return {
             kind: "platform_event" as const,
             contentId: eventId,
-            typeLabel: lang === "en" ? "Event" : "이벤트",
+            typeLabel: safeT("admin_campaign_cms_linked_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" }),
             title: resolved,
             href: eventEditHref(eventId),
             unresolved: false,
@@ -262,8 +261,8 @@ export function AdminNotificationCampaignsPage() {
         return {
           kind: "platform_event_unresolved" as const,
           contentId: eventId,
-          typeLabel: lang === "en" ? "Event" : "이벤트",
-          title: lang === "en" ? "Source unavailable" : "원본 확인 불가",
+          typeLabel: safeT("admin_campaign_cms_linked_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" }),
+          title: safeT("admin_campaign_cms_linked_source_unavailable", { fallbackKo: "원본 확인 불가", fallbackEn: "Source unavailable" }),
           href: eventEditHref(eventId),
           unresolved: true,
         };
@@ -283,7 +282,7 @@ export function AdminNotificationCampaignsPage() {
         unresolved: false,
       };
     };
-  }, [noticeMap, eventTitleMap, lang]);
+  }, [noticeMap, eventTitleMap, lang, safeT]);
 
   const tabLabels = lang === "en" ? CAMPAIGN_TAB_LABEL_EN : CAMPAIGN_TAB_LABEL_KO;
   const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
@@ -325,9 +324,7 @@ export function AdminNotificationCampaignsPage() {
 
       {query.tab === "archived" && !archiveSupported ? (
         <p className="rounded-ui-rect border border-dashed border-sam-border px-3 py-2 text-sm text-sam-muted">
-          {lang === "en"
-            ? "Archive becomes available after the DB migration is applied."
-            : "보관 기능은 DB 마이그레이션 적용 후 사용할 수 있습니다."}
+          {safeT("admin_campaign_cms_archive_needs_migration", { fallbackKo: "보관 기능은 DB 마이그레이션 적용 후 사용할 수 있습니다.", fallbackEn: "Archive becomes available after the DB migration is applied." })}
         </p>
       ) : null}
 
@@ -400,8 +397,8 @@ export function AdminNotificationCampaignsPage() {
                 <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_send_mode")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_status")}</th>
-                <th className="px-3 py-2">{lang === "en" ? "Delivered" : "발송 완료"}</th>
-                <th className="px-3 py-2">{lang === "en" ? "Opened" : "열람"}</th>
+                <th className="px-3 py-2">{safeT("admin_campaign_cms_col_delivered", { fallbackKo: "발송 완료", fallbackEn: "Delivered" })}</th>
+                <th className="px-3 py-2">{safeT("admin_campaign_cms_col_opened", { fallbackKo: "열람", fallbackEn: "Opened" })}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_run_times")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_author")}</th>
                 <th className="px-3 py-2">
@@ -502,9 +499,11 @@ export function AdminNotificationCampaignsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-sam-muted">
         <span>
-          {lang === "en"
-            ? `${total.toLocaleString("en-US")} total · page ${query.page}/${totalPages}`
-            : `총 ${total.toLocaleString("ko-KR")}건 · ${query.page}/${totalPages} 페이지`}
+          {safeT("admin_campaign_cms_pagination_summary", {
+            fallbackKo: `총 ${total.toLocaleString("ko-KR")}건 · ${query.page}/${totalPages} 페이지`,
+            fallbackEn: `${total.toLocaleString("en-US")} total · page ${query.page}/${totalPages}`,
+            vars: { total: total.toLocaleString(lang === "en" ? "en-US" : "ko-KR"), page: query.page, pages: totalPages },
+          })}
         </span>
         <div className="flex gap-2">
           <button
@@ -513,7 +512,7 @@ export function AdminNotificationCampaignsPage() {
             onClick={() => pushQuery({ page: query.page - 1 }, { keepPage: true })}
             className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-40"
           >
-            {lang === "en" ? "Previous" : "이전"}
+            {safeT("admin_campaign_cms_page_prev", { fallbackKo: "이전", fallbackEn: "Previous" })}
           </button>
           <button
             type="button"
@@ -521,7 +520,7 @@ export function AdminNotificationCampaignsPage() {
             onClick={() => pushQuery({ page: query.page + 1 }, { keepPage: true })}
             className="rounded-ui-rect border border-sam-border px-3 py-1.5 disabled:opacity-40"
           >
-            {lang === "en" ? "Next" : "다음"}
+            {safeT("admin_campaign_cms_page_next", { fallbackKo: "다음", fallbackEn: "Next" })}
           </button>
         </div>
       </div>
