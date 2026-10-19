@@ -31,7 +31,7 @@ const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/pla
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
 const INCOMING_ACT = `${PKG}/.IncomingCallActivity`;
-const VERCEL = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const VERCEL = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
 assertQaHttpWriteTarget(VERCEL);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RFCY40PY2CA";

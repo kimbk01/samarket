@@ -22,7 +22,7 @@ const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 const OUT = path.join(ROOT, `.qa-logs/gate4-ios-push-exact-cta-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
-const ORIGIN = (process.env.GATE4_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.GATE4_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const DEVELOPER_DIR =
   process.env.DEVELOPER_DIR || "/Applications/Xcode.app/Contents/Developer";

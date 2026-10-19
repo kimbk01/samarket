@@ -12,7 +12,7 @@ import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 
-const ORIGIN = process.env.S2_HTTP_ORIGIN?.trim() || "https://samarket.vercel.app";
+const ORIGIN = process.env.S2_HTTP_ORIGIN?.trim() || "http://localhost:3000";
 assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = path.join(process.cwd(), "docs/perf/delivery-ads-r5-runtime");
 const OUT = path.join(OUT_DIR, "stage2-product-http-close-report.json");

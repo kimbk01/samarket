@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(process.cwd(), "docs/perf/platform-popup-p4-runtime");
 const REPORT = resolve(OUT_DIR, "p4-admin-direct-report.json");

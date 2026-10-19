@@ -16,7 +16,7 @@ const ACT = `${PKG}/.MainActivity`;
 const SERIAL_A = process.env.P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const PEER_QQQQ = process.env.P4_PEER_USER_ID?.trim() || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
-const PROD = "https://samarket.vercel.app";
+const PROD = "http://localhost:3000";
 assertQaHttpWriteTarget(PROD);
 
 function adb(serial, ...args) {

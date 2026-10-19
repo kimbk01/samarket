@@ -16,7 +16,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { STORES_PRODUCT_RECOVERY_QA } from "@/lib/stores/product/stores-product-recovery-qa-fixture";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BASE = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-product-recovery/production-oneshot");
 const OUT_JSON = path.join(OUT_DIR, "product-recovery-oneshot-latest.json");

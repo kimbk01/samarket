@@ -10,7 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const BASE = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.SAMARKET_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(BASE);
 const TARGET_SHA = (process.env.SLICE7_TARGET_SHA || "").trim();
 const PASSWORD = process.env.E2E_TEST_PASSWORD || process.env.QA_MANUAL_PASSWORD || "";

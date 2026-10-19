@@ -23,7 +23,7 @@ const OUT = path.join(
   `.qa-logs/gate4-android-summary-only-${new Date().toISOString().replace(/[:.]/g, "-")}`
 );
 fs.mkdirSync(OUT, { recursive: true });
-const ORIGIN = (process.env.GATE4_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.GATE4_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";

@@ -14,7 +14,7 @@ import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-g
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), "docs/perf/owner-store-os-complete/recovery");
 const STORE = "19085860-52d2-4183-b033-e71fcb58bcec";

@@ -23,7 +23,7 @@ const ROOT = resolve(process.cwd());
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
-const ORIGIN = (process.env.DELIVERY_DEVICE_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.DELIVERY_DEVICE_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(ROOT, "docs/perf/delivery-full-product-qa");
 const OUT = resolve(OUT_DIR, "business-credit-admin-close-latest.json");

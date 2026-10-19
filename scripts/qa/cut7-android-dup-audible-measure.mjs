@@ -14,7 +14,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { forwardCdp, connectWebView } from "./lib/apk-webview-cdp.mjs";
 
-assertQaHttpWriteTarget("https://samarket.vercel.app");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
@@ -109,7 +110,7 @@ async function main() {
   const { browser, page } = await connectWebView(chromium, CDP_PORT);
   await page.evaluate((u) => {
     window.location.href = u;
-  }, "https://samarket.vercel.app/community-messenger");
+  }, `${ORIGIN}/community-messenger`);
   await sleep(3000);
 
   const placed = await page.evaluate(

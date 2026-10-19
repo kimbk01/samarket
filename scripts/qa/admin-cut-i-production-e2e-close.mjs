@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || process.env.ORIGIN || "https://samarket.vercel.app").replace(
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || process.env.ORIGIN || "http://localhost:3000").replace(
   /\/$/,
   ""
 );

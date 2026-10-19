@@ -11,7 +11,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "https://samarket.vercel.app").replace(
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(
   /\/$/,
   ""
 );

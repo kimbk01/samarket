@@ -19,13 +19,15 @@ import {
   buildApkSessionCookies,
   refreshApkFcmRegisterTail,
 } from "../scripts/qa/lib/apk-webview-cdp.mjs";
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_ROOT = path.join(ROOT, ".qa-logs", "v4-video-runtime-readonly");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
-const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RFCY40PY2CA";
 const ROOM_ID = "b19e2672-f26f-4a2e-8125-52575da4a62a";
@@ -838,7 +840,7 @@ async function probeOrigin(serial, cdp, label) {
       protocol: location.protocol,
       isSecureContext: window.isSecureContext,
     }));
-    const pass = s.protocol === "https:" && s.isSecureContext && s.origin.includes("samarket.vercel.app");
+    const pass = s.protocol === "https:" && s.isSecureContext && s.origin === new URL(WEB).origin;
     console.log(`[v4-runtime-ro] origin_${label}=`, JSON.stringify({ ...s, pass }));
     return { label, pass, ...s };
   });

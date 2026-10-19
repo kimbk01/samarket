@@ -33,7 +33,7 @@ const CDP_PORT = Number(process.env.CUT7_CDP_PORT || 9571);
 const ROOM = "bc3c3070-09fa-4ff6-879a-74551fa63012";
 const WWWW = "edc8c2f0-2673-4ca8-9d63-92a609d556f4";
 const TIGER = "5a22455c-9efc-4b93-8caf-31c6faaaf5ad";
-const ORIGIN = "https://samarket.vercel.app";
+const ORIGIN = "http://localhost:3000";
 assertQaHttpWriteTarget(ORIGIN);
 const KIND = (process.env.KIND || "voice").toLowerCase() === "video" ? "video" : "voice";
 const WAIT_MS = Math.max(45000, Number(process.env.MISSED_WAIT_MS || 55000));

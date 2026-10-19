@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BASE = process.env.CC_AUDIT_BASE || "https://samarket.vercel.app";
+const BASE = process.env.CC_AUDIT_BASE || "http://localhost:3000";
 assertQaHttpWriteTarget(BASE);
 const STAMP = Date.now();
 const OUT = path.join(ROOT, `.qa-logs/customer-center-prod-audit-${STAMP}`);

@@ -29,7 +29,7 @@ const OUT = path.join(ROOT, ".qa-logs", "native-incoming-routing-accept-qa");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;
-const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
 assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RRGL4046NTW";

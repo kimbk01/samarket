@@ -26,7 +26,7 @@ const SERIAL_A = process.env.CUT7_DEVICE_A || "8b37179f7d94";
 const SERIAL_B = process.env.CUT7_DEVICE_B || "RFCY40PY2CA";
 const CDP_PORT = Number(process.env.CUT7_CDP_PORT || 9588);
 const ROOM = process.env.CUT7_ANDROID_ROOM || "c202326f-8109-4ce4-aa61-394f0a799e7d";
-const ORIGIN = (process.env.CUT7_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.CUT7_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const KIND = (process.env.KIND || "voice").toLowerCase() === "video" ? "video" : "voice";
 const STATE = (process.env.STATE || "LOCKED").toUpperCase() === "BG" ? "BG" : "LOCKED";

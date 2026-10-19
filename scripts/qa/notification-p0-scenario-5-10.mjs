@@ -18,7 +18,7 @@ const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;
 const SERIAL_A = process.env.P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P0_DEVICE_B?.trim() || "RFCY40PY2CA";
-const PROD = (process.env.P0_PROD ?? "https://samarket.vercel.app").replace(/\/$/, "");
+const PROD = (process.env.P0_PROD ?? "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(PROD);
 const USER_A = "11111111-1111-1111-1111-111111111111";
 const USER_B = "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";

@@ -13,7 +13,7 @@ import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-g
 assertQaWriteTarget();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const ORIGIN = (process.env.QA_ORIGIN ?? "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.QA_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const LOG_PATH = path.join(ROOT, "docs/perf/kakao-policy-qa-run.log");
 

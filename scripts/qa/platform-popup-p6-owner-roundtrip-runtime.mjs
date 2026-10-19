@@ -19,7 +19,7 @@ function encodeStoreCta(storeId) {
   return { ctaType: "internal_page", ctaTarget: href, externalUrl: null, href };
 }
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(process.cwd(), "docs/perf/platform-popup-p6-runtime");
 const REPORT = resolve(OUT_DIR, "p6-owner-roundtrip-report.json");

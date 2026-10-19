@@ -25,7 +25,7 @@ const OUT = resolve(process.cwd(), ".tmp/ptr-calibration/activate");
 const ORIGIN = (
   process.env.PTR_ADMIN_ORIGIN ||
   process.env.PLAYWRIGHT_BASE_URL ||
-  "https://samarket.vercel.app"
+  "http://localhost:3000"
 ).replace(/\/$/, "");
 assertQaHttpWriteTarget(ORIGIN);
 
