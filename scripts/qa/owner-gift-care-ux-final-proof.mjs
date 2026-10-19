@@ -6,6 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
 const OUT = resolve(process.cwd(), ".tmp-owner-gift-care-ux-final.json");

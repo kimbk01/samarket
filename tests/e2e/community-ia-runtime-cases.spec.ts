@@ -17,6 +17,11 @@ import {
   assertPlaywrightOriginReachable,
   playwrightOriginFromEnv,
 } from "./helpers/playwright-origin-and-session";
+import { assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 const EVIDENCE_DIR = path.join(
   process.cwd(),

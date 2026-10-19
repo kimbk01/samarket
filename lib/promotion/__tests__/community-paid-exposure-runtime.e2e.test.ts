@@ -14,10 +14,9 @@ import { describe, expect, it } from "vitest";
 import { applyCommunityPaidExposureImmediate } from "@/lib/promotion/apply-community-paid-exposure";
 import { fetchActiveCommunityPaidExposureFeedPosts } from "@/lib/promotion/community-paid-exposure-feed";
 import { creditUserPoints, readUserPointBalance } from "@/lib/points/user-point-ledger";
+import { assertNonProductionDbTarget } from "@/tests/helpers/assert-non-production-db-target";
 
 const RUN = process.env.RUN_REVENUE_E2E === "1";
-/** 운영 Supabase project ref — 서비스 롤 QA 쓰기 금지. */
-const PRODUCTION_SUPABASE_REF = "ckdosyydvgzqwpbwuhon";
 const QA_IDEMPOTENCY_PREFIX = "qa-a2-";
 
 function loadEnv() {
@@ -49,9 +48,8 @@ describe.runIf(RUN)("community paid exposure runtime E2E (A2 immediate)", () => 
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
       expect(url && key).toBeTruthy();
-      if (url!.includes(PRODUCTION_SUPABASE_REF)) {
-        throw new Error("community paid exposure E2E must not run against the production Supabase project");
-      }
+      // 운영 project ref(SSOT: database-target-guard) · 알 수 없는 호스트 → 실행 거부 (URL 호스트 기준).
+      assertNonProductionDbTarget(url, { label: "community paid exposure E2E" });
       const sb = createClient(url!, key!, { auth: { persistSession: false } });
 
       const { data: post } = await sb

@@ -15,6 +15,10 @@ import {
   resolveOps1StoreId,
   resolveOps1StoreSlug,
 } from "./lib/ops1-prod-store-resolve.mjs";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");

@@ -9,6 +9,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const { createClient } = createRequire(import.meta.url)("@supabase/supabase-js");
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3055").replace(/\/$/, "");

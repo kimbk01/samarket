@@ -14,11 +14,26 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { PostgrestClient } from "@supabase/postgrest-js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { assertNonProductionDbTarget } from "@/tests/helpers/assert-non-production-db-target";
 
 const URL_ = process.env.DIBAY_INTEG_POSTGREST_URL ?? "";
 const JWT = process.env.DIBAY_INTEG_JWT ?? "";
 const PSQL = process.env.DIBAY_INTEG_PSQL ?? "";
 const enabled = Boolean(URL_ && JWT && PSQL);
+// Real writes: refuse Production / unknown hosts by URL host (not by env var name) before the client exists.
+if (enabled) {
+  assertNonProductionDbTarget(URL_, { loopbackOnly: true, label: "A-web isolated integration (PostgREST)" });
+  // psql writes migrations/rows too: its host (-h / --host / URI) must be loopback as well.
+  const psqlHost =
+    /(?:^|\s)(?:-h\s*|--host[=\s])(\S+)/.exec(PSQL)?.[1] ??
+    /postgres(?:ql)?:\/\/[^\s/]*@([^\s:/?]+)/.exec(PSQL)?.[1] ??
+    process.env.PGHOST ??
+    "localhost";
+  assertNonProductionDbTarget(`http://${psqlHost.replace(/^\[|\]$/g, "")}`, {
+    loopbackOnly: true,
+    label: "A-web isolated integration (psql)",
+  });
+}
 
 const db = enabled
   ? new PostgrestClient(URL_, { headers: { Authorization: `Bearer ${JWT}`, apikey: JWT } })

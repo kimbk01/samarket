@@ -13,6 +13,10 @@ import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { withRedTeamViewerLock } from "./qa/lib/red-team-viewer-lock.mjs";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const OUT = join(process.cwd(), ".qa-logs/room-unread-authority-v1");
 mkdirSync(OUT, { recursive: true });

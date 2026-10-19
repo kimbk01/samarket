@@ -9,6 +9,7 @@
 import { writeFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assertNonProductionDbTarget } from "@/tests/helpers/assert-non-production-db-target";
 
 type Row = { site: string; check: string; result: "PASS" | "FAIL"; detail: string };
 const rows: Row[] = [];
@@ -32,7 +33,7 @@ afterAll(() => writeFileSync("staging-results.json", JSON.stringify(rows, null, 
 
 describe("B+ staging E2E (isolated local Supabase)", () => {
   beforeAll(async () => {
-    if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(URL_)) throw new Error(`refusing to run against non-local DB: ${URL_}`);
+    assertNonProductionDbTarget(URL_, { loopbackOnly: true, label: "B+ staging E2E" });
     sb = createClient(URL_, KEY, { auth: { persistSession: false } });
 
     const pw = `S-${crypto.randomUUID()}`;

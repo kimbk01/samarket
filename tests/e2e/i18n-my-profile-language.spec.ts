@@ -34,6 +34,11 @@ import {
 } from "./helpers/playwright-origin-and-session";
 import { setAppLanguageOnPage } from "./helpers/i18n-set-app-language";
 import { I18N_E2E_LOGOUT_PATH } from "@/lib/i18n/i18n-e2e-contract";
+import { assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 async function skipWhenE2eLoginUnavailable(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext) {
   await assertPlaywrightOriginReachable(request);

@@ -4,6 +4,10 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");

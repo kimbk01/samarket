@@ -10,9 +10,25 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { resolveQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 const PSQL = process.env.CUT7_PSQL || "/opt/homebrew/opt/postgresql@17/bin/psql";
 const DATABASE_URL = process.env.CUT7_DATABASE_URL || "postgresql:///samarket_cut7_bench";
+
+// C-48 — isolated local DB ONLY: unix socket (empty host) or loopback, classified by URL host (shared F-13 resolver).
+{
+  let host = null;
+  try {
+    host = new URL(DATABASE_URL).hostname;
+  } catch {
+    host = null;
+  }
+  const target = host === "" ? { ok: true, target: "loopback" } : resolveQaWriteTarget({ DATABASE_URL });
+  if (!target.ok || target.target !== "loopback") {
+    console.error(`[db-target-guard] REFUSING CUT7 write: ${target.ok ? target.target : target.reason}`);
+    process.exit(1);
+  }
+}
 const OUT_JSON = resolve(process.cwd(), "docs/perf/stores-discovery-scale-cut7-100k-latest.json");
 const PLANS_DIR = resolve(process.cwd(), "docs/perf/stores-discovery-scale-cut7-plans");
 

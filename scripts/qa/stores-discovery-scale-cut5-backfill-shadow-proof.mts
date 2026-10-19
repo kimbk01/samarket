@@ -40,6 +40,10 @@ import {
 import { compareStoreDiscoveryShadowParity } from "../../lib/stores/discovery/store-discovery-shadow-parity";
 import { districtRank } from "../../lib/geo/haversine-km";
 import { shadowDistrictTier } from "../../lib/stores/discovery/shadow-district-tier";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 function loadEnvLocal() {
   try {

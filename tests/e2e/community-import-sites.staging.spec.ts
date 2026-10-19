@@ -10,6 +10,11 @@
 import { writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Page, test } from "@playwright/test";
+import { assertNonProductionDbTarget, assertPlaywrightMutationTargetNonProduction } from "../helpers/assert-non-production-db-target";
+
+// C-48: this spec mutates through the app — refuse the Production app host and any app whose
+// Supabase URL host is a Production project ref / unverifiable (by URL host, not env var name).
+test.beforeAll(() => assertPlaywrightMutationTargetNonProduction());
 
 type Row = { site: string; check: string; result: "PASS" | "FAIL"; detail: string };
 const rows: Row[] = [];
@@ -55,7 +60,7 @@ test.describe.configure({ mode: "serial" });
 
 test("REPORT L acceptance — 5 new site types through the admin UI", async ({ page }) => {
   test.setTimeout(45 * 60_000);
-  if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(DB_URL)) throw new Error(`refusing non-local DB: ${DB_URL}`);
+  assertNonProductionDbTarget(DB_URL, { loopbackOnly: true, label: "community import sites E2E (service role)" });
   const db = createClient(DB_URL, DB_KEY, { auth: { persistSession: false } });
   const postCount = async () => (await db.from("community_posts").select("*", { count: "exact", head: true })).count ?? 0;
   await page.setViewportSize({ width: 1440, height: 1000 });

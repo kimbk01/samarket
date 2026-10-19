@@ -8,6 +8,10 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
+import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const { createClient } = createRequire(import.meta.url)("@supabase/supabase-js");
 

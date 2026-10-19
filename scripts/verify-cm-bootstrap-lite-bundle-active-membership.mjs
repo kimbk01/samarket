@@ -6,6 +6,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { assertQaWriteTarget } from "./lib/db-target-guard.mjs";
+
+// C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
+assertQaWriteTarget();
 
 const AAAA = "11111111-1111-1111-1111-111111111111";
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
