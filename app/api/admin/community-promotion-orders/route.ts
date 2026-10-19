@@ -1,5 +1,5 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/community-promotion-orders?status=pending_review */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireCommunityAdmin("read");
   if (!admin.ok) return admin.response;
 
   const sb = tryCreateSupabaseServiceClient();

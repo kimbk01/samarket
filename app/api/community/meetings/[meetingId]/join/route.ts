@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { normalizeUserIdForCompare } from "@/lib/auth/same-user-id";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -18,6 +19,9 @@ interface Ctx {
 export async function POST(req: Request, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "meeting");
+  if (restricted) return restricted;
 
   const { meetingId } = await ctx.params;
   const id = meetingId?.trim();

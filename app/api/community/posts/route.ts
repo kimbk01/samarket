@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuth, validateActiveSession } from "@/lib/auth/server-guards"
 import {
   isProductWriteDeniedMemberAccount,
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
   if (isProductWriteDeniedMemberAccount(session.profile)) {
     return jsonError(MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE, 403, { code: "member_activity_restricted" });
   }
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "post");
+  if (restricted) return restricted;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

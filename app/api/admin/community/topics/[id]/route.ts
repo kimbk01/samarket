@@ -1,6 +1,7 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
   applyAdminTopicPatchSortMetadata,
   assertAdminTopicSlugNotSortSlot,
@@ -15,9 +16,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
   const { id } = await ctx.params;
   const tid = id?.trim();
   if (!tid) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
@@ -105,7 +105,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   try {
     const sb = getSupabaseServer();
-    const { data: before } = await sb.from("community_topics").select("slug").eq("id", tid).maybeSingle();
+    const { data: before } = await sb.from("community_topics").select("*").eq("id", tid).maybeSingle();
+    const beforeRow = (before ?? null) as Record<string, unknown> | null;
+    const beforeAudit = beforeRow
+      ? Object.fromEntries(Object.keys(patch).map((k) => [k, beforeRow[k] ?? null]))
+      : null;
+    const auditPatch = async (afterRow: Record<string, unknown> | null) =>
+      appendCommunityAdminAudit(sb, req, {
+        actorId: gate.userId,
+        targetType: "community_topic",
+        targetId: tid,
+        action: "community_topic.update",
+        before: beforeAudit,
+        after: afterRow ? Object.fromEntries(Object.keys(patch).map((k) => [k, afterRow[k] ?? null])) : patch,
+      });
     let { data, error } = await sb
       .from("community_topics")
       .update(patch)
@@ -136,9 +149,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         if (newSlug && oldSlug && newSlug !== oldSlug) {
           await sb.from("community_posts").update({ topic_slug: newSlug }).eq("topic_id", tid);
         }
+        const audit = await auditPatch(merged as Record<string, unknown>);
         clearPhilifeDefaultSectionTopicsCache();
         revalidatePath("/philife", "page");
-        return NextResponse.json({ ok: true, topic: merged });
+        return NextResponse.json({ ok: true, topic: merged, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
       }
       const retry = await sb
         .from("community_topics")
@@ -166,18 +180,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       await sb.from("community_posts").update({ topic_slug: newSlug }).eq("topic_id", tid);
     }
 
+    const audit = await auditPatch(data as Record<string, unknown>);
     clearPhilifeDefaultSectionTopicsCache();
     revalidatePath("/philife", "page");
-    return NextResponse.json({ ok: true, topic: data });
+    return NextResponse.json({ ok: true, topic: data, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
   const { id } = await ctx.params;
   const tid = id?.trim();
   if (!tid) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
@@ -191,11 +205,20 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     if ((count ?? 0) > 0) {
       return NextResponse.json({ ok: false, error: "topic_has_posts", count }, { status: 409 });
     }
+    const { data: beforeDel } = await sb.from("community_topics").select("*").eq("id", tid).maybeSingle();
     const { error } = await sb.from("community_topics").delete().eq("id", tid);
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: gate.userId,
+      targetType: "community_topic",
+      targetId: tid,
+      action: "community_topic.delete",
+      before: (beforeDel ?? null) as Record<string, unknown> | null,
+      after: null,
+    });
     clearPhilifeDefaultSectionTopicsCache();
     revalidatePath("/philife", "page");
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
   }

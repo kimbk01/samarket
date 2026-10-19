@@ -67,6 +67,7 @@ import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-moni
 import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
 import { adminDeliveryR4BMessages } from "./catalog/admin-delivery-r4-orders";
 import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
+import { adminCommunityR4Messages } from "./catalog/admin-community-r4";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
@@ -195,6 +196,7 @@ const KO_MESSAGES = {
   ...adminDeliveryR4CMessages.ko,
   ...adminDeliveryR4BMessages.ko,
   ...adminDeliveryR4AMessages.ko,
+  ...adminCommunityR4Messages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -288,6 +290,7 @@ const EN_MESSAGES = {
   ...adminDeliveryR4CMessages.en,
   ...adminDeliveryR4BMessages.en,
   ...adminDeliveryR4AMessages.en,
+  ...adminCommunityR4Messages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

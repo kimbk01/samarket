@@ -73,22 +73,26 @@ export async function notifyUserPointChargeOnHold(
 
 export async function notifyUserPointChargeRejected(
   sb: SupabaseClient,
-  opts: { userId: string; requestId: string }
+  opts: { userId: string; requestId: string; reason?: string | null }
 ): Promise<void> {
   const userId = opts.userId.trim();
   if (!userId) return;
   const language = await loadUserLanguage(sb, userId);
+  const reason = String(opts.reason ?? "").trim().slice(0, 300);
   await appendUserNotification(sb, {
     user_id: userId,
     notification_type: "commerce",
     ref_id: opts.requestId,
     dedupe_key: `user_point_charge_reject:${opts.requestId}`,
     title: nt(language, "notify_user_point_charge_rejected_title"),
-    body: nt(language, "notify_user_point_charge_rejected_body"),
+    body: reason
+      ? nt(language, "notify_user_point_charge_rejected_reason_body", { reason })
+      : nt(language, "notify_user_point_charge_rejected_body"),
     link_url: "/mypage/points",
     meta: {
       kind: "user_point_charge_rejected",
       request_id: opts.requestId,
+      ...(reason ? { reason } : {}),
     },
   });
 }

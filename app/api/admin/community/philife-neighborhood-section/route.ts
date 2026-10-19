@@ -1,6 +1,7 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import {
   PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
@@ -17,9 +18,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
   try {
     const [slug, show, showNeighbor] = await Promise.all([
       getPhilifeNeighborhoodSectionSlugServer(),
@@ -38,9 +38,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
 
   let body: { section_slug?: string };
   try {
@@ -81,18 +80,29 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: gate.userId,
+      targetType: "community_settings",
+      targetId: PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
+      action: "community_settings.neighborhood_section_update",
+      before: { section_slug: (prev as { section_slug?: unknown }).section_slug ?? null },
+      after: { section_slug: candidate },
+    });
     clearPhilifeDefaultSectionTopicsCache();
     revalidatePath("/philife", "page");
-    return NextResponse.json({ ok: true, section_slug: candidate });
+    return NextResponse.json({
+      ok: true,
+      section_slug: candidate,
+      ...(audit.ok ? {} : { audit_warning: "audit_failed" }),
+    });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
   }
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireCommunityAdmin("content");
+  if (!gate.ok) return gate.response;
   let body: { show_all_feed_tab?: boolean; show_neighbor_only_filter?: boolean };
   try {
     body = await req.json();
@@ -124,11 +134,23 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: gate.userId,
+      targetType: "community_settings",
+      targetId: PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
+      action: "community_settings.neighborhood_filter_update",
+      before: {
+        show_neighbor_only_filter:
+          (prev as { show_neighbor_only_filter?: unknown }).show_neighbor_only_filter ?? null,
+      },
+      after: { show_neighbor_only_filter: plan.write.show_neighbor_only_filter },
+    });
     clearPhilifeDefaultSectionTopicsCache();
     revalidatePath("/philife", "page");
     return NextResponse.json({
       ok: true,
       show_neighbor_only_filter: plan.write.show_neighbor_only_filter,
+      ...(audit.ok ? {} : { audit_warning: "audit_failed" }),
       ...(plan.ignoredShowAllFeedTab ? { show_all_feed_tab_ignored: true as const } : {}),
     });
   } catch (e) {

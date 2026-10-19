@@ -18,7 +18,9 @@ import { useState } from "react";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { PointChargeBadge } from "@/components/points/PointChargeBadge";
 import Link from "next/link";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { runPointChargeAction, type PointChargeAction } from "@/components/admin/points/point-charge-action-client";
 
 interface AdminPointChargeInlineActionsProps {
   requests: PointChargeRequest[];
@@ -29,24 +31,26 @@ export function AdminPointChargeInlineActions({
   requests,
   onActionSuccess,
 }: AdminPointChargeInlineActionsProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memoInputs, setMemoInputs] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
 
-  const doAction = async (id: string, action: "approve" | "reject" | "hold", memo?: string) => {
-    setBusyId(id);
+  const doAction = async (r: PointChargeRequest, action: PointChargeAction, memo?: string) => {
+    if (busyId) return;
+    setBusyId(r.id);
     setErr("");
     try {
-      const res = await fetch(`/api/admin/point-charges/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ action, adminMemo: memo }),
+      const out = await runPointChargeAction({
+        requestId: r.id,
+        action,
+        ko,
+        summary: `${r.userNickname} · ${r.pointAmount.toLocaleString()}P · ₱${r.paymentAmount.toLocaleString()} · ${r.depositorName || "-"}`,
+        adminMemo: memo,
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_points_err_action_failed"));
+      if (!out.ok) {
+        if (!out.cancelled) setErr(resolveAdminApiErrorMessage(out.error, t, "admin_points_err_action_failed"));
         return;
       }
       await onActionSuccess?.();
@@ -124,7 +128,7 @@ export function AdminPointChargeInlineActions({
                   <PointChargeBadge status={r.requestStatus} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
-                  {new Date(r.requestedAt).toLocaleString("ko-KR")}
+                  {formatAdminManilaDateTime(r.requestedAt)}
                 </td>
                 <td className="px-3 py-2.5">
                   <input
@@ -143,7 +147,7 @@ export function AdminPointChargeInlineActions({
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void doAction(r.id, "approve", memo)}
+                        onClick={() => void doAction(r, "approve", memo)}
                         className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
                         {busy ? "…" : t("admin_points_action_approve")}
@@ -151,7 +155,7 @@ export function AdminPointChargeInlineActions({
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void doAction(r.id, "reject", memo)}
+                        onClick={() => void doAction(r, "reject", memo)}
                         className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       > {t("admin_points_action_reject")}
                       </button>
@@ -159,7 +163,7 @@ export function AdminPointChargeInlineActions({
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void doAction(r.id, "hold", memo)}
+                          onClick={() => void doAction(r, "hold", memo)}
                           className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                         > {t("admin_points_action_hold")}
                         </button>

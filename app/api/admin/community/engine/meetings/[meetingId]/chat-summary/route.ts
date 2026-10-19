@@ -1,8 +1,8 @@
 /**
  * GET — 모임별 채팅 검토용 요약 (기본 방 + meeting_chat_rooms 부가 방)
  */
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -57,7 +57,7 @@ async function countsForChatRoom(
 }
 
 export async function GET(_req: Request, ctx: { params: Promise<{ meetingId: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireCommunityAdmin("content");
   const { meetingId } = await ctx.params;
   const id = meetingId?.trim();
   if (!id) return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });

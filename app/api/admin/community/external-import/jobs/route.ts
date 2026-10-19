@@ -1,5 +1,6 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { InboxKey } from "@/lib/community-operator-import/inbox-store";
 import {
@@ -25,7 +26,7 @@ const AUTHOR_MODES: AuthorMode[] = ["keep", "original", "source", "custom"];
 const DATE_MODES: DateMode[] = ["keep", "original", "publish"];
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const sb = getSupabaseServer();
   const id = req.nextUrl.searchParams.get("id");
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
  * {action:"run", jobId}                    → continues pending items (time-boxed)
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{ action?: string; kind?: JobKind; items?: InboxKey[]; params?: JobParams; jobId?: string }>(
     req,
@@ -68,8 +69,20 @@ export async function POST(req: NextRequest) {
       };
       if (params.authorMode === "custom" && !params.customAuthor) return jsonError("표시 작성자를 입력하세요.", 400, { code: "custom_author_required" });
       const job = await createJob(sb, { kind: b.kind, items: Array.isArray(b.items) ? b.items : [], params, adminUserId: auth.userId });
+      const audit = await appendCommunityAdminAudit(sb, req, {
+        actorId: auth.userId,
+        targetType: "community_import_job",
+        targetId: String(job.id),
+        action: "community_import.job_create",
+        before: null,
+        after: {
+          kind: b.kind,
+          item_count: Array.isArray(b.items) ? b.items.length : 0,
+          params: params as unknown as Record<string, unknown>,
+        },
+      });
       const after = await runJobChunk(sb, job.id, { budgetMs: 40_000, adminUserId: auth.userId });
-      return jsonOk({ job: after });
+      return jsonOk({ job: after, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
     }
     if (b.action === "run") {
       if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
@@ -79,13 +92,34 @@ export async function POST(req: NextRequest) {
       if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
       const n = await retryFailedItems(sb, b.jobId);
       if (!n) return jsonError("다시 시도할 실패 항목이 없습니다.", 400, { code: "no_failed_items" });
-      return jsonOk({ retried: n, job: await runJobChunk(sb, b.jobId, { budgetMs: 40_000, adminUserId: auth.userId }) });
+      const audit = await appendCommunityAdminAudit(sb, req, {
+        actorId: auth.userId,
+        targetType: "community_import_job",
+        targetId: b.jobId,
+        action: "community_import.job_retry_failed",
+        before: { failed_items: n },
+        after: { retried: n },
+      });
+      return jsonOk({
+        retried: n,
+        job: await runJobChunk(sb, b.jobId, { budgetMs: 40_000, adminUserId: auth.userId }),
+        ...(audit.ok ? {} : { audit_warning: "audit_failed" }),
+      });
     }
     if (b.action === "cancel") {
       if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      const prevJob = await loadJob(sb, b.jobId);
       await cancelJob(sb, b.jobId);
       const cur = await loadJob(sb, b.jobId);
-      return jsonOk({ job: cur?.job ?? null });
+      const audit = await appendCommunityAdminAudit(sb, req, {
+        actorId: auth.userId,
+        targetType: "community_import_job",
+        targetId: b.jobId,
+        action: "community_import.job_cancel",
+        before: { status: (prevJob?.job as { status?: unknown } | undefined)?.status ?? null },
+        after: { status: (cur?.job as { status?: unknown } | undefined)?.status ?? null },
+      });
+      return jsonOk({ job: cur?.job ?? null, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
     }
     return jsonError("지원 action: create | run | retry_failed | cancel", 400, { code: "unsupported_action" });
   } catch (e) {

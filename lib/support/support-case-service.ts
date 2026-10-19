@@ -1,4 +1,10 @@
 import {
+  supportAppealOrFilter,
+  supportCommunityScopeOrFilter,
+  type SupportCaseKind,
+  type SupportCaseScope,
+} from "@/lib/support/support-community-filter";
+import {
   createAdminNotification,
   markAdminNotificationsRead,
   resolveAdminRecipientAuthority,
@@ -752,6 +758,10 @@ export type AdminSupportListQuery = {
   referenceId?: string | null;
   /** Owner store context (`owner_store_id`) — deep links from the store hub. */
   ownerStoreId?: string | null;
+  /** 커뮤니티 문의 범위 (`?group=community`) — `support-community-filter` */
+  scope?: SupportCaseScope;
+  /** 이의신청만 (`?type=appeal`) */
+  kind?: SupportCaseKind;
   limit?: number;
 };
 
@@ -823,6 +833,8 @@ export async function listSupportCasesForAdmin(
   if (input.referenceType) query = query.eq("reference_type", input.referenceType);
   if (input.referenceId && isUuid(input.referenceId)) query = query.eq("reference_id", input.referenceId);
   if (input.ownerStoreId && isUuid(input.ownerStoreId)) query = query.eq("owner_store_id", input.ownerStoreId);
+  if (input.scope === "community") query = query.or(supportCommunityScopeOrFilter());
+  if (input.kind === "appeal") query = query.or(supportAppealOrFilter());
 
   const search = (input.search ?? "").trim();
   if (search) {

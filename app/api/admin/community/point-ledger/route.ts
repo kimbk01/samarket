@@ -1,5 +1,5 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   formatAdminMemberLabel,
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 /** Same authoritative point_ledger rows Member history uses. */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireCommunityAdmin("read");
   if (!admin.ok) return admin.response;
 
   const kind = (req.nextUrl.searchParams.get("kind") ?? "reward").trim().toLowerCase();

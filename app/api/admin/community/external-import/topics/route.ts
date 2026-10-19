@@ -1,4 +1,4 @@
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { listOperatorImportTopicOptions } from "@/lib/community-operator-import/topics";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   try {
     const topics = await listOperatorImportTopicOptions();

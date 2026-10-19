@@ -1,5 +1,6 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchArticleForInbox } from "@/lib/community-operator-import/collect";
 import { carryEditToArticle, ensureDraftEdit } from "@/lib/community-operator-import/draft-store";
@@ -18,7 +19,7 @@ export const maxDuration = 60;
  * only when the source structure is unchanged). One item = one DB transaction.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{
     article?: OperatorNormalizedArticle;
@@ -50,7 +51,24 @@ export async function POST(req: NextRequest) {
       rules: await loadRules(sb),
     });
     if (!result.ok) return jsonError(result.message, 400, { code: result.code });
-    return jsonOk({ ...result });
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: auth.userId,
+      targetType: "community_post",
+      targetId: result.postId,
+      action: mode === "update" ? "community_import.publish_update" : "community_import.publish",
+      before: mode === "update" ? { post_id: result.postId } : null,
+      after: {
+        source_site: key.sourceSite,
+        source_board: key.sourceBoard,
+        source_article_key: key.sourceArticleKey,
+        mode,
+        topic_slug: result.topicSlug,
+        image_count: result.imageCount,
+        accept_partial: parsed.value.acceptPartial === true,
+        warnings: result.warnings,
+      },
+    });
+    return jsonOk({ ...result, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "게시에 실패했습니다.", 500, { code: "publish_failed" });
   }

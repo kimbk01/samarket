@@ -145,7 +145,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                       <Link href={memberCommunityPostHref(row.id)}>
                         {safeT("admin_users_cc_cta_view_post", { fallbackKo: "원문", fallbackEn: "Open" })}
                       </Link>
-                      <Link href={memberCommunityReportsAdminHref(userId)}>
+                      <Link href={memberCommunityAuthorAdminHref(userId)}>
                         {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리", fallbackEn: "Community admin" })}
                       </Link>
                     </div>

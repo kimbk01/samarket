@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
@@ -33,6 +34,9 @@ const VALID_REASON_TYPES = new Set([
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  // 커뮤니티 활동 제한 (§E-6)
+  const restricted = await assertCommunityWriteAllowed(auth.userId, "report");
+  if (restricted) return restricted;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "philife_meeting");
   if (!reportRl.ok) return reportRl.response;

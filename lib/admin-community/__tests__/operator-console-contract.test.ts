@@ -74,9 +74,7 @@ describe("admin community operator console contract", () => {
     expect(summary).toMatch(/todayPosts/);
     expect(summary).toMatch(/pendingReports/);
 
-    const home = read("components/admin/community/AdminCommunityHomePage.tsx");
-    expect(home).toMatch(/AdminCommunityHomeSummary/);
-    expect(home).toMatch(/admin_community_home_today_posts/);
+    // C-36: 미사용 AdminCommunityHomePage 제거 — 대시보드는 지표 레지스트리(community-metrics)를 쓴다.
   });
 
   it("admin post detail route and list hard-delete via W1 bulk bar (ARO-OPS-UX-001-W3)", () => {

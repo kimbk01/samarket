@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
@@ -15,7 +16,6 @@ import {
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
 import {
-  adjustUserPoints,
   readUserPointBalance,
   reconcileUserPointBalance,
 } from "@/lib/points/user-point-ledger";
@@ -135,53 +135,59 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
-  let body: { delta?: number; reason?: string };
+  let body: { delta?: number; reason?: string; idempotencyKey?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const delta = Number(body.delta);
+  const delta = Math.trunc(Number(body.delta));
   const reason = String(body.reason ?? "").trim();
   if (!Number.isFinite(delta) || delta === 0) {
     return NextResponse.json({ ok: false, error: "invalid_delta" }, { status: 400 });
   }
-  if (!reason) {
+  if (reason.length < 2) {
     return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
   }
+  const idempotencyKey =
+    String(body.idempotencyKey ?? "").trim() || `admin_point:${crypto.randomUUID()}`;
 
+  // C-45: 관리자 조정 경로 단일화 — /api/admin/points/adjust 와 같은 원자 RPC.
   const { sb, actor } = gate;
   const current = await readUserPointBalance(sb, userId);
-  const adjusted = await adjustUserPoints(sb, {
-    userId,
-    delta,
-    description: reason,
-    actorUserId: actor.userId,
+  const { data: rpc, error: rpcErr } = await sb.rpc("admin_adjust_user_points", {
+    p_user_id: userId,
+    p_delta: delta,
+    p_description: reason.slice(0, 500),
+    p_actor_id: actor.userId,
+    p_idempotency_key: idempotencyKey,
   });
-  if (!adjusted.ok) {
+  const res = (rpc ?? {}) as { ok?: boolean; error?: string; balance_after?: number; ledger_id?: string; duplicate?: boolean };
+  if (rpcErr || res.ok !== true) {
+    const code = res.error ?? "adjust_failed";
     const status =
-      adjusted.code === "insufficient_balance"
-        ? 400
-        : adjusted.error === "user_not_found"
-          ? 404
-          : adjusted.error === "invalid_input"
-            ? 400
-            : 500;
-    return NextResponse.json({ ok: false, error: adjusted.error }, { status });
+      code === "insufficient_balance" || code === "invalid_input" ? 400 : code === "user_not_found" ? 404 : 500;
+    return NextResponse.json({ ok: false, error: code }, { status });
   }
 
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actor.userId,
-    target_type: "user_points",
-    target_id: userId,
-    action: "admin_point_adjust",
-    before_json: { balance: current },
-    after_json: { balance: adjusted.balanceAfter, delta, reason },
+  await appendCommunityAdminAudit(sb, req, {
+    actorId: actor.userId,
+    targetType: "user_points",
+    targetId: userId,
+    action: delta > 0 ? "admin_point_credit" : "admin_point_debit",
+    reason,
+    before: { balance: current },
+    after: {
+      amount: delta,
+      balance_after: res.balance_after ?? null,
+      ledger_id: res.ledger_id ?? null,
+      idempotency_key: idempotencyKey,
+      duplicate: res.duplicate === true,
+    },
   });
 
-  return NextResponse.json({ ok: true, balance: adjusted.balanceAfter });
+  return NextResponse.json({ ok: true, balance: res.balance_after ?? null });
 }
 
 /** Soft repair: project profiles.points from ledger SUM when mismatched. */

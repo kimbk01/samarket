@@ -1,5 +1,5 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { collectBoardToInbox } from "@/lib/community-operator-import/collect";
 import { resolvePreviewPair, tryLockBoard } from "@/lib/community-operator-import/source-store";
@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 /** Manual "collect now" for one board → inbox (never publishes). */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{ sourceId?: string; boardId?: string; pages?: number }>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;

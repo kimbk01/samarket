@@ -22,10 +22,15 @@ export const ARO_IA_001_OWNERS = {
   meetingReport: "meeting_reports",
 } as const;
 
+/** 커뮤니티 Admin 설계 v2 §B-2 — 9 그룹 순서 (Owner 승인). */
 export const ARO_IA_001_COMMUNITY_SECTION_KEYS = [
   "community-section-ops",
   "community-section-moderation",
   "community-section-content",
+  "community-section-members",
+  "community-section-promotion",
   "community-section-promo-point",
+  "community-section-support",
+  "community-section-content-ops",
   "community-section-settings",
 ] as const;

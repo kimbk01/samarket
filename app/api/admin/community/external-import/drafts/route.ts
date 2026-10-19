@@ -1,5 +1,6 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { NextRequest } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ensureDraftEdit, upsertOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
 import { loadManagedSource } from "@/lib/community-operator-import/source-store";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
  *  preview → returns the exact content that would be published (policy + rules), nothing saved
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdminApiUser();
+  const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{ article?: OperatorNormalizedArticle; edit?: OperatorDraftEdit; action?: string }>(
     req,
@@ -43,7 +44,23 @@ export async function POST(req: NextRequest) {
     });
     if (parsed.value.action === "preview") return jsonOk({ preview });
     const draft = await upsertOperatorImportDraft(sb, { original: article, edit, updatedBy: auth.userId });
+    const audit = await appendCommunityAdminAudit(sb, req, {
+      actorId: auth.userId,
+      targetType: "community_import_draft",
+      targetId: String(draft.id),
+      action: "community_import.draft_save",
+      before: null,
+      after: {
+        source_site: article.sourceSite,
+        source_board: article.sourceBoard,
+        source_article_key: article.sourceArticleKey,
+        status: draft.status,
+        published_post_id: draft.publishedPostId ?? null,
+        edit: edit as unknown as Record<string, unknown>,
+      },
+    });
     return jsonOk({
+      ...(audit.ok ? {} : { audit_warning: "audit_failed" }),
       saved: true,
       preview,
       draft: { id: draft.id, status: draft.status, updatedAt: draft.updatedAt, publishedPostId: draft.publishedPostId },

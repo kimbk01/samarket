@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import {
   isMissingPointsTable,
   normalizeChargeRequest,
@@ -20,6 +20,10 @@ const ACTIONABLE_STATUSES = ["pending", "waiting_confirm", "on_hold"] as const;
 interface PatchBody {
   action?: "approve" | "reject" | "hold";
   adminMemo?: string;
+  /** 승인: 입금 확인 근거 (거래 시각·참조번호 등) — 필수 (C-05) */
+  verificationNote?: string;
+  /** 반려: 회원에게 전달되는 사유 — 필수 (C-22) */
+  rejectReason?: string;
 }
 
 /** GET /api/admin/point-charges/[id] */
@@ -88,9 +92,15 @@ export async function PATCH(
   const now = new Date().toISOString();
 
   if (body.adminMemo !== undefined) {
+    const { data: memoBefore } = await sb
+      .from("point_charge_requests")
+      .select("admin_memo")
+      .eq("id", requestId)
+      .maybeSingle();
+    const nextMemo = String(body.adminMemo).slice(0, 2000);
     const { error: memoErr } = await sb
       .from("point_charge_requests")
-      .update({ admin_memo: String(body.adminMemo).slice(0, 2000), updated_at: now })
+      .update({ admin_memo: nextMemo, updated_at: now })
       .eq("id", requestId);
     if (memoErr) {
       if (isMissingPointsTable(memoErr.message ?? "", "point_charge_requests")) {
@@ -98,6 +108,23 @@ export async function PATCH(
       }
       return NextResponse.json({ ok: false, error: memoErr.message }, { status: 500 });
     }
+    await appendCommunityAdminAudit(sb, req, {
+      actorId: actor.userId,
+      targetType: "point_charge_request",
+      targetId: requestId,
+      action: "admin_memo_update",
+      before: { admin_memo: (memoBefore as { admin_memo?: string | null } | null)?.admin_memo ?? null },
+      after: { admin_memo: nextMemo },
+    });
+  }
+
+  const verificationNote = String(body.verificationNote ?? "").trim();
+  const rejectReason = String(body.rejectReason ?? "").trim();
+  if (body.action === "approve" && verificationNote.length < 2) {
+    return NextResponse.json({ ok: false, error: "verification_required" }, { status: 400 });
+  }
+  if (body.action === "reject" && rejectReason.length < 2) {
+    return NextResponse.json({ ok: false, error: "reject_reason_required" }, { status: 400 });
   }
 
   const action = body.action;
@@ -126,9 +153,11 @@ export async function PATCH(
   }
 
   if (action === "approve") {
-    const { data, error } = await sb.rpc("approve_user_point_charge_request", {
+    // 입금 확인 근거·확인자를 같은 트랜잭션에서 기록한 뒤 기존 승인 RPC 실행 (M6).
+    const { data, error } = await sb.rpc("approve_user_point_charge_request_verified", {
       p_request_id: requestId,
       p_admin_user_id: actor.userId,
+      p_verification_note: verificationNote.slice(0, 500),
     });
     if (error) {
       if (/approve_user_point_charge_request/i.test(error.message ?? "")) {
@@ -142,6 +171,9 @@ export async function PATCH(
       const errCode = String(result.error ?? "approve_failed");
       if (errCode === "not_found") {
         return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+      }
+      if (errCode === "verification_required") {
+        return NextResponse.json({ ok: false, error: "verification_required" }, { status: 400 });
       }
       if (errCode === "already_processed") {
         return NextResponse.json({ ok: false, error: "not_found_or_already_processed" }, { status: 400 });
@@ -163,13 +195,13 @@ export async function PATCH(
     const pointAmount = Math.max(0, Number(result.point_amount ?? row.point_amount) || 0);
     const nextBalance = Math.max(0, Number(result.balance_after) || 0);
 
-    void appendAuditLog(sb, {
-      actor_type: "admin",
-      actor_id: actor.userId,
-      target_type: "point_charge_request",
-      target_id: requestId,
+    await appendCommunityAdminAudit(sb, req, {
+      actorId: actor.userId,
+      targetType: "point_charge_request",
+      targetId: requestId,
       action: "approve",
-      after_json: { balance: nextBalance },
+      before: { request_status: row.request_status },
+      after: { balance: nextBalance, point_amount: pointAmount, verification_note: verificationNote.slice(0, 500) },
     });
 
     void notifyUserPointChargeApproved(sb, {
@@ -190,6 +222,7 @@ export async function PATCH(
       updated_at: now,
       processed_at: now,
       processed_by: actor.userId,
+      ...(action === "reject" ? { reject_reason: rejectReason.slice(0, 500) } : {}),
     })
     .eq("id", requestId)
     .in("request_status", [...ACTIONABLE_STATUSES])
@@ -208,16 +241,18 @@ export async function PATCH(
 
   const userId = String((updatedRow as { user_id?: string }).user_id ?? "");
 
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actor.userId,
-    target_type: "point_charge_request",
-    target_id: requestId,
+  await appendCommunityAdminAudit(sb, req, {
+    actorId: actor.userId,
+    targetType: "point_charge_request",
+    targetId: requestId,
     action: nextStatus,
+    reason: action === "reject" ? rejectReason.slice(0, 500) : null,
+    before: { request_status: row.request_status },
+    after: { request_status: nextStatus },
   });
 
   if (action === "reject" && userId) {
-    void notifyUserPointChargeRejected(sb, { userId, requestId });
+    void notifyUserPointChargeRejected(sb, { userId, requestId, reason: rejectReason });
   }
   if (action === "hold" && userId) {
     void notifyUserPointChargeOnHold(sb, { userId, requestId });

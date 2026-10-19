@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { useState } from "react";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { runPointChargeAction, type PointChargeAction } from "@/components/admin/points/point-charge-action-client";
 
 interface AdminPointActionPanelProps {
   request: PointChargeRequest;
@@ -14,7 +15,8 @@ export function AdminPointActionPanel({
   request,
   onActionSuccess,
 }: AdminPointActionPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -23,19 +25,19 @@ export function AdminPointActionPanel({
     request.requestStatus === "waiting_confirm" ||
     request.requestStatus === "on_hold";
 
-  const doAction = async (action: "approve" | "reject" | "hold") => {
+  const doAction = async (action: PointChargeAction) => {
+    if (busy) return;
     setBusy(true);
     setErr("");
     try {
-      const res = await fetch(`/api/admin/point-charges/${request.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ action }),
+      const out = await runPointChargeAction({
+        requestId: request.id,
+        action,
+        ko,
+        summary: `${request.userNickname} · ${request.pointAmount.toLocaleString()}P · ₱${request.paymentAmount.toLocaleString()} · ${request.depositorName || "-"}`,
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_points_err_action_failed"));
+      if (!out.ok) {
+        if (!out.cancelled) setErr(resolveAdminApiErrorMessage(out.error, t, "admin_points_err_action_failed"));
         return;
       }
       await onActionSuccess();

@@ -1,5 +1,5 @@
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { collectCommunityPostIdsForTopicSlug } from "@/lib/admin-community/collect-post-ids-for-topic";
 import {
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * Known: topic filter IN≤500 — preserved P2/PERF, not fixed here.
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireCommunityAdmin("content");
   if (!admin.ok) return admin.response;
 
   const sp = req.nextUrl.searchParams;
