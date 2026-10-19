@@ -10,8 +10,7 @@
 --                 status = 'unpublished' in the app so status-only gates stop distributing.
 --
 -- Rollback:
---   DROP POLICY IF EXISTS platform_events_public_select ON public.platform_events;
---   CREATE POLICY platform_events_public_select ON public.platform_events FOR SELECT
+--   ALTER POLICY platform_events_public_select ON public.platform_events
 --     TO anon, authenticated USING (status = 'published'
 --     AND (starts_at IS NULL OR starts_at <= now()) AND (ends_at IS NULL OR ends_at >= now()));
 --   DROP INDEX IF EXISTS public.platform_events_board_order_idx;
@@ -59,9 +58,8 @@ CREATE INDEX IF NOT EXISTS platform_events_board_order_idx
   WHERE status = 'published' AND archived_at IS NULL;
 
 -- Direct client reads (RLS) must not see archived rows either.
-DROP POLICY IF EXISTS platform_events_public_select ON public.platform_events;
-CREATE POLICY platform_events_public_select ON public.platform_events
-  FOR SELECT
+-- ALTER (not DROP/CREATE): same policy name/roles, only the predicate gains archived_at IS NULL.
+ALTER POLICY platform_events_public_select ON public.platform_events
   TO anon, authenticated
   USING (
     status = 'published'
