@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { CommissionStateChip, type CommissionLang } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import {
   AdminOrderDetailModal,
@@ -197,9 +198,12 @@ export function AdminOrderOpsScreen({
       if (code === "network_error") return ko ? "네트워크 오류로 불러오지 못했습니다." : "Network error.";
       if (code === "rpc_missing")
         return ko
-          ? "주문 운영 조회 함수가 아직 DB에 적용되지 않았습니다. (마이그레이션 20270513120000)"
-          : "The order-ops query function is not deployed yet (migration 20270513120000).";
-      return ko ? `목록을 불러오지 못했습니다. (${code})` : `Failed to load. (${code})`;
+          ? "기능 준비 중입니다. 시스템 관리자에게 문의하세요."
+          : "This feature is not ready yet. Contact a system admin.";
+      if (code === "load_failed") return ko ? "목록을 불러오지 못했습니다." : "Failed to load.";
+      return ko
+        ? `목록을 불러오지 못했습니다. ${adminOperatorErrorMessage(code, true)}`
+        : `Failed to load. ${adminOperatorErrorMessage(code, false)}`;
     },
     [ko]
   );
@@ -221,7 +225,7 @@ export function AdminOrderOpsScreen({
         const res = await fetch(`/api/admin/store-orders/ops/summary?${p.toString()}`, { credentials: "include", cache: "no-store" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; summary?: Record<string, unknown> };
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
-        if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : `http_${res.status}`);
+        if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : "load_failed");
         return j.summary ?? null;
       };
       try {
@@ -275,7 +279,7 @@ export function AdminOrderOpsScreen({
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<AdminOrderOpsPageResult>;
         if (ac.signal.aborted) return;
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
-        if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : `http_${res.status}`);
+        if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : "load_failed");
         const next = json as AdminOrderOpsPageResult;
         const pages = Math.max(1, Math.ceil(next.total / next.pageSize));
         if (next.rows.length === 0 && next.total > 0 && q.page > pages) {

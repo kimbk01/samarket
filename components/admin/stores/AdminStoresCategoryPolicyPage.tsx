@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -1280,7 +1281,7 @@ export function AdminStoresCategoryPolicyPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/admin/delivery-ads/manage"
+              href="/admin/advertising"
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >
@@ -1322,7 +1323,8 @@ export function AdminStoresCategoryPolicyPage() {
         ) : null}
         {err ? (
           <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
-            {label(ko, "불러오지 못했습니다.", "Failed to load.")} ({err})
+            {label(ko, "불러오지 못했습니다.", "Failed to load.")}{" "}
+            {err === "load_fail" ? null : adminOperatorErrorMessage(err, ko)}
           </p>
         ) : null}
 

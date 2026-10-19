@@ -13,8 +13,8 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
-import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
-import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { adminOperatorErrorMessage, adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 
 type ChargeRequest = {
@@ -41,13 +41,21 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const focusRequestId = (searchParams.get("requestId") ?? "").trim();
   const [rows, setRows] = useState<ChargeRequest[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const ko = language !== "en";
+  /** List load failure (code) — rendered via AdminErrorState, never raw. */
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
+  /** Action failure (operator sentence already mapped). */
+  const [actionError, setActionError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  /** Ledger id of the last credit — technical detail only (not in the banner). */
+  const [successLedgerId, setSuccessLedgerId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ id: string; op: "approve" | "reject" } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
+    setErrorStatus(undefined);
     try {
       // Deep-link requestId may point at a decided row — load all when focusing.
       const statusQ = focusRequestId ? "all" : "PENDING";
@@ -62,6 +70,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
+        setErrorStatus(res.status);
         setLoaded(true);
         return;
       }
@@ -75,7 +84,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       }
       setRows(next);
     } catch {
-      setError("network");
+      setError("network_error");
     } finally {
       setLoaded(true);
     }
@@ -95,10 +104,11 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     }
   }, [loaded, focusRequestId, rows]);
 
-  const act = async (id: string, op: "approve" | "reject") => {
+  const act = async (id: string, op: "approve" | "reject", reason: string) => {
     setBusyId(id);
     setSuccess(null);
-    setError(null);
+    setSuccessLedgerId(null);
+    setActionError(null);
     try {
       const res = await fetch("/api/admin/business-cash-charges", {
         method: "POST",
@@ -107,14 +117,14 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         body: JSON.stringify({
           op,
           requestId: id,
-          reason: op === "reject" ? "admin_rejected" : undefined,
+          reason: op === "reject" ? reason.trim() : undefined,
         }),
       });
       const json = (await res.json()) as ActionResult;
       if (!res.ok || !json.ok) {
-        setError(
-          json.error
-            ? String(json.error)
+        setActionError(
+          json.error || res.status === 403
+            ? adminOperatorErrorMessage(res.status === 403 ? "forbidden" : String(json.error), ko)
             : safeT("admin_delivery_ads_cash_charges_action_failed", {
                 fallbackKo: "Cash 충전 처리에 실패했습니다. 잔액·원장은 변경되지 않았을 수 있습니다.",
                 fallbackEn:
@@ -128,13 +138,14 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         setSuccess(
           safeT("admin_delivery_ads_cash_charges_approve_ok", {
             fallbackKo: json.idempotent
-              ? "이미 처리된 충전입니다. Cash 원장은 중복 적립되지 않았습니다."
-              : `적립 완료. 원장 ${json.ledgerId ?? ""} · 잔액 ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
+              ? "이미 처리된 충전입니다. 중복 적립되지 않았습니다."
+              : `적립 완료 · 잔액 ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
             fallbackEn: json.idempotent
-              ? "Already processed. Cash ledger was not double-credited."
-              : `Credited. Ledger ${json.ledgerId ?? ""} · balance ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
+              ? "Already processed. Not credited twice."
+              : `Credited · balance ${formatDeliveryAdPhpMinor(json.balanceAfterMinor ?? 0)}`,
           })
         );
+        setSuccessLedgerId(json.ledgerId ?? null);
       } else {
         setSuccess(
           safeT("admin_delivery_ads_cash_charges_reject_ok", {
@@ -145,7 +156,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       }
       await load();
     } catch {
-      setError("network");
+      setActionError(adminOperatorErrorMessage("network_error", ko));
     } finally {
       setBusyId(null);
     }
@@ -162,10 +173,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <div className="flex flex-wrap items-center gap-2">
             <CurrencyBadge currency="cash" />
             <h1 className="text-[20px] font-bold text-sam-fg">
-              {safeT("admin_delivery_ads_cash_charges_title", {
-                fallbackKo: "Cash 충전 신청",
-                fallbackEn: "Cash top-up requests",
-              })}
+              {ko ? "매장 캐시 충전 승인" : "Store Cash top-up approval"}
             </h1>
           </div>
           <p className="mt-1 text-[13px] text-sam-muted">
@@ -181,10 +189,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           href="/admin/finance"
           className="min-h-[36px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
         >
-          {safeT("admin_delivery_ads_cash_charges_finance_hub", {
-            fallbackKo: "Finance 허브",
-            fallbackEn: "Finance hub",
-          })}
+          {ko ? "재무 홈" : "Finance home"}
         </Link>
       </div>
 
@@ -195,6 +200,17 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           data-admin-cash-charge-success="1"
         >
           {success}
+          {successLedgerId ? <AdminTechDetails ko={ko}>ledger {successLedgerId}</AdminTechDetails> : null}
+        </p>
+      ) : null}
+
+      {actionError ? (
+        <p
+          className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 text-[13px] text-red-900"
+          role="alert"
+          data-admin-cash-charge-action-error="1"
+        >
+          {actionError}
         </p>
       ) : null}
 
@@ -212,14 +228,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
             })}
           </p>
         ) : error ? (
-          <p className="text-[13px] text-red-600" role="alert" data-admin-cash-charge-error="1">
-            {error === "network"
-              ? safeT("common_network_error", {
-                  fallbackKo: "네트워크 오류가 발생했습니다.",
-                  fallbackEn: "A network error occurred.",
-                })
-              : error}
-          </p>
+          <div data-admin-cash-charge-error="1">
+            <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
+          </div>
         ) : rows.length === 0 ? (
           <p className="text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_cash_charges_empty", {
@@ -244,7 +255,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackKo: "매장",
                       fallbackEn: "Store",
                     })}
-                    : {r.store_id.slice(0, 8)}…
+                    : {ko ? "매장 정보는 기술 정보 참고" : "see technical details"}
                   </p>
                   <p className="text-[11px] text-sam-muted">
                     {r.created_at
@@ -252,40 +263,29 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       : "—"}{" "}
                     · {adminOperatorLabel(r.status, language !== "en")}
                   </p>
-                  <details className="mt-1">
-                    <summary className="cursor-pointer text-[11px] text-sam-muted">
-                      {language === "en" ? "Technical info" : "기술 정보"}
-                    </summary>
-                    <p className="break-all font-mono text-[10px] text-sam-muted">
-                      store {r.store_id}
-                      <br />
-                      owner {r.owner_user_id}
-                    </p>
-                  </details>
-                  <Link
-                    href={businessCcFinancialStatementHref(r.store_id)}
-                    className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
-                  >
-                    {safeT("admin_delivery_ads_cash_charges_open_statement", {
-                      fallbackKo: "매장 재무 명세서",
-                      fallbackEn: "Store financial statement",
-                    })}
-                  </Link>
+                  <AdminTechDetails ko={ko}>
+                    store {r.store_id}
+                    <br />
+                    owner {r.owner_user_id}
+                    {r.reject_reason ? (
+                      <>
+                        <br />
+                        reason {r.reject_reason}
+                      </>
+                    ) : null}
+                  </AdminTechDetails>
                   <Link
                     href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
-                    className="mt-1 ml-2 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
+                    className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
                   >
-                    {safeT("admin_delivery_ads_cash_charges_open_store", {
-                      fallbackKo: "매장 Cash/Coin 보기",
-                      fallbackEn: "Open store Cash/Coin",
-                    })}
+                    {ko ? "매장 재무" : "Store finance"}
                   </Link>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-[#0A823E] px-3 text-[12px] font-semibold text-[#0A823E]"
-                    disabled={busyId === r.id}
+                    disabled={busyId != null}
                     onClick={() => setConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
                   >
@@ -297,7 +297,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   <button
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-red-300 px-3 text-[12px] font-semibold text-red-700"
-                    disabled={busyId === r.id}
+                    disabled={busyId != null}
                     onClick={() => setConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
                   >
@@ -329,22 +329,33 @@ export function AdminDeliveryAdCashChargeQueuePage() {
             ? (() => {
                 const row = rows.find((r) => r.id === confirm.id);
                 if (!row) return "";
-                return language === "en"
-                  ? `Store ${row.store_id.slice(0, 8)}… · ${formatDeliveryAdPhpMinor(row.amount_minor)}`
-                  : `매장 ${row.store_id.slice(0, 8)}… · ${formatDeliveryAdPhpMinor(row.amount_minor)}`;
+                const when = row.created_at ? new Date(String(row.created_at)).toLocaleString() : "";
+                if (confirm.op === "reject") {
+                  return ko
+                    ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — 거절 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
+                    : `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when} — The reason is sent to the store owner and kept in the activity log. Cash balance does not change.`;
+                }
+                return `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}`;
               })()
             : ""
         }
         confirmLabel={confirm?.op === "approve" ? (language === "en" ? "Credit" : "적립") : language === "en" ? "Reject" : "거절"}
         cancelLabel={language === "en" ? "Cancel" : "취소"}
         tone={confirm?.op === "reject" ? "danger" : "primary"}
+        reasonRequired={confirm?.op === "reject"}
+        reasonLabel={ko ? "거절 사유 (2자 이상)" : "Rejection reason (2+ characters)"}
+        reasonPlaceholder={ko ? "예: 입금 내역이 확인되지 않음" : "e.g. Payment not found"}
         pending={busyId != null}
         onCancel={() => setConfirm(null)}
-        onConfirm={() => {
+        onConfirm={(reason) => {
           if (!confirm) return;
           const { id, op } = confirm;
+          if (op === "reject" && reason.trim().length < 2) {
+            setActionError(adminOperatorErrorMessage("reason_required", ko));
+            return;
+          }
           setConfirm(null);
-          void act(id, op);
+          void act(id, op, reason);
         }}
       />
     </div>

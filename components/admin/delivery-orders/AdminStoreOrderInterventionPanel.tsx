@@ -11,6 +11,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { COMMISSION_PRESS } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   ADMIN_INTERVENTION_REASON_MAX,
   ADMIN_STORE_ORDER_INTERVENTION_ERROR,
@@ -30,6 +31,31 @@ const DOUBLE_CONFIRM = new Set<AdminStoreOrderInterventionAction>(["refund_appro
 const RELOAD_ERRORS = new Set(["status_changed", "transition_conflict", "action_not_allowed_for_status"]);
 
 type Notice = { tone: "ok" | "error"; text: string };
+
+type InterventionLabel = (typeof ADMIN_STORE_ORDER_INTERVENTION_LABEL)[AdminStoreOrderInterventionAction];
+
+/**
+ * DEF-23 — operator-facing CTA copy. Customers pay the store directly, so 「환불」 here only records
+ * the refund state; no platform money moves. Admin cancel is labelled 「강제 취소」.
+ */
+const PANEL_LABEL_OVERRIDE: Partial<Record<AdminStoreOrderInterventionAction, Partial<InterventionLabel>>> = {
+  refund_approve: {
+    ko: "환불 처리 기록",
+    en: "Record refund",
+    confirmKo:
+      "고객은 매장에 직접 결제했으므로 플랫폼에서 돈이 이동하지 않습니다. 매장이 고객에게 환불한 사실을 기록하고, 주문을 환불 완료로 바꾸며 상품권·재고를 복원합니다. 수수료는 수수료 검토로 넘어갑니다.",
+    confirmEn:
+      "The customer paid the store directly, so no platform money moves. This records that the store refunded the customer, marks the order refunded and restores gift/stock. The fee goes to commission review.",
+  },
+  force_cancel: {
+    ko: "강제 취소",
+    en: "Force cancel",
+  },
+};
+
+function panelLabel(action: AdminStoreOrderInterventionAction): InterventionLabel {
+  return { ...ADMIN_STORE_ORDER_INTERVENTION_LABEL[action], ...PANEL_LABEL_OVERRIDE[action] };
+}
 
 export function AdminStoreOrderInterventionPanel({
   orderId,
@@ -55,11 +81,11 @@ export function AdminStoreOrderInterventionPanel({
 
   const errorText = (code: string) => {
     const e = ADMIN_STORE_ORDER_INTERVENTION_ERROR[code];
-    return e ? (ko ? e.ko : e.en) : ko ? `처리에 실패했습니다. (${code})` : `Failed. (${code})`;
+    return e ? (ko ? e.ko : e.en) : adminOperatorErrorMessage(code, ko);
   };
 
   const run = async (action: AdminStoreOrderInterventionAction) => {
-    const label = ADMIN_STORE_ORDER_INTERVENTION_LABEL[action];
+    const label = panelLabel(action);
     const visibility = BUYER_VISIBLE_REASON.has(action)
       ? ko
         ? "반려 사유는 매장과 구매자에게 표시됩니다."
@@ -117,7 +143,7 @@ export function AdminStoreOrderInterventionPanel({
         order_status?: string;
       };
       if (!res.ok || j.ok !== true) {
-        const code = typeof j.error === "string" ? j.error : `http_${res.status}`;
+        const code = typeof j.error === "string" ? j.error : res.status === 403 ? "forbidden" : "action_failed";
         setNotice({ tone: "error", text: errorText(code) });
         if (RELOAD_ERRORS.has(code)) await onChanged();
         return;
@@ -152,7 +178,7 @@ export function AdminStoreOrderInterventionPanel({
         ) : (
           <div className="flex flex-wrap gap-2">
             {actions.map((a) => {
-              const label = ADMIN_STORE_ORDER_INTERVENTION_LABEL[a];
+              const label = panelLabel(a);
               const isBusy = busy === a;
               return (
                 <button

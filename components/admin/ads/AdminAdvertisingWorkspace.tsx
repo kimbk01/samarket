@@ -8,7 +8,8 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
@@ -309,6 +310,17 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const { language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  /** LNK-1 — `?store_id=` (legacy `?storeId=`) scopes the workspace to one store. */
+  const storeFilter = (searchParams.get("store_id") ?? searchParams.get("storeId") ?? "").trim();
+  const clearStoreFilter = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("store_id");
+    next.delete("storeId");
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname);
+  }, [pathname, router, searchParams]);
   const boostOrderIdRaw =
     mode === "boosts" ? (searchParams.get(ADS_BOOST_ORDER_URL_PARAM) ?? "").trim() : "";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
@@ -336,25 +348,39 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       orderId: boostOrderIdRaw || undefined,
     });
     if (!result.ok) {
-      setErr(result.error);
+      setErr(adminOperatorErrorMessage(result.error === "network" ? "network_error" : result.error, ko));
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw]);
+  }, [boostOrderIdRaw, ko]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  /** Pool scoped by the store filter (control-plane API has no store param — filter on item.storeId). */
+  const scopedPool = useCallback(
+    (m: AdsControlPlaneModel) => {
+      const pool = collectPool(m);
+      return storeFilter ? pool.filter((i) => i.storeId === storeFilter) : pool;
+    },
+    [storeFilter]
+  );
+  const storeFilterLabel = useMemo(() => {
+    if (!storeFilter || !model) return storeFilter;
+    const hit = collectPool(model).find((i) => i.storeId === storeFilter && i.applicantLabel.trim());
+    return hit?.applicantLabel.trim() || storeFilter;
+  }, [model, storeFilter]);
+
   const shellRows = useMemo(() => {
     if (!model) return [] as AdsShellListRow[];
-    const items = collectPool(model);
+    const items = scopedPool(model);
     let rows = items.map((i) => toAdsShellListRow(i, ko, mode));
     rows = filterRowsByMode(rows, mode);
     rows = filterShellRowsByProductFamily(rows, family);
     rows = filterShellRowsByTab(rows, statusTab);
     return rows;
-  }, [model, ko, mode, family, statusTab]);
+  }, [model, ko, mode, family, statusTab, scopedPool]);
 
   const itemById = useMemo(() => {
     const map = new Map<string, AdsActionItem>();
@@ -415,7 +441,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         heroCap: 5,
       };
     }
-    const all = collectPool(model).map((i) => toAdsShellListRow(i, ko));
+    const all = scopedPool(model).map((i) => toAdsShellListRow(i, ko));
     const scoped = filterRowsByMode(all, mode);
     const hero = model.occupancy?.find((o) => o.placementKey === "STORES_HOME_HERO");
     return {
@@ -428,7 +454,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       heroCap:
         hero?.capacity ?? BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.defaultCapacity,
     };
-  }, [model, ko, mode]);
+  }, [model, ko, mode, scopedPool]);
 
   const popupQueue = useMemo(() => {
     if (!model) return [] as Array<{
@@ -438,7 +464,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       incomplete: AdsShellListRow[];
       scheduled: AdsShellListRow[];
     }>;
-    const popupRows = collectPool(model)
+    const popupRows = scopedPool(model)
       .filter((i) => i.domain === "popup" && String(i.id).startsWith("popup_campaign:"))
       .map((i) => toAdsShellListRow(i, ko));
     const bySurface = new Map<string, AdsShellListRow[]>();
@@ -455,7 +481,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       incomplete: rows.filter((r) => r.statusTab === "incomplete"),
       scheduled: rows.filter((r) => r.statusTab === "scheduled"),
     }));
-  }, [model, ko]);
+  }, [model, ko, scopedPool]);
 
   const executeDrawerAction = useCallback(
     async (
@@ -493,6 +519,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             family: fam,
             entityId: parseWorkspaceEntityId(rowItem.id),
             action,
+            // 화면에서 본 버전 — 서버가 현재 값으로 대신 채우지 않도록 (DEF-6)
+            expectedUpdatedAt: rowItem.expectedUpdatedAt ?? undefined,
+            expectedLifecycle: rowItem.expectedLifecycle ?? undefined,
             reason: reason || undefined,
             publicMessage: reason || undefined,
             internalMemo: action === "add_internal_memo" ? internalMemo : undefined,
@@ -504,7 +533,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             endAt: action === "change_period" ? new Date(periodEnd).toISOString() : undefined,
           }),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          result?: { refundWarning?: string | null } | null;
+        };
         if (!res.ok || !j.ok) {
           setActionMsg(
             j.error === "capacity_full"
@@ -515,11 +548,20 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 ? ko
                   ? "사유를 입력해 주세요."
                   : "Please enter a reason."
-                : j.error ?? (ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en)
+                : j.error
+                  ? adminOperatorErrorMessage(res.status === 403 ? "forbidden" : j.error, ko)
+                  : ko
+                    ? ADS_FEEDBACK.saveFailed.ko
+                    : ADS_FEEDBACK.saveFailed.en
           );
           return;
         }
-        setActionMsg(feedbackForAction(action, ko));
+        const refundWarning = j.result?.refundWarning ?? null;
+        setActionMsg(
+          refundWarning
+            ? `${feedbackForAction(action, ko)} ${adminOperatorErrorMessage(refundWarning, ko)}`
+            : feedbackForAction(action, ko)
+        );
         setPublicMessage("");
         setInternalMemo("");
         setManageOpenId(null);
@@ -630,6 +672,24 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               {ko ? "프로모션 / 이벤트" : "Promotion / Events"}
             </AdminActionLink>
           </p>
+          {storeFilter ? (
+            <span
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+              data-admin-ads-store-filter-chip="1"
+            >
+              <span className="truncate" title={storeFilter}>
+                {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 font-medium underline"
+                onClick={clearStoreFilter}
+                aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
+              >
+                {ko ? "해제" : "Clear"}
+              </button>
+            </span>
+          ) : null}
         </div>
         {headerCtas.showRegister || headerCtas.showPlacementsLink ? (
           <div className="flex flex-wrap gap-2">

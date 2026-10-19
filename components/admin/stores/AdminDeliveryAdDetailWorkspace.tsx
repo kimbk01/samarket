@@ -411,7 +411,11 @@ export function AdminDeliveryAdDetailWorkspace({
           }),
         }
       );
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        result?: { refundWarning?: string };
+      };
       if (!res.ok || !json.ok) {
         setError(
           json.error === "funding_required"
@@ -426,6 +430,7 @@ export function AdminDeliveryAdDetailWorkspace({
       setPendingReviewConfirm(null);
       setReason("");
       emitAdminQueueChanged("delivery_ad_ops");
+      const refundWarning = json.result?.refundWarning ?? null;
       if (action === "approve" || action === "reject" || action === "request_changes") {
         setReviewSuccessKind(action);
       }
@@ -434,6 +439,9 @@ export function AdminDeliveryAdDetailWorkspace({
         return;
       }
       await load();
+      if (refundWarning) {
+        setError(adminOperatorErrorMessage(refundWarning, lang !== "en"));
+      }
     } catch {
       setError(adminOperatorErrorMessage("network_error", lang !== "en"));
     } finally {
@@ -718,15 +726,12 @@ export function AdminDeliveryAdDetailWorkspace({
     <AdminDeliveryCmsChrome help="home">
       <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="design-board">
         <div>
+          {/* LNK-8 — back to the visible ads workspace (legacy hub is hidden from the menu). */}
           <Link
-            href={DELIVERY_AD_ADMIN_ROUTES.hub}
+            href="/admin/advertising"
             className="text-[12px] text-sam-brand underline-offset-2 hover:underline"
           >
-            ←{" "}
-            {safeT("admin_delivery_ads_back", {
-              fallbackKo: "목록으로",
-              fallbackEn: "Back to queue",
-            })}
+            ← {lang === "en" ? "Back to ads" : "광고 목록으로"}
           </Link>
           <h1 className="mt-1 text-[20px] font-bold text-sam-fg">
             {campaign
@@ -741,6 +746,18 @@ export function AdminDeliveryAdDetailWorkspace({
           {campaign ? (
             <p className="mt-1 text-[14px] text-sam-muted">
               {campaign.storeName || "—"}
+              {campaign.storeId ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/admin/business/${encodeURIComponent(campaign.storeId)}`}
+                    className="text-[12px] font-semibold text-sam-brand underline-offset-2 hover:underline"
+                    data-admin-delivery-ads-store-detail-link="1"
+                  >
+                    {lang === "en" ? "Store detail" : "매장 상세"}
+                  </Link>
+                </>
+              ) : null}
               {" · "}
               {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
                 fallbackKo: campaign.productKind,

@@ -9,6 +9,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { COMMISSION_PRESS, ROW_ACTION_BTN } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { AdminStoreOrderInterventionPanel } from "@/components/admin/delivery-orders/AdminStoreOrderInterventionPanel";
@@ -120,6 +123,12 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
     return s;
   });
   const abortRef = useRef<AbortController | null>(null);
+  /** Current admin URL — used as returnTo for links that leave the order (e.g. member detail). */
+  const [currentHref, setCurrentHref] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCurrentHref(`${window.location.pathname}${window.location.search}`);
+  }, [orderId]);
 
   const statusLabel = useCallback(
     (s: string) => {
@@ -144,7 +153,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<AdminOrderDetail>;
       if (ac.signal.aborted) return;
       if (res.status === 401 || res.status === 403) throw new Error("forbidden");
-      if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : `http_${res.status}`);
+      if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : "load_failed");
       setDetail(j as AdminOrderDetail);
     } catch (e) {
       if (ac.signal.aborted) return;
@@ -214,9 +223,13 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           ? ko
             ? "주문을 찾을 수 없습니다."
             : "Order not found."
-          : ko
-            ? `주문 정보를 불러오지 못했습니다. (${error})`
-            : `Failed to load the order. (${error})`;
+          : error === "load_failed"
+            ? ko
+              ? "주문 정보를 불러오지 못했습니다."
+              : "Failed to load the order."
+            : ko
+            ? `주문 정보를 불러오지 못했습니다. ${adminOperatorErrorMessage(error, true)}`
+            : `Failed to load the order. ${adminOperatorErrorMessage(error, false)}`;
     return (
       <div className="space-y-3 p-4" data-state="error">
         <p role="alert" className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
@@ -251,7 +264,27 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
     { href: `/admin/stores/orders/refunds?q=${q}&order=${o.id}&section=payment`, label: ko ? "환불 요청에서 보기" : "In refunds", show: isRefundFamily },
     { href: `/admin/stores/orders/logs?q=${q}`, label: ko ? "감사 로그" : "Audit log", show: true },
     { href: `/admin/stores/orders/${encodeURIComponent(o.id)}/chat`, label: ko ? "주문 채팅" : "Order chat", show: o.hasChat },
-    { href: `/admin/store-settlements?order_no=${q}`, label: ko ? "수수료 원장" : "Commission ledger", show: true },
+    { href: `/admin/store-settlements?order_no=${q}`, label: ko ? "수수료 내역" : "Commission history", show: true },
+    {
+      href: `/admin/store-payment-events?order_id=${encodeURIComponent(o.id)}`,
+      label: ko ? "결제 수신 기록" : "Payment events",
+      show: true,
+    },
+    {
+      href: withAdminReturnTo(`/admin/users/${encodeURIComponent(o.buyerUserId)}`, currentHref),
+      label: ko ? "구매자 회원" : "Buyer member",
+      show: Boolean(o.buyerUserId),
+    },
+    {
+      href: `/admin/stores/orders/by-store/${encodeURIComponent(o.storeId)}`,
+      label: ko ? "매장 주문 목록" : "Store orders",
+      show: Boolean(o.storeId),
+    },
+    {
+      href: `/admin/support?reference_type=STORE_ORDER&reference_id=${encodeURIComponent(o.id)}`,
+      label: ko ? "고객 문의" : "Customer inquiries",
+      show: true,
+    },
     { href: `/admin/stores/orders/${encodeURIComponent(o.id)}`, label: ko ? "전체 화면으로 열기" : "Open full page", show: !fullPage },
   ];
 
@@ -298,7 +331,9 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
         </div>
         {error ? (
           <p role="alert" className="sam-text-xxs text-sam-danger">
-            {ko ? `최신 정보를 다시 불러오지 못했습니다. (${error})` : `Could not refresh. (${error})`}
+            {ko
+              ? `최신 정보를 다시 불러오지 못했습니다. ${adminOperatorErrorMessage(error, true)}`
+              : `Could not refresh. ${adminOperatorErrorMessage(error, false)}`}
           </p>
         ) : null}
       </div>
@@ -408,7 +443,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
                   ? "검증: 주문금액 − 할인 − 상품권 = 결제액 일치"
                   : "Check: amounts reconcile"
                 : ko
-                  ? "검증: 금액 불일치 — 원장 값을 그대로 표시합니다 (보정하지 않음)"
+                  ? "검증: 금액 불일치 — 기록된 값을 그대로 표시합니다 (보정하지 않음)"
                   : "Check: amounts do not reconcile — values shown as recorded"}
             </div>
           </Row>
@@ -421,7 +456,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           {o.orderStatus === "cancelled" ? (
             <Row label={ko ? "취소" : "Cancelled"}>
               <span className="sam-text-xxs text-sam-muted">
-                {ko ? "고객이 매장에 직접 결제하는 주문 — 반환 기록은 플랫폼 원장에 없습니다." : "Paid directly to the store — no platform refund record."}
+                {ko ? "고객이 매장에 직접 결제하는 주문 — 플랫폼에는 반환 기록이 없습니다." : "Paid directly to the store — no platform refund record."}
               </span>
             </Row>
           ) : null}
@@ -479,7 +514,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           {o.orderStatus === "refund_requested" || o.orderStatus === "refunded" ? (
             <p className="mt-2 sam-text-xxs text-sam-muted">
               {ko
-                ? "환불 요청은 별도 원장이 없어 요청자·사유는 아래 처리 이력(감사 로그)에서 확인합니다."
+                ? "환불 요청은 별도 기록이 없어 요청자·사유는 아래 처리 이력(감사 로그)에서 확인합니다."
                 : "Refund requests have no separate ledger — see History for requester and reason."}
             </p>
           ) : null}
@@ -489,8 +524,8 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           <Row label={ko ? "수수료 부과 기준액" : "Commission base"}>{formatMoneyPhp(m.commissionBase)}</Row>
           <p className="sam-text-xxs text-sam-muted">
             {ko
-              ? "기준액 = 고객 결제 + 상품권 + 플랫폼 쿠폰 부담 (#58). 부과 수수료와 상태는 아래 처리 이력의 「수수료 정산」에 있습니다. 매장 정산(지급)은 없습니다."
-              : "Base = paid + gift + platform-funded coupon (#58). Fee and state are under History. There is no payout."}
+              ? "기준액 = 고객 결제 + 상품권 + 플랫폼 쿠폰 부담. 부과 수수료와 상태는 아래 처리 이력과 「수수료 내역」에서 확인합니다. 고객은 매장에 직접 결제하므로 주문별 지급은 없습니다."
+              : "Base = paid + gift + platform-funded coupon. Fee and state are under History and Commission history. Customers pay the store directly — there is no per-order payout."}
           </p>
         </Section>
 
@@ -547,8 +582,8 @@ function AdminOrderMetaControls({
         body: JSON.stringify(body),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.status === 401 || res.status === 403) throw new Error(ko ? "이 작업을 할 권한이 없습니다." : "Not permitted.");
-      if (!res.ok || j.ok !== true) throw new Error(ko ? `저장하지 못했습니다. (${j.error ?? res.status})` : `Failed. (${j.error ?? res.status})`);
+      if (res.status === 401 || res.status === 403) throw new Error(adminOperatorErrorMessage("forbidden", ko));
+      if (!res.ok || j.ok !== true) throw new Error(adminOperatorErrorMessage(j.error ?? "update_failed", ko));
       emitAdminQueueChanged("orders_attention");
       setNotice({ tone: "ok", text: okText });
       await onChanged();
@@ -576,6 +611,44 @@ function AdminOrderMetaControls({
     if (ok) await patch({ admin_locked: locking }, locking ? (ko ? "잠금했습니다." : "Locked.") : ko ? "잠금을 해제했습니다." : "Unlocked.");
   };
 
+  const toggleFlag = async () => {
+    const flagging = !o.adminFlagged;
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: flagging ? (ko ? "확인 필요 표시" : "Mark for review") : ko ? "확인 필요 표시 해제" : "Clear review mark",
+      description: flagging
+        ? ko
+          ? "관리자 확인이 필요한 주문으로 표시합니다. 매장·구매자에게는 보이지 않습니다."
+          : "Marks the order as needing admin review. Not visible to the store or buyer."
+        : ko
+          ? "확인 필요 표시를 해제합니다."
+          : "Clears the review mark.",
+      confirmLabel: flagging ? (ko ? "표시" : "Mark") : ko ? "해제" : "Clear",
+    });
+    if (!c.ok) return;
+    await patch({ admin_flagged: flagging }, ko ? "확인 필요 표시를 변경했습니다." : "Review mark updated.");
+  };
+
+  const toggleUrgent = async () => {
+    const urgent = o.disputeStatus !== "urgent";
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: urgent ? (ko ? "긴급 표시" : "Mark urgent") : ko ? "긴급 해제" : "Clear urgent",
+      description: urgent
+        ? ko
+          ? "이 주문을 긴급 처리 대상으로 표시합니다."
+          : "Marks this order as urgent."
+        : ko
+          ? "긴급 표시를 해제합니다."
+          : "Clears the urgent mark.",
+      confirmLabel: urgent ? (ko ? "표시" : "Mark") : ko ? "해제" : "Clear",
+    });
+    if (!c.ok) return;
+    await patch({ dispute_status: urgent ? "urgent" : "" }, ko ? "긴급 표시를 변경했습니다." : "Urgent updated.");
+  };
+
   const BTN = `inline-flex min-h-9 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50 ${COMMISSION_PRESS}`;
   return (
     <div className="space-y-2" data-admin-order-meta="1">
@@ -587,20 +660,15 @@ function AdminOrderMetaControls({
           type="button"
           className={BTN}
           disabled={busy}
-          onClick={() => void patch({ admin_flagged: !o.adminFlagged }, ko ? "플래그를 변경했습니다." : "Flag updated.")}
+          onClick={() => void toggleFlag()}
         >
-          {o.adminFlagged ? (ko ? "플래그 해제" : "Unflag") : ko ? "플래그 표시" : "Flag"}
+          {o.adminFlagged ? (ko ? "확인 필요 해제" : "Clear review mark") : ko ? "확인 필요 표시" : "Mark for review"}
         </button>
         <button
           type="button"
           className={BTN}
           disabled={busy}
-          onClick={() =>
-            void patch(
-              { dispute_status: o.disputeStatus === "urgent" ? "" : "urgent" },
-              ko ? "긴급 표시를 변경했습니다." : "Urgent updated."
-            )
-          }
+          onClick={() => void toggleUrgent()}
         >
           {o.disputeStatus === "urgent" ? (ko ? "긴급 해제" : "Clear urgent") : ko ? "긴급 표시" : "Mark urgent"}
         </button>

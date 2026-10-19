@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM,
   ADMIN_COUPON_CONTROL_ROLES,
@@ -41,7 +43,8 @@ const ROLE_LABEL: Record<
 };
 
 export function AdminStoreCouponControlPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -50,6 +53,8 @@ export function AdminStoreCouponControlPage() {
   const [campaigns, setCampaigns] = useState<CouponControlCampaignView[]>([]);
   const [storeOptions, setStoreOptions] = useState<{ id: string; name: string }[]>([]);
   const [actError, setActError] = useState<string | null>(null);
+  /** List load failure — shown as AdminErrorState, never as an empty list (DEF-44). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [couponNumberQuery, setCouponNumberQuery] = useState("");
 
   const load = useCallback(async (couponNumber?: string) => {
@@ -57,10 +62,24 @@ export function AdminStoreCouponControlPage() {
     const url = q
       ? `/api/admin/store-coupons?couponNumber=${encodeURIComponent(q)}`
       : "/api/admin/store-coupons";
-    const res = await fetch(url, { credentials: "include", cache: "no-store" });
-    const json = (await res.json()) as { ok?: boolean; campaigns?: CouponControlCampaignView[] };
-    const next = json.ok ? json.campaigns ?? [] : [];
-    setCampaigns(next);
+    let next: CouponControlCampaignView[] = [];
+    try {
+      const res = await fetch(url, { credentials: "include", cache: "no-store" });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        campaigns?: CouponControlCampaignView[];
+        error?: string;
+      };
+      if (!res.ok || !json.ok) {
+        setLoadError({ code: json.error ?? "load_failed", status: res.status });
+      } else {
+        setLoadError(null);
+        next = json.campaigns ?? [];
+        setCampaigns(next);
+      }
+    } catch {
+      setLoadError({ code: "network_error" });
+    }
     // coupon_number search → open matching campaign detail (master trace entry)
     if (q && next.length === 1 && next[0]?.id) {
       const params = new URLSearchParams(sp.toString());
@@ -116,33 +135,41 @@ export function AdminStoreCouponControlPage() {
     [campaigns, campaignId]
   );
 
-  const act = async (id: string, action: string, revokeReason?: string) => {
+  /** Confirmation (L1/L2/L3) is collected by the detail pane; this only sends + maps errors. */
+  const act = async (id: string, action: string, reason?: string | null) => {
     setActError(null);
     const body: Record<string, unknown> = { id, action };
-    if (action === "revoke") {
-      const reason = (revokeReason ?? "").trim();
-      if (reason.length < 2) {
-        setActError(t("store_coupon_admin_revoke_fail"));
+    const trimmed = (reason ?? "").trim();
+    if (action === "revoke" || action === "reject") {
+      if (trimmed.length < 2) {
+        setActError(adminOperatorErrorMessage(action === "revoke" ? "revoke_reason_required" : "reject_reason_required", ko));
         return;
       }
-      body.reason = reason;
     }
-    const res = await fetch("/api/admin/store-coupons", {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = (await res.json()) as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) {
-      setActError(
-        json.error === "revoke_reason_required"
-          ? t("store_coupon_admin_revoke_fail")
-          : safeT("store_coupon_admin_act_fail", {
-              fallbackKo: "처리할 수 없습니다.",
-              fallbackEn: "Could not complete that action.",
-            })
-      );
+    if (trimmed) body.reason = trimmed;
+    try {
+      const res = await fetch("/api/admin/store-coupons", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        const code = res.status === 403 ? "forbidden" : json.error;
+        setActError(
+          code
+            ? adminOperatorErrorMessage(code, ko)
+            : safeT("store_coupon_admin_act_fail", {
+                fallbackKo: "처리할 수 없습니다.",
+                fallbackEn: "Could not complete that action.",
+              })
+        );
+        if (json.error === "invalid_coupon_transition") await load();
+        return;
+      }
+    } catch {
+      setActError(adminOperatorErrorMessage("network_error", ko));
       return;
     }
     await load();
@@ -179,7 +206,11 @@ export function AdminStoreCouponControlPage() {
           })}
         </nav>
 
-        {role === "dashboard" ? (
+        {loadError && role !== "list" ? (
+          <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
+        ) : null}
+
+        {role === "dashboard" && !loadError ? (
           <div className="flex min-w-0 flex-col gap-3" data-admin-coupon-pane="dashboard">
             <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
               {(
@@ -243,15 +274,19 @@ export function AdminStoreCouponControlPage() {
                   className="shrink-0 rounded-ui-rect bg-signature px-4 text-sm font-medium text-white"
                   onClick={() => void load(couponNumberQuery)}
                 >
-                  {t("store_coupon_admin_filter_all")}
+                  {ko ? "검색" : "Search"}
                 </button>
               </div>
             </label>
-            <AdminStoreCouponControlList campaigns={campaigns} onOpenDetail={goDetail} />
+            {loadError ? (
+              <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load(couponNumberQuery)} />
+            ) : (
+              <AdminStoreCouponControlList campaigns={campaigns} onOpenDetail={goDetail} />
+            )}
           </div>
         ) : null}
 
-        {role === "detail" ? (
+        {role === "detail" && !loadError ? (
           <AdminStoreCouponControlDetail campaign={selected} onAct={act} actError={actError} />
         ) : null}
 
