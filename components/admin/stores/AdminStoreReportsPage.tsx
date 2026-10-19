@@ -23,6 +23,7 @@ import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 type Row = {
   id: string;
   reporter_user_id: string;
+  reporter_label?: string | null;
   target_type: string;
   target_id: string;
   store_id: string;
@@ -152,8 +153,12 @@ export function AdminStoreReportsPage() {
           res.status === 409 || json?.error === "not_open_or_missing"
             ? "status_changed"
             : res.status === 403
-              ? "forbidden"
-              : "action_failed";
+              ? typeof json?.error === "string" && json.error.startsWith("forbidden")
+                ? json.error
+                : "forbidden"
+              : json?.error === "reason_required"
+                ? "reason_required"
+                : "action_failed";
         setResult({ ok: false, code });
         if (code === "status_changed") await load();
         return;
@@ -247,6 +252,8 @@ export function AdminStoreReportsPage() {
                 </div>
                 <p className="mt-1 text-xs text-sam-muted">
                   {ko ? "신고 사유" : "Reason"}: {reasonLabel(r.reason_type, ko)}
+                  {" · "}
+                  {ko ? "신고자" : "Reporter"}: {r.reporter_label || (ko ? "이름 확인 불가" : "Name unavailable")}
                   {" · "}
                   {formatAdminDateTime(r.created_at, language)}
                 </p>

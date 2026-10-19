@@ -8,6 +8,7 @@ import {
   type StoreCouponWriterError,
 } from "@/lib/stores/store-coupon-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { loadAdminCouponControlCenter } from "@/lib/stores/load-admin-coupon-control-center";
 
 export const runtime = "nodejs";
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  bumpStorePublicSharedCacheGeneration("admin_coupon.create"); // DEF-64
   return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
 }
 
@@ -133,6 +135,7 @@ export async function PATCH(req: NextRequest) {
       if (!updated || updated.length === 0) {
         return NextResponse.json({ ok: false, error: "invalid_coupon_transition" }, { status: 409 });
       }
+      bumpStorePublicSharedCacheGeneration(`admin_coupon.${adminAction}`); // DEF-64
       await sb.from("coupon_audit_events").insert({
         campaign_id: campaignId,
         actor_user_id: userId,
@@ -159,6 +162,7 @@ export async function PATCH(req: NextRequest) {
       if (!revokedRows || revokedRows.length === 0) {
         return NextResponse.json({ ok: false, error: "invalid_coupon_transition" }, { status: 409 });
       }
+      bumpStorePublicSharedCacheGeneration("admin_coupon.revoke"); // DEF-64
       const { data: revokeResult, error: revokeErr } = await sb.rpc(
         "revoke_campaign_active_entitlements",
         {
@@ -187,5 +191,6 @@ export async function PATCH(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  bumpStorePublicSharedCacheGeneration("admin_coupon.update"); // DEF-64
   return NextResponse.json({ ok: true, campaign: result.row });
 }

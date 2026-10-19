@@ -11,7 +11,7 @@ function clampLimit(raw: string | null, fallback: number) {
   return Math.min(300, Math.max(1, n));
 }
 
-/** 관리자: 결제·웹훅 이벤트 로그 (쿼리: order_id, source, event_type, limit) */
+/** 관리자: 결제 수신 기록 (쿼리: order_id · source · event_type 정확히 일치, limit) — 조회 전용 */
 export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
   const sourceRaw = searchParams.get("source")?.trim() || null;
   const eventRaw = searchParams.get("event_type")?.trim() || null;
   const limit = clampLimit(searchParams.get("limit"), 200);
-
-  /** ilike 패턴 특수문자 제거 (와일드카드 주입 방지) */
-  const safeIlike = (s: string) => s.replace(/[%_\\]/g, "");
+  if (orderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+    return NextResponse.json({ ok: false, error: "invalid_order_id" }, { status: 400 });
+  }
 
   let q = sb
     .from("store_payment_events")
@@ -37,11 +37,10 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(limit);
 
+  // Admin screen sends exact values from its select boxes (labels are mapped in the UI).
   if (orderId) q = q.eq("order_id", orderId);
-  const source = sourceRaw ? safeIlike(sourceRaw) : "";
-  if (source) q = q.ilike("source", `%${source}%`);
-  const eventType = eventRaw ? safeIlike(eventRaw) : "";
-  if (eventType) q = q.ilike("event_type", `%${eventType}%`);
+  if (sourceRaw) q = q.eq("source", sourceRaw.slice(0, 80));
+  if (eventRaw) q = q.eq("event_type", eventRaw.slice(0, 80));
 
   const { data: rows, error } = await q;
 
@@ -50,7 +49,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin/store-payment-events]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, events: rows ?? [] });

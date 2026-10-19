@@ -1,9 +1,140 @@
 /**
  * 배달 Admin 완성 (R4) — 주문 문구. admin-delivery-ops-ux 뒤에 spread 된다.
+ * 같은 키를 다시 쓰는 항목은 오래된 문구 교정 (DEF-23 「환불 처리 기록」, DEF-61 「매장 주문(액션)」 제거,
+ * 「원장」·원시 컬럼명 제거).
  */
 export const adminDeliveryR4BMessages = {
   ko: {
+    // 주문 상세 — 관리자 메타 (잠금·확인 필요·긴급·메모) 동시성
+    admin_r4b_meta_conflict:
+      "다른 관리자가 먼저 이 주문을 수정했습니다. 최신 내용으로 다시 불러왔으니 확인한 뒤 다시 시도하세요.",
+    admin_r4b_gift_source_record: "상품권 사용 기록 기준",
+    admin_r4b_gift_source_order: "주문 기록 기준",
+
+    // 주문 처리 이력 패널
+    admin_r4b_hist_commission_title: "수수료",
+    admin_r4b_hist_open_commission: "수수료 내역에서 보기",
+
+    // 주문 채팅 (DEF-60 단일 경로 · 읽기 전용)
+    admin_r4b_chat_desc:
+      "주문에 연결된 채팅을 읽기 전용으로 봅니다. 관리자 화면에서는 메시지를 보내거나 채팅방을 만들지 않습니다.",
+    admin_r4b_chat_order_detail: "주문 상세 보기",
+    admin_r4b_chat_store: "매장",
+    admin_r4b_chat_buyer: "구매자",
+    admin_r4b_chat_status: "주문 상태",
+    admin_r4b_chat_role_buyer: "구매자",
+    admin_r4b_chat_role_store: "매장",
+    admin_r4b_chat_role_system: "시스템 안내",
+    admin_r4b_chat_role_other: "기타 참여자",
+    admin_r4b_chat_hidden: "관리자가 숨긴 메시지",
+    admin_r4b_chat_empty: "아직 주고받은 메시지가 없습니다.",
+    admin_r4b_chat_no_room: "이 주문에 연결된 채팅방이 없습니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다.",
+    admin_r4b_chat_truncated: "최근 메시지 300건만 표시합니다.",
+    admin_r4b_chat_reload: "다시 불러오기",
+    admin_r4b_chat_messages: "대화 내용",
+
+    // 결제 수신 기록
+    admin_r4b_pay_th_source: "수신 경로",
+    admin_r4b_pay_th_event: "내용",
+    admin_r4b_pay_th_order: "주문",
+    admin_r4b_pay_th_provider: "결제사",
+    admin_r4b_pay_source_webhook: "결제사 자동 알림",
+    admin_r4b_pay_source_other: "기타 경로",
+    admin_r4b_pay_event_succeeded: "결제 완료 알림",
+    admin_r4b_pay_event_failed: "결제 실패 알림",
+    admin_r4b_pay_event_other: "기타 결제 알림",
+    admin_r4b_pay_filter_order: "주문 ID",
+    admin_r4b_pay_filter_all: "전체",
+    admin_r4b_pay_open_order: "주문 상세",
+    admin_r4b_pay_order_filter_active: "선택한 주문의 결제 수신 기록만 표시합니다.",
+    admin_r4b_pay_clear_order: "주문 조건 해제",
+    admin_r4b_pay_back_order: "주문 상세로 돌아가기",
+    admin_r4b_pay_search: "조회",
+    admin_r4b_pay_searching: "조회 중…",
+    admin_stores_payment_desc:
+      "결제사 자동 알림으로 들어온 결제 관련 기록입니다. 고객 결제는 매장에서 직접 처리되며, 이 기록은 조회 전용입니다. 원본 데이터는 각 행의 「기술 정보」에 있습니다.",
+    admin_stores_payment_filter_source: "수신 경로",
+    admin_stores_payment_filter_event: "내용",
+    admin_stores_payment_err_table_missing: "결제 수신 기록 저장소가 준비되지 않았습니다. 시스템 관리자에게 문의하세요.",
+
+    // DEF-61 — 오래된 「매장 주문(액션)」·「환불 승인」 문구 교정
+    admin_do_chat_desc: "주문에 연결된 채팅을 조회합니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다.",
+    admin_do_chat_room_hint: "이 주문의 대화는 「주문 채팅 열기」에서 읽기 전용으로 확인합니다.",
+    admin_do_chat_open_store_orders: "처리 필요 주문에서 보기",
+    admin_do_chat_delivery_table: "주문 상세 보기",
+    admin_do_chat_list_merged: "채팅방이 연결된 주문만 표시합니다. 관리자 화면에서는 채팅방을 만들지 않습니다.",
+    admin_do_nav_store_orders: "처리 필요 주문",
+    admin_do_dashboard_go_store_orders: "처리 필요 주문으로 이동",
+    admin_do_detail_search_hint: "주문 목록에서 주문번호로 검색하세요",
+    admin_do_common_ledger_loading: "불러오는 중…",
+    admin_do_refund_approved: "환불 처리 기록됨",
+    admin_do_refunds_approve_ok: "환불 처리 기록을 반영했습니다.",
+    admin_do_refund_modal_approve_title: "환불 처리 기록",
+    admin_do_detail_dt_refund_approved: "환불 처리 기록 시각",
+    admin_do_aa_refund_approved: "환불 처리 기록",
   },
   en: {
+    admin_r4b_meta_conflict:
+      "Another admin changed this order first. The latest data has been reloaded — check it and try again.",
+    admin_r4b_gift_source_record: "Per gift-certificate records",
+    admin_r4b_gift_source_order: "Per order record",
+
+    admin_r4b_hist_commission_title: "Commission",
+    admin_r4b_hist_open_commission: "Open in commission history",
+
+    admin_r4b_chat_desc:
+      "Read-only view of the chat linked to this order. Admin screens never send messages or create chat rooms.",
+    admin_r4b_chat_order_detail: "Open order detail",
+    admin_r4b_chat_store: "Store",
+    admin_r4b_chat_buyer: "Buyer",
+    admin_r4b_chat_status: "Order status",
+    admin_r4b_chat_role_buyer: "Buyer",
+    admin_r4b_chat_role_store: "Store",
+    admin_r4b_chat_role_system: "System notice",
+    admin_r4b_chat_role_other: "Other participant",
+    admin_r4b_chat_hidden: "Message hidden by an admin",
+    admin_r4b_chat_empty: "No messages yet.",
+    admin_r4b_chat_no_room: "No chat room is linked to this order. Admin screens never create chat rooms.",
+    admin_r4b_chat_truncated: "Showing the latest 300 messages only.",
+    admin_r4b_chat_reload: "Reload",
+    admin_r4b_chat_messages: "Conversation",
+
+    admin_r4b_pay_th_source: "Received via",
+    admin_r4b_pay_th_event: "What happened",
+    admin_r4b_pay_th_order: "Order",
+    admin_r4b_pay_th_provider: "Provider",
+    admin_r4b_pay_source_webhook: "Payment provider notice",
+    admin_r4b_pay_source_other: "Other",
+    admin_r4b_pay_event_succeeded: "Payment succeeded",
+    admin_r4b_pay_event_failed: "Payment failed",
+    admin_r4b_pay_event_other: "Other payment notice",
+    admin_r4b_pay_filter_order: "Order ID",
+    admin_r4b_pay_filter_all: "All",
+    admin_r4b_pay_open_order: "Order detail",
+    admin_r4b_pay_order_filter_active: "Showing payment receipts for the selected order only.",
+    admin_r4b_pay_clear_order: "Clear order filter",
+    admin_r4b_pay_back_order: "Back to order detail",
+    admin_r4b_pay_search: "Search",
+    admin_r4b_pay_searching: "Searching…",
+    admin_stores_payment_desc:
+      "Payment records received from payment provider notices. Customers pay the store directly; this page is read-only. Raw data is under each row's Technical details.",
+    admin_stores_payment_filter_source: "Received via",
+    admin_stores_payment_filter_event: "What happened",
+    admin_stores_payment_err_table_missing: "Payment receipt storage is not set up. Contact a system admin.",
+
+    admin_do_chat_desc: "Look up the chat linked to an order. Admin screens never create chat rooms.",
+    admin_do_chat_room_hint: "Read this order's conversation via 「Open order chat」 (read-only).",
+    admin_do_chat_open_store_orders: "View in orders needing action",
+    admin_do_chat_delivery_table: "Open order detail",
+    admin_do_chat_list_merged: "Shows orders that already have a chat room. Admin screens never create rooms.",
+    admin_do_nav_store_orders: "Orders needing action",
+    admin_do_dashboard_go_store_orders: "Go to orders needing action",
+    admin_do_detail_search_hint: "Search by order number in the order list",
+    admin_do_common_ledger_loading: "Loading…",
+    admin_do_refund_approved: "Refund recorded",
+    admin_do_refunds_approve_ok: "Refund recorded.",
+    admin_do_refund_modal_approve_title: "Record refund",
+    admin_do_detail_dt_refund_approved: "Refund recorded at",
+    admin_do_aa_refund_approved: "Refund recorded",
   },
 } as const;

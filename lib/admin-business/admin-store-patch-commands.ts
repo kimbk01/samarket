@@ -90,6 +90,11 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.delivery_radius_km"],
     table: "stores",
   },
+  /** DEF-58 — 반경 + 매장 거리 정책 모드를 한 번에 (전역 JSON 은 서버가 이 매장 항목만 병합·버전 비교). */
+  set_store_delivery_distance: {
+    writes: ["stores.delivery_radius_km", "admin_settings.delivery_store_distance_overrides.stores[store_id]"],
+    table: "stores",
+  },
   approve_sales: {
     writes: ["store_sales_permissions.*"],
     table: "store_sales_permissions",

@@ -26,9 +26,20 @@ import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-s
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 import { parseStoreDeliveryRadiusKmForWrite } from "@/lib/delivery/store-delivery-radius";
+import {
+  currentStoreDistanceMode,
+  isStoreDistanceMode,
+  mergeStoreDistanceOverride,
+} from "@/lib/admin-business/admin-store-distance-override";
+import {
+  DELIVERY_OPS_SETTING_KEYS,
+  invalidateDeliveryDistanceSettingsCache,
+} from "@/lib/delivery/delivery-ops-settings";
+import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 import {
   STORE_DELIVERY_REQUIRES_CANONICAL_GEO_ERROR,
   storeHasCanonicalDeliveryOrigin,
@@ -64,6 +75,10 @@ type PatchBody = {
   pickup_available?: boolean;
   is_open?: boolean;
   delivery_radius_km?: number | null;
+  /** set_store_delivery_distance — 매장 거리 정책 모드 */
+  distance_mode?: string;
+  /** set_store_delivery_distance — 화면이 불러온 모드 (다르면 409 status_changed → 재조회) */
+  expected_distance_mode?: string | null;
 };
 
 export async function GET(
@@ -196,6 +211,8 @@ export async function PATCH(
         /* best-effort */
       }
     }
+    // DEF-64 — 다른 서버리스 인스턴스의 매장 공개 캐시도 무효화 (Next cache tag 세대).
+    bumpStorePublicSharedCacheGeneration(`admin_store.${action}`);
     return NextResponse.json({ ok: true });
   };
 
@@ -501,6 +518,7 @@ export async function PATCH(
       slug,
       ownerUserId: typeof store.owner_user_id === "string" ? store.owner_user_id : null,
     });
+    bumpStorePublicSharedCacheGeneration(`admin_store.${action}`); // DEF-64
     return NextResponse.json({
       ok: true,
       ...(store_orders_checkout_geo_sync !== undefined
@@ -605,6 +623,106 @@ export async function PATCH(
       }
     }
     return auditOk(before, patch);
+  }
+
+  if (action === "set_store_delivery_distance") {
+    const mode = String(body.distance_mode ?? "").trim();
+    if (!isStoreDistanceMode(mode)) {
+      return NextResponse.json({ ok: false, error: "invalid_distance_mode" }, { status: 400 });
+    }
+    let nextRadius: number | null;
+    if (body.delivery_radius_km === null) {
+      nextRadius = null;
+    } else if (body.delivery_radius_km === undefined) {
+      return NextResponse.json({ ok: false, error: "delivery_radius_km_required" }, { status: 400 });
+    } else {
+      const parsed = parseStoreDeliveryRadiusKmForWrite(body.delivery_radius_km);
+      if (!parsed.ok) {
+        return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+      }
+      nextRadius = parsed.value;
+    }
+
+    const settingsKey = DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides;
+    const readOverrides = async () =>
+      sb
+        .from("admin_settings")
+        .select("value_json, updated_at")
+        .eq("key", settingsKey)
+        .maybeSingle();
+    const first = await readOverrides();
+    if (first.error) {
+      console.error("[admin/stores PATCH distance] read", first.error);
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    const prevMode = currentStoreDistanceMode(first.data?.value_json, id);
+    const expected = String(body.expected_distance_mode ?? "").trim();
+    if (expected && isStoreDistanceMode(expected) && expected !== prevMode) {
+      // 다른 관리자가 먼저 바꿈 — 덮어쓰지 않고 재조회 안내.
+      return NextResponse.json(
+        { ok: false, error: "status_changed", current: prevMode },
+        { status: 409 }
+      );
+    }
+    const prevRadius = (store as { delivery_radius_km?: unknown }).delivery_radius_km ?? null;
+    const before = { delivery_radius_km: prevRadius, distance_mode: prevMode };
+
+    const prevRadiusNum = prevRadius == null ? null : Number(prevRadius);
+    if (prevRadiusNum !== nextRadius) {
+      const { error: radErr } = await sb
+        .from("stores")
+        .update({ delivery_radius_km: nextRadius })
+        .eq("id", id);
+      if (radErr) {
+        console.error("[admin/stores PATCH distance] radius", radErr);
+        return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+      }
+      invalidateDiscoveryAfterStoreWrite(sb, id, { delivery_radius_km: nextRadius });
+    }
+
+    if (mode !== prevMode) {
+      // 최신 JSON 위에 이 매장 항목만 병합 → updated_at 이 그대로일 때만 저장 (최대 3회 재시도).
+      let snapshot = first.data as { value_json?: unknown; updated_at?: string | null } | null;
+      let saved = false;
+      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+        if (attempt > 0) {
+          const again = await readOverrides();
+          if (again.error) break;
+          snapshot = again.data as typeof snapshot;
+        }
+        const merged = mergeStoreDistanceOverride(snapshot?.value_json, id, mode);
+        const nowIso = new Date().toISOString();
+        if (snapshot) {
+          let q = sb
+            .from("admin_settings")
+            .update({ value_json: merged, updated_at: nowIso })
+            .eq("key", settingsKey);
+          q = snapshot.updated_at ? q.eq("updated_at", snapshot.updated_at) : q.is("updated_at", null);
+          const { data: rows, error: upErr } = await q.select("key");
+          if (upErr) {
+            console.error("[admin/stores PATCH distance] overrides", upErr);
+            break;
+          }
+          saved = Array.isArray(rows) && rows.length > 0;
+        } else {
+          const { error: insErr } = await sb
+            .from("admin_settings")
+            .insert({ key: settingsKey, value_json: merged, updated_at: nowIso });
+          if (!insErr) saved = true;
+          else if (!/duplicate|unique/i.test(insErr.message)) {
+            console.error("[admin/stores PATCH distance] overrides insert", insErr);
+            break;
+          }
+        }
+      }
+      if (!saved) {
+        return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+      }
+      invalidateDeliveryDistanceSettingsCache();
+      void invalidateDiscoveryGlobalDistancePolicy(sb);
+    }
+    clearStoreHomeFeedServerCache();
+    return auditOk(before, { delivery_radius_km: nextRadius, distance_mode: mode });
   }
 
   if (action === "approve_sales" || action === "reject_sales" || action === "suspend_sales") {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/support/support-case-service";
 import { isAdminSupportListFilter, isAdminSupportTab } from "@/lib/support/support-case-types";
 import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
+import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,15 @@ export async function GET(req: NextRequest) {
   const assignee = assigneeRaw === "ME" || assigneeRaw === "UNASSIGNED" ? assigneeRaw : null;
   const stale = sp.get("stale") === "1";
   const search = sp.get("search")?.trim() ?? "";
+  // Domain deep links (주문 상세 · 매장 허브) — whitelisted reference type, UUID ids only.
+  const referenceTypeRaw = sp.get("reference_type")?.trim().toUpperCase() ?? "";
+  const referenceType = (SUPPORT_REFERENCE_TYPES as readonly string[]).includes(referenceTypeRaw)
+    ? referenceTypeRaw
+    : null;
+  const uuidOrNull = (v: string | null) =>
+    v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim()) ? v.trim() : null;
+  const referenceId = uuidOrNull(sp.get("reference_id"));
+  const ownerStoreId = uuidOrNull(sp.get("store_id"));
 
   let adminUserId: string | null = null;
   if (assignee === "ME") {
@@ -45,7 +55,19 @@ export async function GET(req: NextRequest) {
   }
 
   const [res, counts] = await Promise.all([
-    listSupportCasesForAdmin(sb, { filter, tab, audience, group, assignee, adminUserId, stale, search }),
+    listSupportCasesForAdmin(sb, {
+      filter,
+      tab,
+      audience,
+      group,
+      assignee,
+      adminUserId,
+      stale,
+      search,
+      referenceType,
+      referenceId,
+      ownerStoreId,
+    }),
     countSupportCasesByTab(sb),
   ]);
   if (!res.ok) {

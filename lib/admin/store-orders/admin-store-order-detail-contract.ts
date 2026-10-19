@@ -11,7 +11,7 @@
  * - gift certificate = gift_certificate_redemptions.redeemed_amount (ledger is authoritative;
  *   the order column `gift_redemption_amount` was not written by an older flow)
  * - customer paid   = payment_amount (= order amount − discount − gift)
- * - commission base = payment + gift + platform-funded (#58 store_commission_charge_order_internal)
+ * - commission base = payment + gift + platform-funded (store_commission_charge_order_internal)
  * The only browser arithmetic is the integrity check, which compares and never replaces a value.
  */
 
@@ -100,11 +100,11 @@ export type AdminOrderMoneyMismatch =
   | "amount_mismatch";
 
 export const ADMIN_ORDER_MONEY_MISMATCH_LABEL: Record<AdminOrderMoneyMismatch, { ko: string; en: string }> = {
-  gift_not_on_order: { ko: "상품권 금액 주문 미기록 (원장 기준 표시)", en: "Gift amount missing on order (ledger shown)" },
-  gift_not_deducted: { ko: "금액 원장 불일치 — 상품권 미차감", en: "Ledger mismatch — gift not deducted" },
+  gift_not_on_order: { ko: "상품권 금액 주문 미기록 (사용 기록 기준 표시)", en: "Gift amount missing on order (redemption record shown)" },
+  gift_not_deducted: { ko: "금액 기록 불일치 — 상품권 미차감", en: "Amount record mismatch — gift not deducted" },
   gift_reversed_order_open: {
-    ko: "금액 원장 불일치 — 상품권 복원됨, 주문 진행 중",
-    en: "Ledger mismatch — gift reversed while order is open",
+    ko: "금액 기록 불일치 — 상품권 복원됨, 주문 진행 중",
+    en: "Amount record mismatch — gift reversed while order is open",
   },
   amount_mismatch: { ko: "금액 불일치", en: "Amount mismatch" },
 };

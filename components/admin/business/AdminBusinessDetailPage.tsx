@@ -60,6 +60,12 @@ import {
   businessCcPointsHref,
   businessCcReportsHref,
 } from "@/lib/admin-business/business-control-center-links";
+import {
+  AdminStoreHubRecentReports,
+  AdminStoreHubSummaryCards,
+  actorDisplay,
+  useStoreHubSummary,
+} from "./AdminStoreHubSummaryCards";
 
 type TabId =
   | "overview"
@@ -90,38 +96,20 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
   { id: "history", labelKey: "admin_biz_ops_nav_history" },
 ];
 
-/** DEF-19 — 작업 기록 이름 (audit action `store.<action>` → 운영자 문구). */
-const AUDIT_ACTION_LABELS: Record<string, [string, string]> = {
-  start_review: ["심사 시작", "Review started"],
-  mark_under_review: ["심사 시작", "Review started"],
-  approve_store: ["입점 승인", "Store approved"],
-  reject_store: ["입점 거절", "Store rejected"],
-  request_revision: ["보완 요청", "Changes requested"],
-  suspend_store: ["운영 중지", "Store suspended"],
-  resume_store: ["운영 재개", "Store resumed"],
-  approve_sales: ["판매 승인", "Sales approved"],
-  reject_sales: ["판매 거절", "Sales rejected"],
-  suspend_sales: ["판매 중지", "Sales suspended"],
-  set_store_visible: ["노출 변경", "Visibility changed"],
-  set_owner_identity_editable: ["매장명 수정 권한 변경", "Name edit permission changed"],
-  set_admin_memo: ["관리자 메모 저장", "Admin memo saved"],
-  set_store_name: ["매장명 변경", "Store name changed"],
-  set_store_taxonomy: ["업종 변경", "Category changed"],
-  set_store_contact: ["연락처 변경", "Contact changed"],
-  set_store_location: ["위치 변경", "Location changed"],
-  set_business_hours: ["영업시간 변경", "Business hours changed"],
-  set_delivery_flags: ["영업·배달 설정 변경", "Open/delivery settings changed"],
-  set_delivery_radius: ["배달 반경 변경", "Delivery radius changed"],
+import { mapAuditAction } from "@/lib/admin-business/store-audit-action-labels";
+
+export { mapAuditAction };
+
+type CcAuditLog = {
+  id: string;
+  actionType: string;
+  adminId: string;
+  actorLabel?: string | null;
+  actorType?: string;
+  reason?: string | null;
+  note: string;
+  createdAt: string;
 };
-
-export function mapAuditAction(action: string, ko: boolean): string {
-  const key = action.trim().replace(/^store\./, "");
-  const hit = AUDIT_ACTION_LABELS[key];
-  if (hit) return ko ? hit[0] : hit[1];
-  return ko ? "매장 정보 변경" : "Store updated";
-}
-
-type CcAuditLog = { id: string; actionType: string; adminId: string; note: string; createdAt: string };
 
 function safeErrorCode(raw: unknown, status: number): string {
   const s = typeof raw === "string" ? raw.trim() : "";
@@ -261,6 +249,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
   >(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
+  const hubSummary = useStoreHubSummary(profileId, refresh);
+  /** 공통 화면에서 돌아올 위치 (현재 탭 유지) */
+  const hubReturnTo = `/admin/business/${encodeURIComponent(profileId)}?tab=${tab}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -285,13 +276,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           fee?: BusinessCcFeeSnapshot;
           delivery?: BusinessCcDeliverySnapshot;
           ops?: BusinessCcOpsOverview;
-          logs?: Array<{
-            id: string;
-            actionType: string;
-            adminId: string;
-            note: string;
-            createdAt: string;
-          }>;
+          logs?: CcAuditLog[];
           };
           if (cancelled) return;
           if (!j.ok || !j.store) {
@@ -620,6 +605,16 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             </div>
           </div>
 
+          <AdminStoreHubSummaryCards
+            storeId={store.id}
+            ownerUserId={owner.ownerUserId}
+            returnTo={hubReturnTo}
+            section="overview"
+            state={hubSummary}
+            ops={ops}
+            kpi={kpi}
+          />
+
           <details
             className="rounded-ui-rect border border-sam-border bg-sam-app shadow-sm"
             open={advancedOpen}
@@ -787,6 +782,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 {ko ? "중지 사유" : "Suspension reason"}: {store.suspended_reason.trim()}
               </p>
             ) : null}
+            <AdminStoreHubRecentReports storeId={store.id} refreshKey={refresh} />
             <p className="sam-text-helper text-sam-muted">
               {ko
                 ? "신고 처리(조치 완료·기각)는 매장 신고 화면에서 합니다. 운영 중지·판매 중지는 「기본정보」 탭의 입점/운영 조치에서 사유와 함께 처리합니다."
@@ -814,9 +810,16 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 <li key={log.id} className="border-b border-sam-border-soft pb-2 sam-text-body-secondary last:border-0">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="font-medium text-sam-fg">{mapAuditAction(log.actionType, ko)}</span>
-                    <span className="text-sam-muted">{ko ? "관리자" : "Admin"}</span>
+                    <span className="text-sam-muted">
+                      {actorDisplay({ actorType: log.actorType ?? "admin", actorLabel: log.actorLabel ?? null }, t)}
+                    </span>
                     <span className="ml-auto text-sam-meta">{formatAdminDateTime(log.createdAt, language)}</span>
                   </div>
+                  {log.reason ? (
+                    <p className="mt-0.5 text-sam-muted">
+                      {ko ? "사유" : "Reason"}: {log.reason}
+                    </p>
+                  ) : null}
                   <AdminTechDetails ko={ko}>
                     <div>action: {log.actionType}</div>
                     <div>admin_id: {log.adminId || "—"}</div>
@@ -840,6 +843,17 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       tab === "settlement" ||
       tab === "reviews" ? (
         <AdminCard titleKey="admin_biz_card_links">
+          <div className="mb-3">
+            <AdminStoreHubSummaryCards
+              storeId={store.id}
+              ownerUserId={owner.ownerUserId}
+              returnTo={hubReturnTo}
+              section={tab}
+              state={hubSummary}
+              ops={ops}
+              kpi={kpi}
+            />
+          </div>
           <AdminBusinessCcLinks
             storeId={store.id}
             ownerUserId={owner.ownerUserId}

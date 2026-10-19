@@ -8,7 +8,6 @@
  */
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
@@ -262,11 +261,15 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
   const related: { href: string; label: string; show: boolean }[] = [
     { href: `/admin/stores/orders/cancellations?q=${q}&order=${o.id}&section=requests`, label: ko ? "취소 요청에서 보기" : "In cancellations", show: isCancelFamily },
     { href: `/admin/stores/orders/refunds?q=${q}&order=${o.id}&section=payment`, label: ko ? "환불 요청에서 보기" : "In refunds", show: isRefundFamily },
-    { href: `/admin/stores/orders/logs?q=${q}`, label: ko ? "감사 로그" : "Audit log", show: true },
-    { href: `/admin/stores/orders/${encodeURIComponent(o.id)}/chat`, label: ko ? "주문 채팅" : "Order chat", show: o.hasChat },
+    { href: `/admin/stores/orders/logs?q=${q}`, label: t("admin_menu_delivery_logs"), show: true },
+    {
+      href: withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(o.id)}/chat`, currentHref),
+      label: ko ? "주문 채팅" : "Order chat",
+      show: o.hasChat,
+    },
     { href: `/admin/store-settlements?order_no=${q}`, label: ko ? "수수료 내역" : "Commission history", show: true },
     {
-      href: `/admin/store-payment-events?order_id=${encodeURIComponent(o.id)}`,
+      href: withAdminReturnTo(`/admin/store-payment-events?order_id=${encodeURIComponent(o.id)}`, currentHref),
       label: ko ? "결제 수신 기록" : "Payment events",
       show: true,
     },
@@ -281,7 +284,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
       show: Boolean(o.storeId),
     },
     {
-      href: `/admin/support?reference_type=STORE_ORDER&reference_id=${encodeURIComponent(o.id)}`,
+      href: withAdminReturnTo(`/admin/support?reference_type=STORE_ORDER&reference_id=${encodeURIComponent(o.id)}`, currentHref),
       label: ko ? "고객 문의" : "Customer inquiries",
       show: true,
     },
@@ -430,7 +433,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
             <Row label={ko ? "상품권" : "Gift certificate"}>
               −{formatMoneyPhp(m.giftAmount)}
               <div className="sam-text-xxs text-sam-muted">
-                {m.giftSource === "ledger" ? (ko ? "상품권 원장 기준" : "Per gift ledger") : ko ? "주문 기록 기준" : "Per order record"}
+                {m.giftSource === "ledger" ? t("admin_r4b_gift_source_record") : t("admin_r4b_gift_source_order")}
                 {m.giftReversed ? (ko ? " · 복원됨" : " · reversed") : ""}
               </div>
             </Row>
@@ -554,7 +557,11 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
   );
 }
 
-/** Lock / flag / urgent / memo — PATCH /api/admin/store-orders/[id] meta fields (unchanged API). */
+/**
+ * Lock / flag / urgent / memo — PATCH /api/admin/store-orders/[id] meta fields.
+ * Every write carries `expected_updated_at` (the row version this screen shows); a 409
+ * `stale_updated_at` means another admin changed the order first → conflict notice + reload.
+ */
 function AdminOrderMetaControls({
   detail,
   ko,
@@ -564,6 +571,7 @@ function AdminOrderMetaControls({
   ko: boolean;
   onChanged: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const o = detail.order;
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(o.adminNote ?? "");
@@ -579,16 +587,23 @@ function AdminOrderMetaControls({
         credentials: "include",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, expected_updated_at: o.updatedAt ?? "" }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.status === 401 || res.status === 403) throw new Error(adminOperatorErrorMessage("forbidden", ko));
-      if (!res.ok || j.ok !== true) throw new Error(adminOperatorErrorMessage(j.error ?? "update_failed", ko));
+      if (res.status === 409 || j.error === "stale_updated_at" || j.error === "expected_updated_at_required") {
+        setNotice({ tone: "error", text: t("admin_r4b_meta_conflict") });
+        await onChanged();
+        return;
+      }
+      if (!res.ok || j.ok !== true) {
+        const code = typeof j.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+        throw new Error(adminOperatorErrorMessage(code, ko));
+      }
       emitAdminQueueChanged("orders_attention");
       setNotice({ tone: "ok", text: okText });
       await onChanged();
     } catch (e) {
-      setNotice({ tone: "error", text: e instanceof Error ? e.message : ko ? "네트워크 오류" : "Network error" });
+      setNotice({ tone: "error", text: e instanceof Error ? e.message : adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -596,7 +611,9 @@ function AdminOrderMetaControls({
 
   const toggleLock = async () => {
     const locking = !o.adminLocked;
-    const ok = await dibayConfirm({
+    const c = await confirmAdminAction({
+      level: "L1",
+      ko,
       title: locking ? (ko ? "주문 잠금" : "Lock order") : ko ? "잠금 해제" : "Unlock order",
       description: locking
         ? ko
@@ -606,9 +623,10 @@ function AdminOrderMetaControls({
           ? "잠금을 풀면 매장·구매자가 다시 상태를 바꿀 수 있습니다."
           : "Unlocking lets the store and buyer change status again.",
       confirmLabel: locking ? (ko ? "잠금" : "Lock") : ko ? "해제" : "Unlock",
-      confirmTone: locking ? "destructive" : "primary",
+      destructive: locking,
     });
-    if (ok) await patch({ admin_locked: locking }, locking ? (ko ? "잠금했습니다." : "Locked.") : ko ? "잠금을 해제했습니다." : "Unlocked.");
+    if (!c.ok) return;
+    await patch({ admin_locked: locking }, locking ? (ko ? "잠금했습니다." : "Locked.") : ko ? "잠금을 해제했습니다." : "Unlocked.");
   };
 
   const toggleFlag = async () => {

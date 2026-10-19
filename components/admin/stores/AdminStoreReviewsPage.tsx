@@ -24,6 +24,7 @@ type Row = {
   store_name: string;
   order_id: string;
   buyer_user_id: string;
+  buyer_label?: string | null;
   rating: number;
   content: string;
   status: string;
@@ -107,7 +108,16 @@ export function AdminStoreReviewsPage() {
       });
       const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setResult({ ok: false, code: res.status === 403 ? "forbidden" : "action_failed" });
+        const code =
+          res.status === 409
+            ? "status_changed"
+            : res.status === 403
+              ? "forbidden"
+              : json?.error === "reason_required"
+                ? "reason_required"
+                : "action_failed";
+        setResult({ ok: false, code });
+        if (code === "status_changed") await load();
         return;
       }
       setResult({
@@ -171,6 +181,8 @@ export function AdminStoreReviewsPage() {
               </div>
               <p className="mt-1 text-xs text-sam-muted">
                 {new Date(r.created_at).toLocaleDateString(locale)}
+                {" · "}
+                {ko ? "작성자" : "Buyer"}: {r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}
               </p>
               <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>

@@ -20,6 +20,18 @@ export function isAdminStoreProductAction(action: string): action is AdminStoreP
   return (ADMIN_STORE_PRODUCT_ACTIONS as readonly string[]).includes(action);
 }
 
+/** L2 조치 (사유 필수 → admin_review_memo): 차단 · 숨김 · 검수 반려 · 보관(=숨김). DEF-37 서버 검증. */
+export const ADMIN_STORE_PRODUCT_ACTIONS_REQUIRING_MEMO = new Set<AdminStoreProductAction>([
+  "block",
+  "hide",
+  "reject_review",
+  "archive",
+]);
+
+export function adminStoreProductMemoMissing(action: AdminStoreProductAction, memo: string | null): boolean {
+  return ADMIN_STORE_PRODUCT_ACTIONS_REQUIRING_MEMO.has(action) && (memo ?? "").trim().length < 2;
+}
+
 export type AdminStoreProductActionInput = {
   action: AdminStoreProductAction;
   memo: string | null;

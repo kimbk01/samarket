@@ -307,7 +307,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
 }
 
 function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -530,7 +530,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
-          result?: { refundWarning?: string | null } | null;
+          result?: { refundWarning?: string | null; refundQueued?: boolean } | null;
         };
         if (!res.ok || !j.ok) {
           setActionMsg(
@@ -553,7 +553,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         const refundWarning = j.result?.refundWarning ?? null;
         setActionMsg(
           refundWarning
-            ? `${feedbackForAction(action, ko)} ${adminOperatorErrorMessage(refundWarning, ko)}`
+            ? `${feedbackForAction(action, ko)} ${adminOperatorErrorMessage(refundWarning, ko)} ${t(
+                j.result?.refundQueued ? "admin_r4c_ad_refund_queued" : "admin_r4c_ad_refund_not_queued"
+              )}`
             : feedbackForAction(action, ko)
         );
         setPublicMessage("");
@@ -567,7 +569,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         setBusyAction(null);
       }
     },
-    [publicMessage, internalMemo, extendDays, periodStart, periodEnd, load, ko]
+    [publicMessage, internalMemo, extendDays, periodStart, periodEnd, load, ko, t]
   );
 
   const requestDrawerAction = useCallback(

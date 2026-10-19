@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
       );
     }
     console.error("[admin/store-inquiries]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
   const list = rows ?? [];
@@ -50,11 +51,17 @@ export async function GET(req: Request) {
     for (const s of stores ?? []) storeById[s.id as string] = (s.store_name as string) ?? "";
   }
 
+  const askerLabels = await loadActorLabels(
+    sb,
+    list.map((r) => String(r.from_user_id ?? ""))
+  );
+
   return NextResponse.json({
     ok: true,
     inquiries: list.map((r) => ({
       ...r,
       store_name: storeById[r.store_id as string] ?? "",
+      from_user_label: askerLabels.get(String(r.from_user_id ?? "")) ?? null,
     })),
   });
 }

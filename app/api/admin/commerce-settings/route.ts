@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { COMMERCE_SETTING_KEYS } from "@/lib/stores/commerce-settings-keys";
 import { listCommerceSettingKeysInDb, loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
@@ -53,13 +53,18 @@ type PutBody = {
   store_settlement_delay_days?: number | null;
   /** 주문 채팅(일치 확인 등) 알림음 MP3/오디오 URL — null이면 DB 행 삭제 */
   order_match_chat_alert_sound_url?: string | null;
+  /** 작업 기록 사유 (초기화 L2 확인 등). */
+  reason?: string | null;
 };
 
-/** 관리자: 값 저장(null이면 해당 키 행 삭제 → env 기본값) */
+/**
+ * 관리자: 값 저장(null이면 해당 키 행 삭제 → env 기본값)
+ * C-9 · DUP-4 · DEF-4: `store_settlement_fee_bp`(수수료는 수수료 정책·DB 트리거 SSOT)와
+ * `store_settlement_delay_days`(레거시 정산 writer 중단)는 더 이상 값을 저장하지 않는다 — null(정리)만 허용.
+ */
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   let body: PutBody;
   try {
@@ -74,6 +79,13 @@ export async function PUT(req: NextRequest) {
   }
 
   const ops: { key: string; del: boolean; value?: number }[] = [];
+
+  for (const retired of ["store_settlement_fee_bp", "store_settlement_delay_days"] as const) {
+    if (retired in body && body[retired] !== null && body[retired] !== undefined) {
+      return NextResponse.json({ ok: false, error: "legacy_setting_retired", field: retired }, { status: 400 });
+    }
+  }
+  const beforeEffective = await loadCommerceSettings(sb);
 
   if ("store_auto_complete_days" in body) {
     const v = body.store_auto_complete_days;
@@ -211,15 +223,23 @@ export async function PUT(req: NextRequest) {
     },
   };
 
-  const actorId = await getRouteUserId();
   const rm = getAuditRequestMeta(req);
   void appendAuditLog(sb, {
     actor_type: "admin",
-    actor_id: actorId,
+    actor_id: gate.actor.userId,
     target_type: "commerce_settings",
     target_id: "global",
     action: "commerce_settings.update",
-    after_json: payload as unknown as Record<string, unknown>,
+    before_json: {
+      store_auto_complete_days: beforeEffective.autoCompleteDays,
+      store_settlement_fee_bp: beforeEffective.settlementFeeBp,
+      store_settlement_delay_days: beforeEffective.settlementDelayDays,
+    },
+    after_json: {
+      ...(payload as unknown as Record<string, unknown>),
+      request: body as Record<string, unknown>,
+      reason: typeof body.reason === "string" ? body.reason.trim().slice(0, 1000) || null : null,
+    },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });

@@ -44,6 +44,7 @@ function buildBrowseStatusMapFromShadow(
         business_hours_json: row.business_hours_json,
         is_open: row.is_open,
         point_commerce_blocked: row.point_commerce_blocked,
+        sales_allowed: row.sales_allowed,
         delivery_available: row.delivery_available,
         distanceOutOfRange: outOfRangeById.get(row.id) === true,
       })
@@ -136,6 +137,7 @@ export async function loadHomeDiscoveryRankedForLive(
       business_hours_json?: unknown;
       is_open?: unknown;
       point_commerce_blocked?: unknown;
+      sales_allowed?: unknown;
     }>,
     originLat: input.originLat,
     originLng: input.originLng,

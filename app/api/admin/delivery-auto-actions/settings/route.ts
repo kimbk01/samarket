@@ -37,19 +37,29 @@ export async function GET() {
   });
 }
 
+/**
+ * 자동 조치 ON/OFF — **권위 스위치** (DEF-42).
+ * 크론 러너 `run_delivery_operation_alert_auto_actions()` 와 승인/재실행 RPC 가 읽는 테이블은
+ * `delivery_auto_actions_runtime_settings` 뿐이다. 런타임 상태 화면의
+ * `platform_runtime_settings.enable_auto_actions` 는 어떤 러너도 읽지 않으므로 권위가 아니다.
+ * L1 확인 + CAS(`expected_enabled`) + 감사 기록.
+ */
 export async function PATCH(req: Request) {
   const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
-  let body: { delivery_auto_actions_enabled?: boolean };
+  let body: { delivery_auto_actions_enabled?: boolean; expected_enabled?: boolean };
   try {
-    body = (await req.json()) as { delivery_auto_actions_enabled?: boolean };
+    body = (await req.json()) as { delivery_auto_actions_enabled?: boolean; expected_enabled?: boolean };
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
   if (typeof body.delivery_auto_actions_enabled !== "boolean") {
     return NextResponse.json({ error: "delivery_auto_actions_enabled_required" }, { status: 400 });
+  }
+  if (typeof body.expected_enabled !== "boolean") {
+    return NextResponse.json({ error: "expected_status_required" }, { status: 400 });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -63,6 +73,7 @@ export async function PATCH(req: Request) {
     .from("delivery_auto_actions_runtime_settings")
     .update({ delivery_auto_actions_enabled: body.delivery_auto_actions_enabled })
     .eq("singleton", 1)
+    .eq("delivery_auto_actions_enabled", body.expected_enabled)
     .select("singleton, delivery_auto_actions_enabled, updated_at")
     .maybeSingle();
 
@@ -75,7 +86,8 @@ export async function PATCH(req: Request) {
   }
 
   if (!data) {
-    return NextResponse.json({ error: "settings_row_missing" }, { status: 500 });
+    // CAS 실패 — 다른 관리자가 먼저 바꿨다 (행이 있으면 status_changed)
+    return NextResponse.json({ error: "status_changed" }, { status: 409 });
   }
 
   await appendAdminRouteAudit(admin.sb, req, {
@@ -83,6 +95,7 @@ export async function PATCH(req: Request) {
     targetType: "delivery_auto_actions_runtime_settings",
     targetId: "1",
     action: "delivery_auto_actions.settings",
+    before: { delivery_auto_actions_enabled: body.expected_enabled },
     after: data as Record<string, unknown>,
   });
 

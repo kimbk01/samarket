@@ -68,8 +68,8 @@ const SETTING_LABELS: Record<(typeof SETTINGS_KEYS)[number], { ko: string; en: s
   enable_auto_actions: {
     ko: "자동 조치",
     en: "Auto actions",
-    descKo: "배달 경고 규칙의 자동 조치를 실행합니다. (자동 조치 승인 화면의 스위치와 별개)",
-    descEn: "Runs auto actions from alert rules. (Separate from the Auto action approval switch)",
+    descKo: "표시 전용 — 어떤 실행기도 이 값을 읽지 않습니다. 실제 켜기/끄기는 「자동 조치」 화면에서 합니다.",
+    descEn: "Display only — no runner reads this value. Turn auto actions on/off on the Auto actions page.",
   },
 };
 
@@ -289,6 +289,17 @@ export function AdminRuntimeHealthPage() {
                 </div>
                 <AdminTechDetails ko={ko}>{r.key}</AdminTechDetails>
               </div>
+              {r.key === "enable_auto_actions" ? (
+                // DEF-42: 자동 조치 ON/OFF 권위 = delivery_auto_actions_runtime_settings (자동 조치 화면).
+                // 이 값은 어떤 러너도 읽지 않으므로 여기서는 표시만 하고 권위 화면으로 연결한다.
+                <a
+                  href="/admin/delivery-auto-actions"
+                  className="shrink-0 text-xs font-medium text-signature underline"
+                  title={t("admin_r4c_auto_actions_authority_hint")}
+                >
+                  {t("admin_r4c_auto_actions_authority_link")}
+                </a>
+              ) : (
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   className={Sam.btn.secondary}
@@ -307,6 +318,7 @@ export function AdminRuntimeHealthPage() {
                   {ko ? "켜기" : "ON"}
                 </button>
               </div>
+              )}
             </div>
           ))}
         </div>

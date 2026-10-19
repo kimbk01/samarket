@@ -136,6 +136,8 @@ export function AdminStoreProductsPage() {
           ok: false,
           code: res.status === 403 ? "forbidden" : /^[a-z_]+$/.test(code) ? code : "action_failed",
         });
+        // 상태가 바뀐 경우(409) 최신 목록으로 다시 불러온다.
+        if (res.status === 409) await load();
         return;
       }
       setResult({ ok: true, message: ko ? c.okKo : c.okEn });

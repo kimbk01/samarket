@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isAdminStoreOrderInterventionAction } from "@/lib/admin/store-orders/admin-store-order-intervention-contract";
 import { runAdminStoreOrderIntervention } from "@/lib/stores/admin-store-order-intervention";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -16,8 +16,10 @@ export const dynamic = "force-dynamic";
 type Body = { action?: unknown; reason?: unknown; expected_status?: unknown };
 
 export async function POST(req: NextRequest, context: { params: Promise<{ orderId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  // B-7: 강제 취소·환불 처리 기록 = 매장(배달) 관리 권한이 있는 관리자 이상.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";

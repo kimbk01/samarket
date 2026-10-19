@@ -54,14 +54,17 @@ export function businessCcDeliveryDistanceHref(): string {
   return "/admin/delivery-distance";
 }
 
-/** LNK-3 — 매장 코인(포인트) 거래: 재무 거래 화면을 wallet·store_id 로 필터. */
+/**
+ * LNK-3 — 매장 코인(포인트) 거래: 재무 거래 화면을 wallet·storeId 로 필터.
+ * 재무 화면 필터 파서(`parseFinanceFilters`)는 `storeId` 를 읽는다 (`store_id` 는 무시됨).
+ */
 export function businessCcPointsHref(storeId: string): string {
-  return `/admin/finance/transactions?wallet=COIN&store_id=${encodeURIComponent(storeId.trim())}`;
+  return `/admin/finance/transactions?wallet=COIN&storeId=${encodeURIComponent(storeId.trim())}`;
 }
 
-/** 매장 캐시 거래 — 재무 거래 화면 wallet=CASH 필터. */
+/** 매장 캐시 거래 — 재무 거래 화면 wallet=CASH + storeId 필터. */
 export function businessCcCashTransactionsHref(storeId: string): string {
-  return `/admin/finance/transactions?wallet=CASH&store_id=${encodeURIComponent(storeId.trim())}`;
+  return `/admin/finance/transactions?wallet=CASH&storeId=${encodeURIComponent(storeId.trim())}`;
 }
 
 /** LNK-1 — 매장 광고: 통합 광고 화면을 store_id 로 필터. */

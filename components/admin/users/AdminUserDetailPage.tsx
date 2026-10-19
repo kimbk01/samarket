@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
 import type {
@@ -44,6 +47,8 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<DetailLoadState>({ kind: "loading" });
   const [softRefreshing, setSoftRefreshing] = useState(false);
+  // §3 — opened from a domain screen (매장 허브 · 주문 상세): offer the way back with its filters.
+  const returnTo = readAdminReturnToFromSearch(useSearchParams());
 
   const onUpdated = useCallback(() => {
     setRefreshKey((key) => key + 1);
@@ -165,6 +170,15 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
         >
           회원 정보를 갱신하는 중…
         </p>
+      ) : null}
+      {returnTo ? (
+        <Link
+          href={returnTo}
+          className="mb-2 inline-block text-[13px] font-medium text-sam-primary hover:underline"
+          data-member-detail-return="1"
+        >
+          {t("admin_r4_return_previous")}
+        </Link>
       ) : null}
       <AdminMemberControlCenter
         user={state.user}

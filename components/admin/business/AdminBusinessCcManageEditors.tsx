@@ -574,6 +574,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
     currentEffectiveMaxKm != null ? String(currentEffectiveMaxKm) : "10"
   );
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
     setMode((currentMode as DeliveryStoreDistanceMode) || "inherit");
@@ -589,6 +590,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
     });
     if (!confirmed.ok) return;
     setBusy(true);
+    setResult(null);
     try {
       const parsedKm = Number(maxKm);
       if (!Number.isFinite(parsedKm) || parsedKm <= 0) {
@@ -596,52 +598,27 @@ export function AdminBusinessCcDeliveryOverrideEditor({
         return;
       }
 
-      const radiusRes = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+      // DEF-58 — 단일 API: 반경 + 이 매장 거리 정책 모드. 서버가 전역 JSON 에 이 매장만 병합하고,
+      // 화면이 불러온 모드와 서버 현재 모드가 다르면 409 → 재조회 안내 (덮어쓰기 금지).
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "set_delivery_radius",
+          action: "set_store_delivery_distance",
           delivery_radius_km: Math.round(parsedKm * 10) / 10,
+          distance_mode: mode,
+          expected_distance_mode: currentMode || "inherit",
         }),
       });
-      const radiusJson = (await radiusRes.json()) as { ok?: boolean; error?: string };
-      if (!radiusRes.ok || radiusJson.ok === false) {
-        await dibayAlert({ title: adminOperatorErrorMessage(radiusJson.error ?? "update_failed", ko) });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || j.ok === false) {
+        const code = j.error ?? "update_failed";
+        await dibayAlert({ title: adminOperatorErrorMessage(code, ko) });
+        if (code === "status_changed") onSaved();
         return;
       }
-
-      // Platform mode (enabled/disabled/inherit) only — maxKm no longer lives in override JSON.
-      const getRes = await fetch("/api/admin/delivery/settings", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const getJson = (await getRes.json()) as {
-        ok?: boolean;
-        store_distance_overrides?: { stores?: Record<string, { mode?: string; maxKm?: number | null }> };
-        error?: string;
-      };
-      if (!getRes.ok || getJson.ok === false) {
-        await dibayAlert({ title: adminOperatorErrorMessage(getJson.error ?? "update_failed", ko) });
-        return;
-      }
-      const stores = { ...(getJson.store_distance_overrides?.stores ?? {}) };
-      if (mode === "inherit") {
-        delete stores[storeId];
-      } else {
-        stores[storeId] = { mode, maxKm: null };
-      }
-      const putRes = await fetch("/api/admin/delivery/settings", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store_distance_overrides: { stores } }),
-      });
-      const putJson = (await putRes.json()) as { ok?: boolean; error?: string };
-      if (!putRes.ok || putJson.ok === false) {
-        await dibayAlert({ title: adminOperatorErrorMessage(putJson.error ?? "update_failed", ko) });
-        return;
-      }
+      setResult(ko ? "배달 반경·거리 정책을 저장했습니다." : "Delivery radius and distance policy saved.");
       onSaved();
     } finally {
       setBusy(false);
@@ -679,6 +656,11 @@ export function AdminBusinessCcDeliveryOverrideEditor({
           {t("admin_biz_save_delivery_override")}
         </button>
       </div>
+      {result ? (
+        <p role="status" className="rounded-ui-rect border border-emerald-300 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-950">
+          {result}
+        </p>
+      ) : null}
       <p className="sam-text-helper text-sam-muted">{t("business_store_delivery_radius_help")}</p>
       <AdminDeliveryServiceAreaEditor
         storeId={storeId}

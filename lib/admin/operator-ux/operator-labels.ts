@@ -177,6 +177,14 @@ export function adminOperatorErrorMessage(
       en: "You lack the admin permission for this action. Ask a super admin.",
     },
     super_admin_only: { ko: "최고 관리자만 할 수 있는 작업입니다.", en: "Only a super admin can do this." },
+    legacy_setting_retired: {
+      ko: "더 이상 쓰지 않는 설정입니다. 수수료는 '수수료 정책'에서 관리합니다.",
+      en: "This setting is retired. Fees are managed in 'Fee policies'.",
+    },
+    auto_action_type_retired: {
+      ko: "중단된 자동 조치입니다 (레거시 정산 보류). 다른 조치를 선택하세요.",
+      en: "This auto action is retired (legacy settlement hold). Choose another action.",
+    },
     status_changed: {
       ko: "다른 관리자가 먼저 처리해 상태가 바뀌었습니다. 새로고침 후 다시 확인하세요.",
       en: "Another admin changed the status first. Refresh and check again.",
@@ -193,6 +201,16 @@ export function adminOperatorErrorMessage(
       ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
       en: "Another admin edited this first. Refresh and check again.",
     },
+    expected_updated_at_required: {
+      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      en: "This screen is out of date. Refresh and try again.",
+    },
+    legacy_endpoint_disabled: {
+      ko: "더 이상 쓰지 않는 처리 경로입니다. 주문 상세의 「관리자 개입」에서 처리하세요.",
+      en: "This path is retired. Use 「Admin intervention」 on the order detail.",
+    },
+    invalid_order_id: { ko: "주문 번호 형식이 올바르지 않습니다.", en: "Invalid order reference." },
+    commission_load_failed: { ko: "수수료 정보를 불러오지 못했습니다.", en: "Could not load commission details." },
     invalid_store_transition: {
       ko: "현재 매장 상태에서는 할 수 없는 처리입니다.",
       en: "This action is not allowed for the store's current status.",
@@ -222,9 +240,57 @@ export function adminOperatorErrorMessage(
     as_of_date_in_future: { ko: "기준일은 오늘 이후로 지정할 수 없습니다.", en: "The as-of date cannot be in the future." },
     notification_failed: { ko: "알림을 보내지 못했습니다.", en: "Could not send the notification." },
     store_not_found: { ko: "매장을 찾을 수 없습니다.", en: "Store not found." },
+    invalid_distance_mode: { ko: "거리 정책 값이 올바르지 않습니다.", en: "Invalid distance policy value." },
+    invalid_store_id: { ko: "매장 주소가 올바르지 않습니다.", en: "Invalid store link." },
     order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
     supabase_unconfigured: { ko: "서버 설정 오류입니다. 시스템 관리자에게 문의하세요.", en: "Server configuration error. Contact a system admin." },
     db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.", en: "A database error occurred. Try again later." },
+    // 배달 현장 (R4-D) — 자동 조치·경고·라이더
+    kill_switch_off: {
+      ko: "자동 조치가 전체 중지된 상태라 실행할 수 없습니다. 자동 조치 승인 화면에서 먼저 허용하세요.",
+      en: "Auto actions are stopped. Allow them on the Auto action approval screen first.",
+    },
+    not_pending: { ko: "이미 처리된 자동 조치입니다. 새로고침 후 확인하세요.", en: "This auto action was already handled. Refresh." },
+    event_not_open: { ko: "연결된 경고가 이미 종료되어 실행할 수 없습니다.", en: "The linked alert is already closed." },
+    max_retries: { ko: "재실행 가능 횟수를 모두 사용했습니다.", en: "No retries left." },
+    not_found: { ko: "대상을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Not found. Refresh and check again." },
+    rpc_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
+    schema_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
+    bad_action: { ko: "지원하지 않는 복구 작업입니다.", en: "Unsupported recovery action." },
+    retype_required: { ko: "확인 문구가 일치하지 않아 실행하지 않았습니다.", en: "The confirmation text did not match." },
+    stale_version: {
+      ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this first. Refresh and check again.",
+    },
+    dangerous_action_requires_approval: {
+      ko: "정산 보류·라이더 재배정·알림 끄기 자동 조치는 항상 승인 후 실행되어야 합니다.",
+      en: "Hold / reassign / mute auto actions must always wait for approval.",
+    },
+    auto_action_requires_type_and_delay: {
+      ko: "자동 조치를 켜려면 조치 종류와 지연 시간(1분 이상)을 함께 지정하세요.",
+      en: "Set an action type and a delay of 1+ minutes to enable the auto action.",
+    },
+    rule_not_found: { ko: "규칙을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Rule not found. Refresh." },
+    event_not_found: { ko: "경고를 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Alert not found. Refresh." },
+    acknowledge_requires_open: { ko: "미처리 경고만 확인 처리할 수 있습니다.", en: "Only open alerts can be acknowledged." },
+    mute_requires_open_or_ack: { ko: "미처리·확인한 경고만 알림을 끌 수 있습니다.", en: "Only open or acknowledged alerts can be muted." },
+    cannot_edit_resolved: { ko: "해결된 경고는 수정할 수 없습니다.", en: "Resolved alerts cannot be edited." },
+    same_rider: { ko: "현재 라이더와 같은 라이더입니다.", en: "That is the current rider." },
+    rider_changed: {
+      ko: "그 사이 라이더 배정이 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+      en: "The rider assignment changed meanwhile. Refresh and check again.",
+    },
+    rider_already_assigned: { ko: "이미 다른 라이더가 배정되어 있습니다. 재배정을 사용하세요.", en: "Another rider is already assigned. Use reassign." },
+    delivery_already_delivered: { ko: "이미 배달 완료된 주문입니다.", en: "This order is already delivered." },
+    order_terminal_blocks_delivery: { ko: "종료된 주문이라 배달을 변경할 수 없습니다.", en: "The order is closed, so delivery cannot change." },
+    order_status_blocks_dispatch: { ko: "현재 주문 상태에서는 배달을 진행할 수 없습니다.", en: "The current order status does not allow dispatch." },
+    invalid_delivery_transition: { ko: "현재 배달 상태에서는 할 수 없는 변경입니다.", en: "Not allowed for the current delivery status." },
+    release_not_applicable_for_status: { ko: "현재 배달 상태에서는 배정을 해제할 수 없습니다.", en: "Cannot release for the current delivery status." },
+    rider_not_found: { ko: "라이더를 찾을 수 없습니다.", en: "Rider not found." },
+    rider_offline: { ko: "오프라인 라이더입니다. 오프라인 배정 허용을 켜고 다시 시도하세요.", en: "The rider is offline. Allow offline assignment and retry." },
+    rider_suspended: { ko: "정지된 라이더에게는 배정할 수 없습니다.", en: "Suspended riders cannot be assigned." },
+    rider_paused: { ko: "배정이 일시 중지된 라이더입니다.", en: "This rider's assignments are paused." },
+    invalid_rule_number: { ko: "분·단계 값은 1 이상의 숫자로 입력하세요.", en: "Minutes/levels must be numbers of 1 or more." },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);

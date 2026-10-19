@@ -26,6 +26,8 @@ export type DiscoveryRowForV2Oor = {
   business_hours_json?: unknown;
   is_open?: unknown;
   point_commerce_blocked?: unknown;
+  /** DEF-70 — 목록 select 의 판매 권한 평탄화 값 */
+  sales_allowed?: unknown;
 };
 
 /**
@@ -61,6 +63,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
           is_open: row.is_open == null ? null : Boolean(row.is_open),
           point_commerce_blocked:
             row.point_commerce_blocked == null ? null : Boolean(row.point_commerce_blocked),
+          sales_allowed: row.sales_allowed == null ? null : Boolean(row.sales_allowed),
           delivery_available: row.delivery_available === true,
           distanceOutOfRange: oor,
         }).rank
@@ -106,6 +109,7 @@ export async function resolveDiscoveryOorWithServiceAreaAuthority(
         is_open: row.is_open == null ? null : Boolean(row.is_open),
         point_commerce_blocked:
           row.point_commerce_blocked == null ? null : Boolean(row.point_commerce_blocked),
+        sales_allowed: row.sales_allowed == null ? null : Boolean(row.sales_allowed),
         delivery_available: row.delivery_available === true,
         distanceOutOfRange: oor,
       }).rank

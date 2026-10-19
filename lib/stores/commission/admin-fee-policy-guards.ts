@@ -82,3 +82,59 @@ export async function assertDefaultFeePolicyRemainsAfterDeactivate(
   });
   return covered ? { ok: true } : { ok: false, error: "would_leave_no_default_policy" };
 }
+
+export type SupersedeFeePolicyResult =
+  | { ok: true; id: string; supersededPrevEndsAt: string | null }
+  | { ok: false; error: string; status: number };
+
+const SUPERSEDE_ERROR_STATUS: Record<string, number> = {
+  invalid_args: 400,
+  invalid_window: 400,
+  supersede_requires_starts_at: 400,
+  supersede_window_invalid: 400,
+  supersede_policy_not_found: 404,
+  policy_archived: 409,
+  stale_policy: 409,
+  forbidden: 403,
+  rpc_missing: 503,
+};
+
+function isMissingRpcError(err: { code?: string | null; message?: string | null }): boolean {
+  const msg = String(err.message ?? "");
+  return (
+    err.code === "PGRST202" ||
+    err.code === "42883" ||
+    (/admin_supersede_store_fee_policy/i.test(msg) && /does not exist|could not find/i.test(msg))
+  );
+}
+
+/**
+ * D-1 · DEF-3: 예약 변경 = 기존 정책 종료 + 새 정책 생성을 DB 단일 트랜잭션 RPC 로만 처리.
+ * RPC 미배포(마이그레이션 `20270515120000_admin_supersede_store_fee_policy_atomic`)면 `rpc_missing` —
+ * 비원자 2단계 폴백은 두지 않는다(정책 공백 위험).
+ */
+export async function supersedeFeePolicyAtomic(
+  sb: SupabaseClient,
+  input: {
+    supersedeId: string;
+    newPolicy: Record<string, unknown>;
+    expectedUpdatedAt?: string | null;
+  }
+): Promise<SupersedeFeePolicyResult> {
+  const { data, error } = await sb.rpc("admin_supersede_store_fee_policy", {
+    p_supersede_id: input.supersedeId,
+    p_new: input.newPolicy,
+    p_expected_updated_at: input.expectedUpdatedAt ?? null,
+  });
+  if (error) {
+    if (isMissingRpcError(error)) return { ok: false, error: "rpc_missing", status: 503 };
+    console.error("[supersedeFeePolicyAtomic]", error.message);
+    return { ok: false, error: "supersede_failed", status: 500 };
+  }
+  const row = (data ?? {}) as { ok?: boolean; error?: string; id?: string; superseded_prev_ends_at?: string | null };
+  if (!row.ok || !row.id) {
+    const code = String(row.error ?? "supersede_failed");
+    return { ok: false, error: code, status: SUPERSEDE_ERROR_STATUS[code] ?? 500 };
+  }
+  return { ok: true, id: row.id, supersededPrevEndsAt: row.superseded_prev_ends_at ?? null };
+}

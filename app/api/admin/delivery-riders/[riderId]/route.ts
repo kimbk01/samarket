@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -10,8 +10,9 @@ export const dynamic = "force-dynamic";
 const ADMIN_STATUSES = new Set(["ok", "flagged", "paused"]);
 
 export async function PATCH(req: Request, context: { params: Promise<{ riderId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { riderId } = await context.params;
   const rid = typeof riderId === "string" ? riderId.trim() : "";
@@ -27,6 +28,11 @@ export async function PATCH(req: Request, context: { params: Promise<{ riderId: 
   if (body.suspend === true && body.resume === true) {
     return NextResponse.json({ ok: false, error: "suspend_resume_conflict" }, { status: 400 });
   }
+  // 정지 = L2 (사유 필수 — 작업 기록에 남김)
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 600) : "";
+  if (body.suspend === true && reason.length < 2) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -34,7 +40,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ riderId: 
   const { data: before, error: lErr } = await sb
     .from("delivery_riders")
     .select(
-      "id, user_id, rider_status, is_online, admin_status, admin_note, suspended_at, suspended_by, last_active_at, current_lat, current_lng"
+      "id, user_id, rider_status, is_online, admin_status, admin_note, suspended_at, suspended_by, last_active_at, current_lat, current_lng, updated_at"
     )
     .eq("id", rid)
     .maybeSingle();
@@ -81,21 +87,28 @@ export async function PATCH(req: Request, context: { params: Promise<{ riderId: 
     return NextResponse.json({ ok: false, error: "empty_patch" }, { status: 400 });
   }
 
-  const { data: updated, error: uErr } = await sb
-    .from("delivery_riders")
-    .update(row)
-    .eq("id", rid)
+  // CAS — 화면이 본 updated_at (있으면) + 정지/해제 상태 조건
+  let q = sb.from("delivery_riders").update(row).eq("id", rid);
+  const expectedUpdatedAt = typeof body.expected_updated_at === "string" ? body.expected_updated_at.trim() : "";
+  if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);
+  if (body.suspend === true) q = q.is("suspended_at", null);
+  if (body.resume === true) q = q.not("suspended_at", "is", null);
+  const { data: updated, error: uErr } = await q
     .select(
       "id, user_id, rider_status, is_online, admin_status, admin_note, suspended_at, suspended_by, last_active_at, current_lat, current_lng, updated_at"
     )
     .maybeSingle();
 
+  if (!uErr && !updated) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+  }
   if (uErr || !updated) {
     const msg = String(uErr?.message ?? "");
     if (/admin_status|suspended_at|admin_note/i.test(msg) && /does not exist/i.test(msg)) {
       return NextResponse.json({ ok: false, error: "schema_missing_apply_migration" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: msg.slice(0, 240) }, { status: 500 });
+    console.error("[admin delivery-rider PATCH]", msg.slice(0, 240));
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
   }
 
   const rm = getAuditRequestMeta(req);
@@ -106,7 +119,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ riderId: 
     target_id: rid,
     action: "delivery_rider.admin_patch",
     before_json: before as Record<string, unknown>,
-    after_json: row,
+    after_json: { ...row, ...(reason ? { reason } : {}) },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });

@@ -36,6 +36,11 @@ export function invalidateStoreSummaryPublicServerCache(slug: string): void {
   cache.delete(cacheKey(slug));
 }
 
+/** DEF-64 — 인스턴스 공통 세대 변경 시 이 인스턴스의 45s summary memory 전체 제거. */
+export function clearStoreSummaryPublicServerCache(): void {
+  cache.clear();
+}
+
 export function resetStoreSummaryPublicServerCacheForTests(): void {
   cache.clear();
 }

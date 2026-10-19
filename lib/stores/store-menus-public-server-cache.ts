@@ -326,6 +326,16 @@ export function scheduleStoreMenusRouteMemoryRevalidate(
   runStoreMenusRouteMemoryPreRefresh(slug, fetcher, "soft_stale_request");
 }
 
+/**
+ * DEF-64 — 인스턴스 공통 세대(generation) 변경 시 이 인스턴스의 route memory 전체 제거.
+ * in-flight refresh 는 그대로 두되(결과는 새 TTL 로 기록) 예약 타이머·행은 비운다.
+ */
+export function clearStoreMenusPublicServerCache(): void {
+  for (const timer of preRefreshTimers.values()) clearTimeout(timer);
+  preRefreshTimers.clear();
+  cache.clear();
+}
+
 /** 테스트 */
 export function resetStoreMenusPublicServerCacheForTests(): void {
   for (const timer of preRefreshTimers.values()) clearTimeout(timer);

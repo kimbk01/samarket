@@ -414,7 +414,7 @@ export function AdminDeliveryAdDetailWorkspace({
       const json = (await res.json()) as {
         ok?: boolean;
         error?: string;
-        result?: { refundWarning?: string };
+        result?: { refundWarning?: string; refundQueued?: boolean };
       };
       if (!res.ok || !json.ok) {
         setError(
@@ -431,6 +431,7 @@ export function AdminDeliveryAdDetailWorkspace({
       setReason("");
       emitAdminQueueChanged("delivery_ad_ops");
       const refundWarning = json.result?.refundWarning ?? null;
+      const refundQueued = json.result?.refundQueued === true;
       if (action === "approve" || action === "reject" || action === "request_changes") {
         setReviewSuccessKind(action);
       }
@@ -440,7 +441,12 @@ export function AdminDeliveryAdDetailWorkspace({
       }
       await load();
       if (refundWarning) {
-        setError(adminOperatorErrorMessage(refundWarning, lang !== "en"));
+        // DEF-5: 반려 후 캐시 환불 실패 — 숨기지 않고 표시, 처리 대기 등록 여부도 함께 안내.
+        setError(
+          `${adminOperatorErrorMessage(refundWarning, lang !== "en")} ${t(
+            refundQueued ? "admin_r4c_ad_refund_queued" : "admin_r4c_ad_refund_not_queued"
+          )}`
+        );
       }
     } catch {
       setError(adminOperatorErrorMessage("network_error", lang !== "en"));

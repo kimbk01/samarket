@@ -20,6 +20,12 @@ export type StoreDiscoveryEligibilityInput = {
   business_hours_json: unknown;
   is_open: boolean | null;
   point_commerce_blocked?: boolean | null;
+  /**
+   * DEF-70 — `store_sales_permissions` 판정 (목록 select LEFT embed → `flattenStoreListSalesPermission`).
+   * `false` = 판매 중지·미승인 → 주문 불가, 임시 휴업과 같은 「closed」 표시·최하위 정렬.
+   * `undefined`/`null` = 값을 읽지 않은 경로 — 기존 동작 유지.
+   */
+  sales_allowed?: boolean | null;
   delivery_available: boolean | null;
   distanceOutOfRange?: boolean;
   /** 테스트·결정적 평가용 — 생략 시 `new Date()` */
@@ -45,10 +51,15 @@ const ELIGIBILITY_RANK: Record<StoreDiscoveryEligibilityState, number> = {
   closed: 5,
 };
 
+function isSalesSuspended(input: StoreDiscoveryEligibilityInput): boolean {
+  return input.sales_allowed === false;
+}
+
 function resolveCommerce(input: StoreDiscoveryEligibilityInput) {
   const now = input.now ?? new Date();
   const commerceState = resolveStoreFrontCommerceState(input.business_hours_json, input.is_open, now);
-  const orderable = resolveStoreFrontOrderable(commerceState.isOpenForCommerce, input);
+  const orderable =
+    !isSalesSuspended(input) && resolveStoreFrontOrderable(commerceState.isOpenForCommerce, input);
   return { commerceState, orderable };
 }
 
@@ -57,6 +68,7 @@ export function resolveStoreDiscoveryBrowseDisplayStatus(
 ): StoreDiscoveryBrowseDisplayStatus {
   const { commerceState, orderable } = resolveCommerce(input);
   if (orderable) return "open";
+  if (isSalesSuspended(input)) return "closed";
   if (commerceState.inBreak) return "resting";
   if (!commerceState.isOpenForCommerce) return "closed";
   return "preparing";
@@ -67,6 +79,7 @@ export function resolveStoreDiscoveryHomeDisplayStatus(
 ): StoreDiscoveryHomeDisplayStatus {
   const { commerceState, orderable } = resolveCommerce(input);
   if (orderable) return "open";
+  if (isSalesSuspended(input)) return "closed";
   if (commerceState.inBreak) return "preparing";
   if (!commerceState.isOpenForCommerce) return "closed";
   return "preparing";
@@ -92,6 +105,8 @@ export function resolveStoreDiscoveryEligibility(
     state = "open_delivery_disabled";
   } else if (orderable && outOfRange) {
     state = "open_out_of_range";
+  } else if (isSalesSuspended(input)) {
+    state = "closed";
   } else if (commerceState.inBreak) {
     state = "resting";
   } else if (!commerceState.isOpenForCommerce) {

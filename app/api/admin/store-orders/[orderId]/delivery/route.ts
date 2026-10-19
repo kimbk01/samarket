@@ -4,6 +4,13 @@ import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+
+/** confirmAdminAction 의 사유 최소 길이와 동일 (클라이언트 모듈은 서버에서 import 하지 않는다). */
+const ADMIN_REASON_MIN_LENGTH = 2;
+
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 import { augmentAdminDeliveryRowWithProofViews } from "@/lib/stores/delivery-proof-admin-view";
@@ -29,7 +36,14 @@ type PatchBody = {
 
   set_delivery_status?: string | null;
 
-  admin_note?: string | null;
+  /** 관리자 메모 누적 (DEF-21) — 서버가 기존 메모 뒤에 덧붙인다. 덮어쓰기(`admin_note`)는 받지 않는다. */
+  append_admin_note?: string | null;
+
+  /** 재배정 CAS — 화면이 본 현재 라이더 id (미배정 = null) */
+  expected_rider_id?: string | null;
+
+  /** 처리 사유 — 재배정·배달 실패는 필수(L2), 배정 해제는 선택. 감사 기록에 남는다. */
+  reason?: string | null;
 
   failure_reason?: string | null;
 
@@ -93,9 +107,11 @@ export async function GET(_req: Request, context: { params: Promise<{ orderId: s
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ orderId: string }> }) {
 
-  const admin = await requireAdminApiUser();
+  const gate = await requireAdminPermission("business");
 
-  if (!admin.ok) return admin.response;
+  if (!gate.ok) return gate.response;
+
+  const admin = { userId: gate.actor.userId };
 
 
 
@@ -116,6 +132,32 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ order
   } catch {
 
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+
+  }
+
+
+
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 600) : "";
+
+  const reassignTo = typeof body.reassign_rider_id === "string" ? body.reassign_rider_id.trim() : "";
+
+  const marksFailed = body.set_delivery_status === "delivery_failed";
+
+  if ((reassignTo || marksFailed) && reason.length < ADMIN_REASON_MIN_LENGTH) {
+
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+
+  }
+
+  if (reassignTo && body.expected_rider_id === undefined) {
+
+    return NextResponse.json({ ok: false, error: "expected_status_required" }, { status: 400 });
+
+  }
+
+  if (reassignTo && typeof body.expected_rider_id === "string" && body.expected_rider_id.trim() === reassignTo) {
+
+    return NextResponse.json({ ok: false, error: "same_rider" }, { status: 400 });
 
   }
 
@@ -159,6 +201,22 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ order
 
     }
 
+    await appendAdminRouteAudit(gate.sb, req, {
+
+      actorId: admin.userId,
+
+      targetType: "store_order",
+
+      targetId: oid,
+
+      action: "store_order.delivery.admin_release",
+
+      before: { delivery_status: result.previous_status },
+
+      after: { delivery_status: result.row.delivery_status, reason: reason || null },
+
+    });
+
     const augmented = await augmentAdminDeliveryRowWithProofViews(
       sb,
       result.row as unknown as Record<string, unknown>
@@ -182,9 +240,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ order
 
     setStatus: body.set_delivery_status ?? undefined,
 
-    adminNote: body.admin_note,
+    appendAdminNote: typeof body.append_admin_note === "string" ? body.append_admin_note : undefined,
 
-    failureReason: body.failure_reason ?? undefined,
+    expectedRiderId: reassignTo
+      ? typeof body.expected_rider_id === "string" && body.expected_rider_id.trim()
+        ? body.expected_rider_id.trim()
+        : null
+      : undefined,
+
+    failureReason: marksFailed ? (body.failure_reason ?? reason) : (body.failure_reason ?? undefined),
 
     allowOfflineAssign: body.allow_offline_assign === true,
 
@@ -195,6 +259,46 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ order
   if (!result.ok) {
 
     return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
+
+  }
+
+  if (reassignTo) {
+
+    // 재배정 기록 — 관리자 메모와 분리된 별도 감사 기록 (DEF-21)
+
+    await appendAdminRouteAudit(gate.sb, req, {
+
+      actorId: admin.userId,
+
+      targetType: "store_order",
+
+      targetId: oid,
+
+      action: "store_order.delivery.admin_reassign",
+
+      before: { rider_id: typeof body.expected_rider_id === "string" ? body.expected_rider_id : null },
+
+      after: { rider_id: result.row.rider_id ?? null, reason, allow_offline_assign: body.allow_offline_assign === true },
+
+    });
+
+  } else if (marksFailed) {
+
+    await appendAdminRouteAudit(gate.sb, req, {
+
+      actorId: admin.userId,
+
+      targetType: "store_order",
+
+      targetId: oid,
+
+      action: "store_order.delivery.admin_mark_failed",
+
+      before: { delivery_status: result.previous_status },
+
+      after: { delivery_status: result.row.delivery_status, reason },
+
+    });
 
   }
 

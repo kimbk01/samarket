@@ -52,6 +52,15 @@ export async function POST(req: Request) {
 
 
 
+  // 일괄 복구 = L3 (사유 필수 · 대상 재입력은 화면에서) — 사유는 작업 기록에 남긴다 (DEF-22)
+  const reason =
+    body != null && typeof body === "object" && !Array.isArray(body) && typeof (body as { reason?: unknown }).reason === "string"
+      ? String((body as { reason: string }).reason).trim().slice(0, 600)
+      : "";
+  if (reason.length < 2) {
+    return NextResponse.json({ error: "reason_required" }, { status: 400 });
+  }
+
   if (!DELIVERY_OPERATION_RECOVERY_ACTIONS.includes(actionRaw as DeliveryOperationRecoveryAction)) {
 
     return NextResponse.json(
@@ -133,6 +142,8 @@ export async function POST(req: Request) {
     after: {
 
       recovery_action: actionRaw,
+
+      reason,
 
       result: data != null && typeof data === "object" ? (data as Record<string, unknown>) : null,
 

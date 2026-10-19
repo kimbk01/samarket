@@ -20,6 +20,7 @@ type Row = {
   store_id: string;
   store_name: string;
   from_user_id: string;
+  from_user_label?: string | null;
   inquiry_type: string;
   subject: string;
   content: string;
@@ -135,6 +136,7 @@ function AdminStoreInquiriesPageInner() {
                 </div>
                 <p className="mt-1 text-xs text-sam-muted">
                   {type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"} ·{" "}
+                  {ko ? "문의자" : "From"}: {r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")} ·{" "}
                   {new Date(r.created_at).toLocaleString(locale)}
                 </p>
                 <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>

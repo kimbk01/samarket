@@ -302,6 +302,16 @@ export async function adminPatchStoreOrderDelivery(
     clearRiderForWaiting?: boolean;
     /** 오프라인·paused·suspended 라이더 배차 허용 */
     allowOfflineAssign?: boolean;
+    /**
+     * 관리자 메모 누적 (DEF-21) — 기존 메모 뒤에 덧붙인다(덮어쓰지 않음).
+     * 지정 시 읽은 시점의 updated_at 으로 조건부 쓰기 → 충돌 시 409 `stale_version`.
+     */
+    appendAdminNote?: string | null;
+    /**
+     * 재배정 CAS — 화면이 본 현재 라이더(null = 미배정). undefined 면 검사 생략.
+     * 불일치 시 409 `rider_changed`, 쓰기도 updated_at 조건부.
+     */
+    expectedRiderId?: string | null;
   }
 ): Promise<DeliveryPatchResult> {
   const guard = await loadOrderGuard(sb, opts.orderId);
@@ -319,6 +329,13 @@ export async function adminPatchStoreOrderDelivery(
 
   const prev = ensured.row.delivery_status;
   const patch: Record<string, unknown> = {};
+
+  if (opts.expectedRiderId !== undefined) {
+    const seen = safeTrim(opts.expectedRiderId);
+    if (seen !== safeTrim(ensured.row.rider_id)) {
+      return { ok: false, error: "rider_changed", httpStatus: 409 };
+    }
+  }
 
   const assignPlain = safeTrim(opts.assignRiderId);
   const reassign = safeTrim(opts.reassignRiderId);
@@ -443,18 +460,28 @@ export async function adminPatchStoreOrderDelivery(
   if (opts.adminNote !== undefined) {
     patch.admin_note = note;
   }
+  const appended = clampNote(opts.appendAdminNote);
+  if (appended) {
+    const base = safeTrim(ensured.row.admin_note);
+    const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10); // Asia/Manila
+    patch.admin_note = clampNote(base ? `${base}\n[${day}] ${appended}` : `[${day}] ${appended}`);
+  }
 
   if (Object.keys(patch).length === 0) {
     return { ok: false, error: "empty_delivery_patch", httpStatus: 400 };
   }
 
-  const { data: updated, error: uErr } = await sb
-    .from("store_order_deliveries")
-    .update(patch)
-    .eq("order_id", opts.orderId.trim())
-    .select(DELIVERY_ROW_SELECT)
-    .maybeSingle();
+  const casRequired = Boolean(appended) || opts.expectedRiderId !== undefined;
+  let updateQ = sb.from("store_order_deliveries").update(patch).eq("order_id", opts.orderId.trim());
+  if (casRequired) {
+    const seenUpdatedAt = (ensured.row as { updated_at?: string | null }).updated_at ?? null;
+    updateQ = seenUpdatedAt ? updateQ.eq("updated_at", seenUpdatedAt) : updateQ.is("updated_at", null);
+  }
+  const { data: updated, error: uErr } = await updateQ.select(DELIVERY_ROW_SELECT).maybeSingle();
 
+  if (!uErr && !updated && casRequired) {
+    return { ok: false, error: "stale_version", httpStatus: 409 };
+  }
   if (uErr || !updated) {
     const msg = String(uErr?.message ?? "");
     if (isPickupBlockedByOrderStatus(msg)) return { ok: false, error: "order_status_blocks_dispatch", httpStatus: 409 };

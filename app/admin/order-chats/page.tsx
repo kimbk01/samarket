@@ -11,10 +11,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 /**
  * Delivery order-chat hub — lookup list + cross-links.
  * Authority = Delivery (store orders). Messenger may open this with ?from=messenger as REFERENCE only.
- * DEF-60/61: every 「주문 채팅 열기」 goes to /admin/stores/orders/{orderId}/chat (same as order detail).
+ * DEF-60/61: every 「주문 채팅 열기」 goes to /admin/stores/orders/{orderId}/chat — the single read-only
+ * order-chat viewer (never the community messenger admin room screen).
  */
 function AdminOrderChatsHubInner() {
-  const { safeT, language } = useI18n();
+  const { safeT, t, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const fromMessenger = (searchParams.get("from") ?? "").trim().toLowerCase() === "messenger";
@@ -22,7 +23,7 @@ function AdminOrderChatsHubInner() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <AdminPageHeader
-        title={ko ? "주문 채팅" : "Order chats"}
+        titleKey="admin_menu_order_chats"
         description={
           ko
             ? "매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·커뮤니티 메신저는 아래 관련 링크에서 엽니다."
@@ -53,12 +54,12 @@ function AdminOrderChatsHubInner() {
           <ul className="mt-2 space-y-2 sam-text-body-secondary text-sam-fg">
             <li>
               <Link className="text-signature underline" href="/admin/store-orders">
-                {ko ? "처리 필요 주문" : "Orders needing action"}
+                {t("admin_menu_store_orders_action_queue")}
               </Link>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/stores/orders">
-                {ko ? "배달·포장 주문" : "Delivery & pickup orders"}
+                {t("admin_menu_delivery_order_list")}
               </Link>
             </li>
           </ul>

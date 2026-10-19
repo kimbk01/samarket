@@ -14,13 +14,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
   const id = String(actionId ?? "").trim();
   if (!id) return NextResponse.json({ error: "invalid_action_id" }, { status: 400 });
 
+  // L2 — 사유 필수 (화면 confirmAdminAction 과 같은 규칙). 메모는 선택, 사유와 함께 기록한다.
   let note = "";
+  let reason = "";
   try {
-    const j = (await req.json()) as { note?: string };
-    note = typeof j?.note === "string" ? j.note.trim().slice(0, 2000) : "";
+    const j = (await req.json()) as { note?: string; reason?: string };
+    note = typeof j?.note === "string" ? j.note.trim().slice(0, 1400) : "";
+    reason = typeof j?.reason === "string" ? j.reason.trim().slice(0, 600) : "";
   } catch {
     note = "";
   }
+  if (reason.length < 2) return NextResponse.json({ error: "reason_required" }, { status: 400 });
+  note = [reason, note].filter(Boolean).join(" — ").slice(0, 2000);
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -54,7 +59,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     targetType: "delivery_operation_alert_action",
     targetId: id,
     action: "delivery_auto_action.reject",
-    after: { note: note || null, result: payload },
+    after: { reason, note: note || null, result: payload },
   });
 
   return NextResponse.json({ ok: true, result: payload });

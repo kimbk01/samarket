@@ -87,6 +87,8 @@ export type AdminTransitionResult =
        * 원자화(D-2) 전까지 은닉 금지.
        */
       refundWarning?: string;
+      /** 환불 실패 건을 광고 운영 처리 대기(case WAITING_ADMIN)로 올렸는지 (DEF-5 · D-2 전 임시 노출). */
+      refundQueued?: boolean;
     }
   | { ok: false; error: AdminDeliveryAdWriterError; detail?: string };
 
@@ -269,6 +271,7 @@ export async function adminTransitionDeliveryAdCampaign(
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
   let refundWarning: string | undefined;
+  let refundQueued: boolean | undefined;
   // Terminal REJECT refunds canonical Cash exactly once (not on request_changes).
   if (input.action === "reject") {
     const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
@@ -287,6 +290,10 @@ export async function adminTransitionDeliveryAdCampaign(
         bcRefund.detail ?? ""
       );
       refundWarning = "business_cash_refund_failed";
+      refundQueued = await queueDeliveryAdRefundFailureCase(sb, {
+        productKind,
+        campaignId: input.campaignId,
+      });
     }
   }
 
@@ -297,8 +304,34 @@ export async function adminTransitionDeliveryAdCampaign(
     to: String(payload.to) as DeliveryAdLifecycleStatus,
     action: input.action,
     auditId,
-    ...(refundWarning ? { refundWarning } : {}),
+    ...(refundWarning ? { refundWarning, refundQueued: refundQueued === true } : {}),
   };
+}
+
+/**
+ * 반려 환불 실패 → 해당 캠페인 운영 case 를 WAITING_ADMIN 으로 올려 처리 대기(`delivery_ad_ops`)에 노출.
+ * 원자 RPC(D-2) 배포 전까지의 실패 노출 경로. best-effort — 실패해도 반려 결과는 유지하고 false 반환.
+ */
+async function queueDeliveryAdRefundFailureCase(
+  sb: SupabaseClient,
+  input: { productKind: "banner" | "store_sponsored"; campaignId: string }
+): Promise<boolean> {
+  try {
+    const col = input.productKind === "banner" ? "banner_campaign_id" : "store_sponsored_campaign_id";
+    const { data, error } = await sb
+      .from("delivery_ad_operations_cases")
+      .update({ status: "WAITING_ADMIN", resolved_at: null, updated_at: new Date().toISOString() })
+      .eq(col, input.campaignId)
+      .select("id");
+    if (error) {
+      console.error("[queueDeliveryAdRefundFailureCase]", error.message);
+      return false;
+    }
+    return Array.isArray(data) && data.length > 0;
+  } catch (e) {
+    console.error("[queueDeliveryAdRefundFailureCase]", e instanceof Error ? e.message : e);
+    return false;
+  }
 }
 
 export async function adminDeleteSafeDraftDeliveryAdCampaign(

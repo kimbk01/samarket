@@ -33,6 +33,13 @@ import {
   businessCcSupportHref,
 } from "@/lib/admin-business/business-control-center-links";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+
+/** DEF-57 — 「판매 제한」 대신 실제 판매 상태 라벨 (판매 승인 대기 / 판매 거절 / 판매 중지). */
+function salesBlockedLabel(sales: BusinessCcSalesPermission, ko: boolean): string {
+  const raw = sales?.sales_status?.trim() || (sales?.allowed_to_sell ? "approved" : "pending");
+  return adminStatusLabel("store_sales", raw, ko).label;
+}
 
 const cardClass = "rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm";
 const linkClass =
@@ -122,7 +129,7 @@ export function AdminBusinessOpsIdentityHeader({
   sales: BusinessCcSalesPermission;
   delivery: BusinessCcDeliverySnapshot;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const approved = store.approval_status === "approved";
   const orderable = ops.openKind === "open";
   const deliveryOk = delivery.deliveryAvailable === true;
@@ -189,7 +196,7 @@ export function AdminBusinessOpsIdentityHeader({
                   : t("admin_biz_ops_badge_settle_issue")}
               </Badge>
               {sales && !sales.allowed_to_sell ? (
-                <Badge tone="bad">{t("admin_biz_ops_risk_sales")}</Badge>
+                <Badge tone="bad">{salesBlockedLabel(sales, language !== "en")}</Badge>
               ) : null}
             </div>
           </div>
@@ -219,7 +226,7 @@ export function AdminBusinessOpsRiskPanel({
   delivery: BusinessCcDeliverySnapshot;
   kpi: BusinessCcKpiSummary;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const risks: { key: string; labelKey: MessageKey; vars?: Record<string, string> }[] = [];
   if (kpi.openReportCount > 0) {
     risks.push({
@@ -229,7 +236,11 @@ export function AdminBusinessOpsRiskPanel({
     });
   }
   if (sales && !sales.allowed_to_sell) {
-    risks.push({ key: "sales", labelKey: "admin_biz_ops_risk_sales" });
+    risks.push({
+      key: "sales",
+      labelKey: "admin_r4a_risk_sales_blocked",
+      vars: { status: salesBlockedLabel(sales, language !== "en") },
+    });
   }
   if (store.approval_status === "suspended") {
     risks.push({ key: "suspended", labelKey: "admin_biz_ops_risk_suspended" });

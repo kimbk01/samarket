@@ -9,8 +9,9 @@ import {
   BOTTOM_NAV_BUILTIN_ICON_KEYS,
   resolveAdminDelApiError,
 } from "@/components/admin/i18n/admin-delivery-label-keys";
-import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
+import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/delivery-bottom-nav-builtin";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
 type Row = {
   id: string;
@@ -73,6 +74,27 @@ async function apiUpdate(id: string, patch: Partial<Row>) {
   }
 }
 
+/** 순서 교환 1회 요청 (DEF-44) — 서버가 CAS·되돌리기·감사 기록을 처리한다. */
+async function apiSwapOrder(a: Row, b: Row) {
+  try {
+    const res = await fetch("/api/admin/stores/bottom-nav", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "swap_order",
+        a_id: a.id,
+        b_id: b.id,
+        a_sort_order: a.sort_order,
+        b_sort_order: b.sort_order,
+      }),
+    });
+    return await readResult<{ ok: boolean; error?: string }>(res);
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
+}
+
 async function apiDelete(id: string) {
   try {
     const res = await fetch(`/api/admin/stores/bottom-nav?id=${encodeURIComponent(id)}`, {
@@ -98,6 +120,8 @@ export function AdminDeliveryBottomNavPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** 재조회마다 증가 — 처리 이력 패널 refetch. */
+  const [historyBump, setHistoryBump] = useState(0);
   const [editDraft, setEditDraft] = useState<Partial<Row> | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -149,6 +173,7 @@ export function AdminDeliveryBottomNavPage() {
       } else {
         const sorted = (data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
         setRows(sorted.filter((r) => !isDeliveryBottomNavBuiltinOwnerStoreItem(r)));
+        setHistoryBump((n) => n + 1);
       }
     } finally {
       setLoading(false);
@@ -182,10 +207,7 @@ export function AdminDeliveryBottomNavPage() {
     [rowBusy, errText, load]
   );
 
-  /**
-   * 순서 이동 — 한 번에 바꾸는 API 가 없어 PUT 두 번을 순차 실행.
-   * 두 번째가 실패하면 첫 번째를 되돌리고 오류를 보여준다 (DEF-44).
-   */
+  /** 순서 이동 — 한 번의 요청으로 두 항목 순서를 교환 (DEF-44). 결과 확인 후 재조회. */
   const move = useCallback(
     async (id: string, dir: "up" | "down") => {
       if (rowBusy) return;
@@ -198,30 +220,14 @@ export function AdminDeliveryBottomNavPage() {
       setRowBusy(true);
       setError(null);
       try {
-        const first = await apiUpdate(a.id, { sort_order: b.sort_order });
-        if (!first.ok) {
-          setError(errText(first.error));
-          return;
-        }
-        const second = await apiUpdate(b.id, { sort_order: a.sort_order });
-        if (!second.ok) {
-          const revert = await apiUpdate(a.id, { sort_order: a.sort_order });
-          setError(
-            revert.ok
-              ? ko
-                ? `순서를 바꾸지 못했습니다. 원래 순서로 되돌렸습니다. (${errText(second.error)})`
-                : `Could not reorder; the original order was restored. (${errText(second.error)})`
-              : ko
-                ? "순서를 바꾸지 못했고 되돌리기도 실패했습니다. 새로고침 후 순서를 확인하세요."
-                : "Reorder failed and could not be reverted. Refresh and check the order."
-          );
-        }
+        const res = await apiSwapOrder(a, b);
+        if (!res.ok) setError(errText(res.error));
       } finally {
         await load();
         setRowBusy(false);
       }
     },
-    [rows, load, rowBusy, errText, ko]
+    [rows, load, rowBusy, errText]
   );
 
   const enterEdit = useCallback((r: Row) => {
@@ -560,6 +566,10 @@ export function AdminDeliveryBottomNavPage() {
               </table>
             </div>
           )}
+        </AdminCard>
+        {/* DEF-40: 하단 메뉴 추가·수정·삭제·순서 변경 감사 기록 */}
+        <AdminCard>
+          <AdminConfigAuditHistoryPanel scope="bottom_nav" limit={20} refreshToken={rows.length + historyBump} />
         </AdminCard>
       </div>
     </div>

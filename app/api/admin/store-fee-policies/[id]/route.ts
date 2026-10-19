@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import {
   assertDefaultFeePolicyRemainsAfterDeactivate,
   auditAdminFeePolicyWrite,
@@ -26,7 +26,16 @@ type PatchBody = {
   memo?: string | null;
   is_archived?: boolean;
   change_reason?: string | null;
+  /** 화면 로드 시점 updated_at — 다르면 409 stale_policy (CAS). */
+  expected_updated_at?: string | null;
 };
+
+function sameInstant(a: string | null, b: string | null): boolean {
+  if (!a || !b) return a === b;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return Number.isFinite(ta) && Number.isFinite(tb) ? ta === tb : a === b;
+}
 
 function parseIsoOrNull(v: unknown): string | null | "invalid" {
   if (v === null) return null;
@@ -152,7 +161,8 @@ async function resolveTopicParentCategory(
 }
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const gate = await requireAdminPermission("business");
+  // B-2: 수수료 정책 변경·종료 = super_admin 전용.
+  const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
   const { id } = await context.params;
   const pid = typeof id === "string" ? id.trim() : "";
@@ -223,6 +233,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     ends_at: string | null;
     priority: number;
     is_archived?: boolean;
+    updated_at?: string | null;
   };
 
   let current: FeePolicyCurrent | null = null;
@@ -230,14 +241,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   {
     const { data, error: curErr } = await sb
       .from("store_fee_policies")
-      .select("id, store_id, category_id, topic_id, is_active, starts_at, ends_at, priority, is_archived")
+      .select("id, store_id, category_id, topic_id, is_active, starts_at, ends_at, priority, is_archived, updated_at")
       .eq("id", pid)
       .maybeSingle();
     if (curErr) {
       if (/topic_id/i.test(curErr.message ?? "") && /does not exist|unknown column/i.test(curErr.message ?? "")) {
         const retry = await sb
           .from("store_fee_policies")
-          .select("id, store_id, category_id, is_active, starts_at, ends_at, priority, is_archived")
+          .select("id, store_id, category_id, is_active, starts_at, ends_at, priority, is_archived, updated_at")
           .eq("id", pid)
           .maybeSingle();
         if (retry.error) return NextResponse.json({ ok: false, error: retry.error.message }, { status: 500 });
@@ -252,6 +263,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
   }
   if (!current) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  const expectedUpdatedAt =
+    typeof body.expected_updated_at === "string" && body.expected_updated_at.trim()
+      ? body.expected_updated_at.trim()
+      : null;
+  if (expectedUpdatedAt && !sameInstant(expectedUpdatedAt, current.updated_at ?? null)) {
+    return NextResponse.json({ ok: false, error: "stale_policy" }, { status: 409 });
+  }
 
   const wasArchived = Boolean(current.is_archived);
 
@@ -333,14 +352,19 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   });
   if (!conflict.ok) return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
 
-  let { data, error } = await sb.from("store_fee_policies").update(patch).eq("id", pid).select("id").maybeSingle();
+  const casUpdatedAt = expectedUpdatedAt && current.updated_at ? String(current.updated_at) : null;
+  const runUpdate = (values: Record<string, unknown>) => {
+    const q = sb.from("store_fee_policies").update(values).eq("id", pid);
+    return (casUpdatedAt ? q.eq("updated_at", casUpdatedAt) : q).select("id").maybeSingle();
+  };
+  let { data, error } = await runUpdate(patch);
   if (error && /topic_id/i.test(error.message ?? "") && /does not exist|unknown column/i.test(error.message ?? "")) {
     if ("topic_id" in patch && patch.topic_id) {
       return NextResponse.json({ ok: false, error: "topic_column_missing" }, { status: 503 });
     }
     const legacyPatch = { ...patch };
     delete legacyPatch.topic_id;
-    ({ data, error } = await sb.from("store_fee_policies").update(legacyPatch).eq("id", pid).select("id").maybeSingle());
+    ({ data, error } = await runUpdate(legacyPatch));
   }
 
   if (error) {
@@ -350,7 +374,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       { status: 500 }
     );
   }
-  if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (!data) {
+    // CAS 조건 불일치(그 사이 다른 관리자가 변경) 또는 삭제됨.
+    return NextResponse.json(
+      { ok: false, error: expectedUpdatedAt ? "stale_policy" : "not_found" },
+      { status: expectedUpdatedAt ? 409 : 404 }
+    );
+  }
   await auditAdminFeePolicyWrite(sb, req, {
     actorId: gate.actor.userId,
     action: "store_fee_policy.update",
@@ -367,7 +397,8 @@ type DeleteBody = {
 };
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const gate = await requireAdminPermission("business");
+  // B-2: 수수료 정책 변경·종료 = super_admin 전용.
+  const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
   const { id } = await context.params;
   const pid = typeof id === "string" ? id.trim() : "";

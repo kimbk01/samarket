@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -15,9 +13,8 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ reviewId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { reviewId } = await context.params;
   const rid = typeof reviewId === "string" ? reviewId.trim() : "";
@@ -48,25 +45,37 @@ export async function PATCH(
   }
 
   const { data: prev } = await sb.from("store_reviews").select("status").eq("id", rid).maybeSingle();
+  if (!prev) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  const prevStatus = String((prev as { status?: unknown }).status ?? "");
+  if (prevStatus === status) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+  }
 
-  const { error } = await sb.from("store_reviews").update({ status }).eq("id", rid);
+  // 상태 조건부 — 다른 관리자가 먼저 바꿨으면 409 (덮어쓰지 않음).
+  const { data: updated, error } = await sb
+    .from("store_reviews")
+    .update({ status })
+    .eq("id", rid)
+    .eq("status", prevStatus)
+    .select("id, store_id")
+    .maybeSingle();
   if (error) {
     console.error("[admin store-reviews PATCH]", error);
     return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
   }
+  if (!updated) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+  }
 
-  const actorId = await getRouteUserId();
-  const rm = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actorId,
-    target_type: "store_review",
-    target_id: rid,
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "store_review",
+    targetId: rid,
     action: "store_review.status",
-    before_json: prev ? { status: prev.status } : null,
-    after_json: { status, reason },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
+    before: { status: prevStatus },
+    after: { status, reason, store_id: (updated as { store_id?: unknown }).store_id ?? null },
   });
 
   return NextResponse.json({ ok: true, status });

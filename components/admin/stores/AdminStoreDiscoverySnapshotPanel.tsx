@@ -90,23 +90,23 @@ export function AdminStoreDiscoverySnapshotPanel({
         <>
           <ReviewRow label={t("admin_store_discovery_field_store_name")} value={dash(snapshot.store_name)} />
           <ReviewRow
-            label={t("admin_store_discovery_field_first_listed_at")}
+            label={t("admin_r4c_discovery_field_first_listed_at")}
             value={dash(snapshot.first_listed_at)}
           />
           <ReviewRow
-            label={t("admin_store_discovery_field_new_store")}
+            label={t("admin_r4c_discovery_field_new_store")}
             value={
               snapshot.new_store_qualifying_now
-                ? `${t("admin_store_discovery_yes")} (${snapshot.new_store_window_days}d)`
+                ? `${t("admin_store_discovery_yes")} (${t("admin_r4c_discovery_days", { n: snapshot.new_store_window_days })})`
                 : t("admin_store_discovery_no")
             }
           />
           <ReviewRow
-            label={t("admin_store_discovery_field_delivery_fee_mode")}
+            label={t("admin_r4c_discovery_field_delivery_fee_mode")}
             value={dash(snapshot.delivery_fee_mode)}
           />
           <ReviewRow
-            label={t("admin_store_discovery_field_strike_ref")}
+            label={t("admin_r4c_discovery_field_strike_ref")}
             value={
               snapshot.delivery_fee_strike_reference_php == null
                 ? t("admin_store_discovery_none")
@@ -114,7 +114,7 @@ export function AdminStoreDiscoverySnapshotPanel({
             }
           />
           <ReviewRow
-            label={t("admin_store_discovery_field_active_campaign")}
+            label={t("admin_r4c_discovery_field_active_campaign")}
             value={
               campaign
                 ? `${campaign.campaign_type} · ${campaign.title}`

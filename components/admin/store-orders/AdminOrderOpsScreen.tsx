@@ -11,6 +11,8 @@
  * 초기화 = screen defaults. A failed request keeps the previous result and shows the error (never 0 rows).
  * Return: list state lives in the URL; the scroll position is kept per URL in sessionStorage.
  */
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -111,6 +113,14 @@ const applyForm = (q: AdminOrderOpsQuery, f: Form): AdminOrderOpsQuery => ({
   page: 1,
   asOf: null,
 });
+
+/** Page title = the admin menu label of each screen (admin-menu.ts key → message key). */
+const ADMIN_ORDER_OPS_TITLE_KEY: Record<Screen, MessageKey> = {
+  list: "admin_menu_delivery_order_list",
+  exceptions: "admin_menu_store_orders_action_queue",
+  cancellations: "admin_menu_delivery_cancel",
+  refunds: "admin_menu_delivery_refund",
+};
 
 const PAYMENT_METHOD_LABEL: Record<AdminOrderOpsPaymentMethod, { ko: string; en: string }> = {
   cod: { ko: "현장 결제(COD)", en: "COD" },
@@ -754,10 +764,10 @@ export function AdminOrderOpsScreen({
   return (
     <div className="space-y-4" data-admin-order-ops={screen}>
       <header className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="sam-text-page-title font-semibold text-sam-fg">{ko ? cfg.titleKo : cfg.titleEn}</h1>
-          <p className="mt-1 sam-text-body text-sam-muted">{ko ? cfg.descKo : cfg.descEn}</p>
-          {fixedLabel ? <p className="mt-1 sam-text-helper font-medium text-sam-fg">{fixedLabel}</p> : null}
+        <div className="min-w-0 flex-1">
+          {/* 헤더 표준 — 제목 = 메뉴명 (R1 §0) */}
+          <AdminPageHeader titleKey={ADMIN_ORDER_OPS_TITLE_KEY[screen]} description={ko ? cfg.descKo : cfg.descEn} />
+          {fixedLabel ? <p className="-mt-2 sam-text-helper font-medium text-sam-fg">{fixedLabel}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {screen !== "exceptions" ? (

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
@@ -21,8 +21,9 @@ type ActionBody = {
 };
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ eventId: string }> }) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { eventId } = await ctx.params;
   const id = String(eventId ?? "").trim();
@@ -59,7 +60,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ eventId: stri
     .maybeSingle();
 
   if (loadErr) {
-    return NextResponse.json({ error: loadErr.message ?? "load_failed" }, { status: 500 });
+    return NextResponse.json({ error: "load_failed" }, { status: 500 });
   }
   if (!existing) {
     return NextResponse.json({ error: "event_not_found" }, { status: 404 });
@@ -146,14 +147,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ eventId: stri
     .from("delivery_operation_alert_events")
     .update(finalPatch)
     .eq("id", id)
+    // CAS — 읽은 상태 그대로일 때만 쓴다 (동시 처리 시 409)
+    .eq("event_status", st)
     .select(selectCols)
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message ?? "update_failed" }, { status: 500 });
+    console.error("[admin delivery-alert event PATCH]", error.message);
+    return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
   if (!data) {
-    return NextResponse.json({ error: "event_not_found" }, { status: 404 });
+    return NextResponse.json({ error: "status_changed" }, { status: 409 });
   }
 
   await appendAdminRouteAudit(sb, req, {

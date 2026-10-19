@@ -8,6 +8,7 @@
  * `admin_store_order_ops_summary`). Each screen fixes its scope, tabs and period basis here; the
  * browser never derives status or money.
  */
+import { readAdminReturnToFromSearch, withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import {
   STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES,
   STORE_ORDER_CLOSED_STATUSES,
@@ -393,7 +394,17 @@ export const ADMIN_STORE_ORDERS_LEGACY_LIST_PARAMS = [
   "to",
 ] as const;
 
+const ORDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * DEF-49 — a link that names one order (`?order_id=<uuid>`) opens that order's detail
+ * `/admin/stores/orders/{id}` (keeps `returnTo`), never a filtered list.
+ */
 export function legacyStoreOrdersRedirectTarget(sp: URLSearchParams): string | null {
+  const orderId = (sp.get("order_id") ?? "").trim();
+  if (ORDER_ID_RE.test(orderId)) {
+    return withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(orderId)}`, readAdminReturnToFromSearch(sp));
+  }
   if (sp.get("queue") === "admin_attention") return null;
   const hasListParam = ADMIN_STORE_ORDERS_LEGACY_LIST_PARAMS.some((k) => (sp.get(k) ?? "").trim() !== "");
   if (!hasListParam) return null;

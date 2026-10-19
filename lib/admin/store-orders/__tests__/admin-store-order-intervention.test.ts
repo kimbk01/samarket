@@ -272,6 +272,9 @@ describe("D. every admin decision path goes through the service", () => {
     const panel = read("components/admin/delivery-orders/AdminStoreOrderInterventionPanel.tsx");
     expect(panel).toContain("/intervene");
     expect(panel).toContain("expected_status: orderStatus");
-    expect(panel).toContain("required: true");
+    // R1 confirm standard: L2 (reason) / L3 (reason + order number typed again)
+    expect(panel).toContain("confirmAdminAction");
+    expect(panel).toContain('level: L3_ACTIONS.has(action) ? "L3" : "L2"');
+    expect(panel).toContain("retypeValue");
   });
 });

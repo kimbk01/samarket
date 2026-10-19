@@ -49,3 +49,44 @@ export const ADMIN_STORE_ACTIONS_REQUIRING_REASON = new Set<string>([
 ]);
 
 export const ADMIN_STORE_REASON_MIN_LENGTH = 2;
+
+/**
+ * C-6 (Owner 승인) — 보완 요청(`revision_requested`) 매장이 신청 내용을 고쳐 저장하면
+ * 심사 대기(`pending`)로 복귀해 입점 심사 처리 대기에 다시 노출된다 (DEF-16).
+ * 영업 스위치·메신저 설정처럼 신청 내용이 아닌 저장은 재제출로 보지 않는다.
+ */
+export const OWNER_RESUBMIT_CONTENT_FIELDS = new Set<string>([
+  "store_name",
+  "business_type",
+  "store_category_id",
+  "store_topic_id",
+  "description",
+  "phone",
+  "kakao_id",
+  "email",
+  "website_url",
+  "profile_image_url",
+  "region",
+  "city",
+  "district",
+  "address_line1",
+  "address_line2",
+  "place_id",
+  "formatted_address",
+  "detail_address",
+  "lat",
+  "lng",
+  "business_hours_json",
+  "gallery_images_json",
+]);
+
+export function ownerEditReturnsStoreToPending(
+  currentStatus: string | null | undefined,
+  patchKeys: readonly string[]
+): boolean {
+  if (String(currentStatus ?? "").trim() !== "revision_requested") return false;
+  return patchKeys.some((k) => OWNER_RESUBMIT_CONTENT_FIELDS.has(k));
+}
+
+/** 서버 L2 사유 최소 길이 (화면 confirmAdminAction 과 동일 기준). */
+export const ADMIN_REASON_MIN_LENGTH_SERVER = ADMIN_STORE_REASON_MIN_LENGTH;

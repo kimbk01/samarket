@@ -246,6 +246,8 @@ export function AdminStoreReviewPanel({
   if (!store) return null;
 
   const approval = adminStatusLabel("store_approval", store.approval_status, ko);
+  /** C-6 — 보완 요청 후 사장님 재제출로 심사 대기 복귀한 신청 (보완 요청 내용이 남아 있음). */
+  const resubmitted = store.approval_status === "pending" && Boolean((store.revision_note ?? "").trim());
   const sales = salesStatus === undefined ? null : adminStatusLabel("store_sales", salesStatus, ko);
   const storeNameForCopy = (store.store_name ?? "").trim();
   const { intro: storeIntro } = splitStoreDescriptionAndKakao(store.description, store.kakao_id);
@@ -371,8 +373,18 @@ export function AdminStoreReviewPanel({
       <ReviewBlock title={ko ? "상태" : "Status"}>
         <ReviewRow
           label={ko ? "심사 상태" : "Review"}
-          value={<AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>}
+          value={
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+              {resubmitted ? <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge> : null}
+            </span>
+          }
         />
+        {resubmitted ? (
+          <p className="py-1 text-[12px] text-[#6B6B6B]" data-admin-store-resubmitted="1">
+            {t("admin_r4a_resubmitted_hint")}
+          </p>
+        ) : null}
         {sales && store.approval_status === "approved" ? (
           <ReviewRow
             label={ko ? "판매 상태" : "Sales"}

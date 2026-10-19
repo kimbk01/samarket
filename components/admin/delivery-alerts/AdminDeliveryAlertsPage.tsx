@@ -1,15 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DeliveryAlertLogTimeline } from "@/components/admin/delivery-alerts/DeliveryAlertLogTimeline";
 import { AUTO_ACTION_TYPE_KEYS } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
 import { fetchAdminDeliveryOperationAlertsDeduped } from "@/lib/admin/fetch-admin-delivery-operation-alerts-deduped";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminErrorState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+
+type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
 type RuleRow = {
   id: string;
@@ -28,11 +35,13 @@ type RuleRow = {
   auto_action_delay_minutes?: number | null;
   auto_action_min_escalation_count?: number;
   auto_action_requires_approval?: boolean;
+  /** CAS — 저장 시 expected_updated_at 로 보낸다 (DEF-41) */
+  updated_at?: string | null;
 };
 
+/** C-9: `auto_hold_settlement`(레거시 정산 보류)는 중단 — 선택지에서 제외 (서버도 거부). */
 const AUTO_ACTION_VALUES = [
   "",
-  "auto_hold_settlement",
   "auto_flag_order",
   "auto_reassign_rider",
   "auto_escalate",
@@ -153,8 +162,28 @@ function parsePayload(json: unknown): { rules: RuleRow[]; events: EventRow[]; su
   };
 }
 
+/** URL 필터 (`filter=open|all`, `assignment=all|mine|unassigned`) — 대시보드·상황판 링크가 그대로 열린다. */
+function readFilter(sp: URLSearchParams): "open" | "all" {
+  return sp.get("filter") === "all" ? "all" : "open";
+}
+function readAssignment(sp: URLSearchParams): "all" | "mine" | "unassigned" {
+  const v = sp.get("assignment");
+  return v === "mine" || v === "unassigned" ? v : "all";
+}
+
 export function AdminDeliveryAlertsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDeliveryAlertsPageInner />
+    </Suspense>
+  );
+}
+
+function AdminDeliveryAlertsPageInner() {
   const { t, language } = useI18n();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const ko = language !== "en";
   const dash = t("admin_del_common_dash");
 
@@ -225,8 +254,42 @@ export function AdminDeliveryAlertsPage() {
     []
   );
 
-  const [filter, setFilter] = useState<"open" | "all">("open");
-  const [assignment, setAssignment] = useState<"all" | "mine" | "unassigned">("all");
+  const [filter, setFilterState] = useState<"open" | "all">(() =>
+    readFilter(new URLSearchParams(searchParams.toString()))
+  );
+  const [assignment, setAssignmentState] = useState<"all" | "mine" | "unassigned">(() =>
+    readAssignment(new URLSearchParams(searchParams.toString()))
+  );
+  const syncUrl = useCallback(
+    (next: { filter?: "open" | "all"; assignment?: "all" | "mine" | "unassigned" }) => {
+      const qs = new URLSearchParams(searchParams.toString());
+      if (next.filter) {
+        if (next.filter === "open") qs.delete("filter");
+        else qs.set("filter", next.filter);
+      }
+      if (next.assignment) {
+        if (next.assignment === "all") qs.delete("assignment");
+        else qs.set("assignment", next.assignment);
+      }
+      const q = qs.toString();
+      router.replace(`${pathname || "/admin/delivery-alerts"}${q ? `?${q}` : ""}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+  const setFilter = useCallback(
+    (v: "open" | "all") => {
+      setFilterState(v);
+      syncUrl({ filter: v });
+    },
+    [syncUrl]
+  );
+  const setAssignment = useCallback(
+    (v: "all" | "mine" | "unassigned") => {
+      setAssignmentState(v);
+      syncUrl({ assignment: v });
+    },
+    [syncUrl]
+  );
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [summary, setSummary] = useState<Summary>({
@@ -238,11 +301,12 @@ export function AdminDeliveryAlertsPage() {
   });
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
+  const [result, setResult] = useState<ResultState>(null);
+  const [handlingDraft, setHandlingDraft] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [ruleBusyId, setRuleBusyId] = useState<string | null>(null);
   const [ruleDrafts, setRuleDrafts] = useState<Record<string, RuleDraft>>({});
-  const [ruleNotice, setRuleNotice] = useState<string | null>(null);
   const [actionNotes, setActionNotes] = useState<Record<string, string>>({});
   const [assignPick, setAssignPick] = useState<Record<string, string>>({});
   const [assignMemo, setAssignMemo] = useState<Record<string, string>>({});
@@ -266,22 +330,16 @@ export function AdminDeliveryAlertsPage() {
         setRules(parsed.rules);
         setEvents(parsed.events);
         setSummary(parsed.summary);
-        setError(null);
+        setLoadErr(null);
         setLoading(false);
         return;
       }
       setRules([]);
       setEvents([]);
-      setError(
-        status === 503
-          ? ko
-            ? "배달 경고 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요."
-            : "Delivery alerts are not ready yet. Contact a system admin."
-          : adminOperatorErrorMessage(apiErr(status, json, "load_failed"), ko)
-      );
+      setLoadErr({ code: status === 503 ? "schema_missing" : apiErr(status, json, "load_failed"), status });
       setLoading(false);
     });
-  }, [filter, assignment, ko]);
+  }, [filter, assignment]);
 
   useEffect(() => {
     load();
@@ -293,44 +351,53 @@ export function AdminDeliveryAlertsPage() {
   }, [load]);
 
   const runSync = useCallback(() => {
+    setResult(null);
     void fetch("/api/admin/delivery-operation-alerts/sync", { method: "POST", cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
           const j = await res.json().catch(() => null);
-          setError(adminOperatorErrorMessage(apiErr(res.status, j, "action_failed"), ko));
+          setResult({ ok: false, code: apiErr(res.status, j, "action_failed") });
           return;
         }
+        setResult({ ok: true, message: t("admin_r4d_alert_sync_done") });
         load();
       })
-      .catch(() => setError(adminOperatorErrorMessage("network_error", ko)));
-  }, [load, ko]);
+      .catch(() => setResult({ ok: false, code: "network_error" }));
+  }, [load, t]);
 
+  /** 경고 처리 — 서버는 business 권한·상태 CAS(409)·감사 기록. 결과 배너 후 재조회. */
   const patchEventJson = useCallback(
-    (eventId: string, body: Record<string, unknown>) => {
+    async (eventId: string, body: Record<string, unknown>, okMessage: string): Promise<boolean> => {
       setBusyId(eventId);
-      void fetch(`/api/admin/delivery-operation-alerts/events/${encodeURIComponent(eventId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const j = await res.json().catch(() => null);
-            setError(adminOperatorErrorMessage(apiErr(res.status, j, "action_failed"), ko));
-            return;
-          }
+      setResult(null);
+      try {
+        const res = await fetch(`/api/admin/delivery-operation-alerts/events/${encodeURIComponent(eventId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => null);
+          setResult({ ok: false, code: apiErr(res.status, j, "action_failed") });
           load();
-        })
-        .catch(() => setError(adminOperatorErrorMessage("network_error", ko)))
-        .finally(() => setBusyId(null));
+          return false;
+        }
+        setResult({ ok: true, message: okMessage });
+        load();
+        return true;
+      } catch {
+        setResult({ ok: false, code: "network_error" });
+        return false;
+      } finally {
+        setBusyId(null);
+      }
     },
-    [load, ko]
+    [load]
   );
 
   const draftFor = useCallback((ru: RuleRow): RuleDraft => ruleDrafts[ru.id] ?? ruleToDraft(ru), [ruleDrafts]);
 
   const editDraft = useCallback((ru: RuleRow, patch: Partial<RuleDraft>) => {
-    setRuleNotice(null);
     setRuleDrafts((m) => {
       const cur = m[ru.id] ?? ruleToDraft(ru);
       const next = { ...cur, ...patch };
@@ -370,7 +437,7 @@ export function AdminDeliveryAlertsPage() {
         if (d[k] === base[k]) continue;
         const n = intField(String(d[k]), min);
         if (n == null) {
-          setError(ko ? "분·단계 값은 1 이상의 숫자로 입력하세요." : "Minutes/levels must be numbers of 1 or more.");
+          setResult({ ok: false, code: "invalid_rule_number" });
           return;
         }
         patch[k] = n;
@@ -387,11 +454,7 @@ export function AdminDeliveryAlertsPage() {
           const delay = d.auto_action_delay_minutes.trim() === "" ? 60 : intField(d.auto_action_delay_minutes, 1);
           const minEsc = intField(d.auto_action_min_escalation_count, 0);
           if (delay == null || minEsc == null) {
-            setError(
-              ko
-                ? "자동 조치 지연은 1분 이상, 최소 단계는 0 이상으로 입력하세요."
-                : "Auto action delay must be 1+ minutes and minimum level 0 or more."
-            );
+            setResult({ ok: false, code: "auto_action_requires_type_and_delay" });
             return;
           }
           patch.auto_action_enabled = true;
@@ -442,8 +505,11 @@ export function AdminDeliveryAlertsPage() {
       });
       if (!c.ok) return;
       if (c.reason) patch.reason = c.reason;
+      // CAS — 화면이 본 규칙 버전 (다른 관리자 저장 시 409)
+      patch.expected_updated_at = ru.updated_at ?? "";
 
       setRuleBusyId(ru.id);
+      setResult(null);
       try {
         const res = await fetch(`/api/admin/delivery-operation-alerts/rules/${encodeURIComponent(ru.id)}`, {
           method: "PATCH",
@@ -452,14 +518,14 @@ export function AdminDeliveryAlertsPage() {
         });
         if (!res.ok) {
           const j = await res.json().catch(() => null);
-          setError(adminOperatorErrorMessage(apiErr(res.status, j, "update_failed"), ko));
+          setResult({ ok: false, code: apiErr(res.status, j, "update_failed") });
           return;
         }
         resetDraft(ru.id);
-        setRuleNotice(ko ? `「${name}」 규칙을 저장했습니다.` : `Saved rule "${name}".`);
+        setResult({ ok: true, message: ko ? `「${name}」 규칙을 저장했습니다.` : `Saved rule "${name}".` });
         load();
       } catch {
-        setError(adminOperatorErrorMessage("network_error", ko));
+        setResult({ ok: false, code: "network_error" });
       } finally {
         setRuleBusyId(null);
       }
@@ -474,13 +540,15 @@ export function AdminDeliveryAlertsPage() {
     <div className="sam-page-stack">
       <AdminPageHeader title={ko ? "배달 경고" : "Delivery alerts"} description={t("admin_del_alert_page_desc")} />
 
-      {error ? (
-        <div className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-4 py-3 text-sam-warning sam-text-body-secondary" role="alert">
-          {error}
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm ml-3" onClick={() => setError(null)}>
-            {t("common_close")}
-          </button>
-        </div>
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
+      {loadErr ? (
+        loadErr.status === 503 ? (
+          <div role="alert" className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-4 py-3 text-sam-warning sam-text-body-secondary">
+            {t("admin_r4d_alert_not_ready")}
+          </div>
+        ) : (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => load()} />
+        )
       ) : null}
 
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -551,11 +619,6 @@ export function AdminDeliveryAlertsPage() {
             ? "값을 바꾼 뒤 각 규칙의 「저장」을 눌러야 적용됩니다."
             : "Changes apply only after you press Save on each rule."}
         </p>
-        {ruleNotice ? (
-          <div role="status" className="mb-3 rounded-ui-rect border border-emerald-300 bg-emerald-50 px-3 py-2 sam-text-xxs text-emerald-950">
-            {ruleNotice}
-          </div>
-        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-[1260px] w-full border-collapse sam-text-body-secondary">
             <thead>
@@ -810,11 +873,15 @@ export function AdminDeliveryAlertsPage() {
                             className="sam-btn sam-btn--outline sam-btn--sm"
                             disabled={busyId === ev.id || !assignPick[ev.id]}
                             onClick={() =>
-                              patchEventJson(ev.id, {
-                                action: "assign",
-                                assigned_admin_id: assignPick[ev.id],
-                                assignment_note: assignMemo[ev.id] || undefined,
-                              })
+                              void patchEventJson(
+                                ev.id,
+                                {
+                                  action: "assign",
+                                  assigned_admin_id: assignPick[ev.id],
+                                  assignment_note: assignMemo[ev.id] || undefined,
+                                },
+                                t("admin_r4d_alert_assign_done")
+                              )
                             }
                           >
                             {t("admin_del_alert_btn_assign")}
@@ -823,7 +890,7 @@ export function AdminDeliveryAlertsPage() {
                             type="button"
                             className="sam-btn sam-btn--outline sam-btn--sm"
                             disabled={busyId === ev.id || !ev.assigned_admin_id}
-                            onClick={() => patchEventJson(ev.id, { action: "unassign" })}
+                            onClick={() => void patchEventJson(ev.id, { action: "unassign" }, t("admin_r4d_alert_unassign_done"))}
                           >
                             {t("admin_del_alert_btn_unassign")}
                           </button>
@@ -831,8 +898,8 @@ export function AdminDeliveryAlertsPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="py-2 pr-2">{ev.event_status}</td>
-                  <td className="py-2 pr-2 font-medium">{ev.severity}</td>
+                  <td className="py-2 pr-2">{adminStatusLabel("alert_event", ev.event_status, ko).label}</td>
+                  <td className="py-2 pr-2 font-medium">{adminStatusLabel("alert_severity", ev.severity, ko).label}</td>
                   <td className="py-2 pr-2 tabular-nums">{ev.escalation_count ?? 0}</td>
                   <td className="py-2 pr-2 tabular-nums">{ev.repeat_fire_count ?? 0}</td>
                   <td className="py-2 pr-2 tabular-nums">{elapsedLabel(ev.first_triggered_at)}</td>
@@ -844,17 +911,34 @@ export function AdminDeliveryAlertsPage() {
                       onChange={(e) => setActionNotes((n) => ({ ...n, [ev.id]: e.target.value }))}
                     />
                     {ev.event_status !== "resolved" ? (
-                      <input
-                        className="sam-input mb-1 h-8 w-full min-w-[8rem] text-xxs"
-                        placeholder={t("admin_del_alert_ph_handling_note")}
-                        defaultValue={ev.handling_note ?? ""}
-                        key={`hand-${ev.id}-${ev.handling_note ?? ""}`}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (!v || v === (ev.handling_note ?? "").trim()) return;
-                          patchEventJson(ev.id, { action: "handling", handling_note: v });
-                        }}
-                      />
+                      // 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다
+                      <div className="mb-1 flex gap-1">
+                        <input
+                          className="sam-input h-8 w-full min-w-[8rem] text-xxs"
+                          placeholder={t("admin_del_alert_ph_handling_note")}
+                          value={handlingDraft[ev.id] ?? ev.handling_note ?? ""}
+                          onChange={(e) => setHandlingDraft((m) => ({ ...m, [ev.id]: e.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          className="sam-btn sam-btn--outline sam-btn--sm shrink-0"
+                          disabled={
+                            busyId === ev.id ||
+                            !(handlingDraft[ev.id] ?? "").trim() ||
+                            (handlingDraft[ev.id] ?? "").trim() === (ev.handling_note ?? "").trim()
+                          }
+                          onClick={async () => {
+                            const ok = await patchEventJson(
+                              ev.id,
+                              { action: "handling", handling_note: (handlingDraft[ev.id] ?? "").trim() },
+                              t("admin_r4d_handling_saved")
+                            );
+                            if (ok) setHandlingDraft(({ [ev.id]: _done, ...rest }) => (void _done, rest));
+                          }}
+                        >
+                          {t("admin_r4d_handling_save")}
+                        </button>
+                      </div>
                     ) : null}
                     <div className="flex flex-wrap gap-1">
                       <button
@@ -862,7 +946,11 @@ export function AdminDeliveryAlertsPage() {
                         className="sam-btn sam-btn--outline sam-btn--sm"
                         disabled={busyId === ev.id || ev.event_status !== "open"}
                         onClick={() =>
-                          patchEventJson(ev.id, { action: "acknowledge", note: actionNotes[ev.id] || undefined })
+                          void patchEventJson(
+                            ev.id,
+                            { action: "acknowledge", note: actionNotes[ev.id] || undefined },
+                            t("admin_r4d_alert_ack_done")
+                          )
                         }
                       >
                         {t("admin_del_alert_btn_acknowledge")}
@@ -871,9 +959,21 @@ export function AdminDeliveryAlertsPage() {
                         type="button"
                         className="sam-btn sam-btn--outline sam-btn--sm"
                         disabled={busyId === ev.id || (ev.event_status !== "open" && ev.event_status !== "acknowledged")}
-                        onClick={() =>
-                          patchEventJson(ev.id, { action: "mute", note: actionNotes[ev.id] || undefined })
-                        }
+                        onClick={async () => {
+                          const c = await confirmAdminAction({
+                            level: "L1",
+                            ko,
+                            title: t("admin_r4d_alert_mute_title"),
+                            description: t("admin_r4d_alert_mute_desc"),
+                            confirmLabel: ko ? "알림 끄기" : "Mute alerts",
+                          });
+                          if (!c.ok) return;
+                          void patchEventJson(
+                            ev.id,
+                            { action: "mute", note: actionNotes[ev.id] || undefined },
+                            t("admin_r4d_alert_mute_done")
+                          );
+                        }}
                       >
                         {ko ? "알림 끄기" : "Mute alerts"}
                       </button>
@@ -881,9 +981,21 @@ export function AdminDeliveryAlertsPage() {
                         type="button"
                         className="sam-btn sam-btn--primary sam-btn--sm"
                         disabled={busyId === ev.id || ev.event_status === "resolved"}
-                        onClick={() =>
-                          patchEventJson(ev.id, { action: "resolve", note: actionNotes[ev.id] || undefined })
-                        }
+                        onClick={async () => {
+                          const c = await confirmAdminAction({
+                            level: "L1",
+                            ko,
+                            title: t("admin_r4d_alert_resolve_title"),
+                            description: ev.rule?.rule_name || undefined,
+                            confirmLabel: t("admin_del_alert_btn_resolve"),
+                          });
+                          if (!c.ok) return;
+                          void patchEventJson(
+                            ev.id,
+                            { action: "resolve", note: actionNotes[ev.id] || undefined },
+                            t("admin_r4d_alert_resolve_done")
+                          );
+                        }}
                       >
                         {t("admin_del_alert_btn_resolve")}
                       </button>

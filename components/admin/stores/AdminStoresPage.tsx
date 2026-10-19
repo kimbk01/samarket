@@ -44,6 +44,8 @@ type SalesPerm = {
 
 type AdminStoreRow = AdminStoreReviewRow & { sales_permission: SalesPerm };
 
+const ADMIN_STORES_PAGE_SIZE = 30;
+
 type AdminStoreCounts = Partial<Record<(typeof ADMIN_STORE_STATUS_FILTER)[number]["value"], number>>;
 
 function previewText(text: string | null | undefined, max = 72): string {
@@ -82,22 +84,59 @@ export function AdminStoresPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
   const [searchText, setSearchText] = useState(() => searchParams.get("q")?.trim() ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("q")?.trim() ?? "");
+  const [page, setPage] = useState(() => {
+    const n = Number(searchParams.get("page"));
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+  });
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(ADMIN_STORES_PAGE_SIZE);
   const rtRefreshTimeoutRef = useRef<number | null>(null);
+  const firstFilterRunRef = useRef(true);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    // 필터·검색이 바뀌면 1페이지로 (첫 렌더는 URL page 유지).
+    if (firstFilterRunRef.current) {
+      firstFilterRunRef.current = false;
+      return;
+    }
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  /** 화면 URL (뒤로가기·상세 복귀용) — status·q·page */
   const qs = useMemo(() => {
     const parts: string[] = [];
     if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
-    const q = searchText.trim();
-    if (q) parts.push(`q=${encodeURIComponent(q)}`);
+    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
+    if (page > 1) parts.push(`page=${page}`);
     return parts.length ? `?${parts.join("&")}` : "";
-  }, [filter, searchText]);
+  }, [filter, debouncedSearch, page]);
+
+  /** DEF-15 — 서버 페이지네이션 (전체 건수·상태별 건수는 서버 집계). */
+  const apiQs = useMemo(() => {
+    const parts = [`page=${page}`, `page_size=${ADMIN_STORES_PAGE_SIZE}`];
+    if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
+    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
+    return `?${parts.join("&")}`;
+  }, [filter, debouncedSearch, page]);
+
+  useEffect(() => {
+    const next = `/admin/stores${qs}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== next) window.history.replaceState(window.history.state, "", next);
+  }, [qs]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setErrorStatus(undefined);
     try {
-      const res = await fetch(`/api/admin/stores${qs}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/stores${apiQs}`, { credentials: "include" });
       const json = await res.json().catch(() => null);
       if (res.status === 403) {
         setError("forbidden");
@@ -117,6 +156,8 @@ export function AdminStoresPage() {
       const nextRows = (json.stores ?? []) as AdminStoreRow[];
       setRows(nextRows);
       setCounts(typeof json.counts === "object" && json.counts ? (json.counts as AdminStoreCounts) : {});
+      setTotal(typeof json.total === "number" ? json.total : nextRows.length);
+      setPageSize(typeof json.pageSize === "number" && json.pageSize > 0 ? json.pageSize : ADMIN_STORES_PAGE_SIZE);
       setSheetStore((prev) => {
         if (prev && nextRows.some((r) => r.id === prev.id)) {
           return nextRows.find((r) => r.id === prev.id) ?? prev;
@@ -131,7 +172,7 @@ export function AdminStoresPage() {
     } finally {
       setLoading(false);
     }
-  }, [qs]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
@@ -244,7 +285,7 @@ export function AdminStoresPage() {
               className="mt-2 w-full rounded-sm border border-[#D4C5B9] bg-white px-3 py-2 text-[#1E3932] outline-none focus:border-[#00704A]"
             />
             <p className="mt-2 text-[13px] text-[#6B6B6B]">
-              {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: rows.length })}
+              {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
             </p>
           </div>
 
@@ -292,6 +333,9 @@ export function AdminStoresPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <h2 className="text-[15px] font-bold leading-5 text-[#1E3932]">{storeName}</h2>
                               <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+                              {r.approval_status === "pending" && (r.revision_note ?? "").trim() ? (
+                                <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge>
+                              ) : null}
                             </div>
 
                             <div className="max-w-4xl space-y-0">
@@ -388,6 +432,41 @@ export function AdminStoresPage() {
               </div>
             )}
           </div>
+          {!loading && !error && total > pageSize ? (
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3"
+              data-admin-stores-pagination="1"
+            >
+              <p className="text-[13px] text-[#6B6B6B]">
+                {t("admin_biz_ops_page_range", {
+                  from: String((page - 1) * pageSize + 1),
+                  to: String(Math.min(page * pageSize, total)),
+                  total: String(total),
+                })}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className={sbBtnSecondary}
+                >
+                  {t("admin_biz_ops_page_prev")}
+                </button>
+                <span className="px-2 text-[13px] tabular-nums text-[#1E3932]">
+                  {page} / {Math.max(1, Math.ceil(total / pageSize))}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  onClick={() => setPage((p) => p + 1)}
+                  className={sbBtnSecondary}
+                >
+                  {t("admin_biz_ops_page_next")}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </AdminStoreReviewTheme>

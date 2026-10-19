@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM,
@@ -53,6 +53,8 @@ export function AdminStoreCouponControlPage() {
   const [campaigns, setCampaigns] = useState<CouponControlCampaignView[]>([]);
   const [storeOptions, setStoreOptions] = useState<{ id: string; name: string }[]>([]);
   const [actError, setActError] = useState<string | null>(null);
+  /** 처리 성공 결과 배너 (DEF-47) — 실패는 detail 의 actError(오류 코드 맵) 로 표시. */
+  const [actDone, setActDone] = useState<{ ok: true; message: string } | null>(null);
   /** List load failure — shown as AdminErrorState, never as an empty list (DEF-44). */
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [couponNumberQuery, setCouponNumberQuery] = useState("");
@@ -138,6 +140,7 @@ export function AdminStoreCouponControlPage() {
   /** Confirmation (L1/L2/L3) is collected by the detail pane; this only sends + maps errors. */
   const act = async (id: string, action: string, reason?: string | null) => {
     setActError(null);
+    setActDone(null);
     const body: Record<string, unknown> = { id, action };
     const trimmed = (reason ?? "").trim();
     if (action === "revoke" || action === "reject") {
@@ -172,6 +175,7 @@ export function AdminStoreCouponControlPage() {
       setActError(adminOperatorErrorMessage("network_error", ko));
       return;
     }
+    setActDone({ ok: true, message: t("admin_r4c_coupon_act_done") });
     await load();
   };
 
@@ -274,7 +278,7 @@ export function AdminStoreCouponControlPage() {
                   className="shrink-0 rounded-ui-rect bg-signature px-4 text-sm font-medium text-white"
                   onClick={() => void load(couponNumberQuery)}
                 >
-                  {ko ? "검색" : "Search"}
+                  {t("admin_r4c_search")}
                 </button>
               </div>
             </label>
@@ -286,6 +290,7 @@ export function AdminStoreCouponControlPage() {
           </div>
         ) : null}
 
+        {role === "detail" ? <AdminResultBanner ko={ko} result={actDone} onClose={() => setActDone(null)} /> : null}
         {role === "detail" && !loadError ? (
           <AdminStoreCouponControlDetail campaign={selected} onAct={act} actError={actError} />
         ) : null}

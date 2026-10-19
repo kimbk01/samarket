@@ -1,266 +1,132 @@
 /**
- * Delivery Domain Dashboard — compose business ops KPI + Action Queue (read-only).
+ * Delivery Domain Dashboard — 지표는 `lib/admin/metrics/delivery-metrics.ts` 단일 정의에서 읽는다 (§5).
+ * 전체 관제 Action Center 배달 카드와 같은 지표 id·같은 처리 대기 레지스트리 값을 쓴다.
+ * 값 확인 불가 = null (「확인 불가」, 0 표시 금지). 모든 지표는 처리 화면(필터 포함)으로 이동한다.
+ * 읽기 전용 — 쓰기 없음.
  */
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { loadAdminActionQueueCounts } from "@/lib/admin/admin-action-queue";
-import { loadAdminBusinessListOps } from "@/lib/admin-business/load-admin-business-list";
-import {
-  BUSINESS_OPS_DELIVERING_ORDER_STATUSES,
-  BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES,
-} from "@/lib/admin-business/business-ops-presentation";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
-import { adminDomainCountExact } from "@/lib/admin/domain-dashboard/count-exact";
-import type { AdminDomainDashboardModel } from "@/lib/admin/domain-dashboard/types";
+import {
+  DELIVERY_METRIC_DEFINITIONS,
+  type DeliveryMetricDefinition,
+  type DeliveryMetricId,
+  type DeliveryMetricSection,
+  type DeliveryMetricValue,
+} from "@/lib/admin/metrics/delivery-metrics";
+import { loadDeliveryMetrics } from "@/lib/admin/metrics/load-delivery-metrics";
+import type {
+  AdminDomainActionItem,
+  AdminDomainDashboardModel,
+  AdminDomainMetric,
+} from "@/lib/admin/domain-dashboard/types";
 
-function qUnavailable(unavailable: Set<string>, key: string): boolean {
-  return unavailable.has(key);
+function sectionDefs(section: DeliveryMetricSection): DeliveryMetricDefinition[] {
+  return DELIVERY_METRIC_DEFINITIONS.filter((d) => d.section === section);
+}
+
+function valueOf(values: ReadonlyMap<DeliveryMetricId, DeliveryMetricValue>, id: DeliveryMetricId): DeliveryMetricValue {
+  return values.get(id) ?? { id, value: null, href: "", forbidden: false };
+}
+
+function sourceLabel(def: DeliveryMetricDefinition): string {
+  return def.source.kind === "queue"
+    ? `metric:${def.id}|admin_action_queue.${def.source.categories.join("+")}`
+    : `metric:${def.id}|${def.source.description}`;
+}
+
+function toActionItems(
+  defs: DeliveryMetricDefinition[],
+  values: ReadonlyMap<DeliveryMetricId, DeliveryMetricValue>
+): AdminDomainActionItem[] {
+  return defs
+    .map((def) => ({ def, v: valueOf(values, def.id) }))
+    .filter(({ v, def }) => !v.forbidden && (v.value === null || v.value > 0 || def.showWhenZero))
+    .map(({ def, v }) => ({
+      id: def.id,
+      labelKo: def.labelKo,
+      labelEn: def.labelEn,
+      count: v.value,
+      href: def.href,
+      source: sourceLabel(def),
+      owner: def.source.kind === "queue" ? def.source.categories.join("+") : "delivery_metrics",
+    }));
+}
+
+function toMetrics(
+  defs: DeliveryMetricDefinition[],
+  values: ReadonlyMap<DeliveryMetricId, DeliveryMetricValue>
+): AdminDomainMetric[] {
+  return defs
+    .map((def) => ({ def, v: valueOf(values, def.id) }))
+    .filter(({ v }) => !v.forbidden)
+    .map(({ def, v }) => ({
+      id: def.id,
+      labelKo: def.labelKo,
+      labelEn: def.labelEn,
+      value: v.value,
+      href: def.href,
+      source: sourceLabel(def),
+    }));
 }
 
 export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboardModel> {
-  const sectionErrors: string[] = [];
   const sb = getSupabaseServer();
-
-  let kpi = null as
-    | NonNullable<Extract<Awaited<ReturnType<typeof loadAdminBusinessListOps>>, { ok: true }>["kpi"]>
-    | null;
-  try {
-    const list = await loadAdminBusinessListOps(sb, { page: 1, pageSize: 1 });
-    if (list.ok) kpi = list.kpi;
-    else sectionErrors.push(`business_ops_kpi:${list.error}`);
-  } catch (e) {
-    sectionErrors.push(`business_ops_kpi:${e instanceof Error ? e.message : "error"}`);
-  }
-
-  let queue = null as Awaited<ReturnType<typeof loadAdminActionQueueCounts>> | null;
-  try {
-    queue = await loadAdminActionQueueCounts({ storesSb: sb as any, notesSb: sb as any });
-  } catch (e) {
-    sectionErrors.push(`action_queue:${e instanceof Error ? e.message : "error"}`);
-  }
-
-  const unavailable = new Set(queue?.unavailable ?? []);
-
-  const [completedOrders, cancelledOrders, pendingOrders] = await Promise.all([
-    adminDomainCountExact(() =>
-      (sb as any).from("store_orders").select("id", { count: "exact", head: true }).eq("order_status", "completed")
-    ),
-    adminDomainCountExact(() =>
-      (sb as any).from("store_orders").select("id", { count: "exact", head: true }).eq("order_status", "cancelled")
-    ),
-    adminDomainCountExact(() =>
-      (sb as any)
-        .from("store_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("order_status", "pending")
-    ),
-  ]);
-
-  const delivering = await adminDomainCountExact(() =>
-    (sb as any)
-      .from("store_orders")
-      .select("id", { count: "exact", head: true })
-      .in("order_status", [...BUSINESS_OPS_DELIVERING_ORDER_STATUSES])
-  );
-
-  const inProgress =
-    kpi?.inProgressOrders ??
-    (await adminDomainCountExact(() =>
-      (sb as any)
-        .from("store_orders")
-        .select("id", { count: "exact", head: true })
-        .in("order_status", [...BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES])
-    ));
-
-  const actionRequired = [
-    {
-      id: "orders_attention",
-      labelKo: "주문 운영 예외",
-      labelEn: "Order exceptions",
-      count: qUnavailable(unavailable, "orders_attention")
-        ? null
-        : (queue?.orders_attention ?? null),
-      href: "/admin/store-orders?queue=admin_attention",
-      source: "admin_action_queue.orders_attention",
-      owner: "store_orders",
-      filter: "admin_attention",
-    },
-    {
-      id: "pending_orders",
-      labelKo: "신규/미확인 주문",
-      labelEn: "New / pending orders",
-      count: pendingOrders,
-      href: "/admin/store-orders?order_status=pending",
-      source: "store_orders.order_status=pending",
-      owner: "store_orders",
-      filter: "pending",
-    },
-    {
-      id: "settlements",
-      labelKo: "수수료 취소·환불 검토",
-      labelEn: "Commission cancel/refund review",
-      count: qUnavailable(unavailable, "settlements_actionable")
-        ? null
-        : (queue?.settlements_actionable ?? null),
-      href: "/admin/store-settlements?state=review_required",
-      source: "admin_action_queue.settlements_actionable",
-      owner: "store_sale_fee_obligations",
-      filter: "review_required",
-    },
-    {
-      id: "store_applications",
-      labelKo: "매장 승인 대기",
-      labelEn: "Store approval pending",
-      count: qUnavailable(unavailable, "store_applications")
-        ? null
-        : (queue?.store_applications ?? kpi?.pendingApproval ?? null),
-      href: "/admin/business?approval=pending_family",
-      source: "admin_action_queue.store_applications|business_ops_kpi",
-      owner: "stores",
-      filter: "pending_family",
-    },
-    {
-      id: "store_reports",
-      labelKo: "신고/문제 매장",
-      labelEn: "Reported / problem stores",
-      count: qUnavailable(unavailable, "store_reports")
-        ? null
-        : (queue?.store_reports ?? kpi?.openReports ?? null),
-      href: "/admin/business?report=open",
-      source: "admin_action_queue.store_reports|business_ops_kpi",
-      owner: "store_reports",
-      filter: "report=open",
-    },
-    {
-      id: "delivery_ad_ops",
-      labelKo: "배달 광고 처리 필요",
-      labelEn: "Delivery ads need admin",
-      count: qUnavailable(unavailable, "delivery_ad_ops") ? null : (queue?.delivery_ad_ops ?? null),
-      href: `${DELIVERY_AD_ADMIN_ROUTES.hub}#action-required`,
-      source: "admin_action_queue.delivery_ad_ops",
-      owner: "delivery_ad_ops",
-    },
-    {
-      id: "support",
-      labelKo: "고객지원 처리 필요",
-      labelEn: "Support needs attention",
-      count: qUnavailable(unavailable, "support_actionable")
-        ? null
-        : (queue?.support_actionable ?? null),
-      href: "/admin/support?filter=ACTIONABLE#action-required",
-      source: "admin_action_queue.support_actionable",
-      owner: "support_cases",
-    },
-  ].filter((row) => row.count === null || (row.count ?? 0) > 0);
+  const { values, sectionErrors } = await loadDeliveryMetrics(sb);
 
   return {
     domain: "delivery",
     titleKo: "배달 대시보드",
     titleEn: "Delivery dashboard",
     descriptionKo:
-      "입점 검토·문제 주문·운영 중지 매장을 먼저 처리합니다. 카테고리/정책 설정은 보조 메뉴입니다.",
+      "입점 심사·처리 필요 주문·배달 경고를 먼저 처리합니다. 숫자를 누르면 해당 처리 화면이 필터된 상태로 열립니다. 기간 기준: 마닐라 시간.",
     descriptionEn:
-      "Handle store intake, problem orders, and stopped stores first. Category/policy settings are secondary.",
-    currentState: [
-      {
-        id: "stores_total",
-        labelKo: "전체 매장",
-        labelEn: "All stores",
-        value: kpi?.totalStores ?? null,
-        href: "/admin/business",
-        source: "business_ops_kpi.totalStores",
-      },
-      {
-        id: "open_now",
-        labelKo: "영업 중",
-        labelEn: "Open now",
-        value: kpi?.openNow ?? null,
-        href: "/admin/business?open=open",
-        source: "business_ops_kpi.openNow",
-      },
-      {
-        id: "closed_now",
-        labelKo: "영업 종료",
-        labelEn: "Closed",
-        value: kpi?.closedNow ?? null,
-        href: "/admin/business?open=closed",
-        source: "business_ops_kpi.closedNow",
-      },
-      {
-        id: "restricted",
-        labelKo: "운영 제한",
-        labelEn: "Restricted",
-        value: kpi?.restricted ?? null,
-        href: "/admin/business?restriction=yes",
-        source: "business_ops_kpi.restricted",
-      },
-    ],
-    actionRequired,
-    domainHealth: [
-      {
-        id: "orders_in_progress",
-        labelKo: "진행 주문",
-        labelEn: "In-progress orders",
-        value: inProgress,
-        href: "/admin/stores/orders?tab=in_progress",
-        source: "store_orders.in_progress",
-      },
-      {
-        id: "orders_delivering",
-        labelKo: "배달 중",
-        labelEn: "Delivering",
-        value: delivering,
-        href: "/admin/store-orders?order_status=delivering",
-        source: "store_orders.delivering|arrived",
-      },
-      {
-        id: "orders_completed",
-        labelKo: "완료",
-        labelEn: "Completed",
-        value: completedOrders,
-        href: "/admin/store-orders?order_status=completed",
-        source: "store_orders.completed",
-      },
-      {
-        id: "orders_cancelled",
-        labelKo: "취소",
-        labelEn: "Cancelled",
-        value: cancelledOrders,
-        href: "/admin/store-orders?order_status=cancelled",
-        source: "store_orders.cancelled",
-      },
-    ],
-    issues: [
-      {
-        id: "delivery_alerts",
-        labelKo: "배달 알림/이슈",
-        labelEn: "Delivery alerts",
-        count: qUnavailable(unavailable, "delivery_alerts") ? null : (queue?.delivery_alerts ?? null),
-        href: "/admin/delivery-operations",
-        source: "admin_action_queue.delivery_alerts",
-        owner: "delivery_alerts",
-      },
-    ].filter((r) => r.count === null || (r.count ?? 0) > 0),
+      "Handle store intake, orders needing action, and delivery alerts first. Each number opens its processing screen with the filter applied. Period basis: Manila time.",
+    currentState: toMetrics(sectionDefs("state"), values),
+    actionRequired: toActionItems(sectionDefs("action"), values),
+    domainHealth: toMetrics(sectionDefs("health"), values),
+    issues: toActionItems(sectionDefs("risk"), values),
     primaryEntries: [
       {
         id: "business",
-        labelKo: "매장 목록",
-        labelEn: "Stores",
+        labelKo: "매장 운영",
+        labelEn: "Store operations",
         href: "/admin/business",
         frequency: "FREQUENT",
       },
       {
+        id: "store_applications",
+        labelKo: "입점 심사",
+        labelEn: "Store applications",
+        href: "/admin/stores",
+        frequency: "DAILY_CRITICAL",
+      },
+      {
         id: "orders",
-        labelKo: "주문 관리",
+        labelKo: "주문 목록",
         labelEn: "Orders",
         href: "/admin/stores/orders",
         frequency: "DAILY_CRITICAL",
       },
       {
         id: "products",
-        labelKo: "상품/메뉴",
-        labelEn: "Products / menus",
+        labelKo: "메뉴·상품 검수",
+        labelEn: "Menu / product review",
         href: "/admin/store-products",
         frequency: "FREQUENT",
+      },
+      {
+        id: "ops_console",
+        labelKo: "실시간 상황판",
+        labelEn: "Live ops board",
+        href: "/admin/ops-console",
+        frequency: "FREQUENT",
+      },
+      {
+        id: "delivery_operations_stats",
+        labelKo: "배달 통계",
+        labelEn: "Delivery statistics",
+        href: "/admin/delivery-operations",
+        frequency: "OCCASIONAL",
       },
       {
         id: "home_shelves",
@@ -276,13 +142,6 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         href: "/admin/stores/application-settings?menu=stores&focus=category",
         frequency: "CONFIGURATION",
       },
-      {
-        id: "ops",
-        labelKo: "배달 운영 콘솔",
-        labelEn: "Delivery ops console",
-        href: "/admin/ops-console",
-        frequency: "FREQUENT",
-      },
     ],
     contextEntries: [
       {
@@ -294,8 +153,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       },
       {
         id: "settlement",
-        labelKo: "정산",
-        labelEn: "Settlements",
+        labelKo: "수수료 내역·검토",
+        labelEn: "Commission ledger & review",
         href: "/admin/store-settlements",
         frequency: "DAILY_CRITICAL",
       },

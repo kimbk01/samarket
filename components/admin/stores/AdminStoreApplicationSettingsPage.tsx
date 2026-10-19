@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
 import {
   AdminStoreTaxonomyManager,
@@ -28,20 +30,15 @@ export function AdminStoreApplicationSettingsPage() {
   const focusRaw = (searchParams.get("focus") ?? "").trim().toLowerCase();
   const taxonomyFocus: AdminStoreTaxonomyFocus =
     focusRaw === "category" || focusRaw === "topic" ? focusRaw : null;
-  const pageTitle =
+  /** DEF-50: 제목 = 메뉴 라벨 키 (업종 1차/2차 · 매장 알림 설정). */
+  const pageTitleKey: MessageKey =
     activeMenu === "stores"
       ? taxonomyFocus === "category"
-        ? ko
-          ? "1차 업종"
-          : "Tier 1 categories"
+        ? "admin_menu_stores_industry_primary"
         : taxonomyFocus === "topic"
-          ? ko
-            ? "2차 업종"
-            : "Tier 2 categories"
-          : t("admin_page_store_settings_taxonomy")
-      : ko
-        ? "매장 알림 설정"
-        : "Store alert settings";
+          ? "admin_menu_stores_industry_secondary"
+          : "admin_page_store_settings_taxonomy"
+      : "admin_menu_store_settings_alerts";
   /** 탭 전환 시 언마운트하지 않고 hidden — 업종 목록·선택·썸네일 유지 */
   const [storesPanelMounted, setStoresPanelMounted] = useState(activeMenu === "stores");
 
@@ -179,7 +176,7 @@ export function AdminStoreApplicationSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <AdminPageHeader title={pageTitle} />
+      <AdminPageHeader titleKey={pageTitleKey} />
 
       {msg ? (
         <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
@@ -302,6 +299,10 @@ export function AdminStoreApplicationSettingsPage() {
           </section>
 
           <AdminStoreTaxonomyManager onMessage={showMessage} focus={activeMenu === "stores" ? taxonomyFocus : null} />
+          {/* DEF-40: 업종 추가·수정·숨김 감사 기록 */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <AdminConfigAuditHistoryPanel scope="taxonomy" limit={20} refreshToken={msg ? 1 : 0} />
+          </section>
         </div>
       ) : null}
     </div>

@@ -9,7 +9,7 @@ type Props = { orderId: string };
 
 /** Empty lookup-only state when the order has no linked messenger room (admin never creates rooms). */
 export function AdminDeliveryOrderChatLookupEmpty({ orderId }: Props) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   return (
     <div
@@ -18,11 +18,7 @@ export function AdminDeliveryOrderChatLookupEmpty({ orderId }: Props) {
       data-admin-domain="delivery"
       data-testid="admin-order-chat-lookup-empty"
     >
-      <AdminPageHeader
-        title={ko ? "주문 채팅" : "Order chat"}
-        description={ko ? "주문에 연결된 채팅을 조회합니다." : "Look up the chat linked to this order."}
-        backHref="/admin/order-chats"
-      />
+      <AdminPageHeader titleKey="admin_menu_order_chats" descriptionKey="admin_r4b_chat_desc" backHref="/admin/order-chats" />
       <div className="flex flex-wrap gap-2 sam-text-body-secondary">
         <Link href={`/admin/stores/orders/${encodeURIComponent(orderId)}`} className="text-signature underline">
           {ko ? "주문 상세 보기" : "Open order detail"}
@@ -33,9 +29,7 @@ export function AdminDeliveryOrderChatLookupEmpty({ orderId }: Props) {
         </Link>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm text-sam-muted">
-        {ko
-          ? "이 주문에 연결된 채팅방이 없습니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다."
-          : "No chat room is linked to this order. Admin screens never create chat rooms."}
+        {t("admin_r4b_chat_no_room")}
         <AdminTechDetails ko={ko}>orderId={orderId}</AdminTechDetails>
       </div>
     </div>

@@ -3,13 +3,20 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayPrompt, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+
+type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
 
 type RiderSnap = {
   id: string;
@@ -86,18 +93,17 @@ export function AdminDeliveryRidersPage() {
     [ko, dash]
   );
 
+  /** 시각 표시 = Asia/Manila */
   const fmtTs = useCallback(
-    (v: string | null | undefined): string => {
-      if (!v) return dash;
-      return v.slice(0, 19).replace("T", " ");
-    },
+    (v: string | null | undefined): string => (v ? formatAdminManilaDateTime(v) : dash),
     [dash]
   );
 
   const [tab, setTab] = useState<"riders" | "queue">("riders");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
+  const [result, setResult] = useState<ResultState>(null);
+  const [memoDraft, setMemoDraft] = useState<Record<string, string>>({});
   const [riders, setRiders] = useState<RiderSnap[]>([]);
   const [unassigned, setUnassigned] = useState<UnassignedRow[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
@@ -146,18 +152,12 @@ export function AdminDeliveryRidersPage() {
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
-          setError(
-            r.status === 503
-              ? ko
-                ? "운영 상태 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요."
-                : "This feature is not ready yet. Contact a system admin."
-              : adminOperatorErrorMessage(errCode(r.status, j, "load_failed"), ko)
-          );
+          setLoadErr({ code: errCode(r.status, j, "load_failed"), status: r.status });
           setRiders([]);
           setUnassigned([]);
           return;
         }
-        setError(null);
+        setLoadErr(null);
         const rs = Array.isArray(j?.riders) ? j.riders : [];
         const uq = Array.isArray(j?.unassigned_deliveries) ? j.unassigned_deliveries : [];
         setRiders(rs.filter((x: unknown): x is RiderSnap => x != null && typeof x === "object" && "id" in (x as object)));
@@ -167,10 +167,10 @@ export function AdminDeliveryRidersPage() {
         setGeneratedAt(typeof j?.generated_at === "string" ? j.generated_at : null);
       })
       .catch(() => {
-        setError(adminOperatorErrorMessage("network_error", ko));
+        setLoadErr({ code: "network_error" });
       })
       .finally(() => setLoading(false));
-  }, [ko]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -206,7 +206,7 @@ export function AdminDeliveryRidersPage() {
   const patchDelivery = useCallback(
     async (orderId: string, body: Record<string, unknown>, successMsg?: string) => {
       setBusyOrder(orderId);
-      setNotice(null);
+      setResult(null);
       try {
         const r = await fetch(`/api/admin/store-orders/${encodeURIComponent(orderId)}/delivery`, {
           method: "PATCH",
@@ -215,26 +215,25 @@ export function AdminDeliveryRidersPage() {
         });
         const j = await r.json().catch(() => null);
         if (!r.ok) {
-          setError(adminOperatorErrorMessage(errCode(r.status, j, "update_failed"), ko));
+          setResult({ ok: false, code: errCode(r.status, j, "update_failed") });
           return;
         }
-        setError(null);
-        setNotice(successMsg ?? (ko ? "처리했습니다." : "Done."));
+        setResult({ ok: true, message: successMsg ?? t("admin_r4d_done") });
         load();
         if (detailOrderId === orderId) openDetail(orderId);
       } catch {
-        setError(adminOperatorErrorMessage("network_error", ko));
+        setResult({ ok: false, code: "network_error" });
       } finally {
         setBusyOrder(null);
       }
     },
-    [detailOrderId, load, openDetail, ko]
+    [detailOrderId, load, openDetail, t]
   );
 
   const patchRider = useCallback(
-    async (riderId: string, body: Record<string, unknown>) => {
+    async (riderId: string, body: Record<string, unknown>, successMsg?: string) => {
       setBusyRider(riderId);
-      setNotice(null);
+      setResult(null);
       try {
         const r = await fetch(`/api/admin/delivery-riders/${encodeURIComponent(riderId)}`, {
           method: "PATCH",
@@ -243,25 +242,34 @@ export function AdminDeliveryRidersPage() {
         });
         const j = await r.json().catch(() => null);
         if (!r.ok) {
-          setError(adminOperatorErrorMessage(errCode(r.status, j, "update_failed"), ko));
-          return;
+          setResult({ ok: false, code: errCode(r.status, j, "update_failed") });
+          return false;
         }
-        setError(null);
-        setNotice(ko ? "저장했습니다." : "Saved.");
+        setResult({ ok: true, message: successMsg ?? t("admin_r4d_rider_status_saved") });
         load();
+        return true;
       } catch {
-        setError(adminOperatorErrorMessage("network_error", ko));
+        setResult({ ok: false, code: "network_error" });
+        return false;
       } finally {
         setBusyRider(null);
       }
     },
-    [load, ko]
+    [load, t]
   );
 
   const markAttention = useCallback(
     async (orderId: string) => {
+      if (busyOrder) return;
+      const c = await confirmAdminAction({
+        level: "L1",
+        ko,
+        title: t("admin_r4d_attention_title"),
+        confirmLabel: t("admin_del_btn_mark_attention"),
+      });
+      if (!c.ok) return;
       setBusyOrder(orderId);
-      setNotice(null);
+      setResult(null);
       try {
         const r = await fetch(`/api/admin/store-orders/${encodeURIComponent(orderId)}`, {
           method: "PATCH",
@@ -270,20 +278,19 @@ export function AdminDeliveryRidersPage() {
         });
         const j = await r.json().catch(() => null);
         if (!r.ok || j?.ok === false) {
-          setError(adminOperatorErrorMessage(errCode(r.status, j, "update_failed"), ko));
+          setResult({ ok: false, code: errCode(r.status, j, "update_failed") });
           return;
         }
-        setError(null);
-        setNotice(ko ? "주문에 주의 표시를 했습니다." : "Order marked for attention.");
+        setResult({ ok: true, message: t("admin_r4d_attention_done") });
         load();
         if (detailOrderId === orderId) openDetail(orderId);
       } catch {
-        setError(adminOperatorErrorMessage("network_error", ko));
+        setResult({ ok: false, code: "network_error" });
       } finally {
         setBusyOrder(null);
       }
     },
-    [ko, load, detailOrderId, openDetail]
+    [busyOrder, ko, t, load, detailOrderId, openDetail]
   );
 
   /** 실제 집계만 표시 (DEF-43 — 휴리스틱 % 제거). */
@@ -333,26 +340,10 @@ export function AdminDeliveryRidersPage() {
         {t("admin_del_allow_offline_assign")}
       </label>
 
-      {notice ? (
-        <div
-          role="status"
-          className="rounded-ui-rect border border-emerald-300 bg-emerald-50 px-3 py-2 sam-text-xxs text-emerald-950"
-        >
-          {notice}
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm ml-2" onClick={() => setNotice(null)}>
-            {t("common_close")}
-          </button>
-        </div>
-      ) : null}
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
-      {error ? (
-        <div role="alert" className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-3 py-2 sam-text-xxs text-sam-warning">
-          {error}
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm ml-2" onClick={() => setError(null)}>
-            {t("common_close")}
-          </button>
-        </div>
-      ) : null}
+      {loading && riders.length === 0 && !loadErr ? <AdminLoadingState ko={ko} /> : null}
+      {loadErr ? <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => load()} /> : null}
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -388,12 +379,14 @@ export function AdminDeliveryRidersPage() {
                 <tr key={r.id} className="border-b border-sam-border/60 align-top">
                   <td className="py-2 px-2">
                     <div className="font-medium text-sam-fg">{r.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider")}</div>
-                    <AdminTechDetails ko={ko}>rider_id: {r.id}</AdminTechDetails>
+                    <AdminTechDetails ko={ko}>{r.id}</AdminTechDetails>
                   </td>
                   <td className="py-2 px-2">
                     <div>{r.is_online ? t("admin_del_online") : t("admin_del_offline")}</div>
                     <div className="text-[10px] text-sam-muted">
-                      {t("admin_del_admin_status_prefix", { status: r.admin_status ?? dash })}
+                      {t("admin_del_admin_status_prefix", {
+                        status: r.admin_status ? adminStatusLabel("rider_admin", r.admin_status, ko).label : dash,
+                      })}
                     </div>
                     {r.suspended_at ? <div className="text-[10px] text-sam-warning">{t("admin_del_suspended")}</div> : null}
                   </td>
@@ -477,15 +470,32 @@ export function AdminDeliveryRidersPage() {
                     </div>
                     <details className="mt-1">
                       <summary className="cursor-pointer text-[10px] text-signature">{t("admin_del_memo_summary")}</summary>
+                      {/* 명시적 저장 — 입력 이탈 시 자동 저장하지 않는다 */}
                       <textarea
                         className="sam-input mt-1 h-16 w-full text-[11px]"
-                        defaultValue={r.admin_note ?? ""}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v === (r.admin_note ?? "").trim()) return;
-                          void patchRider(r.id, { admin_note: v });
-                        }}
+                        value={memoDraft[r.id] ?? r.admin_note ?? ""}
+                        disabled={busyRider === r.id}
+                        onChange={(e) => setMemoDraft((m) => ({ ...m, [r.id]: e.target.value }))}
                       />
+                      <button
+                        type="button"
+                        className="sam-btn sam-btn--outline sam-btn--sm mt-1 px-2 py-0.5 text-[11px]"
+                        disabled={
+                          busyRider === r.id ||
+                          memoDraft[r.id] === undefined ||
+                          (memoDraft[r.id] ?? "").trim() === (r.admin_note ?? "").trim()
+                        }
+                        onClick={async () => {
+                          const ok = await patchRider(
+                            r.id,
+                            { admin_note: (memoDraft[r.id] ?? "").trim() },
+                            t("admin_r4d_rider_memo_saved")
+                          );
+                          if (ok) setMemoDraft(({ [r.id]: _done, ...rest }) => (void _done, rest));
+                        }}
+                      >
+                        {t("admin_r4d_rider_memo_save")}
+                      </button>
                     </details>
                     <div className="mt-1 space-y-0.5 text-[10px]">
                       {(r.active_orders ?? []).slice(0, 4).map((o) => (
@@ -529,7 +539,7 @@ export function AdminDeliveryRidersPage() {
                       {u.order_no || (ko ? "주문 보기" : "View order")}
                     </button>
                   </td>
-                  <td className="py-2 px-2">{u.order_status ?? dash}</td>
+                  <td className="py-2 px-2">{u.order_status ? adminStatusLabel("store_order", u.order_status, ko).label : dash}</td>
                   <td className="py-2 px-2">{deliveryStatusText(u.delivery_status)}</td>
                   <td className="py-2 px-2 font-mono tabular-nums">{fmtTs(u.updated_at)}</td>
                   <td className="py-2 px-2">
@@ -549,12 +559,22 @@ export function AdminDeliveryRidersPage() {
                       type="button"
                       disabled={busyOrder === u.order_id || !(assignMap[u.order_id] ?? "").trim()}
                       className="sam-btn sam-btn--primary sam-btn--sm ml-1 mt-1 text-[11px]"
-                      onClick={() =>
-                        void patchDelivery(u.order_id, {
-                          assign_rider_id: assignMap[u.order_id],
-                          allow_offline_assign: allowOffline,
-                        })
-                      }
+                      onClick={async () => {
+                        if (busyOrder) return;
+                        const c = await confirmAdminAction({
+                          level: "L1",
+                          ko,
+                          title: t("admin_r4d_assign_title"),
+                          description: `${u.order_no ?? ""} → ${riderName(assignMap[u.order_id])}`.trim(),
+                          confirmLabel: t("admin_del_btn_assign"),
+                        });
+                        if (!c.ok) return;
+                        void patchDelivery(
+                          u.order_id,
+                          { assign_rider_id: assignMap[u.order_id], allow_offline_assign: allowOffline },
+                          t("admin_r4d_assign_done")
+                        );
+                      }}
                     >
                       {t("admin_del_btn_assign")}
                     </button>
@@ -591,7 +611,7 @@ export function AdminDeliveryRidersPage() {
                 {t("common_close")}
               </DibayOverlayButton>
             </div>
-            <AdminTechDetails ko={ko}>order_id: {detailOrderId}</AdminTechDetails>
+            <AdminTechDetails ko={ko}>{detailOrderId}</AdminTechDetails>
             {detailLoading ? (
               <p className="mt-4 text-sam-muted sam-text-xxs">{t("common_loading")}</p>
             ) : detail ? (
@@ -722,16 +742,16 @@ export function AdminDeliveryRidersPage() {
                 </div>
                 <div>
                   <dt className="text-sam-muted">{t("admin_del_failure_reason")}</dt>
-                  <dd className="mt-1 text-sam-fg">{detail.failure_reason ?? dash}</dd>
+                  <dd className="mt-1 whitespace-pre-wrap text-sam-fg">{detail.failure_reason ?? dash}</dd>
                 </div>
                 <div>
                   <dt className="text-sam-muted">{t("admin_del_admin_note")}</dt>
-                  <dd className="mt-1">{detail.admin_note ?? dash}</dd>
+                  <dd className="mt-1 whitespace-pre-wrap">{detail.admin_note ?? dash}</dd>
                 </div>
                 {detail.rider_id || detail.delivery_status ? (
                   <AdminTechDetails ko={ko}>
-                    {detail.rider_id ? <div>rider_id: {detail.rider_id}</div> : null}
-                    {detail.delivery_status ? <div>delivery_status: {detail.delivery_status}</div> : null}
+                    {detail.rider_id ? <div>{detail.rider_id}</div> : null}
+                    {detail.delivery_status ? <div>{detail.delivery_status}</div> : null}
                   </AdminTechDetails>
                 ) : null}
               </dl>
@@ -762,19 +782,23 @@ export function AdminDeliveryRidersPage() {
                   const c = await confirmAdminAction({
                     level: "L2",
                     ko,
-                    title: ko ? "라이더를 재배정할까요?" : "Reassign the rider?",
-                    description: `${riderName(detail?.rider_id)} → ${riderName(reassignPick.trim())}`,
-                    confirmLabel: t("admin_del_btn_reassign"),
+                    title: t("admin_r4d_reassign_title", {
+                      from: riderName(detail?.rider_id),
+                      to: riderName(reassignPick.trim()),
+                    }),
+                    description: t("admin_r4d_reassign_desc"),
+                    confirmLabel: t("admin_r4d_reassign_confirm"),
                   });
                   if (!c.ok) return;
                   void patchDelivery(
                     detailOrderId,
                     {
                       reassign_rider_id: reassignPick.trim(),
+                      expected_rider_id: detail?.rider_id ?? null,
                       allow_offline_assign: allowOffline,
                       reason: c.reason,
                     },
-                    ko ? "라이더를 재배정했습니다." : "Rider reassigned."
+                    t("admin_r4d_reassign_done")
                   );
                 }}
               >
@@ -789,19 +813,13 @@ export function AdminDeliveryRidersPage() {
                   const c = await confirmAdminAction({
                     level: "L1",
                     ko,
-                    title: ko ? "라이더 배정을 해제할까요?" : "Release the rider assignment?",
-                    description: ko
-                      ? "주문이 라이더 배정 대기 상태로 돌아갑니다."
-                      : "The order goes back to waiting for a rider.",
+                    title: t("admin_r4d_release_title"),
+                    description: t("admin_r4d_release_desc"),
                     confirmLabel: t("admin_del_btn_release_rider"),
                     destructive: true,
                   });
                   if (!c.ok) return;
-                  void patchDelivery(
-                    detailOrderId,
-                    { release_delivery_assignment: true },
-                    ko ? "라이더 배정을 해제했습니다." : "Rider released."
-                  );
+                  void patchDelivery(detailOrderId, { release_delivery_assignment: true }, t("admin_r4d_release_done"));
                 }}
               >
                 {t("admin_del_btn_release_rider")}
@@ -811,15 +829,23 @@ export function AdminDeliveryRidersPage() {
                 className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
                 disabled={!detailOrderId || busyOrder === detailOrderId}
                 onClick={async () => {
-                  const reason = await dibayPrompt({
-                    title: t("admin_del_prompt_failure_reason"),
-                    defaultValue: t("admin_del_prompt_failure_default"),
+                  if (busyOrder) return;
+                  // L2 — 사유 필수, 사유가 실패 사유로 기록된다
+                  const c = await confirmAdminAction({
+                    level: "L2",
+                    ko,
+                    title: t("admin_r4d_mark_failed_title"),
+                    description: t("admin_r4d_mark_failed_desc"),
+                    confirmLabel: t("admin_del_btn_mark_failed"),
+                    destructive: true,
+                    reasonPlaceholder: t("admin_del_prompt_failure_reason"),
                   });
-                  if (reason == null) return;
-                  void patchDelivery(detailOrderId, {
-                    set_delivery_status: "delivery_failed",
-                    failure_reason: reason || "delivery_failed",
-                  });
+                  if (!c.ok) return;
+                  void patchDelivery(
+                    detailOrderId,
+                    { set_delivery_status: "delivery_failed", failure_reason: c.reason, reason: c.reason },
+                    t("admin_r4d_mark_failed_done")
+                  );
                 }}
               >
                 {t("admin_del_btn_mark_failed")}

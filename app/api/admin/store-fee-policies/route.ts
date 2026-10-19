@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { auditAdminFeePolicyWrite } from "@/lib/stores/commission/admin-fee-policy-guards";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import {
+  auditAdminFeePolicyWrite,
+  supersedeFeePolicyAtomic,
+} from "@/lib/stores/commission/admin-fee-policy-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -71,8 +74,10 @@ type PostBody = {
   ends_at?: string | null;
   priority?: number;
   memo?: string | null;
-  /** 예약 변경: 기존 정책을 새 정책 시작 시각에 종료하고 새 정책을 같은 요청에서 생성 (DEF-3). */
+  /** 예약 변경: 기존 정책을 새 정책 시작 시각에 종료하고 새 정책을 같은 트랜잭션에서 생성 (DEF-3 · D-1 RPC). */
   supersede_policy_id?: string | null;
+  /** 예약 변경 대상 정책의 화면 로드 시점 updated_at (CAS). */
+  supersede_expected_updated_at?: string | null;
   change_reason?: string | null;
 };
 
@@ -205,8 +210,49 @@ async function resolveTopicParentCategory(
   return { ok: true, categoryId: cat };
 }
 
+/**
+ * D-1 RPC 가 아직 없는 DB 용 보상 경로 (기존 동작): 기존 정책 종료(버전 조건) → 새 정책 생성, 생성 실패 시 종료 시각 복원.
+ */
+async function supersedeFeePolicyCompensating(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  input: {
+    supersedeId: string;
+    newPolicy: Record<string, unknown>;
+    expectedUpdatedAt: string | null;
+    startsAt: string;
+    prevEndsAt: string | null;
+  }
+): Promise<
+  { ok: true; id: string; supersededPrevEndsAt: string | null } | { ok: false; error: string; status: number }
+> {
+  let endQ = sb
+    .from("store_fee_policies")
+    .update({ ends_at: input.startsAt })
+    .eq("id", input.supersedeId)
+    .eq("is_archived", false);
+  if (input.expectedUpdatedAt) endQ = endQ.eq("updated_at", input.expectedUpdatedAt);
+  const { data: ended, error: endErr } = await endQ.select("id");
+  if (endErr) {
+    console.error("[admin store-fee-policies POST supersede end]", endErr);
+    return { ok: false, error: "supersede_failed", status: 500 };
+  }
+  if (!ended || ended.length === 0) return { ok: false, error: "stale_policy", status: 409 };
+  const { data, error } = await sb.from("store_fee_policies").insert(input.newPolicy).select("id").maybeSingle();
+  if (error || !data?.id) {
+    console.error("[admin store-fee-policies POST supersede create]", error);
+    const { error: revErr } = await sb
+      .from("store_fee_policies")
+      .update({ ends_at: input.prevEndsAt })
+      .eq("id", input.supersedeId);
+    if (revErr) console.error("[admin store-fee-policies POST supersede revert]", revErr);
+    return { ok: false, error: "create_failed", status: 500 };
+  }
+  return { ok: true, id: String(data.id), supersededPrevEndsAt: input.prevEndsAt };
+}
+
+/** B-2: 수수료 정책 변경 = super_admin 전용. */
 export async function POST(req: NextRequest) {
-  const gate = await requireAdminPermission("business");
+  const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -263,17 +309,17 @@ export async function POST(req: NextRequest) {
   const changeReason =
     typeof body.change_reason === "string" ? body.change_reason.trim().slice(0, 1000) || null : null;
 
-  // 예약 변경: 기존 정책 종료 → 새 정책 생성. 생성 실패 시 기존 정책 종료 시각을 되돌린다.
+  // 예약 변경 (D-1): 기존 정책 종료 + 새 정책 생성은 DB RPC 한 트랜잭션. 비원자 폴백 없음.
   const supersedeId =
     typeof body.supersede_policy_id === "string" ? body.supersede_policy_id.trim() : "";
-  let superseded: { id: string; ends_at: string | null } | null = null;
+  if (supersedeId && !startsAt) {
+    return NextResponse.json({ ok: false, error: "supersede_requires_starts_at" }, { status: 400 });
+  }
+  let supersedePrev: Record<string, unknown> | null = null;
   if (supersedeId) {
-    if (!startsAt) {
-      return NextResponse.json({ ok: false, error: "supersede_requires_starts_at" }, { status: 400 });
-    }
     const { data: prev, error: prevErr } = await sb
       .from("store_fee_policies")
-      .select("id, ends_at, is_archived")
+      .select("id, policy_name, fee_percent, fixed_fee, starts_at, ends_at, is_active, is_archived, updated_at")
       .eq("id", supersedeId)
       .maybeSingle();
     if (prevErr || !prev) {
@@ -282,27 +328,12 @@ export async function POST(req: NextRequest) {
     if ((prev as { is_archived?: boolean }).is_archived) {
       return NextResponse.json({ ok: false, error: "policy_archived" }, { status: 409 });
     }
-    const prevEndsAt = ((prev as { ends_at?: string | null }).ends_at ?? null) as string | null;
-    const { error: endErr } = await sb
-      .from("store_fee_policies")
-      .update({ ends_at: startsAt })
-      .eq("id", supersedeId);
-    if (endErr) {
-      console.error("[admin store-fee-policies POST supersede end]", endErr);
-      return NextResponse.json({ ok: false, error: "supersede_failed" }, { status: 500 });
-    }
-    superseded = { id: supersedeId, ends_at: prevEndsAt };
+    supersedePrev = prev as Record<string, unknown>;
   }
-  const revertSupersede = async () => {
-    if (!superseded) return;
-    const { error: revErr } = await sb
-      .from("store_fee_policies")
-      .update({ ends_at: superseded.ends_at })
-      .eq("id", superseded.id);
-    if (revErr) console.error("[admin store-fee-policies POST supersede revert]", revErr);
-  };
 
   const conflict = await assertNoActiveConflict(sb, {
+    // 예약 변경 대상은 새 시작 시각에 끝나므로(반열린 구간) 겹침 검사에서 제외한다.
+    excludeId: supersedeId || undefined,
     store_id: storeId,
     category_id: categoryId,
     topic_id: topicId,
@@ -312,7 +343,6 @@ export async function POST(req: NextRequest) {
     priority,
   });
   if (!conflict.ok) {
-    await revertSupersede();
     return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
   }
 
@@ -332,10 +362,43 @@ export async function POST(req: NextRequest) {
     memo: typeof body.memo === "string" ? body.memo.trim().slice(0, 1000) : body.memo === null ? null : null,
   };
 
+  if (supersedeId) {
+    const expectedUpdatedAt =
+      typeof body.supersede_expected_updated_at === "string" && body.supersede_expected_updated_at.trim()
+        ? body.supersede_expected_updated_at.trim()
+        : null;
+    let res = await supersedeFeePolicyAtomic(sb, {
+      supersedeId,
+      newPolicy: payload,
+      expectedUpdatedAt,
+    });
+    if (!res.ok && res.error === "rpc_missing") {
+      // D-1 RPC 마이그레이션 적용 전 — 기존 보상 방식(종료 → 생성, 실패 시 종료 시각 복원)을 유지한다.
+      res = await supersedeFeePolicyCompensating(sb, {
+        supersedeId,
+        newPolicy: payload,
+        expectedUpdatedAt,
+        startsAt: startsAt as string,
+        prevEndsAt: ((supersedePrev?.ends_at as string | null | undefined) ?? null),
+      });
+    }
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, error: res.error }, { status: res.status });
+    }
+    await auditAdminFeePolicyWrite(sb, req, {
+      actorId: gate.actor.userId,
+      action: "store_fee_policy.supersede",
+      policyId: res.id,
+      before: { superseded_policy: supersedePrev, superseded_ends_at: res.supersededPrevEndsAt },
+      after: { ...payload, superseded_policy_id: supersedeId, superseded_policy_new_ends_at: startsAt },
+      reason: changeReason,
+    });
+    return NextResponse.json({ ok: true, id: res.id });
+  }
+
   let { data, error } = await sb.from("store_fee_policies").insert(payload).select("id").maybeSingle();
   if (error && /topic_id/i.test(error.message ?? "") && /does not exist|unknown column/i.test(error.message ?? "")) {
     if (topicId) {
-      await revertSupersede();
       return NextResponse.json({ ok: false, error: "topic_column_missing" }, { status: 503 });
     }
     delete payload.topic_id;
@@ -343,16 +406,15 @@ export async function POST(req: NextRequest) {
   }
   if (error) {
     console.error("[admin store-fee-policies POST]", error);
-    await revertSupersede();
     return NextResponse.json({ ok: false, error: "create_failed" }, { status: 500 });
   }
 
   await auditAdminFeePolicyWrite(sb, req, {
     actorId: gate.actor.userId,
-    action: superseded ? "store_fee_policy.supersede" : "store_fee_policy.create",
+    action: "store_fee_policy.create",
     policyId: (data?.id as string | undefined) ?? null,
-    before: superseded ? { superseded_policy_id: superseded.id, superseded_ends_at: superseded.ends_at } : null,
-    after: { ...payload, superseded_policy_new_ends_at: superseded ? startsAt : undefined },
+    before: null,
+    after: payload,
     reason: changeReason,
   });
 

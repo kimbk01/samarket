@@ -1,9 +1,19 @@
 /**
- * PATCH /api/admin/store-orders/[orderId] — 플랫폼 관리자 주문 운영 (서비스 롤)
+ * PATCH /api/admin/store-orders/[orderId] — 관리자 주문 메타 (잠금·확인 필요·긴급·메모·운영 예외 표시).
+ *
+ * - 권한: requireAdminPermission("business")
+ * - 동시성: `expected_updated_at` (화면이 본 updated_at) → 조건부 쓰기, 충돌 시 409 `stale_updated_at`.
+ *   잠금·확인 필요·긴급은 필수, 메모·운영 예외 표시는 보낼 때만 조건 적용.
+ * - 상태 결정 필드(force_cancel · complete_refund · reject_refund · set_order_status)는 레거시 →
+ *   410 (E-1 · DEF-8). 결정은 POST …/intervene 만 사용한다. 코드는 게이트 뒤에 보존.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  adminLegacyOrderWriteGoneResponse,
+  isAdminLegacyOrderWriteDisabled,
+} from "@/lib/admin/store-orders/admin-legacy-order-write-gate";
 import {
   adminPatchStoreOrderMeta,
   type AdminStoreOrderMetaPatch,
@@ -33,14 +43,17 @@ type PatchBody = {
   admin_note?: string | null;
   dispute_status?: string | null;
   needs_admin_attention?: boolean;
+  /** `updated_at` the admin saw — conditional meta write (409 stale_updated_at on conflict). */
+  expected_updated_at?: string;
 };
 
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ orderId: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const admin = { userId: gate.actor.userId };
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";
@@ -83,6 +96,11 @@ export async function PATCH(
     decision = "refund_request_create";
   }
 
+  const DECISION_ROUTE = "PATCH /api/admin/store-orders/[orderId]#decision" as const;
+  if (decision && isAdminLegacyOrderWriteDisabled(DECISION_ROUTE)) {
+    return adminLegacyOrderWriteGoneResponse(DECISION_ROUTE);
+  }
+
   if (decision) {
     const r = await runAdminStoreOrderIntervention(sb, {
       orderId: oid,
@@ -103,16 +121,23 @@ export async function PATCH(
   if (body.dispute_status !== undefined) meta.dispute_status = body.dispute_status;
   if (typeof body.needs_admin_attention === "boolean") meta.needs_admin_attention = body.needs_admin_attention;
 
-  if (Object.keys(meta).length > 0) {
-    const r = await adminPatchStoreOrderMeta(sb, oid, meta, audit);
-    if (!r.ok) {
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.httpStatus });
-    }
-  }
-
   if (prim === 0 && Object.keys(meta).length === 0) {
     return NextResponse.json({ ok: false, error: "empty_body" }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  let updatedAt: string | null = null;
+  if (Object.keys(meta).length > 0) {
+    const r = await adminPatchStoreOrderMeta(sb, oid, meta, audit, {
+      expectedUpdatedAt: typeof body.expected_updated_at === "string" ? body.expected_updated_at : null,
+    });
+    if (!r.ok) {
+      return NextResponse.json(
+        { ok: false, error: r.error, ...(r.currentUpdatedAt ? { current_updated_at: r.currentUpdatedAt } : {}) },
+        { status: r.httpStatus }
+      );
+    }
+    updatedAt = r.updatedAt;
+  }
+
+  return NextResponse.json({ ok: true, ...(updatedAt ? { updated_at: updatedAt } : {}) });
 }
