@@ -2,10 +2,12 @@
  * R2-D1 KPI/meta stale measurement — 3 runs, measure only.
  * PLAYWRIGHT_BASE_URL=http://localhost:3000 node scripts/perf/r2-d1-kpi-meta-measure.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 
 const origin = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(origin);
 /** 문서 `E2E_TEST_*` 와 기존 `E2E_OWNER_*` 모두 허용 (우회가 아니라 env 일치) */
 const ownerUser =
   process.env.E2E_OWNER_USERNAME?.trim() ||

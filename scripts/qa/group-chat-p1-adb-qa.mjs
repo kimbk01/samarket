@@ -4,6 +4,7 @@
  * FAIL if logcat contains unknown_type_fallback type=group_message
  * Usage: node scripts/qa/group-chat-p1-adb-qa.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,7 +27,8 @@ const CDP_PORT_B = Number(process.env.GROUP_P1_CDP_PORT_B || 9233);
 const PASSWORD = process.env.E2E_TEST_PASSWORD?.trim() || "1234";
 const SERIAL_A = process.env.GROUP_P1_DEVICE_A?.trim() || process.env.GROUP_P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.GROUP_P1_DEVICE_B?.trim() || process.env.GROUP_P0_DEVICE_B?.trim() || "RFCY40PY2CA";
-const PROD = process.env.GROUP_P1_PROD?.trim() || process.env.GROUP_P0_PROD?.trim() || "https://samarket.vercel.app";
+const PROD = process.env.GROUP_P1_PROD?.trim() || process.env.GROUP_P0_PROD?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(PROD);
 const LOGIN_A = process.env.GROUP_P1_LOGIN_A?.trim() || process.env.GROUP_P0_LOGIN_A?.trim() || "aaaa";
 const LOGIN_B = process.env.GROUP_P1_LOGIN_B?.trim() || process.env.GROUP_P0_LOGIN_B?.trim() || "qqqq";
 const OUT_LOG = path.join(ROOT, "docs/perf/group-chat-p1-adb-qa-run.log");

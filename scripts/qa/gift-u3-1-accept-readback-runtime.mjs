@@ -8,12 +8,13 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3023").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp-gift-u3-1-runtime.json");
 const SHOT = resolve(process.cwd(), ".tmp-gift-u3-1-shots");
 const PRODUCT_ID = process.env.GIFT_U31_PRODUCT_ID?.trim() || "2d49b295-3412-4289-a50d-2fb40ce0f745";

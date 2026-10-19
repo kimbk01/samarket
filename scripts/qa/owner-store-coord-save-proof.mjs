@@ -9,6 +9,7 @@
  *   OWNER_STORE_SLUG=asas22
  *   E2E_TEST_PASSWORD / QA_MANUAL_PASSWORD
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -100,6 +101,7 @@ async function main() {
     /\/$/,
     ""
   );
+  assertQaHttpWriteTarget(base);
   if (!url || !sk) throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required");
 
   const admin = createClient(url, sk, { auth: { persistSession: false } });

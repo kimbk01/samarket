@@ -8,10 +8,12 @@
  *   E2E_BUYER_USERNAME (default aaaa)
  *   E2E_BUYER_PASSWORD (default 1234)
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 
 const origin = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(origin);
 const ownerUser =
   process.env.E2E_OWNER_USERNAME?.trim() ||
   process.env.E2E_TEST_USERNAME?.trim() ||

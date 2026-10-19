@@ -9,6 +9,7 @@
  *   node scripts/qa/final-domain-badge-product-qa.mjs
  *   FINAL_BADGE_ROUNDS=3 FINAL_BADGE_CDP=1 node scripts/qa/final-domain-badge-product-qa.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +20,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;
-const PROD = process.env.FINAL_BADGE_PROD?.trim() || "https://samarket.vercel.app";
+const PROD = process.env.FINAL_BADGE_PROD?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(PROD);
 const ROUNDS = Math.max(1, Number(process.env.FINAL_BADGE_ROUNDS || 3));
 const USE_CDP = process.env.FINAL_BADGE_CDP === "1";
 const COMMIT =

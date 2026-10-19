@@ -3,13 +3,15 @@
  * Customer Center 3-Board Production integrated audit (READ + QA writes).
  * Does NOT apply migrations. Does NOT change badge/FCM authority.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BASE = process.env.CC_AUDIT_BASE || "https://samarket.vercel.app";
+const BASE = process.env.CC_AUDIT_BASE || "http://localhost:3000";
+assertQaHttpWriteTarget(BASE);
 const STAMP = Date.now();
 const OUT = path.join(ROOT, `.qa-logs/customer-center-prod-audit-${STAMP}`);
 const QA_USER_ID = process.env.GATE4_RECEIVER_ID || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";

@@ -9,6 +9,7 @@
  * PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
  * node --env-file=.env.local scripts/qa/stores-c2-composition-policy-admin-e2e.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ import { chromium } from "playwright";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-c2-composition-policy");
 const OUT_JSON = path.join(OUT_DIR, "c2-admin-e2e-latest.json");
 

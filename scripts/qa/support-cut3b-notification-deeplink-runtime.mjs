@@ -3,6 +3,7 @@
  * CUT 3B — support notification + deeplink targeted proof.
  * Usage: node --env-file=.env.local scripts/qa/support-cut3b-notification-deeplink-runtime.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
@@ -13,6 +14,8 @@ import {
   sbService,
   loadEnvLocal,
 } from "./support-cut3-lib.mjs";
+
+assertQaHttpWriteTarget(ORIGIN);
 
 const OUT = resolve(process.cwd(), "docs/support-center/support-cut3-runtime-close-report.json");
 

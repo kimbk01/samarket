@@ -4,6 +4,7 @@
  * Captures token/topic/env match metadata + short device log window.
  * Secrets/full tokens never printed.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -13,7 +14,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = path.join(ROOT, `.qa-logs/admin-campaign-d7-text-tray-${Date.now()}`);
-const BASE = process.env.D7_BASE || "https://samarket.vercel.app";
+const BASE = process.env.D7_BASE || "http://localhost:3000";
+assertQaHttpWriteTarget(BASE);
 const QA = process.env.GATE4_RECEIVER_ID || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const IOS_DEVICE_ROW = "ddaa405d-9289-4dd9-a1ad-6fc3fc152cac";
 const DEVICE = process.env.IOS_UDID || "B01DDF12-5B2F-59C3-9B8F-3AF136851ECB";

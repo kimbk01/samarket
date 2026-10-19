@@ -1,12 +1,14 @@
 /**
  * Runtime proof: Product ↔ Mall SSOT (HIDE / SHOW / PAUSE / purchase gate).
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3043").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp-gift-mall-ssot-runtime.json");
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";
 

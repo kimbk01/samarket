@@ -15,6 +15,7 @@
  *     DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
  *     node scripts/qa/cut7-ios-late-terminal-runtime.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import http2 from "node:http2";
@@ -41,7 +42,8 @@ const IOS_CORE = "B01DDF12-5B2F-59C3-9B8F-3AF136851ECB";
 const CDP_PORT = Number(process.env.CUT7_CDP_PORT || 9573);
 const ROOM = "bc3c3070-09fa-4ff6-879a-74551fa63012";
 const TIGER = "5a22455c-9efc-4b93-8caf-31c6faaaf5ad";
-const ORIGIN = "https://samarket.vercel.app";
+const ORIGIN = "http://localhost:3000";
+assertQaHttpWriteTarget(ORIGIN);
 const KIND = (process.env.KIND || "voice").toLowerCase() === "video" ? "video" : "voice";
 const PHASE = (process.env.PHASE || "both").toLowerCase(); // stale | ended | both
 const STALE_KIND = (process.env.STALE_KIND || "call_canceled").trim();

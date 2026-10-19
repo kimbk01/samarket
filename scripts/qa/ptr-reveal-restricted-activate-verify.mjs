@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -25,8 +25,9 @@ const OUT = resolve(process.cwd(), ".tmp/ptr-calibration/activate");
 const ORIGIN = (
   process.env.PTR_ADMIN_ORIGIN ||
   process.env.PLAYWRIGHT_BASE_URL ||
-  "https://samarket.vercel.app"
+  "http://localhost:3000"
 ).replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 
 function loadEnvLocal() {
   const raw = readFileSync(resolve(process.cwd(), ".env.local"), "utf8");

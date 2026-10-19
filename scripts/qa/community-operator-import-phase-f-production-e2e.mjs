@@ -8,14 +8,15 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const { createClient } = createRequire(import.meta.url)("@supabase/supabase-js");
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(".tmp/phase-f-production-e2e");
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";
 const EXPECT_SHA = "0a6b90b205c9b0928e512760f43fd015f57a0138";

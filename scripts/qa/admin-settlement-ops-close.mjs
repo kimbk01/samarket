@@ -9,12 +9,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { execSync } from "node:child_process";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3042").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), "tests/e2e/.artifacts/admin-settlement-ops-runtime.json");
 const STORE_ID = process.env.CURRENCY_QA_STORE_ID || "19085860-52d2-4183-b033-e71fcb58bcec";
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";

@@ -9,7 +9,7 @@ import pg from "pg";
 export const MIGRATION_FILE = "20261202170000_support_cases_ssot.sql";
 export const MIGRATION_VERSION = "20261202170000";
 export const EXPECTED_HOST_FRAGMENT = "ckdosyydvgzqwpbwuhon";
-export const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(
+export const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(
   /\/$/,
   ""
 );

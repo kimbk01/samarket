@@ -3,6 +3,7 @@
  * D7 — iOS NSE real-device matrix (iPhonebk).
  * Requires local Next with APNS sandbox credentials + Debug App+NSE installed.
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,6 +14,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const STAMP = Date.now();
 const OUT = path.join(ROOT, `.qa-logs/admin-campaign-d7-ios-${STAMP}`);
 const BASE = process.env.D7_BASE || "http://127.0.0.1:3012";
+assertQaHttpWriteTarget(BASE);
 const QA = process.env.GATE4_RECEIVER_ID || "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const DEVELOPER_DIR = process.env.DEVELOPER_DIR || "/Applications/Xcode.app/Contents/Developer";
 const DEVICE = process.env.IOS_UDID || "B01DDF12-5B2F-59C3-9B8F-3AF136851ECB";

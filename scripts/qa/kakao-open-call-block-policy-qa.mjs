@@ -7,13 +7,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const ORIGIN = (process.env.QA_ORIGIN ?? "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.QA_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const LOG_PATH = path.join(ROOT, "docs/perf/kakao-policy-qa-run.log");
 
 function loadEnvLocal() {

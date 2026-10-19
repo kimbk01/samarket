@@ -3,6 +3,7 @@
  * PATCH mark_read — permission seed + structure lock (A–D).
  * @see docs/messenger-mark-read-performance-lock.md
  */
+import { assertQaHttpWriteTarget } from "./lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +20,7 @@ const devLogPath =
   process.env.BOOTSTRAP_DEV_TERMINAL_LOG ||
   path.join(process.env.USERPROFILE ?? "", ".cursor", "projects", "c-samarket", "terminals", "932385.txt");
 const baseUrl = process.env.SAMARKET_BASE_URL || "http://127.0.0.1:3000";
+assertQaHttpWriteTarget(baseUrl);
 const PASSWORD = process.env.SAMARKET_TEST_PASSWORD || process.env.E2E_TEST_PASSWORD || "1234";
 const perfEnv = process.env.SAMARKET_PERF_ENV === "prod_same_region" ? "prod_same_region" : "local_linked";
 

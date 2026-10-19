@@ -9,6 +9,7 @@
  *   CHAT_SSOT_LOGIN_A=wwww CHAT_SSOT_LOGIN_B=qqqq \
  *   node scripts/qa/chat-ssot-android-native-matrix.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,7 +29,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
-const PROD = process.env.CHAT_SSOT_PROD?.trim() || "https://samarket.vercel.app";
+const PROD = process.env.CHAT_SSOT_PROD?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(PROD);
 const SERIAL_A = process.env.GROUP_P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.GROUP_P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const LOGIN_A = process.env.CHAT_SSOT_LOGIN_A?.trim() || "wwww";

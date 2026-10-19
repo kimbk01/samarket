@@ -4,6 +4,7 @@
  *
  *   node scripts/qa/cut8-android-hangup-latency-proof.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,7 +25,8 @@ const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
 const SERIAL_A = process.env.CUT8_DEVICE_A || "8b37179f7d94";
 const SERIAL_B = process.env.CUT8_DEVICE_B || "RFCY40PY2CA";
-const ORIGIN = (process.env.CUT8_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.CUT8_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const CDP_A = Number(process.env.CUT8_CDP_A || 9621);
 const CDP_B = Number(process.env.CUT8_CDP_B || 9622);
 const OUT = path.join(ROOT, "docs/perf/cut8-android-hangup-latency-proof.json");

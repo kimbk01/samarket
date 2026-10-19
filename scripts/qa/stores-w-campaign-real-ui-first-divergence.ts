@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { chromium, type Page } from "playwright";
 import {
   composeLiveHomeFeed,
@@ -22,7 +23,8 @@ import {
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BASE = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-w-campaign-writer/admin-cta-production");
 const OUT_JSON = path.join(OUT_DIR, "w-real-ui-first-divergence-latest.json");
 const FIXTURE_STORE_ID =

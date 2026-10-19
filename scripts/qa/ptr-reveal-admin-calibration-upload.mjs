@@ -3,6 +3,7 @@
  * Playwright + HTTP admin: upload calibration bands, set allowlist, screenshot presets.
  * Origin: https://samarket.vercel.app
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
@@ -16,8 +17,9 @@ const CAL = resolve(process.cwd(), ".tmp/ptr-calibration");
 const ORIGIN = (
   process.env.PTR_ADMIN_ORIGIN ||
   process.env.PLAYWRIGHT_BASE_URL ||
-  "https://samarket.vercel.app"
+  "http://localhost:3000"
 ).replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 
 function loadEnvLocal() {
   try {

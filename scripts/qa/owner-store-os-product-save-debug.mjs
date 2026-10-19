@@ -1,8 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 
-const ORIGIN = "https://samarket.vercel.app";
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
+const COOKIE_HOST = new URL(ORIGIN).hostname;
+const COOKIE_SECURE = ORIGIN.startsWith("https");
 const STORE = "19085860-52d2-4183-b033-e71fcb58bcec";
 const QA = `QA StoreOS x${Date.now()}`;
 
@@ -31,11 +35,11 @@ await context.addCookies([
         user: session.user,
       })
     ),
-    domain: "samarket.vercel.app",
+    domain: COOKIE_HOST,
     path: "/",
     expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
     httpOnly: false,
-    secure: true,
+    secure: COOKIE_SECURE,
     sameSite: "Lax",
   },
   ...(pr?.active_session_id
@@ -43,11 +47,11 @@ await context.addCookies([
         {
           name: "samarket_active_session_id",
           value: String(pr.active_session_id),
-          domain: "samarket.vercel.app",
+          domain: COOKIE_HOST,
           path: "/",
           expires: Math.floor(Date.now() / 1000) + 86400 * 7,
           httpOnly: false,
-          secure: true,
+          secure: COOKIE_SECURE,
           sameSite: "Lax",
         },
       ]

@@ -5,15 +5,17 @@
  *   PLAYWRIGHT_BASE_URL=https://samarket.vercel.app \
  *   node scripts/qa/delivery-ads-stage2-final-close.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "https://samarket.vercel.app").replace(
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(
   /\/$/,
   ""
 );
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = path.join(process.cwd(), "docs/perf/delivery-ads-r5-runtime/s2-final-close");
 const WIDTHS = [375, 390, 430, 768, 820];
 const QA_PRIMARY = (process.env.S2_QA_PRIMARY || "restaurant").trim();

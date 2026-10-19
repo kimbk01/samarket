@@ -11,6 +11,7 @@
  *   terminal entry -> native_end_dispatch -> runtime_cleanup_start ->
  *   agora_native_disconnected -> native_call_service_stop -> cleanup_done
  */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -30,7 +31,8 @@ const OUT = path.join(ROOT, ".qa-logs", "o4-end-ownership-matrix");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
-const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RRGL4046NTW";
 const ROOM_ID = "b19e2672-f26f-4a2e-8125-52575da4a62a";

@@ -3,6 +3,7 @@
  * Notification Sound SSOT — APK WebView admin QA (production Vercel).
  * Usage: node .qa-logs/notification-sound-ssot-qa.mjs
  */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +20,8 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const SERIAL = process.env.SSOT_QA_DEVICE?.trim() || "RRGL4046NTW";
-const PROD = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const PROD = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(PROD);
 const COMMIT = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
 const APK = process.env.SSOT_QA_APK?.trim() || (() => {
   const dir = path.join(ROOT, "dist/apk");

@@ -3,6 +3,7 @@
  * PATCH mark_read ×10 — warm duplicate PATCH 4 SLO + QA smoke.
  * Usage: node scripts/_verify-mark-read-warm-10x.mjs
  */
+import { assertQaHttpWriteTarget } from "./lib/db-target-guard.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,7 @@ const devLogPath =
   process.env.BOOTSTRAP_DEV_TERMINAL_LOG ||
   path.join(process.env.USERPROFILE ?? "", ".cursor", "projects", "c-samarket", "terminals", "14.txt");
 const baseUrl = process.env.SAMARKET_BASE_URL || "http://127.0.0.1:3000";
+assertQaHttpWriteTarget(baseUrl);
 const PASSWORD = process.env.SAMARKET_TEST_PASSWORD || process.env.E2E_TEST_PASSWORD || "1234";
 const REPEATS = 10;
 const GAP_MS = 120;

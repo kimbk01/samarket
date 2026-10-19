@@ -3,6 +3,7 @@
  * Native Video Activity-bound Dock Fast QA — 5 checks only.
  * 1 connected→dock  2 dock→resume  3 dock→end  4 end→dock removed  5 forbidden=0
  */
+import { assertQaHttpWriteTarget } from "../scripts/lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +22,8 @@ const OUT = path.join(ROOT, ".qa-logs", "native-call-dock-qa");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
-const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "https://samarket.vercel.app";
+const WEB = process.env.CAPACITOR_SERVER_URL?.trim() || "http://localhost:3000";
+assertQaHttpWriteTarget(WEB);
 const SERIAL_A = process.env.P4_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.P4_DEVICE_B?.trim() || "RRGL4046NTW";
 const ROOM_ID = "b19e2672-f26f-4a2e-8125-52575da4a62a";

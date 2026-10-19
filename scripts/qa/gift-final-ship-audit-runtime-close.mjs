@@ -10,6 +10,7 @@
  *   PLAYWRIGHT_BASE_URL=https://samarket.vercel.app node --env-file=.env.local \
  *     scripts/qa/gift-final-ship-audit-runtime-close.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,7 +18,8 @@ import { resolve } from "node:path";
 import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const OUT = resolve(process.cwd(), ".tmp/gift-final-ship-audit");
 const FORBIDDEN_NUM = "GFT-LB3VZ-RTCU6";
 const STORE = {

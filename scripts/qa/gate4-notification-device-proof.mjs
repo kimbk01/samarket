@@ -6,6 +6,7 @@
  *   CAPACITOR_SERVER_URL=http://192.168.100.123:3010 npx cap sync android
  *   node scripts/qa/gate4-notification-device-proof.mjs
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -26,6 +27,7 @@ const OUT = path.join(ROOT, `.qa-logs/gate4-device-proof/run-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
 const ORIGIN = (process.env.GATE4_ORIGIN || "http://192.168.100.123:3010").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";
 const ACT = `${PKG}/.MainActivity`;

@@ -15,16 +15,18 @@
  *   CUT_I_SUPPORT_ID / CUT_I_PARTNER_ID / CUT_I_POPUP_ID / CUT_I_FEED_ID (optional safe mutation)
  *   E2E_* passwords · Supabase keys via .env.local
  */
+import { assertQaHttpWriteTarget } from "../lib/db-target-guard.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
-const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || process.env.ORIGIN || "https://samarket.vercel.app").replace(
+const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || process.env.ORIGIN || "http://localhost:3000").replace(
   /\/$/,
   ""
 );
+assertQaHttpWriteTarget(ORIGIN);
 const OUT_DIR = resolve(process.cwd(), "docs/perf/admin-cut-i-production-e2e");
 const REPORT_JSON = resolve(OUT_DIR, "cut-i-report.json");
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.QA_ADMIN_EMAIL || "aaaa@manual.local";

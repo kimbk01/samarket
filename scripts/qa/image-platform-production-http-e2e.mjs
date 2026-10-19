@@ -9,12 +9,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // C-48 / F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
 
-const BASE = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.SAMARKET_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(BASE);
 const PASSWORD = process.env.E2E_TEST_PASSWORD || process.env.QA_MANUAL_PASSWORD || "";
 const MEMBER_LOGIN = process.env.E2E_TEST_USERNAME || process.env.BADGE_NATIVE_LOGIN || "qqqq";
 const OWNER_LOGIN = process.env.E2E_STORE_OWNER_LOGIN || "sadads@adsasdsa.com";

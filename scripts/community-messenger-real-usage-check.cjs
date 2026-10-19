@@ -1,4 +1,6 @@
+const { assertQaHttpWriteTarget } = require("./lib/db-target-guard.mjs");
 const BASE_URL = process.env.SAMARKET_BASE_URL || "http://127.0.0.1:3000";
+assertQaHttpWriteTarget(BASE_URL);
 const TEST_USERNAME = process.env.SAMARKET_TEST_USERNAME || "aaaa";
 const TEST_PASSWORD = process.env.SAMARKET_TEST_PASSWORD || "1234";
 const TEST_EMAIL = process.env.SAMARKET_TEST_EMAIL || "aaaa@samarket.local";

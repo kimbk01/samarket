@@ -19,7 +19,7 @@ import {
   connectWebView,
   navigateApkWebView,
 } from "./lib/apk-webview-cdp.mjs";
-import { assertQaWriteTarget } from "../lib/db-target-guard.mjs";
+import { assertQaHttpWriteTarget, assertQaWriteTarget } from "../lib/db-target-guard.mjs";
 
 // F-13 — fail-closed: refuse production / unknown / mismatched DB targets before any client is created.
 assertQaWriteTarget();
@@ -29,7 +29,8 @@ const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 const OUT = path.join(ROOT, `.qa-logs/gate4-final-runtime-close-${STAMP}`);
 fs.mkdirSync(OUT, { recursive: true });
 
-const ORIGIN = (process.env.GATE4_ORIGIN || "https://samarket.vercel.app").replace(/\/$/, "");
+const ORIGIN = (process.env.GATE4_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
+assertQaHttpWriteTarget(ORIGIN);
 const EXPECT = (process.env.EXPECT_GIT_SHA || "87a84b77f").slice(0, 9);
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const PKG = "com.dibay.app";
