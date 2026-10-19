@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +38,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   let body: { delivery_auto_actions_enabled?: boolean };
@@ -75,6 +77,14 @@ export async function PATCH(req: Request) {
   if (!data) {
     return NextResponse.json({ error: "settings_row_missing" }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_auto_actions_runtime_settings",
+    targetId: "1",
+    action: "delivery_auto_actions.settings",
+    after: data as Record<string, unknown>,
+  });
 
   return NextResponse.json({ ok: true, settings: data });
 }

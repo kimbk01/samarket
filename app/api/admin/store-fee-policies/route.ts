@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { auditAdminFeePolicyWrite } from "@/lib/stores/commission/admin-fee-policy-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -69,6 +71,9 @@ type PostBody = {
   ends_at?: string | null;
   priority?: number;
   memo?: string | null;
+  /** 예약 변경: 기존 정책을 새 정책 시작 시각에 종료하고 새 정책을 같은 요청에서 생성 (DEF-3). */
+  supersede_policy_id?: string | null;
+  change_reason?: string | null;
 };
 
 function parseIsoOrNull(v: unknown): string | null | "invalid" {
@@ -201,9 +206,8 @@ async function resolveTopicParentCategory(
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
@@ -256,6 +260,48 @@ export async function POST(req: NextRequest) {
   }
 
   const isActive = body.is_active !== false;
+  const changeReason =
+    typeof body.change_reason === "string" ? body.change_reason.trim().slice(0, 1000) || null : null;
+
+  // 예약 변경: 기존 정책 종료 → 새 정책 생성. 생성 실패 시 기존 정책 종료 시각을 되돌린다.
+  const supersedeId =
+    typeof body.supersede_policy_id === "string" ? body.supersede_policy_id.trim() : "";
+  let superseded: { id: string; ends_at: string | null } | null = null;
+  if (supersedeId) {
+    if (!startsAt) {
+      return NextResponse.json({ ok: false, error: "supersede_requires_starts_at" }, { status: 400 });
+    }
+    const { data: prev, error: prevErr } = await sb
+      .from("store_fee_policies")
+      .select("id, ends_at, is_archived")
+      .eq("id", supersedeId)
+      .maybeSingle();
+    if (prevErr || !prev) {
+      return NextResponse.json({ ok: false, error: "supersede_policy_not_found" }, { status: 404 });
+    }
+    if ((prev as { is_archived?: boolean }).is_archived) {
+      return NextResponse.json({ ok: false, error: "policy_archived" }, { status: 409 });
+    }
+    const prevEndsAt = ((prev as { ends_at?: string | null }).ends_at ?? null) as string | null;
+    const { error: endErr } = await sb
+      .from("store_fee_policies")
+      .update({ ends_at: startsAt })
+      .eq("id", supersedeId);
+    if (endErr) {
+      console.error("[admin store-fee-policies POST supersede end]", endErr);
+      return NextResponse.json({ ok: false, error: "supersede_failed" }, { status: 500 });
+    }
+    superseded = { id: supersedeId, ends_at: prevEndsAt };
+  }
+  const revertSupersede = async () => {
+    if (!superseded) return;
+    const { error: revErr } = await sb
+      .from("store_fee_policies")
+      .update({ ends_at: superseded.ends_at })
+      .eq("id", superseded.id);
+    if (revErr) console.error("[admin store-fee-policies POST supersede revert]", revErr);
+  };
+
   const conflict = await assertNoActiveConflict(sb, {
     store_id: storeId,
     category_id: categoryId,
@@ -265,7 +311,10 @@ export async function POST(req: NextRequest) {
     ends_at: endsAt,
     priority,
   });
-  if (!conflict.ok) return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
+  if (!conflict.ok) {
+    await revertSupersede();
+    return NextResponse.json({ ok: false, error: conflict.error }, { status: 409 });
+  }
 
   const payload: Record<string, unknown> = {
     policy_name: name,
@@ -286,6 +335,7 @@ export async function POST(req: NextRequest) {
   let { data, error } = await sb.from("store_fee_policies").insert(payload).select("id").maybeSingle();
   if (error && /topic_id/i.test(error.message ?? "") && /does not exist|unknown column/i.test(error.message ?? "")) {
     if (topicId) {
+      await revertSupersede();
       return NextResponse.json({ ok: false, error: "topic_column_missing" }, { status: 503 });
     }
     delete payload.topic_id;
@@ -293,8 +343,18 @@ export async function POST(req: NextRequest) {
   }
   if (error) {
     console.error("[admin store-fee-policies POST]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await revertSupersede();
+    return NextResponse.json({ ok: false, error: "create_failed" }, { status: 500 });
   }
+
+  await auditAdminFeePolicyWrite(sb, req, {
+    actorId: gate.actor.userId,
+    action: superseded ? "store_fee_policy.supersede" : "store_fee_policy.create",
+    policyId: (data?.id as string | undefined) ?? null,
+    before: superseded ? { superseded_policy_id: superseded.id, superseded_ends_at: superseded.ends_at } : null,
+    after: { ...payload, superseded_policy_new_ends_at: superseded ? startsAt : undefined },
+    reason: changeReason,
+  });
 
   return NextResponse.json({ ok: true, id: data?.id ?? null });
 }

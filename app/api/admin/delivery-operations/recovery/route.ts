@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 import {
 
@@ -20,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
 
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
 
   if (!admin.ok) return admin.response;
 
@@ -90,7 +92,7 @@ export async function POST(req: Request) {
 
     p_action: actionRaw,
 
-    p_actor: admin.userId,
+    p_actor: admin.actor.userId,
 
   });
 
@@ -115,6 +117,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "rpc_failed", message: msg.slice(0, 240) }, { status: 500 });
 
   }
+
+
+
+  await appendAdminRouteAudit(admin.sb, req, {
+
+    actorId: admin.actor.userId,
+
+    targetType: "delivery_operations",
+
+    targetId: actionRaw,
+
+    action: "delivery_operations.recovery_execute",
+
+    after: {
+
+      recovery_action: actionRaw,
+
+      result: data != null && typeof data === "object" ? (data as Record<string, unknown>) : null,
+
+    },
+
+  });
 
 
 

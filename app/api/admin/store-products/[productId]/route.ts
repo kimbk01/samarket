@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import {
   buildAdminStoreProductPatch,
   isAdminStoreProductAction,
@@ -27,9 +28,8 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ productId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { productId } = await context.params;
   const id = typeof productId === "string" ? productId.trim() : "";
@@ -88,15 +88,21 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
 
-  const actorId = await getRouteUserId();
-  await appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actorId,
-    target_type: "store_product",
-    target_id: id,
+  const storeId = String((row as { store_id?: string }).store_id ?? "").trim();
+  try {
+    if (storeId) invalidateStoreMenusSnapshotCacheByStoreId(storeId);
+    clearStoreHomeFeedServerCache();
+  } catch (e) {
+    console.error("[admin/store-products PATCH] cache invalidate", e);
+  }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "store_product",
+    targetId: id,
     action: `store_product.${actionRaw}`,
-    before_json: before,
-    after_json: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
+    before,
+    after: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
   });
 
   return NextResponse.json({ ok: true });

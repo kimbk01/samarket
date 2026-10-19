@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   const { actionId } = await ctx.params;
@@ -30,7 +31,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
 
   const { data, error } = await (sb as any).rpc("approve_delivery_alert_auto_action", {
     p_action_id: id,
-    p_actor: admin.userId,
+    p_actor: admin.actor.userId,
     p_note: note || null,
   });
 
@@ -55,6 +56,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
             : 400;
     return NextResponse.json(payload, { status });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_operation_alert_action",
+    targetId: id,
+    action: "delivery_auto_action.approve",
+    after: { note: note || null, result: payload },
+  });
 
   return NextResponse.json({ ok: true, result: payload });
 }

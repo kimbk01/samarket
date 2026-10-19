@@ -82,6 +82,11 @@ export type AdminTransitionResult =
       action: AdminDeliveryAdAction;
       /** Present for lifecycle RPC transitions (CUT 3-B fan-out). Absent for delete_safe_draft. */
       auditId?: string;
+      /**
+       * 반려는 커밋됐지만 매장 캐시 환불이 실패한 경우 — 관리자 화면에 경고로 노출 (DEF-5).
+       * 원자화(D-2) 전까지 은닉 금지.
+       */
+      refundWarning?: string;
     }
   | { ok: false; error: AdminDeliveryAdWriterError; detail?: string };
 
@@ -263,6 +268,7 @@ export async function adminTransitionDeliveryAdCampaign(
   // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
+  let refundWarning: string | undefined;
   // Terminal REJECT refunds canonical Cash exactly once (not on request_changes).
   if (input.action === "reject") {
     const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
@@ -280,6 +286,7 @@ export async function adminTransitionDeliveryAdCampaign(
         bcRefund.error,
         bcRefund.detail ?? ""
       );
+      refundWarning = "business_cash_refund_failed";
     }
   }
 
@@ -290,6 +297,7 @@ export async function adminTransitionDeliveryAdCampaign(
     to: String(payload.to) as DeliveryAdLifecycleStatus,
     action: input.action,
     auditId,
+    ...(refundWarning ? { refundWarning } : {}),
   };
 }
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
 
 export const runtime = "nodejs";
@@ -50,8 +52,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -98,6 +100,13 @@ export async function POST(req: NextRequest) {
     }
 
     revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "delivery_bottom_nav_item",
+      targetId: String((data as { id?: unknown } | null)?.id ?? ""),
+      action: "delivery_bottom_nav.create",
+      after: (data ?? null) as Record<string, unknown> | null,
+    });
     return NextResponse.json({ ok: true as const, item: data });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "unknown_error" }, { status: 500 });
@@ -105,8 +114,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -148,6 +157,13 @@ export async function PUT(req: NextRequest) {
     if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
     revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "delivery_bottom_nav_item",
+      targetId: id,
+      action: "delivery_bottom_nav.update",
+      after: { patch, item: data as Record<string, unknown> },
+    });
     return NextResponse.json({ ok: true as const, item: data });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "unknown_error" }, { status: 500 });
@@ -155,8 +171,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -172,6 +188,12 @@ export async function DELETE(req: NextRequest) {
   }
 
   revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "delivery_bottom_nav_item",
+    targetId: id,
+    action: "delivery_bottom_nav.delete",
+  });
   return NextResponse.json({ ok: true as const });
 }
 

@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  ADMIN_STORE_ACTIONS_REQUIRING_REASON,
+  ADMIN_STORE_REASON_MIN_LENGTH,
+  isAdminStoreTransitionAllowed,
+  safeNotifyOwnerStoreDecision,
+  type AdminStoreApprovalAction,
+} from "@/lib/admin-business/admin-store-decision";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { isAdminStorePatchAction } from "@/lib/admin-business/admin-store-patch-commands";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
@@ -115,9 +123,9 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // 매장 결정·설정 쓰기 = `business`(매장·배달) 권한 — 조회(GET)는 관리자 전체.
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { id: storeId } = await context.params;
   const id = typeof storeId === "string" ? storeId.trim() : "";
@@ -137,6 +145,12 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });
   }
   const reason = String(body.reason ?? body.note ?? "").trim() || null;
+  if (
+    ADMIN_STORE_ACTIONS_REQUIRING_REASON.has(action) &&
+    (reason ?? "").length < ADMIN_STORE_REASON_MIN_LENGTH
+  ) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -155,7 +169,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
   }
 
-  const actorId = await getRouteUserId();
+  const actorId = (await getRouteUserId()) ?? gate.actor.userId;
   const rm = getAuditRequestMeta(req);
 
   const auditOk = async (
@@ -194,6 +208,12 @@ export async function PATCH(
     action === "suspend_store" ||
     action === "resume_store"
   ) {
+    if (!isAdminStoreTransitionAllowed(action as AdminStoreApprovalAction, store.approval_status)) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_store_transition", current: store.approval_status },
+        { status: 409 }
+      );
+    }
     const before = {
       approval_status: store.approval_status,
       is_visible: store.is_visible,
@@ -229,21 +249,40 @@ export async function PATCH(
         suspended_reason: reason,
       };
     } else if (action === "resume_store") {
+      // 「운영 재개(노출 복구)」 — 중지 시 내린 노출을 함께 복구한다 (DEF-12).
       patch = {
         approval_status: "approved",
         suspended_reason: null,
+        ...buildStoreVisibilityWritePatch(true),
       };
     }
 
-    const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
+    // 상태 조건부 업데이트 — 동시 처리 시 다른 관리자의 결정을 덮어쓰지 않는다.
+    const { data: updatedRows, error: upErr } = await sb
+      .from("stores")
+      .update(patch)
+      .eq("id", id)
+      .eq("approval_status", String(store.approval_status ?? ""))
+      .select("id");
     if (upErr) {
       console.error("[admin/stores PATCH store]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
     }
     const ownerUserId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
     if (ownerUserId) {
       invalidateMeStoresListServerCache(ownerUserId);
     }
+    await safeNotifyOwnerStoreDecision(sb, {
+      action,
+      storeId: id,
+      ownerUserId,
+      storeName: store.store_name as string | null,
+      reason,
+      adminActorId: actorId,
+    });
     return auditOk(before, patch);
   }
 
@@ -259,7 +298,7 @@ export async function PATCH(
       .eq("id", id);
     if (idErr) {
       console.error("[admin/stores PATCH identity flag]", idErr);
-      return NextResponse.json({ ok: false, error: idErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     return auditOk(before, { owner_can_edit_store_identity: enabled });
   }
@@ -281,8 +320,10 @@ export async function PATCH(
     const { error: visErr } = await sb.from("stores").update(visPatch).eq("id", id);
     if (visErr) {
       console.error("[admin/stores PATCH is_visible]", visErr);
-      return NextResponse.json({ ok: false, error: visErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
+    const visOwnerId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
+    if (visOwnerId) invalidateMeStoresListServerCache(visOwnerId);
     return auditOk(before, visPatch);
   }
 
@@ -297,7 +338,7 @@ export async function PATCH(
       if (/admin_internal_memo|does not exist/i.test(memoErr.message)) {
         return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
       }
-      return NextResponse.json({ ok: false, error: memoErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     return auditOk(before, { admin_internal_memo: memo });
   }
@@ -311,7 +352,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update({ store_name: name }).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH store_name]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     return auditOk(before, { store_name: name });
   }
@@ -334,7 +375,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(built.patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH taxonomy]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     return auditOk(before, built.patch);
   }
@@ -378,7 +419,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH contact]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     return auditOk(before, patch);
   }
@@ -432,7 +473,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(built.patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH location]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     let store_orders_checkout_geo_sync: unknown;
     if (storeLocationPatchTouchesCoords(built.patch)) {
@@ -488,7 +529,7 @@ export async function PATCH(
       .eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH hours]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     invalidateDiscoveryAfterStoreWrite(sb, id, { business_hours_json: nextHours });
     return auditOk(before, { business_hours_json: nextHours });
@@ -524,7 +565,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH delivery flags]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     invalidateDiscoveryAfterStoreWrite(sb, id, patch);
     return auditOk(before, patch);
@@ -550,7 +591,7 @@ export async function PATCH(
     const { error: upErr } = await sb.from("stores").update(patch).eq("id", id);
     if (upErr) {
       console.error("[admin/stores PATCH delivery radius]", upErr);
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
     // Owner R PATCH parity: discovery invalidation + HOME feed clear.
     invalidateDiscoveryAfterStoreWrite(sb, id, patch);
@@ -574,6 +615,11 @@ export async function PATCH(
       );
     }
 
+    const { data: prevPerm } = await sb
+      .from("store_sales_permissions")
+      .select("allowed_to_sell, sales_status, rejection_reason, suspension_reason")
+      .eq("store_id", id)
+      .maybeSingle();
     let permPatch: Record<string, unknown> = {};
     if (action === "approve_sales") {
       permPatch = {
@@ -603,9 +649,17 @@ export async function PATCH(
 
     if (pErr) {
       console.error("[admin/stores PATCH sales]", pErr);
-      return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
     }
-    return auditOk({ sales: "previous" }, permPatch);
+    await safeNotifyOwnerStoreDecision(sb, {
+      action,
+      storeId: id,
+      ownerUserId: store.owner_user_id as string | null,
+      storeName: store.store_name as string | null,
+      reason,
+      adminActorId: actorId,
+    });
+    return auditOk((prevPerm as Record<string, unknown> | null) ?? { sales: null }, permPatch);
   }
 
   return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });

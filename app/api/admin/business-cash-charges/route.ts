@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   approveBusinessCashTopUpRequest,
@@ -91,6 +92,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "business_cash_charge_request",
+      targetId: requestId,
+      action: "business_cash_charge.approve",
+      after: {
+        idempotent: result.idempotent,
+        ledgerId: result.ledgerId,
+        balanceAfterMinor: result.balanceAfterMinor,
+        ownerUserId: notify?.ownerUserId ?? null,
+        amountMinor: notify?.amountMinor ?? null,
+      },
+    });
     if (notify) {
       await safeNotifyOwnerBusinessCashChargeCompleted(gate.sb, {
         ownerUserId: notify.ownerUserId,
@@ -116,6 +130,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "business_cash_charge_request",
+      targetId: requestId,
+      action: "business_cash_charge.reject",
+      after: {
+        idempotent: result.idempotent,
+        reason: typeof body.reason === "string" ? body.reason.slice(0, 500) : null,
+        ownerUserId: notify?.ownerUserId ?? null,
+        amountMinor: notify?.amountMinor ?? null,
+      },
+    });
     if (notify) {
       await safeNotifyOwnerBusinessCashChargeRejected(gate.sb, {
         ownerUserId: notify.ownerUserId,

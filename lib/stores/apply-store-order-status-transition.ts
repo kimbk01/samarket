@@ -688,6 +688,7 @@ export async function applyStoreOrderStatusTransition(
           storeId: sid,
           nextStatus,
           storeOrderEventId: statusEv.row.id,
+          actor,
         });
       }
     } else {
@@ -697,6 +698,7 @@ export async function applyStoreOrderStatusTransition(
         orderNo,
         storeId: sid,
         nextStatus,
+        actor,
       });
     }
   }

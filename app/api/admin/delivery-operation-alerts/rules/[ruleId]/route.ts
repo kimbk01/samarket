@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const RULE_SELECT_COLS =
+  "id, rule_key, rule_name, target_type, threshold_minutes, warning_level, repeat_minutes, is_active, escalation_level, escalate_after_minutes, max_escalation_level, notify_admin, auto_action_enabled, auto_action_type, auto_action_delay_minutes, auto_action_min_escalation_count, auto_action_requires_approval, updated_at";
 
 const AUTO_ACTION_TYPES = new Set([
   "auto_hold_settlement",
@@ -40,7 +44,7 @@ type PatchBody = {
 };
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   const { ruleId } = await ctx.params;
@@ -147,7 +151,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
       .maybeSingle();
 
     if (curErr) {
-      return NextResponse.json({ error: String(curErr.message ?? "fetch_failed").slice(0, 200) }, { status: 500 });
+      console.error("[admin delivery-operation-alerts rule PATCH] fetch", curErr.message);
+      return NextResponse.json({ error: "fetch_failed" }, { status: 500 });
     }
     if (!cur) {
       return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
@@ -183,7 +188,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
 
   const { data: snap, error: snapErr } = await (sb as any)
     .from("delivery_operation_alert_rules")
-    .select("auto_action_type, auto_action_requires_approval")
+    .select(RULE_SELECT_COLS)
     .eq("id", id)
     .maybeSingle();
 
@@ -192,7 +197,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
     if (/does not exist|column/i.test(msg)) {
       return NextResponse.json({ error: "schema_missing", hint: "Apply migration delivery_auto_actions_safety" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    console.error("[admin delivery-operation-alerts rule PATCH] snapshot", msg);
+    return NextResponse.json({ error: "fetch_failed" }, { status: 500 });
   }
   if (!snap) {
     return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
@@ -217,17 +223,25 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
     .from("delivery_operation_alert_rules")
     .update(patch)
     .eq("id", id)
-    .select(
-      "id, rule_key, rule_name, target_type, threshold_minutes, warning_level, repeat_minutes, is_active, escalation_level, escalate_after_minutes, max_escalation_level, notify_admin, auto_action_enabled, auto_action_type, auto_action_delay_minutes, auto_action_min_escalation_count, auto_action_requires_approval, updated_at"
-    )
+    .select(RULE_SELECT_COLS)
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message ?? "update_failed" }, { status: 500 });
+    console.error("[admin delivery-operation-alerts rule PATCH] update", error.message);
+    return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_operation_alert_rule",
+    targetId: id,
+    action: "delivery_alert_rule.update",
+    before: snap as Record<string, unknown>,
+    after: { patch, rule: data as Record<string, unknown> },
+  });
 
   return NextResponse.json({ ok: true, rule: data });
 }

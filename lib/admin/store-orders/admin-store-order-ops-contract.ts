@@ -90,8 +90,8 @@ export const ADMIN_ORDER_OPS_SCREEN: Record<AdminOrderOpsScreen, AdminOrderOpsSc
     summaryScope: "orders",
   },
   exceptions: {
-    titleKo: "주문 액션",
-    titleEn: "Order exceptions",
+    titleKo: "처리 필요 주문",
+    titleEn: "Orders needing action",
     descKo: "관리자가 직접 처리해야 하는 운영 예외 주문입니다. 일반 취소·환불은 매장이 처리합니다.",
     descEn: "Exceptions the admin must handle. Regular cancel/refund decisions belong to the store.",
     scope: null,

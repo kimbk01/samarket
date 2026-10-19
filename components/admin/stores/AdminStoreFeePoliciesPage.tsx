@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { dibayPrompt } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -182,6 +183,8 @@ function previewFee(gross: number, pct: number, fixed: number) {
 function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
   const e = String(error ?? "").trim();
   if (httpStatus === 403) return "forbidden";
+  if (e === "would_leave_no_default_policy") return e;
+  if (e === "policy_archived") return e;
   if (httpStatus === 409) {
     if (e.includes("conflict_priority_overlap")) return "conflict_priority_overlap";
     if (e.includes("conflict_default_overlap")) return "conflict_default_overlap";
@@ -211,6 +214,8 @@ function feePolicyErrorMessage(
     policy_name_required: "admin_stores_fee_err_name_required",
     network_error: "admin_stores_fee_err_network",
     server_error: "admin_stores_fee_err_generic",
+    would_leave_no_default_policy: "admin_stores_fee_err_no_default_left",
+    policy_archived: "admin_stores_fee_err_policy_archived",
   };
   const key = map[code];
   if (key) return t(key);
@@ -255,26 +260,10 @@ async function upsertPolicy(opts: {
 }): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
   const { policyId, body, timing, startsAtIso, endsAtIso } = opts;
 
-  // Schedule: close current window at starts_at, then insert next window (half-open).
+  // Schedule: 서버가 같은 요청에서 기존 정책 종료 + 새 정책 생성 (실패 시 종료 시각 복구, DEF-3).
   if (timing === "schedule") {
     if (!startsAtIso) {
       return { ok: false, error: "invalid_window", status: 400 };
-    }
-    if (policyId) {
-      const closeRes = await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(policyId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ends_at: startsAtIso }),
-      });
-      const closeJson = (await closeRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!closeJson.ok) {
-        return {
-          ok: false,
-          error: feePolicyApiErrorCode(closeJson.error, closeRes.status),
-          status: closeRes.status,
-        };
-      }
     }
     const createRes = await fetch("/api/admin/store-fee-policies", {
       method: "POST",
@@ -284,6 +273,8 @@ async function upsertPolicy(opts: {
         ...body,
         starts_at: startsAtIso,
         ends_at: endsAtIso,
+        supersede_policy_id: policyId,
+        change_reason: typeof body.memo === "string" ? body.memo : null,
       }),
     });
     const createJson = (await createRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -535,6 +526,17 @@ export function AdminStoreFeePoliciesPage() {
 
   const deactivate = useCallback(
     async (id: string) => {
+      // L3: 수수료 정책 종료는 주문 수수료에 바로 영향 — 사유 필수 확인 (DEF-62).
+      const reason = await dibayPrompt({
+        title: t("admin_stores_fee_deactivate_confirm_title"),
+        description: t("admin_stores_fee_deactivate_confirm_desc"),
+        placeholder: t("admin_stores_fee_change_reason_placeholder"),
+        confirmLabel: t("admin_stores_fee_deactivate_confirm_cta"),
+        cancelLabel: t("common_cancel"),
+        confirmTone: "destructive",
+        required: true,
+      });
+      if (reason === null || reason.trim().length < 2) return;
       setBusy(true);
       setError(null);
       try {
@@ -542,7 +544,7 @@ export function AdminStoreFeePoliciesPage() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_active: false }),
+          body: JSON.stringify({ is_active: false, change_reason: reason.trim() }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!json.ok) {
@@ -556,7 +558,7 @@ export function AdminStoreFeePoliciesPage() {
         setBusy(false);
       }
     },
-    [load]
+    [load, t]
   );
 
   const selectedCategory = useMemo(

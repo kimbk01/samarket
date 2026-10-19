@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  assertDefaultFeePolicyRemainsAfterDeactivate,
+  auditAdminFeePolicyWrite,
+} from "@/lib/stores/commission/admin-fee-policy-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -21,6 +25,7 @@ type PatchBody = {
   priority?: number;
   memo?: string | null;
   is_archived?: boolean;
+  change_reason?: string | null;
 };
 
 function parseIsoOrNull(v: unknown): string | null | "invalid" {
@@ -147,9 +152,8 @@ async function resolveTopicParentCategory(
 }
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const { id } = await context.params;
   const pid = typeof id === "string" ? id.trim() : "";
   if (!pid) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
@@ -312,6 +316,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ ok: false, error: "invalid_window" }, { status: 400 });
   }
 
+  if (Boolean(current.is_active) && !nextIsActive) {
+    const remains = await assertDefaultFeePolicyRemainsAfterDeactivate(sb, current);
+    if (!remains.ok) return NextResponse.json({ ok: false, error: remains.error }, { status: 409 });
+  }
+
   const conflict = await assertNoActiveConflict(sb, {
     excludeId: pid,
     store_id: nextStoreId,
@@ -342,6 +351,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     );
   }
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  await auditAdminFeePolicyWrite(sb, req, {
+    actorId: gate.actor.userId,
+    action: "store_fee_policy.update",
+    policyId: pid,
+    before: current as unknown as Record<string, unknown>,
+    after: patch,
+    reason: typeof body.change_reason === "string" ? body.change_reason.trim().slice(0, 1000) : null,
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -350,9 +367,8 @@ type DeleteBody = {
 };
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const { id } = await context.params;
   const pid = typeof id === "string" ? id.trim() : "";
   if (!pid) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
@@ -374,10 +390,21 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
   const actorId = await getRouteUserId();
   const now = new Date().toISOString();
 
-  const { data: pre } = await sb.from("store_fee_policies").select("id, is_archived").eq("id", pid).maybeSingle();
+  const { data: pre } = await sb
+    .from("store_fee_policies")
+    .select("id, is_archived, is_active, store_id, category_id, topic_id")
+    .eq("id", pid)
+    .maybeSingle();
   if (!pre) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   if (Boolean((pre as { is_archived?: boolean }).is_archived)) {
     return NextResponse.json({ ok: true });
+  }
+  if ((pre as { is_active?: boolean }).is_active) {
+    const remains = await assertDefaultFeePolicyRemainsAfterDeactivate(
+      sb,
+      pre as { id: string; store_id?: string | null; category_id?: string | null; topic_id?: string | null }
+    );
+    if (!remains.ok) return NextResponse.json({ ok: false, error: remains.error }, { status: 409 });
   }
 
   const { data: updated, error } = await sb
@@ -397,5 +424,13 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     return NextResponse.json({ ok: false, error: "failed_to_archive" }, { status: 500 });
   }
   if (!updated) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  await auditAdminFeePolicyWrite(sb, req, {
+    actorId: actorId ?? gate.actor.userId,
+    action: "store_fee_policy.archive",
+    policyId: pid,
+    before: pre as Record<string, unknown>,
+    after: { is_archived: true, archived_at: now },
+    reason: archiveReason,
+  });
   return NextResponse.json({ ok: true });
 }

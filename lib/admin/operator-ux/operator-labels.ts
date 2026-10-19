@@ -171,6 +171,60 @@ export function adminOperatorErrorMessage(
       ko: "결제(Cash)가 확보되지 않아 승인할 수 없습니다.",
       en: "Cannot approve until Cash funding is secured.",
     },
+    forbidden: { ko: "이 작업을 할 권한이 없습니다.", en: "You do not have permission for this action." },
+    forbidden_permission: {
+      ko: "이 작업에 필요한 관리자 권한이 없습니다. 최고 관리자에게 권한을 요청하세요.",
+      en: "You lack the admin permission for this action. Ask a super admin.",
+    },
+    super_admin_only: { ko: "최고 관리자만 할 수 있는 작업입니다.", en: "Only a super admin can do this." },
+    status_changed: {
+      ko: "다른 관리자가 먼저 처리해 상태가 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin changed the status first. Refresh and check again.",
+    },
+    expected_status_required: {
+      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      en: "This screen is out of date. Refresh and try again.",
+    },
+    stale_lifecycle: {
+      ko: "다른 관리자가 먼저 처리했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin acted first. Refresh and check again.",
+    },
+    stale_updated_at: {
+      ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this first. Refresh and check again.",
+    },
+    invalid_store_transition: {
+      ko: "현재 매장 상태에서는 할 수 없는 처리입니다.",
+      en: "This action is not allowed for the store's current status.",
+    },
+    invalid_coupon_transition: {
+      ko: "현재 쿠폰 상태에서는 할 수 없는 처리입니다.",
+      en: "This action is not allowed for the coupon's current status.",
+    },
+    reject_reason_required: { ko: "거절 사유를 입력해 주세요.", en: "Please enter a rejection reason." },
+    revoke_reason_required: { ko: "회수 사유를 입력해 주세요.", en: "Please enter a revoke reason." },
+    store_not_approved_for_sales: {
+      ko: "입점 승인된 매장만 판매 상태를 바꿀 수 있습니다.",
+      en: "Only approved stores can change sales status.",
+    },
+    store_not_approved_for_visibility: {
+      ko: "입점 승인된 매장만 노출을 켤 수 있습니다.",
+      en: "Only approved stores can be made visible.",
+    },
+    would_leave_no_default_policy: {
+      ko: "적용 중인 다른 플랫폼 기본 수수료 정책이 없어 종료할 수 없습니다.",
+      en: "No other default fee policy is active, so this cannot be ended.",
+    },
+    business_cash_refund_failed: {
+      ko: "반려는 완료됐지만 매장 캐시 환불이 실패했습니다. 재무 화면에서 환불 상태를 확인하세요.",
+      en: "Rejected, but the store Cash refund failed. Check refund status in Finance.",
+    },
+    as_of_date_in_future: { ko: "기준일은 오늘 이후로 지정할 수 없습니다.", en: "The as-of date cannot be in the future." },
+    notification_failed: { ko: "알림을 보내지 못했습니다.", en: "Could not send the notification." },
+    store_not_found: { ko: "매장을 찾을 수 없습니다.", en: "Store not found." },
+    order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
+    supabase_unconfigured: { ko: "서버 설정 오류입니다. 시스템 관리자에게 문의하세요.", en: "Server configuration error. Contact a system admin." },
+    db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.", en: "A database error occurred. Try again later." },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);

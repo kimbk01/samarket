@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -154,6 +155,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ eventId: stri
   if (!data) {
     return NextResponse.json({ error: "event_not_found" }, { status: 404 });
   }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: uid,
+    targetType: "delivery_operation_alert_event",
+    targetId: id,
+    action: "delivery_alert_event.update",
+    before: { event_status: st },
+    after: { action, patch },
+  });
 
   return NextResponse.json({ ok: true, event: data });
 }

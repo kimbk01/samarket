@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadStoreTaxonomyRows } from "@/lib/stores/load-store-taxonomy-rows";
 import {
   BROWSE_PRIMARY_INDUSTRIES,
@@ -43,9 +45,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
@@ -86,13 +87,19 @@ export async function PATCH(req: Request) {
   const { data, error } = await sb.from(table).update(safePatch).eq("id", id).select().maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: table,
+    targetId: id,
+    action: "store_taxonomy.update",
+    after: { kind, patch: safePatch },
+  });
   return NextResponse.json({ ok: true, row: data });
 }
 
 export async function POST(req: Request) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
@@ -105,10 +112,30 @@ export async function POST(req: Request) {
   }
 
   if (body?.seed === true) {
-    return seedDefaultTaxonomy(sb);
+    const seeded = await seedDefaultTaxonomy(sb);
+    if (seeded.ok) {
+      await appendAdminRouteAudit(gate.sb, req, {
+        actorId: gate.actor.userId,
+        targetType: "store_taxonomy",
+        targetId: "",
+        action: "store_taxonomy.create",
+        after: { seed: true },
+      });
+    }
+    return seeded;
   }
 
   const kind = typeof body?.kind === "string" ? body.kind : null;
+  const auditCreate = async (table: string, row: unknown) => {
+    const rowId = String((row as { id?: unknown } | null)?.id ?? "");
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: table,
+      targetId: rowId,
+      action: "store_taxonomy.create",
+      after: { kind, row: (row ?? null) as Record<string, unknown> | null },
+    });
+  };
 
   if (kind === "category") {
     const name = String(body?.name ?? "").trim();
@@ -124,6 +151,7 @@ export async function POST(req: Request) {
       .select()
       .maybeSingle();
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await auditCreate("store_categories", data);
     return NextResponse.json({ ok: true, row: data });
   }
 
@@ -145,6 +173,7 @@ export async function POST(req: Request) {
       .select()
       .maybeSingle();
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await auditCreate("store_topics", data);
     return NextResponse.json({ ok: true, row: data });
   }
 
@@ -172,6 +201,7 @@ export async function POST(req: Request) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    await auditCreate("store_subtopics", data);
     return NextResponse.json({ ok: true, row: data });
   }
 

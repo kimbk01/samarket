@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { loadAdminStoreDiscoveryCampaignMonitor } from "@/lib/stores/admin-store-discovery-control";
 import {
   createStoreDiscoveryCampaignAdmin,
@@ -64,14 +65,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const userId = gate.actor.userId;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -93,18 +89,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: userId,
+    targetType: "store_discovery_campaign",
+    targetId: String((result.row as { id?: unknown } | null)?.id ?? ""),
+    action: "store_discovery_campaign.create",
+    after: (body && typeof body === "object" ? body : null) as Record<string, unknown> | null,
+  });
+
   return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const userId = gate.actor.userId;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -125,6 +124,14 @@ export async function PATCH(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: userId,
+    targetType: "store_discovery_campaign",
+    targetId: String((result.row as { id?: unknown } | null)?.id ?? ""),
+    action: "store_discovery_campaign.update",
+    after: (body && typeof body === "object" ? body : null) as Record<string, unknown> | null,
+  });
 
   return NextResponse.json({ ok: true, campaign: result.row });
 }

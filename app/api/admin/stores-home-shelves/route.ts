@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   getCompositionPolicySurfaceRevision,
   loadResolvedCompositionPolicy,
@@ -107,14 +108,9 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const userId = gate.actor.userId;
 
   let body: Record<string, unknown>;
   try {
@@ -229,6 +225,18 @@ export async function PUT(req: NextRequest) {
     }));
 
     await upsertHomeShelfProductFields(sb, productOverrides, userId);
+
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: userId,
+      targetType: "stores_home_shelves",
+      targetId: "home",
+      action: "stores_home_shelves.update",
+      after: {
+        expectedRevision,
+        revision: cas.revision,
+        shelves: shelves.map((s) => ({ shelfId: s.shelfId, enabled: s.enabled, order: s.order, max: s.max })),
+      },
+    });
 
     return NextResponse.json({ ok: true, revision: cas.revision, saved: shelves.length });
   } catch (e) {

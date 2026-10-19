@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
@@ -200,14 +201,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const userId = gate.actor.userId;
 
   let body: Record<string, unknown>;
   try {
@@ -261,6 +257,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     invalidateStoresBrowseMemoryCache();
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: userId,
+      targetType: "stores_browse_scope_policy",
+      targetId: "browse",
+      action: "stores_category_policy.update",
+      after: {
+        expectedRevision,
+        revision: result.revision,
+        scopeKeys: rows.map((r) => r.scopeKey),
+        deleteScopeKeys,
+      },
+    });
     return NextResponse.json({ ok: true, revision: result.revision, saved: rows.length });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save_failed";

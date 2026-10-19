@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
@@ -55,7 +57,7 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
   const { id: rawId } = await context.params;
   const storeId = decodeURIComponent(rawId || "").trim();
@@ -78,6 +80,7 @@ export async function PUT(
   try {
     const store = await loadStoreGeo(sb, storeId);
     if (!store) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const beforeSelected = await loadStoreDeliveryServiceAreas(sb, storeId).catch(() => null);
     const storeHomeLguId = resolveStoreHomeLguId({
       cityMunicipality: store.city,
       province: store.region,
@@ -96,6 +99,21 @@ export async function PUT(
     });
     clearStoreHomeFeedServerCache();
     const selected = await loadStoreDeliveryServiceAreas(sb, storeId);
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "store",
+      targetId: storeId,
+      action: "store.delivery_service_areas.replace",
+      before: {
+        authority: store.delivery_service_area_authority ?? null,
+        areas: beforeSelected as unknown,
+      },
+      after: {
+        authority: result.authority,
+        activateV2: body.activateV2 === true,
+        geoIdentities: idsRaw.map((id) => String(id ?? "")),
+      },
+    });
     return NextResponse.json({
       ok: true,
       authority: result.authority,
@@ -116,7 +134,7 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
   const { id: rawId } = await context.params;
   const storeId = decodeURIComponent(rawId || "").trim();

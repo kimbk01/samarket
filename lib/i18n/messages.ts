@@ -56,6 +56,7 @@ import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
+import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
@@ -172,6 +173,8 @@ const KO_MESSAGES = {
   ...adminPlatformPromotionNotificationsMessages.ko,
   ...adminDeployMessages.ko,
   ...koJson,
+  // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
+  ...adminDeliveryOpsUxMessages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -254,6 +257,7 @@ const EN_MESSAGES = {
   ...adminPlatformPromotionNotificationsMessages.en,
   ...adminDeployMessages.en,
   ...enJson,
+  ...adminDeliveryOpsUxMessages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

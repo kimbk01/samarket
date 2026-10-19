@@ -182,6 +182,8 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     eligibility: popupRuntimeDisplayLabel(runtimeStatus, true),
     ageHours: ageHours(at),
     at,
+    expectedUpdatedAt: c.updatedAt ?? null,
+    expectedLifecycle: c.lifecycleStatus ?? null,
     source: "admin_delivery_ad_campaign_list",
     href: DELIVERY_AD_ADMIN_ROUTES.detail(id),
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
