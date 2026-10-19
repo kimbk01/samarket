@@ -8,9 +8,8 @@
 --    lib/admin/notification-campaigns/campaign-status-machine.ts CAMPAIGN_STATUS_TRANSITIONS —
 --    contract test campaign-status-machine.test.ts keeps both lists identical)
 -- 4) list index for tab pagination (is_qa, archived_at, status, created_at desc, id desc)
--- 5) legacy backfill: campaigns left `draft` after their first real occurrence completed
---    → occurrence outcome (sent / partially_failed / failed). Transition draft→sending→terminal
---    already happened at runtime; only the campaign row was not synced (pre-occurrence cutover).
+-- Data backfill (13 legacy rows left `draft` after sending) is NOT part of this migration —
+-- schema only. See docs/notifications/adm-cms-legacy-draft-status-backfill.sql (Owner-run).
 --
 -- Rollback (manual):
 --   DROP INDEX IF EXISTS public.admin_notification_campaigns_list_tab_idx;
@@ -18,7 +17,6 @@
 --   DROP TABLE IF EXISTS public.admin_notification_campaign_audit_logs;
 --   ALTER TABLE public.admin_notification_campaigns DROP COLUMN IF EXISTS archived_by;
 --   ALTER TABLE public.admin_notification_campaigns DROP COLUMN IF EXISTS archived_at;
---   -- step 5 backfill is not reverted (rows reflect their real delivery outcome).
 
 BEGIN;
 
@@ -108,22 +106,5 @@ CREATE INDEX IF NOT EXISTS admin_notification_campaigns_list_tab_idx
 CREATE INDEX IF NOT EXISTS admin_notification_campaigns_archived_idx
   ON public.admin_notification_campaigns (archived_at DESC, created_at DESC, id DESC)
   WHERE archived_at IS NOT NULL;
-
--- 5) Legacy backfill: draft campaign whose latest real occurrence is terminal
-UPDATE public.admin_notification_campaigns AS c
-SET
-  status = o.status,
-  sent_at = COALESCE(c.sent_at, o.completed_at),
-  updated_at = now()
-FROM (
-  SELECT DISTINCT ON (campaign_id) campaign_id, status, completed_at
-  FROM public.admin_notification_campaign_occurrences
-  WHERE trigger_type <> 'test'
-  ORDER BY campaign_id, sequence_number DESC
-) AS o
-WHERE o.campaign_id = c.id
-  AND c.status = 'draft'
-  AND c.send_mode = 'immediate'
-  AND o.status IN ('sent', 'partially_failed', 'failed');
 
 COMMIT;
