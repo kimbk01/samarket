@@ -9,10 +9,11 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
  * Listing → Flow → Conversation → Reports → Promo. No writer redesign.
  */
 describe("Admin Trade vertical relation contract", () => {
-  it("Hub product-report ops lands on product target_type filter", () => {
-    const hub = read("components/admin/trade/AdminTradeHub.tsx");
-    expect(hub).toContain("/admin/reports?domain=trade&target_type=product");
-    expect(hub).toContain("상품 신고");
+  it("Hub product-report ops lands on trade report queue", () => {
+    // 거래 Admin 설계 v2 §E: 허브 = TradeDashboardPage, 신고 큐 canonical = /admin/trade/reports
+    const hub = read("components/admin/trade/dashboard/TradeDashboardPage.tsx");
+    expect(hub).toContain("/admin/trade/reports?tab=open");
+    expect(hub).toContain("처리할 신고");
   });
 
   it("Trade Flow sessions link Admin listing + Admin trade chat", () => {
@@ -35,7 +36,7 @@ describe("Admin Trade vertical relation contract", () => {
   });
 
   it("does not invent trade_post_ads drill from listing detail", () => {
-    const detail = read("components/admin/products/AdminProductDetailPage.tsx");
+    const detail = read("components/admin/trade/posts/TradePostDetailPage.tsx");
     expect(detail).not.toContain("/admin/trade-post-ads");
   });
 });

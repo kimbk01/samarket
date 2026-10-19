@@ -718,8 +718,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "chat-trade",
             title: "",
-            path: "/admin/chats?type=trade",
-            matchPaths: ["/admin/chats/trade"],
+            path: "/admin/chats/trade",
             status: "done",
           },
           {

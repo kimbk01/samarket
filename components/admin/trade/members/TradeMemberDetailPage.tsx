@@ -177,7 +177,11 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
   const restrictions = useCommunityAdminJson<RowsResponse>(
     `/api/admin/trade/restrictions?userId=${uid}&status=all&limit=${SIDE_LIMIT}`
   );
-  const reports = useCommunityAdminJson<RowsResponse>(`/api/admin/trade/reports?targetId=${uid}&tab=all&limit=${SIDE_LIMIT}`);
+  // 신고 받은 내역 = 회원 본인 신고 + 이 회원 거래글 신고
+  const reports = useCommunityAdminJson<RowsResponse>(`/api/admin/trade/reports?sellerId=${uid}&tab=all&limit=${SIDE_LIMIT}`);
+  // 머리말 — 이름·계정 상태 (공용 회원 정보)
+  const member = useCommunityAdminJson<RowsResponse>(`/api/admin/trade/members?userId=${uid}&limit=1`);
+  const memberRow = rowsOf(member.state)?.[0] ?? null;
   const promotions = useCommunityAdminJson<RowsResponse>(
     `/api/admin/trade/promotions?userId=${uid}&tab=all&limit=${SIDE_LIMIT}`
   );
@@ -191,6 +195,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
 
   // 이름 — 거래 화면 응답에 실린 회원 표시명 중 먼저 찾은 것
   const label =
+    s(memberRow?.label).trim() ||
     (restrictionRows ?? []).map((r) => s(r.user_label).trim()).find(Boolean) ||
     (promotionRows ?? []).map((r) => s(r.user_label).trim()).find(Boolean) ||
     (pointRows ?? []).map((r) => s(r.userNickname).trim()).find(Boolean) ||
@@ -200,8 +205,12 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
       .find(Boolean) ||
     "회원";
 
-  // 계정 상태 — 최근 계정 조치 결과 (기록이 없으면 정상)
-  const lastStatus = events ? s(events.find((e) => s(e.to_status))?.to_status) : null;
+  // 계정 상태 — 공용 회원 정보(profiles.status) 우선, 없으면 최근 계정 조치 결과
+  const lastStatus = memberRow
+    ? s(memberRow.account_status)
+    : events
+      ? s(events.find((e) => s(e.to_status))?.to_status)
+      : null;
   const accountKey = lastStatus === null ? null : tradeAccountStatusKey(lastStatus);
   const activeRestrictions = (restrictionRows ?? []).filter(
     (r) => s(r.status) === "active" && s(r.sanction_type) === "trade_restriction"
@@ -210,6 +219,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
   const reloadAll = () => {
     trade.reload();
     moderation.reload();
+    member.reload();
     restrictions.reload();
     reports.reload();
     promotions.reload();
@@ -555,7 +565,7 @@ function ReportsSection({
             )}
             <FooterLinks>
               <Link
-                href={tradeDetailHref(`/admin/trade/reports?tab=all&targetId=${encodeURIComponent(userId)}`, selfHref)}
+                href={tradeDetailHref(`/admin/trade/reports?tab=all&sellerId=${encodeURIComponent(userId)}`, selfHref)}
                 className="text-sky-800 underline"
               >
                 거래 신고에서 모두 보기

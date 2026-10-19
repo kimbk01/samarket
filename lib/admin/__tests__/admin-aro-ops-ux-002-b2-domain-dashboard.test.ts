@@ -19,7 +19,8 @@ describe("ARO-OPS-UX-002-B2 domain dashboard contract", () => {
 
     for (const f of [
       "lib/admin/domain-dashboard/load-delivery-domain-dashboard.ts",
-      "lib/admin/domain-dashboard/load-trade-domain-dashboard.ts",
+      // 거래 Admin 설계 v2 §E: 거래 대시보드 로더 = trade-metrics (load-trade-domain-dashboard 대체)
+      "lib/admin/trade-admin/trade-metrics.ts",
       "lib/admin/domain-dashboard/load-community-domain-dashboard.ts",
       "lib/admin/domain-dashboard/load-messenger-domain-dashboard.ts",
     ]) {
@@ -31,7 +32,8 @@ describe("ARO-OPS-UX-002-B2 domain dashboard contract", () => {
 
   it("routes exist for four domain dashboards", () => {
     expect(read("app/admin/delivery/page.tsx")).toContain("loadDeliveryDomainDashboard");
-    expect(read("app/admin/trade/page.tsx")).toContain("loadTradeDomainDashboard");
+    expect(read("app/admin/trade/page.tsx")).toContain("TradeDashboardPage");
+    expect(read("app/api/admin/trade/overview/route.ts")).toContain("loadTradeOverview");
     expect(read("app/admin/community/page.tsx")).toContain("loadCommunityDomainDashboard");
     expect(read("app/admin/messenger/page.tsx")).toContain("loadMessengerDomainDashboard");
   });
@@ -71,10 +73,8 @@ describe("ARO-OPS-UX-002-B2 domain dashboard contract", () => {
   });
 
   it("reset context entries use B1R presets", () => {
-    const trade = read("lib/admin/domain-dashboard/load-trade-domain-dashboard.ts");
     const community = read("lib/admin/domain-dashboard/load-community-domain-dashboard.ts");
     const messenger = read("lib/admin/domain-dashboard/load-messenger-domain-dashboard.ts");
-    expect(trade).toContain("DOMAIN_RESET_SCOPE_PRESETS.trade");
     expect(community).toContain("DOMAIN_RESET_SCOPE_PRESETS.community");
     expect(messenger).toContain("DOMAIN_RESET_SCOPE_PRESETS.chat");
     expect(DOMAIN_RESET_SCOPE_PRESETS.trade).toEqual(["trade_content"]);

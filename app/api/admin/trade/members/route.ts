@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
-import { parseCommunityAdminPage } from "@/lib/admin/community-admin/community-admin-period";
+import { communityAdminUuidOrNull, parseCommunityAdminPage } from "@/lib/admin/community-admin/community-admin-period";
 import { sanitizeAdminListSearch, escapeAdminIlike } from "@/lib/admin/pagination/parse-admin-list-page";
 import {
   formatAdminMemberLabel,
@@ -17,7 +17,7 @@ const SCAN_CAP = 10000;
 /**
  * GET /api/admin/trade/members — 판매자·구매자 (설계 v2 §C-6)
  * 거래 회원 = 거래글을 올렸거나 거래 채팅에 참여한 회원. 회원 데이터는 공용 profiles (SSOT).
- * query: tab=all|restricted|suspended · q(닉네임) · limit · offset
+ * query: tab=all|restricted|suspended · q(닉네임) · userId(회원 1명) · limit · offset
  */
 export async function GET(req: NextRequest) {
   const admin = await requireTradeAdmin();
@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_tab" }, { status: 400 });
   }
   const q = sanitizeAdminListSearch(sp.get("q"));
+  /** 특정 회원 1명 (상세 화면 머리말용) — 거래 활동이 없어도 돌려준다 */
+  const onlyUserId = communityAdminUuidOrNull(sp.get("userId"));
   const { limit, offset } = parseCommunityAdminPage(sp);
   const nowIso = new Date().toISOString();
 
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
   for (const r of (restrictions.data ?? []) as { user_id: string; restriction: string }[]) {
     restricted.set(r.user_id, [...(restricted.get(r.user_id) ?? []), r.restriction]);
   }
-  let ids = [...new Set([...postCount.keys(), ...buyCount.keys()])];
+  let ids = onlyUserId ? [onlyUserId] : [...new Set([...postCount.keys(), ...buyCount.keys()])];
   const capped = (sellers.data ?? []).length >= SCAN_CAP || (buyers.data ?? []).length >= SCAN_CAP;
 
   // 프로필 (닉네임 검색·계정 상태)

@@ -47,11 +47,10 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
     ]);
     expect(isBulkActionAllowed(TRADE_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(true);
 
-    const table = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
-    expect(table).toContain('terminologyDisplay("SOFT_DELETE"');
-    expect(table).not.toMatch(/\(soft\)/);
-    expect(table).toMatch(/DB 영구 삭제가 아닙니다/);
-    expect(table).toContain("confirmAndApplyBulkAdminPostStatus");
+    // 거래 Admin 설계 v2 §F-1: posts-management 표(삭제)는 TradePostsPage 로 교체 — 영구 삭제는 bulk-delete(최고 관리자·사유 필수)만.
+    const bulkDelete = read("app/api/admin/posts/bulk-delete/route.ts");
+    expect(bulkDelete).toContain("requireSuperAdmin");
+    expect(bulkDelete).toContain("reason_required");
     expect(TRADE_POST_ENTITY_ACTION_POLICY.hardMutationOwner).toMatch(/bulk-delete/);
     expect(TRADE_POST_ENTITY_ACTION_POLICY.softMutationOwner).toMatch(/BulkAdminPostStatus|updatePostStatusAdmin/);
   });

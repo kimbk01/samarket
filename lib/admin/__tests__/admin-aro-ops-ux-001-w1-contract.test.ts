@@ -102,18 +102,11 @@ describe("ARO-OPS-UX-001-W1 shared management contract", () => {
   });
 
   it("W1-15 proof surface uses shared contract; mutation helpers unchanged", () => {
-    const page = read("components/admin/posts-management/AdminPostsManagementPage.tsx");
-    const table = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
-    expect(page).toContain("AdminManagementSurfaceRoot");
-    expect(page).toContain("queryScopeKey");
+    // 거래 Admin 설계 v2 §C-2: posts-management 공용 표 화면은 TradePostsPage 로 교체(삭제) —
+    // 공용 계약 표식만 유지 확인한다.
     expect(read("components/admin/management/AdminManagementSurfaceRoot.tsx")).toContain(
       "data-aro-ops-ux-001-w1"
     );
-    expect(table).toContain("AdminManagementTableViewport");
-    expect(table).toContain("useAdminManagementSelection");
-    expect(table).toContain("TRADE_POST_ENTITY_ACTION_POLICY");
-    expect(table).toContain("confirmAndUpdateAdminPostStatus");
-    expect(table).not.toContain("DB 영구 삭제 · NOT_READY");
   });
 
   it("W1-16 tablet geometry helper", () => {

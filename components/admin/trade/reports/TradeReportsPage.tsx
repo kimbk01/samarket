@@ -196,6 +196,7 @@ export function TradeReportsPage() {
   const targetType = qs.get("targetType");
   const targetId = qs.get("targetId");
   const reporterId = qs.get("reporterId");
+  const sellerId = qs.get("sellerId");
   const period = qs.get("period");
   const from = qs.get("from");
   const to = qs.get("to");
@@ -206,6 +207,7 @@ export function TradeReportsPage() {
   if (targetType) params.set("targetType", targetType);
   if (targetId) params.set("targetId", targetId);
   if (reporterId) params.set("reporterId", reporterId);
+  if (sellerId) params.set("sellerId", sellerId);
   params.set("period", period || "all");
   if (period === "custom") {
     if (from) params.set("from", from);
@@ -257,6 +259,19 @@ export function TradeReportsPage() {
                 type="button"
                 aria-label="특정 대상 해제"
                 onClick={() => qs.set({ targetId: null })}
+                className="font-semibold text-sam-muted"
+              >
+                ×
+              </button>
+            </span>
+          ) : null}
+          {sellerId ? (
+            <span className="inline-flex items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 py-1 text-[12px] text-sam-fg">
+              특정 회원(본인·판매글) 신고만 보기
+              <button
+                type="button"
+                aria-label="특정 회원 해제"
+                onClick={() => qs.set({ sellerId: null })}
                 className="font-semibold text-sam-muted"
               >
                 ×

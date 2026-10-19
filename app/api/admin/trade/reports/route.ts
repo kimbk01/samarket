@@ -23,7 +23,7 @@ const TARGET_TYPES = new Set(["product", "post", "user", "chat_room", "chat", "c
 
 /**
  * GET /api/admin/trade/reports — 거래 신고 목록 (설계 v2 §C-4). 서버 조회·서버 건수 (브라우저 RLS 읽기 없음).
- * query: tab(open|sanctioned|rejected|all) · targetType · targetId · reporterId · period/from/to(접수일) · limit · offset
+ * query: tab(open|sanctioned|rejected|all) · targetType · targetId · reporterId · sellerId · period/from/to(접수일) · limit · offset
  */
 export async function GET(req: NextRequest) {
   const admin = await requireTradeAdmin();
@@ -39,6 +39,14 @@ export async function GET(req: NextRequest) {
   }
   const targetId = communityAdminUuidOrNull(sp.get("targetId"));
   const reporterId = communityAdminUuidOrNull(sp.get("reporterId"));
+  /** 판매자 기준 — 회원 본인 신고 + 그 회원 거래글 신고 (판매자·구매자 상세 「신고 받은 내역」) */
+  const sellerId = communityAdminUuidOrNull(sp.get("sellerId"));
+  let sellerPostIds: string[] = [];
+  if (sellerId) {
+    const { data: sp2, error: spErr } = await sb.from("posts").select("id").eq("user_id", sellerId).limit(2000);
+    if (spErr) return NextResponse.json({ ok: false, error: spErr.message }, { status: 500 });
+    sellerPostIds = ((sp2 ?? []) as { id: string }[]).map((p) => p.id);
+  }
   const period = parseCommunityAdminPeriodFromSearch(sp, { defaultPeriod: "all" });
   if (!period.ok) return NextResponse.json({ ok: false, error: period.error }, { status: 400 });
   const { limit, offset } = parseCommunityAdminPage(sp);
@@ -57,6 +65,13 @@ export async function GET(req: NextRequest) {
     if (targetType) q = targetType === "product" ? q.in("target_type", ["product", "post"]) : q.eq("target_type", targetType);
     if (targetId) q = q.or(`target_id.eq.${targetId},product_id.eq.${targetId}`);
     if (reporterId) q = q.eq("reporter_id", reporterId);
+    if (sellerId) {
+      const parts = [`and(target_type.eq.user,target_id.eq.${sellerId})`];
+      if (sellerPostIds.length) {
+        parts.push(`product_id.in.(${sellerPostIds.join(",")})`, `target_id.in.(${sellerPostIds.join(",")})`);
+      }
+      q = q.or(parts.join(","));
+    }
     if (period.fromIso) q = q.gte("created_at", period.fromIso);
     if (period.toIso) q = q.lt("created_at", period.toIso);
     return q;

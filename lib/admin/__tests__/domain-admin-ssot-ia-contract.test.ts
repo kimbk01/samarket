@@ -28,7 +28,8 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
     expect(findAdminMenuByKey(adminMenu, "audit-logs")?.path).toBe("/admin/audit-logs");
     const tradeReports = findAdminMenuByKey(adminMenu, "reports-posts");
-    expect(tradeReports?.path).toBe("/admin/reports?domain=trade&target_type=product");
+    // 거래 Admin 설계 v2 §B-2: canonical = /admin/trade/reports (예전 URL 은 matchPaths 로만 강조).
+    expect(tradeReports?.path).toBe("/admin/trade/reports");
     expect(tradeReports?.matchPaths).toEqual(["/admin/reports?domain=trade"]);
     expect(tradeReports?.matchPaths ?? []).not.toContain("/admin/reports");
   });

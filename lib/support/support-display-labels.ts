@@ -54,6 +54,9 @@ const REFERENCE_LABEL_KEYS: Record<SupportReferenceType, MessageKey> = {
   COMMUNITY_COMMENT: "support_ref_community_comment",
   COMMUNITY_REPORT: "support_ref_community_report",
   COMMUNITY_SANCTION: "support_ref_community_sanction",
+  TRADE_POST: "support_ref_trade_post",
+  TRADE_CHAT_ROOM: "support_ref_trade_chat_room",
+  TRADE_SANCTION: "support_ref_trade_sanction",
 };
 
 export function supportReferenceLabel(safeT: SafeT, referenceType: string | null | undefined): string {
