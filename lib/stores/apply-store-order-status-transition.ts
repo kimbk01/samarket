@@ -688,6 +688,7 @@ export async function applyStoreOrderStatusTransition(
           storeId: sid,
           nextStatus,
           storeOrderEventId: statusEv.row.id,
+          actor,
         });
       }
     } else {
@@ -697,6 +698,7 @@ export async function applyStoreOrderStatusTransition(
         orderNo,
         storeId: sid,
         nextStatus,
+        actor,
       });
     }
   }
@@ -706,7 +708,8 @@ export async function applyStoreOrderStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       current,
-      nextStatus
+      nextStatus,
+      actor
     );
   } catch (err) {
     console.error("[applyStoreOrderStatusTransition] messenger status transition failed", {

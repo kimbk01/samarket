@@ -11,6 +11,8 @@ interface AdminFormSheetProps {
   footer?: ReactNode;
   onClose: () => void;
   maxWidthClass?: string;
+  /** false 면 처리 중 바깥 탭·뒤로가기로 닫히지 않음 (기본 true) */
+  dismissible?: boolean;
 }
 
 export function AdminFormSheet({
@@ -20,11 +22,13 @@ export function AdminFormSheet({
   footer,
   onClose,
   maxWidthClass = "max-w-2xl",
+  dismissible = true,
 }: AdminFormSheetProps) {
   return (
     <DibayBottomSheet
       open
       onClose={onClose}
+      dismissible={dismissible}
       title={title}
       anchor="device-bottom"
       panelClassName={`${maxWidthClass} mx-auto`}

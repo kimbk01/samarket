@@ -11,6 +11,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { safeNotifyOwnerAdminOrderIntervention } from "@/lib/stores/notify-owner-admin-order-intervention";
 import {
   adminStoreOrderInterventionActions,
   normalizeAdminInterventionReason,
@@ -99,7 +100,9 @@ export async function runAdminStoreOrderIntervention(
 
   const current = String(order.order_status ?? "");
   const expected = String(input.expectedStatus ?? "").trim();
-  if (expected && expected !== current) {
+  // 모든 관리자 주문 결정은 화면에서 본 상태를 함께 보내야 한다 (레거시 경로 포함, DEF-8).
+  if (!expected) return { ok: false, error: "expected_status_required", httpStatus: 400 };
+  if (expected !== current) {
     return { ok: false, error: "status_changed", httpStatus: 409, currentStatus: current };
   }
   if (!adminStoreOrderInterventionActions(current, String(order.payment_status ?? "")).includes(input.action)) {
@@ -153,6 +156,13 @@ export async function runAdminStoreOrderIntervention(
     after_json: { action: input.action, reason, order_status: toStatus },
     ip: input.audit.ip ?? null,
     user_agent: input.audit.user_agent ?? null,
+  });
+
+  // 사장님에게도 관리자 처리 결과를 알린다 (DEF-67) — 실패해도 결정은 유지.
+  await safeNotifyOwnerAdminOrderIntervention(sb, {
+    orderId: oid,
+    action: input.action,
+    reason,
   });
 
   return { ok: true, fromStatus: current, toStatus };

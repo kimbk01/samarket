@@ -21,12 +21,13 @@ describe("group chat Phase3 S2-2 Ghost contracts", () => {
     expect(svc).not.toMatch(/from\("community_messenger_presence_snapshots"\)/);
   });
 
-  it("ghost API is admin-gated and probes participant unchanged", () => {
+  it("ghost API is chats-permission-gated and probes participant unchanged", () => {
     const route = readFileSync(
       join(ROOT, "app/api/admin/community-messenger/rooms/[id]/ghost/route.ts"),
       "utf8"
     );
-    expect(route).toContain("requireAdminApiUser");
+    expect(route).toContain("requireChatAdmin");
+    expect(route).not.toContain("requireAdminApiUser");
     expect(route).toContain("enterGhostRoom");
     expect(route).toContain("exitGhostRoom");
     expect(route).toContain("countRoomParticipantsForGhostProbe");
@@ -34,16 +35,20 @@ describe("group chat Phase3 S2-2 Ghost contracts", () => {
     expect(route).not.toContain("messengerRoomCanonicalOrJsonError");
   });
 
-  it("Admin Console detail uses ghost enter/exit without user-facing menu", () => {
+  it("R1-A: Admin Console detail no longer relies on client ghost_enter — server GET audits content view", () => {
     const page = readFileSync(
       join(ROOT, "components/admin/community-messenger/AdminCommunityMessengerDetailPage.tsx"),
       "utf8"
     );
-    expect(page).toContain('/ghost');
-    expect(page).toContain('action: "enter"');
-    expect(page).toContain('action: "exit"');
-    expect(page).toContain("admin_cm_ghost_banner_title");
+    expect(page).not.toContain('action: "enter"');
+    expect(page).not.toContain('action: "exit"');
+    expect(page).toContain("admin_chat_r1_ghost_banner_title");
     expect(page).toContain("admin_cm_ghost_audits_title");
+    const svc = readFileSync(
+      join(ROOT, "lib/community-messenger/group/group-room-ghost-service.ts"),
+      "utf8"
+    );
+    expect(svc).toContain("chat_room.content_view");
   });
 
   it("does not expose Ghost in user CM Phase2 member modal", () => {

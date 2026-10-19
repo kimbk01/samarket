@@ -9,6 +9,31 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { confirmAdminAction, type AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+
+/** 상품 조치 확인 등급·문구 — 차단/숨김/검수 반려 = L2(사유 → memo), 나머지 L1. */
+const PRODUCT_ACTIONS: Record<
+  string,
+  { level: AdminConfirmLevel; ko: string; en: string; titleKo: string; titleEn: string; destructive?: boolean; okKo: string; okEn: string }
+> = {
+  block: { level: "L2", ko: "차단", en: "Block", titleKo: "이 상품을 판매 차단할까요?", titleEn: "Block this product?", destructive: true, okKo: "상품을 차단했습니다.", okEn: "Product blocked." },
+  hide: { level: "L2", ko: "숨김", en: "Hide", titleKo: "이 상품을 숨길까요?", titleEn: "Hide this product?", destructive: true, okKo: "상품을 숨겼습니다.", okEn: "Product hidden." },
+  sold_out: { level: "L1", ko: "품절", en: "Sold out", titleKo: "이 상품을 품절로 바꿀까요?", titleEn: "Mark this product sold out?", okKo: "품절로 바꿨습니다.", okEn: "Marked sold out." },
+  activate: { level: "L1", ko: "판매 활성", en: "Activate", titleKo: "이 상품을 판매 중으로 바꿀까요?", titleEn: "Put this product on sale?", okKo: "판매 중으로 바꿨습니다.", okEn: "Product activated." },
+  approve_review: { level: "L1", ko: "검수 승인", en: "Approve", titleKo: "이 상품 검수를 승인할까요?", titleEn: "Approve this product?", okKo: "검수를 승인했습니다.", okEn: "Review approved." },
+  reject_review: { level: "L2", ko: "검수 반려", en: "Reject", titleKo: "이 상품 검수를 반려할까요?", titleEn: "Reject this product?", destructive: true, okKo: "검수를 반려했습니다.", okEn: "Review rejected." },
+  correct_name: { level: "L1", ko: "저장", en: "Save", titleKo: "상품명을 이렇게 바꿀까요?", titleEn: "Change the product name?", okKo: "상품명을 바꿨습니다.", okEn: "Name updated." },
+  correct_price: { level: "L1", ko: "저장", en: "Save", titleKo: "가격을 이렇게 바꿀까요?", titleEn: "Change the price?", okKo: "가격을 바꿨습니다.", okEn: "Price updated." },
+};
 
 type Row = {
   id: string;
@@ -32,13 +57,17 @@ const FILTERS: { value: string; labelKey: MessageKey }[] = [
 ];
 
 export function AdminStoreProductsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(
+    null
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const qs = useMemo(() => {
@@ -48,32 +77,20 @@ export function AdminStoreProductsPage() {
     return parts.length ? `?${parts.join("&")}` : "";
   }, [filter, storeIdFilter]);
 
-  const errorText =
-    error === "forbidden"
-      ? t("admin_audit_err_no_permission")
-      : error === "network_error"
-        ? t("common_network_error")
-        : error;
-
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/admin/store-products${qs}`, { credentials: "include" });
-      const json = await res.json();
-      if (res.status === 403) {
-        setError("forbidden");
-        setRows([]);
-        return;
-      }
+      const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setError(json?.error ?? "load_failed");
+        setLoadError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
         setRows([]);
         return;
       }
       setRows(json.products ?? []);
     } catch {
-      setError("network_error");
+      setLoadError({ code: "network_error" });
       setRows([]);
     } finally {
       setLoading(false);
@@ -84,33 +101,49 @@ export function AdminStoreProductsPage() {
     void load();
   }, [load]);
 
+  /** 확인 팝업을 취소하면 아무 것도 실행하지 않는다 (DEF-37). L2 사유는 memo 로 전송. */
   const run = async (
     id: string,
+    productTitle: string,
     action: string,
-    extra?: { name?: string; price?: number }
+    extra?: { name?: string; price?: number },
+    detail?: string
   ) => {
-    const memo =
-      action === "block" || action === "hide" || action === "archive" || action === "correct_name" || action === "correct_price"
-        ? (await dibayPrompt({ title: t("admin_stores_prompt_memo_optional"), defaultValue: "" }))?.trim() ||
-          null
-        : null;
+    const c = PRODUCT_ACTIONS[action];
+    if (!c) return;
+    const confirmed = await confirmAdminAction({
+      level: c.level,
+      ko,
+      title: ko ? c.titleKo : c.titleEn,
+      description: [productTitle, detail].filter(Boolean).join("\n") || undefined,
+      confirmLabel: ko ? c.ko : c.en,
+      destructive: c.destructive,
+    });
+    if (!confirmed.ok) return;
     setBusyId(id);
-    setError(null);
+    setResult(null);
     try {
       const res = await fetch(`/api/admin/store-products/${id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, memo, ...extra }),
+        body: JSON.stringify({ action, memo: confirmed.reason, ...extra }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setError(json?.error ?? "failed");
+        const code = String(json?.error ?? "");
+        setResult({
+          ok: false,
+          code: res.status === 403 ? "forbidden" : /^[a-z_]+$/.test(code) ? code : "action_failed",
+        });
+        // 상태가 바뀐 경우(409) 최신 목록으로 다시 불러온다.
+        if (res.status === 409) await load();
         return;
       }
+      setResult({ ok: true, message: ko ? c.okKo : c.okEn });
       await load();
     } catch {
-      setError("network_error");
+      setResult({ ok: false, code: "network_error" });
     } finally {
       setBusyId(null);
     }
@@ -119,10 +152,10 @@ export function AdminStoreProductsPage() {
   const runCorrectName = async (id: string, currentTitle: string) => {
     const name = (await dibayPrompt({ title: t("admin_stores_product_correct_name_prompt"), defaultValue: currentTitle }))?.trim();
     if (!name) return;
-    await run(id, "correct_name", { name });
+    await run(id, currentTitle, "correct_name", { name }, `→ ${name}`);
   };
 
-  const runCorrectPrice = async (id: string, currentPrice: number) => {
+  const runCorrectPrice = async (id: string, productTitle: string, currentPrice: number) => {
     const raw = (
       await dibayPrompt({
         title: t("admin_stores_product_correct_price_prompt"),
@@ -132,21 +165,25 @@ export function AdminStoreProductsPage() {
     if (raw == null || raw === "") return;
     const price = Number(raw);
     if (!Number.isFinite(price) || price < 0) {
-      setError("invalid_price");
+      setResult({ ok: false, code: "invalid_price" });
       return;
     }
-    await run(id, "correct_price", { price });
+    await run(id, productTitle, "correct_price", { price }, `→ ${formatMoneyPhp(price)}`);
   };
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_store_products" />
+      <AdminPageHeader title={ko ? "메뉴·상품 검수" : "Menu & product review"} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
       {storeIdFilter ? (
         <p className="sam-text-helper text-sam-muted">
-          store_id={storeIdFilter}{" "}
+          {ko ? "특정 매장 상품만 보는 중" : "Filtered to one store"}{" "}
           <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
-            {t("admin_biz_cta_back_store")}
+            {ko ? "매장 상세로" : "Back to store"}
+          </Link>
+          {" · "}
+          <Link href="/admin/store-products" className="text-signature hover:underline">
+            {ko ? "전체 상품 보기" : "Show all products"}
           </Link>
         </p>
       ) : null}
@@ -168,18 +205,14 @@ export function AdminStoreProductsPage() {
         ))}
       </div>
 
-      {errorText ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
-          {errorText}
-        </div>
-      ) : null}
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
 
       {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : loadError ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_stores_products_empty")}
-        </div>
+        <AdminEmptyState ko={ko} message={t("admin_stores_products_empty")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[900px] w-full border-collapse text-left sam-text-body-secondary">
@@ -195,6 +228,8 @@ export function AdminStoreProductsPage() {
             <tbody>
               {rows.map((r) => {
                 const dis = busyId === r.id;
+                const ps = adminStatusLabel("product", r.product_status, ko);
+                const rs = adminStatusLabel("product_review", r.admin_review_status || "none", ko);
                 return (
                   <tr key={r.id} className="border-b border-sam-border-soft">
                     <td className="px-3 py-2 align-top">
@@ -213,11 +248,28 @@ export function AdminStoreProductsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">
-                      {r.store?.store_name ?? "-"}
-                      <div className="sam-text-xxs text-sam-meta">/{r.store?.slug}</div>
+                      {r.store_id ? (
+                        <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
+                          {r.store?.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                        </Link>
+                      ) : (
+                        r.store?.store_name ?? "-"
+                      )}
+                      <AdminTechDetails ko={ko}>
+                        <div>product_id: {r.id}</div>
+                        <div>store_id: {r.store_id}</div>
+                        <div>slug: {r.store?.slug ?? "—"}</div>
+                        <div>
+                          status: {r.product_status} / {r.admin_review_status}
+                        </div>
+                      </AdminTechDetails>
                     </td>
-                    <td className="px-3 py-2 align-top">{r.product_status}</td>
-                    <td className="px-3 py-2 align-top sam-text-helper">{r.admin_review_status}</td>
+                    <td className="px-3 py-2 align-top">
+                      <AdminToneBadge tone={ps.tone}>{ps.label}</AdminToneBadge>
+                    </td>
+                    <td className="px-3 py-2 align-top sam-text-helper">
+                      <AdminToneBadge tone={rs.tone}>{rs.label}</AdminToneBadge>
+                    </td>
                     <td className="px-3 py-2 align-top">
                       <div className="flex flex-col gap-1">
                         {r.product_status !== "blocked" && (
@@ -225,19 +277,22 @@ export function AdminStoreProductsPage() {
                             type="button"
                             disabled={dis}
                             className="rounded border border-red-200 bg-red-50 px-2 py-1 text-left sam-text-helper text-red-900 disabled:opacity-50"
-                            onClick={() => void run(r.id, "block")}
+                            onClick={() => void run(r.id, r.title, "block")}
                           >
-                            {t("common_block")}
+                            {ko ? "차단" : "Block"}
                           </button>
                         )}
-                        {r.product_status === "active" && (
+                        {/* DEF-36: 「숨김」·「보관(숨김)」 은 같은 동작 → 「숨김」 하나 */}
+                        {r.product_status !== "hidden" &&
+                          r.product_status !== "deleted" &&
+                          r.product_status !== "blocked" && (
                           <button
                             type="button"
                             disabled={dis}
                             className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, "hide")}
+                            onClick={() => void run(r.id, r.title, "hide")}
                           >
-                            {t("common_hidden")}
+                            {ko ? "숨김" : "Hide"}
                           </button>
                         )}
                         {(r.product_status === "active" || r.product_status === "hidden") && (
@@ -245,9 +300,9 @@ export function AdminStoreProductsPage() {
                             type="button"
                             disabled={dis}
                             className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-left sam-text-helper text-amber-950 disabled:opacity-50"
-                            onClick={() => void run(r.id, "sold_out")}
+                            onClick={() => void run(r.id, r.title, "sold_out")}
                           >
-                            {t("admin_stores_product_sold_out")}
+                            {ko ? "품절" : "Sold out"}
                           </button>
                         )}
                         {r.product_status !== "active" && r.product_status !== "deleted" && (
@@ -255,9 +310,9 @@ export function AdminStoreProductsPage() {
                             type="button"
                             disabled={dis}
                             className="rounded border border-green-200 bg-green-50 px-2 py-1 text-left sam-text-helper text-green-900 disabled:opacity-50"
-                            onClick={() => void run(r.id, "activate")}
+                            onClick={() => void run(r.id, r.title, "activate")}
                           >
-                            {t("admin_stores_product_activate")}
+                            {ko ? "판매 활성" : "Activate"}
                           </button>
                         )}
                         {r.admin_review_status !== "approved" && (
@@ -265,9 +320,9 @@ export function AdminStoreProductsPage() {
                             type="button"
                             disabled={dis}
                             className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, "approve_review")}
+                            onClick={() => void run(r.id, r.title, "approve_review")}
                           >
-                            {t("admin_stores_product_approve_review")}
+                            {ko ? "검수 승인" : "Approve"}
                           </button>
                         )}
                         {r.admin_review_status !== "rejected" && (
@@ -275,9 +330,9 @@ export function AdminStoreProductsPage() {
                             type="button"
                             disabled={dis}
                             className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, "reject_review")}
+                            onClick={() => void run(r.id, r.title, "reject_review")}
                           >
-                            {t("admin_stores_product_reject_review")}
+                            {ko ? "검수 반려" : "Reject"}
                           </button>
                         )}
                         <button
@@ -292,20 +347,10 @@ export function AdminStoreProductsPage() {
                           type="button"
                           disabled={dis}
                           className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                          onClick={() => void runCorrectPrice(r.id, r.price)}
+                          onClick={() => void runCorrectPrice(r.id, r.title, r.price)}
                         >
                           {t("admin_stores_product_correct_price")}
                         </button>
-                        {r.product_status !== "hidden" && r.product_status !== "deleted" && (
-                          <button
-                            type="button"
-                            disabled={dis}
-                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
-                            onClick={() => void run(r.id, "archive")}
-                          >
-                            {t("admin_stores_product_archive")}
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>

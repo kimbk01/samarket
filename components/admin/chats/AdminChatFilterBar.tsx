@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect, useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import {
   ROOM_STATUS_OPTIONS,
-  ROOM_TYPE_OPTIONS,
   type AdminChatFilters,
   type RoomStatus,
-  type AdminRoomType,
 } from "@/lib/admin-chats/admin-chat-utils";
 
 interface AdminChatFilterBarProps {
@@ -16,32 +17,28 @@ interface AdminChatFilterBarProps {
   onSearchChange: (q: string) => void;
 }
 
+/**
+ * 거래 채팅 목록 필터 — 상태 · 신고 · 검색 (URL 상태는 상위 화면이 소유).
+ * C-10: 거래 화면에 의미 없던 「채팅 타입」 선택(레거시 커뮤니티·모임·비즈 값)은 제거.
+ */
 export function AdminChatFilterBar({
   filters,
   searchQuery,
   onFiltersChange,
   onSearchChange,
 }: AdminChatFilterBarProps) {
-  const { t, tt } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const [draft, setDraft] = useState(searchQuery);
+  useEffect(() => {
+    setDraft(searchQuery);
+  }, [searchQuery]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    onSearchChange(draft);
+  };
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={filters.roomType}
-        onChange={(e) =>
-          onFiltersChange({
-            ...filters,
-            roomType: e.target.value as AdminRoomType,
-          })
-        }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-        title={t("admin_menu_chat_trade")}
-      >
-        {ROOM_TYPE_OPTIONS.map((o) => (
-          <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
-          </option>
-        ))}
-      </select>
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2" data-admin-list-filters="trade-chats">
       <select
         value={filters.roomStatus}
         onChange={(e) =>
@@ -50,11 +47,11 @@ export function AdminChatFilterBar({
             roomStatus: e.target.value as RoomStatus | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {ROOM_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {o.value ? adminChatLabel("room_status", o.value, ko).label : t("admin_chat_rooms_filter_status_all")}
           </option>
         ))}
       </select>
@@ -62,9 +59,7 @@ export function AdminChatFilterBar({
         <input
           type="checkbox"
           checked={filters.reportedOnly}
-          onChange={(e) =>
-            onFiltersChange({ ...filters, reportedOnly: e.target.checked })
-          }
+          onChange={(e) => onFiltersChange({ ...filters, reportedOnly: e.target.checked })}
           className="rounded border-sam-border"
         />
         {t("admin_chat_reported_only")}
@@ -72,10 +67,13 @@ export function AdminChatFilterBar({
       <input
         type="text"
         placeholder={t("admin_chat_search_placeholder")}
-        value={searchQuery}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
-    </div>
+      <AdminActionButton type="submit" variant="primary">
+        {t("admin_chat_list_search")}
+      </AdminActionButton>
+    </form>
   );
 }

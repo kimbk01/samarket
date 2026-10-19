@@ -171,6 +171,148 @@ export function adminOperatorErrorMessage(
       ko: "결제(Cash)가 확보되지 않아 승인할 수 없습니다.",
       en: "Cannot approve until Cash funding is secured.",
     },
+    forbidden: { ko: "이 작업을 할 권한이 없습니다.", en: "You do not have permission for this action." },
+    forbidden_permission: {
+      ko: "이 작업에 필요한 관리자 권한이 없습니다. 최고 관리자에게 권한을 요청하세요.",
+      en: "You lack the admin permission for this action. Ask a super admin.",
+    },
+    super_admin_only: { ko: "최고 관리자만 할 수 있는 작업입니다.", en: "Only a super admin can do this." },
+    legacy_setting_retired: {
+      ko: "더 이상 쓰지 않는 설정입니다. 수수료는 '수수료 정책'에서 관리합니다.",
+      en: "This setting is retired. Fees are managed in 'Fee policies'.",
+    },
+    auto_action_type_retired: {
+      ko: "중단된 자동 조치입니다 (레거시 정산 보류). 다른 조치를 선택하세요.",
+      en: "This auto action is retired (legacy settlement hold). Choose another action.",
+    },
+    status_changed: {
+      ko: "다른 관리자가 먼저 처리해 상태가 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin changed the status first. Refresh and check again.",
+    },
+    expected_status_required: {
+      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      en: "This screen is out of date. Refresh and try again.",
+    },
+    stale_lifecycle: {
+      ko: "다른 관리자가 먼저 처리했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin acted first. Refresh and check again.",
+    },
+    stale_updated_at: {
+      ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this first. Refresh and check again.",
+    },
+    expected_updated_at_required: {
+      ko: "화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.",
+      en: "This screen is out of date. Refresh and try again.",
+    },
+    stale_policy: {
+      ko: "다른 관리자가 먼저 수수료 정책을 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this fee policy first. Refresh and check again.",
+    },
+    /** 409 충돌 후 화면이 최신 데이터를 이미 다시 불러온 경우 (adminConflictReloadedMessage). */
+    stale_reloaded: {
+      ko: "다른 관리자가 먼저 수정해 저장하지 않았습니다. 최신 내용을 다시 불러왔으니 확인 후 다시 저장하세요.",
+      en: "Not saved: another admin edited this first. The latest data has been reloaded — review and save again.",
+    },
+    legacy_endpoint_disabled: {
+      ko: "더 이상 쓰지 않는 처리 경로입니다. 주문 상세의 「관리자 개입」에서 처리하세요.",
+      en: "This path is retired. Use 「Admin intervention」 on the order detail.",
+    },
+    invalid_order_id: { ko: "주문 번호 형식이 올바르지 않습니다.", en: "Invalid order reference." },
+    commission_load_failed: { ko: "수수료 정보를 불러오지 못했습니다.", en: "Could not load commission details." },
+    invalid_store_transition: {
+      ko: "현재 매장 상태에서는 할 수 없는 처리입니다.",
+      en: "This action is not allowed for the store's current status.",
+    },
+    invalid_coupon_transition: {
+      ko: "현재 쿠폰 상태에서는 할 수 없는 처리입니다.",
+      en: "This action is not allowed for the coupon's current status.",
+    },
+    reject_reason_required: { ko: "거절 사유를 입력해 주세요.", en: "Please enter a rejection reason." },
+    revoke_reason_required: { ko: "회수 사유를 입력해 주세요.", en: "Please enter a revoke reason." },
+    store_not_approved_for_sales: {
+      ko: "입점 승인된 매장만 판매 상태를 바꿀 수 있습니다.",
+      en: "Only approved stores can change sales status.",
+    },
+    store_not_approved_for_visibility: {
+      ko: "입점 승인된 매장만 노출을 켤 수 있습니다.",
+      en: "Only approved stores can be made visible.",
+    },
+    would_leave_no_default_policy: {
+      ko: "적용 중인 다른 플랫폼 기본 수수료 정책이 없어 종료할 수 없습니다.",
+      en: "No other default fee policy is active, so this cannot be ended.",
+    },
+    business_cash_refund_failed: {
+      ko: "반려는 완료됐지만 매장 캐시 환불이 실패했습니다. 재무 화면에서 환불 상태를 확인하세요.",
+      en: "Rejected, but the store Cash refund failed. Check refund status in Finance.",
+    },
+    as_of_date_in_future: { ko: "기준일은 오늘 이후로 지정할 수 없습니다.", en: "The as-of date cannot be in the future." },
+    notification_failed: { ko: "알림을 보내지 못했습니다.", en: "Could not send the notification." },
+    store_not_found: { ko: "매장을 찾을 수 없습니다.", en: "Store not found." },
+    invalid_distance_mode: { ko: "거리 정책 값이 올바르지 않습니다.", en: "Invalid distance policy value." },
+    invalid_store_id: { ko: "매장 주소가 올바르지 않습니다.", en: "Invalid store link." },
+    order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
+    supabase_unconfigured: { ko: "서버 설정 오류입니다. 시스템 관리자에게 문의하세요.", en: "Server configuration error. Contact a system admin." },
+    db_error: { ko: "저장 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.", en: "A database error occurred. Try again later." },
+    // 배달 현장 (R4-D) — 자동 조치·경고·라이더
+    kill_switch_off: {
+      ko: "자동 조치가 전체 중지된 상태라 실행할 수 없습니다. 자동 조치 승인 화면에서 먼저 허용하세요.",
+      en: "Auto actions are stopped. Allow them on the Auto action approval screen first.",
+    },
+    not_pending: { ko: "이미 처리된 자동 조치입니다. 새로고침 후 확인하세요.", en: "This auto action was already handled. Refresh." },
+    event_not_open: { ko: "연결된 경고가 이미 종료되어 실행할 수 없습니다.", en: "The linked alert is already closed." },
+    max_retries: { ko: "재실행 가능 횟수를 모두 사용했습니다.", en: "No retries left." },
+    auto_action_effect_failed: {
+      ko: "결정은 기록됐지만 조치 실행에 실패했습니다. 실패 목록에서 확인 후 재실행하세요.",
+      en: "The decision was recorded but the action failed to run. Check the failed list and re-run.",
+    },
+    not_failed: { ko: "실패한 자동 조치만 재실행할 수 있습니다. 새로고침 후 확인하세요.", en: "Only failed auto actions can be re-run. Refresh." },
+    not_found: { ko: "대상을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Not found. Refresh and check again." },
+    rpc_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
+    schema_missing: { ko: "이 기능이 아직 서버에 준비되지 않았습니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready on the server. Contact a system admin." },
+    bad_action: { ko: "지원하지 않는 복구 작업입니다.", en: "Unsupported recovery action." },
+    concurrent_recovery: {
+      ko: "같은 복구 작업이 이미 실행 중입니다. 잠시 후 다시 시도하세요.",
+      en: "The same recovery is already running. Try again shortly.",
+    },
+    retype_required: { ko: "확인 문구가 일치하지 않아 실행하지 않았습니다.", en: "The confirmation text did not match." },
+    stale_version: {
+      ko: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 확인하세요.",
+      en: "Another admin edited this first. Refresh and check again.",
+    },
+    dangerous_action_requires_approval: {
+      ko: "정산 보류·라이더 재배정·알림 끄기 자동 조치는 항상 승인 후 실행되어야 합니다.",
+      en: "Hold / reassign / mute auto actions must always wait for approval.",
+    },
+    auto_action_requires_type_and_delay: {
+      ko: "자동 조치를 켜려면 조치 종류와 지연 시간(1분 이상)을 함께 지정하세요.",
+      en: "Set an action type and a delay of 1+ minutes to enable the auto action.",
+    },
+    rule_not_found: { ko: "규칙을 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Rule not found. Refresh." },
+    event_not_found: { ko: "경고를 찾을 수 없습니다. 새로고침 후 확인하세요.", en: "Alert not found. Refresh." },
+    acknowledge_requires_open: { ko: "미처리 경고만 확인 처리할 수 있습니다.", en: "Only open alerts can be acknowledged." },
+    mute_requires_open_or_ack: { ko: "미처리·확인한 경고만 알림을 끌 수 있습니다.", en: "Only open or acknowledged alerts can be muted." },
+    cannot_edit_resolved: { ko: "해결된 경고는 수정할 수 없습니다.", en: "Resolved alerts cannot be edited." },
+    same_rider: { ko: "현재 라이더와 같은 라이더입니다.", en: "That is the current rider." },
+    rider_changed: {
+      ko: "그 사이 라이더 배정이 바뀌었습니다. 새로고침 후 다시 확인하세요.",
+      en: "The rider assignment changed meanwhile. Refresh and check again.",
+    },
+    rider_already_assigned: { ko: "이미 다른 라이더가 배정되어 있습니다. 재배정을 사용하세요.", en: "Another rider is already assigned. Use reassign." },
+    delivery_already_delivered: { ko: "이미 배달 완료된 주문입니다.", en: "This order is already delivered." },
+    order_terminal_blocks_delivery: { ko: "종료된 주문이라 배달을 변경할 수 없습니다.", en: "The order is closed, so delivery cannot change." },
+    order_status_blocks_dispatch: { ko: "현재 주문 상태에서는 배달을 진행할 수 없습니다.", en: "The current order status does not allow dispatch." },
+    invalid_delivery_transition: { ko: "현재 배달 상태에서는 할 수 없는 변경입니다.", en: "Not allowed for the current delivery status." },
+    release_not_applicable_for_status: { ko: "현재 배달 상태에서는 배정을 해제할 수 없습니다.", en: "Cannot release for the current delivery status." },
+    rider_not_found: { ko: "라이더를 찾을 수 없습니다.", en: "Rider not found." },
+    rider_offline: { ko: "오프라인 라이더입니다. 오프라인 배정 허용을 켜고 다시 시도하세요.", en: "The rider is offline. Allow offline assignment and retry." },
+    rider_suspended: { ko: "정지된 라이더에게는 배정할 수 없습니다.", en: "Suspended riders cannot be assigned." },
+    rider_paused: { ko: "배정이 일시 중지된 라이더입니다.", en: "This rider's assignments are paused." },
+    invalid_rule_number: { ko: "분·단계 값은 1 이상의 숫자로 입력하세요.", en: "Minutes/levels must be numbers of 1 or more." },
+    invalid_price: { ko: "가격은 0 이상의 숫자로 입력하세요.", en: "Enter a price of 0 or more." },
+    invalid_name: { ko: "상품명은 1~120자로 입력하세요.", en: "Product name must be 1–120 characters." },
+    store_name_required: { ko: "매장 이름은 2자 이상 입력하세요.", en: "Store name must be at least 2 characters." },
+    invalid_phone: { ko: "전화번호 형식이 올바르지 않습니다.", en: "Invalid phone number." },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);
@@ -178,6 +320,21 @@ export function adminOperatorErrorMessage(
     return ko ? "처리를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요." : "Could not complete. Please try again.";
   }
   return key;
+}
+
+/** 충돌 코드(stale_updated_at / stale_policy) → "stale_reloaded", 그 외는 그대로. 결과 배너처럼 코드만 받는 UI 용. */
+export function adminConflictReloadedCode(raw: string | null | undefined): string {
+  const key = String(raw ?? "").trim();
+  return key === "stale_updated_at" || key === "stale_policy" ? "stale_reloaded" : key;
+}
+
+/**
+ * 저장 충돌(409 stale_updated_at / stale_policy) 후 화면이 최신 데이터를 이미 다시 불러온 경우의 안내.
+ * 그 외 코드는 adminOperatorErrorMessage 와 동일.
+ */
+export function adminConflictReloadedMessage(raw: string | null | undefined, ko: boolean): string {
+  const key = String(raw ?? "").trim();
+  return adminOperatorErrorMessage(adminConflictReloadedCode(key), ko);
 }
 
 export function adminAdsEligibilityNote(

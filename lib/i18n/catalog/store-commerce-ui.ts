@@ -909,6 +909,8 @@ export const storeCommerceUiMessages = {
     store_err_not_accepting: "이 매장은 현재 주문을 받지 않습니다.",
 
     store_err_preparing: "지금은 준비 중이라 주문할 수 없습니다.",
+    store_err_store_unavailable: "현재 주문할 수 없는 매장입니다.",
+    store_err_store_not_selling: "매장이 판매를 잠시 중지했습니다. 잠시 후 다시 시도해 주세요.",
 
     store_err_below_minimum: "최소 주문 금액에 맞지 않습니다. 금액을 늘린 뒤 다시 시도해 주세요.",
     store_err_below_minimum_cart: "최소 주문 금액에 맞지 않습니다. 메뉴를 더 담아 주세요.",
@@ -2698,6 +2700,8 @@ export const storeCommerceUiMessages = {
     store_err_not_accepting: "This store is not accepting orders right now.",
 
     store_err_preparing: "The store is preparing and cannot take orders now.",
+    store_err_store_unavailable: "This store is not available for orders right now.",
+    store_err_store_not_selling: "This store has paused sales. Please try again later.",
 
     store_err_below_minimum: "Below the minimum order amount. Increase the total and try again.",
     store_err_below_minimum_cart: "Below the minimum order. Add more items to your cart.",

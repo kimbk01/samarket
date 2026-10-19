@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { runAdminCommunityMessengerFriendRequestAction } from "@/lib/admin-community-messenger/service";
 import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";
 
@@ -10,7 +10,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   let body: { status?: CommunityMessengerFriendRequestStatus; adminNote?: string };
@@ -34,7 +34,7 @@ export async function PATCH(
   const { id } = await params;
   const result = await runAdminCommunityMessengerFriendRequestAction({
     requestId: id,
-    adminUserId: admin.userId,
+    adminUserId: admin.actor.userId,
     status,
     adminNote: body.adminNote,
   });

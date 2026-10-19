@@ -4,6 +4,7 @@
  * 주문 상세 — 상태 이력 · 배달 진행 · 수수료 정산 (읽기 전용).
  * Data: GET /api/admin/store-orders/[orderId]/history. Commission row = settlement ledger SQL.
  */
+import { adminOperatorErrorMessage, adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -78,7 +79,7 @@ export function AdminStoreOrderHistoryPanel({
   /** Changes after an intervention → re-fetch. */
   reloadKey: number;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const lang: CommissionLang = language === "ko" ? "ko" : "en";
   const ko = lang === "ko";
   const [data, setData] = useState<History | null>(null);
@@ -94,7 +95,9 @@ export function AdminStoreOrderHistoryPanel({
         cache: "no-store",
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<History>;
-      if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : `http_${res.status}`);
+      if (!res.ok || j.ok !== true) {
+        throw new Error(res.status === 403 ? "forbidden" : typeof j.error === "string" ? j.error : "load_failed");
+      }
       setData({
         events: Array.isArray(j.events) ? j.events : [],
         delivery: j.delivery ?? null,
@@ -102,7 +105,8 @@ export function AdminStoreOrderHistoryPanel({
         commission_error: j.commission_error ?? null,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "load_failed");
+      const msg = e instanceof Error ? e.message : "load_failed";
+      setError(msg === "Failed to fetch" ? "network_error" : msg);
     } finally {
       setLoading(false);
     }
@@ -116,24 +120,24 @@ export function AdminStoreOrderHistoryPanel({
     const known = EVENT_LABEL[e.event_type];
     if (known) return known[lang];
     if (e.to_status) return `${e.from_status ? `${statusLabel(e.from_status)} → ` : ""}${statusLabel(e.to_status)}`;
-    return e.event_type;
+    return adminOperatorLabel(e.event_type, ko);
   };
 
   const ledgerHref = `/admin/store-settlements?order_no=${encodeURIComponent(orderNo)}&open=1`;
 
   return (
     <>
-      <AdminCard title={ko ? "수수료 정산" : "Commission settlement"}>
+      <AdminCard title={t("admin_r4b_hist_commission_title")}>
         <div className="space-y-2" data-admin-order-commission="1">
           {error ? (
             <p role="alert" className="sam-text-helper text-sam-danger">
-              {ko ? `불러오지 못했습니다. (${error})` : `Failed to load. (${error})`}
+              {adminOperatorErrorMessage(error, ko)}
             </p>
           ) : !data ? (
             <p className="sam-text-helper text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
           ) : data.commission_error ? (
             <p role="alert" className="sam-text-helper text-sam-danger">
-              {ko ? `정산 원장을 불러오지 못했습니다. (${data.commission_error})` : `Ledger unavailable. (${data.commission_error})`}
+              {adminOperatorErrorMessage("commission_load_failed", ko)}
             </p>
           ) : data.commission ? (
             <>
@@ -148,7 +152,7 @@ export function AdminStoreOrderHistoryPanel({
             </p>
           )}
           <Link href={ledgerHref} className={ROW_ACTION_BTN}>
-            {ko ? "정산 원장에서 보기" : "Open in settlement ledger"}
+            {t("admin_r4b_hist_open_commission")}
           </Link>
         </div>
       </AdminCard>

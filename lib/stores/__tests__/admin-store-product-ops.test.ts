@@ -17,7 +17,6 @@ describe("admin-store-product-ops", () => {
       ok: true,
       patch: {
         product_status: "sold_out",
-        admin_review_memo: null,
       },
     });
     expect(buildAdminStoreProductPatch({ action: "hide", memo: "note" })).toMatchObject({
@@ -31,13 +30,13 @@ describe("admin-store-product-ops", () => {
       buildAdminStoreProductPatch({ action: "correct_name", memo: null, name: "Fixed" })
     ).toEqual({
       ok: true,
-      patch: { title: "Fixed", admin_review_memo: null },
+      patch: { title: "Fixed" },
     });
     expect(
       buildAdminStoreProductPatch({ action: "correct_price", memo: null, price: 150 })
     ).toEqual({
       ok: true,
-      patch: { price: 150, admin_review_memo: null },
+      patch: { price: 150 },
     });
     expect(buildAdminStoreProductPatch({ action: "archive", memo: null })).toMatchObject({
       ok: true,

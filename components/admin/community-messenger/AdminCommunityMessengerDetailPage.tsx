@@ -1,44 +1,118 @@
 "use client";
 
-import { dibayAlert, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { CommunityMessengerCallForceEndReasonCode } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import type { AdminCommunityMessengerRoomDetail } from "@/lib/admin-community-messenger/service";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { useCmAdminLabels } from "./useCmAdminLabels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  AdminErrorState,
+  AdminForbiddenState,
+  AdminLoadingState,
+  AdminResultBanner,
+  isAdminForbiddenCode,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import type { AdminChatSheetSettle } from "@/components/admin/chats/AdminChatActionSheet";
+import {
+  AdminChatContentUnlockSheet,
+  AdminChatForceEndSheet,
+  AdminChatMessageHideSheet,
+  AdminChatReportSheet,
+  AdminChatRoomActionSheet,
+  adminChatRoomActionIsDestructive,
+  type AdminChatReportSheetInput,
+  type AdminChatRoomAction,
+} from "@/components/admin/chats/AdminChatSheets";
+import Link from "next/link";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { adminUserDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
+import {
+  CHAT_ADMIN_REASON_QUERY_PARAM,
+  type ChatAdminContentBasis,
+  type ChatAdminContentDenial,
+} from "@/lib/admin/chat-admin/chat-content-access-policy";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminCmMessageBody, AdminCmMessageKindBadge } from "@/components/admin/chats/AdminCmMessageBody";
+import { useAdminOlderMessages } from "@/components/admin/chats/use-admin-older-messages";
+import { useAdminLocationReturnTo } from "@/components/admin/chats/use-admin-location-return-to";
+import { AdminCmRoomDomainLinksCard } from "./AdminCmRoomDomainLinksCard";
 
-type DetailResponse = AdminCommunityMessengerRoomDetail & { ok?: boolean };
-type RoomAction =
-  | "block_room"
-  | "unblock_room"
-  | "archive_room"
-  | "unarchive_room"
-  | "readonly_on"
-  | "readonly_off";
-type CallAction = "force_end";
-type MessageAction = "hide_message" | "unhide_message";
-type ReportAction =
-  | "reviewing"
-  | "resolved"
-  | "rejected"
-  | "sanction_message_hide"
-  | "sanction_room_block";
-type PendingForceEndCall = NonNullable<AdminCommunityMessengerRoomDetail["activeCalls"]>[number];
+type CmMessageItem = AdminCommunityMessengerRoomDetail["messages"][number];
+
+/** R1-A: 서버가 본문 열람 판정을 함께 내려준다 (본문 열람 감사는 이 GET 내부에서 서버가 기록). */
+type ContentAccess =
+  | { granted: true; basis: ChatAdminContentBasis; ghost: boolean; domain: string }
+  | { granted: false; denial: ChatAdminContentDenial; ghost: true; domain: string; reasonMinLength?: number };
+type DetailResponse = AdminCommunityMessengerRoomDetail & {
+  ok?: boolean;
+  error?: string;
+  contentAccess?: ContentAccess;
+};
+
+const CONTENT_BASIS_KEYS: Record<ChatAdminContentBasis, MessageKey> = {
+  linked_report: "admin_chat_r1_content_basis_linked_report",
+  linked_trade: "admin_chat_r1_content_basis_linked_trade",
+  linked_store_order: "admin_chat_r1_content_basis_linked_store_order",
+  ghost: "admin_chat_r1_content_basis_ghost",
+};
+type ActiveCall = NonNullable<AdminCommunityMessengerRoomDetail["activeCalls"]>[number];
+type CmReport = AdminCommunityMessengerRoomDetail["reports"][number];
+
+/** 설계 §5 — 이 화면에서 여는 시트 (한 번에 하나). */
+type OpenSheet =
+  | { kind: "unlock" }
+  | { kind: "room"; action: AdminChatRoomAction }
+  | { kind: "message"; message: CmMessageItem; hidden: boolean }
+  | { kind: "force_end"; call: ActiveCall }
+  | { kind: "report"; report: CmReport };
+
+const CM_REPORT_OPEN = new Set(["received", "reviewing"]);
+
+function cmReportSheetInput(
+  report: CmReport,
+  reasonLabel: string,
+  reportedUserHref: string | null
+): AdminChatReportSheetInput {
+  return {
+    source: "messenger",
+    id: report.id,
+    bucket:
+      report.status === "received" || report.status === "reviewing"
+        ? report.status
+        : report.status === "rejected"
+          ? "dismissed"
+          : "resolved",
+    reasonLabel,
+    detail: report.reasonDetail,
+    reporterLabel: report.reporterLabel,
+    reportedLabel: report.reportedUserLabel,
+    createdAt: report.createdAt,
+    cmMessageId: report.messageId,
+    cmRoomId: report.roomId,
+    reportedUserHref,
+  };
+}
 
 export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }) {
-  const { t, formatDateTime, roomTypeLabel, forceEndReasonOptions, forceEndReasonLabel } = useCmAdminLabels();
+  const { t, formatDateTime } = useCmAdminLabels();
+  const { language } = useI18n();
+  const ko = language !== "en";
   const [detail, setDetail] = useState<AdminCommunityMessengerRoomDetail | null>(null);
+  const [contentAccess, setContentAccess] = useState<ContentAccess | null>(null);
+  const [forbiddenCode, setForbiddenCode] = useState<string | null>(null);
+  /** 고스트 열람 사유 — 서버 GET 에 `?reason=` 으로 전달 (서버가 검증·감사). */
+  const viewReasonRef = useRef("");
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [forceEndReasonCode, setForceEndReasonCode] = useState<CommunityMessengerCallForceEndReasonCode | "">("");
-  const [pendingForceEndCall, setPendingForceEndCall] = useState<PendingForceEndCall | null>(null);
+  /** C-10: 불러오기 실패(네트워크·서버) ≠ 「방 없음」(404). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const [sheet, setSheet] = useState<OpenSheet | null>(null);
+  const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
   const [callStatusFilter, setCallStatusFilter] = useState<
     "missed" | "rejected" | "cancelled" | "ended" | "incoming" | "dialing" | ""
   >("");
@@ -51,15 +125,26 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
+      const reason = viewReasonRef.current;
+      const qs = reason ? `?${CHAT_ADMIN_REASON_QUERY_PARAM}=${encodeURIComponent(reason)}` : "";
+      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}${qs}`, {
         cache: "no-store",
       });
-      const json = (await res.json()) as DetailResponse;
+      const json = (await res.json().catch(() => ({}))) as DetailResponse;
       if (res.ok && json.ok) {
+        setForbiddenCode(null);
+        setLoadError(null);
         setDetail(json);
-      } else {
+        setContentAccess(json.contentAccess ?? null);
+      } else if (!silent) {
+        const forbidden = isAdminForbiddenCode(json.error, res.status);
+        setForbiddenCode(forbidden ? (json.error ?? "forbidden") : null);
+        setLoadError(forbidden || res.status === 404 ? null : { code: json.error || "load_failed", status: res.status });
         setDetail(null);
+        setContentAccess(null);
       }
+    } catch {
+      if (!silent) setLoadError({ code: "network_error" });
     } finally {
       if (!silent) setLoading(false);
     }
@@ -69,29 +154,40 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     void refresh();
   }, [refresh]);
 
-  // Phase3 S2-2: Ghost enter on Admin Console room open; exit on leave.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "enter", reason: "admin_console_detail" }),
-      });
-      if (!cancelled && res.ok) {
-        void refresh(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      void fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "exit", reason: "admin_console_leave" }),
-        keepalive: true,
-      }).catch(() => undefined);
-    };
-  }, [refresh, roomId]);
+  // R1-B C-6: 최신 페이지 + id 커서 「이전 메시지 더 보기」 (본문 열람 판정은 서버가 같은 정책으로 다시 한다)
+  const fetchOlderCm = useCallback(
+    async (beforeId: string) => {
+      const qs = new URLSearchParams({ before: beforeId, limit: "80" });
+      if (viewReasonRef.current) qs.set(CHAT_ADMIN_REASON_QUERY_PARAM, viewReasonRef.current);
+      const res = await fetch(
+        `/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/messages?${qs.toString()}`,
+        { cache: "no-store" }
+      );
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; messages?: CmMessageItem[]; hasMore?: boolean };
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "load_failed");
+      return { items: json.messages ?? [], hasMore: json.hasMore === true };
+    },
+    [roomId]
+  );
+  const contentGranted = contentAccess?.granted !== false;
+  const olderMsgs = useAdminOlderMessages<CmMessageItem>({
+    resetKey: roomId,
+    latest: contentGranted ? (detail?.messages ?? []) : [],
+    latestHasMore: contentGranted && detail?.messagesHasMore === true,
+    fetchOlder: fetchOlderCm,
+  });
+  const { patchOlder } = olderMsgs;
+  const returnCtx = useAdminLocationReturnTo();
+
+  // R1-A: 본문 열람 감사는 서버 GET 내부에서 기록한다 — 사유는 시트 S1 에서 받는다.
+  const unlockContent = useCallback(
+    async (reason: string): Promise<boolean> => {
+      viewReasonRef.current = reason;
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -142,8 +238,9 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         scheduleRefresh
       )
       .on(
+        // C-20: audit_logs 전체가 아니라 이 방을 대상으로 한 기록만 (통화 세션 기록은 call_sessions 구독이 갱신).
         "postgres_changes",
-        { event: "*", schema: "public", table: "audit_logs" },
+        { event: "INSERT", schema: "public", table: "audit_logs", filter: `target_id=eq.${roomId}` },
         scheduleRefresh
       )
       .on(
@@ -159,125 +256,23 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     };
   }, [refresh, roomId]);
 
-  const runAction = useCallback(
-    async (action: RoomAction) => {
-      setBusy(action);
-      try {
-        const res = await fetch(
-          `/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/action`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, note }),
-          }
-        );
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_action_failed") });
-          return;
-        }
-        setNote("");
-        await refresh();
-      } finally {
-        setBusy(null);
-      }
+  /** 시트 결과 공통 처리 (설계 §5 실패·충돌). */
+  const onSheetSettled = useCallback(
+    (kind: AdminChatSheetSettle, opts?: { reportQueue?: boolean }) => {
+      setSheet(null);
+      setResult({
+        ok: true,
+        message:
+          kind === "done"
+            ? t("admin_chat_sheet_done")
+            : kind === "stale"
+              ? t("admin_chat_sheet_stale")
+              : t("admin_chat_sheet_gone"),
+      });
+      if (opts?.reportQueue) emitAdminQueueChanged("messenger_actionable");
+      void refresh(true);
     },
-    [note, refresh, roomId, t]
-  );
-
-  const runMessageAction = useCallback(
-    async (messageId: string, hidden: boolean) => {
-      const key = `${hidden ? "hide" : "unhide"}:${messageId}`;
-      setBusy(key);
-      try {
-        const res = await fetch(
-          `/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hidden }),
-          }
-        );
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_message_action_failed") });
-          return;
-        }
-        await refresh();
-      } finally {
-        setBusy(null);
-      }
-    },
-    [refresh, roomId, t]
-  );
-
-  const runCallAction = useCallback(
-    async (sessionId: string, action: CallAction) => {
-      const key = `call:${sessionId}:${action}`;
-      setBusy(key);
-      try {
-        const res = await fetch(`/api/admin/community-messenger/calls/${encodeURIComponent(sessionId)}/action`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, reasonCode: forceEndReasonCode, adminNote: note }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error === "admin_note_required"
-              ? t("admin_cm_err_force_end_note_required")
-              : json.error === "reason_code_required"
-                ? t("admin_cm_err_force_end_reason_required")
-                : (json.error ?? t("admin_cm_err_call_action_failed")) });
-          return;
-        }
-        setForceEndReasonCode("");
-        setNote("");
-        setPendingForceEndCall(null);
-        await refresh();
-      } finally {
-        setBusy(null);
-      }
-    },
-    [forceEndReasonCode, note, refresh, t]
-  );
-
-  const openForceEndConfirm = useCallback(
-    async (call: PendingForceEndCall) => {
-      if (!forceEndReasonCode) {
-        await dibayAlert({ title: t("admin_cm_err_force_end_reason_required") });
-        return;
-      }
-      if (!note.trim()) {
-        await dibayAlert({ title: t("admin_cm_err_force_end_note_input_required") });
-        return;
-      }
-      setPendingForceEndCall(call);
-    },
-    [forceEndReasonCode, note, t]
-  );
-
-  const runReportAction = useCallback(
-    async (reportId: string, action: ReportAction) => {
-      const key = `report:${reportId}:${action}`;
-      setBusy(key);
-      try {
-        const res = await fetch(`/api/admin/community-messenger/reports/${encodeURIComponent(reportId)}/action`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, adminNote: note }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) {
-          await dibayAlert({ title: json.error ?? t("admin_cm_err_report_failed") });
-          return;
-        }
-        emitAdminQueueChanged("messenger_actionable");
-        await refresh();
-      } finally {
-        setBusy(null);
-      }
-    },
-    [note, refresh, t]
+    [refresh, t]
   );
 
   const filteredCalls = useMemo(() => {
@@ -321,7 +316,15 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   }, [auditPeriodFilter, auditQuery, detail?.callAudits]);
 
   if (loading) {
-    return <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</div>;
+    return <AdminLoadingState ko={ko} />;
+  }
+
+  if (forbiddenCode) {
+    return <AdminForbiddenState ko={ko} code={forbiddenCode} />;
+  }
+
+  if (loadError) {
+    return <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void refresh()} />;
   }
 
   if (!detail) {
@@ -329,31 +332,41 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   }
 
   const room = detail.room;
+  const roomLabel = room.title || room.id;
+  const chatDomain = contentAccess?.domain || room.chatDomain;
 
   return (
     <div className="space-y-4">
       <AdminPageHeader
         titleKey="admin_cm_page_detail_title"
-        backHref="/admin/chats/messenger"
+        backHref={returnCtx.returnTo ?? "/admin/chats"}
         descriptionKey="admin_cm_page_detail_desc"
       />
 
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
+
       <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3">
-        <p className="sam-text-body font-semibold text-amber-900">{t("admin_cm_ghost_banner_title")}</p>
-        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_cm_ghost_banner_body")}</p>
+        <p className="sam-text-body font-semibold text-amber-900">{t("admin_chat_r1_ghost_banner_title")}</p>
+        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_chat_r1_ghost_banner_body")}</p>
+        {contentAccess?.granted ? (
+          <p className="mt-1 sam-text-helper font-medium text-amber-900">{t(CONTENT_BASIS_KEYS[contentAccess.basis])}</p>
+        ) : null}
       </div>
 
       <AdminCard titleKey="admin_cm_card_room_info">
         <div className="grid gap-3 md:grid-cols-2">
           <Info label={t("admin_cm_label_room_title")} value={room.title} />
           <Info label={t("admin_cm_label_room_id")} value={room.id} mono />
+          <Info label={t("admin_cm_th_type")} value={adminChatLabel("chat_domain", chatDomain, ko).label} />
+          <Info label={t("admin_cm_th_status")} value={adminChatLabel("room_status", room.roomStatus, ko).label} />
           <Info
-            label={t("admin_cm_th_type")}
-            value={roomTypeLabel(room.roomType === "open_group" ? "open_group" : room.roomType === "private_group" ? "private_group" : "direct")}
+            label={t("admin_cm_label_visibility")}
+            value={room.visibility === "public" ? t("admin_chat_room_visibility_public") : t("admin_chat_room_visibility_private")}
           />
-          <Info label={t("admin_cm_th_status")} value={room.roomStatus} />
-          <Info label={t("admin_cm_label_visibility")} value={room.visibility === "public" ? "public" : "private"} />
-          <Info label={t("admin_cm_label_join_policy")} value={room.joinPolicy} />
+          <Info
+            label={t("admin_cm_label_join_policy")}
+            value={room.joinPolicy === "password" ? t("admin_chat_room_join_password") : t("admin_chat_room_join_invite")}
+          />
           <Info label={t("admin_cm_label_readonly")} value={room.isReadonly ? t("admin_cm_common_on") : t("admin_cm_common_off")} />
           <Info label={t("admin_cm_th_creator")} value={room.createdByLabel} />
           <Info label={t("admin_cm_label_owner")} value={room.ownerLabel} />
@@ -363,12 +376,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           <Info label={t("admin_cm_label_password")} value={room.requiresPassword ? t("admin_cm_common_configured") : t("admin_cm_common_not_set")} />
           <Info label={t("admin_cm_label_last_message_at")} value={formatDateTime(room.lastMessageAt)} />
           <Info label={t("admin_cm_label_summary")} value={room.summary || t("admin_cm_common_dash")} full />
-          <Info label={t("admin_cm_th_last_message")} value={room.lastMessage} full />
           <Info label={t("admin_cm_label_ops_note")} value={room.adminNote || t("admin_cm_common_dash")} full />
           <Info label={t("admin_cm_label_last_moderator")} value={room.moderatedByLabel} />
           <Info label={t("admin_cm_label_last_moderated_at")} value={room.moderatedAt ? formatDateTime(room.moderatedAt) : t("admin_cm_common_dash")} />
         </div>
       </AdminCard>
+
+      <AdminCmRoomDomainLinksCard domainRef={detail.domainRef} here={returnCtx.here} />
 
       <AdminCard titleKey="admin_cm_ghost_audits_title">
         {(detail.ghostAudits?.length ?? 0) === 0 ? (
@@ -378,9 +392,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             {(detail.ghostAudits ?? []).slice(0, 20).map((row) => (
               <li key={row.id} className="rounded border border-sam-border-soft px-3 py-2 sam-text-helper text-sam-fg">
                 <span className="font-semibold">
-                  {row.action.includes("enter")
-                    ? t("admin_cm_ghost_action_enter")
-                    : t("admin_cm_ghost_action_exit")}
+                  {row.action === "chat_room.content_view"
+                    ? t("admin_chat_r1_ghost_action_view")
+                    : row.action.includes("enter")
+                      ? t("admin_cm_ghost_action_enter")
+                      : row.action.includes("exit")
+                        ? t("admin_cm_ghost_action_exit")
+                        : t("admin_chat_audit_action_other")}
                 </span>
                 {" · "}
                 {formatDateTime(row.createdAt)}
@@ -393,44 +411,23 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
       </AdminCard>
 
       <AdminCard titleKey="admin_cm_card_ops_actions">
-        <div className="space-y-3">
-          <select
-            value={forceEndReasonCode}
-            onChange={(e) => setForceEndReasonCode(e.target.value as CommunityMessengerCallForceEndReasonCode | "")}
-            className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-          >
-            <option value="">{t("admin_cm_select_force_end_reason")}</option>
-            {forceEndReasonOptions.map((reason) => (
-              <option key={reason.code} value={reason.code}>
-                {reason.label}
-              </option>
-            ))}
-          </select>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            placeholder={t("admin_cm_placeholder_ops_note")}
-            className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-          />
-          <p className="sam-text-helper text-amber-700">{t("admin_cm_force_end_requires_note")}</p>
-          <div className="flex flex-wrap gap-2">
-            {room.roomStatus !== "blocked" ? (
-              <ActionButton busy={busy} action="block_room" label={t("admin_cm_action_block_chat")} onRun={runAction} />
-            ) : (
-              <ActionButton busy={busy} action="unblock_room" label={t("admin_cm_action_unblock_chat")} onRun={runAction} />
-            )}
-            {room.roomStatus !== "archived" ? (
-              <ActionButton busy={busy} action="archive_room" label={t("admin_cm_action_archive")} onRun={runAction} />
-            ) : (
-              <ActionButton busy={busy} action="unarchive_room" label={t("admin_cm_action_unarchive")} onRun={runAction} />
-            )}
-            {!room.isReadonly ? (
-              <ActionButton busy={busy} action="readonly_on" label={t("admin_cm_action_readonly_on")} onRun={runAction} />
-            ) : (
-              <ActionButton busy={busy} action="readonly_off" label={t("admin_cm_action_readonly_off")} onRun={runAction} />
-            )}
-          </div>
+        <div className="flex flex-wrap justify-end gap-2" data-admin-chat-room-actions>
+          {(
+            [
+              room.roomStatus !== "blocked" ? "block_room" : "unblock_room",
+              room.roomStatus !== "archived" ? "archive_room" : "unarchive_room",
+              !room.isReadonly ? "readonly_on" : "readonly_off",
+            ] as AdminChatRoomAction[]
+          ).map((action) => (
+            <AdminActionButton
+              key={action}
+              variant={adminChatRoomActionIsDestructive(action) ? "danger" : "secondary"}
+              disabled={sheet !== null}
+              onClick={() => setSheet({ kind: "room", action })}
+            >
+              {t(ROOM_ACTION_LABEL[action])}
+            </AdminActionButton>
+          ))}
         </div>
       </AdminCard>
 
@@ -441,9 +438,18 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               <div key={participant.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="sam-text-body font-medium text-sam-fg">{participant.label}</p>
+                    <p className="sam-text-body font-medium text-sam-fg">
+                      {participant.userId ? (
+                        <Link href={adminUserDetailHref(participant.userId, returnCtx.here)} className="text-signature underline">
+                          {participant.label}
+                        </Link>
+                      ) : (
+                        participant.label
+                      )}
+                    </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      {participant.role} · unread {participant.unreadCount}
+                      {adminChatLabel("participant_role", participant.role, ko).label} ·{" "}
+                      {t("admin_chat_unread_count", { count: participant.unreadCount })}
                     </p>
                   </div>
                   <div className="text-right sam-text-helper text-sam-meta">
@@ -468,12 +474,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">{t("admin_cm_filter_all_record_status")}</option>
-              <option value="missed">missed</option>
-              <option value="rejected">rejected</option>
-              <option value="cancelled">cancelled</option>
-              <option value="ended">ended</option>
-              <option value="incoming">incoming</option>
-              <option value="dialing">dialing</option>
+              <option value="missed">{adminChatLabel("call_status", "missed", ko).label}</option>
+              <option value="rejected">{adminChatLabel("call_status", "rejected", ko).label}</option>
+              <option value="cancelled">{adminChatLabel("call_status", "cancelled", ko).label}</option>
+              <option value="ended">{adminChatLabel("call_status", "ended", ko).label}</option>
+              <option value="incoming">{adminChatLabel("call_status", "incoming", ko).label}</option>
+              <option value="dialing">{adminChatLabel("call_status", "dialing", ko).label}</option>
             </select>
             <select
               value={callKindFilter}
@@ -481,8 +487,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">{t("admin_cm_filter_all_call_kind")}</option>
-              <option value="voice">voice</option>
-              <option value="video">video</option>
+              <option value="voice">{adminChatLabel("call_kind", "voice", ko).label}</option>
+              <option value="video">{adminChatLabel("call_kind", "video", ko).label}</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -518,8 +524,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">{t("admin_cm_filter_all_active_status")}</option>
-            <option value="ringing">ringing</option>
-            <option value="active">active</option>
+            <option value="ringing">{adminChatLabel("call_status", "ringing", ko).label}</option>
+            <option value="active">{adminChatLabel("call_status", "active", ko).label}</option>
           </select>
           <select
             value={callKindFilter}
@@ -527,8 +533,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">{t("admin_cm_filter_all_call_kind")}</option>
-            <option value="voice">voice</option>
-            <option value="video">video</option>
+            <option value="voice">{adminChatLabel("call_kind", "voice", ko).label}</option>
+            <option value="video">{adminChatLabel("call_kind", "video", ko).label}</option>
           </select>
         </div>
         <div className="space-y-2">
@@ -552,14 +558,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={busy === `call:${call.id}:force_end`}
-                    onClick={() => void openForceEndConfirm(call)}
-                    className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-helper font-medium text-red-700"
+                  <AdminActionButton
+                    variant="danger"
+                    disabled={sheet !== null}
+                    onClick={() => setSheet({ kind: "force_end", call })}
                   >
-                    {busy === `call:${call.id}:force_end` ? t("admin_cm_common_ending") : t("admin_cm_action_force_end")}
-                  </button>
+                    {t("admin_cm_action_force_end")}
+                  </AdminActionButton>
                 </div>
               </div>
             ))
@@ -620,13 +625,41 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
 
       <AdminCard titleKey="admin_cm_card_message_timeline">
         <div className="space-y-2">
-          {detail.messages.map((message) => (
+          {contentAccess && !contentAccess.granted ? (
+            <div
+              data-admin-chat-content-locked={contentAccess.denial}
+              className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-4 sam-text-body text-amber-950"
+            >
+              <p className="font-medium">{t("admin_chat_r1_content_locked_title")}</p>
+              <p className="mt-1 sam-text-helper">
+                {contentAccess.denial === "super_admin_only"
+                  ? t("admin_chat_r1_content_locked_super_admin")
+                  : t("admin_chat_r1_content_locked_reason")}
+              </p>
+              {contentAccess.denial === "ghost_reason_required" ? (
+                <AdminActionButton className="mt-3" onClick={() => setSheet({ kind: "unlock" })}>
+                  {t("admin_chat_r1_content_unlock_cta")}
+                </AdminActionButton>
+              ) : null}
+            </div>
+          ) : null}
+          {olderMsgs.hasMore ? (
+            <div className="flex flex-col items-center gap-1 py-1">
+              <AdminActionButton disabled={olderMsgs.loading} onClick={() => void olderMsgs.loadOlder()}>
+                {olderMsgs.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
+              </AdminActionButton>
+              {olderMsgs.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+            </div>
+          ) : null}
+          {olderMsgs.messages.map((message) => (
             <div key={message.id} className="rounded border border-sam-border-soft px-3 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="sam-text-body-secondary font-medium text-sam-fg">
                     {message.senderLabel}
-                    <span className="ml-2 sam-text-helper font-normal text-sam-meta">{message.messageType}</span>
+                    <span className="ml-2 inline-flex align-middle">
+                      <AdminCmMessageKindBadge kind={message.display?.kind ?? "text"} />
+                    </span>
                     {message.isHiddenByAdmin ? (
                       <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_badge_hidden")}</span>
                     ) : null}
@@ -636,30 +669,24 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       </span>
                     ) : null}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap sam-text-body text-sam-fg">
-                    {message.content || t("admin_cm_empty_message")}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {message.isHiddenByAdmin ? (
-                      <button
-                        type="button"
-                        disabled={busy === `unhide:${message.id}`}
-                        onClick={() => void runMessageAction(message.id, false)}
-                        className="rounded border border-lime-200 bg-lime-50 px-2.5 py-1 sam-text-helper text-lime-700"
-                      >
-                        {t("admin_cm_action_unhide_message")}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={busy === `hide:${message.id}`}
-                        onClick={() => void runMessageAction(message.id, true)}
-                        className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1 sam-text-helper text-orange-700"
-                      >
-                        {t("admin_cm_action_hide_message")}
-                      </button>
-                    )}
+                  <div className="mt-1 sam-text-body">
+                    <AdminCmMessageBody
+                      display={message.display}
+                      fallbackText={message.content || t("admin_cm_empty_message")}
+                      mediaReason={viewReasonRef.current}
+                    />
                   </div>
+                  {message.senderId ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <AdminActionButton
+                        variant={message.isHiddenByAdmin ? "secondary" : "danger"}
+                        disabled={sheet !== null}
+                        onClick={() => setSheet({ kind: "message", message, hidden: !message.isHiddenByAdmin })}
+                      >
+                        {message.isHiddenByAdmin ? t("admin_cm_action_unhide_message") : t("admin_cm_action_hide_message")}
+                      </AdminActionButton>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="shrink-0 sam-text-helper text-sam-meta">{formatDateTime(message.createdAt)}</div>
               </div>
@@ -678,64 +705,29 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="sam-text-body font-medium text-sam-fg">
-                      {report.reportType} · {report.reporterLabel}
+                      {adminChatLabel("report_target", report.reportType, ko).label} · {report.reporterLabel}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      {t("admin_cm_common_status", { status: report.status })} · {formatDateTime(report.createdAt)}
+                      {t("admin_cm_common_status", { status: adminChatLabel("report_status", report.status, ko).label })} ·{" "}
+                      {formatDateTime(report.createdAt)}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-fg">
-                      {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
+                      {adminChatLabel("report_reason", report.reasonType, ko).label}
+                      {report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
                     </p>
                     {report.adminNote ? (
                       <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: report.adminNote })}</p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button
-                      type="button"
-                      disabled={busy === `report:${report.id}:reviewing`}
-                      onClick={() => void runReportAction(report.id, "reviewing")}
-                      className="rounded border border-sam-border px-2.5 py-1 sam-text-helper text-sam-fg"
+                  {CM_REPORT_OPEN.has(report.status) ? (
+                    <AdminActionButton
+                      variant="primary"
+                      disabled={sheet !== null}
+                      onClick={() => setSheet({ kind: "report", report })}
                     >
-                      {t("admin_cm_action_reviewing")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy === `report:${report.id}:resolved`}
-                      onClick={() => void runReportAction(report.id, "resolved")}
-                      className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 sam-text-helper text-emerald-700"
-                    >
-                      {t("admin_cm_action_resolve")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy === `report:${report.id}:rejected`}
-                      onClick={() => void runReportAction(report.id, "rejected")}
-                      className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg"
-                    >
-                      {t("admin_cm_action_dismiss")}
-                    </button>
-                    {report.messageId ? (
-                      <button
-                        type="button"
-                        disabled={busy === `report:${report.id}:sanction_message_hide`}
-                        onClick={() => void runReportAction(report.id, "sanction_message_hide")}
-                        className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1 sam-text-helper text-orange-700"
-                      >
-                        {t("admin_cm_action_sanction_hide")}
-                      </button>
-                    ) : null}
-                    {report.roomId ? (
-                      <button
-                        type="button"
-                        disabled={busy === `report:${report.id}:sanction_room_block`}
-                        onClick={() => void runReportAction(report.id, "sanction_room_block")}
-                        className="rounded border border-red-200 bg-red-50 px-2.5 py-1 sam-text-helper text-red-700"
-                      >
-                        {t("admin_cm_action_sanction_block_room")}
-                      </button>
-                    ) : null}
-                  </div>
+                      {t("admin_chat_report_process_cta")}
+                    </AdminActionButton>
+                  ) : null}
                 </div>
               </div>
             ))
@@ -743,21 +735,61 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
       </AdminCard>
 
-      <ForceEndConfirmModal
-        open={pendingForceEndCall !== null}
-        call={pendingForceEndCall}
-        reasonCode={forceEndReasonCode}
-        note={note}
-        busy={pendingForceEndCall ? busy === `call:${pendingForceEndCall.id}:force_end` : false}
-        onClose={() => {
-          if (busy) return;
-          setPendingForceEndCall(null);
-        }}
-        onConfirm={() => {
-          if (!pendingForceEndCall) return;
-          void runCallAction(pendingForceEndCall.id, "force_end");
-        }}
-      />
+      {sheet?.kind === "unlock" ? (
+        <AdminChatContentUnlockSheet roomLabel={roomLabel} onUnlock={unlockContent} onClose={() => setSheet(null)} />
+      ) : null}
+      {sheet?.kind === "room" ? (
+        <AdminChatRoomActionSheet
+          roomId={room.id}
+          roomLabel={roomLabel}
+          currentStatus={room.roomStatus}
+          isReadonly={room.isReadonly}
+          action={sheet.action}
+          onClose={() => setSheet(null)}
+          onSettled={(kind) => onSheetSettled(kind)}
+        />
+      ) : null}
+      {sheet?.kind === "message" ? (
+        <AdminChatMessageHideSheet
+          roomId={room.id}
+          messageId={sheet.message.id}
+          senderLabel={sheet.message.senderLabel}
+          createdAt={sheet.message.createdAt}
+          preview={sheet.message.display?.text || sheet.message.content}
+          hidden={sheet.hidden}
+          onClose={() => setSheet(null)}
+          onSettled={(kind) => {
+            if (kind === "done") patchOlder(sheet.message.id, { isHiddenByAdmin: sheet.hidden });
+            onSheetSettled(kind);
+          }}
+        />
+      ) : null}
+      {sheet?.kind === "force_end" ? (
+        <AdminChatForceEndSheet
+          sessionId={sheet.call.id}
+          callLabel={`${sheet.call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · ${adminChatLabel("call_kind", sheet.call.callKind, ko).label}`}
+          initiatorLabel={sheet.call.initiatorLabel}
+          participantsLabel={t("admin_cm_common_participants_joined", {
+            joined: sheet.call.joinedCount,
+            invited: sheet.call.invitedCount,
+            total: sheet.call.participantCount,
+          })}
+          startedAt={sheet.call.startedAt}
+          onClose={() => setSheet(null)}
+          onSettled={(kind) => onSheetSettled(kind)}
+        />
+      ) : null}
+      {sheet?.kind === "report" ? (
+        <AdminChatReportSheet
+          report={cmReportSheetInput(
+            sheet.report,
+            adminChatLabel("report_reason", sheet.report.reasonType, ko).label,
+            sheet.report.reportedUserId ? adminUserDetailHref(sheet.report.reportedUserId, returnCtx.here) : null
+          )}
+          onClose={() => setSheet(null)}
+          onSettled={(kind) => onSheetSettled(kind, { reportQueue: true })}
+        />
+      ) : null}
     </div>
   );
 }
@@ -781,117 +813,14 @@ function Info({
   );
 }
 
-function ActionButton({
-  busy,
-  action,
-  label,
-  onRun,
-}: {
-  busy: string | null;
-  action: RoomAction;
-  label: string;
-  onRun: (action: RoomAction) => Promise<void>;
-}) {
-  const { t } = useCmAdminLabels();
-  return (
-    <button
-      type="button"
-      disabled={busy !== null}
-      onClick={() => void onRun(action)}
-      className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg disabled:opacity-50"
-    >
-      {busy === action ? t("admin_cm_common_processing") : label}
-    </button>
-  );
-}
-
-function ForceEndConfirmModal({
-  open,
-  call,
-  reasonCode,
-  note,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  call: PendingForceEndCall | null;
-  reasonCode: CommunityMessengerCallForceEndReasonCode | "";
-  note: string;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const { t, forceEndReasonLabel } = useCmAdminLabels();
-  if (!call) return null;
-
-  const reasonLabel =
-    reasonCode ? forceEndReasonLabel(reasonCode) : t("admin_cm_force_end_reason_unselected");
-
-  return (
-    <DibayOverlayRoot
-      open={open}
-      onClose={busy ? undefined : onClose}
-      dismissible={!busy}
-      placement="center"
-      zRole="dialog"
-    >
-      <div
-        className={`${OverlayUi.dialogPanel} !max-w-lg`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className={OverlayUi.title}>{t("admin_cm_modal_force_end_title")}</h2>
-      <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
-        {t("admin_cm_modal_force_end_warning")}
-      </p>
-      <div className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm text-sam-fg">
-        <div>
-          <span className="text-sam-muted">{t("admin_cm_modal_target_call")}</span>
-          <div className="mt-1 font-medium text-sam-fg">
-            {call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · {call.callKind}
-          </div>
-        </div>
-        <div>
-          <span className="text-sam-muted">{t("admin_cm_modal_initiator")}</span>
-          <div className="mt-1">{call.initiatorLabel}</div>
-        </div>
-        <div>
-          <span className="text-sam-muted">{t("admin_cm_modal_participants")}</span>
-          <div className="mt-1">
-            {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
-          </div>
-        </div>
-        <div>
-          <span className="text-sam-muted">{t("admin_cm_modal_reason_code")}</span>
-          <div className="mt-1 text-sky-700">
-            {reasonLabel}
-            {reasonCode ? ` (${reasonCode})` : ""}
-          </div>
-        </div>
-        <div>
-          <span className="text-sam-muted">{t("admin_cm_modal_detail_note")}</span>
-          <div className="mt-1 whitespace-pre-wrap">{note.trim()}</div>
-        </div>
-      </div>
-      <div className={`${OverlayUi.actionsRow} mt-4`}>
-        <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
-          {t("admin_cm_common_cancel")}
-        </DibayOverlayButton>
-        <DibayOverlayButton roleTone="destructive" disabled={busy} loading={busy} onClick={onConfirm}>
-          {busy ? t("admin_cm_action_force_end_in_progress") : t("admin_cm_action_force_end_confirm")}
-        </DibayOverlayButton>
-      </div>
-      </div>
-    </DibayOverlayRoot>
-  );
-}
-
-function formatDateTime(value: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return value;
-  return date.toLocaleString("ko-KR");
-}
+const ROOM_ACTION_LABEL: Record<AdminChatRoomAction, MessageKey> = {
+  block_room: "admin_cm_action_block_chat",
+  unblock_room: "admin_cm_action_unblock_chat",
+  archive_room: "admin_cm_action_archive",
+  unarchive_room: "admin_cm_action_unarchive",
+  readonly_on: "admin_cm_action_readonly_on",
+  readonly_off: "admin_cm_action_readonly_off",
+};
 
 function matchesAuditPeriod(value: string, period: "24h" | "7d" | "30d" | "") {
   if (!period) return true;

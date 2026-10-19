@@ -58,7 +58,8 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
     expect(delivery).toContain("store_financial_statement");
 
     const cash = read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx");
-    expect(cash).toContain("businessCcFinancialStatementHref");
+    // DEF: duplicate finance links collapsed into one 「매장 재무」 link.
+    expect(cash).toContain("/admin/finance?storeId=");
     expect(cash).not.toContain("view=statement");
   });
 

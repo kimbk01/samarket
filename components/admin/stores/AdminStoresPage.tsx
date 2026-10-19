@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
-  ADMIN_STORE_APPROVAL_LABEL_KEYS,
   ADMIN_STORE_STATUS_FILTER,
   type AdminStoreReviewRow,
 } from "@/components/admin/stores/admin-store-review-model";
@@ -14,13 +13,25 @@ import {
   ReviewRow,
   sbBtnPrimary,
   sbBtnSecondary,
-  sbStatusBadgeClass,
 } from "@/components/admin/stores/admin-store-review-ui";
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { AdminStoreReviewPanel } from "@/components/admin/stores/AdminStoreReviewPanel";
+import {
+  AdminStoreReviewPanel,
+  adminStoreActionSuccessMessage,
+} from "@/components/admin/stores/AdminStoreReviewPanel";
 import { formatPhMobileDisplayPlus63, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 
 type SalesPerm = {
@@ -32,6 +43,8 @@ type SalesPerm = {
 } | null;
 
 type AdminStoreRow = AdminStoreReviewRow & { sales_permission: SalesPerm };
+
+const ADMIN_STORES_PAGE_SIZE = 30;
 
 type AdminStoreCounts = Partial<Record<(typeof ADMIN_STORE_STATUS_FILTER)[number]["value"], number>>;
 
@@ -52,7 +65,8 @@ function displayAdminPhone(raw: string | null | undefined): string {
 }
 
 export function AdminStoresPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState(() => {
     const status = searchParams.get("status")?.trim() ?? "";
@@ -63,40 +77,77 @@ export function AdminStoresPage() {
   const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
+  const [actionResult, setActionResult] = useState<
+    { ok: true; message: string } | { ok: false; code: string } | null
+  >(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
   const [searchText, setSearchText] = useState(() => searchParams.get("q")?.trim() ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get("q")?.trim() ?? "");
+  const [page, setPage] = useState(() => {
+    const n = Number(searchParams.get("page"));
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+  });
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(ADMIN_STORES_PAGE_SIZE);
   const rtRefreshTimeoutRef = useRef<number | null>(null);
+  const firstFilterRunRef = useRef(true);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+
+  useEffect(() => {
+    // 필터·검색이 바뀌면 1페이지로 (첫 렌더는 URL page 유지).
+    if (firstFilterRunRef.current) {
+      firstFilterRunRef.current = false;
+      return;
+    }
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  /** 화면 URL (뒤로가기·상세 복귀용) — status·q·page */
   const qs = useMemo(() => {
     const parts: string[] = [];
     if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
-    const q = searchText.trim();
-    if (q) parts.push(`q=${encodeURIComponent(q)}`);
+    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
+    if (page > 1) parts.push(`page=${page}`);
     return parts.length ? `?${parts.join("&")}` : "";
-  }, [filter, searchText]);
+  }, [filter, debouncedSearch, page]);
 
-  const errorText =
-    error === "forbidden"
-      ? t("admin_audit_err_no_permission")
-      : error === "network_error"
-        ? t("common_network_error")
-        : error;
+  /** DEF-15 — 서버 페이지네이션 (전체 건수·상태별 건수는 서버 집계). */
+  const apiQs = useMemo(() => {
+    const parts = [`page=${page}`, `page_size=${ADMIN_STORES_PAGE_SIZE}`];
+    if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
+    if (debouncedSearch) parts.push(`q=${encodeURIComponent(debouncedSearch)}`);
+    return `?${parts.join("&")}`;
+  }, [filter, debouncedSearch, page]);
+
+  useEffect(() => {
+    const next = `/admin/stores${qs}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== next) window.history.replaceState(window.history.state, "", next);
+  }, [qs]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(undefined);
     try {
-      const res = await fetch(`/api/admin/stores${qs}`, { credentials: "include" });
-      const json = await res.json();
+      const res = await fetch(`/api/admin/stores${apiQs}`, { credentials: "include" });
+      const json = await res.json().catch(() => null);
       if (res.status === 403) {
         setError("forbidden");
+        setErrorStatus(403);
         setRows([]);
         setCounts({});
         return;
       }
       if (!json?.ok) {
         setError(json?.error ?? "load_failed");
+        setErrorStatus(res.status);
         setRows([]);
         setCounts({});
         setSheetStore(null);
@@ -105,6 +156,8 @@ export function AdminStoresPage() {
       const nextRows = (json.stores ?? []) as AdminStoreRow[];
       setRows(nextRows);
       setCounts(typeof json.counts === "object" && json.counts ? (json.counts as AdminStoreCounts) : {});
+      setTotal(typeof json.total === "number" ? json.total : nextRows.length);
+      setPageSize(typeof json.pageSize === "number" && json.pageSize > 0 ? json.pageSize : ADMIN_STORES_PAGE_SIZE);
       setSheetStore((prev) => {
         if (prev && nextRows.some((r) => r.id === prev.id)) {
           return nextRows.find((r) => r.id === prev.id) ?? prev;
@@ -119,7 +172,7 @@ export function AdminStoresPage() {
     } finally {
       setLoading(false);
     }
-  }, [qs]);
+  }, [apiQs]);
 
   useEffect(() => {
     void load();
@@ -150,7 +203,7 @@ export function AdminStoresPage() {
 
   const runAction = async (storeId: string, body: Record<string, unknown>): Promise<boolean> => {
     setBusyId(storeId);
-    setError(null);
+    setActionResult(null);
     try {
       const res = await fetch(`/api/admin/stores/${storeId}`, {
         method: "PATCH",
@@ -158,25 +211,33 @@ export function AdminStoresPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       if (!json?.ok) {
-        setError(json?.error ?? `action_failed_${res.status}`);
+        setActionResult({
+          ok: false,
+          code: json?.error ?? (res.status === 403 ? "forbidden" : "action_failed"),
+        });
         return false;
       }
+      setActionResult({
+        ok: true,
+        message: adminStoreActionSuccessMessage(
+          String(body.action ?? ""),
+          ko,
+          typeof body.enabled === "boolean" ? body.enabled : undefined
+        ),
+      });
       await load();
       return true;
     } catch {
-      setError("network_error");
+      setActionResult({ ok: false, code: "network_error" });
       return false;
     } finally {
       setBusyId(null);
     }
   };
 
-  const approvalLabel = (status: string) => {
-    const key = ADMIN_STORE_APPROVAL_LABEL_KEYS[status];
-    return key ? t(key) : status;
-  };
+  const returnToHere = `/admin/stores${qs}`;
 
   return (
     <AdminStoreReviewTheme>
@@ -210,11 +271,7 @@ export function AdminStoresPage() {
           })}
         </div>
 
-        {errorText ? (
-          <div className="rounded-sm border border-[#EF9A9A] bg-[#FFEBEE] px-3 py-2 text-[13px] font-medium text-[#B71C1C]">
-            {errorText}
-          </div>
-        ) : null}
+        <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
 
         <div className="overflow-hidden rounded-sm border border-[#D4C5B9] bg-white">
           <div className="border-b border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3">
@@ -228,15 +285,23 @@ export function AdminStoresPage() {
               className="mt-2 w-full rounded-sm border border-[#D4C5B9] bg-white px-3 py-2 text-[#1E3932] outline-none focus:border-[#00704A]"
             />
             <p className="mt-2 text-[13px] text-[#6B6B6B]">
-              {loading ? t("common_loading") : t("admin_stores_result_count", { count: rows.length })}
+              {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
             </p>
           </div>
 
           <div className="min-h-[50vh]">
             {loading ? (
-              <p className="p-6 text-[14px] text-[#6B6B6B]">{t("common_loading")}</p>
+              <div className="p-4">
+                <AdminLoadingState ko={ko} />
+              </div>
+            ) : error ? (
+              <div className="p-4">
+                <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
+              </div>
             ) : rows.length === 0 ? (
-              <div className="py-16 text-center text-[14px] text-[#6B6B6B]">{t("admin_stores_empty_list")}</div>
+              <div className="p-4">
+                <AdminEmptyState ko={ko} message={t("admin_stores_empty_list")} />
+              </div>
             ) : (
               <div>
                 {rows.map((r) => {
@@ -251,6 +316,7 @@ export function AdminStoresPage() {
                   const active = sheetStore?.id === r.id;
                   const publicHref = `/stores/${encodeURIComponent(r.slug)}`;
                   const storeName = (r.store_name ?? "").trim() || t("admin_stores_no_store_name");
+                  const approval = adminStatusLabel("store_approval", r.approval_status, ko);
 
                   return (
                     <div
@@ -266,22 +332,19 @@ export function AdminStoresPage() {
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <h2 className="text-[15px] font-bold leading-5 text-[#1E3932]">{storeName}</h2>
-                              <span
-                                className={`rounded-sm border px-2 py-0.5 text-[12px] font-medium ${sbStatusBadgeClass(
-                                  r.approval_status
-                                )}`}
-                              >
-                                {approvalLabel(r.approval_status)}
-                              </span>
+                              <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+                              {r.approval_status === "pending" && (r.revision_note ?? "").trim() ? (
+                                <AdminToneBadge tone="warning">{t("admin_r4a_resubmitted_badge")}</AdminToneBadge>
+                              ) : null}
                             </div>
 
                             <div className="max-w-4xl space-y-0">
                               <ReviewRow
-                                label="신청ID"
-                                value={`@${ownerHandle.replace(/^@/, "")}`}
+                                label={ko ? "신청자" : "Applicant"}
+                                value={(r.applicant_nickname ?? "").trim() || "—"}
                               />
                               <ReviewRow
-                                label="매장URL"
+                                label={ko ? "공개 매장" : "Public page"}
                                 value={
                                   <a
                                     href={publicHref}
@@ -290,12 +353,12 @@ export function AdminStoresPage() {
                                     className="text-[#00704A] underline-offset-2 hover:underline"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    stores/{r.slug}
+                                    {ko ? "공개 매장 보기" : "Open public page"}
                                   </a>
                                 }
                               />
                               <ReviewRow
-                                label="전화"
+                                label={ko ? "전화" : "Phone"}
                                 value={
                                   phoneHref ? (
                                     <a href={phoneHref} className="underline-offset-2 hover:underline">
@@ -306,8 +369,17 @@ export function AdminStoresPage() {
                                   )
                                 }
                               />
-                              {kakaoLine ? <ReviewRow label="카카오" value={kakaoLine} /> : null}
-                              <ReviewRow label="요청사항" value={requestPreview} valueClassName="text-[#6B6B6B]" />
+                              {kakaoLine ? <ReviewRow label={ko ? "카카오" : "Kakao"} value={kakaoLine} /> : null}
+                              <ReviewRow
+                                label={ko ? "요청사항" : "Request"}
+                                value={requestPreview}
+                                valueClassName="text-[#6B6B6B]"
+                              />
+                              <AdminTechDetails ko={ko}>
+                                <div>store_id: {r.id}</div>
+                                <div>owner: @{ownerHandle.replace(/^@/, "")}</div>
+                                <div>url: /stores/{r.slug}</div>
+                              </AdminTechDetails>
                             </div>
                           </div>
 
@@ -326,12 +398,17 @@ export function AdminStoresPage() {
                         <>
                           <div className="flex items-center border-b border-[#00704A]/25 bg-[#E8F2ED] px-4 py-2">
                             <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#00704A]">
-                              심사 상세
+                              {ko ? "심사 상세" : "Review detail"}
                             </span>
                           </div>
                           <div className="bg-[#F2F0EB]">
                             <AdminStoreReviewPanel
                               store={r}
+                              salesStatus={r.sales_permission?.sales_status ?? null}
+                              detailHref={withAdminReturnTo(
+                                `/admin/business/${encodeURIComponent(r.id)}`,
+                                returnToHere
+                              )}
                               onRunAction={(action, payload) =>
                                 runAction(r.id, {
                                   action,
@@ -355,6 +432,41 @@ export function AdminStoresPage() {
               </div>
             )}
           </div>
+          {!loading && !error && total > pageSize ? (
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3"
+              data-admin-stores-pagination="1"
+            >
+              <p className="text-[13px] text-[#6B6B6B]">
+                {t("admin_biz_ops_page_range", {
+                  from: String((page - 1) * pageSize + 1),
+                  to: String(Math.min(page * pageSize, total)),
+                  total: String(total),
+                })}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className={sbBtnSecondary}
+                >
+                  {t("admin_biz_ops_page_prev")}
+                </button>
+                <span className="px-2 text-[13px] tabular-nums text-[#1E3932]">
+                  {page} / {Math.max(1, Math.ceil(total / pageSize))}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  onClick={() => setPage((p) => p + 1)}
+                  className={sbBtnSecondary}
+                >
+                  {t("admin_biz_ops_page_next")}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </AdminStoreReviewTheme>

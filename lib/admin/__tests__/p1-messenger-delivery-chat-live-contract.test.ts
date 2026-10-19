@@ -22,7 +22,9 @@ describe("P1-1 Messenger HOLLOW + Delivery order-chat LIVE", () => {
     expect(list).toMatch(/general:\s*"general_direct"/);
     expect(list).toMatch(/group:\s*"group"/);
     expect(list).toMatch(/store_order:\s*"store_order"/);
-    expect(list).toContain("/api/admin/community-messenger/rooms?domain=");
+    // C-11: server-paged list (`?type=…&cursor=`) via the same rooms API.
+    expect(list).toContain("/api/admin/community-messenger/rooms");
+    expect(list).toContain("buildAdminChatRoomListApiSearch");
     expect(list).not.toContain("data-admin-surface=\"hollow\"");
   });
 

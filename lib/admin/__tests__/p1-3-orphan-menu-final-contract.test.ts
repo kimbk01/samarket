@@ -22,8 +22,16 @@ describe("P1-3 Admin orphan / menu finalization", () => {
   });
 
   it("messenger menu has general+group LIVE; no community/business leaves", () => {
+    // J-AMD-4: chat leaves live under section headers — scan the whole messenger subtree.
     const messenger = findAdminMenuByKey(adminMenu, "messenger");
-    const keys = new Set((messenger?.children ?? []).map((c) => c.key));
+    const keys = new Set<string>();
+    const walk = (nodes: typeof adminMenu) => {
+      for (const n of nodes) {
+        keys.add(n.key);
+        if (n.children?.length) walk(n.children);
+      }
+    };
+    walk(messenger?.children ?? []);
     expect(keys.has("chat-general")).toBe(true);
     expect(keys.has("chat-group")).toBe(true);
     expect(keys.has("chat-community")).toBe(false);
@@ -57,7 +65,7 @@ describe("P1-3 Admin orphan / menu finalization", () => {
     const src = read("components/admin/admin-menu.ts");
     expect(src).not.toMatch(/"chat-community":\s*"admin_menu_chat_community"/);
     expect(src).not.toMatch(/"chat-business":\s*"admin_menu_chat_business"/);
-    expect(src).toContain('"chat-general": "admin_menu_chat_general"');
+    expect(src).toContain('"chat-general": "admin_menu_chat_rooms_general"');
   });
 
   it("Trade HARD CLOSE surfaces remain in Trade workspace", () => {

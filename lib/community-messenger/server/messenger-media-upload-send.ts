@@ -31,6 +31,12 @@ import {
   sniffMessengerImageMime,
   type MessengerImageUploadInput,
 } from "@/lib/community-messenger/server/messenger-image-upload-process";
+import { resolveMessengerMediaUploadBucket } from "@/lib/community-messenger/server/messenger-media-bucket";
+import {
+  MESSENGER_LEGACY_MEDIA_BUCKET,
+  MESSENGER_PRIVATE_MEDIA_BUCKET,
+  type MessengerMediaBucket,
+} from "@/lib/community-messenger/media/messenger-media-ref";
 
 /**
  * D-3 — 메신저 이미지·파일 전송 공용 서버 파이프라인.
@@ -45,7 +51,11 @@ type Sb = ReturnType<typeof getSupabaseServer>;
 
 export type MessengerMediaRouteResult = { status: number; body: Record<string, unknown> };
 
-const BUCKET = "post-images";
+/**
+ * C-4: 신규 업로드 버킷은 `resolveMessengerMediaUploadBucket` 이 결정한다(비공개 `messenger-media` 존재 시 그쪽,
+ * 아니면 레거시 `post-images`). staging 도 같은 버킷 — 확정 시 두 버킷을 순서대로 찾는다(전환 경계 호환).
+ */
+const ALL_MEDIA_BUCKETS: MessengerMediaBucket[] = [MESSENGER_PRIVATE_MEDIA_BUCKET, MESSENGER_LEGACY_MEDIA_BUCKET];
 
 async function publishBumpBestEffort(input: {
   rawRouteRoomId: string;
@@ -77,7 +87,9 @@ export async function sendMessengerImageUploadBatch(input: {
   clientMessageId: string | null;
 }): Promise<MessengerMediaRouteResult> {
   const { sb, canonicalRoomId } = input;
-  const bucket = sb.storage.from(BUCKET);
+  const bucketName = await resolveMessengerMediaUploadBucket(sb);
+  const purgeCtx = { roomId: canonicalRoomId, bucket: bucketName };
+  const bucket = sb.storage.from(bucketName);
   const processed = await processMessengerImageUploads({
     bucket,
     baseDir: messengerFinalMediaDir("image", input.userId, canonicalRoomId),
@@ -85,14 +97,14 @@ export async function sendMessengerImageUploadBatch(input: {
   });
   if (!processed.ok) {
     // IMG-02: 앞선 파일은 이미 올라갔으므로 고아 정리 후 거부.
-    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, purgeCtx);
     return { status: processed.status, body: { ok: false, error: processed.error } };
   }
 
   const result = await sendCommunityMessengerImageMessage({
     userId: input.userId,
     roomId: canonicalRoomId,
-    items: processed.items,
+    items: processed.items.map((it) => ({ ...it, storageBucket: bucketName })),
     // CHAT-05: 업로드 멱등 키(클라가 재전송 시 동일 값을 보냄).
     clientMessageId: input.clientMessageId,
     onNotifyScheduled: keepMessengerNotifyAliveAfterAck,
@@ -100,12 +112,12 @@ export async function sendMessengerImageUploadBatch(input: {
 
   if (!result.ok) {
     // IMG-02: 전송 거절 → 올린 파일 고아 정리.
-    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, purgeCtx);
     return { status: 400, body: result as Record<string, unknown> };
   }
   if (result.deduped) {
     // CHAT-05 멱등 재전송: DB 행은 이전 업로드를 가리킨다 — 이번 요청 업로드분은 고아이므로 정리.
-    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, processed.uploadedStoragePaths, purgeCtx);
   }
   await publishBumpBestEffort({
     rawRouteRoomId: input.rawRouteRoomId,
@@ -139,7 +151,9 @@ export async function sendMessengerFileUpload(input: {
     return { status: 415, body: { ok: false, error: validated.error } };
   }
   const path = `${messengerFinalMediaDir("file", input.userId, canonicalRoomId)}/${randomUUID()}.${validated.ext}`;
-  const bucket = sb.storage.from(BUCKET);
+  const bucketName = await resolveMessengerMediaUploadBucket(sb);
+  const purgeCtx = { roomId: canonicalRoomId, bucket: bucketName };
+  const bucket = sb.storage.from(bucketName);
   const { error: upErr } = await bucket.upload(path, input.buf, {
     contentType: validated.canonicalContentType,
     upsert: false,
@@ -156,6 +170,7 @@ export async function sendMessengerFileUpload(input: {
     roomId: canonicalRoomId,
     filePublicUrl: publicUrl,
     storagePath: path,
+    storageBucket: bucketName,
     fileName: input.displayName,
     mimeType: validated.canonicalContentType,
     fileSizeBytes: input.buf.length,
@@ -166,12 +181,12 @@ export async function sendMessengerFileUpload(input: {
 
   if (!result.ok) {
     // IMG-02: 전송 거절 → 올린 파일 고아 정리.
-    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, [path], purgeCtx);
     return { status: 400, body: result as Record<string, unknown> };
   }
   if (result.deduped) {
     // D-7 / CHAT-05: 멱등 재전송 — DB 행은 이전 업로드를 가리킨다(서비스가 원 행을 반환). 이번 업로드분 정리.
-    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, [path], purgeCtx);
   }
   await publishBumpBestEffort({
     rawRouteRoomId: input.rawRouteRoomId,
@@ -190,21 +205,31 @@ export async function takeMessengerStagedObject(
   sb: Sb,
   path: string
 ): Promise<{ ok: true; buf: Buffer } | { ok: false; error: "upload_missing" }> {
-  const bucket = sb.storage.from(BUCKET);
+  const preferred = await resolveMessengerMediaUploadBucket(sb);
+  const order = [preferred, ...ALL_MEDIA_BUCKETS.filter((b) => b !== preferred)];
   try {
-    const dl = await bucket.download(path);
-    if (dl.error || !dl.data) return { ok: false, error: "upload_missing" };
-    return { ok: true, buf: Buffer.from(await dl.data.arrayBuffer()) };
-  } catch {
+    for (const name of order) {
+      try {
+        const dl = await sb.storage.from(name).download(path);
+        if (!dl.error && dl.data) return { ok: true, buf: Buffer.from(await dl.data.arrayBuffer()) };
+      } catch {
+        /* 다음 버킷 */
+      }
+    }
     return { ok: false, error: "upload_missing" };
   } finally {
-    await purgeMessengerMediaStoragePaths(sb, [path], {});
+    await removeMessengerStagedObjects(sb, [path]);
   }
 }
 
+/** staging 정리 — 비공개 버킷 사용 중이면 전환 경계(업로드 URL 발급 후 버킷 변경) 대비 두 버킷 모두에서 제거(없는 키 remove 는 no-op). */
 export async function removeMessengerStagedObjects(sb: Sb, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
-  await purgeMessengerMediaStoragePaths(sb, paths, {});
+  const preferred = await resolveMessengerMediaUploadBucket(sb);
+  const buckets = preferred === MESSENGER_PRIVATE_MEDIA_BUCKET ? ALL_MEDIA_BUCKETS : [MESSENGER_LEGACY_MEDIA_BUCKET];
+  for (const bucket of buckets) {
+    await purgeMessengerMediaStoragePaths(sb, paths, { bucket });
+  }
 }
 
 /** 서명 업로드 URL 발급(staging). 클라이언트는 이 URL 로 Storage 에 직접 PUT 한다. */
@@ -223,11 +248,13 @@ export async function purgeStaleMessengerStagingObjects(input: {
   userId: string;
   roomId: string;
   nowMs?: number;
+  /** C-4: 미지정 시 레거시 post-images (기존 동작). */
+  bucket?: MessengerMediaBucket;
 }): Promise<number> {
   const dir = messengerStagingDir(input.kind, input.userId, input.roomId);
   const cutoff = (input.nowMs ?? Date.now()) - MESSENGER_STAGING_ABANDON_MS;
   try {
-    const bucket = input.sb.storage.from(BUCKET);
+    const bucket = input.sb.storage.from(input.bucket ?? MESSENGER_LEGACY_MEDIA_BUCKET);
     const { data, error } = await bucket.list(dir, { limit: 100 });
     if (error || !Array.isArray(data)) return 0;
     const stale: string[] = [];
@@ -260,13 +287,17 @@ export async function createMessengerStagedUploadUrls(input: {
   roomId: string;
   exts: string[];
 }): Promise<{ ok: true; uploads: Array<{ path: string; signedUrl: string; token?: string }> } | { ok: false; error: string }> {
-  const bucket = input.sb.storage.from(BUCKET);
-  await purgeStaleMessengerStagingObjects({
-    sb: input.sb,
-    kind: input.kind,
-    userId: input.userId,
-    roomId: input.roomId,
-  });
+  const bucketName = await resolveMessengerMediaUploadBucket(input.sb);
+  const bucket = input.sb.storage.from(bucketName);
+  for (const b of new Set<MessengerMediaBucket>([bucketName, MESSENGER_LEGACY_MEDIA_BUCKET])) {
+    await purgeStaleMessengerStagingObjects({
+      sb: input.sb,
+      kind: input.kind,
+      userId: input.userId,
+      roomId: input.roomId,
+      bucket: b,
+    });
+  }
   const uploads: Array<{ path: string; signedUrl: string; token?: string }> = [];
   for (const ext of input.exts) {
     const path = buildMessengerStagingPath({

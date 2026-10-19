@@ -1,13 +1,15 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import Link from "next/link";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   adminTradeFlowDeepLinkActive,
   matchAdminTradeFlowSessionToDeepLink,
@@ -67,8 +69,62 @@ interface ReviewRow {
   created_at: string;
 }
 
+const TRADE_FLOW_STATUS_KEYS: Record<string, MessageKey> = {
+  chatting: "admin_trade_flow_status_chatting",
+  seller_marked_done: "admin_trade_flow_status_seller_marked_done",
+  buyer_confirmed: "admin_trade_flow_status_buyer_confirmed",
+  review_pending: "admin_trade_flow_status_review_pending",
+  review_completed: "admin_trade_flow_status_review_completed",
+  dispute: "admin_trade_flow_status_dispute",
+  cancelled: "admin_trade_flow_status_cancelled",
+  archived: "admin_trade_flow_status_archived",
+};
+const POST_STATUS_KEYS: Record<string, MessageKey> = {
+  active: "admin_trade_post_status_active",
+  reserved: "admin_trade_post_status_reserved",
+  sold: "admin_trade_post_status_sold",
+  hidden: "admin_trade_post_status_hidden",
+};
+const LISTING_STATE_KEYS: Record<string, MessageKey> = {
+  inquiry: "admin_trade_listing_inquiry",
+  negotiating: "admin_trade_listing_negotiating",
+  reserved: "admin_trade_listing_reserved",
+  completed: "admin_trade_listing_completed",
+};
+const REP_SOURCE_KEYS: Record<string, MessageKey> = {
+  trade_complete: "admin_trade_rep_source_trade_complete",
+  review: "admin_trade_rep_source_review",
+  admin_adjust: "admin_trade_rep_source_admin_adjust",
+  dispute_hold: "admin_trade_rep_source_dispute_hold",
+  report: "admin_trade_rep_source_report",
+};
+const REP_STATUS_KEYS: Record<string, MessageKey> = {
+  applied: "admin_trade_rep_status_applied",
+  held: "admin_trade_rep_status_held",
+};
+const TRADE_CHAT_MODE_KEYS: Record<string, MessageKey> = {
+  open: "admin_trade_chat_mode_open",
+  limited: "admin_trade_chat_mode_limited",
+  readonly: "admin_trade_chat_mode_readonly",
+};
+
 export function AdminTradeFlowPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const tradeFlowStatusLabel = (v: string | null | undefined) => {
+    const key = TRADE_FLOW_STATUS_KEYS[String(v ?? "")];
+    return key ? t(key) : v ? t("admin_trade_label_unknown") : "—";
+  };
+  /** 등록되지 않은 값은 「알 수 없음」 — 원시 값은 화면 1차 정보로 쓰지 않는다 (상태 라벨 레지스트리 규칙). */
+  const labelOf = (map: Record<string, MessageKey>, v: string | null | undefined) => {
+    const raw = String(v ?? "").trim();
+    if (!raw) return "—";
+    const key = map[raw];
+    return key ? t(key) : t("admin_trade_label_unknown");
+  };
+  const tradeChatModeLabel = (v: string | null | undefined) => {
+    const key = TRADE_CHAT_MODE_KEYS[String(v ?? "")];
+    return key ? t(key) : v ? t("admin_trade_label_unknown") : "—";
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel") === "complete" ? "complete" : "flow";
@@ -139,11 +195,15 @@ export function AdminTradeFlowPage() {
 
   const revertTrade = useCallback(
     async (roomId: string) => {
-      if (
-        !(await dibayConfirm({ title: t("admin_trade_flow_revert_confirm") }))
-      ) {
-        return;
-      }
+      const confirmed = await confirmAdminAction({
+        level: "L2",
+        ko: language !== "en",
+        title: t("admin_trade_flow_revert_confirm"),
+        confirmLabel: t("admin_trade_flow_revert_trade"),
+        destructive: true,
+      });
+      if (!confirmed.ok) return;
+      const reason = confirmed.reason ?? "";
       setRevertingId(roomId);
       setError(null);
       logAdminMutation("trade-flow:revert", "start", { roomId });
@@ -151,7 +211,7 @@ export function AdminTradeFlowPage() {
         const res = await fetch("/api/admin/trade-flow/revert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId }),
+          body: JSON.stringify({ roomId, reason }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
@@ -179,8 +239,8 @@ export function AdminTradeFlowPage() {
           fallbackEn: "Trade operations",
         })}
         description={safeT("admin_trade_operations_desc", {
-          fallbackKo: "trade-flow + trade-complete — product_chats / chat_rooms authority 유지.",
-          fallbackEn: "trade-flow + trade-complete — keep product_chats / chat_rooms authority.",
+          fallbackKo: "거래 진행 단계·구매자 확인·후기·신뢰 기록을 봅니다.",
+          fallbackEn: "Trade stages, buyer confirmation, reviews and trust records.",
         })}
         actions={
           <ConsoleButton variant="secondary" onClick={() => void load()} disabled={loading}>
@@ -233,9 +293,9 @@ export function AdminTradeFlowPage() {
         >
           {t("admin_trade_deep_link_flow_focus", {
             post: focusedSession.postTitle || focusedSession.post_id,
-            status: focusedSession.postStatus ?? "—",
-            listing: focusedSession.sellerListingState ?? "—",
-            flow: focusedSession.trade_flow_status,
+            status: labelOf(POST_STATUS_KEYS, focusedSession.postStatus),
+            listing: labelOf(LISTING_STATE_KEYS, focusedSession.sellerListingState),
+            flow: tradeFlowStatusLabel(focusedSession.trade_flow_status),
             seller: focusedSession.seller_id.slice(0, 8) + "…",
             buyer: focusedSession.buyer_id.slice(0, 8) + "…",
           })}
@@ -291,22 +351,12 @@ export function AdminTradeFlowPage() {
                     >
                       <td className="px-3 py-2 font-mono sam-text-helper">
                         <div className="flex flex-col gap-0.5">
+                          {/* 설계 §8·§10: Admin 방 상세로 (사용자 앱 방은 열지 않는다 — 레거시 상세가 CM 방 상세로 보낸다) */}
                           <Link
-                            href={`/admin/chats/trade?postId=${encodeURIComponent(s.post_id)}&productChatId=${encodeURIComponent(s.id)}`}
+                            href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(s.id)}`, "/admin/trade-flow")}
                             className="text-signature hover:underline"
                           >
                             {s.id.slice(0, 8)}…
-                          </Link>
-                          <Link
-                            href={tradeChatNotificationHref(s.id, "product_chat")}
-                            className="sam-text-xxs text-sam-muted hover:underline"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {safeT("admin_trade_flow_open_member_chat", {
-                              fallbackKo: "멤버 채팅",
-                              fallbackEn: "Member chat",
-                            })}
                           </Link>
                         </div>
                       </td>
@@ -318,21 +368,21 @@ export function AdminTradeFlowPage() {
                           {s.postTitle ?? s.post_id}
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-sam-fg">{s.postStatus ?? "—"}</td>
-                      <td className="max-w-[100px] truncate px-3 py-2 text-sam-fg" title={s.sellerListingState ?? ""}>
-                        {s.sellerListingState ?? "—"}
+                      <td className="px-3 py-2 text-sam-fg">{labelOf(POST_STATUS_KEYS, s.postStatus)}</td>
+                      <td className="max-w-[100px] truncate px-3 py-2 text-sam-fg">
+                        {labelOf(LISTING_STATE_KEYS, s.sellerListingState)}
                       </td>
-                      <td className="px-3 py-2">{s.trade_flow_status}</td>
+                      <td className="px-3 py-2">{tradeFlowStatusLabel(s.trade_flow_status)}</td>
                       <td className="px-3 py-2">{s.hasBuyerReview ? "Y" : "N"}</td>
-                      <td className="px-3 py-2">{s.chat_mode}</td>
+                      <td className="px-3 py-2">{tradeChatModeLabel(s.chat_mode)}</td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.seller_completed_at
-                          ? new Date(s.seller_completed_at).toLocaleString("ko-KR")
+                          ? formatAdminDateTime(s.seller_completed_at, language)
                           : "—"}
                       </td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.buyer_confirmed_at
-                          ? new Date(s.buyer_confirmed_at).toLocaleString("ko-KR")
+                          ? formatAdminDateTime(s.buyer_confirmed_at, language)
                           : "—"}
                       </td>
                       <td className="px-3 py-2">
@@ -384,7 +434,7 @@ export function AdminTradeFlowPage() {
                   {reviews.map((rv) => (
                     <tr key={rv.id} className="border-b border-sam-border-soft">
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                        {rv.created_at ? new Date(rv.created_at).toLocaleString("ko-KR") : "—"}
+                        {rv.created_at ? formatAdminDateTime(rv.created_at, language) : "—"}
                       </td>
                       <td className="px-3 py-2">{reviewRoleLabels[rv.role_type as keyof typeof reviewRoleLabels] ?? rv.role_type}</td>
                       <td className="px-3 py-2">
@@ -410,7 +460,7 @@ export function AdminTradeFlowPage() {
                         </span>
                         <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                           {rv.room_id ? (
-                            <Link href={tradeChatNotificationHref(rv.room_id, "product_chat")} className="text-signature hover:underline" target="_blank">
+                            <Link href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(rv.room_id)}`, "/admin/trade-flow")} className="text-signature hover:underline">
                               {t("admin_trade_flow_chat_link")}
                             </Link>
                           ) : (
@@ -451,12 +501,12 @@ export function AdminTradeFlowPage() {
                   {logs.map((l) => (
                     <tr key={l.id} className="border-b border-sam-border-soft">
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                        {new Date(l.created_at).toLocaleString("ko-KR")}
+                        {formatAdminDateTime(l.created_at, language)}
                       </td>
                       <td className="px-3 py-2 font-mono sam-text-xxs">{l.user_id.slice(0, 8)}…</td>
-                      <td className="px-3 py-2">{l.source_type}</td>
+                      <td className="px-3 py-2">{labelOf(REP_SOURCE_KEYS, l.source_type)}</td>
                       <td className="px-3 py-2">{l.delta}</td>
-                      <td className="px-3 py-2">{l.status}</td>
+                      <td className="px-3 py-2">{labelOf(REP_STATUS_KEYS, l.status)}</td>
                       <td className="max-w-[200px] truncate px-3 py-2 text-sam-muted" title={l.reason ?? ""}>
                         {l.reason ?? "—"}
                       </td>

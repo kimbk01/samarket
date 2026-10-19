@@ -386,6 +386,8 @@ export type CommunityMessengerImageSendItem = {
   originalPublicUrl: string;
   originalStoragePath: string;
   originalMimeType: string;
+  /** C-4: 업로드 버킷 (`messenger-media` 비공개 · 미지정/`post-images` 레거시) → metadata.storage_bucket */
+  storageBucket?: string | null;
   /** 표시 기준 픽셀 크기(서버 sharp 판독). 못 읽으면 null. */
   width?: number | null;
   height?: number | null;

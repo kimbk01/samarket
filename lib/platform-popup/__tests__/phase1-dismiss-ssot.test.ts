@@ -57,7 +57,10 @@ describe("Phase 1 dismiss SSOT", () => {
     expect(host).toContain("handleImpression");
     expect(host).toContain("onImpression={handleImpression}");
     expect(host).not.toContain("frequency_suppress_failed");
-    expect(host).toContain('App.addListener("backButton"');
+    // INAPP-07: Android back goes through the overlay back stack (DibayOverlayRoot onClose),
+    // never a second popup-owned native listener.
+    expect(host).not.toContain('App.addListener("backButton"');
+    expect(readRepo("components/platform-popup/DibayPopupAd.tsx")).toContain("onClose={onClose}");
     // Impression handler must not POST suppress.
     const impressionBlock = host.slice(
       host.indexOf("const handleImpression"),

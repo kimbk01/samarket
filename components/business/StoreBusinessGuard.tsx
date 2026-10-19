@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { OWNER_ROUTES_BASE } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { useEffect, useState } from "react";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
@@ -95,8 +96,9 @@ export function StoreBusinessGuard({
    */
   enforce?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [phase, setPhase] = useState<Phase>(() => resolvedPhaseFromPeek() ?? { kind: "loading" });
 
   useEffect(() => {
@@ -184,6 +186,31 @@ export function StoreBusinessGuard({
     );
   }
 
+  // 운영 중지 매장 — 진행 중 주문은 끝까지 처리할 수 있도록 주문·주문 채팅 화면만 허용 (DEF-71, Owner 승인).
+  // 새 주문은 매장 비노출 + 결제 차단으로 들어오지 않는다.
+  if (
+    phase.kind === "blocked" &&
+    phase.state.kind === "pending" &&
+    phase.state.approval_status === "suspended" &&
+    isSuspendedStoreAllowedOwnerPath(pathname)
+  ) {
+    const ko = language !== "en";
+    return (
+      <div className={OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS}>
+        <div
+          role="status"
+          data-owner-store-suspended-orders-only="1"
+          className="mx-4 mt-3 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-950"
+        >
+          {ko
+            ? "매장 운영이 중지되어 새 주문은 받지 않습니다. 진행 중인 주문만 처리할 수 있습니다."
+            : "Your store is suspended and won't receive new orders. You can still finish orders in progress."}
+        </div>
+        {children}
+      </div>
+    );
+  }
+
   if (phase.kind === "blocked") {
     const { state, firstStoreId } = phase;
     return (
@@ -200,4 +227,15 @@ export function StoreBusinessGuard({
   }
 
   return <div className={OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS}>{children}</div>;
+}
+
+function isSuspendedStoreAllowedOwnerPath(pathname: string): boolean {
+  return (
+    pathname === `${OWNER_ROUTES_BASE}/orders` ||
+    pathname.startsWith(`${OWNER_ROUTES_BASE}/orders/`) ||
+    pathname === `${OWNER_ROUTES_BASE}/order-chats` ||
+    pathname.startsWith(`${OWNER_ROUTES_BASE}/order-chats/`) ||
+    pathname === `${OWNER_ROUTES_BASE}/order-chat` ||
+    pathname.startsWith(`${OWNER_ROUTES_BASE}/order-chat/`)
+  );
 }

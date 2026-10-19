@@ -29,7 +29,11 @@ import {
   supportIssueLabel,
   supportReferenceLabel,
 } from "@/lib/support/support-display-labels";
-import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
+import {
+  resolveSupportCaseContextLinks,
+  type SupportAdminContextLink,
+} from "@/lib/support/support-reference-admin-href";
+import { fetchAdminMeSnapshot, peekAdminMeSnapshot, type AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 
 /**
  * Admin Support console (Owner-approved redesign 2026-10-05).
@@ -110,13 +114,36 @@ function Seg<T extends string>({
   );
 }
 
+/** 상담 바로가기 — 링크가 요구하는 권한이 있을 때만 연다 (super_admin 통과). */
+function supportLinkAllowed(link: SupportAdminContextLink, me: AdminMeSnapshot | null): boolean {
+  const need = link.requiredPermissions;
+  if (!need?.length) return true;
+  if (!me) return false;
+  if (me.role === "super_admin") return true;
+  return need.some((k) => me.permissions.includes(k));
+}
+
 function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
+  const [adminMe, setAdminMe] = useState<AdminMeSnapshot | null>(() => peekAdminMeSnapshot());
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAdminMeSnapshot().then((me) => {
+      if (!cancelled) setAdminMe(me);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const searchParams = useSearchParams();
   const initial = useMemo(() => {
     const tabParam = searchParams.get("tab")?.trim().toUpperCase() ?? "";
     if (isAdminSupportTab(tabParam)) return { tab: tabParam, audience: null, assignee: null };
+    // Domain deep links (주문 상세 · 매장 허브) look for every case of that reference, not only open ones.
+    if (searchParams.get("reference_id") || searchParams.get("store_id")) {
+      return { tab: "ALL" as AdminSupportTab, audience: null, assignee: null };
+    }
     // Legacy `?filter=` deep links (Action Center, dashboard tile) keep working.
     return adminSupportTabFromLegacyFilter(searchParams.get("filter"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,6 +155,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [assignee, setAssignee] = useState<Assignee>(initial.assignee ?? "ALL");
   const [staleOnly, setStaleOnly] = useState(false);
   const [search, setSearch] = useState(searchParams.get("search")?.trim() ?? "");
+  /** Exact deep-link scope from domain Admin — shown as a removable chip, server-filtered. */
+  const [scope, setScope] = useState(() => ({
+    referenceType: searchParams.get("reference_type")?.trim().toUpperCase() || null,
+    referenceId: searchParams.get("reference_id")?.trim() || null,
+    storeId: searchParams.get("store_id")?.trim() || null,
+  }));
   /** The query actually sent; typing settles 300ms first, button/Enter apply at once. */
   const [appliedSearch, setAppliedSearch] = useState(search);
 
@@ -161,6 +194,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (assignee !== "ALL") qs.set("assignee", assignee);
       if (staleOnly) qs.set("stale", "1");
       if (appliedSearch.trim()) qs.set("search", appliedSearch.trim());
+      if (scope.referenceType) qs.set("reference_type", scope.referenceType);
+      if (scope.referenceId) qs.set("reference_id", scope.referenceId);
+      if (scope.storeId) qs.set("store_id", scope.storeId);
       const res = await fetch(`/api/admin/support/cases?${qs.toString()}`, { credentials: "include" });
       const json = (await res.json()) as {
         ok?: boolean;
@@ -181,7 +217,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     } finally {
       setListLoading(false);
     }
-  }, [tab, audience, group, assignee, staleOnly, appliedSearch]);
+  }, [tab, audience, group, assignee, staleOnly, appliedSearch, scope]);
 
   const loadDetail = useCallback(async (caseId: string) => {
     setDetailLoading(true);
@@ -461,6 +497,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
           {ko ? "24시간 이상" : "24h+"}
         </label>
+        {scope.referenceId || scope.storeId ? (
+          <button
+            type="button"
+            onClick={() => setScope({ referenceType: null, referenceId: null, storeId: null })}
+            className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-2 py-0.5 text-xs text-sam-fg"
+            title={ko ? "연결 조건 해제" : "Clear linked filter"}
+          >
+            {scope.referenceId
+              ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${scope.referenceId.slice(0, 8)}`
+              : `${ko ? "매장" : "Store"} · ${String(scope.storeId).slice(0, 8)}`}
+            <span aria-hidden>✕</span>
+          </button>
+        ) : null}
         <div className="ml-auto flex min-w-[220px] flex-1 gap-1 sm:max-w-sm">
           <input
             value={search}
@@ -976,13 +1025,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   referenceId: activeCase.reference_id,
                 }).map((link) => (
                   <li key={`${link.mutationOwner}:${link.href}`}>
-                    <Link
-                      href={link.href}
-                      className="text-xs font-semibold text-sam-primary underline underline-offset-2"
-                      data-admin-support-context-link={link.mutationOwner}
-                    >
-                      {ko ? link.labelKo : link.labelEn}
-                    </Link>
+                    {supportLinkAllowed(link, adminMe) ? (
+                      <Link
+                        href={link.href}
+                        className="text-xs font-semibold text-sam-primary underline underline-offset-2"
+                        data-admin-support-context-link={link.mutationOwner}
+                      >
+                        {ko ? link.labelKo : link.labelEn}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-sam-muted" data-admin-support-context-link-locked={link.mutationOwner}>
+                        {ko ? `${link.labelKo} — 권한 필요` : `${link.labelEn} — permission required`}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -183,7 +183,7 @@ export function AdminGiftOpsCenter() {
               [
                 { id: "external" as const, ko: "과거 외부 환전", en: "Historical cash-out" },
                 { id: "store-cash" as const, ko: "과거 전환 기록", en: "Historical conversion records" },
-                { id: "recovery" as const, ko: "Recovery", en: "Recovery" },
+                { id: "recovery" as const, ko: "회수 기록", en: "Recovery" },
               ] as const
             ).map((s) => (
               <Link

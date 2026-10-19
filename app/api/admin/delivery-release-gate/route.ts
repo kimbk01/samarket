@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -282,7 +284,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let body: {
@@ -312,7 +314,7 @@ export async function PATCH(req: NextRequest) {
   const patch: Record<string, unknown> = {
     checked: body.checked,
     checked_at: body.checked ? nowIso() : null,
-    checked_by: body.checked ? admin.userId : null,
+    checked_by: body.checked ? admin.actor.userId : null,
     note: noteRaw ? noteRaw : null,
   };
 
@@ -334,6 +336,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: msg.slice(0, 180) }, { status: 500 });
   }
   if (!data) return NextResponse.json({ ok: false, error: "row_missing" }, { status: 404 });
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_release_gate_manual_check",
+    targetId: key,
+    action: "delivery_release_gate.manual_check",
+    after: { key, checked: body.checked, note: patch.note },
+  });
 
   return NextResponse.json({ ok: true, row: data });
 }

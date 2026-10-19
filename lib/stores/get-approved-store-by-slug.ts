@@ -100,6 +100,11 @@ export async function getApprovedStoreBySlug(
   });
 }
 
+/** DEF-64 — 인스턴스 공통 세대 변경 시 이 인스턴스의 30s slug lookup memory 전체 제거. */
+export function clearApprovedStoreSlugCache(): void {
+  approvedStoreSlugCache.clear();
+}
+
 export function resetApprovedStoreSlugCacheForTests(): void {
   approvedStoreSlugCache.clear();
 }

@@ -17,6 +17,8 @@ import {
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { supportInboxHrefForStore } from "@/lib/support/support-reference-admin-href";
 import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
+import { resolveDeliveryActionCenterCard } from "@/lib/admin/metrics/delivery-metrics";
+import { resolveChatActionCenterCard } from "@/lib/admin/metrics/chat-metrics";
 
 type QueueCard = {
   id: string;
@@ -95,6 +97,8 @@ export function AdminActionCenter() {
     (c) => c.listHref && c.status !== "forbidden" && (c.status === "unavailable" || (c.count ?? 0) > 0)
   ).length;
   const unavailableLabel = ko ? "확인 불가" : "UNAVAILABLE";
+  const deliveryCard = resolveDeliveryActionCenterCard(q.queueCategories);
+  const chatCard = resolveChatActionCenterCard(q.queueCategories);
 
   const topSummary = [
     { id: "need", labelKo: "처리 필요", labelEn: "Action needed", n: q.adminBellCount },
@@ -129,9 +133,11 @@ export function AdminActionCenter() {
 
   const domainHealth: QueueCard[] = [
     {
+      // §5 · X-4 — 배달 대시보드와 같은 지표 정의(lib/admin/metrics), CTA = 배달 대시보드
       id: "domain-delivery",
-      href: withAdminReturnTo("/admin/stores/orders", returnTo),
-      count: q.ordersAttentionCount + q.deliveryAlertsCount + q.storeApplicationsCount,
+      href: withAdminReturnTo(deliveryCard.href, returnTo),
+      count: deliveryCard.count ?? 0,
+      unavailable: deliveryCard.unavailable,
       titleKo: "배달 운영",
       titleEn: "Delivery ops",
       domainKo: "배달",
@@ -162,16 +168,17 @@ export function AdminActionCenter() {
       primaryCtaEn: "Community home",
     },
     {
+      // 설계 §6 — 채팅 대시보드와 같은 지표 정의(lib/admin/metrics/chat-metrics), CTA = 채팅 대시보드
       id: "domain-chat",
-      href: withAdminReturnTo("/admin/chats/reported", returnTo),
-      count: q.messengerActionableCount,
-      unavailable: unavailable.has("messenger_actionable"),
+      href: withAdminReturnTo(chatCard.href, returnTo),
+      count: chatCard.count ?? 0,
+      unavailable: chatCard.unavailable,
       titleKo: "채팅 (메신저)",
       titleEn: "Chat (Messenger)",
       domainKo: "채팅",
       domainEn: "Chat",
-      primaryCtaKo: "신고 큐",
-      primaryCtaEn: "Report queue",
+      primaryCtaKo: "채팅 대시보드",
+      primaryCtaEn: "Chat dashboard",
       alwaysShow: true,
     },
   ];

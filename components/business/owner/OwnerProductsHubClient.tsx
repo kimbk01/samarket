@@ -23,6 +23,8 @@ type HubProduct = {
   discount_price?: number | null;
   thumbnail_url?: string | null;
   product_status: string;
+  admin_review_status?: string | null;
+  admin_review_memo?: string | null;
   menu_section_id?: string | null;
   store_menu_sections?: Section | Section[] | null;
 };
@@ -271,6 +273,22 @@ export function OwnerProductsHubClient({
       if (!res.ok || !j?.ok) {
         if (j?.error === "sales_not_approved") {
           setToast(t("business_phase7_425"));
+        } else if (j?.error === "admin_review_rejected") {
+          setToast(
+            ownerUiCopy(
+              language,
+              "관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
+              "This item was rejected in admin review. Edit it to request re-review; you can sell it after approval."
+            )
+          );
+        } else if (j?.error === "admin_blocked_product") {
+          setToast(
+            ownerUiCopy(
+              language,
+              "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
+              "An admin blocked this item. Please contact support."
+            )
+          );
         } else {
           setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));
         }
@@ -487,6 +505,21 @@ export function OwnerProductsHubClient({
                       {intro ? (
                         <p className="mt-0.5 truncate sam-text-xxs leading-snug text-sam-muted" title={intro}>
                           {intro}
+                        </p>
+                      ) : null}
+                      {p.product_status === "blocked" || p.admin_review_status === "rejected" || p.admin_review_status === "pending" ? (
+                        <p
+                          data-owner-product-admin-review={p.admin_review_status ?? p.product_status}
+                          className="mt-0.5 sam-text-xxs leading-snug text-amber-800"
+                        >
+                          {p.product_status === "blocked"
+                            ? ownerUiCopy(language, "관리자 판매 차단", "Blocked by admin")
+                            : p.admin_review_status === "rejected"
+                              ? ownerUiCopy(language, "관리자 검수 반려", "Rejected in admin review")
+                              : ownerUiCopy(language, "재검수 대기", "Awaiting re-review")}
+                          {p.admin_review_memo && p.admin_review_status !== "pending"
+                            ? ` · ${p.admin_review_memo}`
+                            : ""}
                         </p>
                       ) : null}
                       <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0">

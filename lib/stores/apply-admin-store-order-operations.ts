@@ -10,6 +10,8 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 
 export type AdminOrderOpsAudit = {
   adminUserId: string;
+  /** 운영자 처리 사유 (있으면 작업 기록에 남긴다) */
+  reason?: string | null;
   ip?: string | null;
   user_agent?: string | null;
 };
@@ -249,13 +251,50 @@ export type AdminStoreOrderMetaPatch = {
   needs_admin_attention?: boolean;
 };
 
-/** 관리자 플래그·메모만 수선 — order_status 비변경 */
+/** Meta fields that must carry the `updated_at` the admin saw (overwrite = lost update). */
+export const ADMIN_STORE_ORDER_META_CAS_REQUIRED_FIELDS = ["admin_locked", "admin_flagged", "dispute_status"] as const;
+
+/** Postgres timestamptz text → comparable microseconds (null when unparsable). */
+export function adminOrderTimestampMicros(raw: unknown): number | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return null;
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}(?::?\d{2})?)?$/i.exec(s);
+  if (!m) {
+    const ms = Date.parse(s);
+    return Number.isFinite(ms) ? ms * 1000 : null;
+  }
+  let tz = m[4] ?? "Z";
+  if (/^[+-]\d{2}$/.test(tz)) tz = `${tz}:00`;
+  else if (/^[+-]\d{4}$/.test(tz)) tz = `${tz.slice(0, 3)}:${tz.slice(3)}`;
+  const baseMs = Date.parse(`${m[1]}T${m[2]}${tz.toUpperCase() === "Z" ? "Z" : tz}`);
+  if (!Number.isFinite(baseMs)) return null;
+  const micros = Number((m[3] ?? "").padEnd(6, "0").slice(0, 6)) || 0;
+  return baseMs * 1000 + micros;
+}
+
+export function sameAdminOrderTimestamp(a: unknown, b: unknown): boolean {
+  const x = adminOrderTimestampMicros(a);
+  const y = adminOrderTimestampMicros(b);
+  return x != null && y != null && x === y;
+}
+
+/**
+ * 관리자 플래그·메모만 수선 — order_status 비변경.
+ * Concurrency: with `expectedUpdatedAt` the write is conditional on the row's `updated_at`
+ * (pre-check + `.eq("updated_at", …)` on the write) → 409 `stale_updated_at` when another
+ * admin changed it first. Lock / review mark / urgent require it (see CAS_REQUIRED_FIELDS).
+ * Every write bumps `updated_at` so the next editor's condition sees this change.
+ */
 export async function adminPatchStoreOrderMeta(
   sb: SupabaseClient,
   orderId: string,
   patch: AdminStoreOrderMetaPatch,
-  audit: AdminOrderOpsAudit
-): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
+  audit: AdminOrderOpsAudit,
+  opts: { expectedUpdatedAt?: string | null } = {}
+): Promise<
+  | { ok: true; updatedAt: string }
+  | { ok: false; error: string; httpStatus: number; currentUpdatedAt?: string | null }
+> {
   const oid = orderId.trim();
   if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
 
@@ -278,17 +317,32 @@ export async function adminPatchStoreOrderMeta(
     return { ok: false, error: "empty_meta_patch", httpStatus: 400 };
   }
 
+  const expected = String(opts.expectedUpdatedAt ?? "").trim();
+  if (!expected && ADMIN_STORE_ORDER_META_CAS_REQUIRED_FIELDS.some((f) => f in row)) {
+    return { ok: false, error: "expected_updated_at_required", httpStatus: 400 };
+  }
+
   const { data: before, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, store_id, admin_locked, admin_flagged, admin_note, dispute_status, needs_admin_attention"
+      "id, store_id, admin_locked, admin_flagged, admin_note, dispute_status, needs_admin_attention, updated_at"
     )
     .eq("id", oid)
     .maybeSingle();
 
   if (oErr || !before) return { ok: false, error: "order_not_found", httpStatus: 404 };
 
-  const uErr = (await sb.from("store_orders").update(row).eq("id", oid)).error;
+  const beforeUpdatedAt = typeof before.updated_at === "string" ? before.updated_at : null;
+  if (expected && !sameAdminOrderTimestamp(beforeUpdatedAt, expected)) {
+    return { ok: false, error: "stale_updated_at", httpStatus: 409, currentUpdatedAt: beforeUpdatedAt };
+  }
+
+  const nowIso = new Date().toISOString();
+  row.updated_at = nowIso;
+  let write = sb.from("store_orders").update(row).eq("id", oid);
+  // The DB's own text for the value we just checked → exact match on the write (CAS).
+  if (expected && beforeUpdatedAt) write = write.eq("updated_at", beforeUpdatedAt);
+  const { data: written, error: uErr } = await write.select("id, updated_at");
   if (uErr) {
     const missing =
       /admin_locked|admin_flagged|admin_note|refund_approved_at|refunded_at|dispute_status|needs_admin_attention/i.test(
@@ -298,7 +352,12 @@ export async function adminPatchStoreOrderMeta(
       return { ok: false, error: "admin_columns_missing_apply_migration", httpStatus: 503 };
     }
     console.error("[adminPatchStoreOrderMeta]", uErr);
-    return { ok: false, error: uErr.message, httpStatus: 500 };
+    return { ok: false, error: "db_error", httpStatus: 500 };
+  }
+  const writtenRow = Array.isArray(written) ? (written[0] as { updated_at?: unknown } | undefined) : undefined;
+  if (!writtenRow) {
+    // Someone else wrote between our read and write.
+    return { ok: false, error: "stale_updated_at", httpStatus: 409, currentUpdatedAt: beforeUpdatedAt };
   }
 
   void appendAuditLog(sb, {
@@ -308,7 +367,7 @@ export async function adminPatchStoreOrderMeta(
     target_id: oid,
     action: "store_order.admin_patch_meta",
     before_json: before as Record<string, unknown>,
-    after_json: row,
+    after_json: audit.reason ? { ...row, reason: audit.reason } : row,
     ip: audit.ip ?? null,
     user_agent: audit.user_agent ?? null,
   });
@@ -316,7 +375,7 @@ export async function adminPatchStoreOrderMeta(
   const sid = before.store_id as string;
   const ownerId = await loadOwnerUserId(sb, sid);
   invalidateCaches(sb, sid, ownerId);
-  return { ok: true };
+  return { ok: true, updatedAt: typeof writtenRow.updated_at === "string" ? writtenRow.updated_at : nowIso };
 }
 
 /** 환불 완료 — apply ADMIN → refunded */

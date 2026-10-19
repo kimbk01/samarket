@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 
@@ -124,6 +125,7 @@ export function AdminBannerForm({
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="https://..."
         />
+        <AdminDestinationResolvedHint href={values.targetUrl} />
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">

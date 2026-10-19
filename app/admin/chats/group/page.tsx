@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdminMessengerDomainRoomList } from "@/components/admin/chats/AdminMessengerDomainRoomList";
 
 export default function AdminChatsGroupPage() {
-  return <AdminMessengerDomainRoomList mode="group" />;
+  return (
+    <Suspense fallback={null}>
+      <AdminMessengerDomainRoomList mode="group" />
+    </Suspense>
+  );
 }

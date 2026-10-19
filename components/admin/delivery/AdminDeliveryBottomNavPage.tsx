@@ -9,7 +9,13 @@ import {
   BOTTOM_NAV_BUILTIN_ICON_KEYS,
   resolveAdminDelApiError,
 } from "@/components/admin/i18n/admin-delivery-label-keys";
-import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
+import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/delivery-bottom-nav-builtin";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
 type Row = {
   id: string;
@@ -26,37 +32,84 @@ type Row = {
 
 type ListResp = { ok: boolean; items?: Row[]; error?: string };
 
+/** 응답 파싱 실패·HTTP 오류도 { ok:false, error } 로 통일 — 호출부가 항상 결과를 확인한다. */
+async function readResult<T extends { ok: boolean; error?: string }>(res: Response): Promise<T> {
+  const j = (await res.json().catch(() => null)) as T | null;
+  if (j && res.ok) return j;
+  const code =
+    j && typeof j.error === "string" && j.error ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+  return { ...(j ?? {}), ok: false, error: code } as T;
+}
+
 async function apiList(): Promise<ListResp> {
-  const res = await fetch("/api/admin/stores/bottom-nav", { credentials: "include" });
-  return (await res.json()) as ListResp;
+  try {
+    const res = await fetch("/api/admin/stores/bottom-nav", { credentials: "include" });
+    return await readResult<ListResp>(res);
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
 }
 
 async function apiCreate(payload: Partial<Row>) {
-  const res = await fetch("/api/admin/stores/bottom-nav", {
-    method: "POST",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return (await res.json()) as { ok: boolean; item?: Row; error?: string };
+  try {
+    const res = await fetch("/api/admin/stores/bottom-nav", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return await readResult<{ ok: boolean; item?: Row; error?: string }>(res);
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
 }
 
-async function apiUpdate(id: string, patch: Partial<Row>) {
-  const res = await fetch("/api/admin/stores/bottom-nav", {
-    method: "PUT",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, ...patch }),
-  });
-  return (await res.json()) as { ok: boolean; item?: Row; error?: string };
+/** 단일 항목 PUT — 화면이 본 updated_at 을 함께 보낸다 (CAS, 409 stale_updated_at). */
+async function apiUpdate(id: string, patch: Partial<Row>, expectedUpdatedAt: string | null | undefined) {
+  try {
+    const res = await fetch("/api/admin/stores/bottom-nav", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, ...patch, expected_updated_at: expectedUpdatedAt ?? null }),
+    });
+    return await readResult<{ ok: boolean; item?: Row; error?: string }>(res);
+  } catch {
+    return { ok: false, error: "network_error" } as { ok: boolean; item?: Row; error?: string };
+  }
+}
+
+/** 순서 교환 1회 요청 (DEF-44) — 서버가 CAS·되돌리기·감사 기록을 처리한다. */
+async function apiSwapOrder(a: Row, b: Row) {
+  try {
+    const res = await fetch("/api/admin/stores/bottom-nav", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "swap_order",
+        a_id: a.id,
+        b_id: b.id,
+        a_sort_order: a.sort_order,
+        b_sort_order: b.sort_order,
+      }),
+    });
+    return await readResult<{ ok: boolean; error?: string }>(res);
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
 }
 
 async function apiDelete(id: string) {
-  const res = await fetch(`/api/admin/stores/bottom-nav?id=${encodeURIComponent(id)}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  return (await res.json()) as { ok: boolean; error?: string };
+  try {
+    const res = await fetch(`/api/admin/stores/bottom-nav?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    return await readResult<{ ok: boolean; error?: string }>(res);
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
 }
 
 function normalizeInt(v: string): number {
@@ -65,11 +118,15 @@ function normalizeInt(v: string): number {
 }
 
 export function AdminDeliveryBottomNavPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [rows, setRows] = useState<Row[]>([]);
+  const [rowBusy, setRowBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** 재조회마다 증가 — 처리 이력 패널 refetch. */
+  const [historyBump, setHistoryBump] = useState(0);
   const [editDraft, setEditDraft] = useState<Partial<Row> | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -98,22 +155,35 @@ export function AdminDeliveryBottomNavPage() {
     []
   );
 
+  /** 알려진 코드는 기존 라벨, 그 외는 운영자 문구 (원시 코드 노출 금지). */
+  const errText = useCallback(
+    (code: string | undefined | null) => {
+      const resolved = resolveAdminDelApiError(t, code);
+      if (code && resolved === code) {
+        return adminOperatorErrorMessage(/^[a-z][a-z0-9_]*$/i.test(code) ? code : "update_failed", ko);
+      }
+      return resolved;
+    },
+    [t, ko]
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await apiList();
       if (!data.ok) {
-        setError(resolveAdminDelApiError(t, data.error));
+        setError(errText(data.error));
         setRows([]);
       } else {
         const sorted = (data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
         setRows(sorted.filter((r) => !isDeliveryBottomNavBuiltinOwnerStoreItem(r)));
+        setHistoryBump((n) => n + 1);
       }
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [errText]);
 
   useEffect(() => {
     void load();
@@ -125,19 +195,53 @@ export function AdminDeliveryBottomNavPage() {
     [editingId, rows]
   );
 
+  /** 저장 실패 문구 — 충돌(409)은 최신 데이터를 다시 불러온 뒤 안내. */
+  const saveErrText = useCallback(
+    (code: string | undefined | null) =>
+      isAdminConflictErrorCode(code) || code === "expected_updated_at_required"
+        ? adminConflictReloadedMessage(code, ko)
+        : errText(code),
+    [errText, ko]
+  );
+
+  /** 단일 행 PUT (노출·중앙 토글) — 재조회 후 결과 오류 표시 (DEF-44). */
+  const updateRow = useCallback(
+    async (row: Row, patch: Partial<Row>) => {
+      if (rowBusy) return;
+      setRowBusy(true);
+      setError(null);
+      try {
+        const res = await apiUpdate(row.id, patch, row.updated_at);
+        await load();
+        if (!res.ok) setError(saveErrText(res.error));
+      } finally {
+        setRowBusy(false);
+      }
+    },
+    [rowBusy, saveErrText, load]
+  );
+
+  /** 순서 이동 — 한 번의 요청으로 두 항목 순서를 교환 (DEF-44). 결과 확인 후 재조회. */
   const move = useCallback(
     async (id: string, dir: "up" | "down") => {
+      if (rowBusy) return;
       const idx = rows.findIndex((r) => r.id === id);
       if (idx < 0) return;
       const nextIdx = dir === "up" ? idx - 1 : idx + 1;
       if (nextIdx < 0 || nextIdx >= rows.length) return;
       const a = rows[idx]!;
       const b = rows[nextIdx]!;
-      await apiUpdate(a.id, { sort_order: b.sort_order });
-      await apiUpdate(b.id, { sort_order: a.sort_order });
-      await load();
+      setRowBusy(true);
+      setError(null);
+      try {
+        const res = await apiSwapOrder(a, b);
+        if (!res.ok) setError(errText(res.error));
+      } finally {
+        await load();
+        setRowBusy(false);
+      }
     },
-    [rows, load]
+    [rows, load, rowBusy, errText]
   );
 
   const enterEdit = useCallback((r: Row) => {
@@ -175,9 +279,13 @@ export function AdminDeliveryBottomNavPage() {
       if (href !== editingRow.href) patch.href = href;
       if (color !== editingRow.color) patch.color = color;
       if (Object.keys(patch).length > 0) {
-        const res = await apiUpdate(editingId, patch);
+        const res = await apiUpdate(editingId, patch, editingRow.updated_at);
         if (!res.ok) {
-          setError(resolveAdminDelApiError(t, res.error));
+          if (isAdminConflictErrorCode(res.error) || res.error === "expected_updated_at_required") {
+            cancelEdit();
+            await load();
+          }
+          setError(saveErrText(res.error));
           return;
         }
       }
@@ -186,7 +294,7 @@ export function AdminDeliveryBottomNavPage() {
     } finally {
       setSaving(false);
     }
-  }, [editingRow, editingId, editDraft, cancelEdit, load, t]);
+  }, [editingRow, editingId, editDraft, cancelEdit, load, t, saveErrText]);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -266,7 +374,7 @@ export function AdminDeliveryBottomNavPage() {
                   setError(null);
                   const res = await apiCreate(draft);
                   if (!res.ok) {
-                    setError(resolveAdminDelApiError(t, res.error));
+                    setError(errText(res.error));
                     return;
                   }
                   setDraft((p) => ({ ...p, label: "" }));
@@ -279,7 +387,11 @@ export function AdminDeliveryBottomNavPage() {
                 {t("admin_del_common_refresh")}
               </button>
             </div>
-            {error ? <p className="sam-text-body text-red-600">{error}</p> : null}
+            {error ? (
+              <p role="alert" className="sam-text-body text-red-600">
+                {error}
+              </p>
+            ) : null}
           </div>
         </AdminCard>
 
@@ -356,7 +468,8 @@ export function AdminDeliveryBottomNavPage() {
                         <td className="px-3 py-2 text-center">
                           <button
                             type="button"
-                            onClick={() => void apiUpdate(r.id, { is_active: !r.is_active }).then(load)}
+                            disabled={rowBusy}
+                            onClick={() => void updateRow(r, { is_active: !r.is_active })}
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_active ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
@@ -368,7 +481,8 @@ export function AdminDeliveryBottomNavPage() {
                         <td className="px-3 py-2 text-center">
                           <button
                             type="button"
-                            onClick={() => void apiUpdate(r.id, { is_center: true }).then(load)}
+                            disabled={rowBusy || r.is_center}
+                            onClick={() => void updateRow(r, { is_center: true })}
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_center ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
@@ -402,7 +516,7 @@ export function AdminDeliveryBottomNavPage() {
                             <button
                               type="button"
                               onClick={() => void move(r.id, "up")}
-                              disabled={idx === 0}
+                              disabled={idx === 0 || rowBusy}
                               className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                               title={t("admin_del_move_up_title")}
                             >
@@ -411,7 +525,7 @@ export function AdminDeliveryBottomNavPage() {
                             <button
                               type="button"
                               onClick={() => void move(r.id, "down")}
-                              disabled={idx === rows.length - 1}
+                              disabled={idx === rows.length - 1 || rowBusy}
                               className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
                               title={t("admin_del_move_down_title")}
                             >
@@ -449,7 +563,11 @@ export function AdminDeliveryBottomNavPage() {
                               type="button"
                               onClick={async () => {
                                 if (!(await dibayConfirm({ title: t("admin_del_confirm_delete"), confirmTone: "destructive" }))) return;
-                                await apiDelete(r.id);
+                                const res = await apiDelete(r.id);
+                                if (!res.ok) {
+                                  setError(errText(res.error));
+                                  return;
+                                }
                                 if (editingId === r.id) cancelEdit();
                                 await load();
                               }}
@@ -466,6 +584,10 @@ export function AdminDeliveryBottomNavPage() {
               </table>
             </div>
           )}
+        </AdminCard>
+        {/* DEF-40: 하단 메뉴 추가·수정·삭제·순서 변경 감사 기록 */}
+        <AdminCard>
+          <AdminConfigAuditHistoryPanel scope="bottom_nav" limit={20} refreshToken={rows.length + historyBump} />
         </AdminCard>
       </div>
     </div>

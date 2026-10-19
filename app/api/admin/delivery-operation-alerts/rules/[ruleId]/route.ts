@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const RULE_SELECT_COLS =
+  "id, rule_key, rule_name, target_type, threshold_minutes, warning_level, repeat_minutes, is_active, escalation_level, escalate_after_minutes, max_escalation_level, notify_admin, auto_action_enabled, auto_action_type, auto_action_delay_minutes, auto_action_min_escalation_count, auto_action_requires_approval, updated_at";
 
 const AUTO_ACTION_TYPES = new Set([
   "auto_hold_settlement",
@@ -37,10 +41,14 @@ type PatchBody = {
   auto_action_delay_minutes?: number | null;
   auto_action_min_escalation_count?: number;
   auto_action_requires_approval?: boolean;
+  /** L2 사유 — 「즉시(승인 없이) 실행」 전환·활성 변경 시 필수 (DEF-41) */
+  reason?: string;
+  /** CAS — 화면이 본 규칙 updated_at (DEF-41 명시적 저장) */
+  expected_updated_at?: string;
 };
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   const { ruleId } = await ctx.params;
@@ -112,6 +120,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
       if (!AUTO_ACTION_TYPES.has(t)) {
         return NextResponse.json({ error: "invalid_auto_action_type" }, { status: 400 });
       }
+      // C-9 (Owner 승인): 레거시 정산 보류 자동 조치 중단 — 새로 켜거나 지정할 수 없다 (기존 기록 보존).
+      if (t === "auto_hold_settlement") {
+        return NextResponse.json({ error: "auto_action_type_retired" }, { status: 400 });
+      }
       patch.auto_action_type = t;
     }
   }
@@ -147,7 +159,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
       .maybeSingle();
 
     if (curErr) {
-      return NextResponse.json({ error: String(curErr.message ?? "fetch_failed").slice(0, 200) }, { status: 500 });
+      console.error("[admin delivery-operation-alerts rule PATCH] fetch", curErr.message);
+      return NextResponse.json({ error: "fetch_failed" }, { status: 500 });
     }
     if (!cur) {
       return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
@@ -183,7 +196,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
 
   const { data: snap, error: snapErr } = await (sb as any)
     .from("delivery_operation_alert_rules")
-    .select("auto_action_type, auto_action_requires_approval")
+    .select(RULE_SELECT_COLS)
     .eq("id", id)
     .maybeSingle();
 
@@ -192,7 +205,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
     if (/does not exist|column/i.test(msg)) {
       return NextResponse.json({ error: "schema_missing", hint: "Apply migration delivery_auto_actions_safety" }, { status: 503 });
     }
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    console.error("[admin delivery-operation-alerts rule PATCH] snapshot", msg);
+    return NextResponse.json({ error: "fetch_failed" }, { status: 500 });
   }
   if (!snap) {
     return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
@@ -213,21 +227,48 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ ruleId: strin
     );
   }
 
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 600) : "";
+  const prevAppr = Boolean((snap as { auto_action_requires_approval?: boolean }).auto_action_requires_approval ?? true);
+  const prevEnabled = Boolean((snap as { auto_action_enabled?: boolean }).auto_action_enabled);
+  const nextEnabledFinal =
+    patch.auto_action_enabled !== undefined ? Boolean(patch.auto_action_enabled) : prevEnabled;
+  const becomesInstant = nextEnabledFinal && mergedType !== "" && mergedAppr === false && (prevAppr || !prevEnabled);
+  const activeChanged =
+    typeof patch.is_active === "boolean" && patch.is_active !== Boolean((snap as { is_active?: boolean }).is_active);
+  if ((becomesInstant || activeChanged) && reason.length < 2) {
+    return NextResponse.json({ error: "reason_required" }, { status: 400 });
+  }
+
+  const expectedUpdatedAt = typeof body.expected_updated_at === "string" ? body.expected_updated_at.trim() : "";
+  if (!expectedUpdatedAt) {
+    return NextResponse.json({ error: "expected_status_required" }, { status: 400 });
+  }
+
   const { data, error } = await (sb as any)
     .from("delivery_operation_alert_rules")
     .update(patch)
     .eq("id", id)
-    .select(
-      "id, rule_key, rule_name, target_type, threshold_minutes, warning_level, repeat_minutes, is_active, escalation_level, escalate_after_minutes, max_escalation_level, notify_admin, auto_action_enabled, auto_action_type, auto_action_delay_minutes, auto_action_min_escalation_count, auto_action_requires_approval, updated_at"
-    )
+    .eq("updated_at", expectedUpdatedAt)
+    .select(RULE_SELECT_COLS)
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message ?? "update_failed" }, { status: 500 });
+    console.error("[admin delivery-operation-alerts rule PATCH] update", error.message);
+    return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
   if (!data) {
-    return NextResponse.json({ error: "rule_not_found" }, { status: 404 });
+    // 규칙은 존재(snapshot) — updated_at 불일치 = 다른 관리자가 먼저 저장
+    return NextResponse.json({ error: "stale_updated_at" }, { status: 409 });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_operation_alert_rule",
+    targetId: id,
+    action: "delivery_alert_rule.update",
+    before: snap as Record<string, unknown>,
+    after: { patch, reason: reason || null, instant_enabled: becomesInstant, rule: data as Record<string, unknown> },
+  });
 
   return NextResponse.json({ ok: true, rule: data });
 }

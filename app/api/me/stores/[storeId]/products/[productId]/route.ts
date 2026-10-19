@@ -45,6 +45,7 @@ async function loadProductForOwner(
         "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
         "thumbnail_url, thumbnail_width, thumbnail_height, images_json, product_status, pickup_available, local_delivery_available, shipping_available",
         "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, options_json",
+        "admin_review_status, admin_review_memo",
         "created_at, updated_at",
         "store_menu_sections ( id, name, sort_order )",
         "store_product_categories ( name, slug )",
@@ -401,6 +402,17 @@ export async function PATCH(
     if (next === "active" && !(await canOwnerSellProducts(sb, sid))) {
       return NextResponse.json({ ok: false, error: "sales_not_approved" }, { status: 403 });
     }
+    // 관리자 판매 차단 상품은 사장님이 상태를 바꿀 수 없다 (관리자 해제 필요).
+    if (String(productRow.product_status ?? "") === "blocked") {
+      return NextResponse.json({ ok: false, error: "admin_blocked_product" }, { status: 403 });
+    }
+    // 관리자 검수 반려 상품은 재검수 승인 전까지 판매 재개 불가 (DEF-65, Owner 승인).
+    if (
+      (next === "active" || next === "sold_out") &&
+      String(productRow.admin_review_status ?? "") === "rejected"
+    ) {
+      return NextResponse.json({ ok: false, error: "admin_review_rejected" }, { status: 403 });
+    }
     patch.product_status = next;
   }
 
@@ -460,6 +472,15 @@ export async function PATCH(
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "empty_patch" }, { status: 400 });
+  }
+
+  // 반려 상품 내용을 고치면 재검수 요청 상태로 전환 (관리자가 「검수 승인」하면 판매 재개 가능).
+  const REVIEW_CONTENT_FIELDS = ["title", "summary", "price", "discount_percent", "discount_price", "thumbnail_url", "images_json", "options_json", "description_html"];
+  if (
+    String(productRow.admin_review_status ?? "") === "rejected" &&
+    REVIEW_CONTENT_FIELDS.some((f) => f in patch)
+  ) {
+    patch.admin_review_status = "pending";
   }
 
   const { error: upErr } = await sb.from("store_products").update(patch).eq("id", pid).eq("store_id", sid);

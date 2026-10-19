@@ -22,6 +22,8 @@ import {
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type ProductDetail = {
   id: string;
@@ -190,7 +192,7 @@ export function AdminGiftProductDetailConsole({
   onChanged: () => void;
   pane?: string;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [payload, setPayload] = useState<DetailPayload | null>(null);
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [refreshing, setRefreshing] = useState(false);
@@ -240,7 +242,7 @@ export function AdminGiftProductDetailConsole({
     setEditFixedUntil(p.fixed_valid_until ? String(p.fixed_valid_until).slice(0, 10) : "");
   }, []);
 
-  const load = useCallback(async (opts?: { background?: boolean }) => {
+  const load = useCallback(async (opts?: { background?: boolean; rehydrateEdit?: boolean }) => {
     if (!opts?.background) setState("loading");
     else setRefreshing(true);
     try {
@@ -257,7 +259,7 @@ export function AdminGiftProductDetailConsole({
         return;
       }
       setPayload(json as DetailPayload);
-      if (!editOpenRef.current) hydrateEditFromProduct(json.product);
+      if (!editOpenRef.current || opts?.rehydrateEdit) hydrateEditFromProduct(json.product);
       setState("ready");
     } catch {
       if (!opts?.background) {
@@ -521,6 +523,15 @@ export function AdminGiftProductDetailConsole({
     []
   );
 
+  /** 409 stale_updated_at — 다른 관리자가 먼저 수정: 최신 상품을 다시 불러와 수정 폼도 최신 값으로 맞춘다. */
+  const handleConflict = async (code: string | undefined): Promise<boolean> => {
+    if (!isAdminConflictErrorCode(code) && code !== "expected_updated_at_required") return false;
+    await load({ background: true, rehydrateEdit: true });
+    onChanged();
+    setError(adminConflictReloadedMessage(code, language !== "en"));
+    return true;
+  };
+
   const patchAction = async (action: string) => {
     if (!product || busy) return;
     setBusy(true);
@@ -530,15 +541,18 @@ export function AdminGiftProductDetailConsole({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, expected_updated_at: product.updated_at }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (await handleConflict(json.error)) return;
         setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
         return;
       }
       await load({ background: true });
       onChanged();
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }
@@ -592,10 +606,11 @@ export function AdminGiftProductDetailConsole({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, expected_updated_at: product.updated_at }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (await handleConflict(json.error)) return;
         setError(
           safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
         );
@@ -611,6 +626,8 @@ export function AdminGiftProductDetailConsole({
         }),
         confirmLabel: safeT("gift_admin_edit_success_ok", { fallbackKo: "확인", fallbackEn: "OK" }),
       });
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }
@@ -636,18 +653,23 @@ export function AdminGiftProductDetailConsole({
         method: "DELETE",
         credentials: "include",
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        /** 발급 이력 409 만 전용 문구 — 권한·서버 오류를 「발급 이력」으로 오안내하지 않는다. */
         setError(
-          safeT("gift_ops_delete_forbidden", {
-            fallbackKo: "이미 발급 이력이 있어 삭제할 수 없습니다. 판매 중지 또는 보관을 사용하세요.",
-            fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
-          })
+          json.error === "delete_forbidden_has_instances"
+            ? safeT("gift_ops_delete_forbidden", {
+                fallbackKo: "이미 발급 이력이 있어 삭제할 수 없습니다. 판매 중지 또는 보관을 사용하세요.",
+                fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
+              })
+            : safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
         );
         return;
       }
       onBack();
       onChanged();
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -8,7 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
@@ -23,11 +26,58 @@ import type {
   AdminBusinessListOpsRow,
 } from "@/lib/admin-business/load-admin-business-list";
 
+/** URL ↔ 필터 키 (배달 대시보드 링크 `?approval=` `?report=` `?open=` `?restriction=` 포함). */
+const URL_FILTER_KEYS = [
+  "q",
+  "approval",
+  "open",
+  "orderable",
+  "delivery",
+  "settlement",
+  "report",
+  "restriction",
+  "category_id",
+  "region",
+  "sort",
+] as const satisfies readonly (keyof AdminBusinessOpsFilters)[];
+
+function filtersFromSearch(sp: URLSearchParams): AdminBusinessOpsFilters {
+  const next: AdminBusinessOpsFilters = { ...DEFAULT_OPS_FILTERS };
+  for (const key of URL_FILTER_KEYS) {
+    const v = sp.get(key)?.trim();
+    if (v) next[key] = v;
+  }
+  // 대시보드 링크의 pending_family 는 승인 select 의 「처리 필요」(actionable) 와 같은 의미
+  if (next.approval === "pending_family") next.approval = "actionable";
+  return next;
+}
+
+function pageFromSearch(sp: URLSearchParams): number {
+  const n = Number(sp.get("page"));
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
 export function AdminBusinessListPage() {
-  const { t } = useI18n();
-  const [filters, setFilters] = useState<AdminBusinessOpsFilters>(DEFAULT_OPS_FILTERS);
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [page, setPage] = useState(1);
+  return (
+    <Suspense fallback={null}>
+      <AdminBusinessListPageInner />
+    </Suspense>
+  );
+}
+
+function AdminBusinessListPageInner() {
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<AdminBusinessOpsFilters>(() =>
+    filtersFromSearch(new URLSearchParams(searchParams.toString()))
+  );
+  const [debouncedQ, setDebouncedQ] = useState(() => filters.q.trim());
+  const [page, setPage] = useState(() => pageFromSearch(new URLSearchParams(searchParams.toString())));
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
+  const skipPageResetRef = useRef(true);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [rows, setRows] = useState<AdminBusinessListOpsRow[]>([]);
   const [kpi, setKpi] = useState<AdminBusinessListOpsKpi | null>(null);
@@ -51,6 +101,11 @@ export function AdminBusinessListPage() {
   }, [filters.q]);
 
   useEffect(() => {
+    // 첫 렌더는 URL 의 page 를 유지한다.
+    if (skipPageResetRef.current) {
+      skipPageResetRef.current = false;
+      return;
+    }
     setPage(1);
   }, [
     debouncedQ,
@@ -84,15 +139,36 @@ export function AdminBusinessListPage() {
     return `?${parts.toString()}`;
   }, [filters, debouncedQ, page]);
 
+  /** DEF-53 — 현재 필터를 URL 에 반영 (뒤로가기·공유·상세에서 복귀 시 유지). */
+  const listUrl = useMemo(() => {
+    const sp = new URLSearchParams();
+    for (const key of URL_FILTER_KEYS) {
+      const v = key === "q" ? debouncedQ : filters[key];
+      if (!v || v === DEFAULT_OPS_FILTERS[key]) continue;
+      sp.set(key, v);
+    }
+    if (page > 1) sp.set("page", String(page));
+    const q = sp.toString();
+    return `${pathname || "/admin/business"}${q ? `?${q}` : ""}`;
+  }, [filters, debouncedQ, page, pathname]);
+
+  useEffect(() => {
+    const current = `${pathname || "/admin/business"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    if (current === listUrl) return;
+    router.replace(listUrl, { scroll: false });
+  }, [listUrl, pathname, router, searchParams]);
+
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/admin/business/ops-list${qs}`, {
         cache: "no-store",
         credentials: "include",
       });
-      const j = (await res.json()) as {
+      const j = ((await res.json().catch(() => null)) ?? {}) as {
         ok?: boolean;
+        error?: string;
         stores?: AdminBusinessListOpsRow[];
         kpi?: AdminBusinessListOpsKpi;
         total?: number;
@@ -112,11 +188,16 @@ export function AdminBusinessListPage() {
         setRows([]);
         setKpi(null);
         setTotal(0);
+        setLoadError({
+          code: j.error ?? (res.status === 403 ? "forbidden" : "load_failed"),
+          status: res.status,
+        });
       }
     } catch {
       setRows([]);
       setKpi(null);
       setTotal(0);
+      setLoadError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -217,7 +298,14 @@ export function AdminBusinessListPage() {
         />
       </div>
       {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+        <AdminLoadingState ko={ko} />
+      ) : loadError ? (
+        <AdminErrorState
+          ko={ko}
+          code={loadError.code}
+          httpStatus={loadError.status}
+          onRetry={() => void load()}
+        />
       ) : rows.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-white py-12 text-center sam-text-body text-sam-muted shadow-sm">
           {t("admin_biz_empty_list")}
@@ -229,6 +317,7 @@ export function AdminBusinessListPage() {
             rows={rows}
             viewMode={viewMode}
             onHorizontalScroll={onTableHorizontalScroll}
+            returnTo={listUrl}
           />
           <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-white px-4 py-3 shadow-sm">
             <p className="sam-text-helper text-sam-muted">

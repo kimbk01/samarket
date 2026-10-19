@@ -10,6 +10,8 @@ import {
   type AdminDiscoveryCampaignRow,
 } from "@/components/admin/stores/AdminStoreDiscoveryCampaignWriterPanel";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
 type Policy = {
   global_mean_rating: number | null;
@@ -43,7 +45,8 @@ function fmt(v: string | number | null | undefined): string {
 }
 
 export function AdminStoreDiscoveryControlPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const monitorReadOnly = t("admin_store_discovery_read_only_badge");
 
   const [policyLoading, setPolicyLoading] = useState(true);
@@ -160,9 +163,9 @@ export function AdminStoreDiscoveryControlPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4">
       <AdminPageHeader
-        titleKey="admin_store_discovery_title"
-        descriptionKey="admin_store_discovery_desc"
-        backHref="/admin/stores"
+        titleKey="admin_menu_store_promo_control"
+        descriptionKey="admin_r4c_discovery_desc"
+        backHref="/admin/delivery"
       />
 
       <div className="flex flex-wrap gap-2">
@@ -181,22 +184,28 @@ export function AdminStoreDiscoveryControlPage() {
         ) : policy ? (
           <div>
             <Field
-              label={t("admin_store_discovery_field_global_mean")}
+              label={t("admin_r4c_discovery_field_global_mean")}
               value={fmt(policy.global_mean_rating)}
             />
             <Field
-              label={t("admin_store_discovery_field_prior_weight")}
+              label={t("admin_r4c_discovery_field_prior_weight")}
               value={fmt(policy.prior_weight)}
             />
             <Field
-              label={t("admin_store_discovery_field_rating_count")}
+              label={t("admin_r4c_discovery_field_rating_count")}
               value={fmt(policy.rating_count)}
             />
             <Field
-              label={t("admin_store_discovery_field_updated_at")}
-              value={fmt(policy.updated_at)}
+              label={t("admin_r4c_discovery_field_updated_at")}
+              value={policy.updated_at ? new Date(policy.updated_at).toLocaleString(ko ? "ko-KR" : "en-US", { timeZone: "Asia/Manila" }) : "—"}
             />
-            <Field label={t("admin_store_discovery_field_status")} value={fmt(policy.status)} />
+            <Field
+              label={t("admin_r4c_discovery_field_status")}
+              value={policy.status === "active" ? t("admin_r4c_discovery_status_ok") : t("admin_r4c_discovery_status_other")}
+            />
+            <AdminTechDetails ko={ko}>
+              global_mean_rating · prior_weight · rating_count · status={fmt(policy.status)}
+            </AdminTechDetails>
           </div>
         ) : null}
       </AdminCard>
@@ -209,6 +218,10 @@ export function AdminStoreDiscoveryControlPage() {
           onRefresh={loadCampaigns}
           stateLabel={stateLabel}
         />
+        {/* DEF-40: 기획 프로모션 생성·수정 감사 기록 */}
+        <div className="mt-4 border-t border-sam-border-soft pt-3">
+          <AdminConfigAuditHistoryPanel scope="discovery" limit={20} refreshToken={campaigns.length} />
+        </div>
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_snapshot_title">
@@ -221,7 +234,7 @@ export function AdminStoreDiscoveryControlPage() {
               className="mt-1 block w-[280px] max-w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
               value={snapshotStoreId}
               onChange={(e) => setSnapshotStoreId(e.target.value)}
-              placeholder="uuid"
+              placeholder={t("admin_store_discovery_snapshot_store_id")}
             />
           </label>
           <button
@@ -250,19 +263,15 @@ export function AdminStoreDiscoveryControlPage() {
           <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_diagnostics_fail")}</p>
         ) : null}
         {diagLoading ? (
-          <p className="text-[13px] text-sam-muted">…</p>
+          <p className="text-[13px] text-sam-muted">{t("common_loading")}</p>
         ) : diagnostics ? (
           <div>
-            <Field label="ranking_authority" value={fmt(diagnostics.ranking_authority)} />
-            <Field
-              label="browse meta keys"
-              value={diagnostics.public_api_meta_keys.browse.join(", ")}
-            />
-            <Field
-              label="home-feed meta keys"
-              value={diagnostics.public_api_meta_keys.home_feed.join(", ")}
-            />
-            <Field label="note" value={diagnostics.note} />
+            <Field label={t("admin_r4c_discovery_note")} value={diagnostics.note} />
+            <AdminTechDetails ko={ko}>
+              <div>ranking_authority: {fmt(diagnostics.ranking_authority)}</div>
+              <div>browse meta keys: {diagnostics.public_api_meta_keys.browse.join(", ")}</div>
+              <div>home-feed meta keys: {diagnostics.public_api_meta_keys.home_feed.join(", ")}</div>
+            </AdminTechDetails>
           </div>
         ) : null}
       </AdminCard>

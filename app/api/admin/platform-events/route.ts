@@ -6,9 +6,17 @@ import { serializePlatformEventSections } from "@/lib/platform-events/sections";
 import {
   isPlatformEventStatus,
   PLATFORM_EVENT_DEFAULT_TIMEZONE,
-  PLATFORM_EVENTS_SELECT,
 } from "@/lib/platform-events/types";
-import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
+import {
+  parsePlatformEventBoardFields,
+  validatePlatformEventCtaDestination,
+  validatePlatformEventSchedule,
+  validatePlatformEventSectionCtas,
+} from "@/lib/platform-events/admin-validation";
+import {
+  selectPlatformEventsWithBoardFallback,
+  writePlatformEventWithBoardFallback,
+} from "@/lib/platform-events/board-columns-fallback";
 import {
   channelSummaryFromDistributionRowsPreferringPresentation,
   listDistributionsForEvents,
@@ -25,11 +33,9 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const { data, error } = await sb
-    .from("platform_events")
-    .select(PLATFORM_EVENTS_SELECT)
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  const { data, error } = await selectPlatformEventsWithBoardFallback((select) =>
+    sb.from("platform_events").select(select).order("updated_at", { ascending: false }).limit(200)
+  );
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
   const ctaLabel = String(body.ctaLabel ?? body.cta_label ?? "").trim() || null;
 
   if (ctaType) {
-    const v = validatePlatformPopupCta({
+    const v = validatePlatformEventCtaDestination({
       ctaType,
       ctaTarget,
       externalUrl: ctaExternalUrl,
@@ -96,9 +102,20 @@ export async function POST(req: NextRequest) {
     if (!v.ok) {
       return NextResponse.json({ ok: false, error: v.error }, { status: 400 });
     }
-    if (ctaType === "event_detail") {
-      return NextResponse.json({ ok: false, error: "event_detail_loop_forbidden" }, { status: 400 });
-    }
+  }
+  const sectionCheck = validatePlatformEventSectionCtas(body.sections);
+  if (!sectionCheck.ok) {
+    return NextResponse.json({ ok: false, error: sectionCheck.error }, { status: 400 });
+  }
+  const startsAt = body.startsAt ?? body.starts_at ?? null;
+  const endsAt = body.endsAt ?? body.ends_at ?? null;
+  const schedule = validatePlatformEventSchedule(startsAt, endsAt);
+  if (!schedule.ok) {
+    return NextResponse.json({ ok: false, error: schedule.error }, { status: 400 });
+  }
+  const board = parsePlatformEventBoardFields(body);
+  if (!board.ok) {
+    return NextResponse.json({ ok: false, error: board.error }, { status: 400 });
   }
 
   const now = new Date().toISOString();
@@ -110,8 +127,8 @@ export async function POST(req: NextRequest) {
     sections,
     terms: String(body.terms ?? "").trim() || null,
     status,
-    starts_at: body.startsAt ?? body.starts_at ?? null,
-    ends_at: body.endsAt ?? body.ends_at ?? null,
+    starts_at: startsAt,
+    ends_at: endsAt,
     timezone: String(body.timezone ?? PLATFORM_EVENT_DEFAULT_TIMEZONE).trim() || PLATFORM_EVENT_DEFAULT_TIMEZONE,
     cta_label: ctaLabel,
     cta_type: ctaType,
@@ -120,15 +137,19 @@ export async function POST(req: NextRequest) {
     published_at: status === "published" ? now : null,
     created_by: admin.userId,
     updated_by: admin.userId,
+    ...board.patch,
   };
 
-  const { data, error } = await sb
-    .from("platform_events")
-    .insert(insert)
-    .select(PLATFORM_EVENTS_SELECT)
-    .single();
+  const { data, error, boardColumns } = await writePlatformEventWithBoardFallback(
+    insert,
+    (payload, select) => sb.from("platform_events").insert(payload).select(select).single()
+  );
   if (error || !data) {
     return NextResponse.json({ ok: false, error: error?.message ?? "insert_failed" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, event: mapPlatformEventDbRow(data as PlatformEventDbRow) });
+  return NextResponse.json({
+    ok: true,
+    event: mapPlatformEventDbRow(data as PlatformEventDbRow),
+    boardColumnsApplied: boardColumns,
+  });
 }

@@ -16,6 +16,7 @@ import {
   dispatchCommunityMessengerVoicePlay,
 } from "@/lib/community-messenger/voice-playback-bus";
 import { VoiceMessageBufferingSpinner } from "@/components/community-messenger/VoiceMessageBufferingSpinner";
+import { isMessengerMediaRouteUrl } from "@/lib/community-messenger/media/messenger-media-ref";
 
 function formatVoiceDuration(totalSec: number): string {
   const s = Math.max(0, Math.ceil(totalSec));
@@ -152,7 +153,13 @@ export function VoiceMessageBubble({
   }, []);
 
   const onAudioError = useCallback(() => {
-    if (!usedFallback && fallbackSrc && fallbackSrc !== activeSrc && /^https?:\/\//i.test(fallbackSrc)) {
+    /* C-4: 폴백은 http(s) 또는 첨부 조회 라우트(`/api/community-messenger/.../media?`) */
+    if (
+      !usedFallback &&
+      fallbackSrc &&
+      fallbackSrc !== activeSrc &&
+      (/^https?:\/\//i.test(fallbackSrc) || isMessengerMediaRouteUrl(fallbackSrc))
+    ) {
       setUsedFallback(true);
       setActiveSrc(fallbackSrc);
       setLoadError(false);

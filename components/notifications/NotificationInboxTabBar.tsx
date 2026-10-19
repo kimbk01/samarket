@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { NotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
 import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
@@ -24,6 +25,8 @@ type Props = {
   /** @deprecated geometry locked to SSOT — ignored */
   compact?: boolean;
   className?: string;
+  /** INAPP-12 — tablist accessible name (default: i18n 「알림 분류」). */
+  ariaLabel?: string;
 };
 
 /**
@@ -36,12 +39,14 @@ export function NotificationInboxTabBar({
   onSelect,
   compact: _compact = false,
   className = "",
+  ariaLabel,
 }: Props) {
+  const { t } = useI18n();
   return (
     <div
       className={`${DIBAY_STATUS_TABS_CLASS} ${className}`.trim()}
       role="tablist"
-      aria-label="notification tabs"
+      aria-label={ariaLabel ?? t("notif_center_tabs_aria")}
       data-dibay-nav="status"
     >
       {chips.map(({ key, label }) => {
@@ -55,6 +60,9 @@ export function NotificationInboxTabBar({
             type="button"
             role="tab"
             aria-selected={selected}
+            aria-label={
+              showBadge ? t("notif_center_tab_unread_aria", { label, n: count }) : undefined
+            }
             onClick={() => {
               if (selected) return;
               onSelect(key);
@@ -64,6 +72,7 @@ export function NotificationInboxTabBar({
             <span>{label}</span>
             {showBadge ? (
               <span
+                aria-hidden
                 className={`ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
                   selected ? "bg-sam-danger text-white" : "bg-sam-danger text-white"
                 }`}

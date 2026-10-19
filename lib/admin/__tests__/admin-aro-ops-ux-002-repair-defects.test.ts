@@ -44,10 +44,11 @@ describe("ARO-OPS-UX-002 repair — DEF-001 Order Admin Store", () => {
 });
 
 describe("ARO-OPS-UX-002 repair — DEF-002 Messenger count", () => {
-  it("Action Center domain-chat uses messengerActionableCount", () => {
+  it("Action Center domain-chat reads the chat metric definitions (messenger_actionable queue)", () => {
     const src = read("components/admin/dashboard/AdminActionCenter.tsx");
-    expect(src).toContain("messengerActionableCount");
-    expect(src).not.toMatch(/id:\s*"domain-chat"[\s\S]*?count:\s*0/);
+    expect(src).toContain("resolveChatActionCenterCard(q.queueCategories)");
+    expect(src).toMatch(/id:\s*"domain-chat",\s*href:\s*withAdminReturnTo\(chatCard\.href/);
+    expect(src).not.toMatch(/id:\s*"domain-chat",[\s\S]{0,120}count:\s*0,/);
   });
 });
 

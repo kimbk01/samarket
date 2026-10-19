@@ -12,6 +12,7 @@ import {
 import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 const TRACKING_API = "/api/admin/gift-certificates/tracking";
 
@@ -146,7 +147,7 @@ export function AdminGiftInstanceDetailConsole({
   listStatus?: string;
   focus?: string;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [detail, setDetail] = useState<TrackingDetail | null>(null);
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [actionBusy, setActionBusy] = useState(false);
@@ -232,14 +233,19 @@ export function AdminGiftInstanceDetailConsole({
           body: JSON.stringify(body),
         }
       );
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setActionError(json.error || "action_failed");
+        /** 원시 오류 코드 대신 운영 문구 (DEF-47 계열) */
+        setActionError(
+          adminOperatorErrorMessage(res.status === 403 ? "forbidden" : json.error || null, language !== "en")
+        );
         return;
       }
       setReason("");
       setAdjustUntil("");
       await load();
+    } catch {
+      setActionError(adminOperatorErrorMessage("network_error", language !== "en"));
     } finally {
       setActionBusy(false);
     }

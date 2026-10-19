@@ -104,4 +104,33 @@ describe("fetch-me-notifications-deduped", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.status).toBe(200);
   });
+
+  it("INAPP-13: cache key includes the user id", async () => {
+    const mod = await loadModule();
+    const url = mod.buildNotificationsListUrl({ limit: 40, offset: 0 });
+    expect(mod.buildMeNotificationsListCacheKey("user-1", url)).not.toBe(
+      mod.buildMeNotificationsListCacheKey("user-2", url)
+    );
+    expect(mod.buildMeNotificationsListCacheKey("user-1", url)).toContain("user-1");
+    expect(mod.buildMeNotificationsListCacheKey(null, url)).toContain("anon");
+  });
+
+  it("INAPP-13: another account never gets the previous account's cached list", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, notifications: [{ id: "x" }] }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    syncViewerUserId = "user-1";
+    resolveClientAuthenticatedUserIdForFetch.mockResolvedValue("user-1");
+    const mod = await loadModule();
+
+    await mod.fetchMeNotificationsListDeduped();
+    await mod.fetchMeNotificationsListDeduped(); // same user → TTL hit
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    syncViewerUserId = "user-2";
+    resolveClientAuthenticatedUserIdForFetch.mockResolvedValue("user-2");
+    await mod.fetchMeNotificationsListDeduped(); // no force — must still go to network
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

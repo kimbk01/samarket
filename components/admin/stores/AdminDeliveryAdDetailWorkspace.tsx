@@ -411,7 +411,11 @@ export function AdminDeliveryAdDetailWorkspace({
           }),
         }
       );
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        result?: { refundWarning?: string; refundQueued?: boolean };
+      };
       if (!res.ok || !json.ok) {
         setError(
           json.error === "funding_required"
@@ -426,6 +430,8 @@ export function AdminDeliveryAdDetailWorkspace({
       setPendingReviewConfirm(null);
       setReason("");
       emitAdminQueueChanged("delivery_ad_ops");
+      const refundWarning = json.result?.refundWarning ?? null;
+      const refundQueued = json.result?.refundQueued === true;
       if (action === "approve" || action === "reject" || action === "request_changes") {
         setReviewSuccessKind(action);
       }
@@ -434,6 +440,14 @@ export function AdminDeliveryAdDetailWorkspace({
         return;
       }
       await load();
+      if (refundWarning) {
+        // DEF-5: 반려 후 캐시 환불 실패 — 숨기지 않고 표시, 처리 대기 등록 여부도 함께 안내.
+        setError(
+          `${adminOperatorErrorMessage(refundWarning, lang !== "en")} ${t(
+            refundQueued ? "admin_r4c_ad_refund_queued" : "admin_r4c_ad_refund_not_queued"
+          )}`
+        );
+      }
     } catch {
       setError(adminOperatorErrorMessage("network_error", lang !== "en"));
     } finally {
@@ -718,15 +732,12 @@ export function AdminDeliveryAdDetailWorkspace({
     <AdminDeliveryCmsChrome help="home">
       <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="design-board">
         <div>
+          {/* LNK-8 — back to the visible ads workspace (legacy hub is hidden from the menu). */}
           <Link
-            href={DELIVERY_AD_ADMIN_ROUTES.hub}
+            href="/admin/advertising"
             className="text-[12px] text-sam-brand underline-offset-2 hover:underline"
           >
-            ←{" "}
-            {safeT("admin_delivery_ads_back", {
-              fallbackKo: "목록으로",
-              fallbackEn: "Back to queue",
-            })}
+            ← {lang === "en" ? "Back to ads" : "광고 목록으로"}
           </Link>
           <h1 className="mt-1 text-[20px] font-bold text-sam-fg">
             {campaign
@@ -741,6 +752,18 @@ export function AdminDeliveryAdDetailWorkspace({
           {campaign ? (
             <p className="mt-1 text-[14px] text-sam-muted">
               {campaign.storeName || "—"}
+              {campaign.storeId ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/admin/business/${encodeURIComponent(campaign.storeId)}`}
+                    className="text-[12px] font-semibold text-sam-brand underline-offset-2 hover:underline"
+                    data-admin-delivery-ads-store-detail-link="1"
+                  >
+                    {lang === "en" ? "Store detail" : "매장 상세"}
+                  </Link>
+                </>
+              ) : null}
               {" · "}
               {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
                 fallbackKo: campaign.productKind,

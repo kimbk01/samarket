@@ -207,12 +207,12 @@ export async function listDeliveryAdAdminActionQueue(
     if (storeId) {
       const { data: store } = await sb
         .from("stores")
-        .select("name")
+        .select("store_name")
         .eq("id", storeId)
         .maybeSingle();
       storeName =
-        store && typeof (store as { name?: string }).name === "string"
-          ? String((store as { name: string }).name)
+        store && typeof (store as { store_name?: string }).store_name === "string"
+          ? String((store as { store_name: string }).store_name)
           : null;
     }
 

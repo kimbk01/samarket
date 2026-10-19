@@ -87,18 +87,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
   ];
 }
 
-export function isDeliveryBottomNavBuiltinOwnerStoreItem(i: Pick<DeliveryBottomNavItem, "icon_key" | "href">): boolean {
-  if (i.icon_key !== "store") return false;
-  const h = String(i.href ?? "").trim();
-  return (
-    h === "/stores/owner" ||
-    h.startsWith("/stores/owner/") ||
-    h === "/mypage/business" ||
-    h.startsWith("/mypage/business/") ||
-    h === "/my/business" ||
-    h.startsWith("/my/business/")
-  );
-}
+export { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/delivery-bottom-nav-builtin";
 
 function cloneItems(items: DeliveryBottomNavItem[]): DeliveryBottomNavItem[] {
   return items.map((i) => ({ ...i }));

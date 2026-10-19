@@ -3,6 +3,7 @@
  * Read-only deep-links. Support never mutates Ads / Finance / Partner.
  */
 
+import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import type { SupportReferenceType } from "@/lib/support/support-reference-authority";
@@ -13,7 +14,12 @@ export type SupportAdminContextLink = {
   labelKo: string;
   labelEn: string;
   /** Domain mutation lives elsewhere — Support is navigation only. */
-  mutationOwner: "ADS" | "FINANCE" | "STORE" | "MEMBER" | "PARTNER" | "SUPPORT_ARCHIVE" | "NONE";
+  mutationOwner: "ADS" | "FINANCE" | "STORE" | "MEMBER" | "CHAT" | "PARTNER" | "SUPPORT_ARCHIVE" | "NONE";
+  /**
+   * 열 수 있는 권한 (하나라도) — 없으면 상담 화면은 링크 대신 「권한 필요」만 표시한다.
+   * 지원 담당에게 채팅 열람권을 새로 주지 않는다 (설계 §2-3).
+   */
+  requiredPermissions?: readonly AdminPermissionKey[];
 };
 
 /** Resolve primary Admin href for a Support reference (fail-soft → null). */
@@ -152,6 +158,15 @@ export function resolveSupportCaseContextLinks(input: {
       labelKo: "회원 보기",
       labelEn: "Open member",
       mutationOwner: "MEMBER",
+    });
+    // 채팅 Admin 설계 §2-3: 요청자의 거래·주문 채팅방 (본문 열람은 방 권한 규칙 그대로).
+    links.push({
+      href: `/admin/chats?user_id=${encodeURIComponent(userId)}`,
+      labelKo: "요청자 채팅방",
+      labelEn: "Requester chat rooms",
+      mutationOwner: "CHAT",
+      // 전체 채팅방 목록 API(`/api/admin/community-messenger/rooms?type=all`)와 같은 권한.
+      requiredPermissions: ["chats"],
     });
   }
   const ref = resolveSupportReferenceAdminHref(input.referenceType, input.referenceId);

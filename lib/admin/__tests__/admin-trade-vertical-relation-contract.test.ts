@@ -18,7 +18,9 @@ describe("Admin Trade vertical relation contract", () => {
   it("Trade Flow sessions link Admin listing + Admin trade chat", () => {
     const flow = read("components/admin/trade-flow/AdminTradeFlowPage.tsx");
     expect(flow).toContain("/admin/products/");
-    expect(flow).toContain("/admin/chats/trade?postId=");
+    // 설계 v2 §8: 거래 흐름 → Admin 방 상세 (레거시 상세가 사용자 앱 CM 방 상세로 보낸다). 사용자 앱 방은 열지 않는다.
+    expect(flow).toContain("/admin/chats/${encodeURIComponent(s.id)}");
+    expect(flow).not.toContain("tradeChatNotificationHref");
   });
 
   it("Trade chat table links listing admin detail", () => {

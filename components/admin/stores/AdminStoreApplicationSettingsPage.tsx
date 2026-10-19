@@ -5,16 +5,49 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
-import { AdminStoreTaxonomyManager } from "@/components/admin/stores/AdminStoreTaxonomyManager";
+import {
+  AdminStoreTaxonomyManager,
+  type AdminStoreTaxonomyFocus,
+} from "@/components/admin/stores/AdminStoreTaxonomyManager";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+
+/** 오류 코드 → 운영자 문구 (원시 코드·HTTP 상태 노출 금지) */
+function settingsErrText(code: string, ko: boolean): string {
+  return adminOperatorErrorMessage(/^[a-z][a-z0-9_]*$/i.test(code) ? code : "update_failed", ko);
+}
+
+/** 저장 충돌(409) 또는 버전 누락 — 최신 설정을 다시 불러와야 하는 코드. */
+function isSettingsConflict(code: string): boolean {
+  return isAdminConflictErrorCode(code) || code === "expected_updated_at_required";
+}
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
 import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
 
 export function AdminStoreApplicationSettingsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const menu = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const activeMenu: "alerts" | "stores" = menu === "stores" ? "stores" : "alerts";
+  const focusRaw = (searchParams.get("focus") ?? "").trim().toLowerCase();
+  const taxonomyFocus: AdminStoreTaxonomyFocus =
+    focusRaw === "category" || focusRaw === "topic" ? focusRaw : null;
+  /** DEF-50: 제목 = 메뉴 라벨 키 (업종 1차/2차 · 매장 알림 설정). */
+  const pageTitleKey: MessageKey =
+    activeMenu === "stores"
+      ? taxonomyFocus === "category"
+        ? "admin_menu_stores_industry_primary"
+        : taxonomyFocus === "topic"
+          ? "admin_menu_stores_industry_secondary"
+          : "admin_page_store_settings_taxonomy"
+      : "admin_menu_store_settings_alerts";
   /** 탭 전환 시 언마운트하지 않고 hidden — 업종 목록·선택·썸네일 유지 */
   const [storesPanelMounted, setStoresPanelMounted] = useState(activeMenu === "stores");
 
@@ -29,6 +62,8 @@ export function AdminStoreApplicationSettingsPage() {
   const [rideTimeSourceDraft, setRideTimeSourceDraft] = useState<"store" | "google">("store");
   const [rideTimeSourceSaving, setRideTimeSourceSaving] = useState(false);
   const [rideTimeSourceError, setRideTimeSourceError] = useState<string | null>(null);
+  /** admin_settings 행 버전 (`settings_updated_at`) — PUT expected_updated_at (CAS). */
+  const settingsVersionsRef = useRef<Record<string, string | null> | null>(null);
 
   const rideTimeSourceDirty = useMemo(
     () => rideTimeSourceDraft !== rideTimeSourceSaved,
@@ -65,22 +100,24 @@ export function AdminStoreApplicationSettingsPage() {
         error?: string;
         rider_location_enabled?: unknown;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
-        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        setRiderLocationError(settingsErrText(typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed", ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? null;
       setRiderLocationEnabled(j.rider_location_enabled === true);
       const src = j.ride_time_source === "google" ? "google" : "store";
       setRideTimeSourceSaved(src);
       setRideTimeSourceDraft(src);
     } catch {
-      setRiderLocationError("network_error");
+      setRiderLocationError(settingsErrText("network_error", ko));
     } finally {
       setRiderLocationLoading(false);
       setDeliverySettingsReady(true);
     }
-  }, []);
+  }, [ko]);
 
   const saveRiderLocationSetting = useCallback(async (next: boolean) => {
     setRiderLocationSaving(true);
@@ -90,18 +127,29 @@ export function AdminStoreApplicationSettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rider_location_enabled: next }),
+        body: JSON.stringify({
+          rider_location_enabled: next,
+          expected_updated_at: settingsVersionsRef.current ?? {},
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         rider_location_enabled?: unknown;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
-        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        const code = typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+        if (isSettingsConflict(code)) {
+          await loadRiderLocationSetting();
+          setRiderLocationError(adminConflictReloadedMessage(code, ko));
+          return;
+        }
+        setRiderLocationError(settingsErrText(code, ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? settingsVersionsRef.current;
       setRiderLocationEnabled(j.rider_location_enabled === true);
       if (j.ride_time_source === "google" || j.ride_time_source === "store") {
         setRideTimeSourceSaved(j.ride_time_source);
@@ -109,11 +157,11 @@ export function AdminStoreApplicationSettingsPage() {
       }
       showMessage(t("admin_stores_saved"));
     } catch {
-      setRiderLocationError("network_error");
+      setRiderLocationError(settingsErrText("network_error", ko));
     } finally {
       setRiderLocationSaving(false);
     }
-  }, [showMessage, t]);
+  }, [loadRiderLocationSetting, showMessage, t, ko]);
 
   const commitRideTimeSource = useCallback(async () => {
     const next = rideTimeSourceDraft;
@@ -124,27 +172,38 @@ export function AdminStoreApplicationSettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ride_time_source: next }),
+        body: JSON.stringify({
+          ride_time_source: next,
+          expected_updated_at: settingsVersionsRef.current ?? {},
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         ride_time_source?: unknown;
+        settings_updated_at?: Record<string, string | null> | null;
       };
       if (!res.ok || !j?.ok) {
-        setRideTimeSourceError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        const code = typeof j?.error === "string" ? j.error : res.status === 403 ? "forbidden" : "update_failed";
+        if (isSettingsConflict(code)) {
+          await loadRiderLocationSetting();
+          setRideTimeSourceError(adminConflictReloadedMessage(code, ko));
+          return;
+        }
+        setRideTimeSourceError(settingsErrText(code, ko));
         return;
       }
+      settingsVersionsRef.current = j.settings_updated_at ?? settingsVersionsRef.current;
       const src = j.ride_time_source === "google" ? "google" : "store";
       setRideTimeSourceSaved(src);
       setRideTimeSourceDraft(src);
       showMessage(t("admin_stores_app_ride_time_saved"));
     } catch {
-      setRideTimeSourceError("network_error");
+      setRideTimeSourceError(settingsErrText("network_error", ko));
     } finally {
       setRideTimeSourceSaving(false);
     }
-  }, [rideTimeSourceDraft, showMessage, t]);
+  }, [rideTimeSourceDraft, loadRiderLocationSetting, showMessage, t, ko]);
 
   useEffect(() => {
     void loadRiderLocationSetting();
@@ -152,13 +211,7 @@ export function AdminStoreApplicationSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <AdminPageHeader
-        titleKey={
-          activeMenu === "stores"
-            ? "admin_page_store_settings_taxonomy"
-            : "admin_page_store_settings_alerts"
-        }
-      />
+      <AdminPageHeader titleKey={pageTitleKey} />
 
       {msg ? (
         <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
@@ -171,7 +224,9 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_rider_tracking")}</h2>
             {riderLocationError ? (
-              <p className="mt-2 sam-text-body-secondary text-red-700">({riderLocationError})</p>
+              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+                {riderLocationError}
+              </p>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
@@ -233,7 +288,9 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_ride_time_title")}</h2>
             {rideTimeSourceError ? (
-              <p className="mt-2 sam-text-body-secondary text-red-700">({rideTimeSourceError})</p>
+              <p role="alert" className="mt-2 sam-text-body-secondary text-red-700">
+                {rideTimeSourceError}
+              </p>
             ) : null}
             <fieldset className="mt-3 space-y-2" disabled={!deliverySettingsReady || rideTimeSourceSaving}>
               <legend className="sr-only">{t("admin_stores_app_ride_time_legend")}</legend>
@@ -276,7 +333,11 @@ export function AdminStoreApplicationSettingsPage() {
             </div>
           </section>
 
-          <AdminStoreTaxonomyManager onMessage={showMessage} />
+          <AdminStoreTaxonomyManager onMessage={showMessage} focus={activeMenu === "stores" ? taxonomyFocus : null} />
+          {/* DEF-40: 업종 추가·수정·숨김 감사 기록 */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <AdminConfigAuditHistoryPanel scope="taxonomy" limit={20} refreshToken={msg ? 1 : 0} />
+          </section>
         </div>
       ) : null}
     </div>

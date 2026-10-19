@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   getCompositionPolicySurfaceRevision,
   loadResolvedCompositionPolicy,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { STORES_HOME_COMPOSITION_DEFAULT_POLICY } from "@/lib/stores/composition/stores-home-composition-default-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,14 +109,9 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+  const userId = gate.actor.userId;
 
   let body: Record<string, unknown>;
   try {
@@ -229,6 +226,20 @@ export async function PUT(req: NextRequest) {
     }));
 
     await upsertHomeShelfProductFields(sb, productOverrides, userId);
+    /** DEF-64 — 선반 상품 설정(인기 메뉴 기준 등)이 담긴 홈 피드 응답 캐시를 인스턴스 공통 무효화 */
+    bumpStorePublicSharedCacheGeneration("stores_home_shelves.update");
+
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: userId,
+      targetType: "stores_home_shelves",
+      targetId: "home",
+      action: "stores_home_shelves.update",
+      after: {
+        expectedRevision,
+        revision: cas.revision,
+        shelves: shelves.map((s) => ({ shelfId: s.shelfId, enabled: s.enabled, order: s.order, max: s.max })),
+      },
+    });
 
     return NextResponse.json({ ok: true, revision: cas.revision, saved: shelves.length });
   } catch (e) {

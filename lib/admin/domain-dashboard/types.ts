@@ -20,6 +20,7 @@ export type AdminDomainActionItem = {
   labelKo: string;
   labelEn: string;
   count: number | null;
+  /** 빈 값 = 같은 조건을 읽는 목록이 아직 없음 → 링크 없이 숫자 + 「목록 준비 중」 */
   href: string;
   source: string;
   owner: string;
@@ -55,6 +56,10 @@ export type AdminDomainDashboardModel = {
   /** Order / secondary state strip (optional) */
   domainHealth: AdminDomainMetric[];
   issues: AdminDomainActionItem[];
+  /** 「지금 처리할 일」 카드 CTA 문구 (기본 「검토하기」) */
+  actionCta?: { ko: string; en: string };
+  /** 「문제」 섹션 카드 CTA 문구 (기본 「신고 검토」) */
+  issuesCta?: { ko: string; en: string };
   primaryEntries: AdminDomainEntry[];
   contextEntries: AdminDomainEntry[];
   recent: AdminDomainRecentItem[];

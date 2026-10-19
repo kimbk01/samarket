@@ -3,6 +3,16 @@
 import { Fragment, useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+
+function fmtDateTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return iso || "—";
+  return new Date(ms).toLocaleString();
+}
 
 export type AdminDiscoveryCampaignRow = {
   id: string;
@@ -10,9 +20,12 @@ export type AdminDiscoveryCampaignRow = {
   store_name: string | null;
   campaign_type: string;
   title: string;
+  body_copy?: string | null;
   start_at: string;
   end_at: string;
   is_active: boolean;
+  /** CAS — 수정·비활성화 시 expected_updated_at 으로 전송 */
+  updated_at?: string | null;
   computed_state: "active" | "upcoming" | "expired" | "inactive";
 };
 
@@ -84,9 +97,14 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
   onRefresh,
   stateLabel,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const typeLabel = (v: string) =>
+    v === "promo" ? (ko ? "프로모션" : "Promotion") : v === "event" ? (ko ? "이벤트" : "Event") : v;
   const [createForm, setCreateForm] = useState<CampaignFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** 수정 시작 시점 캠페인 updated_at — 저장 PATCH expected_updated_at */
+  const [editingUpdatedAt, setEditingUpdatedAt] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CampaignFormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -94,11 +112,12 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
 
   const startEdit = useCallback((row: AdminDiscoveryCampaignRow) => {
     setEditingId(row.id);
+    setEditingUpdatedAt(row.updated_at ?? null);
     setEditForm({
       storeId: row.store_id,
       campaignType: row.campaign_type === "promo" ? "promo" : "event",
       title: row.title,
-      bodyCopy: "",
+      bodyCopy: row.body_copy ?? "",
       startAt: toDatetimeLocal(row.start_at),
       endAt: toDatetimeLocal(row.end_at),
       isActive: row.is_active,
@@ -106,6 +125,15 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     setMsg(null);
     setSaveErr(null);
   }, []);
+
+  /** 409 stale_updated_at — 다른 관리자가 먼저 수정: 수정 폼을 닫고 최신 목록을 다시 불러온다. */
+  const handleConflict = (code: string | undefined): boolean => {
+    if (!isAdminConflictErrorCode(code) && code !== "expected_updated_at_required") return false;
+    setEditingId(null);
+    setSaveErr(adminConflictReloadedMessage(code, ko));
+    onRefresh();
+    return true;
+  };
 
   const onCreate = async () => {
     setBusy(true);
@@ -159,10 +187,12 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
           startAt: fromDatetimeLocal(editForm.startAt),
           endAt: fromDatetimeLocal(editForm.endAt),
           isActive: editForm.isActive,
+          expected_updated_at: editingUpdatedAt,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (handleConflict(json.error)) return;
         setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
@@ -176,7 +206,20 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     }
   };
 
-  const onDeactivate = async (id: string) => {
+  const onDeactivate = async (row: AdminDiscoveryCampaignRow) => {
+    if (busy) return;
+    const id = row.id;
+    const c = await confirmAdminAction({
+      level: "L2",
+      ko,
+      title: ko ? `캠페인을 비활성화할까요? — ${row.title}` : `Deactivate campaign? — ${row.title}`,
+      description: ko
+        ? "비활성화하면 고객 화면에서 이 캠페인 노출이 바로 중단됩니다."
+        : "The campaign stops showing to customers immediately.",
+      confirmLabel: ko ? "비활성화" : "Deactivate",
+      destructive: true,
+    });
+    if (!c.ok) return;
     setBusy(true);
     setMsg(null);
     setSaveErr(null);
@@ -185,10 +228,16 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isActive: false }),
+        body: JSON.stringify({
+          id,
+          isActive: false,
+          reason: c.reason,
+          expected_updated_at: row.updated_at ?? null,
+        }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (handleConflict(json.error)) return;
         setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
@@ -227,19 +276,19 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
             setForm({ ...form, campaignType: e.target.value === "promo" ? "promo" : "event" })
           }
         >
-          <option value="event">{t("admin_store_discovery_campaigns_type_event")}</option>
-          <option value="promo">{t("admin_store_discovery_campaigns_type_promo")}</option>
+          <option value="event">{typeLabel("event")}</option>
+          <option value="promo">{typeLabel("promo")}</option>
         </select>
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {t("admin_store_discovery_campaigns_field_active")}
+        {ko ? "노출 여부" : "Visibility"}
         <select
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
           value={form.isActive ? "true" : "false"}
           onChange={(e) => setForm({ ...form, isActive: e.target.value === "true" })}
         >
-          <option value="true">true</option>
-          <option value="false">false</option>
+          <option value="true">{ko ? "노출함" : "Visible"}</option>
+          <option value="false">{ko ? "노출 안 함" : "Hidden"}</option>
         </select>
       </label>
       <label className="block text-[12px] text-sam-muted sm:col-span-2">
@@ -259,7 +308,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {t("admin_store_discovery_campaigns_field_start")}
+        {ko ? "시작 일시" : "Start"}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
@@ -268,7 +317,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {t("admin_store_discovery_campaigns_field_end")}
+        {ko ? "종료 일시" : "End"}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
@@ -312,7 +361,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       {loading ? (
         <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_loading")}</p>
       ) : campaigns.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_empty")}</p>
+        <p className="text-[13px] text-sam-muted">{ko ? "등록된 캠페인이 없습니다." : t("admin_store_discovery_campaigns_empty")}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-[12px]">
@@ -323,7 +372,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_title")}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_start")}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_end")}</th>
-                <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_active")}</th>
+                <th className="px-2 py-1 font-medium">{ko ? "노출 여부" : "Visibility"}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_state")}</th>
                 <th className="px-2 py-1 font-medium" />
               </tr>
@@ -334,13 +383,13 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                   <tr className="border-t border-sam-border/70 text-sam-fg">
                     <td className="px-2 py-1.5">
                       <div className="font-medium">{c.store_name ?? "—"}</div>
-                      <div className="text-[11px] text-sam-muted">{c.store_id}</div>
+                      <AdminTechDetails ko={ko}>{c.store_id}</AdminTechDetails>
                     </td>
-                    <td className="px-2 py-1.5">{c.campaign_type}</td>
+                    <td className="px-2 py-1.5">{typeLabel(c.campaign_type)}</td>
                     <td className="px-2 py-1.5">{c.title}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{c.start_at}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{c.end_at}</td>
-                    <td className="px-2 py-1.5">{c.is_active ? "true" : "false"}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{fmtDateTime(c.start_at)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{fmtDateTime(c.end_at)}</td>
+                    <td className="px-2 py-1.5">{c.is_active ? (ko ? "노출함" : "Visible") : ko ? "노출 안 함" : "Hidden"}</td>
                     <td className="px-2 py-1.5">{stateLabel(c.computed_state)}</td>
                     <td className="whitespace-nowrap px-2 py-1.5">
                       <div className="flex flex-wrap gap-1">
@@ -357,7 +406,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                             type="button"
                             className={Sam.btn.secondary}
                             disabled={busy}
-                            onClick={() => void onDeactivate(c.id)}
+                            onClick={() => void onDeactivate(c)}
                           >
                             {t("admin_store_discovery_campaigns_deactivate_btn")}
                           </button>

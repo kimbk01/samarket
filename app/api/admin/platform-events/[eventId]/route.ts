@@ -6,9 +6,19 @@ import { serializePlatformEventSections } from "@/lib/platform-events/sections";
 import {
   isPlatformEventStatus,
   PLATFORM_EVENT_DEFAULT_TIMEZONE,
-  PLATFORM_EVENTS_SELECT,
 } from "@/lib/platform-events/types";
-import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
+import {
+  isPlatformEventLifecycleAction,
+  parsePlatformEventBoardFields,
+  platformEventLifecyclePatch,
+  validatePlatformEventCtaDestination,
+  validatePlatformEventSchedule,
+  validatePlatformEventSectionCtas,
+} from "@/lib/platform-events/admin-validation";
+import {
+  selectPlatformEventsWithBoardFallback,
+  writePlatformEventWithBoardFallback,
+} from "@/lib/platform-events/board-columns-fallback";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,21 +34,26 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const { data, error } = await sb
-    .from("platform_events")
-    .select(PLATFORM_EVENTS_SELECT)
-    .eq("id", eventId)
-    .maybeSingle();
+  const { data, error, boardColumns } = await selectPlatformEventsWithBoardFallback((select) =>
+    sb.from("platform_events").select(select).eq("id", eventId).maybeSingle()
+  );
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  return NextResponse.json({ ok: true, event: mapPlatformEventDbRow(data as PlatformEventDbRow) });
+  return NextResponse.json({
+    ok: true,
+    event: mapPlatformEventDbRow(data as PlatformEventDbRow),
+    boardColumnsApplied: boardColumns,
+  });
 }
 
-/** PATCH /api/admin/platform-events/[eventId] */
+/**
+ * PATCH /api/admin/platform-events/[eventId]
+ * Field edits + optional `action: "publish" | "unpublish" | "archive"` (editor confirms first).
+ */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -78,6 +93,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (body.terms !== undefined) {
     patch.terms = String(body.terms ?? "").trim() || null;
   }
+  if (body.sections !== undefined) {
+    const sectionCheck = validatePlatformEventSectionCtas(body.sections);
+    if (!sectionCheck.ok) {
+      return NextResponse.json({ ok: false, error: sectionCheck.error }, { status: 400 });
+    }
+  }
   if (body.startsAt !== undefined || body.starts_at !== undefined) {
     patch.starts_at = body.startsAt ?? body.starts_at ?? null;
   }
@@ -108,16 +129,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   if (ctaType !== undefined) {
     if (ctaType) {
-      const v = validatePlatformPopupCta({
+      const v = validatePlatformEventCtaDestination({
         ctaType,
         ctaTarget: ctaTarget ?? "",
         externalUrl: ctaExternalUrl ?? null,
       });
       if (!v.ok) {
         return NextResponse.json({ ok: false, error: v.error }, { status: 400 });
-      }
-      if (ctaType === "event_detail") {
-        return NextResponse.json({ ok: false, error: "event_detail_loop_forbidden" }, { status: 400 });
       }
     }
     patch.cta_type = ctaType;
@@ -134,20 +152,53 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     patch.status = statusRaw;
     if (statusRaw === "published") {
       patch.published_at = new Date().toISOString();
+      patch.archived_at = null;
     }
   }
 
-  const { data, error } = await sb
-    .from("platform_events")
-    .update(patch)
-    .eq("id", eventId)
-    .select(PLATFORM_EVENTS_SELECT)
-    .maybeSingle();
+  if (body.action !== undefined) {
+    if (!isPlatformEventLifecycleAction(body.action)) {
+      return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+    }
+    Object.assign(patch, platformEventLifecyclePatch(body.action, new Date().toISOString()));
+  }
+
+  const board = parsePlatformEventBoardFields(body);
+  if (!board.ok) {
+    return NextResponse.json({ ok: false, error: board.error }, { status: 400 });
+  }
+  Object.assign(patch, board.patch);
+
+  if (patch.starts_at !== undefined || patch.ends_at !== undefined) {
+    // Validate the resulting window (DB CHECK starts_at < ends_at).
+    const { data: cur } = await sb
+      .from("platform_events")
+      .select("starts_at, ends_at")
+      .eq("id", eventId)
+      .maybeSingle();
+    const schedule = validatePlatformEventSchedule(
+      patch.starts_at !== undefined ? patch.starts_at : cur?.starts_at,
+      patch.ends_at !== undefined ? patch.ends_at : cur?.ends_at
+    );
+    if (!schedule.ok) {
+      return NextResponse.json({ ok: false, error: schedule.error }, { status: 400 });
+    }
+  }
+
+  const { data, error, boardColumns } = await writePlatformEventWithBoardFallback(
+    patch,
+    (payload, select) =>
+      sb.from("platform_events").update(payload).eq("id", eventId).select(select).maybeSingle()
+  );
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  return NextResponse.json({ ok: true, event: mapPlatformEventDbRow(data as PlatformEventDbRow) });
+  return NextResponse.json({
+    ok: true,
+    event: mapPlatformEventDbRow(data as PlatformEventDbRow),
+    boardColumnsApplied: boardColumns,
+  });
 }

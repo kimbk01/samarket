@@ -24,6 +24,11 @@ export type PlatformEventDbRow = {
   published_at: string | null;
   source_owner_request_id?: string | null;
   source_store_id?: string | null;
+  thumbnail_url?: string | null;
+  sort_order?: number | null;
+  is_pinned?: boolean | null;
+  category?: string | null;
+  archived_at?: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -53,6 +58,11 @@ export function mapPlatformEventDbRow(row: PlatformEventDbRow): PlatformEventRow
       ? String(row.source_owner_request_id)
       : null,
     sourceStoreId: row.source_store_id ? String(row.source_store_id) : null,
+    thumbnailUrl: row.thumbnail_url?.trim() || null,
+    sortOrder: Number.isFinite(Number(row.sort_order)) ? Math.trunc(Number(row.sort_order)) : 0,
+    isPinned: row.is_pinned === true,
+    category: row.category?.trim() || null,
+    archivedAt: row.archived_at || null,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     createdAt: row.created_at,

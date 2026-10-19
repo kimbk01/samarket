@@ -10,6 +10,14 @@ import { confirmedSaleRevenuePhp } from "@/lib/stores/confirmed-sale-revenue";
 import { loadFrozenCommissionPolicyForOrder } from "@/lib/stores/commission/store-commission-writer";
 
 /**
+ * C-9 (Owner 승인) · DEF-4: 레거시 `store_settlements` 신규 행 생성 중단.
+ * 직접 결제 모델에서 수수료 SSOT 는 DB 트리거(`store_commission_*`)이며, 이 스냅샷은 지급 큐가 아니다
+ * (docs/store-commission-cash-settlement-ssot.md). 기존 행은 보존·읽기 전용 — 삭제·변경하지 않는다.
+ * 다시 켜려면 Owner 결정이 필요하다.
+ */
+export const LEGACY_STORE_SETTLEMENT_WRITER_ENABLED = false;
+
+/**
  * 결제 완료 주문에 대해 정산 1건을 만든다. order_id UNIQUE로 멱등.
  * 정책: paid만으로는 정산 생성하지 않음 → completed 위임.
  */
@@ -31,6 +39,7 @@ export async function ensureStoreSettlementForCompletedOrder(
   sb: SupabaseClient,
   orderId: string
 ): Promise<void> {
+  if (!LEGACY_STORE_SETTLEMENT_WRITER_ENABLED) return;
   const oid = orderId.trim();
   if (!oid) return;
 

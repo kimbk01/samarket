@@ -111,8 +111,9 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(findAdminMenuByKey(adminMenu, "reports-logs")?.path).toBe("/admin/reports/log");
     expect(findAdminMenuByKey(adminMenu, "users")?.path).toBe("/admin/users");
 
-    const messengerKids = findAdminMenuByKey(adminMenu, "messenger")?.children ?? [];
-    expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);
+    // J-AMD-4: 채팅 신고 큐 lives under messenger › 신고·제재.
+    const reportSection = findAdminMenuByKey(adminMenu, "messenger-section-reports")?.children ?? [];
+    expect(reportSection.some((c) => c.key === "chat-reported")).toBe(true);
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
       "/admin/reports?domain=trade&target_type=product"
     );
@@ -140,15 +141,16 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
   it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
-    // B7: Overview → Daily ops → Management → Business → Config → Platform
+    // J-AMD-3: Overview → 매장 → 주문 → 배달 현장 → 수수료·정산 → 혜택 → 홈 구성 → 설정
     expect(topKeys).toEqual([
       "delivery-dashboard",
-      "delivery-section-operations",
-      "delivery-section-management",
-      "business-shops",
-      "delivery-section-policies",
+      "delivery-section-stores",
+      "delivery-orders",
+      "delivery-section-field",
+      "delivery-section-fees",
+      "delivery-section-promotions",
+      "delivery-section-home-layout",
       "delivery-section-settings",
-      "delivery-section-platform",
     ]);
     expect(findAdminMenuByKey(adminMenu, "delivery-dashboard")?.path).toBe("/admin/delivery");
     expect(findAdminMenuByKey(adminMenu, "store-ads-section")).toBeUndefined();
@@ -159,8 +161,9 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
       "/admin/stores-category-policy"
     );
     // Primary leaf for delivery-ads is under ads workspace
-    const ops = findAdminMenuByKey(adminMenu, "delivery-section-operations");
-    const opsKeys = new Set((ops?.children ?? []).map((c) => c.key));
+    const opsKeys = new Set(
+      collectAdminMenuPathEntries(delivery?.children ?? []).map((e) => e.key)
+    );
     expect(opsKeys.has("store-ads-section")).toBe(false);
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
       "/admin/delivery-ads"

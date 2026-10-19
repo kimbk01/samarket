@@ -38,9 +38,12 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import type { StoreOrderStatusActor } from "@/lib/stores/order-status-transitions";
 import { storeOrderMessengerStatusLineContent } from "@/lib/store-order-chat/store-order-ops-i18n";
 import {
+  adminChatMessageKey,
   chatMessageKey,
   chatMessageKeyWithPrep,
 } from "@/lib/stores/store-order-process-model";
@@ -304,7 +307,7 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
   ensuredRoom?: Extract<StoreOrderMessengerEnsureResult, { ok: true }>
 ): Promise<void> {
   const ensured =
-    ensuredRoom ?? (await ensureStoreOrderMessengerRoom(sb, { orderId }));
+    ensuredRoom ?? (await ensureStoreOrderMessengerRoom(sb, { orderId, participantsMode: "keep_left" }));
   if (!ensured.ok) return;
   const summaryState = await loadStoreOrderSummaryMessageState(sb, ensured.roomId, orderId.trim());
   const loaded = await loadStoreOrderSummaryFields(sb, orderId.trim());
@@ -419,13 +422,29 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
 }
 
 /**
+ * C-19 — 참가자 보정 모드.
+ * - `rejoin` (기본): 진입 경로(채팅 화면·ensure-chat·주문 생성). 나간 참가자도 다시 넣는다 (사용자 의도 = 재진입).
+ * - `keep_left`: 진입이 아닌 경로(상태 전이·시스템/요약 메시지). 이미 있던 방이면 참가자 upsert 를 하지 않아
+ *   나가기(참가자 행 삭제)를 되살리지 않는다. 방을 새로 만든 경우에만 두 참가자를 넣는다.
+ */
+export type StoreOrderMessengerParticipantsMode = "rejoin" | "keep_left";
+
+/** Pure (unit-tested): 이번 ensure 에서 참가자 upsert 를 할지. */
+export function shouldUpsertStoreOrderParticipants(input: {
+  mode: StoreOrderMessengerParticipantsMode;
+  roomCreated: boolean;
+}): boolean {
+  return input.mode === "rejoin" || input.roomCreated;
+}
+
+/**
  * Mutation-only — do not call from read-only GET order detail.
  * Use `POST .../ensure-chat`, order create, status transition, or chat entry RSC.
  * @see docs/store-order-detail-perf-lock.md
  */
 export async function ensureStoreOrderMessengerRoom(
   sb: SupabaseClient<any>,
-  input: { orderId: string; userId?: string | null }
+  input: { orderId: string; userId?: string | null; participantsMode?: StoreOrderMessengerParticipantsMode }
 ): Promise<StoreOrderMessengerEnsureResult> {
   const orderId = input.orderId.trim();
   if (!orderId) return { ok: false, error: "missing_order_id", status: 400 };
@@ -476,6 +495,7 @@ export async function ensureStoreOrderMessengerRoom(
 
   const createdAt = nowIso();
   const meta = contextMetaFromOrder(row);
+  let roomCreated = false;
   if (!roomId) {
     /**
      * Prod NOT NULL: chat_domain + domain_identity_key must be atomic with insert.
@@ -521,6 +541,7 @@ export async function ensureStoreOrderMessengerRoom(
       }
     } else {
       roomId = trimText((inserted as { id?: unknown } | null)?.id);
+      roomCreated = Boolean(roomId);
     }
   } else {
     await sb
@@ -530,20 +551,27 @@ export async function ensureStoreOrderMessengerRoom(
   }
   if (!roomId) return { ok: false, error: "room_create_failed", status: 500 };
 
-  const participants = [
-    { room_id: roomId, user_id: buyerUserId, role: "member", store_order_role: "customer" },
-    { room_id: roomId, user_id: ownerUserId, role: "owner", store_order_role: "owner" },
-  ];
-  const partResults = await Promise.all(
-    participants.map((participant) =>
-      sb.from("community_messenger_participants").upsert(participant, {
-        onConflict: "room_id,user_id",
-        ignoreDuplicates: false,
-      })
-    )
-  );
-  for (const { error: partErr } of partResults) {
-    if (partErr) return { ok: false, error: partErr.message, status: 500 };
+  if (
+    shouldUpsertStoreOrderParticipants({
+      mode: input.participantsMode ?? "rejoin",
+      roomCreated,
+    })
+  ) {
+    const participants = [
+      { room_id: roomId, user_id: buyerUserId, role: "member", store_order_role: "customer" },
+      { room_id: roomId, user_id: ownerUserId, role: "owner", store_order_role: "owner" },
+    ];
+    const partResults = await Promise.all(
+      participants.map((participant) =>
+        sb.from("community_messenger_participants").upsert(participant, {
+          onConflict: "room_id,user_id",
+          ignoreDuplicates: false,
+        })
+      )
+    );
+    for (const { error: partErr } of partResults) {
+      if (partErr) return { ok: false, error: partErr.message, status: 500 };
+    }
   }
   await sb.from("store_orders").update({ community_messenger_room_id: roomId }).eq("id", orderId);
 
@@ -627,12 +655,18 @@ async function appendStoreOrderMessengerSystemMessage(
     messageKey?: MessageKey | null;
     messageVars?: Record<string, string | number>;
     prepMinutes?: number;
+    /** Attribution only (metadata) — default: `store` when actorUserId is set, else `system`. */
+    actorRole?: "store" | "system" | "admin";
   },
   ensuredRoom?: Extract<StoreOrderMessengerEnsureResult, { ok: true }>
 ): Promise<void> {
   const ensured =
     ensuredRoom ??
-    (await ensureStoreOrderMessengerRoom(sb, { orderId: input.orderId, userId: input.actorUserId ?? null }));
+    (await ensureStoreOrderMessengerRoom(sb, {
+      orderId: input.orderId,
+      userId: input.actorUserId ?? null,
+      participantsMode: "keep_left",
+    }));
   if (!ensured.ok) return;
   const content = input.content.trim();
   if (!content) return;
@@ -648,7 +682,7 @@ async function appendStoreOrderMessengerSystemMessage(
     domain: "store_order",
     lineKind: storeOrderSystemLineKind(input.relatedOrderStatus),
     orderFlow: ensured.orderFlow,
-    actorRole: input.actorUserId ? "store" : "system",
+    actorRole: input.actorRole ?? (input.actorUserId ? "store" : "system"),
     storeOrderId: input.orderId,
     orderStatus: relatedStatus,
     message_key: resolvedMessageKey,
@@ -720,12 +754,37 @@ export async function appendStoreOrderMessengerStatusTransition(
   sb: SupabaseClient<any>,
   orderId: string,
   previousDbStatus: string,
-  nextDbStatus: string
+  nextDbStatus: string,
+  /**
+   * DEF-72 — who applied the transition. `ADMIN` posts DIBAY 운영팀 wording
+   * (`adminChatMessageKey`) instead of the store-voice status line.
+   * Wording/metadata only: the row keeps the owner as `actorUserId` (system rows already force a
+   * null visible sender; owner stays the unread-exclusion actor so room unread/bump contracts and the
+   * server-only bump path are unchanged) and `metadata.actorRole` becomes `admin`.
+   */
+  actor?: StoreOrderStatusActor
 ): Promise<void> {
   const next = storeOrderStatusToShared(nextDbStatus);
   if (!next) return;
-  const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId });
+  const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId, participantsMode: "keep_left" });
   if (!ensured.ok) return;
+  if (actor === "ADMIN") {
+    const messageKey = adminChatMessageKey(previousDbStatus, nextDbStatus);
+    await appendStoreOrderMessengerSystemMessage(
+      sb,
+      {
+        orderId,
+        actorUserId: ensured.ownerUserId,
+        content: translate(DEFAULT_APP_LANGUAGE, messageKey),
+        relatedOrderStatus: next,
+        messageKey,
+        actorRole: "admin",
+      },
+      ensured
+    );
+    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
+    return;
+  }
   if (next === "accepted") {
     await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
     const { data: orderRow } = await sb
@@ -788,7 +847,7 @@ export async function appendStoreOrderMessengerDeliveryStatusTransition(
 ): Promise<void> {
   const next = deliveryStatusToMessengerStatus(nextDeliveryStatus);
   if (!next) return;
-  const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId });
+  const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId, participantsMode: "keep_left" });
   if (!ensured.ok) return;
   const line = storeOrderMessengerOwnerStatusLine(next, "delivery");
   if (!line) return;

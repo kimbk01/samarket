@@ -8,13 +8,15 @@ export const dynamic = "force-dynamic";
  * Query: roomType, tradeStatus, requestStatus, blocked, hasReport, limit, cursor
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAnyAdminPermission } from "@/lib/admin/chat-admin/chat-admin-guards";
+import { TRADE_CHAT_ADMIN_PERMISSION_KEYS } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { attachTradeMessengerRoomsToLegacyList } from "@/lib/admin-chats/trade-messenger-list";
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAnyAdminPermission(TRADE_CHAT_ADMIN_PERMISSION_KEYS);
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -38,13 +40,15 @@ export async function GET(req: NextRequest) {
   let q = sbAny
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, context_type, seller_id, buyer_id, initiator_id, peer_id, request_status, trade_status, last_message_at, last_message_preview, is_blocked, is_locked, created_at, related_post_id, related_group_id, related_business_id"
+      "id, room_type, item_id, context_type, seller_id, buyer_id, initiator_id, peer_id, request_status, trade_status, last_message_at, last_message_preview, is_blocked, is_locked, created_at, related_post_id, related_group_id, related_business_id, community_messenger_room_id"
     )
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
   if (roomType) q = q.eq("room_type", roomType);
   else q = q.eq("room_type", "item_trade");
   if (contextType) q = q.eq("context_type", contextType);
+  // 레거시 거래 기록(설계 §3-6): CM FK 없는 방만.
+  if (req.nextUrl.searchParams.get("legacyOnly") === "1") q = q.is("community_messenger_room_id", null);
   if (tradeStatus) q = q.eq("trade_status", tradeStatus);
   if (requestStatus) q = q.eq("request_status", requestStatus);
   if (blocked === "true") q = q.eq("is_blocked", true);
@@ -155,6 +159,24 @@ export async function GET(req: NextRequest) {
     };
   });
   if (hasReport) roomsWithMeta = roomsWithMeta.filter((r) => (r.reportCount ?? 0) > 0);
+  // R1-B C-1: 사용자 방(CM) id·상태 — 조회 전용, 실패해도 목록은 반환
+  const messengerByRoom = await attachTradeMessengerRoomsToLegacyList(
+    sbAny,
+    roomsWithMeta.map((r) => ({
+      key: r.id,
+      chatRoomId: r.room_type === "item_trade" ? r.id : null,
+      productChatId: null,
+      chatRoomFk: (() => {
+        const fk = (r as { community_messenger_room_id?: unknown }).community_messenger_room_id;
+        return typeof fk === "string" ? fk : null;
+      })(),
+      productChatFk: null,
+      itemId: r.item_id ?? null,
+      sellerId: r.seller_id ?? null,
+      buyerId: r.buyer_id ?? null,
+    }))
+  ).catch(() => new Map());
+  roomsWithMeta = roomsWithMeta.map((r) => ({ ...r, messenger: messengerByRoom.get(r.id) ?? null }));
   const nextCursor = (rooms?.length ?? 0) > limit ? list[list.length - 1]?.id : null;
   return NextResponse.json({ rooms: roomsWithMeta, nextCursor });
 }

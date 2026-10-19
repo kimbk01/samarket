@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -48,9 +49,8 @@ async function removePreviousIfOwned(
  * → Storage 업로드 후 store_categories/store_topics/store_subtopics.image_url 갱신
  */
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
@@ -133,6 +133,15 @@ export async function POST(req: NextRequest) {
   if (!updated) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  await appendAdminRouteAudit(gate.sb, req, {
+    actorId: gate.actor.userId,
+    targetType: table,
+    targetId: id,
+    action: "store_taxonomy.update",
+    before: { image_url: prevUrl },
+    after: { kind, image_url: publicUrl },
+  });
 
   if (prevUrl && prevUrl !== publicUrl) {
     await removePreviousIfOwned(sb, prevUrl);

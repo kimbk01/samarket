@@ -47,19 +47,20 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     );
   });
 
-  it("B7-05 delivery daily ops precede config/archive sections", () => {
+  it("B7-05 delivery daily ops precede config/archive sections (J-AMD-3)", () => {
     const top = (findAdminMenuByKey(adminMenu, "delivery")?.children ?? []).map((c) => c.key);
-    expect(top.indexOf("delivery-section-operations")).toBeLessThan(
-      top.indexOf("delivery-section-policies")
-    );
-    expect(top.indexOf("delivery-section-operations")).toBeLessThan(
-      top.indexOf("delivery-section-settings")
-    );
-    const ops = (findAdminMenuByKey(adminMenu, "delivery-section-operations")?.children ?? []).map(
+    // J-AMD-3: daily operator sections (stores · orders · field) precede config sections.
+    expect(top[0]).toBe("delivery-dashboard");
+    for (const daily of ["delivery-section-stores", "delivery-orders", "delivery-section-field"]) {
+      expect(top.indexOf(daily)).toBeGreaterThan(0);
+      expect(top.indexOf(daily)).toBeLessThan(top.indexOf("delivery-section-home-layout"));
+      expect(top.indexOf(daily)).toBeLessThan(top.indexOf("delivery-section-settings"));
+    }
+    expect(top.indexOf("delivery-section-settings")).toBe(top.length - 1);
+    const stores = (findAdminMenuByKey(adminMenu, "delivery-section-stores")?.children ?? []).map(
       (c) => c.key
     );
-    expect(ops[0]).toBe("delivery-orders");
-    expect(ops.indexOf("stores-commerce")).toBeLessThan(ops.indexOf("stores-home-shelves"));
+    expect(stores[0]).toBe("stores-commerce");
   });
 
   it("B7-06/08/09 no path duplicates; legacy/stub not primary peers of control planes", () => {

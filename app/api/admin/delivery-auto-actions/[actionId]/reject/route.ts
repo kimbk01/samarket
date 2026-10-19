@@ -1,25 +1,31 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   const { actionId } = await ctx.params;
   const id = String(actionId ?? "").trim();
   if (!id) return NextResponse.json({ error: "invalid_action_id" }, { status: 400 });
 
+  // L2 — 사유 필수 (화면 confirmAdminAction 과 같은 규칙). 메모는 선택, 사유와 함께 기록한다.
   let note = "";
+  let reason = "";
   try {
-    const j = (await req.json()) as { note?: string };
-    note = typeof j?.note === "string" ? j.note.trim().slice(0, 2000) : "";
+    const j = (await req.json()) as { note?: string; reason?: string };
+    note = typeof j?.note === "string" ? j.note.trim().slice(0, 1400) : "";
+    reason = typeof j?.reason === "string" ? j.reason.trim().slice(0, 600) : "";
   } catch {
     note = "";
   }
+  if (reason.length < 2) return NextResponse.json({ error: "reason_required" }, { status: 400 });
+  note = [reason, note].filter(Boolean).join(" — ").slice(0, 2000);
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -30,7 +36,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
 
   const { data, error } = await (sb as any).rpc("reject_delivery_alert_auto_action", {
     p_action_id: id,
-    p_actor: admin.userId,
+    p_actor: admin.actor.userId,
     p_note: note || null,
   });
 
@@ -47,6 +53,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     const status = payload.error === "not_found" ? 404 : payload.error === "not_pending" ? 409 : 400;
     return NextResponse.json(payload, { status });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_operation_alert_action",
+    targetId: id,
+    action: "delivery_auto_action.reject",
+    after: { reason, note: note || null, result: payload },
+  });
 
   return NextResponse.json({ ok: true, result: payload });
 }

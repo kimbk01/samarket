@@ -16,13 +16,13 @@ import {
   createOpenGroupRoom,
   createPrivateGroupRoom,
   ensureCommunityMessengerDirectRoomFromProductChat,
-  ensureCommunityMessengerDirectRoomFromStoreOrderChat,
   ensureGeneralFriendDirectRoom,
   getCommunityMessengerRoomSnapshot,
   listCommunityMessengerMyChatsAndGroups,
   syncStoreOrderCommunityMessengerRoomId,
 } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
+import { ensureStoreOrderRoomForLegacyRoomsPost } from "@/lib/community-messenger/store-order-legacy-rooms-post";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,7 +145,12 @@ export async function POST(req: NextRequest) {
   let result: { ok: boolean; roomId?: string; error?: string };
   const isPeerOnlyDirect = !storeOrderId && !productChatRoomId;
   if (storeOrderId) {
-    result = await ensureCommunityMessengerDirectRoomFromStoreOrderChat(auth.userId, storeOrderId);
+    // R1-B C-18: 정식 경로(`ensureStoreOrderMessengerRoom`)에 위임 — 응답 모양은 기존과 같다.
+    result = await ensureStoreOrderRoomForLegacyRoomsPost(
+      sb as import("@supabase/supabase-js").SupabaseClient,
+      auth.userId,
+      storeOrderId
+    );
   } else if (productChatRoomId) {
     result = await ensureCommunityMessengerDirectRoomFromProductChat(auth.userId, productChatRoomId);
   } else {

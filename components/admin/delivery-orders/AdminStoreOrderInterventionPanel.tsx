@@ -6,11 +6,12 @@
  * Server: POST /api/admin/store-orders/[orderId]/intervene (reason required, expected_status re-check).
  */
 import { useState } from "react";
-import { dibayPrompt } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { COMMISSION_PRESS } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import {
   ADMIN_INTERVENTION_REASON_MAX,
   ADMIN_STORE_ORDER_INTERVENTION_ERROR,
@@ -23,13 +24,18 @@ import {
 /** Reject reasons reach the store and buyer (existing reject notifications); others stay in the audit log. */
 const BUYER_VISIBLE_REASON = new Set<AdminStoreOrderInterventionAction>(["cancel_request_reject", "refund_reject"]);
 
-/** Refund approval and admin cancel end the order / move money → order number typed again. */
-const DOUBLE_CONFIRM = new Set<AdminStoreOrderInterventionAction>(["refund_approve", "force_cancel"]);
+/** 환불 처리 기록 · 강제 취소 end the order → L3 (reason + order number typed again). Others L2 (reason). */
+const L3_ACTIONS = new Set<AdminStoreOrderInterventionAction>(["refund_approve", "force_cancel"]);
 
 /** Errors after which the panel reloads the order (state moved under us). */
-const RELOAD_ERRORS = new Set(["status_changed", "transition_conflict", "action_not_allowed_for_status"]);
+const RELOAD_ERRORS = new Set(["status_changed", "transition_conflict", "action_not_allowed_for_status", "expected_status_required"]);
 
 type Notice = { tone: "ok" | "error"; text: string };
+
+/** Labels: contract SSOT (DEF-23 「환불 처리 기록」 / 「강제 취소」 live there). */
+function panelLabel(action: AdminStoreOrderInterventionAction) {
+  return ADMIN_STORE_ORDER_INTERVENTION_LABEL[action];
+}
 
 export function AdminStoreOrderInterventionPanel({
   orderId,
@@ -55,11 +61,11 @@ export function AdminStoreOrderInterventionPanel({
 
   const errorText = (code: string) => {
     const e = ADMIN_STORE_ORDER_INTERVENTION_ERROR[code];
-    return e ? (ko ? e.ko : e.en) : ko ? `처리에 실패했습니다. (${code})` : `Failed. (${code})`;
+    return e ? (ko ? e.ko : e.en) : adminOperatorErrorMessage(code, ko);
   };
 
   const run = async (action: AdminStoreOrderInterventionAction) => {
-    const label = ADMIN_STORE_ORDER_INTERVENTION_LABEL[action];
+    const label = panelLabel(action);
     const visibility = BUYER_VISIBLE_REASON.has(action)
       ? ko
         ? "반려 사유는 매장과 구매자에게 표시됩니다."
@@ -67,37 +73,23 @@ export function AdminStoreOrderInterventionPanel({
       : ko
         ? "사유는 관리자 감사 로그에만 기록됩니다."
         : "The reason is kept in the admin audit log only.";
-    const raw = await dibayPrompt({
+    const confirmed = await confirmAdminAction({
+      level: L3_ACTIONS.has(action) ? "L3" : "L2",
+      ko,
       title: `${ko ? label.ko : label.en} · ${orderNo}`,
       description: `${ko ? label.confirmKo : label.confirmEn}\n${visibility}`,
-      placeholder: ko ? `사유 (필수, ${ADMIN_INTERVENTION_REASON_MAX}자 이내)` : `Reason (required, max ${ADMIN_INTERVENTION_REASON_MAX})`,
       confirmLabel: ko ? label.ko : label.en,
-      confirmTone: label.destructive ? "destructive" : "primary",
-      required: true,
+      destructive: label.destructive,
+      retypeValue: L3_ACTIONS.has(action) ? orderNo : undefined,
+      reasonPlaceholder: ko
+        ? `사유 (필수, ${ADMIN_INTERVENTION_REASON_MAX}자 이내)`
+        : `Reason (required, max ${ADMIN_INTERVENTION_REASON_MAX})`,
     });
-    if (raw == null) return;
-    const reason = normalizeAdminInterventionReason(raw);
+    if (!confirmed.ok) return;
+    const reason = normalizeAdminInterventionReason(confirmed.reason);
     if (!reason.ok) {
       setNotice({ tone: "error", text: errorText(reason.error) });
       return;
-    }
-    // Money-moving / order-ending actions: type the order number again (double confirmation).
-    if (DOUBLE_CONFIRM.has(action)) {
-      const typed = await dibayPrompt({
-        title: ko ? "주문번호 확인" : "Confirm order number",
-        description: ko
-          ? `되돌릴 수 없는 처리입니다. 확인을 위해 주문번호 ${orderNo} 를 입력하세요.`
-          : `This cannot be undone. Type the order number ${orderNo} to confirm.`,
-        placeholder: orderNo,
-        confirmLabel: ko ? label.ko : label.en,
-        confirmTone: "destructive",
-        required: true,
-      });
-      if (typed == null) return;
-      if (typed.trim() !== orderNo) {
-        setNotice({ tone: "error", text: ko ? "주문번호가 일치하지 않아 처리하지 않았습니다." : "Order number did not match — nothing was done." });
-        return;
-      }
     }
 
     setBusy(action);
@@ -117,7 +109,7 @@ export function AdminStoreOrderInterventionPanel({
         order_status?: string;
       };
       if (!res.ok || j.ok !== true) {
-        const code = typeof j.error === "string" ? j.error : `http_${res.status}`;
+        const code = typeof j.error === "string" ? j.error : res.status === 403 ? "forbidden" : "action_failed";
         setNotice({ tone: "error", text: errorText(code) });
         if (RELOAD_ERRORS.has(code)) await onChanged();
         return;
@@ -152,7 +144,7 @@ export function AdminStoreOrderInterventionPanel({
         ) : (
           <div className="flex flex-wrap gap-2">
             {actions.map((a) => {
-              const label = ADMIN_STORE_ORDER_INTERVENTION_LABEL[a];
+              const label = panelLabel(a);
               const isBusy = busy === a;
               return (
                 <button

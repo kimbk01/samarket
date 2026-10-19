@@ -15,6 +15,15 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { CampaignActionConfirmDialog } from "@/components/admin/notifications/CampaignActionConfirmDialog";
+import { notifChannelLabel } from "@/components/admin/points/admin-points-notifications-i18n";
+import {
+  formatCampaignTime,
+  type CampaignConfirmAction,
+  type CampaignConfirmFacts,
+} from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign-status-machine";
+import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
@@ -52,6 +61,23 @@ async function uploadCampaignImage(kind: "push" | "in_app", file: File): Promise
   return res.ok && j.ok && j.url ? j.url : null;
 }
 
+/** ISO → `datetime-local` input value in the browser's local time. */
+function toDateTimeLocalInput(iso: unknown): string {
+  if (typeof iso !== "string" || !iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function readCampaignContentId(payload: unknown): string {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "";
+  const p = payload as Record<string, unknown>;
+  if (typeof p.appNoticeId === "string") return p.appNoticeId.trim();
+  if (typeof p.content_id === "string") return p.content_id.trim();
+  return "";
+}
+
 function newClientIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -83,7 +109,16 @@ export function AdminNotificationCampaignCreatePage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showReview, setShowReview] = useState(false);
-  const [confirmImmediate, setConfirmImmediate] = useState(false);
+  // ADM-04: the create form doubles as the edit form (`?edit=<campaignId>`).
+  const editId = searchParams.get("edit")?.trim() ?? "";
+  const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [editBlocked, setEditBlocked] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{
+    action: CampaignConfirmAction;
+    facts: CampaignConfirmFacts;
+    run: () => Promise<void>;
+  } | null>(null);
+  const lang = language === "en" ? "en" : "ko";
   const [sendMode, setSendMode] = useState<CampaignSendMode>("immediate");
   const [scheduledAt, setScheduledAt] = useState("");
   const [recurrenceKind, setRecurrenceKind] = useState<RecurrenceKind>("weekly");
@@ -94,6 +129,7 @@ export function AdminNotificationCampaignCreatePage() {
   const [audience, setAudience] = useState<CampaignAudiencePreview | null>(null);
 
   useEffect(() => {
+    if (searchParams.get("edit")) return;
     const qType = searchParams.get("type");
     if (qType === "notice" || qType === "marketing" || qType === "system") setType(qType);
     // Optional draft only — never treat query body as Board original authority.
@@ -106,6 +142,83 @@ export function AdminNotificationCampaignCreatePage() {
     const qNotice = searchParams.get("appNoticeId");
     if (qNotice) setAppNoticeId(qNotice);
   }, [searchParams]);
+
+  // ADM-04 edit mode: hydrate the form from the stored campaign (draft · scheduled · paused only).
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    void (async () => {
+      setBusy(true);
+      try {
+        const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}`, {
+          credentials: "include",
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          campaign?: Record<string, unknown>;
+          allowed_actions?: string[];
+          effective_status?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !j.ok || !j.campaign) {
+          setEditBlocked(t("admin_notif_not_found"));
+          return;
+        }
+        const c = j.campaign;
+        const status = typeof j.effective_status === "string" ? j.effective_status : String(c.status ?? "");
+        setEditStatus(status);
+        if (!Array.isArray(j.allowed_actions) || !j.allowed_actions.includes("edit")) {
+          setEditBlocked(
+            safeT("admin_campaign_cms_edit_blocked", {
+              fallbackKo: "이 알림은 더 이상 수정할 수 없습니다. 상세 화면에서 「복제」 후 새로 작성하세요.",
+              fallbackEn: "This notification can no longer be edited. Duplicate it from the detail page instead.",
+            })
+          );
+        }
+        const str = (v: unknown) => (typeof v === "string" ? v : "");
+        setTitle(str(c.title));
+        setBody(str(c.body));
+        const typ = str(c.type);
+        if (typ === "notice" || typ === "marketing" || typ === "system") setType(typ);
+        const ch = str(c.channel);
+        if (ch === "push_only" || ch === "in_app_only" || ch === "push_and_in_app" || ch === "test_only") {
+          setChannel(ch);
+        }
+        setTargetType(str(c.target_type) || "all");
+        setDeeplinkUrl(str(c.deeplink_url) || str(c.target_url));
+        setWebUrl(str(c.web_url));
+        setPushImageUrl(str(c.push_image_url));
+        setInAppImageUrl(str(c.in_app_image_url));
+        setRegionCode(str(c.segment_region_code));
+        setSelectedIds(readSelectedUserIdsFromPayload(c.target_payload).join("\n"));
+        setAppNoticeId(readCampaignContentId(c.target_payload));
+        const mode = str(c.send_mode);
+        setSendMode(mode === "scheduled" || mode === "recurring" ? mode : "immediate");
+        setScheduledAt(toDateTimeLocalInput(c.scheduled_at));
+        const rk = str(c.recurrence_kind);
+        if (rk === "daily" || rk === "weekly" || rk === "monthly") setRecurrenceKind(rk);
+        if (str(c.recurrence_time)) setRecurrenceTime(str(c.recurrence_time).slice(0, 5));
+        if (typeof c.recurrence_weekday === "number") setRecurrenceWeekday(c.recurrence_weekday);
+        setRecurrenceStartAt(toDateTimeLocalInput(c.recurrence_start_at));
+        setRecurrenceEndAt(toDateTimeLocalInput(c.recurrence_end_at));
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // `t`/`lang` omitted on purpose: hydrate once per campaign id (i18n boot recreates `t`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
+
+  /** ADM-04: scheduled keeps `scheduled`, paused keeps `recurring`; drafts may pick any mode. */
+  const sendModeAllowed = (mode: CampaignSendMode) => {
+    if (!editId || !editStatus) return true;
+    if (editStatus === "scheduled") return mode === "scheduled";
+    if (editStatus === "paused") return mode === "recurring";
+    return true;
+  };
 
   const loadLinkedContent = useCallback(async (id: string) => {
     const trimmed = id.trim();
@@ -360,50 +473,172 @@ export function AdminNotificationCampaignCreatePage() {
     }
   };
 
-  const submitReview = async () => {
+  /** ADM-04: PATCH the stored campaign with the current form (same parser as create). */
+  const patchCampaign = async (): Promise<boolean> => {
+    if (!editId) return false;
+    const payload: Record<string, unknown> = buildPayload({ save_as_draft: false, send_mode: sendMode });
+    delete payload.save_as_draft;
+    delete payload.create_request_id;
+    delete payload.is_qa;
+    const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+    if (!res.ok || !j.ok) {
+      setErr(parseApiError(j));
+      return false;
+    }
+    return true;
+  };
+
+  const confirmTimeLabel = () => {
+    if (sendMode === "scheduled") {
+      const iso = scheduledAt ? new Date(scheduledAt).toISOString() : null;
+      return `${formatCampaignTime(iso)} ${safeT("admin_campaign_cms_time_scheduled_suffix", { fallbackKo: "예약", fallbackEn: "(scheduled)" })}`;
+    }
+    if (sendMode === "recurring") {
+      const kind =
+        recurrenceKind === "daily"
+          ? t("admin_notif_recurrence_daily")
+          : recurrenceKind === "monthly"
+            ? t("admin_notif_recurrence_monthly")
+            : t("admin_notif_recurrence_weekly");
+      return `${kind} ${recurrenceTime}`;
+    }
+    return safeT("admin_campaign_cms_time_immediately", { fallbackKo: "즉시 발송", fallbackEn: "Immediately" });
+  };
+
+  const confirmFacts = (preview: CampaignAudiencePreview | null): CampaignConfirmFacts => ({
+    title: title.trim(),
+    targetCount: preview ? preview.totalUsers : null,
+    pushEligibleCount: preview ? preview.pushEligibleUsers : null,
+    channelLabel: notifChannelLabel(t, channel),
+    timeLabel: confirmTimeLabel(),
+  });
+
+  const runConfirmed = async () => {
+    if (!confirm || busy) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      await confirm.run();
+    } finally {
+      setBusy(false);
+      setConfirm(null);
+    }
+  };
+
+  /** Edit mode: draft → save then send / schedule (each step server-gated by the status machine). */
+  const runEditDispatch = async () => {
+    if (!(await patchCampaign())) return;
+    if (sendMode === "immediate") {
+      const sendKey = newClientIdempotencyKey();
+      const sr = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}/send`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": sendKey },
+        body: JSON.stringify({ idempotency_key: sendKey }),
+      });
+      const sj = (await sr.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!sr.ok || !sj?.ok) {
+        setErr(typeof sj?.error === "string" ? sj.error : t("admin_notif_err_save"));
+        return;
+      }
+    } else {
+      const ar = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(editId)}/actions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "schedule" }),
+      });
+      const aj = (await ar.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!ar.ok || !aj?.ok) {
+        setErr(typeof aj?.error === "string" ? aj.error : t("admin_notif_err_save"));
+        return;
+      }
+    }
+    router.push(`/admin/notifications/${editId}`);
+  };
+
+  const submitReview = () => {
     if (sendMode === "scheduled" && !scheduledAt) {
       setErr(t("admin_notif_label_scheduled_at"));
       return;
     }
-    if (sendMode === "immediate") {
-      setConfirmImmediate(true);
+    setErr(null);
+    const action: CampaignConfirmAction = sendMode === "immediate" ? "send" : "schedule";
+    setConfirm({
+      action,
+      facts: confirmFacts(audience),
+      run: async () => {
+        if (editId) {
+          await runEditDispatch();
+          return;
+        }
+        if (sendMode === "immediate") {
+          await confirmImmediateSend();
+          return;
+        }
+        const result = await createCampaign({
+          save_as_draft: false,
+          send_mode: sendMode,
+          create_request_id: newClientIdempotencyKey(),
+        });
+        if (result) router.push(`/admin/notifications/${result.id}`);
+      },
+    });
+  };
+
+  /** Edit mode save: drafts save silently; scheduled/paused re-confirm 대상 · 채널 · 시각. */
+  const saveEdit = async () => {
+    if (!editId) return;
+    setErr(null);
+    if (editStatus === "draft") {
+      setBusy(true);
+      try {
+        if (await patchCampaign()) router.push(`/admin/notifications/${editId}`);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
-    setErr(null);
+    if (sendMode === "scheduled" && !scheduledAt) {
+      setErr(t("admin_notif_label_scheduled_at"));
+      return;
+    }
     setBusy(true);
+    let preview: CampaignAudiencePreview | null = null;
     try {
-      const createRequestId = newClientIdempotencyKey();
-      const result = await createCampaign({
-        save_as_draft: false,
-        send_mode: sendMode,
-        create_request_id: createRequestId,
-      });
-      if (result) router.push(`/admin/notifications/${result.id}`);
+      preview = await loadAudiencePreview();
     } finally {
       setBusy(false);
     }
+    if (!preview) return;
+    setConfirm({
+      action: "save_edit",
+      facts: confirmFacts(preview),
+      run: async () => {
+        if (await patchCampaign()) router.push(`/admin/notifications/${editId}`);
+      },
+    });
   };
 
   const confirmImmediateSend = async () => {
-    setErr(null);
-    setBusy(true);
-    try {
-      const createRequestId = newClientIdempotencyKey();
-      const result = await createCampaign({
-        save_as_draft: false,
-        send_mode: "immediate",
-        create_request_id: createRequestId,
-      });
-      if (!result) return;
-      if (result.occurrenceId) {
-        await runCampaignSend(result.id, result.occurrenceId);
-      }
-      router.push(`/admin/notifications/${result.id}`);
-    } finally {
-      setBusy(false);
-      setConfirmImmediate(false);
-      setShowReview(false);
+    const createRequestId = newClientIdempotencyKey();
+    const result = await createCampaign({
+      save_as_draft: false,
+      send_mode: "immediate",
+      create_request_id: createRequestId,
+    });
+    if (!result) return;
+    if (result.occurrenceId) {
+      await runCampaignSend(result.id, result.occurrenceId);
     }
+    setShowReview(false);
+    router.push(`/admin/notifications/${result.id}`);
   };
 
   const runTestSend = async () => {
@@ -528,7 +763,16 @@ export function AdminNotificationCampaignCreatePage() {
       <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
         ← {t("admin_back_to_list")}
       </Link>
-      <h1 className="text-lg font-semibold text-sam-fg">{t("admin_notif_page_create")}</h1>
+      <h1 className="text-lg font-semibold text-sam-fg">
+        {editId
+          ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
+          : t("admin_notif_page_create")}
+      </h1>
+      {editBlocked ? (
+        <p className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-sam-fg dark:border-amber-800 dark:bg-amber-950/30">
+          {editBlocked}
+        </p>
+      ) : null}
 
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
 
@@ -914,6 +1158,7 @@ export function AdminNotificationCampaignCreatePage() {
                 type="radio"
                 name="send_mode"
                 checked={sendMode === mode}
+                disabled={!sendModeAllowed(mode)}
                 onChange={() => setSendMode(mode)}
               />
               <span>
@@ -1092,20 +1337,17 @@ export function AdminNotificationCampaignCreatePage() {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            {!confirmImmediate ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void submitReview()}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-              >
-                {reviewPrimaryLabel}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => submitReview()}
+              className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {reviewPrimaryLabel}
+            </button>
             <button
               type="button"
               onClick={() => {
-                setConfirmImmediate(false);
                 setShowReview(false);
               }}
               className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm"
@@ -1116,61 +1358,79 @@ export function AdminNotificationCampaignCreatePage() {
         </div>
       ) : null}
 
-      {confirmImmediate ? (
-        <div className="rounded-ui-rect border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-          <p className="text-sm font-semibold text-sam-fg">
-            {targetType === "all" ? t("admin_notif_confirm_send_all_title") : t("admin_notif_confirm_send_title")}
-          </p>
-          <p className="mt-1 text-sm text-sam-muted">
-            {targetType === "all" ? t("admin_notif_confirm_send_all_body") : t("admin_notif_confirm_send_body")}
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void confirmImmediateSend()}
-              className="rounded-ui-rect bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-            >
-              {targetType === "all" ? t("admin_notif_btn_send_all_members") : t("admin_notif_btn_send_now")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmImmediate(false)}
+      <CampaignActionConfirmDialog
+        action={confirm?.action ?? null}
+        facts={confirm?.facts ?? null}
+        lang={lang}
+        pending={busy}
+        cancelLabel={t("admin_notif_btn_cancel")}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => void runConfirmed()}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border pt-4">
+        {editId ? (
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/admin/notifications/${encodeURIComponent(editId)}`}
               className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm"
             >
               {t("admin_notif_btn_cancel")}
+            </Link>
+            <button
+              type="button"
+              disabled={busy || !formValid || Boolean(editBlocked)}
+              onClick={() => void saveEdit()}
+              className={
+                editStatus === "draft"
+                  ? "rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
+                  : "rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              }
+              data-admin-notif-save-edit="1"
+            >
+              {safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })}
             </button>
+            {editStatus === "draft" ? (
+              <button
+                type="button"
+                disabled={busy || !formValid || Boolean(editBlocked)}
+                onClick={() => void openReview()}
+                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {t("admin_notif_btn_review")}
+              </button>
+            ) : null}
           </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sam-border pt-4">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={busy || !formValid}
-            onClick={() => void saveDraft()}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
-          >
-            {t("admin_notif_btn_draft")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !formValid}
-            onClick={() => void openReview()}
-            className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
-            {t("admin_notif_btn_review")}
-          </button>
-        </div>
-        <button
-          type="button"
-          disabled={busy || !formValid || !testUserIds.trim()}
-          onClick={() => void runTestSend()}
-          className="rounded-ui-rect border border-signature px-4 py-2 text-sm text-signature disabled:opacity-40"
-        >
-          {t("admin_notif_btn_test_send")}
-        </button>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !formValid}
+                onClick={() => void saveDraft()}
+                className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
+              >
+                {t("admin_notif_btn_draft")}
+              </button>
+              <button
+                type="button"
+                disabled={busy || !formValid}
+                onClick={() => void openReview()}
+                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {t("admin_notif_btn_review")}
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={busy || !formValid || !testUserIds.trim()}
+              onClick={() => void runTestSend()}
+              className="rounded-ui-rect border border-signature px-4 py-2 text-sm text-signature disabled:opacity-40"
+            >
+              {t("admin_notif_btn_test_send")}
+            </button>
+          </>
+        )}
       </div>
 
       {pickerOpen ? (

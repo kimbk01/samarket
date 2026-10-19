@@ -9,6 +9,11 @@ import {
   type StoreDiscoveryCampaignType,
 } from "@/lib/stores/store-discovery-campaign-authority";
 import {
+  ADMIN_EXPECTED_UPDATED_AT_REQUIRED,
+  ADMIN_STALE_UPDATED_AT,
+  sameUpdatedAtInstant,
+} from "@/lib/admin/concurrency/admin-expected-updated-at";
+import {
   parseStoreDiscoveryCampaignCreateBody,
   parseStoreDiscoveryCampaignUpdateBody,
   resolveStoreDiscoveryCampaignUpdateWindow,
@@ -44,6 +49,8 @@ export type StoreDiscoveryCampaignWriterError =
   | "store_not_found"
   | "store_not_eligible"
   | "campaign_not_found"
+  | "expected_updated_at_required"
+  | "stale_updated_at"
   | "db_error";
 
 export type StoreDiscoveryCampaignWriterResult<T> =
@@ -160,8 +167,17 @@ export async function updateStoreDiscoveryCampaignAdmin(
     return { ok: false, error: parsed.error, forbidden: parsed.forbidden };
   }
 
+  const expectedUpdatedAt = parsed.value.expectedUpdatedAt ?? "";
+  if (!expectedUpdatedAt) return { ok: false, error: ADMIN_EXPECTED_UPDATED_AT_REQUIRED };
+
   const existing = await loadCampaignRowForUpdate(sb, parsed.value.id);
   if (!existing.ok) return existing;
+  // CAS — store_discovery_campaigns 에는 updated_at 트리거가 없다: writer 가 매 쓰기마다 updated_at 을 기록하고
+  // 이전 값 조건부로 UPDATE 한다.
+  const currentUpdatedAt = existing.row.updated_at;
+  if (!currentUpdatedAt || !sameUpdatedAtInstant(expectedUpdatedAt, currentUpdatedAt)) {
+    return { ok: false, error: ADMIN_STALE_UPDATED_AT };
+  }
 
   const window = resolveStoreDiscoveryCampaignUpdateWindow(
     { startAt: existing.row.start_at, endAt: existing.row.end_at },
@@ -174,15 +190,17 @@ export async function updateStoreDiscoveryCampaignAdmin(
     .from(STORE_DISCOVERY_CAMPAIGN_TABLE)
     .update(patch)
     .eq("id", parsed.value.id)
+    .eq("updated_at", currentUpdatedAt)
     .select(
       "id, store_id, campaign_type, title, body_copy, start_at, end_at, is_active, created_by_user_id, updated_by_user_id, created_at, updated_at"
     )
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    console.error("[updateStoreDiscoveryCampaignAdmin]", error?.message);
+  if (error) {
+    console.error("[updateStoreDiscoveryCampaignAdmin]", error.message);
     return { ok: false, error: "db_error" };
   }
+  if (!data) return { ok: false, error: ADMIN_STALE_UPDATED_AT };
 
   const mapped = mapDbRow(data as Record<string, unknown>);
   if (!mapped) return { ok: false, error: "db_error" };

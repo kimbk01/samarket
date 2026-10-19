@@ -1,6 +1,9 @@
 import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import {
+  resolveAdminHiddenMessagePlaceholder,
+  resolveDeletedMessagePlaceholder,
+} from "@/lib/community-messenger/message-actions/message-reply-policy";
 import {
   cmRtLogMapRowSkipped,
   cmRtLogPostgresPayload,
@@ -22,6 +25,8 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
     typeof row.deleted_for_everyone_at === "string" && row.deleted_for_everyone_at.trim()
       ? row.deleted_for_everyone_at
       : null;
+  /** 관리자 숨김 — 서버 매퍼와 같은 규칙 (본문·미디어 대체, 해제 시 원문 행으로 복원) */
+  const hiddenByAdmin = !deletedForEveryoneAt && row.is_hidden_by_admin === true;
   const rawContent = typeof row.content === "string" ? row.content : "";
   const replyToMessageId =
     typeof row.reply_to_message_id === "string" && row.reply_to_message_id.trim() ? row.reply_to_message_id : null;
@@ -37,8 +42,9 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
     id,
     roomId,
     senderId: typeof row.sender_id === "string" ? row.sender_id : null,
-    messageType:
-      row.message_type === "image" ||
+    messageType: hiddenByAdmin
+      ? "text"
+      : row.message_type === "image" ||
       row.message_type === "file" ||
       row.message_type === "system" ||
       row.message_type === "call_stub" ||
@@ -48,8 +54,12 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
       row.message_type === "gift_certificate"
         ? row.message_type
         : "text",
-    content: deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : rawContent,
-    metadata,
+    content: deletedForEveryoneAt
+      ? resolveDeletedMessagePlaceholder()
+      : hiddenByAdmin
+        ? resolveAdminHiddenMessagePlaceholder()
+        : rawContent,
+    metadata: hiddenByAdmin ? {} : metadata,
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
     ...(replyToMessageId
       ? {

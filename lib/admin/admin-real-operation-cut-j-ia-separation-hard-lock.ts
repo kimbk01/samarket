@@ -6,6 +6,8 @@
  * Doc: `docs/dibay-admin-real-operation-cut-j-ia-separation-hard-lock.md`
  *
  * J-AMD-1: `members` immediately after `dashboard` (Owner-approved; menu implemented).
+ * J-AMD-3: Delivery workspace operator-task sections (Owner-approved A-1; menu implemented).
+ * J-AMD-4: Chat (messenger) workspace sections (Owner-approved O-C12; menu implemented).
  */
 
 export const ADMIN_REAL_OPERATION_CUT_J_LOCK_ID =
@@ -53,6 +55,175 @@ export const CUT_J_J_AMD_1_REJECTED = {
   adsPromotionSingleParent_B_X1: true,
   cutJFullUnlock: true,
 } as const;
+
+export const CUT_J_J_AMD_3_OWNER_APPROVED = true as const;
+
+export const CUT_J_J_AMD_3_STATUS = "OWNER_APPROVED_IMPLEMENTED" as const;
+
+/**
+ * J-AMD-3 — Delivery workspace tree (direct children of `delivery`, in order).
+ * Section nodes are header-only (no path). Leaf keys / paths / status unchanged
+ * except the added `store-inquiries-admin` leaf. Workspace order unchanged.
+ */
+export const CUT_J_J_AMD_3_DELIVERY_TREE = [
+  { key: "delivery-dashboard", children: [] },
+  {
+    key: "delivery-section-stores",
+    children: [
+      "stores-commerce",
+      "business-shops",
+      "store-products-admin",
+      "store-inquiries-admin",
+      "store-reports-admin",
+      "store-reviews-admin",
+    ],
+  },
+  {
+    key: "delivery-orders",
+    children: [
+      "delivery-orders-list",
+      "delivery-orders-action-queue",
+      "delivery-orders-cancel",
+      "delivery-orders-refund",
+      "delivery-orders-logs",
+      "delivery-order-chats",
+    ],
+  },
+  {
+    key: "delivery-section-field",
+    children: [
+      "delivery-ops-console",
+      "delivery-operations-stats",
+      "delivery-riders-ops",
+      "delivery-operation-alerts",
+      "delivery-auto-actions",
+    ],
+  },
+  {
+    key: "delivery-section-fees",
+    children: ["store-fee-policies-admin", "store-settlements-admin"],
+  },
+  {
+    key: "delivery-section-promotions",
+    children: ["store-coupon-control-center", "gift-certificates", "store-promo-control"],
+  },
+  {
+    key: "delivery-section-home-layout",
+    children: [
+      "stores-home-shelves",
+      "stores-industries-management",
+      "stores-browse-policy",
+      "delivery-bottom-nav",
+    ],
+  },
+  {
+    key: "delivery-section-settings",
+    children: [
+      "delivery-distance",
+      "store-settings-alerts",
+      "commerce-settings-admin",
+      "store-payment-events-admin",
+    ],
+  },
+] as const;
+
+/** J-AMD-3 — added primary leaf (route existed; previously hidden from nav). */
+export const CUT_J_J_AMD_3_ADDED_LEAF = {
+  key: "store-inquiries-admin",
+  path: "/admin/store-inquiries",
+  workspace: "delivery",
+  parent: "delivery-section-stores",
+} as const;
+
+/** J-AMD-3 — leaves moved out of delivery (same keys / paths). */
+export const CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY = [
+  {
+    key: "runtime-health",
+    path: "/admin/runtime-health",
+    workspace: "system",
+    parent: "system-manage",
+  },
+  {
+    key: "delivery-release-gate",
+    path: "/admin/delivery-release-gate",
+    workspace: "system",
+    parent: "system-manage",
+  },
+  {
+    key: "delivery-order-notifications",
+    path: "/admin/order-notifications",
+    workspace: "support",
+    parent: "support",
+  },
+] as const;
+
+/** J-AMD-3 — old delivery section nodes removed once empty (i18n keys kept). */
+export const CUT_J_J_AMD_3_REMOVED_SECTIONS = [
+  "delivery-section-operations",
+  "delivery-section-management",
+  "delivery-section-policies",
+  "delivery-section-platform",
+] as const;
+
+export const CUT_J_J_AMD_4_OWNER_APPROVED = true as const;
+
+export const CUT_J_J_AMD_4_STATUS = "OWNER_APPROVED_IMPLEMENTED" as const;
+
+/**
+ * J-AMD-4 — Chat workspace tree (direct children of `messenger`, in order).
+ * Doc: `docs/admin/dibay-admin-chat-audit-design.md` §2 (O-C12).
+ * Section nodes are header-only. Keys unchanged; 「거래」「배달 주문」 are type filters of
+ * 전체채팅 (`/admin/chats?type=…`) — the old `?from=messenger` URLs stay as matchPaths only.
+ */
+/** 채팅 Admin 설계 v2 §1-3 (Owner 승인 A-10): 긴급도 순 — 대시보드 · 신고 · 통화 · 채팅방(활동량 순) · 시스템. */
+export const CUT_J_J_AMD_4_MESSENGER_TREE = [
+  { key: "messenger-hub", children: [] },
+  { key: "messenger-section-reports", children: ["chat-reported"] },
+  { key: "messenger-section-calls", children: ["chat-messenger"] },
+  {
+    key: "messenger-section-rooms",
+    children: [
+      "chat-all",
+      "chat-trade-messenger",
+      "delivery-order-chats-messenger",
+      "chat-general",
+      "chat-group",
+    ],
+  },
+  { key: "messenger-section-system", children: ["chat-messenger-perf", "ops-docs-chat"] },
+] as const;
+
+/** J-AMD-4 — reference leaves re-pointed from `?from=messenger` duplicates to 전체채팅 type filters. */
+export const CUT_J_J_AMD_4_REPOINTED_LEAVES = [
+  {
+    key: "chat-trade-messenger",
+    path: "/admin/chats?type=trade",
+    legacyMatchPath: "/admin/chats/trade?from=messenger",
+  },
+  {
+    key: "delivery-order-chats-messenger",
+    path: "/admin/chats?type=store_order",
+    legacyMatchPath: "/admin/order-chats?from=messenger",
+  },
+] as const;
+
+/** J-AMD-4 — leaves moved into the chat workspace (same keys / paths). */
+export const CUT_J_J_AMD_4_MOVED_INTO_MESSENGER = [
+  {
+    key: "ops-docs-chat",
+    path: "/admin/docs/chat",
+    workspace: "messenger",
+    parent: "messenger-section-system",
+  },
+] as const;
+
+/** J-AMD-4 — old chat section node removed once empty (i18n key kept). */
+export const CUT_J_J_AMD_4_REMOVED_SECTIONS = ["messenger-advanced"] as const;
+
+/** J-AMD-4 — redirect-only routes (never menu leaves). */
+export const CUT_J_J_AMD_4_REDIRECTS = [
+  { from: "/admin/chats/trade-complete", to: "/admin/trade-flow?panel=complete" },
+] as const;
 
 export const CUT_J_NAV_SSOT = {
   menuTreeAuthority: "components/admin/admin-menu.ts",
@@ -116,6 +287,18 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_J_J_AMD_1_REJECTED.cutJFullUnlock === true &&
     CUT_J_J_AMD_1_MEMBERS_LEAVES.length === 4;
 
+  const jAmd3Ok =
+    CUT_J_J_AMD_3_OWNER_APPROVED === true &&
+    CUT_J_J_AMD_3_DELIVERY_TREE[0].key === "delivery-dashboard" &&
+    CUT_J_J_AMD_3_DELIVERY_TREE.length === 8 &&
+    CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY.length === 3;
+
+  const jAmd4Ok =
+    CUT_J_J_AMD_4_OWNER_APPROVED === true &&
+    CUT_J_J_AMD_4_MESSENGER_TREE[0].key === "messenger-hub" &&
+    CUT_J_J_AMD_4_MESSENGER_TREE.length === 5 &&
+    CUT_J_J_AMD_4_REPOINTED_LEAVES.every((l) => !l.path.includes("from=messenger"));
+
   return (
     ADMIN_REAL_OPERATION_CUT_J_LOCKED === true &&
     CUT_J_NAV_SSOT.duplicatePrimaryLeafForbidden === true &&
@@ -125,6 +308,8 @@ export function assertAdminRealOperationCutJIaSeparationHardLock(): boolean {
     CUT_I_CARRY_INTO_J.financeF1F3F4F7 === "NOT_PROVEN" &&
     CUT_I_CARRY_INTO_J.adsApplyActiveApp === "NOT_PROVEN" &&
     CUT_I_CARRY_INTO_J.resetStorage === "NOT_IMPLEMENTED" &&
-    jAmd1Ok
+    jAmd1Ok &&
+    jAmd3Ok &&
+    jAmd4Ok
   );
 }

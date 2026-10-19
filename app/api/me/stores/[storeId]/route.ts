@@ -18,6 +18,11 @@ import {
   storeHasCanonicalDeliveryOrigin,
 } from "@/lib/stores/store-canonical-delivery-origin";
 
+import { ownerEditReturnsStoreToPending } from "@/lib/admin-business/admin-store-decision-rules";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
+import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -353,6 +358,35 @@ export async function PATCH(
   if (!updated) {
     console.error("[PATCH /api/me/stores/storeId] update returned no row", sid);
     return NextResponse.json({ ok: false, error: "update_no_row" }, { status: 500 });
+  }
+
+  // C-6 / DEF-16 — 보완 요청 매장의 신청 내용 수정 = 재제출 → 심사 대기 복귀 (상태 조건부).
+  if (ownerEditReturnsStoreToPending(gate.store.approval_status, Object.keys(patch))) {
+    const { data: resubmitted, error: resubmitErr } = await sb
+      .from("stores")
+      .update({ approval_status: "pending" })
+      .eq("id", sid)
+      .eq("approval_status", "revision_requested")
+      .select("id, approval_status")
+      .maybeSingle();
+    if (resubmitErr) {
+      console.error("[PATCH /api/me/stores/storeId] resubmit", resubmitErr);
+    } else if (resubmitted) {
+      (updated as unknown as { approval_status?: string }).approval_status = "pending";
+      invalidateMeStoresListServerCache(userId);
+      const rm = getAuditRequestMeta(req);
+      await appendAuditLog(sb, {
+        actor_type: "user",
+        actor_id: userId,
+        target_type: "store",
+        target_id: sid,
+        action: "store.owner_resubmit",
+        before_json: { approval_status: "revision_requested" },
+        after_json: { approval_status: "pending", fields: Object.keys(patch) },
+        ip: rm.ip,
+        user_agent: rm.userAgent,
+      }).catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] resubmit audit", e));
+    }
   }
 
   const slugRaw = (updated as unknown as { slug?: string }).slug;

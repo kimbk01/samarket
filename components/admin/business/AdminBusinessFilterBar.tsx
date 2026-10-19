@@ -79,7 +79,8 @@ const KPI_DEFS: {
   {
     key: "pending",
     labelKey: "admin_biz_ops_kpi_pending",
-    apply: { approval: "pending_family" },
+    // DEF-14: 승인 필터 select 의 「처리 필요」(actionable) 와 같은 값 — 서버는 pending_family 와 동일 처리
+    apply: { approval: "actionable" },
     value: (k) => k.pendingApproval,
     pctOfTotal: true,
   },

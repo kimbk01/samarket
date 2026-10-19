@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminOrderAuditTable } from "@/components/admin/store-orders/AdminOrderAuditTable";
 import {
   AdminOrderDetailModal,
@@ -45,7 +47,7 @@ export function AdminOrderAuditLogsScreen() {
   const [rows, setRows] = useState<AdminOrderAuditPageRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; status?: number } | null>(null);
   const [reload, setReload] = useState(0);
 
   const statusLabel = useCallback(
@@ -65,7 +67,7 @@ export function AdminOrderAuditLogsScreen() {
         const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; total?: number; rows?: AdminOrderAuditPageRow[] } | null;
         if (!alive) return;
         if (!res.ok || !json?.ok) {
-          setError(res.status === 403 ? (ko ? "권한이 없습니다." : "Forbidden.") : ko ? "감사 로그를 불러오지 못했습니다." : "Could not load audit records.");
+          setError({ code: res.status === 403 ? "forbidden" : "load_failed", status: res.status });
           setRows([]);
           setTotal(0);
           return;
@@ -75,7 +77,7 @@ export function AdminOrderAuditLogsScreen() {
       })
       .catch(() => {
         if (!alive) return;
-        setError(ko ? "네트워크 오류로 불러오지 못했습니다." : "Network error.");
+        setError({ code: "network_error" });
         setRows([]);
         setTotal(0);
       })
@@ -85,7 +87,7 @@ export function AdminOrderAuditLogsScreen() {
     return () => {
       alive = false;
     };
-  }, [applied, ko, reload]);
+  }, [applied, reload]);
 
   const go = useCallback(
     (next: Partial<AdminOrderAuditQuery>) => {
@@ -106,14 +108,15 @@ export function AdminOrderAuditLogsScreen() {
 
   return (
     <div className="space-y-4 p-4 md:p-6" data-admin-order-audit="1">
-      <header>
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">{ko ? "감사 로그" : "Audit log"}</h1>
-        <p className="mt-1 sam-text-body text-sam-muted">
-          {ko
+      {/* 헤더 표준 — 제목 = 메뉴명 「주문 처리 기록」 */}
+      <AdminPageHeader
+        titleKey="admin_menu_delivery_logs"
+        description={
+          ko
             ? "매장 주문에 남은 처리 기록입니다. 기록 시각 기준(마닐라)이며 기록은 수정·삭제되지 않습니다. 주문번호를 누르면 주문 상세가 열립니다."
-            : "Records left on store orders, by record time (Manila). Records are never edited or deleted. Tap an order number to open its detail."}
-        </p>
-      </header>
+            : "Records left on store orders, by record time (Manila). Records are never edited or deleted. Tap an order number to open its detail."
+        }
+      />
 
       <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={ko ? "구분" : "Category"}>
         {ADMIN_AUDIT_FILTER_CATEGORIES.map((c) => {
@@ -171,20 +174,15 @@ export function AdminOrderAuditLogsScreen() {
       </form>
 
       {error ? (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger">
-          <span>{error}</span>
-          <button type="button" className={OPS_SECONDARY_BTN} onClick={() => setReload((n) => n + 1)}>
-            {ko ? "다시 시도" : "Retry"}
-          </button>
-        </div>
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => setReload((n) => n + 1)} />
       ) : null}
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" aria-busy={loading}>
         {loading && rows.length === 0 ? (
-          <p className="sam-text-helper text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
+          <AdminLoadingState ko={ko} />
         ) : rows.length === 0 && !error ? (
-          <p className="sam-text-helper text-sam-muted">{ko ? "조건에 맞는 기록이 없습니다." : "No records match these filters."}</p>
-        ) : (
+          <AdminEmptyState ko={ko} message={ko ? "조건에 맞는 기록이 없습니다." : "No records match these filters."} />
+        ) : rows.length === 0 ? null : (
           <AdminOrderAuditTable rows={rows} statusLabel={statusLabel} onOpenOrder={(id) => modal.openOrder(id, "history")} />
         )}
         <div className="mt-3">
@@ -193,9 +191,9 @@ export function AdminOrderAuditLogsScreen() {
       </section>
 
       <p className="sam-text-xxs text-sam-meta">
-        {ko ? "주문 외 전체 감사 기록은 " : "All other audit records: "}
+        {ko ? "주문 외 전체 작업 기록은 " : "All other activity records: "}
         <Link href="/admin/audit-logs" className="text-signature underline">
-          {ko ? "관리자 감사 로그" : "Admin audit log"}
+          {ko ? "관리자 작업 기록" : "Admin activity log"}
         </Link>
       </p>
 

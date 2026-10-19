@@ -46,6 +46,8 @@ export type StoreDiscoveryCampaignUpdateInput = {
   startAt?: string;
   endAt?: string;
   isActive?: boolean;
+  /** CAS — 화면이 불러온 시점 updated_at (writer 가 필수 검사·조건부 UPDATE). 컬럼에 쓰지 않음. */
+  expectedUpdatedAt?: string;
 };
 
 export type StoreDiscoveryCampaignValidationError =
@@ -96,6 +98,10 @@ const UPDATE_ALLOWED = new Set([
   "startAt",
   "endAt",
   "isActive",
+  /** 작업 사유 — 감사 기록 전용(컬럼에 쓰지 않음). 비활성화 L2 확인이 전송한다. */
+  "reason",
+  /** CAS 버전 — 컬럼에 쓰지 않음 (updated_at 직접 쓰기는 계속 금지). */
+  "expected_updated_at",
 ]);
 
 export function detectUnexpectedStoreDiscoveryCampaignWriteFields(
@@ -192,6 +198,8 @@ export function parseStoreDiscoveryCampaignUpdateBody(
   if (!id) return { ok: false, error: "missing_id" };
 
   const patch: StoreDiscoveryCampaignUpdateInput = { id };
+  const expectedUpdatedAt = trimString(body.expected_updated_at);
+  if (expectedUpdatedAt) patch.expectedUpdatedAt = expectedUpdatedAt;
 
   if (body.campaignType !== undefined) {
     if (!isStoreDiscoveryCampaignType(body.campaignType)) {

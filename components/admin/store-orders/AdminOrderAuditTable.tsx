@@ -3,9 +3,9 @@
 /**
  * Store order audit rows in operator wording (감사 로그 화면 · 주문 상세 처리 이력).
  * Labels: lib/admin/store-orders/admin-store-order-audit-labels.ts. The raw action and
- * before/after JSON stay available behind 「원본」 — rows are never rewritten.
+ * before/after JSON stay available behind 「기술 정보」 — rows are never rewritten.
  */
-import { useState } from "react";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   ADMIN_AUDIT_CATEGORY_LABEL,
@@ -41,7 +41,6 @@ export function AdminOrderAuditTable({
 }) {
   const { language } = useI18n();
   const ko = language === "ko";
-  const [raw, setRaw] = useState<Set<string>>(new Set());
 
   if (rows.length === 0) {
     return <p className="sam-text-helper text-sam-muted">{ko ? "처리 이력이 없습니다." : "No history."}</p>;
@@ -58,14 +57,13 @@ export function AdminOrderAuditTable({
             <th className="px-2 py-2 font-medium">{ko ? "처리 내용" : "Action"}</th>
             <th className="px-2 py-2 font-medium">{ko ? "상태 변경" : "Status"}</th>
             <th className="px-2 py-2 font-medium">{ko ? "사유" : "Reason"}</th>
-            <th className="px-2 py-2 font-medium">{ko ? "원본" : "Raw"}</th>
+            <th className="px-2 py-2 font-medium">{ko ? "상세" : "Details"}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => {
             const v = describeStoreOrderAudit(r, ko);
             const cat = ADMIN_AUDIT_CATEGORY_LABEL[v.category];
-            const shown = raw.has(r.id);
             return (
               <tr key={r.id} className="border-b border-sam-border-soft align-top last:border-b-0" data-audit-category={v.category}>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums text-sam-muted">{formatManilaDateTime(r.created_at)}</td>
@@ -92,26 +90,11 @@ export function AdminOrderAuditTable({
                 </td>
                 <td className="max-w-[260px] px-2 py-2 text-sam-fg [overflow-wrap:anywhere]">{v.reason ?? "—"}</td>
                 <td className="px-2 py-2">
-                  <button
-                    type="button"
-                    className="sam-text-xxs text-sam-muted underline"
-                    aria-expanded={shown}
-                    onClick={() =>
-                      setRaw((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(r.id)) next.delete(r.id);
-                        else next.add(r.id);
-                        return next;
-                      })
-                    }
-                  >
-                    {shown ? (ko ? "닫기" : "Hide") : ko ? "원본 보기" : "Show"}
-                  </button>
-                  {shown ? (
-                    <pre className="mt-1 max-w-[420px] overflow-x-auto whitespace-pre-wrap rounded-ui-rect bg-sam-app p-2 sam-text-xxs text-sam-muted">
+                  <AdminTechDetails ko={ko}>
+                    <pre className="max-w-[420px] overflow-x-auto whitespace-pre-wrap rounded-ui-rect bg-sam-app p-2 sam-text-xxs text-sam-muted">
                       {JSON.stringify({ action: r.action, actor_type: r.actor_type, actor_id: r.actor_id, before: r.before_json, after: r.after_json }, null, 2)}
                     </pre>
-                  ) : null}
+                  </AdminTechDetails>
                 </td>
               </tr>
             );

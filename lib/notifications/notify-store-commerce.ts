@@ -595,6 +595,8 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     nextStatus: string;
     estimatedPrepMinutes?: number | null;
     storeOrderEventId?: string | null;
+    /** ADMIN 이면 「매장이 처리」가 아닌 관리자 처리 문구 (DEF-72) */
+    actor?: "ADMIN" | "OWNER" | "CUSTOMER" | "SYSTEM";
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -606,7 +608,13 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const storeName = await loadStoreName(sb, opts.storeId);
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
-  const copy = buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
+  const copy =
+    opts.actor === "ADMIN" && opts.nextStatus === "cancelled"
+      ? {
+          title: nt(language, "notify_commerce_owner_status_cancelled_title"),
+          body: nt(language, "notify_commerce_admin_cancelled_body", { store: label, orderNo }),
+        }
+      : buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
   if (!copy) return;
   const etaSuffix =
     opts.nextStatus === "accepted" &&

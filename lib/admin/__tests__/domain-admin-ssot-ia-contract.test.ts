@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminMenu } from "@/components/admin/admin-menu";
+import { adminMenu, collectAdminMenuPathEntries } from "@/components/admin/admin-menu";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 
 /**
@@ -46,11 +46,12 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
   it("Messenger exposes general/group/trade/order/reported ops leaves", () => {
     expect(findAdminMenuByKey(adminMenu, "chat-general")?.path).toBe("/admin/chats/general");
     expect(findAdminMenuByKey(adminMenu, "chat-group")?.path).toBe("/admin/chats/group");
+    // J-AMD-4: trade / order entries are 전체채팅 type filters (no ?from= duplicates).
     expect(findAdminMenuByKey(adminMenu, "chat-trade-messenger")?.path).toBe(
-      "/admin/chats/trade?from=messenger"
+      "/admin/chats?type=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "delivery-order-chats-messenger")?.path).toBe(
-      "/admin/order-chats?from=messenger"
+      "/admin/chats?type=store_order"
     );
     expect(findAdminMenuByKey(adminMenu, "chat-reported")?.path).toBe("/admin/chats/reported");
   });
@@ -69,8 +70,11 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
   });
 
   it("CONFIG vs OPERATION: delivery-ads primary under ads, not delivery sidebar", () => {
-    const deliveryOps = findAdminMenuByKey(adminMenu, "delivery-section-operations");
-    const opsKeys = (deliveryOps?.children ?? []).map((c) => c.key);
+    // J-AMD-3: scan the whole delivery subtree (sections are operator-task groups).
+    const opsKeys = collectAdminMenuPathEntries(
+      findAdminMenuByKey(adminMenu, "delivery")?.children ?? []
+    ).map((e) => e.key);
+    expect(opsKeys.length).toBeGreaterThan(0);
     expect(opsKeys).not.toContain("store-ads-section");
     expect(opsKeys).not.toContain("delivery-ads-control");
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(

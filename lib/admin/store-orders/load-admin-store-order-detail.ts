@@ -53,6 +53,7 @@ const ORDER_COLUMNS = [
   "sla_warning_level",
   "sla_warning_reason",
   "community_messenger_room_id",
+  "updated_at",
 ].join(", ");
 
 export type AdminOrderAuditEntry = {
@@ -89,6 +90,8 @@ export type AdminOrderDetail = {
     adminNote: string | null;
     disputeStatus: string | null;
     needsAdminAttention: boolean;
+    /** Row version for conditional meta writes (lock / review mark / urgent / memo). */
+    updatedAt: string | null;
     slaWarningLevel: string | null;
     slaWarningReason: string | null;
     hasChat: boolean;
@@ -238,6 +241,7 @@ export async function loadAdminStoreOrderDetail(sb: SupabaseClient, orderId: str
         adminNote: sOrNull(order.admin_note),
         disputeStatus: sOrNull(order.dispute_status),
         needsAdminAttention: order.needs_admin_attention === true,
+        updatedAt: sOrNull(order.updated_at),
         slaWarningLevel: sOrNull(order.sla_warning_level),
         slaWarningReason: sOrNull(order.sla_warning_reason),
         hasChat: Boolean(sOrNull(order.community_messenger_room_id)),

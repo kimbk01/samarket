@@ -747,6 +747,11 @@ export type AdminSupportListQuery = {
   /** Only cases whose last message is 24h+ old. */
   stale?: boolean;
   search?: string;
+  /** Exact business reference (e.g. STORE_ORDER + order id) — deep links from domain Admin. */
+  referenceType?: string | null;
+  referenceId?: string | null;
+  /** Owner store context (`owner_store_id`) — deep links from the store hub. */
+  ownerStoreId?: string | null;
   limit?: number;
 };
 
@@ -814,6 +819,10 @@ export async function listSupportCasesForAdmin(
   if (input.stale) {
     query = query.lt("last_message_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
   }
+
+  if (input.referenceType) query = query.eq("reference_type", input.referenceType);
+  if (input.referenceId && isUuid(input.referenceId)) query = query.eq("reference_id", input.referenceId);
+  if (input.ownerStoreId && isUuid(input.ownerStoreId)) query = query.eq("owner_store_id", input.ownerStoreId);
 
   const search = (input.search ?? "").trim();
   if (search) {

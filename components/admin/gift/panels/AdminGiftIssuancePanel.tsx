@@ -20,6 +20,7 @@ import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
 import { Sam } from "@/lib/ui/css-vars";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 
 type ApplicationRow = {
   id: string;
@@ -141,7 +142,7 @@ export function AdminGiftIssuancePanel({
   createType?: string;
   pane?: string;
 }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const labelScope = (scope: string | undefined) =>
     scope === "PLATFORM"
       ? safeT("gift_ops_type_platform", { fallbackKo: "DIBAY 상품권", fallbackEn: "DIBAY Gift" })
@@ -289,8 +290,13 @@ export function AdminGiftIssuancePanel({
           body: JSON.stringify({ action, rejectionReason: reason }),
         }
       );
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (json.error === "status_changed") {
+          setError(adminOperatorErrorMessage("status_changed", language !== "en"));
+          await Promise.all([loadApps(), loadAppDetail(id)]);
+          return;
+        }
         setError(
           json.error === "rejection_reason_required"
             ? safeT("gift_admin_reject_reason_required", {
@@ -307,6 +313,8 @@ export function AdminGiftIssuancePanel({
       setRejectOpen(false);
       setRejectReason("");
       await Promise.all([loadApps(), loadAppDetail(id)]);
+    } catch {
+      setError(adminOperatorErrorMessage("network_error", language !== "en"));
     } finally {
       setBusy(false);
     }

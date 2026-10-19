@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { AdminOrderDetailModal, useAdminOrderDetailParam } from "@/components/admin/store-orders/AdminOrderDetailModal";
@@ -11,25 +14,52 @@ import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 
 /**
  * P1-1 — Delivery order-chat LIVE (lookup-only).
- * Identity = store_orders.community_messenger_room_id → CM store_order detail.
+ * Identity = store_orders.community_messenger_room_id. 「주문 채팅 열기」 → /admin/stores/orders/{orderId}/chat
+ * (single admin order-chat route, same as order detail — DEF-60/61).
  * Admin entry never creates rooms.
  */
+/** C-11 — 화면 페이지 크기 (URL `page`) · 검색어 (URL `q`). */
+const ORDER_CHAT_PAGE_SIZE = 30;
+
 export function AdminOrderChatList() {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
+  const router = useRouter();
+  const pathname = usePathname() ?? "/admin/order-chats";
+  const searchParams = useSearchParams();
+  const spKey = searchParams?.toString() ?? "";
+  const returnTo = `${pathname}${spKey ? `?${spKey}` : ""}`;
+  const urlQ = (searchParams?.get("q") ?? "").trim();
+  const page = Math.max(1, Math.floor(Number(searchParams?.get("page")) || 1));
+  const [draft, setDraft] = useState(urlQ);
+  useEffect(() => setDraft(urlQ), [urlQ]);
+  const updateUrl = useCallback(
+    (patch: Record<string, string | null>) => {
+      const sp = new URLSearchParams(spKey);
+      for (const [k, v] of Object.entries(patch)) {
+        if (v) sp.set(k, v);
+        else sp.delete(k);
+      }
+      if (!("page" in patch)) sp.delete("page");
+      const qs = sp.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [pathname, router, spKey]
+  );
   const [rows, setRows] = useState<AdminStoreOrderChatListRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; status?: number } | null>(null);
   const modal = useAdminOrderDetailParam();
   const statusLabel = (s: string) => {
     const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
-    return key ? t(key) : s;
+    return key ? t(key) : ko ? "알 수 없는 상태" : "Unknown status";
   };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/order-chats", { credentials: "include" });
+      const res = await fetch("/api/admin/order-chats", { credentials: "include", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         rows?: AdminStoreOrderChatListRow[];
@@ -37,13 +67,13 @@ export function AdminOrderChatList() {
       } | null;
       if (!res.ok || !json?.ok) {
         setRows([]);
-        setError(json?.error || "load_failed");
+        setError({ code: res.status === 401 || res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
         return;
       }
       setRows(Array.isArray(json.rows) ? json.rows : []);
     } catch {
       setRows([]);
-      setError("load_failed");
+      setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -53,57 +83,100 @@ export function AdminOrderChatList() {
     void load();
   }, [load]);
 
+  const filteredRows = useMemo(() => {
+    const q = urlQ.toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) =>
+      [row.orderNo, row.orderId, row.storeLabel, row.customerLabel, row.customerUserId]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [rows, urlQ]);
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / ORDER_CHAT_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filteredRows.slice((currentPage - 1) * ORDER_CHAT_PAGE_SIZE, currentPage * ORDER_CHAT_PAGE_SIZE);
+  const onSearch = (e: FormEvent) => {
+    e.preventDefault();
+    updateUrl({ q: draft.trim() || null });
+  };
+
+  const searchBar = (
+    <form onSubmit={onSearch} className="mb-3 flex flex-wrap items-center gap-2" data-admin-list-filters="order-chats">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={ko ? "주문번호 · 매장 · 고객 닉네임 · 회원 ID" : "Order no · store · customer · member ID"}
+        className="min-w-[240px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+      />
+      <button
+        type="submit"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+      >
+        {ko ? "검색" : "Search"}
+      </button>
+      {urlQ ? (
+        <button
+          type="button"
+          onClick={() => updateUrl({ q: null })}
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+        >
+          {ko ? "검색 해제" : "Clear"}
+        </button>
+      ) : null}
+    </form>
+  );
+
   if (loading) {
     return (
-      <p className="sam-text-body-secondary text-sam-muted" data-admin-surface="live" data-admin-domain="delivery">
-        {safeT("admin_do_chat_list_loading", {
-          fallbackKo: "불러오는 중…",
-          fallbackEn: "Loading…",
-        })}
-      </p>
+      <div data-admin-surface="live" data-admin-domain="delivery">
+        <AdminLoadingState
+          ko={ko}
+          label={safeT("admin_do_chat_list_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <p
-        className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger/5 px-3 py-2 text-sm text-sam-danger"
-        data-admin-surface="live"
-        data-admin-domain="delivery"
-      >
-        {safeT("admin_do_chat_list_error", {
-          fallbackKo: "주문 채팅 목록을 불러오지 못했습니다.",
-          fallbackEn: "Could not load order chats.",
-        })}
-      </p>
+      <div data-admin-surface="live" data-admin-domain="delivery">
+        <AdminErrorState ko={ko} code={error.code} httpStatus={error.status} onRetry={() => void load()} />
+      </div>
     );
   }
 
-  if (rows.length === 0) {
+  if (filteredRows.length === 0) {
     return (
       <div
-        className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm text-sam-muted"
         data-admin-surface="live"
         data-admin-domain="delivery"
         data-admin-entity="store_order_chat"
         data-testid="admin-order-chat-empty"
       >
-        <p>
-          {safeT("admin_do_chat_list_empty", {
-            fallbackKo: "채팅 없음",
-            fallbackEn: "No chats",
-          })}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <Link href="/admin/stores/orders" className="font-medium text-sam-fg underline">
-            {t("admin_do_chat_store_orders")}
-          </Link>
-        </div>
+        {searchBar}
+        <AdminEmptyState
+          ko={ko}
+          message={
+            urlQ
+              ? ko
+                ? "검색 조건에 맞는 주문 채팅이 없습니다."
+                : "No order chats match this search."
+              : safeT("admin_do_chat_list_empty", { fallbackKo: "주문 채팅이 없습니다.", fallbackEn: "No order chats." })
+          }
+          action={
+            <Link href="/admin/stores/orders" className="font-medium text-sam-fg underline">
+              {t("admin_do_chat_store_orders")}
+            </Link>
+          }
+        />
       </div>
     );
   }
 
   return (
+    <div>
+    {searchBar}
     <div
       className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface"
       data-admin-surface="live"
@@ -133,11 +206,11 @@ export function AdminOrderChatList() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {pageRows.map((row) => (
             <tr key={row.orderId} className="border-b border-sam-border/70 last:border-0">
               <td className="px-3 py-2.5 align-top">
                 <Link
-                  href={`/admin/chats/messenger/${encodeURIComponent(row.roomId)}`}
+                  href={withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(row.orderId)}/chat`, returnTo)}
                   className="font-medium text-signature underline"
                 >
                   {safeT("admin_do_chat_open_room", {
@@ -152,7 +225,7 @@ export function AdminOrderChatList() {
                     className="inline-block rounded bg-sam-app px-1.5 py-0.5 font-mono sam-text-xxs text-sam-fg underline"
                     data-open-order={row.orderNo || row.orderId}
                   >
-                    {row.orderNo || `${row.orderId.slice(0, 8)}…`}
+                    {row.orderNo || (language === "en" ? "Open order" : "주문 보기")}
                   </button>
                   <span className="ml-2 sam-text-xxs text-sam-muted">{statusLabel(row.orderStatus)}</span>
                 </div>
@@ -161,7 +234,7 @@ export function AdminOrderChatList() {
               <td className="px-3 py-2.5 align-top">
                 {row.customerUserId ? (
                   <Link
-                    href={`/admin/users/${encodeURIComponent(row.customerUserId)}`}
+                    href={withAdminReturnTo(`/admin/users/${encodeURIComponent(row.customerUserId)}`, returnTo)}
                     className="text-signature underline"
                   >
                     {row.customerLabel}
@@ -181,6 +254,30 @@ export function AdminOrderChatList() {
         </tbody>
       </table>
       <AdminOrderDetailModal orderId={modal.orderId} section={modal.section} onClose={modal.closeOrder} onChanged={() => void load()} />
+    </div>
+    {pageCount > 1 ? (
+      <nav className="mt-3 flex flex-wrap items-center gap-2 sam-text-body-secondary" data-admin-list-pager="page">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => updateUrl({ page: currentPage - 1 > 1 ? String(currentPage - 1) : null })}
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
+        >
+          {ko ? "이전" : "Previous"}
+        </button>
+        <span className="text-sam-muted">
+          {currentPage} / {pageCount}
+        </span>
+        <button
+          type="button"
+          disabled={currentPage >= pageCount}
+          onClick={() => updateUrl({ page: String(currentPage + 1) })}
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 font-medium text-sam-fg disabled:opacity-40"
+        >
+          {ko ? "다음" : "Next"}
+        </button>
+      </nav>
+    ) : null}
     </div>
   );
 }

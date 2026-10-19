@@ -2,7 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { listCampaignOccurrences } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { validateCampaignLinkInput } from "@/lib/admin/notification-campaigns/campaign-link-target";
+import {
+  mergeCampaignPatchOverRow,
+  parseCampaignWriteInput,
+  type CampaignWriteBody,
+} from "@/lib/admin/notification-campaigns/campaign-input";
+import {
+  buildCampaignActionContext,
+  campaignActionForStatusChange,
+  editCampaign,
+  loadCampaignForAction,
+  runCampaignLifecycleAction,
+  writeLifecycleAudit,
+} from "@/lib/admin/notification-campaigns/campaign-lifecycle-service";
+import {
+  CAMPAIGN_AUDIT_TABLE,
+  isMissingRelationError,
+  readAuditRequestIp,
+} from "@/lib/admin/notification-campaigns/campaign-audit-log";
+import {
+  authorDisplayName,
+  loadOpenedCountsByOccurrence,
+} from "@/lib/admin/notification-campaigns/campaign-list-service";
+import {
+  allowedCampaignActions,
+  resolveEffectiveCampaignStatus,
+} from "@/lib/admin/notification-campaigns/campaign-status-machine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,31 +100,64 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ campaignId
       }
     : null;
 
+  const campRow = camp as Record<string, unknown>;
+  const occurrenceFacts = occurrences.map((o) => ({
+    id: String(o.id),
+    status: String(o.status ?? ""),
+    trigger_type: String(o.trigger_type ?? ""),
+    scheduled_for: o.scheduled_for ?? null,
+    sequence_number: Number(o.sequence_number ?? 0),
+    target_member_count: Number(o.target_member_count ?? 0),
+  }));
+  const actionCtx = buildCampaignActionContext(campRow, occurrenceFacts);
+  const latestReal = occurrenceFacts.find((o) => o.trigger_type !== "test");
+
+  const [openedByOcc, authorRes, auditRes] = await Promise.all([
+    loadOpenedCountsByOccurrence(
+      svc,
+      occurrences.map((o) => String(o.id))
+    ),
+    campRow.created_by
+      ? svc
+          .from("profiles")
+          .select("id, display_name, nickname, username")
+          .eq("id", String(campRow.created_by))
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    svc
+      .from(CAMPAIGN_AUDIT_TABLE)
+      .select("id, actor_id, action, from_status, to_status, target_count, created_at")
+      .eq("campaign_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
+  if (auditRes.error && !isMissingRelationError(auditRes.error)) {
+    console.warn("[campaign detail] audit read", auditRes.error.message);
+  }
+
   return NextResponse.json({
     ok: true,
     campaign: camp,
-    summary,
-    occurrences,
+    effective_status: resolveEffectiveCampaignStatus(String(campRow.status ?? ""), latestReal?.status ?? null),
+    author_name: authorDisplayName((authorRes.data as Record<string, unknown> | null) ?? undefined),
+    allowed_actions: allowedCampaignActions(actionCtx),
+    archive_supported: Object.prototype.hasOwnProperty.call(campRow, "archived_at"),
+    summary: summary
+      ? { ...summary, opened: openedByOcc.get(String(summary.occurrence_id)) ?? null }
+      : null,
+    occurrences: occurrences.map((o) => ({ ...o, opened: openedByOcc.get(String(o.id)) ?? null })),
     deviceDeliveryLog,
+    audit_logs: auditRes.error ? [] : (auditRes.data ?? []),
+    audit_supported: !auditRes.error,
   });
 }
 
-type PatchBody = {
-  title?: unknown;
-  body?: unknown;
-  type?: unknown;
-  target_type?: unknown;
-  target_url?: unknown;
-  image_url?: unknown;
-  scheduled_at?: unknown | null;
-  segment_region_code?: unknown | null;
-  status?: unknown;
-  send_mode?: unknown;
-};
-
-const TYPES = new Set(["notice", "marketing", "system"]);
-const TARGETS = new Set(["all", "selected_users", "segment", "marketing_opt_in", "active_users", "region"]);
-
+/**
+ * PATCH — ADM-04 edit (draft · scheduled · paused). The stored row is the base; body keys override
+ * and run through the same parser as create (ADM-01 link validation + official source authority).
+ * `status` is accepted only when the transition table allows it and is executed as the matching
+ * lifecycle action (pause / resume / schedule / stop_recurring / cancel / stop_sending).
+ */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -110,10 +168,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
-  let body: PatchBody;
+  let body: CampaignWriteBody;
   try {
     body = await req.json();
   } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
@@ -122,56 +183,69 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  const patch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-    updated_by: admin.userId,
-  };
-
-  if (typeof body.title === "string" && body.title.trim()) patch.title = body.title.trim();
-  if (typeof body.body === "string" && body.body.trim()) patch.body = body.body.trim();
-  if (typeof body.type === "string" && TYPES.has(body.type.trim())) patch.type = body.type.trim();
-  if (typeof body.target_type === "string" && TARGETS.has(body.target_type.trim())) {
-    patch.target_type = body.target_type.trim();
+  const loadedRes = await loadCampaignForAction(svc, id);
+  if (!loadedRes.ok) {
+    return NextResponse.json({ ok: false, error: loadedRes.error }, { status: loadedRes.status });
   }
-  if (typeof body.target_url === "string") {
-    const linkCheck = validateCampaignLinkInput(body.target_url);
-    if (!linkCheck.ok) {
-      return NextResponse.json({ ok: false, error: linkCheck.error }, { status: 400 });
+  let loaded = loadedRes.loaded;
+  const ip = readAuditRequestIp(req.headers);
+
+  const requestedStatus = typeof body.status === "string" ? body.status.trim() : "";
+  const statusChange = requestedStatus && requestedStatus !== loaded.ctx.status ? requestedStatus : "";
+  let statusAction: ReturnType<typeof campaignActionForStatusChange> = null;
+  if (statusChange) {
+    statusAction = campaignActionForStatusChange(loaded.ctx.status, statusChange);
+    if (!statusAction) {
+      return NextResponse.json(
+        { ok: false, error: "illegal_status_transition", from: loaded.ctx.status, to: statusChange },
+        { status: 409 }
+      );
     }
-    patch.target_url = body.target_url.trim() ? body.target_url.trim() : null;
-  }
-  if (typeof body.image_url === "string") patch.image_url = body.image_url.trim() ? body.image_url.trim() : null;
-  if (body.scheduled_at === null) patch.scheduled_at = null;
-  if (typeof body.scheduled_at === "string" && body.scheduled_at.trim()) patch.scheduled_at = body.scheduled_at.trim();
-  if (body.segment_region_code === null) patch.segment_region_code = null;
-  if (typeof body.segment_region_code === "string" && body.segment_region_code.trim()) {
-    patch.segment_region_code = body.segment_region_code.trim().slice(0, 32);
-  }
-  if (typeof body.status === "string") {
-    const s = body.status.trim();
-    if (["draft", "scheduled", "active", "paused", "ended", "cancelled"].includes(s)) patch.status = s;
-  }
-  if (typeof body.send_mode === "string") {
-    patch.send_mode = body.send_mode.trim();
   }
 
-  if (Object.keys(patch).length <= 2) {
+  const contentKeys = Object.keys(body).filter((k) => k !== "status");
+  let edited: Awaited<ReturnType<typeof editCampaign>> | null = null;
+  if (contentKeys.length > 0) {
+    const merged = mergeCampaignPatchOverRow(loaded.row, body);
+    const parsed = parseCampaignWriteInput(merged.body, { hasOwnTargetPayload: merged.hasOwnTargetPayload });
+    if (!parsed.ok) {
+      return NextResponse.json(
+        { ok: false, error: parsed.error, ...(parsed.message ? { message: parsed.message } : {}) },
+        { status: parsed.status }
+      );
+    }
+    edited = await editCampaign(svc, loaded, admin.userId, parsed.fields);
+    if (!edited.ok) {
+      return NextResponse.json({ ok: false, error: edited.error }, { status: edited.status });
+    }
+    await writeLifecycleAudit(svc, edited, admin.userId, ip);
+  } else if (!statusAction) {
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
 
-  const { data: updated, error } = await svc
-    .from("admin_notification_campaigns")
-    .update(patch)
-    .eq("id", id)
-    .in("status", ["draft", "scheduled", "active", "paused"])
-    .select("id");
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  let transitioned: Awaited<ReturnType<typeof runCampaignLifecycleAction>> | null = null;
+  if (statusAction) {
+    if (edited) {
+      const reloaded = await loadCampaignForAction(svc, id);
+      if (!reloaded.ok) {
+        return NextResponse.json({ ok: false, error: reloaded.error }, { status: reloaded.status });
+      }
+      loaded = reloaded.loaded;
+    }
+    transitioned = await runCampaignLifecycleAction(svc, loaded, admin.userId, statusAction);
+    if (!transitioned.ok) {
+      return NextResponse.json(
+        { ok: false, error: transitioned.error, edited: Boolean(edited) },
+        { status: transitioned.status }
+      );
+    }
+    await writeLifecycleAudit(svc, transitioned, admin.userId, ip);
   }
-  if (!updated?.length) {
-    return NextResponse.json({ ok: false, error: "not_editable_or_missing" }, { status: 409 });
-  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    status: transitioned?.ok ? transitioned.toStatus : loaded.ctx.status,
+    ...(edited?.ok ? { edit: edited.extra ?? {} } : {}),
+    ...(transitioned?.ok ? { action: transitioned.action, result: transitioned.extra ?? {} } : {}),
+  });
 }

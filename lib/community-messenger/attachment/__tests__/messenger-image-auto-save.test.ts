@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 const saveMessengerImages = vi.fn();
@@ -92,7 +93,10 @@ describe("messenger image auto-save", () => {
     mod.autoSaveIncomingMessengerImages({ enabled: true, viewerUserId: VIEWER, messages: msgs });
     await flush();
     expect(saveMessengerImages).toHaveBeenCalledTimes(1);
-    expect(saveMessengerImages).toHaveBeenCalledWith([`${P}/a.jpg`]);
+    /** C-4: 저장 URL 은 첨부 조회 라우트로 투영된다. */
+    expect(saveMessengerImages).toHaveBeenCalledWith([
+      messengerMediaRouteUrlFor({ roomId: "r", messageId: "a", src: `${P}/a.jpg` }),
+    ]);
     expect(notices).toEqual(["cm_ui_photo_saved"]);
     // 앱 재실행 시뮬레이션: 모듈 메모리 초기화, localStorage 원장은 유지
     mod.__resetMessengerImageAutoSaveForTests();

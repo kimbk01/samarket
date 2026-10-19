@@ -183,7 +183,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         <AdminPageHeader titleKey="admin_do_detail_title" backHref="/admin/stores/orders" />
         <p className="text-sm text-sam-muted">{t("admin_do_detail_not_found")}</p>
         <p className="mt-2 sam-text-body-secondary text-sam-muted">
-          <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
+          <Link href={`/admin/stores/orders/${encodeURIComponent(orderId)}`} className="text-signature underline">
             {t("admin_do_detail_search_hint")}
           </Link>
         </p>
@@ -438,7 +438,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </div>
         <div className="mt-4 flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
           <Link
-            href={`/admin/store-orders?order_id=${encodeURIComponent(order.id)}`}
+            href={`/admin/stores/orders/${encodeURIComponent(order.id)}`}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
           >
             {t("admin_do_nav_store_orders")}

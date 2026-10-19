@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import {
   countRoomParticipantsForGhostProbe,
   enterGhostRoom,
@@ -10,15 +10,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST — Ghost enter/exit (Platform Admin only).
+ * POST — Ghost enter/exit session marker (permission `chats`).
  * Body: { action: "enter" | "exit", reason?: string }
- * Never creates participants.
+ * Never creates participants. 본문 열람 감사는 이 API 가 아니라 본문을 반환하는 GET
+ * (`/api/admin/community-messenger/rooms/[id]`) 내부에서 서버가 기록한다 (R1-A).
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   const { id: rawId } = await params;
@@ -55,12 +56,12 @@ export async function POST(
   const result =
     action === "enter"
       ? await enterGhostRoom({
-          adminUserId: admin.userId,
+          adminUserId: admin.actor.userId,
           roomId,
           reason: body.reason ?? null,
         })
       : await exitGhostRoom({
-          adminUserId: admin.userId,
+          adminUserId: admin.actor.userId,
           roomId,
           reason: body.reason ?? null,
         });

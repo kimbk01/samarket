@@ -46,6 +46,14 @@
     {
       "path": "/api/cron/admin-notification-delivery",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/stores-discovery-schedule-transitions",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/stores-discovery-coverage-rebuild",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

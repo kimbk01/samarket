@@ -21,6 +21,10 @@ import {
   looksLikeRawOperatorToken,
 } from "@/lib/stores/admin-coupon-control-view";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+
+/** Date-aware lifecycle states keep the owner status key (upcoming / ended by window); others use the shared coupon labels. */
+const DATE_AWARE_LIFECYCLE = new Set(["active", "approved", "scheduled"]);
 
 const FILTER_SELECT_CLASS =
   "min-h-[44px] min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sm text-sam-fg";
@@ -39,7 +43,8 @@ export function AdminStoreCouponControlList({
   campaigns: AdminListRow[];
   onOpenDetail: (campaignId: string) => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const [status, setStatus] = useState<AdminCouponListStatusFilter>("all");
   const [funding, setFunding] = useState<AdminCouponListFundingFilter>("all");
   const [storeId, setStoreId] = useState("");
@@ -187,7 +192,13 @@ export function AdminStoreCouponControlList({
                           </p>
                         </div>
                         <span className="shrink-0 text-xs font-medium text-sam-fg">
-                          {t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at))}
+                          {(() => {
+                            const lc = String(row.lifecycle_state ?? "").trim().toLowerCase();
+                            const shared = adminStatusLabel("coupon", lc, ko);
+                            return shared.known && !DATE_AWARE_LIFECYCLE.has(lc)
+                              ? shared.label
+                              : t(adminCouponLifecycleMessageKey(row.lifecycle_state, row.start_at, row.end_at));
+                          })()}
                         </span>
                       </div>
                       <p className="mt-1 text-base font-bold tabular-nums text-signature">{benefitText(row)}</p>

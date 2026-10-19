@@ -7,9 +7,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminDeliveryAdBrowsePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
@@ -617,9 +620,10 @@ export function AdminStoresCategoryPolicyPage() {
         return;
       }
       if (typeof json.revision === "number") setRevision(json.revision);
-      setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
       setPreviewReloadToken((n) => n + 1);
       await load();
+      /** load() 가 시작 시 saveMsg 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
+      setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
     } catch {
       setSaveErr("save_fail");
     } finally {
@@ -1271,16 +1275,15 @@ export function AdminStoresCategoryPolicyPage() {
             <p className="text-[12px] font-semibold text-emerald-700">
               {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
             </p>
-            <h1 className="text-[22px] font-black tracking-tight text-sam-fg">
-              {label(ko, "카테고리 정책 관리", "Category Policy")}
-            </h1>
+            {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
+            <h1 className="text-[22px] font-black tracking-tight text-sam-fg">{t("admin_menu_stores_browse_policy")}</h1>
             <p className="mt-1 text-[12px] text-sam-muted">
               {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/admin/delivery-ads/manage"
+              href="/admin/advertising"
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >
@@ -1322,7 +1325,8 @@ export function AdminStoresCategoryPolicyPage() {
         ) : null}
         {err ? (
           <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
-            {label(ko, "불러오지 못했습니다.", "Failed to load.")} ({err})
+            {label(ko, "불러오지 못했습니다.", "Failed to load.")}{" "}
+            {err === "load_fail" ? null : adminOperatorErrorMessage(err, ko)}
           </p>
         ) : null}
 
@@ -1426,7 +1430,7 @@ export function AdminStoresCategoryPolicyPage() {
                           {label(ko, "미리보기", "Preview")}
                         </button>
                         <button type="button" className={Sam.btn.secondary} onClick={() => setHistoryOpen((v) => !v)}>
-                          {label(ko, "변경 이력", "History")}
+                          {t("admin_r4c_history_title")}
                         </button>
                         <button
                           type="button"
@@ -1465,11 +1469,12 @@ export function AdminStoresCategoryPolicyPage() {
                     </div>
 
                     {historyOpen ? (
+                      // DEF-45: 「변경 이력」 = 감사 기록 (변경자·시각·사유·이전/이후). 버전 번호는 기술 정보로만.
                       <div className="border-b border-sam-border bg-sam-surface-muted px-4 py-3">
-                        <p className="text-[12px] font-bold text-sam-fg">{label(ko, "최근 저장 정보", "Last save info")}</p>
-                        <p className="mt-1 text-[12px] text-sam-muted">
-                          {label(ko, "로드된 revision", "Loaded revision")}: {revision ?? "-"} · {label(ko, "시각", "Timestamp")}: {formattedLoadedAt}
-                        </p>
+                        <AdminConfigAuditHistoryPanel scope="browse_policy" limit={30} refreshToken={revision ?? 0} />
+                        <AdminTechDetails ko={ko}>
+                          revision {revision ?? "-"} · {formattedLoadedAt}
+                        </AdminTechDetails>
                       </div>
                     ) : null}
 

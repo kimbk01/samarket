@@ -38,7 +38,10 @@ import {
   canReactToMessage,
   isMessengerQuickReactionKey,
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
-import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import {
+  resolveAdminHiddenMessagePlaceholder,
+  resolveDeletedMessagePlaceholder,
+} from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { isCommunityMessengerGroupRoomType, isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { buildProfileUserSearchOrFilter } from "@/lib/community-messenger/profile-user-search-filter";
 import {
@@ -339,6 +342,12 @@ import {
   purgeMessengerMediaStoragePaths,
 } from "@/lib/community-messenger/messenger-media-purge";
 import {
+  MESSENGER_LEGACY_MEDIA_BUCKET,
+  MESSENGER_PRIVATE_MEDIA_BUCKET,
+  messengerMediaBucketFromMetadata,
+  type MessengerMediaBucket,
+} from "@/lib/community-messenger/media/messenger-media-ref";
+import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
@@ -544,11 +553,13 @@ type MessageRow = {
   reply_preview_type?: string | null;
   reply_sender_label_snapshot?: string | null;
   deleted_for_everyone_at?: string | null;
+  /** 관리자 숨김 — 사용자 응답에서 본문·미디어를 대체 문구로 가린다 (원문 DB 보존) */
+  is_hidden_by_admin?: boolean | null;
 };
 
 /** 목록·스냅샷·단건 조회 공통 SELECT — `deleted_at` 필터는 쿼리별로 별도 */
 const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT =
-  "id, room_id, sender_id, message_type, content, metadata, created_at, reply_to_message_id, reply_preview_text, reply_preview_type, reply_sender_label_snapshot, deleted_for_everyone_at";
+  "id, room_id, sender_id, message_type, content, metadata, created_at, reply_to_message_id, reply_preview_text, reply_preview_type, reply_sender_label_snapshot, deleted_for_everyone_at, is_hidden_by_admin";
 
 /** 마이그레이션 미적용 환경에서도 타임라인 조회가 깨지지 않도록 최소 컬럼만 요청 */
 const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT_LEGACY =
@@ -1506,8 +1517,14 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       : "text";
   const dfeAt = trimText(message.deleted_for_everyone_at);
   const deletedForEveryoneAt = dfeAt || undefined;
+  const hiddenByAdmin = !deletedForEveryoneAt && message.is_hidden_by_admin === true;
   const contentRaw = trimText(message.content);
-  const contentForUi = deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : contentRaw;
+  const contentForUi = deletedForEveryoneAt
+    ? resolveDeletedMessagePlaceholder()
+    : hiddenByAdmin
+      ? resolveAdminHiddenMessagePlaceholder()
+      : contentRaw;
+  const callMeta = hiddenByAdmin ? ({} as Record<string, unknown>) : metadata;
   const replyToMessageId = trimText(message.reply_to_message_id) || null;
   const replyPreviewText = trimText(message.reply_preview_text) || null;
   const replyPreviewTypeRaw = trimText(message.reply_preview_type);
@@ -1522,7 +1539,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
         : null;
 
   const voiceExtra =
-    deletedForEveryoneAt || safeMt !== "voice"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "voice"
       ? {}
       : {
           voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
@@ -1530,7 +1547,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
           voiceMimeType: trimText(metadata.mimeType as string) || null,
         };
   const fileExtra =
-    deletedForEveryoneAt || safeMt !== "file"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "file"
       ? {}
       : {
           fileName: trimText(metadata.fileName as string) || null,
@@ -1538,7 +1555,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
           fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
         };
   const imageExtra =
-    deletedForEveryoneAt || safeMt !== "image"
+    deletedForEveryoneAt || hiddenByAdmin || safeMt !== "image"
       ? {}
       : messengerImageClientFieldsFromMetadata(safeMt, metadata, contentRaw);
 
@@ -1551,16 +1568,16 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
       : senderId
         ? trimText(input.profileById.get(senderId)?.label) || profileLabel(null, senderId)
         : cmServiceT("cm_svc_system"),
-    messageType: safeMt,
+    messageType: hiddenByAdmin ? "text" : safeMt,
     content: contentForUi,
     createdAt: trimText(message.created_at) || nowIso(),
-    metadata: message.metadata ?? null,
+    metadata: hiddenByAdmin ? null : (message.metadata ?? null),
     clientMessageId,
     isMine,
-    callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-    callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-    callSessionId: trimText(metadata.sessionId as string) || null,
-    callTmpSessionId: trimText(metadata.tmpSessionId as string) || null,
+    callKind: trimText(callMeta.callKind) as CommunityMessengerCallKind | null,
+    callStatus: trimText(callMeta.callStatus) as CommunityMessengerCallStatus | null,
+    callSessionId: trimText(callMeta.sessionId as string) || null,
+    callTmpSessionId: trimText(callMeta.tmpSessionId as string) || null,
     ...(replyToMessageId
       ? {
           replyToMessageId,
@@ -15590,9 +15607,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const rowDb = "sender_id" in message;
     const dfeAt = rowDb ? trimText((message as MessageRow).deleted_for_everyone_at) : "";
     const deletedForEveryone = dfeAt.length > 0;
+    const hiddenByAdmin = !deletedForEveryone && rowDb && (message as MessageRow).is_hidden_by_admin === true;
     const rawContent = trimText(message.content);
     let voiceExtra: object;
-    if (safeMt !== "voice" || deletedForEveryone) {
+    if (safeMt !== "voice" || deletedForEveryone || hiddenByAdmin) {
       voiceExtra = emptyVoiceEnvelopeExtra;
     } else {
       const dur = metadata.durationSeconds;
@@ -15608,13 +15626,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       mappedMsgAcc.voiceEnvelopeWhenVoice += performance.now() - tStep;
       tStep = performance.now();
     }
-    const contentTrimmed = deletedForEveryone ? resolveDeletedMessagePlaceholder() : rawContent;
+    const contentTrimmed = deletedForEveryone
+      ? resolveDeletedMessagePlaceholder()
+      : hiddenByAdmin
+        ? resolveAdminHiddenMessagePlaceholder()
+        : rawContent;
     /**
      * 이미지 앨범 필드는 모든 tier 필수 계약 — critical tier 에서 빠지면 말풍선이 content(첫 썸네일) 1장만 그리고
      * 이후 정합에서도 복구되지 않았다(iOS 2장 → 수신 1장). 메타 파싱 O(n) 이라 critical 비용 영향 미미.
      */
     const imageExtra =
-      safeMt === "image" && !deletedForEveryone
+      safeMt === "image" && !deletedForEveryone && !hiddenByAdmin
         ? messengerImageClientFieldsFromMetadata(safeMt, metadata, rawContent)
         : {};
     if (mappedMsgAcc) {
@@ -15637,20 +15659,21 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const rxList = snapshotRoomMessageReactionsById.get(message.id);
     const reactionPieces = !isCriticalTier && rxList?.length ? { reactions: rxList } : {};
     const dfeField = deletedForEveryone ? { deletedForEveryoneAt: dfeAt } : {};
+    const callMeta = hiddenByAdmin ? emptyMessageMetadata : metadata;
     return {
       id: message.id,
       roomId: messageRoomIdByMi[mi],
       senderId,
       senderLabel,
-      messageType: safeMt,
+      messageType: hiddenByAdmin ? "text" : safeMt,
       content: contentTrimmed,
       createdAt: trimText(messageCreatedAtRawByMi[mi]) || nowIso(),
-      metadata: rawMeta ?? null,
+      metadata: hiddenByAdmin ? null : (rawMeta ?? null),
       clientMessageId,
       isMine: senderId === userId,
-      callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-      callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-      callSessionId: trimText(metadata.sessionId as string) || null,
+      callKind: trimText(callMeta.callKind) as CommunityMessengerCallKind | null,
+      callStatus: trimText(callMeta.callStatus) as CommunityMessengerCallStatus | null,
+      callSessionId: trimText(callMeta.sessionId as string) || null,
       ...replyPieces,
       ...dfeField,
       ...voiceExtra,
@@ -17154,13 +17177,21 @@ function messengerImagePixelDimension(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
 }
 
+/** C-4: metadata.storage_bucket — 비공개 버킷 업로드만 `messenger-media`, 그 외 레거시 `post-images`. */
+function cmMediaStorageBucketValue(v: unknown): string {
+  return trimText(v) === MESSENGER_PRIVATE_MEDIA_BUCKET ? MESSENGER_PRIVATE_MEDIA_BUCKET : MESSENGER_LEGACY_MEDIA_BUCKET;
+}
+
 function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
+  const storageBucket = cmMediaStorageBucketValue(items[0]?.storageBucket);
   if (items.length === 1) {
     const f = items[0]!;
     const w = messengerImagePixelDimension(f.width);
     const h = messengerImagePixelDimension(f.height);
     return {
       storagePath: f.originalStoragePath,
+      storage_bucket: storageBucket,
+      storage_path: f.originalStoragePath,
       mimeType: f.originalMimeType,
       image_thumb_url: f.chatPublicUrl,
       image_preview_url: f.previewPublicUrl,
@@ -17179,6 +17210,8 @@ function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSe
     image_heights: items.map((i) => messengerImagePixelDimension(i.height)),
     storagePath: items[0]!.originalStoragePath,
     mimeType: items[0]!.originalMimeType,
+    storage_bucket: storageBucket,
+    storage_path: items[0]!.originalStoragePath,
   };
 }
 
@@ -17798,6 +17831,8 @@ export async function sendCommunityMessengerFileMessage(input: {
   roomId: string;
   filePublicUrl: string;
   storagePath: string;
+  /** C-4: 업로드 버킷 → metadata.storage_bucket (미지정 = 레거시 post-images). */
+  storageBucket?: string | null;
   fileName: string;
   mimeType?: string;
   fileSizeBytes?: number;
@@ -17812,7 +17847,14 @@ export async function sendCommunityMessengerFileMessage(input: {
   if (!roomId || !filePublicUrl || !storagePath || !fileName) return { ok: false, error: "content_required" };
   const mimeType = trimText(input.mimeType) || "application/octet-stream";
   const fileSizeBytes = Math.max(0, Math.floor(Number(input.fileSizeBytes ?? 0)) || 0);
-  const metadata: Record<string, unknown> = { storagePath, mimeType, fileName, fileSizeBytes };
+  const metadata: Record<string, unknown> = {
+    storagePath,
+    mimeType,
+    fileName,
+    fileSizeBytes,
+    storage_bucket: cmMediaStorageBucketValue(input.storageBucket),
+    storage_path: storagePath,
+  };
   const sb = getSupabaseOrNull();
   if (sb) {
     const { assertActiveGroupMembershipIfGroup } = await import(
@@ -17999,13 +18041,17 @@ function messengerLastPreviewFromRow(row: {
 async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, roomId: string) {
   const { data: rows } = await (sb as any)
     .from("community_messenger_messages")
-    .select("content, created_at, message_type, metadata")
+    .select("content, created_at, message_type, metadata, is_hidden_by_admin")
     .eq("room_id", roomId)
     .order("created_at", { ascending: false })
     .limit(1);
-  const latest = (rows ?? [])[0] as
-    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown }
+  const latestRow = (rows ?? [])[0] as
+    | { content?: string; created_at?: string; message_type?: string; metadata?: unknown; is_hidden_by_admin?: boolean | null }
     | undefined;
+  const latest =
+    latestRow?.is_hidden_by_admin === true
+      ? { ...latestRow, content: resolveAdminHiddenMessagePlaceholder(), message_type: "text", metadata: {} }
+      : latestRow;
   const now = nowIso();
   if (!latest) {
     await (sb as any)
@@ -18030,6 +18076,26 @@ async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, room
       updated_at: now,
     })
     .eq("id", roomId);
+}
+
+/**
+ * 관리자 메시지 숨김/해제 직후 (서버 전용) — 방 목록 미리보기 재계산 + 방 부트스트랩 캐시·스냅샷 무효화.
+ * 열린 방 화면은 `community_messenger_messages` postgres_changes UPDATE 로 즉시 반영된다.
+ * 발송·unread·bump 없음 (관리자 조치는 새 메시지가 아니다).
+ */
+export async function syncCommunityMessengerRoomAfterAdminMessageVisibility(roomId: string): Promise<void> {
+  const rid = trimText(roomId);
+  const sb = getSupabaseOrNull();
+  if (!rid || !sb) return;
+  await recomputeCommunityMessengerRoomLastMessage(sb, rid);
+  const { data: parts } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("user_id")
+    .eq("room_id", rid);
+  const userIds = ((parts ?? []) as Array<{ user_id?: string | null }>)
+    .map((p) => trimText(p.user_id))
+    .filter(Boolean);
+  invalidateRoomBootstrapSnapshotCache(rid, userIds);
 }
 
 /** 보낸 사람만 — 음성 메시지 삭제(스토리지 파일 포함) 후 방 미리보기 갱신 */
@@ -18076,7 +18142,11 @@ export async function deleteCommunityMessengerVoiceMessage(input: {
     const { error: delErr } = await (sb as any).from("community_messenger_messages").delete().eq("id", messageId);
     if (delErr) return { ok: false, error: "delete_failed" };
 
-    await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
+    await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
+      messageId,
+      roomId,
+      bucket: messengerMediaBucketFromMetadata(metadata),
+    });
 
     await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
     return { ok: true };
@@ -18240,7 +18310,11 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
   if (upErr) return { ok: false, error: "delete_failed" };
 
   // DB 갱신 성공 후 스토리지 purge(실패는 로그만 — 삭제 자체는 DB 상 완료).
-  await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
+  await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
+    messageId,
+    roomId,
+    bucket: messengerMediaBucketFromMetadata((msgRow.metadata ?? {}) as Record<string, unknown>),
+  });
 
   await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
 
@@ -18316,6 +18390,7 @@ export async function editCommunityMessengerTextMessage(input: {
 
   const msgRow = msg as MessageRow;
   if (trimText(msgRow.sender_id) !== userId) return { ok: false, error: "forbidden" };
+  if (msgRow.is_hidden_by_admin === true) return { ok: false, error: "forbidden" };
 
   const roomKind = messageRoomKindForActions({
     roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
@@ -18547,7 +18622,7 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   roomId: string;
   messageId: string;
 }): Promise<
-  | { ok: true; contentType: string; storagePath: string }
+  | { ok: true; contentType: string; storagePath: string; storageBucket: MessengerMediaBucket }
   | { ok: false; status: number; error: string }
 > {
   const roomId = trimText(input.roomId);
@@ -18585,7 +18660,11 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   if (!storagePath) return { ok: false, status: 404, error: "no_audio_path" };
 
   const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
-  return { ok: true, contentType, storagePath };
+  /** C-4: 비공개 버킷 업로드분은 metadata.storage_bucket, 레거시(공개 URL 파생 포함)는 post-images. */
+  const storageBucket = trimText(metadata.storagePath as string)
+    ? messengerMediaBucketFromMetadata(metadata)
+    : MESSENGER_LEGACY_MEDIA_BUCKET;
+  return { ok: true, contentType, storagePath, storageBucket };
 }
 
 /** 방 멤버만 재생 — 전체 본문 다운로드(Range 위임 실패 시 폴백 경로) */
@@ -18600,7 +18679,7 @@ export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
   const src = await resolveCommunityMessengerVoicePlaybackSource(input);
   if (!src.ok) return src;
   const sb = getSupabaseServer();
-  const { data: file, error: dlErr } = await sb.storage.from("post-images").download(src.storagePath);
+  const { data: file, error: dlErr } = await sb.storage.from(src.storageBucket).download(src.storagePath);
   if (dlErr || !file) return { ok: false, status: 502, error: "download_failed" };
 
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -18617,6 +18696,8 @@ export async function sendCommunityMessengerVoiceMessage(input: {
   roomId: string;
   audioPublicUrl: string;
   storagePath: string;
+  /** C-4: 업로드 버킷 → metadata.storage_bucket (미지정 = 레거시 post-images). */
+  storageBucket?: string | null;
   durationSeconds: number;
   mimeType: string;
   waveformPeaks?: number[] | null;
@@ -18642,7 +18723,13 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         ? rawPeaks
         : downsampleVoiceWaveformPeaks(rawPeaks, COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS)
       : undefined;
-  const metadata: Record<string, unknown> = { durationSeconds, mimeType, storagePath };
+  const metadata: Record<string, unknown> = {
+    durationSeconds,
+    mimeType,
+    storagePath,
+    storage_bucket: cmMediaStorageBucketValue(input.storageBucket),
+    storage_path: storagePath,
+  };
   if (waveformPeaksStored && waveformPeaksStored.length > 0) {
     metadata.waveformPeaks = waveformPeaksStored;
   }

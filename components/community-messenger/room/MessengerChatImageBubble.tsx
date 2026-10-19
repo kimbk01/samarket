@@ -9,6 +9,7 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/monitoring/cm-polish-analysis";
 import { MESSENGER_ALBUM_REST_TILE_INDEX } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
+import { withMessengerMediaRouteUrls } from "@/lib/community-messenger/media/messenger-media-ref";
 
 const BUBBLE_MAX =
   "mx-auto w-full min-w-[140px] max-w-[min(62vw,280px)] sm:max-w-[min(62vw,320px)] md:max-w-[min(62vw,360px)]";
@@ -22,7 +23,9 @@ export function MessengerChatImageBubble(props: {
   onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
 }) {
   const { t } = useI18n();
-  const { item, onOpenLightbox } = props;
+  const { onOpenLightbox } = props;
+  /** C-4: 저장 URL(공개·비공개 버킷) → 참가자 확인 첨부 조회 라우트. 썸네일·라이트박스·원본 모두 같은 투영. */
+  const item = withMessengerMediaRouteUrls(props.item);
   const pending = Boolean(item.pending);
   const album = item.imageAlbumUrls && item.imageAlbumUrls.length > 1 ? item.imageAlbumUrls : null;
 

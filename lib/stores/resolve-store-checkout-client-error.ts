@@ -9,6 +9,10 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   insufficient_stock: "store_err_out_of_stock_checkout",
   cannot_order_own_store: "store_err_own_store_block",
   store_closed: "store_err_preparing",
+  /** 운영 중지·미승인·비노출 매장 (관리자 조치) */
+  store_unavailable: "store_err_store_unavailable",
+  /** 판매 권한 중지 (관리자 판매 중지) */
+  store_not_selling: "store_err_store_not_selling",
   store_point_blocked: "store_err_point_blocked",
   /** Store NET Cash <= 0 — buyer sees the neutral "preparing" copy, never the store's finances. */
   store_cash_insufficient: "store_err_point_blocked",

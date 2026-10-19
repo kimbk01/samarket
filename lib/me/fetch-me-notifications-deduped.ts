@@ -52,8 +52,17 @@ function clearAuthFetchBlocksIfSession(userId: string | null): void {
   unauthorizedUntil = 0;
 }
 
-function cacheUnauthenticatedResult(url: string, now = Date.now()): MeNotificationsListResult {
-  ttlCache.set(url, { value: ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED, expiresAt: now + TTL_MS });
+/**
+ * INAPP-13 — TTL / single-flight key is scoped to the viewer so a list cached for one
+ * account is never served to another (account switch without a full reload).
+ */
+export function buildMeNotificationsListCacheKey(userId: string | null | undefined, url: string): string {
+  const uid = String(userId ?? "").trim() || "anon";
+  return `${uid}::${url}`;
+}
+
+function cacheUnauthenticatedResult(cacheKey: string, now = Date.now()): MeNotificationsListResult {
+  ttlCache.set(cacheKey, { value: ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED, expiresAt: now + TTL_MS });
   return ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED;
 }
 
@@ -90,7 +99,7 @@ export type FetchMeNotificationsListOpts = {
   ownerStoreId?: string;
 };
 
-function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string {
+export function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string {
   const sp = new URLSearchParams();
   const ownerSid = opts?.ownerStoreId?.trim();
   if (ownerSid) {
@@ -122,28 +131,32 @@ export function fetchMeNotificationsListDeduped(
 ): Promise<MeNotificationsListResult> {
   const force = !!opts?.force;
   const url = buildNotificationsListUrl(opts);
-  const flightKey = `me:notifications:list:${url}`;
+  const viewerId = getSyncViewerUserIdForClient() ?? null;
+  const cacheKey = buildMeNotificationsListCacheKey(viewerId, url);
+  const flightKey = `me:notifications:list:${cacheKey}`;
   const now = Date.now();
-  const cached = ttlCache.get(url);
+  const cached = ttlCache.get(cacheKey);
   if (!force && cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }
-  clearAuthFetchBlocksIfSession(getSyncViewerUserIdForClient() ?? null);
+  clearAuthFetchBlocksIfSession(viewerId);
   if (isFetchBlocked(now)) {
     return Promise.resolve(cached?.value ?? ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED);
   }
   if (force) {
-    ttlCache.delete(url);
+    ttlCache.delete(cacheKey);
     forgetSingleFlightsWhere((k) => k === flightKey);
   }
   return runSingleFlight(flightKey, async () => {
     const userId = await resolveClientAuthenticatedUserIdForFetch();
     clearAuthFetchBlocksIfSession(userId);
+    // Store under the account the request actually ran as (sync viewer may lag a switch).
+    const resolvedKey = buildMeNotificationsListCacheKey(userId, url);
     if (!userId) {
-      return cacheUnauthenticatedResult(url, Date.now());
+      return cacheUnauthenticatedResult(resolvedKey, Date.now());
     }
     if (isFetchBlocked()) {
-      return ttlCache.get(url)?.value ?? ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED;
+      return ttlCache.get(resolvedKey)?.value ?? ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED;
     }
 
     const res = await fetch(url, { credentials: "include", cache: "no-store" });
@@ -152,11 +165,11 @@ export function fetchMeNotificationsListDeduped(
     if (res.status === 401) {
       markUnauthorizedBackoff();
       authExitPaused = false;
-      ttlCache.set(url, { value: result, expiresAt: Date.now() + TTL_MS });
+      ttlCache.set(resolvedKey, { value: result, expiresAt: Date.now() + TTL_MS });
       return result;
     }
     if (res.ok || res.status === 503) {
-      ttlCache.set(url, { value: result, expiresAt: Date.now() + TTL_MS });
+      ttlCache.set(resolvedKey, { value: result, expiresAt: Date.now() + TTL_MS });
     }
     return result;
   });

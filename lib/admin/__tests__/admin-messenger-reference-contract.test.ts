@@ -7,34 +7,33 @@ import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 /**
- * Slice 5 — Messenger Trade/Order = REFERENCE entry only (no ownership move).
+ * Slice 5 → J-AMD-4 — Chat workspace Trade/Order entries are 전체채팅 type filters
+ * (no ownership move, no `?from=messenger` duplicate leaves, no developer REFERENCE banners).
  */
-describe("Admin Messenger reference presentation contract", () => {
-  it("Messenger Trade/Order leaves keep ?from=messenger paths with reference title keys", () => {
-    expect(findAdminMenuByKey(adminMenu, "chat-trade-messenger")?.path).toBe(
-      "/admin/chats/trade?from=messenger"
-    );
-    expect(findAdminMenuByKey(adminMenu, "delivery-order-chats-messenger")?.path).toBe(
-      "/admin/order-chats?from=messenger"
-    );
+describe("Admin Messenger reference presentation contract (J-AMD-4)", () => {
+  it("Chat Trade/Order leaves point at 전체채팅 type filters; legacy ?from= URLs only match", () => {
+    const trade = findAdminMenuByKey(adminMenu, "chat-trade-messenger");
+    const order = findAdminMenuByKey(adminMenu, "delivery-order-chats-messenger");
+    expect(trade?.path).toBe("/admin/chats?type=trade");
+    expect(order?.path).toBe("/admin/chats?type=store_order");
+    expect(trade?.matchPaths).toContain("/admin/chats/trade?from=messenger");
+    expect(order?.matchPaths).toContain("/admin/order-chats?from=messenger");
     const menu = read("components/admin/admin-menu.ts");
-    expect(menu).toContain(
-      '"chat-trade-messenger": "admin_menu_chat_trade_messenger_ref"'
-    );
-    expect(menu).toContain(
-      '"delivery-order-chats-messenger": "admin_menu_order_chats_messenger_ref"'
-    );
+    expect(menu).toContain('"chat-trade-messenger": "admin_menu_chat_rooms_trade"');
+    expect(menu).toContain('"delivery-order-chats-messenger": "admin_menu_chat_rooms_store_order"');
   });
 
-  it("Trade list shows REFERENCE banner when from=messenger", () => {
+  it("Trade list has no developer identity / REFERENCE / HOLLOW banners", () => {
     const page = read("components/admin/chats/AdminChatListPage.tsx");
-    expect(page).toContain("admin-messenger-trade-reference-banner");
-    expect(page).toContain("admin_messenger_trade_reference_banner");
+    expect(page).not.toContain("admin-messenger-trade-reference-banner");
+    expect(page).not.toContain("admin-trade-chat-identity-banner");
+    expect(page).not.toContain("admin-chat-hollow-banner");
+    expect(page).not.toContain("Trade OPS identity");
   });
 
-  it("Order chats hub shows REFERENCE banner and Delivery authority foot copy", () => {
+  it("Order chats hub drops the REFERENCE banner but keeps Delivery authority foot copy", () => {
     const hub = read("app/admin/order-chats/page.tsx");
-    expect(hub).toContain("admin-messenger-order-reference-banner");
+    expect(hub).not.toContain("admin-messenger-order-reference-banner");
     expect(hub).toContain("admin_order_chats_foot_authority");
     expect(hub).not.toMatch(/community_messenger_\*로 통합/);
   });

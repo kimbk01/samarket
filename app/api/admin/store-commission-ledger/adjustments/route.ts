@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { decideStoreCommissionAdjustment } from "@/lib/stores/commission/store-commission-writer";
 
 export const runtime = "nodejs";
@@ -25,7 +25,8 @@ const ERROR_STATUS: Record<string, number> = {
  * 같은 idempotency_key 재전송은 기록된 결정을 그대로 반환한다(중복 실행 없음).
  */
 export async function POST(req: NextRequest) {
-  const gate = await requireAdminPermission("business");
+  // B-2 (Owner 승인): 수수료 조정 결정 = super_admin 전용.
+  const gate = await requireSuperAdmin();
   if (!gate.ok) return gate.response;
   const { sb, actor } = gate;
 

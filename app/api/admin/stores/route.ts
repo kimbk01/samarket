@@ -10,6 +10,15 @@ import {
   type AddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
 import { ADMIN_ACTIONABLE_STORE_APPROVAL } from "@/lib/admin/admin-ops-actionable-status";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  ADMIN_STORES_COUNT_STATUSES,
+  buildAdminStoresSearchOrFilter,
+  buildAdminStoresStatusCounts,
+  parseAdminStoresPaging,
+  sanitizeAdminStoresSearchTerm,
+  type AdminStoresPaging,
+} from "@/lib/admin-business/admin-stores-list-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,12 +69,25 @@ export async function GET(req: Request) {
     ].join(", "),
   ] as const;
 
-  let stores: unknown[] | null = null;
-  let error: { message: string } | null = null;
   const selectOrder = [
     ...selectAttempts.slice(adminStoresSelectAttemptStart),
     ...selectAttempts.slice(0, adminStoresSelectAttemptStart),
   ];
+
+  // DEF-15 — `?page=` 가 있으면 서버 페이지네이션 + 전체 건수 집계 (입점 심사 화면).
+  const paging = parseAdminStoresPaging(searchParams);
+  if (paging) {
+    return respondPaged(sb, {
+      paging,
+      status: status ?? "",
+      qText,
+      selectOrder,
+      selectAttempts,
+    });
+  }
+
+  let stores: unknown[] | null = null;
+  let error: { message: string } | null = null;
   for (const sel of selectOrder) {
     const result = await sb
       .from("stores")
@@ -86,7 +108,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  type AdminStoreListRow = { id: string } & Record<string, unknown>;
   const list: AdminStoreListRow[] = Array.isArray(stores)
     ? (stores as unknown as AdminStoreListRow[])
     : [];
@@ -208,15 +229,30 @@ export async function GET(req: Request) {
   statusCounts.actionable =
     (statusCounts.pending ?? 0) + (statusCounts.under_review ?? 0);
 
+  return NextResponse.json({
+    ok: true,
+    stores: await enrichAdminStoreRows(sb, statusFilteredList, permsRes.data ?? []),
+    counts: statusCounts,
+  });
+}
+
+type AdminStoreListRow = { id: string } & Record<string, unknown>;
+
+/** 판매 권한 + 신청 주소록 카드(없으면 사장님 기본 주소록) 붙이기 — 목록·페이지 모드 공용. */
+async function enrichAdminStoreRows(
+  sb: SupabaseClient,
+  rows: AdminStoreListRow[],
+  perms: Record<string, unknown>[]
+): Promise<AdminStoreListRow[]> {
   const permByStore: Record<string, Record<string, unknown>> = {};
-  for (const p of permsRes.data ?? []) {
+  for (const p of perms) {
     const sid = p.store_id as string;
     permByStore[sid] = p as Record<string, unknown>;
   }
 
   const ownersNeedingBookFallback = [
     ...new Set(
-      statusFilteredList
+      rows
         .filter(
           (s) =>
             !parseStoredAddressBookPresentation(
@@ -236,21 +272,157 @@ export async function GET(req: Request) {
     }
   }
 
+  return rows.map((s) => {
+    const storedBook = parseStoredAddressBookPresentation(
+      (s as { application_address_book?: unknown }).application_address_book
+    );
+    const ownerId = String((s as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
+    const application_address_book =
+      storedBook ?? (ownerId ? ownerBookFallback.get(ownerId) ?? null : null);
+    return {
+      ...s,
+      application_address_book,
+      sales_permission: permByStore[s.id] ?? null,
+    };
+  });
+}
+
+type ProfileLite = {
+  id: string;
+  display_name: string | null;
+  nickname: string | null;
+  username: string | null;
+};
+
+function applicantFields(s: AdminStoreListRow, prof: ProfileLite | undefined) {
+  const display = String(prof?.display_name ?? "").trim();
+  const legacy = String(prof?.nickname ?? "").trim();
+  const username = String(prof?.username ?? "").trim().replace(/^@+/, "");
+  const label = prof ? labelFromDisplayAndUsername(display || legacy, username).trim() : "";
+  return {
+    ...s,
+    store_name: String(s.store_name ?? "").trim(),
+    applicant_nickname: label || null,
+    owner_username: username || null,
+    owner_handle: username ? `@${username}` : null,
+  };
+}
+
+/** DEF-15 — 서버 페이지네이션: 검색·상태 필터를 DB 에서 적용하고, 상태 탭 건수는 head count 로 집계. */
+async function respondPaged(
+  sb: SupabaseClient,
+  input: {
+    paging: AdminStoresPaging;
+    status: string;
+    qText: string;
+    selectOrder: readonly string[];
+    selectAttempts: readonly string[];
+  }
+): Promise<NextResponse> {
+  const { paging, status, qText } = input;
+  const term = sanitizeAdminStoresSearchTerm(qText);
+
+  // 사장님 닉네임·핸들 검색 → owner id 로 변환
+  let ownerIds: string[] = [];
+  if (term) {
+    const like = `%${term}%`;
+    const { data: profs } = await sb
+      .from("profiles")
+      .select("id")
+      .or(`username.ilike.${like},nickname.ilike.${like},display_name.ilike.${like}`)
+      .limit(200);
+    ownerIds = (profs ?? []).map((p) => String((p as { id?: unknown }).id ?? "")).filter(Boolean);
+  }
+
+  type Q = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
+  const runWithSearch = async (
+    build: (
+      orFilter: string | null
+    ) => PromiseLike<{ data?: unknown; error: { message: string } | null; count?: number | null }>
+  ) => {
+    let res = await build(buildAdminStoresSearchOrFilter(term, ownerIds, { includeRequestNote: true }));
+    if (res.error && term && /application_request_note/i.test(res.error.message)) {
+      res = await build(buildAdminStoresSearchOrFilter(term, ownerIds, { includeRequestNote: false }));
+    }
+    return res;
+  };
+  const applyStatus = (q: Q): Q => {
+    if (!status || status === "all") return q;
+    if (status === "actionable") {
+      return q.in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL]) as Q;
+    }
+    return q.eq("approval_status", status) as Q;
+  };
+
+  let pageRows: AdminStoreListRow[] = [];
+  let total = 0;
+  let lastError: { message: string } | null = null;
+  for (const sel of input.selectOrder) {
+    const res = await runWithSearch((orFilter) => {
+      let q = sb.from("stores").select(sel, { count: "exact" }) as Q;
+      if (orFilter) q = q.or(orFilter) as Q;
+      q = applyStatus(q);
+      return q.order("created_at", { ascending: false }).range(paging.from, paging.to);
+    });
+    if (!res.error) {
+      pageRows = (Array.isArray(res.data) ? res.data : []) as AdminStoreListRow[];
+      total = typeof res.count === "number" ? res.count : pageRows.length;
+      lastError = null;
+      const idx = input.selectAttempts.indexOf(sel);
+      if (idx >= 0) adminStoresSelectAttemptStart = idx;
+      break;
+    }
+    lastError = res.error;
+  }
+  if (lastError) {
+    console.error("[admin/stores GET paged]", lastError);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+  }
+
+  const countResults = await Promise.all(
+    [null, ...ADMIN_STORES_COUNT_STATUSES].map((st) =>
+      runWithSearch((orFilter) => {
+        let q = sb.from("stores").select("id", { count: "exact", head: true }) as Q;
+        if (orFilter) q = q.or(orFilter) as Q;
+        if (st) q = q.eq("approval_status", st) as Q;
+        return q;
+      })
+    )
+  );
+  const [allRes, ...statusRes] = countResults;
+  const byStatus: Partial<Record<(typeof ADMIN_STORES_COUNT_STATUSES)[number], number>> = {};
+  ADMIN_STORES_COUNT_STATUSES.forEach((st, i) => {
+    byStatus[st] = Number(statusRes[i]?.count) || 0;
+  });
+  const counts = buildAdminStoresStatusCounts(byStatus, Number(allRes?.count) || 0);
+
+  const ids = pageRows.map((s) => s.id);
+  const pageOwnerIds = [
+    ...new Set(pageRows.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean)),
+  ];
+  const [profsRes, permsRes] = await Promise.all([
+    pageOwnerIds.length > 0
+      ? sb.from("profiles").select("id, display_name, nickname, username").in("id", pageOwnerIds)
+      : Promise.resolve({ data: [] as ProfileLite[], error: null }),
+    ids.length > 0
+      ? sb
+          .from("store_sales_permissions")
+          .select("store_id, allowed_to_sell, sales_status, approved_at, rejection_reason, suspension_reason")
+          .in("store_id", ids)
+      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+  ]);
+  const profById = new Map<string, ProfileLite>();
+  for (const p of (profsRes.data ?? []) as ProfileLite[]) profById.set(String(p.id), p);
+  const withApplicant = pageRows.map((s) =>
+    applicantFields(s, profById.get(String(s.owner_user_id ?? "").trim()))
+  );
+
   return NextResponse.json({
     ok: true,
-    stores: statusFilteredList.map((s) => {
-      const storedBook = parseStoredAddressBookPresentation(
-        (s as { application_address_book?: unknown }).application_address_book
-      );
-      const ownerId = String((s as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
-      const application_address_book =
-        storedBook ?? (ownerId ? ownerBookFallback.get(ownerId) ?? null : null);
-      return {
-        ...s,
-        application_address_book,
-        sales_permission: permByStore[s.id] ?? null,
-      };
-    }),
-    counts: statusCounts,
+    stores: await enrichAdminStoreRows(sb, withApplicant, (permsRes.data ?? []) as Record<string, unknown>[]),
+    counts,
+    total,
+    page: paging.page,
+    pageSize: paging.pageSize,
   });
 }

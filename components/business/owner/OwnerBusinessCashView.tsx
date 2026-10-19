@@ -3,6 +3,7 @@
 /** Canonical Owner Cash top-up and Coin → Cash conversion controls. */
 
 import { useCallback, useEffect, useState } from "react";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -76,8 +77,9 @@ export function OwnerBusinessCashView({
   const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    // silent = 포커스·복귀 재조회 (DEF-73) — 스켈레톤 없이 잔액만 갱신.
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
@@ -128,6 +130,10 @@ export function OwnerBusinessCashView({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** DEF-73 — 관리자 충전 승인 등 외부 변경 후 화면 재진입 없이도 잔액 갱신 (탭·앱 복귀·창 포커스). */
+  const refetchSilently = useCallback(() => load({ silent: true }), [load]);
+  useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
 
   const refreshQuote = async (points: number) => {
     const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {

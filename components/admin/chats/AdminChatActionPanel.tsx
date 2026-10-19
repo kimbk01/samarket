@@ -4,6 +4,9 @@ import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
+import { ADMIN_REASON_MIN_LENGTH, confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+// C-10: 「신고 보기」 = 채팅 신고 단일 큐, 큐가 읽는 `target`(방·회원 ID) 파라미터.
+import { ADMIN_CHAT_REPORT_QUEUE_PATH } from "@/lib/admin/chat-admin/admin-chat-links";
 
 type PanelAction =
   | "warn"
@@ -19,13 +22,16 @@ type BulkMsgAction = "bulk_hide" | "bulk_unhide";
 interface AdminChatActionPanelProps {
   room: AdminChatRoom;
   onActionSuccess: () => void;
+  /** R1-B C-1: 사용자 방(CM)이 없는 레거시 전용 기록 — 조치가 사용자에게 반영되지 않으므로 읽기 전용 */
+  legacyOnly?: boolean;
 }
 
 export function AdminChatActionPanel({
   room,
   onActionSuccess,
+  legacyOnly = false,
 }: AdminChatActionPanelProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [loading, setLoading] = useState<PanelAction | BulkMsgAction | null>(null);
   const [note, setNote] = useState("");
 
@@ -74,17 +80,33 @@ export function AdminChatActionPanel({
   };
 
   const run = async (action: PanelAction) => {
+    // R1-A C-5: 사유 2자 이상 필수 (메모 입력값 사용, 없으면 L2 사유 입력) — 서버 상태 조건 갱신·감사.
+    let reason = note.trim();
+    if (reason.length < ADMIN_REASON_MIN_LENGTH) {
+      const c = await confirmAdminAction({
+        level: "L2",
+        ko: language !== "en",
+        title: t("admin_chat_r1_action_confirm_title"),
+        confirmLabel: t("admin_chat_r1_action_confirm_cta"),
+        destructive: action === "block_room" || action === "archive_room",
+      });
+      if (!c.ok || !c.reason) return;
+      reason = c.reason;
+    }
     setLoading(action);
     try {
       const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(room.id)}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: note.trim() }),
+        body: JSON.stringify({ action, reason }),
         credentials: "same-origin",
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("admin_chat_action_failed") });
+        await dibayAlert({
+          title: j.error === "stale_state" ? t("admin_chat_r1_stale_state") : (j.error ?? t("admin_chat_action_failed")),
+        });
+        if (j.error === "stale_state") onActionSuccess();
         return;
       }
       setNote("");
@@ -95,6 +117,20 @@ export function AdminChatActionPanel({
   };
 
   const readonly = room.isReadonly === true;
+
+  if (legacyOnly) {
+    return (
+      <div className="space-y-3" data-admin-trade-actions="legacy-read-only">
+        <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_r1b_legacy_action_blocked")}</p>
+        <a
+          href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}
+          className="inline-block rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
+        >
+          {t("admin_chat_go_reports")}
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -196,7 +232,7 @@ export function AdminChatActionPanel({
       </div>
       <div className="flex flex-wrap gap-2">
         <a
-          href={`/admin/reports?targetType=chat&targetId=${encodeURIComponent(room.id)}`}
+          href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(room.id)}`}
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
         >
           {t("admin_chat_go_reports")}

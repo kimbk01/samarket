@@ -25,6 +25,11 @@ import {
   type MessengerPhotoLibraryHeaderState,
 } from "@/lib/community-messenger/attachment/messenger-photo-library";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import {
+  isMessengerMediaRouteUrl,
+  withMessengerMediaRouteUrls,
+} from "@/lib/community-messenger/media/messenger-media-ref";
+import { resolveMessengerMediaUrlsForExternalUse } from "@/lib/community-messenger/media/messenger-media-external-url";
 
 export type MessengerImageSaveMode = "native" | "update_required" | "web" | "none";
 
@@ -76,11 +81,12 @@ export async function resolveMessengerImageSaveMode(): Promise<MessengerImageSav
   return typeof window === "undefined" ? "none" : "web";
 }
 
+/** 저장 가능한 사진 URL — http(s) 또는 C-4 첨부 조회 라우트(같은 오리진 상대 URL). */
 function isHttpUrl(u: string): boolean {
-  return /^https?:\/\//i.test(u);
+  return /^https?:\/\//i.test(u) || isMessengerMediaRouteUrl(u);
 }
 
-/** 첫 번째 비어 있지 않은 http(s) URL — `??` 는 빈 문자열을 대체하지 못하므로 이 함수로 고른다. */
+/** 첫 번째 비어 있지 않은 http(s)(또는 첨부 조회 라우트) URL — `??` 는 빈 문자열을 대체하지 못하므로 이 함수로 고른다. */
 export function pickMessengerHttpUrl(...candidates: Array<string | null | undefined>): string {
   for (const c of candidates) {
     const u = String(c ?? "").trim();
@@ -92,14 +98,20 @@ export function pickMessengerHttpUrl(...candidates: Array<string | null | undefi
 type MessengerImageUrlSource = Pick<
   CommunityMessengerMessage,
   "messageType" | "content" | "imageAlbumUrls" | "imageAlbumOriginalUrls" | "imageOriginalUrl"
->;
+> &
+  Partial<Pick<CommunityMessengerMessage, "id" | "roomId" | "pending">>;
 
 /**
  * 앨범 칸(표시 순서)별 원본 URL — 칸 인덱스가 그대로 유지된다(저장 불가 칸은 "").
  * 원본이 비었거나 http 가 아니면 그 칸의 표시 URL 로 대체한다. 단일 사진은 길이 1.
  */
-export function messengerImageOriginalUrlSlots(message: MessengerImageUrlSource): string[] {
-  if (message.messageType !== "image") return [];
+export function messengerImageOriginalUrlSlots(source: MessengerImageUrlSource): string[] {
+  if (source.messageType !== "image") return [];
+  /** C-4: id·roomId 가 있으면 저장 URL 을 첨부 조회 라우트로 투영(이미 라우트면 그대로). */
+  const message =
+    source.id && source.roomId
+      ? withMessengerMediaRouteUrls({ ...source, id: source.id, roomId: source.roomId, content: source.content })
+      : source;
   const album = message.imageAlbumUrls ?? [];
   if (album.length > 1) {
     const originals = message.imageAlbumOriginalUrls ?? [];
@@ -119,16 +131,21 @@ export async function saveMessengerImages(urls: string[]): Promise<MessengerImag
   const mode = await resolveMessengerImageSaveMode();
   const empty = { mode, total: list.length, savedCount: 0, failedCount: list.length, permissionDenied: false };
   if (list.length === 0 || mode === "none") return empty;
+  /**
+   * C-4: 첨부 조회 라우트 URL → 짧은 서명 URL (네이티브 다운로드·인앱 브라우저·Web Share fetch 는 WebView 쿠키가 없다).
+   * `failedUrls`(다시 시도)는 원래 라우트 URL 을 유지한다 — 서명 URL 은 만료되므로.
+   */
+  const fetchList = await resolveMessengerMediaUrlsForExternalUse(list);
   if (mode === "update_required") {
     /** 화면 이동 없음 — 업데이트 안내만. 1장일 때만 사용자가 고를 수 있는 「원본 열기」를 둔다. */
     const single = list.length === 1 && isBrowserPluginAvailable();
-    if (single && !hasIosCapacitorBridge() && openMessengerImageOriginalForManualSave(list[0]!)) {
+    if (single && !hasIosCapacitorBridge() && openMessengerImageOriginalForManualSave(fetchList[0]!)) {
       return { ...empty, failedCount: 0, handedOff: "android" };
     }
-    return { ...empty, updateRequired: true, ...(single ? { manualOpenUrl: list[0]! } : {}) };
+    return { ...empty, updateRequired: true, ...(single ? { manualOpenUrl: fetchList[0]! } : {}) };
   }
   if (mode === "native") {
-    const r = await saveImagesToNativePhotoLibrary(list);
+    const r = await saveImagesToNativePhotoLibrary(fetchList);
     const savedIdx = new Set(r.saved.filter((i) => i >= 0 && i < list.length));
     const savedCount = savedIdx.size;
     /** 실기기 검증용(Safari Web Inspector / chrome://inspect) — URL·개인정보 없이 결과만. */
@@ -146,7 +163,7 @@ export async function saveMessengerImages(urls: string[]): Promise<MessengerImag
       failedUrls: list.filter((_, i) => !savedIdx.has(i)),
     };
   }
-  const r = await saveChatImagesToDevice(list, `dibay-${Date.now()}`);
+  const r = await saveChatImagesToDevice(fetchList, `dibay-${Date.now()}`);
   const cancelled = r.status === "cancelled";
   return {
     mode,

@@ -34,6 +34,8 @@ import {
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 
+import { auditReasonFromAfterJson, loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
+
 export type { BusinessCcKpiSummary };
 
 export type BusinessCcSalesPermission = {
@@ -56,6 +58,8 @@ export type BusinessCcFeeSnapshot = {
   /** Active store-scoped override row (for clear), if any */
   storeOverridePolicyId: string | null;
   storeOverrideFeePercent: number | null;
+  /** 개별 수수료 정책 행 updated_at — PATCH expected_updated_at (CAS, 409 stale_policy) */
+  storeOverrideUpdatedAt: string | null;
 };
 
 export type BusinessCcDeliverySnapshot = {
@@ -139,6 +143,12 @@ export type BusinessCcAuditLog = {
   id: string;
   actionType: string;
   adminId: string;
+  /** DEF-19 — 처리자 표시 이름 (profiles). 없으면 null — UUID 를 이름으로 쓰지 않는다. */
+  actorLabel: string | null;
+  /** admin | user | system */
+  actorType: string;
+  /** after_json 의 사유 (reason · action_memo · memo) */
+  reason: string | null;
   note: string;
   createdAt: string;
 };
@@ -247,7 +257,7 @@ export async function loadBusinessControlCenterDetail(
       }),
       sb
         .from("store_fee_policies")
-        .select("id, fee_percent, is_active, is_archived")
+        .select("id, fee_percent, is_active, is_archived, updated_at")
         .eq("store_id", id)
         .eq("is_active", true)
         .order("priority", { ascending: true })
@@ -261,7 +271,7 @@ export async function loadBusinessControlCenterDetail(
       loadDeliveryServiceabilityRuntimeContext(sb),
       sb
         .from("audit_logs")
-        .select("id, action, actor_id, created_at, after_json")
+        .select("id, action, actor_type, actor_id, created_at, after_json")
         .eq("target_type", "store")
         .eq("target_id", id)
         .order("created_at", { ascending: false })
@@ -352,7 +362,12 @@ export async function loadBusinessControlCenterDetail(
     : null;
 
   const overrideRow = storeFeeOverrideRes.data as
-    | { id?: string; fee_percent?: number | string; is_archived?: boolean | null }
+    | {
+        id?: string;
+        fee_percent?: number | string;
+        is_archived?: boolean | null;
+        updated_at?: string | null;
+      }
     | null;
   const overrideUsable =
     overrideRow &&
@@ -372,6 +387,10 @@ export async function loadBusinessControlCenterDetail(
     storeOverrideFeePercent: overrideUsable
       ? Number(overrideRow.fee_percent) || 0
       : null,
+    storeOverrideUpdatedAt:
+      overrideUsable && typeof overrideRow.updated_at === "string" && overrideRow.updated_at.trim()
+        ? overrideRow.updated_at
+        : null,
   };
 
   const override = svcCtx.overrides.stores[id] ?? null;
@@ -455,15 +474,21 @@ export async function loadBusinessControlCenterDetail(
     storeOverrideMaxKm: override?.maxKm ?? null,
   };
 
-  const logs: BusinessCcAuditLog[] = (auditRes.data ?? []).map(
-    (r: Record<string, unknown>) => ({
-      id: String(r.id ?? ""),
-      actionType: String(r.action ?? ""),
-      adminId: String(r.actor_id ?? ""),
-      note: r.after_json ? JSON.stringify(r.after_json).slice(0, 200) : "",
-      createdAt: String(r.created_at ?? ""),
-    })
+  const auditRows = (auditRes.data ?? []) as Array<Record<string, unknown>>;
+  const actorLabels = await loadActorLabels(
+    sb,
+    auditRows.map((r) => String(r.actor_id ?? ""))
   );
+  const logs: BusinessCcAuditLog[] = auditRows.map((r) => ({
+    id: String(r.id ?? ""),
+    actionType: String(r.action ?? ""),
+    adminId: String(r.actor_id ?? ""),
+    actorLabel: actorLabels.get(String(r.actor_id ?? "")) ?? null,
+    actorType: String(r.actor_type ?? "admin"),
+    reason: auditReasonFromAfterJson(r.after_json),
+    note: r.after_json ? JSON.stringify(r.after_json).slice(0, 200) : "",
+    createdAt: String(r.created_at ?? ""),
+  }));
 
   const stats: BusinessCcStats = { productCount, reviewCount };
   const kpi = await loadBusinessCcKpiSummary(sb, id, stats);
