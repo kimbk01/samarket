@@ -1,8 +1,9 @@
 name: CI
 
+# 브랜치 검사는 PR 실행 1회만 (push+PR 이중 실행 제거). main 은 병합 후 push 로 검사.
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
 
 permissions:
@@ -10,7 +11,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # main 실행은 끝까지 유지 (연속 병합 시 앞 커밋 검사 취소 방지). PR 은 새 커밋이 앞 실행을 취소.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:
