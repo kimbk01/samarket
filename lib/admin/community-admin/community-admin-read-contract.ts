@@ -1,6 +1,6 @@
 /**
  * 커뮤니티 Admin 조회 화면 계약 (작성자·운영 기록·통계·포인트) — 클라이언트·서버 공용 상수.
- * SQL `admin_community_is_audit_target` (20270520121200_community_admin_read_rpcs.sql) 과 같은 목록을 유지한다.
+ * SQL `admin_community_is_audit_target` (20270521121200_community_admin_read_rpcs.sql) 과 같은 목록을 유지한다.
  */
 
 /** 운영 기록(감사) 대상 유형 — 정확히 일치 */

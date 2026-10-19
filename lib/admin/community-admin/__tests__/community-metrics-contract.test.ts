@@ -119,7 +119,7 @@ describe("community metric registry ↔ page filter contract (D)", () => {
 
   it("audit target list matches the SQL helper and excludes messenger", () => {
     const sql = readFileSync(
-      resolve(process.cwd(), "supabase/migrations/20270520121200_community_admin_read_rpcs.sql"),
+      resolve(process.cwd(), "supabase/migrations/20270521121200_community_admin_read_rpcs.sql"),
       "utf8"
     );
     for (const t of COMMUNITY_AUDIT_TARGET_TYPES) expect(sql).toContain(`'${t}'`);

@@ -34,12 +34,12 @@ describe("community ads permission policy", () => {
     expect(route).toContain('requireCommunityAdmin("promotion")');
     expect(route).toContain("fault_required");
     expect(route).toContain("reason_required");
-    const rpc = read("supabase/migrations/20270520120800_community_admin_m9_promotion_refund.sql");
+    const rpc = read("supabase/migrations/20270521120800_community_admin_m9_promotion_refund.sql");
     expect(rpc).toContain("uq_point_ledger_promotion_refund_once");
   });
 
   it("data migration adds ads only to active non-super operators with explicit rows", () => {
-    const sql = read("supabase/migrations/20270520121300_community_admin_ads_for_all_active_operators.sql");
+    const sql = read("supabase/migrations/20270521121300_community_admin_ads_for_all_active_operators.sql");
     expect(sql).toContain("m.status = 'active'");
     expect(sql).toContain("m.role = 'admin'");
     expect(sql).toContain("not (p.permissions ? 'ads')");
