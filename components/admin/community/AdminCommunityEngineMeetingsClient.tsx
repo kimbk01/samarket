@@ -2,7 +2,7 @@
 
 /**
  * 커뮤니티 모임 (설계 §C-8 · §C-0-1 목록 화면 틀).
- * 탭(승인 대기/진행 중/종료/반려/전체) · 모임 이름 검색 — URL 유지. 개설자 열.
+ * 탭(승인 대기/진행 중/종료/반려/전체) · 검색(모임 이름·개설자 닉네임·ID) · 페이지 — URL 유지, 서버에서 거르고 총 건수 표시. 개설자 열.
  * 버튼: 승인 L1 · 반려 L2 · 숨김 L2 · 다시 공개 L1 · 모임 종료 L2 · 재개 L1 — 현재 상태(expected*)를 함께 보내 CAS (409 → 다시 불러오기).
  * 연결 채팅방 점검(펼치기)은 기존 기능 유지.
  */
@@ -21,6 +21,7 @@ import {
   CommunityAuthorCell,
   CommunityFilterField,
   CommunityListShell,
+  CommunityPagination,
   CommunityResetFilters,
   CommunitySearchInput,
   CommunityTable,
@@ -39,6 +40,7 @@ import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminA
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
   COMMUNITY_GONE_MESSAGE,
+  COMMUNITY_PAGE_SIZE,
   COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   toCommunitySheetResult,
@@ -109,16 +111,6 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function matchesTab(r: Row, tab: string): boolean {
-  const approval = str(r.platform_approval_status) || "pending_approval";
-  const status = str(r.status);
-  if (tab === "pending") return approval === "pending_approval" && r.platform_approval_required !== false;
-  if (tab === "rejected") return approval === "rejected";
-  if (tab === "open") return status === "open" && approval !== "rejected";
-  if (tab === "ended") return CLOSED.has(status);
-  return true;
-}
-
 function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, unknown> {
   const expected = {
     expectedStatus: r.status ?? null,
@@ -155,18 +147,19 @@ function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, 
 export function AdminCommunityEngineMeetingsClient() {
   const { t, language } = useI18n();
   const ko = language !== "en";
-  const { get, set, reset } = useCommunityQueryState();
+  const { get, set, reset, page } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
   const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
 
   const tabRaw = get("tab");
   const tab = TABS.some((x) => x.value === tabRaw) ? tabRaw : "all";
-  const q = get("q").trim().toLowerCase();
+  const q = get("q").trim();
   /** 모임 신고·운영 로그 화면에서 넘어온 특정 모임 */
   const focusId = get("meetingId").trim();
 
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -181,21 +174,36 @@ export function AdminCommunityEngineMeetingsClient() {
 
   const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
-  // 서버는 status(open/closed/ended/cancelled)만 거른다 — 진행 중 탭만 서버 필터, 나머지는 받은 100건 안에서 거른다.
-  const apiStatus = !focusId && tab === "open" ? "open" : "";
+  // 탭·검색·페이지 모두 서버에서 거른다 (총 건수 = count exact).
+  const apiQuery = useMemo(() => {
+    const sp = new URLSearchParams({
+      limit: String(COMMUNITY_PAGE_SIZE),
+      offset: String((page - 1) * COMMUNITY_PAGE_SIZE),
+    });
+    if (focusId) sp.set("meetingId", focusId);
+    else {
+      if (tab !== "all") sp.set("tab", tab);
+      if (q) sp.set("q", q);
+    }
+    return sp.toString();
+  }, [focusId, tab, q, page]);
+
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     void (async () => {
-      const sp = new URLSearchParams({ limit: "100" });
-      if (apiStatus) sp.set("status", apiStatus);
-      const r = await communityJsonFetch<{ meetings?: Row[] }>(`/api/admin/community/engine/meetings?${sp.toString()}`);
+      const r = await communityJsonFetch<{ meetings?: Row[]; total?: number | null }>(
+        `/api/admin/community/engine/meetings?${apiQuery}`
+      );
       if (cancel) return;
       if (r.ok) {
-        setRows(r.json.meetings ?? []);
+        const list = r.json.meetings ?? [];
+        setRows(list);
+        setTotal(typeof r.json.total === "number" ? r.json.total : null);
         setLoadErr(null);
       } else {
         setRows([]);
+        setTotal(null);
         setLoadErr({ code: r.code, status: r.status });
       }
       setLoading(false);
@@ -203,17 +211,9 @@ export function AdminCommunityEngineMeetingsClient() {
     return () => {
       cancel = true;
     };
-  }, [apiStatus, reloadKey]);
+  }, [apiQuery, reloadKey]);
 
-  const visible = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (focusId ? str(r.id) === focusId : matchesTab(r, tab)) &&
-          (!q || str(r.title).toLowerCase().includes(q) || str(r.region_text).toLowerCase().includes(q))
-      ),
-    [rows, tab, q, focusId]
-  );
+  const visible = rows;
 
   const fetchInsight = async (meetingId: string) => {
     setInsightLoading(true);
@@ -323,9 +323,9 @@ export function AdminCommunityEngineMeetingsClient() {
         ko={ko}
         message={
           focusId
-            ? "이 모임을 최근 개설 100건에서 찾지 못했습니다."
+            ? t("admin_community_meetings_focus_missing")
             : q
-              ? "검색 결과가 없습니다."
+              ? t("admin_community_meetings_empty_search")
               : "해당하는 모임이 없습니다."
         }
       />
@@ -467,15 +467,19 @@ export function AdminCommunityEngineMeetingsClient() {
         banner={<AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />}
         tabs={
           <CommunityTabs
-            tabs={TABS.map((x) => ({ ...x, count: x.value === tab && !loading && !loadErr ? visible.length : null }))}
+            tabs={TABS.map((x) => ({ ...x, count: x.value === tab && !focusId && !loading && !loadErr ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v === "all" ? null : v })}
           />
         }
         filters={
           <>
-            <CommunityFilterField label="검색 (모임 이름·지역)">
-              <CommunitySearchInput value={get("q")} placeholder="모임 이름" onCommit={(v) => set({ q: v })} />
+            <CommunityFilterField label={t("admin_community_meetings_search_label")}>
+              <CommunitySearchInput
+                value={get("q")}
+                placeholder={t("admin_community_meetings_search_placeholder")}
+                onCommit={(v) => set({ q: v })}
+              />
             </CommunityFilterField>
             {focusId ? (
               <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
@@ -486,8 +490,22 @@ export function AdminCommunityEngineMeetingsClient() {
               </span>
             ) : null}
             {get("q") || focusId ? <CommunityResetFilters onReset={() => reset(["tab"])} /> : null}
-            <span className="pb-1.5 text-[12px] text-sam-muted">최근 개설 100건 기준</span>
+            {!loading && !loadErr && typeof total === "number" ? (
+              <span className="pb-1.5 text-[12px] font-semibold text-sam-fg" data-community-list-total={total}>
+                {t("admin_community_list_total", { count: total.toLocaleString() })}
+              </span>
+            ) : null}
           </>
+        }
+        footer={
+          !loading && !loadErr && (rows.length > 0 || page > 1) ? (
+            <CommunityPagination
+              page={page}
+              pageSize={COMMUNITY_PAGE_SIZE}
+              total={total}
+              onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
+            />
+          ) : null
         }
       >
         {body}

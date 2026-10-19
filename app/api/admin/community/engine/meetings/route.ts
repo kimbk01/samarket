@@ -2,17 +2,37 @@ import { loadAdminMemberIdentityMap } from "@/lib/admin-community/member-identit
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  COMMUNITY_LIST_PROFILE_MATCH_LIMIT,
+  MEETING_ADMIN_TABS,
+  MEETING_STATUSES,
+  buildCommunitySearchOr,
+  isCommunityListUuid,
+  parseCommunityListPage,
+  parseCommunityListSearch,
+  pickAllowed,
+} from "@/lib/admin/community-admin/community-list-query";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET — 모임 관리 목록 */
+/**
+ * GET — 모임 관리 목록
+ * query: q(모임 이름·개설자 닉네임 · UUID 면 모임/글/개설자 id 정확 일치) · status(open|closed|ended|cancelled)
+ *   · tab(pending|open|ended|rejected) · meetingId · limit(기본 50, 최대 200) · offset
+ * → { ok, meetings, total, limit, offset }
+ */
 export async function GET(req: NextRequest) {
   const admin = await requireCommunityAdmin("content");
   if (!admin.ok) return admin.response;
 
-  const status = req.nextUrl.searchParams.get("status")?.trim() || "";
-  const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get("limit") ?? "40", 10) || 40, 1), 100);
+  const sp = req.nextUrl.searchParams;
+  const status = pickAllowed(sp.get("status"), MEETING_STATUSES);
+  const tab = pickAllowed(sp.get("tab"), MEETING_ADMIN_TABS);
+  const meetingIdRaw = sp.get("meetingId")?.trim() || "";
+  const meetingId = isCommunityListUuid(meetingIdRaw) ? meetingIdRaw : "";
+  const search = parseCommunityListSearch(sp.get("q"));
+  const { limit, offset } = parseCommunityListPage(sp);
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -21,17 +41,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  if (meetingIdRaw && !meetingId) {
+    return NextResponse.json({ ok: true, meetings: [], total: 0, limit, offset });
+  }
+
+  // 개설자 닉네임 검색 → profiles id 후보
+  let matchedHostIds: string[] = [];
+  if (search.pattern && !search.uuid) {
+    const { data: profs, error: pErr } = await sb
+      .from("profiles")
+      .select("id")
+      .ilike("nickname", search.pattern)
+      .limit(COMMUNITY_LIST_PROFILE_MATCH_LIMIT);
+    if (pErr) return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
+    matchedHostIds = ((profs ?? []) as Array<{ id?: string }>).map((p) => String(p.id ?? "")).filter(Boolean);
+  }
+
   let q = sb
     .from("meetings")
     .select(
-      "id, post_id, title, host_user_id, status, max_members, meeting_date, chat_room_id, community_messenger_room_id, join_policy, entry_policy, password_hash, created_at, is_sample_data, platform_approval_required, platform_approval_status, region_text, category_text"
+      "id, post_id, title, host_user_id, status, max_members, meeting_date, chat_room_id, community_messenger_room_id, join_policy, entry_policy, password_hash, created_at, is_sample_data, platform_approval_required, platform_approval_status, region_text, category_text",
+      { count: "exact" }
     )
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (status && ["open", "closed", "ended", "cancelled"].includes(status)) {
-    q = q.eq("status", status);
+    .order("created_at", { ascending: false });
+  if (meetingId) {
+    q = q.eq("id", meetingId);
+  } else {
+    if (status) q = q.eq("status", status);
+    if (tab === "pending") q = q.eq("platform_approval_status", "pending_approval").eq("platform_approval_required", true);
+    else if (tab === "rejected") q = q.eq("platform_approval_status", "rejected");
+    else if (tab === "open") q = q.eq("status", "open").neq("platform_approval_status", "rejected");
+    else if (tab === "ended") q = q.in("status", ["closed", "ended", "cancelled"]);
+    const searchOr = buildCommunitySearchOr({
+      search,
+      textColumns: ["title", "region_text"],
+      userColumn: "host_user_id",
+      matchedUserIds: matchedHostIds,
+      uuidColumns: ["id", "post_id", "host_user_id"],
+    });
+    if (searchOr) q = q.or(searchOr);
   }
-  const { data, error } = await q;
+  const { data, error, count } = await q.range(offset, offset + limit - 1);
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
@@ -93,5 +143,11 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ ok: true, meetings: rows });
+  return NextResponse.json({
+    ok: true,
+    meetings: rows,
+    total: typeof count === "number" ? count : null,
+    limit,
+    offset,
+  });
 }
