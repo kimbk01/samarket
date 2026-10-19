@@ -5,6 +5,13 @@ import {
   runApnsHttp2WithBoundedTransportRetry,
   type ApnsPostOnceResult,
 } from "@/lib/push/dispatch/apns-http2-transport";
+import {
+  apnsHostForEnvironment,
+  defaultApnsEnvironment,
+  isApnsEnvironmentMismatch,
+  oppositeApnsEnvironment,
+  type ApnsEnvironment,
+} from "@/lib/push/dispatch/apns-environment";
 
 function base64Url(input: Buffer | string): string {
   const buf = typeof input === "string" ? Buffer.from(input) : input;
@@ -42,6 +49,8 @@ type ApnsHttp2RequestInput = {
   successExtras?: Record<string, unknown>;
   /** SRV-01 — alert only: same id replaces the earlier banner so a retry cannot show twice. */
   collapseId?: string | null;
+  /** PUSH-02 — alert only: per-token host. Omitted → global APNS_PRODUCTION host (VoIP unchanged). */
+  host?: string;
 };
 
 /**
@@ -61,7 +70,7 @@ function apnsHttp2PostOnce(input: ApnsHttp2RequestInput): Promise<ApnsPostOnceRe
   }
 
   return new Promise((resolve) => {
-    const client = http2.connect(`https://${apnsHost()}`);
+    const client = http2.connect(`https://${input.host ?? apnsHost()}`);
     let settled = false;
     let responseReceived = false;
     let status = 0;
@@ -235,6 +244,8 @@ export async function sendApnsAlertImpl(input: {
   body: string;
   data: Record<string, unknown>;
   collapseId?: string | null;
+  /** PUSH-02 — the token's APNs environment when known (user_devices.apns_environment). */
+  apnsEnvironment?: ApnsEnvironment | null;
 }): Promise<SendPushResult> {
   const topic = apnsTopic();
   if (!topic) {
@@ -243,14 +254,37 @@ export async function sendApnsAlertImpl(input: {
   const token = input.deviceToken.trim();
   if (!token) return { status: "failed", error_message: "empty_device_token" };
 
-  return apnsPostWithTransportRetry({
-    path: `/3/device/${token}`,
-    body: buildApnsAlertBody(input),
-    topic,
-    pushType: "alert",
-    channel: "alert",
-    collapseId: input.collapseId ?? null,
-  });
+  const post = (env: ApnsEnvironment) =>
+    apnsPostWithTransportRetry({
+      path: `/3/device/${token}`,
+      body: buildApnsAlertBody(input),
+      topic,
+      pushType: "alert",
+      channel: "alert",
+      collapseId: input.collapseId ?? null,
+      host: apnsHostForEnvironment(env),
+    });
+
+  // PUSH-02 — device env (reported or learned) first, else the server default. A 400
+  // BadDeviceToken means the token belongs to the other environment: retry once there before the
+  // dispatcher treats it as a dead token. The env that accepted the token is reported back.
+  const primary = input.apnsEnvironment ?? defaultApnsEnvironment();
+  const first = await post(primary);
+  if (first.status === "sent") {
+    return { ...first, provider_response: { ...(first.provider_response ?? {}), apns_environment: primary } };
+  }
+  if (!isApnsEnvironmentMismatch(first.provider_response)) return first;
+
+  const alternate = oppositeApnsEnvironment(primary);
+  const second = await post(alternate);
+  const fallback = { apns_environment_tried: [primary, alternate] };
+  if (second.status === "sent") {
+    return {
+      ...second,
+      provider_response: { ...(second.provider_response ?? {}), ...fallback, apns_environment: alternate },
+    };
+  }
+  return { ...second, provider_response: { ...(second.provider_response ?? {}), ...fallback } };
 }
 
 export async function sendVoipApnsImpl(input: {

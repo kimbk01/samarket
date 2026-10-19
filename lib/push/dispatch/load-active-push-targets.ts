@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { filterUserDevicePushTargets } from "@/lib/push/dispatch/filter-user-device-push-targets";
+import {
+  filterUserDevicePushTargets,
+  type UserDevicePushRow,
+} from "@/lib/push/dispatch/filter-user-device-push-targets";
 import {
   resolvePushEnvironment,
   type PushEnvironment,
@@ -29,6 +32,9 @@ export type LoadActivePushTargetsOptions = {
   environment?: PushEnvironment;
 };
 
+const USER_DEVICE_TARGET_COLUMNS =
+  "id, platform, device_id, push_token, push_provider, environment, last_seen_at, updated_at";
+
 /**
  * Active push targets for a user — `user_devices` + legacy `web_push_subscriptions`.
  */
@@ -43,17 +49,25 @@ export async function loadActivePushTargets(
 
   const targets: PushTarget[] = [];
 
-  const { data: deviceRows, error: deviceErr } = await svc
-    .from("user_devices")
-    .select("id, platform, device_id, push_token, push_provider, environment, last_seen_at, updated_at")
-    .eq("user_id", uid)
-    .eq("is_active", true)
-    .eq("environment", environment)
-    .order("last_seen_at", { ascending: false })
-    .order("updated_at", { ascending: false });
+  const selectDevices = (columns: string) =>
+    svc
+      .from("user_devices")
+      .select(columns)
+      .eq("user_id", uid)
+      .eq("is_active", true)
+      .eq("environment", environment)
+      .order("last_seen_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+  let { data: deviceRows, error: deviceErr } = await selectDevices(`${USER_DEVICE_TARGET_COLUMNS}, apns_environment`);
+  if (deviceErr && /apns_environment/i.test(deviceErr.message ?? "")) {
+    // PUSH-02 column not migrated yet → legacy select (server-default APNs host, as before).
+    ({ data: deviceRows, error: deviceErr } = await selectDevices(USER_DEVICE_TARGET_COLUMNS));
+  }
 
   if (!deviceErr && deviceRows?.length) {
-    targets.push(...filterUserDevicePushTargets(deviceRows, { fcmMode: options?.fcmMode }));
+    targets.push(
+      ...filterUserDevicePushTargets(deviceRows as unknown as UserDevicePushRow[], { fcmMode: options?.fcmMode })
+    );
   }
 
   const { data: webRows, error: webErr } =
