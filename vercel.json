@@ -4,6 +4,20 @@
     "bom1"
   ],
   "ignoreCommand": "node scripts/vercel-ignored-build-step.mjs",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "*": false,
+      "*/*": false,
+      "*/*/*": false,
+      "claude/**": false,
+      "feat/**": false,
+      "chore/**": false,
+      "fix/**": false,
+      "cursor/**": false,
+      "dibay-*": false
+    }
+  },
   "env": {
     "SAMARKET_PROD_PERF_MEASURE": "1",
     "NEXT_PUBLIC_SAMARKET_PROD_PERF_MEASURE": "1",
