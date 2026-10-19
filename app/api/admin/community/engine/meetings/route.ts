@@ -1,3 +1,4 @@
+import { loadAdminMemberIdentityMap } from "@/lib/admin-community/member-identity";
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -70,6 +71,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 개설자 표시 (C-? 모임 화면 개설자 열)
+  const hostIds = [...new Set(baseRows.map((row) => String((row as { host_user_id?: string }).host_user_id ?? "").trim()).filter(Boolean))];
+  const hostMap = await loadAdminMemberIdentityMap(sb, hostIds).catch(() => new Map());
+
   const rows = baseRows.map((r) => {
     const row = { ...(r as Record<string, unknown>) };
     const ph = row.password_hash;
@@ -83,6 +88,8 @@ export async function GET(req: NextRequest) {
       post_hidden: postMeta?.is_hidden ?? false,
       post_report_count: postMeta?.report_count ?? 0,
       meeting_report_count: reportCountMap.get(String(row.id ?? "").trim()) ?? 0,
+      host_nickname: hostMap.get(String(row.host_user_id ?? "").trim())?.nickname ?? null,
+      host_username: hostMap.get(String(row.host_user_id ?? "").trim())?.username ?? null,
     };
   });
 

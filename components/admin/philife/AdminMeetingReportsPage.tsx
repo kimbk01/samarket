@@ -1,302 +1,427 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * 모임 신고 `/admin/philife/meeting-reports` (설계 §C-4) — 신고 처리함과 같은 목록 틀·버튼.
+ * 원장: meeting_reports (피드 신고와 다른 원장). 상태 변경은 PATCH /api/admin/philife/meeting-reports/:id 만 —
+ * 모든 요청에 expectedStatus(CAS) · 인정/기각/다시 열기는 사유 필수 · 실패하면 화면 상태를 바꾸지 않고 배너(C-11).
+ * 탭·필터·페이지는 URL (`?status=` 대시보드 진입 = 처리 대기).
+ */
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import type { AppLanguageCode } from "@/lib/i18n/config";
-import type { MeetingReportRow, MeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
-import { AdminManagementSurfaceRoot } from "@/components/admin/management";
+import { useAdminMe } from "@/hooks/useAdminMe";
 import { ARO_IA_001_OWNERS } from "@/lib/admin/aro-ia-001-community-common-links";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
+import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
+import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { AdminManagementSurfaceRoot } from "@/components/admin/management";
+import {
+  COMMUNITY_TD,
+  CommunityActionSheet,
+  CommunityAuthorCell,
+  CommunityFilterField,
+  CommunityListShell,
+  CommunityPagination,
+  CommunityPeriodFilter,
+  CommunityResetFilters,
+  CommunitySearchInput,
+  CommunitySelect,
+  CommunityStatusBadge,
+  CommunitySummaryCard,
+  CommunityTable,
+  CommunityTabs,
+  CommunityTimeCell,
+  CommunityTimeline,
+  useCommunityQueryState,
+  type CommunitySheetSettle,
+} from "@/components/admin/community/kit/CommunityAdminKit";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminEmptyState, AdminErrorState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import {
+  MEETING_REPORT_TABS,
+  MEETING_REPORT_TARGET_OPTIONS,
+  type MeetingReportAdminRow,
+  type MeetingReportFilters,
+  type MeetingReportListResult,
+  type MeetingReportStatus,
+  type MeetingReportTab,
+} from "@/components/admin/community/reports/meeting-report-contract";
+import {
+  COMMUNITY_STALE_TEXT,
+  CommunityBannerView,
+  CommunityDrawer,
+  CommunitySection,
+  communityActionFetch,
+  communityAdminErrorText,
+  communityWarningsOf,
+  type CommunityBanner,
+} from "@/components/admin/community/reports/community-report-admin-shared";
 
-const MEETING_REPORT_STATUS_KEYS = {
-  pending: "admin_dashboard_report_pending",
-  reviewing: "admin_report_status_reviewing",
-  resolved: "admin_report_status_resolved",
-  rejected: "admin_dashboard_report_rejected",
-} as const satisfies Record<MeetingReportStatus, MessageKey>;
-
-const STATUS_CLASS: Record<MeetingReportStatus, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  reviewing: "bg-sky-100 text-sky-800",
-  resolved: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-sam-surface-muted text-sam-muted",
+const TAB_LABEL: Record<MeetingReportTab, string> = {
+  pending: "처리 대기",
+  reviewing: "검토 중",
+  resolved: "신고 인정",
+  rejected: "신고 기각",
+  all: "전체",
 };
 
-const TARGET_TYPE_KEYS: Record<string, MessageKey> = {
-  meeting: "admin_meeting_reports_target_meeting",
-  member: "admin_meeting_reports_target_member",
-  feed_post: "admin_meeting_reports_target_feed_post",
-  feed_comment: "admin_meeting_reports_target_feed_comment",
-  chat_message: "admin_meeting_reports_target_chat_message",
-  album_item: "admin_meeting_reports_target_album_item",
+const EMPTY_TEXT: Record<MeetingReportTab, string> = {
+  pending: "처리할 모임 신고가 없습니다.",
+  reviewing: "검토 중인 모임 신고가 없습니다.",
+  resolved: "인정한 모임 신고가 없습니다.",
+  rejected: "기각한 모임 신고가 없습니다.",
+  all: "모임 신고가 없습니다.",
 };
 
-const REASON_TYPE_KEYS: Record<string, MessageKey> = {
-  spam: "admin_report_reason_spam",
-  abuse: "admin_meeting_reports_reason_abuse",
-  sexual: "admin_meeting_reports_reason_sexual",
-  illegal: "admin_meeting_reports_reason_illegal",
-  impersonation: "admin_meeting_reports_reason_impersonation",
-  off_topic: "admin_meeting_reports_reason_off_topic",
-  etc: "admin_report_reason_other",
+const REASON_LABEL: Record<string, string> = {
+  spam: "스팸·도배",
+  abuse: "욕설·비방",
+  sexual: "음란·성적 내용",
+  illegal: "불법 행위",
+  impersonation: "사칭",
+  off_topic: "모임과 무관한 내용",
+  etc: "기타",
 };
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
+const PHT = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
+
+/** 상태별 허용 버튼 (전이표) */
+function meetingReportActions(status: MeetingReportStatus, isSuperAdmin: boolean): Array<"review" | "resolve" | "reject" | "reopen"> {
+  if (status === "pending") return ["review", "reject", "resolve"];
+  if (status === "reviewing") return ["reject", "resolve"];
+  return isSuperAdmin ? ["reopen"] : [];
 }
 
-function formatDate(iso: string | null | undefined, locale: string): string {
-  if (!iso || Number.isNaN(Date.parse(iso))) return "-";
-  return new Date(iso).toLocaleString(locale, {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function meetingHref(meetingId: string | null): string | null {
+  return meetingId ? `/admin/community/meetings?meetingId=${encodeURIComponent(meetingId)}` : null;
 }
 
-interface ReportRowProps {
-  report: MeetingReportRow;
-  onStatusChange: (id: string, status: MeetingReportStatus, actionResult?: string) => Promise<void>;
-}
-
-function ReportItem({ report, onStatusChange }: ReportRowProps) {
-  const { t: tr, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
-  const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState(report.action_result ?? "");
-  const [localStatus, setLocalStatus] = useState<MeetingReportStatus>(report.status);
-  const statusClass = STATUS_CLASS[localStatus];
-
-  const targetLabel = TARGET_TYPE_KEYS[report.target_type]
-    ? tr(TARGET_TYPE_KEYS[report.target_type]!)
-    : report.target_type;
-  const reasonLabel = REASON_TYPE_KEYS[report.reason_type]
-    ? tr(REASON_TYPE_KEYS[report.reason_type]!)
-    : report.reason_type;
-
-  const handle = async (nextStatus: MeetingReportStatus) => {
-    setBusy(true);
-    await onStatusChange(report.id, nextStatus, note.trim() || undefined);
-    setLocalStatus(nextStatus);
-    setBusy(false);
-  };
-
+function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
+  const type = adminCommunityLabel("report_target", r.target_type, ko).label;
+  const mHref = meetingHref(r.meeting_id);
   return (
-    <div className={`rounded-ui-rect border bg-sam-surface p-4 ${localStatus === "pending" ? "border-amber-200" : "border-sam-border-soft"}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${statusClass}`}>
-              {tr(MEETING_REPORT_STATUS_KEYS[localStatus])}
-            </span>
-            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
-              {targetLabel}
-            </span>
-            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
-              {reasonLabel}
-            </span>
-          </div>
-          <p className="mt-1.5 truncate sam-text-body-secondary font-medium text-sam-fg">
-            {report.meeting_title
-              ? `[${report.meeting_title}] `
-              : ""}
-            {tr("admin_meeting_reports_reporter", { name: report.reporter_name })}
-          </p>
-          <p className="sam-text-xxs text-sam-meta">{formatDate(report.created_at, dateLocale)}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-muted hover:bg-sam-app"
-        >
-          {expanded ? tr("nav_close") : tr("admin_do_common_detail")}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
-          <div className="sam-text-helper text-sam-muted">
-            <span className="font-medium">{tr("admin_meeting_reports_target_id")} </span>
-            <span className="font-mono sam-text-xxs">{report.target_id}</span>
-          </div>
-          {report.reason_detail && (
-            <div className="rounded-ui-rect bg-sam-app p-2.5 sam-text-helper text-sam-fg">
-              <p className="font-medium">{tr("admin_meeting_reports_reason_detail")}</p>
-              <p className="mt-1 whitespace-pre-wrap">{report.reason_detail}</p>
-            </div>
-          )}
-          {report.action_result && (
-            <div className="sam-text-helper text-sam-muted">
-              <span className="font-medium">{tr("admin_meeting_reports_action_result")} </span>
-              {report.action_result}
-            </div>
-          )}
-
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            placeholder={tr("admin_report_sanction_note_label")}
-            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
-          />
-
-          <div className="flex flex-wrap gap-2" data-admin-report-cta-state={localStatus}>
-            {localStatus === "pending" ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handle("reviewing")}
-                className="rounded-ui-rect bg-sky-100 px-3 py-1.5 sam-text-helper font-semibold text-sky-800 disabled:opacity-50 hover:bg-sky-200"
-              >
-                {tr("admin_meeting_reports_action_start_review")}
-              </button>
-            ) : null}
-            {localStatus === "reviewing" ? (
-              <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handle("resolved")}
-                  className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 sam-text-helper font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
-                >
-                  {tr("admin_meeting_reports_action_resolve")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handle("rejected")}
-                  className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
-                >
-                  {tr("admin_stores_reports_dismiss")}
-                </button>
-              </>
-            ) : null}
-            {localStatus === "resolved" || localStatus === "rejected" ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handle("pending")}
-                className="rounded-ui-rect bg-amber-100 px-3 py-1.5 sam-text-helper font-semibold text-amber-800 disabled:opacity-50"
-              >
-                {tr("admin_meeting_reports_action_restore_pending")}
-              </button>
-            ) : null}
-          </div>
-        </div>
+    <span className="flex flex-col gap-0.5">
+      <span className="sam-text-xxs font-semibold text-sam-muted">{type}</span>
+      {r.target_type === "member" ? (
+        <CommunityAuthorCell userId={r.target_id} nickname={r.target_member?.nickname} handle={r.target_member?.handle} />
+      ) : null}
+      {mHref ? (
+        <Link href={mHref} onClick={(e) => e.stopPropagation()} className="font-medium text-sky-800 hover:underline">
+          {r.meeting_title?.trim() || "모임 보기"}
+        </Link>
+      ) : (
+        <span className="text-sam-muted">모임 정보 없음</span>
       )}
-    </div>
+    </span>
   );
 }
 
-type FilterTab = "all" | MeetingReportStatus;
+export function AdminMeetingReportsPage({
+  result,
+  filters,
+  pageSize,
+}: {
+  result: MeetingReportListResult;
+  filters: MeetingReportFilters;
+  pageSize: number;
+}) {
+  const router = useRouter();
+  const { language } = useI18n();
+  const ko = language !== "en";
+  const qs = useCommunityQueryState();
+  const { permissions, isSuperAdmin, loading: meLoading } = useAdminMe();
+  const canModerate = meLoading || communityAreaAllowed(permissions, "moderation", isSuperAdmin);
+  // ?rid= (다른 화면에서 특정 신고로 진입) → 이 페이지에 있으면 처리 시트를 연다
+  const [openId, setOpenId] = useState(() => qs.get("rid"));
+  const [banner, setBanner] = useState<CommunityBanner>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<null | { kind: "resolve" | "reject" | "reopen"; row: MeetingReportAdminRow }>(null);
+  const lastJson = useRef<Record<string, unknown>>({});
 
-const FILTER_TABS: { id: FilterTab; labelKey: MessageKey }[] = [
-  { id: "all", labelKey: "admin_report_filter_all" },
-  { id: "pending", labelKey: "admin_dashboard_report_pending" },
-  { id: "reviewing", labelKey: "admin_report_status_reviewing" },
-  { id: "resolved", labelKey: "admin_report_status_resolved" },
-  { id: "rejected", labelKey: "admin_dashboard_report_rejected" },
-];
+  const open = result.rows.find((r) => r.id === openId) ?? null;
 
-interface AdminMeetingReportsPageProps {
-  initialRows: MeetingReportRow[];
-}
-
-export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPageProps) {
-  const { t: tr } = useI18n();
-  const [rows, setRows] = useState(initialRows);
-  const [filter, setFilter] = useState<FilterTab>("all");
-
-  const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-
-  const pendingCount = rows.filter((r) => r.status === "pending").length;
-  const reviewingCount = rows.filter((r) => r.status === "reviewing").length;
-
-  const handleStatusChange = async (
-    id: string,
-    status: MeetingReportStatus,
-    actionResult?: string
-  ) => {
-    const res = await fetch(`/api/admin/philife/meeting-reports/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, action_result: actionResult }),
-    });
-    const j = (await res.json()) as { ok?: boolean };
-    if (!j.ok) return;
+  const afterChange = (b: CommunityBanner) => {
     emitAdminQueueChanged("meeting_reports");
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, status, action_result: actionResult ?? r.action_result }
-          : r
-      )
+    router.refresh();
+    setBanner(b);
+  };
+
+  /** 「검토 시작」 L0 */
+  const startReview = async (r: MeetingReportAdminRow) => {
+    setBusyId(r.id);
+    setBanner(null);
+    const { result: res, json } = await communityActionFetch(
+      `/api/admin/philife/meeting-reports/${encodeURIComponent(r.id)}`,
+      "PATCH",
+      { status: "reviewing", expectedStatus: r.status }
+    );
+    setBusyId(null);
+    if (res.ok) {
+      const warn = communityWarningsOf(json);
+      afterChange({ tone: warn.length ? "warning" : "success", text: "검토를 시작했습니다.", extra: warn });
+    } else if (res.status === 409) {
+      router.refresh();
+      setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+    } else {
+      // 실패하면 상태를 바꾸지 않는다 (C-11)
+      setBanner({ tone: "error", text: communityAdminErrorText(res.code, ko) });
+    }
+  };
+
+  const settle = (kind: CommunitySheetSettle, okText: string) => {
+    setSheet(null);
+    if (kind === "stale") {
+      router.refresh();
+      setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+      return;
+    }
+    if (kind === "gone") {
+      router.refresh();
+      setBanner({ tone: "error", text: communityAdminErrorText("not_found", ko) });
+      return;
+    }
+    const warn = communityWarningsOf(lastJson.current);
+    afterChange({ tone: warn.length ? "warning" : "success", text: okText, extra: warn });
+  };
+
+  const actionsFor = (r: MeetingReportAdminRow, compact: boolean) => {
+    const allowed = canModerate ? meetingReportActions(r.status, isSuperAdmin) : [];
+    const cls = compact ? "min-h-8 px-2 py-1 text-[12px]" : "";
+    return (
+      <div className="flex flex-wrap justify-end gap-1.5" data-admin-report-cta-state={r.status}>
+        {allowed.includes("reopen") ? (
+          <AdminActionButton variant="secondary" className={cls} onClick={() => setSheet({ kind: "reopen", row: r })}>
+            다시 열기
+          </AdminActionButton>
+        ) : null}
+        {allowed.includes("review") ? (
+          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => void startReview(r)}>
+            {busyId === r.id ? "처리 중" : "검토 시작"}
+          </AdminActionButton>
+        ) : null}
+        {allowed.includes("reject") ? (
+          <AdminActionButton variant="secondary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "reject", row: r })}>
+            신고 기각
+          </AdminActionButton>
+        ) : null}
+        {allowed.includes("resolve") ? (
+          <AdminActionButton variant="primary" className={cls} disabled={busyId === r.id} onClick={() => setSheet({ kind: "resolve", row: r })}>
+            신고 인정
+          </AdminActionButton>
+        ) : null}
+      </div>
     );
   };
 
+  const sheetRows = (r: MeetingReportAdminRow) => [
+    { label: "모임", value: r.meeting_title?.trim() || "—" },
+    { label: "신고 대상", value: adminCommunityLabel("report_target", r.target_type, ko).label },
+    { label: "사유", value: REASON_LABEL[r.reason_type] ?? "기타" },
+    { label: "신고자", value: r.reporter?.nickname?.trim() || "이름 없음" },
+  ];
+
   return (
-    <AdminManagementSurfaceRoot wave="w3" proofSurface="meeting-reports" className="space-y-4">
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="meeting-reports">
       <span className="sr-only" data-admin-meeting-reports-owner={ARO_IA_001_OWNERS.meetingReport} />
-      <span className="sr-only" data-admin-writer={ARO_IA_001_OWNERS.meetingReport} />
-      {/* 요약 뱃지 */}
-      <div className="flex flex-wrap gap-2 sam-text-helper">
-        {pendingCount > 0 && (
-          <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">
-            {tr("admin_meeting_reports_count_pending", { count: pendingCount })}
-          </span>
+      <CommunityListShell
+        title="모임 신고"
+        description="모임·모임 회원·모임 게시물에 대한 신고를 확인하고 인정 또는 기각합니다."
+        actions={
+          <AdminActionButton variant="secondary" onClick={() => router.refresh()}>
+            새로고침
+          </AdminActionButton>
+        }
+        banner={
+          <>
+            <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
+            {filters.periodError ? (
+              <CommunityBannerView banner={{ tone: "error", text: communityAdminErrorText(filters.periodError, ko) }} />
+            ) : null}
+          </>
+        }
+        tabs={
+          <CommunityTabs
+            value={filters.tab}
+            onChange={(v) => qs.set({ status: v })}
+            tabs={MEETING_REPORT_TABS.map((k) => ({ value: k, label: TAB_LABEL[k], count: result.counts?.[k] ?? null }))}
+          />
+        }
+        filters={
+          <>
+            <CommunityFilterField label="검색">
+              <CommunitySearchInput value={filters.q} onCommit={(v) => qs.set({ q: v })} placeholder="모임 이름·신고자 닉네임" />
+            </CommunityFilterField>
+            <CommunityFilterField label="신고 대상">
+              <CommunitySelect
+                value={filters.type}
+                onChange={(v) => qs.set({ type: v })}
+                options={[
+                  { value: "", label: "전체" },
+                  ...MEETING_REPORT_TARGET_OPTIONS.map((t) => ({ value: t, label: adminCommunityLabel("report_target", t, ko).label })),
+                ]}
+              />
+            </CommunityFilterField>
+            <CommunityPeriodFilter
+              period={qs.get("period")}
+              from={qs.get("from")}
+              to={qs.get("to")}
+              onChange={(v) => qs.set({ period: v.period, from: v.from, to: v.to })}
+            />
+            <CommunityResetFilters onReset={() => qs.reset(["status"])} />
+          </>
+        }
+        footer={
+          result.ok && result.total > 0 ? (
+            <CommunityPagination
+              page={qs.page}
+              pageSize={pageSize}
+              total={result.total}
+              onPage={(p) => qs.set({ page: p > 1 ? p : null })}
+            />
+          ) : null
+        }
+      >
+        {!result.ok ? (
+          <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
+        ) : result.rows.length === 0 ? (
+          <AdminEmptyState ko={ko} message={EMPTY_TEXT[filters.tab]} />
+        ) : (
+          <CommunityTable head={["대상", "사유", "신고자", "접수", "상태", "처리"]}>
+            {result.rows.map((r) => (
+              <tr
+                key={r.id}
+                onClick={() => setOpenId(r.id)}
+                className={`cursor-pointer border-b border-sam-border-soft hover:bg-sam-app ${openId === r.id ? "bg-amber-50" : ""}`}
+              >
+                <td className={COMMUNITY_TD}>
+                  <TargetCell r={r} ko={ko} />
+                </td>
+                <td className={COMMUNITY_TD}>
+                  <span className="font-medium text-sam-fg">{REASON_LABEL[r.reason_type] ?? "기타"}</span>
+                  {r.reason_detail ? <p className="line-clamp-2 max-w-[16rem] sam-text-xxs text-sam-muted">{r.reason_detail}</p> : null}
+                </td>
+                <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
+                  <CommunityAuthorCell userId={r.reporter_user_id || null} nickname={r.reporter?.nickname} handle={r.reporter?.handle} />
+                </td>
+                <td className={COMMUNITY_TD}>
+                  <CommunityTimeCell iso={r.created_at} />
+                </td>
+                <td className={COMMUNITY_TD}>
+                  <CommunityStatusBadge domain="meeting_report_status" value={r.status} ko={ko} />
+                </td>
+                <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
+                  {actionsFor(r, true)}
+                </td>
+              </tr>
+            ))}
+          </CommunityTable>
         )}
-        {reviewingCount > 0 && (
-          <span className="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-800">
-            {tr("admin_meeting_reports_count_reviewing", { count: reviewingCount })}
-          </span>
-        )}
-        <span className="rounded-full bg-sam-surface-muted px-3 py-1 text-sam-muted">
-          {tr("admin_meeting_reports_count_total", { count: rows.length })}
-        </span>
-      </div>
+      </CommunityListShell>
 
-      {/* 필터 탭 */}
-      <div className="flex flex-wrap gap-1.5">
-        {FILTER_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setFilter(t.id)}
-            className={`rounded-full px-3 py-1 sam-text-helper font-medium transition-colors ${
-              filter === t.id
-                ? "bg-sam-ink text-white"
-                : "bg-sam-surface-muted text-sam-muted hover:bg-sam-border-soft"
-            }`}
-          >
-            {tr(t.labelKey)}
-          </button>
-        ))}
-      </div>
+      {open ? (
+        <CommunityDrawer title="모임 신고 처리" onClose={() => setOpenId("")}>
+          <div className="space-y-4">
+            <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
+            <CommunitySection title="신고 대상">
+              <CommunitySummaryCard
+                rows={[
+                  {
+                    label: "모임",
+                    value: meetingHref(open.meeting_id) ? (
+                      <Link href={meetingHref(open.meeting_id) as string} className="font-medium text-sky-800 hover:underline">
+                        {open.meeting_title?.trim() || "모임 보기"}
+                      </Link>
+                    ) : (
+                      "—"
+                    ),
+                  },
+                  { label: "대상", value: <TargetCell r={open} ko={ko} /> },
+                  { label: "사유", value: REASON_LABEL[open.reason_type] ?? "기타" },
+                  {
+                    label: "신고 내용",
+                    value: <span className="whitespace-pre-wrap">{open.reason_detail?.trim() || "—"}</span>,
+                  },
+                  {
+                    label: "신고자",
+                    value: (
+                      <CommunityAuthorCell userId={open.reporter_user_id || null} nickname={open.reporter?.nickname} handle={open.reporter?.handle} />
+                    ),
+                  },
+                  { label: "접수 시각", value: PHT(open.created_at) },
+                  { label: "신고 상태", value: <CommunityStatusBadge domain="meeting_report_status" value={open.status} ko={ko} /> },
+                ]}
+              />
+            </CommunitySection>
+            <CommunitySection title="처리 기록">
+              <CommunityTimeline
+                items={
+                  open.reviewed_at
+                    ? [
+                        {
+                          id: open.id,
+                          at: open.reviewed_at,
+                          actor: open.reviewed_by_label ?? "관리자",
+                          action: adminCommunityLabel("meeting_report_status", open.status, ko).label,
+                          reason: open.action_result,
+                        },
+                      ]
+                    : []
+                }
+              />
+            </CommunitySection>
+            <CommunitySection title="처리">
+              {!canModerate ? <p className="text-[13px] text-sam-muted">권한 필요: 신고 처리</p> : null}
+              {canModerate && (open.status === "resolved" || open.status === "rejected") && !isSuperAdmin ? (
+                <p className="text-[13px] text-sam-muted">처리가 끝난 신고입니다. 다시 열기는 최고 관리자만 할 수 있습니다.</p>
+              ) : null}
+              {actionsFor(open, false)}
+            </CommunitySection>
+            <AdminTechDetails ko={ko}>
+              <div>신고 ID: {open.id}</div>
+              <div>대상: {open.target_type} / {open.target_id}</div>
+              {open.meeting_id ? <div>모임 ID: {open.meeting_id}</div> : null}
+              <div>상태 값: {open.status}</div>
+            </AdminTechDetails>
+          </div>
+        </CommunityDrawer>
+      ) : null}
 
-      {/* 신고 목록 */}
-      {filtered.length === 0 ? (
-        <div
-          className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center"
-          data-admin-mgmt-state="EMPTY"
-        >
-          <p className="sam-text-body text-sam-meta">
-            {filter === "all"
-              ? tr("admin_meeting_reports_empty_all")
-              : tr("admin_meeting_reports_empty_filtered", {
-                  status: tr(FILTER_TABS.find((tab) => tab.id === filter)!.labelKey),
-                })}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((r) => (
-            <ReportItem key={r.id} report={r} onStatusChange={handleStatusChange} />
-          ))}
-        </div>
-      )}
+      {sheet ? (
+        <CommunityActionSheet
+          key={`${sheet.kind}:${sheet.row.id}`}
+          title={sheet.kind === "resolve" ? "신고 인정" : sheet.kind === "reject" ? "신고 기각" : "다시 열기"}
+          rows={sheetRows(sheet.row)}
+          notice={
+            sheet.kind === "reopen"
+              ? "신고를 다시 접수 상태로 돌립니다."
+              : sheet.kind === "resolve"
+                ? "모임 자체의 조치(종료·회원 내보내기)는 모임 화면에서 따로 합니다. 사유는 처리 기록에 남습니다."
+                : "기각하면 모임·회원에게 변화가 없습니다. 사유는 처리 기록에 남습니다."
+          }
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "처리 사유" }}
+          confirmLabel={sheet.kind === "resolve" ? "신고 인정" : sheet.kind === "reject" ? "신고 기각" : "다시 열기"}
+          onClose={() => setSheet(null)}
+          onSubmit={async (reason) => {
+            const next = sheet.kind === "resolve" ? "resolved" : sheet.kind === "reject" ? "rejected" : "pending";
+            const { result: res, json } = await communityActionFetch(
+              `/api/admin/philife/meeting-reports/${encodeURIComponent(sheet.row.id)}`,
+              "PATCH",
+              { status: next, expectedStatus: sheet.row.status, reason }
+            );
+            lastJson.current = json;
+            return res;
+          }}
+          onSettled={(kind) =>
+            settle(
+              kind,
+              sheet.kind === "resolve" ? "신고를 인정했습니다." : sheet.kind === "reject" ? "신고를 기각했습니다." : "신고를 다시 열었습니다."
+            )
+          }
+        />
+      ) : null}
     </AdminManagementSurfaceRoot>
   );
 }

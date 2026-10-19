@@ -12,6 +12,8 @@ import {
   rejectTradePaidExposure,
 } from "@/lib/promotion/apply-trade-paid-exposure";
 import { applyBoostLifecycle } from "@/lib/promotion/admin-boost-lifecycle";
+import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   adminTransitionDeliveryAdCampaign,
@@ -59,6 +61,10 @@ export async function POST(req: NextRequest) {
     popupTransition?: string;
     startAt?: string;
     endAt?: string;
+    /** 커뮤니티 홍보 종료 귀책 (설계 v2 §F-1) — 'operator' 환급 / 'member' 환급 없음 */
+    fault?: "operator" | "member";
+    reasonCode?: string;
+    preview?: boolean;
     /** Compensation / paid extend days — required for extend_compensation */
     requestedDays?: number;
     extensionKind?: "PAID" | "ADMIN_FREE_COMPENSATION";
@@ -96,6 +102,18 @@ export async function POST(req: NextRequest) {
 
   if (family === "boost_community" || family === "boost_trade") {
     const domain = family === "boost_community" ? "community" : "trade";
+    if (domain === "community") {
+      // 커뮤니티 홍보는 커뮤니티 Admin 과 같은 권한(`ads`)·같은 규칙 (설계 v2 §E-1-2).
+      const gate = await requireCommunityAdmin("promotion");
+      if (!gate.ok) return gate.response;
+      if (action === "approve" || action === "reject") {
+        // C-47: 이전 「신청→승인」 보류 경로 — 판매 상품 없음, 비활성.
+        return NextResponse.json({ ok: false, error: "legacy_flow_disabled" }, { status: 410 });
+      }
+      if (action === "pause" && !publicMsg) {
+        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+      }
+    }
     if (action === "approve") {
       const res =
         domain === "community"
@@ -152,9 +170,28 @@ export async function POST(req: NextRequest) {
         action,
         adminUserId: admin.userId,
         reason: publicMsg || null,
+        fault: body.fault === "operator" || body.fault === "member" ? body.fault : null,
+        reasonCode: body.reasonCode ?? null,
+        preview: body.preview === true,
       });
       if (!res.ok) {
         return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
+      }
+      if (body.preview === true) {
+        return NextResponse.json(res);
+      }
+      if (domain === "community" && action === "end") {
+        const { data: order } = await sb
+          .from("point_promotion_orders")
+          .select("user_id")
+          .eq("id", entityId)
+          .maybeSingle();
+        await notifyCommunityPromotionEnded(sb, {
+          userId: (order as { user_id?: string } | null)?.user_id,
+          orderId: entityId,
+          refundPoints: res.refundPoints ?? 0,
+          reason: publicMsg,
+        });
       }
       void appendAuditLog(sb, {
         actor_type: "admin",
@@ -166,12 +203,19 @@ export async function POST(req: NextRequest) {
         after_json: {
           order_status: res.orderStatus,
           endAt: res.endAt,
-          refundPolicy: action === "end" ? "ADMIN_END_REFUND_POLICY_REQUIRED" : null,
+          fault: action === "end" ? body.fault ?? null : null,
+          refundPoints: action === "end" ? res.refundPoints ?? 0 : null,
+          reason: publicMsg || null,
         },
         ip: meta.ip,
         user_agent: meta.userAgent,
       });
-      return NextResponse.json({ ok: true, orderStatus: res.orderStatus, endAt: res.endAt });
+      return NextResponse.json({
+        ok: true,
+        orderStatus: res.orderStatus,
+        endAt: res.endAt,
+        refundPoints: res.refundPoints ?? null,
+      });
     }
     return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
   }

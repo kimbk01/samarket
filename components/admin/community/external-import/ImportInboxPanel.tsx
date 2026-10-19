@@ -14,8 +14,7 @@ import {
   type ManagedSource,
   POLICY_LABEL,
   STATUS_LABEL,
-  type TopicOption,
-} from "./api";
+  type TopicOption, importErrorText } from "./api";
 
 export type InboxFilter = { site: string; board: string; status: string; quality: string; lang: string; q: string };
 
@@ -95,7 +94,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
       setRows(r.rows);
       setTotal(r.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(importErrorText(e));
     } finally {
       setLoading(false);
     }
@@ -169,7 +168,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
       await followJob(r.job);
       setSelected(new Map());
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(importErrorText(e));
     } finally {
       setJobBusy(false);
     }
@@ -194,7 +193,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
       const r = await call<{ job: JobSummary | null }>("/jobs", { body: { action, jobId: job.id } });
       if (r.job) await followJob(r.job);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(importErrorText(e));
     } finally {
       setJobBusy(false);
     }
@@ -207,7 +206,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
       setSelected(new Map());
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(importErrorText(e));
     }
   };
 
@@ -241,9 +240,9 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
         </select>
         <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={filter.quality} onChange={(e) => setFilter({ ...filter, quality: e.target.value })}>
           <option value="">모든 품질</option>
-          <option value="FULL">FULL</option>
-          <option value="PARTIAL">PARTIAL</option>
-          <option value="FAILED">FAILED</option>
+          <option value="FULL">전체 수집</option>
+          <option value="PARTIAL">일부 수집</option>
+          <option value="FAILED">수집 실패</option>
           <option value="none">미확인</option>
         </select>
         <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="언어" value={filter.lang} onChange={(e) => setFilter({ ...filter, lang: e.target.value })}>
@@ -384,7 +383,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
               </div>
               <label className="flex items-center gap-1 text-[11px] text-sam-muted">
                 <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
-                품질 PARTIAL도 게시 허용 (FAILED는 항상 제외)
+                품질 「일부 수집」도 게시 허용 (「수집 실패」는 항상 제외)
               </label>
               <div className="flex flex-wrap gap-1">
                 <AdminActionButton variant="primary" disabled={jobBusy || !counts.unpublished} onClick={() => setPendingJob("publish")}>
@@ -450,7 +449,7 @@ export function ImportInboxPanel({ sources, topics, filter, setFilter, activeKey
         }
         description={
           pendingJob === "publish" || pendingJob === "update"
-            ? `주제: ${topics.find((t) => t.id === bulkTopic)?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 출처 ${bulkAttribution === "hide" ? "숨김" : bulkAttribution === "show" ? "표시" : "글별 설정"} · ${AUTHOR_MODE_LABEL[authorMode]} · ${DATE_MODE_LABEL[dateMode]} · 품질 PARTIAL ${acceptPartial ? "포함" : "제외"} (FAILED는 항상 제외). ${
+            ? `주제: ${topics.find((t) => t.id === bulkTopic)?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 출처 ${bulkAttribution === "hide" ? "숨김" : bulkAttribution === "show" ? "표시" : "글별 설정"} · ${AUTHOR_MODE_LABEL[authorMode]} · ${DATE_MODE_LABEL[dateMode]} · 품질 「일부 수집」 ${acceptPartial ? "포함" : "제외"} (「수집 실패」는 항상 제외). ${
                 pendingJob === "publish" && scheduleMode === "spread"
                   ? `${startAt.replace("T", " ")}부터 ${intervalMin}분마다 1건씩${shuffle ? " 랜덤 순서로" : ""} 게시합니다.`
                   : `공개 커뮤니티에 바로 반영됩니다${pendingJob === "publish" && shuffle ? " (랜덤 순서)" : ""}.`

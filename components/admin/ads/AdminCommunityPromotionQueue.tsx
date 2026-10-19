@@ -35,7 +35,9 @@ type Domain = "community" | "trade";
  * Community + Trade「더 알리기」 share HOLD capture / release.
  * Campaign operations are handled by Ads / Exposure operations.
  *
- * CUT B: display uses effective lifecycle (STORED ≠ EFFECTIVE). Actions unchanged.
+ * CUT B: display uses effective lifecycle (STORED ≠ EFFECTIVE).
+ * 설계 v2 §F-1 (C-47): 커뮤니티 「신청→승인」 보류 경로는 서버에서 비활성(410) — 커뮤니티 행은 조회만 하고
+ * 노출 중지·재개·종료는 `/admin/community/promotions` (게시글 홍보) 에서 처리한다. 거래는 기존 승인/반려 유지.
  */
 export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?: Domain }) {
   const { safeT, language } = useI18n();
@@ -46,7 +48,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
     : "/api/admin/community-promotion-orders";
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending_review");
+  const [filter, setFilter] = useState(isTrade ? "pending_review" : "");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
@@ -70,6 +72,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
   }, [load]);
 
   const act = async (id: string, action: "approve" | "reject") => {
+    if (!isTrade) return;
     let reason = "";
     if (action === "reject") {
       reason =
@@ -126,17 +129,28 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     "Trade listing boost application — approve or reject after review. Approved operations are managed in Ads operations.",
                 })
               : safeT("admin_comm_promo_hint", {
-                  fallbackKo: "커뮤니티 게시물 상위노출 신청 — 승인/반려만 처리합니다.",
-                  fallbackEn: "Community post boost application — approve or reject only.",
+                  fallbackKo: "커뮤니티 게시글 홍보는 승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 홍보 화면에서 합니다.",
+                  fallbackEn: "Community post promotions go live without approval. Pause, resume or end them in Post promotions.",
                 })}
           </p>
+          {!isTrade ? (
+            <Link
+              href="/admin/community/promotions"
+              data-community-promo-ops-link="1"
+              className="sam-text-helper font-semibold text-signature underline-offset-2 hover:underline"
+            >
+              {en ? "Open Post promotions" : "게시글 홍보에서 관리하기"}
+            </Link>
+          ) : null}
         </div>
         <select
           className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 sam-text-helper"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
-          <option value="pending_review">{en ? "Pending approval" : "승인 대기"}</option>
+          <option value="pending_review">
+            {isTrade ? (en ? "Pending approval" : "승인 대기") : en ? "Pending (legacy)" : "심사 대기(이전 방식)"}
+          </option>
           <option value="rejected">{en ? "Rejected" : "반려"}</option>
           <option value="">{en ? "All" : "전체"}</option>
         </select>
@@ -156,7 +170,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
         <ul className="divide-y divide-sam-border-soft">
           {rows.map((row) => {
             const busy = busyId === row.id;
-            const canAct = row.orderStatus === "pending_review";
+            const canAct = isTrade && row.orderStatus === "pending_review";
             // Boost end boundary = inclusive (matches isLiveTradePromotionEntitlement).
             const effective = projectAdsEffectiveLifecycle({
               rawStatus: row.orderStatus,

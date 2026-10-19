@@ -1,6 +1,5 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -17,6 +16,23 @@ import {
 } from "@/lib/community-feed/topic-feed-skin";
 import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
 import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+
+type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
+
+/** 카테고리 API 오류 → 운영자 문구 (원시 오류 노출 금지) */
+function topicErrorText(code: unknown, known: { duplicate: string; hasPosts: string }): string {
+  const c = typeof code === "string" ? code : "";
+  if (c === "slug_duplicate_in_section") return known.duplicate;
+  if (c === "topic_has_posts") return known.hasPosts;
+  if (c === "invalid_name") return "카테고리 이름을 입력해 주세요.";
+  if (c === "invalid_slug") return "카테고리 이름으로 주소용 이름을 만들 수 없습니다. 영문 이름을 함께 입력해 주세요.";
+  if (c === "not_found") return "카테고리를 찾을 수 없습니다. 새로고침 후 다시 확인하세요.";
+  if (c === "forbidden" || c === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
+  return "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${CommunityFeedListSkin}`> = {
   compact_media: "admin_topics_skin_compact_media",
@@ -48,6 +64,15 @@ export function AdminCommunityTopicsPage({
   const { t: tr } = useI18n();
   const [topics, setTopics] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [banner, setBanner] = useState<Banner>(null);
+  const fail = (code: unknown) =>
+    setBanner({
+      ok: false,
+      code: topicErrorText(code, {
+        duplicate: tr("admin_topics_err_slug_duplicate"),
+        hasPosts: tr("admin_topics_err_has_posts"),
+      }),
+    });
   const defaultPhilifeSectionId = useMemo(
     () =>
       sections.find((s) => normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeNeighborhoodSectionSlug))?.id ??
@@ -98,7 +123,7 @@ export function AdminCommunityTopicsPage({
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!defaultPhilifeSectionId) {
-      await dibayAlert({ title: tr("admin_topics_alert_select_section") });
+      setBanner({ ok: false, code: tr("admin_topics_alert_select_section") });
       return;
     }
     const finalSlug = normalizeFeedSlug(name) || normalizeFeedSlug(nameEn);
@@ -126,9 +151,10 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        await dibayAlert({ title: j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
+        fail(j.error);
         return;
       }
+      setBanner({ ok: true, message: `카테고리 「${name.trim()}」을(를) 추가했습니다.` });
       setName("");
       setNameEn("");
       setSortOrder(0);
@@ -168,9 +194,10 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        await dibayAlert({ title: j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
+        fail(j.error);
         return;
       }
+      setBanner({ ok: true, message: "카테고리를 저장했습니다." });
       setEdit(null);
       await refresh();
     } finally {
@@ -179,7 +206,15 @@ export function AdminCommunityTopicsPage({
   }
 
   async function removeRow(id: string) {
-    if (!(await dibayConfirm({ title: tr("admin_topics_confirm_delete"), confirmTone: "destructive" }))) return;
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko: true,
+      title: tr("admin_topics_confirm_delete"),
+      description: "글이 있는 카테고리는 삭제할 수 없습니다. 대신 「사용 중지」를 쓰세요.",
+      confirmLabel: "삭제",
+      destructive: true,
+    });
+    if (!confirmed.ok) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/topics/${id}`, {
@@ -188,9 +223,63 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        await dibayAlert({ title: j.error === "topic_has_posts" ? tr("admin_topics_err_has_posts") : j.error ?? tr("admin_topics_err_delete") });
+        fail(j.error);
         return;
       }
+      setBanner({ ok: true, message: "카테고리를 삭제했습니다." });
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function fullBody(row: CommunityTopicAdminRow) {
+    return {
+      section_id: row.section_id,
+      name: row.name,
+      name_en: row.name_en,
+      slug: row.slug,
+      sort_order: row.sort_order,
+      is_active: row.is_active,
+      is_visible: row.is_visible,
+      is_feed_sort: row.is_feed_sort,
+      feed_sort_mode: row.feed_sort_mode,
+      allow_question: row.allow_question,
+      allow_meetup: row.allow_meetup,
+      color: row.color,
+      icon: row.icon,
+      feed_list_skin: row.feed_list_skin,
+    };
+  }
+
+  /** 사용 중지(L1 확인) / 다시 사용 */
+  async function toggleActive(topic: CommunityTopicAdminRow) {
+    const next = !topic.is_active;
+    if (!next) {
+      const confirmed = await confirmAdminAction({
+        level: "L1",
+        ko: true,
+        title: `「${topic.name}」 사용 중지`,
+        description: "이 카테고리에 새 글을 쓸 수 없게 됩니다. 이미 있는 글은 그대로 남습니다.",
+        confirmLabel: "사용 중지",
+        destructive: true,
+      });
+      if (!confirmed.ok) return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/community/topics/${topic.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...fullBody(topic), is_active: next }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!j.ok) {
+        fail(j.error);
+        return;
+      }
+      setBanner({ ok: true, message: next ? `「${topic.name}」을(를) 다시 사용합니다.` : `「${topic.name}」 사용을 중지했습니다.` });
       await refresh();
     } finally {
       setBusy(false);
@@ -233,7 +322,8 @@ export function AdminCommunityTopicsPage({
       const j1 = await patch(topic, bOrder);
       const j2 = await patch(swapWith, aOrder);
       if (!j1.ok || !j2.ok) {
-        await dibayAlert({ title: tr("admin_topics_err_save") });
+        fail(!j1.ok ? j1.error : j2.error);
+        await refresh();
         return;
       }
       await refresh();
@@ -250,6 +340,8 @@ export function AdminCommunityTopicsPage({
         titleClassName="text-[1.5rem] font-bold leading-tight tracking-tight text-sam-fg"
         descriptionClassName="mt-1.5 max-w-3xl font-normal leading-relaxed text-sam-muted sam-text-body-secondary"
       />
+
+      <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
 
       <AdminCard
         title={tr("admin_topics_form_add_content")}
@@ -507,20 +599,22 @@ export function AdminCommunityTopicsPage({
                           : tr("admin_community_visibility_off")}
                       </td>
                       <td className="py-2.5">
-                        <button
-                          type="button"
-                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline"
-                          onClick={() => setEdit({ ...topic })}
-                        >
-                          {tr("admin_topics_btn_edit")}
-                        </button>
-                        <button
-                          type="button"
-                          className="text-red-600 hover:underline"
-                          onClick={() => removeRow(topic.id)}
-                        >
-                          {tr("admin_topics_btn_delete")}
-                        </button>
+                        <span className="flex flex-wrap gap-1">
+                          <AdminActionButton variant="neutral" disabled={busy} onClick={() => setEdit({ ...topic })}>
+                            {tr("admin_topics_btn_edit")}
+                          </AdminActionButton>
+                          <AdminActionButton
+                            variant="secondary"
+                            className={topic.is_active ? "border-amber-400 text-amber-900" : undefined}
+                            disabled={busy}
+                            onClick={() => void toggleActive(topic)}
+                          >
+                            {topic.is_active ? "사용 중지" : "다시 사용"}
+                          </AdminActionButton>
+                          <AdminActionButton variant="danger" disabled={busy} onClick={() => void removeRow(topic.id)}>
+                            {tr("admin_topics_btn_delete")}
+                          </AdminActionButton>
+                        </span>
                       </td>
                     </tr>
                   );

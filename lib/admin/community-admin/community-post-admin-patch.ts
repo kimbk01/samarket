@@ -58,7 +58,8 @@ type PostRow = Record<string, unknown> & {
   updated_at?: string | null;
 };
 
-function sameInstant(a: unknown, b: unknown): boolean {
+/** CAS 비교 — 같은 시각(마이크로초 포함)이면 같은 버전 */
+export function sameUpdatedAtInstant(a: unknown, b: unknown): boolean {
   if (typeof a !== "string" || typeof b !== "string") return false;
   if (a === b) return true;
   const ta = Date.parse(a);
@@ -86,6 +87,8 @@ export async function applyCommunityPostAdminPatch(
     extraPatch?: Record<string, unknown>;
     /** 공지 PATCH: is_notice 글만 */
     requireNotice?: boolean;
+    /** 공지 수정(L1): 본문 수정 사유 선택 */
+    editReasonOptional?: boolean;
     auditTargetType?: string;
   }
 ): Promise<CommunityPostAdminPatchResult> {
@@ -98,7 +101,7 @@ export async function applyCommunityPostAdminPatch(
   if (input.requireNotice && before.is_notice !== true) {
     return { status: 400, body: { ok: false, error: "not_notice" } };
   }
-  if (!sameInstant(before.updated_at, expected)) {
+  if (!sameUpdatedAtInstant(before.updated_at, expected)) {
     return { status: 409, body: { ok: false, error: "conflict", post: before } };
   }
 
@@ -185,7 +188,7 @@ export async function applyCommunityPostAdminPatch(
   }
 
   const removing = statusChange && (nextStatus === "hidden" || nextStatus === "deleted");
-  if ((removing || contentEdited) && !reason) {
+  if ((removing || (contentEdited && !input.editReasonOptional)) && !reason) {
     return { status: 400, body: { ok: false, error: "reason_required" } };
   }
 
@@ -230,7 +233,7 @@ export async function applyCommunityPostAdminPatch(
     const fresh = await loadPostRow(sb, postId);
     return { status: 409, body: { ok: false, error: "conflict", post: fresh } };
   }
-  const after = updated as PostRow;
+  const after = updated as unknown as PostRow;
 
   if (removing) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });

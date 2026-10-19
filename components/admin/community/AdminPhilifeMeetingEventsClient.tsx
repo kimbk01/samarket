@@ -1,7 +1,12 @@
 "use client";
 
+/**
+ * 모임 운영 로그 (설계 §C-9). 필터(모임·유형·페이지)는 URL 에 둔다 → 새로고침·복귀 시 유지.
+ * 열: 시각(상대 + PHT) · 모임(Admin 모임 화면 링크) · 행위자 · 대상 회원 · 유형 · 내용.
+ * 모임 이름 검색은 서버가 아직 지원하지 않아, 모임 목록의 「운영 로그」 링크(meetingId)로 좁힌다.
+ */
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   MEETING_EVENT_TYPES,
@@ -11,191 +16,188 @@ import {
 } from "@/lib/neighborhood/meeting-event-format";
 import type { AdminMeetingEventRow } from "@/lib/neighborhood/types";
 import { philifeAppPaths } from "@domain/philife/paths";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import {
+  COMMUNITY_TD,
+  CommunityAuthorCell,
+  CommunityFilterField,
+  CommunityListShell,
+  CommunityPagination,
+  CommunityResetFilters,
+  CommunitySelect,
+  CommunityTable,
+  CommunityTimeCell,
+  useCommunityQueryState,
+} from "@/components/admin/community/kit/CommunityAdminKit";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { communityJsonFetch } from "@/components/admin/community/posts/community-post-admin-shared";
 
-function dateLocaleTag(language: AppLanguageCode): string {
-  return language === "en" ? "en-US" : "ko-KR";
-}
+const PAGE = 50;
 
 export function AdminPhilifeMeetingEventsClient() {
   const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
-  const [meetingId, setMeetingId] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
+  const ko = language !== "en";
+  const { get, set, reset, page } = useCommunityQueryState();
+  const meetingId = get("meetingId").trim();
+  const typeFilter = get("type");
+
   const [events, setEvents] = useState<AdminMeetingEventRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((n) => n + 1), []);
 
   const buildQuery = useCallback(
-    (nextOffset: number) => {
-      const sp = new URLSearchParams();
-      sp.set("limit", "50");
-      sp.set("offset", String(nextOffset));
-      const mid = meetingId.trim();
-      if (mid) sp.set("meetingId", mid);
+    (extra: Record<string, string>) => {
+      const sp = new URLSearchParams(extra);
+      if (meetingId) sp.set("meetingId", meetingId);
       if (typeFilter) sp.set("type", typeFilter);
       return sp.toString();
     },
     [meetingId, typeFilter]
   );
 
-  const load = useCallback(
-    async (opts: { append: boolean }) => {
-      setLoading(true);
-      setErr("");
-      try {
-        const nextOffset = opts.append ? offset : 0;
-        const qs = buildQuery(nextOffset);
-        const res = await fetch(`/api/admin/meeting-events?${qs}`, { cache: "no-store" });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          events?: AdminMeetingEventRow[];
-          hasMore?: boolean;
-          error?: string;
-        };
-        if (!res.ok || !j.ok) {
-          setErr(typeof j.error === "string" ? j.error : t("admin_meeting_events_fetch_failed"));
-          if (!opts.append) setEvents([]);
-          return;
-        }
-        const list = j.events ?? [];
-        setEvents((prev) => (opts.append ? [...prev, ...list] : list));
-        setHasMore(!!j.hasMore);
-        setOffset(nextOffset + list.length);
-      } catch (e) {
-        setErr((e as Error).message);
-        if (!opts.append) setEvents([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [buildQuery, offset, t]
-  );
-
-  const onSearch = () => void load({ append: false });
-
   useEffect(() => {
-    void load({ append: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let cancel = false;
+    setLoading(true);
+    void (async () => {
+      const r = await communityJsonFetch<{ events?: AdminMeetingEventRow[]; hasMore?: boolean }>(
+        `/api/admin/meeting-events?${buildQuery({ limit: String(PAGE), offset: String((page - 1) * PAGE) })}`
+      );
+      if (cancel) return;
+      if (r.ok) {
+        setEvents(r.json.events ?? []);
+        setHasMore(r.json.hasMore === true);
+        setLoadErr(null);
+      } else {
+        setEvents([]);
+        setHasMore(false);
+        setLoadErr({ code: r.code, status: r.status });
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [buildQuery, page, reloadKey]);
 
-  const downloadCsv = () => {
-    const sp = new URLSearchParams();
-    sp.set("format", "csv");
-    sp.set("limit", "500");
-    sp.set("offset", "0");
-    const mid = meetingId.trim();
-    if (mid) sp.set("meetingId", mid);
-    if (typeFilter) sp.set("type", typeFilter);
-    window.location.assign(`/api/admin/meeting-events?${sp.toString()}`);
-  };
+  const meetingTitle = meetingId ? events.find((e) => e.meeting_id === meetingId)?.meeting_title?.trim() || "선택한 모임" : "";
 
-  const emptyDash = t("admin_users_empty_placeholder");
+  let body: ReactNode;
+  if (loading) body = <AdminLoadingState ko={ko} />;
+  else if (loadErr) body = <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} />;
+  else if (events.length === 0) body = <AdminEmptyState ko={ko} message={t("admin_meeting_events_empty")} />;
+  else
+    body = (
+      <CommunityTable head={["시각", "모임", "행위자", "대상 회원", "유형", "내용"]}>
+        {events.map((e) => {
+          const typeLabel = isMeetingEventType(e.event_type) ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type]) : "기타";
+          return (
+            <tr key={e.id} className="border-b border-sam-border-soft">
+              <td className={COMMUNITY_TD}>
+                <CommunityTimeCell iso={e.created_at} />
+              </td>
+              <td className={`${COMMUNITY_TD} max-w-[14rem]`}>
+                <button
+                  type="button"
+                  className="line-clamp-2 text-left font-medium text-sam-fg hover:underline"
+                  title="이 모임 기록만 보기"
+                  onClick={() => set({ meetingId: e.meeting_id })}
+                >
+                  {e.meeting_title || "이름 없음"}
+                </button>
+                <span className="flex flex-wrap gap-2 text-[12px]">
+                  <Link
+                    href={`/admin/community/meetings?meetingId=${encodeURIComponent(e.meeting_id)}`}
+                    className="text-sky-800 hover:underline"
+                  >
+                    Admin 모임 화면
+                  </Link>
+                  <Link href={philifeAppPaths.meeting(e.meeting_id)} target="_blank" rel="noreferrer" className="text-sky-800 hover:underline">
+                    {t("admin_meeting_events_meeting_detail")}
+                  </Link>
+                </span>
+              </td>
+              <td className={COMMUNITY_TD}>
+                {e.actor_user_id ? (
+                  <CommunityAuthorCell userId={e.actor_user_id} nickname={e.actor_name} />
+                ) : (
+                  <span className="text-sam-muted">{e.actor_name || "시스템"}</span>
+                )}
+              </td>
+              <td className={COMMUNITY_TD}>
+                {e.target_user_id ? (
+                  <CommunityAuthorCell userId={e.target_user_id} nickname={e.target_name} />
+                ) : (
+                  <span className="text-sam-muted">—</span>
+                )}
+              </td>
+              <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{typeLabel}</td>
+              <td className={`${COMMUNITY_TD} max-w-[min(480px,50vw)]`}>{formatMeetingEventDescription(e, t)}</td>
+            </tr>
+          );
+        })}
+      </CommunityTable>
+    );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-app/80 p-3">
-        <label className="flex flex-col gap-1 sam-text-helper text-sam-muted">
-          {t("admin_meeting_events_meeting_id_label")}
-          <input
-            value={meetingId}
-            onChange={(e) => setMeetingId(e.target.value)}
-            placeholder={t("admin_meeting_events_meeting_id_placeholder")}
-            className="min-w-[240px] rounded border border-sam-border bg-sam-surface px-2 py-1.5 font-mono sam-text-helper"
-          />
-        </label>
-        <label className="flex flex-col gap-1 sam-text-helper text-sam-muted">
-          {t("admin_meeting_events_type_label")}
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="min-w-[10rem] rounded border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+    <CommunityListShell
+      title={t("admin_meeting_events_page_title")}
+      description="모임 안에서 일어난 가입·강퇴·설정 변경 등 운영 기록을 확인합니다."
+      actions={
+        <>
+          <AdminActionLink href="/admin/community/meetings" variant="neutral">
+            모임 목록
+          </AdminActionLink>
+          <AdminActionButton
+            variant="neutral"
+            onClick={() => window.location.assign(`/api/admin/meeting-events?${buildQuery({ format: "csv", limit: "500", offset: "0" })}`)}
           >
-            <option value="">{t("admin_report_filter_all")}</option>
-            {MEETING_EVENT_TYPES.map((ev) => (
-              <option key={ev} value={ev}>
-                {t(MEETING_EVENT_TYPE_LABEL_KEYS[ev])}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onSearch}
-          className="rounded-ui-rect bg-sky-600 px-4 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
-        >
-          {t("admin_meeting_events_search")}
-        </button>
-        <button
-          type="button"
-          onClick={downloadCsv}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
-        >
-          {t("admin_meeting_events_csv")}
-        </button>
-      </div>
-      {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
-      <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="min-w-full text-left sam-text-helper text-sam-fg">
-          <thead className="bg-sam-app sam-text-xxs uppercase text-sam-muted">
-            <tr>
-              <th className="px-2 py-2">{t("admin_meeting_events_col_time")}</th>
-              <th className="px-2 py-2">{t("admin_meeting_events_col_meeting")}</th>
-              <th className="px-2 py-2">{t("admin_meeting_events_col_type")}</th>
-              <th className="px-2 py-2">{t("admin_meeting_events_col_body")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => {
-              const time =
-                e.created_at && !Number.isNaN(Date.parse(e.created_at))
-                  ? new Date(e.created_at).toLocaleString(dateLocale)
-                  : e.created_at;
-              const typeLabel = isMeetingEventType(e.event_type)
-                ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type])
-                : e.event_type;
-              const desc = formatMeetingEventDescription(e, t);
-              return (
-                <tr key={e.id} className="border-t border-sam-border-soft align-top">
-                  <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted">{time}</td>
-                  <td className="max-w-[200px] px-2 py-2">
-                    <div className="truncate font-medium text-sam-fg" title={e.meeting_title ?? ""}>
-                      {e.meeting_title || emptyDash}
-                    </div>
-                    <div className="font-mono sam-text-xxs text-sam-meta">{e.meeting_id.slice(0, 8)}…</div>
-                    <Link
-                      href={philifeAppPaths.meeting(e.meeting_id)}
-                      className="sam-text-xxs text-sky-700 underline"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {t("admin_meeting_events_meeting_detail")}
-                    </Link>
-                  </td>
-                  <td className="whitespace-nowrap px-2 py-2">{typeLabel}</td>
-                  <td className="max-w-[min(480px,50vw)] px-2 py-2 sam-text-body-secondary">{desc}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {events.length === 0 && !loading ? (
-        <p className="sam-text-body-secondary text-sam-muted">{t("admin_meeting_events_empty")}</p>
-      ) : null}
-      {hasMore ? (
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load({ append: true })}
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2 sam-text-body-secondary disabled:opacity-50"
-        >
-          {loading ? t("common_loading") : t("admin_meeting_events_load_more")}
-        </button>
-      ) : null}
-    </div>
+            {t("admin_meeting_events_csv")}
+          </AdminActionButton>
+          <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
+            새로고침
+          </AdminActionButton>
+        </>
+      }
+      filters={
+        <>
+          <CommunityFilterField label={t("admin_meeting_events_type_label")}>
+            <CommunitySelect
+              value={typeFilter}
+              onChange={(v) => set({ type: v })}
+              options={[
+                { value: "", label: "전체 유형" },
+                ...MEETING_EVENT_TYPES.map((ev) => ({ value: ev, label: t(MEETING_EVENT_TYPE_LABEL_KEYS[ev]) })),
+              ]}
+            />
+          </CommunityFilterField>
+          {meetingId ? (
+            <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
+              모임: {meetingTitle}
+              <button type="button" className="ml-1 text-sam-muted underline" onClick={() => set({ meetingId: null })}>
+                해제
+              </button>
+            </span>
+          ) : (
+            <span className="pb-1.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
+          )}
+          {meetingId || typeFilter ? <CommunityResetFilters onReset={() => reset()} /> : null}
+        </>
+      }
+      footer={
+        !loading && !loadErr && (events.length > 0 || page > 1) ? (
+          <CommunityPagination
+            page={page}
+            pageSize={PAGE}
+            total={hasMore ? null : (page - 1) * PAGE + events.length}
+            onPage={(p) => set({ page: p > 1 ? p : null }, { keepPage: true })}
+          />
+        ) : null
+      }
+    >
+      {body}
+    </CommunityListShell>
   );
 }

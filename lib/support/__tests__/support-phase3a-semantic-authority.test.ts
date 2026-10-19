@@ -272,6 +272,10 @@ describe("PHASE 3-A support semantic authority", () => {
       "PARTNER_MEMBERSHIP",
       "COIN_WITHDRAWAL_REQUEST",
       "POINT_PROMOTION_ORDER",
+      "COMMUNITY_POST",
+      "COMMUNITY_COMMENT",
+      "COMMUNITY_REPORT",
+      "COMMUNITY_SANCTION",
     ]);
     const src = readSrc("lib/support/support-reference-authority.ts");
     expect(src).toContain("POINT_CHARGE_REQUEST");

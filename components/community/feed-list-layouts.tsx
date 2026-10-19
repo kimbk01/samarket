@@ -14,6 +14,7 @@ import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-
 import { beginCommunityPostEntryFromCard } from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SearchHighlightText } from "@/components/search/global/SearchHighlightText";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type FeedListCardViewModel = {
   href: string;
@@ -37,6 +38,8 @@ export type FeedListCardViewModel = {
   hashtagTags: string[];
   highlightQuery?: string;
   highlightBody?: boolean;
+  /** 피드 상단 공지·관리자 고정 (§F-5-2) */
+  topBadge?: "notice" | "pinned" | null;
 };
 
 const FEED_LINK_PREFETCH_TTL_MS = 60_000;
@@ -56,9 +59,23 @@ export function normalizeFeedListBodyPreview(raw: string): string {
 }
 
 function hasCategoryBadge(
-  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "isMeetup">,
+  vm: Pick<FeedListCardViewModel, "topicLabel" | "isQuestion" | "isMeetup" | "topBadge">,
 ) {
-  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup);
+  return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup || vm.topBadge);
+}
+
+/** 「공지」/「고정」 — 말머리 앞에 붙는 운영 배지 */
+export function CommunityTopPostBadge({ kind }: { kind: "notice" | "pinned" | null | undefined }) {
+  const { t } = useI18n();
+  if (!kind) return null;
+  return (
+    <span
+      className={`${kind === "notice" ? Sam.badge.primary : Sam.badge.info} shrink-0`}
+      data-community-top-badge={kind}
+    >
+      {kind === "notice" ? t("community_badge_notice") : t("community_badge_pinned")}
+    </span>
+  );
 }
 
 function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" | "topicColor" | "isQuestion" | "isMeetup"> }) {
@@ -97,7 +114,8 @@ function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" 
 function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
   if (!hasCategoryBadge(vm)) return null;
   return (
-    <div className="mb-1.5 flex w-full min-w-0 items-center">
+    <div className="mb-1.5 flex w-full min-w-0 items-center gap-1.5">
+      <CommunityTopPostBadge kind={vm.topBadge} />
       <SingleListBadge vm={vm} />
     </div>
   );

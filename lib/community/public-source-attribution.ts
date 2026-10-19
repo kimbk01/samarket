@@ -8,6 +8,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ImportedContentBlock, sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
+import {
+  COMMUNITY_FEED_TOP_SELECT_TAIL,
+  type CommunityFeedTopRowFields,
+} from "@/lib/community-feed/community-feed-top-posts";
 
 export type PublicSourceAttribution = {
   sourceName: string;
@@ -57,29 +61,41 @@ export async function loadPublicSourceAttributionFromPost(
 export async function loadPostAttributionAndBlocks(
   sb: SupabaseClient,
   communityPostId: string
-): Promise<{ attribution: PublicSourceAttribution | null; contentBlocks: ImportedContentBlock[] | null }> {
+): Promise<{
+  attribution: PublicSourceAttribution | null;
+  contentBlocks: ImportedContentBlock[] | null;
+  /** 공지·고정 원천 필드 (M10) — 컬럼 미적용 DB 면 null */
+  topFields: CommunityFeedTopRowFields | null;
+}> {
   const postId = communityPostId.trim();
-  if (!postId) return { attribution: null, contentBlocks: null };
-  const { data, error } = await sb
+  if (!postId) return { attribution: null, contentBlocks: null, topFields: null };
+  const BASE = "public_attribution_name, public_attribution_url, origin_kind, content_blocks";
+  let { data, error } = await sb
     .from("community_posts")
-    .select("public_attribution_name, public_attribution_url, origin_kind, content_blocks")
+    .select(BASE + ", topic_slug" + COMMUNITY_FEED_TOP_SELECT_TAIL)
     .eq("id", postId)
     .maybeSingle();
+  let hasTopFields = !error;
   if (error) {
-    return { attribution: await loadPublicSourceAttributionFromPost(sb, postId), contentBlocks: null };
+    hasTopFields = false;
+    ({ data, error } = await sb.from("community_posts").select(BASE).eq("id", postId).maybeSingle());
   }
-  const row = (data ?? {}) as {
+  if (error) {
+    return { attribution: await loadPublicSourceAttributionFromPost(sb, postId), contentBlocks: null, topFields: null };
+  }
+  const row = (data ?? {}) as unknown as {
     public_attribution_name?: string | null;
     public_attribution_url?: string | null;
     origin_kind?: string | null;
     content_blocks?: unknown;
-  };
+  } & CommunityFeedTopRowFields;
   const name = String(row.public_attribution_name ?? "").trim();
   const url = row.public_attribution_url != null && String(row.public_attribution_url).trim() ? String(row.public_attribution_url).trim() : null;
   const blocks = row.origin_kind === "imported" ? sanitizeImportedContentBlocks(row.content_blocks) : [];
   return {
     attribution: name || url ? { sourceName: name || "출처", canonicalUrl: url, sourcePublishedAt: null } : null,
     contentBlocks: blocks.length ? blocks : null,
+    topFields: hasTopFields ? row : null,
   };
 }
 

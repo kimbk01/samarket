@@ -14,7 +14,16 @@ export type SupportAdminContextLink = {
   labelKo: string;
   labelEn: string;
   /** Domain mutation lives elsewhere — Support is navigation only. */
-  mutationOwner: "ADS" | "FINANCE" | "STORE" | "MEMBER" | "CHAT" | "PARTNER" | "SUPPORT_ARCHIVE" | "NONE";
+  mutationOwner:
+    | "ADS"
+    | "FINANCE"
+    | "STORE"
+    | "MEMBER"
+    | "CHAT"
+    | "PARTNER"
+    | "COMMUNITY"
+    | "SUPPORT_ARCHIVE"
+    | "NONE";
   /**
    * 열 수 있는 권한 (하나라도) — 없으면 상담 화면은 링크 대신 「권한 필요」만 표시한다.
    * 지원 담당에게 채팅 열람권을 새로 주지 않는다 (설계 §2-3).
@@ -116,6 +125,38 @@ export function resolveSupportReferenceAdminHref(
         labelKo: "Partner 멤버십 검토",
         labelEn: "Open Partner membership",
         mutationOwner: "PARTNER",
+      };
+    case "COMMUNITY_POST":
+      return {
+        href: `/admin/community/posts/${encodeURIComponent(id)}`,
+        labelKo: "게시글 보기",
+        labelEn: "Open community post",
+        mutationOwner: "COMMUNITY",
+        requiredPermissions: ["boards", "reports"],
+      };
+    case "COMMUNITY_COMMENT":
+      return {
+        href: `/admin/community/comments?commentId=${encodeURIComponent(id)}`,
+        labelKo: "댓글 보기",
+        labelEn: "Open community comment",
+        mutationOwner: "COMMUNITY",
+        requiredPermissions: ["boards", "reports"],
+      };
+    case "COMMUNITY_REPORT":
+      return {
+        href: `/admin/community/reports?reportId=${encodeURIComponent(id)}`,
+        labelKo: "신고 보기",
+        labelEn: "Open community report",
+        mutationOwner: "COMMUNITY",
+        requiredPermissions: ["reports"],
+      };
+    case "COMMUNITY_SANCTION":
+      return {
+        href: `/admin/community/restrictions?sanctionId=${encodeURIComponent(id)}`,
+        labelKo: "활동 제한 보기",
+        labelEn: "Open community restriction",
+        mutationOwner: "COMMUNITY",
+        requiredPermissions: ["reports"],
       };
     default:
       return null;

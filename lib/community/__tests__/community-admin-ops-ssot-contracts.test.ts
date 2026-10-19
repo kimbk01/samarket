@@ -33,14 +33,18 @@ describe("community admin operations SSOT contracts", () => {
     );
   });
 
-  it("report PATCH audit actor_id comes from authenticated Admin, not client", () => {
-    const src = read("app/api/admin/community-reports/[id]/route.ts");
-    expect(src).toContain("requireAdminApiUser");
-    expect(src).toContain("actor_id: admin.userId");
-    expect(src).not.toMatch(/actor_id:\s*null/);
-    expect(src).not.toMatch(/body\.actor/);
-    expect(src).toContain("applyCommunityPointReclaimFromReportTarget");
-    expect(src).not.toMatch(/status:\s*[\"']hidden[\"']/);
+  it("report PATCH/decision audit actor comes from authenticated Admin, not client", () => {
+    // 설계 v2 §E-5: 신고 인정·기각은 decision 엔드포인트(원자 RPC), PATCH 는 검토 시작·메모·재오픈만.
+    const patch = read("app/api/admin/community-reports/[id]/route.ts");
+    expect(patch).toContain('requireCommunityAdmin("moderation")');
+    expect(patch).not.toMatch(/actor_id:\s*null/);
+    expect(patch).not.toMatch(/body\.actor/);
+    expect(patch).not.toMatch(/status:\s*[\"']hidden[\"']/);
+    const decision = read("app/api/admin/community-reports/[id]/decision/route.ts");
+    expect(decision).toContain('requireCommunityAdmin("moderation")');
+    expect(decision).toContain("admin_community_report_decide");
+    expect(decision).toContain("applyCommunityPointReclaimFromReportTarget");
+    expect(decision).not.toMatch(/body\.actor/);
   });
 
   it("admin comments engine select includes parent_id and operational filters", () => {
@@ -67,7 +71,11 @@ describe("community admin operations SSOT contracts", () => {
 
   it("report list/detail do not hardcode comment targets as post", () => {
     const list = read("components/admin/community/AdminCommunityReportsPage.tsx");
-    const detail = read("components/admin/community/AdminCommunityReportDetailClient.tsx");
+    // 설계 v2 §C-3: 상세 페이지와 처리함 시트가 같은 처리 패널을 쓴다
+    const detail = read("components/admin/community/reports/CommunityReportDecisionPanel.tsx");
+    expect(read("components/admin/community/AdminCommunityReportDetailClient.tsx")).toContain(
+      "CommunityReportDecisionPanel"
+    );
     expect(list).toContain("display_target");
     expect(list).toContain("admin_community_target_type_comment");
     expect(list).toContain("admin_community_target_type_reply");
@@ -83,7 +91,7 @@ describe("community admin operations SSOT contracts", () => {
     const src = read("lib/community-feed/admin-community-reports.ts");
     expect(src).toContain('from("community_comments")');
     expect(src).toContain(".eq(\"user_id\", author)");
-    expect(src).toContain("select(\"id, post_id, user_id, content, parent_id\")");
+    expect(src).toContain("select(\"id, post_id, user_id, content, parent_id, status, created_at\")");
     expect(src).toContain("display_target");
     expect(src).toContain("moderation_href");
   });
@@ -91,7 +99,7 @@ describe("community admin operations SSOT contracts", () => {
   it("public community_reports SSOT and no-auto-hide remain", () => {
     const reports = read("app/api/community/reports/route.ts");
     expect(reports).toContain("community_reports");
-    const detail = read("components/admin/community/AdminCommunityReportDetailClient.tsx");
+    const detail = read("components/admin/community/reports/CommunityReportDecisionPanel.tsx");
     expect(detail).toMatch(/신고 상태|Resolving a report/);
   });
 });

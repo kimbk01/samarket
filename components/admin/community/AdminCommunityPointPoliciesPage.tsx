@@ -15,33 +15,15 @@ import {
 } from "@/lib/community-points/policy-resolver";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import { ARO_IA_001_FINANCE_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
-type TabId = "global" | "boards" | "payouts" | "reclaim";
+type TabId = "global" | "boards";
 
 type TopicRow = { id: string; slug: string; name: string; is_feed_sort?: boolean };
 
-type LedgerItem = {
-  ledgerId: string;
-  userId: string;
-  memberLabel: string;
-  amount: number;
-  balanceAfter: number;
-  description: string;
-  createdAt: string;
-  relatedId: string;
-  execution: {
-    id: string;
-    boardKey: string;
-    actionType: string;
-    status: string;
-    rewardType: string;
-    basePoint: number;
-    multiplier: number;
-    finalPoint: number;
-    snapshot: Record<string, unknown>;
-    reversedAt: string | null;
-  } | null;
-};
+type SaveResult = { ok: true; message: string } | { ok: false; code: string } | null;
 
 function formatRewardLine(
   p: BoardPointPolicy,
@@ -55,15 +37,15 @@ function formatRewardLine(
 }
 
 export function AdminCommunityPointPoliciesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [tab, setTab] = useState<TabId>("global");
   const [refresh, setRefresh] = useState(0);
   const { policies } = useAdminPointPolicyData(refresh);
   const [topics, setTopics] = useState<TopicRow[]>([]);
-  const [ledgerKind, setLedgerKind] = useState<"reward" | "reclaim">("reward");
-  const [ledger, setLedger] = useState<LedgerItem[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const [detail, setDetail] = useState<LedgerItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<SaveResult>(null);
 
   const byKey = useMemo(() => {
     const m = new Map<string, BoardPointPolicy>();
@@ -89,20 +71,27 @@ export function AdminCommunityPointPoliciesPage() {
     })();
   }, [refresh]);
 
-  useEffect(() => {
-    if (tab !== "payouts" && tab !== "reclaim") return;
-    const kind = tab === "reclaim" ? "reclaim" : "reward";
-    setLedgerKind(kind);
-    void (async () => {
-      const res = await adminFetch(`/api/admin/community/point-ledger?kind=${kind}`, {
-        credentials: "include",
-      });
-      const json = (await res.json().catch(() => ({}))) as { items?: LedgerItem[] };
-      setLedger(Array.isArray(json.items) ? json.items : []);
-    })();
-  }, [tab, refresh]);
-
-  const savePolicy = async (values: Partial<BoardPointPolicy>, fallback: BoardPointPolicy | null) => {
+  /**
+   * 정책 저장 (설계 C-0-2 「정책 저장」 L3 · C-19) — 확인(사유 + 대상 이름 재입력) → 저장 → 응답 확인 → 결과 배너.
+   * 실패하면 입력 화면을 그대로 두고 실패 배너를 보인다. 처리 중에는 다시 저장할 수 없다.
+   */
+  const savePolicy = async (
+    values: Partial<BoardPointPolicy>,
+    fallback: BoardPointPolicy | null,
+    label: string
+  ): Promise<boolean> => {
+    if (saving) return false;
+    const c = await confirmAdminAction({
+      level: "L3",
+      ko,
+      title: ko ? "정책 저장" : "Save policy",
+      description: ko
+        ? `「${label}」 포인트 정책을 저장합니다. 저장하면 이후 글·댓글 보상에 바로 적용됩니다.`
+        : `Save the "${label}" point policy. It applies to new rewards immediately.`,
+      confirmLabel: ko ? "정책 저장" : "Save policy",
+      retypeValue: label,
+    });
+    if (!c.ok) return false;
     const boardKey = String(values.boardKey ?? fallback?.boardKey ?? "general").toLowerCase();
     const full = {
       ...fallback,
@@ -111,20 +100,34 @@ export function AdminCommunityPointPoliciesPage() {
       boardName: values.boardName ?? fallback?.boardName ?? boardKey,
       id: values.id ?? fallback?.id,
     };
-    await adminFetch("/api/admin/point-policies/board", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(full),
-    });
-    refreshAll();
+    setSaving(true);
+    setResult(null);
+    try {
+      const res = await adminFetch("/api/admin/point-policies/board", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...full, reason: c.reason }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok !== true) {
+        setResult({ ok: false, code: res.status === 403 ? "forbidden" : "save_failed" });
+        return false;
+      }
+      setResult({ ok: true, message: ko ? `「${label}」 정책을 저장했습니다.` : `Saved "${label}".` });
+      refreshAll();
+      return true;
+    } catch {
+      setResult({ ok: false, code: "network_error" });
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "global", label: t("admin_community_point_tab_global") },
     { id: "boards", label: t("admin_community_point_tab_boards") },
-    { id: "payouts", label: t("admin_community_point_tab_payouts") },
-    { id: "reclaim", label: t("admin_community_point_tab_reclaim") },
   ];
 
   return (
@@ -138,16 +141,29 @@ export function AdminCommunityPointPoliciesPage() {
           links={[
             {
               href: ARO_IA_001_FINANCE_POINT_POLICIES_PATH,
-              labelKo: "Point 전체 운영 보기",
+              labelKo: "포인트 전체 운영 보기",
               labelEn: "View all Point ops",
               dataAttr: "community-point-to-finance",
             },
           ]}
-          noteKo="커뮤니티 적립/회수 정책입니다. 원장은 공통 Point(board_point_policies)를 사용합니다."
-          noteEn="Community earn/reclaim policies. Ledger uses shared Point (board_point_policies)."
+          noteKo="커뮤니티 글·댓글 보상 정책입니다. 포인트는 전체 서비스 공통입니다."
+          noteEn="Community post/comment reward policies. Points are shared across the service."
         />
       </Suspense>
       <span className="sr-only" data-admin-writer="board_point_policies" />
+
+      {saving ? (
+        <p role="status" className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-muted">
+          {ko ? "저장 중…" : "Saving…"}
+        </p>
+      ) : null}
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
+      <p className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-muted">
+        {ko ? "지급·회수된 보상 내역은 포인트 내역 화면에서 확인합니다." : "Reward payouts and reclaims are in the point history screen."}
+        <AdminActionLink href="/admin/community/points?type=community_reward" variant="ghost">
+          {ko ? "포인트 내역 보기" : "Open point history"}
+        </AdminActionLink>
+      </p>
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((item) => (
@@ -180,7 +196,8 @@ export function AdminCommunityPointPoliciesPage() {
                       policyLayer: "global",
                       inheritGlobal: false,
                     },
-                    globalPolicy
+                    globalPolicy,
+                    t("admin_community_point_global_title")
                   )
                 }
               />
@@ -200,7 +217,8 @@ export function AdminCommunityPointPoliciesPage() {
                       policyLayer: "qna",
                       inheritGlobal: false,
                     },
-                    qnaPolicy
+                    qnaPolicy,
+                    t("admin_community_point_qna_title")
                   )
                 }
               />
@@ -293,7 +311,8 @@ export function AdminCommunityPointPoliciesPage() {
               globalPolicy={globalPolicy}
               onClose={() => setSelectedTopic(null)}
               onSave={async (values, inherit) => {
-                await savePolicy(
+                const topicName = contentTopics.find((x) => x.slug === selectedTopic)?.name ?? selectedTopic;
+                const ok = await savePolicy(
                   {
                     ...values,
                     boardKey: selectedTopic.toLowerCase(),
@@ -303,87 +322,16 @@ export function AdminCommunityPointPoliciesPage() {
                     inheritGlobal: inherit,
                     id: byKey.get(selectedTopic.toLowerCase())?.id,
                   },
-                  byKey.get(selectedTopic.toLowerCase()) ?? globalPolicy
+                  byKey.get(selectedTopic.toLowerCase()) ?? globalPolicy,
+                  topicName
                 );
-                setSelectedTopic(null);
+                if (ok) setSelectedTopic(null);
               }}
             />
           ) : null}
         </AdminCard>
       ) : null}
 
-      {tab === "payouts" || tab === "reclaim" ? (
-        <AdminCard
-          title={
-            ledgerKind === "reclaim"
-              ? t("admin_community_point_tab_reclaim")
-              : t("admin_community_point_tab_payouts")
-          }
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left sam-text-body-secondary">
-              <thead>
-                <tr className="border-b border-sam-border text-sam-meta">
-                  <th className="py-2 pr-2">{t("admin_community_point_col_time")}</th>
-                  <th className="py-2 pr-2">{t("admin_community_point_col_member")}</th>
-                  <th className="py-2 pr-2">{t("admin_community_point_col_board")}</th>
-                  <th className="py-2 pr-2">{t("admin_community_point_col_amount")}</th>
-                  <th className="py-2 pr-2">{t("admin_community_point_col_status")}</th>
-                  <th className="py-2">{t("admin_posts_col_manage")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.map((item) => (
-                  <tr key={item.ledgerId} className="border-b border-sam-border-soft">
-                    <td className="py-2 pr-2 whitespace-nowrap">
-                      {item.createdAt.replace("T", " ").slice(0, 16)}
-                    </td>
-                    <td className="py-2 pr-2">{item.memberLabel}</td>
-                    <td className="py-2 pr-2">{item.execution?.boardKey ?? "—"}</td>
-                    <td className="py-2 pr-2">
-                      {item.execution
-                        ? `${item.execution.basePoint} × ${item.execution.multiplier} = ${item.amount}`
-                        : item.amount}
-                    </td>
-                    <td className="py-2 pr-2">{item.execution?.status ?? "ledger"}</td>
-                    <td className="py-2">
-                      <button
-                        type="button"
-                        className="text-sam-primary hover:underline"
-                        onClick={() => setDetail(item)}
-                      >
-                        {t("admin_community_point_drill")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {ledger.length === 0 ? (
-            <p className="mt-3 sam-text-body-secondary text-sam-muted">
-              {t("admin_community_point_ledger_empty")}
-            </p>
-          ) : null}
-          {detail ? (
-            <div className="mt-4 rounded-ui-rect border border-sam-border p-3 sam-text-body-secondary">
-              <p>ledger: {detail.ledgerId}</p>
-              <p>execution: {detail.execution?.id ?? "—"}</p>
-              <p>{detail.description}</p>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-sam-meta">
-                {JSON.stringify(detail.execution?.snapshot ?? {}, null, 2)}
-              </pre>
-              <button
-                type="button"
-                className="mt-2 text-sam-primary hover:underline"
-                onClick={() => setDetail(null)}
-              >
-                {t("admin_back_to_list")}
-              </button>
-            </div>
-          ) : null}
-        </AdminCard>
-      ) : null}
     </div>
   );
 }
@@ -402,9 +350,8 @@ function TopicOverrideEditor(props: {
 
   return (
     <div className="mt-4 space-y-3 rounded-ui-rect border border-sam-border p-3">
-      <p className="font-medium">
-        {props.name} ({props.slug})
-      </p>
+      <p className="font-medium">{props.name}</p>
+      <AdminTechDetails ko>board_key: {props.slug}</AdminTechDetails>
       <div className="flex gap-3">
         <label className="flex items-center gap-2">
           <input type="radio" checked={inherit} onChange={() => setInherit(true)} />

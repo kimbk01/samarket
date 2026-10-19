@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberMetricGrid, AdminMemberPager } from "@/components/admin/users/AdminMemberMetricGrid";
 import {
+  memberCommunityAuthorAdminHref,
   memberCommunityCommentsAdminHref,
   memberCommunityPostHref,
   memberCommunityPostsAdminHref,

@@ -111,10 +111,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
   if (!meeting) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const postId = String(meeting.post_id ?? "").trim();
-  let postBefore: { status: string | null; is_hidden: boolean | null } | null = null;
+  type PostSnapshot = { status: string | null; is_hidden: boolean | null };
+  let postBefore: PostSnapshot | null = null;
   if (postId) {
     const { data: p } = await sb.from("community_posts").select("status, is_hidden").eq("id", postId).maybeSingle();
-    postBefore = (p ?? null) as typeof postBefore;
+    postBefore = (p ?? null) as PostSnapshot | null;
   }
 
   const current = {

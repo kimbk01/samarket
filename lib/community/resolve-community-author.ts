@@ -69,6 +69,20 @@ export function resolveCommunityAuthor(input: CommunityAuthorResolveInput): Comm
     };
   }
 
+  // 운영팀 글(공지 등): 화면 이름은 display_author_name (작성한 관리자 본인 닉네임은 내부 추적용)
+  if (origin_kind === "admin") {
+    const adminName = trimOrEmpty(input.display_author_name);
+    if (adminName) {
+      return {
+        origin_kind,
+        display_name: adminName,
+        avatar_url: trimOrEmpty(input.display_author_avatar_url) || null,
+        owner_user_id,
+        member_peer_user_id: null,
+      };
+    }
+  }
+
   const profileName = trimOrEmpty(input.profile_display_name);
   const profileAvatar = trimOrEmpty(input.profile_avatar_url);
   return {

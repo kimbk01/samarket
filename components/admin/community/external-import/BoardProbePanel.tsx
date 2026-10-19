@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { BoardProbe } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, SourceEngine } from "@/lib/community-operator-import/types";
-import { call, fmtDate, VERDICT_TONE } from "./api";
+import { call, fmtDate, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
 import { Blocks } from "./ImportEditorPanel";
 
 function VerdictBadge({ v }: { v: string }) {
-  return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${VERDICT_TONE[v] || VERDICT_TONE.NOT_PROVEN}`}>{v}</span>;
+  return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${VERDICT_TONE[v] || VERDICT_TONE.NOT_PROVEN}`}>{verdictLabel(v)}</span>;
 }
 
 const REASON: Record<string, string> = {
@@ -37,7 +37,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
       const r = await call<{ probe: BoardProbe }>("/sources", { body: { action: "probe", ...target, articleIndex } });
       setProbe(r.probe);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(importErrorText(e));
     } finally {
       setLoading(false);
     }

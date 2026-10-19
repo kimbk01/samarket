@@ -60,6 +60,13 @@ import {
 } from "@/lib/community-feed/hashtag-discovery";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { communityGlobalSearchFeedPreview } from "@/lib/search/global/semantics/domain-fields";
+import {
+  COMMUNITY_FEED_TOP_SELECT_TAIL,
+  communityFeedTopBadges,
+  communityFeedTopCandidatesOrFilter,
+  isCommunityNoticeScheduled,
+  selectCommunityFeedTopRows,
+} from "@/lib/community-feed/community-feed-top-posts";
 
 function countCsvSelectColumns(selectList: string): number {
   return selectList.split(",").map((c) => c.trim()).filter(Boolean).length;
@@ -393,6 +400,30 @@ export async function listNeighborhoodFeed(options: {
     return res;
   };
 
+  /**
+   * 공지·관리자 고정 후보 (§F-5-2) — 메인 조회와 병렬 1회. 첫 페이지 상단에 올리고, 모든 페이지 일반 목록에서는 뺀다.
+   * 실패(컬럼 미적용 등)하면 상단 없이 기존 목록 그대로.
+   */
+  const topNowIso = new Date().toISOString();
+  const topNowMs = Date.parse(topNowIso);
+  const topEligible = !authorUserId && !hashtag && !keywordQ && options.neighborOnly !== true;
+  const topCandidatesP: Promise<Record<string, unknown>[]> = topEligible
+    ? (async () => {
+        try {
+          const { data: topData, error: topErr } = await sb
+            .from("community_posts")
+            .select(FEED_SELECT_FULL + COMMUNITY_FEED_TOP_SELECT_TAIL)
+            .eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE)
+            .or(communityFeedTopCandidatesOrFilter(topNowIso))
+            .limit(60);
+          if (topErr || !Array.isArray(topData)) return [];
+          return topData as unknown as Record<string, unknown>[];
+        } catch {
+          return [];
+        }
+      })()
+    : Promise.resolve([]);
+
   let useTopicSlug = true;
   let effectiveSelectCols = FEED_SELECT_FULL;
   let { data, error } = await runMainSelect(FEED_SELECT_FULL, true, rangeForPage);
@@ -492,11 +523,28 @@ export async function listNeighborhoodFeed(options: {
     return empty;
   }
 
+  const topCandidates = (await topCandidatesP).filter((r) => {
+    if (!isCommunityPostPubliclyVisible(r as never)) return false;
+    const postId = String(r.id ?? "");
+    if (hiddenPostIds.size > 0 && postId && hiddenPostIds.has(postId)) return false;
+    if (blockExclude.has(String(r.user_id ?? ""))) return false;
+    return true;
+  });
+  const topRowsAll = selectCommunityFeedTopRows(topCandidates, { filterTopicSlug: filterCat, nowMs: topNowMs });
+  const topIds = new Set(topRowsAll.map((r) => String(r.id ?? "")));
+  /** 상단에 올린 글 + 시작 전 예약 공지는 일반 목록에서 뺀다 */
+  const excludeFromList = new Set<string>(topIds);
+  for (const r of topCandidates) {
+    if (isCommunityNoticeScheduled(r, topNowMs)) excludeFromList.add(String(r.id ?? ""));
+  }
+  const isFirstPage = !useKeyset && offset === 0;
+
   const tSyncA = performance.now();
   const dbScannedCount = data.length;
   const rowsAfterPolicy = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
     const postId = String(r.id ?? "");
+    if (excludeFromList.size > 0 && postId && excludeFromList.has(postId)) return false;
     if (hiddenPostIds.size > 0 && postId && hiddenPostIds.has(postId)) return false;
     const loc = r.location_id;
     if (!allLocations && (loc == null || String(loc).trim() === "")) return false;
@@ -543,6 +591,11 @@ export async function listNeighborhoodFeed(options: {
   } else {
     hasMore = dbScannedCount === fetchCount;
     rows = rowsAfterPolicy.slice(0, pageSize);
+  }
+  /** 일반 목록 길이 — 페이지 진행(offset·cursor)은 상단 글을 세지 않는다 */
+  const listRowCount = rows.length;
+  if (isFirstPage && topRowsAll.length > 0) {
+    rows = [...topRowsAll, ...rows];
   }
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
@@ -686,8 +739,12 @@ export async function listNeighborhoodFeed(options: {
       },
       (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
     );
+    const topBadges = topIds.has(String(r.id))
+      ? communityFeedTopBadges(r, { filterTopicSlug: filterCat, nowMs: topNowMs })
+      : null;
     return {
       id: String(r.id),
+      ...(topBadges ? { is_notice: topBadges.isNotice, is_pinned: topBadges.isPinned } : {}),
       category: topicUiSlug,
       category_label: labelForNeighborhoodPostCategory(topicUiSlug, topicNameBySlug),
       category_name_en: labelForNeighborhoodPostCategoryEn(topicUiSlug, topicNameEnBySlug),
@@ -816,11 +873,12 @@ export async function listNeighborhoodFeed(options: {
    */
   const pagingOffsetAdvance =
     effSort === "recommended" || (effSort === "latest" && useKeyset)
-      ? finalPosts.length
+      ? listRowCount
       : effSort === "popular"
         ? resolvePopularPagingOffsetAdvance({ hasMore, pageSize, dbScannedCount })
         : dbScannedCount;
-  const last = finalPosts[finalPosts.length - 1];
+  const listPosts = finalPosts.filter((p) => !topIds.has(p.id));
+  const last = listPosts[listPosts.length - 1];
   const nextCursor =
     hasMore && effSort === "latest" && last
       ? {
@@ -1109,6 +1167,18 @@ export async function getNeighborhoodPostDetail(
           }
         : null,
     content_blocks: postExtras.contentBlocks,
+    ...(postExtras.topFields
+      ? (() => {
+          // 상세 머리: 공지(노출 중) · 고정(전체 피드 또는 카테고리 범위 어느 쪽이든)
+          const nowMs = Date.now();
+          const b = communityFeedTopBadges(postExtras.topFields, { filterTopicSlug: null, nowMs });
+          const pinnedInTopic = communityFeedTopBadges(postExtras.topFields, {
+            filterTopicSlug: String(postExtras.topFields.topic_slug ?? ""),
+            nowMs,
+          }).isPinned;
+          return { is_notice: b.isNotice, is_pinned: b.isPinned || pinnedInTopic };
+        })()
+      : {}),
     meeting_id: meetLink?.id ?? null,
     community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
     meeting_date:

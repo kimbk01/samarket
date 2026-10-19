@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { privateRealtimeChannelOptions } from "@/lib/supabase/private-realtime-channel-options";
@@ -137,6 +138,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     };
   }, []);
   const searchParams = useSearchParams();
+  const supportReturnTo = readAdminReturnToFromSearch(searchParams);
   const initial = useMemo(() => {
     const tabParam = searchParams.get("tab")?.trim().toUpperCase() ?? "";
     if (isAdminSupportTab(tabParam)) return { tab: tabParam, audience: null, assignee: null };
@@ -420,9 +422,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             })}
           </p>
         </div>
-        <Link href="/admin/support/archive" className="text-xs text-sam-muted underline">
-          {ko ? "이전 문의 기록 (레거시)" : "Legacy archive"}
-        </Link>
+        <div className="flex items-center gap-3">
+          {supportReturnTo ? (
+            <Link href={supportReturnTo} className="text-xs font-semibold text-sam-fg underline">
+              {ko ? "← 이전 목록으로" : "← Back to list"}
+            </Link>
+          ) : null}
+          <Link href="/admin/support/archive" className="text-xs text-sam-muted underline">
+            {ko ? "이전 문의 기록 (레거시)" : "Legacy archive"}
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b border-sam-border" role="tablist">

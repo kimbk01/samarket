@@ -6,7 +6,7 @@ import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfi
 import { allowsFullContent, allowsHiddenAttribution, RIGHTS_LABEL } from "@/lib/community-operator-import/rights";
 import type { OperatorContentBlock, OperatorDraftEdit } from "@/lib/community-operator-import/types";
 import { VerdictBadge } from "./ImportSourcesPanel";
-import { call, type ContentPolicy, type DetailPayload, fmtDate, type InboxRow, POLICY_LABEL, type PublishContent, STATUS_LABEL, type TopicOption } from "./api";
+import { call, type ContentPolicy, type DetailPayload, fmtDate, type InboxRow, POLICY_LABEL, type PublishContent, STATUS_LABEL, type TopicOption, importErrorText } from "./api";
 
 export function Blocks({ blocks }: { blocks: OperatorContentBlock[] }) {
   return (
@@ -95,7 +95,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         setEdit(d.edit);
         setPreview(d.preview);
       })
-      .catch((e) => alive && setMsg({ tone: "err", text: `원문을 가져오지 못했습니다: ${e instanceof Error ? e.message : e}` }))
+      .catch((e) => alive && setMsg({ tone: "err", text: `원문을 가져오지 못했습니다: ${importErrorText(e)}` }))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -145,7 +145,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         onChanged();
       }
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
     } finally {
       setBusy(null);
     }
@@ -166,7 +166,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       onChanged();
       setReloadToken((n) => n + 1);
     } catch (e) {
-      setMsg({ tone: "err", text: e instanceof Error ? e.message : String(e) });
+      setMsg({ tone: "err", text: importErrorText(e) });
     } finally {
       setBusy(null);
       setConfirm(null);
@@ -191,7 +191,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       onChanged();
       setReloadToken((n) => n + 1);
     } catch (e) {
-      setMsg({ tone: "err", text: `상태 변경 실패: ${e instanceof Error ? e.message : String(e)}` });
+      setMsg({ tone: "err", text: `상태 변경 실패: ${importErrorText(e)}` });
     } finally {
       setBusy(null);
       setConfirm(null);
@@ -423,7 +423,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         {q?.verdict === "PARTIAL" ? (
           <label className="flex items-center gap-1 text-[11px] text-sam-muted">
             <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
-            품질 PARTIAL 확인함 — 게시 허용
+            품질 「일부 수집」 확인함 — 게시 허용
           </label>
         ) : null}
         <div className="flex flex-wrap gap-2">
@@ -438,7 +438,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
             {busy === "publish" ? "처리 중…" : published ? "게시물 업데이트" : "DIBAY에 게시"}
           </AdminActionButton>
           {!topic ? <span className="text-[11px] text-sam-muted self-center">주제를 선택해야 게시할 수 있습니다.</span> : null}
-          {q?.verdict === "FAILED" ? <span className="text-[11px] text-rose-600 self-center">품질 FAILED — 게시 불가</span> : null}
+          {q?.verdict === "FAILED" ? <span className="text-[11px] text-rose-600 self-center">품질 「수집 실패」 — 게시 불가</span> : null}
         </div>
         {post ? (
           <p className="text-[11px] text-sam-muted">

@@ -13,6 +13,7 @@ import type {
   PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
 interface AdminUserPointsSectionProps {
@@ -46,6 +47,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
+  /** 지급/차감 확인 — 확인 화면을 열 때 멱등 키를 1회 만든다 (같은 확인에서 여러 번 눌러도 1건만 반영). */
+  const [adjustConfirm, setAdjustConfirm] = useState<{
+    sign: 1 | -1;
+    amount: number;
+    reason: string;
+    idempotencyKey: string;
+  } | null>(null);
 
   const load = useCallback(
     async (opts?: { append?: boolean; cursor?: string | null }) => {
@@ -114,7 +122,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
     void load();
   }, [load]);
 
-  const submitAdjust = async (sign: 1 | -1) => {
+  const openAdjustConfirm = (sign: 1 | -1) => {
     const amount = Math.trunc(Math.abs(Number(adjustDelta)));
     const reason = adjustReason.trim();
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -125,6 +133,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       setErr(safeT("point_fin_admin_reason_required", { fallbackKo: "사유를 입력하세요.", fallbackEn: "Enter a reason." }));
       return;
     }
+    setErr("");
+    setAdjustConfirm({ sign, amount, reason, idempotencyKey: `admin_point:${crypto.randomUUID()}` });
+  };
+
+  const submitAdjust = async () => {
+    if (!adjustConfirm || busy) return;
+    const { sign, amount, reason, idempotencyKey } = adjustConfirm;
     setBusy(true);
     setErr("");
     try {
@@ -132,13 +147,14 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delta: sign * amount, reason }),
+        body: JSON.stringify({ delta: sign * amount, reason, idempotencyKey }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; balance?: number };
       if (!res.ok || !j.ok) {
         setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
         return;
       }
+      setAdjustConfirm(null);
       setAdjustDelta("");
       setAdjustReason("");
       await load();
@@ -196,7 +212,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         <button
           type="button"
           disabled={busy}
-          onClick={() => void submitAdjust(1)}
+          onClick={() => openAdjustConfirm(1)}
           className="rounded-ui-rect bg-emerald-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
           {safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })}
@@ -204,7 +220,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         <button
           type="button"
           disabled={busy}
-          onClick={() => void submitAdjust(-1)}
+          onClick={() => openAdjustConfirm(-1)}
           className="rounded-ui-rect bg-red-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
           {safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })}
@@ -426,6 +442,34 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           </div>
         </DibayOverlayRoot>
       ) : null}
+
+      <AdminActionConfirmDialog
+        open={Boolean(adjustConfirm)}
+        title={
+          adjustConfirm?.sign === -1
+            ? safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })
+            : safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })
+        }
+        description={
+          adjustConfirm
+            ? `${adjustConfirm.sign === -1 ? "-" : "+"}${adjustConfirm.amount.toLocaleString()} P\n${adjustConfirm.reason}${
+                balance !== null ? `\n${balance.toLocaleString()} P → ${(balance + adjustConfirm.sign * adjustConfirm.amount).toLocaleString()} P` : ""
+              }`
+            : ""
+        }
+        confirmLabel={
+          adjustConfirm?.sign === -1
+            ? safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })
+            : safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })
+        }
+        cancelLabel={language === "en" ? "Cancel" : "취소"}
+        tone={adjustConfirm?.sign === -1 ? "danger" : "primary"}
+        pending={busy}
+        onCancel={() => {
+          if (!busy) setAdjustConfirm(null);
+        }}
+        onConfirm={() => void submitAdjust()}
+      />
     </AdminCard>
   );
 }

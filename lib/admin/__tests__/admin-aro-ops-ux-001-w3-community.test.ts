@@ -60,17 +60,20 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
   });
 
   it("C3–C7 posts use W1 contract + selection + policy-correct bulk/hard-delete", () => {
+    // 설계 v2 §C-5: 커뮤니티 목록 틀(CommunityListShell) + 표준 버튼 일괄 처리 줄 (W1 BulkBar 대체 — 영구 삭제는 최고 관리자 비활성 툴팁 필요)
     const posts = read("app/admin/community/posts/AdminPostsPageContent.tsx");
     expect(posts).toContain("AdminManagementSurfaceRoot");
     expect(posts).toContain('wave="w3"');
-    expect(posts).toContain("AdminManagementTableViewport");
+    expect(posts).toContain("CommunityListShell");
+    expect(posts).toContain("CommunityTable");
     expect(posts).toContain("useAdminManagementSelection");
     expect(posts).toContain("AdminManagementSelectionCheckbox");
-    expect(posts).toContain("AdminManagementBulkBar");
+    expect(posts).toContain("data-community-posts-bulk-bar");
     expect(posts).toContain("COMMUNITY_POST_ENTITY_ACTION_POLICY");
     expect(posts).toContain("/api/admin/community/engine/posts/bulk-delete");
     expect(posts).not.toContain("admin_community_danger_zone");
     expect(posts).not.toContain("min-w-[1100px]");
+    expect(posts).not.toMatch(/<select[\s\S]{0,200}patchCommunityPost/);
     expect(posts).toMatch(/현재 페이지|current page/);
     expect(selectionHeaderState(new Set(["a"]), ["a", "b"])).toBe("some");
     expect(COMMUNITY_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
@@ -88,7 +91,8 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
     expect(comments).toContain('wave="w3"');
     expect(comments).toContain("useAdminManagementSelection");
-    expect(comments).toContain("AdminManagementBulkBar");
+    expect(comments).toContain("CommunityListShell");
+    expect(comments).toContain("expectedStatus");
     expect(comments).toContain("COMMUNITY_COMMENT_ENTITY_ACTION_POLICY");
     expect(comments).not.toContain("min-w-[1100px]");
     expect(comments).not.toContain("bulk-delete");
@@ -104,7 +108,8 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(ARO_IA_001_OWNERS.report).toBe("community_reports");
     expect(reports).toContain("nextReportActions");
     expect(reports).toContain("community-report-to-support");
-    expect(reports).toContain("AdminManagementTableViewport");
+    // 설계 v2 §C-0-1: 커뮤니티 목록 틀(CommunityTable = 가로 스크롤 viewport 소유)로 이관
+    expect(reports).toContain("CommunityTable");
     expect(reports).not.toContain("min-w-[1000px]");
     expect(reports).not.toContain("/api/admin/philife/meeting-reports");
     expect(reports).toContain("/api/admin/community-reports/");
@@ -137,28 +142,28 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
   });
 
   it("C14–C16 member links + loading states + mutation owners", () => {
+    // 작성자 링크는 공통 CommunityAuthorCell(→ /admin/community/members/:id) 사용
+    const kit = read("components/admin/community/kit/CommunityAdminKit.tsx");
+    expect(kit).toContain("/admin/community/members/");
     const posts = read("app/admin/community/posts/AdminPostsPageContent.tsx");
-    expect(posts).toContain("/admin/users/");
+    expect(posts).toContain("CommunityAuthorCell");
     expect(posts).toContain('data-admin-mgmt-state="EMPTY"');
     expect(posts).toContain('data-admin-mgmt-state="ERROR"');
     expect(posts).toContain("/api/admin/community/engine/posts");
     const comments = read("components/admin/community/AdminCommunityCommentsPage.tsx");
-    expect(comments).toContain("/admin/users/");
+    expect(comments).toContain("CommunityAuthorCell");
     expect(comments).toContain("/api/admin/community/engine/comments");
     const reports = read("components/admin/community/AdminCommunityReportsPage.tsx");
     expect(reports).toContain("/api/admin/community-reports/");
   });
 
   it("C17–C20 tablet geometry: no fixed 1100/1000 min-width; viewport owner present", () => {
-    expect(read("app/admin/community/posts/AdminPostsPageContent.tsx")).toContain(
-      "AdminManagementTableViewport"
-    );
-    expect(read("components/admin/community/AdminCommunityCommentsPage.tsx")).toContain(
-      "AdminManagementTableViewport"
-    );
-    expect(read("components/admin/community/AdminCommunityReportsPage.tsx")).toContain(
-      "AdminManagementTableViewport"
-    );
+    // 게시글·댓글은 CommunityTable(data-admin-mgmt-table-viewport 가로 스크롤 소유자) 사용
+    expect(read("components/admin/community/kit/CommunityAdminKit.tsx")).toContain("data-admin-mgmt-table-viewport");
+    expect(read("app/admin/community/posts/AdminPostsPageContent.tsx")).toContain("CommunityTable");
+    expect(read("components/admin/community/AdminCommunityCommentsPage.tsx")).toContain("CommunityTable");
+    expect(read("components/admin/community/AdminCommunityReportsPage.tsx")).toContain("CommunityTable");
+    expect(read("components/admin/community/kit/CommunityAdminKit.tsx")).toContain("data-admin-mgmt-table-viewport");
     expect(read("components/admin/philife/AdminMeetingReportsPage.tsx")).toContain(
       'proofSurface="meeting-reports"'
     );

@@ -1237,14 +1237,22 @@ export function CommunityFeed({
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
 
+  /** 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds) > 일반 */
+  const operatorTopPosts = useMemo(() => posts.filter((p) => p.is_notice || p.is_pinned), [posts]);
   const postsForList = useMemo(() => {
-    if (topAds.length === 0) return posts;
+    const normal = operatorTopPosts.length > 0 ? posts.filter((p) => !p.is_notice && !p.is_pinned) : posts;
+    if (topAds.length === 0) return normal;
     const promotedIds = new Set(
       topAds.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)
     );
-    if (promotedIds.size === 0) return posts;
-    return posts.filter((p) => !promotedIds.has(String(p.id)));
-  }, [posts, topAds]);
+    if (promotedIds.size === 0) return normal;
+    return normal.filter((p) => !promotedIds.has(String(p.id)));
+  }, [posts, topAds, operatorTopPosts.length]);
+  const topAdsBelowOperator = useMemo(() => {
+    if (operatorTopPosts.length === 0) return topAds;
+    const ids = new Set(operatorTopPosts.map((p) => String(p.id)));
+    return topAds.filter((ad) => !ids.has(String(ad.postId ?? "").trim()));
+  }, [topAds, operatorTopPosts]);
   const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}\u001f${tagFilter || ""}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
@@ -1988,9 +1996,19 @@ export function CommunityFeed({
           />
         ) : null}
 
-        {topAds.length > 0 ? (
+        {operatorTopPosts.length > 0 ? (
+          <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS} data-community-operator-top="1">
+            {operatorTopPosts.map((p, index) => (
+              <li key={p.id} className="list-none">
+                <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {topAdsBelowOperator.length > 0 ? (
           <div className="space-y-1 px-2 pt-1">
-            {topAds.map((ad) => (
+            {topAdsBelowOperator.map((ad) => (
               <AdPostCard key={ad.adId} ad={ad} />
             ))}
           </div>
@@ -2029,7 +2047,7 @@ export function CommunityFeed({
         ) : communityFeedShouldShowEmptyCta({
             hasError: Boolean(err),
             loading,
-            postCount: postsForList.length,
+            postCount: postsForList.length + operatorTopPosts.length,
           }) ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {tagFilter ? t("community_feed_hashtag_empty", { tag: tagFilter }) : t("community_feed_empty")}

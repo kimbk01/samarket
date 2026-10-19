@@ -100,6 +100,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!isCommunityReportStatus(prevStatus)) {
       return NextResponse.json({ ok: false, error: "invalid_transition" }, { status: 400 });
     }
+    if (!isCommunityReportStatus(statusRaw)) {
+      return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
+    }
     const t = resolveCommunityReportPatchTransition(prevStatus, statusRaw, admin.actor.isSuperAdmin);
     if (!t.ok) {
       return NextResponse.json(
