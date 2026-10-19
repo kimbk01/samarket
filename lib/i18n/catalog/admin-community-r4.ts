@@ -53,6 +53,7 @@ export const adminCommunityR4Messages = {
       "이 이미지를 글에서 뺍니다(본문 안 이미지 포함). 다른 곳에서 쓰지 않는 이미지 파일만 지우고, 수정 이력에 남은 이미지는 증거로 보관합니다. 작성자에게 관리자 수정 알림이 갑니다.",
     admin_community_post_image_delete_reason_placeholder: "예: 개인정보가 보이는 사진",
     admin_community_post_image_delete_done: "이미지를 삭제했습니다.",
+    admin_community_post_image_delete_dirty: "저장하지 않은 본문 수정을 먼저 저장하거나 취소해 주세요.",
   },
   en: {
     admin_menu_community_section_ops: "Overview",
@@ -103,5 +104,6 @@ export const adminCommunityR4Messages = {
       "Removes this image from the post (including inline body images). The file is deleted only if nothing else uses it; images kept in the edit history are retained as evidence. The author is notified of the admin edit.",
     admin_community_post_image_delete_reason_placeholder: "e.g. photo shows personal information",
     admin_community_post_image_delete_done: "Image deleted.",
+    admin_community_post_image_delete_dirty: "Save or cancel the unsaved edit first.",
   },
 } as const;

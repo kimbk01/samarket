@@ -206,6 +206,8 @@ export async function applyCommunityPostAdminPatch(
   }
 
   if (Object.keys(patch).length === 0) return { status: 400, body: { ok: false, error: "no_updates" } };
+  // community_posts 에 updated_at 자동 갱신 트리거가 없다 — CAS 토큰을 직접 전진시킨다.
+  patch.updated_at = nowIso;
 
   // ── 홍보 중인 글 숨김·삭제: 귀책 선택 필수 (§F-1-2 #3·#5·#6)
   const promotions = removing ? await listRunningCommunityPromotionsForPost(sb, postId) : [];

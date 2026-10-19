@@ -10,6 +10,7 @@ const ACTION_EXACT: Record<string, string> = {
   "community_post.status_deleted": "게시글 삭제",
   "community_post.hard_delete": "게시글 영구 삭제",
   "community_post.content_update": "게시글 관리자 수정",
+  "community_post.image_delete": "게시글 이미지 삭제",
   "community_post.update": "게시글 정보 변경",
   "community_post.pin": "게시글 상단 고정",
   "community_post.unpin": "게시글 고정 해제",

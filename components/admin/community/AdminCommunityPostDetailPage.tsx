@@ -98,7 +98,7 @@ type PostDetail = {
   running_promotions?: RunningPromotion[];
 };
 
-type Sheet = "hide" | "delete" | "restore" | "save" | "pin" | "unpin" | null;
+type Sheet = "hide" | "delete" | "restore" | "save" | "pin" | "unpin" | "image_delete" | null;
 type DetailTab = "edit" | "revisions" | "records";
 
 const FIELD =
@@ -143,6 +143,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   const [faultNeeded, setFaultNeeded] = useState(false);
   const [pinScope, setPinScope] = useState<"feed" | "topic">("feed");
   const [pinUntil, setPinUntil] = useState("");
+  const [imageTarget, setImageTarget] = useState<{ id: string; url: string } | null>(null);
 
   const resetForm = useCallback((p: PostDetail) => {
     setEditTitle(String(p.title ?? ""));
@@ -528,11 +529,29 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       </div>
       {images.length > 0 ? (
         <div className="space-y-1">
-          <span className="text-[12px] font-medium text-sam-muted">첨부 이미지 {images.length}장</span>
-          <div className="flex flex-wrap gap-2">
+          <span className="text-[12px] font-medium text-sam-muted">
+            {tr("admin_community_post_images_heading", { count: images.length })}
+          </span>
+          <div className="flex flex-wrap gap-2" data-community-post-images="1">
             {images.map((img) => (
-              <div key={img.id || img.url} className="h-24 w-24 overflow-hidden rounded-ui-rect border border-sam-border">
-                <SamarketThumbnail src={img.url} alt="" className="h-full w-full" size={96} />
+              <div key={img.id || img.url} className="flex w-24 flex-col gap-1">
+                <div className="h-24 w-24 overflow-hidden rounded-ui-rect border border-sam-border">
+                  <SamarketThumbnail src={img.url} alt="" className="h-full w-full" size={96} />
+                </div>
+                {img.id ? (
+                  <AdminActionButton
+                    variant="danger"
+                    className="w-full px-1 text-[12px]"
+                    disabled={!canContent || !!sheet || dirty}
+                    title={noPermTitle ?? (dirty ? tr("admin_community_post_image_delete_dirty") : undefined)}
+                    onClick={() => {
+                      setImageTarget({ id: img.id, url: img.url });
+                      openSheet("image_delete");
+                    }}
+                  >
+                    {tr("admin_community_post_image_delete")}
+                  </AdminActionButton>
+                ) : null}
               </div>
             ))}
           </div>
@@ -664,6 +683,41 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           onSubmit={(reason) => patchPost({ ...saveBody(), reason })}
           onClose={() => setSheet(null)}
           onSettled={(k) => settle(k, "수정 내용을 저장했습니다.", { keepDraft: true })}
+        />
+      ) : null}
+      {sheet === "image_delete" && imageTarget ? (
+        <CommunityActionSheet
+          title={tr("admin_community_post_image_delete_title")}
+          rows={[
+            ...sheetRows.slice(0, 2),
+            {
+              label: tr("admin_community_post_image_delete_target"),
+              value: (
+                <span className="inline-block h-16 w-16 overflow-hidden rounded-ui-rect border border-sam-border align-middle">
+                  <SamarketThumbnail src={imageTarget.url} alt="" className="h-full w-full" size={64} />
+                </span>
+              ),
+            },
+          ]}
+          notice={tr("admin_community_post_image_delete_notice")}
+          reason={{ minLength: 2, placeholder: tr("admin_community_post_image_delete_reason_placeholder") }}
+          destructive
+          confirmLabel={tr("admin_community_post_image_delete")}
+          onSubmit={async (reason) => {
+            const r = await communityJsonFetch(
+              `/api/admin/community/engine/posts/${encodeURIComponent(id)}/images/${encodeURIComponent(imageTarget.id)}`,
+              { method: "DELETE", body: { expectedUpdatedAt: post?.updated_at ?? "", reason } }
+            );
+            return toCommunitySheetResult(r);
+          }}
+          onClose={() => {
+            setSheet(null);
+            setImageTarget(null);
+          }}
+          onSettled={(k) => {
+            setImageTarget(null);
+            settle(k, tr("admin_community_post_image_delete_done"), { moderated: true });
+          }}
         />
       ) : null}
       {sheet === "pin" ? (

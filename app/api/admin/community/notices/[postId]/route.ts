@@ -59,7 +59,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
 
     const nowIso = new Date().toISOString();
     const endsAt = b.notice_ends_at ? String(b.notice_ends_at) : null;
-    const patch: Record<string, unknown> = { ...COMMUNITY_POST_PIN_CLEAR_PATCH };
+    // community_posts 에 updated_at 자동 갱신 트리거가 없다 — CAS 토큰을 직접 전진시킨다.
+    const patch: Record<string, unknown> = { ...COMMUNITY_POST_PIN_CLEAR_PATCH, updated_at: nowIso };
     if (!endsAt || Date.parse(endsAt) > Date.now()) patch.notice_ends_at = nowIso;
     if (alsoHide && b.status === "active") {
       patch.status = "hidden";

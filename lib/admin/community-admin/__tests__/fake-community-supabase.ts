@@ -57,6 +57,7 @@ export function createFakeCommunitySupabase(
       gte: filter("gte"),
       lt: filter("lt"),
       lte: filter("lte"),
+      contains: filter("contains"),
       not: chain((c, op, v) => call.filters.push(["not", String(c), [op, v]])),
       or: chain((v) => call.filters.push(["or", "", v])),
       order: chain(() => undefined),
