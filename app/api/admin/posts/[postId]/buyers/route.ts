@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +21,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
   }
 
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
-  }
+  const sb = admin.sb;
 
   const { data, error } = await sb
     .from("product_chats")
