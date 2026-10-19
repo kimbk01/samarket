@@ -188,61 +188,115 @@ export async function createAdminNotificationCampaign(
   let occurrenceId: string | null = null;
 
   if (!input.save_as_draft) {
-    const preview = await previewCampaignAudience(svc, {
-      type: input.type,
-      target_type: input.target_type,
-      channel: input.channel,
-      segment_region_code: input.segment_region_code,
-      target_user_ids: selectedUserIds.length ? selectedUserIds : input.target_user_ids,
-    });
-    const audienceSnapshot = audiencePreviewToSnapshot(preview, new Date().toISOString());
-    const seq = 1;
-
-    let scheduledFor: string | null = null;
-    let triggerType = "immediate";
-    if (input.send_mode === "scheduled") {
-      scheduledFor = input.scheduled_at;
-      triggerType = "scheduled";
-    } else if (input.send_mode === "recurring") {
-      triggerType = "recurring";
-      const next = computeNextRecurrenceScheduledFor(
-        {
-          kind: (input.recurrence_kind ?? "weekly") as "daily" | "weekly" | "monthly",
-          timeLocal: (input.recurrence_time ?? "09:00").slice(0, 5),
-          timezone: input.recurrence_timezone ?? "Asia/Seoul",
-          startAt: input.recurrence_start_at ?? new Date().toISOString(),
-          endAt: input.recurrence_end_at ?? null,
-          maxCount: input.recurrence_max_count ?? null,
-          weekday: input.recurrence_weekday ?? null,
-        },
-        new Date(),
-        seq
-      );
-      scheduledFor = next?.toISOString() ?? null;
-    }
-
-    const ensured = await ensureCampaignOccurrence(svc, {
+    const created = await createCampaignDispatchOccurrence(svc, {
       campaignId,
-      sequenceNumber: seq,
-      triggerType,
-      scheduledFor,
-      idempotencyKey: newOccurrenceIdempotencyKey(`occ:${campaignId}:${seq}`),
-      triggeredBy: adminUserId,
-      campaign: campaignSnapshot,
-      audienceSnapshot,
+      adminUserId,
+      sequenceNumber: 1,
+      idempotencyKey: newOccurrenceIdempotencyKey(`occ:${campaignId}:1`),
+      snapshot: campaignSnapshot,
+      audience: {
+        type: input.type,
+        target_type: input.target_type,
+        channel: input.channel,
+        segment_region_code: input.segment_region_code,
+        target_user_ids: selectedUserIds.length ? selectedUserIds : input.target_user_ids,
+      },
+      selectedUserIds,
+      schedule: input,
     });
-
-    if (!ensured.ok) {
-      return { ok: false, error: ensured.error, status: 500 };
+    if (!created.ok) {
+      return { ok: false, error: created.error, status: 500 };
     }
-    occurrenceId = ensured.occurrence.id;
-
-    if (input.target_type === "selected_users" && selectedUserIds.length && occurrenceId) {
-      await ensureCampaignTargetsForSelectedUsers(svc, campaignId, occurrenceId, selectedUserIds);
-    }
+    occurrenceId = created.occurrenceId;
   }
 
   return { ok: true, campaignId, occurrenceId, replay: false };
+}
+
+export type CampaignScheduleInput = Pick<
+  CreateCampaignInput,
+  | "send_mode"
+  | "scheduled_at"
+  | "recurrence_kind"
+  | "recurrence_time"
+  | "recurrence_timezone"
+  | "recurrence_start_at"
+  | "recurrence_end_at"
+  | "recurrence_max_count"
+  | "recurrence_weekday"
+>;
+
+/** First due time for a schedule (null for immediate or an exhausted recurrence). */
+export function resolveCampaignOccurrenceSchedule(
+  schedule: CampaignScheduleInput,
+  sequenceNumber: number,
+  now = new Date()
+): { triggerType: "immediate" | "scheduled" | "recurring"; scheduledFor: string | null } {
+  if (schedule.send_mode === "scheduled") {
+    return { triggerType: "scheduled", scheduledFor: schedule.scheduled_at };
+  }
+  if (schedule.send_mode === "recurring") {
+    const next = computeNextRecurrenceScheduledFor(
+      {
+        kind: (schedule.recurrence_kind ?? "weekly") as "daily" | "weekly" | "monthly",
+        timeLocal: (schedule.recurrence_time ?? "09:00").slice(0, 5),
+        timezone: schedule.recurrence_timezone ?? "Asia/Seoul",
+        startAt: schedule.recurrence_start_at ?? now.toISOString(),
+        endAt: schedule.recurrence_end_at ?? null,
+        maxCount: schedule.recurrence_max_count ?? null,
+        weekday: schedule.recurrence_weekday ?? null,
+      },
+      now,
+      sequenceNumber
+    );
+    return { triggerType: "recurring", scheduledFor: next?.toISOString() ?? null };
+  }
+  return { triggerType: "immediate", scheduledFor: null };
+}
+
+/**
+ * Creates one dispatch occurrence (immediate / scheduled / recurring first slot) with the
+ * audience snapshot and selected_users target rows. Shared by create (POST) and the
+ * draft → schedule action (ADM-04).
+ */
+export async function createCampaignDispatchOccurrence(
+  svc: SupabaseClient,
+  input: {
+    campaignId: string;
+    adminUserId: string;
+    sequenceNumber: number;
+    idempotencyKey: string;
+    snapshot: Parameters<typeof ensureCampaignOccurrence>[1]["campaign"];
+    audience: Parameters<typeof previewCampaignAudience>[1];
+    selectedUserIds: string[];
+    schedule: CampaignScheduleInput;
+  }
+): Promise<{ ok: true; occurrenceId: string; scheduledFor: string | null } | { ok: false; error: string }> {
+  const preview = await previewCampaignAudience(svc, input.audience);
+  const audienceSnapshot = audiencePreviewToSnapshot(preview, new Date().toISOString());
+  const { triggerType, scheduledFor } = resolveCampaignOccurrenceSchedule(input.schedule, input.sequenceNumber);
+
+  const ensured = await ensureCampaignOccurrence(svc, {
+    campaignId: input.campaignId,
+    sequenceNumber: input.sequenceNumber,
+    triggerType,
+    scheduledFor,
+    idempotencyKey: input.idempotencyKey,
+    triggeredBy: input.adminUserId,
+    campaign: input.snapshot,
+    audienceSnapshot,
+  });
+  if (!ensured.ok) return { ok: false, error: ensured.error };
+
+  if (input.selectedUserIds.length) {
+    await ensureCampaignTargetsForSelectedUsers(
+      svc,
+      input.campaignId,
+      ensured.occurrence.id,
+      input.selectedUserIds
+    );
+  }
+  return { ok: true, occurrenceId: ensured.occurrence.id, scheduledFor };
 }
 
 export async function resolveLatestQueuedOccurrenceId(

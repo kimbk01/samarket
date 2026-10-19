@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -11,6 +11,16 @@ import {
   notifTargetLabel,
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
+import { CampaignActionConfirmDialog } from "@/components/admin/notifications/CampaignActionConfirmDialog";
+import {
+  formatCampaignTime,
+  type CampaignConfirmAction,
+  type CampaignConfirmFacts,
+} from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import {
+  campaignStatusLabel,
+  type CampaignAction,
+} from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import type { CampaignAudiencePreview } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import {
@@ -39,6 +49,25 @@ type CampaignSummary = {
   scheduled_for?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  opened?: OpenedCounts | null;
+};
+
+type OpenedCounts = { push: number; in_app: number; capped?: boolean };
+
+type AuditLogRow = {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  target_count: number | null;
+  created_at: string;
+};
+
+type PendingConfirm = {
+  action: CampaignConfirmAction;
+  facts: CampaignConfirmFacts;
+  run: () => Promise<void>;
 };
 
 type OccurrenceRow = {
@@ -51,8 +80,11 @@ type OccurrenceRow = {
   push_device_count: number;
   in_app_sent: number;
   in_app_member_count: number;
+  target_member_count?: number;
   started_at: string | null;
   completed_at: string | null;
+  last_error?: string | null;
+  opened?: OpenedCounts | null;
 };
 
 type DeviceLogRow = {
@@ -102,7 +134,9 @@ function readLinkedPlatformEventId(payload: unknown): string {
 export function AdminNotificationCampaignDetailPage() {
   const { t, safeT, language } = useI18n();
   const params = useParams();
+  const router = useRouter();
   const id = typeof params?.campaignId === "string" ? params.campaignId : "";
+  const lang = language === "en" ? "en" : "ko";
 
   const [camp, setCamp] = useState<Record<string, unknown> | null>(null);
   const [summary, setSummary] = useState<CampaignSummary | null>(null);
@@ -117,6 +151,12 @@ export function AdminNotificationCampaignDetailPage() {
     audience: CampaignAudiencePreview;
     idempotencyKey: string;
   } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [allowedActions, setAllowedActions] = useState<CampaignAction[]>([]);
+  const [effectiveStatus, setEffectiveStatus] = useState<string>("");
+  const [authorName, setAuthorName] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [auditSupported, setAuditSupported] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -129,9 +169,19 @@ export function AdminNotificationCampaignDetailPage() {
         summary?: CampaignSummary | null;
         occurrences?: OccurrenceRow[];
         deviceDeliveryLog?: DeviceLogRow[];
+        allowed_actions?: CampaignAction[];
+        effective_status?: string;
+        author_name?: string | null;
+        audit_logs?: AuditLogRow[];
+        audit_supported?: boolean;
       };
       if (res.ok && j?.ok) {
         setCamp(j.campaign ?? null);
+        setAllowedActions(Array.isArray(j.allowed_actions) ? j.allowed_actions : []);
+        setEffectiveStatus(typeof j.effective_status === "string" ? j.effective_status : "");
+        setAuthorName(typeof j.author_name === "string" ? j.author_name : null);
+        setAuditLogs(Array.isArray(j.audit_logs) ? j.audit_logs : []);
+        setAuditSupported(j.audit_supported !== false);
         setSummary(j.summary ?? null);
         setOccurrences(Array.isArray(j.occurrences) ? j.occurrences : []);
         setDeviceDeliveryLog(Array.isArray(j.deviceDeliveryLog) ? j.deviceDeliveryLog : []);
@@ -234,20 +284,61 @@ export function AdminNotificationCampaignDetailPage() {
   }, [isSending, refresh]);
 
   const cancelOccurrence = async (occurrenceId: string) => {
-    if (busy) return;
+    const res = await fetch(`/api/admin/notification-campaigns/occurrences/${occurrenceId}/cancel`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok || !j?.ok) {
+      setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
+      return;
+    }
+    await refresh();
+  };
+
+  /** Lifecycle action (ADM-03 cancel/stop, pause/resume, archive, duplicate). */
+  const runLifecycleAction = async (action: CampaignAction) => {
+    const res = await fetch(`/api/admin/notification-campaigns/${id}/actions`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; id?: string };
+    if (!res.ok || !j?.ok) {
+      setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
+      return;
+    }
+    if (action === "duplicate" && typeof j.id === "string") {
+      router.push(`/admin/notifications/create?edit=${encodeURIComponent(j.id)}`);
+      return;
+    }
+    await refresh();
+  };
+
+  /** Resend a failed real occurrence through the same send route (claim + batch). */
+  const resendOccurrence = async (occurrenceId: string) => {
+    const key = newSendIdempotencyKey();
+    const res = await fetch(`/api/admin/notification-campaigns/${id}/send`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+      body: JSON.stringify({ idempotency_key: key, occurrence_id: occurrenceId }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok || !j?.ok) {
+      setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
+    }
+    await refresh();
+  };
+
+  const runConfirmed = async () => {
+    if (!pendingConfirm || busy) return;
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/admin/notification-campaigns/occurrences/${occurrenceId}/cancel`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
-        return;
-      }
-      await refresh();
+      await pendingConfirm.run();
+      setPendingConfirm(null);
     } finally {
       setBusy(false);
     }
@@ -295,6 +386,33 @@ export function AdminNotificationCampaignDetailPage() {
       setBusy(false);
     }
   };
+
+  const channelText = notifChannelLabel(t, String(camp?.channel ?? "push_and_in_app"));
+  const latestReal = occurrences.find((o) => o.trigger_type !== "test") ?? null;
+  const latestTargetCount =
+    latestReal?.target_member_count ??
+    summary?.target_member_count ??
+    (camp?.target_count != null ? Number(camp.target_count) : null);
+  const factsFor = (timeLabel: string, targetCount: number | null = latestTargetCount): CampaignConfirmFacts => ({
+    title: String(camp?.title ?? ""),
+    targetCount,
+    channelLabel: channelText,
+    timeLabel,
+  });
+  const openConfirm = (action: CampaignConfirmAction, facts: CampaignConfirmFacts, run: () => Promise<void>) => {
+    setErr(null);
+    setPendingConfirm({ action, facts, run });
+  };
+  const queuedReal = occurrences.find((o) => o.status === "queued" && o.trigger_type !== "test") ?? null;
+  const failedReal = occurrences.find((o) => o.status === "failed" && o.trigger_type !== "test") ?? null;
+  const can = (a: CampaignAction) => allowedActions.includes(a);
+  const nowLabel = lang === "en" ? "Now" : "지금";
+  const formatOpenedCounts = (o: OpenedCounts | null | undefined) =>
+    o
+      ? lang === "en"
+        ? `Push ${o.push}${o.capped ? "+" : ""} · In-app ${o.in_app}${o.capped ? "+" : ""}`
+        : `푸시 ${o.push}${o.capped ? "+" : ""} · 인앱 ${o.in_app}${o.capped ? "+" : ""}`
+      : "—";
 
   const confirmSend = async () => {
     if (busy || !sendConfirm) return;
@@ -437,7 +555,8 @@ export function AdminNotificationCampaignDetailPage() {
                 <h1 className="text-lg font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
               </div>
               <span className="rounded-ui-rect bg-sam-app px-2 py-1 text-xs text-sam-muted">
-                {notifStatusLabel(t, String(camp.status ?? ""))}
+                {campaignStatusLabel(effectiveStatus || String(camp.status ?? ""), lang)}
+                {typeof camp.archived_at === "string" && camp.archived_at ? (lang === "en" ? " · Archived" : " · 보관됨") : null}
               </span>
             </div>
             <div>
@@ -522,6 +641,10 @@ export function AdminNotificationCampaignDetailPage() {
                 {sendModeLabel(t, String(camp.send_mode ?? "immediate"))}
               </p>
               <p>
+                <span className="text-sam-muted">{t("admin_notif_th_author")}</span>{" "}
+                {authorName ?? (camp.created_by ? `${String(camp.created_by).slice(0, 8)}…` : "—")}
+              </p>
+              <p>
                 <span className="text-sam-muted">{t("admin_notif_detail_created_at")}</span>{" "}
                 {String(camp.created_at ?? "—")}
               </p>
@@ -543,56 +666,179 @@ export function AdminNotificationCampaignDetailPage() {
 
           {canSendDraft ? (
             <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-              {!sendConfirm ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void openSendConfirm()}
-                  className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
-                </button>
-              ) : (
-                <div className="space-y-2 text-sm">
-                  <p className="font-medium text-sam-fg">
-                    {safeT("admin_notif_send_confirm_title", {
-                      fallbackKo: "아래 내용으로 발송합니다. 발송 후에는 취소할 수 없습니다.",
-                      fallbackEn: "This will be sent as shown. It cannot be undone after sending.",
-                    })}
-                  </p>
-                  <div className="rounded-ui-rect bg-sam-app px-3 py-2">
-                    <p className="break-words font-semibold text-sam-fg">{String(camp.title ?? "")}</p>
-                    <p className="whitespace-pre-wrap break-words text-sam-muted">{String(camp.body ?? "")}</p>
-                  </div>
-                  <p className="text-xs text-sam-muted">
-                    {t("admin_notif_detail_target_count")}: {sendConfirm.audience.totalUsers} ·{" "}
-                    {t("admin_notif_audience_push_users", { count: sendConfirm.audience.pushEligibleUsers })}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void confirmSend()}
-                      className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      {safeT("admin_notif_btn_send_confirm", {
-                        fallbackKo: "확인 후 발송",
-                        fallbackEn: "Confirm and send",
-                      })}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setSendConfirm(null)}
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm"
-                    >
-                      {t("common_cancel")}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void openSendConfirm()}
+                className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
+              </button>
             </section>
           ) : null}
+
+          <CampaignActionConfirmDialog
+            action={sendConfirm ? "send" : null}
+            facts={
+              sendConfirm
+                ? {
+                    title: String(camp.title ?? ""),
+                    targetCount: sendConfirm.audience.totalUsers,
+                    pushEligibleCount: sendConfirm.audience.pushEligibleUsers,
+                    channelLabel: channelText,
+                    timeLabel: lang === "en" ? "Immediately" : "즉시 발송",
+                  }
+                : null
+            }
+            lang={lang}
+            pending={busy}
+            cancelLabel={t("common_cancel")}
+            onCancel={() => setSendConfirm(null)}
+            onConfirm={() => void confirmSend()}
+          />
+          <CampaignActionConfirmDialog
+            action={pendingConfirm?.action ?? null}
+            facts={pendingConfirm?.facts ?? null}
+            lang={lang}
+            pending={busy}
+            cancelLabel={t("common_cancel")}
+            onCancel={() => setPendingConfirm(null)}
+            onConfirm={() => void runConfirmed()}
+          />
+
+          {/* ADM-03/04: lifecycle actions — each through a confirm dialog (대상 · 채널 · 시각) */}
+          <section
+            className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-admin-notif-actions="1"
+          >
+            {can("edit") ? (
+              <Link
+                href={`/admin/notifications/create?edit=${encodeURIComponent(id)}`}
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm text-sam-fg"
+              >
+                {lang === "en" ? "Edit" : "수정"}
+              </Link>
+            ) : null}
+            {can("cancel") && String(camp.status ?? "") === "scheduled" ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  openConfirm(
+                    "cancel",
+                    factsFor(formatCampaignTime(queuedReal?.scheduled_for ?? (camp.scheduled_at as string | null))),
+                    () => runLifecycleAction("cancel")
+                  )
+                }
+                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
+              >
+                {lang === "en" ? "Cancel reservation" : "예약 취소"}
+              </button>
+            ) : null}
+            {can("stop_sending") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => openConfirm("stop_sending", factsFor(nowLabel), () => runLifecycleAction("stop_sending"))}
+                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
+              >
+                {lang === "en" ? "Stop sending" : "발송 중지"}
+              </button>
+            ) : null}
+            {can("pause") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  openConfirm(
+                    "pause",
+                    factsFor(queuedReal ? formatCampaignTime(queuedReal.scheduled_for) : nowLabel),
+                    () => runLifecycleAction("pause")
+                  )
+                }
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
+              >
+                {lang === "en" ? "Pause" : "일시정지"}
+              </button>
+            ) : null}
+            {can("resume") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => openConfirm("resume", factsFor(nowLabel), () => runLifecycleAction("resume"))}
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
+              >
+                {lang === "en" ? "Resume" : "재개"}
+              </button>
+            ) : null}
+            {can("stop_recurring") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  openConfirm("stop_recurring", factsFor(nowLabel), () => runLifecycleAction("stop_recurring"))
+                }
+                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
+              >
+                {lang === "en" ? "Stop series" : "반복 중지"}
+              </button>
+            ) : null}
+            {can("resend") && failedReal ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  openConfirm(
+                    "resend",
+                    factsFor(
+                      lang === "en" ? "Immediately" : "즉시 재발송",
+                      failedReal.target_member_count ?? latestTargetCount
+                    ),
+                    () => resendOccurrence(failedReal.id)
+                  )
+                }
+                className="rounded-ui-rect border border-red-300 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
+              >
+                {lang === "en" ? "Resend" : "재발송"}
+              </button>
+            ) : null}
+            {can("duplicate") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => openConfirm("duplicate", factsFor("—"), () => runLifecycleAction("duplicate"))}
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
+              >
+                {lang === "en" ? "Duplicate" : "복제"}
+              </button>
+            ) : null}
+            {can("archive") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  openConfirm(
+                    "archive",
+                    factsFor(formatCampaignTime((camp.sent_at as string | null) ?? (camp.created_at as string | null))),
+                    () => runLifecycleAction("archive")
+                  )
+                }
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
+              >
+                {lang === "en" ? "Archive" : "보관"}
+              </button>
+            ) : null}
+            {can("unarchive") ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => openConfirm("unarchive", factsFor("—"), () => runLifecycleAction("unarchive"))}
+                className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm disabled:opacity-40"
+              >
+                {lang === "en" ? "Unarchive" : "보관 해제"}
+              </button>
+            ) : null}
+          </section>
 
           {isSending ? (
             <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
@@ -631,6 +877,18 @@ export function AdminNotificationCampaignDetailPage() {
                   })}
                 </p>
               </div>
+              <div className="grid gap-2 text-sm sm:grid-cols-2" data-admin-notif-delivery-columns="1">
+                <p className="rounded-ui-rect bg-sam-app px-3 py-2">
+                  <span className="text-sam-muted">{lang === "en" ? "Delivered" : "발송 완료"}</span>{" "}
+                  {lang === "en"
+                    ? `Push ${summary.push_sent ?? 0} · In-app ${summary.in_app_sent ?? 0}`
+                    : `푸시 ${summary.push_sent ?? 0} · 인앱 ${summary.in_app_sent ?? 0}`}
+                </p>
+                <p className="rounded-ui-rect bg-sam-app px-3 py-2">
+                  <span className="text-sam-muted">{lang === "en" ? "Opened" : "열람"}</span>{" "}
+                  {formatOpenedCounts(summary.opened)}
+                </p>
+              </div>
               <p className="text-xs text-sam-muted">
                 {t("admin_notif_detail_target_count")}: {summary.target_member_count ?? 0} ·{" "}
                 {t("admin_notif_audience_push_users", { count: summary.push_eligible_member_count ?? 0 })}
@@ -651,7 +909,9 @@ export function AdminNotificationCampaignDetailPage() {
                       <th className="py-1 pr-3">{t("admin_occurrence_th_trigger")}</th>
                       <th className="py-1 pr-3">{t("admin_notif_label_status")}</th>
                       <th className="py-1 pr-3">{t("admin_notif_detail_scheduled_at")}</th>
-                      <th className="py-1 pr-3">{t("admin_notif_th_result")}</th>
+                      <th className="py-1 pr-3">{lang === "en" ? "Delivered" : "발송 완료"}</th>
+                      <th className="py-1 pr-3">{lang === "en" ? "Opened" : "열람"}</th>
+                      <th className="py-1 pr-3">{lang === "en" ? "Note" : "비고"}</th>
                       <th className="py-1">{t("admin_points_th_work")}</th>
                     </tr>
                   </thead>
@@ -665,7 +925,7 @@ export function AdminNotificationCampaignDetailPage() {
                             ? t("admin_notif_status_queued")
                             : notifStatusLabel(t, row.status)}
                         </td>
-                        <td className="py-1 pr-3">{row.scheduled_for?.slice(0, 16) ?? "—"}</td>
+                        <td className="py-1 pr-3">{row.scheduled_for ? formatCampaignTime(row.scheduled_for) : "—"}</td>
                         <td className="py-1 pr-3">
                           {t("admin_notif_result_metrics", {
                             pushSent: row.push_sent ?? 0,
@@ -674,12 +934,23 @@ export function AdminNotificationCampaignDetailPage() {
                             inAppTotal: row.in_app_member_count ?? 0,
                           })}
                         </td>
+                        <td className="py-1 pr-3">{formatOpenedCounts(row.opened)}</td>
+                        <td className="py-1 pr-3 break-all text-sam-muted">{row.last_error ?? "—"}</td>
                         <td className="py-1">
-                          {row.status === "queued" ? (
+                          {row.status === "queued" && row.trigger_type !== "test" ? (
                             <button
                               type="button"
                               disabled={busy}
-                              onClick={() => void cancelOccurrence(row.id)}
+                              onClick={() =>
+                                openConfirm(
+                                  String(camp.send_mode ?? "") === "recurring" ? "cancel_occurrence" : "cancel",
+                                  factsFor(
+                                    row.scheduled_for ? formatCampaignTime(row.scheduled_for) : nowLabel,
+                                    row.target_member_count ?? latestTargetCount
+                                  ),
+                                  () => cancelOccurrence(row.id)
+                                )
+                              }
                               className="rounded-ui-rect border border-red-300 px-2 py-0.5 text-[11px] text-red-700 disabled:opacity-40"
                             >
                               {t("admin_notif_btn_cancel_occurrence")}
@@ -695,6 +966,45 @@ export function AdminNotificationCampaignDetailPage() {
               </div>
             )}
           </section>
+
+          {/* Audit log (admin_notification_campaign_audit_logs) */}
+          <details className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-admin-notif-audit="1">
+            <summary className="cursor-pointer text-sm font-medium text-sam-fg">
+              {lang === "en" ? "Change history" : "변경 이력"}
+            </summary>
+            {!auditSupported ? (
+              <p className="mt-2 text-xs text-sam-muted">
+                {lang === "en"
+                  ? "Available after the audit-log migration is applied."
+                  : "감사 로그 마이그레이션 적용 후 표시됩니다."}
+              </p>
+            ) : auditLogs.length === 0 ? (
+              <p className="mt-2 text-xs text-sam-muted">—</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-xs text-sam-fg">
+                {auditLogs.map((log) => (
+                  <li key={log.id} className="flex flex-wrap gap-x-2">
+                    <span className="tabular-nums text-sam-muted">{formatCampaignTime(log.created_at)}</span>
+                    <span className="font-medium">{log.action}</span>
+                    {log.from_status || log.to_status ? (
+                      <span className="text-sam-muted">
+                        {log.from_status ? campaignStatusLabel(log.from_status, lang) : "—"} →{" "}
+                        {log.to_status ? campaignStatusLabel(log.to_status, lang) : "—"}
+                      </span>
+                    ) : null}
+                    {typeof log.target_count === "number" ? (
+                      <span className="text-sam-muted">
+                        {lang === "en" ? `audience ${log.target_count}` : `대상 ${log.target_count}명`}
+                      </span>
+                    ) : null}
+                    <span className="font-mono text-sam-meta">
+                      {log.actor_id ? `${log.actor_id.slice(0, 8)}…` : lang === "en" ? "system" : "시스템"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
 
           {/* 5. Device log */}
           <details className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
