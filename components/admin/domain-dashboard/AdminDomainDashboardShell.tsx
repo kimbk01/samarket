@@ -90,21 +90,18 @@ function ActionGrid({
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map((a) => (
-        <Link
-          key={a.id}
-          href={a.href}
-          prefetch={false}
-          className="flex min-h-[7rem] flex-col justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 transition-colors hover:border-signature/40 hover:bg-sam-app"
-          data-admin-domain-action={a.id}
-          data-source={a.source}
-          data-owner={a.owner}
-        >
+      {items.map((a) => {
+        const body = (
+          <>
           <div>
             <p className="mt-1 text-[15px] font-semibold text-sam-fg">{ko ? a.labelKo : a.labelEn}</p>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[13px] font-semibold text-sam-primary">{ko ? ctaKo : ctaEn}</span>
+            {a.href ? (
+              <span className="text-[13px] font-semibold text-sam-primary">{ko ? ctaKo : ctaEn}</span>
+            ) : (
+              <span className="text-[13px] text-sam-muted">{ko ? "목록 준비 중" : "List coming soon"}</span>
+            )}
             {a.count == null ? (
               <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
                 {unavailableLabel}
@@ -115,8 +112,28 @@ function ActionGrid({
               </span>
             )}
           </div>
-        </Link>
-      ))}
+          </>
+        );
+        const cls =
+          "flex min-h-[7rem] flex-col justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3";
+        return a.href ? (
+          <Link
+            key={a.id}
+            href={a.href}
+            prefetch={false}
+            className={`${cls} transition-colors hover:border-signature/40 hover:bg-sam-app`}
+            data-admin-domain-action={a.id}
+            data-source={a.source}
+            data-owner={a.owner}
+          >
+            {body}
+          </Link>
+        ) : (
+          <div key={a.id} className={cls} data-admin-domain-action={a.id} data-source={a.source} data-owner={a.owner}>
+            {body}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -202,8 +219,8 @@ export function AdminDomainDashboardShell({
           unavailableLabel={unavailableLabel}
           emptyKo="지금 처리할 대기 항목이 없습니다."
           emptyEn="No actionable items right now."
-          ctaKo="검토하기"
-          ctaEn="Review"
+          ctaKo={model.actionCta?.ko ?? "검토하기"}
+          ctaEn={model.actionCta?.en ?? "Review"}
         />
       </section>
 
@@ -234,8 +251,8 @@ export function AdminDomainDashboardShell({
             unavailableLabel={unavailableLabel}
             emptyKo="이슈 없음"
             emptyEn="No issues"
-            ctaKo="신고 검토"
-            ctaEn="Review report"
+            ctaKo={model.issuesCta?.ko ?? "신고 검토"}
+            ctaEn={model.issuesCta?.en ?? "Review report"}
           />
         </section>
       ) : null}

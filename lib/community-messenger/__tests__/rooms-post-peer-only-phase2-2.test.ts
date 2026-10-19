@@ -51,8 +51,10 @@ describe("POST /api/community-messenger/rooms — Phase 2-2 peer-only contract",
     expect(routeSrc).toContain('jsonError("cannot_start_chat", 403');
   });
 
-  it("store_order and productChat paths are unchanged", () => {
-    expect(routeSrc).toContain("ensureCommunityMessengerDirectRoomFromStoreOrderChat");
+  it("store_order delegates to the canonical ensure (R1-B C-18); productChat path unchanged", () => {
+    expect(routeSrc).toContain("ensureStoreOrderRoomForLegacyRoomsPost");
+    expect(routeSrc).not.toContain("ensureCommunityMessengerDirectRoomFromStoreOrderChat");
+    expect(read("lib/community-messenger/store-order-legacy-rooms-post.ts")).toContain("ensureStoreOrderMessengerRoom(");
     expect(routeSrc).toContain("ensureCommunityMessengerDirectRoomFromProductChat");
     const postDirectBlock = routeSrc.slice(routeSrc.indexOf("const isPeerOnlyDirect"));
     expect(postDirectBlock).not.toContain("isGeneralFriendDirectRoom(snapshot.room)) && storeOrderId");

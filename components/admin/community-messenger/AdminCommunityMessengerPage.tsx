@@ -1,8 +1,7 @@
 "use client";
 
-import { dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -16,14 +15,13 @@ import type {
   AdminCommunityMessengerCallAuditLog,
   AdminCommunityMessengerCallLog,
   AdminCommunityMessengerDashboard,
-  AdminCommunityMessengerReport,
-  AdminCommunityMessengerRoomSummary,
 } from "@/lib/admin-community-messenger/service";
-import type { CommunityMessengerRoomStatus } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { cmForceEndReasonLabel, useCmAdminLabels } from "./useCmAdminLabels";
 import type { CmAdminTranslate } from "./useCmAdminLabels";
-import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { buildAdminChatRoomListSearch, parseAdminChatRoomListQuery } from "@/lib/admin/chat-admin/admin-chat-list-url-state";
 
 const ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT = "admin:community-messenger:overview:silent";
 /** Coalesce burst postgres_changes into one overview GET. */
@@ -45,19 +43,13 @@ export function AdminCommunityMessengerPage() {
     defaultRoomLabel,
   } = useCmAdminLabels();
   const { language } = useI18n();
-  const contactPolicyTitle = language === "en" ? "Contact policy" : "Contact 정책";
-  const contactPolicyNotice =
-    language === "en"
-      ? "The friend request (pending) model is retired. User contacts use viewer-local saves. Legacy pending rows may remain in the DB but are not reviewed, accepted, or rejected in admin UI."
-      : "친구 요청(pending) 모델은 종료되었습니다. 사용자 Contact는 viewer-local 저장 방식입니다. legacy pending 데이터는 DB에 남을 수 있으나 관리자 UI에서 수락·거절·검토하지 않습니다.";
+  const ko = language !== "en";
   const searchParams = useSearchParams();
-  const initialListQueryAppliedRef = useRef(false);
+  const router = useRouter();
   const [data, setData] = useState<AdminCommunityMessengerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [roomStatusFilter, setRoomStatusFilter] = useState<CommunityMessengerRoomStatus | "">("");
-  const [roomTypeFilter, setRoomTypeFilter] = useState<"direct" | "private_group" | "open_group" | "">("");
+  /** 불러오기 실패 ≠ 데이터 없음 (C-10). */
+  const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [callQuery, setCallQuery] = useState("");
   const [callModeFilter, setCallModeFilter] = useState<"direct" | "group" | "">("");
   const [callStatusFilter, setCallStatusFilter] = useState<
@@ -72,24 +64,26 @@ export function AdminCommunityMessengerPage() {
 
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** 다른 관리 화면에서 `/admin/chats/messenger?room=…` · `?q=…` 로 점프 */
+  /**
+   * J-AMD-4: 방 목록·검색은 전체채팅(`/admin/chats`, 서버 검색·`user_id` 참여자 필터)으로 이동.
+   * 과거 딥링크 `/admin/chats/messenger?room=…|q=…|user_id=…` 는 같은 조건의 전체채팅으로 보낸다.
+   */
   useEffect(() => {
-    if (initialListQueryAppliedRef.current) return;
     const room = searchParams.get("room")?.trim();
     const q = searchParams.get("q")?.trim();
-    const v = room || q;
-    if (v) {
-      setQuery(v);
-      initialListQueryAppliedRef.current = true;
-    }
-  }, [searchParams]);
+    const userId = searchParams.get("user_id")?.trim();
+    if (!room && !q && !userId) return;
+    const parsed = parseAdminChatRoomListQuery(searchParams);
+    router.replace(`/admin/chats${buildAdminChatRoomListSearch(parsed)}`);
+  }, [router, searchParams]);
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/admin/community-messenger/overview", { cache: "no-store" });
-      const json = (await res.json()) as DashboardResponse;
-      if (res.ok && json.ok) {
+      const json = (await res.json().catch(() => null)) as (DashboardResponse & { error?: string }) | null;
+      if (res.ok && json?.ok) {
+        setLoadError(null);
         setData({
           stats: json.stats,
           forceEndReasonStats: json.forceEndReasonStats ?? [],
@@ -102,8 +96,14 @@ export function AdminCommunityMessengerPage() {
           callAudits: json.callAudits ?? [],
           reports: json.reports ?? [],
         });
-      } else {
+      } else if (!silent) {
         setData(null);
+        setLoadError({ code: json?.error || "load_failed", status: res.status });
+      }
+    } catch {
+      if (!silent) {
+        setData(null);
+        setLoadError({ code: "network_error" });
       }
     } finally {
       if (!silent) setLoading(false);
@@ -154,8 +154,14 @@ export function AdminCommunityMessengerPage() {
         scheduleRefresh
       )
       .on(
+        // C-20: audit_logs 전체가 아니라 통화 세션 강제 종료 기록만 구독.
         "postgres_changes",
-        { event: "*", schema: "public", table: "audit_logs" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "audit_logs",
+          filter: "target_type=eq.community_messenger_call_session",
+        },
         scheduleRefresh
       )
       .on(
@@ -170,25 +176,6 @@ export function AdminCommunityMessengerPage() {
       void sb.removeChannel(channel);
     };
   }, [refresh]);
-
-  const filteredRooms = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    return (data?.rooms ?? []).filter((room) => {
-      if (roomStatusFilter && room.roomStatus !== roomStatusFilter) return false;
-      if (roomTypeFilter && room.roomType !== roomTypeFilter) return false;
-      if (!keyword) return true;
-      const haystack = [
-        room.id,
-        room.title,
-        room.createdByLabel,
-        room.memberLabels.join(" "),
-        room.lastMessage,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(keyword);
-    });
-  }, [data?.rooms, query, roomStatusFilter, roomTypeFilter]);
 
   const filteredCalls = useMemo(() => {
     const keyword = callQuery.trim().toLowerCase();
@@ -318,19 +305,18 @@ export function AdminCommunityMessengerPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        titleKey="admin_cm_page_overview_title"
-        descriptionKey="admin_cm_page_overview_desc"
+        titleKey="admin_chat_calls_analysis_title"
+        backHref="/admin/chats/calls"
+        description={t("admin_chat_calls_analysis_desc")}
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <StatCard label={t("admin_cm_stat_total_rooms")} value={data?.stats.totalRooms ?? 0} helper={t("admin_cm_stat_total_rooms_helper")} />
-        <StatCard label={t("admin_cm_stat_active_rooms")} value={data?.stats.activeRooms ?? 0} helper={t("admin_cm_stat_active_rooms_helper")} />
-        <StatCard label={t("admin_cm_stat_blocked_archived")} value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
-        <StatCard label={t("admin_cm_stat_private_groups")} value={data?.stats.privateGroupRooms ?? 0} helper="friend invite" />
-        <StatCard label={t("admin_cm_stat_open_groups")} value={data?.stats.openGroupRooms ?? 0} helper="password join" />
-        <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
-        <StatCard label={t("admin_cm_stat_active_group_calls")} value={data?.stats.activeGroupCallSessions ?? 0} helper="group sessions" />
-        <StatCard label={t("admin_cm_stat_open_reports")} value={data?.stats.openReports ?? 0} helper="received + reviewing" />
+      {loadError && !loading ? (
+        <AdminErrorState ko={ko} code={loadError.code} httpStatus={loadError.status} onRetry={() => void refresh()} />
+      ) : null}
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper={ko ? "연결 중 + 통화 중" : "Ringing + in call"} />
+        <StatCard label={t("admin_cm_stat_active_group_calls")} value={data?.stats.activeGroupCallSessions ?? 0} helper={ko ? "그룹 통화 세션" : "Group call sessions"} />
         <StatCard label={t("admin_cm_stat_force_end_total")} value={data?.stats.forceEndTotal ?? 0} helper={t("admin_cm_stat_force_end_total_helper")} />
       </div>
 
@@ -591,76 +577,6 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard titleKey="admin_cm_card_room_list">
-        <div className="mb-3 flex flex-wrap gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("admin_cm_placeholder_room_search")}
-            className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
-          />
-          <select
-            value={roomStatusFilter}
-            onChange={(e) => setRoomStatusFilter(e.target.value as CommunityMessengerRoomStatus | "")}
-            className="rounded border border-sam-border px-3 py-2 sam-text-body"
-          >
-            <option value="">{t("admin_cm_filter_all_status")}</option>
-            <option value="active">active</option>
-            <option value="blocked">blocked</option>
-            <option value="archived">archived</option>
-          </select>
-          <select
-            value={roomTypeFilter}
-            onChange={(e) => setRoomTypeFilter(e.target.value as "direct" | "private_group" | "open_group" | "")}
-            className="rounded border border-sam-border px-3 py-2 sam-text-body"
-          >
-            <option value="">{t("admin_cm_filter_all_types")}</option>
-            <option value="direct">1:1</option>
-            <option value="private_group">{t("admin_cm_room_type_private_group")}</option>
-            <option value="open_group">{t("admin_cm_room_type_open_group")}</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          >
-            {t("admin_cm_common_refresh")}
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</div>
-        ) : filteredRooms.length === 0 ? (
-          <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_rooms")}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] sam-text-body">
-              <thead>
-                <tr className="border-b border-sam-border text-left text-sam-muted">
-                  <th className="px-3 py-2">{t("admin_cm_th_room")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_type")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_status")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_creator")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_participants")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_last_message")}</th>
-                  <th className="px-3 py-2">{t("admin_cm_th_last_time")}</th>
-                  <th className="px-3 py-2 text-right">{t("admin_cm_th_detail")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRooms.map((room) => (
-                  <RoomRow key={room.id} room={room} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </AdminCard>
-
-      <AdminCard title={contactPolicyTitle}>
-        <p className="sam-text-body text-sam-fg">{contactPolicyNotice}</p>
-      </AdminCard>
-
       <div className="grid gap-4 xl:grid-cols-2">
         <AdminCard titleKey="admin_cm_card_active_calls">
           <div className="mb-3 flex flex-wrap gap-2">
@@ -685,8 +601,8 @@ export function AdminCommunityMessengerPage() {
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">{t("admin_cm_filter_all_active_status")}</option>
-              <option value="ringing">ringing</option>
-              <option value="active">active</option>
+              <option value="ringing">{adminChatLabel("call_status", "ringing", ko).label}</option>
+              <option value="active">{adminChatLabel("call_status", "active", ko).label}</option>
             </select>
             <select
               value={callKindFilter}
@@ -694,8 +610,8 @@ export function AdminCommunityMessengerPage() {
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">{t("admin_cm_filter_all_call_kind")}</option>
-              <option value="voice">voice</option>
-              <option value="video">video</option>
+              <option value="voice">{adminChatLabel("call_kind", "voice", ko).label}</option>
+              <option value="video">{adminChatLabel("call_kind", "video", ko).label}</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -719,12 +635,12 @@ export function AdminCommunityMessengerPage() {
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">{t("admin_cm_filter_all_record_status")}</option>
-              <option value="missed">missed</option>
-              <option value="rejected">rejected</option>
-              <option value="cancelled">cancelled</option>
-              <option value="ended">ended</option>
-              <option value="incoming">incoming</option>
-              <option value="dialing">dialing</option>
+              <option value="missed">{adminChatLabel("call_status", "missed", ko).label}</option>
+              <option value="rejected">{adminChatLabel("call_status", "rejected", ko).label}</option>
+              <option value="cancelled">{adminChatLabel("call_status", "cancelled", ko).label}</option>
+              <option value="ended">{adminChatLabel("call_status", "ended", ko).label}</option>
+              <option value="incoming">{adminChatLabel("call_status", "incoming", ko).label}</option>
+              <option value="dialing">{adminChatLabel("call_status", "dialing", ko).label}</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -766,17 +682,6 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard titleKey="admin_cm_card_recent_reports">
-        <div className="space-y-2">
-          {(data?.reports ?? []).length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_reports")}</div>
-          ) : (
-            (data?.reports ?? []).map((report) => (
-              <ReportRow key={report.id} report={report} busy={busy} onRefresh={refresh} />
-            ))
-          )}
-        </div>
-      </AdminCard>
     </div>
   );
 }
@@ -1317,55 +1222,9 @@ function ForceEndReasonAdminCard({
   );
 }
 
-function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
-  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
-  return (
-    <tr className="border-b border-sam-border-soft align-top">
-      <td className="px-3 py-3">
-        <div className="font-medium text-sam-fg">{room.title}</div>
-        <div className="mt-1 font-mono sam-text-helper text-sam-meta">{room.id}</div>
-        {room.adminNote ? <div className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: room.adminNote })}</div> : null}
-      </td>
-      <td className="px-3 py-3 text-sam-fg">
-        {roomTypeLabel(room.roomType === "open_group" ? "open_group" : room.roomType === "private_group" ? "private_group" : "direct")}
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex flex-wrap gap-1">
-          <span className="rounded bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-fg">{room.roomStatus}</span>
-          {room.isReadonly ? (
-            <span className="rounded bg-amber-50 px-2 py-1 sam-text-helper text-amber-700">readonly</span>
-          ) : null}
-          {room.roomType === "open_group" ? (
-            <span className="rounded bg-sky-50 px-2 py-1 sam-text-helper text-sky-700">
-              {room.isDiscoverable ? "discoverable" : "hidden"}
-            </span>
-          ) : null}
-          {room.requiresPassword ? (
-            <span className="rounded bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-fg">password</span>
-          ) : null}
-        </div>
-      </td>
-      <td className="px-3 py-3 text-sam-fg">{room.createdByLabel}</td>
-      <td className="px-3 py-3 text-sam-fg">
-        <div>{t("admin_cm_common_members", { count: room.memberCount })}</div>
-        <div className="mt-1 sam-text-helper text-sam-muted">{room.memberLabels.join(", ")}</div>
-      </td>
-      <td className="px-3 py-3 text-sam-fg">{room.lastMessage}</td>
-      <td className="px-3 py-3 whitespace-nowrap text-sam-muted">{formatDateTime(room.lastMessageAt)}</td>
-      <td className="px-3 py-3 text-right">
-        <Link
-          href={`/admin/chats/messenger/${encodeURIComponent(room.id)}`}
-          className="text-signature hover:underline"
-        >
-          {t("admin_cm_action_view_detail")}
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
 function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
   const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
+  const { language } = useI18n();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -1380,7 +1239,12 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
             {call.callerLabel} {"->"} {call.peerLabel}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
-            {t("admin_cm_common_call_duration", { kind: call.callKind, status: call.status, seconds: call.durationSeconds, count: call.participantCount })}
+            {t("admin_cm_common_call_duration", {
+              kind: adminChatLabel("call_kind", call.callKind, language !== "en").label,
+              status: adminChatLabel("call_status", call.status, language !== "en").label,
+              seconds: call.durationSeconds,
+              count: call.participantCount,
+            })}
           </p>
         </div>
         <div className="sam-text-helper text-sam-meta">{formatDateTime(call.startedAt)}</div>
@@ -1391,6 +1255,7 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
 
 function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSession }) {
   const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
+  const { language } = useI18n();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -1402,7 +1267,9 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
             </span>
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            {t("admin_cm_common_initiator", { name: call.initiatorLabel })} · {call.callKind} · {call.status}
+            {t("admin_cm_common_initiator", { name: call.initiatorLabel })} ·{" "}
+            {adminChatLabel("call_kind", call.callKind, language !== "en").label} ·{" "}
+            {adminChatLabel("call_status", call.status, language !== "en").label}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
             {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
@@ -1458,91 +1325,6 @@ function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
               {t("admin_cm_action_room_detail")}
             </Link>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReportRow({
-  report,
-  busy,
-  onRefresh,
-}: {
-  report: AdminCommunityMessengerReport;
-  busy: string | null;
-  onRefresh: () => Promise<void>;
-}) {
-  const { t } = useCmAdminLabels();
-  const run = async (action: "reviewing" | "resolved" | "rejected" | "sanction_message_hide" | "sanction_room_block") => {
-    const key = `report:${report.id}:${action}`;
-    try {
-      const res = await fetch(`/api/admin/community-messenger/reports/${encodeURIComponent(report.id)}/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        await dibayAlert({ title: json.error ?? t("admin_cm_err_report_action_failed") });
-        return;
-      }
-      emitAdminQueueChanged("messenger_actionable");
-      await onRefresh();
-    } finally {}
-  };
-
-  return (
-    <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="sam-text-body font-medium text-sam-fg">
-            {report.reportType} · {report.roomTitle}
-          </p>
-          <p className="mt-1 sam-text-helper text-sam-muted">
-            {t("admin_cm_common_reporter_line", { reporter: report.reporterLabel, target: report.reportedUserLabel, status: report.status })}
-          </p>
-          <p className="mt-1 sam-text-helper text-sam-fg">
-            {t("admin_cm_common_reason_line", { reason: `${report.reasonType}${report.reasonDetail ? ` · ${report.reasonDetail}` : ""}` })}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy === `report:${report.id}:reviewing`}
-            onClick={() => void run("reviewing")}
-            className="rounded border border-sam-border px-2.5 py-1.5 sam-text-helper text-sam-fg"
-          >
-            {t("admin_cm_action_reviewing")}
-          </button>
-          <button
-            type="button"
-            disabled={busy === `report:${report.id}:resolved`}
-            onClick={() => void run("resolved")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
-          >
-            {t("admin_cm_action_resolve")}
-          </button>
-          {report.messageId ? (
-            <button
-              type="button"
-              disabled={busy === `report:${report.id}:sanction_message_hide`}
-              onClick={() => void run("sanction_message_hide")}
-              className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1.5 sam-text-helper text-orange-700"
-            >
-              {t("admin_cm_action_hide_message")}
-            </button>
-          ) : null}
-          {report.roomId ? (
-            <button
-              type="button"
-              disabled={busy === `report:${report.id}:sanction_room_block`}
-              onClick={() => void run("sanction_room_block")}
-              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
-            >
-              {t("admin_cm_action_block_room")}
-            </button>
-          ) : null}
         </div>
       </div>
     </div>

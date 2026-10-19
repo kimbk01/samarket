@@ -11,6 +11,7 @@ import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminProductActionPanel } from "./AdminProductActionPanel";
+import { AdminLinkedChatRoomsCard } from "@/components/admin/chats/AdminLinkedChatRoomsCard";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   buildAdminTradeChatsHref,
@@ -341,6 +342,11 @@ export function AdminProductDetailPage({
           })}
         />
       </div>
+
+      <AdminLinkedChatRoomsCard
+        target={{ kind: "trade", postId: product.id }}
+        returnTo={`/admin/products/${encodeURIComponent(product.id)}`}
+      />
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <AdminProductActionPanel product={product} onActionSuccess={refreshDetail} />

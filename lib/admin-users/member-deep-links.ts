@@ -71,8 +71,9 @@ export function memberNoteComposeHref(userId: string): string {
   return `/admin/support?search=${encodeURIComponent(userId)}`;
 }
 
+/** C-10: 회원이 참여한 모든 채팅방 — 전체채팅의 서버 `user_id` 참여자 필터 (닉네임 검색 아님). */
 export function memberMessengerAdminHref(userId: string): string {
-  return `/admin/chats/messenger?q=${encodeURIComponent(userId)}`;
+  return `/admin/chats?user_id=${encodeURIComponent(userId.trim())}`;
 }
 
 export function memberGroupAdminHref(): string {

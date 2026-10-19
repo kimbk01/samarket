@@ -1,13 +1,15 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import Link from "next/link";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   adminTradeFlowDeepLinkActive,
   matchAdminTradeFlowSessionToDeepLink,
@@ -67,8 +69,32 @@ interface ReviewRow {
   created_at: string;
 }
 
+const TRADE_FLOW_STATUS_KEYS: Record<string, MessageKey> = {
+  chatting: "admin_trade_flow_status_chatting",
+  seller_marked_done: "admin_trade_flow_status_seller_marked_done",
+  buyer_confirmed: "admin_trade_flow_status_buyer_confirmed",
+  review_pending: "admin_trade_flow_status_review_pending",
+  review_completed: "admin_trade_flow_status_review_completed",
+  dispute: "admin_trade_flow_status_dispute",
+  cancelled: "admin_trade_flow_status_cancelled",
+  archived: "admin_trade_flow_status_archived",
+};
+const TRADE_CHAT_MODE_KEYS: Record<string, MessageKey> = {
+  open: "admin_trade_chat_mode_open",
+  limited: "admin_trade_chat_mode_limited",
+  readonly: "admin_trade_chat_mode_readonly",
+};
+
 export function AdminTradeFlowPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const tradeFlowStatusLabel = (v: string | null | undefined) => {
+    const key = TRADE_FLOW_STATUS_KEYS[String(v ?? "")];
+    return key ? t(key) : String(v ?? "—");
+  };
+  const tradeChatModeLabel = (v: string | null | undefined) => {
+    const key = TRADE_CHAT_MODE_KEYS[String(v ?? "")];
+    return key ? t(key) : String(v ?? "—");
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel") === "complete" ? "complete" : "flow";
@@ -139,11 +165,15 @@ export function AdminTradeFlowPage() {
 
   const revertTrade = useCallback(
     async (roomId: string) => {
-      if (
-        !(await dibayConfirm({ title: t("admin_trade_flow_revert_confirm") }))
-      ) {
-        return;
-      }
+      const confirmed = await confirmAdminAction({
+        level: "L2",
+        ko: language !== "en",
+        title: t("admin_trade_flow_revert_confirm"),
+        confirmLabel: t("admin_trade_flow_revert_trade"),
+        destructive: true,
+      });
+      if (!confirmed.ok) return;
+      const reason = confirmed.reason ?? "";
       setRevertingId(roomId);
       setError(null);
       logAdminMutation("trade-flow:revert", "start", { roomId });
@@ -151,7 +181,7 @@ export function AdminTradeFlowPage() {
         const res = await fetch("/api/admin/trade-flow/revert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId }),
+          body: JSON.stringify({ roomId, reason }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
@@ -291,22 +321,12 @@ export function AdminTradeFlowPage() {
                     >
                       <td className="px-3 py-2 font-mono sam-text-helper">
                         <div className="flex flex-col gap-0.5">
+                          {/* 설계 §8·§10: Admin 방 상세로 (사용자 앱 방은 열지 않는다 — 레거시 상세가 CM 방 상세로 보낸다) */}
                           <Link
-                            href={`/admin/chats/trade?postId=${encodeURIComponent(s.post_id)}&productChatId=${encodeURIComponent(s.id)}`}
+                            href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(s.id)}`, "/admin/trade-flow")}
                             className="text-signature hover:underline"
                           >
                             {s.id.slice(0, 8)}…
-                          </Link>
-                          <Link
-                            href={tradeChatNotificationHref(s.id, "product_chat")}
-                            className="sam-text-xxs text-sam-muted hover:underline"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {safeT("admin_trade_flow_open_member_chat", {
-                              fallbackKo: "멤버 채팅",
-                              fallbackEn: "Member chat",
-                            })}
                           </Link>
                         </div>
                       </td>
@@ -322,17 +342,17 @@ export function AdminTradeFlowPage() {
                       <td className="max-w-[100px] truncate px-3 py-2 text-sam-fg" title={s.sellerListingState ?? ""}>
                         {s.sellerListingState ?? "—"}
                       </td>
-                      <td className="px-3 py-2">{s.trade_flow_status}</td>
+                      <td className="px-3 py-2">{tradeFlowStatusLabel(s.trade_flow_status)}</td>
                       <td className="px-3 py-2">{s.hasBuyerReview ? "Y" : "N"}</td>
-                      <td className="px-3 py-2">{s.chat_mode}</td>
+                      <td className="px-3 py-2">{tradeChatModeLabel(s.chat_mode)}</td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.seller_completed_at
-                          ? new Date(s.seller_completed_at).toLocaleString("ko-KR")
+                          ? formatAdminDateTime(s.seller_completed_at, language)
                           : "—"}
                       </td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.buyer_confirmed_at
-                          ? new Date(s.buyer_confirmed_at).toLocaleString("ko-KR")
+                          ? formatAdminDateTime(s.buyer_confirmed_at, language)
                           : "—"}
                       </td>
                       <td className="px-3 py-2">
@@ -384,7 +404,7 @@ export function AdminTradeFlowPage() {
                   {reviews.map((rv) => (
                     <tr key={rv.id} className="border-b border-sam-border-soft">
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                        {rv.created_at ? new Date(rv.created_at).toLocaleString("ko-KR") : "—"}
+                        {rv.created_at ? formatAdminDateTime(rv.created_at, language) : "—"}
                       </td>
                       <td className="px-3 py-2">{reviewRoleLabels[rv.role_type as keyof typeof reviewRoleLabels] ?? rv.role_type}</td>
                       <td className="px-3 py-2">
@@ -410,7 +430,7 @@ export function AdminTradeFlowPage() {
                         </span>
                         <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                           {rv.room_id ? (
-                            <Link href={tradeChatNotificationHref(rv.room_id, "product_chat")} className="text-signature hover:underline" target="_blank">
+                            <Link href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(rv.room_id)}`, "/admin/trade-flow")} className="text-signature hover:underline">
                               {t("admin_trade_flow_chat_link")}
                             </Link>
                           ) : (
@@ -451,7 +471,7 @@ export function AdminTradeFlowPage() {
                   {logs.map((l) => (
                     <tr key={l.id} className="border-b border-sam-border-soft">
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                        {new Date(l.created_at).toLocaleString("ko-KR")}
+                        {formatAdminDateTime(l.created_at, language)}
                       </td>
                       <td className="px-3 py-2 font-mono sam-text-xxs">{l.user_id.slice(0, 8)}…</td>
                       <td className="px-3 py-2">{l.source_type}</td>

@@ -46,11 +46,12 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
   it("Messenger exposes general/group/trade/order/reported ops leaves", () => {
     expect(findAdminMenuByKey(adminMenu, "chat-general")?.path).toBe("/admin/chats/general");
     expect(findAdminMenuByKey(adminMenu, "chat-group")?.path).toBe("/admin/chats/group");
+    // J-AMD-4: trade / order entries are 전체채팅 type filters (no ?from= duplicates).
     expect(findAdminMenuByKey(adminMenu, "chat-trade-messenger")?.path).toBe(
-      "/admin/chats/trade?from=messenger"
+      "/admin/chats?type=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "delivery-order-chats-messenger")?.path).toBe(
-      "/admin/order-chats?from=messenger"
+      "/admin/chats?type=store_order"
     );
     expect(findAdminMenuByKey(adminMenu, "chat-reported")?.path).toBe("/admin/chats/reported");
   });

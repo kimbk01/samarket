@@ -13,7 +13,7 @@ export type SupportAdminContextLink = {
   labelKo: string;
   labelEn: string;
   /** Domain mutation lives elsewhere — Support is navigation only. */
-  mutationOwner: "ADS" | "FINANCE" | "STORE" | "MEMBER" | "PARTNER" | "SUPPORT_ARCHIVE" | "NONE";
+  mutationOwner: "ADS" | "FINANCE" | "STORE" | "MEMBER" | "CHAT" | "PARTNER" | "SUPPORT_ARCHIVE" | "NONE";
 };
 
 /** Resolve primary Admin href for a Support reference (fail-soft → null). */
@@ -152,6 +152,13 @@ export function resolveSupportCaseContextLinks(input: {
       labelKo: "회원 보기",
       labelEn: "Open member",
       mutationOwner: "MEMBER",
+    });
+    // 채팅 Admin 설계 §2-3: 요청자의 거래·주문 채팅방 (본문 열람은 방 권한 규칙 그대로).
+    links.push({
+      href: `/admin/chats?user_id=${encodeURIComponent(userId)}`,
+      labelKo: "요청자 채팅방",
+      labelEn: "Requester chat rooms",
+      mutationOwner: "CHAT",
     });
   }
   const ref = resolveSupportReferenceAdminHref(input.referenceType, input.referenceId);

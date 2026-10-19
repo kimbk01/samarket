@@ -3,7 +3,13 @@
  * POST { roomId }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import {
+  TRADE_FLOW_ADMIN_PERMISSION,
+  TRADE_FLOW_ADMIN_REASON_MIN_LENGTH,
+  parseTradeFlowAdminReason,
+} from "@/lib/admin/trade-flow/trade-flow-admin-action";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
@@ -14,13 +20,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
     return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
-  let body: { roomId?: string };
+  let body: { roomId?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
@@ -29,6 +35,13 @@ export async function POST(req: NextRequest) {
   const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+  }
+  const reason = parseTradeFlowAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json(
+      { ok: false, error: "reason_required", reasonMinLength: TRADE_FLOW_ADMIN_REASON_MIN_LENGTH },
+      { status: 400 }
+    );
   }
 
   const sb = getServiceOrAnonClient(
@@ -61,7 +74,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   const reviewDeadlineAt = reviewDeadlineIsoFromNow(policy.buyerReviewDeadlineDays);
 
-  const { error: updErr } = await sbAny
+  const { data: updRows, error: updErr } = await sbAny
     .from("product_chats")
     .update({
       trade_flow_status: "buyer_confirmed",
@@ -72,11 +85,24 @@ export async function POST(req: NextRequest) {
       updated_at: now,
     })
     .eq("id", roomId)
-    .eq("trade_flow_status", "seller_marked_done");
+    .eq("trade_flow_status", "seller_marked_done")
+    .select("id");
 
   if (updErr) {
     return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
   }
+  if (!Array.isArray(updRows) || updRows.length === 0) {
+    return NextResponse.json({ ok: false, error: "conflict" }, { status: 409 });
+  }
+
+  await appendAdminRouteAudit(sbAny, req, {
+    actorId: admin.actor.userId,
+    targetType: "product_chat",
+    targetId: roomId,
+    action: "trade_flow.confirm_buyer",
+    before: { trade_flow_status: flow },
+    after: { trade_flow_status: "buyer_confirmed", buyer_confirm_source: "admin", reason },
+  });
 
   try {
     const sellerId = (pc as { seller_id: string }).seller_id;

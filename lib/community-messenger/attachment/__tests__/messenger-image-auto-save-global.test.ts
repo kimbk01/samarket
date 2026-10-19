@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 import type { MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
 const saveMessengerImages = vi.fn();
@@ -133,7 +134,10 @@ describe("auto-save candidates (pure query builder / filter / mapper)", () => {
     const { messengerImageOriginalUrls } = await import("@/lib/community-messenger/attachment/messenger-image-save");
     const msg = m.messengerAutoSaveMessageFromRow(row("a", "2026-10-15T10:01:00Z"), VIEWER)!;
     expect(msg).toMatchObject({ id: "a", roomId: "room-a", senderId: PEER, isMine: false, messageType: "image" });
-    expect(messengerImageOriginalUrls(msg)).toEqual([`${P}/a.jpg`]);
+    /** C-4: 저장 URL 은 첨부 조회 라우트로 투영된다. */
+    expect(messengerImageOriginalUrls(msg)).toEqual([
+      messengerMediaRouteUrlFor({ roomId: "room-a", messageId: "a", src: `${P}/a.jpg` }),
+    ]);
     expect(m.messengerAutoSaveMessageFromRow(row("t", "2026-10-15T10:01:00Z", { message_type: "text" }))).toBeNull();
     expect(m.messengerAutoSaveMessageFromRow(row("me", "2026-10-15T10:01:00Z", { sender_id: VIEWER }), VIEWER)?.isMine).toBe(true);
   });
@@ -231,7 +235,9 @@ describe("auto-save dedupe across sources (realtime + catch-up)", () => {
     await flush();
 
     expect(saveMessengerImages).toHaveBeenCalledTimes(1);
-    expect(saveMessengerImages).toHaveBeenCalledWith([`${P}/m1.jpg`]);
+    expect(saveMessengerImages).toHaveBeenCalledWith([
+      messengerMediaRouteUrlFor({ roomId: "room-a", messageId: "m1", src: `${P}/m1.jpg` }),
+    ]);
     expect(summaries).toEqual([{ saved: 1, failed: 0, denied: false }]);
   });
 

@@ -2,7 +2,8 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { TRADE_FLOW_ADMIN_PERMISSION } from "@/lib/admin/trade-flow/trade-flow-admin-action";
 import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
  * POST (관리자 세션)
  */
 export async function POST(_req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {

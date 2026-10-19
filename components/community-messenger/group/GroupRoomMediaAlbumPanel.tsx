@@ -9,6 +9,7 @@ import {
   type GroupMediaAlbumFilter,
 } from "@/lib/community-messenger/group/use-group-room-media-album";
 import { formatTime, looksLikeDirectImageUrl } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
 
 type GroupRoomMediaAlbumPanelProps = {
   roomId: string;
@@ -73,7 +74,7 @@ export function GroupRoomMediaAlbumPanel({
               <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-sam-border-soft sam-text-xxs font-semibold text-sam-muted">
                 {isImage ? (
                   <SamarketThumbnail
-                    src={item.content.trim()}
+                    src={messengerMediaRouteUrlFor({ roomId, messageId: item.messageId, src: item.content })}
                     size={64}
                     roundedClassName="rounded-ui-rect"
                     className="h-full w-full object-cover"

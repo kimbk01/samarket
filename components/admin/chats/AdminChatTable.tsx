@@ -6,6 +6,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
 import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
+import { adminCmRoomDetailHref } from "@/lib/admin-community-messenger/room-domain-links";
+import { useAdminLocationReturnTo } from "./use-admin-location-return-to";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 
 interface AdminChatTableProps {
   rooms: AdminChatRoom[];
@@ -13,6 +16,8 @@ interface AdminChatTableProps {
   focusedRoomId?: string | null;
   onToggleRow: (roomId: string, checked: boolean) => void;
   onToggleAllVisible: (checked: boolean) => void;
+  /** 목록 URL (검색·필터·페이지 포함) — 상세 링크 `returnTo`. 없으면 현재 위치. */
+  returnTo?: string | null;
 }
 
 export function AdminChatTable({
@@ -21,6 +26,7 @@ export function AdminChatTable({
   focusedRoomId = null,
   onToggleRow,
   onToggleAllVisible,
+  returnTo = null,
 }: AdminChatTableProps) {
   const { t, safeT, language } = useI18n();
   const visibleIds = rooms.map((r) => r.id);
@@ -28,6 +34,8 @@ export function AdminChatTable({
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
   const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id));
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const { here: locationHere } = useAdminLocationReturnTo();
+  const here = returnTo ?? locationHere;
 
   useEffect(() => {
     const el = selectAllRef.current;
@@ -54,9 +62,9 @@ export function AdminChatTable({
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_room_id")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_chat_storage_th", {
-                fallbackKo: "저장소",
-                fallbackEn: "Storage",
+              {safeT("admin_chat_app_room_th", {
+                fallbackKo: "앱 채팅방",
+                fallbackEn: "App room",
               })}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_product_title")}</th>
@@ -93,13 +101,19 @@ export function AdminChatTable({
                 {r.id.slice(0, 8)}…
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-xxs text-sam-muted">
-                {r.adminChatStorage === "product_chats"
-                  ? "product_chats"
-                  : r.adminChatStorage === "meeting_open_chat"
-                    ? "meeting_open_chat"
-                    : r.adminChatStorage === "chat_rooms"
-                      ? "chat_rooms"
-                      : "—"}
+                {/* C-10: 저장소 원시 이름(product_chats·chat_rooms)은 운영 화면에 노출하지 않는다. */}
+                {/* R1-B C-1: 사용자 앱 채팅방(CM) 연결 */}
+                {r.messengerRoomId ? (
+                  <Link
+                    href={adminCmRoomDetailHref(r.messengerRoomId, here)}
+                    className="mt-0.5 block font-medium text-signature hover:underline"
+                    title={r.messengerRoomId}
+                  >
+                    {t("admin_chat_r1b_open_unified")}
+                  </Link>
+                ) : r.messengerRoomId === null ? (
+                  <span className="mt-0.5 block text-amber-800">{t("admin_chat_r1b_legacy_only")}</span>
+                ) : null}
               </td>
               <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
                 {r.productId ? (
@@ -138,21 +152,25 @@ export function AdminChatTable({
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.reportCount > 0 ? (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">Y</span>
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
+                    {language === "en" ? `${r.reportCount}` : `${r.reportCount}건`}
+                  </span>
                 ) : (
-                  <span className="text-sam-meta">N</span>
+                  <span className="text-sam-meta">—</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.roomStatus === "blocked" ? (
-                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">Y</span>
+                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
+                    {language === "en" ? "Blocked" : "차단"}
+                  </span>
                 ) : (
-                  <span className="text-sam-meta">N</span>
+                  <span className="text-sam-meta">—</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-right">
                 <Link
-                  href={`/admin/chats/${r.id}`}
+                  href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(r.id)}`, here)}
                   className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
                   {t("admin_chat_detail_link")}

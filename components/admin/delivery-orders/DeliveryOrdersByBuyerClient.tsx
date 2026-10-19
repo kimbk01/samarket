@@ -50,7 +50,7 @@ export function DeliveryOrdersByBuyerClient({ buyerUserId }: { buyerUserId: stri
       <p className="mb-2 text-xs text-sam-muted">
         buyerUserId: <span className="font-mono">{buyerUserId}</span> ·{" "}
         <Link
-          href={`/admin/chats/messenger?q=${encodeURIComponent(buyerUserId)}`}
+          href={`/admin/chats?user_id=${encodeURIComponent(buyerUserId)}`}
           className="text-signature underline"
         >
           {t("admin_do_by_buyer_messenger")}

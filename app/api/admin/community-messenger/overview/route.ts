@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getAdminCommunityMessengerDashboard } from "@/lib/admin-community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   const data = await getAdminCommunityMessengerDashboard();

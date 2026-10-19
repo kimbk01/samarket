@@ -4,12 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberMetricGrid, AdminMemberPager } from "@/components/admin/users/AdminMemberMetricGrid";
-import {
-  memberGroupAdminHref,
-  memberMessengerAdminHref,
-  memberOrderRoomAdminHref,
-  memberTradeChatAdminHref,
-} from "@/lib/admin-users/member-deep-links";
+import { memberGroupAdminHref, memberMessengerAdminHref } from "@/lib/admin-users/member-deep-links";
+import { ADMIN_CHAT_REPORT_QUEUE_PATH, adminChatRoomDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 import type { MemberChatTabPayload } from "@/lib/admin-users/member-chat-tab";
 import { CHAT_DOMAINS, type ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
@@ -68,6 +65,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
   }
 
   const { summary, total, rooms } = state.data;
+  const memberHere = `/admin/users/${encodeURIComponent(userId)}`;
   const hasNext = total.ok && page * 10 < total.value;
   const domainLabel = (id: ChatDomain) =>
     id === "general_direct"
@@ -120,32 +118,32 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+        <Link href={memberMessengerAdminHref(userId)}>
+          {safeT("admin_users_cc_cta_messenger", { fallbackKo: "메신저 운영 화면에서 보기", fallbackEn: "Open messenger admin" })}
+        </Link>
+        <Link
+          href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&q=${encodeURIComponent(userId)}&returnTo=${encodeURIComponent(memberHere)}`}
+        >
+          {t("admin_chat_member_reports_link")}
+        </Link>
+      </div>
       <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-[#eaecf0]`}>
         {rooms.map((row) => (
           <div key={`${row.source}:${row.id}`} className="space-y-1 px-4 py-3">
             <p className="text-sm font-semibold text-[#101828]">{row.title || row.identity || row.id}</p>
             <p className="text-xs text-[#667085]">
-              {row.domain} · {row.source} · {row.roomStatus || "—"} · {fmt(row.lastMessageAt)}
+              {adminChatLabel("chat_domain", row.domain, language !== "en").label} ·{" "}
+              {adminChatLabel("room_status", row.roomStatus || "active", language !== "en").label} · {fmt(row.lastMessageAt)}
             </p>
             <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
-              {row.source === "legacy_group_rooms" || row.domain === "group" ? (
+              {row.source === "legacy_group_rooms" ? (
                 <Link href={memberGroupAdminHref()}>
                   {safeT("admin_users_cc_cta_group_admin", { fallbackKo: "그룹 운영 화면에서 보기", fallbackEn: "Open group admin" })}
                 </Link>
-              ) : null}
-              {row.domain === "trade" ? (
-                <Link href={memberTradeChatAdminHref()}>
-                  {safeT("admin_users_cc_cta_trade_chat_admin", { fallbackKo: "Trade chat 관리에서 보기", fallbackEn: "Open trade chat admin" })}
-                </Link>
-              ) : null}
-              {row.domain === "store_order" ? (
-                <Link href={memberOrderRoomAdminHref()}>
-                  {safeT("admin_users_cc_cta_order_room_admin", { fallbackKo: "Order room 관리에서 보기", fallbackEn: "Open order room admin" })}
-                </Link>
-              ) : null}
-              <Link href={memberMessengerAdminHref(userId)}>
-                {safeT("admin_users_cc_cta_messenger", { fallbackKo: "메신저 운영 화면에서 보기", fallbackEn: "Open messenger admin" })}
-              </Link>
+              ) : (
+                <Link href={adminChatRoomDetailHref(row.id, memberHere)}>{t("admin_chat_member_open_room")}</Link>
+              )}
             </div>
           </div>
         ))}

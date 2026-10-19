@@ -111,8 +111,9 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(findAdminMenuByKey(adminMenu, "reports-logs")?.path).toBe("/admin/reports/log");
     expect(findAdminMenuByKey(adminMenu, "users")?.path).toBe("/admin/users");
 
-    const messengerKids = findAdminMenuByKey(adminMenu, "messenger")?.children ?? [];
-    expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);
+    // J-AMD-4: 채팅 신고 큐 lives under messenger › 신고·제재.
+    const reportSection = findAdminMenuByKey(adminMenu, "messenger-section-reports")?.children ?? [];
+    expect(reportSection.some((c) => c.key === "chat-reported")).toBe(true);
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
       "/admin/reports?domain=trade&target_type=product"
     );

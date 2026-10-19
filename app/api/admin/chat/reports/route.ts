@@ -3,7 +3,7 @@
  * Query: status, reportType, priority, limit, cursor
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_REPORTS_ADMIN_SELECT } from "@/lib/chat/chat-sql-selects";
 
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;

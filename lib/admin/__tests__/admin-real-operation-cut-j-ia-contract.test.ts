@@ -2,7 +2,7 @@
  * CUT J — Domain / Common Operation IA navigation contract (J1–J34).
  */
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   adminMenu,
@@ -18,6 +18,11 @@ import {
   CUT_J_J_AMD_3_DELIVERY_TREE,
   CUT_J_J_AMD_3_MOVED_OUT_OF_DELIVERY,
   CUT_J_J_AMD_3_REMOVED_SECTIONS,
+  CUT_J_J_AMD_4_MESSENGER_TREE,
+  CUT_J_J_AMD_4_MOVED_INTO_MESSENGER,
+  CUT_J_J_AMD_4_REDIRECTS,
+  CUT_J_J_AMD_4_REMOVED_SECTIONS,
+  CUT_J_J_AMD_4_REPOINTED_LEAVES,
   CUT_J_LEGACY_PRIMARY_FORBIDDEN,
   CUT_J_NAV_SSOT,
   CUT_J_WORKSPACE_ORDER,
@@ -172,6 +177,46 @@ describe("CUT J IA separation hard lock", () => {
       const parent = findAdminMenuByKey(adminMenu, moved.parent);
       expect((parent?.children ?? []).map((c) => c.key)).toContain(moved.key);
       expect(workspaceOf(moved.path)).toBe(moved.workspace);
+    }
+  });
+
+  it("J-AMD-4 chat workspace sections match live menu", () => {
+    const messenger = findAdminMenuByKey(adminMenu, "messenger");
+    const live = (messenger?.children ?? []).map((c) => ({
+      key: c.key,
+      children: (c.children ?? []).map((k) => k.key),
+    }));
+    expect(live).toEqual(
+      CUT_J_J_AMD_4_MESSENGER_TREE.map((n) => ({ key: n.key, children: [...n.children] }))
+    );
+    for (const section of messenger?.children ?? []) {
+      if (section.children?.length) expect(section.path).toBeUndefined();
+    }
+    for (const k of CUT_J_J_AMD_4_REMOVED_SECTIONS) {
+      expect(findAdminMenuByKey(adminMenu, k)).toBeUndefined();
+    }
+    for (const leaf of CUT_J_J_AMD_4_REPOINTED_LEAVES) {
+      const node = findAdminMenuByKey(adminMenu, leaf.key);
+      expect(node?.path).toBe(leaf.path);
+      expect(node?.matchPaths ?? []).toContain(leaf.legacyMatchPath);
+      expect(workspaceOf(leaf.legacyMatchPath)).toBe("messenger");
+      expect(workspaceOf(leaf.path)).toBe("messenger");
+    }
+    for (const moved of CUT_J_J_AMD_4_MOVED_INTO_MESSENGER) {
+      expect(findAdminMenuByKey(adminMenu, moved.key)?.path).toBe(moved.path);
+      const parent = findAdminMenuByKey(adminMenu, moved.parent);
+      expect((parent?.children ?? []).map((c) => c.key)).toContain(moved.key);
+      expect(workspaceOf(moved.path)).toBe(moved.workspace);
+    }
+    const leafPaths = collectAdminMenuPathEntries(adminMenu).map((e) => e.path);
+    expect(leafPaths.some((p) => p.includes("from=messenger"))).toBe(false);
+    for (const r of CUT_J_J_AMD_4_REDIRECTS) {
+      expect(leafPaths).not.toContain(r.from);
+      const page = readFileSync(
+        path.join(ROOT, "app", ...r.from.slice(1).split("/"), "page.tsx"),
+        "utf8"
+      );
+      expect(page).toContain(`redirect("${r.to}")`);
     }
   });
 

@@ -339,6 +339,12 @@ import {
   purgeMessengerMediaStoragePaths,
 } from "@/lib/community-messenger/messenger-media-purge";
 import {
+  MESSENGER_LEGACY_MEDIA_BUCKET,
+  MESSENGER_PRIVATE_MEDIA_BUCKET,
+  messengerMediaBucketFromMetadata,
+  type MessengerMediaBucket,
+} from "@/lib/community-messenger/media/messenger-media-ref";
+import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
@@ -17154,13 +17160,21 @@ function messengerImagePixelDimension(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
 }
 
+/** C-4: metadata.storage_bucket — 비공개 버킷 업로드만 `messenger-media`, 그 외 레거시 `post-images`. */
+function cmMediaStorageBucketValue(v: unknown): string {
+  return trimText(v) === MESSENGER_PRIVATE_MEDIA_BUCKET ? MESSENGER_PRIVATE_MEDIA_BUCKET : MESSENGER_LEGACY_MEDIA_BUCKET;
+}
+
 function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
+  const storageBucket = cmMediaStorageBucketValue(items[0]?.storageBucket);
   if (items.length === 1) {
     const f = items[0]!;
     const w = messengerImagePixelDimension(f.width);
     const h = messengerImagePixelDimension(f.height);
     return {
       storagePath: f.originalStoragePath,
+      storage_bucket: storageBucket,
+      storage_path: f.originalStoragePath,
       mimeType: f.originalMimeType,
       image_thumb_url: f.chatPublicUrl,
       image_preview_url: f.previewPublicUrl,
@@ -17179,6 +17193,8 @@ function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSe
     image_heights: items.map((i) => messengerImagePixelDimension(i.height)),
     storagePath: items[0]!.originalStoragePath,
     mimeType: items[0]!.originalMimeType,
+    storage_bucket: storageBucket,
+    storage_path: items[0]!.originalStoragePath,
   };
 }
 
@@ -17798,6 +17814,8 @@ export async function sendCommunityMessengerFileMessage(input: {
   roomId: string;
   filePublicUrl: string;
   storagePath: string;
+  /** C-4: 업로드 버킷 → metadata.storage_bucket (미지정 = 레거시 post-images). */
+  storageBucket?: string | null;
   fileName: string;
   mimeType?: string;
   fileSizeBytes?: number;
@@ -17812,7 +17830,14 @@ export async function sendCommunityMessengerFileMessage(input: {
   if (!roomId || !filePublicUrl || !storagePath || !fileName) return { ok: false, error: "content_required" };
   const mimeType = trimText(input.mimeType) || "application/octet-stream";
   const fileSizeBytes = Math.max(0, Math.floor(Number(input.fileSizeBytes ?? 0)) || 0);
-  const metadata: Record<string, unknown> = { storagePath, mimeType, fileName, fileSizeBytes };
+  const metadata: Record<string, unknown> = {
+    storagePath,
+    mimeType,
+    fileName,
+    fileSizeBytes,
+    storage_bucket: cmMediaStorageBucketValue(input.storageBucket),
+    storage_path: storagePath,
+  };
   const sb = getSupabaseOrNull();
   if (sb) {
     const { assertActiveGroupMembershipIfGroup } = await import(
@@ -18076,7 +18101,11 @@ export async function deleteCommunityMessengerVoiceMessage(input: {
     const { error: delErr } = await (sb as any).from("community_messenger_messages").delete().eq("id", messageId);
     if (delErr) return { ok: false, error: "delete_failed" };
 
-    await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
+    await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
+      messageId,
+      roomId,
+      bucket: messengerMediaBucketFromMetadata(metadata),
+    });
 
     await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
     return { ok: true };
@@ -18240,7 +18269,11 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
   if (upErr) return { ok: false, error: "delete_failed" };
 
   // DB 갱신 성공 후 스토리지 purge(실패는 로그만 — 삭제 자체는 DB 상 완료).
-  await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, { messageId, roomId });
+  await purgeMessengerMediaStoragePaths(sb as any, mediaPaths, {
+    messageId,
+    roomId,
+    bucket: messengerMediaBucketFromMetadata((msgRow.metadata ?? {}) as Record<string, unknown>),
+  });
 
   await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
 
@@ -18547,7 +18580,7 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   roomId: string;
   messageId: string;
 }): Promise<
-  | { ok: true; contentType: string; storagePath: string }
+  | { ok: true; contentType: string; storagePath: string; storageBucket: MessengerMediaBucket }
   | { ok: false; status: number; error: string }
 > {
   const roomId = trimText(input.roomId);
@@ -18585,7 +18618,11 @@ export async function resolveCommunityMessengerVoicePlaybackSource(input: {
   if (!storagePath) return { ok: false, status: 404, error: "no_audio_path" };
 
   const contentType = trimText(metadata.mimeType as string) || "application/octet-stream";
-  return { ok: true, contentType, storagePath };
+  /** C-4: 비공개 버킷 업로드분은 metadata.storage_bucket, 레거시(공개 URL 파생 포함)는 post-images. */
+  const storageBucket = trimText(metadata.storagePath as string)
+    ? messengerMediaBucketFromMetadata(metadata)
+    : MESSENGER_LEGACY_MEDIA_BUCKET;
+  return { ok: true, contentType, storagePath, storageBucket };
 }
 
 /** 방 멤버만 재생 — 전체 본문 다운로드(Range 위임 실패 시 폴백 경로) */
@@ -18600,7 +18637,7 @@ export async function fetchCommunityMessengerVoicePlaybackBytes(input: {
   const src = await resolveCommunityMessengerVoicePlaybackSource(input);
   if (!src.ok) return src;
   const sb = getSupabaseServer();
-  const { data: file, error: dlErr } = await sb.storage.from("post-images").download(src.storagePath);
+  const { data: file, error: dlErr } = await sb.storage.from(src.storageBucket).download(src.storagePath);
   if (dlErr || !file) return { ok: false, status: 502, error: "download_failed" };
 
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -18617,6 +18654,8 @@ export async function sendCommunityMessengerVoiceMessage(input: {
   roomId: string;
   audioPublicUrl: string;
   storagePath: string;
+  /** C-4: 업로드 버킷 → metadata.storage_bucket (미지정 = 레거시 post-images). */
+  storageBucket?: string | null;
   durationSeconds: number;
   mimeType: string;
   waveformPeaks?: number[] | null;
@@ -18642,7 +18681,13 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         ? rawPeaks
         : downsampleVoiceWaveformPeaks(rawPeaks, COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS)
       : undefined;
-  const metadata: Record<string, unknown> = { durationSeconds, mimeType, storagePath };
+  const metadata: Record<string, unknown> = {
+    durationSeconds,
+    mimeType,
+    storagePath,
+    storage_bucket: cmMediaStorageBucketValue(input.storageBucket),
+    storage_path: storagePath,
+  };
   if (waveformPeaksStored && waveformPeaksStored.length > 0) {
     metadata.waveformPeaks = waveformPeaksStored;
   }

@@ -4,6 +4,8 @@ import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
 type Row = Record<string, unknown>;
@@ -120,6 +122,14 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const postRoomAction = async (meetingId: string, roomId: string, action: string) => {
+    // R1-A C-5: 채팅방 조치는 사유(2자 이상) 필수 — 서버 상태 조건 갱신·audit_logs.
+    const confirmed = await confirmAdminAction({
+      level: "L2",
+      ko: language !== "en",
+      title: t("admin_chat_r1_action_confirm_title"),
+      confirmLabel: t("admin_chat_r1_action_confirm_cta"),
+    });
+    if (!confirmed.ok) return;
     const key = `${meetingId}:${roomId}:${action}`;
     setRoomBusyKey(key);
     setInsightErr("");
@@ -127,7 +137,7 @@ export function AdminCommunityEngineMeetingsClient() {
       const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(roomId)}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, reason: confirmed.reason }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
@@ -189,13 +199,26 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const deleteExtraMeetingChat = async (meetingId: string, mcrId: string) => {
-    if (!(await dibayConfirm({ title: t("admin_meeting_engine_confirm_delete_extra"), confirmTone: "destructive" }))) return;
+    const confirmed = await confirmAdminAction({
+      level: "L3",
+      ko: language !== "en",
+      title: t("admin_meeting_engine_confirm_delete_extra"),
+      confirmLabel: t("admin_meeting_engine_delete_extra_room"),
+      destructive: true,
+      retypeValue: CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT,
+      reasonPlaceholder: language !== "en" ? "삭제 사유 (10자 이상)" : "Reason (10+ characters)",
+    });
+    if (!confirmed.ok) return;
     setRoomBusyKey(`${meetingId}:del:${mcrId}`);
     setInsightErr("");
     try {
       const res = await fetch(
         `/api/admin/community/engine/meetings/${encodeURIComponent(meetingId)}/meeting-chat-rooms/${encodeURIComponent(mcrId)}`,
-        { method: "DELETE" },
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: confirmed.reason ?? "", confirmText: CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT }),
+        },
       );
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {

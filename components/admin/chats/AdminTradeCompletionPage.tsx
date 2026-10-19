@@ -1,13 +1,14 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 
 interface Row {
   roomId: string;
@@ -24,7 +25,7 @@ interface Row {
 }
 
 export function AdminTradeCompletionPage({ embedded = false }: { embedded?: boolean }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +60,14 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
   }, [load]);
 
   const confirmBuyer = async (roomId: string) => {
-    if (!(await dibayConfirm({ title: t("admin_trade_completion_admin_confirm_question") }))) return;
+    const confirmed = await confirmAdminAction({
+      level: "L2",
+      ko: language !== "en",
+      title: t("admin_trade_completion_admin_confirm_question"),
+      confirmLabel: t("admin_trade_completion_admin_confirm"),
+    });
+    if (!confirmed.ok) return;
+    const reason = confirmed.reason ?? "";
     setBusyId(roomId);
     setError(null);
     logAdminMutation("trade-completion:confirm-buyer", "start", { roomId });
@@ -67,7 +75,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
       const res = await fetch("/api/admin/trade-flow/confirm-buyer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId }),
+          body: JSON.stringify({ roomId, reason }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
@@ -134,7 +142,7 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono sam-text-helper">
-                    <Link href={tradeChatNotificationHref(r.roomId, "product_chat")} className="text-signature hover:underline" target="_blank">
+                    <Link href={withAdminReturnTo(`/admin/chats/${encodeURIComponent(r.roomId)}`, "/admin/trade-flow?panel=complete")} className="text-signature hover:underline">
                       {r.roomId.slice(0, 8)}…
                     </Link>
                   </td>
@@ -143,11 +151,11 @@ export function AdminTradeCompletionPage({ embedded = false }: { embedded?: bool
                   </td>
                   <td className="px-3 py-2">{r.tradeFlowStatus}</td>
                   <td className="px-3 py-2 text-sam-muted">
-                    {r.sellerCompletedAt ? new Date(r.sellerCompletedAt).toLocaleString("ko-KR") : "—"}
+                    {r.sellerCompletedAt ? formatAdminDateTime(r.sellerCompletedAt, language) : "—"}
                   </td>
                   <td className="px-3 py-2 text-sam-muted">
                     {r.buyerConfirmedAt
-                      ? `${new Date(r.buyerConfirmedAt).toLocaleString("ko-KR")} (${r.buyerConfirmSource ?? "—"})`
+                      ? `${formatAdminDateTime(r.buyerConfirmedAt, language)} (${r.buyerConfirmSource ?? "—"})`
                       : "—"}
                   </td>
                   <td className="px-3 py-2">

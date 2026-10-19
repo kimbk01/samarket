@@ -1,6 +1,6 @@
 # DIBAY Admin Real Operation — CUT J IA SEPARATION
 
-**Status:** HARD LOCK (CUT J) + **J-AMD-1 implemented** (`members` after `dashboard`)  
+**Status:** HARD LOCK (CUT J) + **J-AMD-1 implemented** (`members` after `dashboard`) + J-AMD-3 (delivery sections) + J-AMD-4 (chat sections)  
 **Companion:** `lib/admin/admin-real-operation-cut-j-ia-separation-hard-lock.ts`  
 **IA amendment design:** `docs/admin/dibay-admin-ia-owner-approved-amendment.md`  
 **Gate:** `npm run verify:admin-real-operation-cut-j-ia-separation-hard-lock`  
@@ -99,6 +99,19 @@ See `docs/admin/dibay-admin-ia-owner-approved-amendment.md`: M1 labels · M2 dee
 6. **Removed (empty) section nodes:** `delivery-section-operations` · `delivery-section-management` · `delivery-section-policies` · `delivery-section-platform`. Their i18n keys are kept untouched.
 7. **Labels:** new/override keys live only in `lib/i18n/catalog/admin-delivery-ops-ux.ts` (spread last, ko+en parity): `admin_menu_delivery_section_stores`, `admin_menu_delivery_ops` (override → 주문 / Orders), `admin_menu_delivery_section_field`, `admin_menu_delivery_section_fees`, `admin_menu_delivery_section_promotions`, `admin_menu_delivery_section_home_layout`, `admin_menu_delivery_section_settings` (override → 배달 설정 / Delivery settings), `admin_menu_store_inquiries_admin` (매장 문의 / Store inquiries). New section keys are registered in `ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY`; `store-inquiries-admin` uses default derivation.
 8. **Invariants kept:** one primary leaf per path (invariant 3) · section headers have no path · delivery-ads primary remains ads workspace · HOME / Category config stay delivery · legacy `sidebarPublic:false` ads untouched · no API / DB / RLS / writer / permission change.
+
+## J-AMD-4 — Owner-approved (IMPLEMENTED)
+
+**Status:** `OWNER_APPROVED_IMPLEMENTED` (Owner decision **O-C12**, `docs/admin/dibay-admin-chat-audit-design.md` §2)
+**SSOT constants:** `CUT_J_J_AMD_4_MESSENGER_TREE` · `CUT_J_J_AMD_4_REPOINTED_LEAVES` · `CUT_J_J_AMD_4_MOVED_INTO_MESSENGER` · `CUT_J_J_AMD_4_REMOVED_SECTIONS` · `CUT_J_J_AMD_4_REDIRECTS`
+**Contract test:** `lib/admin/__tests__/admin-real-operation-cut-j-ia-contract.test.ts` (`J-AMD-4 chat workspace sections match live menu`)
+
+1. Workspace order unchanged; leaf keys unchanged; no route deleted.
+2. Chat (`messenger`) workspace: `messenger-hub` (채팅 대시보드) → `messenger-section-rooms` 채팅방 (`chat-all` 전체채팅 · `chat-general` 일반 1:1 · `chat-group` 그룹 · `chat-trade-messenger` 거래 · `delivery-order-chats-messenger` 배달 주문) → `messenger-section-reports` 신고·제재 (`chat-reported` 채팅 신고 — single queue: CM + legacy `chat_reports` + `reports` chat targets) → `messenger-section-calls` 통화 기록 (`chat-messenger`) → `messenger-section-system` 시스템 (`chat-messenger-perf` · `ops-docs-chat`).
+3. `/admin/chats` = all chat types (CM rooms, `type` filter). 「거래」「배달 주문」 now point at `/admin/chats?type=trade|store_order`; the old `?from=messenger` URLs remain as `matchPaths` only (no duplicate leaves). Trade workspace `chat-trade` and Delivery `delivery-order-chats` are unchanged.
+4. `ops-docs-chat` (`/admin/docs/chat`) moved from system › ops into chat › 시스템 (same key/path). Empty `messenger-advanced` section removed (i18n key kept).
+5. `/admin/chats/trade-complete` → redirect `/admin/trade-flow?panel=complete` (matchPath of `chat-trade-flow`, never a leaf).
+6. Labels: `lib/i18n/catalog/admin-chat-r1-pages.ts` only (ko+en).
 
 ## Gate
 

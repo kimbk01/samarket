@@ -1,3 +1,5 @@
+import type { AdminCmMessageDisplay } from "@/lib/admin-community-messenger/admin-message-display";
+
 /**
  * 15단계: 관리자 채팅관리 타입 (6단계 ChatRoom/ChatMessage와 호환)
  */
@@ -43,6 +45,11 @@ export interface AdminChatRoom {
   adminChatStorage?: "chat_rooms" | "product_chats" | "meeting_open_chat";
   /** meeting_open_chat_rooms.meeting_id — 모임 상세 링크용 */
   meetingId?: string;
+  /**
+   * R1-B C-1: 사용자 앱이 쓰는 CM 방 id (거래). null = 레거시 기록만 있음 (사용자 방 없음).
+   * undefined = 해석하지 않은 출처.
+   */
+  messengerRoomId?: string | null;
 }
 
 export type AdminChatMessageType = "text" | "image" | "system";
@@ -57,6 +64,8 @@ export interface AdminChatMessage {
   createdAt: string;
   isReported?: boolean;
   isHidden?: boolean;
+  /** R1-B C-1: 사용자 방(CM) 메시지일 때 — 첨부·시스템·주문 요약 표시용 */
+  display?: AdminCmMessageDisplay;
 }
 
 export type ChatModerationActionType =

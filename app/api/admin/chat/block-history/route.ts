@@ -6,7 +6,7 @@
  * Legacy: user_blocks — 해제 이력(released_at)·source_room_id 감사용 fallback.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ function pairKey(blockerId: string, blockedUserId: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireChatAdmin();
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;

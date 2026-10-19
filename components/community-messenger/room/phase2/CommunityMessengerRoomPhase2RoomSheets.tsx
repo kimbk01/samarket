@@ -64,6 +64,8 @@ import { GroupBlockedMembersSection } from "@/components/community-messenger/gro
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
+import { messengerMediaRouteUrlFor } from "@/lib/community-messenger/media/messenger-media-ref";
+import { openMessengerFileInNativeShellIfNeeded } from "@/lib/community-messenger/messenger-file-download";
 import { CommunityMessengerGroupMemberPicker } from "@/components/community-messenger/group/CommunityMessengerGroupMemberPicker";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
@@ -1541,7 +1543,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={(m.imageAlbumUrls?.[0] ?? m.content).trim()}
+                              src={messengerMediaRouteUrlFor({
+                                roomId: m.roomId,
+                                messageId: m.id,
+                                src: m.imageAlbumUrls?.[0] ?? m.content,
+                              })}
                               alt=""
                               className="h-full w-full object-cover"
                             />
@@ -1606,9 +1612,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </button>
                         {!m.pending && m.content.trim() ? (
                           <a
-                            href={m.content.trim()}
+                            href={messengerMediaRouteUrlFor({ roomId: m.roomId, messageId: m.id, src: m.content })}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => {
+                              /* C-4: 앱 셸은 인앱 브라우저 + 서명 URL (WebView 쿠키 없음) */
+                              const href = messengerMediaRouteUrlFor({ roomId: m.roomId, messageId: m.id, src: m.content });
+                              if (openMessengerFileInNativeShellIfNeeded(href)) e.preventDefault();
+                            }}
                             className="mt-3 inline-flex rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg"
                           >
                             {vm.t("cm_ui_open_file")}

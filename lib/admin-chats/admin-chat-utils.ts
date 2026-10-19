@@ -6,11 +6,11 @@ import type { AdminChatRoom, RoomStatus, AdminRoomType } from "@/lib/types/admin
 
 export type { RoomStatus, AdminRoomType };
 
+/** 「신고됨」은 방 상태값이 아니라 매칭되는 행이 없어 제외 — 신고 있는 방은 「신고 있음만」 체크박스로. */
 export const ROOM_STATUS_OPTIONS: { value: RoomStatus | ""; label: string }[] = [
   { value: "", label: "전체 상태" },
   { value: "active", label: "활성" },
   { value: "blocked", label: "차단" },
-  { value: "reported", label: "신고됨" },
   { value: "archived", label: "보관" },
 ];
 

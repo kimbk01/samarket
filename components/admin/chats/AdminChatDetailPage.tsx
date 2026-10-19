@@ -19,10 +19,72 @@ import { getSanctionsByUserIdsFromDb, type SanctionRow } from "@/lib/admin-repor
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminErrorState, AdminForbiddenState } from "@/components/admin/ui/AdminStateViews";
+import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { ADMIN_CHAT_REPORT_QUEUE_PATH, adminUserDetailHref } from "@/lib/admin/chat-admin/admin-chat-links";
 import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
 import { AdminChatMessageTimeline } from "./AdminChatMessageTimeline";
 import { AdminChatActionPanel } from "./AdminChatActionPanel";
 import { AdminChatModerationLogList } from "./AdminChatModerationLogList";
+import type { AdminCmMessageDisplay } from "@/lib/admin-community-messenger/admin-message-display";
+import type { AdminTradeMessengerInfo } from "@/lib/admin-chats/trade-messenger-admin-view";
+import { adminCmRoomDetailHref } from "@/lib/admin-community-messenger/room-domain-links";
+import { confirmAdminAction, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { useAdminOlderMessages } from "./use-admin-older-messages";
+import { useAdminLocationReturnTo } from "./use-admin-location-return-to";
+
+type TradeApiMessage = {
+  id: string;
+  sender_id: string | null;
+  sender_label?: string;
+  message_type?: string;
+  body?: string;
+  created_at?: string;
+  is_hidden_by_admin?: boolean;
+  report_count?: number;
+  display?: AdminCmMessageDisplay;
+};
+
+/** R1-B C-1: 레거시 응답·CM 오버레이 메시지 공용 매핑 */
+function mapTradeApiMessage(m: TradeApiMessage, roomId: string): AdminChatMessage {
+  return {
+    id: m.id,
+    roomId,
+    senderId: m.sender_id ?? "",
+    senderNickname: m.sender_label || (m.sender_id ?? "").slice(0, 8),
+    messageType: (m.message_type === "image" || m.message_type === "system" ? m.message_type : "text") as AdminChatMessageType,
+    message: m.body ?? "",
+    createdAt: m.created_at ?? "",
+    isHidden: m.is_hidden_by_admin ?? false,
+    isReported: (m.report_count ?? 0) > 0,
+    ...(m.display ? { display: m.display } : {}),
+  };
+}
+
+/** CM 메시지 페이지 API 항목 → 레거시 응답 모양 */
+function mapCmPageItemToTradeApi(m: {
+  id: string;
+  senderId: string | null;
+  senderLabel: string;
+  messageType: string;
+  content: string;
+  createdAt: string;
+  isHiddenByAdmin: boolean;
+  reportCount: number;
+  display: AdminCmMessageDisplay;
+}): TradeApiMessage {
+  return {
+    id: m.id,
+    sender_id: m.senderId,
+    sender_label: m.senderLabel,
+    message_type: m.messageType,
+    body: m.content,
+    created_at: m.createdAt,
+    is_hidden_by_admin: m.isHiddenByAdmin,
+    report_count: m.reportCount,
+    display: m.display,
+  };
+}
 
 /** chat_rooms 기반 관리자 상세 API 응답 → AdminChatRoom + AdminChatMessage[] 로 변환 */
 async function fetchAdminChatDetailFromApi(
@@ -33,11 +95,15 @@ async function fetchAdminChatDetailFromApi(
   reports: RoomReportRow[];
   moderationLogs: ChatModerationLog[];
   adminMemo: string;
+  messenger: AdminTradeMessengerInfo | null;
+  messagesHasMore: boolean;
 } | null> {
   const res = await fetch(`/api/admin/chat/rooms/${roomId}`, {
     cache: "no-store",
     headers: { "Cache-Control": "no-store" },
   });
+  // R1-A: 권한 없음(403)은 클라이언트 DB 폴백으로 우회하지 않는다.
+  if (res.status === 403) throw Object.assign(new Error("forbidden"), { adminForbidden: true });
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   if (!data?.room) return null;
@@ -94,19 +160,13 @@ async function fetchAdminChatDetailFromApi(
       ? { adminChatStorage: "meeting_open_chat" as const, meetingId }
       : {}),
   };
-  const rawMessages = Array.isArray(data.messages) ? data.messages : [];
-  const messages: AdminChatMessage[] = rawMessages.map(
-    (m: { id: string; sender_id: string | null; message_type?: string; body?: string; created_at?: string; is_hidden_by_admin?: boolean }) => ({
-      id: m.id,
-      roomId: roomId,
-      senderId: m.sender_id ?? "",
-      senderNickname: (m.sender_id ?? "").slice(0, 8),
-      messageType: (m.message_type === "image" || m.message_type === "system" ? m.message_type : "text") as AdminChatMessageType,
-      message: m.body ?? "",
-      createdAt: m.created_at ?? "",
-      isHidden: m.is_hidden_by_admin ?? false,
-    })
-  );
+  const messenger = (data.messenger ?? null) as AdminTradeMessengerInfo | null;
+  if (messenger && !messenger.legacyOnly) {
+    // R1-B C-1: 사용자 방(CM) 상태가 기준
+    room.isReadonly = messenger.isReadonly;
+  }
+  const rawMessages = Array.isArray(data.messages) ? (data.messages as TradeApiMessage[]) : [];
+  const messages: AdminChatMessage[] = rawMessages.map((m) => mapTradeApiMessage(m, roomId));
   const rawMods = Array.isArray(data.moderationLogs) ? data.moderationLogs : [];
   const moderationLogs: ChatModerationLog[] = rawMods.map(
     (log: {
@@ -157,7 +217,8 @@ async function fetchAdminChatDetailFromApi(
     })
   );
   const adminMemo = typeof data.adminMemo === "string" ? data.adminMemo : "";
-  return { room, messages, reports, moderationLogs, adminMemo };
+  const messagesHasMore = Boolean(messenger && !messenger.legacyOnly && messenger.messagesHasMore);
+  return { room, messages, reports, moderationLogs, adminMemo, messenger, messagesHasMore };
 }
 
 interface AdminChatDetailPageProps {
@@ -165,7 +226,10 @@ interface AdminChatDetailPageProps {
 }
 
 export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const [forbidden, setForbidden] = useState(false);
+  /** C-10: 불러오기 실패 ≠ 「방 없음」. */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
   const [room, setRoom] = useState<AdminChatRoom | null>(null);
@@ -175,11 +239,88 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
   const [loading, setLoading] = useState(true);
   const [modLogs, setModLogs] = useState<ChatModerationLog[]>([]);
   const [adminMemo, setAdminMemo] = useState("");
+  const [messenger, setMessenger] = useState<AdminTradeMessengerInfo | null>(null);
+  const [messagesHasMore, setMessagesHasMore] = useState(false);
+  const [busyMessageId, setBusyMessageId] = useState<string | null>(null);
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
+  const returnCtx = useAdminLocationReturnTo();
+  const messengerRoomId = messenger && !messenger.legacyOnly ? messenger.roomId : null;
+
+  // R1-B C-6: 사용자 방(CM) 메시지 「이전 메시지 더 보기」 — 거래 연결 근거로 서버가 열람·감사
+  const fetchOlderTrade = useCallback(
+    async (beforeId: string) => {
+      if (!messengerRoomId) return { items: [] as AdminChatMessage[], hasMore: false };
+      const res = await fetch(
+        `/api/admin/community-messenger/rooms/${encodeURIComponent(messengerRoomId)}/messages?before=${encodeURIComponent(beforeId)}&limit=80`,
+        { cache: "no-store" }
+      );
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        hasMore?: boolean;
+        messages?: Parameters<typeof mapCmPageItemToTradeApi>[0][];
+      };
+      if (!res.ok || !j.ok) throw new Error(j.error ?? "load_failed");
+      return {
+        items: (j.messages ?? []).map((m) => mapTradeApiMessage(mapCmPageItemToTradeApi(m), roomId)),
+        hasMore: j.hasMore === true,
+      };
+    },
+    [messengerRoomId, roomId]
+  );
+  const olderMsgs = useAdminOlderMessages<AdminChatMessage>({
+    resetKey: `${roomId}:${messengerRoomId ?? ""}`,
+    latest: messages,
+    latestHasMore: messagesHasMore,
+    fetchOlder: fetchOlderTrade,
+  });
+  const { patchOlder } = olderMsgs;
+
+  /** R1-B C-1: 메시지 숨김/해제 — 사용자 방(CM) 메시지에 메신저 관리자 경로(CAS·감사)로 적용 */
+  const toggleMessageHidden = useCallback(
+    async (message: AdminChatMessage, hidden: boolean) => {
+      if (!messengerRoomId) return;
+      const c = await confirmAdminAction({
+        level: "L2",
+        ko: language !== "en",
+        title: hidden ? t("admin_chat_r1b_hide_message") : t("admin_chat_r1b_unhide_message"),
+        confirmLabel: t("admin_chat_r1_action_confirm_cta"),
+        destructive: hidden,
+      });
+      if (!c.ok || !c.reason || c.reason.trim().length < ADMIN_REASON_MIN_LENGTH) return;
+      setBusyMessageId(message.id);
+      try {
+        const res = await fetch(
+          `/api/admin/community-messenger/rooms/${encodeURIComponent(messengerRoomId)}/messages/${encodeURIComponent(message.id)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hidden, reason: c.reason }),
+            credentials: "same-origin",
+          }
+        );
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) {
+          await dibayAlert({
+            title: j.error === "stale_state" ? t("admin_chat_r1_stale_state") : (j.error ?? t("admin_chat_action_failed")),
+          });
+          if (j.error === "stale_state") refreshDetail();
+          return;
+        }
+        patchOlder(message.id, { isHidden: hidden });
+        refreshDetail();
+      } finally {
+        setBusyMessageId(null);
+      }
+    },
+    [language, messengerRoomId, patchOlder, refreshDetail, t]
+  );
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setForbidden(false);
+    setLoadFailed(false);
 
     (async () => {
       const fromApi = await fetchAdminChatDetailFromApi(roomId);
@@ -189,6 +330,8 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         setRoomReports(fromApi.reports);
         setModLogs(fromApi.moderationLogs);
         setAdminMemo(fromApi.adminMemo);
+        setMessenger(fromApi.messenger);
+        setMessagesHasMore(fromApi.messagesHasMore);
         getSanctionsByUserIdsFromDb([fromApi.room.sellerId, fromApi.room.buyerId]).then(
           (s) => !cancelled && setSanctions(s)
         );
@@ -204,6 +347,8 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       if (cancelled) return;
       if (roomFromDb) {
         setRoom(roomFromDb);
+        setMessenger(null);
+        setMessagesHasMore(false);
         setMessages(messagesFromDb);
         setRoomReports(reports);
         setModLogs([]);
@@ -218,8 +363,11 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         setModLogs([]);
         setSanctions([]);
       }
-    })().catch(() => {
+    })().catch((e: unknown) => {
       if (!cancelled) {
+        const isForbidden = Boolean((e as { adminForbidden?: boolean } | null)?.adminForbidden);
+        setForbidden(isForbidden);
+        setLoadFailed(!isForbidden);
         setRoom(null);
         setMessages([]);
         setRoomReports([]);
@@ -238,6 +386,14 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         {t("admin_chat_loading_room")}
       </div>
     );
+  }
+
+  if (forbidden) {
+    return <AdminForbiddenState ko={language !== "en"} code="forbidden_permission" />;
+  }
+
+  if (loadFailed) {
+    return <AdminErrorState ko={language !== "en"} code="load_failed" onRetry={refreshDetail} />;
   }
 
   if (!room) {
@@ -269,11 +425,39 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       <AdminPageHeader
         titleKey="admin_page_chat_detail"
         backHref={
-          room.roomType === "item_trade" || Boolean(room.productId)
+          returnCtx.returnTo ??
+          (room.roomType === "item_trade" || Boolean(room.productId)
             ? "/admin/chats/trade"
-            : "/admin/chats"
+            : "/admin/chats")
         }
       />
+
+      {/* R1-B C-1: 사용자 앱과 같은 채팅방(CM) 연결 / 레거시 전용 기록 표시 */}
+      {messengerRoomId ? (
+        <section
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
+          data-admin-trade-messenger-room={messengerRoomId}
+        >
+          <p className="sam-text-helper text-sam-muted">{t("admin_chat_r1b_source_messenger")}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-fg">
+            {t("admin_chat_r1b_messenger_room_id")}: <span className="font-mono">{messengerRoomId}</span>
+          </p>
+          <Link
+            href={adminCmRoomDetailHref(messengerRoomId, returnCtx.here)}
+            className="mt-2 inline-block rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted"
+          >
+            {t("admin_chat_r1b_open_unified")}
+          </Link>
+        </section>
+      ) : messenger?.legacyOnly ? (
+        <section
+          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3"
+          data-admin-trade-legacy-only="1"
+        >
+          <p className="sam-text-body font-semibold text-amber-900">{t("admin_chat_r1b_legacy_only")}</p>
+          <p className="mt-1 sam-text-helper text-amber-800">{t("admin_chat_r1b_legacy_only_desc")}</p>
+        </section>
+      ) : null}
 
       <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">
@@ -347,7 +531,13 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_seller") : t("admin_chat_participant_a")}
             </dt>
             <dd>
-              {room.sellerNickname} ({room.sellerId || "—"})
+              {room.sellerId ? (
+                <Link href={adminUserDetailHref(room.sellerId, returnCtx.here)} className="text-signature underline">
+                  {room.sellerNickname || room.sellerId.slice(0, 8)}
+                </Link>
+              ) : (
+                room.sellerNickname || "—"
+              )}
             </dd>
           </div>
           <div>
@@ -355,14 +545,57 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_buyer") : t("admin_chat_participant_b")}
             </dt>
             <dd>
-              {room.buyerNickname} ({room.buyerId || "—"})
+              {room.buyerId ? (
+                <Link href={adminUserDetailHref(room.buyerId, returnCtx.here)} className="text-signature underline">
+                  {room.buyerNickname || room.buyerId.slice(0, 8)}
+                </Link>
+              ) : (
+                room.buyerNickname || "—"
+              )}
             </dd>
           </div>
         </dl>
+        {messenger && !messenger.legacyOnly && messenger.participants.length ? (
+          <div className="mt-3 border-t border-sam-border-soft pt-3">
+            <p className="mb-1 sam-text-helper font-medium text-sam-muted">{t("admin_chat_r1b_participants_room")}</p>
+            <ul className="space-y-1 sam-text-body-secondary text-sam-fg">
+              {messenger.participants.map((p) => (
+                <li key={p.userId} className="flex flex-wrap gap-x-2">
+                  <Link href={adminUserDetailHref(p.userId, returnCtx.here)} className="text-signature underline">
+                    {p.label}
+                  </Link>
+                  <span className="sam-text-xxs text-sam-muted">
+                    {adminChatLabel("participant_role", p.role, language !== "en").label}
+                  </span>
+                  {p.unreadCount > 0 ? (
+                    <span className="sam-text-xxs text-sam-muted">{t("admin_chat_r1b_unread", { count: p.unreadCount })}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </AdminCard>
 
       <AdminCard title={t("admin_chat_message_timeline")}>
-        <AdminChatMessageTimeline messages={messages} />
+        {olderMsgs.hasMore ? (
+          <div className="mb-3 flex flex-col items-center gap-1">
+            <button
+              type="button"
+              disabled={olderMsgs.loading}
+              onClick={() => void olderMsgs.loadOlder()}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
+            >
+              {olderMsgs.loading ? t("admin_chat_r1b_loading_older") : t("admin_chat_r1b_load_older")}
+            </button>
+            {olderMsgs.error ? <p className="sam-text-xxs text-red-700">{t("admin_chat_r1b_load_older_failed")}</p> : null}
+          </div>
+        ) : null}
+        <AdminChatMessageTimeline
+          messages={olderMsgs.messages}
+          onToggleHidden={messengerRoomId ? (m, hidden) => void toggleMessageHidden(m, hidden) : undefined}
+          busyMessageId={busyMessageId}
+        />
       </AdminCard>
 
       <AdminCard title={t("admin_chat_admin_memo")}>
@@ -388,7 +621,11 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       </AdminCard>
 
       <AdminCard title={t("admin_chat_admin_action")}>
-        <AdminChatActionPanel room={room} onActionSuccess={refreshDetail} />
+        <AdminChatActionPanel
+          room={room}
+          onActionSuccess={refreshDetail}
+          legacyOnly={messenger?.legacyOnly === true}
+        />
       </AdminCard>
 
       <AdminCard title={t("admin_chat_related_reports")}>
@@ -398,10 +635,15 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
           <ul className="space-y-2">
             {roomReports.map((rp) => (
               <li key={rp.id} className="flex items-center justify-between gap-2 border-b border-sam-border-soft py-2 sam-text-body-secondary">
-                <span className="min-w-0 flex-1 truncate text-sam-fg">{rp.reason_code}</span>
-                <span className="shrink-0 text-sam-muted">{rp.status}</span>
+                <span className="min-w-0 flex-1 truncate text-sam-fg">
+                  {adminChatLabel("report_reason", rp.reason_code, language !== "en").label}
+                  {rp.reason_text ? ` · ${rp.reason_text}` : ""}
+                </span>
+                <span className="shrink-0 text-sam-muted">
+                  {adminChatLabel("report_status", rp.status, language !== "en").label}
+                </span>
                 <Link
-                  href={`/admin/reports/${rp.id}`}
+                  href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&target=${encodeURIComponent(roomId)}`}
                   className="shrink-0 font-medium text-signature hover:underline"
                 >
                   {t("admin_chat_detail_short")}

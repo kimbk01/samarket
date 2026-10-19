@@ -72,24 +72,32 @@ describe("admin sidebar active path authority", () => {
       expectCount: 1,
     },
     {
-      name: "deep messenger room",
+      // 설계 v2 §1-3: 통화 기록은 /admin/chats/calls, 방 상세(/admin/chats/messenger/{id})는 「전체」 아래.
+      name: "calls page",
       workspaceKey: "messenger",
-      path: "/admin/chats/messenger",
-      expectLeaf: "/admin/chats/messenger",
+      path: "/admin/chats/calls",
+      expectLeaf: "/admin/chats/calls",
       expectCount: 1,
     },
     {
       name: "trailing slash",
       workspaceKey: "messenger",
-      path: "/admin/chats/messenger/",
-      expectLeaf: "/admin/chats/messenger",
+      path: "/admin/chats/calls/",
+      expectLeaf: "/admin/chats/calls",
+      expectCount: 1,
+    },
+    {
+      name: "room detail under all chats",
+      workspaceKey: "messenger",
+      path: "/admin/chats/messenger/room-1",
+      expectLeaf: "/admin/chats",
       expectCount: 1,
     },
     {
       name: "hash ignored",
       workspaceKey: "messenger",
-      path: "/admin/chats/messenger#section",
-      expectLeaf: "/admin/chats/messenger",
+      path: "/admin/chats/calls#section",
+      expectLeaf: "/admin/chats/calls",
       expectCount: 1,
     },
     {
@@ -156,9 +164,9 @@ describe("admin sidebar active path authority", () => {
 
   it("never activates parent when longer descendant wins", () => {
     const scope = workspaceEntries("messenger");
-    const current = "/admin/chats/messenger";
+    const current = "/admin/chats/calls";
     expect(isLeafMenuActive("/admin/chats", current, scope)).toBe(false);
-    expect(isLeafMenuActive("/admin/chats/messenger", current, scope)).toBe(true);
+    expect(isLeafMenuActive("/admin/chats/calls", current, scope)).toBe(true);
   });
 
   it("distinguishes support center vs archive sibling", () => {
@@ -195,7 +203,7 @@ describe("admin sidebar active path authority", () => {
       "/admin/users",
       "/admin/reports",
       "/admin/stores",
-      "/admin/chats/messenger",
+      "/admin/chats/calls",
       "/admin/support",
       "/admin/support/archive",
       "/admin/unknown-route-xyz",

@@ -10,6 +10,7 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { assertMessengerRoomSendAllowed } from "@/lib/community-messenger/server/assert-messenger-room-send-allowed";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
+import { resolveMessengerMediaUploadBucket } from "@/lib/community-messenger/server/messenger-media-bucket";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,7 +132,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   const path = `${auth.userId}/community/messenger-voice/${canonicalRoomId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
-  const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
+  /** C-4: 비공개 버킷(`messenger-media`) 존재 시 그쪽 — 없으면 레거시 post-images (마이그레이션 적용 전후 공통). */
+  const bucketName = await resolveMessengerMediaUploadBucket(sb);
+  const purgeCtx = { roomId: canonicalRoomId, bucket: bucketName };
+  const { error: upErr } = await sb.storage.from(bucketName).upload(path, buf, {
     contentType: mimeBase || "audio/webm",
     upsert: false,
   });
@@ -142,13 +146,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   const {
     data: { publicUrl },
-  } = sb.storage.from("post-images").getPublicUrl(path);
+  } = sb.storage.from(bucketName).getPublicUrl(path);
 
   const result = await sendCommunityMessengerVoiceMessage({
     userId: auth.userId,
     roomId: canonicalRoomId,
     audioPublicUrl: publicUrl,
     storagePath: path,
+    storageBucket: bucketName,
     durationSeconds,
     mimeType: mimeBase || "audio/webm",
     waveformPeaks,
@@ -159,13 +164,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   if (!result.ok) {
     // IMG-02: 전송 거절 → 올린 음성 파일 고아 정리.
-    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, [path], purgeCtx);
     return NextResponse.json(result, { status: 400 });
   }
 
   if (result.deduped) {
     // D-7 / CHAT-05 멱등 재전송: DB 행(서비스가 원 행 반환)은 이전 업로드를 가리킨다 — 이번 업로드분 정리.
-    await purgeMessengerMediaStoragePaths(sb, [path], { roomId: canonicalRoomId });
+    await purgeMessengerMediaStoragePaths(sb, [path], purgeCtx);
   }
 
   if (result.ok) {

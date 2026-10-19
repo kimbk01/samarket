@@ -65,8 +65,16 @@ export async function fetchAdminChatRoomsListApi(
       buyerNickname?: string;
       initiator_id?: string | null;
       peer_id?: string | null;
+      messenger?: { roomId: string; roomStatus: RoomStatus; isReadonly: boolean } | null;
     }) => {
-      const roomStatus: RoomStatus = r.is_locked ? "archived" : r.is_blocked ? "blocked" : "active";
+      /** R1-B C-1: 사용자 방(CM)이 있으면 그 상태가 기준 */
+      const roomStatus: RoomStatus = r.messenger
+        ? r.messenger.roomStatus
+        : r.is_locked
+          ? "archived"
+          : r.is_blocked
+            ? "blocked"
+            : "active";
       const rt = r.room_type ?? "";
       const roomType = rt === "item_trade" ? "item_trade" : "";
       const trade = rt === "item_trade";
@@ -90,6 +98,8 @@ export async function fetchAdminChatRoomsListApi(
         roomType: roomType || undefined,
         contextType: r.context_type ?? undefined,
         adminChatStorage: "chat_rooms",
+        messengerRoomId: r.messenger?.roomId ?? null,
+        ...(r.messenger ? { isReadonly: r.messenger.isReadonly } : {}),
       } as AdminChatRoom;
     }
   );

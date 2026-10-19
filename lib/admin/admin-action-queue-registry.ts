@@ -268,8 +268,9 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     rt: "POLL_SUFFICIENT",
     soundEligible: false,
     requiredPermission: null,
-    listHref: "/admin/chats/messenger",
-    sidebarMenuKeys: ["chat-messenger"],
+    // C-10 / J-AMD-4: 메신저 신고는 채팅 신고 단일 큐에서 처리 (통화 기록 화면 아님).
+    listHref: "/admin/chats/reported?type=messenger",
+    sidebarMenuKeys: ["chat-reported"],
     titleKo: "메신저 신고",
     titleEn: "Messenger reports",
     domainKo: "채팅",

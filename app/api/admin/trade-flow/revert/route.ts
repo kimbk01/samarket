@@ -8,7 +8,13 @@ export const dynamic = "force-dynamic";
  * POST { roomId: string }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import {
+  TRADE_FLOW_ADMIN_PERMISSION,
+  TRADE_FLOW_ADMIN_REASON_MIN_LENGTH,
+  parseTradeFlowAdminReason,
+} from "@/lib/admin/trade-flow/trade-flow-admin-action";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
@@ -22,14 +28,14 @@ const REVERTABLE = new Set([
 ]);
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireAdminPermission(TRADE_FLOW_ADMIN_PERMISSION);
   if (!admin.ok) return admin.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
     return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
 
-  let body: { roomId?: string };
+  let body: { roomId?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
@@ -38,6 +44,13 @@ export async function POST(req: NextRequest) {
   const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
   if (!roomId) {
     return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+  }
+  const reason = parseTradeFlowAdminReason(body.reason);
+  if (!reason) {
+    return NextResponse.json(
+      { ok: false, error: "reason_required", reasonMinLength: TRADE_FLOW_ADMIN_REASON_MIN_LENGTH },
+      { status: 400 }
+    );
   }
 
   const sb = getServiceOrAnonClient(
@@ -173,6 +186,15 @@ export async function POST(req: NextRequest) {
   } catch {
     /* 테이블 없으면 무시 */
   }
+
+  await appendAdminRouteAudit(sbAny, req, {
+    actorId: admin.actor.userId,
+    targetType: "product_chat",
+    targetId: roomId,
+    action: "trade_flow.revert",
+    before: { trade_flow_status: flow, post_status: pMeta?.status ?? null, sold_buyer_id: pMeta?.sold_buyer_id ?? null },
+    after: { trade_flow_status: "chatting", reason, post_id: postId, buyer_id: buyerId },
+  });
 
   return NextResponse.json({ ok: true, postId, roomId });
 }
