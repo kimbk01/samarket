@@ -30,6 +30,8 @@ import {
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
+import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
+import { NotificationContentUnavailableNotice } from "@/components/notifications/NotificationContentUnavailableNotice";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import {
   findNotificationCenterTargetRow,
@@ -150,6 +152,18 @@ export function MyNotificationsView({
     [searchParams]
   );
   const [focusedNotificationId, setFocusedNotificationId] = useState<string | null>(null);
+  /** INAPP-04 — origin deleted / unavailable (push fallback URL or row tap that resolves nowhere). */
+  const fallbackFromUrl = searchParams?.get("fallback") === "origin_unavailable";
+  const [originUnavailableTap, setOriginUnavailableTap] = useState(false);
+  const showOriginUnavailable = fallbackFromUrl || originUnavailableTap;
+  const dismissOriginUnavailable = useCallback(() => {
+    setOriginUnavailableTap(false);
+    if (!fallbackFromUrl) return;
+    const sp = new URLSearchParams(searchParams?.toString() ?? "");
+    sp.delete("fallback");
+    const q = sp.toString();
+    router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
+  }, [fallbackFromUrl, router, searchParams]);
 
   useEffect(() => {
     setCategoryFilter(tabFromUrl);
@@ -212,6 +226,13 @@ export function MyNotificationsView({
   const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
   /** 폴링·이벤트 갱신 시 "더 보기"로 쌓인 길이를 유지하기 위한 기준 (setRows와 동기) */
   const rowsLengthRef = useRef(0);
+  /**
+   * INAPP-02 — server page cursor = raw rows the server returned for the current category
+   * (before client A projection), so 「더 보기」 offset never skips or repeats server rows.
+   */
+  const serverOffsetRef = useRef(0);
+  /** Drops responses from a previous category / superseded reload. */
+  const loadSeqRef = useRef(0);
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
@@ -226,6 +247,8 @@ export function MyNotificationsView({
 
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
+      const seq = append ? loadSeqRef.current : ++loadSeqRef.current;
+      const isStale = () => seq !== loadSeqRef.current;
       if (!silent && !append) {
         setLoading((prev) => (prev ? prev : true));
         setError((prev) => (prev === null ? prev : null));
@@ -234,29 +257,32 @@ export function MyNotificationsView({
         setLoadMoreBusy((prev) => (prev ? prev : true));
       }
       const expandedSilent =
-        silent && !append && rowsLengthRef.current > INBOX_PAGE_SIZE;
+        silent && !append && serverOffsetRef.current > INBOX_PAGE_SIZE;
       const requestLimit = append
         ? INBOX_PAGE_SIZE
         : targetNotificationId
           ? 100
         : expandedSilent
-          ? Math.min(rowsLengthRef.current, 100)
+          ? Math.min(serverOffsetRef.current, 100)
           : INBOX_PAGE_SIZE;
       const requestOffset = append ? offsetForAppend : 0;
       try {
+        // INAPP-02: category filter + pagination run on the server (push_kind = member domain).
         const { status, json: raw } = await fetchMeNotificationsListDeduped({
           force: forceFetch,
-          pushKind: "all",
+          pushKind: categoryFilter,
           limit: requestLimit,
           offset: requestOffset,
           excludeChatMessages: true,
           excludeOwnerStoreCommerce: true,
         });
+        if (isStale()) return;
         const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
         if (status === 401) {
           setPollEnabled(false);
           setError("login_required");
           rowsLengthRef.current = 0;
+          serverOffsetRef.current = 0;
           setRows((prev) => (prev.length === 0 ? prev : []));
           setHasMore(false);
           return;
@@ -265,15 +291,18 @@ export function MyNotificationsView({
           if (!silent && !append) {
             setError(typeof j?.error === "string" ? j.error : "load_failed");
             rowsLengthRef.current = 0;
+            serverOffsetRef.current = 0;
             setRows((prev) => (prev.length === 0 ? prev : []));
           }
           setHasMore(false);
           return;
         }
         const batchRaw = (j.notifications ?? []) as Row[];
+        serverOffsetRef.current = append ? requestOffset + batchRaw.length : batchRaw.length;
         const batch = filterMemberNotificationAInboxRows(batchRaw) as Row[];
         setRows((prev) => {
-          const next = append ? [...prev, ...batch] : batch;
+          const seen = append ? new Set(prev.map((r) => r.id)) : null;
+          const next = seen ? [...prev, ...batch.filter((r) => !seen.has(r.id))] : batch;
           rowsLengthRef.current = next.length;
           return next;
         });
@@ -282,18 +311,20 @@ export function MyNotificationsView({
         setPollEnabled(true);
         void refreshTabCounts(forceFetch);
       } catch {
+        if (isStale()) return;
         if (!silent && !append) {
           setError("network_error");
           rowsLengthRef.current = 0;
+          serverOffsetRef.current = 0;
           setRows((prev) => (prev.length === 0 ? prev : []));
         }
         if (!append) setHasMore(false);
       } finally {
-        if (!silent && !append) setLoading((prev) => (prev ? false : prev));
+        if (!isStale() && !silent && !append) setLoading((prev) => (prev ? false : prev));
         if (append) setLoadMoreBusy(false);
       }
     },
-    [refreshTabCounts, targetNotificationId]
+    [categoryFilter, refreshTabCounts, targetNotificationId]
   );
 
   useEffect(() => {
@@ -362,8 +393,8 @@ export function MyNotificationsView({
 
   const loadMore = useCallback(() => {
     if (!hasMore || loadMoreBusy) return;
-    void load(true, false, true, rows.length);
-  }, [hasMore, loadMoreBusy, load, rows.length]);
+    void load(true, false, true, serverOffsetRef.current);
+  }, [hasMore, loadMoreBusy, load]);
 
   const markIdsRead = useCallback(async (ids: string[]): Promise<boolean> => {
     if (ids.length === 0) return true;
@@ -383,9 +414,16 @@ export function MyNotificationsView({
     return false;
   }, [broadcastNotificationsUpdated]);
 
+  /**
+   * INAPP-02 — 「모두 읽음」 is enabled by the server unread count for the active tab, not only
+   * by loaded rows (unread may sit past the loaded page).
+   */
+  const hasUnreadToMark =
+    rows.some((r) => !r.is_read) || (tabCounts[categoryFilter] ?? 0) > 0;
+
   const markAllRead = useCallback(async () => {
     if (busy) return;
-    if (!rows.some((r) => !r.is_read)) return;
+    if (!hasUnreadToMark) return;
     setBusy((prev) => (prev ? prev : true));
     setError((prev) => (prev === null ? prev : null));
     try {
@@ -393,7 +431,11 @@ export function MyNotificationsView({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_my_notifications_read_excluding_owner_and_chat: true }),
+        // Server marks every canonical A unread (selected category only on a category tab).
+        body: JSON.stringify({
+          mark_my_notifications_read_excluding_owner_and_chat: true,
+          ...(categoryFilter !== "all" ? { category: categoryFilter } : {}),
+        }),
       });
       const j = await res.json();
       if (!j?.ok) {
@@ -409,7 +451,7 @@ export function MyNotificationsView({
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
-  }, [broadcastNotificationsUpdated, busy, load, rows]);
+  }, [broadcastNotificationsUpdated, busy, categoryFilter, hasUnreadToMark, load]);
 
   useEffect(() => {
     registerMarkAll?.(markAllRead);
@@ -477,7 +519,7 @@ export function MyNotificationsView({
     if (!targetNotificationId || loading || loadMoreBusy) return;
     if (targetRow) return;
     if (!hasMore) return;
-    void load(true, false, true, rows.length);
+    void load(true, false, true, serverOffsetRef.current);
   }, [
     hasMore,
     load,
@@ -608,21 +650,30 @@ export function MyNotificationsView({
   }, [pendingDelete, t]);
 
   const onActivate = (item: InboxGroupItem) => {
+    const resolveInput = {
+      inboxRow: {
+        id: item.notification_id,
+        notification_type: item.notification_type,
+        link_url: item.href,
+        meta: item.meta,
+        push_kind: item.push_kind ?? null,
+        bell_presentation_type: item.bell_presentation_type ?? null,
+        event_type: item.event_type ?? null,
+        campaign_type: item.campaign_type ?? null,
+      },
+      fallbackHref: defaultInboxFallbackHref(),
+    };
+    // INAPP-04: origin deleted / unresolvable → standard notice here (navigating to the
+    // fallback would silently land on this same list). Read-on-open semantics unchanged.
+    if (resolveNotificationDestination(resolveInput).kind === "inbox_fallback") {
+      if (item.unreadCount > 0) void markIdsRead(item.ids);
+      setOriginUnavailableTap(true);
+      return;
+    }
+    setOriginUnavailableTap(false);
     activateNotificationDestination({
       router,
-      resolveInput: {
-        inboxRow: {
-          id: item.notification_id,
-          notification_type: item.notification_type,
-          link_url: item.href,
-          meta: item.meta,
-          push_kind: item.push_kind ?? null,
-          bell_presentation_type: item.bell_presentation_type ?? null,
-          event_type: item.event_type ?? null,
-          campaign_type: item.campaign_type ?? null,
-        },
-        fallbackHref: defaultInboxFallbackHref(),
-      },
+      resolveInput,
       onBeforeNavigate: (resolvedHref) => {
         prewarmInboxNotificationChatHref(router, resolvedHref);
       },
@@ -665,10 +716,6 @@ export function MyNotificationsView({
     [broadcastNotificationsUpdated, load, markIdsRead, t]
   );
 
-  if (loading) {
-    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
-  }
-
   if (error === "login_required") {
     return <p className="text-sm text-sam-muted">{t("notif_inbox_login_required")}</p>;
   }
@@ -681,13 +728,14 @@ export function MyNotificationsView({
           active={categoryFilter}
           counts={tabCounts}
           onSelect={selectCategoryFilter}
+          ariaLabel={t("notif_center_tabs_aria")}
         />
         {variant === "notification_center" && !selectionMode ? (
           <div className="flex items-center justify-end px-0.5">
             <button
               type="button"
-              disabled={busy || !rows.some((r) => !r.is_read)}
-              title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
+              disabled={busy || loading || !hasUnreadToMark}
+              title={!hasUnreadToMark ? t("notif_inbox_mark_all_disabled_hint") : undefined}
               onClick={() => void markAllRead()}
               className="text-[12px] font-medium text-sam-muted hover:text-sam-fg disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -751,8 +799,8 @@ export function MyNotificationsView({
         <div className="flex justify-end">
           <button
             type="button"
-            disabled={busy || !rows.some((r) => !r.is_read)}
-            title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
+            disabled={busy || loading || !hasUnreadToMark}
+            title={!hasUnreadToMark ? t("notif_inbox_mark_all_disabled_hint") : undefined}
             onClick={() => void markAllRead()}
             className="shrink-0 text-[13px] font-semibold text-sam-primary disabled:opacity-40"
           >
@@ -760,8 +808,15 @@ export function MyNotificationsView({
           </button>
         </div>
       ) : null}
+      {showOriginUnavailable ? (
+        <NotificationContentUnavailableNotice onDismiss={dismissOriginUnavailable} />
+      ) : null}
+      {loading ? (
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+      ) : (
+      <>
       {error ? (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-sam-danger">
           {(() => {
             const key = resolveNotifInboxErrorMessageKey(error);
             return key ? t(key) : t("common_content_unavailable");
@@ -832,7 +887,9 @@ export function MyNotificationsView({
         }
       />
       )}
-      {hasMore && grouped.length > 0 ? (
+      </>
+      )}
+      {!loading && hasMore && grouped.length > 0 ? (
         <div className="flex justify-center pb-2">
           <button
             type="button"

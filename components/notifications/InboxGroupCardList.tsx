@@ -10,6 +10,7 @@ import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
 import { resolveMemberNotificationRowLabelKey } from "@/lib/notifications/member-notification-domain";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
+import { resolveInboxRowReadState } from "@/lib/notifications/inbox-row-read-state";
 
 type Props = {
   items: InboxGroupItem[];
@@ -81,6 +82,8 @@ export function InboxGroupCardList({
             ? resolveBellUnreadSequenceLabel(index, items.length) || null
             : null;
         const timeLabel = formatNotificationInboxTime(item.created_at, language);
+        // INAPP-01 — unread rows: tint + dot + bold title; read rows plain.
+        const readState = resolveInboxRowReadState(item.unreadCount);
         const labelKey = resolveMemberNotificationRowLabelKey({
           push_kind: item.push_kind,
           notification_type: item.notification_type,
@@ -97,9 +100,12 @@ export function InboxGroupCardList({
           <li
             key={item.key}
             data-notification-focus-target={focused ? "1" : undefined}
-            className={`${focused ? "bg-sam-primary-soft/40" : "bg-sam-surface"} ${
-              selected ? "bg-sam-primary-soft/55" : ""
-            }`}
+            data-notification-unread={readState.unread ? "1" : "0"}
+            className={
+              selected || focused
+                ? "bg-sam-primary-soft ring-1 ring-inset ring-sam-primary/40"
+                : readState.rowClassName
+            }
           >
             <div className="flex min-w-0 items-stretch">
               {selectionMode ? (
@@ -178,11 +184,18 @@ export function InboxGroupCardList({
                       >
                         {categoryLabel}
                       </span>
-                      <span
-                        className="shrink-0 text-[11px] leading-tight text-sam-meta tabular-nums"
-                        suppressHydrationWarning
-                      >
-                        {timeLabel}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className="text-[11px] leading-tight text-sam-meta tabular-nums"
+                          suppressHydrationWarning
+                        >
+                          {timeLabel}
+                        </span>
+                        {readState.showUnreadDot ? (
+                          <span className={readState.dotClassName} data-notification-unread-dot>
+                            <span className="sr-only">{t("notif_row_unread_sr")}</span>
+                          </span>
+                        ) : null}
                       </span>
                     </span>
 
@@ -192,7 +205,9 @@ export function InboxGroupCardList({
                       </span>
                     ) : null}
 
-                    <span className="mt-1 block break-words text-[14px] font-bold leading-snug text-sam-fg line-clamp-1">
+                    <span
+                      className={`mt-1 block break-words text-[14px] leading-snug line-clamp-1 ${readState.titleClassName}`}
+                    >
                       {item.displayTitle}
                     </span>
 

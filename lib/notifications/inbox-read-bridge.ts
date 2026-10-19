@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
 import {
   markNotificationEventsReadByCategory,
   markOrderNotificationEventsRead,
@@ -509,14 +510,24 @@ export async function markMemberANotificationsAllRead(
   userId: string,
   opts?: {
     /** Test seam — defaults to markCanonicalMemberANotificationEventsRead. */
-    markEvents?: (sb: SupabaseClient, userId: string) => Promise<number>;
+    markEvents?: (
+      sb: SupabaseClient,
+      userId: string,
+      scope?: { domain: MemberNotificationDomain }
+    ) => Promise<number>;
+    /**
+     * INAPP-02 — Notification Center category tab: mark only canonical A unread in this
+     * domain (server-side, not just loaded rows). Omit for every canonical A unread.
+     */
+    domain?: MemberNotificationDomain | null;
   }
 ): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
   const uid = userId.trim();
   const markEvents = opts?.markEvents ?? markCanonicalMemberANotificationEventsRead;
+  const domain = opts?.domain ?? null;
   let eventUpdated: number;
   try {
-    eventUpdated = await markEvents(sb, uid);
+    eventUpdated = domain ? await markEvents(sb, uid, { domain }) : await markEvents(sb, uid);
   } catch {
     // NOTIF-04: a failed mark-all must not be reported as success.
     return { ok: false, error: "mark_all_failed" };
@@ -531,7 +542,8 @@ export async function markMemberANotificationsAllRead(
  */
 export async function markCanonicalMemberANotificationEventsRead(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  scope?: { domain: MemberNotificationDomain }
 ): Promise<number> {
   const { loadBellExplainUnreadEventRows } = await import(
     "@/lib/notifications/load-bell-explain-unread-events"
@@ -546,7 +558,13 @@ export async function markCanonicalMemberANotificationEventsRead(
   const uid = userId.trim();
   const rows = await loadBellExplainUnreadEventRows(sb, uid);
   const authority = resolveMemberNotificationAuthorityFromRows(rows, uid);
-  const idsToMark = [...authority.eventIds];
+  let idsToMark = [...authority.eventIds];
+  if (scope?.domain) {
+    const { selectMemberAUnreadIdsInDomain } = await import(
+      "@/lib/notifications/inbox-events-merge"
+    );
+    idsToMark = selectMemberAUnreadIdsInDomain(rows, idsToMark, scope.domain);
+  }
   if (idsToMark.length === 0) return 0;
 
   const now = new Date().toISOString();

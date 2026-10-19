@@ -40,6 +40,7 @@ import {
   patchInboxNotificationIdsRead,
 } from "@/lib/notifications/inbox-read-bridge";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
+import { parseMemberNotificationDomainParam } from "@/lib/notifications/member-notification-domain";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -489,6 +490,11 @@ type PatchBody = {
   mark_my_chat_notifications_read?: boolean;
   /** 매장 사업자가 주문 관리로 들어올 때(종·알림 바로가기) 오너 전용 매장주문 알림만 일괄 읽음 */
   mark_all_owner_store_commerce_read?: boolean;
+  /**
+   * INAPP-02 — with a Member A mark-all flag: only that Notification Center category
+   * (notice·trade·community·delivery·marketing·system). Omitted / "all" → every category.
+   */
+  category?: string | null;
   ids?: string[];
 };
 
@@ -533,9 +539,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: deleteResult.deleted });
   }
 
+  const markAllCategory = parseMemberNotificationDomainParam(body.category);
+  if (markAllCategory === "invalid") {
+    return NextResponse.json({ ok: false, error: "invalid_category" }, { status: 400 });
+  }
+
   if (body.mark_all_read === true) {
     // Final Stabilization — Member A only; never blast chat/B room events.
-    const result = await markMemberANotificationsAllRead(sb, userId);
+    const result = await markMemberANotificationsAllRead(sb, userId, { domain: markAllCategory });
     if ("ok" in result && result.ok === false) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
     }
@@ -562,7 +573,7 @@ export async function PATCH(req: NextRequest) {
 
   if (body.mark_my_notifications_read_excluding_owner_commerce === true) {
     // Gate 3 Step 10 — Alias to Member A mark-all (canonical only).
-    const result = await markMemberANotificationsAllRead(sb, userId);
+    const result = await markMemberANotificationsAllRead(sb, userId, { domain: markAllCategory });
     if ("ok" in result && result.ok === false) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
     }
@@ -591,7 +602,8 @@ export async function PATCH(req: NextRequest) {
   if (body.mark_my_notifications_read_excluding_owner_and_chat === true) {
     // Slice 2-2 — legacy + notification_events A stores run independently.
     // DO NOT early-return when legacy unread is empty.
-    const result = await markMemberANotificationsAllRead(sb, userId);
+    // INAPP-02: server marks every canonical A unread (optionally one category) — not loaded rows.
+    const result = await markMemberANotificationsAllRead(sb, userId, { domain: markAllCategory });
     if ("ok" in result && result.ok === false) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
     }
