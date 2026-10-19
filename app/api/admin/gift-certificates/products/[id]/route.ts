@@ -8,6 +8,12 @@ import {
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
+import {
+  ADMIN_EXPECTED_UPDATED_AT_REQUIRED,
+  ADMIN_STALE_UPDATED_AT,
+  readExpectedUpdatedAt,
+  sameUpdatedAtInstant,
+} from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +71,17 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   const before = existing as Record<string, unknown>;
+
+  // CAS — 화면이 불러온 시점 updated_at 이 현재와 다르면 다른 관리자 변경을 덮어쓰지 않는다.
+  const expectedUpdatedAt = readExpectedUpdatedAt(body.expected_updated_at);
+  if (!expectedUpdatedAt) {
+    return NextResponse.json({ ok: false, error: ADMIN_EXPECTED_UPDATED_AT_REQUIRED }, { status: 400 });
+  }
+  const currentUpdatedAt = typeof before.updated_at === "string" ? before.updated_at : null;
+  if (!currentUpdatedAt || !sameUpdatedAtInstant(expectedUpdatedAt, currentUpdatedAt)) {
+    return NextResponse.json({ ok: false, error: ADMIN_STALE_UPDATED_AT }, { status: 409 });
+  }
+
   const action = s(body.action).toLowerCase();
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   let eventType = "PRODUCT_UPDATED";
@@ -199,11 +216,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .from(GIFT_TABLES.products)
     .update(patch)
     .eq("id", id)
+    .eq("updated_at", currentUpdatedAt)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    // 조건부 UPDATE 0행 — 확인 직후 다른 관리자가 먼저 저장(또는 삭제)했다.
+    return NextResponse.json({ ok: false, error: ADMIN_STALE_UPDATED_AT }, { status: 409 });
   }
 
   await recordGiftAdminEvent(gate.sb, {

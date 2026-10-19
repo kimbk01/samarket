@@ -6,12 +6,17 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminConflictReloadedCode } from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 type Overridden = {
   store_auto_complete_days: boolean;
   store_settlement_fee_bp: boolean;
   store_settlement_delay_days: boolean;
 };
+
+/** 필드별 admin_settings 행 버전 (GET/PUT `settings_updated_at`) — 저장 시 expected_updated_at 으로 전송. */
+type SettingsVersions = Record<string, string | null>;
 
 /**
  * 커머스 기본값 — 자동 완료 일수만 편집한다.
@@ -23,14 +28,20 @@ export function AdminCommerceSettingsPage() {
   const ko = language !== "en";
   const [autoDays, setAutoDays] = useState("");
   const [overridden, setOverridden] = useState<Overridden | null>(null);
+  const [versions, setVersions] = useState<SettingsVersions | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ ok: true; message: string } | { ok: false; code: string } | null>(null);
 
-  const applyResponse = (json: { effective?: { store_auto_complete_days?: number }; overridden_in_db?: Overridden }) => {
+  const applyResponse = (json: {
+    effective?: { store_auto_complete_days?: number };
+    overridden_in_db?: Overridden;
+    settings_updated_at?: SettingsVersions | null;
+  }) => {
     setAutoDays(String(json.effective?.store_auto_complete_days ?? ""));
     setOverridden((json.overridden_in_db as Overridden) ?? null);
+    setVersions(json.settings_updated_at ?? null);
   };
 
   const load = useCallback(async () => {
@@ -64,11 +75,18 @@ export function AdminCommerceSettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(partial),
+        body: JSON.stringify({ ...partial, expected_updated_at: versions ?? {} }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
-        setResult({ ok: false, code: typeof json?.error === "string" ? json.error : res.status === 403 ? "forbidden" : "update_failed" });
+        const code = typeof json?.error === "string" ? json.error : res.status === 403 ? "forbidden" : "update_failed";
+        if (isAdminConflictErrorCode(code) || code === "expected_updated_at_required") {
+          // 다른 관리자가 먼저 저장 — 최신 값을 다시 불러온 뒤 안내.
+          await load();
+          setResult({ ok: false, code: adminConflictReloadedCode(code) });
+          return;
+        }
+        setResult({ ok: false, code });
         return;
       }
       applyResponse(json);

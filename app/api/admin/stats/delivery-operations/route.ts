@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -9,14 +10,6 @@ import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-comm
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function todayBoundsLocal(now = new Date()): { todayStart: Date; todayEndEx: Date } {
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEndEx = new Date(todayStart);
-  todayEndEx.setDate(todayEndEx.getDate() + 1);
-  return { todayStart, todayEndEx };
-}
 
 export async function GET(req: Request) {
   const admin = await requireAdminApiUser();
@@ -33,18 +26,17 @@ export async function GET(req: Request) {
   const daysRaw = Number(sp.get("days") ?? "14");
   const days = Number.isFinite(daysRaw) ? Math.min(90, Math.max(1, Math.floor(daysRaw))) : 14;
 
-  const { todayStart, todayEndEx } = todayBoundsLocal();
-  const rangeStart = new Date(todayStart);
-  rangeStart.setDate(rangeStart.getDate() - (days - 1));
+  // 일 경계는 Asia/Manila 자정 — RPC 일별 버킷(AT TIME ZONE 'Asia/Manila')과 동일 달력.
+  const { todayStartIso, todayEndExIso, rangeStartIso } = manilaLastNDaysRangeUtc(days);
 
   const sbAny = sb as any;
 
   const [dashRes, healthRes] = await Promise.all([
     sbAny.rpc("admin_delivery_operations_dashboard", {
-      p_today_start: todayStart.toISOString(),
-      p_today_end_ex: todayEndEx.toISOString(),
-      p_range_start: rangeStart.toISOString(),
-      p_range_end_ex: todayEndEx.toISOString(),
+      p_today_start: todayStartIso,
+      p_today_end_ex: todayEndExIso,
+      p_range_start: rangeStartIso,
+      p_range_end_ex: todayEndExIso,
     }),
     sbAny.rpc("admin_delivery_operations_health"),
   ]);
@@ -106,7 +98,7 @@ export async function GET(req: Request) {
     ...base,
     ...(baseKpis ? { kpis: { ...baseKpis, ...ssotKpis } } : {}),
     ...healthPatch,
-    query: { days },
+    query: { days, timezone: "Asia/Manila", range_start: rangeStartIso, range_end_ex: todayEndExIso },
   };
 
   return NextResponse.json(payload);

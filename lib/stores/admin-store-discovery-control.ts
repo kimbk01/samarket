@@ -154,6 +154,8 @@ export type AdminStoreDiscoveryCampaignMonitorRow = {
   start_at: string;
   end_at: string;
   is_active: boolean;
+  /** 수정·비활성화 PATCH expected_updated_at (CAS, 409 stale_updated_at) */
+  updated_at: string | null;
   computed_state: AdminStoreDiscoveryCampaignMonitorState;
 };
 
@@ -173,6 +175,7 @@ type CampaignDbRow = {
   start_at?: unknown;
   end_at?: unknown;
   is_active?: unknown;
+  updated_at?: unknown;
 };
 
 export async function loadAdminStoreDiscoveryCampaignMonitor(
@@ -184,7 +187,7 @@ export async function loadAdminStoreDiscoveryCampaignMonitor(
   try {
     const { data, error } = await sb
       .from(STORE_DISCOVERY_CAMPAIGN_TABLE)
-      .select("id, store_id, campaign_type, title, body_copy, start_at, end_at, is_active")
+      .select("id, store_id, campaign_type, title, body_copy, start_at, end_at, is_active, updated_at")
       .order("end_at", { ascending: false })
       .limit(limit);
     if (error) {
@@ -231,6 +234,8 @@ export async function loadAdminStoreDiscoveryCampaignMonitor(
         start_at: startAt,
         end_at: endAt,
         is_active: isActive,
+        updated_at:
+          typeof raw.updated_at === "string" && raw.updated_at.trim() ? raw.updated_at : null,
         computed_state: classifyAdminStoreDiscoveryCampaignMonitorState({
           isActive,
           startAt,

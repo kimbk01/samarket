@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminConflictReloadedMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 function fmtDateTime(iso: string): string {
   const ms = Date.parse(iso);
@@ -22,6 +24,8 @@ export type AdminDiscoveryCampaignRow = {
   start_at: string;
   end_at: string;
   is_active: boolean;
+  /** CAS — 수정·비활성화 시 expected_updated_at 으로 전송 */
+  updated_at?: string | null;
   computed_state: "active" | "upcoming" | "expired" | "inactive";
 };
 
@@ -99,6 +103,8 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     v === "promo" ? (ko ? "프로모션" : "Promotion") : v === "event" ? (ko ? "이벤트" : "Event") : v;
   const [createForm, setCreateForm] = useState<CampaignFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** 수정 시작 시점 캠페인 updated_at — 저장 PATCH expected_updated_at */
+  const [editingUpdatedAt, setEditingUpdatedAt] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CampaignFormState>(emptyForm);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -106,6 +112,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
 
   const startEdit = useCallback((row: AdminDiscoveryCampaignRow) => {
     setEditingId(row.id);
+    setEditingUpdatedAt(row.updated_at ?? null);
     setEditForm({
       storeId: row.store_id,
       campaignType: row.campaign_type === "promo" ? "promo" : "event",
@@ -118,6 +125,15 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     setMsg(null);
     setSaveErr(null);
   }, []);
+
+  /** 409 stale_updated_at — 다른 관리자가 먼저 수정: 수정 폼을 닫고 최신 목록을 다시 불러온다. */
+  const handleConflict = (code: string | undefined): boolean => {
+    if (!isAdminConflictErrorCode(code) && code !== "expected_updated_at_required") return false;
+    setEditingId(null);
+    setSaveErr(adminConflictReloadedMessage(code, ko));
+    onRefresh();
+    return true;
+  };
 
   const onCreate = async () => {
     setBusy(true);
@@ -171,10 +187,12 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
           startAt: fromDatetimeLocal(editForm.startAt),
           endAt: fromDatetimeLocal(editForm.endAt),
           isActive: editForm.isActive,
+          expected_updated_at: editingUpdatedAt,
         }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (handleConflict(json.error)) return;
         setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
@@ -210,10 +228,16 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isActive: false, reason: c.reason }),
+        body: JSON.stringify({
+          id,
+          isActive: false,
+          reason: c.reason,
+          expected_updated_at: row.updated_at ?? null,
+        }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (handleConflict(json.error)) return;
         setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }

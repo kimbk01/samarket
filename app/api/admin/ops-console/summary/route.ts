@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function todayBoundsLocal(now = new Date()): { todayStart: Date; todayEndEx: Date } {
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEndEx = new Date(todayStart);
-  todayEndEx.setDate(todayEndEx.getDate() + 1);
-  return { todayStart, todayEndEx };
-}
 
 type RuntimeSettingsRow = {
   singleton: number;
@@ -396,17 +389,16 @@ export async function GET(req: NextRequest) {
   const daysRaw = Number(sp.get("days") ?? "7");
   const days = Number.isFinite(daysRaw) ? Math.min(30, Math.max(1, Math.floor(daysRaw))) : 7;
 
-  const { todayStart, todayEndEx } = todayBoundsLocal();
-  const rangeStart = new Date(todayStart);
-  rangeStart.setDate(rangeStart.getDate() - (days - 1));
+  // 일 경계는 Asia/Manila 자정 — RPC 일별 버킷(AT TIME ZONE 'Asia/Manila')과 동일 달력.
+  const { todayStartIso, todayEndExIso, rangeStartIso } = manilaLastNDaysRangeUtc(days);
 
   // 1) Delivery ops dashboard + health (single roundtrip each)
   const [dashRes, healthRes] = await Promise.all([
     sbAny.rpc("admin_delivery_operations_dashboard", {
-      p_today_start: todayStart.toISOString(),
-      p_today_end_ex: todayEndEx.toISOString(),
-      p_range_start: rangeStart.toISOString(),
-      p_range_end_ex: todayEndEx.toISOString(),
+      p_today_start: todayStartIso,
+      p_today_end_ex: todayEndExIso,
+      p_range_start: rangeStartIso,
+      p_range_end_ex: todayEndExIso,
     }),
     sbAny.rpc("admin_delivery_operations_health"),
   ]);

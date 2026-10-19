@@ -35,6 +35,7 @@ import {
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import { resolveAdminOrderOpsPeriod } from "@/lib/admin/store-orders/admin-store-order-ops-contract";
 
 export {
   ADMIN_ACTION_QUEUE_META,
@@ -67,6 +68,14 @@ export const STORE_CHARGE_ACTIONABLE_STATUSES = [
  */
 export const STORE_ORDER_ADMIN_QUEUE_OR_FILTER =
   `and(needs_admin_attention.eq.true,order_status.not.in.(${STORE_ORDER_ADMIN_QUEUE_EXCLUDED_STATUSES.join(",")}))`;
+
+/**
+ * 처리 필요 주문 = 최근 7일(마닐라, 주문 목록 `period=last_7_days` 와 같은 경계) — 배달 대시보드와 같은 기준.
+ * 7일 초과 미종결 주문은 배달 대시보드 「운영 위험」에서 따로 센다 (현재 처리 업무로 세지 않음).
+ */
+export function storeOrderAdminQueueActiveFromIso(now: Date = new Date()): string {
+  return String(resolveAdminOrderOpsPeriod("last_7_days", null, null, now).fromIso);
+}
 
 /** feed_ad_requests are projected in JS; cap guards the scan and is surfaced when hit. */
 const FEED_AD_SCAN_LIMIT = 2000;
@@ -288,7 +297,11 @@ export async function loadAdminActionQueueCounts(input: {
       ? notesSb.from("meeting_reports").select("id", head).in("status", ["pending", "reviewing"])
       : NOT_CONFIGURED,
     storesSb
-      ? storesSb.from("store_orders").select("id", head).or(STORE_ORDER_ADMIN_QUEUE_OR_FILTER)
+      ? storesSb
+          .from("store_orders")
+          .select("id", head)
+          .or(STORE_ORDER_ADMIN_QUEUE_OR_FILTER)
+          .gte("created_at", storeOrderAdminQueueActiveFromIso())
       : NOT_CONFIGURED,
     storesSb
       ? storesSb

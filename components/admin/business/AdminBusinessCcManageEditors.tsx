@@ -2,7 +2,11 @@
 
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { applyAutoBusinessHoursToRecord } from "@/lib/stores/serialize-store-business-hours-json";
 import {
@@ -437,6 +441,17 @@ export function AdminBusinessCcFeeOverrideEditor({
     setPercent(String(fee.storeOverrideFeePercent ?? fee.feePercent ?? 10));
   }, [storeId, fee.storeOverrideFeePercent, fee.feePercent]);
 
+  /** 409 stale_policy(다른 관리자가 먼저 수정) → 안내 + 최신 수수료 다시 불러오기. */
+  const reportPatchFailure = async (code: string | undefined) => {
+    const c = code ?? "update_failed";
+    if (isAdminConflictErrorCode(c) || c === "expected_updated_at_required") {
+      onSaved();
+      await dibayAlert({ title: adminConflictReloadedMessage(c, ko) });
+      return;
+    }
+    await dibayAlert({ title: adminOperatorErrorMessage(c, ko) });
+  };
+
   const saveOverride = async () => {
     const confirmed = await confirmAdminAction({
       level: "L1",
@@ -464,12 +479,13 @@ export function AdminBusinessCcFeeOverrideEditor({
               is_active: true,
               starts_at: null,
               ends_at: null,
+              expected_updated_at: fee.storeOverrideUpdatedAt,
             }),
           }
         );
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
+          await reportPatchFailure(j.error);
           return;
         }
       } else {
@@ -521,12 +537,12 @@ export function AdminBusinessCcFeeOverrideEditor({
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_active: false }),
+          body: JSON.stringify({ is_active: false, expected_updated_at: fee.storeOverrideUpdatedAt }),
         }
       );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
+        await reportPatchFailure(j.error);
         return;
       }
       await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });

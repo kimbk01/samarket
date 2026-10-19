@@ -5,6 +5,12 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
+import {
+  ADMIN_EXPECTED_UPDATED_AT_REQUIRED,
+  ADMIN_STALE_UPDATED_AT,
+  readExpectedUpdatedAt,
+  sameUpdatedAtInstant,
+} from "@/lib/admin/concurrency/admin-expected-updated-at";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,9 +142,41 @@ export async function PUT(req: NextRequest) {
     if (b[k] !== undefined) (patch as any)[k] = b[k] as any;
   }
 
+  // CAS — 화면이 본 항목 updated_at (테이블 updated_at 트리거 존재). 없으면 400, 다르면 409.
+  const expectedUpdatedAt = readExpectedUpdatedAt(b.expected_updated_at);
+  if (!expectedUpdatedAt) {
+    return NextResponse.json({ ok: false, error: ADMIN_EXPECTED_UPDATED_AT_REQUIRED }, { status: 400 });
+  }
+
   try {
+    const cur = await sb
+      .from("delivery_bottom_nav_items")
+      .select("id,label,icon_key,href,sort_order,is_active,is_center,requires_store_id,color,created_at,updated_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (cur.error) {
+      console.error("[PUT admin stores bottom-nav load]", cur.error);
+      return NextResponse.json({ ok: false, error: cur.error.message }, { status: 500 });
+    }
+    if (!cur.data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const before = cur.data as Record<string, unknown>;
+    const currentUpdatedAt = typeof before.updated_at === "string" ? before.updated_at : null;
+    if (!currentUpdatedAt || !sameUpdatedAtInstant(expectedUpdatedAt, currentUpdatedAt)) {
+      return NextResponse.json({ ok: false, error: ADMIN_STALE_UPDATED_AT }, { status: 409 });
+    }
+
+    /** 중앙 지정: 기존 중앙 해제(부분 unique 인덱스) — CAS 실패 시 되돌리기 위해 해제한 id 를 기억한다. */
+    let clearedCenterIds: string[] = [];
     if (patch.is_center === true) {
-      await sb.from("delivery_bottom_nav_items").update({ is_center: false }).eq("is_center", true).neq("id", id);
+      const cleared = await sb
+        .from("delivery_bottom_nav_items")
+        .update({ is_center: false })
+        .eq("is_center", true)
+        .neq("id", id)
+        .select("id");
+      clearedCenterIds = ((cleared.data ?? []) as Array<{ id?: unknown }>)
+        .map((r) => String(r.id ?? ""))
+        .filter(Boolean);
     }
 
     (patch as Patch).requires_store_id = false;
@@ -147,14 +185,23 @@ export async function PUT(req: NextRequest) {
       .from("delivery_bottom_nav_items")
       .update(patch)
       .eq("id", id)
+      .eq("updated_at", currentUpdatedAt)
       .select("id,label,icon_key,href,sort_order,is_active,is_center,requires_store_id,color,created_at,updated_at")
       .maybeSingle();
 
-    if (error) {
-      console.error("[PUT admin stores bottom-nav]", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error || !data) {
+      if (clearedCenterIds.length > 0) {
+        const restore = await sb.from("delivery_bottom_nav_items").update({ is_center: true }).in("id", clearedCenterIds);
+        if (restore.error) console.error("[PUT admin stores bottom-nav center restore]", restore.error);
+        revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
+      }
+      if (error) {
+        console.error("[PUT admin stores bottom-nav]", error);
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      // 조건부 UPDATE 0행 — 확인 직후 다른 관리자가 먼저 저장(또는 삭제).
+      return NextResponse.json({ ok: false, error: ADMIN_STALE_UPDATED_AT }, { status: 409 });
     }
-    if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
     revalidateTag(DELIVERY_BOTTOM_NAV_SERVER_CACHE_TAG, { expire: 0 });
     await appendAdminRouteAudit(gate.sb, req, {
@@ -162,6 +209,7 @@ export async function PUT(req: NextRequest) {
       targetType: "delivery_bottom_nav_item",
       targetId: id,
       action: "delivery_bottom_nav.update",
+      before,
       after: { patch, item: data as Record<string, unknown> },
     });
     return NextResponse.json({ ok: true as const, item: data });

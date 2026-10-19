@@ -10,7 +10,11 @@ import {
   resolveAdminDelApiError,
 } from "@/components/admin/i18n/admin-delivery-label-keys";
 import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/delivery-bottom-nav-builtin";
-import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adminConflictReloadedMessage,
+  adminOperatorErrorMessage,
+} from "@/lib/admin/operator-ux/operator-labels";
+import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 
 type Row = {
@@ -60,13 +64,14 @@ async function apiCreate(payload: Partial<Row>) {
   }
 }
 
-async function apiUpdate(id: string, patch: Partial<Row>) {
+/** 단일 항목 PUT — 화면이 본 updated_at 을 함께 보낸다 (CAS, 409 stale_updated_at). */
+async function apiUpdate(id: string, patch: Partial<Row>, expectedUpdatedAt: string | null | undefined) {
   try {
     const res = await fetch("/api/admin/stores/bottom-nav", {
       method: "PUT",
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, ...patch }),
+      body: JSON.stringify({ id, ...patch, expected_updated_at: expectedUpdatedAt ?? null }),
     });
     return await readResult<{ ok: boolean; item?: Row; error?: string }>(res);
   } catch {
@@ -190,21 +195,30 @@ export function AdminDeliveryBottomNavPage() {
     [editingId, rows]
   );
 
-  /** 단일 행 PUT (노출·중앙 토글) — 결과 확인 후 오류 표시 (DEF-44). */
+  /** 저장 실패 문구 — 충돌(409)은 최신 데이터를 다시 불러온 뒤 안내. */
+  const saveErrText = useCallback(
+    (code: string | undefined | null) =>
+      isAdminConflictErrorCode(code) || code === "expected_updated_at_required"
+        ? adminConflictReloadedMessage(code, ko)
+        : errText(code),
+    [errText, ko]
+  );
+
+  /** 단일 행 PUT (노출·중앙 토글) — 재조회 후 결과 오류 표시 (DEF-44). */
   const updateRow = useCallback(
-    async (id: string, patch: Partial<Row>) => {
+    async (row: Row, patch: Partial<Row>) => {
       if (rowBusy) return;
       setRowBusy(true);
       setError(null);
       try {
-        const res = await apiUpdate(id, patch);
-        if (!res.ok) setError(errText(res.error));
+        const res = await apiUpdate(row.id, patch, row.updated_at);
         await load();
+        if (!res.ok) setError(saveErrText(res.error));
       } finally {
         setRowBusy(false);
       }
     },
-    [rowBusy, errText, load]
+    [rowBusy, saveErrText, load]
   );
 
   /** 순서 이동 — 한 번의 요청으로 두 항목 순서를 교환 (DEF-44). 결과 확인 후 재조회. */
@@ -265,9 +279,13 @@ export function AdminDeliveryBottomNavPage() {
       if (href !== editingRow.href) patch.href = href;
       if (color !== editingRow.color) patch.color = color;
       if (Object.keys(patch).length > 0) {
-        const res = await apiUpdate(editingId, patch);
+        const res = await apiUpdate(editingId, patch, editingRow.updated_at);
         if (!res.ok) {
-          setError(errText(res.error));
+          if (isAdminConflictErrorCode(res.error) || res.error === "expected_updated_at_required") {
+            cancelEdit();
+            await load();
+          }
+          setError(saveErrText(res.error));
           return;
         }
       }
@@ -276,7 +294,7 @@ export function AdminDeliveryBottomNavPage() {
     } finally {
       setSaving(false);
     }
-  }, [editingRow, editingId, editDraft, cancelEdit, load, t, errText]);
+  }, [editingRow, editingId, editDraft, cancelEdit, load, t, saveErrText]);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -451,7 +469,7 @@ export function AdminDeliveryBottomNavPage() {
                           <button
                             type="button"
                             disabled={rowBusy}
-                            onClick={() => void updateRow(r.id, { is_active: !r.is_active })}
+                            onClick={() => void updateRow(r, { is_active: !r.is_active })}
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_active ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
@@ -464,7 +482,7 @@ export function AdminDeliveryBottomNavPage() {
                           <button
                             type="button"
                             disabled={rowBusy || r.is_center}
-                            onClick={() => void updateRow(r.id, { is_center: true })}
+                            onClick={() => void updateRow(r, { is_center: true })}
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_center ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
