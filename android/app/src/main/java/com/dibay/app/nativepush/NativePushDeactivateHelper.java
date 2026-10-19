@@ -3,6 +3,7 @@ package com.dibay.app.nativepush;
 import android.content.Context;
 import android.util.Log;
 import com.dibay.app.DibayBoundPushTokenStore;
+import com.dibay.app.DibayPendingPushTokenStore;
 import com.dibay.app.DibayCallAuthEligibilityStore;
 import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.DibayServerOrigin;
@@ -49,15 +50,15 @@ public final class NativePushDeactivateHelper {
     DibayCallAuthEligibilityStore.setEligible(app, false, "native_deactivate:" + safe(reason));
 
     String deviceId = DibayCanonicalDeviceIdStore.resolveOrEmpty(app);
-    String pushToken = DibayBoundPushTokenStore.resolveTokenOrEmpty(app);
+    String boundToken = DibayBoundPushTokenStore.resolveTokenOrEmpty(app);
+    String pendingToken = DibayPendingPushTokenStore.resolveTokenOrEmpty(app);
     String pushProvider = DibayBoundPushTokenStore.resolveProviderOrFcm(app);
-    if (deviceId.isEmpty() || pushToken.isEmpty()) {
+    if (deviceId.isEmpty() || (boundToken.isEmpty() && pendingToken.isEmpty())) {
       Log.w(
           TAG,
           "native_deactivate_skipped reason=missing_proof deviceEmpty="
               + deviceId.isEmpty()
-              + " tokenEmpty="
-              + pushToken.isEmpty());
+              + " tokenEmpty=true");
       return new DeactivateResult(false, 0, "missing_proof", 0);
     }
 
@@ -66,6 +67,27 @@ public final class NativePushDeactivateHelper {
       return new DeactivateResult(false, 0, "no_server_origin", 0);
     }
 
+    // PUSH-01 — the bound token is the server-confirmed proof; a rotated token that was already
+    // re-registered by the web layer may be the one user_devices now holds. Try both.
+    DeactivateResult result =
+        boundToken.isEmpty() ? null : postDeactivate(origin, deviceId, boundToken, pushProvider, reason);
+    boolean tryPending =
+        !pendingToken.isEmpty()
+            && !pendingToken.equals(boundToken)
+            && (result == null || !result.ok || result.deactivated == 0);
+    if (tryPending) {
+      DeactivateResult pendingResult = postDeactivate(origin, deviceId, pendingToken, "fcm", reason);
+      if (result == null || pendingResult.ok) result = pendingResult;
+    }
+    if (result.ok) {
+      DibayBoundPushTokenStore.clear(app);
+      DibayPendingPushTokenStore.clear(app);
+    }
+    return result;
+  }
+
+  private static DeactivateResult postDeactivate(
+      String origin, String deviceId, String pushToken, String pushProvider, String reason) {
     HttpURLConnection conn = null;
     try {
       URL url = new URL(origin + "/api/me/devices/deactivate");
@@ -111,7 +133,6 @@ public final class NativePushDeactivateHelper {
               + " reason="
               + safe(reason));
       if (ok) {
-        DibayBoundPushTokenStore.clear(app);
         return new DeactivateResult(true, status, null, deactivated);
       }
       return new DeactivateResult(false, status, error, deactivated);
