@@ -1,3 +1,6 @@
+-- MANUAL APPLY (A-11b): Owner 승인 후에만 수동 적용. migrations/ 밖에 두어 일괄 적용(db push 등)에서 제외한다.
+-- 원래 파일명: supabase/migrations/20270519130000_messenger_media_private_bucket.sql
+
 -- C-4 (O-C3 승인) — 메신저 첨부 비공개 버킷 `messenger-media`.
 -- 설계: docs/admin/dibay-admin-chat-audit-design.md §1.2 · §7 · §8 C-4.
 --

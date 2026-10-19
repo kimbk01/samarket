@@ -34,7 +34,7 @@ docs/admin/dibay-admin-chat-audit-design.md(감사·설계)를 읽고, §3 남�
    - `npm run verify:call-authority-contract` FAIL — `lib/community-messenger/service.ts` 에 "Room-bound missed is the terminal call_stub Conversation B fact" 문구 없음. **main 에서도 같은지 먼저 확인** (영역 E 는 통화 코드를 건드리지 않았다고 보고). main 도 FAIL 이면 이번 범위 아님.
 3. **통합 검증 (최종 HEAD 1회)**: `npm run typecheck:build` · 변경 파일 eslint · `npx vitest run` 전체 · `npm run verify:routes` · `verify:call-messenger-restore-hard-lock` · `verify:call-authority-contract` · `next build` 는 CI 에 맡김.
 4. **PR 1개** → CI → main 병합 → Production 반영 확인 (운영 DB 로그로 새 쿼리·오류 확인). 웹 변경만이므로 네이티브 재빌드 불필요.
-5. **DB 적용 (Owner 승인 범위 확인 후)**: `supabase/migrations/20270519130000_messenger_media_private_bucket.sql` (비공개 버킷 생성 + RESTRICTIVE 정책, 비파괴). 적용 후 60초 내 새 업로드가 비공개 버킷으로 감 → 이미지·파일·음성 업로드·표시·저장 확인, 문제 시 env `off`.
+5. **DB 적용 (Owner 승인 범위 확인 후)**: `supabase/manual-apply-messenger-media-private-bucket.sql` (수동 적용 전용, migrations/ 밖) (비공개 버킷 생성 + RESTRICTIVE 정책, 비파괴). 적용 후 60초 내 새 업로드가 비공개 버킷으로 감 → 이미지·파일·음성 업로드·표시·저장 확인, 문제 시 env `off`.
 
 ## 4. 남은 위험 (기록만)
 - 기존 첨부 파일은 공개 버킷에 그대로 — 예전 URL 은 여전히 열람 가능. 파일 이전은 별도 승인 마이그레이션.
