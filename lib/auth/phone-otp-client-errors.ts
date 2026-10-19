@@ -21,6 +21,7 @@ const CODE_TO_KEY: Record<PhoneOtpErrorCode, MessageKey> = {
   otp_rate_limited: "my_phone_err_otp_rate_limited",
   otp_send_failed: "my_phone_send_otp_failed",
   phone_verify_disabled: "mypage_comp_phone_verify_disabled",
+  phone_otp_hash_secret_missing: "mypage_comp_phone_verify_disabled",
   server_error: "my_phone_send_otp_failed",
 };
 

@@ -513,6 +513,14 @@ export function AdminUserListPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
+            href="/admin/users/phone-verification"
+            className={ADMIN_USERS_LITE_BTN_TERTIARY}
+            data-member-list-phone-otp-ops="1"
+            data-member-cta-variant="tertiary"
+          >
+            전화번호 인증 관리
+          </Link>
+          <Link
             href="/admin/users/deletion-requests"
             className={ADMIN_USERS_LITE_BTN_TERTIARY}
             data-member-list-deletion-entry="1"

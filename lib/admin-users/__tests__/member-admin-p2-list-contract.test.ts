@@ -191,6 +191,7 @@ describe("P2 member list — UI contracts", () => {
     expect(list).toContain("MEMBER_ADMIN_COPY.member_management");
     expect(list).toContain("/admin/users/deletion-requests");
     expect(list).toContain("/admin/users/ops-history");
+    expect(list).toContain("/admin/users/phone-verification");
     expect(list).not.toContain("<AdminDeletionRequestsQueue");
     expect(list).not.toContain('admin_users_tab_all');
     expect(list).not.toContain("onEditPermissions");
