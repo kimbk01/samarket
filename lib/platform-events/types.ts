@@ -75,6 +75,18 @@ export type PlatformEventRow = {
   publishedAt: string | null;
   sourceOwnerRequestId: string | null;
   sourceStoreId: string | null;
+  /**
+   * Event board fields (migration 20270518120000). Optional so legacy literals / pre-migration
+   * rows stay valid; `mapPlatformEventDbRow` always fills them.
+   * Board card thumbnail (2:1) — falls back to hero on the list.
+   */
+  thumbnailUrl?: string | null;
+  /** Board order (ascending) after pinned. */
+  sortOrder?: number;
+  isPinned?: boolean;
+  category?: string | null;
+  /** Archived events never appear publicly (board / detail). */
+  archivedAt?: string | null;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
@@ -83,6 +95,13 @@ export type PlatformEventRow = {
 
 export const PLATFORM_EVENTS_SELECT =
   "id, title, subtitle, hero_image_url, hero_image_path, sections, terms, status, starts_at, ends_at, timezone, cta_label, cta_type, cta_target, cta_external_url, published_at, source_owner_request_id, source_store_id, created_by, updated_by, created_at, updated_at";
+
+/** Event board columns (migration 20270518120000) — select only when present. */
+export const PLATFORM_EVENTS_BOARD_COLUMNS = "thumbnail_url, sort_order, is_pinned, category, archived_at";
+
+export const PLATFORM_EVENTS_SELECT_WITH_BOARD = `${PLATFORM_EVENTS_SELECT}, ${PLATFORM_EVENTS_BOARD_COLUMNS}`;
+
+export const PLATFORM_EVENT_CATEGORY_MAX = 40;
 
 export function isPlatformEventStatus(v: string): v is PlatformEventStatus {
   return (PLATFORM_EVENT_STATUSES as readonly string[]).includes(v);

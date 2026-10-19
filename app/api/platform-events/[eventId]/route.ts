@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadPlatformEventByIdAdmin } from "@/lib/platform-events/load-event";
 import {
   platformEventUnavailableFallback,
-  resolvePlatformEventAvailability,
+  resolvePlatformEventPublicView,
 } from "@/lib/platform-events/publication";
 
 export const runtime = "nodejs";
@@ -12,24 +12,31 @@ type Ctx = { params: Promise<{ eventId: string }> };
 
 /**
  * GET /api/platform-events/[eventId]
- * Public Event Detail payload — publication-gated.
+ * Public Event Detail payload — `resolvePlatformEventPublicView` is the contract (EVT-02):
+ * active → 200, ended → 200 with `ended: true` (never "Gone"), not started / missing → 404,
+ * draft / unpublished / archived → 403.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { eventId } = await ctx.params;
   const lang = req.nextUrl.searchParams.get("lang") === "en" ? "en" : "ko";
   const row = await loadPlatformEventByIdAdmin(eventId);
-  const availability = resolvePlatformEventAvailability(row);
-  if (availability !== "active" || !row) {
-    const fb = platformEventUnavailableFallback(availability, lang);
+  const view = resolvePlatformEventPublicView(row);
+  if (view.kind !== "view" || !row) {
+    const availability = view.kind === "view" ? "missing" : view.availability;
     return NextResponse.json(
       {
         ok: false,
         availability,
-        error: availability === "missing" ? "not_found" : "unavailable",
-        fallback: fb,
+        error: view.kind === "forbidden" ? "unavailable" : "not_found",
+        fallback: platformEventUnavailableFallback(availability, lang),
       },
-      { status: availability === "missing" ? 404 : 410 }
+      { status: view.kind === "forbidden" ? 403 : 404 }
     );
   }
-  return NextResponse.json({ ok: true, availability: "active", event: row });
+  return NextResponse.json({
+    ok: true,
+    availability: view.availability,
+    ended: view.ended,
+    event: row,
+  });
 }
