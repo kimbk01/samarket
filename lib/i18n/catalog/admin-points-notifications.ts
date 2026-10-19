@@ -271,10 +271,6 @@ export const adminPointsNotificationsMessages = {
     admin_points_charge_alert_waiting:
       "입금 확인이 필요한 신청 {count}건이 있습니다. 아래 목록에서 입금 확인 후 승인해 주세요.",
     admin_points_charge_list_title: "충전 신청 목록 ({count}건)",
-    admin_points_charge_search_placeholder: "닉네임 · 입금자명 · 신청 번호",
-    admin_points_charge_page_status: "{page}/{pages} 페이지",
-    admin_points_charge_page_prev: "이전",
-    admin_points_charge_page_next: "다음",
     admin_points_charge_th_applicant: "신청자",
     admin_points_charge_th_plan_points: "플랜/포인트",
     admin_points_charge_th_payment: "결제방식",
@@ -728,10 +724,6 @@ export const adminPointsNotificationsMessages = {
     admin_points_charge_alert_waiting:
       "{count} request(s) need deposit confirmation. Confirm below, then approve.",
     admin_points_charge_list_title: "Top-up requests ({count})",
-    admin_points_charge_search_placeholder: "Nickname · depositor · request ID",
-    admin_points_charge_page_status: "Page {page} of {pages}",
-    admin_points_charge_page_prev: "Prev",
-    admin_points_charge_page_next: "Next",
     admin_points_charge_th_applicant: "Applicant",
     admin_points_charge_th_plan_points: "Plan/points",
     admin_points_charge_th_payment: "Payment",

@@ -3,6 +3,11 @@
  */
 export const adminCommunityR4Messages = {
   ko: {
+    // 공통 포인트 충전 목록 서버 페이지네이션 (admin.ts 추론 타입 한도 회피를 위해 이 카탈로그에 둔다)
+    admin_points_charge_search_placeholder: "닉네임 · 입금자명 · 신청 번호",
+    admin_points_charge_page_status: "{page}/{pages} 페이지",
+    admin_points_charge_page_prev: "이전",
+    admin_points_charge_page_next: "다음",
     // 메뉴 그룹 (§B-2)
     admin_menu_community_section_ops: "운영 현황",
     admin_menu_community_section_moderation: "신고·제재",
@@ -56,6 +61,10 @@ export const adminCommunityR4Messages = {
     admin_community_post_image_delete_dirty: "저장하지 않은 본문 수정을 먼저 저장하거나 취소해 주세요.",
   },
   en: {
+    admin_points_charge_search_placeholder: "Nickname · depositor · request ID",
+    admin_points_charge_page_status: "Page {page} of {pages}",
+    admin_points_charge_page_prev: "Prev",
+    admin_points_charge_page_next: "Next",
     admin_menu_community_section_ops: "Overview",
     admin_menu_community_section_moderation: "Reports & sanctions",
     admin_menu_community_section_content: "Posts & comments",
