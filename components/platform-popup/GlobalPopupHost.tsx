@@ -36,7 +36,8 @@ import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-even
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import { fetchPlatformPopupResolveDeduped } from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
 import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
-import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import { openDestination } from "@/lib/destination/open-destination";
+import { parseDestinationHref } from "@/lib/destination/destination-contract";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -446,48 +447,24 @@ export function GlobalPopupHost() {
       void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
     };
 
-    if (href.startsWith("/")) {
+    const parsed = parseDestinationHref(href);
+    if (!parsed.ok) return;
+    if (parsed.ref.kind !== "external_url") {
       recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "POPUP" });
-      router.push(href);
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_success",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-      dismissAfterCta();
-      return;
     }
-
-    try {
-      window.location.assign(href);
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_success",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-      dismissAfterCta();
-    } catch {
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_failure",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-    }
+    // EVT-04: internal / event → app router; external → in-app browser (never the app WebView).
+    const opened = openDestination(parsed.ref, router);
+    void recordPlatformPopupEvent({
+      campaignId: winner.campaignId,
+      creativeId: winner.creativeId,
+      surface: winner.surface,
+      eventType: opened ? "landing_success" : "landing_failure",
+      source: "click_handler",
+      exposureId,
+      deviceKey,
+      meta: { href },
+    });
+    if (opened) dismissAfterCta();
   }, [winner, exposureId, router, suppress, deviceKey]);
 
   /** IMPRESSION only — never frequency suppress. */
@@ -510,39 +487,11 @@ export function GlobalPopupHost() {
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 
-  /**
-   * Android Back → same dismiss SSOT as X (scoped while VISIBLE).
-   * Do NOT register on DibayOverlayRoot — host owns lifecycle + cleanup.
+  /*
+   * Android Back → same dismiss SSOT as X: DibayPopupAd renders inside DibayOverlayRoot with
+   * onClose={handleClose}, so the overlay back stack (lib/ui/overlay-back-stack.ts, INAPP-07)
+   * closes the popup when it is the top-most overlay. No second native listener here.
    */
-  useEffect(() => {
-    if (!showPresentation || !winner) return;
-    if (resolveCapacitorShellPlatform() !== "android") return;
-
-    let removed = false;
-    let handle: { remove: () => void | Promise<void> } | null = null;
-
-    void import("@capacitor/app")
-      .then(({ App }) =>
-        App.addListener("backButton", () => {
-          void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
-        })
-      )
-      .then((h) => {
-        if (removed) {
-          void h.remove();
-          return;
-        }
-        handle = h;
-      })
-      .catch(() => {
-        /* web / missing plugin — ESC/X still work */
-      });
-
-    return () => {
-      removed = true;
-      void handle?.remove();
-    };
-  }, [showPresentation, winner, suppress]);
 
   return (
     <div

@@ -17,6 +17,11 @@ import type {
   PlatformPopupTargetSurface,
 } from "@/lib/platform-popup/types";
 import type { PlatformPopupSuppressionRecord } from "@/lib/platform-popup/suppression";
+import {
+  loadPopupEventDestinationLookups,
+  popupCtaInputEventId,
+  resolvePopupCandidateCtaLookup,
+} from "@/lib/platform-popup/popup-event-destination-availability";
 
 type CampaignRow = {
   id: string;
@@ -105,8 +110,17 @@ export async function loadPlatformPopupCandidates(
   if (error || !campaigns?.length) return [];
 
   const ids = (campaigns as unknown as CampaignRow[]).map((c) => c.id);
+  const ctaInputOf = (c: CampaignRow) => ({
+    ctaType: c.cta_type,
+    ctaTarget: c.cta_target,
+    externalUrl: c.external_url,
+  });
+  // EVT-03: event destinations must exist, be public and running — one batched read.
+  const eventIds = (campaigns as unknown as CampaignRow[])
+    .map((c) => popupCtaInputEventId(ctaInputOf(c)))
+    .filter((id): id is string => Boolean(id));
 
-  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions] =
+  const [{ data: creatives }, { data: surfaces }, suppressions, lastImpressions, eventLookups] =
     await Promise.all([
       sb
         .from("platform_popup_creatives")
@@ -123,6 +137,7 @@ export async function loadPlatformPopupCandidates(
         .in("campaign_id", ids),
       loadSuppressions(sb, ids, input),
       loadLastImpressions(sb, ids, input),
+      loadPopupEventDestinationLookups(sb, eventIds),
     ]);
 
   const creativeByCampaign = new Map<string, CreativeRow>();
@@ -202,7 +217,7 @@ export async function loadPlatformPopupCandidates(
       body: c.body,
       suppressionMode: c.suppression_mode,
       suppressionDurationSeconds: c.suppression_duration_seconds,
-      ctaLookup: { exists: true, visible: true, authorized: true },
+      ctaLookup: resolvePopupCandidateCtaLookup(ctaInputOf(c), eventLookups),
       suppressions: suppressByCampaign.get(c.id) ?? [],
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
       ...(isPtr

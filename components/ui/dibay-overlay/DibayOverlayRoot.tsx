@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import {
   OVERLAY_Z_CLASS,
   OverlayUi,
@@ -45,9 +46,11 @@ export type DibayOverlayRootProps = {
 /**
  * Shared portal root — backdrop, z-index, scroll lock, Escape, a11y.
  *
- * Do NOT register Capacitor `backButton` or `history.pushState` here.
- * A leaked/global backButton listener overrides Android default navigation
- * and can freeze route changes after overlays open.
+ * Android hardware back (INAPP-07): the root only registers with the overlay back stack
+ * (`lib/ui/overlay-back-stack.ts`), which owns the ONE native listener and installs it only
+ * while an overlay is open — back closes the top-most overlay only. Do NOT add a native
+ * listener or `history.pushState` here directly: a leaked/global listener overrides Android
+ * default navigation and can freeze route changes after overlays close.
  */
 export function DibayOverlayRoot({
   open,
@@ -69,6 +72,10 @@ export function DibayOverlayRoot({
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  // Overlays without a close handler are not registered (back behaves as before).
+  // Non-dismissible (busy) overlays swallow back so the page underneath does not navigate.
+  useOverlayHardwareBack(open && Boolean(onClose), dismissible && onClose ? onClose : null);
 
   useEffect(() => {
     setMounted(true);

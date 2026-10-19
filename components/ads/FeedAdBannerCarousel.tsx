@@ -9,7 +9,6 @@ import {
   useState,
   type TransitionEvent,
 } from "react";
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type {
@@ -32,18 +31,17 @@ import {
 } from "@/lib/ads/feed-ad-geometry";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
-import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
+import { DestinationLink } from "@/components/destination/DestinationLink";
+import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
+import type { DestinationRef } from "@/lib/destination/destination-contract";
 
-function resolveHref(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): string {
-  const type = slide?.destinationType ?? c.destinationType;
-  const id = (slide?.destinationId || c.destinationId).trim();
-  const url = (slide?.destinationUrl || c.destinationUrl).trim();
-  if (type === "trade_listing" && id) return `/post/${encodeURIComponent(id)}`;
-  if (type === "community_post" && id) return `/philife/post/${encodeURIComponent(id)}`;
-  if (type === "store" && id) return `/stores/${encodeURIComponent(id)}`;
-  if (type === "external_url" && url) return url;
-  if (url.startsWith("/")) return url;
-  return url || "#";
+/** EVT-05: stored destination → DestinationRef (null = NONE / invalid → no navigation). */
+function resolveDestination(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): DestinationRef | null {
+  return feedAdDestinationRef({
+    destinationType: slide?.destinationType ?? c.destinationType,
+    destinationId: slide?.destinationId || c.destinationId,
+    destinationUrl: slide?.destinationUrl || c.destinationUrl,
+  });
 }
 
 /** One slot item = one campaign's primary reachable creative. */
@@ -351,15 +349,12 @@ function FeedAdBannerCarouselView({
             >
               {trackSlides.map((s, i) => {
                 const camp = trackCampaigns[i] ?? currentCampaign;
-                const href = resolveHref(camp, s);
-                const external = href.startsWith("http");
+                const destination = resolveDestination(camp, s);
                 const isClone = multi && i === trackSlides.length - 1 && i > 0;
                 return (
-                  <Link
+                  <DestinationLink
                     key={isClone ? `${s.id}-loop` : s.id || `slide-${i}`}
-                    href={href === "#" ? "/" : href}
-                    target={external ? "_blank" : undefined}
-                    rel={external ? "noopener noreferrer" : undefined}
+                    destination={destination}
                     className="relative block h-full min-w-0 shrink-0 grow-0 basis-full"
                     style={{ flex: "0 0 100%" }}
                     tabIndex={
@@ -367,12 +362,11 @@ function FeedAdBannerCarouselView({
                         ? 0
                         : -1
                     }
-                    onClick={(e) => {
-                      if (href === "#") e.preventDefault();
+                    onNavigate={(ref) => {
                       // BANNER TAP only — impression alone does not coordinate.
-                      if (extractEventIdFromHref(href)) {
+                      if (ref.kind === "event") {
                         recordPromotionContentVisitClient({
-                          hrefOrEventId: href,
+                          hrefOrEventId: ref.eventId,
                           sourceChannel: "BANNER",
                         });
                       }
@@ -385,7 +379,7 @@ function FeedAdBannerCarouselView({
                       className="!h-full !w-full bg-sam-app"
                       alt={s.altText || camp.name || altFallback}
                     />
-                  </Link>
+                  </DestinationLink>
                 );
               })}
             </div>

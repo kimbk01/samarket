@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import type { MouseEvent } from "react";
+import { DestinationLink } from "@/components/destination/DestinationLink";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyPageBannerRow } from "@/lib/my/types";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -16,7 +17,10 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
   const { t } = useI18n();
   if (!banner) return null;
 
-  const handleDismiss = () => {
+  const handleDismiss = (e: MouseEvent<HTMLButtonElement>) => {
+    // The close button sits inside the banner link — never let it navigate.
+    e.preventDefault();
+    e.stopPropagation();
     const userId = getCurrentUser()?.id;
     if (userId) {
       updateMySettings(userId, { app_banner_hidden: true });
@@ -50,12 +54,10 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
     </div>
   );
 
-  if (banner.link_url) {
-    return (
-      <Link href={banner.link_url} className="block">
-        {content}
-      </Link>
-    );
-  }
-  return content;
+  // EVT-07: stored link validated on save; opened via openDestination (external → in-app browser).
+  return (
+    <DestinationLink destination={banner.link_url} className="block" fallback={content}>
+      {content}
+    </DestinationLink>
+  );
 }
