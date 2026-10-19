@@ -11,10 +11,13 @@
  * 초기화 = screen defaults. A failed request keeps the previous result and shows the error (never 0 rows).
  * Return: list state lives in the URL; the scroll position is kept per URL in sessionStorage.
  */
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { CommissionStateChip, type CommissionLang } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import {
   AdminOrderDetailModal,
@@ -111,6 +114,14 @@ const applyForm = (q: AdminOrderOpsQuery, f: Form): AdminOrderOpsQuery => ({
   asOf: null,
 });
 
+/** Page title = the admin menu label of each screen (admin-menu.ts key → message key). */
+const ADMIN_ORDER_OPS_TITLE_KEY: Record<Screen, MessageKey> = {
+  list: "admin_menu_delivery_order_list",
+  exceptions: "admin_menu_store_orders_action_queue",
+  cancellations: "admin_menu_delivery_cancel",
+  refunds: "admin_menu_delivery_refund",
+};
+
 const PAYMENT_METHOD_LABEL: Record<AdminOrderOpsPaymentMethod, { ko: string; en: string }> = {
   cod: { ko: "현장 결제(COD)", en: "COD" },
   gcash: { ko: "GCash", en: "GCash" },
@@ -197,9 +208,12 @@ export function AdminOrderOpsScreen({
       if (code === "network_error") return ko ? "네트워크 오류로 불러오지 못했습니다." : "Network error.";
       if (code === "rpc_missing")
         return ko
-          ? "주문 운영 조회 함수가 아직 DB에 적용되지 않았습니다. (마이그레이션 20270513120000)"
-          : "The order-ops query function is not deployed yet (migration 20270513120000).";
-      return ko ? `목록을 불러오지 못했습니다. (${code})` : `Failed to load. (${code})`;
+          ? "기능 준비 중입니다. 시스템 관리자에게 문의하세요."
+          : "This feature is not ready yet. Contact a system admin.";
+      if (code === "load_failed") return ko ? "목록을 불러오지 못했습니다." : "Failed to load.";
+      return ko
+        ? `목록을 불러오지 못했습니다. ${adminOperatorErrorMessage(code, true)}`
+        : `Failed to load. ${adminOperatorErrorMessage(code, false)}`;
     },
     [ko]
   );
@@ -221,7 +235,7 @@ export function AdminOrderOpsScreen({
         const res = await fetch(`/api/admin/store-orders/ops/summary?${p.toString()}`, { credentials: "include", cache: "no-store" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; summary?: Record<string, unknown> };
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
-        if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : `http_${res.status}`);
+        if (!res.ok || j.ok !== true) throw new Error(typeof j.error === "string" ? j.error : "load_failed");
         return j.summary ?? null;
       };
       try {
@@ -275,7 +289,7 @@ export function AdminOrderOpsScreen({
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Partial<AdminOrderOpsPageResult>;
         if (ac.signal.aborted) return;
         if (res.status === 401 || res.status === 403) throw new Error("forbidden");
-        if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : `http_${res.status}`);
+        if (!res.ok || json.ok !== true) throw new Error(typeof json.error === "string" ? json.error : "load_failed");
         const next = json as AdminOrderOpsPageResult;
         const pages = Math.max(1, Math.ceil(next.total / next.pageSize));
         if (next.rows.length === 0 && next.total > 0 && q.page > pages) {
@@ -348,8 +362,18 @@ export function AdminOrderOpsScreen({
     void load(applyForm(applied, form), "query");
   };
   const onRefresh = () => void load({ ...applied, asOf: null }, "refresh");
-  const onTab = (tab: string, extra?: Partial<AdminOrderOpsQuery>) =>
+  const onTab = (tab: string, extra?: Partial<AdminOrderOpsQuery>) => {
+    // Tabs / summary cards change applied filters directly — keep the form in step so a later 조회
+    // never re-applies a status / mismatch filter the tab just cleared.
+    if (extra && ("orderStatus" in extra || "mismatchOnly" in extra)) {
+      setForm((f) => ({
+        ...f,
+        ...("orderStatus" in extra ? { orderStatus: extra.orderStatus ?? "" } : {}),
+        ...("mismatchOnly" in extra ? { mismatchOnly: extra.mismatchOnly === true } : {}),
+      }));
+    }
     void load({ ...applied, tab, page: 1, asOf: null, ...extra }, "query");
+  };
   const onPage = (page: number) => void load({ ...applied, page }, "page");
   const onReset = () => {
     const cleared = withFixed(parseAdminOrderOpsQuery(screen, new URLSearchParams()));
@@ -750,10 +774,10 @@ export function AdminOrderOpsScreen({
   return (
     <div className="space-y-4" data-admin-order-ops={screen}>
       <header className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="sam-text-page-title font-semibold text-sam-fg">{ko ? cfg.titleKo : cfg.titleEn}</h1>
-          <p className="mt-1 sam-text-body text-sam-muted">{ko ? cfg.descKo : cfg.descEn}</p>
-          {fixedLabel ? <p className="mt-1 sam-text-helper font-medium text-sam-fg">{fixedLabel}</p> : null}
+        <div className="min-w-0 flex-1">
+          {/* 헤더 표준 — 제목 = 메뉴명 (R1 §0) */}
+          <AdminPageHeader titleKey={ADMIN_ORDER_OPS_TITLE_KEY[screen]} description={ko ? cfg.descKo : cfg.descEn} />
+          {fixedLabel ? <p className="-mt-2 sam-text-helper font-medium text-sam-fg">{fixedLabel}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {screen !== "exceptions" ? (

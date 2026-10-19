@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
   buildAdminStoreProductPatch,
+  adminStoreProductMemoMissing,
   isAdminStoreProductAction,
 } from "@/lib/stores/admin-store-product-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -27,9 +30,8 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ productId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { productId } = await context.params;
   const id = typeof productId === "string" ? productId.trim() : "";
@@ -49,6 +51,9 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });
   }
   const memo = String(body.memo ?? "").trim() || null;
+  if (adminStoreProductMemoMissing(actionRaw, memo)) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -82,21 +87,38 @@ export async function PATCH(
     price: (row as { price?: number }).price,
   };
 
-  const { error: upErr } = await sb.from("store_products").update(patch).eq("id", id);
+  // 상태 조건부 — 화면을 연 뒤 사장님·다른 관리자가 상태를 바꿨으면 409 (덮어쓰지 않음).
+  const prevStatus = String((row as { product_status?: unknown }).product_status ?? "");
+  const { data: updatedRows, error: upErr } = await sb
+    .from("store_products")
+    .update(patch)
+    .eq("id", id)
+    .eq("product_status", prevStatus)
+    .select("id");
   if (upErr) {
     console.error("[admin/store-products PATCH]", upErr);
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+  }
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
   }
 
-  const actorId = await getRouteUserId();
-  await appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actorId,
-    target_type: "store_product",
-    target_id: id,
+  const storeId = String((row as { store_id?: string }).store_id ?? "").trim();
+  try {
+    if (storeId) invalidateStoreMenusSnapshotCacheByStoreId(storeId);
+    clearStoreHomeFeedServerCache();
+    bumpStorePublicSharedCacheGeneration(`admin_store_product.${actionRaw}`); // DEF-64 인스턴스 공통
+  } catch (e) {
+    console.error("[admin/store-products PATCH] cache invalidate", e);
+  }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "store_product",
+    targetId: id,
     action: `store_product.${actionRaw}`,
-    before_json: before,
-    after_json: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
+    before,
+    after: { ...patch, memo, store_id: (row as { store_id?: string }).store_id },
   });
 
   return NextResponse.json({ ok: true });

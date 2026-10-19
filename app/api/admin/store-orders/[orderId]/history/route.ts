@@ -46,7 +46,8 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ orderI
       .maybeSingle(),
   ]);
   if (eventsRes.error) {
-    return NextResponse.json({ ok: false, error: eventsRes.error.message }, { status: 500, headers: NO_STORE });
+    console.error("[admin store-order history]", eventsRes.error.message);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500, headers: NO_STORE });
   }
 
   let commission = null;
@@ -63,7 +64,8 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ orderI
     });
     commission = page.rows.find((r) => r.orderId === oid) ?? null;
   } catch (e) {
-    commissionError = e instanceof Error ? e.message : "commission_load_failed";
+    console.error("[admin store-order history] commission", e instanceof Error ? e.message : e);
+    commissionError = "commission_load_failed";
   }
 
   return NextResponse.json(

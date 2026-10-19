@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -167,12 +168,13 @@ export async function GET(req: Request) {
 
   const sbAny = sb as any;
 
+  // 「오늘만」은 마닐라 달력 기준 — RPC 의 UTC 일자 필터 대신 목록을 마닐라 오늘로 거른다.
   const { data: dashRaw, error: rpcErr } = await sbAny.rpc("admin_delivery_auto_actions_dashboard", {
     p_status,
     p_rule_id,
     p_dangerous_only,
     p_retry_only,
-    p_today_only,
+    p_today_only: false,
     p_limit: limit,
   });
 
@@ -181,12 +183,18 @@ export async function GET(req: Request) {
     if (/does not exist|function .* not found|schema cache/i.test(msg)) {
       return legacyList(sb, limit, admin.userId);
     }
-    return NextResponse.json({ error: msg.slice(0, 240) }, { status: 500 });
+    console.error("[admin delivery-auto-actions GET]", msg.slice(0, 240));
+    return NextResponse.json({ error: "load_failed" }, { status: 500 });
   }
 
   const dashboard = dashRaw && typeof dashRaw === "object" ? (dashRaw as Record<string, unknown>) : null;
   const actionsRaw = dashboard?.actions;
-  const actions = enrichRpcActions(actionsRaw as unknown[]);
+  const manilaToday = manilaTodayRangeUtc();
+  const actions = enrichRpcActions(actionsRaw as unknown[]).filter((a) => {
+    if (!p_today_only) return true;
+    const at = Date.parse(String(a.executed_at ?? ""));
+    return Number.isFinite(at) && at >= Date.parse(manilaToday.fromIso) && at < Date.parse(manilaToday.toIso);
+  });
 
   const mergedDash =
     dashboard != null

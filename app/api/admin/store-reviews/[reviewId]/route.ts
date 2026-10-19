@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type PatchBody = { status?: string };
+type PatchBody = { status?: string; reason?: string };
 
 /** 관리자: 리뷰 숨김/복구 */
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ reviewId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { reviewId } = await context.params;
   const rid = typeof reviewId === "string" ? reviewId.trim() : "";
@@ -36,6 +35,11 @@ export async function PATCH(
   if (status !== "visible" && status !== "hidden") {
     return NextResponse.json({ ok: false, error: "invalid_status" }, { status: 400 });
   }
+  const reason = String(body.reason ?? "").trim().slice(0, 1000) || null;
+  // 숨김은 구매자 리뷰를 내리는 L2 조치 — 사유 필수 (복구는 선택).
+  if (status === "hidden" && (reason ?? "").length < 2) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -43,24 +47,46 @@ export async function PATCH(
   }
 
   const { data: prev } = await sb.from("store_reviews").select("status").eq("id", rid).maybeSingle();
-
-  const { error } = await sb.from("store_reviews").update({ status }).eq("id", rid);
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!prev) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  const prevStatus = String((prev as { status?: unknown }).status ?? "");
+  if (prevStatus === status) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
   }
 
-  const actorId = await getRouteUserId();
-  const rm = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actorId,
-    target_type: "store_review",
-    target_id: rid,
+  // 상태 조건부 — 다른 관리자가 먼저 바꿨으면 409 (덮어쓰지 않음).
+  const { data: updated, error } = await sb
+    .from("store_reviews")
+    .update({ status })
+    .eq("id", rid)
+    .eq("status", prevStatus)
+    .select("id, store_id")
+    .maybeSingle();
+  if (error) {
+    console.error("[admin store-reviews PATCH]", error);
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+  }
+  if (!updated) {
+    return NextResponse.json({ ok: false, error: "status_changed" }, { status: 409 });
+  }
+
+  // 숨김/복구 → DB 트리거가 stores.rating_avg·review_count 를 다시 계산한다.
+  // 매장 카드·상세 공개 캐시(홈 피드·browse·slug)가 이전 별점을 내지 않도록 인스턴스 공통 무효화.
+  try {
+    clearStoreHomeFeedServerCache();
+    bumpStorePublicSharedCacheGeneration("admin_store_review.status");
+  } catch (e) {
+    console.error("[admin store-reviews PATCH] cache invalidate", e);
+  }
+
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "store_review",
+    targetId: rid,
     action: "store_review.status",
-    before_json: prev ? { status: prev.status } : null,
-    after_json: { status },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
+    before: { status: prevStatus },
+    after: { status, reason, store_id: (updated as { store_id?: unknown }).store_id ?? null },
   });
 
   return NextResponse.json({ ok: true, status });

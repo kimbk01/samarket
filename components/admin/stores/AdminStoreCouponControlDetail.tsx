@@ -7,6 +7,8 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
 import { couponControlActionsForLifecycle, type CouponControlCampaignView } from "@/lib/stores/admin-coupon-control-realized";
 import { buildAdminPromotionCreateHref } from "@/lib/stores/coupon-offer-promotion-deeplink";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import {
   adminCouponAuditActionMessageKey,
   adminCouponFundingMessageKey,
@@ -26,6 +28,9 @@ const CTA_PRIMARY =
 const CTA_OUTLINE =
   "min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-sm font-medium text-sam-fg disabled:opacity-50";
 
+/** Date-aware lifecycle states keep the owner status key (upcoming / ended by window); others use the shared coupon labels. */
+const DATE_AWARE_LIFECYCLE = new Set(["active", "approved", "scheduled"]);
+
 function benefitText(row: CouponControlCampaignView): string {
   if (row.discount_type === "percent") return `${row.discount_value}%`;
   return formatMoneyPhp(row.discount_value);
@@ -37,11 +42,12 @@ export function AdminStoreCouponControlDetail({
   actError,
 }: {
   campaign: (CouponControlCampaignView & Partial<CouponCampaignOpsView>) | null;
-  onAct: (id: string, action: string, revokeReason?: string) => Promise<void>;
+  onAct: (id: string, action: string, reason?: string | null) => Promise<void>;
   actError: string | null;
 }) {
   const { t, language, safeT } = useI18n();
-  const [revokeReason, setRevokeReason] = useState("");
+  const ko = language !== "en";
+  const [busy, setBusy] = useState<string | null>(null);
 
   if (!campaign) {
     return (
@@ -71,6 +77,80 @@ export function AdminStoreCouponControlDetail({
       ? `${Math.round((campaign.redeemed_count / campaign.issued_count) * 100)}%`
       : "—";
   const actions = couponControlActionsForLifecycle(campaign.lifecycle_state);
+  const lifecycle = String(campaign.lifecycle_state ?? "").trim().toLowerCase();
+  const sharedStatus = adminStatusLabel("coupon", lifecycle, ko);
+  const statusText =
+    sharedStatus.known && !DATE_AWARE_LIFECYCLE.has(lifecycle)
+      ? sharedStatus.label
+      : t(adminCouponLifecycleMessageKey(campaign.lifecycle_state, campaign.start_at, campaign.end_at));
+  /** L3 retype target — coupon title (operator-visible), falling back to the first coupon number. */
+  const retypeTarget =
+    (titleRaw && !looksLikeRawOperatorToken(titleRaw) ? titleRaw : "") ||
+    ("instances" in campaign && campaign.instances?.find((i) => i.coupon_number)?.coupon_number) ||
+    title;
+
+  const runAction = async (action: "approve" | "reject" | "pause" | "resume" | "revoke") => {
+    if (busy) return;
+    const c =
+      action === "reject"
+        ? await confirmAdminAction({
+            level: "L2",
+            ko,
+            title: ko ? `쿠폰 거절 · ${title}` : `Reject coupon · ${title}`,
+            description: ko ? "거절 사유는 매장에 전달되고 작업 기록에 남습니다." : "The reason is sent to the store and recorded.",
+            confirmLabel: ko ? "거절" : "Reject",
+            destructive: true,
+            reasonPlaceholder: ko ? "거절 사유" : "Rejection reason",
+          })
+        : action === "revoke"
+          ? await confirmAdminAction({
+              level: "L3",
+              ko,
+              title: ko ? `쿠폰 강제 회수 · ${title}` : `Force revoke coupon · ${title}`,
+              description: ko
+                ? "발급된 쿠폰이 더 이상 사용되지 않습니다. 되돌릴 수 없습니다."
+                : "Issued coupons can no longer be used. This cannot be undone.",
+              confirmLabel: ko ? "강제 회수" : "Force revoke",
+              destructive: true,
+              retypeValue: retypeTarget,
+              reasonPlaceholder: ko ? "회수 사유" : "Revoke reason",
+            })
+          : action === "approve"
+            ? await confirmAdminAction({
+                level: "L1",
+                ko,
+                title: ko ? `쿠폰 승인 · ${title}` : `Approve coupon · ${title}`,
+                confirmLabel: ko ? "승인" : "Approve",
+              })
+            : await confirmAdminAction({
+                level: "L1",
+                ko,
+                title:
+                  action === "pause"
+                    ? ko
+                      ? `쿠폰 일시중지 · ${title}`
+                      : `Pause coupon · ${title}`
+                    : ko
+                      ? `쿠폰 재개 · ${title}`
+                      : `Resume coupon · ${title}`,
+                description:
+                  action === "pause"
+                    ? ko
+                      ? "일시중지하는 동안 새 발급·사용이 멈춥니다."
+                      : "New issuing and use stop while paused."
+                    : ko
+                      ? "쿠폰 발급·사용을 다시 시작합니다."
+                      : "Issuing and use resume.",
+                confirmLabel: action === "pause" ? (ko ? "일시중지" : "Pause") : ko ? "재개" : "Resume",
+              });
+    if (!c.ok) return;
+    setBusy(action);
+    try {
+      await onAct(campaign.id, action, c.reason);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-admin-coupon-pane="detail" data-admin-coupon-detail="1">
@@ -86,7 +166,7 @@ export function AdminStoreCouponControlDetail({
         <p className="mt-1 text-sm text-sam-muted">
           {t(adminCouponFundingMessageKey(campaign.funding_mode))}
           {" · "}
-          {t(adminCouponLifecycleMessageKey(campaign.lifecycle_state, campaign.start_at, campaign.end_at))}
+          {statusText}
         </p>
         {period ? (
           <p className="mt-1 text-sm text-sam-muted">
@@ -255,27 +335,55 @@ export function AdminStoreCouponControlDetail({
       </AdminCard>
 
       <AdminCard titleKey="store_coupon_admin_section_ops">
-        {actError ? <p className="mb-2 text-sm text-sam-danger">{actError}</p> : null}
+        {actError ? (
+          <p className="mb-2 text-sm text-sam-danger" role="alert">
+            {actError}
+          </p>
+        ) : null}
         {actions.pause ? <p className="mb-2 text-sm text-sam-muted">{t("store_coupon_admin_pause_hint")}</p> : null}
         <div className="flex min-w-0 flex-wrap gap-2">
           {actions.approve ? (
-            <button type="button" className={CTA_PRIMARY} onClick={() => void onAct(campaign.id, "approve")}>
-              {t("store_coupon_admin_approve")}
+            <button
+              type="button"
+              className={CTA_PRIMARY}
+              disabled={busy !== null}
+              aria-busy={busy === "approve"}
+              onClick={() => void runAction("approve")}
+            >
+              {busy === "approve" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_admin_approve")}
             </button>
           ) : null}
           {actions.reject ? (
-            <button type="button" className={CTA_OUTLINE} onClick={() => void onAct(campaign.id, "reject")}>
-              {t("store_coupon_admin_reject")}
+            <button
+              type="button"
+              className={CTA_OUTLINE}
+              disabled={busy !== null}
+              aria-busy={busy === "reject"}
+              onClick={() => void runAction("reject")}
+            >
+              {busy === "reject" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_admin_reject")}
             </button>
           ) : null}
           {actions.pause ? (
-            <button type="button" className={CTA_OUTLINE} onClick={() => void onAct(campaign.id, "pause")}>
-              {t("store_coupon_owner_pause")}
+            <button
+              type="button"
+              className={CTA_OUTLINE}
+              disabled={busy !== null}
+              aria-busy={busy === "pause"}
+              onClick={() => void runAction("pause")}
+            >
+              {busy === "pause" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_owner_pause")}
             </button>
           ) : null}
           {actions.resume ? (
-            <button type="button" className={CTA_OUTLINE} onClick={() => void onAct(campaign.id, "resume")}>
-              {t("store_coupon_owner_resume")}
+            <button
+              type="button"
+              className={CTA_OUTLINE}
+              disabled={busy !== null}
+              aria-busy={busy === "resume"}
+              onClick={() => void runAction("resume")}
+            >
+              {busy === "resume" ? (ko ? "처리 중…" : "Working…") : t("store_coupon_owner_resume")}
             </button>
           ) : null}
           <Link
@@ -284,6 +392,7 @@ export function AdminStoreCouponControlDetail({
               storeId: campaign.store_id,
               offerId: campaign.id,
               offerTitle: title,
+              ko,
             })}
             data-admin-coupon-promo-cta="1"
           >
@@ -293,20 +402,19 @@ export function AdminStoreCouponControlDetail({
         <p className="mt-2 text-xs text-sam-muted">{t("store_coupon_admin_promo_hint")}</p>
         {actions.revoke ? (
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
-            <label className="block text-sm text-sam-muted">
-              {t("store_coupon_revoke_reason")}
-              <input
-                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg"
-                value={revokeReason}
-                onChange={(e) => setRevokeReason(e.target.value)}
-              />
-            </label>
+            <p className="text-sm text-sam-muted">
+              {ko
+                ? "강제 회수는 사유 입력과 쿠폰 이름 재입력 후 처리됩니다."
+                : "Force revoke asks for a reason and the coupon name typed again."}
+            </p>
             <button
               type="button"
               className={`${CTA_OUTLINE} text-sam-danger`}
-              onClick={() => void onAct(campaign.id, "revoke", revokeReason)}
+              disabled={busy !== null}
+              aria-busy={busy === "revoke"}
+              onClick={() => void runAction("revoke")}
             >
-              {t("store_coupon_admin_revoke")}
+              {busy === "revoke" ? (ko ? "처리 중…" : "Working…") : ko ? "강제 회수" : "Force revoke"}
             </button>
           </div>
         ) : null}

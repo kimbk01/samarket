@@ -8,6 +8,10 @@ import {
   type StoreBrowseRow,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
+import {
+  flattenStoreListSalesPermission,
+  STORE_LIST_SALES_PERMISSION_EMBED,
+} from "@/lib/stores/store-list-sales-permission";
 
 /**
  * Post-rank response cap for HOME feed payload (not a pre-rank candidate gate).
@@ -105,7 +109,7 @@ export async function loadBrowseDiscoveryCandidateRows(
     []
   );
 
-  const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name )`;
+  const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name ), ${STORE_LIST_SALES_PERMISSION_EMBED}`;
 
   const paged = await fetchDiscoveryCandidatePages<StoreBrowseRow>(async (from, to) => {
     const { data, error } = await sb
@@ -164,7 +168,8 @@ const HOME_DISCOVERY_SELECT = `
   pickup_available,
   visit_available,
   is_featured,
-  store_categories ( slug, name )
+  store_categories ( slug, name ),
+  ${STORE_LIST_SALES_PERMISSION_EMBED}
 `;
 
 /**
@@ -197,10 +202,10 @@ export async function loadHomeDiscoveryCandidateRows(
 
     const mapped = (data ?? []).map((r) => {
       const o = r as Record<string, unknown> & { store_categories?: RelOne | RelOne[] };
-      return {
+      return flattenStoreListSalesPermission({
         ...o,
         store_categories: embedOne(o.store_categories),
-      };
+      });
     });
     return { data: mapped, error: null };
   });
@@ -234,10 +239,13 @@ export async function loadHomeDiscoveryRowsByOrderedIds(
   const byId = new Map<string, Record<string, unknown>>();
   for (const r of data ?? []) {
     const o = r as Record<string, unknown> & { store_categories?: RelOne | RelOne[] };
-    byId.set(String(o.id), {
-      ...o,
-      store_categories: embedOne(o.store_categories),
-    });
+    byId.set(
+      String(o.id),
+      flattenStoreListSalesPermission({
+        ...o,
+        store_categories: embedOne(o.store_categories),
+      })
+    );
   }
 
   const rows: Record<string, unknown>[] = [];
@@ -258,7 +266,7 @@ export async function loadBrowseDiscoveryRowsByOrderedIds(
   const ids = orderedIds.map((id) => String(id ?? "").trim()).filter(Boolean);
   if (ids.length === 0) return { status: "ok", rows: [], pagesFetched: 0 };
 
-  const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name )`;
+  const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name ), ${STORE_LIST_SALES_PERMISSION_EMBED}`;
   const { data, error } = await sb
     .from("stores")
     .select(selectColumns)

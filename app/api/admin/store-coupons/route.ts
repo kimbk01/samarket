@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   createStoreCouponCampaignAdmin,
   updateStoreCouponCampaignAdmin,
   type StoreCouponWriterError,
 } from "@/lib/stores/store-coupon-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import { loadAdminCouponControlCenter } from "@/lib/stores/load-admin-coupon-control-center";
 
 export const runtime = "nodejs";
@@ -55,9 +57,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  /** 발행은 상태 전이(PATCH)와 같은 운영 권한 — 조회 권한만으로 쿠폰을 만들 수 없다. */
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -79,13 +81,19 @@ export async function POST(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  bumpStorePublicSharedCacheGeneration("admin_coupon.create"); // DEF-64
+  await sb.from("coupon_audit_events").insert({
+    campaign_id: result.row.id,
+    actor_user_id: userId,
+    action: "admin_create",
+    payload: body && typeof body === "object" ? (body as Record<string, unknown>) : {},
+  });
   return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -104,71 +112,63 @@ export async function PATCH(req: NextRequest) {
   const adminAction = String(rec?.action ?? "").trim();
   const campaignId = String(rec?.id ?? "").trim();
   if (adminAction && campaignId) {
-    if (adminAction === "approve") {
-      await sb
+    // 상태 조건부 전이 (DEF-9) — 회수·종료된 쿠폰은 다시 활성화하지 않는다.
+    const TRANSITIONS: Record<
+      string,
+      { from: readonly string[]; to: string; isActive: boolean; audit: string }
+    > = {
+      approve: { from: ["requested", "draft", "approved", "scheduled"], to: "active", isActive: true, audit: "admin_approve" },
+      reject: { from: ["requested", "draft", "approved", "scheduled"], to: "rejected", isActive: false, audit: "admin_reject" },
+      pause: { from: ["active", "scheduled"], to: "paused", isActive: false, audit: "admin_pause" },
+      resume: { from: ["paused"], to: "active", isActive: true, audit: "admin_resume" },
+    };
+    const tr = TRANSITIONS[adminAction];
+    if (tr) {
+      const reason = String(rec?.reason ?? "").trim();
+      if (adminAction === "reject" && reason.length < 2) {
+        return NextResponse.json({ ok: false, error: "reject_reason_required" }, { status: 400 });
+      }
+      const { data: updated, error: upErr } = await sb
         .from("store_coupon_campaigns")
-        .update({
-          lifecycle_state: "active",
-          is_active: true,
-          updated_by_user_id: userId,
-        })
-        .eq("id", campaignId);
+        .update({ lifecycle_state: tr.to, is_active: tr.isActive, updated_by_user_id: userId })
+        .eq("id", campaignId)
+        .in("lifecycle_state", tr.from as string[])
+        .select("id");
+      if (upErr) {
+        console.error("[admin coupon transition]", adminAction, upErr.message);
+        return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+      }
+      if (!updated || updated.length === 0) {
+        return NextResponse.json({ ok: false, error: "invalid_coupon_transition" }, { status: 409 });
+      }
+      bumpStorePublicSharedCacheGeneration(`admin_coupon.${adminAction}`); // DEF-64
       await sb.from("coupon_audit_events").insert({
         campaign_id: campaignId,
         actor_user_id: userId,
-        action: "admin_approve",
-        payload: {},
+        action: tr.audit,
+        payload: reason ? { reason } : {},
       });
-      return NextResponse.json({ ok: true, lifecycle_state: "active" });
-    }
-    if (adminAction === "reject") {
-      await sb
-        .from("store_coupon_campaigns")
-        .update({ lifecycle_state: "rejected", is_active: false, updated_by_user_id: userId })
-        .eq("id", campaignId);
-      await sb.from("coupon_audit_events").insert({
-        campaign_id: campaignId,
-        actor_user_id: userId,
-        action: "admin_reject",
-        payload: {},
-      });
-      return NextResponse.json({ ok: true, lifecycle_state: "rejected" });
-    }
-    if (adminAction === "pause") {
-      await sb
-        .from("store_coupon_campaigns")
-        .update({ lifecycle_state: "paused", is_active: false, updated_by_user_id: userId })
-        .eq("id", campaignId);
-      await sb.from("coupon_audit_events").insert({
-        campaign_id: campaignId,
-        actor_user_id: userId,
-        action: "admin_pause",
-        payload: {},
-      });
-      return NextResponse.json({ ok: true, lifecycle_state: "paused" });
-    }
-    if (adminAction === "resume") {
-      await sb
-        .from("store_coupon_campaigns")
-        .update({ lifecycle_state: "active", is_active: true, updated_by_user_id: userId })
-        .eq("id", campaignId);
-      await sb.from("coupon_audit_events").insert({
-        campaign_id: campaignId,
-        actor_user_id: userId,
-        action: "admin_resume",
-        payload: {},
-      });
-      return NextResponse.json({ ok: true, lifecycle_state: "active" });
+      return NextResponse.json({ ok: true, lifecycle_state: tr.to });
     }
     if (adminAction === "revoke") {
       const reason = String(rec?.reason ?? "").trim();
       if (reason.length < 2) {
         return NextResponse.json({ ok: false, error: "revoke_reason_required" }, { status: 400 });
       }
-      await sb
+      const { data: revokedRows, error: revokeUpErr } = await sb
         .from("store_coupon_campaigns")
         .update({ lifecycle_state: "revoked", is_active: false, updated_by_user_id: userId })
-        .eq("id", campaignId);
+        .eq("id", campaignId)
+        .neq("lifecycle_state", "revoked")
+        .select("id");
+      if (revokeUpErr) {
+        console.error("[admin coupon revoke]", revokeUpErr.message);
+        return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+      }
+      if (!revokedRows || revokedRows.length === 0) {
+        return NextResponse.json({ ok: false, error: "invalid_coupon_transition" }, { status: 409 });
+      }
+      bumpStorePublicSharedCacheGeneration("admin_coupon.revoke"); // DEF-64
       const { data: revokeResult, error: revokeErr } = await sb.rpc(
         "revoke_campaign_active_entitlements",
         {
@@ -197,5 +197,12 @@ export async function PATCH(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  bumpStorePublicSharedCacheGeneration("admin_coupon.update"); // DEF-64
+  await sb.from("coupon_audit_events").insert({
+    campaign_id: result.row.id,
+    actor_user_id: userId,
+    action: "admin_update",
+    payload: rec ?? {},
+  });
   return NextResponse.json({ ok: true, campaign: result.row });
 }

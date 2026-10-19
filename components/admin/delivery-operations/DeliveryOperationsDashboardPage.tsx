@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * 배달 통계 (`/admin/delivery-operations`) — 읽기 전용 (DUP-2).
+ * 일괄 복구·재배정 등 실시간 조치는 실시간 상황판(`/admin/ops-console`)에서만 한다.
+ * 시간 표시는 Asia/Manila.
+ */
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,11 +14,17 @@ import {
   parseDeliveryOperationsPayload,
   type DeliveryOperationsPayload,
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
-import { deliveryOpsStabilityPercent } from "@/lib/admin-delivery-ops/delivery-operations-health";
 import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-delivery-operations-deduped";
+import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminManilaDateTime, rebucketUtcHoursToManila } from "@/lib/admin/metrics/manila-period";
+
+const HEALTH_NOT_READY_KO = "운영 상태 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요.";
+const HEALTH_NOT_READY_EN = "The operations health feature is not ready yet. Contact a system admin.";
 
 type LoadState = "loading" | "ready" | "error";
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -83,58 +95,6 @@ function healthBannerLabel(code: string, t: Translate): string {
   return key ? t(key) : code;
 }
 
-const RECOVERY_BUTTON_KEYS: {
-  action: DeliveryOperationRecoveryAction;
-  labelKey: MessageKey;
-  hintKey: MessageKey;
-}[] = [
-  {
-    action: "sla_scan",
-    labelKey: "admin_del_ops_recovery_sla_scan",
-    hintKey: "admin_del_ops_recovery_hint_sla_scan",
-  },
-  {
-    action: "alert_sync",
-    labelKey: "admin_del_ops_recovery_alert_sync",
-    hintKey: "admin_del_ops_recovery_hint_alert_sync",
-  },
-  {
-    action: "auto_action_runner",
-    labelKey: "admin_del_ops_recovery_auto_runner",
-    hintKey: "admin_del_ops_recovery_hint_auto_runner",
-  },
-  {
-    action: "alert_pipeline",
-    labelKey: "admin_del_ops_recovery_pipeline",
-    hintKey: "admin_del_ops_recovery_hint_pipeline",
-  },
-  {
-    action: "stale_alerts_resolve",
-    labelKey: "admin_del_ops_recovery_stale_alerts",
-    hintKey: "admin_del_ops_recovery_hint_stale_alerts",
-  },
-  {
-    action: "waiting_rider_bump",
-    labelKey: "admin_del_ops_recovery_waiting_bump",
-    hintKey: "admin_del_ops_recovery_hint_waiting_bump",
-  },
-  {
-    action: "delivering_mark_attention",
-    labelKey: "admin_del_ops_recovery_delivering_attention",
-    hintKey: "admin_del_ops_recovery_hint_delivering_attention",
-  },
-  {
-    action: "bulk_retry_failed_auto_actions",
-    labelKey: "admin_del_ops_recovery_bulk_retry",
-    hintKey: "admin_del_ops_recovery_hint_bulk_retry",
-  },
-];
-
-function fillHours(rows: { hour: number; count: number }[]): { hour: number; count: number }[] {
-  const m = new Map(rows.map((r) => [r.hour, r.count]));
-  return Array.from({ length: 24 }, (_, h) => ({ hour: h, count: m.get(h) ?? 0 }));
-}
-
 function MiniBarList(props: {
   rows: { label: string; value: number; hint?: string }[];
   valueFmt?: (n: number) => string;
@@ -172,10 +132,12 @@ function QueueRows({
   qKey,
   rows,
   t,
+  ko,
 }: {
   qKey: string;
   rows: Record<string, unknown>[];
   t: Translate;
+  ko: boolean;
 }) {
   if (!rows.length) {
     return <p className="sam-text-helper text-sam-muted">{t("admin_del_ops_queue_none")}</p>;
@@ -187,12 +149,12 @@ function QueueRows({
         const settlementId = typeof row.settlement_id === "string" ? row.settlement_id : "";
         const orderNo = typeof row.order_no === "string" ? row.order_no : "";
         const storeName = typeof row.store_name === "string" ? row.store_name : "";
-        const primary = orderNo || orderId.slice(0, 8) || settlementId.slice(0, 8) || `#${idx + 1}`;
+        const primary = orderNo || `#${idx + 1}`;
         const href =
           qKey === "held_settlements" && settlementId
             ? `/admin/store-settlements`
             : orderId
-              ? `/admin/store-orders?order_id=${encodeURIComponent(orderId)}`
+              ? `/admin/stores/orders/${encodeURIComponent(orderId)}`
               : null;
         return (
           <li key={`${orderId || settlementId}-${idx}`} className="rounded-ui-rect border border-sam-border/80 bg-sam-surface-muted/40 px-2 py-1.5">
@@ -207,12 +169,14 @@ function QueueRows({
             {storeName ? <p className="mt-0.5 truncate text-sam-muted sam-text-xxs">{storeName}</p> : null}
             {typeof row.order_status === "string" ? (
               <p className="text-sam-muted sam-text-xxs">
-                {t("admin_del_ops_status_label", { status: row.order_status })}
+                {t("admin_del_ops_status_label", { status: adminStatusLabel("store_order", row.order_status, ko).label })}
               </p>
             ) : null}
             {typeof row.sla_warning_level === "string" && row.sla_warning_level ? (
               <p className="text-sam-warning sam-text-xxs">
-                {t("admin_del_ops_sla_label", { level: row.sla_warning_level })}
+                {t("admin_del_ops_sla_label", {
+                  level: adminStatusLabel("alert_severity", row.sla_warning_level, ko).label,
+                })}
               </p>
             ) : null}
           </li>
@@ -223,20 +187,23 @@ function QueueRows({
 }
 
 export function DeliveryOperationsDashboardPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const noSignalLabel = t("admin_del_ops_age_no_signal");
 
   const [days, setDays] = useState<number>(14);
   const [payload, setPayload] = useState<DeliveryOperationsPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [lastError, setLastError] = useState<string | null>(null);
-  const [recoveryBusy, setRecoveryBusy] = useState<DeliveryOperationRecoveryAction | null>(null);
-  const [recoveryNote, setRecoveryNote] = useState<string | null>(null);
 
   const load = useCallback(
     (opts?: { showLoading?: boolean }) => {
       const showLoading = opts?.showLoading ?? false;
-      if (showLoading) setLoadState("loading");
+      if (showLoading) {
+        setLoadState("loading");
+        // 수동 새로고침·기간 변경은 30초 GET 캐시를 건너뛰고 서버에서 다시 읽는다.
+        invalidateAdminFetchCache(`admin:stats:delivery-operations:${Math.min(90, Math.max(1, Math.floor(days)))}`);
+      }
       void fetchAdminDeliveryOperationsDeduped(days).then(({ status, json }) => {
         const parsed = parseDeliveryOperationsPayload(json);
         if (status === 200 && parsed) {
@@ -247,14 +214,23 @@ export function DeliveryOperationsDashboardPage() {
         }
         setPayload(null);
         setLoadState("error");
+        const rawErr =
+          json && typeof json === "object" && typeof (json as { error?: unknown }).error === "string"
+            ? String((json as { error: string }).error)
+            : "";
+        const code = /^[a-z][a-z0-9_]*$/i.test(rawErr) ? rawErr : "";
         setLastError(
-          status === 503
-            ? t("admin_del_ops_err_stats_fn_missing")
-            : t("admin_del_ops_err_http", { status })
+          status === 403
+            ? adminOperatorErrorMessage(code || "forbidden", ko)
+            : status === 503
+              ? ko
+                ? HEALTH_NOT_READY_KO
+                : HEALTH_NOT_READY_EN
+              : adminOperatorErrorMessage(code || "load_failed", ko)
         );
       });
     },
-    [days, t]
+    [days, ko]
   );
 
   useEffect(() => {
@@ -266,38 +242,11 @@ export function DeliveryOperationsDashboardPage() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  const postRecovery = useCallback((action: DeliveryOperationRecoveryAction) => {
-    setRecoveryBusy(action);
-    setRecoveryNote(null);
-    void fetch("/api/admin/delivery-operations/recovery", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    })
-      .then(async (r) => {
-        const j = await r.json().catch(() => null);
-        if (!r.ok) {
-          setRecoveryNote(
-            j && typeof j === "object" && j != null && "message" in j
-              ? String((j as { message?: unknown }).message)
-              : t("admin_del_ops_fail_status", { status: r.status })
-          );
-          return;
-        }
-        setRecoveryNote(typeof j?.result === "string" ? String(j.result) : t("admin_del_ops_ok"));
-        load({ showLoading: false });
-      })
-      .catch(() => {
-        setRecoveryNote(t("common_network_error"));
-      })
-      .finally(() => setRecoveryBusy(null));
-  }, [load, t]);
-
   const loading = loadState === "loading";
 
   const hourRowsFilled = useMemo(() => {
     if (!payload) return [];
-    return fillHours(payload.charts.orders_by_hour_utc).map((r) => ({
+    return rebucketUtcHoursToManila(payload.charts.orders_by_hour_utc).map((r) => ({
       label: `${String(r.hour).padStart(2, "0")}h`,
       value: r.count,
       hint: t("admin_del_ops_chart_hint_hour", { hour: r.hour, count: fmtInt(r.count) }),
@@ -334,7 +283,6 @@ export function DeliveryOperationsDashboardPage() {
   const kpis = payload?.kpis;
   const health = payload?.health;
   const verdict = health?.verdict?.overall ?? "";
-  const stabPct = deliveryOpsStabilityPercent(health ?? null);
   const hbAge = health?.counts?.heartbeat_age_seconds;
   const hbAgeObj =
     hbAge != null && typeof hbAge === "object" && !Array.isArray(hbAge)
@@ -373,15 +321,23 @@ export function DeliveryOperationsDashboardPage() {
         descriptionKey="admin_del_ops_page_desc"
       />
 
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted"
+        data-delivery-stats-readonly="1"
+      >
+        <span>{t("admin_r4d_stats_readonly")}</span>
+        <Link href="/admin/ops-console" className="sam-btn sam-btn--outline sam-btn--sm">
+          {t("admin_r4d_stats_open_console")}
+        </Link>
+      </div>
+
       {payload?.health_rpc_missing ? (
         <div
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {t("admin_del_ops_health_rpc_missing")}{" "}
-          <span className="font-mono text-[10px]">
-            {payload.health_rpc_hint ?? t("admin_del_ops_migration_needed")}
-          </span>
+          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          {payload.health_rpc_hint ? <AdminTechDetails ko={ko}>{payload.health_rpc_hint}</AdminTechDetails> : null}
         </div>
       ) : null}
 
@@ -390,8 +346,8 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {t("admin_del_ops_health_rpc_error")}{" "}
-          <span className="font-mono text-[10px]">{payload.health_rpc_error}</span>
+          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          <AdminTechDetails ko={ko}>{payload.health_rpc_error}</AdminTechDetails>
         </div>
       ) : null}
 
@@ -430,10 +386,6 @@ export function DeliveryOperationsDashboardPage() {
               >
                 {verdictLabel}
               </span>
-              <span className="text-sam-muted">
-                {t("admin_del_ops_stability_label")}{" "}
-                <strong className="tabular-nums text-sam-fg">{stabPct}%</strong>
-              </span>
             </div>
             <Link href="/admin/delivery-auto-actions" className="text-signature underline">
               {t("admin_del_ops_link_auto_actions_pending")}
@@ -446,7 +398,7 @@ export function DeliveryOperationsDashboardPage() {
                 {fmtAgeSeconds(hbAgeObj?.sla_scan, noSignalLabel)}
                 {health?.heartbeats?.sla_scan?.last_run_at ? (
                   <span className="ml-1 text-sam-muted">
-                    ({health.heartbeats.sla_scan.last_run_at.slice(0, 19).replace("T", " ")})
+                    ({formatAdminManilaDateTime(health.heartbeats.sla_scan.last_run_at)})
                   </span>
                 ) : null}
               </dd>
@@ -466,9 +418,7 @@ export function DeliveryOperationsDashboardPage() {
             <div>
               <dt className="text-sam-muted">{t("admin_del_ops_recent_failed_auto")}</dt>
               <dd className="font-mono text-sam-fg">
-                {typeof recentFail === "string" && recentFail
-                  ? recentFail.slice(0, 19).replace("T", " ")
-                  : "—"}
+                {typeof recentFail === "string" && recentFail ? formatAdminManilaDateTime(recentFail) : "—"}
               </dd>
             </div>
             <div>
@@ -499,32 +449,6 @@ export function DeliveryOperationsDashboardPage() {
             </div>
           </dl>
 
-          <details className="mt-3 border-t border-sam-border pt-3">
-            <summary className="cursor-pointer font-medium text-sam-fg">
-              {t("admin_del_ops_recovery_summary")}
-            </summary>
-            <p className="mt-2 text-sam-muted">{t("admin_del_ops_recovery_hint")}</p>
-            {recoveryNote ? (
-              <p className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted/40 px-2 py-1 font-mono text-[11px] text-sam-fg">
-                {recoveryNote}
-              </p>
-            ) : null}
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {RECOVERY_BUTTON_KEYS.map((b) => (
-                <div key={b.action} className="rounded-ui-rect border border-sam-border/80 bg-sam-app/30 p-2">
-                  <button
-                    type="button"
-                    className="sam-btn sam-btn--outline sam-btn--sm w-full text-[11px]"
-                    disabled={recoveryBusy !== null}
-                    onClick={() => postRecovery(b.action)}
-                  >
-                    {recoveryBusy === b.action ? t("admin_del_ops_recovery_running") : t(b.labelKey)}
-                  </button>
-                  <p className="mt-1 text-[10px] text-sam-muted">{t(b.hintKey)}</p>
-                </div>
-              ))}
-            </div>
-          </details>
         </section>
       ) : null}
 
@@ -558,9 +482,7 @@ export function DeliveryOperationsDashboardPage() {
         <div className="flex items-center gap-2">
           {payload?.generated_at ? (
             <span className="sam-text-xxs text-sam-muted">
-              {t("admin_del_ops_generated_at", {
-                at: payload.generated_at.slice(0, 19).replace("T", " "),
-              })}
+              {t("admin_r4d_generated_at", { at: formatAdminManilaDateTime(payload.generated_at) })}
             </span>
           ) : null}
           <button
@@ -584,7 +506,7 @@ export function DeliveryOperationsDashboardPage() {
                 {loading && !kpis ? (
                   <span className="inline-block h-[1.125rem] w-[4rem] animate-pulse rounded bg-sam-border" aria-hidden />
                 ) : (
-                  (c.value ?? "—")
+                  (c.value ?? t("admin_r4d_unavailable"))
                 )}
               </p>
             </div>
@@ -608,7 +530,7 @@ export function DeliveryOperationsDashboardPage() {
                 </span>
               </summary>
               <div className="mt-3 border-t border-sam-border pt-3">
-                <QueueRows qKey={key} rows={payload?.queues[key] ?? []} t={t} />
+                <QueueRows qKey={key} rows={payload?.queues[key] ?? []} t={t} ko={ko} />
               </div>
             </details>
           ))}
@@ -619,7 +541,8 @@ export function DeliveryOperationsDashboardPage() {
         <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_charts")}</h2>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_orders_by_day")}</h3>
+            <h3 className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_orders_by_day")}</h3>
+            <p className="mb-3 sam-text-xxs text-sam-muted">{t("admin_r4d_stats_day_basis")}</p>
             <MiniBarList rows={loading && !payload ? CHART_SKELETON_ROWS : orderDayBars} />
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -673,7 +596,7 @@ export function DeliveryOperationsDashboardPage() {
               return (
                 <tr key={`${storeId}-${idx}`} className="border-b border-sam-border/70">
                   <td className="py-2 pr-3">
-                    <span className="font-medium text-sam-fg">{name || storeId.slice(0, 8)}</span>
+                    <span className="font-medium text-sam-fg">{name || t("admin_r4d_store_unnamed")}</span>
                   </td>
                   <td className="py-2 pr-3 tabular-nums">{fmtInt(orders)}</td>
                   <td className="py-2 pr-3 tabular-nums">{rate(completed, orders)}</td>
@@ -742,7 +665,10 @@ export function DeliveryOperationsDashboardPage() {
           <tbody>
             {(payload?.riders ?? []).map((r, idx) => (
               <tr key={`${r.rider_id}-${idx}`} className="border-b border-sam-border/70">
-                <td className="py-2 pr-3 font-mono text-xs text-sam-fg">{r.rider_id.slice(0, 8)}…</td>
+                <td className="py-2 pr-3 text-xs text-sam-fg">
+                  {t("admin_r4d_rider_unnamed")} #{idx + 1}
+                  <AdminTechDetails ko={ko}>{r.rider_id}</AdminTechDetails>
+                </td>
                 <td className="py-2 pr-3 tabular-nums">{fmtInt(r.completed_deliveries)}</td>
                 <td className="py-2 pr-3 tabular-nums">
                   {r.avg_delivery_minutes != null ? r.avg_delivery_minutes.toFixed(1) : "—"}

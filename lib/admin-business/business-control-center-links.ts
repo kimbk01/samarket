@@ -54,8 +54,27 @@ export function businessCcDeliveryDistanceHref(): string {
   return "/admin/delivery-distance";
 }
 
-export function businessCcPointsHref(_query?: string): string {
-  return "/admin/store-point-ledger";
+/**
+ * LNK-3 — 매장 코인(포인트) 거래: 재무 거래 화면을 wallet·storeId 로 필터.
+ * 재무 화면 필터 파서(`parseFinanceFilters`)는 `storeId` 를 읽는다 (`store_id` 는 무시됨).
+ */
+export function businessCcPointsHref(storeId: string): string {
+  return `/admin/finance/transactions?wallet=COIN&storeId=${encodeURIComponent(storeId.trim())}`;
+}
+
+/** 매장 캐시 거래 — 재무 거래 화면 wallet=CASH + storeId 필터. */
+export function businessCcCashTransactionsHref(storeId: string): string {
+  return `/admin/finance/transactions?wallet=CASH&storeId=${encodeURIComponent(storeId.trim())}`;
+}
+
+/** LNK-1 — 매장 광고: 통합 광고 화면을 store_id 로 필터. */
+export function businessCcAdvertisingHref(storeId: string): string {
+  return `/admin/advertising?store_id=${encodeURIComponent(storeId.trim())}`;
+}
+
+/** LNK-2 — 매장 문의 목록 (store_id 필터). */
+export function businessCcInquiriesHref(storeId: string): string {
+  return `/admin/store-inquiries?store_id=${encodeURIComponent(storeId.trim())}`;
 }
 
 /** CUT E — Store ops hub cross-links (canonical screens only). */
@@ -63,7 +82,10 @@ export function businessCcFinanceHref(storeId: string): string {
   return `/admin/finance?storeId=${encodeURIComponent(storeId.trim())}`;
 }
 
-/** ARO-OPS-UX-002-B3 — Store Financial Statement workspace (same finance route, statement view). */
+/**
+ * ARO-OPS-UX-002-B3 — Store Financial Statement workspace.
+ * `businessCcFinanceHref` 와 같은 화면 — 매장 허브에서는 「매장 재무」 링크 하나만 노출한다.
+ */
 export function businessCcFinancialStatementHref(storeId: string): string {
   return `/admin/finance?storeId=${encodeURIComponent(storeId.trim())}`;
 }
@@ -72,6 +94,7 @@ export function businessCcCashChargesHref(): string {
   return "/admin/delivery-ads/cash-charges";
 }
 
+/** 배달 광고 처리 대기열(재무 명세 등 기존 호출부 유지). 매장 허브는 `businessCcAdvertisingHref` 사용. */
 export function businessCcDeliveryAdsHref(storeId: string): string {
   return `/admin/delivery-ads?view=actionable&storeId=${encodeURIComponent(storeId.trim())}`;
 }

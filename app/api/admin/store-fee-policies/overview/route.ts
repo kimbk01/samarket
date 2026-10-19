@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import {
   calculateOrderCommission,
   isMissingStoreFeePolicy,
@@ -64,6 +65,7 @@ function rateOf(row: PolicyLite | null): {
   policy_name: string | null;
   starts_at: string | null;
   memo: string | null;
+  updated_at: string | null;
 } {
   if (!row) {
     return {
@@ -73,6 +75,7 @@ function rateOf(row: PolicyLite | null): {
       policy_name: null,
       starts_at: null,
       memo: null,
+      updated_at: null,
     };
   }
   return {
@@ -82,6 +85,7 @@ function rateOf(row: PolicyLite | null): {
     policy_name: row.policy_name,
     starts_at: row.starts_at,
     memo: typeof row.memo === "string" ? row.memo : null,
+    updated_at: row.updated_at ?? null,
   };
 }
 
@@ -126,6 +130,9 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+  // B-2: 화면은 조회 가능, 변경 CTA 는 super_admin 만 (서버 쓰기 API 도 requireSuperAdmin).
+  const actorGate = await requireAdminApiActor().catch(() => null);
+  const canEditFeePolicy = Boolean(actorGate && actorGate.ok && actorGate.actor.isSuperAdmin);
 
   const [polRes, catRes, topicRes, storeRes, setRes] = await Promise.all([
     sb
@@ -293,6 +300,7 @@ export async function GET() {
             priority: pol.priority,
             starts_at: pol.starts_at,
             ends_at: pol.ends_at,
+            updated_at: pol.updated_at ?? null,
             memo: pol.memo,
           }
         : null,
@@ -322,6 +330,7 @@ export async function GET() {
             priority: pol.priority,
             starts_at: pol.starts_at,
             ends_at: pol.ends_at,
+            updated_at: pol.updated_at ?? null,
             memo: pol.memo,
           }
         : null,
@@ -432,6 +441,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    viewer: { can_edit_fee_policy: canEditFeePolicy },
     summary: {
       stores_total: stores.length,
       applied_default: countDefault,
@@ -453,6 +463,7 @@ export async function GET() {
           delivery_fee_mode: platform.delivery_fee_mode,
           delivery_fee_percent: Number(platform.delivery_fee_percent) || 0,
           priority: platform.priority,
+          updated_at: platform.updated_at ?? null,
           starts_at: platform.starts_at,
           ends_at: platform.ends_at,
           memo: platform.memo,

@@ -9,6 +9,7 @@ import {
   writeStoreSummaryPublicServerCache,
 } from "@/lib/stores/store-summary-public-server-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,8 @@ export async function GET(
   context: { params: Promise<{ slug: string }> }
 ) {
   const startedAt = performance.now();
+  /** DEF-64 — 인스턴스 공통 세대 확인 (창 내 메모리 비교만, 무DB) 후 메모리 캐시 조회 */
+  const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
   const { slug } = await context.params;
   const decoded = decodeURIComponent(slug || "").trim();
   if (!decoded) {
@@ -35,6 +38,7 @@ export async function GET(
   }
 
   const cacheBypass = resolveRouteMemoryCacheBypass(new URL(req.url).searchParams);
+  await sharedGenerationSync;
   const perfHeaders = (opts: {
     cache_hit: 0 | 1;
     db_execution_ms: number;
@@ -115,4 +119,3 @@ export async function GET(
     );
   }
 }
-

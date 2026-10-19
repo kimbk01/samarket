@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { loadFeedEmergencyBundleFromDb, saveFeedEmergencyBundleToDb } from "@/lib/feed-emergency/feed-emergency-db";
@@ -58,7 +60,7 @@ export async function GET() {
 
 /** 관리자: 피드 긴급 상태 저장 */
 export async function PUT(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let body: { bundle?: unknown };
@@ -78,6 +80,13 @@ export async function PUT(req: NextRequest) {
     if (!saved.ok) {
       return NextResponse.json({ ok: false, error: saved.error }, { status: 503 });
     }
+    await appendAdminRouteAudit(admin.sb, req, {
+      actorId: admin.actor.userId,
+      targetType: "feed_emergency",
+      targetId: "",
+      action: "feed_emergency.update",
+      after: { bundle: body.bundle as unknown as Record<string, unknown> },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

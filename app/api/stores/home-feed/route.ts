@@ -22,6 +22,7 @@ import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
   attachHomeFeedCompositionPolicyMeta,
   loadHomeFeedCompositionPolicyMeta,
@@ -122,6 +123,8 @@ type FeedRow = {
   description: string | null;
   is_open: boolean | null;
   point_commerce_blocked?: boolean | null;
+  /** DEF-70 — `store_sales_permissions` LEFT embed 평탄화 (같은 select, 추가 왕복 0) */
+  sales_allowed?: boolean | null;
   business_hours_json: unknown;
   created_at: string;
   first_listed_at?: string | null;
@@ -178,6 +181,8 @@ export async function GET(req: Request) {
     loadDeliveryRideTimeSource(supabase),
     loadDeliveryServiceabilityRuntimeContext(supabase),
     loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null),
+    /** DEF-64 — 인스턴스 공통 세대 확인 (무DB, 병렬이라 추가 지연 0) 후 아래 메모리 캐시 조회 */
+    syncStorePublicReadCachesWithSharedGeneration(),
   ]);
   const userLat = origin.lat;
   const userLng = origin.lng;
@@ -371,6 +376,7 @@ export async function GET(req: Request) {
             business_hours_json: r.business_hours_json,
             is_open: r.is_open,
             point_commerce_blocked: r.point_commerce_blocked,
+            sales_allowed: r.sales_allowed,
             delivery_available: r.delivery_available,
             distanceOutOfRange: outOfRange,
           }).rank
@@ -624,6 +630,7 @@ export async function GET(req: Request) {
           business_hours_json: r.business_hours_json,
           is_open: r.is_open,
           point_commerce_blocked: r.point_commerce_blocked,
+          sales_allowed: r.sales_allowed,
           delivery_available: r.delivery_available,
           distanceOutOfRange: rowOutOfRange,
         }),
@@ -655,6 +662,7 @@ export async function GET(req: Request) {
           business_hours_json: r.business_hours_json,
           is_open: r.is_open,
           point_commerce_blocked: r.point_commerce_blocked,
+          sales_allowed: r.sales_allowed,
           delivery_available: !!r.delivery_available,
           distanceOutOfRange: rowOutOfRange,
         }).rank,

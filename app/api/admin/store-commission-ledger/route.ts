@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       gate: gateSetting,
+      // B-2: 수수료 조정 결정은 super_admin 만 — 화면은 이 값으로 CTA 를 잠근다 (서버도 requireSuperAdmin).
+      viewer: { can_decide_adjustment: gate.actor.isSuperAdmin },
       period: { period: q.period, fromIso: q.fromIso, toIso: q.toIso, timezone: STORE_COMMISSION_TIMEZONE },
       breakdown: { group: q.group, rows: breakdown },
       payableSummary: payable.summary,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { syncStorePublicReadCachesWithSharedGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
   DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED,
   loadDeliveryRideTimeSource,
@@ -197,6 +198,8 @@ export async function GET(req: Request) {
     );
   }
 
+  /** DEF-64 — 인스턴스 공통 세대 확인을 먼저 시작해 아래 await 들과 겹친다 (무DB). */
+  const sharedGenerationSync = syncStorePublicReadCachesWithSharedGeneration();
   const deliveryOrigin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
   const origin = browseRouteOriginFromDeliveryOrigin(deliveryOrigin);
 
@@ -271,6 +274,7 @@ export async function GET(req: Request) {
       popularityWindowDays,
     })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:csort=${customerSortAvailability.popular ? 1 : 0}${customerSortAvailability.rating ? 1 : 0}${customerSortAvailability.distance ? 1 : 0}:shelf=${browseShelfCacheToken(discoveryShelf)}`;
 
+    await sharedGenerationSync;
     const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
     if (cachedBrowse != null) {
       const cachedCount = Array.isArray((cachedBrowse as { stores?: unknown }).stores)

@@ -307,6 +307,26 @@ export function chatMessageKey(
   }
 }
 
+/**
+ * DEF-72 — Admin(DIBAY 운영팀) 개입으로 상태가 바뀐 경우의 채팅 system 문구 키.
+ * `previousStatus` 로 승인/반려/직접 취소를 구분한다 (복귀 전이 = 요청 반려).
+ * 매장(OWNER) 문구(`chatMessageKey`)와 분리 — 운영 개입을 사장님 행동으로 표기하지 않는다.
+ */
+export function adminChatMessageKey(previousStatus: string, nextStatus: string): MessageKey {
+  const prev = String(previousStatus ?? "").trim();
+  const next = String(nextStatus ?? "").trim();
+  if (next === "cancelled") {
+    return prev === "cancel_requested"
+      ? "cm_sys_order_admin_cancel_approved"
+      : "cm_sys_order_admin_cancelled";
+  }
+  if (next === "refunded") return "cm_sys_order_admin_refunded";
+  if (next === "refund_requested") return "cm_sys_order_admin_refund_requested";
+  if (prev === "cancel_requested") return "cm_sys_order_admin_cancel_rejected";
+  if (prev === "refund_requested") return "cm_sys_order_admin_refund_rejected";
+  return "cm_sys_order_admin_status_updated";
+}
+
 export function chatMessageKeyWithPrep(
   orderStatus: string,
   fulfillment: string,

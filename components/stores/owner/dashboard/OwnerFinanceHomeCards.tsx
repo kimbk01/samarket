@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
@@ -26,8 +27,8 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   const [cashBalanceMinor, setCashBalanceMinor] = useState(0);
   const financeHref = OwnerRoutes.finance(storeId);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const response = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/finance`, {
@@ -50,6 +51,10 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** DEF-73 — 캐시 충전 승인 등 관리자 변경을 앱 복귀·창 포커스 시 반영 (재진입 불필요). */
+  const refetchSilently = useCallback(() => load({ silent: true }), [load]);
+  useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
 
   if (loading) {
     return (

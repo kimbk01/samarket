@@ -35,6 +35,9 @@ export type AdsActionItem = {
   eligibility: string | null;
   ageHours: number | null;
   at: string;
+  /** 동시 처리 보호 — 화면 로드 시점 행 버전 (delivery: updated_at / lifecycle). */
+  expectedUpdatedAt?: string | null;
+  expectedLifecycle?: string | null;
   source: string;
   href: string;
   statementHref: string | null;

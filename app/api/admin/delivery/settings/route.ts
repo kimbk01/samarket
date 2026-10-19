@@ -3,6 +3,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   DELIVERY_OPS_SETTING_KEYS,
@@ -18,6 +19,7 @@ import {
   type DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
 import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
+import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,9 +90,9 @@ type PutBody = {
 };
 
 export async function PUT(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // B-1 권한 매트릭스 — 배달 설정 변경 = business (다른 배달 설정 API 와 동일)
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
   let body: PutBody;
   try {
     body = (await req.json()) as PutBody;
@@ -224,6 +226,8 @@ export async function PUT(req: NextRequest) {
   if (hasRide || hasDistancePolicy || hasStoreDistanceOverrides) {
     invalidateDeliveryRideTimeSourceCache();
     invalidateDeliveryDistanceSettingsCache();
+    /** ETA·거리 반영 홈 피드·browse·summary 응답 캐시 — 인스턴스 공통 무효화 (DEF-64) */
+    bumpStorePublicSharedCacheGeneration("delivery_ops_settings.update");
   }
 
   if (hasDistancePolicy || hasStoreDistanceOverrides) {

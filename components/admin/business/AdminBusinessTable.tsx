@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-business/business-ops-presentation";
 import type { AdminBusinessListOpsRow } from "@/lib/admin-business/load-admin-business-list";
 import { businessCcOwnerMemberHref } from "@/lib/admin-business/business-control-center-links";
+import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function openBadgeClass(kind: BusinessOpsOpenKind): string {
@@ -69,9 +70,14 @@ function StoreThumb({ url }: { url: string | null }) {
   );
 }
 
-function StoreCell({ r }: { r: AdminBusinessListOpsRow }) {
+/** 목록 필터를 잃지 않도록 상세 링크에 returnTo(현재 목록 URL)를 붙인다. */
+function businessDetailHref(storeId: string, returnTo?: string): string {
+  return withAdminReturnTo(`/admin/business/${encodeURIComponent(storeId)}`, returnTo);
+}
+
+function StoreCell({ r, returnTo }: { r: AdminBusinessListOpsRow; returnTo?: string }) {
   const { t } = useI18n();
-  const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
+  const detailHref = businessDetailHref(r.id, returnTo);
   const meta = [r.categoryName, r.regionLine].filter(Boolean).join(" · ");
   return (
     <div className="flex w-[240px] max-w-[240px] items-center gap-2.5">
@@ -101,21 +107,24 @@ export const AdminBusinessTable = forwardRef<
     rows: AdminBusinessListOpsRow[];
     viewMode: "list" | "grid";
     onHorizontalScroll?: () => void;
+    /** 현재 목록 URL (필터 포함) — 상세 페이지 뒤로가기에 사용 */
+    returnTo?: string;
   }
->(function AdminBusinessTable({ rows, viewMode, onHorizontalScroll }, ref) {
+>(function AdminBusinessTable({ rows, viewMode, onHorizontalScroll, returnTo }, ref) {
   const { t, language } = useI18n();
+  const ko = language !== "en";
 
   if (viewMode === "grid") {
     return (
       <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => {
-          const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
+          const detailHref = businessDetailHref(r.id, returnTo);
           return (
             <div
               key={r.id}
               className="min-w-0 rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm"
             >
-              <StoreCell r={r} />
+              <StoreCell r={r} returnTo={returnTo} />
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${openBadgeClass(
@@ -154,7 +163,7 @@ export const AdminBusinessTable = forwardRef<
                   href={detailHref}
                   className="rounded-ui-rect border border-signature bg-signature px-3 py-1.5 text-[12px] font-semibold text-white"
                 >
-                  {t("admin_biz_ops_cta_detail")}
+                  {ko ? "상세 보기" : "View detail"}
                 </Link>
               </div>
             </div>
@@ -189,11 +198,11 @@ export const AdminBusinessTable = forwardRef<
         </thead>
         <tbody>
           {rows.map((r) => {
-            const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
+            const detailHref = businessDetailHref(r.id, returnTo);
             return (
               <tr key={r.id} className="border-b border-sam-border-soft hover:bg-slate-50/80">
                 <td className={TD}>
-                  <StoreCell r={r} />
+                  <StoreCell r={r} returnTo={returnTo} />
                 </td>
                 <td className={TD}>
                   {r.owner.ok ? (
@@ -294,7 +303,7 @@ export const AdminBusinessTable = forwardRef<
                     href={detailHref}
                     className="inline-flex rounded-ui-rect border border-signature bg-signature px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90"
                   >
-                    {t("admin_biz_ops_cta_detail")}
+                    {ko ? "상세 보기" : "View detail"}
                   </Link>
                 </td>
               </tr>

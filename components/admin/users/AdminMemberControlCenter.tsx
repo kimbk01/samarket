@@ -256,6 +256,10 @@ export function AdminMemberControlCenter({
           window.location.href = "/admin/users";
           return;
         }
+        // 회원 제재 ↔ 사장님 매장 판매 연동 경고 (DEF-68)
+        if (result.message) {
+          await dibayAlert({ title: "처리되었습니다", description: result.message });
+        }
         onUpdated?.();
       } finally {
         setDangerBusy(false);

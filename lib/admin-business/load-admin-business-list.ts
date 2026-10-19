@@ -279,7 +279,8 @@ export async function loadAdminBusinessListOps(
 
   let matched = light.filter((row) => {
     if (filters.approval && filters.approval !== "all") {
-      if (filters.approval === "pending_family") {
+      // DEF-14: 「처리 필요」(actionable) = 심사 대기 계열 (pending · under_review · revision_requested)
+      if (filters.approval === "pending_family" || filters.approval === "actionable") {
         if (
           !(BUSINESS_OPS_PENDING_APPROVAL as readonly string[]).includes(
             String(row.approval_status ?? "")

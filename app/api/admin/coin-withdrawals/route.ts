@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
   COIN_WITHDRAWAL_REQUESTS_TABLE,
   markCoinWithdrawalPaid,
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
       reason: String(body.reason ?? ""),
     });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "coin_withdrawal_request",
+      targetId: requestId,
+      action: "coin_withdrawal.reject",
+      after: { reason: String(body.reason ?? "").slice(0, 500) },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -72,6 +80,17 @@ export async function POST(req: NextRequest) {
       /* RPC: payout_reference_required (blank ref) 등 — 코드 그대로 400 */
       return NextResponse.json({ ok: false, error: result.error ?? "mark_paid_failed" }, { status: 400 });
     }
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "coin_withdrawal_request",
+      targetId: requestId,
+      action: "coin_withdrawal.mark_paid",
+      after: {
+        payoutMethod,
+        payoutReference,
+        payoutNote: String(body.payoutNote ?? body.payout_note ?? "").slice(0, 500),
+      },
+    });
     return NextResponse.json({ ok: true });
   }
 

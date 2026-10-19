@@ -8,7 +8,7 @@ export default function Page() {
     <Suspense
       fallback={
         <div className="p-4 text-sm text-sam-muted">
-          Loading gift operations…
+          불러오는 중…
         </div>
       }
     >

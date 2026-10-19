@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin/store-reviews]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
   const list = rows ?? [];
@@ -48,8 +49,17 @@ export async function GET(req: Request) {
     for (const s of stores ?? []) names[s.id as string] = (s.store_name as string) ?? "";
   }
 
+  const buyerLabels = await loadActorLabels(
+    sb,
+    list.map((r) => String(r.buyer_user_id ?? ""))
+  );
+
   return NextResponse.json({
     ok: true,
-    reviews: list.map((r) => ({ ...r, store_name: names[r.store_id as string] ?? "" })),
+    reviews: list.map((r) => ({
+      ...r,
+      store_name: names[r.store_id as string] ?? "",
+      buyer_label: buyerLabels.get(String(r.buyer_user_id ?? "")) ?? null,
+    })),
   });
 }

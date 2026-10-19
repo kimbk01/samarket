@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import {
+  listOwnerStoresSalesSuspendedBySanction,
+  suspendOwnerStoreSalesOnMemberSanction,
+} from "@/lib/admin-business/suspend-owner-store-sales-on-member-sanction";
 import { insertModerationEvent, invalidateAllUserSessions } from "@/lib/admin/admin-user-server";
 import { moderationActionToProfilePatch } from "@/lib/admin-users/moderation-status";
 import { assertMemberModerationTargetAllowed } from "@/lib/admin-users/member-moderation-target";
@@ -255,7 +259,19 @@ export async function POST(
       after_json: { status: toStatus, logId, result: "SUCCESS", auth: "banned", sessions: "revoked" },
     });
 
-    return NextResponse.json({ ok: true, result: "SUCCESS", logId, status: toStatus });
+    const ownerStoreSales = await suspendOwnerStoreSalesOnMemberSanction(sb, {
+      userId,
+      actorId: actor.userId,
+      sanction: "ban",
+      reason,
+    });
+    return NextResponse.json({
+      ok: true,
+      result: "SUCCESS",
+      logId,
+      status: toStatus,
+      owner_store_sales: { suspended: ownerStoreSales.filter((r) => r.changed) },
+    });
   }
 
   // —— RESTORE from blocked —— profile then Auth unban
@@ -345,7 +361,14 @@ export async function POST(
       after_json: { status: toStatus, logId, result: "SUCCESS", auth: "unbanned" },
     });
 
-    return NextResponse.json({ ok: true, result: "SUCCESS", logId, status: toStatus });
+    const stillSuspended = await listOwnerStoresSalesSuspendedBySanction(sb, userId);
+    return NextResponse.json({
+      ok: true,
+      result: "SUCCESS",
+      logId,
+      status: toStatus,
+      owner_store_sales: { still_suspended: stillSuspended },
+    });
   }
 
   // —— warn / suspend / restore-from-suspended ——
@@ -391,5 +414,23 @@ export async function POST(
     after_json: { status: toStatus, logId, result: "SUCCESS" },
   });
 
-  return NextResponse.json({ ok: true, result: "SUCCESS", logId, status: toStatus });
+  let ownerStoreSales: Record<string, unknown> | undefined;
+  if (action === "suspend") {
+    const res = await suspendOwnerStoreSalesOnMemberSanction(sb, {
+      userId,
+      actorId: actor.userId,
+      sanction: "suspend",
+      reason,
+    });
+    ownerStoreSales = { suspended: res.filter((r) => r.changed) };
+  } else if (action === "restore") {
+    ownerStoreSales = { still_suspended: await listOwnerStoresSalesSuspendedBySanction(sb, userId) };
+  }
+  return NextResponse.json({
+    ok: true,
+    result: "SUCCESS",
+    logId,
+    status: toStatus,
+    ...(ownerStoreSales ? { owner_store_sales: ownerStoreSales } : {}),
+  });
 }

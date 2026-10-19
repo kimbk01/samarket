@@ -72,7 +72,7 @@ export function CancelRequestTable({
                     </>
                   ) : (
                     <Link
-                      href={`/admin/store-orders?order_id=${encodeURIComponent(o.id)}`}
+                      href={`/admin/stores/orders/${encodeURIComponent(o.id)}`}
                       className="text-xs text-sam-muted underline"
                     >
                       {t("admin_do_nav_store_orders")}

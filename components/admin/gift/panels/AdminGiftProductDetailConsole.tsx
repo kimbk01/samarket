@@ -539,6 +539,8 @@ export function AdminGiftProductDetailConsole({
       }
       await load({ background: true });
       onChanged();
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }
@@ -611,6 +613,8 @@ export function AdminGiftProductDetailConsole({
         }),
         confirmLabel: safeT("gift_admin_edit_success_ok", { fallbackKo: "확인", fallbackEn: "OK" }),
       });
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }
@@ -636,18 +640,23 @@ export function AdminGiftProductDetailConsole({
         method: "DELETE",
         credentials: "include",
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        /** 발급 이력 409 만 전용 문구 — 권한·서버 오류를 「발급 이력」으로 오안내하지 않는다. */
         setError(
-          safeT("gift_ops_delete_forbidden", {
-            fallbackKo: "이미 발급 이력이 있어 삭제할 수 없습니다. 판매 중지 또는 보관을 사용하세요.",
-            fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
-          })
+          json.error === "delete_forbidden_has_instances"
+            ? safeT("gift_ops_delete_forbidden", {
+                fallbackKo: "이미 발급 이력이 있어 삭제할 수 없습니다. 판매 중지 또는 보관을 사용하세요.",
+                fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
+              })
+            : safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
         );
         return;
       }
       onBack();
       onChanged();
+    } catch {
+      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
     } finally {
       setBusy(false);
     }

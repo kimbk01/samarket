@@ -23,6 +23,7 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-audit-log";
 import { CAMPAIGN_CLAIM_BLOCKED_STATUSES } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -234,7 +235,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     });
   }
 
+  const auditSend = (extra: Record<string, unknown>) =>
+    appendAdminRouteAudit(svc, req, {
+      actorId: admin.userId,
+      targetType: "admin_notification_campaign",
+      targetId: id,
+      action: "notification_campaign.send",
+      after: {
+        occurrence_id: occurrenceId,
+        idempotency_key: idempotencyKey,
+        claimed: claim.claimed,
+        ...extra,
+      },
+    });
+
   if (enqueueOnly) {
+    await auditSend({ mode: "enqueue_only" });
     return NextResponse.json({
       ok: true,
       enqueued: true,
@@ -251,6 +267,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "batch_failed" }, { status: 500 });
     }
+    await auditSend({
+      mode: "single_batch",
+      processed: result.processed,
+      sent: result.sent,
+      skipped: result.skipped,
+      failed: result.failed,
+      done: result.done,
+    });
     return NextResponse.json({
       ok: true,
       occurrence_id: occurrenceId,
@@ -279,6 +303,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     // U1-B: remaining targets continue via the existing scheduled dispatcher.
     await releaseOccurrenceForContinuation(svc, occurrenceId, claimToken);
   }
+
+  await auditSend({
+    mode: "drain",
+    sent: drained.sent,
+    skipped: drained.skipped,
+    failed: drained.failed,
+    done: drained.done,
+    batches: drained.batches,
+  });
 
   return NextResponse.json({
     ok: true,

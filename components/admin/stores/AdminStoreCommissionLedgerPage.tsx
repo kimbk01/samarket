@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
@@ -38,6 +40,7 @@ import type {
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
   buildStoreCommissionLedgerSearch,
+  formatManilaDateTime,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
@@ -90,6 +93,8 @@ type LedgerResponse = {
   storeNames?: Record<string, string>;
   breakdown?: { group: CommissionBreakdownGroup; rows: StoreCommissionBreakdownRow[] };
   payableSummary?: StorePlatformPayableSummary;
+  /** B-2: 수수료 조정 결정 권한 (super_admin). */
+  viewer?: { can_decide_adjustment?: boolean };
 };
 
 type CashResponse = StoreCashLedgerPage & { ok: boolean; error?: string };
@@ -129,7 +134,7 @@ const ADJUST_ERROR: Record<string, { ko: string; en: string }> = {
   not_in_review: { ko: "이미 처리된 건입니다. 새로고침하세요.", en: "Already decided. Refresh." },
   order_not_closed: { ko: "주문이 취소/환불 상태가 아닙니다.", en: "Order is not cancelled/refunded." },
   admin_required: { ko: "관리자 권한이 필요합니다.", en: "Admin permission required." },
-  rpc_missing: { ko: "DB 마이그레이션이 적용되지 않았습니다.", en: "DB migration not applied." },
+  rpc_missing: { ko: "기능 준비 중입니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready yet. Contact a system admin." },
 };
 
 const CHECK_LABEL: Record<string, { ko: string; en: string }> = {
@@ -181,7 +186,7 @@ function WorkCard({
 }
 
 export function AdminStoreCommissionLedgerPage() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const lang: CommissionLang = language === "ko" ? "ko" : "en";
   const router = useRouter();
   const pathname = usePathname();
@@ -218,7 +223,11 @@ export function AdminStoreCommissionLedgerPage() {
   const [group, setGroup] = useState<CommissionBreakdownGroup>("day");
   const [headline, setHeadline] = useState<Headline>({ summary: null, positions: [], integrity: null, exceptionOrders: null });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  /** Error code (never rendered raw) + HTTP status — mapped through AdminErrorState. */
+  const [error, setErrorState] = useState<{ code: string; status?: number } | null>(null);
+  const setError = useCallback((code: string | null, status?: number) => {
+    setErrorState(code ? { code, status } : null);
+  }, []);
   const [selected, setSelected] = useState<StoreCommissionLedgerRow | null>(null);
   const [modal, setModal] = useState<DecisionModal | null>(null);
   const [gateModal, setGateModal] = useState<GateModal | null>(null);
@@ -303,7 +312,7 @@ export function AdminStoreCommissionLedgerPage() {
       const res = await ledgerReq;
       const json = (await res.json()) as LedgerResponse;
       if (!res.ok || !json.ok) {
-        setError(json.error ?? `HTTP ${res.status}`);
+        setError(json.error ?? "load_failed", res.status);
         setData(null);
         return;
       }
@@ -311,19 +320,19 @@ export function AdminStoreCommissionLedgerPage() {
       if (cashReq) {
         const c = await cashReq;
         const cj = (await c.json()) as CashResponse;
-        if (!c.ok || !cj.ok) setError(cj.error ?? `HTTP ${c.status}`);
+        if (!c.ok || !cj.ok) setError(cj.error ?? "load_failed", c.status);
         else setCash(cj);
       }
       if (payableReq) {
         const pr = await payableReq;
         const pj = (await pr.json()) as PayableResponse;
-        if (!pr.ok || !pj.ok) setError(pj.error ?? `HTTP ${pr.status}`);
+        if (!pr.ok || !pj.ok) setError(pj.error ?? "load_failed", pr.status);
         else setPayable(pj);
       }
       if (exceptionsReq) {
         const er = await exceptionsReq;
         const ej = (await er.json()) as PayableResponse;
-        if (!er.ok || !ej.ok) setError(ej.error ?? `HTTP ${er.status}`);
+        if (!er.ok || !ej.ok) setError(ej.error ?? "load_failed", er.status);
         else setExceptionsPage(ej);
       }
     } catch {
@@ -332,7 +341,7 @@ export function AdminStoreCommissionLedgerPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveState, group, kinds, offset, orderNo, payableAll, period, storeId, tab]);
+  }, [effectiveState, group, kinds, offset, orderNo, payableAll, period, setError, storeId, tab]);
 
   useEffect(() => {
     void load();
@@ -392,7 +401,8 @@ export function AdminStoreCommissionLedgerPage() {
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setModalError(json.error ?? `HTTP ${res.status}`);
+        const code = res.status === 403 ? "forbidden" : json.error ?? "update_failed";
+        setModalError(ADJUST_ERROR[code]?.[lang] ?? adminOperatorErrorMessage(code, lang === "ko"));
         return;
       }
       setGateModal(null);
@@ -431,10 +441,16 @@ export function AdminStoreCommissionLedgerPage() {
         outstandingCancelMinor?: number;
       };
       if (!res.ok || !json.ok) {
-        const code = json.error ?? `HTTP ${res.status}`;
+        const code =
+          res.status === 403 ? (json.error === "super_admin_only" ? "super_admin_only" : "forbidden") : json.error ?? "update_failed";
         setModalError(
-          ADJUST_ERROR[code]?.[lang] ??
-            pickCommissionCopy(lang, `처리하지 못했습니다. 내용은 그대로 두었으니 다시 시도해 주세요. (${code})`, `Not saved. Your input is kept — please try again. (${code})`)
+          (code === "super_admin_only" ? t("admin_r4c_ledger_decide_super_only") : null) ??
+            ADJUST_ERROR[code]?.[lang] ??
+            pickCommissionCopy(
+              lang,
+              `처리하지 못했습니다. 내용은 그대로 두었으니 다시 시도해 주세요. ${adminOperatorErrorMessage(code, true)}`,
+              `Not saved. Your input is kept — please try again. ${adminOperatorErrorMessage(code, false)}`
+            )
         );
         setModal({ ...modal, step: "form" });
         return;
@@ -482,9 +498,19 @@ export function AdminStoreCommissionLedgerPage() {
     modal.reason.trim().length >= 2 &&
     (modal.decision === "reject" || decisionPreview !== null);
 
+  /** B-2: 서버 응답 기준 — 값이 없으면(구 서버) 잠그지 않고 서버 403 에 맡긴다. */
+  const canDecide = data?.viewer?.can_decide_adjustment !== false;
+  const decideLockedTitle = canDecide ? undefined : t("admin_r4c_ledger_decide_super_only");
+
   const decideButton = (r: StoreCommissionLedgerRow) =>
     r.state === "review_required" ? (
-      <button type="button" className={ADMIN_PRIMARY_BTN} disabled={busy} onClick={() => openDecision(r)}>
+      <button
+        type="button"
+        className={ADMIN_PRIMARY_BTN}
+        disabled={busy || !canDecide}
+        title={decideLockedTitle}
+        onClick={() => openDecision(r)}
+      >
         {pickCommissionCopy(lang, "수수료 결정", "Decide")}
       </button>
     ) : null;
@@ -492,11 +518,11 @@ export function AdminStoreCommissionLedgerPage() {
   return (
     <div className="min-w-0 space-y-4" data-commission-admin="1">
       <AdminPageHeader
-        title={pickCommissionCopy(lang, "배달 정산 · 매장 수수료 원장", "Delivery settlement · Store commission ledger")}
+        titleKey="admin_menu_store_settlements"
         description={pickCommissionCopy(
           lang,
-          "고객은 매장에 직접 결제합니다(COD·GCash·계좌이체). 정상 주문의 수수료는 조리 시작 시 매장 캐시에서 자동 부과·차감되며, 주문별 정산·지급 버튼은 없습니다. 관리자는 취소·환불 수수료 결정, 캐시 부족 주문 차단 정책, 금융 예외 확인만 처리합니다.",
-          "Buyers pay the store directly. Normal orders are auto-charged from the store's Cash at cooking start — there is no per-order settle/pay button. Admins only decide cancel/refund commission, the Cash-shortage order block, and review financial exceptions."
+          "고객은 매장에 직접 결제합니다. 주문별 지급은 없고, 수수료는 주문 진행 시 자동 부과됩니다.",
+          "Customers pay the store directly. There is no per-order payout; the fee is charged automatically as the order progresses."
         )}
       />
 
@@ -583,7 +609,7 @@ export function AdminStoreCommissionLedgerPage() {
         ))}
         {storeId ? (
           <span className="ml-1 inline-flex items-center gap-2 rounded-full bg-sam-surface-muted px-3 py-1 sam-text-xxs text-sam-fg">
-            {storeNames.get(storeId) || storeId.slice(0, 8)}
+            <span title={storeId}>{storeNames.get(storeId) || pickCommissionCopy(lang, "선택한 매장", "Selected store")}</span>
             <button type="button" className="font-medium text-signature underline" onClick={() => setUrl({ store_id: "" })}>
               {pickCommissionCopy(lang, "전체 매장", "All stores")}
             </button>
@@ -602,7 +628,7 @@ export function AdminStoreCommissionLedgerPage() {
         }}
       />
 
-      {error ? <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger" role="alert">{error}</p> : null}
+      {error ? <AdminErrorState ko={lang === "ko"} code={error.code} httpStatus={error.status} onRetry={() => void load()} /> : null}
 
       {tab === "ledger" || tab === "review" ? (
         <section className="min-w-0 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
@@ -715,7 +741,7 @@ export function AdminStoreCommissionLedgerPage() {
             </div>
             {data?.gate?.changedAt ? (
               <p className="mt-1 sam-text-xxs text-sam-muted">
-                {pickCommissionCopy(lang, "최근 변경", "Last change")}: {data.gate.changedAt.slice(0, 16).replace("T", " ")} UTC · {data.gate.reason}
+                {pickCommissionCopy(lang, "최근 변경", "Last change")}: {formatManilaDateTime(data.gate.changedAt)} · {data.gate.reason}
               </p>
             ) : null}
           </section>
@@ -755,7 +781,7 @@ export function AdminStoreCommissionLedgerPage() {
                         return (
                           <tr key={p.storeId} data-store-net={p.netMinor < 0 ? "negative" : "ok"}>
                             <td className={`sticky left-0 z-10 border-b border-sam-border-soft px-3 py-2 ${bg}`}>
-                              <span className="block max-w-[16rem] break-words">{storeNames.get(p.storeId) || p.storeId.slice(0, 8)}</span>
+                              <span className="block max-w-[16rem] break-words">{storeNames.get(p.storeId) || pickCommissionCopy(lang, "이름 없는 매장", "Unnamed store")}</span>
                             </td>
                             <td className={`border-b border-sam-border-soft px-3 py-2 text-right tabular-nums ${bg}`}>{formatCashMinor(p.balanceMinor)}</td>
                             <td className={`border-b border-sam-border-soft px-3 py-2 text-right tabular-nums ${bg} ${p.outstandingMinor > 0 ? "text-sam-danger" : ""}`}>
@@ -807,7 +833,7 @@ export function AdminStoreCommissionLedgerPage() {
       {tab === "exceptions" ? (
         <>
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label="integrity">
-            <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "원장 무결성 검사 (DB)", "Ledger integrity (DB)")}</h2>
+            <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "기록 무결성 검사", "Record integrity check")}</h2>
             <p className="mt-1 sam-text-xxs text-sam-muted">
               {pickCommissionCopy(
                 lang,
@@ -912,7 +938,13 @@ export function AdminStoreCommissionLedgerPage() {
           onClose={() => setSelected(null)}
           footer={
             selected.state === "review_required" ? (
-              <button type="button" className={`${ADMIN_PRIMARY_BTN} w-full`} disabled={busy} onClick={() => openDecision(selected)}>
+              <button
+                type="button"
+                className={`${ADMIN_PRIMARY_BTN} w-full`}
+                disabled={busy || !canDecide}
+                title={decideLockedTitle}
+                onClick={() => openDecision(selected)}
+              >
                 {pickCommissionCopy(lang, "수수료 결정 (승인 · 거절)", "Decide (approve · reject)")}
               </button>
             ) : (

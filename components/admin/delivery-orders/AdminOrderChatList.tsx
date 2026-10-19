@@ -5,20 +5,22 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { AdminOrderDetailModal, useAdminOrderDetailParam } from "@/components/admin/store-orders/AdminOrderDetailModal";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import type { AdminStoreOrderChatListRow } from "@/lib/admin-delivery-orders/list-admin-store-order-chats";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 
 /**
  * P1-1 — Delivery order-chat LIVE (lookup-only).
- * Identity = store_orders.community_messenger_room_id → CM store_order detail.
+ * Identity = store_orders.community_messenger_room_id. 「주문 채팅 열기」 → /admin/stores/orders/{orderId}/chat
+ * (single admin order-chat route, same as order detail — DEF-60/61).
  * Admin entry never creates rooms.
  */
 export function AdminOrderChatList() {
   const { t, safeT, language } = useI18n();
   const [rows, setRows] = useState<AdminStoreOrderChatListRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; status?: number } | null>(null);
   const modal = useAdminOrderDetailParam();
   const statusLabel = (s: string) => {
     const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
@@ -29,7 +31,7 @@ export function AdminOrderChatList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/order-chats", { credentials: "include" });
+      const res = await fetch("/api/admin/order-chats", { credentials: "include", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         rows?: AdminStoreOrderChatListRow[];
@@ -37,13 +39,13 @@ export function AdminOrderChatList() {
       } | null;
       if (!res.ok || !json?.ok) {
         setRows([]);
-        setError(json?.error || "load_failed");
+        setError({ code: res.status === 401 || res.status === 403 ? "forbidden" : json?.error || "load_failed", status: res.status });
         return;
       }
       setRows(Array.isArray(json.rows) ? json.rows : []);
     } catch {
       setRows([]);
-      setError("load_failed");
+      setError({ code: "network_error" });
     } finally {
       setLoading(false);
     }
@@ -74,7 +76,13 @@ export function AdminOrderChatList() {
         {safeT("admin_do_chat_list_error", {
           fallbackKo: "주문 채팅 목록을 불러오지 못했습니다.",
           fallbackEn: "Could not load order chats.",
-        })}
+        })}{" "}
+        {adminOperatorErrorMessage(error.code, language !== "en")}
+        {error.code !== "forbidden" ? (
+          <button type="button" onClick={() => void load()} className="ml-2 font-medium underline">
+            {language === "en" ? "Retry" : "다시 시도"}
+          </button>
+        ) : null}
       </p>
     );
   }
@@ -137,7 +145,7 @@ export function AdminOrderChatList() {
             <tr key={row.orderId} className="border-b border-sam-border/70 last:border-0">
               <td className="px-3 py-2.5 align-top">
                 <Link
-                  href={`/admin/chats/messenger/${encodeURIComponent(row.roomId)}`}
+                  href={`/admin/stores/orders/${encodeURIComponent(row.orderId)}/chat`}
                   className="font-medium text-signature underline"
                 >
                   {safeT("admin_do_chat_open_room", {
@@ -152,7 +160,7 @@ export function AdminOrderChatList() {
                     className="inline-block rounded bg-sam-app px-1.5 py-0.5 font-mono sam-text-xxs text-sam-fg underline"
                     data-open-order={row.orderNo || row.orderId}
                   >
-                    {row.orderNo || `${row.orderId.slice(0, 8)}…`}
+                    {row.orderNo || (language === "en" ? "Open order" : "주문 보기")}
                   </button>
                   <span className="ml-2 sam-text-xxs text-sam-muted">{statusLabel(row.orderStatus)}</span>
                 </div>

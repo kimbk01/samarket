@@ -111,7 +111,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
           {rows.map((o) => {
             const src = o.orderSource ?? "store_db";
             const consoleHref = `/admin/stores/orders/${encodeURIComponent(o.id)}`;
-            const actionHref = `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`;
+            const actionHref = `/admin/stores/orders/${encodeURIComponent(o.id)}`;
             const sla = slaBadgeLabel(o);
             return (
               <tr key={`${src}-${o.id}`} className="border-b border-sam-border-soft align-top hover:bg-sam-app/80">

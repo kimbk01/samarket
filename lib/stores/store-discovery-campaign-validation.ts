@@ -96,6 +96,8 @@ const UPDATE_ALLOWED = new Set([
   "startAt",
   "endAt",
   "isActive",
+  /** 작업 사유 — 감사 기록 전용(컬럼에 쓰지 않음). 비활성화 L2 확인이 전송한다. */
+  "reason",
 ]);
 
 export function detectUnexpectedStoreDiscoveryCampaignWriteFields(

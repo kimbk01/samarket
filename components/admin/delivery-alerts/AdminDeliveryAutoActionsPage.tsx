@@ -1,10 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { resolveDeliveryAlertBannerLabel } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
+import {
+  AUTO_ACTION_TYPE_KEYS,
+  resolveDeliveryAlertBannerLabel,
+} from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
+import {
+  AdminErrorState,
+  AdminResultBanner,
+  AdminTechDetails,
+} from "@/components/admin/ui/AdminStateViews";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type ResultState = { ok: true; message: string } | { ok: false; code: string } | null;
+
+const STATUS_FILTERS = ["all", "pending_approval", "success", "failed", "rejected"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+function readStatus(sp: URLSearchParams): StatusFilter {
+  const v = sp.get("status");
+  return (STATUS_FILTERS as readonly string[]).includes(v ?? "") ? (v as StatusFilter) : "all";
+}
+
+/** 자동 조치 관련 일괄 작업 — 실시간 상황판에서 이 화면으로 옮겼다 (DUP-2). L3 확인. */
+const AUTO_BULK_ACTIONS: { action: DeliveryOperationRecoveryAction; labelKey: MessageKey }[] = [
+  { action: "bulk_retry_failed_auto_actions", labelKey: "admin_r4d_auto_bulk_retry" },
+  { action: "auto_action_runner", labelKey: "admin_r4d_auto_bulk_runner" },
+  { action: "alert_pipeline", labelKey: "admin_ops_console_recovery_alert_pipeline" },
+];
+
+function apiErr(status: number, j: unknown, fallback: string): string {
+  const e = j != null && typeof j === "object" ? (j as { error?: unknown }).error : undefined;
+  // 코드 형태(snake_case)만 사용 — DB 원문 메시지 등은 화면에 노출하지 않는다.
+  if (typeof e === "string" && /^[a-z][a-z0-9_]*$/i.test(e.trim())) return e.trim();
+  if (status === 403) return "forbidden";
+  return fallback;
+}
 
 type ActionRow = {
   id: string;
@@ -61,46 +100,71 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function stabilityPercent(d: DashboardPayload | null): number {
-  if (!d?.kpi) return 0;
-  let s = 100;
-  if (d.dangerous_instant_misconfigured) s -= 28;
-  if (num(d.kpi.pending_stale_30m) > 0) s -= 18;
-  if (num(d.kpi.retry_needed) > 0) s -= 12;
-  if (num(d.kpi.today_failed) > 0) s -= 8;
-  if (d.cron_suspect_stale_ratio) s -= 12;
-  return Math.max(0, Math.min(100, Math.round(s)));
+export function AdminDeliveryAutoActionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDeliveryAutoActionsPageInner />
+    </Suspense>
+  );
 }
 
-export function AdminDeliveryAutoActionsPage() {
-  const { t } = useI18n();
+function AdminDeliveryAutoActionsPageInner() {
+  const { t, language } = useI18n();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const ko = language !== "en";
   const dash = t("admin_del_common_dash");
   const [killOn, setKillOn] = useState(false);
+  const [killBusy, setKillBusy] = useState(false);
+  const [result, setResult] = useState<ResultState>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [settingsErr, setSettingsErr] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [rulePicklist, setRulePicklist] = useState<RulePick[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  // URL `status` 필터 — 대시보드·상황판 지표 링크가 필터된 상태로 연다 (DEF-53 계열)
+  const [filterStatus, setFilterStatusState] = useState<StatusFilter>(() =>
+    readStatus(new URLSearchParams(searchParams.toString()))
+  );
+  const setFilterStatus = useCallback(
+    (v: StatusFilter) => {
+      setFilterStatusState(v);
+      const qs = new URLSearchParams(searchParams.toString());
+      if (v === "all") qs.delete("status");
+      else qs.set("status", v);
+      const q = qs.toString();
+      router.replace(`${pathname || "/admin/delivery-auto-actions"}${q ? `?${q}` : ""}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
   const [ruleId, setRuleId] = useState<string>("");
   const [dangerousOnly, setDangerousOnly] = useState(false);
   const [retryOnly, setRetryOnly] = useState(false);
   const [todayOnly, setTodayOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const [memo, setMemo] = useState<Record<string, string>>({});
 
+  /** 권위 스위치 상태 — 불러오지 못하면 「확인 불가」로 두고 토글을 막는다 (꺼짐으로 가장하지 않음). */
   const loadSettings = useCallback(() => {
     void fetch("/api/admin/delivery-auto-actions/settings", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        const on = Boolean(d?.settings?.delivery_auto_actions_enabled);
-        setKillOn(on);
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok || typeof d?.settings?.delivery_auto_actions_enabled !== "boolean") {
+          setSettingsErr(apiErr(r.status, d, "load_failed"));
+          setSettingsLoaded(false);
+          return;
+        }
+        setKillOn(d.settings.delivery_auto_actions_enabled);
+        setSettingsErr(null);
         setSettingsLoaded(true);
       })
       .catch(() => {
-        setSettingsLoaded(true);
-        setKillOn(false);
+        setSettingsErr("network_error");
+        setSettingsLoaded(false);
       });
   }, []);
 
@@ -121,9 +185,7 @@ export function AdminDeliveryAutoActionsPage() {
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (!r.ok) {
-          setError(
-            r.status === 503 ? t("admin_del_alert_err_schema") : t("admin_del_alert_err_list_status", { status: r.status })
-          );
+          setLoadErr({ code: r.status === 503 ? "schema_missing" : apiErr(r.status, j, "load_failed"), status: r.status });
           setActions([]);
           setDashboard(null);
           setLoading(false);
@@ -133,19 +195,16 @@ export function AdminDeliveryAutoActionsPage() {
         setActions(list.filter((x: unknown): x is ActionRow => x != null && typeof x === "object"));
         const dash = j?.dashboard && typeof j.dashboard === "object" ? (j.dashboard as DashboardPayload) : null;
         setDashboard(dash);
-        if (dash && typeof dash.kill_switch_on === "boolean") {
-          setKillOn(dash.kill_switch_on);
-        }
         const pick = Array.isArray(dash?.rule_picklist) ? (dash!.rule_picklist as RulePick[]) : [];
         setRulePicklist(pick.filter((x) => x && typeof x.id === "string"));
-        setError(null);
+        setLoadErr(null);
         setLoading(false);
       })
       .catch(() => {
-        setError(t("admin_del_alert_err_list_failed"));
+        setLoadErr({ code: "network_error" });
         setLoading(false);
       });
-  }, [buildQuery, t]);
+  }, [buildQuery]);
 
   useEffect(() => {
     loadSettings();
@@ -155,56 +214,200 @@ export function AdminDeliveryAutoActionsPage() {
     loadData();
   }, [loadData]);
 
+  /**
+   * 자동 조치 전체 중지/재허용 — **권위 스위치** (DEF-42: 러너가 읽는 delivery_auto_actions_runtime_settings).
+   * L1 확인 + 중복 클릭 방지 + CAS(expected_enabled) + 결과 배너 + 재조회 (DEF-22).
+   */
   const toggleKill = useCallback(
-    (next: boolean) => {
-      void fetch("/api/admin/delivery-auto-actions/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delivery_auto_actions_enabled: next }),
-      }).then(async (r) => {
+    async (nextEnabled: boolean) => {
+      if (killBusy || !settingsLoaded) return;
+      const c = await confirmAdminAction({
+        level: "L1",
+        ko,
+        title: nextEnabled
+          ? ko
+            ? "자동 조치를 다시 허용할까요?"
+            : "Allow auto actions again?"
+          : ko
+            ? "자동 조치를 전체 중지할까요?"
+            : "Stop all auto actions?",
+        description: nextEnabled
+          ? ko
+            ? "규칙에 따라 자동 조치가 다시 실행됩니다."
+            : "Auto actions will run again according to rules."
+          : ko
+            ? "모든 규칙의 자동 조치가 실행되지 않습니다. 승인 대기 건도 처리되지 않습니다."
+            : "No rule will run auto actions. Pending approvals will not be processed.",
+        confirmLabel: nextEnabled ? (ko ? "다시 허용" : "Allow") : ko ? "전체 중지" : "Stop all",
+        destructive: !nextEnabled,
+      });
+      if (!c.ok) return;
+      setKillBusy(true);
+      setResult(null);
+      try {
+        const r = await fetch("/api/admin/delivery-auto-actions/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delivery_auto_actions_enabled: nextEnabled, expected_enabled: killOn }),
+        });
         if (!r.ok) {
-          setError(t("admin_del_alert_err_settings_save_status", { status: r.status }));
+          const j = await r.json().catch(() => null);
+          setResult({ ok: false, code: apiErr(r.status, j, "update_failed") });
+          loadSettings();
           return;
         }
-        setKillOn(next);
-        setError(null);
+        setKillOn(nextEnabled);
+        setResult({
+          ok: true,
+          message: nextEnabled
+            ? ko
+              ? "자동 조치를 다시 허용했습니다."
+              : "Auto actions allowed."
+            : ko
+              ? "자동 조치를 전체 중지했습니다."
+              : "All auto actions stopped.",
+        });
+        loadSettings();
         loadData();
-      });
+      } catch {
+        setResult({ ok: false, code: "network_error" });
+      } finally {
+        setKillBusy(false);
+      }
     },
-    [loadData, t]
+    [killBusy, killOn, ko, loadData, loadSettings, settingsLoaded]
+  );
+
+  /** 자동 조치 일괄 작업 — L3 (사유 + 작업 이름 재입력). 서버: business 권한·사유 필수·감사 기록. */
+  const runBulk = useCallback(
+    async (action: DeliveryOperationRecoveryAction, label: string) => {
+      if (bulkBusy) return;
+      const c = await confirmAdminAction({
+        level: "L3",
+        ko,
+        title: t("admin_r4d_recovery_title", { label }),
+        description: t("admin_r4d_recovery_desc"),
+        confirmLabel: t("admin_r4d_recovery_confirm"),
+        destructive: true,
+        retypeValue: label,
+      });
+      if (!c.ok) return;
+      setBulkBusy(true);
+      setResult(null);
+      try {
+        const r = await fetch("/api/admin/delivery-operations/recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, reason: c.reason }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          setResult({ ok: false, code: apiErr(r.status, j, "action_failed") });
+          return;
+        }
+        setResult({ ok: true, message: t("admin_r4d_recovery_done", { label }) });
+        loadData();
+      } catch {
+        setResult({ ok: false, code: "network_error" });
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [bulkBusy, ko, t, loadData]
   );
 
   const postAction = useCallback(
-    (actionId: string, path: "approve" | "reject" | "retry") => {
+    async (a: ActionRow, path: "approve" | "reject" | "retry") => {
+      if (busyId) return;
+      const actionId = a.id;
+      const target = a.order_no || a.rule_name || (ko ? "이 자동 조치" : "this auto action");
+      const typeLabel = a.action_type ? t(AUTO_ACTION_TYPE_KEYS[a.action_type] ?? "admin_del_alert_auto_off") : "";
+      const c = await confirmAdminAction(
+        path === "approve"
+          ? {
+              level: "L2",
+              ko,
+              title: ko ? `자동 조치 승인: ${target}` : `Approve auto action: ${target}`,
+              description: ko
+                ? `승인하면 「${typeLabel}」 조치가 바로 실행됩니다.`
+                : `Approving runs "${typeLabel}" immediately.`,
+              confirmLabel: ko ? "승인하고 실행" : "Approve and run",
+              destructive: !!a.dangerous_action,
+            }
+          : path === "reject"
+            ? {
+                level: "L2",
+                ko,
+                title: ko ? `자동 조치 거절: ${target}` : `Reject auto action: ${target}`,
+                description: ko ? "거절하면 이 조치는 실행되지 않습니다." : "This action will not run.",
+                confirmLabel: ko ? "거절" : "Reject",
+              }
+            : {
+                level: "L1",
+                ko,
+                title: ko ? `자동 조치 재실행: ${target}` : `Re-run auto action: ${target}`,
+                description: ko ? `「${typeLabel}」 조치를 다시 실행합니다.` : `Runs "${typeLabel}" again.`,
+                confirmLabel: ko ? "재실행" : "Re-run",
+              }
+      );
+      if (!c.ok) return;
       setBusyId(actionId);
-      const note = (memo[actionId] ?? "").trim();
-      const body = path === "retry" ? undefined : JSON.stringify({ note: note || undefined });
-      void fetch(`/api/admin/delivery-auto-actions/${encodeURIComponent(actionId)}/${path}`, {
-        method: "POST",
-        ...(path === "retry" ? {} : { headers: { "Content-Type": "application/json" }, body }),
-      })
-        .then(async (r) => {
-          const j = await r.json().catch(() => null);
-          if (!r.ok) {
-            const err = j && typeof j === "object" && j != null && "error" in j ? String((j as { error?: unknown }).error) : "";
-            setError(err || t("admin_del_alert_err_action_status", { status: r.status }));
-            return;
-          }
-          setMemo((m) => ({ ...m, [actionId]: "" }));
+      setResult(null);
+      const memoText = (memo[actionId] ?? "").trim();
+      // 승인·거절 = L2: 사유는 서버가 필수 검증하고 감사 기록에 남긴다 (DEF-40)
+      const body =
+        path === "retry" ? undefined : JSON.stringify({ reason: c.reason ?? "", note: memoText || undefined });
+      try {
+        const r = await fetch(`/api/admin/delivery-auto-actions/${encodeURIComponent(actionId)}/${path}`, {
+          method: "POST",
+          ...(path === "retry" ? {} : { headers: { "Content-Type": "application/json" }, body }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          setResult({ ok: false, code: apiErr(r.status, j, "action_failed") });
           loadData();
-        })
-        .finally(() => setBusyId(null));
+          return;
+        }
+        setMemo((m) => ({ ...m, [actionId]: "" }));
+        // 승인·재실행은 결정은 기록됐어도 조치 실행이 실패하면 RPC 가 `{ ok: false }` 를 돌려준다 → 성공으로 표시하지 않는다.
+        const rpcResult = j != null && typeof j === "object" ? (j as { result?: { ok?: unknown } }).result : undefined;
+        if (path !== "reject" && rpcResult && rpcResult.ok === false) {
+          setResult({ ok: false, code: "auto_action_effect_failed" });
+          loadData();
+          return;
+        }
+        setResult({
+          ok: true,
+          message:
+            path === "approve"
+            ? ko
+              ? "승인했습니다."
+              : "Approved."
+            : path === "reject"
+              ? ko
+                ? "거절했습니다."
+                : "Rejected."
+              : ko
+                ? "재실행을 요청했습니다."
+                : "Re-run requested.",
+        });
+        loadData();
+      } catch {
+        setResult({ ok: false, code: "network_error" });
+      } finally {
+        setBusyId(null);
+      }
     },
-    [memo, loadData, t]
+    [busyId, memo, loadData, ko, t]
   );
 
   const filterStatusLabel = useCallback(
     (f: string) => {
       if (f === "all") return t("common_all");
       if (f === "pending_approval") return t("admin_del_alert_filter_pending_approval");
-      return f;
+      return adminStatusLabel("auto_action", f, ko).label;
     },
-    [t]
+    [t, ko]
   );
 
   const ruleStatsHeaders = useMemo(
@@ -249,31 +452,30 @@ export function AdminDeliveryAutoActionsPage() {
     if (!Array.isArray(raw)) return [];
     return raw.filter((x): x is RuleStat => x != null && typeof x === "object" && "rule_id" in x);
   }, [dashboard?.rules]);
-  const stab = stabilityPercent(dashboard);
 
   return (
     <div className="sam-page-stack">
       <AdminPageHeader
-        titleKey="admin_del_alert_auto_page_title"
-        descriptionKey="admin_del_alert_auto_page_desc"
+        title={ko ? "자동 조치 승인" : "Auto action approval"}
+        description={t("admin_del_alert_auto_page_desc")}
       />
 
-      {!dashboard ? (
+      {!dashboard && !loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted">
-          {t("admin_del_alert_rpc_missing_before")}{" "}
-          <span className="font-mono text-[10px]">20260515120000_delivery_auto_actions_report_rpc</span>{" "}
-          {t("admin_del_alert_rpc_missing_after")}
+          {ko
+            ? "운영 리포트를 아직 불러올 수 없어 지표가 비어 있습니다. 계속되면 시스템 관리자에게 문의하세요."
+            : "The operations report is not available yet, so metrics are empty. Contact a system admin if this persists."}
         </div>
       ) : null}
 
       {dashboard && !dashboard.dangerous_instant_misconfigured ? (
         <div className="rounded-ui-rect border border-sam-border/70 bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted">
           {t("admin_del_alert_dangerous_policy_before")}
-          <span className="font-mono">auto_hold_settlement</span>
+          <span className="font-medium">{t(AUTO_ACTION_TYPE_KEYS.auto_hold_settlement)}</span>
           {t("admin_del_alert_dangerous_policy_mid")}
-          <span className="font-mono">auto_reassign_rider</span>
+          <span className="font-medium">{t(AUTO_ACTION_TYPE_KEYS.auto_reassign_rider)}</span>
           {t("admin_del_alert_dangerous_policy_mid")}
-          <span className="font-mono">auto_mute</span>
+          <span className="font-medium">{t(AUTO_ACTION_TYPE_KEYS.auto_mute)}</span>
           {t("admin_del_alert_dangerous_policy_after")}
         </div>
       ) : null}
@@ -293,10 +495,6 @@ export function AdminDeliveryAutoActionsPage() {
 
       {kpi ? (
         <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-xxs">
-          <span className="rounded-full border border-sam-border px-2 py-0.5 tabular-nums">
-            {t("admin_del_alert_kpi_auto_exec")}{" "}
-            <strong className="text-sam-fg">{dashboard?.kill_switch_on ? t("admin_del_alert_state_on") : t("admin_del_alert_auto_off")}</strong>
-          </span>
           <span className="rounded-full border border-sam-border px-2 py-0.5 tabular-nums">
             {t("admin_del_alert_kpi_pending")} <strong className="text-sam-fg">{num(kpi.pending_total)}</strong>
           </span>
@@ -346,8 +544,8 @@ export function AdminDeliveryAutoActionsPage() {
               {ruleStats.map((r) => (
                 <tr key={r.rule_id} className="border-b border-sam-border/60">
                   <td className="py-2 px-2 text-sam-fg">
-                    <div className="font-medium">{r.rule_name}</div>
-                    <div className="font-mono text-[10px]">{r.rule_key}</div>
+                    <div className="font-medium">{r.rule_name || (ko ? "이름 없는 규칙" : "Unnamed rule")}</div>
+                    <AdminTechDetails ko={ko}>{r.rule_key}</AdminTechDetails>
                   </td>
                   <td className="py-2 px-2">{r.dangerous ? t("admin_del_alert_yes") : dash}</td>
                   <td className="py-2 px-2 tabular-nums">{num(r.actions_today)}</td>
@@ -379,29 +577,78 @@ export function AdminDeliveryAutoActionsPage() {
         <Link href="/admin/delivery-alerts" className="sam-btn sam-btn--outline sam-btn--sm">
           {t("admin_del_alert_back_to_alerts")}
         </Link>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs">
-          <input
-            type="checkbox"
-            checked={killOn}
-            disabled={!settingsLoaded}
-            onChange={(e) => toggleKill(e.target.checked)}
-          />
-          <span className="text-sam-fg">{t("admin_del_alert_kill_switch_label")}</span>
-        </label>
-        <span className="text-sam-muted sam-text-xxs">{t("admin_del_alert_kill_switch_hint")}</span>
-      </div>
-
-      {error ? (
-        <div className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-4 py-3 text-sam-warning sam-text-body-secondary">
-          {error}
-          <button type="button" className="sam-btn sam-btn--outline sam-btn--sm ml-2" onClick={() => setError(null)}>
-            {t("common_close")}
+        <div className="inline-flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs">
+          <span className="text-sam-muted">{ko ? "자동 조치:" : "Auto actions:"}</span>
+          <strong className={killOn ? "text-sam-fg" : "text-sam-warning"}>
+            {!settingsLoaded
+              ? settingsErr
+                ? t("admin_r4d_unavailable")
+                : dash
+              : killOn
+                ? ko
+                  ? "실행 허용"
+                  : "Allowed"
+                : ko
+                  ? "전체 중지됨"
+                  : "All stopped"}
+          </strong>
+          <button
+            type="button"
+            className={`sam-btn sam-btn--sm ${killOn ? "sam-btn--outline" : "sam-btn--primary"}`}
+            disabled={!settingsLoaded || killBusy}
+            onClick={() => void toggleKill(!killOn)}
+          >
+            {killBusy
+              ? ko
+                ? "저장 중…"
+                : "Saving…"
+              : killOn
+                ? ko
+                  ? "자동 조치 전체 중지"
+                  : "Stop all auto actions"
+                : ko
+                  ? "자동 조치 다시 허용"
+                  : "Allow auto actions"}
           </button>
         </div>
+        <span className="text-sam-muted sam-text-xxs" data-auto-actions-authority="delivery_auto_actions_runtime_settings">
+          {t("admin_r4d_auto_authority_note")}
+        </span>
+      </div>
+
+      <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
+      {loadErr ? (
+        loadErr.status === 503 ? (
+          <div role="alert" className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-4 py-3 text-sam-warning sam-text-body-secondary">
+            {t("admin_r4d_auto_not_ready")}
+          </div>
+        ) : (
+          <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={() => loadData()} />
+        )
       ) : null}
 
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-medium text-sam-fg">{t("admin_r4d_auto_bulk_title")}</span>
+          <span className="text-sam-muted">{t("admin_r4d_auto_bulk_hint")}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {AUTO_BULK_ACTIONS.map((b) => (
+            <button
+              key={b.action}
+              type="button"
+              className="sam-btn sam-btn--outline sam-btn--sm"
+              disabled={bulkBusy || busyId !== null}
+              onClick={() => void runBulk(b.action, t(b.labelKey))}
+            >
+              {t(b.labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2">
-        {(["all", "pending_approval", "success", "failed", "rejected"] as const).map((f) => (
+        {STATUS_FILTERS.map((f) => (
           <button
             key={f}
             type="button"
@@ -440,7 +687,7 @@ export function AdminDeliveryAutoActionsPage() {
           <option value="">{t("admin_del_alert_rule_all")}</option>
           {rulePicklist.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.rule_key} · {r.rule_name}
+              {r.rule_name || r.rule_key}
             </option>
           ))}
         </select>
@@ -469,7 +716,7 @@ export function AdminDeliveryAutoActionsPage() {
                 }`}
               >
                 <td className="py-2 px-2 whitespace-nowrap tabular-nums">
-                  {a.executed_at?.slice(0, 19)?.replace("T", " ") ?? dash}
+                  {a.executed_at ? formatAdminManilaDateTime(a.executed_at) : dash}
                   {a.stale_pending ? (
                     <div className="text-[10px] text-sam-warning">{t("admin_del_alert_stale_pending_badge")}</div>
                   ) : null}
@@ -479,10 +726,12 @@ export function AdminDeliveryAutoActionsPage() {
                 </td>
                 <td className="py-2 px-2 text-sam-fg">
                   <div className="font-medium">{a.rule_name || "—"}</div>
-                  <div className="font-mono text-[10px] text-sam-muted">{a.rule_key}</div>
+                  {a.rule_key ? <AdminTechDetails ko={ko}>{a.rule_key}</AdminTechDetails> : null}
                 </td>
-                <td className="py-2 px-2 font-mono text-[11px] text-sam-fg">{a.action_type}</td>
-                <td className="py-2 px-2">{a.action_status}</td>
+                <td className="py-2 px-2 text-[11px] text-sam-fg">
+                  {AUTO_ACTION_TYPE_KEYS[a.action_type] ? t(AUTO_ACTION_TYPE_KEYS[a.action_type]) : dash}
+                </td>
+                <td className="py-2 px-2">{adminStatusLabel("auto_action", a.action_status, ko).label}</td>
                 <td className="py-2 px-2 max-w-[220px]">
                   <span className="line-clamp-2">{a.result_message ?? "—"}</span>
                 </td>
@@ -492,7 +741,7 @@ export function AdminDeliveryAutoActionsPage() {
                 <td className="py-2 px-2">
                   {a.admin_order_url ? (
                     <Link href={a.admin_order_url} className="text-signature underline">
-                      {a.order_no || a.order_id?.slice(0, 8)}
+                      {a.order_no || (ko ? "주문 상세" : "Order detail")}
                     </Link>
                   ) : (
                     dash
@@ -512,16 +761,16 @@ export function AdminDeliveryAutoActionsPage() {
                         <button
                           type="button"
                           className="sam-btn sam-btn--primary sam-btn--sm px-2 py-1 text-[11px]"
-                          disabled={busyId === a.id}
-                          onClick={() => postAction(a.id, "approve")}
+                          disabled={busyId !== null}
+                          onClick={() => void postAction(a, "approve")}
                         >
                           {t("admin_del_alert_btn_approve")}
                         </button>
                         <button
                           type="button"
                           className="sam-btn sam-btn--outline sam-btn--sm px-2 py-1 text-[11px]"
-                          disabled={busyId === a.id}
-                          onClick={() => postAction(a.id, "reject")}
+                          disabled={busyId !== null}
+                          onClick={() => void postAction(a, "reject")}
                         >
                           {t("admin_del_alert_btn_reject")}
                         </button>
@@ -531,10 +780,10 @@ export function AdminDeliveryAutoActionsPage() {
                     <button
                       type="button"
                       className="sam-btn sam-btn--outline sam-btn--sm px-2 py-1 text-[11px]"
-                      disabled={busyId === a.id || (a.retry_count ?? 0) >= (a.max_retries ?? 3)}
-                      onClick={() => postAction(a.id, "retry")}
+                      disabled={busyId !== null || (a.retry_count ?? 0) >= (a.max_retries ?? 3)}
+                      onClick={() => void postAction(a, "retry")}
                     >
-                      {t("admin_del_alert_btn_retry")}
+                      {ko ? "자동 조치 재실행" : "Re-run auto action"}
                     </button>
                   ) : (
                     <span className="text-sam-muted">{dash}</span>
@@ -557,21 +806,18 @@ export function AdminDeliveryAutoActionsPage() {
         <summary className="cursor-pointer text-sam-fg">{t("admin_del_alert_metadata_summary")}</summary>
         <ul className="mt-2 space-y-2 font-mono text-[10px]">
           {actions.slice(0, 5).map((a) => (
-            <li key={`meta-${a.id}`}>
-              <span className="text-sam-fg">{a.id.slice(0, 8)}</span> {JSON.stringify(a.metadata ?? {})}
+            <li key={`meta-${a.id}`} className="break-all">
+              <span className="text-sam-fg">{a.id}</span> {JSON.stringify(a.metadata ?? {})}
             </li>
           ))}
         </ul>
       </details>
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted">
-        {t("admin_del_alert_stability_score")} <strong className="text-sam-fg">{stab}%</strong>
-        {dashboard?.generated_at ? (
-          <span className="ml-2 font-mono text-[10px]">
-            {t("admin_del_alert_generated_at")} {String(dashboard.generated_at).slice(0, 19).replace("T", " ")}
-          </span>
-        ) : null}
-      </div>
+      {dashboard?.generated_at ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted">
+          {t("admin_r4d_generated_at", { at: formatAdminManilaDateTime(String(dashboard.generated_at)) })}
+        </div>
+      ) : null}
     </div>
   );
 }

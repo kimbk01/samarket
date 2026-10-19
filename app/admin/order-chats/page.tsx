@@ -10,16 +10,26 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * Delivery order-chat hub — lookup list + cross-links.
- * Authority = Delivery (store_orders). Messenger may open this with ?from=messenger as REFERENCE only.
+ * Authority = Delivery (store orders). Messenger may open this with ?from=messenger as REFERENCE only.
+ * DEF-60/61: every 「주문 채팅 열기」 goes to /admin/stores/orders/{orderId}/chat — the single read-only
+ * order-chat viewer (never the community messenger admin room screen).
  */
 function AdminOrderChatsHubInner() {
-  const { t, safeT } = useI18n();
+  const { safeT, t, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const fromMessenger = (searchParams.get("from") ?? "").trim().toLowerCase() === "messenger";
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <AdminPageHeader titleKey="admin_order_chats_hub_title" descriptionKey="admin_order_chats_hub_desc" />
+      <AdminPageHeader
+        titleKey="admin_menu_order_chats"
+        description={
+          ko
+            ? "매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·커뮤니티 메신저는 아래 관련 링크에서 엽니다."
+            : "Look up chats linked to store orders. Trade chats and the community messenger open from the related links below."
+        }
+      />
 
       {fromMessenger ? (
         <div
@@ -34,47 +44,43 @@ function AdminOrderChatsHubInner() {
         </div>
       ) : null}
 
-      <AdminCard title={t("admin_order_chats_recent_title")}>
+      <AdminCard title={ko ? "최근 주문 채팅 (최대 120건)" : "Recent order chats (up to 120)"}>
         <AdminOrderChatList />
       </AdminCard>
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_order_chats_store_section_title")}</h2>
+          <h2 className="text-sm font-semibold text-sam-fg">{ko ? "매장 주문" : "Store orders"}</h2>
           <ul className="mt-2 space-y-2 sam-text-body-secondary text-sam-fg">
             <li>
               <Link className="text-signature underline" href="/admin/store-orders">
-                {t("admin_order_chats_link_store_action")}
+                {t("admin_menu_store_orders_action_queue")}
               </Link>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/stores/orders">
-                {t("admin_order_chats_link_delivery_kpi")}
+                {t("admin_menu_delivery_order_list")}
               </Link>
             </li>
           </ul>
         </section>
 
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_order_chats_trade_section_title")}</h2>
+          <h2 className="text-sm font-semibold text-sam-fg">{ko ? "관련 링크" : "Related links"}</h2>
           <ul className="mt-2 space-y-2 sam-text-body-secondary text-sam-fg">
             <li>
               <Link className="text-signature underline" href="/admin/chats/trade">
-                {t("admin_order_chats_link_trade")}
+                {ko ? "거래 채팅" : "Trade chats"}
               </Link>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/chats/messenger">
-                {t("admin_order_chats_link_messenger")}
+                {ko ? "커뮤니티 메신저 운영" : "Community messenger ops"}
               </Link>
-              <span className="text-sam-muted">{t("admin_order_chats_room_search_hint")}</span>
-              <code className="rounded bg-sam-app px-1 sam-text-xxs">?room=UUID</code>
-              <span className="text-sam-muted">{t("admin_order_chats_or")}</span>
-              <code className="rounded bg-sam-app px-1 sam-text-xxs">{t("admin_order_chats_q_keyword_example")}</code>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/chats">
-                {t("admin_order_chats_link_all")}
+                {ko ? "채팅 전체 목록" : "All chats"}
               </Link>
             </li>
           </ul>

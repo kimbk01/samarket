@@ -130,7 +130,8 @@ describe("audit wording", () => {
 describe("intervention panel", () => {
   it("refund approval and admin cancel require typing the order number again", () => {
     const src = readFileSync(resolve(process.cwd(), "components/admin/delivery-orders/AdminStoreOrderInterventionPanel.tsx"), "utf8");
-    expect(src).toContain('new Set<AdminStoreOrderInterventionAction>(["refund_approve", "force_cancel"])');
-    expect(src).toContain("typed.trim() !== orderNo");
+    expect(src).toContain('const L3_ACTIONS = new Set<AdminStoreOrderInterventionAction>(["refund_approve", "force_cancel"])');
+    // L3 via confirmAdminAction: reason + order number typed again (admin-confirm-action.ts compares the retype)
+    expect(src).toContain("retypeValue: L3_ACTIONS.has(action) ? orderNo : undefined");
   });
 });

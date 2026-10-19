@@ -67,6 +67,19 @@ export type LoadAdsControlPlaneOptions = {
    * boost pool even if outside FAMILY_LIMIT — for Admin Boost deep-link.
    */
   ensureBoostOrderId?: string;
+  /**
+   * LNK-1 — optional store scope (uuid text; the route validates it).
+   *
+   * - Delivery family: filtered **in the DB query** (`store_id` on sponsored/banner campaigns,
+   *   popup owner requests). Ops-case queue rows are matched on their joined `storeId`.
+   * - Other families (feed requests/campaigns, popup campaigns, trade/community promote): rows are
+   *   kept only when their projected `storeId` matches. Rows with **no store association**
+   *   (feed requests/campaigns, promote orders — member-owned, `storeId: null`) are **excluded**
+   *   while the filter is on; they are not "unknown store" matches.
+   * - Placement occupancy / collision detection stay computed over the global delivery schedule
+   *   (capacity is a placement-wide fact); collision cards are then narrowed to the store's campaigns.
+   */
+  storeId?: string;
 };
 
 export async function loadAdsControlPlane(
@@ -75,6 +88,15 @@ export async function loadAdsControlPlane(
 ): Promise<AdsControlPlaneModel> {
   const sectionErrors: string[] = [];
   const ensureBoostOrderId = String(options?.ensureBoostOrderId ?? "").trim();
+  const storeId = String(options?.storeId ?? "").trim();
+  const matchesStore = (id: string | null | undefined): boolean =>
+    !storeId || String(id ?? "").trim() === storeId;
+  let popupOwnerRequestsQ = sb
+    .from("platform_popup_owner_requests")
+    .select("id, store_id, owner_user_id, request_status, created_at, title")
+    .order("created_at", { ascending: false })
+    .limit(FAMILY_LIMIT);
+  if (storeId) popupOwnerRequestsQ = popupOwnerRequestsQ.eq("store_id", storeId);
 
   const [
     deliveryQueue,
@@ -93,18 +115,14 @@ export async function loadAdsControlPlane(
       )
       .order("created_at", { ascending: false })
       .limit(FAMILY_LIMIT),
-    sb
-      .from("platform_popup_owner_requests")
-      .select("id, store_id, owner_user_id, request_status, created_at, title")
-      .order("created_at", { ascending: false })
-      .limit(FAMILY_LIMIT),
+    popupOwnerRequestsQ,
     sb
       .from("point_promotion_orders")
       .select(BOOST_ORDER_SELECT)
       .in("domain", ["trade", "community"])
       .order("created_at", { ascending: false })
       .limit(FAMILY_LIMIT),
-    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: FAMILY_LIMIT }),
+    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: FAMILY_LIMIT, storeId: storeId || null }),
     listPlatformPopupAdminCampaigns(sb, { limit: FAMILY_LIMIT }),
     listFeedAdCampaignsForAdmin(sb)
       .then((items) => ({ ok: true as const, items }))
@@ -113,6 +131,11 @@ export async function loadAdsControlPlane(
         error: e instanceof Error ? e.message : String(e),
       })),
   ]);
+
+  /** Global delivery schedule for occupancy/collisions when the rows are store-scoped. */
+  const globalDelivery = storeId
+    ? await loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: FAMILY_LIMIT })
+    : activeDelivery;
 
   if (!deliveryQueue.ok) sectionErrors.push(`delivery_queue:${deliveryQueue.error}`);
   if (feedRes.error && !isMissing(feedRes.error, /feed_ad_requests|schema cache|does not exist/i)) {
@@ -155,7 +178,9 @@ export async function loadAdsControlPlane(
     !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
   const popupCampaignsUnavailable = !popupCampaignsRes.ok;
 
-  const feedRowsRaw = feedUnavailable ? [] : ((feedRes.data ?? []) as FeedRequestRow[]);
+  /** Feed requests are member-owned (no store column) — excluded under a store filter. */
+  const feedRowsRaw =
+    feedUnavailable || storeId ? [] : ((feedRes.data ?? []) as FeedRequestRow[]);
   const feedCreativeByRequest = new Map<string, string>();
   if (feedRowsRaw.length > 0) {
     const feedIds = feedRowsRaw
@@ -190,11 +215,12 @@ export async function loadAdsControlPlane(
     };
   });
   const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as PopupRequestRow[]);
-  let boostRows = boostUnavailable
-    ? []
-    : ((boostPromoRes.data ?? []) as PromoteOrderRow[]);
+  /** Promote orders are member-owned (no store association) — excluded under a store filter. */
+  let boostRows =
+    boostUnavailable || storeId ? [] : ((boostPromoRes.data ?? []) as PromoteOrderRow[]);
   if (
     !boostUnavailable &&
+    !storeId &&
     ensureBoostOrderId &&
     BOOST_ORDER_UUID_RE.test(ensureBoostOrderId) &&
     !boostRows.some((r) => String(r.id ?? "") === ensureBoostOrderId)
@@ -215,8 +241,14 @@ export async function loadAdsControlPlane(
     }
   }
   const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
-  const popupCampaignItems = popupCampaignsUnavailable ? [] : popupCampaignsRes.items;
-  const feedCampaigns = feedCampaignsSettled.ok ? feedCampaignsSettled.items : [];
+  const popupCampaignItems = popupCampaignsUnavailable
+    ? []
+    : popupCampaignsRes.items.filter((c) => matchesStore(c.ownerStoreId));
+  /** Feed campaigns project `storeId: null` (no store association) — excluded under a store filter. */
+  const feedCampaigns = feedCampaignsSettled.ok && !storeId ? feedCampaignsSettled.items : [];
+  const deliveryQueueItems = deliveryQueue.ok
+    ? deliveryQueue.items.filter((q) => matchesStore(q.storeId))
+    : [];
   let popupWinnerIds = new Set<string>();
   const popupWinnerById = new Map<
     string,
@@ -343,8 +375,10 @@ export async function loadAdsControlPlane(
     (r) => String(r.order_status ?? "").toLowerCase() === "pending_review"
   );
 
+  const globalDeliveryItems = globalDelivery.error ? [] : globalDelivery.items;
+  const scopedDeliveryIds = new Set(deliveryItems.map((c) => String(c.id ?? "")));
   const collisionFindings = detectPlacementCollisions(
-    deliveryItems.map((c) => ({
+    globalDeliveryItems.map((c) => ({
       id: c.id,
       storeId: c.storeId,
       storeName: c.storeName,
@@ -362,6 +396,12 @@ export async function loadAdsControlPlane(
   const collisions: AdsCollisionCard[] = collisionFindings
     .filter((f): f is typeof f & { severity: "WARNING" | "BLOCKING" } =>
       f.severity === "BLOCKING" || f.severity === "WARNING"
+    )
+    .filter(
+      (f) =>
+        !storeId ||
+        scopedDeliveryIds.has(f.campaignId) ||
+        f.peers.some((p) => scopedDeliveryIds.has(p.id))
     )
     .slice(0, 40)
     .map((f) => ({
@@ -405,11 +445,11 @@ export async function loadAdsControlPlane(
   const blockingCount = collisions.filter((c) => c.severity === "BLOCKING").length;
   const warningCount = collisions.filter((c) => c.severity === "WARNING").length;
 
-  const occupancyUnavailable = !!activeDelivery.error;
+  const occupancyUnavailable = !!globalDelivery.error;
   const occupancyRows = occupancyUnavailable
     ? []
     : computePlacementOccupancy(
-        deliveryItems.map((c) => ({
+        globalDeliveryItems.map((c) => ({
           id: c.id,
           storeId: c.storeId,
           storeName: c.storeName,
@@ -458,7 +498,7 @@ export async function loadAdsControlPlane(
     actionRequired: actionRequired.slice(0, 60),
     queues: {
       delivery: {
-        count: deliveryUnavailable ? null : deliveryQueue.ok ? deliveryQueue.items.length : null,
+        count: deliveryUnavailable ? null : deliveryQueueItems.length,
         unavailable: deliveryUnavailable,
         href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable`,
         source: "delivery_ad_operations_cases WAITING_ADMIN",

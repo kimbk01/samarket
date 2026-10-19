@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadActorLabels } from "@/lib/admin-business/load-store-hub-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[admin/store-reports]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 
   const list = rows ?? [];
@@ -57,11 +58,18 @@ export async function GET(req: NextRequest) {
     for (const p of prods ?? []) productTitles[p.id as string] = (p.title as string) ?? "";
   }
 
+  // 신고자 이름 (UUID 는 기술 정보에서만)
+  const reporterLabels = await loadActorLabels(
+    sb,
+    list.map((r) => String(r.reporter_user_id ?? ""))
+  );
+
   return NextResponse.json({
     ok: true,
     store_id: storeIdFilter || null,
     reports: list.map((r) => ({
       ...r,
+      reporter_label: reporterLabels.get(String(r.reporter_user_id ?? "")) ?? null,
       store_name: names[r.store_id as string] ?? "",
       product_title:
         r.target_type === "product" ? productTitles[r.target_id as string] ?? "" : null,

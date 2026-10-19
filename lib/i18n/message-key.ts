@@ -81,6 +81,12 @@ import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
 import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import { platformEventsUiMessages } from "./catalog/platform-events-ui";
 import { adminActionQueueMessages } from "./catalog/admin-action-queue";
+import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
+import { adminDeliveryR4EMessages } from "./catalog/admin-delivery-r4-app-sync";
+import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-monitoring";
+import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
+import { adminDeliveryR4BMessages } from "./catalog/admin-delivery-r4-orders";
+import { adminDeliveryR4AMessages } from "./catalog/admin-delivery-r4-stores";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -88,6 +94,12 @@ type KeyOf<T> = keyof T & string;
 
 /** Canonical KO key authority (catalogs + ko.json). */
 export type MessageKey =
+  | KeyOf<typeof adminDeliveryOpsUxMessages.ko>
+  | KeyOf<typeof adminDeliveryR4EMessages.ko>
+  | KeyOf<typeof adminDeliveryR4DMessages.ko>
+  | KeyOf<typeof adminDeliveryR4CMessages.ko>
+  | KeyOf<typeof adminDeliveryR4BMessages.ko>
+  | KeyOf<typeof adminDeliveryR4AMessages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -248,6 +260,12 @@ type EnMessageKey =
   | KeyOf<typeof adminLaunchIntroMessages.en>
   | KeyOf<typeof adminPlatformPromotionNotificationsMessages.en>
   | KeyOf<typeof adminDeployMessages.en>
+  | KeyOf<typeof adminDeliveryOpsUxMessages.en>
+  | KeyOf<typeof adminDeliveryR4EMessages.en>
+  | KeyOf<typeof adminDeliveryR4DMessages.en>
+  | KeyOf<typeof adminDeliveryR4CMessages.en>
+  | KeyOf<typeof adminDeliveryR4BMessages.en>
+  | KeyOf<typeof adminDeliveryR4AMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

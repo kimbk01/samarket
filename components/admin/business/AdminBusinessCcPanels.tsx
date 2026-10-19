@@ -3,11 +3,10 @@
 import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  ADMIN_STORE_APPROVAL_LABEL_KEYS,
-  type AdminStoreReviewRow,
-} from "@/components/admin/stores/admin-store-review-model";
-import { sbStatusBadgeClass } from "@/components/admin/stores/admin-store-review-ui";
+import type { AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
+import { processStatusLabel } from "@/lib/stores/store-order-process-model";
 import type {
   BusinessCcDeliverySnapshot,
   BusinessCcFeeSnapshot,
@@ -17,8 +16,13 @@ import type {
   BusinessCcStats,
 } from "@/lib/admin-business/load-business-control-center-detail";
 import {
+  businessCcAdvertisingHref,
   businessCcAuditHref,
   businessCcCancellationsHref,
+  businessCcCashChargesHref,
+  businessCcCashTransactionsHref,
+  businessCcFinancialStatementHref,
+  businessCcInquiriesHref,
   businessCcDeliveryDistanceHref,
   businessCcEntryReviewHref,
   businessCcFeePoliciesHref,
@@ -153,9 +157,11 @@ export function AdminBusinessCcSummary({
   fee: BusinessCcFeeSnapshot;
   delivery: BusinessCcDeliverySnapshot;
 }) {
-  const { t } = useI18n();
-  const statusKey = ADMIN_STORE_APPROVAL_LABEL_KEYS[store.approval_status];
-  const statusLabel = statusKey ? t(statusKey) : store.approval_status;
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const approval = adminStatusLabel("store_approval", store.approval_status, ko);
+  const salesRaw = sales?.sales_status?.trim() || (sales?.allowed_to_sell ? "approved" : "");
+  const salesLabel = adminStatusLabel("store_sales", salesRaw, ko);
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5">
@@ -165,19 +171,12 @@ export function AdminBusinessCcSummary({
             {(store.store_name ?? "").trim() || t("admin_stores_no_store_name")}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded border px-2 py-0.5 sam-text-helper font-medium ${sbStatusBadgeClass(
-                store.approval_status
-              )}`}
-            >
-              {statusLabel}
-            </span>
+            <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
             <span className="sam-text-helper text-sam-muted">
               {t("admin_biz_label_visible")}: {yn(t, store.is_visible)}
             </span>
             <span className="sam-text-helper text-sam-muted">
-              {t("admin_biz_label_sales")}:{" "}
-              {sales?.sales_status?.trim() || (sales?.allowed_to_sell ? "approved" : "—")}
+              {t("admin_biz_label_sales")}: {salesLabel.label}
             </span>
           </div>
           <p className="sam-text-body text-sam-fg">
@@ -187,7 +186,7 @@ export function AdminBusinessCcSummary({
           <p className="sam-text-helper text-sam-muted">
             {t("admin_biz_label_stats")}: {stats.productCount} / {stats.reviewCount}
             {" · "}
-            {t("admin_biz_label_fee_scope")}: {fee.missing ? t("admin_biz_fee_missing") : fee.scope}
+            {t("admin_biz_label_fee_scope")}: {fee.missing ? t("admin_biz_fee_missing") : feeScopeLabel(fee.scope, ko)}
             {" · "}
             {t("admin_biz_label_front_open")}: {yn(t, delivery.frontOpenForCommerce)}
             {" · "}
@@ -241,13 +240,14 @@ export function AdminBusinessCcDeliveryCard({
 }: {
   delivery: BusinessCcDeliverySnapshot;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const coords =
     delivery.lat != null && delivery.lng != null
       ? `${delivery.lat}, ${delivery.lng}`
       : "—";
   const overrideLabel = delivery.storeOverrideMode
-    ? `${delivery.storeOverrideMode}${
+    ? `${overrideModeLabel(delivery.storeOverrideMode, ko)}${
         delivery.storeOverrideMaxKm != null ? ` / ${delivery.storeOverrideMaxKm}km` : ""
       }`
     : "—";
@@ -267,7 +267,9 @@ export function AdminBusinessCcDeliveryCard({
           <dt className="text-sam-muted">{t("admin_biz_label_is_open")}</dt>
           <dd>
             {yn(t, delivery.isOpen)}{" "}
-            <span className="sam-text-helper text-sam-muted">(DB is_open)</span>
+            <span className="sam-text-helper text-sam-muted">
+              {ko ? "(영업 스위치)" : "(open switch)"}
+            </span>
           </dd>
         </div>
         <div>
@@ -290,7 +292,7 @@ export function AdminBusinessCcDeliveryCard({
           <dd>
             {yn(t, delivery.autoHoursEnabled)}
             {delivery.scheduleEnforced != null
-              ? ` · schedule_enforced=${delivery.scheduleEnforced ? t("admin_biz_yn_yes") : t("admin_biz_yn_no")}`
+              ? ` · ${ko ? "영업시간 강제" : "Schedule enforced"}: ${delivery.scheduleEnforced ? t("admin_biz_yn_yes") : t("admin_biz_yn_no")}`
               : ""}
           </dd>
         </div>
@@ -324,7 +326,7 @@ export function AdminBusinessCcDeliveryCard({
         </div>
         <div>
           <dt className="text-sam-muted">{t("admin_biz_label_policy_source")}</dt>
-          <dd>{delivery.policySource}</dd>
+          <dd>{policySourceLabel(delivery.policySource, ko)}</dd>
         </div>
         <div>
           <dt className="text-sam-muted">{t("admin_delivery_distance_th_updated")}</dt>
@@ -478,7 +480,8 @@ export function AdminBusinessCcKpiPanel({
   storeId: string;
   kpi: BusinessCcKpiSummary;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const oc = kpi.orderStatusCounts;
   const sc = kpi.commissionCounts;
 
@@ -494,8 +497,9 @@ export function AdminBusinessCcKpiPanel({
         <div>
           <dt className="text-sam-muted">{t("admin_biz_kpi_order_status")}</dt>
           <dd className="sam-text-helper">
-            pending {oc.pending} · in_progress {oc.inProgress} · completed {oc.completed} ·
-            cancelled {oc.cancelled} · refund_requested {oc.refundRequested}
+            {ko
+              ? `접수 대기 ${oc.pending} · 진행 중 ${oc.inProgress} · 완료 ${oc.completed} · 취소 ${oc.cancelled} · 환불 요청 ${oc.refundRequested}`
+              : `Pending ${oc.pending} · In progress ${oc.inProgress} · Completed ${oc.completed} · Cancelled ${oc.cancelled} · Refund requested ${oc.refundRequested}`}
           </dd>
         </div>
         <div>
@@ -549,7 +553,9 @@ export function AdminBusinessCcKpiPanel({
               {kpi.recentOrders.map((o) => (
                 <li key={o.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
                   <span className="font-mono text-sam-fg">{o.orderNo || o.id.slice(0, 8)}</span>
-                  <span className="text-sam-muted">{o.orderStatus}</span>
+                  <span className="text-sam-muted">
+                    {processStatusLabel(o.orderStatus, "delivery", "owner_badge", language)}
+                  </span>
                   <span className="text-sam-fg">{formatMoneyPhp(o.paymentAmount)}</span>
                 </li>
               ))}
@@ -600,119 +606,136 @@ export function AdminBusinessCcKpiPanel({
 const linkBtnClass =
   "inline-flex rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted";
 
+export type AdminBusinessCcLinkSection =
+  | "products"
+  | "orders"
+  | "points"
+  | "settlement"
+  | "reviews"
+  | "all";
+
+/** DEF-56 — 탭마다 그 탭에 맞는 링크만 (READY/PARTIAL 같은 내부 표기 없음). */
 export function AdminBusinessCcLinks({
   storeId,
   ownerUserId,
   storeName,
   slug,
   stats,
+  section = "all",
 }: {
   storeId: string;
   ownerUserId: string;
   storeName: string;
   slug: string;
   stats: { productCount: number; reviewCount: number };
+  section?: AdminBusinessCcLinkSection;
 }) {
-  const { t } = useI18n();
-  const links: { href: string; labelKey: MessageKey; note?: string }[] = [
-    {
-      href: businessCcOrdersByStoreHref(storeId),
-      labelKey: "admin_biz_cta_orders_by_store",
-      note: "READY",
-    },
-    {
-      href: businessCcStoreOrdersHref(storeId),
-      labelKey: "admin_biz_cta_orders_all",
-      note: "READY",
-    },
-    {
-      href: businessCcCancellationsHref(storeId),
-      labelKey: "admin_biz_cta_cancellations",
-      note: "READY",
-    },
-    {
-      href: businessCcRefundsHref(storeId),
-      labelKey: "admin_biz_cta_refunds",
-      note: "READY",
-    },
-    {
-      href: businessCcSettlementsHref(storeId),
-      labelKey: "admin_biz_cta_settlements",
-      note: "READY",
-    },
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  type L = { href: string; label: string; note?: string };
+  const products: L[] = [
     {
       href: businessCcProductsHref(storeId),
-      labelKey: "admin_biz_cta_products",
-      note: `READY · ${stats.productCount}`,
+      label: t("admin_biz_cta_products"),
+      note: ko ? `${stats.productCount}개` : `${stats.productCount}`,
     },
+    { href: businessCcTaxonomyHref(), label: t("admin_biz_cta_taxonomy") },
+  ];
+  const orders: L[] = [
+    { href: businessCcOrdersByStoreHref(storeId), label: t("admin_biz_cta_orders_by_store") },
+    { href: businessCcStoreOrdersHref(storeId), label: t("admin_biz_cta_orders_all") },
+    { href: businessCcCancellationsHref(storeId), label: t("admin_biz_cta_cancellations") },
+    { href: businessCcRefundsHref(storeId), label: t("admin_biz_cta_refunds") },
+    { href: businessCcInquiriesHref(storeId), label: ko ? "매장 문의" : "Store inquiries" },
+  ];
+  const points: L[] = [
+    { href: businessCcPointsHref(storeId), label: ko ? "코인 거래" : "Coin transactions" },
+    { href: businessCcCashTransactionsHref(storeId), label: ko ? "캐시 거래" : "Cash transactions" },
+    { href: businessCcCashChargesHref(), label: ko ? "캐시 충전 요청" : "Cash top-up requests" },
+    { href: businessCcAdvertisingHref(storeId), label: ko ? "매장 광고" : "Store ads" },
+  ];
+  const settlement: L[] = [
+    { href: businessCcSettlementsHref(storeId), label: t("admin_biz_cta_settlements") },
+    { href: businessCcFinancialStatementHref(storeId), label: ko ? "매장 재무" : "Store finance" },
+    { href: businessCcFeePoliciesHref(), label: t("admin_biz_cta_fee") },
+  ];
+  const reviews: L[] = [
     {
       href: businessCcReviewsHref(storeId),
-      labelKey: "admin_biz_cta_reviews",
-      note: `READY · ${stats.reviewCount}`,
+      label: t("admin_biz_cta_reviews"),
+      note: ko ? `${stats.reviewCount}건` : `${stats.reviewCount}`,
     },
-    {
-      href: businessCcReportsHref(storeId),
-      labelKey: "admin_biz_cta_reports",
-      note: "READY",
-    },
-    {
-      href: businessCcAuditHref(storeId),
-      labelKey: "admin_biz_cta_audit",
-      note: "READY",
-    },
-    {
-      href: businessCcOwnerMemberHref(ownerUserId),
-      labelKey: "admin_biz_cta_owner",
-      note: "PARTIAL",
-    },
-    {
-      href: businessCcFeePoliciesHref(),
-      labelKey: "admin_biz_cta_fee",
-      note: "PARTIAL",
-    },
-    {
-      href: businessCcDeliveryDistanceHref(),
-      labelKey: "admin_biz_cta_delivery_distance",
-      note: "PARTIAL",
-    },
-    {
-      href: businessCcEntryReviewHref(storeName || slug),
-      labelKey: "admin_biz_cta_entry_review",
-      note: "PARTIAL",
-    },
-    {
-      href: businessCcTaxonomyHref(),
-      labelKey: "admin_biz_cta_taxonomy",
-      note: "PARTIAL",
-    },
-    {
-      href: businessCcPointsHref(storeName || slug),
-      labelKey: "admin_biz_cta_points",
-      note: "PARTIAL",
-    },
+    { href: businessCcReportsHref(storeId), label: t("admin_biz_cta_reports") },
+  ];
+  const common: L[] = [
+    { href: businessCcAuditHref(storeId), label: t("admin_biz_cta_audit") },
+    { href: businessCcOwnerMemberHref(ownerUserId), label: t("admin_biz_cta_owner") },
+    { href: businessCcDeliveryDistanceHref(), label: t("admin_biz_cta_delivery_distance") },
+    { href: businessCcEntryReviewHref(storeName || slug), label: t("admin_biz_cta_entry_review") },
   ];
   if (slug.trim()) {
-    links.push({ href: businessCcPublicStoreHref(slug), labelKey: "admin_biz_cta_public", note: "READY" });
+    common.push({ href: businessCcPublicStoreHref(slug), label: t("admin_biz_cta_public") });
   }
+  const links: L[] =
+    section === "products"
+      ? products
+      : section === "orders"
+        ? orders
+        : section === "points"
+          ? points
+          : section === "settlement"
+            ? settlement
+            : section === "reviews"
+              ? reviews
+              : [...orders, ...settlement, ...products, ...reviews, ...points, ...common];
 
   return (
     <div className="space-y-3">
-      <p className="sam-text-helper text-sam-muted">{t("admin_biz_hub_hint")}</p>
+      <p className="sam-text-helper text-sam-muted">
+        {ko
+          ? "이 매장으로 필터된 담당 화면으로 이동합니다. 처리는 각 화면에서 합니다."
+          : "Opens the owning screen filtered to this store. Actions happen there."}
+      </p>
       <div className="flex flex-wrap gap-2">
         {links.map((l) => (
-          <Link
-            key={`${l.href}:${l.labelKey}`}
-            href={l.href}
-            className={linkBtnClass}
-            title={l.note}
-          >
-            {t(l.labelKey)}
+          <Link key={`${l.href}:${l.label}`} href={l.href} className={linkBtnClass}>
+            {l.label}
             {l.note ? (
-              <span className="ml-1 text-[10px] font-normal text-sam-muted">{l.note}</span>
+              <span className="ml-1 text-[11px] font-normal text-sam-muted">{l.note}</span>
             ) : null}
           </Link>
         ))}
       </div>
     </div>
   );
+}
+
+function feeScopeLabel(scope: string, ko: boolean): string {
+  const map: Record<string, [string, string]> = {
+    store: ["매장 개별", "Store"],
+    topic: ["세부 업종", "Topic"],
+    category: ["업종", "Category"],
+    default: ["플랫폼 기본", "Platform default"],
+    missing_policy: ["정책 없음", "No policy"],
+  };
+  const hit = map[scope];
+  return hit ? (ko ? hit[0] : hit[1]) : scope;
+}
+
+export function overrideModeLabel(mode: string, ko: boolean): string {
+  if (mode === "inherit") return ko ? "전역 정책 따름" : "Follow global policy";
+  if (mode === "enabled") return ko ? "허용" : "Allowed";
+  if (mode === "disabled") return ko ? "차단" : "Blocked";
+  return mode;
+}
+
+function policySourceLabel(source: string, ko: boolean): string {
+  const map: Record<string, [string, string]> = {
+    off: ["사용 안 함", "Off"],
+    global: ["전역 정책", "Global policy"],
+    store: ["매장 개별 설정", "Store override"],
+    store_disabled: ["매장 개별 차단", "Blocked for store"],
+  };
+  const hit = map[source];
+  return hit ? (ko ? hit[0] : hit[1]) : source;
 }

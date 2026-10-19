@@ -14,7 +14,7 @@ export async function GET() {
     const rows = await listAdminStoreOrderChats();
     return NextResponse.json({ ok: true, domain: "store_order", rows });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "list_failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    console.error("[admin/order-chats]", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 }

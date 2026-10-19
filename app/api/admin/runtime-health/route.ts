@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -145,7 +147,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdminApiUser();
+  const admin = await requireSuperAdmin();
   if (!admin.ok) return admin.response;
 
   let body: Partial<RuntimeSettingsRow>;
@@ -199,6 +201,14 @@ export async function PATCH(req: NextRequest) {
 
   const settings = (data ?? null) as RuntimeSettingsRow | null;
   if (!settings) return NextResponse.json({ ok: false, error: "settings_row_missing" }, { status: 500 });
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "platform_runtime_settings",
+    targetId: "1",
+    action: "runtime_settings.update",
+    after: { patch, settings: settings as unknown as Record<string, unknown> },
+  });
 
   // reload caps (no force) for effective computation
   const capRes = await (sb as any).rpc("detect_platform_runtime_capabilities", { p_force: false });

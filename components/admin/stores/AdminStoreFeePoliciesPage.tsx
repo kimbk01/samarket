@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -12,6 +15,7 @@ type RateLite = {
   fixed_fee: number | null;
   policy_id: string | null;
   policy_name: string | null;
+  updated_at?: string | null;
 };
 
 type OverviewStore = {
@@ -51,6 +55,7 @@ type OverviewCategory = {
     fee_percent: number;
     fixed_fee: number;
     policy_name: string;
+    updated_at?: string | null;
   } | null;
 };
 
@@ -66,6 +71,7 @@ type OverviewTopic = {
     fee_percent: number;
     fixed_fee: number;
     policy_name: string;
+    updated_at?: string | null;
   } | null;
 };
 
@@ -131,7 +137,10 @@ type Overview = {
     policy_name: string;
     fee_percent: number;
     fixed_fee: number;
+    updated_at?: string | null;
   } | null;
+  /** B-2: 수수료 변경은 super_admin 만 — 서버가 판정. */
+  viewer?: { can_edit_fee_policy?: boolean };
   categories: OverviewCategory[];
   topics: OverviewTopic[];
   stores: OverviewStore[];
@@ -181,7 +190,18 @@ function previewFee(gross: number, pct: number, fixed: number) {
 
 function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
   const e = String(error ?? "").trim();
-  if (httpStatus === 403) return "forbidden";
+  if (httpStatus === 403) return e === "super_admin_only" ? e : "forbidden";
+  if (e === "would_leave_no_default_policy") return e;
+  if (
+    e === "stale_policy" ||
+    e === "rpc_missing" ||
+    e === "supersede_window_invalid" ||
+    e === "supersede_policy_not_found" ||
+    e === "reason_required"
+  ) {
+    return e;
+  }
+  if (e === "policy_archived") return e;
   if (httpStatus === 409) {
     if (e.includes("conflict_priority_overlap")) return "conflict_priority_overlap";
     if (e.includes("conflict_default_overlap")) return "conflict_default_overlap";
@@ -211,6 +231,14 @@ function feePolicyErrorMessage(
     policy_name_required: "admin_stores_fee_err_name_required",
     network_error: "admin_stores_fee_err_network",
     server_error: "admin_stores_fee_err_generic",
+    would_leave_no_default_policy: "admin_stores_fee_err_no_default_left",
+    policy_archived: "admin_stores_fee_err_policy_archived",
+    super_admin_only: "admin_r4c_fee_err_super_admin_only",
+    stale_policy: "admin_r4c_fee_err_stale",
+    rpc_missing: "admin_r4c_fee_err_rpc_missing",
+    supersede_window_invalid: "admin_r4c_fee_err_supersede_window",
+    supersede_policy_not_found: "admin_r4c_fee_err_supersede_missing",
+    reason_required: "admin_r4c_fee_err_reason_required",
   };
   const key = map[code];
   if (key) return t(key);
@@ -252,29 +280,15 @@ async function upsertPolicy(opts: {
   timing: Timing;
   startsAtIso: string | null;
   endsAtIso: string | null;
+  /** 화면 로드 시점 정책 updated_at — 서버 CAS (다르면 stale_policy). */
+  expectedUpdatedAt: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  const { policyId, body, timing, startsAtIso, endsAtIso } = opts;
+  const { policyId, body, timing, startsAtIso, endsAtIso, expectedUpdatedAt } = opts;
 
-  // Schedule: close current window at starts_at, then insert next window (half-open).
+  // Schedule: 서버가 같은 요청에서 기존 정책 종료 + 새 정책 생성 (실패 시 종료 시각 복구, DEF-3).
   if (timing === "schedule") {
     if (!startsAtIso) {
       return { ok: false, error: "invalid_window", status: 400 };
-    }
-    if (policyId) {
-      const closeRes = await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(policyId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ends_at: startsAtIso }),
-      });
-      const closeJson = (await closeRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!closeJson.ok) {
-        return {
-          ok: false,
-          error: feePolicyApiErrorCode(closeJson.error, closeRes.status),
-          status: closeRes.status,
-        };
-      }
     }
     const createRes = await fetch("/api/admin/store-fee-policies", {
       method: "POST",
@@ -284,6 +298,9 @@ async function upsertPolicy(opts: {
         ...body,
         starts_at: startsAtIso,
         ends_at: endsAtIso,
+        supersede_policy_id: policyId,
+        supersede_expected_updated_at: policyId ? expectedUpdatedAt : null,
+        change_reason: typeof body.memo === "string" ? body.memo : null,
       }),
     });
     const createJson = (await createRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -308,6 +325,8 @@ async function upsertPolicy(opts: {
         starts_at: null,
         ends_at: null,
         is_active: true,
+        expected_updated_at: expectedUpdatedAt,
+        change_reason: typeof body.memo === "string" ? body.memo : null,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -325,6 +344,7 @@ async function upsertPolicy(opts: {
       ...body,
       starts_at: null,
       ends_at: null,
+      change_reason: typeof body.memo === "string" ? body.memo : null,
     }),
   });
   const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -335,11 +355,13 @@ async function upsertPolicy(opts: {
 }
 
 export function AdminStoreFeePoliciesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: true; message: string } | null>(null);
+  const [historyToken, setHistoryToken] = useState(0);
   const [tab, setTab] = useState<TabId>("industry");
 
   const [industryLevel, setIndustryLevel] = useState<IndustryLevel>("category");
@@ -394,6 +416,7 @@ export function AdminStoreFeePoliciesPage() {
         stores: oJson.stores ?? [],
         scheduled_changes: oJson.scheduled_changes ?? [],
         policy_history: oJson.policy_history ?? [],
+        viewer: oJson.viewer,
         verification: oJson.verification ?? [],
       });
     } catch {
@@ -407,6 +430,38 @@ export function AdminStoreFeePoliciesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const canEdit = overview?.viewer?.can_edit_fee_policy === true;
+
+  /** 정책 id → 화면 로드 시점 updated_at (CAS). */
+  const policyUpdatedAt = useMemo(() => {
+    const m = new Map<string, string | null>();
+    if (!overview) return m;
+    if (overview.platform_default) m.set(overview.platform_default.id, overview.platform_default.updated_at ?? null);
+    for (const c of overview.categories) if (c.policy) m.set(c.policy.id, c.policy.updated_at ?? null);
+    for (const tp of overview.topics) if (tp.policy) m.set(tp.policy.id, tp.policy.updated_at ?? null);
+    for (const st of overview.stores) {
+      const sp = st.ladder.store;
+      if (sp.policy_id) m.set(sp.policy_id, sp.updated_at ?? null);
+    }
+    return m;
+  }, [overview]);
+
+  /** L3 재입력 대상 이름 — 정책이 걸린 범위(기본·업종·매장) 이름. */
+  const policyLabel = useCallback(
+    (id: string): string => {
+      if (!overview) return id.slice(0, 8);
+      if (overview.platform_default?.id === id) return t("admin_stores_fee_scope_default");
+      const cat = overview.categories.find((c) => c.policy?.id === id);
+      if (cat) return cat.name;
+      const tp = overview.topics.find((x) => x.policy?.id === id);
+      if (tp) return tp.name;
+      const st = overview.stores.find((x) => x.ladder.store.policy_id === id);
+      if (st) return st.store_name;
+      return id.slice(0, 8);
+    },
+    [overview, t]
+  );
 
   const openApply = useCallback(
     (
@@ -438,6 +493,10 @@ export function AdminStoreFeePoliciesPage() {
     if (!applyTarget) return;
     const pct = Number(feePercent);
     if (!Number.isFinite(pct)) return;
+    if (memo.trim().length < 2) {
+      setError("reason_required");
+      return;
+    }
     if (timing === "schedule" && !startsAt.trim()) {
       setError("invalid_window");
       return;
@@ -452,6 +511,7 @@ export function AdminStoreFeePoliciesPage() {
 
     setBusy(true);
     setError(null);
+    setResult(null);
     try {
       const targets: Array<{
         kind: "default" | "category" | "topic" | "store";
@@ -510,53 +570,87 @@ export function AdminStoreFeePoliciesPage() {
           body.delivery_fee_mode = "none";
           body.delivery_fee_percent = 0;
         }
-        const result = await upsertPolicy({
+        const res = await upsertPolicy({
           policyId: item.policyId,
           body,
           timing,
           startsAtIso,
           endsAtIso,
+          expectedUpdatedAt: item.policyId ? policyUpdatedAt.get(item.policyId) ?? null : null,
         });
-        if (!result.ok) {
-          setError(result.error);
+        if (!res.ok) {
+          setError(res.error);
+          // 일부 매장만 반영됐을 수 있으므로 현재 상태를 다시 불러온다.
+          await load();
+          setHistoryToken((n) => n + 1);
           return;
         }
       }
       setApplyTarget(null);
       setConfirmOpen(false);
       setSelectedStoreIds([]);
+      setResult({
+        ok: true,
+        message: timing === "schedule" ? t("admin_r4c_fee_result_scheduled") : t("admin_r4c_fee_result_applied"),
+      });
       await load();
+      setHistoryToken((n) => n + 1);
     } catch {
       setError("network_error");
     } finally {
       setBusy(false);
     }
-  }, [applyTarget, feePercent, fixedFee, load, memo, startsAt, endsAt, timing]);
+  }, [applyTarget, feePercent, fixedFee, load, memo, startsAt, endsAt, timing, policyUpdatedAt, t]);
 
   const deactivate = useCallback(
     async (id: string) => {
+      if (!canEdit) {
+        setError("super_admin_only");
+        return;
+      }
+      // L3 (DEF-62): 정책 종료·매장 개별 수수료 해제는 주문 수수료에 바로 영향 — 사유 + 대상 재입력.
+      // 서버가 플랫폼 기본 정책 공백(would_leave_no_default_policy)을 다시 검사한다.
+      const label = policyLabel(id);
+      const c = await confirmAdminAction({
+        level: "L3",
+        ko: language !== "en",
+        title: t("admin_stores_fee_deactivate_confirm_title"),
+        description: `${label}\n${t("admin_stores_fee_deactivate_confirm_desc")}`,
+        confirmLabel: t("admin_stores_fee_deactivate_confirm_cta"),
+        destructive: true,
+        retypeValue: label,
+        reasonPlaceholder: t("admin_stores_fee_change_reason_placeholder"),
+      });
+      if (!c.ok) return;
       setBusy(true);
       setError(null);
+      setResult(null);
       try {
         const res = await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(id)}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_active: false }),
+          body: JSON.stringify({
+            is_active: false,
+            change_reason: c.reason,
+            expected_updated_at: policyUpdatedAt.get(id) ?? null,
+          }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!json.ok) {
           setError(feePolicyApiErrorCode(json.error, res.status));
           return;
         }
+        setResult({ ok: true, message: t("admin_r4c_fee_result_deactivated") });
         await load();
+        setHistoryToken((n) => n + 1);
       } catch {
         setError("network_error");
       } finally {
         setBusy(false);
       }
     },
-    [load]
+    [canEdit, language, load, policyLabel, policyUpdatedAt, t]
   );
 
   const selectedCategory = useMemo(
@@ -602,6 +696,23 @@ export function AdminStoreFeePoliciesPage() {
   const applyRateValid = Number.isFinite(applyPct) && feePercent.trim() !== "";
   const previewGross = 1000;
   const previewAmount = applyRateValid ? previewFee(previewGross, applyPct, applyFixed) : null;
+  const applyScopeStoreCount = (() => {
+    if (!applyTarget || !overview) return null;
+    if (applyTarget.kind === "stores_bulk") return applyTarget.stores.length;
+    if (applyTarget.kind === "store") return 1;
+    if (applyTarget.kind === "category") {
+      return overview.categories.find((c) => c.category_id === applyTarget.categoryId)?.would_apply_store_count ?? null;
+    }
+    if (applyTarget.kind === "topic") {
+      return overview.topics.find((tp) => tp.topic_id === applyTarget.topicId)?.would_apply_store_count ?? null;
+    }
+    return overview.summary.applied_default + overview.summary.missing_policy;
+  })();
+  const applyTargetHasPolicy = (() => {
+    if (!applyTarget) return false;
+    if (applyTarget.kind === "stores_bulk") return applyTarget.stores.some((x) => Boolean(x.policyId));
+    return Boolean(applyTarget.policyId);
+  })();
 
   const tabs: Array<{ id: TabId; label: MessageKey }> = [
     { id: "industry", label: "admin_stores_fee_tab_apply_industry" },
@@ -627,8 +738,27 @@ export function AdminStoreFeePoliciesPage() {
         </button>
       </div>
 
+      <p className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
+        {t("admin_r4c_fee_direct_payment_note")}
+      </p>
+
+      {overview && !canEdit ? (
+        <p
+          data-admin-state="forbidden-edit"
+          role="note"
+          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        >
+          {t("admin_r4c_fee_super_admin_only_notice")}
+        </p>
+      ) : null}
+
+      <AdminResultBanner ko={language !== "en"} result={result} onClose={() => setResult(null)} />
+
       {error ? (
-        <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
+        <p
+          role="alert"
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        >
           {feePolicyErrorMessage(t, error)}
         </p>
       ) : null}
@@ -648,7 +778,8 @@ export function AdminStoreFeePoliciesPage() {
             </div>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !canEdit}
+              title={canEdit ? undefined : t("admin_r4c_fee_super_admin_only_notice")}
               className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
               onClick={() =>
                 openApply(
@@ -698,7 +829,7 @@ export function AdminStoreFeePoliciesPage() {
           {tab === "industry" ? (
             <IndustryApplyTab
               t={t}
-              busy={busy}
+              busy={busy || !canEdit}
               overview={overview}
               industryLevel={industryLevel}
               selectedCategoryId={selectedCategoryId}
@@ -759,7 +890,7 @@ export function AdminStoreFeePoliciesPage() {
           {tab === "stores" ? (
             <StoresApplyTab
               t={t}
-              busy={busy}
+              busy={busy || !canEdit}
               overview={overview}
               storeQuery={storeQuery}
               storeCatFilter={storeCatFilter}
@@ -833,7 +964,7 @@ export function AdminStoreFeePoliciesPage() {
           ) : null}
 
           {tab === "history" ? (
-            <HistoryTab overview={overview} t={t} />
+            <HistoryTab overview={overview} t={t} historyToken={historyToken} />
           ) : null}
 
           <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_settlement_note")}</p>
@@ -855,6 +986,8 @@ export function AdminStoreFeePoliciesPage() {
           applyRateValid={applyRateValid}
           previewGross={previewGross}
           previewAmount={previewAmount}
+          scopeStoreCount={applyScopeStoreCount}
+          supersedesExisting={applyTargetHasPolicy}
           confirmOpen={confirmOpen}
           onFeePercent={setFeePercent}
           onFixedFee={setFixedFee}
@@ -866,6 +999,7 @@ export function AdminStoreFeePoliciesPage() {
           onRequestConfirm={() => setConfirmOpen(true)}
           onCancelConfirm={() => setConfirmOpen(false)}
           onSubmit={() => void submitApply()}
+          errorText={error ? feePolicyErrorMessage(t, error) : null}
         />
       ) : null}
     </div>
@@ -1345,9 +1479,11 @@ function VerifyTab({
 function HistoryTab({
   overview,
   t,
+  historyToken,
 }: {
   overview: Overview;
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
+  historyToken: number;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -1372,24 +1508,9 @@ function HistoryTab({
           </ul>
         )}
       </section>
+      {/* DEF-2: 이력 = 감사 기록 (변경자·사유·이전/이후). */}
       <section className={panelClass()}>
-        <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_section_history")}</h2>
-        <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_stores_fee_history_actor_na")}</p>
-        <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto">
-          {overview.policy_history.map((row) => (
-            <li
-              key={row.id}
-              className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-sm"
-            >
-              <p className="font-medium text-sam-fg">{row.target_label}</p>
-              <p className="mt-0.5 tabular-nums text-sam-muted">
-                {fmtRate(row.fee_percent, row.fixed_fee)}
-                {!row.is_active || row.is_archived ? ` · ${t("admin_stores_fee_status_off")}` : ""}
-              </p>
-              <p className="mt-0.5 text-sam-muted">{fmtDate(row.updated_at)}</p>
-            </li>
-          ))}
-        </ul>
+        <AdminConfigAuditHistoryPanel scope="fee_policy" refreshToken={historyToken} />
       </section>
     </div>
   );
@@ -1408,6 +1529,8 @@ function ApplyModal({
   applyRateValid,
   previewGross,
   previewAmount,
+  scopeStoreCount,
+  supersedesExisting,
   confirmOpen,
   onFeePercent,
   onFixedFee,
@@ -1419,6 +1542,7 @@ function ApplyModal({
   onRequestConfirm,
   onCancelConfirm,
   onSubmit,
+  errorText,
 }: {
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
   busy: boolean;
@@ -1432,6 +1556,10 @@ function ApplyModal({
   applyRateValid: boolean;
   previewGross: number;
   previewAmount: number | null;
+  /** 저장 전 미리보기 — 이 변경이 적용되는 매장 수 (매장 개별 수수료가 있는 매장 제외). */
+  scopeStoreCount: number | null;
+  /** 예약 변경 시 기존 정책을 시작 시각에 종료하는지. */
+  supersedesExisting: boolean;
   confirmOpen: boolean;
   onFeePercent: (v: string) => void;
   onFixedFee: (v: string) => void;
@@ -1443,6 +1571,8 @@ function ApplyModal({
   onRequestConfirm: () => void;
   onCancelConfirm: () => void;
   onSubmit: () => void;
+  /** 저장 실패 사유 — 모달이 열린 채 남으므로 페이지 배너(오버레이 뒤) 대신 모달 안에도 표시한다. */
+  errorText: string | null;
 }) {
   const targetLabel =
     applyTarget.kind === "default"
@@ -1476,6 +1606,34 @@ function ApplyModal({
           {confirmOpen ? (
             <div className="space-y-2 text-sm">
               <p>{t("admin_stores_fee_confirm_body", { target: targetLabel, rate: rateLabel, when: whenLabel })}</p>
+              {/* DEF-3: 저장 전 미리보기 — 적용 시작 시각 · 대상 범위 */}
+              <dl className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-sam-muted">{t("admin_r4c_fee_preview_start")}</dt>
+                  <dd className="text-right text-sam-fg">
+                    {timing === "now"
+                      ? t("admin_r4c_fee_preview_start_now")
+                      : t("admin_r4c_fee_preview_start_at", { date: startsAt || "—" })}
+                  </dd>
+                </div>
+                <div className="mt-1 flex justify-between gap-3">
+                  <dt className="text-sam-muted">{t("admin_r4c_fee_preview_scope")}</dt>
+                  <dd className="text-right text-sam-fg">
+                    {scopeStoreCount != null
+                      ? t("admin_r4c_fee_preview_scope_stores", { n: scopeStoreCount })
+                      : "—"}
+                  </dd>
+                </div>
+                {timing === "schedule" && supersedesExisting ? (
+                  <p className="mt-1 text-sam-muted">{t("admin_r4c_fee_preview_supersede")}</p>
+                ) : null}
+                {memo.trim() ? (
+                  <div className="mt-1 flex justify-between gap-3">
+                    <dt className="text-sam-muted">{t("admin_stores_fee_apply_reason")}</dt>
+                    <dd className="text-right text-sam-fg">{memo.trim()}</dd>
+                  </div>
+                ) : null}
+              </dl>
               <p className="tabular-nums text-sam-muted">
                 {t("admin_stores_fee_rate_formula_preview", {
                   gross: previewGross.toLocaleString(),
@@ -1572,12 +1730,21 @@ function ApplyModal({
                   rows={2}
                   value={memo}
                   onChange={(e) => onMemo(e.target.value)}
-                  placeholder={t("admin_stores_fee_memo_ph")}
+                  placeholder={t("admin_stores_fee_change_reason_placeholder")}
                 />
+                <span className="mt-0.5 block sam-text-xxs text-sam-muted">{t("admin_r4c_fee_reason_required_hint")}</span>
               </label>
             </>
           )}
         </div>
+        {errorText ? (
+          <p
+            role="alert"
+            className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          >
+            {errorText}
+          </p>
+        ) : null}
         <div className={`${OverlayUi.actionsRow} mt-4`}>
           {confirmOpen ? (
             <>
@@ -1598,6 +1765,7 @@ function ApplyModal({
                 disabled={
                   busy ||
                   !applyRateValid ||
+                  memo.trim().length < 2 ||
                   (timing === "schedule" && !startsAt.trim())
                 }
                 onClick={onRequestConfirm}

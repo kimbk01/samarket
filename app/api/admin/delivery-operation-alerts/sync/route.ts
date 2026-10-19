@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 수동 동기화 — 폴링과 분리(cron 과 동일 RPC). */
-export async function POST() {
-  const admin = await requireAdminApiUser();
+export async function POST(req: Request) {
+  const admin = await requireAdminPermission("business");
   if (!admin.ok) return admin.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -38,6 +39,13 @@ export async function POST() {
     }
     return NextResponse.json({ error: "auto_actions_failed", message: msg.slice(0, 240) }, { status: 500 });
   }
+
+  await appendAdminRouteAudit(admin.sb, req, {
+    actorId: admin.actor.userId,
+    targetType: "delivery_operations",
+    targetId: "alert_sync",
+    action: "delivery_alert.manual_sync",
+  });
 
   return NextResponse.json({ ok: true });
 }

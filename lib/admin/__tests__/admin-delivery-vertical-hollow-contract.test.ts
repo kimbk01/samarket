@@ -13,7 +13,8 @@ describe("Admin Delivery vertical hollow presentation contract", () => {
     expect(table).not.toContain("SettlementStatusBadge");
     expect(table).not.toContain("o.hasReport");
     expect(table).toContain("/admin/stores/orders/");
-    expect(table).toContain("/admin/store-orders?order_id=");
+    // DEF-49: order links open the unified order detail (`/admin/stores/orders/{id}`).
+    expect(table).toContain("/admin/stores/orders/${encodeURIComponent(o.id)}");
   });
 
   it("order filters do not expose hollow settlement/report filters", () => {

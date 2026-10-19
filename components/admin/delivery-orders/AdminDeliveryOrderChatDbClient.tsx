@@ -16,7 +16,7 @@ export function AdminDeliveryOrderChatDbClient({ orderId }: Props) {
         backHref="/admin/order-chats"
       />
       <div className="flex flex-wrap gap-2 sam-text-body-secondary">
-        <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
+        <Link href={`/admin/stores/orders/${encodeURIComponent(orderId)}`} className="text-signature underline">
           {t("admin_do_chat_open_store_orders")}
         </Link>
         <span className="text-sam-muted">·</span>

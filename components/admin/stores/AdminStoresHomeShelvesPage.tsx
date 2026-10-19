@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
+import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -171,7 +173,9 @@ export function AdminStoresHomeShelvesPage() {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  /** Load failure (code) — DEF-48: never shown as 「저장 실패」. */
   const [err, setErr] = useState<string | null>(null);
+  const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
   const [toast, setToast] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
@@ -194,6 +198,7 @@ export function AdminStoresHomeShelvesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    setErrStatus(undefined);
     setToast(null);
     try {
       const res = await fetch("/api/admin/stores-home-shelves", { credentials: "include", cache: "no-store" });
@@ -204,7 +209,8 @@ export function AdminStoresHomeShelvesPage() {
         revision?: number;
       };
       if (!res.ok || !json.ok || !json.shelves) {
-        setErr(json.error ?? "load_fail");
+        setErr(json.error ?? "load_failed");
+        setErrStatus(res.status);
         setRows([]);
         setBaseline([]);
         setRevision(null);
@@ -223,7 +229,7 @@ export function AdminStoresHomeShelvesPage() {
           ?? null;
       });
     } catch {
-      setErr("load_fail");
+      setErr("network_error");
       setRows([]);
       setBaseline([]);
     } finally {
@@ -438,10 +444,11 @@ export function AdminStoresHomeShelvesPage() {
         return;
       }
       if (typeof json.revision === "number") setRevision(json.revision);
-      setToast(t("admin_stores_home_shelves_save_ok"));
       invalidateStoreHomeFeedClientCache("");
       clearStoresHomeFeedLiveStore();
       await load();
+      /** load() 가 시작 시 toast 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
+      setToast(t("admin_stores_home_shelves_save_ok"));
     } catch {
       setSaveErr("save_fail");
     } finally {
@@ -812,7 +819,7 @@ export function AdminStoresHomeShelvesPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/admin/delivery-ads/manage"
+              href="/admin/advertising"
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >
@@ -848,11 +855,11 @@ export function AdminStoresHomeShelvesPage() {
               : t("admin_stores_home_shelves_save_fail")}
           </p>
         ) : null}
-        {err ? <p className="text-[13px] text-red-700">{t("admin_stores_home_shelves_save_fail")} ({err})</p> : null}
+        {err ? <AdminErrorState ko={ko} code={err} httpStatus={errStatus} onRetry={() => void load()} /> : null}
 
         {loading ? (
           <p className="text-[13px] text-sam-muted">{t("admin_stores_home_shelves_loading")}</p>
-        ) : (
+        ) : err ? null : (
           <div className="grid gap-4 xl:grid-cols-[minmax(300px,340px)_minmax(0,1fr)]">
             <aside className="rounded-ui-rect border border-sam-border bg-white">
               <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-2.5">
@@ -1107,6 +1114,10 @@ export function AdminStoresHomeShelvesPage() {
             </section>
           </div>
         )}
+        {/* DEF-40: 홈 선반 저장 감사 기록 (변경자·시각·사유) */}
+        <div className="rounded-ui-rect border border-sam-border bg-white p-3">
+          <AdminConfigAuditHistoryPanel scope="home_shelves" limit={20} refreshToken={revision ?? 0} />
+        </div>
       </div>
 
       <DibayDialog

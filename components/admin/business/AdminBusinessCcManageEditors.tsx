@@ -1,6 +1,17 @@
 "use client";
 
-import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
+import { applyAutoBusinessHoursToRecord } from "@/lib/stores/serialize-store-business-hours-json";
+import {
+  normalizeHHMM,
+  readAutoBusinessHoursEnabled,
+  readAutoHoursFormFields,
+  readBreakHoursFormFields,
+  STORE_AUTO_TIMEZONE_OPTIONS,
+} from "@/lib/stores/store-auto-hours";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
@@ -33,7 +44,8 @@ export function AdminBusinessCcTaxonomyEditor({
   busy?: boolean;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [cats, setCats] = useState<TaxonomyCat[]>([]);
   const [topics, setTopics] = useState<TaxonomyTopic[]>([]);
   const [categoryId, setCategoryId] = useState(store.store_category_id ?? "");
@@ -66,12 +78,13 @@ export function AdminBusinessCcTaxonomyEditor({
   );
 
   const save = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "업종을 저장할까요?" : "Save category?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/stores/${encodeURIComponent(store.id)}`, {
@@ -84,12 +97,15 @@ export function AdminBusinessCcTaxonomyEditor({
           store_topic_id: topicId || null,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -156,7 +172,8 @@ export function AdminBusinessCcContactEditor({
   busy?: boolean;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [phone, setPhone] = useState(store.phone ?? "");
   const [email, setEmail] = useState(store.email ?? "");
   const [description, setDescription] = useState(store.description ?? "");
@@ -169,12 +186,13 @@ export function AdminBusinessCcContactEditor({
   }, [store.id, store.phone, store.email, store.description]);
 
   const save = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "연락처를 저장할까요?" : "Save contact info?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/stores/${encodeURIComponent(store.id)}`, {
@@ -188,12 +206,15 @@ export function AdminBusinessCcContactEditor({
           description: description.trim() || null,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -237,7 +258,8 @@ export function AdminBusinessCcLocationEditor({
   busy?: boolean;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [region, setRegion] = useState(store.region ?? "");
   const [city, setCity] = useState(store.city ?? "");
   const [address1, setAddress1] = useState(store.address_line1 ?? store.district ?? "");
@@ -274,12 +296,13 @@ export function AdminBusinessCcLocationEditor({
   ]);
 
   const save = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "매장 위치를 저장할까요?" : "Save store location?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
 
     const latTrim = lat.trim();
     const lngTrim = lng.trim();
@@ -324,12 +347,15 @@ export function AdminBusinessCcLocationEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -400,7 +426,8 @@ export function AdminBusinessCcFeeOverrideEditor({
   fee: BusinessCcFeeSnapshot;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [percent, setPercent] = useState(
     String(fee.storeOverrideFeePercent ?? fee.feePercent ?? 10)
   );
@@ -411,12 +438,13 @@ export function AdminBusinessCcFeeOverrideEditor({
   }, [storeId, fee.storeOverrideFeePercent, fee.feePercent]);
 
   const saveOverride = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "매장 개별 수수료를 저장할까요?" : "Save store fee override?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     const feePercent = Number(percent);
     if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) {
       await dibayAlert({ title: t("admin_biz_fee_percent_invalid") });
@@ -439,9 +467,9 @@ export function AdminBusinessCcFeeOverrideEditor({
             }),
           }
         );
-        const j = (await res.json()) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+          await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
           return;
         }
       } else {
@@ -460,13 +488,16 @@ export function AdminBusinessCcFeeOverrideEditor({
             priority: 10,
           }),
         });
-        const j = (await res.json()) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+          await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
           return;
         }
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -474,12 +505,14 @@ export function AdminBusinessCcFeeOverrideEditor({
 
   const clearOverride = async () => {
     if (!fee.storeOverridePolicyId) return;
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "매장 개별 수수료를 해제할까요?" : "Remove store fee override?",
+      confirmLabel: ko ? "해제" : "Remove",
+      destructive: true,
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setBusy(true);
     try {
       const res = await fetch(
@@ -491,12 +524,15 @@ export function AdminBusinessCcFeeOverrideEditor({
           body: JSON.stringify({ is_active: false }),
         }
       );
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -544,7 +580,8 @@ export function AdminBusinessCcDeliveryOverrideEditor({
   currentEffectiveMaxKm: number | null;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [mode, setMode] = useState<DeliveryStoreDistanceMode>(
     (currentMode as DeliveryStoreDistanceMode) || "inherit"
   );
@@ -552,6 +589,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
     currentEffectiveMaxKm != null ? String(currentEffectiveMaxKm) : "10"
   );
   const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
     setMode((currentMode as DeliveryStoreDistanceMode) || "inherit");
@@ -559,13 +597,15 @@ export function AdminBusinessCcDeliveryOverrideEditor({
   }, [storeId, currentMode, currentDeliveryRadiusKm, currentEffectiveMaxKm]);
 
   const save = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "배달 반경·거리 정책을 저장할까요?" : "Save delivery radius and distance policy?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setBusy(true);
+    setResult(null);
     try {
       const parsedKm = Number(maxKm);
       if (!Number.isFinite(parsedKm) || parsedKm <= 0) {
@@ -573,53 +613,30 @@ export function AdminBusinessCcDeliveryOverrideEditor({
         return;
       }
 
-      const radiusRes = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+      // DEF-58 — 단일 API: 반경 + 이 매장 거리 정책 모드. 서버가 전역 JSON 에 이 매장만 병합하고,
+      // 화면이 불러온 모드와 서버 현재 모드가 다르면 409 → 재조회 안내 (덮어쓰기 금지).
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "set_delivery_radius",
+          action: "set_store_delivery_distance",
           delivery_radius_km: Math.round(parsedKm * 10) / 10,
+          distance_mode: mode,
+          expected_distance_mode: currentMode || "inherit",
         }),
       });
-      const radiusJson = (await radiusRes.json()) as { ok?: boolean; error?: string };
-      if (!radiusRes.ok || radiusJson.ok === false) {
-        await dibayAlert({ title: radiusJson.error ?? t("common_content_unavailable") });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || j.ok === false) {
+        const code = j.error ?? "update_failed";
+        await dibayAlert({ title: adminOperatorErrorMessage(code, ko) });
+        if (code === "status_changed") onSaved();
         return;
       }
-
-      // Platform mode (enabled/disabled/inherit) only — maxKm no longer lives in override JSON.
-      const getRes = await fetch("/api/admin/delivery/settings", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const getJson = (await getRes.json()) as {
-        ok?: boolean;
-        store_distance_overrides?: { stores?: Record<string, { mode?: string; maxKm?: number | null }> };
-        error?: string;
-      };
-      if (!getRes.ok || getJson.ok === false) {
-        await dibayAlert({ title: getJson.error ?? t("common_content_unavailable") });
-        return;
-      }
-      const stores = { ...(getJson.store_distance_overrides?.stores ?? {}) };
-      if (mode === "inherit") {
-        delete stores[storeId];
-      } else {
-        stores[storeId] = { mode, maxKm: null };
-      }
-      const putRes = await fetch("/api/admin/delivery/settings", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store_distance_overrides: { stores } }),
-      });
-      const putJson = (await putRes.json()) as { ok?: boolean; error?: string };
-      if (!putRes.ok || putJson.ok === false) {
-        await dibayAlert({ title: putJson.error ?? t("common_content_unavailable") });
-        return;
-      }
+      setResult(ko ? "배달 반경·거리 정책을 저장했습니다." : "Delivery radius and distance policy saved.");
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setBusy(false);
     }
@@ -637,9 +654,9 @@ export function AdminBusinessCcDeliveryOverrideEditor({
             disabled={busy}
             onChange={(e) => setMode(e.target.value as DeliveryStoreDistanceMode)}
           >
-            <option value="inherit">inherit</option>
-            <option value="enabled">enabled</option>
-            <option value="disabled">disabled</option>
+            <option value="inherit">{ko ? "전역 정책 따름" : "Follow global policy"}</option>
+            <option value="enabled">{ko ? "허용" : "Allowed"}</option>
+            <option value="disabled">{ko ? "차단" : "Blocked"}</option>
           </select>
         </label>
         <label className="block space-y-1">
@@ -656,6 +673,11 @@ export function AdminBusinessCcDeliveryOverrideEditor({
           {t("admin_biz_save_delivery_override")}
         </button>
       </div>
+      {result ? (
+        <p role="status" className="rounded-ui-rect border border-emerald-300 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-950">
+          {result}
+        </p>
+      ) : null}
       <p className="sam-text-helper text-sam-muted">{t("business_store_delivery_radius_help")}</p>
       <AdminDeliveryServiceAreaEditor
         storeId={storeId}
@@ -686,7 +708,8 @@ export function AdminBusinessCcOpsFlagsEditor({
   busy?: boolean;
   onSaved: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [deliveryOn, setDeliveryOn] = useState(deliveryAvailable !== false);
   const [pickupOn, setPickupOn] = useState(pickupAvailable !== false);
   const [openOn, setOpenOn] = useState(isOpen !== false);
@@ -699,12 +722,13 @@ export function AdminBusinessCcOpsFlagsEditor({
   }, [storeId, deliveryAvailable, pickupAvailable, isOpen]);
 
   const save = async () => {
-    const ok = await dibayConfirm({
-      title: t("admin_biz_action_confirm_title"),
-      confirmLabel: t("admin_biz_yes"),
-      cancelLabel: t("admin_biz_no"),
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "영업·배달·포장 설정을 저장할까요?" : "Save open, delivery and pickup settings?",
+      confirmLabel: ko ? "저장" : "Save",
     });
-    if (!ok) return;
+    if (!confirmed.ok) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
@@ -718,12 +742,15 @@ export function AdminBusinessCcOpsFlagsEditor({
           is_open: openOn,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
+      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
       onSaved();
+    } catch {
+      await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
     } finally {
       setSaving(false);
     }
@@ -740,7 +767,7 @@ export function AdminBusinessCcOpsFlagsEditor({
           disabled={busy || saving}
           onChange={(e) => setOpenOn(e.target.checked)}
         />
-        {t("admin_biz_label_is_open")} (is_open)
+        {t("admin_biz_label_is_open")}
       </label>
       <label className="flex items-center gap-2 sam-text-body">
         <input
@@ -767,6 +794,186 @@ export function AdminBusinessCcOpsFlagsEditor({
         onClick={() => void save()}
       >
         {t("admin_biz_save_ops_flags")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * DEF-18 — 영업시간 편집 (Admin). 기존 PATCH `set_business_hours` 만 사용.
+ * 직렬화는 사장님 폼과 같은 `applyAutoBusinessHoursToRecord` — 다른 business_hours_json 키는 보존한다.
+ */
+export function AdminBusinessCcBusinessHoursEditor({
+  storeId,
+  businessHoursJson,
+  busy,
+  onSaved,
+}: {
+  storeId: string;
+  businessHoursJson: unknown;
+  busy?: boolean;
+  onSaved: () => void;
+}) {
+  const { language } = useI18n();
+  const ko = language !== "en";
+  const initial = useMemo(() => {
+    const auto = readAutoHoursFormFields(businessHoursJson);
+    const br = readBreakHoursFormFields(businessHoursJson);
+    return {
+      enabled: readAutoBusinessHoursEnabled(businessHoursJson),
+      tz: auto.autoHoursTz,
+      open: auto.autoHoursOpen,
+      close: auto.autoHoursClose,
+      breakOn: Boolean(br.breakHoursStart && br.breakHoursEnd),
+      breakStart: br.breakHoursStart || "14:00",
+      breakEnd: br.breakHoursEnd || "15:00",
+    };
+  }, [businessHoursJson]);
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [tz, setTz] = useState(initial.tz);
+  const [open, setOpen] = useState(initial.open);
+  const [close, setClose] = useState(initial.close);
+  const [breakOn, setBreakOn] = useState(initial.breakOn);
+  const [breakStart, setBreakStart] = useState(initial.breakStart);
+  const [breakEnd, setBreakEnd] = useState(initial.breakEnd);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    setEnabled(initial.enabled);
+    setTz(initial.tz);
+    setOpen(initial.open);
+    setClose(initial.close);
+    setBreakOn(initial.breakOn);
+    setBreakStart(initial.breakStart);
+    setBreakEnd(initial.breakEnd);
+  }, [storeId, initial]);
+
+  const save = async () => {
+    setResult(null);
+    const o = normalizeHHMM(open.trim());
+    const c = normalizeHHMM(close.trim());
+    if (!o || !c || o === c) {
+      setResult({
+        ok: false,
+        text: ko ? "여는 시간과 닫는 시간을 서로 다르게 입력하세요 (예: 09:00, 22:00)." : "Enter different open and close times (e.g. 09:00, 22:00).",
+      });
+      return;
+    }
+    const bs = normalizeHHMM(breakStart.trim());
+    const be = normalizeHHMM(breakEnd.trim());
+    if (breakOn && (!bs || !be || bs === be)) {
+      setResult({
+        ok: false,
+        text: ko ? "쉬는 시간 시작·종료를 확인하세요." : "Check the break start and end times.",
+      });
+      return;
+    }
+    const confirmed = await confirmAdminAction({
+      level: "L1",
+      ko,
+      title: ko ? "영업시간을 저장할까요?" : "Save business hours?",
+      description: ko
+        ? "저장하면 고객 앱의 영업 표시와 주문 가능 시간에 바로 반영됩니다."
+        : "Customers see the new hours and ordering window immediately.",
+      confirmLabel: ko ? "저장" : "Save",
+    });
+    if (!confirmed.ok) return;
+    const next = coerceBusinessHoursRecord(businessHoursJson);
+    delete next.break_hours;
+    delete next.break_time;
+    if (breakOn && bs && be) {
+      next.break_hours = { start: bs, end: be };
+      next.break_time = `${bs}–${be}`;
+    }
+    applyAutoBusinessHoursToRecord(next, {
+      autoBusinessHoursEnabled: enabled,
+      autoHoursTz: tz,
+      autoHoursOpen: o,
+      autoHoursClose: c,
+    });
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_business_hours", business_hours_json: next }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setResult({ ok: false, text: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
+        return;
+      }
+      setResult({ ok: true, text: ko ? "영업시간을 저장했습니다." : "Business hours saved." });
+      onSaved();
+    } catch {
+      setResult({ ok: false, text: adminOperatorErrorMessage("network_error", ko) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const disabled = Boolean(busy || saving);
+  return (
+    <div className="space-y-3" data-admin-business-hours-editor="1">
+      <p className="sam-text-helper text-sam-muted">
+        {ko
+          ? "자동 영업시간을 켜면 아래 시간에만 주문을 받습니다. 끄면 사장님의 수동 영업 스위치만 따릅니다."
+          : "With automatic hours on, orders are accepted only within these hours. Off = owner's manual open switch only."}
+      </p>
+      <label className="flex items-center gap-2 sam-text-body">
+        <input type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {ko ? "자동 영업시간 사용" : "Use automatic hours"}
+      </label>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{ko ? "시간대" : "Time zone"}</span>
+          <select className={inputClass} value={tz} disabled={disabled} onChange={(e) => setTz(e.target.value)}>
+            {STORE_AUTO_TIMEZONE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{ko ? "여는 시간" : "Opens"}</span>
+          <input type="time" className={inputClass} value={open} disabled={disabled} onChange={(e) => setOpen(e.target.value)} />
+        </label>
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{ko ? "닫는 시간" : "Closes"}</span>
+          <input type="time" className={inputClass} value={close} disabled={disabled} onChange={(e) => setClose(e.target.value)} />
+        </label>
+      </div>
+      <label className="flex items-center gap-2 sam-text-body">
+        <input type="checkbox" checked={breakOn} disabled={disabled} onChange={(e) => setBreakOn(e.target.checked)} />
+        {ko ? "쉬는 시간 사용" : "Use break time"}
+      </label>
+      {breakOn ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="sam-text-helper text-sam-muted">{ko ? "쉬는 시간 시작" : "Break starts"}</span>
+            <input type="time" className={inputClass} value={breakStart} disabled={disabled} onChange={(e) => setBreakStart(e.target.value)} />
+          </label>
+          <label className="block space-y-1">
+            <span className="sam-text-helper text-sam-muted">{ko ? "쉬는 시간 종료" : "Break ends"}</span>
+            <input type="time" className={inputClass} value={breakEnd} disabled={disabled} onChange={(e) => setBreakEnd(e.target.value)} />
+          </label>
+        </div>
+      ) : null}
+      {result ? (
+        <p
+          role={result.ok ? "status" : "alert"}
+          className={`rounded-ui-rect border px-3 py-2 text-[13px] ${
+            result.ok ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-red-300 bg-red-50 text-red-900"
+          }`}
+        >
+          {result.text}
+        </p>
+      ) : null}
+      <button type="button" className={btnPrimaryClass} disabled={disabled} onClick={() => void save()}>
+        {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
       </button>
     </div>
   );

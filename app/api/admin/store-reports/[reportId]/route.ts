@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { ADMIN_REASON_MIN_LENGTH_SERVER } from "@/lib/admin-business/admin-store-decision-rules";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -14,14 +13,13 @@ type PatchBody = {
   action_memo?: string | null;
 };
 
-/** 관리자: 신고 검토 완료(기각/조치) */
+/** 관리자: 신고 검토 완료(기각/조치) — L2 (사유 필수), 매장·배달 권한, 상태 조건부(open 만), 감사 기록. */
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ reportId: string }> }
 ) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const { reportId } = await context.params;
   const rid = typeof reportId === "string" ? reportId.trim() : "";
@@ -49,6 +47,10 @@ export async function PATCH(
     body.action_memo != null && String(body.action_memo).trim()
       ? String(body.action_memo).trim().slice(0, 2000)
       : null;
+
+  if ((actionMemo ?? "").length < ADMIN_REASON_MIN_LENGTH_SERVER) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -79,31 +81,26 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
     console.error("[PATCH admin/store-reports]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
   }
 
   if (!updated) {
     return NextResponse.json({ ok: false, error: "not_open_or_missing" }, { status: 409 });
   }
 
-  const actorId = await getRouteUserId();
-  const rm = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actorId,
-    target_type: "store_report",
-    target_id: rid,
+  await appendAdminRouteAudit(sb, req, {
+    actorId: gate.actor.userId,
+    targetType: "store_report",
+    targetId: rid,
     action: "store_report.resolve",
-    before_json: prev
+    before: prev
       ? {
           status: prev.status,
           target_type: prev.target_type,
           target_id: prev.target_id,
         }
       : null,
-    after_json: { status, action_type: actionType, action_memo: actionMemo },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
+    after: { status, action_type: actionType, action_memo: actionMemo },
   });
 
   return NextResponse.json({ ok: true, status });

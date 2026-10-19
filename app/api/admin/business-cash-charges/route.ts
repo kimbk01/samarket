@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   approveBusinessCashTopUpRequest,
@@ -37,25 +39,51 @@ async function loadCashChargeNotifyFields(
   return { ownerUserId, amountMinor };
 }
 
-/** GET — Admin canonical Cash top-up queue. */
+type ChargeRequestRowWithStore = {
+  id: string;
+  store_id: string;
+  owner_user_id: string;
+  amount_minor: number;
+  status: string;
+  created_at: string;
+  decided_at: string | null;
+  reject_reason: string | null;
+  stores?: { store_name?: string | null } | { store_name?: string | null }[] | null;
+};
+
+/**
+ * GET — Admin canonical Cash top-up queue.
+ * Query: `status` (default PENDING, `all` = no filter), optional `store_id` (UUID → 400 invalid_store_id).
+ * Each row carries `store_name` via the `store_id → stores.id` FK embed (display only; id stays canonical).
+ */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
 
   const status = String(req.nextUrl.searchParams.get("status") ?? "PENDING").trim();
+  const storeId = String(req.nextUrl.searchParams.get("store_id") ?? "").trim();
+  if (storeId && !isUuidLikeString(storeId)) {
+    return NextResponse.json({ ok: false, error: "invalid_store_id" }, { status: 400 });
+  }
   let q = gate.sb
     .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
     .select(
-      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason"
+      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(100);
   if (status && status !== "all") q = q.eq("status", status);
+  if (storeId) q = q.eq("store_id", storeId);
   const { data, error } = await q;
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, requests: data ?? [] });
+  const requests = ((data ?? []) as unknown as ChargeRequestRowWithStore[]).map(({ stores, ...row }) => {
+    const embed = Array.isArray(stores) ? stores[0] : stores;
+    const storeName = String(embed?.store_name ?? "").trim();
+    return { ...row, store_name: storeName || null };
+  });
+  return NextResponse.json({ ok: true, requests });
 }
 
 type PostBody = {
@@ -91,6 +119,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "business_cash_charge_request",
+      targetId: requestId,
+      action: "business_cash_charge.approve",
+      after: {
+        idempotent: result.idempotent,
+        ledgerId: result.ledgerId,
+        balanceAfterMinor: result.balanceAfterMinor,
+        ownerUserId: notify?.ownerUserId ?? null,
+        amountMinor: notify?.amountMinor ?? null,
+      },
+    });
     if (notify) {
       await safeNotifyOwnerBusinessCashChargeCompleted(gate.sb, {
         ownerUserId: notify.ownerUserId,
@@ -107,6 +148,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "reject") {
+    // L2 — 거절 사유는 사장님에게 전달된다. 화면 검증(2자)과 같은 기준을 서버에서도 강제.
+    if (String(body.reason ?? "").trim().length < 2) {
+      return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+    }
     const result = await rejectBusinessCashTopUpRequest(gate.sb, {
       adminUserId: gate.actor.userId,
       requestId,
@@ -116,6 +161,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     const notify = await loadCashChargeNotifyFields(gate.sb, requestId);
+    await appendAdminRouteAudit(gate.sb, req, {
+      actorId: gate.actor.userId,
+      targetType: "business_cash_charge_request",
+      targetId: requestId,
+      action: "business_cash_charge.reject",
+      after: {
+        idempotent: result.idempotent,
+        reason: typeof body.reason === "string" ? body.reason.slice(0, 500) : null,
+        ownerUserId: notify?.ownerUserId ?? null,
+        amountMinor: notify?.amountMinor ?? null,
+      },
+    });
     if (notify) {
       await safeNotifyOwnerBusinessCashChargeRejected(gate.sb, {
         ownerUserId: notify.ownerUserId,

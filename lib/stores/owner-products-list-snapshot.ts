@@ -19,6 +19,8 @@ export const OWNER_PRODUCTS_LIST_SELECT =
     "track_inventory",
     "thumbnail_url",
     "product_status",
+    "admin_review_status",
+    "admin_review_memo",
     "pickup_available",
     "local_delivery_available",
     "shipping_available",

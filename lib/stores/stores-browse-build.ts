@@ -57,6 +57,7 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
+import { flattenStoreListSalesPermission } from "@/lib/stores/store-list-sales-permission";
 
 export type StoreBrowseRow = {
   id: string;
@@ -69,6 +70,8 @@ export type StoreBrowseRow = {
   profile_image_url: string | null;
   is_open: boolean | null;
   point_commerce_blocked?: boolean | null;
+  /** DEF-70 — `store_sales_permissions` LEFT embed 평탄화 (`flattenStoreListSalesPermission`). */
+  sales_allowed?: boolean | null;
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
@@ -353,7 +356,9 @@ export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
-    const o = row as StoreBrowseRow & { store_topics?: RelOne | RelOne[] };
+    const o = flattenStoreListSalesPermission(
+      row as Record<string, unknown>
+    ) as unknown as StoreBrowseRow & { store_topics?: RelOne | RelOne[] };
     return {
       ...o,
       business_type: o.business_type ?? null,
@@ -550,6 +555,7 @@ function resolveBrowseStoreRowStatus(
     business_hours_json: row.business_hours_json,
     is_open: row.is_open,
     point_commerce_blocked: row.point_commerce_blocked,
+    sales_allowed: row.sales_allowed,
     delivery_available: row.delivery_available,
     distanceOutOfRange,
   });
@@ -576,6 +582,7 @@ function buildBrowseEligibilityRankMap(
       business_hours_json: row.business_hours_json,
       is_open: row.is_open,
       point_commerce_blocked: row.point_commerce_blocked,
+      sales_allowed: row.sales_allowed,
       delivery_available: row.delivery_available,
       distanceOutOfRange: outOfRangeById.get(row.id) === true,
     });

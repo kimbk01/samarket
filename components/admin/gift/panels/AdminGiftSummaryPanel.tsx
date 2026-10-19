@@ -335,7 +335,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
             )}
             {kpi(
               safeT("gift_ops_kpi_recovery_open", {
-                fallbackKo: "Recovery",
+                fallbackKo: "회수 기록",
                 fallbackEn: "Open recovery",
               }),
               fmtCount(data.openRecoveryCount),
