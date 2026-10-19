@@ -346,26 +346,19 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     setErr("");
     const result = await fetchAdsControlPlane({
       orderId: boostOrderIdRaw || undefined,
+      storeId: storeFilter || undefined,
     });
     if (!result.ok) {
       setErr(adminOperatorErrorMessage(result.error === "network" ? "network_error" : result.error, ko));
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw, ko]);
+  }, [boostOrderIdRaw, ko, storeFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  /** Pool scoped by the store filter (control-plane API has no store param — filter on item.storeId). */
-  const scopedPool = useCallback(
-    (m: AdsControlPlaneModel) => {
-      const pool = collectPool(m);
-      return storeFilter ? pool.filter((i) => i.storeId === storeFilter) : pool;
-    },
-    [storeFilter]
-  );
   const storeFilterLabel = useMemo(() => {
     if (!storeFilter || !model) return storeFilter;
     const hit = collectPool(model).find((i) => i.storeId === storeFilter && i.applicantLabel.trim());
@@ -374,13 +367,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
   const shellRows = useMemo(() => {
     if (!model) return [] as AdsShellListRow[];
-    const items = scopedPool(model);
+    // Store scope is applied server-side (`store_id` → ads-control-plane); the plane is already scoped.
+    const items = collectPool(model);
     let rows = items.map((i) => toAdsShellListRow(i, ko, mode));
     rows = filterRowsByMode(rows, mode);
     rows = filterShellRowsByProductFamily(rows, family);
     rows = filterShellRowsByTab(rows, statusTab);
     return rows;
-  }, [model, ko, mode, family, statusTab, scopedPool]);
+  }, [model, ko, mode, family, statusTab]);
 
   const itemById = useMemo(() => {
     const map = new Map<string, AdsActionItem>();
@@ -441,7 +435,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         heroCap: 5,
       };
     }
-    const all = scopedPool(model).map((i) => toAdsShellListRow(i, ko));
+    const all = collectPool(model).map((i) => toAdsShellListRow(i, ko));
     const scoped = filterRowsByMode(all, mode);
     const hero = model.occupancy?.find((o) => o.placementKey === "STORES_HOME_HERO");
     return {
@@ -454,7 +448,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       heroCap:
         hero?.capacity ?? BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.defaultCapacity,
     };
-  }, [model, ko, mode, scopedPool]);
+  }, [model, ko, mode]);
 
   const popupQueue = useMemo(() => {
     if (!model) return [] as Array<{
@@ -464,7 +458,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       incomplete: AdsShellListRow[];
       scheduled: AdsShellListRow[];
     }>;
-    const popupRows = scopedPool(model)
+    const popupRows = collectPool(model)
       .filter((i) => i.domain === "popup" && String(i.id).startsWith("popup_campaign:"))
       .map((i) => toAdsShellListRow(i, ko));
     const bySurface = new Map<string, AdsShellListRow[]>();
@@ -481,7 +475,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       incomplete: rows.filter((r) => r.statusTab === "incomplete"),
       scheduled: rows.filter((r) => r.statusTab === "scheduled"),
     }));
-  }, [model, ko, scopedPool]);
+  }, [model, ko]);
 
   const executeDrawerAction = useCallback(
     async (

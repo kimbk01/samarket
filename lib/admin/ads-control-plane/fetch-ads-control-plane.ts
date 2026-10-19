@@ -45,11 +45,16 @@ export function parseAdsControlPlaneResponse(
 }
 
 export async function fetchAdsControlPlane(
-  init?: RequestInit & { orderId?: string | null }
+  init?: RequestInit & { orderId?: string | null; storeId?: string | null }
 ): Promise<AdsControlPlaneFetchResult> {
   try {
+    const params = new URLSearchParams();
     const orderId = String(init?.orderId ?? "").trim();
-    const qs = orderId ? `?orderId=${encodeURIComponent(orderId)}` : "";
+    if (orderId) params.set("orderId", orderId);
+    /** Server-side store scope (`store_id`) — never filter the plane in the browser. */
+    const storeId = String(init?.storeId ?? "").trim();
+    if (storeId) params.set("store_id", storeId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const headers = init?.headers;
     const signal = init?.signal;
     const res = await fetch(`/api/admin/ads-control-plane${qs}`, {

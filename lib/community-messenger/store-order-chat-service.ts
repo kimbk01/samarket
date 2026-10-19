@@ -38,9 +38,12 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import type { StoreOrderStatusActor } from "@/lib/stores/order-status-transitions";
 import { storeOrderMessengerStatusLineContent } from "@/lib/store-order-chat/store-order-ops-i18n";
 import {
+  adminChatMessageKey,
   chatMessageKey,
   chatMessageKeyWithPrep,
 } from "@/lib/stores/store-order-process-model";
@@ -627,6 +630,8 @@ async function appendStoreOrderMessengerSystemMessage(
     messageKey?: MessageKey | null;
     messageVars?: Record<string, string | number>;
     prepMinutes?: number;
+    /** Attribution only (metadata) — default: `store` when actorUserId is set, else `system`. */
+    actorRole?: "store" | "system" | "admin";
   },
   ensuredRoom?: Extract<StoreOrderMessengerEnsureResult, { ok: true }>
 ): Promise<void> {
@@ -648,7 +653,7 @@ async function appendStoreOrderMessengerSystemMessage(
     domain: "store_order",
     lineKind: storeOrderSystemLineKind(input.relatedOrderStatus),
     orderFlow: ensured.orderFlow,
-    actorRole: input.actorUserId ? "store" : "system",
+    actorRole: input.actorRole ?? (input.actorUserId ? "store" : "system"),
     storeOrderId: input.orderId,
     orderStatus: relatedStatus,
     message_key: resolvedMessageKey,
@@ -720,12 +725,37 @@ export async function appendStoreOrderMessengerStatusTransition(
   sb: SupabaseClient<any>,
   orderId: string,
   previousDbStatus: string,
-  nextDbStatus: string
+  nextDbStatus: string,
+  /**
+   * DEF-72 — who applied the transition. `ADMIN` posts DIBAY 운영팀 wording
+   * (`adminChatMessageKey`) instead of the store-voice status line.
+   * Wording/metadata only: the row keeps the owner as `actorUserId` (system rows already force a
+   * null visible sender; owner stays the unread-exclusion actor so room unread/bump contracts and the
+   * server-only bump path are unchanged) and `metadata.actorRole` becomes `admin`.
+   */
+  actor?: StoreOrderStatusActor
 ): Promise<void> {
   const next = storeOrderStatusToShared(nextDbStatus);
   if (!next) return;
   const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId });
   if (!ensured.ok) return;
+  if (actor === "ADMIN") {
+    const messageKey = adminChatMessageKey(previousDbStatus, nextDbStatus);
+    await appendStoreOrderMessengerSystemMessage(
+      sb,
+      {
+        orderId,
+        actorUserId: ensured.ownerUserId,
+        content: translate(DEFAULT_APP_LANGUAGE, messageKey),
+        relatedOrderStatus: next,
+        messageKey,
+        actorRole: "admin",
+      },
+      ensured
+    );
+    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
+    return;
+  }
   if (next === "accepted") {
     await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
     const { data: orderRow } = await sb

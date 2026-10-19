@@ -708,7 +708,8 @@ export async function applyStoreOrderStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       current,
-      nextStatus
+      nextStatus,
+      actor
     );
   } catch (err) {
     console.error("[applyStoreOrderStatusTransition] messenger status transition failed", {

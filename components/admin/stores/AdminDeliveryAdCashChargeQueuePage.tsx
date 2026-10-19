@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
@@ -20,6 +20,8 @@ import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 type ChargeRequest = {
   id: string;
   store_id: string;
+  /** Joined from `stores.store_name` by the API (null when unavailable). */
+  store_name?: string | null;
   owner_user_id: string;
   amount_minor: number;
   status: string;
@@ -38,7 +40,18 @@ type ActionResult = {
 export function AdminDeliveryAdCashChargeQueuePage() {
   const { safeT, language } = useI18n();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const focusRequestId = (searchParams.get("requestId") ?? "").trim();
+  /** `?store_id=` (legacy `?storeId=`) — server-side store filter on the queue API. */
+  const storeFilter = (searchParams.get("store_id") ?? searchParams.get("storeId") ?? "").trim();
+  const clearStoreFilter = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("store_id");
+    next.delete("storeId");
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname);
+  }, [pathname, router, searchParams]);
   const [rows, setRows] = useState<ChargeRequest[]>([]);
   const [loaded, setLoaded] = useState(false);
   const ko = language !== "en";
@@ -59,7 +72,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     try {
       // Deep-link requestId may point at a decided row — load all when focusing.
       const statusQ = focusRequestId ? "all" : "PENDING";
-      const res = await fetch(`/api/admin/business-cash-charges?status=${encodeURIComponent(statusQ)}`, {
+      const qs = new URLSearchParams({ status: statusQ });
+      if (storeFilter) qs.set("store_id", storeFilter);
+      const res = await fetch(`/api/admin/business-cash-charges?${qs.toString()}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -88,7 +103,10 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     } finally {
       setLoaded(true);
     }
-  }, [focusRequestId]);
+  }, [focusRequestId, storeFilter]);
+
+  const storeFilterLabel =
+    (storeFilter && rows.find((r) => r.store_id === storeFilter)?.store_name?.trim()) || storeFilter;
 
   useEffect(() => {
     void load();
@@ -184,6 +202,24 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 "Confirmation credits the Cash ledger only — separate from Coin and Point. Ads also spend Cash only.",
             })}
           </p>
+          {storeFilter ? (
+            <span
+              className="mt-2 inline-flex max-w-full items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+              data-admin-cash-charge-store-filter-chip="1"
+            >
+              <span className="truncate" title={storeFilter}>
+                {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 font-medium underline"
+                onClick={clearStoreFilter}
+                aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
+              >
+                {ko ? "해제" : "Clear"}
+              </button>
+            </span>
+          ) : null}
         </div>
         <Link
           href="/admin/finance"
@@ -255,7 +291,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackKo: "매장",
                       fallbackEn: "Store",
                     })}
-                    : {ko ? "매장 정보는 기술 정보 참고" : "see technical details"}
+                    :{" "}
+                    {r.store_name?.trim() ||
+                      (ko ? "매장 이름 없음 · 기술 정보 참고" : "Unnamed store · see technical details")}
                   </p>
                   <p className="text-[11px] text-sam-muted">
                     {r.created_at
